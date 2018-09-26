@@ -1,2 +1,3 @@
-# liaolongdong.github.io
-Better个人网站
+## Better的个人网站
+
+### 一个记录成长的地方
