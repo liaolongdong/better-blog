@@ -911,7 +911,7 @@ a {
 
 .markdown-body .highlight {
   margin: 0 0 16px;
-  overflow: scroll;
+  overflow: auto;
 }
 
 .markdown-body img {

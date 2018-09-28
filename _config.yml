@@ -1,7 +1,7 @@
 # Site settings 配置站点
 title: 'Better的个人网站'
 description: '一枚喜欢研究心理学的前端er'
-keyword: 'Better, Better的个人网站, Better的博客, 前端, 前端开发, H5, React, nodeJs'
+keyword: 'Better, Better的个人网站, Better的博客, 前端, 前端开发, H5, React, nodeJs, canvas'
 url: 'https://github.com/liaolongdong' # your host
 
 # if you don't need baseurl, you should leave this value blank.
@@ -13,7 +13,10 @@ githubUrl: 'https://liaolongdong.github.io'
 # Navigation links
 nav:
   home: '/'
+  technology: '/technology.html'
   tags: '/tags.html'
+  demo: '/demo.html'
+  about me: '/about.html'
 
 # Footer
 footer:
@@ -21,8 +24,8 @@ footer:
 
 # Author 配置博主信息
 author: 'Better'
-nickname: '一枚喜欢研究心理学的前端er'
-bio: ''
+nickname: 'Better'
+bio: '一枚喜欢研究心理学的前端er'
 avatar: '/assets/img/profile.png'
 
 # Search
@@ -62,7 +65,7 @@ recommend-tags: true # whether or not display recommend-tags on the sidebar
 recommend-condition-size: 12 # a tag will be recommended if the size of it is more than this value
 
 # Build settings
-paginate: 6
+paginate: 3
 paginate_path: 'page:num'
 exclude: ['node_modules', 'dev', 'package.json', 'gulpfile.js', '.gitignore', 'README.md']
 
