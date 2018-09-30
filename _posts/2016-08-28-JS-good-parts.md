@@ -162,6 +162,7 @@ console.log(fun3()); // 666
 JavaScript中一共有四种函数调用模式：方法调用模式、函数调用模式、构造函数调用模式和apply调用模式。  
 - 方法调用模式  
 当函数作为一个对象的方法（属性）时，this指向该对象。  
+
 ```javascript
 var myObj = {}; // 创建一个对象
 myObj.name = 'Better';
@@ -172,6 +173,7 @@ myObj.method(); // 'Better'
 ```
 - 函数调用模式  
 当一个函数没有作为一个对象的方法（属性）时，this指向全局对象（window对象）  
+
 ```javascript
 // 全局函数
 function add(a, b){
@@ -194,6 +196,7 @@ myObj.value; // 4
 ```
 - 构造函数调用模式  
 如果函数前面带上new来调用，那么this指向该新对象上，使用new调用函数也会改变return语句的行为，如果return的是对象则返回该对象，否则，返回（this）新创建的对象。  
+
 ```javascript
 // 创建一个构造函数，约定构造函数使用大写开头
 function Fun(string){
@@ -210,6 +213,7 @@ fun.getStatus(); // 'Better'
 ```
 - apply调用模式  
 apply方法有两个参数，第一个参数thisObj，是绑定this执行的上下文，第二个参数argArr，参数数组。  
+
 ```javascript
 // 创建一个构造函数，约定构造函数使用大写开头
 function Fun(string){
@@ -252,6 +256,7 @@ test.apply(true); // this指向Boolean对象
 ```
 3、arguments类数组参数对象  
 arguments对象是一个类数组对象，只有length属性，没有数组相关方法。它可以获取函数调用时的参数列表。该对象只能在函数内部使用。  
+
 ```javascript
 var sum = function(){
 	var sum = 0;
