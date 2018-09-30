@@ -1008,7 +1008,7 @@ console.log(myMatrix1[3][3]); // 8
 - 脱字符： [^abc] 表示匹配除a、b、c之外的任意字符。
 - 连字符：[0-9] 表示匹配0~9的数字。[A-Z] 表示匹配A到Z的26个大写字母。
 - 预定义模式：  
-![预定义模式常见模式的简写方式](https://github.com/liaolongdong/study-materials/blob/master/study-notes/images/reg_common_shorthand.png "预定义模式常见模式的简写方式")
+![预定义模式常见模式的简写方式](./img/postCover/reg_common_shorthand.png "预定义模式常见模式的简写方式")
 - 重复类：{n,m} 表示重复不少于n次，不多于m次。
 - 量词符：  
 1、a? 表示匹配a出现0次或1次，等同于a{0,1}。  
