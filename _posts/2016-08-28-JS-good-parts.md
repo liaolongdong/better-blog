@@ -127,13 +127,13 @@ uId(); // 2
 ```
 ## 函数  
 在JavaScript中函数就是对象。对象字面量产生的对象连接到Object.prototype，函数对象连接到Funtion.prototype（该原型对象本身连接到Object.prototype）。  
-每个函数在创建时两个附加隐藏属性：函数的上下文和实现函数行为的代码。每个函数对象在创建时也带有一个prototype属性，它的值是一个拥有constructor属性，该属性指向该函数对象。
+每个函数在创建时两个附加隐藏属性：函数的上下文和实现函数行为的代码。每个函数对象在创建时也带有一个prototype属性，它的值是一个拥有constructor属性，该属性指向该函数对象。  
 ```javascript
 var f = function(){};
 f.prototype.constructor === f; // true
 ```
 1、函数字面量（函数表达式）  
-函数表达式与函数声明的区别：
+函数表达式与函数声明的区别：  
 ```javascript
 // 函数表达式
 console.log(fun1); // undefined
@@ -161,7 +161,8 @@ console.log(fun3()); // 666
 2、函数调用  
 JavaScript中一共有四种函数调用模式：方法调用模式、函数调用模式、构造函数调用模式和apply调用模式。  
 - 方法调用模式  
-当函数作为一个对象的方法（属性）时，this指向该对象。
+当函数作为一个对象的方法（属性）时，this指向该对象。  
+
 ```javascript
 var myObj = {}; // 创建一个对象
 myObj.name = 'Better';
@@ -171,7 +172,8 @@ myObj.method = function(){ // 给对象添加方法
 myObj.method(); // 'Better'
 ```
 - 函数调用模式  
-当一个函数没有作为一个对象的方法（属性）时，this指向全局对象（window对象）
+当一个函数没有作为一个对象的方法（属性）时，this指向全局对象（window对象）  
+
 ```javascript
 // 全局函数
 function add(a, b){
@@ -193,7 +195,8 @@ myObj.double(); // 以方法的形式调用double函数
 myObj.value; // 4
 ```
 - 构造函数调用模式  
-如果函数前面带上new来调用，那么this指向该新对象上，使用new调用函数也会改变return语句的行为，如果return的是对象则返回该对象，否则，返回（this）新创建的对象。
+如果函数前面带上new来调用，那么this指向该新对象上，使用new调用函数也会改变return语句的行为，如果return的是对象则返回该对象，否则，返回（this）新创建的对象。  
+
 ```javascript
 // 创建一个构造函数，约定构造函数使用大写开头
 function Fun(string){
@@ -209,7 +212,8 @@ fun.getStatus(); // 'Better'
 // 不推荐使用该方法
 ```
 - apply调用模式  
-apply方法有两个参数，第一个参数thisObj，是绑定this执行的上下文，第二个参数argArr，参数数组。
+apply方法有两个参数，第一个参数thisObj，是绑定this执行的上下文，第二个参数argArr，参数数组。  
+
 ```javascript
 // 创建一个构造函数，约定构造函数使用大写开头
 function Fun(string){
@@ -251,7 +255,8 @@ test.apply(true); // this指向Boolean对象
 // 结论：通俗的说，就是把某个方法放到apply方法的第一个参数（thisObj）作用域下执行。
 ```
 3、arguments类数组参数对象  
-arguments对象是一个类数组对象，只有length属性，没有数组相关方法。它可以获取函数调用时的参数列表。该对象只能在函数内部使用。
+arguments对象是一个类数组对象，只有length属性，没有数组相关方法。它可以获取函数调用时的参数列表。该对象只能在函数内部使用。  
+
 ```javascript
 var sum = function(){
 	var sum = 0;
@@ -263,7 +268,7 @@ var sum = function(){
 console.log(sum(1, 2, 3, 4, 5)); // 15
 ```
 4、异常  
-JavaScript提供了一套异常处理机制。
+JavaScript提供了一套异常处理机制。   
 ```javascript
 var add = function(a, b){
 	if(typeof a !== 'number' || typeof b !== 'number'){
