@@ -171,8 +171,7 @@ myObj.method = function(){ // 给对象添加方法
 myObj.method(); // 'Better'
 ```
 - 函数调用模式  
-当一个函数没有作为一个对象的方法（属性）时，this指向全局对象（window对象）   
-
+当一个函数没有作为一个对象的方法（属性）时，this指向全局对象（window对象）    
 ```javascript
 // 全局函数
 function add(a, b){
@@ -210,7 +209,7 @@ fun.getStatus(); // 'Better'
 // 不推荐使用该方法
 ```
 - apply调用模式  
-apply方法有两个参数，第一个参数thisObj，是绑定this执行的上下文，第二个参数argArr，参数数组。
+apply方法有两个参数，第一个参数thisObj，是绑定this执行的上下文，第二个参数argArr，参数数组。   
 ```javascript
 // 创建一个构造函数，约定构造函数使用大写开头
 function Fun(string){
@@ -252,7 +251,7 @@ test.apply(true); // this指向Boolean对象
 // 结论：通俗的说，就是把某个方法放到apply方法的第一个参数（thisObj）作用域下执行。
 ```
 3、arguments类数组参数对象  
-arguments对象是一个类数组对象，只有length属性，没有数组相关方法。它可以获取函数调用时的参数列表。该对象只能在函数内部使用。
+arguments对象是一个类数组对象，只有length属性，没有数组相关方法。它可以获取函数调用时的参数列表。该对象只能在函数内部使用。   
 ```javascript
 var sum = function(){
 	var sum = 0;
@@ -264,7 +263,7 @@ var sum = function(){
 console.log(sum(1, 2, 3, 4, 5)); // 15
 ```
 4、异常  
-JavaScript提供了一套异常处理机制。
+JavaScript提供了一套异常处理机制。   
 ```javascript
 var add = function(a, b){
 	if(typeof a !== 'number' || typeof b !== 'number'){
