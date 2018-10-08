@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-{% include post-head.html %}
+{% include postHead.html %}
 
 <body>
   <!--[if lt IE 10]>
@@ -40,6 +40,10 @@
     <article class="markdown-body">
       {{ page.content }}
     </article>
+
+    {% if site.reward.enable %}
+      {% include reward.html %}
+    {% endif %}
 
     {% if site.social-share %}
     <div class="social-share-wrapper">

@@ -1,7 +1,3 @@
-// Author: Ray-Eldath
-// refer to:
-//  - https://github.com/theme-next/hexo-theme-next/blob/master/source/js/src/utils.js
-
 class utils {
   static getContentVisibilityHeight() {
     var docHeight = $('.visible').height(),
@@ -11,6 +7,6 @@ class utils {
   }
 
   static isMobile() {
-    return window.screen.width < 767;
+    return window.screen.width < 768;
   }
 }

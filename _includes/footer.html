@@ -1,3 +1,7 @@
+{% if site.backToTop %}
+  {% include backToTop.html %}
+{% endif %}
+
 <footer class="g-footer">
   <section>{{ site.title }} ©
   {% assign current = "now" | date: "%Y" | plus: 0%}

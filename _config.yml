@@ -18,6 +18,9 @@ nav:
   demo: '/demo.html'
   about me: '/about.html'
 
+# back to top
+backToTop: true
+
 # Footer
 footer:
   since: 2018
@@ -34,12 +37,19 @@ search: true
 # Night mode
 nightMode: true
 
+# Reward 赞赏功能
+reward:
+  enable: true
+  reward_comment: '真诚赞赏 手有余香'
+  wechatpay: '/assets/img/wechatpay.jpg'
+  alipay: '/assets/img/alipay.jpg'
+
 # Comments 评论功能
 comments:
   disqus: false
   disqus_url: 'https://liaokeyu.disqus.com/embed.js'
 
-# MathJax 公式支持 by Ray-Eldath
+# MathJax 公式支持
 mathjax: true
 
 # Share
