@@ -192,9 +192,11 @@
   <script src="/assets/js/prism.js"></script>
   <script src="/assets/js/index.min.js"></script>
   <script type="text/javascript">
-    // 删除评论区畅言logo图标
-    var node = document.getElementsByClassName('cy-logo');
-    node && node[0] && node[0].parentNode.removeChild(node[0]);  
+    window.onload = function () {
+      // 删除评论区畅言logo图标
+      var node = document.getElementsByClassName('cy-logo');
+      node && node[0] && node[0].parentNode.removeChild(node[0]);  
+    }
   </script>
 </body>
 
