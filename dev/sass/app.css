@@ -688,6 +688,12 @@ a {
 .post-footer-item {
   margin: 0 auto;
   width: 720px; }
+<<<<<<< HEAD
+=======
+
+#SOHUCS .list-footer-wrapper-wap {
+  margin-bottom: 1.25em !important; }
+>>>>>>> 804451078cb8085f6950cacc6cdfd69d037f395a
 
 .author-detail {
   position: relative;
