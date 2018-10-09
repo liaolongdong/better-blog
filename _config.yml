@@ -44,6 +44,11 @@ reward:
   wechatpay: '/assets/img/wechatpay.jpg'
   alipay: '/assets/img/alipay.jpg'
 
+# 是否使用畅言评论系统
+changyan:
+  enable: true
+  
+
 # Comments 评论功能
 comments:
   disqus: false
