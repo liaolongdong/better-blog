@@ -689,6 +689,9 @@ a {
   margin: 0 auto;
   width: 720px; }
 
+#SOHUCS .list-footer-wrapper-wap {
+  margin-bottom: 1.25rem; }
+
 .author-detail {
   position: relative;
   top: -35px; }
