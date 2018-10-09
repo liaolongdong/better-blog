@@ -2,13 +2,13 @@
 title: 'Better’s study fairyland'
 description: '一枚喜欢研究心理学的前端er'
 keyword: 'Better, Better的个人网站, Better的博客, 前端, 前端开发, H5, React, nodeJs, canvas'
-url: 'https://github.com/liaolongdong' # your host
+url: 'https://liaolongdong.github.io' # your host
 
 # if you don't need baseurl, you should leave this value blank.
 baseurl: ''
 
 # github baseUrl
-githubUrl: 'https://liaolongdong.github.io'
+githubUrl: 'https://github.com/liaolongdong'
 
 # Navigation links
 nav:
@@ -47,7 +47,7 @@ reward:
 # 是否使用畅言评论系统
 changyan:
   enable: true
-  
+
 
 # Comments 评论功能
 comments:
