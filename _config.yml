@@ -44,10 +44,13 @@ reward:
   wechatpay: '/assets/img/wechatpay.jpg'
   alipay: '/assets/img/alipay.jpg'
 
-# 是否使用畅言评论系统
+# 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:
-  enable: true
+  enable: false
 
+# 是否使用来必力评论系统
+livere:
+  enable: true
 
 # Comments 评论功能
 comments:
