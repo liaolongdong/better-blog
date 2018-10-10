@@ -46,11 +46,11 @@ reward:
 
 # 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:
-  enable: false
+  enable: true
 
 # 是否使用来必力评论系统
 livere:
-  enable: true
+  enable: false
 
 # Comments 评论功能
 comments:
