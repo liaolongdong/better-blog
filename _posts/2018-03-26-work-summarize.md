@@ -98,3 +98,6 @@ window.addEventListener('popstate', () => { // 监听状态变化
 > The defaultValue and defaultChecked props are only used during initial render. If you need to update the value in a subsequent render, you will need to use a controlled component.
 所以如果有值是会变的 只能用value/checked。 不能用defaultValue/defaultChecked
 
+## 10、前端页面弹窗禁止遮罩底部页面滚动(移动端兼容ios问题)
+- https://blog.csdn.net/yuhk231/article/details/74171734?utm_source=blogxgwz0
+
