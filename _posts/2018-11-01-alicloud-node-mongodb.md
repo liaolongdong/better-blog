@@ -230,6 +230,7 @@ auth=true
 bind_ip=0.0.0.0
 
 ```
+[linux下安装mongodb详情可查看](http://www.runoob.com/mongodb/mongodb-linux-install.html)  
 
 5、启动和终止mongodb
 
@@ -245,23 +246,102 @@ about to fork child process, waiting until server is ready for connections.
 forked process: 18999
 child process started successfully, parent exiting
 ```
+我们可以通过使用`ps aux |grep mongodb`命令查看mongodb进程是否开启
+```linux
+root      2216  0.4  7.1 389076 72692 ?        Rl   10月24  98:36 ./mongod --config ../mongodb.conf
+root     19711  0.0  0.0 112720   980 pts/0    R+   14:47   0:00 grep --color=auto mongodb
+```
+第一个就是刚刚启动的进程，进程ID是2216，如果你想要终止进程，可以使用`kill -9 2216`来结束进程  
+
+如果我们在本地的windows环境安装了mongodb，通常我们测试是否开启mongodb的办法是直接在浏览器输入`http://127.0.0.1:27017`去查看，如果是检测云服务器是否开启mongodb，我们可以在浏览器地址栏输入`http:{云服务器公网IP地址}:{mongodb设置的端口号}`，比如：`http://47.107.60.51:27017/`进行查看，如果启动成功会看到如下信息：
+```linux
+It looks like you are trying to access MongoDB over HTTP on the native driver port.
+```
+
+在linux系统上还可以使用命令去查看是否开启：
+```linux
+netstat -anpt|grep 27017    27017是mongodb的端口号
+```
+可以看到第一条数据
+```linux
+tcp        0      0 0.0.0.0:27017           0.0.0.0:*               LISTEN      2216/./mongod 
+```
+
+**笔者在浏览器输入地址栏查看云服务器是否开启mongodb时，遇到拒绝访问的问题，原因是因为没有在云服务器ECS设置该端口号（27017）的安全组，就是第一步特意强调的给实例配置对应端口号安全组规则**
 
 进入终端操作数据库
 ```linux
 cd /usr/local/mongodb/bin
 ./mongo
 ```
-**注意：这里如果不是mongodb默认端口号27017，则必须指定端口号 `./mongo --port=27018`**
+**注意：这里如果不是mongodb默认端口号27017，则必须指定端口号，比如：`./mongo --port=27018`**
 执行完上面步骤后会看到
 ```linux
 MongoDB shell version: 3.2.9
 connecting to: test
+>
 ```
+MongoDB Shell是MongoDB自带的交互式Javascript shell,用来对MongoDB进行操作和管理的交互式环境。  
+当你进入mongoDB后台后，它默认会链接到 test 文档（数据库） 
 接下来就可以操作数据库啦  
+```linux
+> show dbs
+```
+在mongodb数据库操作终端输入`show dbs`时，出现如下错误：
+```linux
+MongoDB shell version: 3.2.9
+connecting to: test
+> show dbs // 显示数据库
+admin   0.000GB
+config  0.000GB
+local   0.000GB
+> 
+```
+mongodb默认是没有开启安全认证的，对于部署在云上就显得及其不安全，下面我们为mongodb的admin数据库创建用户。  
+mongodb数据库有以下特点：  
+1，没有默认管理员账号，所以要先添加管理员账号，在开启权限认证。  
+2，切换到admin数据库，添加的账号才是管理员账号。  
+3，用户只能在用户所在数据库登录，包括管理员账号。  
+4，管理员可以管理所有数据库，但是不能直接管理其他数据库，要先在admin数据库认证后才可以。  
 
-[linux下安装mongodb详情可查看](http://www.runoob.com/mongodb/mongodb-linux-install.html)  
+知道以上几点以后，我们把数据库切换到`admin`
+```linux
+> db // 查看当前处在数据库
+test
+> use admin // 切换到admin数据库
+switched to db admin
+> db.createUser({user:"appAdmin",pwd:"password",roles:[{role:"userAdminAnyDatabase",db:"admin"}]}) // 创建用户
+Successfully added user: {
+	"user" : "appAdmin",
+	"roles" : [
+		{
+			"role" : "userAdminAnyDatabase",
+			"db" : "admin"
+		}
+	]
+}
+> db.auth('appAdmin', 'password') // 使用db.auth()验证User是否有权限访问当前数据库
+1 // 表示有权限
+> db.createCollection('user') // 创建文档（表）
+{ "ok" : 1 }
+> show collections // 显示当前数据库下的文档（表）
+user
+> db.user.insert({name: 'better', age: 18}) // 往user文档中添加一条数据
+WriteResult({ "nInserted" : 1 })
+```
+**注意：如果出现类似的错误`"errmsg" : "not authorized on admin to execute `，则说明没有权限**  
+解决方案：给用户授予相应的操作权限
+```linux
+> db.grantRolesToUser('appAdmin', [{role: 'dbOwner', db:'admin'}])
+```
+mongodb数据库角色权限，[可以参考这篇文章](https://www.cnblogs.com/zxtceq/p/7690977.html)  
 
+可以使用mongodb图形化软件（Robo 3T），[下载链接](https://robomongo.org/download)  
+![mongodb图形化连接1](/assets/img/postCover/mongodb_connect_one.png)
+![mongodb图形化连接2](/assets/img/postCover/mongodb_connect_two.png)
+![mongodb图形化连接3](/assets/img/postCover/mongodb_connect_three.png)
 
+mongodb数据库`连接\增\删\改\查`操作就不再做详细介绍了，内容太多了，[更多内容详见mongodb](https://www.cnblogs.com/xiaohuochai/p/7215067.html?utm_source=itdadao&utm_medium=referral)
 
 参考文章：
 
