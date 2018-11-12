@@ -201,7 +201,7 @@
     */
     (function() { // DON'T EDIT BELOW THIS LINE
       var d = document, s = d.createElement('script');
-      s.src = 'https://liaokeyu.disqus.com/embed.js';
+      s.src = 'https://liaolongdong.disqus.com/embed.js';
       s.setAttribute('data-timestamp', +new Date());
       (d.head || d.body).appendChild(s);
     })();
@@ -218,7 +218,15 @@
     window.onload = function () {
       // 删除评论区畅言logo图标
       var node = document.getElementsByClassName('cy-logo');
-      node && node[0] && node[0].parentNode.removeChild(node[0]);  
+      node && node[0] && node[0].parentNode.removeChild(node[0]);
+
+      // 删除畅言弹出广告
+      var adNode = document.getElementById('pop_ad');
+      adNode && adNode.remove();
+
+      // 删除畅言广告列表
+      var adListNode = document.getElementsById('feedAv');
+      adListNode && adListNode.remove();
     }
   </script>
   {% endif %}
