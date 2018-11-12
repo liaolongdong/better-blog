@@ -215,8 +215,7 @@
 
   {% if site.changyan.enable %}
   <script type="text/javascript">
-    // 删除畅言广告
-    function delAds () {
+    window.onload = function () {
       // 删除评论区畅言logo图标
       var node = document.getElementsByClassName('cy-logo');
       node && node[0] && node[0].parentNode.removeChild(node[0]);
@@ -229,7 +228,6 @@
       var adListNode = document.getElementById('feedAv');
       adListNode && adListNode.remove();
     }
-    document.addEventListener('load', delAds, false);
   </script>
   {% endif %}
 </body>
