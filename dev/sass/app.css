@@ -689,9 +689,6 @@ a {
   margin: 0 auto;
   width: 720px; }
 
-#SOHUCS #SOHU_MAIN {
-  padding: 0 20px !important; }
-
 #SOHUCS .list-footer-wrapper-wap {
   margin-bottom: 1.25em !important; }
 
@@ -1130,3 +1127,7 @@ a {
   .home-banner h3 {
     margin-top: 4px;
     font-size: 16px; } }
+
+@media screen and (min-width: 768px) {
+  #SOHUCS, #SOHUCS #SOHU_MAIN {
+    width: 720px !important; } }

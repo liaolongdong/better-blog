@@ -343,3 +343,11 @@
     }
 
 }
+
+// 调整畅言在PC端的样式
+@media screen and (min-width: 768px) {
+    // 畅言评论区样式调整
+    #SOHUCS, #SOHUCS #SOHU_MAIN {
+        width: 720px !important;
+    }
+}
