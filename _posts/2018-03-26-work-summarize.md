@@ -4,7 +4,7 @@ title: '总结工作当中遇到的各种坑'
 subtitle: '总结工作当中遇到的各种坑'
 date: 2018-03-26
 categories: 技术
-# cover: '/assets/img/postCover/js_good_parts.jpg'
+cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542003988331&di=8f1eeb3781533c2844e60331b1a55e60&imgtype=0&src=http%3A%2F%2Fpic2.zhimg.com%2Fv2-e2b6fb372ba7f9c8375aa73e5cbe49a8_b.jpg'
 tags: 工作总结
 ---
 

@@ -4,7 +4,7 @@ title: '总结平时开发中经常使用到的公用方法'
 subtitle: '总结平时开发中经常使用到的公用方法'
 date: 2017-08-25
 categories: 技术
-# cover: '/assets/img/postCover/js_good_parts.jpg'
+cover: '/assets/img/postCover/code_tools.png'
 tags: JavaScript 通用方法
 ---
 

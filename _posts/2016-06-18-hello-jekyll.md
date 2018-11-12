@@ -1,9 +1,9 @@
 ---
 layout: post
 title: 'Hello Jekyll'
-date: 2015-10-25
+date: 2016-06-18
 author: Jekyll
-cover: 'http://on2171g4d.bkt.clouddn.com/jekyll-banner.png'
+cover: '/assets/img/postCover/hello_jekyll.png'
 tags: jekyll
 ---
 

@@ -4,7 +4,7 @@ title: '面试总结'
 subtitle: '面试总结'
 date: 2018-03-26
 categories: 技术
-# cover: '/assets/img/postCover/js_good_parts.jpg'
+cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542004422750&di=bac805c49c6075c0dea87ae5aa94d5b5&imgtype=0&src=http%3A%2F%2Fwh.web.tedu.cn%2Fimg%2F201803%2F1522135004508.jpg'
 tags: 面试总结
 ---
 
