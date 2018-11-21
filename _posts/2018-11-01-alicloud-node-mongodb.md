@@ -72,7 +72,7 @@ ssh root@公网IP地址
 ![winscp3](/assets/img/postCover/winscp3.png)
 
 命令行操作界面软件putty  
-![putty_login](/assets/img/postCover/putty.png)
+![putty_login](/assets/img/postCover/putty_login.png)
 
 **注意：使用ssh root@公网IP地址 登录密码 进入的默认目录是root目录，该目录下是没有东西的，必须使用`cd /`回到根目录，然后输入`cd ls`查看根目录下所有的文件**  
 
