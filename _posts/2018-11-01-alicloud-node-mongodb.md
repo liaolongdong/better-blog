@@ -202,7 +202,7 @@ pm2 start app.js --name '名称' // 启动命令start 重启restart 停止stop
 ![pm2启动nodeapp](/assets/img/postCover/pm2_start.png)  
 **注意：1、端口号必须添加安全组  2、node启动的文件入口（如app.js）修改需要重启项目才会生效**
 
-12、在云服务器安装git  
+13、在云服务器安装git  
 
 > 在云服务器上安装git以后，我们就可以直接使用git命令操作来克隆或拉取git仓库中的项目了，每次项目更新直接使用git pull拉取就好了，简单方便又快捷  
 
@@ -227,7 +227,7 @@ cd /home // 进入home目录
 git clone https://github.com/liaolongdong/react-next-project.git // 把react-next-project项目克隆到home目录下
 ```
 
-##### 安装mongodb
+##### 在安装完node和git后，接下来安装mongodb
 
 > 软件安装位置：/usr/local/mongodb  
 > 数据存放位置：/usr/local/mongodb/data/db  
