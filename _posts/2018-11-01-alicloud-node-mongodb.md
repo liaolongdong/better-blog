@@ -206,7 +206,7 @@ pm2 start app.js --name '名称' // 启动命令start 重启restart 停止stop
 
 > 在云服务器上安装git以后，我们就可以直接使用git命令操作来克隆或拉取git仓库中的项目了，每次项目更新直接使用git pull拉取就好了，简单方便又快捷  
 
-使用contos安装包命令yum
+使用CentOS系统安装包命令yum
 
 ```linux
 yum install git
