@@ -8,12 +8,12 @@ cover: 'https://img.alicdn.com/tfs/TB14GrElwHqK1RjSZJnXXbNLpXa-3840-1280.jpg'
 tags: 阿里云服务器部署 云服务器ECS nodeJS Mongodb
 ---
 
-## 阿里云服务器上部署node和mongodb教程以及总结
+# 阿里云服务器上部署node和mongodb教程以及总结
 
 -------------------------------------
 前言：从阿里云购买域名、ECS云服务器到实名认证、域名解析、网站备案再到部署node和mongodb数据到阿里云服务器，查了很多相关的资料，踩过无数的坑，终于完成了。作为一个没怎么接触过后端以及运维知识的前端er来说，真心不容易啊，所以特意写一篇博客记录一下自己踩过的坑，避免自己以后再踩同样的坑，同时，也能让一些想在阿里云服务器上部署自己的博客或者网站的新手少走弯路、少踩坑。
 
-### 第一步，在阿里云购买域名和云服务器ECS
+## 第一步，在阿里云购买域名和云服务器ECS
 
 域名购买，[点链接](https://wanwang.aliyun.com/?spm=5176.8142029.735711.61.3dbd6d3e2Bh6DX)  
 购买阿里云服务器ECS，[点链接](https://www.aliyun.com/product/ecs?spm=5176.8142029.735711.7.3dbd6d3e2Bh6DX)  
@@ -76,7 +76,7 @@ ssh root@公网IP地址
 
 **注意：使用ssh root@公网IP地址 登录密码 进入的默认目录是root目录，该目录下是没有东西的，必须使用`cd /`回到根目录，然后输入`cd ls`查看根目录下所有的文件**  
 
-### 第二步，在阿里云服务器上安装node和mongodb
+## 第二步，在阿里云服务器上安装node和mongodb
 
 根据第一步的操作，我们熟悉了  
 
@@ -84,12 +84,12 @@ ssh root@公网IP地址
 - 使用`ssh root@0.0.0.0`(0.0.0.0替换成自己云服务器ecs实例的公网IP地址) 加登录密码 登录到云服务器  
 - 给实例添加安全组  
 
-#### 安装node和mongodb
+### 安装node和mongodb
 
 > node - 编译后二进制文件在`/usr/local/bin/node`下  
 > mongodb - 安装在`usr/local/mongodb`下
 
-##### 安装node
+#### 安装node
 
 1、先升级CentOS，在命令窗口输入
 
@@ -227,7 +227,7 @@ cd /home // 进入home目录
 git clone https://github.com/liaolongdong/react-next-project.git // 把react-next-project项目克隆到home目录下
 ```
 
-##### 在安装完node和git后，接下来安装mongodb
+#### 在安装完node和git后，接下来安装mongodb
 
 > 软件安装位置：/usr/local/mongodb  
 > 数据存放位置：/usr/local/mongodb/data/db  
