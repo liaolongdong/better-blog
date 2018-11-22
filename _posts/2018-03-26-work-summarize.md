@@ -101,3 +101,30 @@ window.addEventListener('popstate', () => { // 监听状态变化
 ## 10、前端页面弹窗禁止遮罩底部页面滚动(移动端兼容ios问题)
 - https://blog.csdn.net/yuhk231/article/details/74171734?utm_source=blogxgwz0
 
+
+## 11、new Date('yyyy-mm-dd hh:mm:ss').getTime()在苹果手机、Safari浏览器不兼容问题
+
+> 问题：在安卓手机chrome浏览器可以使用`2018-10-10 10:10:10`这样的日期格式计算毫秒数，而在苹果手机Safari浏览器中不能这样使用日期字符串格式，只能使用`2018/10/10 10:10:10`这种格式，但是可以使用`2018-10-10`这种不带时间格式的字符串
+> 解决方法：nnew Date(data.replace(/-/g,'/')).getTime()
+
+```js
+// 在chrome浏览器运行
+
+// 这两种格式毫秒数不一样
+let pastTime = new Date('2013-12-16').getTime(); // 1387152000000
+let pastTime = new Date('2013/12/16').getTime(); // 1387123200000
+
+let pastTime = new Date('2013-12-16 00:00:00').getTime(); // 1387123200000
+let pastTime = new Date('2013/12/16 00:00:00').getTime(); // 1387123200000
+
+// 在safari浏览器运行
+
+let pastTime = new Date('2013-12-16').getTime(); // 1387152000000
+let pastTime = new Date('2013/12/16').getTime(); // 1387123200000
+
+let pastTime = new Date('2013-12-16 00:00:00').getTime(); // NaN
+let pastTime = new Date('2013/12/16 00:00:00').getTime(); //1387123200000
+
+```
+
+>总结：`2013/12/16`默认是从0点0分0秒开始计算毫秒数

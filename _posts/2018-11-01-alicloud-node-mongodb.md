@@ -427,7 +427,7 @@ mongodb数据库角色权限，[可以参考这篇文章](https://www.cnblogs.co
 ![mongodb图形化连接2](/assets/img/postCover/mongodb_connect_two.png)
 ![mongodb图形化连接3](/assets/img/postCover/mongodb_connect_three.png)
 
-mongodb数据库`连接\增\删\改\查`操作就不再做详细介绍了，内容太多了，[更多内容详见mongodb](https://www.cnblogs.com/xiaohuochai/p/7215067.html?utm_source=itdadao&utm_medium=referral)
+mongodb数据库`连接\增\删\改\查`操作就不再做详细介绍了，内容太多了，[更多内容详见mongodb](https://www.cnblogs.com/xiaohuochai/p/7215067.html?utm_source=itdadao&utm_medium=referral)  
 
 参考文章：
 
