@@ -233,12 +233,14 @@ git clone https://github.com/liaolongdong/react-next-project.git // 把react-nex
 
 点击控制台`域名`菜单，进入`域名服务` -> `域名列表`，如图：
 ![阿里云服务器域名解析入口](/assets/img/postCover/dns_one.png)
+
 然后点击`域名`或`解析`按钮，进入域名解析设置页面，点击`新手引导`，就可以把域名指向指定的云服务器的IP地址了，如图：
-![阿里云服务器域名解析设置](/assets/img/postCover/dns_two.png)
 ![阿里云服务器域名解析设置](/assets/img/postCover/dns_two.png)
 
 最后，通过域名访问就可以访问到你指定的服务器了，如图：
+![阿里云服务器域名解析设置](/assets/img/postCover/dns_two.png)
 
+**注意：设置的域名解析有可能不能立即生效，根据TTL设置的时间**
 
 #### 在安装完node和git后，接下来安装mongodb
 
