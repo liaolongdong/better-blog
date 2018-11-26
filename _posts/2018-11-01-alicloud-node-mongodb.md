@@ -3,9 +3,9 @@ layout: post
 title: 阿里云服务器上部署node+mongodb
 subtitle: 阿里云服务器上部署node+mongodb
 date: 2018-11-01
-categories: 阿里云服务器部署 云服务器ECS nodeJS Mongodb
+categories: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
 cover: 'https://img.alicdn.com/tfs/TB14GrElwHqK1RjSZJnXXbNLpXa-3840-1280.jpg'
-tags: 阿里云服务器部署 云服务器ECS nodeJS Mongodb
+tags: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
 ---
 
 # 阿里云服务器上部署node和mongodb教程以及总结
@@ -226,6 +226,19 @@ git --version
 cd /home // 进入home目录
 git clone https://github.com/liaolongdong/react-next-project.git // 把react-next-project项目克隆到home目录下
 ```
+
+14、域名解析
+
+域名解析是把域名指向网站空间IP，让人们通过注册的域名可以方便地访问到网站的一种服务。简单来说，就是把域名指向服务器IP地址。
+
+点击控制台`域名`菜单，进入`域名服务` -> `域名列表`，如图：
+![阿里云服务器域名解析入口](/assets/img/postCover/dns_one.png)
+然后点击`域名`或`解析`按钮，进入域名解析设置页面，点击`新手引导`，就可以把域名指向指定的云服务器的IP地址了，如图：
+![阿里云服务器域名解析设置](/assets/img/postCover/dns_two.png)
+![阿里云服务器域名解析设置](/assets/img/postCover/dns_two.png)
+
+最后，通过域名访问就可以访问到你指定的服务器了，如图：
+
 
 #### 在安装完node和git后，接下来安装mongodb
 
