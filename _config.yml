@@ -1,0 +1,105 @@
+# Site settings 配置站点
+title: 'Better’s study fairyland'
+description: '廖龙东,网名Better,一枚喜欢研究心理学的前端er,从大学毕业一直专注前端开发领域，技术栈React、Vue、微信公众号、小程序、node和mongodb'
+keyword: '廖龙东,廖龙东的个人网站,廖龙东的个人博客,Better,Better的个人网站,Better的个人博客,前端,web前端开发,H5,React,nodeJs,canvas'
+# url: 'https://liaolongdong.github.io' # your host
+url: 'http://liaolongdong.com' # your host
+
+# if you don't need baseurl, you should leave this value blank.
+baseurl: ''
+
+# github baseUrl
+githubUrl: 'https://github.com/liaolongdong'
+
+# Navigation links
+nav:
+  home: '/'
+  technology: '/technology.html'
+  tags: '/tags.html'
+  demo: '/demo.html'
+  about me: '/about.html'
+
+# back to top
+backToTop: true
+
+# Footer
+footer:
+  since: 2018
+
+# Author 配置博主信息
+author: 'Better'
+nickname: 'Better'
+bio: '一枚喜欢研究心理学的前端er'
+avatar: '/assets/img/profile.png'
+
+# Search
+search: true
+
+# Night mode
+nightMode: true
+
+# Reward 赞赏功能
+reward:
+  enable: true
+  reward_comment: '真诚赞赏 手有余香'
+  wechatpay: '/assets/img/wechatpay.jpg'
+  alipay: '/assets/img/alipay.jpg'
+
+# 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
+changyan:
+  enable: true
+
+# 是否使用来必力评论系统
+livere:
+  enable: false
+
+# Comments 评论功能
+comments:
+  disqus: false
+  disqus_url: 'https://liaokeyu.disqus.com/embed.js'
+
+# MathJax 公式支持
+mathjax: true
+
+# Share
+social-share: true
+social-share-items: ['wechat', 'weibo', 'qzone', 'qq', 'douban']
+
+# theme color 主题皮肤
+theme-color: 'default'  # pink or default
+
+# Post header background patterns (when the post no cover): circuitBoard, overlappingCircles, food, glamorous, ticTacToe, seaOfClouds
+postPatterns: 'circuitBoard'
+
+# SNS settings 配置社交网站
+# url: email, weibo, zhihu, twitter, instagram, juejin, github, douban, facebook, dribble, uicn, jianshu, medium, linkedin
+sns:
+  weibo: 'https://weibo.com/liaolongdong/home'
+  juejin: 'https://juejin.im/user/5771328b7db2a20054094d86'
+  zhihu: 'https://www.zhihu.com/people/liao-long-dong/activities'
+  github: 'https://github.com/liaolongdong'
+
+# Tags 设置标签
+recommend-tags: true # whether or not display recommend-tags on the sidebar
+recommend-condition-size: 12 # a tag will be recommended if the size of it is more than this value
+
+# Build settings
+paginate: 5
+paginate_path: 'page:num'
+exclude: ['node_modules', 'dev', 'package.json', 'gulpfile.js', '.gitignore', 'README.md']
+
+# Markdown
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+
+# RSS
+RSS: false
+
+# Permalink
+# See: https://github.com/kaeyleo/jekyll-theme-H2O/issues/35
+permalink: /:year/:month/:day/:title.html
+
+# Plugins
+plugins: [jekyll-paginate, jekyll-sitemap]
