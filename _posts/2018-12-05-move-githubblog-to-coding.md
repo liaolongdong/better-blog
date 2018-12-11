@@ -1,7 +1,7 @@
 ---
 layout: post
 title: git管理项目关联多个远程仓库（github、coding）
-subtitle: 把github pages博客迁移到conding pages
+subtitle: 把github pages博客迁移到coding pages
 date: 2018-12-05
 categories: git github coding blog 博客
 # cover: ''
@@ -12,7 +12,7 @@ tags: git github coding blog 博客
 
 ## 背景
 
-由于github屏蔽了百度蜘蛛，所以github上的东西，百度搜索不到，想让自己部署在github的个人博客网站中的文章能让百度搜索引擎搜索到，所以想把github.io上的代码迁移到coding（码云）仓库管理，coding服务器部署在国内，所以国内访问相对在外网的github速度可能会快一点，而且coding还可以免费设置私有仓库等优点。让git关联多个远程仓库就可以只改一次代码分别提交到不同的远程仓库了，这样会方便很多。
+由于github屏蔽了百度蜘蛛，所以github上的东西，百度搜索不到，想让自己部署在github的个人博客网站中的文章能让百度搜索引擎搜索到，所以想把github.io上的代码迁移到coding仓库管理，coding服务器部署在国内，所以国内访问相对在外网的github速度可能会快一点，而且coding还可以免费设置私有仓库等优点。让git关联多个远程仓库就可以只改一次代码分别提交到不同的远程仓库了，这样会方便很多。
 
 ## git关联多个远程仓库
 
