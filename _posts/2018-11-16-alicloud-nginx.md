@@ -56,7 +56,11 @@ vim nginx.conf // 查看nginx.conf配置文件信息
 如图：
 ![nginx配置信息](/assets/img/postCover/nginx_config.png)
 
+可以通过修改nginx配置文件就改配置信息，比如把默认端口号80改成其它端口号等等  
+
+**注意：1、设置端口号必须要在阿里云服务器添加对应的安全组，否则不能正常访问；2、必须重启nginx，重启命令`nginx -s reload`；**
+
 参考文章：  
-[nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)
+[nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)  
 [Nginx 配置详解](http://www.runoob.com/w3cnote/nginx-setup-intro.html)  
 [Nginx 服务器安装及配置文件详解](http://www.runoob.com/w3cnote/nginx-install-and-config.html)  
