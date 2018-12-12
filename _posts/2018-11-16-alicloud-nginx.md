@@ -64,3 +64,4 @@ vim nginx.conf // 查看nginx.conf配置文件信息
 [nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)  
 [Nginx 配置详解](http://www.runoob.com/w3cnote/nginx-setup-intro.html)  
 [Nginx 服务器安装及配置文件详解](http://www.runoob.com/w3cnote/nginx-install-and-config.html)  
+[Centos7安装升级Ruby](https://blog.csdn.net/qq_26440803/article/details/82717244)  
