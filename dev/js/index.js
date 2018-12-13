@@ -252,7 +252,7 @@ $(document).ready(function(){
     function getWXToken (appid, appsecret) {
         $.ajax({
             url: 'https://api.weixin.qq.com/cgi-bin/token',
-            method: 'GET',
+            type: 'GET',
             data: {
                 grant_type: 'client_credential',
                 appid: appid || 'wxf812e128e8614745',
@@ -268,6 +268,6 @@ $(document).ready(function(){
         })
     }
     if (/MicroMessenger/i.test(window.navigator.userAgent.toLowerCase())) {
-        getWXToken();
+        // getWXToken();
     }
 });
