@@ -268,6 +268,6 @@ $(document).ready(function(){
         })
     }
     if (/MicroMessenger/i.test(window.navigator.userAgent.toLowerCase())) {
-        // getWXToken();
+        getWXToken();
     }
 });
