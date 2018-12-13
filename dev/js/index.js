@@ -245,4 +245,29 @@ $(document).ready(function(){
         }
     });
 
+
+    /**
+     * wechat share
+     */
+    function getWXToken (appid, appsecret) {
+        $.ajax({
+            url: 'https://api.weixin.qq.com/cgi-bin/token',
+            method: 'GET',
+            data: {
+                grant_type: 'client_credential',
+                appid: appid || 'wxf812e128e8614745',
+                secret: appsecret || 'cddf5127f4f5c3049221bcea33e1feec'
+            },
+            dataType: 'json',
+            success: function (res) {
+                console.log(res);
+            },
+            error: function (err) {
+                console.warn(err);
+            }
+        })
+    }
+    if (/MicroMessenger/i.test(window.navigator.userAgent.toLowerCase())) {
+        getWXToken();
+    }
 });

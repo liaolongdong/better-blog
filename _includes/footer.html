@@ -1,15 +1,15 @@
 {% if site.backToTop %}
-  {% include backToTop.html %}
+{% include backToTop.html %}
 {% endif %}
 
 <footer class="g-footer">
-  <section>粤ICP备18133653号 ©
-  {% assign current = "now" | date: "%Y" | plus: 0%}
-  {% unless site.footer.since and site.footer.since == current %}
-    {{ site.footer.since }}
-    -
-  {% endunless %}
-  {{ current }}
-  </section>
-  <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section>
+    <section>粤ICP备18133653号 ©
+        {% assign current = "now" | date: "%Y" | plus: 0%}
+        {% unless site.footer.since and site.footer.since == current %}
+        {{ site.footer.since }}
+        -
+        {% endunless %}
+        {{ current }}
+    </section>
+    <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section>
 </footer>

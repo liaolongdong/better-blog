@@ -1,48 +1,48 @@
 <style media="screen">
     .scroll {
-      display: none;
-      position: fixed;
-      right: 30px;
-      bottom: 30px;
-      z-index: 100;
-      padding: 0 6px;
-      height: 24px;
-      line-height: 24px;
-      border-radius: 4px;
-      background: #00a5ff;
-      color: #fff;
-      text-align: center;
-      cursor: pointer;
-      font-size: 14px;
-    }
-  </style>
-  <div class="scroll">
+        display: none;
+        position: fixed;
+        right: 30px;
+        bottom: 30px;
+        z-index: 100;
+        padding: 0 6px;
+        height: 24px;
+        line-height: 24px;
+        border-radius: 4px;
+        background: #00a5ff;
+        color: #fff;
+        text-align: center;
+        cursor: pointer;
+        font-size: 14px;
+      }
+    </style>
+<div class="scroll">
     <i class="fa fa-arrow-up"></i>
     <span class="scrollpercent"></span><span>%</span>
-  </div>
-  
-  <script src="/assets/js/util.js"></script>
-  <script type="text/javascript">
-    $(document).ready(function() {
-      if (utils.isMobile()) {
-        $('.scroll').hide();
-        return;
-      }
-      $(window).scroll(function() {
-        let scrollValue = $(window).scrollTop();
-  
-        var scrollPercentRounded = Math.round((scrollValue / utils.getContentVisibilityHeight()) * 100);
-        var scrollPercentMaxed = (scrollPercentRounded > 100) ? 100 : scrollPercentRounded;
-  
-        $('.scrollpercent').html(scrollPercentMaxed);
-        scrollValue > 100 ? $('.scroll').fadeIn() : $('.scroll').fadeOut();
-      });
-  
-      $('.scroll').click(function() {
-        $('html, body').animate({
-          scrollTop: 0
-        }, 300);
-      })
+</div>
+
+<script src="/assets/js/util.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        if (utils.isMobile()) {
+            $('.scroll').hide();
+            return;
+        }
+        $(window).scroll(function () {
+            let scrollValue = $(window).scrollTop();
+
+            var scrollPercentRounded = Math.round((scrollValue / utils.getContentVisibilityHeight()) *
+                100);
+            var scrollPercentMaxed = (scrollPercentRounded > 100) ? 100 : scrollPercentRounded;
+
+            $('.scrollpercent').html(scrollPercentMaxed);
+            scrollValue > 100 ? $('.scroll').fadeIn() : $('.scroll').fadeOut();
+        });
+
+        $('.scroll').click(function () {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 300);
+        })
     })
-  </script>
-  
+</script>

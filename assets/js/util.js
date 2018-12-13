@@ -1,12 +1,18 @@
 class utils {
-  static getContentVisibilityHeight() {
-    var docHeight = $('.visible').height(),
-      winHeight = $(window).height(),
-      contentVisibilityHeight = (docHeight > winHeight) ? (docHeight - winHeight) : ($(document).height() - winHeight);
-    return contentVisibilityHeight;
-  }
+    /**
+     * 获取内容高度
+     */
+    static getContentVisibilityHeight() {
+        var docHeight = $('.visible').height(),
+            winHeight = $(window).height(),
+            contentVisibilityHeight = (docHeight > winHeight) ? (docHeight - winHeight) : ($(document).height() - winHeight);
+        return contentVisibilityHeight;
+    }
 
-  static isMobile() {
-    return window.screen.width < 768;
-  }
+    /**
+     * 是否为小屏设备
+     */
+    static isMobile() {
+        return window.screen.width < 768;
+    }
 }
