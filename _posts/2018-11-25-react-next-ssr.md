@@ -572,7 +572,7 @@ export default class MyApp extends App {
 
 我们把`Head`组件从`Layout`组件中移到重写的`_app.js`中，来初始化页面组件。
 
-除了重写<App>，我们还可以重写<Document>和<Error>，具体，详见[官方文档](https://nextjs.org/docs/#custom-document)或者[中文文档](http://nextjs.frontendx.cn/docs/#%E8%87%AA%E5%AE%9A%E4%B9%89%3Cdocument%3E)
+除了重写<App>，我们还可以重写<Document>和<Error>，具体，详见[next.js官方文档](https://nextjs.org/docs/#custom-document)或者[next.js中文文档](http://nextjs.frontendx.cn/docs/#%E8%87%AA%E5%AE%9A%E4%B9%89%3Cdocument%3E)
 
 ### 自定义配置
 
