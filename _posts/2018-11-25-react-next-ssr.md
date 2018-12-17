@@ -10,6 +10,10 @@ tags: react next ssr 服务端渲染
 
 # 使用next.js实现服务端渲染
 
+<!-- [next.js项目效果展示](http://cn.liaolongdong.com:3000/)  
+[next.js完整项目github地址](https://github.com/liaolongdong/react-next-project)   -->
+[next.js Demo github地址](https://github.com/liaolongdong/learnnextjs-demo)  
+
 ## 什么是服务端渲染
 
 服务端渲染，是指页面的渲染和生成由服务器来完成，并将渲染好的页面返回客户端。而客户端渲染是页面的生成和数据的渲染过程是在客户端（浏览器或APP）完成。  
