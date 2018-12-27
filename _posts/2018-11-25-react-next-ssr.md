@@ -538,7 +538,7 @@ export default Header
 ![默认head标签](/assets/img/postCover/next_head_default.png)
 
 
-### 自定义<App>、<Document>、<Error>
+### 自定义`<App>`、`<Document>`、`<Error>`
 
 我们可以通过，在pages文件夹下新建_app.js文件，来重写App模块，以此来控制页面初始化，具体代码如下：
 
