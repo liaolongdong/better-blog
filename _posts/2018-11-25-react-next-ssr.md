@@ -481,7 +481,7 @@ import Head from 'next/head'
 export default () =>
     <div>
         <Head>
-            <title>万师傅-行业领先家居服务平台|家具灯具,卫浴,窗帘等配送安装维修网</title>
+            <title>页面标题</title>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
             <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
@@ -491,14 +491,14 @@ export default () =>
             <meta name="mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-            <meta name="apple-mobile-web-app-title" content="万师傅-行业领先家居服务平台|家具灯具,卫浴,窗帘等配送安装维修网" />
+            <meta name="apple-mobile-web-app-title" content="页面标题" />
             <meta name="robots" content="index,follow" />
-            <meta name="keywords" content="家具拆装,家具安装配送,家具维修,卫浴安装,灯具安装维修,智能锁安装,晾衣架安装维修,窗帘安装" />
-            <meta name="description" content="万师傅提供专业【智能锁】【卫浴灯具】【家具】【晾衣架】【墙纸地毯】拆装,搬运等担保交易;师傅覆盖全国;含多种家居售后服务方案,满足不同用户与企业的需求" />
-            <meta name="author" content="wanshifu-better" />
-            <meta name="copyright" content="深圳市小亿网络有限公司" />
-            <meta name="google-site-verification" content="5dda074586814ec11ca818e715f3f8d0" />
-            <meta name="360-site-verification" content="uSG4Wt-p0CWw3m75z9xAKV-LH_QEyVTe-W1el-wrjv8" />
+            <meta name="keywords" content="网站关键字" />
+            <meta name="description" content="网站描述" />
+            <meta name="author" content="better" />
+            <meta name="copyright" content="版权" />
+            <meta name="google-site-verification" content="谷歌搜索网站收录生成码" />
+            <meta name="360-site-verification" content="360" />
             <link href="http://www.wanshifu.com/assets/images/favicon.ico" rel="shortcut icon" />
         </Head>
     </div>
