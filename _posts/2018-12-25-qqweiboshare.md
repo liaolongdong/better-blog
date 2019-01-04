@@ -105,4 +105,4 @@ shareMethodObj.sharetoqq(shareConfig.shareTitle, shareConfig.shareUrl, shareConf
 shareMethodObj.sharetoqqzone(shareConfig.shareTitle, shareConfig.shareUrl, shareConfig.shareImage, shareConfig.shareContent);
 ```
 
-**这个分享有一个问题是，QQ空间、新浪微博分享的缩略图显示不出来，分享到QQ好友却正常，尝试过使用和域名相同的协议http或者https图片链接还是显示不出来，但是在我Mac电脑浏览器上访问一下缩略图的链接，再刷新一下分享页面，缩略图又能正常显示了，不知道是什么原因，有知道原因的大佬可以评论指教一下，感激不尽**
+**这个分享有一个问题，QQ空间、新浪微博分享的缩略图显示不出来，分享到QQ好友却正常，尝试过使用和域名相同的协议http或者https图片链接还是显示不出来，但是在我Mac电脑浏览器上访问一下缩略图的链接，再刷新一下分享页面，缩略图又能正常显示了，不知道是什么原因，有知道原因的大佬可以评论指教一下，感激不尽**
