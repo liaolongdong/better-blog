@@ -105,4 +105,4 @@ shareMethodObj.sharetoqq(shareConfig.shareTitle, shareConfig.shareUrl, shareConf
 shareMethodObj.sharetoqqzone(shareConfig.shareTitle, shareConfig.shareUrl, shareConfig.shareImage, shareConfig.shareContent);
 ```
 
-**注意：分享的缩略图不显示问题，不能使用本地的图片，必须使用图片链接，还遇到一个特别坑的点是，不能使用骑牛cdn的图片，不知道是什么鬼，被坑了好久，我屮艸芔茻**
+**注意：分享的缩略图不显示问题：不能使用本地的图片，必须使用图片链接地址，还遇到一个特别坑的点是，不能使用七牛cdn的图片，不知道是什么鬼，被坑了好久，我屮艸芔茻**
