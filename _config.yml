@@ -14,7 +14,6 @@ githubUrl: 'https://github.com/liaolongdong'
 # Navigation links
 nav:
   home: '/'
-  technology: '/technology.html'
   tags: '/tags.html'
   demo: '/demo.html'
   about me: '/about.html'

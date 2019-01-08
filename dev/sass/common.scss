@@ -809,6 +809,16 @@
 
 }
 
+.demo-content {
+    margin-top: 0;
+
+    li {
+        &:first-child {
+            margin-bottom: 12px;
+        }
+    }
+}
+
 // 404 page
 .np-banner {
     position: fixed;
