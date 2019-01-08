@@ -1,0 +1,270 @@
+// 使用媒体查询区别移动端和PC端，小于768px为移动端，反之为PC端
+
+.show {
+    display: flex !important;
+}
+
+.hide {
+    display: none !important;
+}
+
+@media screen and (min-width: 767px) {
+    @mixin flexSpaceBetween {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @mixin flexCenter {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    @mixin flexColumn {
+        display: flex;
+        flex-direction: column;
+    }
+
+    @mixin chartTitle {
+        .chart-title {
+            font-size: 30px;
+            font-weight: 600;
+            color: #333;
+        }
+    }
+
+    body {
+        background: #2B3436 !important;
+    }
+
+    .pc-style {
+        margin: auto;
+        width: 750px;
+        font-size: 26px;
+        color: #666;
+        background: #fff;
+
+        em {
+            color: #00B5D9;
+        }
+
+        .year-report-middle {
+            @include flexColumn;
+            margin: 0 40px;
+
+            .after-sale-analyze {
+                position: relative;
+
+                .sale-report-chart {
+                    margin-top: 39px;
+                    width: 670px;
+                    height: 404px;
+                    background: #CCF0F7;
+                }
+
+                .order-service-rate {
+                    margin: 60px 0;
+                    @include chartTitle();
+
+                    .service-rate-chart {
+                        margin: 40px 0;
+                        height: 400px;
+                    }
+                }
+
+                .district-rate {
+                    @include chartTitle();
+
+                    .district-rate-chart {
+                        margin: 40px 0;
+                        height: 400px;
+                    }
+                }
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 767px) {
+    @mixin flexSpaceBetween {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @mixin flexCenter {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    @mixin flexColumn {
+        display: flex;
+        flex-direction: column;
+    }
+
+    @mixin chartTitle {
+        .chart-title {
+            font-size: 30px;
+            font-weight: 600;
+            color: #333;
+        }
+    }
+
+    .p-year-report {
+        line-height: 1.5;
+        font-size: 26px;
+        color: #666;
+        background: #fff;
+        // 修复ios滚动条区域空白bug
+        overflow-x: hidden;
+
+        em {
+            color: #00B5D9;
+        }
+
+        .year-report-middle {
+            @include flexColumn;
+            margin: 0 40px;
+
+            .after-sale-analyze {
+                position: relative;
+
+                .special-festival {
+                    position: relative;
+                    top: 86px;
+                    left: 62px;
+                    display: flex;
+                    // font-size: 24px;
+                    color: #60C1D4;
+                    z-index: 5;
+
+                    .item {
+                        position: relative;
+                    }
+
+                    .item::after {
+                        position: absolute;
+                        top: 48px;
+                        left: 50%;
+                        content: '';
+                        width: 1px;
+                        height: 262px;
+                        background: #60C1D4;
+                    }
+
+                    .item:nth-child(1) {
+                        left: 94px;
+                    }
+
+                    .item:nth-child(2) {
+                        left: 175px;
+                    }
+
+                    .item:nth-child(3) {
+                        left: 256px;
+                    }
+
+                    .item:nth-child(4) {
+                        left: 292px;
+                    }
+
+                    .item:nth-child(5) {
+                        left: 290px;
+                    }
+                }
+
+                .festival-width-360 {
+                    top: 90px;
+
+                    .item::after {
+                        height: 260px;
+                    }
+
+                    .item:nth-child(1) {
+                        left: 96px;
+                    }
+
+                    .item:nth-child(2) {
+                        left: 172px;
+                    }
+
+                    .item:nth-child(3) {
+                        left: 249px;
+                    }
+
+                    .item:nth-child(4) {
+                        left: 273px;
+                    }
+
+                    .item:nth-child(5) {
+                        left: 267px;
+                    }
+                }
+
+                .festival-width-414 {
+                    top: 78px;
+
+                    .item::after {
+                        height: 276px;
+                    }
+
+                    .item:nth-child(1) {
+                        left: 90px;
+                    }
+
+                    .item:nth-child(2) {
+                        left: 182px;
+                    }
+
+                    .item:nth-child(3) {
+                        left: 272px;
+                    }
+
+                    .item:nth-child(4) {
+                        left: 314px;
+                    }
+
+                    .item:nth-child(5) {
+                        left: 322px;
+                    }
+                }
+
+                .pc-chart-font {
+                    font-size: 12px;
+                }
+
+                .sale-report-chart {
+                    margin-top: 39px;
+                    width: 670px;
+                    height: 404px;
+                    background: #CCF0F7;
+                }
+
+                .chart-tips {
+                    margin-top: 37px;
+                    line-height: 1.5;
+                    text-align: justify;
+                }
+
+                .order-service-rate {
+                    margin: 60px 0;
+                    @include chartTitle();
+
+                    .service-rate-chart {
+                        margin: 40px 0;
+                        height: 400px;
+                    }
+                }
+
+                .district-rate {
+                    @include chartTitle();
+
+                    .district-rate-chart {
+                        margin: 40px 0;
+                        height: 400px;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -21,6 +21,8 @@
     "gulp-uglify": "^2.1.2"
   },
   "dependencies": {
-    "gulp-connect": "^5.7.0"
+    "gulp-connect": "^5.7.0",
+    "gulp-postcss": "^8.0.0",
+    "postcss-px-to-viewport": "^0.0.3"
   }
 }
