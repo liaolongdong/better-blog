@@ -97,7 +97,7 @@ window.addEventListener('popstate', () => { // 监听状态变化
 
 ## 6、在移动端中使用css3部分动画时可能会出现加载页面宽度抖动问题以及ios9滚动条区域空白处理
 
-解决方案：在html顶级div中加入样式`overflow-x: hidden;`或者`overflow-x: hidden;`
+解决方案：在html顶级div中加入样式`overflow-x: hidden;`
 
 ## 7、微信公众号使用js-sdk开发常见问题及解决方案
 

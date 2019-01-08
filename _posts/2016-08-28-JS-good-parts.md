@@ -8,7 +8,10 @@ cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542
 tags: JavaScript JavaScript语言精粹 学习笔记
 ---
 
+## JavaScript语言精粹学习笔记
+
 ## 语法
+
 1、注释  
 JS提供了两种注释方式：一种是块注释：/* 被注释的内容 */ ，另一种是行注释：// 被注释的内容。
 使用块注释是不安全的，例如，使用正则表达式：
