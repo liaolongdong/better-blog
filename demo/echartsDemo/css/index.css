@@ -17,7 +17,6 @@
     background: #fff; }
     .pc-style em {
       color: #00B5D9; }
-    .pc-style .no-order,
     .pc-style .year-report-middle {
       display: -webkit-box;
       display: -webkit-flex;
@@ -27,33 +26,26 @@
       -webkit-flex-direction: column;
               flex-direction: column;
       margin: 0 40px; }
-      .pc-style .no-order .after-sale-analyze,
       .pc-style .year-report-middle .after-sale-analyze {
         position: relative; }
-        .pc-style .no-order .after-sale-analyze .sale-report-chart,
         .pc-style .year-report-middle .after-sale-analyze .sale-report-chart {
           margin-top: 39px;
           width: 670px;
           height: 404px;
           background: #CCF0F7; }
-        .pc-style .no-order .after-sale-analyze .order-service-rate,
         .pc-style .year-report-middle .after-sale-analyze .order-service-rate {
           margin: 60px 0; }
-          .pc-style .no-order .after-sale-analyze .order-service-rate .chart-title,
           .pc-style .year-report-middle .after-sale-analyze .order-service-rate .chart-title {
             font-size: 30px;
             font-weight: 600;
             color: #333; }
-          .pc-style .no-order .after-sale-analyze .order-service-rate .service-rate-chart,
           .pc-style .year-report-middle .after-sale-analyze .order-service-rate .service-rate-chart {
             margin: 40px 0;
             height: 400px; }
-        .pc-style .no-order .after-sale-analyze .district-rate .chart-title,
         .pc-style .year-report-middle .after-sale-analyze .district-rate .chart-title {
           font-size: 30px;
           font-weight: 600;
           color: #333; }
-        .pc-style .no-order .after-sale-analyze .district-rate .district-rate-chart,
         .pc-style .year-report-middle .after-sale-analyze .district-rate .district-rate-chart {
           margin: 40px 0;
           height: 400px; } }
@@ -67,7 +59,6 @@
     overflow-x: hidden; }
     .p-year-report em {
       color: #00B5D9; }
-    .p-year-report .no-order,
     .p-year-report .year-report-middle {
       display: -webkit-box;
       display: -webkit-flex;
@@ -77,10 +68,8 @@
       -webkit-flex-direction: column;
               flex-direction: column;
       margin: 0 5.33333vw; }
-      .p-year-report .no-order .after-sale-analyze,
       .p-year-report .year-report-middle .after-sale-analyze {
         position: relative; }
-        .p-year-report .no-order .after-sale-analyze .special-festival,
         .p-year-report .year-report-middle .after-sale-analyze .special-festival {
           position: relative;
           top: 11.46667vw;
@@ -90,10 +79,8 @@
           display: flex;
           color: #60C1D4;
           z-index: 5; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item,
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item {
             position: relative; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item::after,
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item::after {
             position: absolute;
             top: 6.4vw;
@@ -102,95 +89,68 @@
             width: 1px;
             height: 34.93333vw;
             background: #60C1D4; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item:nth-child(1),
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item:nth-child(1) {
             left: 12.53333vw; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item:nth-child(2),
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item:nth-child(2) {
             left: 23.33333vw; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item:nth-child(3),
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item:nth-child(3) {
             left: 34.13333vw; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item:nth-child(4),
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item:nth-child(4) {
             left: 38.93333vw; }
-          .p-year-report .no-order .after-sale-analyze .special-festival .item:nth-child(5),
           .p-year-report .year-report-middle .after-sale-analyze .special-festival .item:nth-child(5) {
             left: 38.66667vw; }
-        .p-year-report .no-order .after-sale-analyze .festival-width-360,
         .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 {
           top: 12vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item::after,
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item::after {
             height: 34.66667vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item:nth-child(1),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item:nth-child(1) {
             left: 12.8vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item:nth-child(2),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item:nth-child(2) {
             left: 22.93333vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item:nth-child(3),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item:nth-child(3) {
             left: 33.2vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item:nth-child(4),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item:nth-child(4) {
             left: 36.4vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-360 .item:nth-child(5),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-360 .item:nth-child(5) {
             left: 35.6vw; }
-        .p-year-report .no-order .after-sale-analyze .festival-width-414,
         .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 {
           top: 10.4vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item::after,
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item::after {
             height: 36.8vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item:nth-child(1),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item:nth-child(1) {
             left: 12vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item:nth-child(2),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item:nth-child(2) {
             left: 24.26667vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item:nth-child(3),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item:nth-child(3) {
             left: 36.26667vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item:nth-child(4),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item:nth-child(4) {
             left: 41.86667vw; }
-          .p-year-report .no-order .after-sale-analyze .festival-width-414 .item:nth-child(5),
           .p-year-report .year-report-middle .after-sale-analyze .festival-width-414 .item:nth-child(5) {
             left: 42.93333vw; }
-        .p-year-report .no-order .after-sale-analyze .pc-chart-font,
         .p-year-report .year-report-middle .after-sale-analyze .pc-chart-font {
           font-size: 1.6vw; }
-        .p-year-report .no-order .after-sale-analyze .sale-report-chart,
         .p-year-report .year-report-middle .after-sale-analyze .sale-report-chart {
           margin-top: 5.2vw;
           width: 89.33333vw;
           height: 53.86667vw;
           background: #CCF0F7; }
-        .p-year-report .no-order .after-sale-analyze .chart-tips,
         .p-year-report .year-report-middle .after-sale-analyze .chart-tips {
           margin-top: 4.93333vw;
           line-height: 1.5;
           text-align: justify; }
-        .p-year-report .no-order .after-sale-analyze .order-service-rate,
         .p-year-report .year-report-middle .after-sale-analyze .order-service-rate {
           margin: 8vw 0; }
-          .p-year-report .no-order .after-sale-analyze .order-service-rate .chart-title,
           .p-year-report .year-report-middle .after-sale-analyze .order-service-rate .chart-title {
             font-size: 4vw;
             font-weight: 600;
             color: #333; }
-          .p-year-report .no-order .after-sale-analyze .order-service-rate .service-rate-chart,
           .p-year-report .year-report-middle .after-sale-analyze .order-service-rate .service-rate-chart {
             margin: 5.33333vw 0;
             height: 53.33333vw; }
-        .p-year-report .no-order .after-sale-analyze .district-rate .chart-title,
         .p-year-report .year-report-middle .after-sale-analyze .district-rate .chart-title {
           font-size: 4vw;
           font-weight: 600;
           color: #333; }
-        .p-year-report .no-order .after-sale-analyze .district-rate .district-rate-chart,
         .p-year-report .year-report-middle .after-sale-analyze .district-rate .district-rate-chart {
           margin: 5.33333vw 0;
           height: 53.33333vw; } }

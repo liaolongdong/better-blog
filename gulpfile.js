@@ -13,11 +13,11 @@ var gulp = require('gulp'),
 
 // 压缩打包JS
 gulp.task('buildJS', function() {
-    gulp.src(['dev/js/*.js'])
+    gulp.src('dev/js/index.js')
         .pipe(staticHash({asset: 'static'}))
-        .pipe(babel({
-            presets: ['env']
-        }))
+        // .pipe(babel({
+        //     presets: ['env']
+        // }))
         .pipe(uglify())
         .pipe(rename({suffix: '.min'}))
         .pipe(gulp.dest('assets/js'))
@@ -25,7 +25,7 @@ gulp.task('buildJS', function() {
 
 // 编译打包sass
 gulp.task('buildCss', function() {
-    gulp.src(['dev/sass/app.scss'])
+    gulp.src('dev/sass/app.scss')
         .pipe(staticHash({asset: 'static'}))
         .pipe(sass())
         .pipe(autoprefixer({
@@ -48,7 +48,7 @@ function getFolders (dir) {
             return fs.statSync(path.join(dir, file)).isDirectory();
         })
 }
-console.log(getFolders('demo'));
+console.log('demoDir', getFolders('demo'));
 
 // demo文件夹js使用babel
 gulp.task('DemoJS', function () {
