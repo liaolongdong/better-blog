@@ -1,26 +1,66 @@
 ---
-layout: default
+layout: aboutTemplate
 title: About Me
 ---
 
 {% include header.html %}
-
-<div class="g-banner tags-banner {{ site.postPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
-    <h2>About Me</h2>
+<link rel="stylesheet" href="/assets/css/about.css">
+<div class="p-about">
+    <div class="events_sec">
+        <div class="content">
+            <div class="events_list">
+                <ul>
+                    <li class="right_li">
+                        <p class="txt_events">
+                            <strong>
+                                2014
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                    </li>
+                    <li class="left_li">
+                        <p class="txt_events">
+                            <strong>
+                                2015
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </p>
+                    </li>
+                    <li class="right_li">
+                        <p class="txt_events">
+                            <strong>
+                                2016
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </p>
+                    </li>
+                    <li class="left_li">
+                        <p class="txt_events">
+                            <strong>
+                                2017
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </p>
+                    </li>
+                    <li class="right_li">
+                        <p class="txt_events">
+                            <strong>
+                                2018
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </p>
+                    </li>
+                    <li class="left_li">
+                        <p class="txt_events">
+                            <strong>
+                                未来
+                            </strong>
+                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
-
-<main class="tags-content demo-content">
-
-    <ul class="tags-list">
-        {% for tag in site.tags %}
-        <li>
-            <span class="tag-name" id="{{ tag[0] }}">「{{ tag[0] }}」</span>
-            {% for post in tag[1] %}
-            <a class="tag-post" href="{{ post.url }}" title="{{ post.title }}">{{ post.title }}</a>
-            {% endfor %}
-        </li>
-        {% endfor%}
-    </ul>
-</main>
-    
+<script src="assets/js/canvas-nest.min.js"></script>
 {% include footer.html %}

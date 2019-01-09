@@ -1,0 +1,124 @@
+body {
+    background: url("/assets/img/about_bg.png");
+}
+
+.g-footer {
+    border-top: none;
+}
+
+.p-about {
+    height: 100%;
+}
+
+.p-about .content {
+    width: 1200px;
+    height: 100%;
+}
+
+.events_sec h3 {
+    width: 334px;
+    height: 115px;
+    margin: 0 auto;
+}
+
+.events_list {
+    margin-top: 200px;
+}
+
+.events_list ul {
+    position: relative;
+}
+
+.events_list li {
+    position: relative;
+    height: 98px;
+}
+
+.events_list .txt_events {
+    font-size: 18px;
+    line-height: 22px;
+    color: #fff;
+    position: absolute;
+    white-space: nowrap;
+    top: -12px;
+    text-shadow: 0 0 8px #1890ff;
+}
+
+.events_list .txt_events strong {
+    display: block;
+    font-size: 30px;
+    line-height: 34px;
+    font-weight: 400;
+}
+
+.events_list .right_li {
+    margin-left: 50%;
+}
+
+.events_list .right_li .txt_events {
+    left: 56px;
+}
+
+.events_list .left_li {
+    text-align: right;
+    width: 50%;
+}
+
+.events_list .left_li .txt_events {
+    right: 56px;
+}
+
+
+.events_list li:nth-child(1) .txt_events {
+    animation: enttxt_effect .8s 1s linear both;
+    -webkit-animation: enttxt_effect .8s 1s linear both;
+}
+
+.events_list li:nth-child(2) .txt_events {
+    animation: enttxt_effect .8s 1.8s linear both;
+    -webkit-animation: enttxt_effect .8s 1.8s linear both;
+}
+
+.events_list li:nth-child(3) .txt_events {
+    animation: enttxt_effect .8s 2.6s linear both;
+    -webkit-animation: enttxt_effect .8s 2.6s linear both;
+}
+
+.events_list li:nth-child(4) .txt_events {
+    animation: enttxt_effect .8s 3.4s linear both;
+    -webkit-animation: enttxt_effect .8s 3.4s linear both;
+}
+
+.events_list li:nth-child(5) .txt_events {
+    animation: enttxt_effect .8s 4.2s linear both;
+    -webkit-animation: enttxt_effect .8s 4.2s linear both;
+}
+
+.events_list li:nth-child(6) .txt_events {
+    animation: enttxt_effect .8s 5s linear both;
+    -webkit-animation: enttxt_effect .8s 5s linear both;
+}
+
+@keyframes enttxt_effect {
+    0% {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@-webkit-keyframes enttxt_effect {
+    0% {
+        -webkit-transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    100% {
+        -webkit-transform: translateY(0);
+        opacity: 1;
+    }
+}
