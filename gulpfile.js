@@ -11,9 +11,10 @@ var gulp = require('gulp'),
     babel = require('gulp-babel'), // 转义es6语法的gulp插件
     rename = require('gulp-rename'); // 文件重命名
 
+// dev文件夹下gulp打包
 // 压缩打包JS
 gulp.task('buildJS', function() {
-    gulp.src('dev/js/index.js')
+    gulp.src('dev/js/*.js')
         .pipe(staticHash({asset: 'static'}))
         // .pipe(babel({
         //     presets: ['env']
@@ -25,7 +26,7 @@ gulp.task('buildJS', function() {
 
 // 编译打包sass
 gulp.task('buildCss', function() {
-    gulp.src('dev/sass/app.scss')
+    gulp.src(['dev/sass/app.scss', 'dev/sass/about.scss'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(sass())
         .pipe(autoprefixer({
@@ -50,6 +51,7 @@ function getFolders (dir) {
 }
 console.log('demoDir', getFolders('demo'));
 
+// demo文件夹下gulp打包
 // demo文件夹js使用babel
 gulp.task('DemoJS', function () {
     getFolders('demo').map(function (folder) {
