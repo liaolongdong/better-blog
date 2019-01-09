@@ -25,7 +25,7 @@ $(document).ready(function(){
         var headerHeight = header.outerHeight();
         var logo = $('.g-logo');
         var navText = nav.find('a');
-        var themeStyle = $('.g-banner').attr('data-theme');
+        var themeStyle = $('.g-banner').attr('data-theme') || 'default';
         var scFlag = $(document).scrollTop();
 
         $(document).scroll(function() {
