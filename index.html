@@ -13,6 +13,11 @@ description: 书山有路勤为径，学海无涯苦作舟
 >
     <h2>{{ page.home-title }}</h2>
     <h3>{{ page.description }}</h3>
+
+    {% if site.dandelionAnimate %}
+        {% include dandelionAnimate.html %}
+    {% endif %}
+
 </div>
 
 <main class="g-container home-content">

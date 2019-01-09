@@ -18,18 +18,21 @@ nav:
   demo: '/demo.html'
   about me: '/about.html'
 
+# Author 配置博主信息
+author: 'Better'
+nickname: 'Better'
+bio: '一枚喜欢研究心理学的前端er'
+avatar: '/assets/img/profile.png'
+
+# home page dandelion animate
+dandelionAnimate: true
+
 # back to top
 backToTop: true
 
 # Footer
 footer:
   since: 2018
-
-# Author 配置博主信息
-author: 'Better'
-nickname: 'Better'
-bio: '一枚喜欢研究心理学的前端er'
-avatar: '/assets/img/profile.png'
 
 # Search
 search: true
