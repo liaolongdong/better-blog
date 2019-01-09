@@ -12,6 +12,8 @@ tags: echarts
 
 这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。
 
+[点这里查看demo效果](http://liaolongdong.com/demo/echartsDemo/index.html)
+
 ## 绘制图表
 
 获取echarts有好几种方式：  
@@ -184,4 +186,5 @@ var option = {
 效果如图：
 ![图表标签文本过长展示不下或重叠处理](/assets/img/postCover/echarts_pie_label_overflow.png)
 
-以上就是项目中使用echarts图表遇到的一些问题总结，更详细的配置可以参考demo源码
+以上就是项目中使用echarts图表遇到的一些问题总结，更详细的配置可以参考demo源码，如图：
+![echarts图表详细配置参数源码](/assets/img/postCover/echarts_pie_label_overflow.png)

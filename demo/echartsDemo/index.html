@@ -1,35 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>echartsDemo</title>
-    <link rel="stylesheet" href="./css/base.css">
-    <link rel="stylesheet" href="./css/index.css">
-</head>
-<body>
-    <div class='p-year-report pc-style'>
-        <div class='year-report-middle'>
-            <div class='after-sale-analyze'>
-                <div class='special-festival pc-chart-font'>
-                    <div class='item'>家装节</div>
-                    <div class='item'>6.18</div>
-                    <div class='item'>家装节</div>
-                    <div class='item'>双11</div>
-                    <div class='item'>双12</div>
-                </div>
-                <div class='sale-report-chart' id='lineChart'></div>
-                <div class='order-service-rate'>
-                    <div class='service-rate-chart' id='pieChart'></div>
-                </div>
-                <div class='district-rate'>
-                    <div class='district-rate-chart' id='ringlikeChart'></div>
-                </div>
+---
+layout: demo
+title: Demo
+---
+
+<div class='p-year-report pc-style'>
+    <div class='year-report-middle'>
+        <div class='after-sale-analyze'>
+            <div class='special-festival pc-chart-font'>
+                <div class='item'>家装节</div>
+                <div class='item'>6.18</div>
+                <div class='item'>家装节</div>
+                <div class='item'>双11</div>
+                <div class='item'>双12</div>
             </div>
+            <div class='sale-report-chart' id='lineChart'></div>
+            <div class='order-service-rate'>
+                <div class='service-rate-chart' id='pieChart'></div>
+            </div>
+            <div class='district-rate'>
+                <div class='district-rate-chart' id='ringlikeChart'></div>
+            </div>
+        </div>
     </div>
-    <script src="https://cdn.bootcss.com/echarts/4.2.0-rc.2/echarts.min.js"></script>
-    <script src="./lib/utils.js"></script>
-    <script src="./js/index.js"></script>
-</body>
-</html>
+</div>
+<script src="./lib/echarts.min.js"></script>
+<script src="./lib/utils.js"></script>
+<script src="./js/index.js"></script>

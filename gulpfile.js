@@ -54,9 +54,6 @@ console.log('demoDir', getFolders('demo'));
 gulp.task('DemoJS', function () {
     getFolders('demo').map(function (folder) {
         gulp.src(path.join('demo', folder, 'js/*.*'))
-            .pipe(babel({
-                presets: ['env']
-            }))
             .pipe(gulp.dest(path.join('demo', folder, 'js')));
     });
 });
