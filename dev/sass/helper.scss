@@ -133,6 +133,30 @@ $post-content-w: 720px;
 
             @include snsIcon;
         }
+
+        li:nth-child(1) {
+            animation: fadeIn 300ms ease-in 1000ms both;
+        }
+
+        li:nth-child(2) {
+            animation: fadeIn 300ms ease-in 1300ms both;
+        }
+
+        li:nth-child(3) {
+            animation: fadeIn 300ms ease-in 1600ms both;
+        }
+
+        li:nth-child(4) {
+            animation: fadeIn 300ms ease-in 1900ms both;
+        }
+
+        li:nth-child(5) {
+            animation: fadeIn 300ms ease-in 2100ms both;
+        }
+
+        li:nth-child(6) {
+            animation: fadeIn 300ms ease-in 2400ms both;
+        }
     }
 }
 

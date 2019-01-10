@@ -60,9 +60,9 @@ description: 书山有路勤为径，学海无涯苦作舟
     </div>
 
     <aside class="g-sidebar-wrapper">
-        <div class="g-sidebar">
+        <div class="g-sidebar rtlf-delay0">
             <section class="author-card">
-                <div class="avatar">
+                <div class="avatar rtlr-delay500">
                     <img src="{{ site.avatar | prepend: site.baseurl }}" alt="">
                 </div>
                 <div class="author-name" rel="author">{{ site.author }}</div>
@@ -72,11 +72,11 @@ description: 书山有路勤为径，学海无涯苦作舟
                 {% if site.sns.size > 0 %}
                 <ul id="sns-links" class="sns-links">
                     {% for s in site.sns %}
-                    <li>
-                        <a href="{{ s[1] }}" target="_blank">
-                            <i class="iconfont icon-{{ s[0] }}"></i>
-                        </a>
-                    </li>
+                        <li>
+                            <a href="{{ s[1] }}" target="_blank">
+                                <i class="iconfont icon-{{ s[0] }}"></i>
+                            </a>
+                        </li>
                     {% endfor %}
                 </ul>
                 {% endif %}
@@ -95,7 +95,7 @@ description: 书山有路勤为径，学海无涯苦作舟
         </div>
 
         {% if site.search %}
-        <div class="search-card">
+        <div class="search-card rtlf-delay500">
             <input id="search_input" type="text" placeholder="Search..." autocomplete="off">
             <i class="iconfont icon-search"></i>
             <div class="search_result"></div>

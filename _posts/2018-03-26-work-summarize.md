@@ -142,3 +142,37 @@ let pastTime = new Date('2013/12/16 00:00:00').getTime(); //1387123200000
 ```
 
 >总结：`2013/12/16`默认是从0点0分0秒开始计算毫秒数
+
+## 12、相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
+
+```css
+    /* 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性 */
+
+    /* 过度动画transition属性设置transform过渡效果 */
+    .avatar {
+        transition: all 500ms;
+        transform: rotateZ(0) !important;
+    }
+
+    .avatar:hover {
+        transform: rotateZ(360deg) !important;
+    }
+
+    /* 逐帧动画设置transform属性动画效果 */
+    @keyframes rightToLeftRotate {
+        0% {
+            opacity: 0;
+            transform: translateX(200%) rotateZ(720deg);
+        }
+
+        100% {
+            transform: none;
+        }
+    }
+
+    .rtlr-delay500 {
+        animation:  rightToLeftRotate 1000ms ease-in both;
+    }
+```
+
+**当这两个class作用于同一dom节点时，transition过度动画设置的transform属性不会生效**

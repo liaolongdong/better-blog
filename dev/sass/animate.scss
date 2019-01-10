@@ -1,0 +1,60 @@
+// 逐帧动画相关样式
+
+// 从右往左旋转动画
+@keyframes rightToLeftRotate {
+    0% {
+        opacity: 0;
+        transform: translateX(200%) rotateZ(720deg);
+    }
+
+    100% {
+        transform: none;
+    }
+}
+
+.rtlr-delay500 {
+    animation:  rightToLeftRotate 1000ms ease-in 500ms both;
+}
+
+// 逐渐显示
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+// 从下往上渐入
+@keyframes downToUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+
+    100% {
+        transform: none;
+    }
+}
+
+// 从右往左渐入
+@keyframes rightToLeftFade {
+    0% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    100% {
+        transform: none;
+    }
+}
+
+.rtlf-delay0 {
+    animation: rightToLeftFade 500ms ease 0s both;
+}
+
+.rtlf-delay500 {
+    animation: rightToLeftFade 500ms ease 500ms both;
+}

@@ -1,4 +1,8 @@
 /*** Main style ***/
+.visible {
+    // 防止页面使用动画导致抖动
+    overflow-x: hidden;
+}
 
 .g-container {
     width: $g-container-w;
@@ -247,13 +251,41 @@
         }
     }
 
-    // .article-item:hover {
-    //     box-shadow: 2px 6px 6px rgba(0,37,55,.06);
-    // }
+    .article-item:nth-child(1) {
+        animation: downToUpFade .5s 0s linear both;
+    }
+
+    .article-item:nth-child(2) {
+        animation: downToUpFade .5s .5s linear both;
+    }
+
+    .article-item:nth-child(3) {
+        animation: downToUpFade .5s 1s linear both;
+    }
+
+    .article-item:nth-child(4) {
+        animation: downToUpFade .5s 1.5s linear both;
+    }
+
+    .article-item:nth-child(5) {
+        animation: downToUpFade .5s 2s linear both;
+    }
 }
 
 .author-card {
     @include authorCard;
+
+    // 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
+    .avatar {
+        transition: all 500ms;
+        // transform: rotateZ(0) !important;
+
+        &:hover {
+            width: 140px;
+            height: 100px;
+            // transform: rotateZ(360deg) !important;
+        }
+    }
 }
 
 .article-item .post-meta .post-tag,
@@ -293,9 +325,7 @@
     position: relative;
     margin-top: 16px;
     padding: 0;
-
-    // float: right;
-    // width: 240px;
+    
     input,
     .search_item {
         font-size: 16px;
@@ -393,6 +423,7 @@
         padding: 0 8px;
         overflow: auto;
         box-shadow: 0 1px 3px rgba(0, 37, 55, .06);
+        animation: downToUpFade .3s ease 2.5s both;
     }
 
     .page-link {
@@ -934,8 +965,15 @@
         }
     }
 
-    .avatar img {
-        -webkit-filter: brightness(.6);
+    .avatar {
+        &:hover {
+            transform: rotateZ(360deg);
+            transition: 500ms ease-in;
+        }
+
+        img {
+            -webkit-filter: brightness(.6);
+        }
     }
 
     .author-name,
