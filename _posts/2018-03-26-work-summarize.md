@@ -176,3 +176,19 @@ let pastTime = new Date('2013/12/16 00:00:00').getTime(); //1387123200000
 ```
 
 **当这两个class作用于同一dom节点时，transition过度动画设置的transform属性不会生效**
+
+## 13、onload事件只能绑定在window上，绑定到document上不生效
+
+在开发时遇到一个问题：使用document绑定onload事件没有生效，具体代码如下：
+
+```js
+// onload事件绑定在document上没有生效
+document.addEventListener('load', function () {
+    console.log(111);
+});
+
+// onload事件绑定在window上才生效
+window.addEventListener('load', function () {
+    console.log(222);
+});
+```
