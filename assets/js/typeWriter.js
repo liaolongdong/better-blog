@@ -99,7 +99,7 @@
                 for (var nItem = 0; nItem < aItems.length; nItem++) {
                     aSheets.push(new Sheet(aItems[nItem]));
                     /* Uncomment the following line if you have previously hidden your elements via CSS: */
-                    // aItems[nItem].style.visibility = "visible";
+                    aItems[nItem].style.visibility = "visible";
                 }
 
                 bStart = false;
