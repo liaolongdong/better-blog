@@ -27,6 +27,35 @@ avatar: '/assets/img/profile.png'
 # home page dandelion animate
 dandelionAnimate: true
 
+# about me config
+aboutMe:
+  authorWorkTimeLine: [
+    {
+      date: '2015-07',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    },
+    {
+      date: '2016-07',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    },
+    {
+      date: '2017-07',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    },
+    {
+      date: '2018-07',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    },
+    {
+      date: '2019-07',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    },
+    {
+      date: '未来',
+      content: '这段时间在哪里工作，工作经验，项目经验等等'
+    }
+  ]
+
 # back to top
 backToTop: true
 

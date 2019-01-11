@@ -4,135 +4,99 @@ title: About Me
 ---
 
 {% include header.html %}
-<div class="p-about pc-about">
-    <div class="author-introduction" id="authorIntroduction">
-        廖龙东,网名Better,一枚喜欢研究心理学的前端er,从大学毕业一直专注前端开发领域，技术栈React、Vue、微信公众号、小程序、node和mongodb
+<div class="p-about">
+    <section class="author-introduction" id="authorIntroduction">
+        <p>廖龙东,网名Better,一枚喜欢研究心理学的前端er</p>
+        <p>从大学毕业一直从事前端开发工作</p>
+        <p>技术栈React、Vue、微信公众号、小程序、node和mongodb</p>
+    </section>
+    <!-- PC -->
+    <div class="pc-container hide">
+        <section class="pc-timeline">
+            <div class="content">
+                <div class="events_list">
+                    <span class="ic_time"></span>
+                    <ul>
+                        <li class="right_li">
+                            <span class="ic_events"></span>
+                            <p class="txt_events">
+                                <strong>
+                                    2014
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                        </li>
+                        <li class="left_li">
+                            <span class="ic_events"><i></i></span>
+                            <p class="txt_events">
+                                <strong>
+                                    2015
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                            </p>
+                        </li>
+                        <li class="right_li">
+                            <span class="ic_events"></span>
+                            <p class="txt_events">
+                                <strong>
+                                    2016
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                            </p>
+                        </li>
+                        <li class="left_li">
+                            <span class="ic_events"><i></i></span>
+                            <p class="txt_events">
+                                <strong>
+                                    2017
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                            </p>
+                        </li>
+                        <li class="right_li">
+                            <span class="ic_events"></span>
+                            <p class="txt_events">
+                                <strong>
+                                    2018
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                            </p>
+                        </li>
+                        <li class="left_li">
+                            <span class="ic_events"><i></i></span>
+                            <p class="txt_events">
+                                <strong>
+                                    未来
+                                </strong>
+                                <span>这一年，工作经历，使用的技能，项目经验等等</span>
+                            </p>
+                        </li>
+                    </ul>
+                    <span class="ic_arr"></span>
+                </div>
+            </div>
+        </section>
     </div>
-    <div class="events_sec">
-        <div class="content">
-            <div class="events_list">
-                <span class="ic_time"></span>
-                <ul>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2014
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                    </li>
-                    <li class="left_li">
-                        <span class="ic_events"><i></i></span>
-                        <p class="txt_events">
-                            <strong>
-                                2015
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2016
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="left_li">
-                        <span class="ic_events"><i></i></span>
-                        <p class="txt_events">
-                            <strong>
-                                2017
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2018
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="left_li">
-                        <span class="ic_events"><i></i></span>
-                        <p class="txt_events">
-                            <strong>
-                                未来
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                </ul>
-                <span class="ic_arr"></span>
+    <!-- mobile -->
+    <div class="mobile-container">
+        <section class="timeline">
+            <div class="wrapper" id="timeline">
+                {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
+                    {% assign items = site.aboutMe.authorWorkTimeLine %}
+                    {% for item in items %}
+                        <div class="timeline__item timeline__item--{{ forloop.index }}">
+                            <div class="timeline__item__station"></div>
+                            <div class="timeline__item__content">
+                                <h2 class="timeline__item__content__date">{{ item.date }}</h2>
+                                <p class="timeline__item__content__description">{{ item.content }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
             </div>
-        </div>
-        <div class="content mobile-content hide">
-            <div class="events_list">
-                <span class="ic_time"></span>
-                <ul>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2014
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2015
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2016
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2017
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                2018
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                    <li class="right_li">
-                        <span class="ic_events"></span>
-                        <p class="txt_events">
-                            <strong>
-                                未来
-                            </strong>
-                            <span>这一年，工作经历，使用的技能，项目经验等等</span>
-                        </p>
-                    </li>
-                </ul>
-                <span class="ic_arr"></span>
-            </div>
-        </div>
+        </section>
     </div>
 </div>
+<script src="assets/js/noframework.waypoints.min.js"></script>
 <script src="assets/js/canvas-nest.min.js"></script>
 <script src="assets/js/typeWriter.js"></script>
 <script src="assets/js/about.min.js"></script>

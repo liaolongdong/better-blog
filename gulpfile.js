@@ -14,7 +14,7 @@ var gulp = require('gulp'),
 // dev文件夹下gulp打包
 // 压缩打包JS
 gulp.task('buildJS', function() {
-    gulp.src('dev/js/*.js')
+    gulp.src(['dev/js/*.js'])
         .pipe(staticHash({asset: 'static'}))
         // .pipe(babel({
         //     presets: ['env']

@@ -64,7 +64,7 @@
     .g-header {
         position: absolute;
         top: 0;
-        padding: 28px 0;
+        padding: 20px 0;
 
         .icon-menu {
             display: block;
@@ -72,7 +72,7 @@
 
         .g-nav {
             position: relative;
-            top: 48px;
+            top: 36px;
             right: 1%;
             display: none;
             width: 120px;
@@ -188,10 +188,10 @@
 
 @media screen and (max-width: 500px) {
     .home-banner {
-        height: 400px;
+        height: 280px;
 
         h2 {
-            padding-top: 180px;
+            padding-top: 110px;
             font-size: 28px;
             line-height: 48px;
         }
