@@ -112,6 +112,10 @@
   <script src="/assets/js/social-share.min.js"></script>
   <script>
     socialShare('.social-share', {
+      url: window.location.href, // 分享链接地址 默认使用 window.location.href
+      title: '{{ page.title }}', // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
+      description: '{{ page.subtitle }}', // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
+      image: window.location.origin + '{{ page.cover }}', // 分享缩略图图片, 默认取网页中第一个img标签
       sites: [
         {% for i in site.social-share-items %}
           '{{ i }}'
