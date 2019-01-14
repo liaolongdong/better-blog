@@ -68,9 +68,6 @@ $(document).ready(function(){
             }
             scFlag = scrollTop;
         });
-
-        // 移动端首页不显示蒲公英效果
-        document.querySelector('#dandelionCanvas').remove();
     }
 
     /*
