@@ -38,14 +38,10 @@
             }
             customWayPoint('timeline__item', 'timeline__item-bg', '80%');
         },
-        // 移动端粒子效果初次加载太密，刷新页面
+        // 移动端屏蔽粒子效果
         refreshPage: function () {
-            var hasRefresh = sessionStorage.getItem('hasRefresh');
             if (window.screen.availWidth < 695) {
-                if (!hasRefresh) {
-                    sessionStorage.setItem('hasRefresh', true);
-                    window.location.reload();
-                }
+                document.querySelector('body > canvas').remove();
             }
         }
     }
