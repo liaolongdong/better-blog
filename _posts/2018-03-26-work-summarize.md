@@ -10,12 +10,12 @@ tags: JavaScript 工作总结
 
 # 总结工作当中遇到的各种坑
 
-## 1、移动端点击穿透问题
+## 移动端点击穿透问题
 
 - [移动端大坑之点击穿透](https://blog.csdn.net/kao5585682/article/details/69529430 "移动端大坑之点击穿透")
 - [点击穿透原理及解决](https://blog.csdn.net/qq_17746623/article/details/55805425 "点击穿透原理及解决")
 
-## 2、上传图片格式转换(react)
+## 上传图片格式转换(react)
 
 ```html
 <input className='photo-upload-tip'
@@ -66,7 +66,7 @@ handleUploaderImgChangeTest = () => {
  }
 ```
 
-## 3、阻止浏览器当前页面回退操作
+## 阻止浏览器当前页面回退操作
 
 ```javascript
 window.history.pushState('forward', null, window.location.href); // 首先在当前页面创建一个新的history实体
@@ -75,7 +75,7 @@ window.addEventListener('popstate', () => { // 监听状态变化
 });
 ```
 
-## 4、移动端动态节点绑定事件ios点击失效
+## 移动端动态节点绑定事件ios点击失效
 
 原因是:
 
@@ -89,34 +89,93 @@ window.addEventListener('popstate', () => { // 监听状态变化
 - [防止页面后退（使浏览器后退按钮失效）](https://www.cnblogs.com/webzwf/p/5714385.html)
 - [移动端动态节点绑定事件ios点击失效](https://blog.csdn.net/lunhui1994_/article/details/73801411)
 
-## 5、图片加载出现403错误
+## 图片加载出现403错误
 
 原因：在http中请求https图片可能会出现403错误  
 
 解决方案：在`html`的`head`标签中加入`<meta name="referrer" content="no-referrer" />`
 
-## 6、在移动端中使用css3部分动画时可能会出现加载页面宽度抖动问题以及ios9滚动条区域空白处理
+## 在移动端中使用css3部分动画时可能会出现加载页面宽度抖动问题以及ios9滚动条区域空白处理
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
 
-## 7、微信公众号使用js-sdk开发常见问题及解决方案
+## 微信公众号使用js-sdk开发常见问题及解决方案
 
 - https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115
 
-## 8、微信公众号使用js-sdk接口调用频次限制说明
+## 微信公众号使用js-sdk接口调用频次限制说明
 
 - https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1433744592
 
-## 9、React中使用defaultValue、defaultChecked遇到的问题
+## 微信内H5调起支付
+
+- https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6
+
+## React中使用defaultValue、defaultChecked遇到的问题
 
 > The defaultValue and defaultChecked props are only used during initial render. If you need to update the value in a subsequent render, you will need to use a controlled component.
 所以如果有值是会变的 只能用value/checked。 不能用defaultValue/defaultChecked
 
-## 10、前端页面弹窗禁止遮罩底部页面滚动(移动端兼容ios问题)
+## 前端页面弹窗禁止遮罩底部页面滚动(移动端兼容ios问题)
+
+```js
+// 判断设备类型
+function whatDevice () {
+    let device = '';
+    let ua = window.navigator.userAgent.toLowerCase();
+    if (/MicroMessenger/i.test(ua)) {
+        device = 'wx';
+    } else if (/(iPhone|iPad|iPod|iOS)/i.test(ua)) {
+        device = 'ios';
+    } else if (/(Android)/i.test(ua)) {
+        device = 'android';
+    }
+    return device;
+}
+
+// 禁止遮罩底部页面滚动, fixed 固定， scroll 滚动
+function fixScroll (type) {
+    var device = whatDevice();
+    if (device === 'android') {
+        if (type === 'fixed') {
+            // 会引起页面重绘
+            var scrollTop = document.documentElement.scrollTop + document.body.scrollTop;
+            window.localStorage.setItem('scroll', JSON.stringify({
+                originHtmlScrollY: document.getElementsByTagName('html')[0].style.overflowY,
+                originHtmlPosition: document.getElementsByTagName('html')[0].style.position,
+                scrollTop: document.documentElement.scrollTop + document.body.scrollTop
+            }));
+            document.getElementsByTagName('html')[0].style.overflowY = 'hidden';
+            document.getElementsByTagName('html')[0].style.position = 'fixed';
+            document.getElementsByTagName('html')[0].style.top = '-' + scrollTop + 'px';
+        } else if (type === 'scroll') {
+            var originHtmlScroll = JSON.parse(window.localStorage.getItem('scroll')) || {
+                originHtmlScrollY: '',
+                originHtmlPosition: '',
+                scrollTop: 0
+            };
+            window.localStorage.removeItem('scroll');
+            document.getElementsByTagName('html')[0].style.overflowY = originHtmlScroll.originHtmlScrollY;
+            document.getElementsByTagName('html')[0].style.position = originHtmlScroll.originHtmlPosition;
+            window.scrollTo(0, originHtmlScroll.scrollTop);
+        }
+    } else {
+        // 兼容ios弹窗遮罩层底部页面禁止滑动处理(还是有问题啊，滑动弹窗遮罩层底部页面还是会会滚动)
+        if (type === 'fixed') {
+            // 获取遮罩层页面node节点
+            var maskNode = document.getElementsByClassName('mask');
+            maskNode && maskNode[0] && maskNode[0].addEventListener('touchstart', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            });
+        }
+    }
+}
+```
 
 - https://blog.csdn.net/yuhk231/article/details/74171734?utm_source=blogxgwz0
 
-## 11、new Date('yyyy-mm-dd hh:mm:ss').getTime()在苹果手机、Safari浏览器不兼容问题
+## new Date('yyyy-mm-dd hh:mm:ss').getTime()在苹果手机、Safari浏览器不兼容问题
 
 > 问题：在安卓手机chrome浏览器可以使用`2018-10-10 10:10:10`这样的日期格式计算毫秒数，而在苹果手机Safari浏览器中不能这样使用日期字符串格式，只能使用`2018/10/10 10:10:10`这种格式，但是可以使用`2018-10-10`这种不带时间格式的字符串
 > 解决方法：nnew Date(data.replace(/-/g,'/')).getTime()
@@ -143,7 +202,7 @@ let pastTime = new Date('2013/12/16 00:00:00').getTime(); //1387123200000
 
 >总结：`2013/12/16`默认是从0点0分0秒开始计算毫秒数
 
-## 12、相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
+## 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
 
 ```css
     /* 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性 */
@@ -177,7 +236,7 @@ let pastTime = new Date('2013/12/16 00:00:00').getTime(); //1387123200000
 
 **当这两个class作用于同一dom节点时，transition过度动画设置的transform属性不会生效**
 
-## 13、onload事件只能绑定在window上，绑定到document上不生效
+## onload事件只能绑定在window上，绑定到document上不生效
 
 在开发时遇到一个问题：使用document绑定onload事件没有生效，具体代码如下：
 
