@@ -15,6 +15,32 @@ tags: JavaScript 工作总结
 - [移动端大坑之点击穿透](https://blog.csdn.net/kao5585682/article/details/69529430 "移动端大坑之点击穿透")
 - [点击穿透原理及解决](https://blog.csdn.net/qq_17746623/article/details/55805425 "点击穿透原理及解决")
 
+## canvas.toBlob()低版本兼容ployfill
+
+```js
+// canvas.toBlob ployfill
+if (!HTMLCanvasElement.prototype.toBlob) {
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+        value: function (callback, type, quality) {
+            var dataURL = this.toDataURL(type, quality).split(',')[1];
+            setTimeout(function () {
+                var binStr = atob(dataURL);
+
+                var len = binStr.length;
+
+                var arr = new Uint8Array(len);
+
+                for (var i = 0; i < len; i++) {
+                    arr[i] = binStr.charCodeAt(i);
+                }
+
+                callback(new Blob([arr], {type: type || 'image/png'}));
+            });
+        }
+    });
+}
+```
+
 ## 上传图片格式转换(react)
 
 ```html
