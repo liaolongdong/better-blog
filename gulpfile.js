@@ -94,7 +94,7 @@ gulp.task('watch', function(){
     // 监听html文件变化
     gulp.watch('*.html');
     // 监听demo文件夹下的文件变化
-    gulp.watch('demo/**/**/*.*');
+    gulp.watch('demo/**/**/*.*', ['DemoJS', 'DemoSass']);
     gulp.watch('demo/**/*.*');
 });
 
