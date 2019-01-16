@@ -191,6 +191,7 @@ $(document).ready(function(){
         });
     };
 
+    // 函数防抖
     function debounce(fn, delay) {
         var timer;
         delay = delay || 120;
@@ -221,6 +222,8 @@ $(document).ready(function(){
         if ((hour >= 0 && hour <= 6) || hour === 23) {
             el.addClass(className);
         }
+
+        // el.addClass(className);
     }
 
     if ($('#nm-switch').val() === 'true') {

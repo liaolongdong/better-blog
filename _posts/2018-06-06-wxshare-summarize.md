@@ -111,7 +111,9 @@ wx.ready(function () {
 
 - `invalid url domain`当前页面所在域名与使用的appid没有绑定
 - `invalid signature`签名错误
-- `the permission value is offline verifying`, 具体解决方案详见[微信JS-SDK常见错误及解决方法](https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115)  
+- `the permission value is offline verifying`, 具体解决方案详见[微信JS-SDK常见错误及解决方法](https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115)
+
+![常见错误及解决方法](/assets/img/postCover/wxshare_normal_error.png)
 
 > 绑定父级域名，是否其子域名也是可用的（是的，合法的子域名在绑定父域名之后是完全支持的）  
 > 注意：在测试环境测试时必须关注公众号绑定的接口测试号，微信没有关注测试号不能正常分享
