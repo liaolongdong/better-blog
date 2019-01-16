@@ -1,18 +1,5 @@
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="baidu-site-verification" content="KepNDjv9qh" />
-    <meta name="google-site-verification" content="JMobx2kEvbdWmhZ3vzFBbSrVNz4if5UGwRbprlQDmEM" />
-    <title>{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
-    <meta name="author"  content="{{ site.author }}">
-    <meta name="description" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
-    <meta name="keywords"  content="{% if page.tags.size > 0 %}{% for tag in page.tags  %}{{ tag }}{% if forloop.last == false %}, {% endif %}{% endfor %}{% endif %}">
-    <!-- Open Graph -->
-    <meta property="og:title" content="{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page.url | prepend: site.url }}">
-    <meta property="og:description" content="{{ site.description }}">
-    <meta property="og:site_name" content="{{ site.title }}">
+    {% include seoMeta.html %}
     <link rel="stylesheet" href="//cdn.staticfile.org/normalize/6.0.0/normalize.min.css">
     <link rel="stylesheet" href="//at.alicdn.com/t/font_roc50gemkxpw4s4i.css">
     <link rel="stylesheet" href="/assets/css/github-markdown.css">
@@ -21,8 +8,8 @@
     <link rel="stylesheet" href="/assets/css/app.min.css">
     <link rel="stylesheet" href="https://cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <script src="https://cdn.staticfile.org/jquery/3.2.1/jquery.min.js"></script>
-    <script src="/assets/js/baiduStatistics.js"></script>
-    <script src="/assets/js/baiduPush.js"></script>
+    {% include seoScript.html %}
+    
 	{% if site.mathjax %}
 	{% include mathjax.html %}
 	{% endif %}

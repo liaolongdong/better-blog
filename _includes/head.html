@@ -1,25 +1,11 @@
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="baidu-site-verification" content="KepNDjv9qh" />
-    <meta name="google-site-verification" content="JMobx2kEvbdWmhZ3vzFBbSrVNz4if5UGwRbprlQDmEM" />
-    <title>{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
-    <meta name="author"  content="{{ site.author }}">
-    <meta name="description" content="{{ site.description }}">
-    <meta name="keywords"  content="{{ site.keyword }}">
-    <!-- Open Graph -->
-    <meta property="og:title" content="{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page.url | prepend: site.url }}">
-    <meta property="og:description" content="{{ site.description }}">
-    <meta property="og:site_name" content="{{ site.title }}">
+    {% include seoMeta.html %}
     <link rel="stylesheet" href="https://cdn.staticfile.org/normalize/6.0.0/normalize.min.css">
     <link rel="stylesheet" href="https://at.alicdn.com/t/font_271755_rdxzzo2kqwk.css">
     <link rel="stylesheet" href="/assets/css/github-markdown.css">
     <link rel="stylesheet" href="/assets/css/prism.css">
     <link rel="stylesheet" href="/assets/css/share.min.css">
     <link rel="stylesheet" href="/assets/css/app.min.css">
+    {% include seoScript.html %}
     <script src="https://cdn.staticfile.org/jquery/3.2.1/jquery.min.js"></script>
-    <script src="/assets/js/baiduStatistics.js"></script>
-    <script src="/assets/js/baiduPush.js"></script>
 </head>
