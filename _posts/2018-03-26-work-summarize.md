@@ -201,6 +201,16 @@ handleUploaderImgChangeTest = () => {
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
 
+### ios9使用flex布局图片设置内边距导致图片变形
+
+> 如果你不希望某个容器在任何时候都不被压缩，那设置flex-shrink:0；
+
+解决方案：使用flex布局属性`flex-shrink`属性，把该值设置为0，如图：
+
+![ios9使用flex布局图片设置内边距导致图片变形](/assets/img/postCover/work_flex_shrink.png)
+
+[深入理解css3中的flex-grow、flex-shrink、flex-basis](https://www.cnblogs.com/ghfjj/p/6529733.html)
+
 ### new Date('yyyy-mm-dd hh:mm:ss').getTime()在苹果手机、Safari浏览器不兼容问题
 
 > 问题：在安卓手机chrome浏览器可以使用`2018-10-10 10:10:10`这样的日期格式计算毫秒数，而在苹果手机Safari浏览器中不能这样使用日期字符串格式，只能使用`2018/10/10 10:10:10`这种格式，但是可以使用`2018-10-10`这种不带时间格式的字符串
