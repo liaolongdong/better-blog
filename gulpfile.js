@@ -98,4 +98,7 @@ gulp.task('watch', function(){
     gulp.watch('demo/**/*.*');
 });
 
+// 打包
+gulp.task('build', ['buildJS', 'buildCss', 'DemoJS', 'DemoSass']);
+
 gulp.task('default', ['buildJS', 'buildCss', 'DemoJS', 'DemoSass', 'watch']);

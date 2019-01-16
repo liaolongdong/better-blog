@@ -10,14 +10,14 @@
 yarn
 ```
 
-打包构建
-
-```git
-yarn start
-```
-
 本地启动
 
 ```git
-jekyll server
+yarn server
+```
+
+打包线上
+
+```git
+yarn build
 ```
