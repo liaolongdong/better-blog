@@ -3,7 +3,7 @@ layout: post
 title: 使用react+next实现服务端渲染
 subtitle: 使用react+next实现服务端渲染
 date: 2018-11-25
-categories: react next ssr 服务端渲染
+categories: 技术 服务端渲染
 cover: '/assets/img/postCover/next_cover.png'
 tags: react next ssr 服务端渲染
 ---

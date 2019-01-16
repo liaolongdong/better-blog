@@ -3,7 +3,7 @@ layout: post
 title: echarts折线图、饼状图、圆环图使用总结
 subtitle: echarts折线图、饼状图、圆环图使用总结
 date: 2019-01-01
-categories: echarts
+categories: 技术 echarts
 cover: '/assets/img/postCover/echarts_cover.png'
 tags: echarts
 ---

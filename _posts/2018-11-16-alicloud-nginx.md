@@ -3,7 +3,7 @@ layout: post
 title: 阿里云服务器部署nginx
 subtitle: 阿里云服务器部署nginx
 date: 2018-11-16
-categories: 阿里云服务器部署 云服务器ECS 域名解析 nginx
+categories: 技术 服务器 nginx
 cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1544596712507&di=137b7928b3d4ca1c310c84c0a3174272&imgtype=0&src=http%3A%2F%2Fs3.51cto.com%2Foss%2F201801%2F12%2Fc04e0d7bf8ef89a2d4e7a2fa554ff137.jpg-wh_651x-s_2430839636.jpg'
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nginx
 ---

@@ -3,7 +3,7 @@ layout: post
 title: 阿里云服务器上部署node+mongodb
 subtitle: 阿里云服务器上部署node+mongodb
 date: 2018-11-01
-categories: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
+categories: 技术 云服务器
 cover: 'https://img.alicdn.com/tfs/TB14GrElwHqK1RjSZJnXXbNLpXa-3840-1280.jpg'
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
 ---
