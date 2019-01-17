@@ -136,4 +136,6 @@ RSS: false
 permalink: /:year/:month/:day/:title.html
 
 # Plugins
+# jekyll-paginate jekyll分页插件
+# jekyll-sitemap jekyll生成sitemap文件插件
 plugins: [jekyll-paginate, jekyll-sitemap]

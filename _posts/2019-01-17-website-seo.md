@@ -1,7 +1,7 @@
 ---
 layout: post
-title: 网站seo优化
-subtitle: 网站seo优化
+title: 网站SEO搜索引擎优化
+subtitle: 网站SEO搜索引擎优化
 date: 2019-01-17
 categories: 技术 seo
 cover: /assets/img/postCover/seo_cover.png
@@ -122,6 +122,8 @@ tags: 网站seo seo优化 搜索引擎网站收录
 
 检测sitemap文件是否生效，如图所示：
 ![检测sitemap文件是否生效](/assets/img/postCover/seo_sitemap_status.png)
+
+**注意：链接提交和sitemap文件提交，不会立即生效，要等待一段时间**
 
 ## 检测某搜索引擎是否收录站点
 
