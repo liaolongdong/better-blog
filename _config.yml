@@ -57,7 +57,7 @@ aboutMe:
   ]
 
 # back to top
-backToTop: true
+bottomFixedBtn: true
 
 # Footer
 footer:

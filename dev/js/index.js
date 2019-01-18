@@ -226,9 +226,9 @@ $(document).ready(function(){
         // el.addClass(className);
     }
 
-    if ($('#nm-switch').val() === 'true') {
-        nightMode();
-    }
+    // if ($('#nm-switch').val() === 'true') {
+    //     nightMode();
+    // }
 
     /**
      * Copy and copyright

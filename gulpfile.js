@@ -1,6 +1,7 @@
 var gulp = require('gulp'),
     fs = require('fs'), // 文件系统
     path = require('path'), // 路径处理
+    gutil = require('gulp-util'), // 
     uglify = require('gulp-uglify'), // 压缩js文件
     autoprefixer = require('gulp-autoprefixer'), // 样式兼容前缀自动补全
     staticHash = require('gulp-static-hash'), // 静态文件加hash字符串
@@ -16,17 +17,23 @@ var gulp = require('gulp'),
 gulp.task('buildJS', function() {
     gulp.src(['dev/js/*.js'])
         .pipe(staticHash({asset: 'static'}))
-        // .pipe(babel({
-        //     presets: ['env']
-        // }))
-        .pipe(uglify())
+        .pipe(babel({
+            presets: ['env']
+        }))
+        .pipe(uglify({
+            mangle: true,
+            compress: true
+        }))
+        .on('error', function (err) {
+            gutil.log(gutil.colors.red('[Error]'), err.toString());
+        })
         .pipe(rename({suffix: '.min'}))
         .pipe(gulp.dest('assets/js'))
 });
 
 // 编译打包sass
 gulp.task('buildCss', function() {
-    gulp.src(['dev/sass/app.scss', 'dev/sass/about.scss'])
+    gulp.src(['dev/sass/*.scss'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(sass())
         .pipe(autoprefixer({

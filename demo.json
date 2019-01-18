@@ -1,20 +1,20 @@
 {
-    "demoLists": [
-      {
-        "title": "echarts折线图、饼状图、圆环图使用总结",
-        "demoUrl": "demo/echartsDemo/index.html"
-      },
-      {
-        "title": "使用原生JS实现微博、QQ好友、QQ空间分享",
-        "demoUrl": "demo/shareDemo/myshare.html"
-      },
-      {
-        "title": "使用第三方库share.js实现微博、QQ好友、QQ空间、微信分享",
-        "demoUrl": "demo/shareDemo/index.html"
-      },
-      {
-        "title": "模拟打印文字效果",
-        "demoUrl": "demo/typeWriter/index.html"
-      }
-    ]
-  }
+  "demoLists": [
+    {
+      "title": "echarts折线图、饼状图、圆环图使用总结",
+      "demoUrl": "demo/echartsDemo/index.html"
+    },
+    {
+      "title": "使用原生JS实现微博、QQ好友、QQ空间分享",
+      "demoUrl": "demo/shareDemo/myshare.html"
+    },
+    {
+      "title": "使用第三方库share.js实现微博、QQ好友、QQ空间、微信分享",
+      "demoUrl": "demo/shareDemo/index.html"
+    },
+    {
+      "title": "模拟打印文字效果",
+      "demoUrl": "demo/typeWriter/index.html"
+    }
+  ]
+}
