@@ -38,6 +38,9 @@ $(document).ready(function () {
             // 切换about页面白天模式
             $('.night-container').hide();
             $('body').css('background-image', 'url(/assets/img/about_bg.png)');
+            $('body').css('background-repeat', 'no-repeat');
+            $('body').css('background-size', 'cover');
+            $('body').css('background-attachment', 'fixed');
             $('.daytime-container').show();
         }
     }
