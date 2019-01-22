@@ -1,8 +1,9 @@
 var gulp = require('gulp'),
     fs = require('fs'), // 文件系统
     path = require('path'), // 路径处理
-    gutil = require('gulp-util'), // 
+    plumber = require('gulp-plumber'), // 捕获错误
     uglify = require('gulp-uglify'), // 压缩js文件
+    gulpIf = require('gulp-if'), // 条件判断
     autoprefixer = require('gulp-autoprefixer'), // 样式兼容前缀自动补全
     staticHash = require('gulp-static-hash'), // 静态文件加hash字符串
     sass = require('gulp-sass'), // 编译sass
@@ -12,21 +13,37 @@ var gulp = require('gulp'),
     babel = require('gulp-babel'), // 转义es6语法的gulp插件
     rename = require('gulp-rename'); // 文件重命名
 
+/**
+ * @param { dir：string，文件夹名称}
+ * @return {dir文件夹下的文件夹名称数组}  
+ */
+function getFolders (dir) {
+    return fs.readdirSync(dir)
+        .filter(function (file) {
+            return fs.statSync(path.join(dir, file)).isDirectory();
+        })
+}
+console.log('demoDir', getFolders('demo'));
+
+// 是否为.min.js后缀文件
+function notMinJS (file) {
+    return !file.path.endsWith('.min.js');
+};
+// 是否为.min.css后缀文件
+function notMinCss (file) {
+    return !file.path.endsWith('.min.css');
+};
+
 // dev文件夹下gulp打包
 // 压缩打包JS
 gulp.task('buildJS', function() {
     gulp.src(['dev/js/*.js'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(babel({
-            presets: ['env']
+            presets: ['@babel/env']
         }))
-        .pipe(uglify({
-            mangle: true,
-            compress: true
-        }))
-        .on('error', function (err) {
-            gutil.log(gutil.colors.red('[Error]'), err.toString());
-        })
+        .pipe(uglify())
+        .pipe(plumber())
         .pipe(rename({suffix: '.min'}))
         .pipe(gulp.dest('assets/js'))
 });
@@ -46,23 +63,47 @@ gulp.task('buildCss', function() {
         .pipe(gulp.dest('assets/css'))
 });
 
-/**
- * @param { dir：string，文件夹名称}
- * @return {dir文件夹下的文件夹名称数组}  
- */
-function getFolders (dir) {
-    return fs.readdirSync(dir)
-        .filter(function (file) {
-            return fs.statSync(path.join(dir, file)).isDirectory();
-        })
-}
-console.log('demoDir', getFolders('demo'));
+// 压缩打包libJs
+gulp.task('buildLibJS', function() {
+    gulp.src(['dev/libJs/*.js'])
+        .pipe(staticHash({asset: 'static'}))
+        .pipe(gulpIf(notMinJS, babel({
+            presets: ['@babel/env']
+        })))
+        .pipe(gulpIf(notMinJS, uglify()))
+        .pipe(gulpIf(notMinJS, plumber()))
+        .pipe(gulpIf(notMinJS, rename({suffix: '.min'})))
+        .pipe(gulp.dest('assets/js'))
+});
+
+// 压缩打包libCss
+gulp.task('buildLibCss', function() {
+    gulp.src(['dev/libCss/*.*'])
+        .pipe(staticHash({asset: 'static'}))
+        .pipe(gulpIf(notMinCss, sass()))
+        .pipe(gulpIf(notMinCss, autoprefixer({
+            browsers: ['iOS >= 7', 'Android >= 4.1'],
+            cascade: true,
+            remove:true
+        })))
+        .pipe(gulpIf(notMinCss, cleanCSS()))
+        .pipe(gulpIf(notMinCss, rename({suffix: '.min'})))
+        .pipe(gulp.dest('assets/css'))
+});
 
 // demo文件夹下gulp打包
 // demo文件夹js使用babel
 gulp.task('DemoJS', function () {
     getFolders('demo').map(function (folder) {
-        gulp.src(path.join('demo', folder, 'js/*.*'))
+        // 排除min.js文件
+        gulp.src([path.join('demo', folder, 'js/*.*'), '!' + path.join('demo', folder, 'js/*.min.js')])
+            .pipe(staticHash({asset: 'static'}))
+            .pipe(babel({
+                presets: ['@babel/env']
+            }))
+            // .pipe(uglify()) // demo能让用户更好的看源码，所以不压缩
+            .pipe(plumber())
+            .pipe(rename({suffix: '.min'}))
             .pipe(gulp.dest(path.join('demo', folder, 'js')));
     });
 });
@@ -82,7 +123,8 @@ gulp.task('DemoSass', function () {
         })
     ]
     getFolders('demo').map(function (folder) {
-        gulp.src(path.join('demo', folder, 'css/*.*'))
+        // 排除min.js文件
+        gulp.src([path.join('demo', folder, 'css/*.*'), '!' + path.join('demo', folder, 'css/*.min.css')])
             .pipe(sass())
             .pipe(autoprefixer({
                 browsers: ['iOS >= 7', 'Android >= 4.1'],
@@ -90,14 +132,18 @@ gulp.task('DemoSass', function () {
                 remove:true
             }))
             .pipe(postcss(processors))
+            .pipe(cleanCSS())
+            .pipe(rename({suffix: '.min'}))
             .pipe(gulp.dest(path.join('demo', folder, 'css')));
     });
 });
 
 // 监听文件变化
 gulp.task('watch', function(){
-    gulp.watch('dev/sass/*.scss', ['buildCss']);
+    gulp.watch(['dev/sass/common/*.scss', 'dev/sass/*.scss'], ['buildCss']);
     gulp.watch('dev/js/*.js', ['buildJS']);
+    gulp.watch('dev/libJs/*.js', ['buildLibJS']);
+    gulp.watch('dev/libCss/*.*', ['buildLibCss']);
     // 监听html文件变化
     gulp.watch('*.html');
     // 监听demo文件夹下的文件变化
@@ -106,6 +152,6 @@ gulp.task('watch', function(){
 });
 
 // 打包
-gulp.task('build', ['buildJS', 'buildCss', 'DemoJS', 'DemoSass']);
+gulp.task('build', ['buildJS', 'buildCss', 'buildLibJS', 'buildLibCss', 'DemoJS', 'DemoSass']);
 
-gulp.task('default', ['buildJS', 'buildCss', 'DemoJS', 'DemoSass', 'watch']);
+gulp.task('default', ['buildJS', 'buildCss', 'buildLibJS', 'buildLibCss', 'DemoJS', 'DemoSass', 'watch']);

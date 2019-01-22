@@ -51,10 +51,45 @@
     }
 }
 
+// 从左往右渐入
+@keyframes leftToRightFade {
+    0% {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: none;
+    }
+}
+
 .rtlf-delay0 {
-    animation: rightToLeftFade 500ms ease 0s both;
+    animation: rightToLeftFade 500ms ease 0ms both;
 }
 
 .rtlf-delay500 {
     animation: rightToLeftFade 500ms ease 500ms both;
+}
+
+.ltrf-dalay0 {
+    animation: leftToRightFade 500ms ease 0ms both;
+}
+
+.ltrf-dalay500 {
+    animation: leftToRightFade 500ms ease 0ms both;
+}
+
+// 从右往左渐出
+@keyframes rightToLeftLetter {
+    0% {
+        transform: translateX(10px);
+    }
+
+    100% {
+        transform: none;
+    }
+}
+
+.rfll-delay300 {
+    animation:  rightToLeftLetter ease-in-out 300ms both;
 }

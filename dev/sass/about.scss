@@ -516,3 +516,12 @@ body {
         }
     }
 }
+
+// 夜间模式样式
+.night-mode {
+    .p-about {
+        .author-introduction {
+            text-shadow: none;
+        }
+    }
+}

@@ -1,0 +1,560 @@
+(function () {
+    // 折线图特殊节日配置
+    let graphicOption = [];
+    let pcGraphicOption = [ // graphic 是原生图形元素组件
+        {
+            type: 'group', // 用 setOption 首次设定图形元素时必须指定
+            bounding: 'all', // 决定此图形元素在定位时，对自身的包围盒计算方式。
+            top: 6,
+            // PC样式
+            children: [
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 158,
+                        y1: 24,
+                        x2: 158,
+                        y2: 356
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 142,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '家装节',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 318,
+                        y1: 24,
+                        x2: 318,
+                        y2: 356
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 305,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '6.18',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 480,
+                        y1: 24,
+                        x2: 480,
+                        y2: 356
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 466,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '家装节',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 587,
+                        y1: 24,
+                        x2: 587,
+                        y2: 356
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 577,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '11.11',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 640,
+                        y1: 24,
+                        x2: 640,
+                        y2: 356
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 630,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '12.12',
+                        fontSize: 12
+                    }
+                }
+            ]
+        },
+    ];
+    let h5GraphicOption = [ // graphic 是原生图形元素组件
+        {
+            type: 'group', // 用 setOption 首次设定图形元素时必须指定
+            bounding: 'all', // 决定此图形元素在定位时，对自身的包围盒计算方式。
+            top: 6,
+            // 移动端配置
+            children: [
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 97,
+                        y1: 24,
+                        x2: 97,
+                        y2: 156
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 84,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '家装节',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 166,
+                        y1: 24,
+                        x2: 166,
+                        y2: 156
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 156,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '6.18',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 236,
+                        y1: 24,
+                        x2: 236,
+                        y2: 156
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 220,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '家装节',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 282,
+                        y1: 24,
+                        x2: 282,
+                        y2: 156
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 272,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '11.11',
+                        fontSize: 12
+                    }
+                },
+                {
+                    type: 'line', // 类型：线
+                    shape: {// 线段绘制坐标
+                        x1: 306,
+                        y1: 24,
+                        x2: 306,
+                        y2: 156
+                    },
+                    style: {
+                        fill: '#8EDEEE',
+                        stroke: '#8EDEEE',
+                        lineWidth: 1
+                    }
+                },
+                {
+                    type: 'text',
+                    left: 296,
+                    style: {
+                        fill: '#60C1D4',
+                        text: '12.12',
+                        fontSize: 12
+                    }
+                }
+            ]
+        },
+    ];
+
+    // 判断手机可用屏幕宽度
+    let width = window.screen.availWidth;
+    console.log('width', width);
+
+    // 判断是移动端还是PC端
+    const device = utils.whatDevice();
+    if (device === 'wx' || device === 'ios' || device === 'android') {
+        graphicOption = h5GraphicOption;
+        graphicOption = [];
+
+        // 屏幕宽度，默认375px
+        if (width === 360) {
+            utils.$('.special-festival').classList.add('festival-width-360');
+        } else if (width === 375) {
+            utils.$('.special-festival').classList.add('festival-width-375');
+        } else if (width === 411 || width === 414) {
+            utils.$('.special-festival').classList.add('festival-width-414');
+        } else {
+            utils.$('.special-festival').classList.add('hide');
+        }
+
+        // ipad、ipad pro 使用PC端的配置
+        if (width >= 768) {
+            // utils.$('.special-festival').classList.add('hide');
+            graphicOption = pcGraphicOption;
+        }
+    } else {
+        utils.$('.special-festival').classList.add('hide');
+        graphicOption = pcGraphicOption;
+    }
+   
+    // 年度账单用户端
+    const yearReportUser = {
+        // 初始化各个方法
+        init: function () {
+            // 初始化折线图
+            this.lineChartInit();
+            // 初始化饼状图
+            this.pieChartInit();
+            // 初始化环状图
+            this.ringlikeChartInit(2853, 262, 9.18);
+        },
+        // 初始化折线图
+        lineChartInit: function () {
+            // 初始化echarts实例
+            const lineChart = echarts.init(document.getElementById('lineChart'));
+            // 图表配置参数
+            const option = {
+                tooltip: { // 点击悬浮提示框组件
+                    trigger: 'axis', // 触发类型
+                    // formatter: '{a} <br/>{b} : {c}', // 提示框内容格式
+                    formatter: function (params) {
+                        params = (params && params[0]) || {};
+                        if (width < 768) {
+                            return params.seriesName + '<br/>' + params.name + '月：' + params.value;
+                        } else {
+                            return params.seriesName + '<br/>' + params.name + '：' + params.value;
+                        }
+                    },
+                    axisPointer: { // 坐标轴指示器配置项
+                        lineStyle: { // 线的样式
+                            color: '#00B5D9'
+                        }
+                    }
+                },
+                graphic: graphicOption,
+                grid: { // 直角坐标系内绘图网格，单个 grid 内最多可以放置上下两个 X 轴，左右两个 Y 轴。
+                    show: true, // 是否显示直角坐标系网格
+                    borderWidth: 0, // 网格的边框线宽
+                    borderColor: '#fff', // 网格的边框颜色
+                    backgroundColor: '#CCF0F7', // 网格背景色
+                    // 也可以使用top,left,right,bottom
+                    x: 50, // 图表canvas距左上角x轴的距离
+                    y: 30, // 图表canvas距左上角y轴的距离
+                    x2: 30, // 图表canvas距右下角x轴的距离
+                    y2: 40, // 图表canvas距右下角y轴的距离
+                },
+                xAxis: { // 直角坐标系 grid 中的 x 轴
+                    type: 'category',
+                    boundaryGap: false, // 坐标轴两边留白策略，类目轴和非类目轴的设置和表现不一样。
+                    data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                    // data: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+                    // name: '(月)', // 坐标轴名称。
+                    // nameGap: 10, // 坐标轴名称与轴线之间的距离
+                    // nameTextStyle: { // 坐标轴名称的文字样式
+                    //     // verticalAlign: 'bottom', // 文字垂直对齐方式，默认自动
+                    //     padding: [26, 0, 0, 0],
+                    // },
+                    axisLabel: { // 坐标轴刻度标签的相关设置。
+                        // interval: 0, // 坐标轴刻度标签的显示间隔，在类目轴中有效。可以设置成 0 强制显示所有标签。
+                        fontSize: device ? 12 : 16,
+                    },
+                    axisLine: { // x轴线
+                        lineStyle: {
+                            color: '#00B5D9', // x轴坐标轴线线的颜色
+                            opacity: 0
+                        }
+                    },
+                    axisTick: { // 坐标轴刻度相关设置
+                        show: false, // 是否显示坐标轴刻度
+                    },
+                    splitLine: { // 坐标轴在 grid 区域中的分隔线
+                        show: true, // 是否显示分隔线。默认数值轴显示，类目轴不显示。
+                        lineStyle: { // 网格线样式
+                            color: 'transparent', // 网格线颜色
+                        }
+                    }
+                },
+                yAxis: { // 直角坐标系 grid 中的 y 轴
+                    type: 'value', // 坐标轴类型
+                    boundaryGap: false,
+                    axisLine: { // 轴线
+                        lineStyle: {
+                            color: '#60C1D4', // 轴坐标轴线线的颜色
+                            opacity: 0
+                        }
+                    },
+                    axisTick: { // 坐标轴刻度相关设置
+                        show: false, // 是否显示坐标轴刻度
+                    },
+                    axisLabel: { // 坐标轴刻度标签的相关设置。
+                        fontSize: device ? 12 : 14,
+                    },
+                    splitLine: { // 坐标轴在 grid 区域中的分隔线
+                        show: true, // 是否显示分隔线。默认数值轴显示，类目轴不显示。
+                        lineStyle: { // 网格线样式
+                            color: '#fff', // 网格线颜色
+                            width: 1, // 网格线条宽度
+                        }
+                    }
+                },
+                series: [{ // 系列列表。每个系列通过 type 决定自己的图表类型
+                    name: '下单统计', // 系列名称，用于tooltip的显示，legend 的图例筛选，在 setOption 更新数据和配置项时用于指定对应的系列
+                    data: [666, 777, 333, 555, 1000, 555, 777, 600, 1122, 678, 1200, 1000],
+                    type: 'line', // 折线图
+                    silent: Boolean(device), // 图形是否不响应和触发鼠标事件，默认为 false，即响应和触发鼠标事件。
+                    symbol: 'circle', // 标记的图形（折线图交叉点）
+                    symbolSize: device ? 3 : 6, // 标记大小
+                    // clipOverflow: false, // 是否对超出部分裁剪，默认裁剪
+                    itemStyle: { // 折线拐点标志样式
+                        color: '#00B5D9', // 图形的颜色
+                    },
+                    lineStyle: { // 线条样式
+                        width: device ? 1 : 2, // 线的宽度
+                        color: '#0AB8DA', // 线的颜色
+                    },
+                    areaStyle: { // 填充的颜色
+                        // 兼容safari浏览器填充颜色设置失效
+                        normal: {
+                            color: '#ABE7F2' // 改变区域颜色
+                        },
+                        // 线性渐变，前四个参数分别是 x0, y0, x2, y2, 范围从 0 - 1，相当于在图形包围盒中的百分比，如果 globalCoord 为 `true`，则该四个值是绝对的像素位置
+                        color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [{
+                                offset: 0, color: '#C5EEF6' // 0% 处的颜色
+                            }, {
+                                offset: 1, color: '#ABE7F2' // 100% 处的颜色
+                            }],
+                            globalCoord: false // 缺省为 false
+                        }
+                    }
+                }]
+            };
+
+            // 如果设备屏幕小于768px，对折线图x轴做特殊处理
+            if (width < 768) {
+                option.xAxis.data = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+                option.xAxis.name = '(月)';
+                option.xAxis.nameGap = 10;
+                option.xAxis.nameTextStyle = {
+                    padding: [26, 0, 0, 0],
+                };
+            }
+
+            // 使用指定的配置项和数据显示图表。
+            lineChart.setOption(option);
+        },
+        // 初始化饼状图
+        pieChartInit: function (data) {
+            // 初始化echarts实例
+            const pieChart = echarts.init(document.getElementById('pieChart'));
+
+            // 图表配置参数
+            const option = {
+                color: ['#19BCDD', '#33C4E1', '#4CCBE4', '#66D3E8', '#7FDAEC', '#7FDAEC', '#B2E9F4'], // 调色盘颜色列表。如果系列没有设置颜色，则会依次循环从该列表中取颜色作为系列颜色。
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b} : {c} ({d}%)'
+                },
+                series: [
+                    {
+                        name: '服务类型占比',
+                        type: 'pie',
+                        radius: '50%',
+                        center: ['50%', '50%'],
+                        silent: true, // 图形是否不响应和触发鼠标事件，默认为 false，即响应和触发鼠标事件。
+                        minAngle: 30, // 最小的扇区角度（0 ~ 360），用于防止某个值过小导致扇区太小影响交互。
+                        avoidLabelOverlap: true, // 是否启用防止标签重叠策略
+                        label: { // 饼图图形上的文本标签，可用于说明图形的一些数据信息，比如值，名称等
+                            show: true, // 是否显示文本标签
+                            // formatter: '{b} {d}%', // 文本标签格式
+                            formatter: function (params) {
+                                // 类目名长度大于5
+                                if (params.name.length >= 5) {
+                                    return params.name + '\n' + params.value + '%';
+                                } else {
+                                    return params.name + params.value + '%';
+                                }
+                            }, // 文本标签格式
+                            color: '#333', // 文本标签字体颜色
+                            align: 'left', // 文字水平对齐方式，默认自动
+                            fontSize: device ? 12 : 22,
+                        },
+                        labelLine: { // 标签文本引导线样式
+                            show: true,
+                            length: device ? 8 : 10, // 视觉引导线第一段的长度
+                            length2: device ? 8 : 10, // 视觉引导线第二段的长度
+                            // lineStyle: {
+                            //     width: 2
+                            // }
+                        },
+                        data: [
+                            {name: '保养', value: '1.19'},
+                            {name: '安装', value: '44.48'},
+                            {name: '维修', value: '2.24'},
+                            {name: '返货', value: '1.92'},
+                            {name: '送货到家', value: '14.24'},
+                            {name: '送货到家并安装', value: '24.99'},
+                            {name: '送货到楼下', value: '10.95'},
+                        ],
+                        itemStyle: { // 图形样式
+                            emphasis: { // 高亮的扇区和标签样式
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        }
+                    }
+                ]
+            };
+
+            // 使用指定的配置项和数据显示图表。
+            pieChart.setOption(option);
+        },
+        // 初始化环状图
+        ringlikeChartInit: function (platformCountyCnt, userCountyCnt, userCountyRate) {
+            // 初始化echarts实例
+            const ringlikeChart = echarts.init(document.getElementById('ringlikeChart'));
+
+            // 图表配置参数
+            const option = {
+                color: ['#00B5D9', '#09849C'],
+                // tooltip: {
+                //     trigger: 'item',
+                //     formatter: '{a} <br/>{b}: {c} ({d}%)'
+                // },
+                graphic: { // graphic 是原生图形元素组件
+                    type: 'text', // 一个图形元素，类型是 text
+                    top: 'center',
+                    left: 'center',
+                    style: {
+                        text: '区域占比\n\n' + Number(userCountyRate).toFixed(2) + '%',
+                        textAlign: 'center',
+                        fontSize: device ? 16 : 22,
+                    }
+                },
+                series: [
+                    {
+                        name: '区域占比',
+                        type: 'pie',
+                        radius: ['50%', '70%'], // 饼图的半径。
+                        avoidLabelOverlap: true, // 是否启用防止标签重叠策略，默认开启，在标签拥挤重叠的情况下会挪动各个标签的位置，防止标签间的重叠。
+                        silent: true, // 图形是否不响应和触发鼠标事件，默认为 false，即响应和触发鼠标事件。
+                        label: {
+                            show: true,
+                            color: '#333333',
+                            fontSize: device ? 12 : 22,
+                            formatter: '{b}\n{c}个',
+                        },
+                        labelLine: {
+                            show: true,
+                            length: device ? 8 : 10,
+                            length2: device ? 8 : 10,
+                            // lineStyle: {
+                            //     width: 2
+                            // }
+                        },
+                        data: [
+                            {value: platformCountyCnt, name: '平台服务区县'},
+                            {value: userCountyCnt, name: '您的客户覆盖区县'}
+                        ]
+                    }
+                ]
+            };
+
+            // 使用指定的配置项和数据显示图表。
+            ringlikeChart.setOption(option);
+        }
+    };
+    yearReportUser.init();
+})();

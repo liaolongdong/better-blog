@@ -10,6 +10,11 @@
     bottom: 30px;
     z-index: 100;
 
+    * {
+        // 使用content-box盒子模式
+        box-sizing: content-box;
+    }
+
     .back-to-top,
     .switch-daytime-mode,
     .add-me-wechat,
@@ -139,5 +144,12 @@
                 border-color: transparent transparent transparent #FFFFFF;
             }
         }
+    }
+}
+
+// 夜间模式
+.night-mode {
+    .bottom-fixed-btn {
+        opacity: .7;
     }
 }

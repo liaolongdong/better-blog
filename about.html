@@ -11,7 +11,7 @@ title: About Me
         <p>技术栈React、Vue、微信公众号、小程序、node和mongodb</p>
     </section>
     <!-- PC -->
-    <div class="pc-container">
+    <div class="pc-container daytime-container">
         <section class="pc-timeline">
             <div class="content">
                 <div class="events_list">
@@ -50,7 +50,7 @@ title: About Me
         </section>
     </div>
     <!-- mobile -->
-    <div class="mobile-container">
+    <div class="mobile-container night-container">
         <section class="timeline">
             <div class="wrapper" id="timeline">
                 {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
@@ -71,6 +71,6 @@ title: About Me
 </div>
 <script src="assets/js/noframework.waypoints.min.js"></script>
 <script src="assets/js/canvas-nest.min.js"></script>
-<script src="assets/js/typeWriter.js"></script>
+<script src="assets/js/typeWriter.min.js"></script>
 <script src="assets/js/about.min.js"></script>
 {% include footer.html %}

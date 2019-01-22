@@ -279,14 +279,13 @@ $(document).ready(function(){
      */
     $.getJSON('../../demo.json').done(function(data) {
         var html = '';
+        var node = '';
         var demoLists = data.demoLists;
         for (var i = 0; i < demoLists.length; i++) {
-            html += '<li><span class="tag-name" id="'
-                + demoLists[i].title + '">'
-                + demoLists[i].title + '</span><a class="tag-post" target="_blank" href="'
-                + demoLists[i].demoUrl + '" title="'
-                + demoLists[i].title + '">' 
-                + demoLists[i].title + '</a></li>'
+            html += '<li><a class="tag-post" target="_blank" href="'
+            + demoLists[i].demoUrl + '" title="'
+            + demoLists[i].title + '">' 
+            + demoLists[i].title + '</a></li>';
         }
         $('.demo-list').html(html);
     });

@@ -23,6 +23,25 @@ $(document).ready(function () {
         }, 300);
     });
 
+    // about页面白昼切换 默认day night夜间模式
+    function aboutMode (mode) {
+        // 判断是否为about页面
+        if (window.location.pathname !== '/about.html') {
+            return;
+        }
+        if (mode === 'night') {
+            // 切换about页面到夜间模式
+            $('body').css('background', '#282c33');
+            $('.daytime-container').hide();
+            $('.night-container').show();
+        } else {
+            // 切换about页面白天模式
+            $('.night-container').hide();
+            $('body').css('background-image', 'url(/assets/img/about_bg.png)');
+            $('.daytime-container').show();
+        }
+    }
+
     // 初始化白昼模式
     function initDaytimeMode () {
         // 记录当前模式 'day'白天 'night'夜间模式
@@ -34,6 +53,7 @@ $(document).ready(function () {
             // 切换到夜间模式
             if ($('#nm-switch').val() === 'true') {
                 $('body').addClass('night-mode');
+                aboutMode('night');
             }
         }
 
@@ -52,6 +72,7 @@ $(document).ready(function () {
             // 切换到夜间模式
             if ($('#nm-switch').val() === 'true') {
                 $('body').addClass('night-mode');
+                aboutMode('night');
             }
         } else if (mode === 'night') {
             localStorage.setItem('daytimeMode', 'day');
@@ -61,6 +82,7 @@ $(document).ready(function () {
             // 切换到白天模式
             if ($('#nm-switch').val() === 'true') {
                 $('body').removeClass('night-mode');
+                aboutMode('day');
             }
         }
     });
