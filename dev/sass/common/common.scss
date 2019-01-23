@@ -129,7 +129,7 @@
     }
 
     h2 {
-        padding-top: 150px;
+        margin-top: 150px;
         line-height: 38px;
         font-size: 42px;
         font-family: 'Arial', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', sans-serif;
@@ -170,6 +170,7 @@
 
 .home-content {
     margin: 40px auto 60px;
+    min-height: 800px;
     @include clearfix;
 }
 
@@ -843,10 +844,20 @@
             }
         }
     }
+    li:nth-child(even) {
+        animation: rightToLeftFade 1000ms ease 0ms both;
+    }
+    li:nth-child(odd) {
+        animation: leftToRightFade 1000ms ease 0ms both;
+    }
+    li:first-child {
+        animation: none;
+    }
 
 }
 
 .demo-content {
+    min-height: 600px;
     margin-top: 0;
 
     li {
@@ -856,6 +867,13 @@
     }
 
     .demo-list {
+        li {
+            text-align: center;
+
+            .demo-link {
+                display: inline-block;
+            }
+        }
         li:nth-child(even) {
             animation: rightToLeftFade 1000ms ease 0ms both;
         }

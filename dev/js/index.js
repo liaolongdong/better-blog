@@ -282,7 +282,7 @@ $(document).ready(function(){
         var node = '';
         var demoLists = data.demoLists;
         for (var i = 0; i < demoLists.length; i++) {
-            html += '<li><a class="tag-post" target="_blank" href="'
+            html += '<li><a class="tag-post demo-link" target="_blank" href="'
             + demoLists[i].demoUrl + '" title="'
             + demoLists[i].title + '">' 
             + demoLists[i].title + '</a></li>';
