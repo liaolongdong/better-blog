@@ -125,7 +125,7 @@ tags: 网站seo seo优化 搜索引擎网站收录
 检测sitemap文件是否生效，如图所示：
 ![检测sitemap文件是否生效](/assets/img/postCover/seo_sitemap_status.png)
 
-**注意：链接提交和sitemap文件提交，不会立即生效，要等待一段时间**
+**注意：链接提交和sitemap文件提交，不会立即生效，要等待一段时间，一般在1小时内百度会开始处理。**
 
 ## 检测某搜索引擎是否收录站点
 
