@@ -1,16 +1,16 @@
 ---
 layout: post
-title: 如何发布npm包到私有仓库
-subtitle: 如何发布npm包到私有仓库
+title: 如何开发一个npm包并发布到npm中央仓库
+subtitle: 如何开发一个npm包并发布到npm中央仓库
 date: 2019-01-24
 categories: 技术 部署 仓库
 cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1548388440630&di=113721b90da880056b64bac0f84154a8&imgtype=0&src=http%3A%2F%2Fwww.bccn.net%2Fmedia%2Fnews%2F2017%2F01%2F16%2F1484556320_99662422.jpg
 tags: npm
 ---
 
-# 如何发布npm包到私有仓库
+# 如何开发一个npm包并发布到npm中央仓库
 
-需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm仓库或者私有仓库，来进行维护和托管代码，公用代码的使用。
+需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm仓库或者中央仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到中央仓库。
 
 ## npm包命名规则及文件夹结构
 
@@ -24,7 +24,7 @@ tags: npm
 
 5. 使用package.json文件的规格来描述本模块
 
-## 发布npm到npm公共仓库
+## 发布npm到npm中央仓库(公共仓库)
 
 ### 1、注册npm账号
 
