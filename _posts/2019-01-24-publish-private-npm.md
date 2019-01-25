@@ -4,7 +4,7 @@ title: 如何发布npm包到私有仓库
 subtitle: 如何发布npm包到私有仓库
 date: 2019-01-24
 categories: 技术 部署 仓库
-# cover: /assets/img/postCover/seo_cover.png
+cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1548388440630&di=113721b90da880056b64bac0f84154a8&imgtype=0&src=http%3A%2F%2Fwww.bccn.net%2Fmedia%2Fnews%2F2017%2F01%2F16%2F1484556320_99662422.jpg
 tags: npm
 ---
 
