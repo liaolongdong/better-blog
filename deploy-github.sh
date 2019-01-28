@@ -7,6 +7,10 @@ git.branch
 # 拉取当前分支信息
 git pull origin ${br/* /}:${br/* /}
 # 提交到代码到远程仓库
-git add -A
-git commit -m 'commit new code'
+git add .
+# git commit -m 'commit new code'
+echo "请输入commit的注释信息:"
+comment="commit new code"
+read comment
+git commit -m "$comment"
 git push origin ${br/* /}
