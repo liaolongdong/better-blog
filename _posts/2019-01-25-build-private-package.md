@@ -18,9 +18,9 @@ tags: npm 私有仓库 组件库
 - 速度比直接在npm下载包更快，也比使用淘宝镜像快，毕竟是在公司内部局域网
 - 对于发布和下载npm包可以配置权限管理
 
-在研究搭建npm私有组件仓库时，查阅了很多相关方面的资料，有使用maven包管理的私服工具nexus搭建私有仓库的，也有使用阿里的cnpm搭建私有npm仓库的，还有使用sinopia和verdaccio搭建私有仓库的，下面介绍一下它们的主要区别：
+在研究搭建npm私有组件仓库时，查阅了很多相关方面的资料，有使用maven包管理的私服工具nexus搭建私有仓库的，也有使用阿里的cnpm搭建私有仓库的，还有使用sinopia和verdaccio搭建私有仓库的，下面介绍一下它们的主要区别：
 
-- [使用maven包管理的私服工具nexus搭建私有仓库](https://blog.csdn.net/chaos_hf/article/details/78668539)，这种方式更偏向与后台使用，服务端的同学应该比较熟悉
+- [使用maven包管理的私服工具nexus搭建私有仓库](https://blog.csdn.net/chaos_hf/article/details/78668539)，这种方式功能强大，但更偏向后台使用，服务端的同学应该比较熟悉
 - [阿里的cnpm搭建npm私有仓库](https://www.jianshu.com/p/80b88104ec1f)，这个是阿里自己内部也在使用的，应该也挺好用，不过需要安装MySQL数据库，而且配置比较麻烦
 - [使用sinopia搭建npm私有仓库](https://www.jianshu.com/p/e4db4a0af96a)，这个使用比较简单，而且不用配置数据库，但是这个github项目好像三四年都没有人维护了
 
@@ -98,10 +98,6 @@ vim config.yaml
 listen: 0.0.0.0:4873
 ```
 
-> 在阿里云服务器添加安全组，开放 `4873` 端口号，如果没有添加该端口安全组则不能在浏览器正常访问`http://47.107.60.51:4873`
-
-[查看verdaccio配置文件详细文档](https://verdaccio.org/docs/en/configuration)
-
 [verdaccio默认配置](https://verdaccio.org/docs/en/configuration)，如下：
 
 ```yaml
@@ -129,6 +125,8 @@ logs:
 url: https://registry.npm.taobao.org/  //默认为npm的官网，由于国情，修改 url 让verdaccio使用 淘宝的npm镜像地址，这样下载速度更快
 ```
 
+[查看详细的verdaccio配置文件文档](https://verdaccio.org/docs/en/configuration)
+
 4、使用pm2启动verdaccio，保证该进程一直处于打开状态
 
 安装pm2
@@ -151,7 +149,9 @@ pm2 start verdaccio
 
 在浏览器中打开`http://47.107.60.51:4873`，如果能正常访问则说明搭建成功了。如图：
 
-![浏览器打开私有仓库页面](/assets/img/postCover/npm_private_web.png)
+![浏览器打开私有仓库页面](/assets/img/postCover/npm_private_web.png)  
+
+> 注意：在阿里云服务器添加安全组，开放 `4873` 端口号，如果没有添加该端口安全组则不能在浏览器正常访问`http://47.107.60.51:4873`
 
 ## 客户端（本地）发布npm到私有仓库
 
