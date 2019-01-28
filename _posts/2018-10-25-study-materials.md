@@ -76,7 +76,7 @@ tags: 前端学习资料
 
 ## react-native
 
-[react-native学习指南](https://github.com/reactnativecn/react-native-guide)
+- [react-native学习指南](https://github.com/reactnativecn/react-native-guide)
 
 ## 服务端渲染（server-side render）
 
@@ -90,7 +90,7 @@ tags: 前端学习资料
 - [iOS与网页JS交互，看我就够了](http://blog.csdn.net/LeaderQiu/article/details/51955956 " iOS与网页JS交互，看我就够了")
 
 ## 前端自动化构建工具等
-  
+
 - [阮一峰git教程](http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html "阮一峰git教程")
 - [gulp详细入门教程](http://www.cnblogs.com/fengyuqing/p/5332112.html "gulp详细入门教程")
 - [React_webpack教程](https://fakefish.github.io/react-webpack-cookbook/Introduction-to-Webpack.html "React_webpack教程")
