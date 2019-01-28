@@ -7,8 +7,8 @@
     "start": "gulp",
     "server": "gulp build && jekyll server",
     "build": "gulp build && jekyll build",
-    "deploy": "yarn build && bash deploy-github.sh",
-    "deploy:ali": "yarn build && bash deploy-ali.sh",
+    "deploy": "bash deploy-github.sh",
+    "deploy:ali": "bash deploy-ali.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
