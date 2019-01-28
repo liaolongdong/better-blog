@@ -122,7 +122,7 @@ logs:
 其中`url`可以配置成淘宝镜像地址：
 
 ```yaml
-url: https://registry.npm.taobao.org/  //默认为npm的官网，由于国情，修改 url 让verdaccio使用 淘宝的npm镜像地址，这样下载速度更快
+url: https://registry.npm.taobao.org/  //默认为npm的官网仓库地址，由于国情，修改 url 让verdaccio使用 淘宝的npm镜像地址，这样下载速度更快
 ```
 
 [查看详细的verdaccio配置文件文档](https://verdaccio.org/docs/en/configuration)
