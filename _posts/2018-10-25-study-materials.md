@@ -99,6 +99,10 @@ tags: 前端学习资料
 - [彻底解决 webpack 打包文件体积过大](http://www.jianshu.com/p/a64735eb0e2b "彻底解决 webpack 打包文件体积过大")
 - [Webpack傻瓜指南（二）开发和部署技巧](https://zhuanlan.zhihu.com/p/20397902 "Webpack傻瓜指南（二）开发和部署技巧")
 
+## git
+
+- [解决git指令更新远程仓库github时每次都要输入用户名和密码问题](https://blog.csdn.net/qq_15809599/article/details/61239292)
+
 ## 前端脚手架
 
 - [脚手架市场](http://scaffold.ant.design/#/)
