@@ -102,6 +102,7 @@ tags: 前端学习资料
 ## git
 
 - [解决git指令更新远程仓库github时每次都要输入用户名和密码问题](https://blog.csdn.net/qq_15809599/article/details/61239292)
+- [使用UNIX环境下的bash脚本自动化提交仓库到github](https://blog.csdn.net/u010853261/article/details/54675380)
 
 ## 前端脚手架
 
