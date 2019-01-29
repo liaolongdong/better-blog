@@ -150,11 +150,17 @@ gulp.task('watch', function () {
 // 使用gulp命令，默认执行'default'任务
 gulp.task('default', ['minifyJs', 'minifyCss', 'minifyImgs', 'minifyHtml', 'devServer', 'watch'], function () {
     console.log('build successful!');
-    opn('http://127.0.0.1:8000/demoOne', {app: 'chrome'});
+    // 在mac上设置打开的浏览器类型为chrome会报：UnhandledPromiseRejectionWarning: Error: Exited with code 1 错误
+    // opn('http://127.0.0.1:8000/demoOne', {app: 'chrome'});
+    opn('http://127.0.0.1:8000/demoOne');
 });
 ```
 
 ## gulp使用技巧及常见问题
+
+### 使用技巧
+
+[gulp使用技巧](https://www.gulpjs.com.cn/docs/recipes/)
 
 ### 运行gulp项目报错：Task function must be specified
 
