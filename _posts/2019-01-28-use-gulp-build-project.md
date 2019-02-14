@@ -156,6 +156,8 @@ gulp.task('default', ['minifyJs', 'minifyCss', 'minifyImgs', 'minifyHtml', 'devS
 });
 ```
 
+> 如果不知道某个gulp插件的用法，可以在[npm公共仓库搜索该gulp插件名称查看具体用法](https://www.npmjs.com/)
+
 ## gulp使用技巧及常见问题
 
 ### 使用技巧
