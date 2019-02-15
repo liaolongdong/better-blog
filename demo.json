@@ -1,6 +1,10 @@
 {
   "demoLists": [
     {
+      "title": "中国大陆身份证号码信息查询",
+      "demoUrl": "demo/idCardInfoDemo/index.html"
+    },
+    {
       "title": "echarts折线图、饼状图、圆环图使用总结",
       "demoUrl": "demo/echartsDemo/index.html"
     },

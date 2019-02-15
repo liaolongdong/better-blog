@@ -1,11 +1,15 @@
 ---
 layout: demoTemplate
-title: Demo
+title: 查询身份证信息
 ---
 
-<body>
-    <div class="">
-        <input type='text' placeholder="请输入身份证号码" />
-        <button>查询</button>
-    </div>
-</body>
+<div class="p-id-card">
+    <div>查询身份证信息</div>
+    <input id="idCard" type='text' placeholder="请输入身份证号码" minlength="15" maxlength="18"/>
+    <button id="searchBtn">查询</button>
+    <div id="result"></div>
+</div>
+
+<script src="lib/GB2260.js"></script>
+<script src="lib/IDValidator.js"></script>
+<script src="js/index.min.js"></script>
