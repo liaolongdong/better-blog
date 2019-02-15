@@ -16,6 +16,12 @@ yarn
 yarn server
 ```
 
+监听文件修改，额外启动一个终端，执行以下命令
+
+```git
+yarn start
+```
+
 打包线上
 
 ```git

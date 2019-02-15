@@ -3,7 +3,7 @@
 
 <head>
 	<meta charset="UTF-8" />
-	<title>JavaScript Typewriter - MDN Example</title>
+	<title>JS实现模拟打印文字效果</title>
 	<script>
 		/**	
 		 * @desc 模拟打印构造函数
@@ -23,9 +23,6 @@
 			}
 
 			function scroll(oSheet, nPos, bEraseAndStop) {
-				console.log('oSheet', oSheet);
-				console.log('nPos', nPos);
-				console.log('bEraseAndStop', bEraseAndStop);
 				if (!oSheet.hasOwnProperty('parts') || aMap.length < nPos) {
 					return true;
 				}
@@ -124,8 +121,6 @@
 			};
 
 			this.terminate = function () {
-				console.log('oCurrent', oCurrent);
-				console.log('sPart', sPart);
 				oCurrent.nodeValue += sPart;
 				sPart = "";
 				for (nIdx; nIdx < aSheets.length; scroll(aSheets[nIdx++], 0, false));

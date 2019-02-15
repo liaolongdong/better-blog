@@ -13,7 +13,7 @@
       "demoUrl": "demo/shareDemo/index.html"
     },
     {
-      "title": "模拟打印文字效果",
+      "title": "JS实现模拟打印文字效果",
       "demoUrl": "demo/typeWriter/index.html"
     }
   ]
