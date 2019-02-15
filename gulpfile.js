@@ -94,7 +94,6 @@ gulp.task('buildLibCss', function() {
 // demo文件夹下gulp打包
 // demo文件夹js使用babel
 gulp.task('DemoJS', function () {
-    console.log('DemoJS');
     getFolders('demo').map(function (folder) {
         // 排除min.js文件
         gulp.src([path.join('demo', folder, 'js/*.*'), '!' + path.join('demo', folder, 'js/*.min.js')])
