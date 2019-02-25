@@ -120,7 +120,7 @@ console.log(resultArr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
 ### 数字金额千分位格式化
 
-方法一：使用`Number.prototype.toLocaleString()`API
+方法一：使用`Number.prototype.toLocaleString()`
 
 ```js
 var num = 123455678;
