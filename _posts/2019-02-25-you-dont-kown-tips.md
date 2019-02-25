@@ -140,7 +140,7 @@ console.log(formatNum1); // 123,455,678.12,345
 
 ```js
 String.prototype.render = function (context) {
-    return this.replace(/{{(.*?)}}/g, (match, key) => context[key.trim()]);
+    return this.replace(/\{\{(.*?)\}\}/g, (match, key) => context[key.trim()]);
 };
 
 // 用户信息对象
@@ -171,6 +171,7 @@ console.log(num << 0); // 123
 ### 交换两个值
 
 方法一：利用一个数异或本身等于0和异或运算符合交换率
+
 ```js
 var a = 3;
 var b = 4
@@ -229,7 +230,8 @@ var copyObj = JSON.parse(JSON.stringify(obj));
 console.log(copyObj);
 ```
 
-从打印结果可以得出以下结论：  
+从打印结果可以得出以下结论：
+
 1. `undefined`、`symbol`、`function`类型直接被过滤掉了
 2. `date`类型被自动转成了字符串类型
 
