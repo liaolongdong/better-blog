@@ -277,7 +277,7 @@ $(document).ready(function(){
     /**
      * demo page get demo data
      */
-    $.getJSON('../../demo.json').done(function(data) {
+    $.getJSON('./../../demo.json').done(function(data) {
         var html = '';
         var node = '';
         var demoLists = data.demoLists;

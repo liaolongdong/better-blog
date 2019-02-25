@@ -1,3 +1,13 @@
+---
+layout: post
+title: 前端那些你不知道的小技巧
+subtitle: 前端那些你不知道的小技巧
+date: 2019-02-25
+categories: 技术 前端小技巧
+# cover: /assets/img/postCover/gulp_cover.png
+tags: JavaScript 前端小技巧 黑科技
+---
+
 # 前端那些你不知道的小技巧
 
 ## JS类
