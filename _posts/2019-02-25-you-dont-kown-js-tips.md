@@ -1,18 +1,16 @@
 ---
 layout: post
-title: 前端那些你不知道的小技巧
-subtitle: 前端那些你不知道的小技巧
+title: 前端那些你不知道的小技巧(JS篇)
+subtitle: 前端那些你不知道的小技巧(JS篇)
 date: 2019-02-25
 categories: 技术 前端小技巧
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript 前端小技巧 黑科技
 ---
 
-# 前端那些你不知道的小技巧
+# 前端那些你不知道的小技巧(JS篇)
 
-## JS类
-
-### 用一行代码实现五星评价功能
+## 用一行代码实现五星评价功能
 
 ```js
 // 评价5星
@@ -23,7 +21,7 @@ var result = '★★★★★☆☆☆☆☆'.slice(5 - rate, 10 - rate);
 console.log(result); // ★★★★★
 ```
 
-### 统计字符串中相同字符出现的次数
+## 统计字符串中相同字符出现的次数
 
 ```js
 var str = 'aaabbbccc66aabbc6';
@@ -33,7 +31,7 @@ var strInfo = str.split('').reduce((p, c) => (p[c]++ || (p[c] = 1), p), {});
 console.log(arrInfo); // {6: 3, a: 5, b: 5, c: 4}
 ```
 
-### 数组去重
+## 数组去重
 
 方法一：使用Set
 
@@ -61,7 +59,7 @@ function uniqueArr (arr) {
 console.log(uniqueArr(arr)); // [1, 2, 3, 6, "2"]
 ```
 
-### 将类数组对象转成数组
+## 将类数组对象转成数组
 
 方法一：利用每个函数都包含`call()`和`apply()`方法，配合使用数组的`slice()`方法
 
@@ -98,7 +96,7 @@ console.log(arr); // [1, 2, 3]
 
 > 注意：ES6 中的扩展运算符...也能将某些数据结构转换成数组，但是这种数据结构必须是可迭代的对象
 
-### 用一行代码将多维数组转成一维数组
+## 用一行代码将多维数组转成一维数组
 
 ```js
 var arr = [ [1, 2, 2], [3, 4, 5, 5], [6, 7, 8, 9, [11, 12, [12, 13, [14] ] ] ], 10];
@@ -108,7 +106,7 @@ var resultArr = arr.toString().split(',').map(Number);
 console.log(resultArr); // [1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 9, 11, 12, 12, 13, 14, 10]
 ```
 
-### 将数组扁平化并去除其中重复数据，最终得到一个升序且不重复的数组
+## 将数组扁平化并去除其中重复数据，最终得到一个升序且不重复的数组
 
 ```js
 var arr = [ [1, 2, 2], [3, 4, 5, 5], [6, 7, 8, 9, [11, 12, [12, 13, [14] ] ] ], 10];
@@ -118,7 +116,7 @@ var resultArr = Array.from(new Set(arr.toString().split(',').map(Number))).sort(
 console.log(resultArr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 ```
 
-### 数字金额千分位格式化
+## 数字金额千分位格式化
 
 方法一：使用`Number.prototype.toLocaleString()`
 
@@ -146,7 +144,7 @@ console.log(formatNum); // 123,455,678
 console.log(formatNum1); // 123,455,678.12,345
 ```
 
-### 用一行代码实现一个简易的模板字符串功能
+## 用一行代码实现一个简易的模板字符串功能
 
 ```js
 String.prototype.render = function (context) {
@@ -161,7 +159,7 @@ var userInfo = {
 '我叫{{name}}，是位{{position}}'.render(userInfo); // 我叫Better，是位front-end engineer
 ```
 
-### 小数取整
+## 小数取整
 
 ```js
 var num = 123.123
@@ -178,7 +176,7 @@ console.log(num ^ 0); // 123
 console.log(num << 0); // 123
 ```
 
-### 交换两个值
+## 交换两个值
 
 方法一：利用一个数异或本身等于0和异或运算符合交换率
 
@@ -213,7 +211,7 @@ console.log(a, b); // 2 1
 
 > 注意：ES6解构赋值低版本浏览器运行会报错，需[使用babel进行转换](https://babeljs.io/repl)
 
-### 用一行代码实现深拷贝
+## 用一行代码实现深拷贝
 
 ```js
 var obj = {
@@ -245,14 +243,14 @@ console.log(copyObj);
 1. `undefined`、`symbol`、`function`类型直接被过滤掉了
 2. `date`类型被自动转成了字符串类型
 
-### 一行代码生成数字字母组成的随机字符串
+## 一行代码生成数字字母组成的随机字符串
 
 ```js
 Math.random().toString(16).substring(2); // 586a3ef1e79ec
 Math.random().toString(32).substring(2); // 1iqn39075lo
 ```
 
-### 如何实现a == 1 && a == 2 && a == 3
+## 如何实现a == 1 && a == 2 && a == 3
 
 方法一：结合使用数组的`toString()`和`shift()`方法
 
@@ -279,4 +277,4 @@ var a = {
 console.log(a == 1 && a == 2 && a == 3); // true
 ```
 
-#### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
+### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步

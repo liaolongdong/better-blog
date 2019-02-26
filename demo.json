@@ -5,6 +5,18 @@
       "demoUrl": "demo/idCardDemo/index.html"
     },
     {
+      "title": "用css如何实现圣杯布局（两侧定宽，中间自适应布局）",
+      "demoUrl": "demo/cssTipsDemo/leftCenterRight.html"
+    },
+    {
+      "title": "七种CSS方式让一个容器水平垂直居中",
+      "demoUrl": "demo/cssTipsDemo/containerCenter.html"
+    },
+    {
+      "title": "网页元素CSS水平居中、垂直居中、水平垂直居中汇总",
+      "demoUrl": "demo/cssTipsDemo/summaryCenter.html"
+    },
+    {
       "title": "echarts折线图、饼状图、圆环图使用总结",
       "demoUrl": "demo/echartsDemo/index.html"
     },
