@@ -649,6 +649,21 @@
             bottom: 0;
         }
     }
+
+    .markdown-body {
+        a {
+            text-decoration: underline;
+            color: #0095ff;
+    
+            &:hover {
+                color: blue;
+                text-decoration: none;
+                background: url('/assets/icons/link_hover_line.svg') repeat-x 0 100%;
+                background-size: 20px auto;
+                animation: waveMove 1s infinite linear;
+            }
+        }
+    }
 }
 
 // Post style
@@ -1061,6 +1076,18 @@
             &:before,
             &:after {
                 background-color: #575B63;
+            }
+        }
+
+        .markdown-body {
+            a {
+                color: #9eacb9;
+
+                &:hover {
+                    color: #cbd5de;
+                    background: url('/assets/icons/link_hover_line_night.svg') repeat-x 0 100%;
+                    background-size: 20px auto;
+                }
             }
         }
     }

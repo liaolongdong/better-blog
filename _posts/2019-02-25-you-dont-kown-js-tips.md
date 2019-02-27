@@ -71,8 +71,8 @@ var likeArrObj = {
     length: 3
 }
 
-var arr1 = Array.prototype.slice.call(likeArrObj);
-var arr2 = Array.prototype.slice.apply(likeArrObj);
+var arr1 = Array.prototype.slice.call(likeArrObj); // 或者使用[].slice.call(likeArrObj);
+var arr2 = Array.prototype.slice.apply(likeArrObj); // 或者使用[].slice.apply(likeArrObj);
 
 console.log(arr1); // [1, 2, 3]
 console.log(arr2); // [1, 2, 3]

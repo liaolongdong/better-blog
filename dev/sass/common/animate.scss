@@ -171,3 +171,13 @@
 .am-shake {
     animation: upDownShake 1000ms ease 0ms both;
 }
+
+@keyframes waveMove {
+    0% {
+        background-position: 0 100%;
+    }
+
+    100% {
+        background-position: -20px 100%;
+    }
+}

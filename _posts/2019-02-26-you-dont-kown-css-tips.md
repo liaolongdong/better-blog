@@ -200,6 +200,8 @@ input::placeholder {
 }
 ```
 
+[查看demo效果](https://codepen.io/Better1025/pen/NJPovQ)
+
 ## 使用负的`nth-child`选择项目
 
 在CSS中使用负的`nth-child`选择项目1到项目n。
@@ -250,12 +252,35 @@ li:nth-child(-n+3) {
 
 SVG对所有的分辨率类型都具有良好的扩展性，并支持所有浏览器都回归到IE9。这样可以避开.png、.jpg或.gif文件了。
 
+## 使用`text-transform`属性，转换大小写
+
+> [text-transform](https://developer.mozilla.org/zh-CN/docs/Web/CSS/text-transform) CSS属性指定如何将元素的文本大写。它可以用于使文本显示为全大写或全小写，也可单独对每一个单词进行操作。
+
+```html
+<p>I am a front-end engineer</p>
+```
+
+```scss
+p {
+    // 每个单词的首字母转换为大写
+    // text-transform: capitalize;
+
+    // 所有字符被转换为大写
+    text-transform: uppercase;
+
+    // 所有字符被转换为小写
+    // text-transform: lowercase;
+}
+```
+
+[查看demo效果](https://codepen.io/Better1025/pen/ywymYx)
+
 ### 更多CSS使用技巧，可以[查看You-Dont-Need-JavaScript中的demo](https://github.com/you-dont-need/You-Dont-Need-JavaScript)
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
 
 相关链接：  
 
-- [用css如何实现圣杯布局（两侧定宽，中间自适应布局）](http://liaolongdong.com/demo/cssTipsDemo/leftCenterRight.html)
-- [七种CSS方式让一个容器水平垂直居中）](http://liaolongdong.com/demo/cssTipsDemo/containerCenter.html)
-- [网页元素CSS水平居中、垂直居中、水平垂直居中汇总）](http://liaolongdong.com/demo/cssTipsDemo/summaryCenter.html))
+- [用css如何实现圣杯布局(两侧定宽，中间自适应布局)](http://liaolongdong.com/demo/cssTipsDemo/leftCenterRight.html)
+- [七种CSS方式让一个容器水平垂直居中](http://liaolongdong.com/demo/cssTipsDemo/containerCenter.html)
+- [网页元素CSS水平居中、垂直居中、水平垂直居中汇总](http://liaolongdong.com/demo/cssTipsDemo/summaryCenter.html)
