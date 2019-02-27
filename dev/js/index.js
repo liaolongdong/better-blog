@@ -248,39 +248,12 @@ $(document).ready(function(){
         }
     });
 
-
-    /**
-     * wechat share
-     */
-    function getWXToken (appid, appsecret) {
-        $.ajax({
-            url: 'https://api.weixin.qq.com/cgi-bin/token',
-            type: 'GET',
-            data: {
-                grant_type: 'client_credential',
-                appid: appid || 'wxf812e128e8614745',
-                secret: appsecret || 'cddf5127f4f5c3049221bcea33e1feec'
-            },
-            dataType: 'json',
-            success: function (res) {
-                console.log(res);
-            },
-            error: function (err) {
-                console.warn(err);
-            }
-        })
-    }
-    if (/MicroMessenger/i.test(window.navigator.userAgent.toLowerCase())) {
-        getWXToken();
-    }
-
     /**
      * demo page get demo data
      */
     if (/demo.html$/.test(window.location.href)) {
         $.getJSON('./../../demo.json').done(function(data) {
             var html = '';
-            var node = '';
             var demoLists = data.demoLists;
             for (var i = 0; i < demoLists.length; i++) {
                 html += '<li><a class="tag-post demo-link" target="_blank" href="'
@@ -290,5 +263,32 @@ $(document).ready(function(){
             }
             $('.demo-list').html(html);
         });
+    }
+
+    // 调用百度统计数据
+    function getBaiduStaticsData () {
+        let end_date = tools.formatDate(new Date().getTime()).replace(/\-/g, '/');
+        $.ajax({
+            url: 'https://api.baidu.com/json/tongji/v1/ReportService/getData',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                site_id: 'liaolongdong.com',
+                method: 'trend/time/a',
+                start_date: '2018/01/01',
+                end_date: end_date,
+                metrics: 'pv_count,visitor_count'
+            },
+            success: function (data) {
+                console.log(data);
+            },
+            error: function (err) {
+                console.log(err);
+            }
+        });
+    }
+    // 只在首页调用百度统计接口
+    if (window.location.pathname === '/') {
+        getBaiduStaticsData();
     }
 });

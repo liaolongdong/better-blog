@@ -112,7 +112,7 @@ body {
 5. 由`::before`和`::after`生成的伪元素，只能用于包含在元素格式框内，如`<div></div>`、`<p></p>`等双闭合标签
 6. 不能用于替换元素上， 比如`<img />`或`<br />`等单闭合标签（自闭合标签）
 
-### `:hover`提示
+### `hover`提示
 
 ```html
 <span data-info="JavaScript is the programming language of HTML and the Web.">Javascript</span>
