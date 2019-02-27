@@ -277,4 +277,37 @@ var a = {
 console.log(a == 1 && a == 2 && a == 3); // true
 ```
 
+## 实现add(1)(2)(3)这类方法以及扩展方法
+
+```js
+// 普通写法
+var add = function (a) {
+    return function (b) {
+        return function (c) {
+            return a + b + c;
+        }
+    }
+}
+
+console.log(add(1)(2)(3)); // 6
+
+// 扩展写法
+function addExtend (x) {
+    var sum = x;
+    var temp = function (y) {
+        sum = sum + y;
+        return temp;
+    }
+    temp.toString = function () {
+        return sum;
+    }
+    return temp;
+}
+
+console.log(addExtend(1)(2)(3)); // ƒ 6
+console.log(typeof addExtend(1)(2)(3)); // function
+console.log(Number(addExtend(1)(2)(3))); // 6
+console.log(Number(addExtend(1)(2)(3)(4)(5))); // 15
+```
+
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
