@@ -3,13 +3,21 @@
 {% endif %}
 
 <footer class="g-footer">
-    <section>粤ICP备18133653号 ©
+    <section>
+        <a href="http://www.miibeian.gov.cn/state/outPortal/loginPortal.action">粤ICP备18133653号</a> ©
         {% assign current = "now" | date: "%Y" | plus: 0%}
         {% unless site.footer.since and site.footer.since == current %}
         {{ site.footer.since }}
         -
         {% endunless %}
         {{ current }}
+
+        {{ if site.footer.showBaiduStatics }}
+        <a href="https://tongji.baidu.com/web/welcome/ico?s=a071a73db3cc35b4252e63887505980c">
+            <!-- <img src="https://tongji.baidu.com/sc-web/image/icon/31.gif" alt=""> -->
+            [百度统计]
+        </a>
+        {{ endif }}
     </section>
     <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section>
 </footer>

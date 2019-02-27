@@ -62,6 +62,7 @@ bottomFixedBtn: true
 # Footer
 footer:
   since: 2018
+  showBaiduStatics: true
 
 # Search
 search: true

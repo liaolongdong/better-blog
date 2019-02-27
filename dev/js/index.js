@@ -289,6 +289,6 @@ $(document).ready(function(){
     }
     // 只在首页调用百度统计接口
     if (window.location.pathname === '/') {
-        getBaiduStaticsData();
+        // getBaiduStaticsData();
     }
 });
