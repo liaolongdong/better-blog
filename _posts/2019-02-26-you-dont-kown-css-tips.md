@@ -275,6 +275,23 @@ p {
 
 [查看demo效果](https://codepen.io/Better1025/pen/ywymYx)
 
+## 文本超长使用省略号（...）
+
+```html
+<p>I am a front-end engineer.</p>
+```
+
+```scss
+p {
+    width: 100px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+```
+
+[查看demo效果](https://codepen.io/Better1025/pen/YgyPzz)
+
 ### 更多CSS使用技巧，可以[查看You-Dont-Need-JavaScript中的demo](https://github.com/you-dont-need/You-Dont-Need-JavaScript)
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步

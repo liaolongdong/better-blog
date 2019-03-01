@@ -213,6 +213,43 @@ console.log(a, b); // 2 1
 
 ## 用一行代码实现深拷贝
 
+常用的简单实现方式：类型判断+递归
+
+```js
+function deepClone(obj) {
+    var newObj = obj instanceof Array ? [] : {};
+    for (var i in obj) {
+        newObj[i] = typeof obj[i] === 'object' ? deepClone(obj[i]) : obj[i]
+    }
+    return newObj;
+}
+
+// test
+var obj = {
+    number: 1,
+    string: 'abc',
+    bool: true,
+    undefined: undefined,
+    null: null,
+    symbol: Symbol('s'),
+    arr: [1, 2, 3],
+    date: new Date(),
+    userInfo: {
+        name: 'Better',
+        position: 'front-end engineer',
+        skill: ['React', 'Vue', 'Angular', 'Nodejs', 'mini programs']
+    },
+    func: function () {
+        console.log('hello better');
+    }
+}
+console.log(deepClone(obj));
+```
+
+从打印的结果来看，这种实现方式还存在很多问题：这种方式只能实现特定的object的深度复制（比如对象、数组和函数），不能实现null以及包装对象Number，String ，Boolean，以及Date对象，RegExp对象的复制。
+
+一行代码实现方式：结合使用`JSON.stringify()`和`JSON.parse()`
+
 ```js
 var obj = {
     number: 1,
@@ -308,6 +345,127 @@ console.log(addExtend(1)(2)(3)); // ƒ 6
 console.log(typeof addExtend(1)(2)(3)); // function
 console.log(Number(addExtend(1)(2)(3))); // 6
 console.log(Number(addExtend(1)(2)(3)(4)(5))); // 15
+```
+
+## 自己实现一个bind函数
+
+原理：使用`apply()`或者`call()`方法
+
+初始版本
+
+```js
+Function.prototype.bind = function (obj, arg) {
+    var context = this;
+    var arg = [].slice.call(arguments, 1);
+    return function (newArg) {
+        arg = arg.concat([].slice.call(newArg));
+        return context.apply(obj, arg);
+    }
+}
+```
+
+考虑到原型链
+
+```js
+Function.prototype.bind = function (obj, arg) {
+    var context = this;
+    var arg = [].slice.call(arguments, 1);
+    var bound = function (newArg) {
+        arg = arg.concat([].slice.call(newArg));
+        return context.apply(obj, arg);
+    }
+
+    // 这里使用寄生组合继承
+    var F = function () {};
+    F.prototype = context.prototype;
+    bound.prototype = new F();
+    return bound;
+}
+```
+
+## 使用setTimeout实现setInterval功能
+
+我们平时开发中尽量避免使用setInterval重复定时器，这种重复定时器的规则有两个问题：
+
+1. 某些间隔会被跳过
+2. 多个定时器的代码执行时间可能会比预期小
+
+```js
+var i = 0;
+function count () {
+    console.log(i++);
+    setTimeout(count, 1000);
+}
+setTimeout(count, 1000);
+```
+
+或者使用arguments.callee
+
+```js
+var i = 0;
+setTimeout(function () {
+    // do something
+    console.log(i++);
+    setTimeout(arguments.callee, 1000);
+}, 1000);
+```
+
+## 如何实现sleep效果
+
+方法一：使用promise
+
+```js
+function sleep (time) {
+    return new Promise(function (resolve, reject) {
+        console.log('start');
+        setTimeout(function () {
+            resolve();
+        }, time);
+    });
+}
+
+sleep(1000).then(function () {
+    console.log('end');
+});
+// 先输出start，延迟1000ms后输出end
+```
+
+方法二：使用async/await
+
+```js
+function sleep (time) {
+    return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+            // do something
+            resolve();
+        }, time);
+    });
+}
+
+async function test () {
+    console.log('start');
+    var result = await sleep(1000);
+    console.log('end');
+    return result;
+}
+
+test(); // 先输出start，延迟1000ms后输出end
+```
+
+方法三：使用generate
+
+```js
+function *sleep (time) {
+    yield new Promise((resolve, reject) => {
+        console.log('start');
+        setTimeout(() => {
+            // do something
+            resolve();
+        }, time);
+    });
+}
+
+sleep(1000).next().value.then(() => {console.log('end');}); // 先输出start，延迟1000ms后输出end
 ```
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
