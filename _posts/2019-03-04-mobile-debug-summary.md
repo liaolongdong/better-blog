@@ -63,8 +63,8 @@ ios使用Safari浏览器进行调试
 5. 调试和电脑端基本没有差异，电脑端修改样式等，手机立马变化
 
 如图：
-![h5-ios-debug](/assets/img/postCover/h5-ios-debug.png)
-![h5-ios-mobile](/assets/img/postCover/h5-ios-mobile.png)
+![h5_ios_debug](/assets/img/postCover/h5_ios_debug.png)
+![h5_ios_mobile](/assets/img/postCover/h5_ios_mobile.png)
 
 ### android(安卓手机)调试技巧
 
@@ -90,6 +90,10 @@ ios使用Safari浏览器进行调试
 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)
 
 使用微信开发者工具能调试微信相关功能，比如使用微信js-sdk时，测试`wx.config`配置是否正确等
+
+如图：
+![h5_wx_public](/assets/img/postCover/h5_wx_public.png)
+![h5_mini_program](/assets/img/postCover/h5_mini_program.png)
 
 ### 安卓手机微信清理缓存
 
