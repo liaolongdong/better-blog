@@ -63,8 +63,8 @@ ios使用Safari浏览器进行调试
 5. 调试和电脑端基本没有差异，电脑端修改样式等，手机立马变化
 
 如图：
-[h5-ios-debug](/assets/img/postCover/h5-ios-debug.png)
-[h5-ios-mobile](/assets/img/postCover/h5-ios-mobile.png)
+![h5-ios-debug](/assets/img/postCover/h5-ios-debug.png)
+![h5-ios-mobile](/assets/img/postCover/h5-ios-mobile.png)
 
 ### android(安卓手机)调试技巧
 
