@@ -404,8 +404,9 @@ console.log(quickSort([2, 1, 3, 5, 4])); // [1, 2, 3, 4, 5]
 
 ```javascript
 export const quickSort = (arr) => {
-  if (!arr.length) {
-    return [];
+  //如果数组只有一个数，就直接返回
+  if (arr.length <= 1) {
+    return arr;
   }
   const [prev, ...rest] = arr;
   return [

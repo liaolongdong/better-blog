@@ -89,6 +89,8 @@ ios使用Safari浏览器进行调试
 
 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)
 
-### 安卓手机清理缓存
+使用微信开发者工具能调试微信相关功能，比如使用微信js-sdk时，测试`wx.config`配置是否正确等
+
+### 安卓手机微信清理缓存
 
 使用安卓手机微信浏览器打开`debugx5.qq.com`选择要清除的缓存内容
