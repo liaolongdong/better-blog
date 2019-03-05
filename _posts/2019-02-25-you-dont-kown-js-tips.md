@@ -468,4 +468,19 @@ function *sleep (time) {
 sleep(1000).next().value.then(() => {console.log('end');}); // 先输出start，延迟1000ms后输出end
 ```
 
+## 一行代码实现获取一个网页使用了多少种标签
+
+```js
+[...new Set([...document.querySelectorAll('*')].map(node => node.tagName))].length;
+```
+
+代码分解：
+
+1. 使用`document.querySelectorAll('*')`获取网页中所有标签节点
+2. 使用`[...arrayLike]`扩展运算符把类数组转成数组
+3. 使用`node.tagName`获取标签名称，比如`DIV`、`SPAN`等
+4. 使用`set`去重
+5. 使用`[...arrayLike]`扩展运算符把类数组转成数组
+6. 获取数组长度
+
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步

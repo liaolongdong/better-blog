@@ -438,28 +438,16 @@ export const objArrayCompareByProp = (prop, type = 'reverse') => {
             val2 = Number(val2);
         }
         if (type === 'positive') {
-            if (val1 > val2) {
-                return 1;
-            } else if (val1 < val2) {
-                return -1;
-            } else {
-                return 0;
-            }
+            return val1 - val2;
         } else {
-            if (val1 > val2) {
-                return -1;
-            } else if (val1 < val2) {
-                return 1;
-            } else {
-                return 0;
-            }
+            return val2 - val1;
         }
     };
 };
 // 测试结果：
 let objArr = [{name: 'wangxiaowu', age: 20}, {name: 'liaoxiaoxin', age: 18}, {name: 'Better', age: 19}];
-console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('name')))); // [{"name":"wangxiaowu","age":20},{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19}]
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age')))); // [{"name":"wangxiaowu","age":20},{"name":"Better","age":19},{"name":"liaoxiaoxin","age":18}]
+console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('name')))); // [{"name":"wangxiaowu","age":20},{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19}]
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age', 'positive')))); // [{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19},{"name":"wangxiaowu","age":20}]
 
 ```
