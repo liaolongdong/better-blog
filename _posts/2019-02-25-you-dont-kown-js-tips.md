@@ -571,7 +571,7 @@ function throttle (fn, wait) {
         var context = this;
         var args = arguments;
         var now = new Date().getTime();
-        if (!prev) prev = now;
+        // if (!prev) prev = now;
         if (now - prev > wait) { // 如果时间间隔大于wait，执行函数
             fn.apply(context, args);
             prev = now; // 把当前时间赋值给前一个时间
@@ -610,6 +610,11 @@ function func () {
 }
 document.addEventListener('mouseover', throttle(func, 1000));
 ```
+
+总结：
+
+1. 第一种事件会立刻执行，第二种事件会在 n 秒后第一次执行
+2. 第一种事件停止触发后没有办法再执行事件，第二种事件停止触发后依然会再执行一次事件
 
 [点击了解更多](https://github.com/mqyqingfeng/Blog/issues/26)
 
