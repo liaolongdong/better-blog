@@ -40,7 +40,7 @@ var arr = [1, 2, 3, 2, 6, '2', 3, 1];
 
 var resultArr = [...new Set(arr)]; // Array.from(new Set(arr));
 
-console.log(resultArr); // [1, 2, 3, 6]
+console.log(resultArr); // [1, 2, 3, 6, "2"]
 ```
 
 方法二：结合使用数组filter方法和indexOf()方法
@@ -156,7 +156,9 @@ var userInfo = {
     name: 'Better',
     position: 'front-end engineer'
 }
-'我叫{{name}}，是位{{position}}'.render(userInfo); // 我叫Better，是位front-end engineer
+
+// 字符串中双大括号加`\`是为了防止模板语法冲突，在实际代码中要去掉`\`
+'我叫\{\{name\}\}，是位\{\{position\}\}'.render(userInfo); // 我叫Better，是位front-end engineer
 ```
 
 ## 小数取整
@@ -482,5 +484,132 @@ sleep(1000).next().value.then(() => {console.log('end');}); // 先输出start，
 4. 使用`set`去重
 5. 使用`[...arrayLike]`扩展运算符把类数组转成数组
 6. 获取数组长度
+
+## 性能优化之防抖和节流
+
+对于频繁触发的事件，比如，`scroll`、`keyup`、`mouseover`、`resize`等事件，如果不做一些特殊处理的话，可能会影响性能，甚至造成页面卡顿。
+
+防抖和节流就能很好的解决这类问题。
+
+### 防抖
+
+定义：在规定时间内，多次触发事件后，事件处理函数只执行一次，并且是在触发操作结束后执行。
+
+原理：对处理函数进行延时操作，若设定的延时到来之前，再次触发事件，则清除上一次的延时操作定时器，重新定时。
+
+```js
+function debounce (fn, wait) {
+    var timeId = null;
+    return function () {
+        var context = this; // 保存绑定事件的对象，如document
+        var args = arguments; // 获取事件参数，如event
+        timeId && clearTimeout(timeId); // 如果规定时间内（wait）再次触发事件，则清除定时器
+        timeId = setTimeout(function () {
+            fn.apply(context, args); // 使用apply方法把fn函数的this指向事件对象
+        }, wait)
+    }
+}
+
+// 测试
+function func () {
+    console.log(111);
+}
+document.addEventListener('mouseover', debounce(func, 1000));
+```
+
+如果希望立即执行一次，然后等到停止触发 n 秒后，才可以重新触发执行。
+
+```js
+function debounce (fn, wait, immediately) {
+    var timeId = null;
+    return function () {
+        var context = this;
+        var args = arguments;
+        timeId && clearTimeout(timeId);
+        if (immediately) {
+            // 如果已经执行过，则不再执行
+            var canExecute = !timeId;
+            timeId = setTimeout(function () {
+                timeId = null;
+            }, wait)
+            if (canExecute) {
+                fn.apply(context, args);
+            }
+        } else {
+            timeId = setTimeout(function () {
+                fn.apply(context, args); // 使用apply方法把fn函数的this指向事件对象
+            }, wait)
+        }
+    }
+}
+
+// 测试
+function func () {
+    console.log(111);
+}
+document.addEventListener('mouseover', debounce(func, 1000, true));
+// document.addEventListener('mouseover', debounce(func, 1000));
+```
+
+[点击了解更多](https://github.com/mqyqingfeng/Blog/issues/22)
+
+### 节流
+
+定义：触发函数事件后，规定时间间隔内无法连续调用，只有上一次函数执行后，过了规定的时间间隔，才能进行下一次的函数调用。
+
+原理：如果你持续触发事件，每隔一段时间，只执行一次事件。
+
+关于节流的实现，有两种主流的实现方式，一种是使用时间戳，一种是设置定时器。
+
+使用时间戳，当触发事件的时候，我们取出当前的时间戳，然后减去之前的时间戳(最一开始值设为 0 )，如果大于设置的时间周期，就执行函数，然后更新时间戳为当前的时间戳，如果小于，就不执行。
+
+```js
+// 使用时间戳
+function throttle (fn, wait) {
+    var prev = 0;
+    return function () {
+        var context = this;
+        var args = arguments;
+        var now = new Date().getTime();
+        if (!prev) prev = now;
+        if (now - prev > wait) { // 如果时间间隔大于wait，执行函数
+            fn.apply(context, args);
+            prev = now; // 把当前时间赋值给前一个时间
+        }
+    }
+}
+
+// 测试
+function func () {
+    console.log(111);
+}
+document.addEventListener('mouseover', throttle(func, 1000));
+```
+
+使用定时器：当触发事件的时候，我们设置一个定时器，再触发事件的时候，如果定时器存在，就不执行，直到定时器执行，然后执行函数，清空定时器，这样就可以设置下个定时器。
+
+```js
+function throttle (fn, wait) {
+    var timeId = null;
+    return function () {
+        var context = this;
+        var args = arguments;
+        if (!timeId) { // 如果没有定时器
+            timeId = setTimeout(function () {
+                fn.apply(context, args);
+                timeId = null;
+            }, wait)
+        }
+    }
+}
+
+// 测试
+function func () {
+    console.log(111);
+}
+document.addEventListener('mouseover', throttle(func, 1000));
+```
+
+[点击了解更多](https://github.com/mqyqingfeng/Blog/issues/26)
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
