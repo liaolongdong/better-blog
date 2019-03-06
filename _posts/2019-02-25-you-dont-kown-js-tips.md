@@ -356,34 +356,68 @@ console.log(Number(addExtend(1)(2)(3)(4)(5))); // 15
 初始版本
 
 ```js
-Function.prototype.bind = function (obj, arg) {
-    var context = this;
-    var arg = [].slice.call(arguments, 1);
-    return function (newArg) {
-        arg = arg.concat([].slice.call(newArg));
-        return context.apply(obj, arg);
+Function.prototype.customBind = function (context) {
+    var self = this; // 保存函数的上下文
+    var args = [].slice.call(arguments, 1); // 获取自定义bind函数的参数
+    return function () {
+        args = args.concat([].slice.call(arguments)); // 获取自定义bind函数返回函数传入的参数
+        return self.apply(context, args);
     }
 }
+
+var obj = {
+    name: 'Better',
+    position: 'front-end engineer'
+}
+var func = function (age) {
+    console.log('name', this.name);
+    console.log('position', this.position);
+    console.log('age', age);
+}
+var f = func.customBind(obj, 18);
+f();
 ```
 
-考虑到原型链
+考虑到原型链(最终版)
 
 ```js
-Function.prototype.bind = function (obj, arg) {
-    var context = this;
-    var arg = [].slice.call(arguments, 1);
-    var bound = function (newArg) {
-        arg = arg.concat([].slice.call(newArg));
-        return context.apply(obj, arg);
+Function.prototype.customBind = function (context) {
+    // 必须在函数上使用，否则抛出错误
+    if (typeof this !== "function") {
+        throw new Error("Function.prototype.bind - what is trying to be bound is not callable");
+    }
+
+    var self = this; // 保存函数的上下文
+    var args = Array.prototype.slice.call(arguments, 1); // 获取自定义bind函数的参数
+
+    var fNOP = function () {};
+
+    var fBound = function () {
+        var bindArgs = Array.prototype.slice.call(arguments); // 获取自定义bind函数返回函数传入的参数
+        return self.apply(this instanceof fNOP ? this : context, args.concat(bindArgs));
     }
 
     // 这里使用寄生组合继承
-    var F = function () {};
-    F.prototype = context.prototype;
-    bound.prototype = new F();
-    return bound;
+    fNOP.prototype = this.prototype;
+    fBound.prototype = new fNOP();
+    return fBound;
 }
+
+// 测试
+var obj = {
+    name: 'Better',
+    position: 'front-end engineer'
+}
+var func = function (age) {
+    console.log('name', this.name);
+    console.log('position', this.position);
+    console.log('age', age);
+}
+var f = func.customBind(obj, 18);
+f();
 ```
+
+[点击了解更多](https://github.com/mqyqingfeng/Blog/issues/12)
 
 ## 使用setTimeout实现setInterval功能
 
