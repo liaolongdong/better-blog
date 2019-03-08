@@ -31,6 +31,40 @@ var strInfo = str.split('').reduce((p, c) => (p[c]++ || (p[c] = 1), p), {});
 console.log(arrInfo); // {6: 3, a: 5, b: 5, c: 4}
 ```
 
+## 一行代码准确判断出数据类型
+
+几种常用的类型判断方法：
+
+1. typeof，使用这种方法只能判断`undefined`、`number`、`string`、`boolean`、`symbol`、`function`类型
+2. instanceof，该方法也只局限于判断引用类型
+3. constructor，同instanceof
+4. Object.prototype.toString.call(obj)，这个方法应该是类型判断神器
+
+```js
+var number = 1;            // [object Number]
+var string = '123';        // [object String]
+var boolean = true;        // [object Boolean]
+var und = undefined;       // [object Undefined]
+var nul = null;            // [object Null]
+var symbol = Symbol('a');  // [object Symbol]
+var obj = {a: 1}           // [object Object]
+var array = [1, 2, 3];     // [object Array]
+var date = new Date();     // [object Date]
+var error = new Error();   // [object Error]
+var reg = /a/g;            // [object RegExp]
+var func = function a(){}; // [object Function]
+
+function checkType() {
+    for (var i = 0; i < arguments.length; i++) {
+        console.log(Object.prototype.toString.call(arguments[i]))
+    }
+}
+// 测试
+checkType(number, string, boolean, und, nul, symbol, obj, array, date, error, reg, func);
+```
+
+[点击了解更多](https://github.com/mqyqingfeng/Blog/issues/28)
+
 ## 数组去重
 
 方法一：使用Set
