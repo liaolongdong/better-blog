@@ -292,6 +292,43 @@ p {
 
 [查看demo效果](https://codepen.io/Better1025/pen/YgyPzz)
 
+## 解决 display: inline-block 左右相邻元素的空白问题
+
+产生的原因：因为连续多个空白符（空格，换行符，回车符等）引起的
+
+解决方案：
+
+1. 子元素div之间紧挨着，不留换行和者空格
+
+2. 给父级元素设置`font-size: 0`, 子元素再设回原来的字体大小
+
+```html
+<!-- 解决方案一：子元素div之间紧挨着，不留换行和者空格 -->
+<!-- <div class="wrapper">
+    <div class="item">this is item</div><div class="item">this is item</div><div class="item">this is item</div>
+</div> -->
+
+<!-- 解决方案二：给父级元素设置`font-size: 0`, 子元素再设回原来的字体大小 -->
+<div class="wrapper">
+    <div class="item">this is item</div>
+    <div class="item">this is item</div>
+    <div class="item">this is item</div>
+</div>
+```
+
+```scss
+.wrapper {
+    font-size: 0;
+}
+.item {
+    display: inline-block;
+    background: blue;
+    font-size: 16px;
+}
+```
+
+[查看demo效果](https://codepen.io/Better1025/pen/VRqwxM)
+
 ### 更多CSS使用技巧，可以[查看You-Dont-Need-JavaScript中的demo](https://github.com/you-dont-need/You-Dont-Need-JavaScript)
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
