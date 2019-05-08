@@ -150,6 +150,13 @@ var resultArr = Array.from(new Set(arr.toString().split(',').map(Number))).sort(
 console.log(resultArr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 ```
 
+## 数组混淆
+
+```js
+// 随机更改数组元素顺序，混淆数组
+(arr) => arr.slice().sort(() => Math.random() - 0.5);
+```
+
 ## 数字金额千分位格式化
 
 方法一：使用`Number.prototype.toLocaleString()`
@@ -337,5 +344,30 @@ Math.random().toString(32).substring(2); // 1iqn39075lo
 4. 使用`set`去重
 5. 使用`[...arrayLike]`扩展运算符把类数组转成数组
 6. 获取数组长度
+
+## 一行代码获取过去/未来七天的日期
+
+```js
+// 过去七天
+[...Array(7)].map((v, k) => new Date(Date.now() - 60 * 60 * 24 * 1000 * k).toLocaleDateString());
+
+// 未来七天
+[...Array(7)].map((v, k) => new Date(Date.now() + 60 * 60 * 24 * 1000 * k).toLocaleDateString());
+```
+
+## 一行代码获取url参数
+
+```js
+// 获取URL的查询参数
+q={};location.search.replace(/([^?&=]+)=([^&]+)/g,(_,k,v)=>q[k]=v);q;
+```
+
+## 返回一个键盘（惊呆了）
+
+```js
+// 用字符串返回一个键盘图形
+(_=>[..."`1234567890-=~~QWERTYUIOP[]\\~ASDFGHJKL;'~~ZXCVBNM,./~"].map(x=>(o+=`/${b='_'.repeat(w=x<y?2:' 667699'[x=["BS","TAB","CAPS","ENTER"][p++]||'SHIFT',p])}\\|`,m+=y+(x+'    ').slice(0,w)+y+y,n+=y+b+y+y,l+=' __'+b)[73]&&(k.push(l,m,n,o),l='',m=n=o=y),m=n=o=y='|',p=l=k=[])&&k.join`
+`)()
+```
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
