@@ -449,7 +449,25 @@ let objArr = [{name: 'wangxiaowu', age: 20}, {name: 'liaoxiaoxin', age: 18}, {na
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age')))); // [{"name":"wangxiaowu","age":20},{"name":"Better","age":19},{"name":"liaoxiaoxin","age":18}]
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('name')))); // [{"name":"wangxiaowu","age":20},{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19}]
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age', 'positive')))); // [{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19},{"name":"wangxiaowu","age":20}]
+```
 
+## 短信验证码倒计时(使用setTimeout模拟setInterval)
+
+```js
+timeCount () {
+	this.smsTimeout--; // 时间递减
+	this.vCodeStatus = false; // 短信验证码按钮是否可点击
+	this.getVCodeText = `${this.smsTimeout}s后重新获取`; // 短信验证码按钮文本
+	setTimeout(() => {
+		if (this.smsTimeout === 0) { // 倒计时结束时退出递归
+			this.vCodeStatus = true;
+			this.getVCodeText = '获取验证码';
+			this.smsTimeout = environment.smsTimeout; // 重置倒计时时间
+		} else {
+			this.timeCount(); // 递归执行自身
+		}
+	}, 1000)
+}
 ```
 
 ## 持续更新中。。。
