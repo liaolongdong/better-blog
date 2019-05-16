@@ -191,31 +191,31 @@ console.log(getUrlQueryString('name')); // 'xiaoxin'
 ```js
 /** 
  * @desc 将url参数转成对象返回
- * @param url type: string (require) url字符串， 如：https://www.baidu.com/?id=123456&name=Better&age=18
  * @param name type: string (no-require) 参数的key，如：id
+ * @param url type: string (require) url字符串， 如：https://www.baidu.com/?id=123456&name=Better&age=18
  * @return 参数对象或者某个参数的值
  */
-export function urlParamToObj (url, name) {
-  let obj = {};
-  let a = document.createElement('a');
-  a.href = url;
-  let search = a.search;
-  a = null;
-  if (search.indexOf('?') === 0) {
-    let str = search.substr(1);
-    let arr = str.split('&');
-    arr.forEach((item, index) => {
-      let paramArr = item.split('=');
-      // 防止url编码，把编码也解析出来
-      obj[decodeURIComponent(paramArr[0])] = decodeURIComponent(paramArr[1]);
-    });
-  }
-  return name ? obj[name] : obj;
+export function urlParamToObj(name, url) {
+	let obj = {};
+	let a = document.createElement('a');
+	// 防止url编码，使用decodeURIComponent把编码解析出来
+	a.href = decodeURIComponent(url || window.location.href); // 设置默认url为当前页面地址
+	let search = a.search;
+	a = null;
+	if (search.indexOf('?') === 0) {
+		let str = search.substr(1);
+		let arr = str.split('&');
+		arr.forEach(item => {
+			let paramArr = item.split('=');
+			obj[paramArr[0]] = paramArr[1];
+		});
+	}
+	return name ? obj[name] : obj;
 }
 
 // 测试结果：
-console.log(urlParamToObj('https://www.baidu.com/?id=123456&name=Better&age=18')); // {id: "123456", name: "Better", age: "18"}
-console.log(urlParamToObj('https://www.baidu.com/?id=123456&name=Better&age=18', 'name')); // 'Better'
+console.log(urlParamToObj('', 'https://www.baidu.com/?id=123456&name=Better&age=18')); // {id: "123456", name: "Better", age: "18"}
+console.log(urlParamToObj('name', 'https://www.baidu.com/?id=123456&name=Better&age=18')); // 'Better'
 ```
 
 ## 在url后面增加参数
@@ -454,6 +454,13 @@ console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age', 'positive'))
 ## 短信验证码倒计时(使用setTimeout模拟setInterval)
 
 ```js
+/**
+ *  @desc   短信验证码倒计时(使用setTimeout模拟setInterval)
+ *  @param  smsTimeout 设置的倒计时时间
+ *  @param  vCodeStatus 获取验证码按钮是否可点击
+ *  @param  getVCodeText 获取验证码文本
+ */
+
 timeCount () {
 	this.smsTimeout--; // 时间递减
 	this.vCodeStatus = false; // 短信验证码按钮是否可点击
