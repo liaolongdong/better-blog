@@ -115,7 +115,7 @@ function fixScroll (type) {
             window.scrollTo(0, originHtmlScroll.scrollTop);
         }
     } else {
-        // 兼容ios弹窗遮罩层底部页面禁止滑动处理(还是有问题啊，滑动弹窗遮罩层底部页面还是会会滚动)
+        // 兼容ios弹窗遮罩层底部页面禁止滑动处理(还是有问题啊，滑动弹窗遮罩层底部页面还是会滚动)
         if (type === 'fixed') {
             // 获取遮罩层页面node节点
             var maskNode = document.getElementsByClassName('mask');
@@ -200,6 +200,48 @@ handleUploaderImgChangeTest = () => {
 ### 在移动端中使用css3部分动画时可能会出现加载页面宽度抖动问题以及ios9滚动条区域空白处理
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
+
+### ios内嵌h5页面点击form表单input获取焦点以后页面会放大问题
+
+解决方案：
+
+1、在html页面head标签加入
+
+```html
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=0">
+```
+
+2、把input字体设置16px以上
+
+### 禁止ios10及以上h5页面缩放
+
+移动端禁止页面缩放我们通常使用`<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=0">`就可以解决，但是在ios10以上有兼容问题，具体解决方案如下：
+
+```js
+// 禁止ios10及以上页面缩放
+window.onload = function() {
+    // 阻止双击放大
+    var lastTouchEnd = 0;
+    document.addEventListener('touchstart', function(event) {
+        if (event.touches.length > 1) {
+            event.preventDefault();
+        }
+    });
+    document.addEventListener('touchend', function(event) {
+        var now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+
+    // 阻止双指放大
+    document.addEventListener('gesturestart', function(event) {
+        event.preventDefault();
+    });
+}
+```
 
 ### ios9使用flex布局图片设置内边距导致图片变形
 
@@ -299,3 +341,8 @@ if (!HTMLCanvasElement.prototype.toBlob) {
 ```
 
 **总结：当这两个class作用于同一dom节点时，transition过度动画设置的transform属性不会生效**
+
+## 参考博客
+
+- [常见的移动端H5页面开发遇到的坑和解决办法](https://www.cnblogs.com/LiuJL/p/7744473.html)
+ 
