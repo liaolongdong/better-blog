@@ -5,6 +5,10 @@
       "demoUrl": "demo/idCardDemo/index.html"
     },
     {
+      "title": "原生JS实现一键复制功能",
+      "demoUrl": "demo/copyDemo/index.html"
+    },
+    {
       "title": "用css如何实现圣杯布局（两侧定宽，中间自适应布局）",
       "demoUrl": "demo/cssTipsDemo/leftCenterRight.html"
     },
