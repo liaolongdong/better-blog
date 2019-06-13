@@ -1,19 +1,24 @@
 ---
 layout: post
-title: '总结平时开发中经常使用到的公用方法'
-subtitle: '总结平时开发中经常使用到的公用方法'
+title: '前端开发中经常使用到的公用方法'
+subtitle: '前端开发中经常使用到的公用方法'
 date: 2017-08-25
 categories: 技术
 cover: '/assets/img/postCover/code_tools.png'
-tags: JavaScript 通用方法
+tags: JavaScript JavaScript公用方法
 ---
 
-# 常用的公用函数方法使用的是ES6的语法
+# 前端开发中经常使用到的公用方法（使用的是ES6的语法）
 
 ## 毫秒数转换成日期（格式：yyyy-mm-dd、yyyy-mm-dd hh:mm、yyyy-mm-dd hh:mm:ss）
 
 ```javascript
-// 参数说明：timeStamp为时间戳毫秒数，默认格式为：yyyy-mm-dd type：1 对应日期格式yyyy-mm-dd hh:mm  2 对应日期格式yyyy-mm-dd hh:mm:ss
+/** 
+ * @desc 毫秒数转换成日期（格式：yyyy-mm-dd、yyyy-mm-dd hh:mm、yyyy-mm-dd hh:mm:ss）
+ * @param timeStamp 时间戳毫秒数
+ * @param type 默认格式为：yyyy-mm-dd 1 对应日期格式yyyy-mm-dd hh:mm  2 对应日期格式yyyy-mm-dd hh:mm:ss
+ * @return 格式化日期字符串
+ */
 export const formatDate = (timeStamp, type) => {
   let formatDateStr = '';
   let date = new Date(timeStamp);
@@ -42,9 +47,14 @@ console.log(formatDate(1506664038876, 1)); // 2017-09-29 13:47
 console.log(formatDate(1506664038876, 2)); // 2017-09-29 13:47:18
 ```
 
-## 距离当前时间多久（几秒前、几分钟前、几小时前）
+## 过去了多长时间（几秒前、几分钟前、几小时前）
 
 ```javascript
+/** 
+ * @desc 过去了多长时间（几秒前、几分钟前、几小时前）
+ * @param timeStamp 过去时间毫秒数
+ * @return 距离当前时间多久的字符串
+ */
 export const durationTime = (timeStamp) => {
   let durationTimeStr = '';
   let duration = (+Date.now() - timeStamp) / 1000;
@@ -67,7 +77,12 @@ console.log(durationTime(1506664038876)); // 10分钟前
 ## 倒计时（距离现在还有00天00小时00分钟00秒）
 
 ```javascript
-// 参数说明：remainTime: 剩余时间毫秒数，mountId:挂载dom节点
+/** 
+ * @desc 倒计时（距离现在还有00天00小时00分钟00秒）
+ * @param remainTime 剩余时间毫秒数
+ * @param mountId 挂载dom节点
+ * @return 距离现在还剩多长时间的字符串
+ */
 let futureDateTime = Date.parse('2018-10-25');
 export const countDownNow = (remainTime, mountId) => {
   let intDay, intHour, intMin, intSecond, timeStr;
@@ -107,6 +122,11 @@ countDownNow(futureDateTime, 'mountId');
 ## 手机格式校验
 
 ```javascript
+/** 
+ * @desc 手机格式校验
+ * @param phoneNum 手机号码
+ * @return boolean 是否是合格的手机号
+ */
 export const checkPhoneNum = (phoneNum) => {
   let phoneReg = /^(0|86|17951)?(13[0-9]|15[012356789]|166|17[0-9]|18[0-9]|14[0-9])[0-9]{8}$/;
   return phoneReg.test(phoneNum);
@@ -118,7 +138,12 @@ console.log(checkPhoneNum(13556891025)); // true
 ## 手机格式化（135 **** 1025、135-****-1025）
 
 ```javascript
-// 参数说明：phoneNum 需要格式化的手机号 connector 格式化的连接字符
+/** 
+ * @desc 手机格式校验
+ * @param phoneNum 需要格式化的手机号
+ * @param connector 格式化的连接字符
+ * @return 格式化的手机号
+ */ 
 export const formatPhoneNum = (phoneNum, connector) => {
     let arr = phoneNum.split('');
     connector = connector || ' ';
@@ -134,9 +159,11 @@ console.log(formatPhoneNum('135****1025', '-')); // '135-****-1025'
 ## input输入框手机号码实时格式化
 
 ```javascript
-// 该方法应在实时监听input输入框变化的回调函数中使用
-// 参数说明：prevPhoneNum为input框变化前的值， phoneNum为input当前的
-// 通过这两个值的长度大小进行比较，来区分变化是删除还是增加
+/** 
+ * @desc input输入框手机号码实时格式化 该方法应在实时监听input输入框变化的回调函数中使用 通过这两个值的长度大小进行比较，来区分变化是删除还是增加
+ * @param prevPhoneNum为input框变化前的值
+ * @param phoneNum为input当前的
+ */ 
 export const RTFormatPhoneNum = (prevPhoneNum, phoneNum) => {
     // 判断是否为删除
     if (prevPhoneNum < phoneNum) {
@@ -168,8 +195,11 @@ export const RTFormatPhoneNum = (prevPhoneNum, phoneNum) => {
 ## 获取url参数(使用正则表达式)
 
 ```javascript
-// 参数说明：name 要获取参数值的名称
-// 如https://www.baidu.com/?id=123456&name=xiaoxin
+/** 
+ * @desc 获取url参数(使用正则表达式) 如https://www.baidu.com/?id=123456&name=xiaoxin
+ * @param name 要获取参数值的名称
+ * @return 返回参数对应的值
+ */
 export const getUrlQueryString = (name) => {
   let reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
   // let r = window.location.search.substr(1).match(reg);
@@ -186,7 +216,7 @@ console.log(getUrlQueryString('id')); // '123456'
 console.log(getUrlQueryString('name')); // 'xiaoxin'
 ```
 
-## 获取url地址参数
+## 获取url地址参数（将url参数转成对象返回）
 
 ```js
 /** 
@@ -278,6 +308,12 @@ console.log(whatDevice()); // 'wx'
 ## cookie的获取、添加、删除
 
 ```javascript
+/** 
+ * @desc 添加cookie
+ * @param name cookie名称
+ * @param value cookie值
+ * @param expiresHours cookie设置有效时间 单位小时
+ */
 export const addCookie = (name, value, expiresHours) => {
   let cookieStr = '';
   // 如果value为对象，进行序列化操作
@@ -296,7 +332,7 @@ export const addCookie = (name, value, expiresHours) => {
 export const getCookie = (name) => {
   let arr = document.cookie.match(new RegExp('(^| )' + name + '=([^;]*)(;|$)'));
   if (arr != null) {
-    if ((/^\{.*\}$/g).test(arr[2])) {
+    if ((/^\{.*\}$/g).test(arr[2])) { // 如果cookie的值是对象
       return JSON.parse(arr[2]);
     }
     return arr[2];
@@ -460,7 +496,6 @@ console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age', 'positive'))
  *  @param  vCodeStatus 获取验证码按钮是否可点击
  *  @param  getVCodeText 获取验证码文本
  */
-
 timeCount () {
 	this.smsTimeout--; // 时间递减
 	this.vCodeStatus = false; // 短信验证码按钮是否可点击

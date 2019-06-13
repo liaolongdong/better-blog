@@ -1,14 +1,14 @@
 ---
 layout: post
-title: '微信H5分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
-subtitle: '微信H5分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
+title: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
+subtitle: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 date: 2018-06-06
 categories: 技术
 cover: '/assets/img/postCover/wxshare_cover.png'
-tags: JavaScript 微信H5分享 微信公众号
+tags: JavaScript 微信分享 微信公众号
 ---
 
-# 微信H5分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总
+# 微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总
 
 微信分享官方推荐使用[微信JS-SDk](https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115)，还有一种方法是使用微信浏览器特有的内置对象`WeixinJSBridge`，这种方式的分享不知道还能不能用，微信内H5支付使用这种方式也是可以的，分享功能没测试过。
 
@@ -81,7 +81,7 @@ const shareConfig = {
     share: {
         title: '', // 分享标题
         desc: '', // 分享描述
-        link: '', // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致（注意：该链接必须是带协议的链接地址）
+        link: '', // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致（注意：该链接必须是带协议的链接地址，不然配置正确也会分享失败）
         imgUrl: '', // 分享图标
         type: '', // 分享类型,music、video或link，不填默认为link
         dataUrl: '', // 如果type是music或video，则要提供数据链接，默认为空

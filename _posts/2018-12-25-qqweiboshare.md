@@ -1,14 +1,14 @@
 ---
 layout: post
 title: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
-subtitle: JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
+subtitle: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
 date: 2018-12-25
 categories: 技术
 cover: '/assets/img/postCover/share_cover.png'
-tags: 分享
+tags: H5分享
 ---
 
-# JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
+# 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
 
 [点这里查看demo效果](http://liaolongdong.com/demo/shareDemo/myshare.html)
 

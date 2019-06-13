@@ -98,3 +98,28 @@ ios使用Safari浏览器进行调试
 ### 安卓手机微信清理缓存
 
 使用安卓手机微信浏览器打开`debugx5.qq.com`选择要清除的缓存内容
+
+## 在手机上访问自己电脑启动本地服务的H5页面调试技巧（测试手机浏览器兼容问题必须掌握的高效调试技巧）
+
+### 操作步骤
+
+第一步：手机和电脑连接相同的wifi环境
+
+第二步：把访问页面的本地localhost地址换成本地电脑IP地址（注意这个IP地址必须是电脑无线网络连接的IP地址），查看是否能正常访问
+
+第三步：如果不能正常访问，把 webpack devServer 里面有个配置host 改成0.0.0.0
+
+第四步：在手机上使用电脑无线网络连接的IP地址和端口，访问页面  
+
+如图：  
+![mobile_debug_phone_demo](/assets/img/postCover/mobile_debug_phone_demo.png)
+![mobile_debug_pc_ip](/assets/img/postCover/mobile_debug_pc_ip.png)
+![mobile_debug_address](/assets/img/postCover/mobile_debug_address.png)
+
+### 常见问题
+
+在手机上打不开自己本地启动服务的页面
+
+1. 查看wifi是否连接正确，手机和电脑访问的wifi环境必须相同
+2. 为什么使用本地IP地址打不开自己电脑的网页 用localhost却可以 -> 解决方案：webpack devServer 里面有个配置host 改成0.0.0.0
+3. 查看访问的IP地址是否为电脑无线网络连接的IP地址

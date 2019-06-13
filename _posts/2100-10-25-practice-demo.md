@@ -137,7 +137,7 @@ function isSerial (str) {
     // 把字符串分解成数组
     let strArr = String(str).split('');
     strArr.every((item, index, arr) => {
-        if (arr[index] && arr[index + 1]) {
+        if (arr[index] !== undefined && arr[index + 1] !== undefined) {
             if (arr[index + 1] - arr[index] === 1) {
                 isSerialStr = true;
             } else {
@@ -148,6 +148,7 @@ function isSerial (str) {
     return isSerialStr;
 }
 
+// 测试
 let str = 1234578;
 isSerial(str);
 ```
