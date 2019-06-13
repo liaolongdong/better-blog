@@ -112,9 +112,9 @@ ios使用Safari浏览器进行调试
 第四步：在手机上使用电脑无线网络连接的IP地址和端口，访问页面  
 
 如图：  
-![mobile_debug_phone_demo](/assets/img/postCover/mobile_debug_phone_demo.png)
-![mobile_debug_pc_ip](/assets/img/postCover/mobile_debug_pc_ip.png)
-![mobile_debug_address](/assets/img/postCover/mobile_debug_address.png)
+![mobile_debug_phone_demo](/assets/img/postCover/mobile_debug_phone_demo.jpg)
+![mobile_debug_pc_ip](/assets/img/postCover/mobile_debug_pc_ip.jpg)
+![mobile_debug_address](/assets/img/postCover/mobile_debug_address.jpg)
 
 ### 常见问题
 
