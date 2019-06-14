@@ -5,7 +5,7 @@ subtitle: '总结前端工作当中遇到的那些坑'
 date: 2018-03-26
 categories: 技术
 cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542003988331&di=8f1eeb3781533c2844e60331b1a55e60&imgtype=0&src=http%3A%2F%2Fpic2.zhimg.com%2Fv2-e2b6fb372ba7f9c8375aa73e5cbe49a8_b.jpg'
-tags: JavaScript 前端工作总结
+tags: JavaScript 前端工作总结 移动端的那些坑
 ---
 
 # 总结前端工作当中遇到的那些坑
@@ -200,6 +200,10 @@ handleUploaderImgChangeTest = () => {
 ### 在移动端中使用css3部分动画时可能会出现加载页面宽度抖动问题以及ios9滚动条区域空白处理
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
+
+### 部分安卓手机点击img图片会全屏放大显示问题
+
+解决方案：在`img`标签上设置`pointer-events: none;`样式来屏蔽图片上所有的事件，如果在图片上有绑定事件，则在图片上增加一层div，把事情绑定到该div上
 
 ### ios内嵌h5页面点击form表单input获取焦点以后页面会放大问题
 
