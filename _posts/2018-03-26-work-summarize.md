@@ -201,7 +201,7 @@ handleUploaderImgChangeTest = () => {
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
 
-### 部分安卓手机点击img图片会全屏放大显示问题
+### 部分安卓手机点击img图片会全屏放大显示问题（变成全屏查看图片模式了）
 
 解决方案：在`img`标签上设置`pointer-events: none;`样式来屏蔽图片上所有的事件，如果在图片上有绑定事件，则在图片上增加一层div，把事情绑定到该div上
 
