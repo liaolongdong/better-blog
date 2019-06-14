@@ -192,6 +192,42 @@ export const RTFormatPhoneNum = (prevPhoneNum, phoneNum) => {
 }
 ```
 
+## 使用正则表达式格式化手机号
+
+```js
+/** 
+ * @desc 使用正则表达式格式化手机号
+ * @param phone require 需要格式化的手机号
+ * @param connector option 格式化的连接字符
+ * @return 返回格式化后的手机号码
+ */
+export const formatPhone = (phone, connector) => {
+  let reg = /\B(?=(\d{4})+(?!\d))/g;
+  return String(phone).replace(reg, connector || ' ');
+}
+// 测试结果
+console.log(formatPhone(13556891025)); // 135 5689 1025
+console.log(formatPhone(13556891025, '-')); // 135-5689-1025
+```
+
+## 使用正则表达式格式化银行卡号或订单号
+
+```js
+/** 
+ * @desc 使用正则表达式格式化银行卡号或订单号
+ * @param bankNo require 需要格式化银行卡号或订单号
+ * @param connector option 格式化的连接字符
+ * @return 返回格式化后的银行卡号或订单号
+ */
+export const formatBankNo = (bankNo, connector) => {
+  let reg = /\B(?<=(?<!\d)(\d{4})+)/g;
+  return String(bankNo).replace(reg, connector || ' ');
+}
+// 测试结果
+console.log(formatBankNo('8888888888888888')); // 8888 8888 8888 8888
+console.log(formatBankNo('6666666666666666666')); // 6666 6666 6666 6666 666
+```
+
 ## 获取url参数(使用正则表达式)
 
 ```javascript
