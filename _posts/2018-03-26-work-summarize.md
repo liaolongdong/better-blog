@@ -203,7 +203,7 @@ handleUploaderImgChangeTest = () => {
 
 ### 部分安卓手机点击img图片会全屏放大显示问题（变成全屏查看图片模式了）
 
-解决方案：在`img`标签上设置`pointer-events: none;`样式来屏蔽图片上所有的事件，如果在图片上有绑定事件，则在图片上增加一层div，把事情绑定到该div上
+解决方案：在`img`标签上设置`pointer-events: none;`样式来屏蔽图片上所有的事件，如果在图片上有绑定事件，则在图片上增加一层div，把事件绑定到该div上
 
 ### ios内嵌h5页面点击form表单input获取焦点以后页面会放大问题
 
