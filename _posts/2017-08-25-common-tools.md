@@ -329,16 +329,35 @@ export const addCookie = (name, value, expiresHours) => {
   document.cookie = cookieStr + ';path=/';
 }
 
+/** 
+ * @desc 获取cookie
+ * @param name cookie名称
+ * @return name对应的cookie值
+ */
 export const getCookie = (name) => {
   let arr = document.cookie.match(new RegExp('(^| )' + name + '=([^;]*)(;|$)'));
   if (arr != null) {
-    if ((/^\{.*\}$/g).test(arr[2])) { // 如果cookie的值是对象
+    if ((/^\{.*\}$/g).test(arr[2])) { // 如果cookie的值是对象，进行反序列化
       return JSON.parse(arr[2]);
     }
     return arr[2];
   }
   return null;
 };
+
+/** 
+ * @desc 删除所有cookie
+ */
+export const clearAllCookie = () => {
+  let keys = document.cookie.match(/[^ =;]+(?=\=)/g);
+  console.log('keys', keys);
+  if (keys) {
+    for(let i = keys.length; i--;)
+      document.cookie = keys[i] + '=0;domain=' + window.location.hostname +';expires=' + new Date(0).toUTCString() + ';path=/';
+      console.log('cookie', document.cookie);
+  }
+  console.log('清除所有cookie成功');
+}
 
 // 测试结果
 let userInfo = {
