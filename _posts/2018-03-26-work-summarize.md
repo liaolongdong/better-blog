@@ -214,6 +214,17 @@ body {
 }
 ```
 
+### ios点击事件有灰色背景闪烁解决方案
+
+解决方案：
+
+```css
+body {
+    /* 防止iOS的Safari浏览器点击出现灰色背景闪烁 */
+    -webkit-tap-highlight-color: transparent;
+}
+```
+
 ### 优化移动端点击300ms延时
 
 [touch-action](https://developer.mozilla.org/zh-CN/docs/Web/CSS/touch-action)也经常用于完全解决由支持双击缩放手势引起的点击事件的延迟。
