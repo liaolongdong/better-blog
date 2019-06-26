@@ -542,6 +542,54 @@ console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('name')))); // [{"n
 console.log(JSON.stringify(objArr.sort(objArrayCompareByProp('age', 'positive')))); // [{"name":"liaoxiaoxin","age":18},{"name":"Better","age":19},{"name":"wangxiaowu","age":20}]
 ```
 
+## 数组对象去重
+
+> Set 对象允许你存储任何类型的唯一值，无论是原始值或者是对象引用。
+
+基本数据类型去重我们直接使用`Array.from(new Set(arr));`就可以了，但是相同对象去重，不能使用这个方法
+
+```js
+/**
+ *  @desc 数组对象去重
+ *  @param  arr 需要去重的数组对象
+ *  @param  prop 属性名 可选 根据对象的某一个值，比如对象的id
+ *  @return 返回去重以后的数组对象
+ */
+export const uniqueArrObj = (arr, prop) => {
+  if (arr && arr.length < 2) {
+    return;
+  }
+  if (prop) {
+    let tempObj = {};
+    // 把prop对应的值作为临时对象tempObj的属性值
+    return arr.filter(item => {
+      if (!tempObj[item[prop]]) {
+        tempObj[item[prop]] = true;
+        return item;
+      }
+    })
+  } else {
+    let tempArr = [];
+    // 先使用JSON.stringify把对象进行序列化
+    arr.forEach(item => {
+      tempArr.push(JSON.stringify(item));
+    });
+    // 去重
+    tempArr = Array.from(new Set(tempArr));
+    // 通过使用JSON.parse把对象进行反序列化
+    return tempArr.map(item => {
+      return JSON.parse(item);
+    });
+  }
+}
+
+// 测试结果：
+var objArr = [{id: 111, name: 'liaoxiaoxin', age: 20}, {id: 111, name: 'liaoxiaoxin', age: 20}, {id: 222, name: 'liaoxiaoxin', age: 18}, {id: 333, name: 'Better', age: 19}];
+uniqueArrObj(objArr, 'id'); // [{"id":111,"name":"liaoxiaoxin","age":20},{"id":222,"name":"liaoxiaoxin","age":18},{"id":333,"name":"Better","age":19}]
+uniqueArrObj(objArr, 'name'); // [{"id":111,"name":"liaoxiaoxin","age":20},{"id":333,"name":"Better","age":19}]
+uniqueArrObj(objArr); // [{"id":111,"name":"liaoxiaoxin","age":20},{"id":222,"name":"liaoxiaoxin","age":18},{"id":333,"name":"Better","age":19}]
+```
+
 ## 短信验证码倒计时(使用setTimeout模拟setInterval)
 
 ```js
