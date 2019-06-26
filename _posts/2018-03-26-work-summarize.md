@@ -216,7 +216,9 @@ body {
 
 ### ios点击事件出现灰色背景闪烁解决方案
 
-解决方案：
+[-webkit-tap-highlight-color](https://developer.mozilla.org/zh-CN/docs/Web/CSS/-webkit-tap-highlight-color)是一个没有标准化的属性，能够设置点击链接的时候出现的高亮颜色。显示给用户的高光是他们成功点击的标识，以及暗示了他们点击的元素。
+
+解决方案：在页面`body`标签，增加样式`-webkit-tap-highlight-color: transparent;`
 
 ```css
 body {
