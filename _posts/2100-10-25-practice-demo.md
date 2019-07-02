@@ -132,24 +132,60 @@ selectSort(arr);
 ## 判断一个数字字符串是否为连续的，如，012345，543
 
 ```js
+// function isSerial (str) {
+//     let isSerialStr = false;
+//     // 把字符串分解成数组
+//     let strArr = String(str).split('');
+//     strArr.every((item, index, arr) => {
+//         if (arr[index] !== undefined && arr[index + 1] !== undefined) {
+//             if (arr[index + 1] - arr[index] === 1) {
+//                 isSerialStr = true;
+//             } else {
+//                 isSerialStr = false;
+//             }
+//         }
+//     });
+//     return isSerialStr;
+// }
+
 function isSerial (str) {
+    if (str && str.length < 2) {
+        return false;
+    }
     let isSerialStr = false;
     // 把字符串分解成数组
     let strArr = String(str).split('');
-    strArr.every((item, index, arr) => {
-        if (arr[index] !== undefined && arr[index + 1] !== undefined) {
-            if (arr[index + 1] - arr[index] === 1) {
-                isSerialStr = true;
-            } else {
-                isSerialStr = false;
+    // 判断是正序连续还是倒序连续
+    if (strArr[1] - strArr[0] === 1) {
+        strArr.every((item, index, arr) => {
+            if (arr[index] !== undefined && arr[index + 1] !== undefined) {
+                if (arr[index + 1] - arr[index] === 1) {
+                    isSerialStr = true;
+                } else {
+                    isSerialStr = false;
+                }
             }
-        }
-    });
+        });
+    }
+
+    if (strArr[1] - strArr[0] === -1) {
+        strArr.every((item, index, arr) => {
+            if (arr[index] !== undefined && arr[index + 1] !== undefined) {
+                if (arr[index + 1] - arr[index] === -1) {
+                    isSerialStr = true;
+                } else {
+                    isSerialStr = false;
+                }
+            }
+        });
+    }
+    
+
     return isSerialStr;
 }
 
 // 测试
-let str = 1234578;
+var str = '01234578';
 isSerial(str);
 ```
 
