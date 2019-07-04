@@ -256,6 +256,23 @@ html {
 
 2、把input字体设置16px以上
 
+### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白以及样式错位问题
+
+解决方案：在input输入框失去焦点的时候触发一下底部页面的滚动事件
+
+```js
+inputBlur() {
+    let ua = window.navigator.userAgent.toLowerCase();
+    if (/(iPhone|iPad|iPod|iOS)/i.test(ua)) {
+        window.scrollTo(0, 0);
+    }
+}
+```
+
+### H5页面input占位符placeholder在ios手机上没有垂直居中问题
+
+解决方案：设置`line-height: normal`, 如果还是不行，设置`line-height: 1px`
+
 ### 禁止ios10及以上h5页面缩放
 
 移动端禁止页面缩放我们通常使用`<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=0">`就可以解决，但是在ios10以上有兼容问题，具体解决方案如下：
