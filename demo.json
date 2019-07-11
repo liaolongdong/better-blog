@@ -5,6 +5,10 @@
       "demoUrl": "demo/idCardDemo/index.html"
     },
     {
+      "title": "H5页面实现摇一摇功能",
+      "demoUrl": "demo/shakeDemo/index.html"
+    },
+    {
       "title": "原生JS实现一键复制功能",
       "demoUrl": "demo/copyDemo/index.html"
     },
