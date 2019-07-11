@@ -323,6 +323,10 @@ console.log(urlParamToObj('name', 'https://www.baidu.com/?id=123456&name=Better&
 >也可以通过`device === ''`来判断是否为PC端浏览器
 
 ```javascript
+/** 
+ * @desc 判断浏览器环境，wx、ios、android
+ * @return 浏览器环境类型
+ */
 export const whatDevice = () => {
   let device = '';
   let ua = window.navigator.userAgent.toLowerCase();

@@ -258,6 +258,10 @@ html {
 
 ### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白以及样式错位问题
 
+如图：
+
+![ios遮罩弹出框input调用键盘样式问题](/assets/img/postCover/ios_input_mask.jpg)
+
 解决方案：在input输入框失去焦点的时候触发一下底部页面的滚动事件
 
 ```js
@@ -270,6 +274,10 @@ inputBlur() {
 ```
 
 ### H5页面input占位符placeholder在ios手机上没有垂直居中问题
+
+如图：
+
+![ios遮罩弹出框input调用键盘样式问题](/assets/img/postCover/ios_input_mask.jpg)
 
 解决方案：设置`line-height: normal`, 如果还是不行，设置`line-height: 1px`
 
@@ -300,6 +308,55 @@ window.onload = function() {
         event.preventDefault();
     });
 }
+```
+
+### H5页面微信浏览器ios手机实现音频自动播放功能
+
+问题：H5页面ios系统音频不能自动播放，但是安卓手机可以
+
+解决方案：在微信浏览器中使用微信环境相关api实现ios手机自动播放音频功能
+
+> 注意：因为是通过调用微信浏览器相关api，所以只能在微信中有效
+
+```html
+<!-- 如果是使用js-sdk中的api，则需要引入改JS -->
+<script src='https://res.wx.qq.com/open/js/jweixin-1.4.0.js'></script>
+
+<!-- audio音频 -->
+<audio id="shakemusic" src="/static/music/red1.mp3" style="display: none;"></audio>
+```
+
+```js
+// 不需要引入js-sdk
+/** 
+ * @desc 微信ios实现音频自动播放
+ * @param audioId audio音频id
+ */
+wxIosAutoPlay(audioId) {
+    let ua = window.navigator.userAgent;
+    let isWx = /MicroMessenger/i.test(ua);
+    let isIos = /(iPhone|iPad|iPod|iOS)/i.test(ua);
+    if (isWx && isIos) {
+        document.addEventListener("WeixinJSBridgeReady", () => {
+            document.getElementById(audioId).play();
+        }, false);
+    }
+}
+wxIosAutoPlay('shakemusic');
+
+// 需要引入js-sdk
+wx.config({
+    // 配置信息, 即使不正确也能使用 wx.ready
+    debug: false,
+    appId: '',
+    timestamp: 1,
+    nonceStr: '',
+    signature: '',
+    jsApiList: []
+});
+wx.ready(function() {
+    document.getElementById('shakemusic').play();
+});
 ```
 
 ### ios9使用flex布局图片设置内边距导致图片变形
