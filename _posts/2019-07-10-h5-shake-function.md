@@ -12,7 +12,13 @@ tags: JavaScript H5实现摇一摇
 
 最近公司做了一个微信摇一摇领红包的活动，趁着刚上线有点空余时间，做一下摇一摇活动总结，记录一下做摇一摇活动过程中遇到的问题，旨在为了方便自己下次做类似活动的时候查阅以及让没做过摇一摇活动的小伙伴们少踩坑吧
 
+> 注意：因为我的个人博客域名协议是http的，所以苹果手机ios12以上没有效果
+
 [点这里查看摇一摇demo效果](http://liaolongdong.com/demo/shakeDemo/index.html)
+
+用手机扫描二维码查看效果：
+
+![查看摇一摇demo效果](/assets/img/postCover/shake_demo_qcode.png)
 
 ## 摇一摇要实现的功能细节
 
@@ -68,7 +74,7 @@ function deviceMotionHandler(eventData) {
         let speed = (Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime) * 10000;
         if (speed > SHAKETHRESHOLD) {
                 setTimeout(() => {
-                    alert("恭喜你获得妹纸一枚!"); // Do something
+                    alert("恭喜你，摇到漂亮妹纸一枚!"); // Do something
                 }, 1000);
             }
         }

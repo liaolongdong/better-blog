@@ -68,7 +68,7 @@
                             setTimeout(() => {
                                 shakeAudio.pause();
                                 openAudio.play();
-                                alert("恭喜你获得妹纸一枚!"); // Do something
+                                alert("恭喜你，摇到漂亮妹纸一枚!"); // Do something
                                 
                                 self.shakeFlag = true;
                                 // 调用摇一摇接口
