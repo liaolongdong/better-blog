@@ -1,0 +1,42 @@
+body {
+    background: linear-gradient(top, rgb(203, 235, 219) 0%, rgb(55, 148, 192) 120%);
+    overflow: hidden;
+    font-family: '微软雅黑';
+    font-size: 16px;
+    height: 1500px;
+}
+
+.item {
+    width: 200px;
+    height: 200px;
+    line-height: 30px;
+    border-bottom-left-radius: 20px 500px;
+    border-bottom-right-radius: 500px 30px;
+    border-top-right-radius: 5px 100px;
+    box-shadow: 0 2px 10px 1px rgba(0, 0, 0, 0.2);
+}
+
+#container p {
+    height: 80px;
+    margin: 30px 10px;
+    overflow: hidden;
+    word-wrap: break-word;
+    line-height: 1.5;
+}
+
+#container a {
+    position: relative;
+    left: 150px;
+    color: red;
+    font-size: 14px;
+}
+
+input {
+    display: block;
+    height: 30px;
+    padding: 0 1em;
+    line-height: 30px;
+    width: 300px;
+    margin: 85px auto;
+    font-size: 20px;
+}
