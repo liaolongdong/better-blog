@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 {% include demoHead.html %}
+{% include header.html %}
 <body>
     <!--[if lt IE 10]>
         <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="http://browsehappy.com">立即升级</a></div>
@@ -8,4 +9,5 @@
     <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
     {{ content }}
 </body>
+{% include footer.html %}
 </html>
