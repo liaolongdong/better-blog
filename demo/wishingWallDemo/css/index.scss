@@ -2,10 +2,11 @@ body {
     background: linear-gradient(top, rgb(203, 235, 219) 0%, rgb(55, 148, 192) 120%);
     overflow: hidden;
     font-family: '微软雅黑';
-    font-size: 16px;
 }
 
 .pc-style {
+    height: 100vh;
+    font-size: 16px;
     .item {
         width: 200px;
         height: 200px;
@@ -33,11 +34,11 @@ body {
     
     input {
         display: block;
-        height: 30px;
-        padding: 0 1em;
-        line-height: 30px;
+        padding: 10px;
         width: 300px;
         margin: 85px auto;
         font-size: 20px;
+        border-radius: 4px;
+        cursor: default;
     }
 }
