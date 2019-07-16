@@ -17,6 +17,10 @@ body {
         box-shadow: 0 2px 10px 1px rgba(0, 0, 0, 0.2);
     }
 
+    #container {
+        min-height: 520px;
+    }
+
     #container p {
         height: 100px;
         margin: 30px 10px 20px;
@@ -33,18 +37,32 @@ body {
         text-decoration: underline;
     }
 
-    input {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 60px;
+    #input {
         display: block;
         padding: 10px;
         width: 300px;
+        height: 40px;
+        resize: none;
         font-size: 20px;
         border-radius: 4px;
         border: none;
         outline: none;
         cursor: default;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    #submit {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-left: 10px;
+        width: 80px;
+        height: 40px;
+        font-size: 20px;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        background-color: #0084ff;
     }
 }

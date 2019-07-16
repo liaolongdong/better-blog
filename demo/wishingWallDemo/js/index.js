@@ -146,24 +146,45 @@
             createItem(v);
         });
 
-        // 绑定输入框
-        $('#input').keydown(function (e) {
-            var $this = $(this);
-            if (e.keyCode == '13') {
-                var value = $this.val();
-                if (value) {
-                    var cardObj = {
-                        // 生成随机id
-                        id: Math.random().toString(32).substring(2),
-                        text: value
-                    };
-                    createItem(cardObj);
-                    // 添加到卡片列表
-                    wishCards.push(cardObj);
-                    // 存储到本地localStorage
-                    localStorage.setItem('wishCards', JSON.stringify(wishCards));
-                    $this.val('');
-                }
+        // // 绑定输入框
+        // $('#input').keydown(function (e) {
+        //     var $this = $(this);
+        //     if (e.keyCode == '13') {
+        //         var value = $this.val();
+        //         if (value) {
+        //             var cardObj = {
+        //                 // 生成随机id
+        //                 id: Math.random().toString(32).substring(2),
+        //                 text: value
+        //             };
+        //             createItem(cardObj);
+        //             // 添加到卡片列表
+        //             wishCards.push(cardObj);
+        //             // 存储到本地localStorage
+        //             localStorage.setItem('wishCards', JSON.stringify(wishCards));
+        //             $this.val('');
+        //         }
+        //     }
+        // });
+
+        // 点击提交按钮
+        $('#submit').click(function (e) {
+            var value = $('#input').val();
+            // 匹配换行符
+            value = value.replace(/\n|\r/g, '<br/>');
+            console.log('value', value);
+            if (value) {
+                var cardObj = {
+                    // 生成随机id
+                    id: Math.random().toString(32).substring(2),
+                    text: value
+                };
+                createItem(cardObj);
+                // 添加到卡片列表
+                wishCards.push(cardObj);
+                // 存储到本地localStorage
+                localStorage.setItem('wishCards', JSON.stringify(wishCards));
+                $('#input').val('');
             }
         });
 

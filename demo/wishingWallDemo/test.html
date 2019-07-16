@@ -26,6 +26,10 @@
             box-shadow: 0 2px 10px 1px rgba(0, 0, 0, 0.2);
         }
 
+        #container {
+            min-height: 520px;
+        }
+
         #container p {
             height: 100px;
             margin: 30px 10px 20px;
@@ -42,28 +46,56 @@
             text-decoration: underline;
         }
 
-        input {
+        .input-section {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
             bottom: 60px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input {
             display: block;
             padding: 10px;
             width: 300px;
+            height: 40px;
+            resize: none;
             font-size: 20px;
             border-radius: 4px;
             border: none;
             outline: none;
             cursor: default;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #submit {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: 10px;
+            width: 80px;
+            height: 40px;
+            font-size: 20px;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            background-color: #0084ff;
         }
     </style>
     <script src="http://libs.baidu.com/jquery/1.9.1/jquery.min.js"></script>
 </head>
 
 <body>
-    <div id="container" style="height:520px;">
+    <div id="container">
     </div>
-    <input id="input" type="text" placeholder="随便说说吧..." />
+    <div class="input-section">
+        <!-- <input id="input" type="text" placeholder="随便说说吧..." /> -->
+        <textarea name="input" id="input" cols="30" rows="10" placeholder="随便说说吧..."></textarea>
+        <button id="submit" class="submit-btn">提交</button>
+        <!-- <div id="test"></div> -->
+    </div>
     <script>
         (function ($) {
 
@@ -73,7 +105,8 @@
             var colors = ['#96C2F1', '#BBE1F1', '#E3E197', '#F8B3D0', '#FFCC00'];
 
             // 初始许愿墙
-            var wishCards = [{
+            var wishCards = [
+                {
                     id: '1',
                     text: '与君初相识，犹如故人归'
                 },
@@ -83,14 +116,18 @@
                 },
                 {
                     id: '3',
-                    text: '嘴巴是撒谎的小坏蛋，身体是诚实的好少年'
+                    text: '若不是情深似海，思念又怎么会泛滥成灾'
                 },
                 {
                     id: '4',
-                    text: '生活不止眼前的苟且，还有你读不懂的诗和到不了的远方'
+                    text: '嘴巴是撒谎的小坏蛋，身体是诚实的好少年'
                 },
                 {
                     id: '5',
+                    text: '生活不止眼前的苟且，还有你读不懂的诗和到不了的远方'
+                },
+                {
+                    id: '6',
                     text: '既然选择了远方，便只顾风雨兼程！'
                 },
             ];
@@ -104,10 +141,7 @@
             //创建许愿页
             var createItem = function (card) {
                 var color = colors[parseInt(Math.random() * 5, 10)]
-                $('<div class="item"><p>' + card.text + '</p><a id="' + card.id + '" href="#">删除</a></div>')
-                    .css({
-                        'background': color
-                    }).appendTo(container).drag();
+                $('<div class="item"><p>' + card.text + '</p><a id="' + card.id + '" href="#">删除</a></div>').css({ 'background': color }).appendTo(container).drag();
             };
 
             // 定义拖拽函数
@@ -118,10 +152,8 @@
 
                 var pw = parent.width();
                 var ph = parent.height();
-                var thisWidth = $this.width() + parseInt($this.css('padding-left'), 10) + parseInt($this.css(
-                    'padding-right'), 10);
-                var thisHeight = $this.height() + parseInt($this.css('padding-top'), 10) + parseInt($this.css(
-                    'padding-bottom'), 10);
+                var thisWidth = $this.width() + parseInt($this.css('padding-left'), 10) + parseInt($this.css('padding-right'), 10);
+                var thisHeight = $this.height() + parseInt($this.css('padding-top'), 10) + parseInt($this.css('padding-bottom'), 10);
                 var x, y, positionX, positionY;
                 var isDown = false;
                 var randY = parseInt(Math.random() * (ph - thisHeight), 10);
@@ -198,14 +230,14 @@
 
                 // 绑定关闭事件
                 container.on('click', 'a', function () {
-                        // 删除对应的卡片
-                        wishCards = wishCards.filter((item) => {
-                            return item.id !== this.id;
-                        });
-                        // 存储到本地localStorage
-                        localStorage.setItem('wishCards', JSON.stringify(wishCards));
-                        $(this).parent().remove();
-                    }).height(($(window).height() - 200) < 0 ? 520 : ($(window).height() - 200))
+                    // 删除对应的卡片
+                    wishCards = wishCards.filter((item) => {
+                        return item.id !== this.id;
+                    });
+                    // 存储到本地localStorage
+                    localStorage.setItem('wishCards', JSON.stringify(wishCards));
+                    $(this).parent().remove();
+                }).height(($(window).height() - 200) < 0 ? 520 : ($(window).height() - 200))
                     .width(($(window).width() - 200) < 0 ? '100%' : $(window).width());
 
                 // 渲染许愿墙卡片
@@ -214,23 +246,47 @@
                 });
 
                 // 绑定输入框
-                $('#input').keydown(function (e) {
-                    var $this = $(this);
-                    if (e.keyCode == '13') {
-                        var value = $this.val();
-                        if (value) {
-                            var cardObj = {
-                                // 生成随机id
-                                id: Math.random().toString(32).substring(2),
-                                text: value
-                            };
-                            createItem(cardObj);
-                            // 添加到卡片列表
-                            wishCards.push(cardObj);
-                            // 存储到本地localStorage
-                            localStorage.setItem('wishCards', JSON.stringify(wishCards));
-                            $this.val('');
-                        }
+                // $('#input').keydown(function (e) {
+                //     var $this = $(this);
+                //     if (e.keyCode == '13') {
+                //         var value = $this.val();
+                //         if (value) {
+                //             var cardObj = {
+                //                 // 生成随机id
+                //                 id: Math.random().toString(32).substring(2),
+                //                 text: value
+                //             };
+                //             createItem(cardObj);
+                //             // 添加到卡片列表
+                //             wishCards.push(cardObj);
+                //             // 存储到本地localStorage
+                //             localStorage.setItem('wishCards', JSON.stringify(wishCards));
+                //             $this.val('');
+                //         }
+                //     }
+                // });
+
+                // 点击提交按钮
+                $('#submit').click(function (e) {
+                    // var $this = $(this);
+                    // var value = $this.val();
+                    var value = $('#input').val();
+                    // 匹配换行符
+                    value = value.replace(/\n|\r/g, '<br/>');
+                    // $('#test').html(value);
+                    console.log('value', value);
+                    if (value) {
+                        var cardObj = {
+                            // 生成随机id
+                            id: Math.random().toString(32).substring(2),
+                            text: value
+                        };
+                        createItem(cardObj);
+                        // 添加到卡片列表
+                        wishCards.push(cardObj);
+                        // 存储到本地localStorage
+                        localStorage.setItem('wishCards', JSON.stringify(wishCards));
+                        $('#input').val('');
                     }
                 });
 
