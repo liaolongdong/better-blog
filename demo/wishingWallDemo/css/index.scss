@@ -37,6 +37,15 @@ body {
         text-decoration: underline;
     }
 
+    .input-section {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 60px;
+        display: flex;
+        justify-content: center;
+    }
+
     #input {
         display: block;
         padding: 10px;
