@@ -1,14 +1,23 @@
+*,
+*::before,
+*::after {
+    box-sizing: content-box;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     margin: 0px;
     background: #F6F7A7;
 }
 
 .pc-style {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
     .mao_box {
         position: relative;
-        display: flex;
-        justify-content: center;
-        align-items: center;
         // position: fixed;
         // left: 50px;
         // bottom: 50px;
