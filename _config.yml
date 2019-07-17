@@ -59,6 +59,9 @@ aboutMe:
 # back to top
 bottomFixedBtn: true
 
+# show cat
+showCat: true
+
 # Footer
 footer:
   since: 2018

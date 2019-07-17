@@ -111,6 +111,11 @@
     {% endif %}
   </section>
 
+  <!-- 显示猫 -->
+  {% if site.showCat %}
+    {% include cat.html %}
+  {% endif %}
+
   <script src="/assets/js/social-share.min.js"></script>
   <script>
     socialShare('.social-share', {
