@@ -97,8 +97,8 @@ var getRandomMoney = function getRandomMoney(packet) {
         console.log("========================================================================");
         for (var i = 0; i < num; i++) {
             var _pack = getRandomMoney(packet);
-            str += "<p>第<span>" + (i + 1) + "</span>个红包:: <span>" + _pack.toFixed(2) + "</span>元&emsp;&emsp;==剩余红包:: <span>" + packet.money.toFixed(2) + "</span> 元<p>";
-            console.log("第", (i + 1), "个红包::", _pack.toFixed(2), "元      ==剩余红包::", packet.money.toFixed(2), "元");
+            str += "<p>第<span>" + (i + 1) + "</span>个红包: <span>" + _pack.toFixed(2) + "</span>元&emsp;&emsp;==剩余红包: <span>" + packet.money.toFixed(2) + "</span> 元<p>";
+            console.log("第", (i + 1), "个红包:", _pack.toFixed(2), "元      ==剩余红包:", packet.money.toFixed(2), "元");
         }
         str !== "" && (oList.innerHTML = str);
     };

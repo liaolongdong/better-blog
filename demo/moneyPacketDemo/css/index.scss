@@ -7,6 +7,10 @@
 }
 
 .pc-style {
+    margin-top: 50px;
+    min-height: 100vh;
+    font-size: 16px;
+    cursor: default;
 
     body {
         background: #EAEAEA;
@@ -18,10 +22,12 @@
         margin: 0;
         display: inline-block;
         border: 1px solid #ddd;
-        padding: 4px 2px;
+        padding: 4px;
         font-size: 16px;
         font-family: "微软雅黑";
         margin-right: 5px;
+        width: initial;
+        border-radius: 4px;
     }
 
     input:focus {
@@ -32,7 +38,7 @@
     .wrap,
     .list {
         margin: 50px auto;
-        width: 300px;
+        width: 350px;
     }
 
     .title {
@@ -56,10 +62,11 @@
         text-align: center;
         width: 200px;
         margin: 0 auto;
-        margin-top: 50px;
+        margin-top: 30px;
         text-decoration: none;
         transition: all .3s linear;
-        border-radius: 2px;
+        border-radius: 4px;
+        cursor: pointer;
     }
 
     .btn:hover {
@@ -72,6 +79,11 @@
         padding: 10px;
         background: #F5F5F5;
         text-align: center;
+        border-radius: 4px;
+    }
+
+    .list p {
+        line-height: 1.5;
     }
 
     .list p span {
