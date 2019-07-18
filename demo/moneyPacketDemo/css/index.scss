@@ -1,0 +1,109 @@
+*,
+*::before,
+*::after {
+    box-sizing: content-box;
+    margin: 0;
+    padding: 0;
+}
+
+.pc-style {
+
+    body {
+        background: #EAEAEA;
+        font: 16px/1.8 "微软雅黑";
+        padding-bottom: 20px
+    }
+
+    input {
+        margin: 0;
+        display: inline-block;
+        border: 1px solid #ddd;
+        padding: 4px 2px;
+        font-size: 16px;
+        font-family: "微软雅黑";
+        margin-right: 5px;
+    }
+
+    input:focus {
+        border-color: #3C9BD1;
+        outline: none;
+    }
+
+    .wrap,
+    .list {
+        margin: 50px auto;
+        width: 300px;
+    }
+
+    .title {
+        font-size: 42px;
+        color: #464646;
+        text-align: center;
+    }
+
+    .line {
+        height: 40px;
+        line-height: 40px;
+        text-align: center;
+    }
+
+    .btn {
+        display: block;
+        background: #3C9BD1;
+        color: #fff;
+        line-height: 40px;
+        height: 40px;
+        text-align: center;
+        width: 200px;
+        margin: 0 auto;
+        margin-top: 50px;
+        text-decoration: none;
+        transition: all .3s linear;
+        border-radius: 2px;
+    }
+
+    .btn:hover {
+        opacity: .9;
+    }
+
+    .list {
+        width: 500px;
+        border: 1px solid #DBDBDB;
+        padding: 10px;
+        background: #F5F5F5;
+        text-align: center;
+    }
+
+    .list p span {
+        color: red;
+        padding: 0 8px;
+    }
+
+    .list p:empty {
+        background: #000000;
+    }
+
+    .list:empty {
+        display: none;
+    }
+
+    .link {
+        position: fixed;
+        height: 20px;
+        font-size: 12px;
+        color: #999;
+        text-align: center;
+        width: 100%;
+        bottom: 0;
+        line-height: 20px;
+        margin: 0;
+        padding: 0;
+        background: #EAEAEA;
+        padding: 5px 0;
+    }
+
+    .link a {
+        font-size: 12px;
+        color: #999;
+    }
+}

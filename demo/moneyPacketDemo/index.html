@@ -1,0 +1,21 @@
+---
+layout: demoTemplate
+title: JS实现仿微信抢红包
+---
+
+<div class="pc-style">
+    <h1 class="title">javascript实现仿微信抢红包</h1>
+    <div class="wrap">
+        <div class="line">红包个数：<input type="text" name="packetNumber" value="6"
+                onkeyup="this.value=this.value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')"
+                maxlength="10">个</div>
+        <div class="line">总&ensp;金&ensp;额：<input type="text" name="money" value="6"
+                onkeyup="if(isNaN(value))execCommand('undo')" onafterpaste="if(isNaN(value))execCommand('undo')"
+                maxlength="10">元</div>
+        <div class="line"><a class="btn" href="javascript:;">发红包</a></div>
+    </div>
+    <div class="list"></div>
+    <p class="link">参考<a target="_blank" href="https://www.zybuluo.com/yulin718/note/93148">《微信红包的架构设计简介》</a>文章</p>
+</div>
+
+<script src="./js/index.min.js"></script>

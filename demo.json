@@ -9,6 +9,10 @@
       "demoUrl": "demo/wishingWallDemo/index.html"
     },
     {
+      "title": "JS实现仿微信抢红包",
+      "demoUrl": "demo/moneyPacketDemo/index.html"
+    },
+    {
       "title": "H5页面实现摇一摇功能",
       "demoUrl": "demo/shakeDemo/index.html"
     },
