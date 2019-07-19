@@ -30,8 +30,8 @@ yum -y install nginx
 
 3、测试nginx安装是否成功  
 
->nginx启动目录：`/usr/sbin`
->nginx网站默认目录：`/usr/share/nginx/html`  
+>nginx启动目录：`/usr/sbin`  
+>nginx网站默认目录：`/usr/share/nginx/html`  
 >nginx配置文件默认路径：`/etc/nginx/nginx.conf`  
 
 使用`whereis nginx`查看nginx相关目录，进入到`/usr/sbin/`目录下，执行`nginx`启动nginx，如图：
