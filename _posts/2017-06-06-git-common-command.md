@@ -56,7 +56,7 @@ git diff
 # 查看所有分支
 git branch -a
 
-# 查看所有远程仓库
+# 查看本地项目关联远程仓库地址
 git remote -v
 ```
 
@@ -113,4 +113,17 @@ git revert <commit>
 
 # 分支合并有冲突，选择回退分支合并操作
 git merge --abort
+```
+
+### git切换远程仓库地址
+
+```bash
+# 查看本地项目关联远程仓库地址
+git remote -v
+
+# 删除origin关联的远程仓库地址
+git remote remove origin
+
+# 添加远程仓库新地址
+git remote add origin <url>
 ```
