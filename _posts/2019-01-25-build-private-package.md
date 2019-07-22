@@ -32,7 +32,7 @@ tags: npm 私有仓库 组件库
 
 > Verdaccio is a lightweight private npm proxy registry built in Node.js
 
-verdaccio是基于node.js的，所以在我们的服务器上需要安装node，如何在阿里云服务器安装node，详见我之前写的博客[阿里云服务器上部署node+mongodb](http://liaolongdong.com/2018/11/01/alicloud-node-mongodb.html)
+verdaccio是基于node.js的，所以在我们的服务器上需要安装node，如何在阿里云服务器安装node，详见我之前写的博客[阿里云服务器上部署node+mongodb](https://liaolongdong.com/2018/11/01/alicloud-node-mongodb.html)
 
 2、安装verdaccio
 
@@ -157,7 +157,7 @@ pm2 start verdaccio
 
 使用verdaccio在服务器搭建好私有仓库以后，接下来就是如何在本地上传npm包到私有仓库服务器了
 
-发布npm包之前必须先注册账号，具体可参考博客[如何开发一个npm包并发布到npm中央仓库](http://liaolongdong.com/2019/01/24/publish-public-npm.html)
+发布npm包之前必须先注册账号，具体可参考博客[如何开发一个npm包并发布到npm中央仓库](https://liaolongdong.com/2019/01/24/publish-public-npm.html)
 
 ### 1、登录
 
@@ -203,7 +203,7 @@ npm notice
 + lld-npm-demo@1.0.2
 ```
 
-如何发布npm包以及遇到错误，参考博客[如何开发一个npm包并发布到npm中央仓库](http://liaolongdong.com/2019/01/24/publish-public-npm.html)就行，这里就不再累述了。
+如何发布npm包以及遇到错误，参考博客[如何开发一个npm包并发布到npm中央仓库](https://liaolongdong.com/2019/01/24/publish-public-npm.html)就行，这里就不再累述了。
 
 ### 3、npm成功发布到私有仓库
 

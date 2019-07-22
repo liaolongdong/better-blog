@@ -129,7 +129,7 @@ tags: 网站seo seo优化 搜索引擎网站收录
 
 ## 检测某搜索引擎是否收录站点
 
-检测`http://liaolongdong.com/`域名是否被搜索引擎收录，在引擎中输入`site:liaolongdong.com`，检测网站是否收录成功
+检测`https://liaolongdong.com/`域名是否被搜索引擎收录，在引擎中输入`site:liaolongdong.com`，检测网站是否收录成功
 
 搜索引擎收录成功，如图所示：
 

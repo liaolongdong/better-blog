@@ -12,7 +12,7 @@ tags: echarts
 
 这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。
 
-[点这里查看demo效果](http://liaolongdong.com/demo/echartsDemo/index.html)
+[点这里查看demo效果](https://liaolongdong.com/demo/echartsDemo/index.html)
 
 ## 绘制图表
 

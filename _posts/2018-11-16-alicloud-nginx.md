@@ -10,7 +10,7 @@ tags: 阿里云服务器部署 云服务器ECS 域名解析 nginx
 
 # 阿里云服务器（centos）部署nginx
 
-## 云服务安装nginx
+## 阿里云服务安装nginx
 
 1、首先，升级所有的包，更新CentOS的内核到最新版本，centos使用yum包管理命令  
 
@@ -59,6 +59,10 @@ vim nginx.conf // 查看nginx.conf配置文件信息
 可以通过修改nginx配置文件就改配置信息，比如把默认端口号80改成其它端口号等等  
 
 **注意：1、设置端口号必须要在阿里云服务器添加对应的安全组，否则不能正常访问；2、必须重启nginx，重启命令`nginx -s reload`；**
+
+## 阿里云域名配置https
+
+
 
 参考文章：  
 [nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)  

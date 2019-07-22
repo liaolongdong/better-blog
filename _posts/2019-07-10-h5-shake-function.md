@@ -14,7 +14,7 @@ tags: JavaScript H5实现摇一摇
 
 > 注意：因为我的个人博客域名协议是http的，所以苹果手机ios12以上没有效果
 
-[点这里查看摇一摇demo效果](http://liaolongdong.com/demo/shakeDemo/index.html)
+[点这里查看摇一摇demo效果](https://liaolongdong.com/demo/shakeDemo/index.html)
 
 用手机扫描二维码查看效果：
 
