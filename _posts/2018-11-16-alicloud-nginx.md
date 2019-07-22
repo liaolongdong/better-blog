@@ -62,7 +62,67 @@ vim nginx.conf // 查看nginx.conf配置文件信息
 
 ## 阿里云域名配置https
 
+给网站域名配置https的大致步骤如下：
 
+1. 购买-申请-下载免费证书  
+2. 把下载的免费证书文件放到nginx安装目录下  
+3. nginx配置文件配置https
+
+### 购买-申请-下载免费证书
+
+具体流程：
+
+1. 在阿里云服务控制台，打开“产品与服务” -> “安全（云盾）” -> “SSL证书”   
+2. 进入“SSL证书”页面，点击“购买证书”按钮，进入证书购买页面，选择需要购买的证书（可选择免费型证书）  
+3. 购买完成以后，点击“申请”按钮，填写对应的证书申请信息
+4. 证书申请成功以后，即可点击“下载”按钮，下载证书
+
+### 把下载的免费证书文件放到nginx安装目录下
+
+1. 进入阿里云服务nginx安装目录`/etc/nginx`  
+2. 新建文件夹`cert`, 并把下载的两个证书文件放在该目录下  
+3. 打开`nginx.conf`配置文件，进行如下配置，配置完成以后重启nginx服务
+
+```bash
+# Settings for a TLS enabled server.
+
+   server {
+       listen       443 ssl http2 default_server;
+       listen       [::]:443 ssl http2 default_server;
+       server_name  _;
+    #    root         /usr/share/nginx/html;
+       root         /usr/share/nginx/html/liaolongdong.github.io/_site;
+
+    #    ssl_certificate "/etc/pki/nginx/server.crt";
+    #    ssl_certificate_key "/etc/pki/nginx/private/server.key";
+       ssl_certificate cert/1506368_liaolongdong.com.pem;
+       ssl_certificate_key cert/1506368_liaolongdong.com.key;
+       ssl_session_cache shared:SSL:1m;
+       ssl_session_timeout  10m;
+       ssl_ciphers HIGH:!aNULL:!MD5;
+       ssl_prefer_server_ciphers on;
+
+       # Load configuration files for the default server block.
+       include /etc/nginx/default.d/*.conf;
+
+       location / {
+       }
+
+       error_page 404 /404.html;
+           location = /40x.html {
+       }
+
+       error_page 500 502 503 504 /50x.html;
+           location = /50x.html {
+       }
+   }
+```
+
+配置好`ssl_certificate`和`ssl_certificate_key`两个字段即可，详情可以参考[Nginx/Tengine服务器安装SSL证书](https://help.aliyun.com/knowledge_detail/95491.html)
+
+进入nginx启动目录`usr/sbin`，执行nginx重启命令`nginx -s reload`
+
+完成以上步骤使用https也能正常访问网站啦~
 
 参考文章：  
 [nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)  
