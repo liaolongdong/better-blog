@@ -3,7 +3,7 @@ $(document).ready(function () {
     let path = window.location.pathname;
     let width = window.innerWidth;
     console.log('可视宽度：', width);
-    if (path.indexOf('/about.html') !== -1 && width >= 1500) {
-        $('.mao_box').show();
+    if (path.indexOf('/about.html') === -1 && width >= 1500) {
+        $('.mao_box').fadeIn(2000);
     }
 })
