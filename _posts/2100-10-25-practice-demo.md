@@ -202,3 +202,14 @@ function getValues (str) {
 }
 getValues(str);
 ```
+
+```js
+// 递归测试
+function digui (num) {
+    if (num) {
+        num--;
+        digui(num);
+    }
+    console.log('num', num);
+}
+```
