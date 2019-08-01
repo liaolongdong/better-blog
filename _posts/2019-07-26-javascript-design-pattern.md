@@ -690,3 +690,435 @@ console.log(plusProxy(1, 2, 3, 4)); // 10
 console.log(plusProxy(1, 2, 3, 4)); // cache value 10
 ```
 
+代理模式包括许多小分类，在JavaScript 开发中最常用的是虚拟代理和缓存代理。
+
+## 迭代器模式
+
+> 迭代器模式是指提供一种方法顺序访问一个聚合对象中的各个元素，而又不需要暴露该对象的内部表示。迭代器模式可以把迭代的过程从业务逻辑中分离出来，在使用迭代器模式之后，即使不关心对象的内部构造，也可以按顺序访问其中的每个元素。
+
+迭代器模式无非就是循环访问聚合对象中的各个元素。
+
+```js
+// jQuery中的$.each函数
+$.each([1, 2, 3], function (i, n) {
+    console.log('当前下标为：', i);
+    console.log('当前值为：', n);
+});
+
+// 自己实现一个each函数
+var each = function (arr, callback) {
+    for (var i = 0, len = arr.length; i < len; i++) {
+        callback(i, arr[i], arr);
+        // callback.call(this, i, arr[i]);
+    }
+}
+each([1, 2, 3, 5], function (i, n) {
+    console.log('当前下标为：', i);
+    console.log('当前值为：', n);
+});
+```
+
+### 内部迭代器
+
+编写的each 函数属于内部迭代器，each 函数的内部已经定义好了迭代规则，它完全接手整个迭代过程，外部只需要一次初始调用。
+
+现在有个需求，要判断2 个数组里元素的值是否完全相等
+
+```js
+var each = function (arr, callback) {
+    for (var i = 0, len = arr.length; i < len; i++) {
+        callback(i, arr[i], arr);
+        // callback.call(this, i, arr[i]);
+    }
+}
+
+var compareArr = function (arr1, arr2) {
+    if (arr1.length !== arr2.length) {
+        throw new Error('arr1和arr2不相等');
+    }
+    each(arr1, function (i, n) {
+        if (n !== arr2[i]) {
+            throw new Error('arr1和arr2不相等');
+        }
+    });
+    // arr1和arr2相等
+    return true;
+}
+
+// 测试
+var arr1 = [1, 2, 3, 4];
+var arr2 = [1, 2, 3, 4];
+compareArr(arr1, arr2); // true
+```
+
+### 外部迭代器
+
+外部迭代器必须显式地请求迭代下一个元素。
+
+外部迭代器增加了一些调用的复杂度，但相对也增强了迭代器的灵活性，我们可以手工控制
+迭代的过程或者顺序。
+
+```js
+// 编写外部迭代器
+var Iterator = function (obj) {
+    var current = 0;
+
+    // 执行下一步
+    var next = function () {
+        current++;
+    }
+
+    // 判断是否执行完
+    var isDone = function () {
+        return current >= obj.length;
+    }
+
+    // 获取当前迭代的值
+    var getCurItem = function () {
+        return obj[current];
+    }
+
+    return {
+        next: next,
+        isDone: isDone,
+        getCurItem: getCurItem
+    }
+}
+
+// 修改compareArr函数
+var compareArr = function (iterator1, iterator2) {
+    while (!iterator1.isDone() && !iterator2.isDone()) {
+        if (iterator1.getCurItem() !== iterator2.getCurItem()) {
+            throw Error('iterator1和iterator2不相等');
+        }
+        iterator1.next();
+        iterator2.next();
+    }
+    console.log('iterator1和iterator2相等');
+}
+
+var iterator1 = Iterator([1, 2,, 3, 4]);
+var iterator2 = Iterator([1, 2,, 3, 4]);
+
+compareArr(iterator1, iterator2);
+```
+
+外部迭代器虽然调用方式相对复杂，但它的适用面更广，也能满足更多变的需求。内部迭代器和外部迭代器在实际生产中没有优劣之分，究竟使用哪个要根据需求场景而定。
+
+### 中止迭代器
+
+迭代器可以像普通for 循环中的break 一样，提供一种跳出循环的方法。
+
+```js
+var each = function (arr, callback) {
+    for (var i = 0, l = arr.length; i < l; i++) {
+        if (callback(i, arr[i]) === false) { // callback 的执行结果返回false，提前终止迭代
+            break;
+        }
+    }
+};
+each([1, 2, 3, 4, 5], function (i, n) {
+    if (n > 3) { // n 大于3 的时候终止循环
+        return false;
+    }
+    console.log(n); // 分别输出：1, 2, 3
+});
+```
+
+这里提一个问题，我们如何中止数组forEach方法呢？
+
+```js
+var arr = [1, 2, 3, 4, 5];
+arr.forEach(function (v, i) {
+    console.log(v); // 输出：1 2 3 4 5
+    if (v > 3) {
+        // return false;
+        throw Error('中止遍历');
+    }
+    // console.log(v); // 输出：1 2 3
+});
+```
+
+## 发布订阅模式
+
+> 发布—订阅模式又叫观察者模式，它定义对象间的一种一对多的依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都将得到通知。在JavaScript 开发中，我们一般用事件模型来替代传统的发布—订阅模式。
+
+### 自定义事件
+
+售楼示例：
+
+现在看看如何一步步实现发布—订阅模式。  
+
+1. 首先要指定好谁充当发布者（比如售楼处）；  
+2. 然后给发布者添加一个缓存列表，用于存放回调函数以便通知订阅者（售楼处的花名册）；
+3. 最后发布消息的时候，发布者会遍历这个缓存列表，依次触发里面存放的订阅者回调函数（遍历花名册，挨个发短信）。
+
+另外，我们还可以往回调函数里填入一些参数，订阅者可以接收这些参数。这是很有必要的，比如售楼处可以在发给订阅者的短信里加上房子的单价、面积、容积率等信息，订阅者接收到这些信息之后可以进行各自的处理。
+
+实现一个最简单的发布—订阅模式
+
+```js
+// 定义售楼处
+var salesOffices = {};
+
+// 缓存列表，存放订阅者的回调函数
+salesOffices.clientList = [];
+
+// 增加订阅者
+salesOffices.listen = function (fn) {
+    // 把订阅者消息添加进缓存列表
+    this.clientList.push(fn);
+}
+
+// 发布消息
+salesOffices.trigger = function () {
+    for (var i = 0, fn; fn = this.clientList[i++];) {
+        // arguments是发布消息时带上的参数
+        fn.apply(this, arguments); 
+    }
+}
+
+// 测试
+salesOffices.listen(function (price, squareMeter) {
+    console.log('价格：', price);
+    console.log('面积：', squareMeter);
+});
+// salesOffices.listen(function (price, squareMeter) {
+//     console.log('价格：', price);
+//     console.log('面积：', squareMeter);
+// });
+// 小明订阅的消息
+salesOffices.trigger(3000000, 120);
+// 小红订阅的消息
+salesOffices.trigger(2000000, 100);
+```
+
+至此，我们已经实现了一个最简单的发布—订阅模式，但这里还存在一些问题。我们看到订阅者接收到了发布者发布的每个消息，虽然小明只想买120平方米的房子，但是发布者把100平方米的信息也推送给了小明，这对小明来说是不必要的困扰。所以我们有必要增加一个标识key，让订阅者只订阅自己感兴趣的消息。
+
+```js
+// 定义售楼处
+var salesOffices = {};
+
+// 缓存列表，存放订阅者的回调函数
+salesOffices.clientList = {};
+
+// 增加订阅者
+salesOffices.listen = function (key, fn) {
+    // 如果还没有订阅过此类消息，给该类消息创建一个缓存列表
+    if (!this.clientList[key]) {
+        this.clientList[key] = [];
+    }
+    // 把订阅者消息添加进缓存列表
+    this.clientList[key].push(fn);
+}
+
+// 发布消息
+salesOffices.trigger = function () {
+    // 取出消息类型
+    var key = [].shift.call(arguments);
+    // 取出该消息对应的回调函数集合
+    var fns = this.clientList[key];
+    // 如果没有订阅该消息，则返回
+    if (!fns || fns.length === 0) {
+        return;
+    }
+    for (var i = 0, fn; fn = fns[i++];) {
+        // arguments是发布消息时带上的参数
+        fn.apply(this, arguments); 
+    }
+}
+
+// 测试
+// 小明订阅120平方米房子的消息
+salesOffices.listen('squareMeter120', function (price) {
+    console.log('价格：', price);
+});
+// 小红订阅100平方米房子的消息
+salesOffices.listen('squareMeter100', function (price) {
+    console.log('价格：', price);
+});
+// 发布120平方米房子的价格
+salesOffices.trigger('squareMeter120', 3000000);
+// 发布100平方米房子的价格
+salesOffices.trigger('squareMeter100', 2000000);
+```
+
+### 发布－订阅模式的通用实现
+
+让所有对象都拥有发布—订阅功能
+
+```js
+// 编写发布订阅功能
+var event = {
+    // 定义缓存列表
+    clientList: {},
+    // 添加订阅者
+    listen: function (key, fn) {
+        if (!this.clientList[key]) {
+            this.clientList[key] = [];
+        }
+        this.clientList[key].push(fn);
+    },
+    // 添加发布者
+    trigger: function () {
+        var key = [].shift.call(arguments);
+        var fns = this.clientList[key];
+        if (!fns || fns.length === 0) {
+            return;
+        }
+        for (var i = 0, fn; fn = fns[i++];) {
+            fn.apply(this, arguments);
+        }
+    }
+}
+
+// 给所有对象添加发布订阅功能方法
+var installEvent = function (obj) {
+    for (var i in event) {
+        obj[i] = event[i];
+    }
+}
+
+// 测试
+var myObj = {};
+installEvent(myObj);
+myObj.listen('blue', function (price) {
+    console.log('蓝色鞋子的价格：', price);
+});
+myObj.listen('white', function (price) {
+    console.log('白色鞋子的价格：', price);
+});
+myObj.trigger('blue', 800);
+myObj.trigger('white', 1000);
+```
+
+### 取消订阅的事件
+
+有时候，我们也许需要取消订阅事件的功能。比如小明突然不想买房子了，为了避免继续接收到售楼处推送过来的短信，小明需要取消之前订阅的事件。
+
+```js
+// 编写发布订阅功能
+var event = {
+    // 定义缓存列表
+    clientList: {},
+    // 添加订阅者
+    listen: function (key, fn) {
+        if (!this.clientList[key]) {
+            this.clientList[key] = [];
+        }
+        this.clientList[key].push(fn);
+    },
+    // 添加发布者
+    trigger: function () {
+        var key = [].shift.call(arguments);
+        var fns = this.clientList[key];
+        if (!fns || fns.length === 0) {
+            return;
+        }
+        for (var i = 0, fn; fn = fns[i++];) {
+            fn.apply(this, arguments);
+        }
+    },
+    // 取消订阅
+    remove: function (key, fn) {
+        var fns = this.clientList[key];
+        // 如果key 对应的消息没有被人订阅，则直接返回
+        if (!fns) {
+            return;
+        }
+        // 如果没有传入具体的回调函数，表示需要取消key 对应消息的所有订阅
+        if (!fn) {
+            // 清空对应key的存储的回调函数列表
+            fns && (fns.length = 0);
+        } else {
+            // 反向遍历订阅的回调函数列表
+            for (var i = fns.length - 1; i >= 0; i--) {
+                if (fns[i] === fn) {
+                    // 删除订阅者的回调函数
+                    fns.splice(i, 1);
+                }
+            }
+        }
+    }
+}
+
+var salesOffices = {};
+var installEvent = function (obj) {
+    for (var i in event) {
+        obj[i] = event[i];
+    }
+}
+installEvent(salesOffices);
+salesOffices.listen('squareMeter88', fn1 = function (price) { // 小明订阅消息
+    console.log('价格: ' + price);
+});
+salesOffices.listen('squareMeter88', fn2 = function (price) { // 小红订阅消息
+    console.log('价格: ' + price);
+});
+salesOffices.remove('squareMeter88', fn1); // 删除小明的订阅
+salesOffices.trigger('squareMeter88', 2000000); // 输出：2000000
+```
+
+### 全局的发布－订阅对象
+
+发布—订阅模式可以用一个全局的Event 对象来实现，订阅者不需要了解消息来自哪个发布者，发布者也不知道消息会推送给哪些订阅者，Event 作为一个类似“中介者”的角色，把订阅者和发布者联系起来。
+
+```js
+var Event = (function () {
+    var clientList = {};
+    var listen, tirgger, remove;
+    // 添加订阅者
+    listen = function (key, fn) {
+        if (!clientList[key]) {
+            clientList[key] = [];
+        }
+        clientList[key].push(fn);
+    };
+    // 添加发布者
+    trigger = function () {
+        var key = [].shift.call(arguments);
+        var fns = clientList[key];
+
+        if (!fns || fns.length === 0) {
+            return;
+        }
+        for (var i = 0, fn; fn = fns[i++];) {
+            fn.apply(this, arguments);
+        }
+    };
+    // 取消订阅
+    remove = function (key, fn) {
+        var fns = clientList[key];
+        if (!fns || fns.length === 0) {
+            return
+        }
+        if (!fn) {
+            fns.length = 0;
+        } else {
+            for (var i = fns.length; i >= 0; i--) {
+                if (fn === fns[i]) {
+                    fns.splice(i, 1);
+                }
+            }
+        }
+    };
+    return {
+        listen,
+        trigger,
+        remove
+    }
+})();
+
+Event.listen('squareMeter100', fn1 = function (price) {
+    console.log('squareMeter100：', price);
+});
+Event.listen('squareMeter100', fn2 = function (price) {
+    console.log('squareMeter100：', price);
+});
+Event.listen('squareMeter120', function (price) {
+    console.log('squareMeter120：', price);
+});
+// Event.remove('squareMeter100', fn1);
+Event.trigger('squareMeter100', 2000000);
+Event.trigger('squareMeter120', 3000000);
+```
