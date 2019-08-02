@@ -10,6 +10,8 @@ tags: JavaScript 设计模式
 
 # JavaScript常用设计模式总结
 
+设计模式的主题总是把不变的事物和变化的事物分离开来
+
 ## 单例模式
 
 > 单例模式的定义是：保证一个类仅有一个实例，并提供一个访问它的全局访问点。
@@ -1121,4 +1123,87 @@ Event.listen('squareMeter120', function (price) {
 // Event.remove('squareMeter100', fn1);
 Event.trigger('squareMeter100', 2000000);
 Event.trigger('squareMeter120', 3000000);
+```
+
+## 命令模式
+
+设计模式的主题总是把不变的事物和变化的事物分离开来，命令模式也不例外。按下按钮之后会发生一些事情是不变的，而具体会发生什么事情是可变的。通过command 对象的帮助，将来我们可以轻易地改变这种关联，因此也可以在将来再次改变按钮的行为。
+
+### 模拟面向对象简单的命令模式示例，如何把请求发送者和请求接收者解耦开的。
+
+```js
+var setCommand = function (button, command) {
+    button.onclick = function () {
+        command.execute();
+    }
+}
+
+var MenuBar = {
+    refresh: function () {
+        console.log('刷新菜单目录');
+    }
+}
+
+var SubMenu = {
+    add: function () {
+        console.log('增加子菜单');
+    },
+    del: function () {
+        console.log('删除子菜单');
+    }
+}
+
+var RefreshMenuBarCommand = function (receiver) {
+    this.receiver = receiver;
+}
+RefreshMenuBarCommand.prototype.execute = function () {
+    this.receiver.refresh();
+}
+var AddSubMenuCommand = function (receiver) {
+    this.receiver = receiver;
+}
+AddSubMenuCommand.prototype.execute = function () {
+    this.receiver.add();
+}
+var DelSubMenuCommand = function (receiver) {
+    this.receiver = receiver;
+}
+DelSubMenuCommand.prototype.execute = function () {
+    this.receiver.del();
+}
+
+var refreshMenuBarCommand = new RefreshMenuBarCommand(MenuBar);
+var addSubMenuCommand = new AddSubMenuCommand(SubMenu);
+var delSubMenuCommand = new DelSubMenuCommand(SubMenu);
+setCommand(button1, refreshMenuBarCommand);
+setCommand(button2, addSubMenuCommand);
+setCommand(button3, delSubMenuCommand);
+```
+
+[使用命令模式demo](https://liaolongdong.com/demo/designDemo/commandDemo.html)
+
+### 使用闭包实现命令模式
+
+```js
+var setCommand = function (btn, fn) {
+    btn.onclick = function () {
+        fn();
+    }
+}
+
+var MenuBar = {
+    refresh: function () {
+        console.log('刷新菜单界面！！！');
+    }
+}
+
+var RefreshMenuBarCommand = function (receiver) {
+    return function () {
+        receiver.refresh();
+    }
+}
+
+var refreshMenuBarCommand = RefreshMenuBarCommand(MenuBar);
+
+setCommand(button1, refreshMenuBarCommand);
 ```

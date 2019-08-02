@@ -58,6 +58,5 @@
             return false; // 阻止表单提交
         }
     };
-
-
-})(window, document);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    
+})(window, document);
