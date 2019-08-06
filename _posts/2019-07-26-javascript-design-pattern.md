@@ -1207,3 +1207,140 @@ var refreshMenuBarCommand = RefreshMenuBarCommand(MenuBar);
 
 setCommand(button1, refreshMenuBarCommand);
 ```
+
+### 使用execute方法
+
+如果想更明确地表达当前正在使用命令模式，或者除了执行命令之外，将来有可能还要提供撤销命令等操作。那我们最好还是把执行函数改为调用execute 方法
+
+```js
+var setCommand = function (btn, command) {
+    btn.onclick = function () {
+        command.execute();
+    }
+}
+
+var RefreshMenuBarCommand = function (receiver) {
+    return {
+        execute: function () {
+            receiver.refresh();
+        }
+    }
+}
+
+var MenuBar = {
+    refresh: function () {
+        console.log('刷新菜单界面！！！！！！');
+    }
+}
+
+var refreshMenuBarCommand = RefreshMenuBarCommand(MenuBar);
+
+setCommand(button1, refreshMenuBarCommand);
+```
+
+### 使用命令模式实现撤销和重做功能
+
+```js
+// 使用命令模式实现撤销和重做功能
+var Ryu = {
+    attack: function () {
+        console.log('攻击');
+    },
+    defense: function () {
+        console.log('防御');
+    },
+    jump: function () {
+        console.log('跳跃');
+    },
+    crouch: function () {
+        console.log('蹲下');
+    }
+};
+// 创建命令
+var makeCommand = function (receiver, state) {
+    return function () {
+        receiver[state]();
+    }
+}
+var commands = {
+    "119": "jump", // W
+    "115": "crouch", // S
+    "97": "defense", // A
+    "100": "attack" // D
+};
+var commandStack = []; // 保存命令的堆栈
+document.onkeypress = function (event) {
+    var keyCode = event.keyCode;
+    if (keyCode !== 119 && keyCode !== 115 && keyCode !== 97 && keyCode !== 100) {
+        return;
+    }
+    var command = makeCommand(Ryu, commands[keyCode]);
+    if (command) {
+        command(); // 执行命令
+        commandStack.push(command); // 将刚刚执行过的命令保存进堆栈
+    }
+};
+document.getElementById('replay').onclick = function () { // 点击播放录像
+    var command;
+    while (command = commandStack.shift()) { // 从堆栈里依次取出命令并执行
+        command();
+    }
+};
+```
+
+### 宏命令
+
+宏命令是一组命令的集合，通过执行宏命令的方式，可以一次执行一批命令。想象一下，家里有一个万能遥控器，每天回家的时候，只要按一个特别的按钮，它就会帮我们关上房间门，顺便打开电脑并登录QQ。
+
+```js
+// 宏命令
+var closeDoorCommand = {
+    execute: function () {
+        console.log('关门');
+    }
+};
+var openPcCommand = {
+    execute: function () {
+        console.log('开电脑');
+    }
+};
+var openQQCommand = {
+    execute: function () {
+        console.log('登录QQ');
+    }
+};
+// 定义宏命令
+var MacroCommand = function () {
+    return {
+        commandsList: [],
+        add: function (command) {
+            this.commandsList.push(command);
+        },
+        execute: function () {
+            for (var i = 0, command; command = this.commandsList[i++];) {
+                command.execute();
+            }
+        }
+    }
+}
+var macroCommand = MacroCommand();
+// 添加命令
+macroCommand.add(closeDoorCommand);
+macroCommand.add(openPcCommand);
+macroCommand.add(openQQCommand);
+macroCommand.execute();
+```
+
+当然我们还可以为宏命令添加撤销功能，跟macroCommand.execute 类似，当调用macroCommand.undo 方法时，宏命令里包含的所有子命令对象要依次执行各自的undo 操作。
+
+JavaScript 可以用高阶函数非常方便地实现命令模式。命令模式在JavaScript 语言中是一种隐形的模式。
+
+[使用命令模式demo](https://liaolongdong.com/demo/designDemo/commandDemo.html)
+
+## 组合模式
+
+组合模式将对象组合成树形结构，以表示“部分整体”的层次结构。 除了用来表示树形结构之外，组合模式的另一个好处是通过对象的多态性表现，使得用户对单个对象和组合对象的使用具有一致性。
+
+```js
+
+```

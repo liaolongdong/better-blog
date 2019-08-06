@@ -8,13 +8,13 @@
             command.execute();
         }
     }
-    
+
     var MenuBar = {
         refresh: function () {
             console.log('刷新菜单目录');
         }
     }
-    
+
     var SubMenu = {
         add: function () {
             console.log('增加子菜单');
@@ -23,7 +23,7 @@
             console.log('删除子菜单');
         }
     }
-    
+
     var RefreshMenuBarCommand = function (receiver) {
         this.receiver = receiver;
     }
@@ -42,7 +42,7 @@
     DelSubMenuCommand.prototype.execute = function () {
         this.receiver.del();
     }
-    
+
     var refreshMenuBarCommand = new RefreshMenuBarCommand(MenuBar);
     var addSubMenuCommand = new AddSubMenuCommand(SubMenu);
     var delSubMenuCommand = new DelSubMenuCommand(SubMenu);
@@ -50,27 +50,138 @@
     setCommand(button2, addSubMenuCommand);
     setCommand(button3, delSubMenuCommand);
 
+
     // 使用闭包实现命令模式
     // var setCommand = function (btn, fn) {
     //     btn.onclick = function () {
     //         fn();
     //     }
     // }
-    
+
     // var MenuBar = {
     //     refresh: function () {
     //         console.log('刷新菜单界面！！！');
     //     }
     // }
-    
+
     // var RefreshMenuBarCommand = function (receiver) {
     //     return function () {
     //         receiver.refresh();
     //     }
     // }
-    
+
     // var refreshMenuBarCommand = RefreshMenuBarCommand(MenuBar);
-    
+
     // setCommand(button1, refreshMenuBarCommand);
 
+
+    // 使用execute方法
+    // var setCommand = function (btn, command) {
+    //     btn.onclick = function () {
+    //         command.execute();
+    //     }
+    // }
+
+    // var RefreshMenuBarCommand = function (receiver) {
+    //     return {
+    //         execute: function () {
+    //             receiver.refresh();
+    //         }
+    //     }
+    // }
+
+    // var MenuBar = {
+    //     refresh: function () {
+    //         console.log('刷新菜单界面！！！！！！');
+    //     }
+    // }
+
+    // var refreshMenuBarCommand = RefreshMenuBarCommand(MenuBar);
+
+    // setCommand(button1, refreshMenuBarCommand);
+
+
+    // 使用命令模式实现撤销和重做功能
+    var Ryu = {
+        attack: function () {
+            console.log('攻击');
+        },
+        defense: function () {
+            console.log('防御');
+        },
+        jump: function () {
+            console.log('跳跃');
+        },
+        crouch: function () {
+            console.log('蹲下');
+        }
+    };
+    // 创建命令
+    var makeCommand = function (receiver, state) {
+        return function () {
+            receiver[state]();
+        }
+    }
+    var commands = {
+        "119": "jump", // W
+        "115": "crouch", // S
+        "97": "defense", // A
+        "100": "attack" // D
+    };
+    var commandStack = []; // 保存命令的堆栈
+    document.onkeypress = function (event) {
+        var keyCode = event.keyCode;
+        if (keyCode !== 119 && keyCode !== 115 && keyCode !== 97 && keyCode !== 100) {
+            return;
+        }
+        var command = makeCommand(Ryu, commands[keyCode]);
+        if (command) {
+            command(); // 执行命令
+            commandStack.push(command); // 将刚刚执行过的命令保存进堆栈
+        }
+    };
+    document.getElementById('replay').onclick = function () { // 点击播放录像
+        var command;
+        while (command = commandStack.shift()) { // 从堆栈里依次取出命令并执行
+            command();
+        }
+    };
+
+
+    // 宏命令
+    var closeDoorCommand = {
+        execute: function () {
+            console.log('关门');
+        }
+    };
+    var openPcCommand = {
+        execute: function () {
+            console.log('开电脑');
+        }
+    };
+    var openQQCommand = {
+        execute: function () {
+            console.log('登录QQ');
+        }
+    };
+    // 定义宏命令
+    var MacroCommand = function () {
+        return {
+            commandsList: [],
+            add: function (command) {
+                this.commandsList.push(command);
+            },
+            execute: function () {
+                for (var i = 0, command; command = this.commandsList[i++];) {
+                    command.execute();
+                }
+            }
+        }
+    }
+    var macroCommand = MacroCommand();
+    // 添加命令
+    macroCommand.add(closeDoorCommand);
+    macroCommand.add(openPcCommand);
+    macroCommand.add(openQQCommand);
+    macroCommand.execute();
 })(window, document);
