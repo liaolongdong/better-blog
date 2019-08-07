@@ -187,4 +187,6 @@
     folder.add(file1);
     folder1.remove(); //移除文件夹
     folder.scan();
+
+    
 })(window, document);

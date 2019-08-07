@@ -1551,3 +1551,249 @@ folder.scan();
 
 1. 表示对象的部分——整体层次结构。组合模式可以方便地构造一棵树来表示对象的部分——整体结构。特别是我们在开发期间不确定这棵树到底存在多少层次的时候。  
 2. 客户希望统一对待树中的所有对象。组合模式使客户可以忽略组合对象和叶对象的区别。
+
+## 模板方法模式
+
+模板方法模式是一种只需使用继承就可以实现的非常简单的模式。
+
+模板方法模式由两部分结构组成，第一部分是抽象父类，第二部分是具体的实现子类。通常在抽象父类中封装了子类的算法框架，包括实现一些公共方法以及封装子类中所有方法的执行顺序。子类通过继承这个抽象类，也继承了整个算法结构，并且可以选择重写父类的方法。
+
+### 第一个例子——Coffee or Tea
+
+#### 先泡一杯咖啡
+
+泡咖啡的步骤通常如下：  
+(1) 把水煮沸  
+(2) 用沸水冲泡咖啡  
+(3) 把咖啡倒进杯子  
+(4) 加糖和牛奶  
+
+```js
+var Coffee = function () { };
+Coffee.prototype.boilWater = function () {
+    console.log('把水煮沸');
+};
+Coffee.prototype.brewCoffeeGriends = function () {
+    console.log('用沸水冲泡咖啡');
+};
+Coffee.prototype.pourInCup = function () {
+    console.log('把咖啡倒进杯子');
+};
+Coffee.prototype.addSugarAndMilk = function () {
+    console.log('加糖和牛奶');
+};
+Coffee.prototype.init = function () {
+    this.boilWater();
+    this.brewCoffeeGriends();
+    this.pourInCup();
+    this.addSugarAndMilk();
+};
+var coffee = new Coffee();
+coffee.init();
+```
+
+#### 泡一杯茶
+
+泡茶的步骤跟泡咖啡的步骤相差并不大：  
+(1) 把水煮沸  
+(2) 用沸水浸泡茶叶  
+(3) 把茶水倒进杯子  
+(4) 加柠檬  
+
+```js
+var Tea = function () { };
+Tea.prototype.boilWater = function () {
+    console.log('把水煮沸');
+};
+Tea.prototype.steepTeaBag = function () {
+    console.log('用沸水浸泡茶叶');
+};
+Tea.prototype.pourInCup = function () {
+    console.log('把茶水倒进杯子');
+};
+Tea.prototype.addLemon = function () {
+    console.log('加柠檬');
+};
+Tea.prototype.init = function () {
+    this.boilWater();
+    this.steepTeaBag();
+    this.pourInCup();
+    this.addLemon();
+};
+var tea = new Tea();
+tea.init();
+```
+
+#### 分离出共同点
+
+我们找到泡咖啡和泡茶主要有以下不同点：  
+- 原料不同。一个是咖啡，一个是茶，但我们可以把它们都抽象为“饮料”。  
+- 泡的方式不同。咖啡是冲泡，而茶叶是浸泡，我们可以把它们都抽象为“泡”。  
+- 加入的调料不同。一个是糖和牛奶，一个是柠檬，但我们可以把它们都抽象为“调料”。  
+
+经过抽象之后，不管是泡咖啡还是泡茶，我们都能整理为下面四步：  
+(1) 把水煮沸
+(2) 用沸水冲泡饮料
+(3) 把饮料倒进杯子
+(4) 加调料
+
+```js
+var Beverage = function () { };
+Beverage.prototype.boilWater = function () {
+    console.log('把水煮沸');
+};
+Beverage.prototype.brew = function () {
+    throw new Error('子类必须重写brew 方法');  // 如果子类没有重写该方法，则抛出错误
+};
+Beverage.prototype.pourInCup = function () { }; // 空方法，应该由子类重写
+Beverage.prototype.addCondiments = function () { }; // 空方法，应该由子类重写
+Beverage.prototype.init = function () {
+    this.boilWater();
+    this.brew();
+    this.pourInCup();
+    this.addCondiments();
+};
+```
+
+#### 创建Coffee 子类和Tea 子类
+
+```js
+var Coffee = function () { };
+Coffee.prototype = new Beverage();
+Coffee.prototype.brew = function () {
+    console.log('用沸水冲泡咖啡');
+};
+Coffee.prototype.pourInCup = function () {
+    console.log('把咖啡倒进杯子');
+};
+Coffee.prototype.addCondiments = function () {
+    console.log('加糖和牛奶');
+};
+var Coffee = new Coffee();
+Coffee.init();
+
+var Tea = function () { };
+Tea.prototype = new Beverage();
+Tea.prototype.brew = function () {
+    console.log('用沸水浸泡茶叶');
+};
+Tea.prototype.pourInCup = function () {
+    console.log('把茶倒进杯子');
+};
+Tea.prototype.addCondiments = function () {
+    console.log('加柠檬');
+};
+var tea = new Tea();
+tea.init();
+```
+
+那么在上面的例子中，到底谁才是所谓的模板方法呢？答案是Beverage.prototype.init。
+Beverage.prototype.init 被称为模板方法的原因是，该方法中封装了子类的算法框架，它作为一个算法的模板，指导子类以何种顺序去执行哪些方法。在Beverage.prototype.init 方法中，算法内的每一个步骤都清楚地展示在我们眼前。
+
+### 模板方法模式的使用场景
+
+从大的方面来讲，模板方法模式常被架构师用于搭建项目的框架，架构师定好了框架的骨架，
+程序员继承框架的结构之后，负责往里面填空
+
+### 钩子方法
+
+钩子方法（hook）可以用来解决这个问题，放置钩子是隔离变化的一种常见手段。
+
+```js
+var Beverage = function () { };
+Beverage.prototype.boilWater = function () {
+    console.log('把水煮沸');
+};
+Beverage.prototype.brew = function () {
+    throw new Error('子类必须重写brew 方法');
+};
+Beverage.prototype.pourInCup = function () {
+    throw new Error('子类必须重写pourInCup 方法');
+};
+Beverage.prototype.addCondiments = function () {
+    throw new Error('子类必须重写addCondiments 方法');
+};
+Beverage.prototype.customerWantsCondiments = function () {
+    return true; // 默认需要调料
+};
+Beverage.prototype.init = function () {
+    this.boilWater();
+    this.brew();
+    this.pourInCup();
+    if (this.customerWantsCondiments()) { // 如果挂钩返回true，则需要调料
+        this.addCondiments();
+    }
+};
+var CoffeeWithHook = function () { };
+CoffeeWithHook.prototype = new Beverage();
+CoffeeWithHook.prototype.brew = function () {
+    console.log('用沸水冲泡咖啡');
+};
+CoffeeWithHook.prototype.pourInCup = function () {
+    console.log('把咖啡倒进杯子');
+};
+CoffeeWithHook.prototype.addCondiments = function () {
+    console.log('加糖和牛奶');
+};
+CoffeeWithHook.prototype.customerWantsCondiments = function () {
+    return window.confirm( '请问需要调料吗？' );
+};
+var coffeeWithHook = new CoffeeWithHook();
+coffeeWithHook.init();
+```
+
+### 使用JavaScript高阶函数实模板方法模式
+
+```js
+var Beverage = function (param) {
+    var boilWater = function () {
+        console.log('把水煮沸');
+    };
+    var brew = param.brew || function () {
+        throw new Error('必须传递brew 方法');
+    };
+    var pourInCup = param.pourInCup || function () {
+        throw new Error('必须传递pourInCup 方法');
+    };
+    var addCondiments = param.addCondiments || function () {
+        throw new Error('必须传递addCondiments 方法');
+    };
+    var F = function () { };
+    F.prototype.init = function () {
+        boilWater();
+        brew();
+        pourInCup();
+        addCondiments();
+    };
+    return F;
+};
+var Coffee = Beverage({
+    brew: function () {
+        console.log('用沸水冲泡咖啡');
+    },
+    pourInCup: function () {
+        console.log('把咖啡倒进杯子');
+    },
+    addCondiments: function () {
+        console.log('加糖和牛奶');
+    }
+});
+var Tea = Beverage({
+    brew: function () {
+        console.log('用沸水浸泡茶叶');
+    },
+    pourInCup: function () {
+        console.log('把茶倒进杯子');
+    },
+    addCondiments: function () {
+        console.log('加柠檬');
+    }
+});
+var coffee = new Coffee();
+coffee.init();
+var tea = new Tea();
+tea.init();
+```
+
+在JavaScript 中，我们很多时候都不需要依样画瓢地去实现一个模版方法模式，高阶函数是更好的选择。
+
