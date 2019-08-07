@@ -1356,9 +1356,13 @@ var MacroCommand = function () {
         }
     }
 };
+// 叶对象，叶对象不能添加子节点
 var openAcCommand = {
     execute: function () {
         console.log('打开空调');
+    },
+    add: function () {
+        throw Error('叶对象不能添加子节点');
     }
 };
 /********** 家里的电视和音响是连接在一起的，所以可以用一个宏命令来组合打开电视和打开音响的命令 *********/
@@ -1372,7 +1376,9 @@ var openSoundCommand = {
         console.log('打开音响');
     }
 };
+// 组合对象
 var macroCommand1 = MacroCommand();
+// openAcCommand.add(macroCommand1);
 macroCommand1.add(openTvCommand);
 macroCommand1.add(openSoundCommand);
 /********* 关门、打开电脑和打登录QQ 的命令 ****************/
@@ -1407,3 +1413,141 @@ var setCommand = (function (command) {
     }
 })(macroCommand);
 ```
+
+### 组合模式的例子——扫描文件
+
+```js
+/******************************* Folder ******************************/
+// 定义文件夹对象
+var Folder = function (name) {
+    this.name = name;
+    this.files = [];
+}
+// 添加文件
+Folder.prototype.add = function (file) {
+    this.files.push(file);
+}
+// 扫描文件
+Folder.prototype.scan = function () {
+    console.log('开始扫描文件夹：', this.name);
+    for (var i = 0, file, files = this.files; file = files[i++];) {
+        file.scan();
+    }
+}
+
+/******************************* File ******************************/
+// 定义文件
+var File = function (name) {
+    this.name = name;
+}
+// 文件不能添加文件
+File.prototype.add = function () {
+    throw Error('文件不能添加文件');
+}
+File.prototype.scan = function () {
+    console.log('开始扫描文件：', this.name);
+}
+
+// 创建一些文件夹和文件对象， 并且让它们组合成一棵树
+// 创建文件夹
+var folder = new Folder('前端学习资料');
+var folder1 = new Folder('JavaScript');
+var folder2 = new Folder('jQuery');
+// 创建文件
+var file1 = new File('JavaScript设计模式与开发实践');
+var file2 = new File('精通jQuery');
+var file3 = new File('JavasCript高级程序设计');
+// 把文件添加进文件夹
+folder1.add(file1);
+folder2.add(file2);
+folder.add(folder1);
+folder.add(folder2);
+folder.add(file3);
+// 把移动硬盘里的文件和文件夹都复制到这棵树中
+var folder3 = new Folder('Nodejs');
+var file4 = new File('深入浅出Node.js');
+folder3.add(file4);
+var file5 = new File('JavaScript 语言精髓与编程实践');
+folder.add(folder3);
+folder.add(file5);
+// 扫描整个文件夹
+folder.scan();
+```
+
+组合模式需要注意的地方：
+
+1. 组合模式的树型结构容易让人误以为组合对象和叶对象是父子关系，这是不正确的。  
+2. 组合对象把请求委托给它所包含的所有叶对象，它们能够合作的关键是拥有相同的接口。  
+3. 组合模式除了要求组合对象和叶对象拥有相同的接口之外，还有一个必要条件，就是对一组叶对象的操作必须具有一致性。
+
+### 增加删除文件夹或者文件
+
+```js
+// 增加删除文件夹和文件
+// 文件夹类
+var Folder = function (name) {
+    this.name = name;
+    this.parent = null; // 增加this.parent 属性
+    this.files = [];
+};
+Folder.prototype.add = function (file) {
+    file.parent = this; // 设置父对象
+    this.files.push(file);
+};
+Folder.prototype.scan = function () {
+    console.log('开始扫描文件夹: ' + this.name);
+    for (var i = 0, file, files = this.files; file = files[i++];) {
+        file.scan();
+    }
+};
+Folder.prototype.remove = function () {
+    if (!this.parent) { // 根节点或者树外的游离节点
+        return;
+    }
+    for (var files = this.parent.files, l = files.length - 1; l >= 0; l--) {
+        var file = files[l];
+        if (file === this) {
+            files.splice(l, 1);
+        }
+    }
+};
+// 文件类
+var File = function (name) {
+    this.name = name;
+    this.parent = null;
+};
+File.prototype.add = function () {
+    throw new Error('不能添加在文件下面');
+};
+File.prototype.scan = function () {
+    console.log('开始扫描文件: ' + this.name);
+};
+File.prototype.remove = function () {
+    if (!this.parent) { // 根节点或者树外的游离节点
+        return;
+    }
+    for (var files = this.parent.files, l = files.length - 1; l >= 0; l--) {
+        var file = files[l];
+        if (file === this) {
+            files.splice(l, 1);
+        }
+    }
+};
+// 测试
+var folder = new Folder('学习资料');
+var folder1 = new Folder('JavaScript');
+var file1 = new Folder('深入浅出Node.js');
+folder1.add(new File('JavaScript 设计模式与开发实践'));
+folder.add(folder1);
+folder.add(file1);
+folder1.remove(); //移除文件夹
+folder.scan();
+```
+
+### 何时使用组合模式
+
+组合模式如果运用得当，可以大大简化客户的代码。一般来说，组合模式适用于以下这两种
+情况:
+
+1. 表示对象的部分——整体层次结构。组合模式可以方便地构造一棵树来表示对象的部分——整体结构。特别是我们在开发期间不确定这棵树到底存在多少层次的时候。  
+2. 客户希望统一对待树中的所有对象。组合模式使客户可以忽略组合对象和叶对象的区别。
