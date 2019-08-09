@@ -12,7 +12,7 @@ tags: JavaScript 设计模式
 
 设计模式的主题总是把不变的事物和变化的事物分离开来
 
-## 单例模式
+## 1、单例模式
 
 > 单例模式的定义是：保证一个类仅有一个实例，并提供一个访问它的全局访问点。
 
@@ -82,7 +82,7 @@ var createLoginLayer = function () {
 var createSingleLoginLayer = getSingle(createLoginLayer);
 ```
 
-## 策略模式
+## 2、策略模式
 
 > 策略模式的定义是：定义一系列的算法，把它们一个个封装起来，并且使它们可以相互替换。
 
@@ -400,7 +400,7 @@ registerForm.onsubmit = function () {
 
 [使用策略模式重构表单校验demo](https://liaolongdong.com/demo/designDemo/strategyFormDemo.html)
 
-## 代理模式
+## 3、代理模式
 
 > 代理模式是为一个对象提供一个代用品或占位符，以便控制对它的访问。
 
@@ -694,7 +694,7 @@ console.log(plusProxy(1, 2, 3, 4)); // cache value 10
 
 代理模式包括许多小分类，在JavaScript 开发中最常用的是虚拟代理和缓存代理。
 
-## 迭代器模式
+## 4、迭代器模式
 
 > 迭代器模式是指提供一种方法顺序访问一个聚合对象中的各个元素，而又不需要暴露该对象的内部表示。迭代器模式可以把迭代的过程从业务逻辑中分离出来，在使用迭代器模式之后，即使不关心对象的内部构造，也可以按顺序访问其中的每个元素。
 
@@ -841,7 +841,7 @@ arr.forEach(function (v, i) {
 });
 ```
 
-## 发布订阅模式
+## 5、发布订阅模式
 
 > 发布—订阅模式又叫观察者模式，它定义对象间的一种一对多的依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都将得到通知。在JavaScript 开发中，我们一般用事件模型来替代传统的发布—订阅模式。
 
@@ -1125,7 +1125,7 @@ Event.trigger('squareMeter100', 2000000);
 Event.trigger('squareMeter120', 3000000);
 ```
 
-## 命令模式
+## 6、命令模式
 
 设计模式的主题总是把不变的事物和变化的事物分离开来，命令模式也不例外。按下按钮之后会发生一些事情是不变的，而具体会发生什么事情是可变的。通过command 对象的帮助，将来我们可以轻易地改变这种关联，因此也可以在将来再次改变按钮的行为。
 
@@ -1337,7 +1337,7 @@ JavaScript 可以用高阶函数非常方便地实现命令模式。命令模式
 
 [使用命令模式demo](https://liaolongdong.com/demo/designDemo/commandDemo.html)
 
-## 组合模式
+## 7、组合模式
 
 组合模式将对象组合成树形结构，以表示“部分整体”的层次结构。 除了用来表示树形结构之外，组合模式的另一个好处是通过对象的多态性表现，使得用户对单个对象和组合对象的使用具有一致性。
 
@@ -1552,7 +1552,7 @@ folder.scan();
 1. 表示对象的部分——整体层次结构。组合模式可以方便地构造一棵树来表示对象的部分——整体结构。特别是我们在开发期间不确定这棵树到底存在多少层次的时候。  
 2. 客户希望统一对待树中的所有对象。组合模式使客户可以忽略组合对象和叶对象的区别。
 
-## 模板方法模式
+## 8、模板方法模式
 
 模板方法模式是一种只需使用继承就可以实现的非常简单的模式。
 
@@ -1797,7 +1797,7 @@ tea.init();
 
 在JavaScript 中，我们很多时候都不需要依样画瓢地去实现一个模版方法模式，高阶函数是更好的选择。
 
-## 享元模式
+## 9、享元模式
 
 享元（flyweight）模式是一种用于性能优化的模式，“fly”在这里是苍蝇的意思，意为蝇量级。享元模式的核心是运用共享技术来有效支持大量细粒度的对象。
 如果系统中因为创建了大量类似的对象而导致内存占用过高，享元模式就非常有用了。在JavaScript 中，浏览器特别是移动端的浏览器分配的内存并不算多，如何节省内存就成了一件非常有意义的事情。
@@ -1869,3 +1869,207 @@ for (var j = 1; j <= 50; j++) {
 - 对象的大多数状态都可以变为外部状态。  
 - 剥离出对象的外部状态之后，可以用相对较少的共享对象取代大量对象。  
 
+
+## 10、职责链模式
+
+> 职责链模式的定义是：使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系，将这些对象连成一条链，并沿着这条链传递该请求，直到有一个对象处理它为止。
+
+假设我们负责一个售卖手机的电商网站，经过分别交纳500 元定金和200 元定金的两轮预定后（订单已在此时生成），现在已经到了正式购买的阶段。
+公司针对支付过定金的用户有一定的优惠政策。在正式购买后，已经支付过500 元定金的用户会收到100 元的商城优惠券，200 元定金的用户可以收到50 元的优惠券，而之前没有支付定金的用户只能进入普通购买模式，也就是没有优惠券，且在库存有限的情况下不一定保证能买到。
+
+- orderType：表示订单类型（定金用户或者普通购买用户），code 的值为1 的时候是500 元定金用户，为2 的时候是200 元定金用户，为3 的时候是普通购买用户。  
+- pay：表示用户是否已经支付定金，值为true 或者false, 虽然用户已经下过500 元定金的订单，但如果他一直没有支付定金，现在只能降级进入普通购买模式。  
+- stock：表示当前用于普通购买的手机库存数量，已经支付过500 元或者200 元定金的用户不受此限制。
+
+初始版本
+
+```js
+var order = function (orderType, pay, stock) {
+    if (orderType === 1) { // 500 元定金购买模式
+        if (pay === true) { // 已支付定金
+            console.log('500 元定金预购, 得到100 优惠券');
+        } else { // 未支付定金，降级到普通购买模式
+            if (stock > 0) { // 用于普通购买的手机还有库存
+                console.log('普通购买, 无优惠券');
+            } else {
+                console.log('手机库存不足');
+            }
+        }
+    }
+    else if (orderType === 2) { // 200 元定金购买模式
+        if (pay === true) {
+            console.log('200 元定金预购, 得到50 优惠券');
+        } else {
+            if (stock > 0) {
+                console.log('普通购买, 无优惠券');
+            } else {
+                console.log('手机库存不足');
+            }
+        }
+    }
+    else if (orderType === 3) {
+        if (stock > 0) {
+            console.log('普通购买, 无优惠券');
+        } else {
+            console.log('手机库存不足');
+        }
+    }
+};
+order(1, true, 500); // 输出： 500 元定金预购, 得到100 优惠券
+order(2, true, 500); // 输出： 200 元定金预购, 得到50 优惠券
+```
+
+order 函数不仅巨大到难以阅读，而且需要经常进行修改。虽然目前项目能正常运行，但接下来的维护工作无疑是个梦魇。恐怕只有最“新手”的程序员才会写出这样的代码。
+
+### 使用职责链模式重构代码
+
+```js
+// 500 元订单
+var order500 = function (orderType, pay, stock) {
+    if (orderType === 1 && pay === true) {
+        console.log('500 元定金预购, 得到100 优惠券');
+    } else {
+        order200(orderType, pay, stock); // 将请求传递给200 元订单
+    }
+};
+// 200 元订单
+var order200 = function (orderType, pay, stock) {
+    if (orderType === 2 && pay === true) {
+        console.log('200 元定金预购, 得到50 优惠券');
+    } else {
+        orderNormal(orderType, pay, stock); // 将请求传递给普通订单
+    }
+};
+// 普通购买订单
+var orderNormal = function (orderType, pay, stock) {
+    if (stock > 0) {
+        console.log('普通购买, 无优惠券');
+    } else {
+        console.log('手机库存不足');
+    }
+};
+// 测试结果：
+order500(1, true, 500); // 输出：500 元定金预购, 得到100 优惠券
+order500(1, false, 500); // 输出：普通购买, 无优惠券
+order500(2, true, 500); // 输出：200 元定金预购, 得到500 优惠券
+order500(3, false, 500); // 输出：普通购买, 无优惠券
+order500(3, false, 0); // 输出：手机库存不足
+```
+
+可以看到，执行结果和前面那个巨大的order 函数完全一样，但是代码的结构已经清晰了很多，我们把一个大函数拆分了3 个小函数，去掉了许多嵌套的条件分支语句。
+
+### 灵活可拆分的职责链节点
+
+我们采用一种更灵活的方式，来改进上面的职责链模式，目标是让链中的各个节点可以灵活拆分和重组。  
+首先需要改写一下分别表示3 种购买模式的节点函数，我们约定，如果某个节点不能处理请求，则返回一个特定的字符串 'nextSuccessor'来表示该请求需要继续往后面传递。
+
+```js
+var order500 = function (orderType, pay, stock) {
+    if (orderType === 1 && pay === true) {
+        console.log('500 元定金预购，得到100 优惠券');
+    } else {
+        return 'nextSuccessor'; // 我不知道下一个节点是谁，反正把请求往后面传递
+    }
+};
+var order200 = function (orderType, pay, stock) {
+    if (orderType === 2 && pay === true) {
+        console.log('200 元定金预购，得到50 优惠券');
+    } else {
+        return 'nextSuccessor'; // 我不知道下一个节点是谁，反正把请求往后面传递
+    }
+};
+var orderNormal = function (orderType, pay, stock) {
+    if (stock > 0) {
+        console.log('普通购买，无优惠券');
+    } else {
+        console.log('手机库存不足');
+    }
+};
+```
+
+接下来需要把函数包装进职责链节点，我们定义一个构造函数Chain，在new Chain 的时候传递的参数即为需要被包装的函数， 同时它还拥有一个实例属性this.successor，表示在链中的下一个节点。
+
+```js
+// Chain.prototype.setNextSuccessor 指定在链中的下一个节点
+// Chain.prototype.passRequest 传递请求给某个节点
+var Chain = function (fn) {
+    this.fn = fn;
+    this.successor = null;
+};
+Chain.prototype.setNextSuccessor = function (successor) {
+    return this.successor = successor;
+};
+Chain.prototype.passRequest = function () {
+    var ret = this.fn.apply(this, arguments);
+    if (ret === 'nextSuccessor') {
+        return this.successor && this.successor.passRequest.apply(this.successor, arguments);
+    }
+    return ret;
+};
+// 把3 个订单函数分别包装成职责链的节点
+var chainOrder500 = new Chain(order500);
+var chainOrder200 = new Chain(order200);
+var chainOrderNormal = new Chain(orderNormal);
+// 然后指定节点在职责链中的顺序
+chainOrder500.setNextSuccessor(chainOrder200);
+chainOrder200.setNextSuccessor(chainOrderNormal);
+// 最后把请求传递给第一个节点
+chainOrder500.passRequest(1, true, 500); // 输出：500 元定金预购，得到100 优惠券
+chainOrder500.passRequest(2, true, 500); // 输出：200 元定金预购，得到50 优惠券
+chainOrder500.passRequest(3, true, 500); // 输出：普通购买，无优惠券
+chainOrder500.passRequest(1, false, 0); // 输出：手机库存不足
+```
+
+### 异步的职责链
+
+```js
+Chain.prototype.next = function () {
+    return this.successor && this.successor.passRequest.apply(this.successor, arguments);
+};
+var fn1 = new Chain(function () {
+    console.log(1);
+    return 'nextSuccessor';
+});
+var fn2 = new Chain(function () {
+    console.log(2);
+    var self = this;
+    setTimeout(function () {
+        self.next();
+    }, 1000);
+});
+var fn3 = new Chain(function () {
+    console.log(3);
+});
+fn1.setNextSuccessor(fn2).setNextSuccessor(fn3);
+fn1.passRequest();
+```
+
+### 用AOP 实现职责链模式
+
+利用JavaScript 的函数式特性，有一种更加方便的方法来创建职责链。
+
+```js
+// 面向切片编程
+Function.prototype.after = function (fn) {
+    var self = this;
+    return function () {
+        var ret = self.apply(this, arguments);
+        if (ret === 'nextSuccessor') {
+            return fn.apply(this, arguments);
+        }
+        return ret;
+    }
+}
+
+var order = order500.after(order200).after(orderNormal);
+
+order(1, true, 500); // 输出：500 元定金预购，得到100 优惠券
+order(2, true, 500); // 输出：200 元定金预购，得到50 优惠券
+order(1, false, 500); // 输出：普通购买，无优惠券
+```
+
+用AOP 来实现职责链既简单又巧妙，但这种把函数叠在一起的方式，同时也叠加了函数的作用域，如果链条太长的话，也会对性能有较大的影响。
+
+### 职责链模式的优缺点
+
+职责链模式的最大优点就是解耦了请求发送者和N 个接收者之间的复杂关系，由于不知道链中的哪个节点可以处理你发出的请求，所以你只需把请求传递给第一个节点即可。
