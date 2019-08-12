@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>支付宝H5支付测试</title>
+    <script src="https://gw.alipayobjects.com/as/g/h5-lib/alipayjsapi/3.1.1/alipayjsapi.inc.min.js"></script>
+</head>
+
+<body>
+    <button id="J_btn" class="btn btn-default">支付</button>
+    <script>
+        var btn = document.querySelector('#J_btn');
+        btn.addEventListener('click', function () {
+            ap.tradePay({
+                tradeNO: '201802282100100427058809844'
+            }, function (res) {
+                ap.alert(res.resultCode);
+            });
+        });
+    </script>
+</body>
+
+</html>
