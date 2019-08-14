@@ -32,7 +32,7 @@
         <input type='hidden' name='format' value='json' />
         <input type='hidden' name='sign_type' value='RSA2' />
         <input type='hidden' name='method' value='alipay.trade.wap.pay' />
-        <input type='hidden' name='timestamp' value='2019-08-14 08:40:15' />
+        <input type='hidden' name='timestamp' value='2019-08-14 08:40:15' />
         <input type='hidden' name='alipay_sdk' value='alipay-sdk-php-20161101' />
         <input type='hidden' name='notify_url' value='http://工程公网访问地址/alipay.trade.wap.pay-PHP-UTF-8/notify_url.php' />
         <input type='hidden' name='return_url' value='http://mitsein.com/alipay.trade.wap.pay-PHP-UTF-8/return_url.php' />
@@ -41,6 +41,8 @@
         <input type='submit' value='ok' style='display:none;' />
     </form>
     <script>
+        // document.forms['alipaySubmit'].submit();
+
         var alipayH5Btn = document.getElementById('alipayH5Btn');
         var alipaySubmit = document.getElementById('alipaySubmit');
         console.log('alipayH5Btn', alipayH5Btn);
