@@ -546,7 +546,7 @@ var myImage = (function () {
     }
 })();
 
-// 使用虚拟代理与加载图片
+// 使用虚拟代理预加载图片
 var proxyImage = (function () {
     var image = new Image();
     image.onload = function () {
