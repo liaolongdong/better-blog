@@ -2313,3 +2313,211 @@ player4.die();
 缺点： 最大的缺点是系统中会新增一个中介者对象，因为对象之间交互的复杂性，转移成了中介者对象的复杂性，使得中介者对象经常是巨大的。中介者对象自身往往就是一个难以维护的对象。
 
 中介者模式可以非常方便地对模块或者对象进行解耦，但对象之间并非一定需要解耦。在实际项目中，模块或对象之间有一些依赖关系是很正常的。毕竟我们写程序是为了快速完成项目交付生产，而不是堆砌模式和过度设计。关键就在于如何去衡量对象之间的耦合程度。一般来说，如果对象之间的复杂耦合确实导致调用和维护出现了困难，而且这些耦合度随项目的变化呈指数增长曲线，那我们就可以考虑用中介者模式来重构代码。
+
+## 12、装饰者模式
+
+> 装饰者模式能够在不改变对象自身的基础上，在程序运行期间给对象动态地添加职责。跟继承相比，装饰者是一种更轻便灵活的做法，这是一种“即用即付”的方式，比如天冷了就多穿一件外套，需要飞行时就在头上插一支竹蜻蜓，遇到一堆食尸鬼时就点开AOE（范围攻击）技能。这种给对象动态地增加职责的方式称为装饰者（decorator）模式。
+
+### 模拟传统面向对象语言的装饰者模式
+
+假设我们在编写一个飞机大战的游戏，随着经验值的增加，我们操作的飞机对象可以升级成更厉害的飞机，一开始这些飞机只能发射普通的子弹，升到第二级时可以发射导弹，升到第三级时可以发射原子弹。
+
+```js
+// 原始的飞机类
+var Plane = function () { }
+Plane.prototype.fire = function () {
+    console.log('发射普通子弹');
+}
+// 增加两个装饰类，分别是导弹和原子弹
+var MissileDecorator = function (plane) {
+    this.plane = plane;
+}
+MissileDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射导弹');
+}
+var AtomDecorator = function (plane) {
+    this.plane = plane;
+}
+AtomDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射原子弹');
+}
+var plane = new Plane();
+plane = new MissileDecorator(plane);
+plane = new AtomDecorator(plane);
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+这种给对象动态增加职责的方式，并没有真正地改动对象自身，而是将对象放入另一个对象之中，这些对象以一条链的方式进行引用，形成一个聚合对象。这些对象都拥有相同的接口（fire方法），当请求达到链中的某个对象时，这个对象会执行自身的操作，随后把请求转发给链中的下一个对象。
+
+### 使用JavaScript实现装饰者模式
+
+```js
+var plane = {
+    fire: function () {
+        console.log('发射普通子弹');
+    }
+}
+var missileDecorator = function () {
+    console.log('发射导弹');
+}
+var atomDecorator = function () {
+    console.log('发射原子弹');
+}
+var fire1 = plane.fire;
+plane.fire = function () {
+    fire1();
+    missileDecorator();
+}
+var fire2 = plane.fire;
+plane.fire = function () {
+    fire2();
+    atomDecorator();
+}
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+### 用AOP 装饰函数
+
+实现Function.prototype.before 方法和Function.prototype.after 方法
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this; // 保存原函数的引用
+    return function () { // 返回包含了原函数和新函数的"代理"函数
+        beforefn.apply(this, arguments); // 执行新函数，且保证this 不被劫持，新函数接受的参数也会被原封不动地传入原函数，新函数在原函数之前执行
+        return self.apply(this, arguments); // 执行原函数并返回原函数的执行结果并且保证this 不被劫持
+    }
+}
+Function.prototype.after = function (afterfn) {
+    var self = this;
+    return function () {
+        var ret = self.apply(this, arguments);
+        afterfn.apply(this, arguments);
+        return ret;
+    }
+};
+
+// 测试
+var func = function () {
+    console.log(2);
+};
+func = func.before(function () {
+    console.log(1);
+}).after(function () {
+    console.log(3);
+});
+func();
+
+// 带参数
+// var name = 'xiaoxin';
+// var func = function (name) {
+//     console.log(2, name);
+// };
+// func = func.before(function (name) {
+//     console.log(1, name);
+// }).after(function (name) {
+//     console.log(3, name);
+// });
+// func(name);
+```
+
+用AOP 装饰函数的技巧在实际开发中非常有用。不论是业务代码的编写，还是在框架层面，我们都可以把行为依照职责分成粒度更细的函数，随后通过装饰把它们合并到一起，这有助于我们编写一个松耦合和高复用性的系统。
+
+上面的AOP 实现是在Function.prototype 上添加before 和after 方法，但许多人不喜欢这种污染原型的方式，那么我们可以做一些变通，把原函数和新函数都作为参数传入before 或者after 方法
+
+```js
+var before = function (fn, beforeFn) {
+    return function () {
+        beforeFn.apply(this, arguments);
+        return fn.apply(this, arguments);
+    }
+}
+var after = function (fn, afterFn) {
+    return function () {
+        var ret = fn.apply(this, arguments);
+        afterFn.apply(this, arguments);
+        return ret;
+    }
+}
+
+var func = function () {
+    console.log(2);
+}
+var beforeFn = function () {
+    console.log(1);
+}
+var afterFn = function () {
+    console.log(3);
+}
+var a = before(func, beforeFn);
+a();
+var b = after(func, afterFn);
+b();
+```
+
+### 用AOP动态改变函数的参数
+
+解决CSRF 攻击最简单的一个办法就是在HTTP 请求中带上一个Token 参数。
+
+```js
+var ajax = function (type, url, param) {
+    console.log(param); // 发送ajax 请求的代码略
+};
+var getToken = function () {
+    return 'Token';
+}
+ajax = ajax.before(function (type, url, param) {
+    param.Token = getToken();
+});
+ajax('get', 'https://liaolongdong.com/userinfo', { name: 'liaoxiaoxin' }); // {name: "liaoxiaoxin", Token: "Token"}
+```
+
+### 插件式的表单验证
+
+在一个Web 项目中，可能存在非常多的表单，如注册、登录、修改用户信息等。
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this;
+    return function () {
+        if (beforefn.apply(this, arguments) === false) {
+            // beforefn 返回false 的情况直接return，不再执行后面的原函数
+            return;
+        }
+        return self.apply(this, arguments);
+    }
+}
+var validata = function () {
+    if (username.value === '') {
+        alert('用户名不能为空');
+        return false;
+    }
+    if (password.value === '') {
+        alert('密码不能为空');
+        return false;
+    }
+}
+var formSubmit = function () {
+    var param = {
+        username: username.value,
+        password: password.value
+    }
+    ajax('https://liaolongdong.com//login', param);
+}
+formSubmit = formSubmit.before(validata);
+submitBtn.onclick = function () {
+    formSubmit();
+}
+```
+
+在这段代码中，校验输入和提交表单的代码完全分离开来，它们不再有任何耦合关系，formSubmit = formSubmit.before( validata )这句代码，如同把校验规则动态接在formSubmit 函数之前，validata 成为一个即插即用的函数，它甚至可以被写成配置文件的形式，这有利于我们分开维护这两个函数。再利用策略模式稍加改造，我们就可以把这些校验规则都写成插件的形式，用在不同的项目当中。
+
+### 装饰者模式和代理模式
+
+装饰者模式和代理模式的结构看起来非常相像，这两种模式都描述了怎样为对象提供一定程度上的间接引用，它们的实现部分都保留了对另外一个对象的引用，并且向那个对象发送请求。  
+代理模式和装饰者模式最重要的区别在于它们的意图和设计目的。代理模式的目的是，当直接访问本体不方便或者不符合需要时，为这个本体提供一个替代者。本体定义了关键功能，而代理提供或拒绝对它的访问，或者在访问本体之前做一些额外的事情。装饰者模式的作用就是为对象动态加入行为。换句话说，代理模式强调一种关系（Proxy 与它的实体之间的关系），这种关系可以静态的表达，也就是说，这种关系在一开始就可以被确定。而装饰者模式用于一开始不能确定对象的全部功能时。代理模式通常只有一层代理本体的引用，而装饰者模式经常会形成一条长长的装饰链。  
+在虚拟代理实现图片预加载的例子中，本体负责设置img 节点的src，代理则提供了预加载的功能，这看起来也是“加入行为”的一种方式，但这种加入行为的方式和装饰者模式的偏重点是不一样的。装饰者模式是实实在在的为对象增加新的职责和行为，而代理做的事情还是跟本体一样，最终都是设置src。但代理可以加入一些“聪明”的功能，比如在图片真正加载好之前，先使用一张占位的loading 图片反馈给客户。
