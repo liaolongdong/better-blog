@@ -13,10 +13,6 @@
       "demoUrl": "demo/moneyPacketDemo/index.html"
     },
     {
-      "title": "支付宝H5支付测试demo",
-      "demoUrl": "demo/alipayDemo/index.html"
-    },
-    {
       "title": "H5页面实现摇一摇功能",
       "demoUrl": "demo/shakeDemo/index.html"
     },

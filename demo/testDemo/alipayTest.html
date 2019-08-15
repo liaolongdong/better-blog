@@ -1,14 +1,17 @@
----
-layout: demoTemplate
-title: 支付宝H5支付测试demo
----
+<!DOCTYPE html>
+<html lang="en">
 
-<script src="https://gw.alipayobjects.com/as/g/h5-lib/alipayjsapi/3.1.1/alipayjsapi.inc.min.js"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>支付宝H5支付测试</title>
+    <script src="https://gw.alipayobjects.com/as/g/h5-lib/alipayjsapi/3.1.1/alipayjsapi.inc.min.js"></script>
+</head>
 
 <body>
     <h3>支付宝JS-SDK 支付宝app内部调用支付宝支付demo</h3>
-    <p>使用场景：支付宝app内环境，比如支付宝好友聊天窗口内打开该链接，在支付宝app外部环境不能使用</p>
-    <button id="J_btn" class="btn btn-default">支付宝app内调用支付宝支付</button>
+    <button id="J_btn" class="btn btn-default">支付</button>
     <script>
         var btn = document.querySelector('#J_btn');
         btn.addEventListener('click', function () {
@@ -21,9 +24,7 @@ title: 支付宝H5支付测试demo
     </script>
     <hr>
     <h3>手机网站浏览器唤起支付宝支付demo</h3>
-    <p>使用场景：可以在谷歌、火狐、Safari等现代主流浏览器中唤起支付宝支付</p>
-    <p>注意：微信浏览器环境下可能受微信限制不能唤起支付宝支付，在微信环境下打开手机自带的浏览器即可唤起支付宝支付</p>
-    <button id="alipayH5Btn">手机网站浏览器唤起支付宝支付</button>
+    <button id="alipayH5Btn">唤起支付宝支付</button>
     <div class="" id="alipayForm"></div>
     <script>
         var alipayForm = document.getElementById('alipayForm');
@@ -41,10 +42,11 @@ title: 支付宝H5支付测试demo
                                     <input type='submit' value='ok' style='display:none;''>
                                 </form>`;
         var alipayH5Btn = document.getElementById('alipayH5Btn');
+        console.log('alipayH5Btn', alipayH5Btn);
         alipayH5Btn.addEventListener('click', function () {
-            // document.forms['alipaysubmit'].submit();
             var alipaysubmit = document.getElementById('alipaysubmit');
-            alipaysubmit.submit();
+            console.log('alipaysubmit', alipaysubmit);
+            document.forms['alipaysubmit'].submit();
         });
     </script>
 </body>
