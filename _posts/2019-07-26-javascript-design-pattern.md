@@ -546,7 +546,7 @@ var myImage = (function () {
     }
 })();
 
-// 使用虚拟代理与加载图片
+// 使用虚拟代理预加载图片
 var proxyImage = (function () {
     var image = new Image();
     image.onload = function () {
@@ -839,21 +839,6 @@ arr.forEach(function (v, i) {
     }
     // console.log(v); // 输出：1 2 3
 });
-
-try {
-    var arr = [1, 2, 3, 4, 5];
-    arr.forEach(function (v, i) {
-        console.log(v); // 输出：1 2 3 4 5
-        if (v > 3) {
-            // return false;
-            throw Error('中止遍历');
-        }
-        console.log(v); // 输出：1 2 3
-    });
-} catch (e) {
-    console.log(e);
-}
-console.log(1111);
 ```
 
 ## 5、发布订阅模式
@@ -2328,3 +2313,416 @@ player4.die();
 缺点： 最大的缺点是系统中会新增一个中介者对象，因为对象之间交互的复杂性，转移成了中介者对象的复杂性，使得中介者对象经常是巨大的。中介者对象自身往往就是一个难以维护的对象。
 
 中介者模式可以非常方便地对模块或者对象进行解耦，但对象之间并非一定需要解耦。在实际项目中，模块或对象之间有一些依赖关系是很正常的。毕竟我们写程序是为了快速完成项目交付生产，而不是堆砌模式和过度设计。关键就在于如何去衡量对象之间的耦合程度。一般来说，如果对象之间的复杂耦合确实导致调用和维护出现了困难，而且这些耦合度随项目的变化呈指数增长曲线，那我们就可以考虑用中介者模式来重构代码。
+
+## 12、装饰者模式
+
+> 装饰者模式能够在不改变对象自身的基础上，在程序运行期间给对象动态地添加职责。跟继承相比，装饰者是一种更轻便灵活的做法，这是一种“即用即付”的方式，比如天冷了就多穿一件外套，需要飞行时就在头上插一支竹蜻蜓，遇到一堆食尸鬼时就点开AOE（范围攻击）技能。这种给对象动态地增加职责的方式称为装饰者（decorator）模式。
+
+### 模拟传统面向对象语言的装饰者模式
+
+假设我们在编写一个飞机大战的游戏，随着经验值的增加，我们操作的飞机对象可以升级成更厉害的飞机，一开始这些飞机只能发射普通的子弹，升到第二级时可以发射导弹，升到第三级时可以发射原子弹。
+
+```js
+// 原始的飞机类
+var Plane = function () { }
+Plane.prototype.fire = function () {
+    console.log('发射普通子弹');
+}
+// 增加两个装饰类，分别是导弹和原子弹
+var MissileDecorator = function (plane) {
+    this.plane = plane;
+}
+MissileDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射导弹');
+}
+var AtomDecorator = function (plane) {
+    this.plane = plane;
+}
+AtomDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射原子弹');
+}
+var plane = new Plane();
+plane = new MissileDecorator(plane);
+plane = new AtomDecorator(plane);
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+这种给对象动态增加职责的方式，并没有真正地改动对象自身，而是将对象放入另一个对象之中，这些对象以一条链的方式进行引用，形成一个聚合对象。这些对象都拥有相同的接口（fire方法），当请求达到链中的某个对象时，这个对象会执行自身的操作，随后把请求转发给链中的下一个对象。
+
+### 使用JavaScript实现装饰者模式
+
+```js
+var plane = {
+    fire: function () {
+        console.log('发射普通子弹');
+    }
+}
+var missileDecorator = function () {
+    console.log('发射导弹');
+}
+var atomDecorator = function () {
+    console.log('发射原子弹');
+}
+var fire1 = plane.fire;
+plane.fire = function () {
+    fire1();
+    missileDecorator();
+}
+var fire2 = plane.fire;
+plane.fire = function () {
+    fire2();
+    atomDecorator();
+}
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+### 用AOP 装饰函数
+
+实现Function.prototype.before 方法和Function.prototype.after 方法
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this; // 保存原函数的引用
+    return function () { // 返回包含了原函数和新函数的"代理"函数
+        beforefn.apply(this, arguments); // 执行新函数，且保证this 不被劫持，新函数接受的参数也会被原封不动地传入原函数，新函数在原函数之前执行
+        return self.apply(this, arguments); // 执行原函数并返回原函数的执行结果并且保证this 不被劫持
+    }
+}
+Function.prototype.after = function (afterfn) {
+    var self = this;
+    return function () {
+        var ret = self.apply(this, arguments);
+        afterfn.apply(this, arguments);
+        return ret;
+    }
+};
+
+// 测试
+var func = function () {
+    console.log(2);
+};
+func = func.before(function () {
+    console.log(1);
+}).after(function () {
+    console.log(3);
+});
+func();
+
+// 带参数
+// var name = 'xiaoxin';
+// var func = function (name) {
+//     console.log(2, name);
+// };
+// func = func.before(function (name) {
+//     console.log(1, name);
+// }).after(function (name) {
+//     console.log(3, name);
+// });
+// func(name);
+```
+
+用AOP 装饰函数的技巧在实际开发中非常有用。不论是业务代码的编写，还是在框架层面，我们都可以把行为依照职责分成粒度更细的函数，随后通过装饰把它们合并到一起，这有助于我们编写一个松耦合和高复用性的系统。
+
+上面的AOP 实现是在Function.prototype 上添加before 和after 方法，但许多人不喜欢这种污染原型的方式，那么我们可以做一些变通，把原函数和新函数都作为参数传入before 或者after 方法
+
+```js
+var before = function (fn, beforeFn) {
+    return function () {
+        beforeFn.apply(this, arguments);
+        return fn.apply(this, arguments);
+    }
+}
+var after = function (fn, afterFn) {
+    return function () {
+        var ret = fn.apply(this, arguments);
+        afterFn.apply(this, arguments);
+        return ret;
+    }
+}
+
+var func = function () {
+    console.log(2);
+}
+var beforeFn = function () {
+    console.log(1);
+}
+var afterFn = function () {
+    console.log(3);
+}
+var a = before(func, beforeFn);
+a();
+var b = after(func, afterFn);
+b();
+```
+
+### 用AOP动态改变函数的参数
+
+解决CSRF 攻击最简单的一个办法就是在HTTP 请求中带上一个Token 参数。
+
+```js
+var ajax = function (type, url, param) {
+    console.log(param); // 发送ajax 请求的代码略
+};
+var getToken = function () {
+    return 'Token';
+}
+ajax = ajax.before(function (type, url, param) {
+    param.Token = getToken();
+});
+ajax('get', 'https://liaolongdong.com/userinfo', { name: 'liaoxiaoxin' }); // {name: "liaoxiaoxin", Token: "Token"}
+```
+
+### 插件式的表单验证
+
+在一个Web 项目中，可能存在非常多的表单，如注册、登录、修改用户信息等。
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this;
+    return function () {
+        if (beforefn.apply(this, arguments) === false) {
+            // beforefn 返回false 的情况直接return，不再执行后面的原函数
+            return;
+        }
+        return self.apply(this, arguments);
+    }
+}
+var validata = function () {
+    if (username.value === '') {
+        alert('用户名不能为空');
+        return false;
+    }
+    if (password.value === '') {
+        alert('密码不能为空');
+        return false;
+    }
+}
+var formSubmit = function () {
+    var param = {
+        username: username.value,
+        password: password.value
+    }
+    ajax('https://liaolongdong.com//login', param);
+}
+formSubmit = formSubmit.before(validata);
+submitBtn.onclick = function () {
+    formSubmit();
+}
+```
+
+在这段代码中，校验输入和提交表单的代码完全分离开来，它们不再有任何耦合关系，formSubmit = formSubmit.before( validata )这句代码，如同把校验规则动态接在formSubmit 函数之前，validata 成为一个即插即用的函数，它甚至可以被写成配置文件的形式，这有利于我们分开维护这两个函数。再利用策略模式稍加改造，我们就可以把这些校验规则都写成插件的形式，用在不同的项目当中。
+
+### 装饰者模式和代理模式
+
+装饰者模式和代理模式的结构看起来非常相像，这两种模式都描述了怎样为对象提供一定程度上的间接引用，它们的实现部分都保留了对另外一个对象的引用，并且向那个对象发送请求。  
+代理模式和装饰者模式最重要的区别在于它们的意图和设计目的。代理模式的目的是，当直接访问本体不方便或者不符合需要时，为这个本体提供一个替代者。本体定义了关键功能，而代理提供或拒绝对它的访问，或者在访问本体之前做一些额外的事情。装饰者模式的作用就是为对象动态加入行为。换句话说，代理模式强调一种关系（Proxy 与它的实体之间的关系），这种关系可以静态的表达，也就是说，这种关系在一开始就可以被确定。而装饰者模式用于一开始不能确定对象的全部功能时。代理模式通常只有一层代理本体的引用，而装饰者模式经常会形成一条长长的装饰链。  
+在虚拟代理实现图片预加载的例子中，本体负责设置img 节点的src，代理则提供了预加载的功能，这看起来也是“加入行为”的一种方式，但这种加入行为的方式和装饰者模式的偏重点是不一样的。装饰者模式是实实在在的为对象增加新的职责和行为，而代理做的事情还是跟本体一样，最终都是设置src。但代理可以加入一些“聪明”的功能，比如在图片真正加载好之前，先使用一张占位的loading 图片反馈给客户。
+
+## 13、状态模式
+
+> 状态模式的关键是区分事物内部的状态，事物内部状态的改变往往会带来事物的行为改变。
+
+### 第一个例子：电灯程序
+
+有一个电灯，电灯上面只有一个开关。当电灯开着的时候，此时按下开关，电灯会切换到关闭状态；再按一次开关，电灯又将被打开。同一个开关按钮，在不同的状态下，表现出来的行为是不一样的。
+
+```js
+var Light = function () {
+    this.state = 'off'; // 给电灯设置初始状态off
+    this.button = null; // 电灯开关按钮
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '开关';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.buttonWasPressed();
+    }
+};
+// Light.prototype.buttonWasPressed = function () {
+//     if (this.state === 'off') {
+//         console.log('开灯');
+//         this.state = 'on';
+//     } else if (this.state === 'on') {
+//         console.log('关灯');
+//         this.state = 'off';
+//     }
+// };
+
+// 第一次按下打开弱光，第二次按下打开强光，第三次才是关闭电灯
+Light.prototype.buttonWasPressed = function () {
+    if (this.state === 'off') {
+        console.log('弱光');
+        this.state = 'weakLight';
+    } else if (this.state === 'weakLight') {
+        console.log('强光');
+        this.state = 'strongLight';
+    } else if (this.state === 'strongLight') {
+        console.log('关灯');
+        this.state = 'off';
+    }
+};
+
+var light = new Light();
+light.init();
+```
+
+### 使用状态模式改进电灯程序
+
+```js
+// OffLightState：
+var OffLightState = function (light) {
+    this.light = light;
+};
+OffLightState.prototype.buttonWasPressed = function () {
+    console.log('弱光'); // offLightState 对应的行为
+    this.light.setState(this.light.weakLightState); // 切换状态到weakLightState
+};
+// WeakLightState：
+var WeakLightState = function (light) {
+    this.light = light;
+};
+WeakLightState.prototype.buttonWasPressed = function () {
+    console.log('强光'); // weakLightState 对应的行为
+    this.light.setState(this.light.strongLightState); // 切换状态到strongLightState
+};
+// StrongLightState：
+var StrongLightState = function (light) {
+    this.light = light;
+};
+StrongLightState.prototype.buttonWasPressed = function () {
+    console.log('关灯'); // strongLightState 对应的行为
+    this.light.setState(this.light.offLightState); // 切换状态到offLightState
+};
+
+var Light = function () {
+    this.offLightState = new OffLightState(this);
+    this.weakLightState = new WeakLightState(this);
+    this.strongLightState = new StrongLightState(this);
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    this.button = document.body.appendChild(button);
+    this.button.innerHTML = '开关';
+    this.currState = this.offLightState; // 设置当前状态
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed();
+    }
+}
+Light.prototype.setState = function (newState) {
+    this.currState = newState;
+};
+var light = new Light();
+light.init();
+```
+
+### 使用JS实现状态机
+
+```js
+var Light = function () {
+    this.currState = FSM.off; // 设置当前状态
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '已关灯';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed.call(self); // 把请求委托给FSM 状态机
+    }
+};
+var FSM = {
+    off: {
+        buttonWasPressed: function () {
+            console.log('关灯');
+            this.button.innerHTML = '下一次按我是开灯';
+            this.currState = FSM.on;
+        }
+    },
+    on: {
+        buttonWasPressed: function () {
+            console.log('开灯');
+            this.button.innerHTML = '下一次按我是关灯';
+            this.currState = FSM.off;
+        }
+    }
+};
+var light = new Light();
+light.init();
+```
+
+```js
+var delegate = function (client, delegation) {
+    return {
+        buttonWasPressed: function () { // 将客户的操作委托给delegation 对象
+            return delegation.buttonWasPressed.apply(client, arguments);
+        }
+    }
+};
+var FSM = {
+    off: {
+        buttonWasPressed: function () {
+            console.log('关灯');
+            this.button.innerHTML = '下一次按我是开灯';
+            this.currState = this.onState;
+        }
+    },
+    on: {
+        buttonWasPressed: function () {
+            console.log('开灯');
+            this.button.innerHTML = '下一次按我是关灯';
+            this.currState = this.offState;
+        }
+    }
+};
+var Light = function () {
+    this.offState = delegate(this, FSM.off);
+    this.onState = delegate(this, FSM.on);
+    this.currState = this.offState; // 设置初始状态为关闭状态
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '已关灯';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed();
+    }
+};
+var light = new Light();
+light.init();
+```
+
+这是面向对象设计和闭包互换的一个例子，前者把变量保存为对象的属性，而后者把变量封闭在闭包形成的环境中
+
+### 状态模式的优缺点
+
+状态模式的优点：
+
+- 状态模式定义了状态与行为之间的关系，并将它们封装在一个类里。通过增加新的状态类，很容易增加新的状态和转换。  
+- 避免Context 无限膨胀，状态切换的逻辑被分布在状态类中，也去掉了Context 中原本过多的条件分支。  
+- 用对象代替字符串来记录当前状态，使得状态的切换更加一目了然。  
+- Context 中的请求动作和状态类中封装的行为可以非常容易地独立变化而互不影响。  
+
+状态模式的缺点是会在系统中定义许多状态类，编写20 个状态类是一项枯燥乏味的工作，而且系统中会因此而增加不少对象。另外，由于逻辑分散在状态类中，虽然避开了不受欢迎的条件分支语句，但也造成了逻辑分散的问题，我们无法在一个地方就看出整个状态机的逻辑。
+
+### 状态模式和策略模式的关系
+
+状态模式和策略模式像一对双胞胎，它们都封装了一系列的算法或者行为，它们的类图看起来几乎一模一样，但在意图上有很大不同，因此它们是两种迥然不同的模式。  
+策略模式和状态模式的相同点是，它们都有一个上下文、一些策略或者状态类，上下文把请求委托给这些类来执行。  
+它们之间的区别是策略模式中的各个策略类之间是平等又平行的，它们之间没有任何联系，所以客户必须熟知这些策略类的作用，以便客户可以随时主动切换算法；而在状态模式中，状态和状态对应的行为是早已被封装好的，状态之间的切换也早被规定完成，“改变行为”这件事情发生在状态模式内部。对客户来说，并不需要了解这些细节。这正是状态模式的作用所在。
+
+## 14、适配器模式
+
+> 适配器模式的作用是解决两个软件实体间的接口不兼容的问题。使用适配器模式之后，原本由于接口不兼容而不能工作的两个软件实体可以一起工作。
+
+
