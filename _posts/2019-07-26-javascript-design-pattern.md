@@ -832,13 +832,35 @@ each([1, 2, 3, 4, 5], function (i, n) {
 ```js
 var arr = [1, 2, 3, 4, 5];
 arr.forEach(function (v, i) {
-    console.log(v); // 输出：1 2 3 4 5
+    console.log('中止之前：', v); // 输出：1 2 3 4 5
     if (v > 3) {
         // return false;
         throw Error('中止遍历');
     }
-    // console.log(v); // 输出：1 2 3
+    // console.log('中止之后：', v); // 输出：1 2 3
 });
+// 抛出错误以后下代码不会继续执行
+console.log(arr);
+```
+
+使用抛出错误的方式跳出循环会阻止后面代码的运行，我们可以使用`try-catch`来捕获异常，继续执行抛出错误以后需要执行的代码
+
+```js
+try {
+    var arr = [1, 2, 3, 4, 5];
+    arr.forEach(function (v, i) {
+        console.log('中止之前：', v); // 输出：1 2 3 4 5
+        if (v > 3) {
+            // return false;
+            throw Error('中止遍历');
+        }
+        // console.log('中止之后：', v); // 输出：1 2 3
+    });
+} catch (e) {
+    console.log('捕获的错误信息：', e);
+}
+// 抛出错误以后下代码会继续执行
+console.log(arr);
 ```
 
 ## 5、发布订阅模式
@@ -2076,7 +2098,7 @@ order(1, false, 500); // 输出：普通购买，无优惠券
 
 ## 11、中介者模式
 
-中介者模式的作用就是解除对象与对象之间的紧耦合关系。增加一个中介者对象后，所有的相关对象都通过中介者对象来通信，而不是互相引用，所以当一个对象发生改变时，只需要通知中介者对象即可。中介者使各对象之间耦合松散，而且可以独立地改变它们之间的交互。中介者模式使网状的多对多关系变成了相对简单的一对多关系。
+> 中介者模式的作用就是解除对象与对象之间的紧耦合关系。增加一个中介者对象后，所有的相关对象都通过中介者对象来通信，而不是互相引用，所以当一个对象发生改变时，只需要通知中介者对象即可。中介者使各对象之间耦合松散，而且可以独立地改变它们之间的交互。中介者模式使网状的多对多关系变成了相对简单的一对多关系。
 
 ### 中介者模式的例子——泡泡堂游戏
 
@@ -2725,6 +2747,10 @@ light.init();
 
 > 适配器模式的作用是解决两个软件实体间的接口不兼容的问题。使用适配器模式之后，原本由于接口不兼容而不能工作的两个软件实体可以一起工作。
 
+### 适配器模式的应用
+
+如果现有的接口已经能够正常工作，那我们就永远不会用上适配器模式。适配器模式是一种“亡羊补牢”的模式，没有人会在程序的设计之初就使用它。因为没有人可以完全预料到未来的事情，也许现在好好工作的接口，未来的某天却不再适用于新系统，那么我们可以用适配器模式把旧接口包装成一个新的接口，使它继续保持生命力。
+
 当我们向googleMap 和baiduMap 都发出“显示”请求时，googleMap和baiduMap 分别以各自的方式在页面中展现了地图
 
 ```js
@@ -2771,6 +2797,68 @@ renderMap(googleMap); // 输出：开始渲染谷歌地图
 renderMap(baiduMapAdapter); // 输出：开始渲染百度地图
 ```
 
+### 数据格式接口适配器
+
+```js
+var getGuangdongCity = function () {
+    var guangdongCity = [
+        {
+            name: 'shenzhen',
+            id: 11,
+        }, {
+            name: 'guangzhou',
+            id: 12,
+        }
+    ];
+    return guangdongCity;
+};
+var render = function (fn) {
+    console.log('开始渲染广东省地图');
+    console.log(JSON.stringify(fn()));
+};
+render(getGuangdongCity);
+```
+
+如果后面发现更详细的数据数据格式不是这样的，除了大动干戈地改写渲染页面的前端代码之外，另外一种更轻便的解决方式就是新增一个数
+据格式转换的适配器
+
+```js
+var guangdongCity = {
+    shenzhen: 11,
+    guangzhou: 12,
+    zhuhai: 13
+};
+var getGuangdongCity = function () {
+    var guangdongCity = [
+        {
+            name: 'shenzhen',
+            id: 11,
+        }, {
+            name: 'guangzhou',
+            id: 12,
+        }
+    ];
+    return guangdongCity;
+};
+var render = function (fn) {
+    console.log('开始渲染广东省地图');
+    console.log(JSON.stringify(fn()));
+};
+var addressAdapter = function (oldAddressfn) {
+    var address = {},
+        oldAddress = oldAddressfn();
+    for (var i = 0, c; c = oldAddress[i++];) {
+        address[c.name] = c.id;
+    }
+    return function () {
+        return address;
+    }
+};
+render(addressAdapter(getGuangdongCity));
+```
+
 - 适配器模式主要用来解决两个已有接口之间不匹配的问题，它不考虑这些接口是怎样实现的，也不考虑它们将来可能会如何演化。适配器模式不需要改变已有的接口，就能够使它们协同作用。  
 - 装饰者模式和代理模式也不会改变原有对象的接口，但装饰者模式的作用是为了给对象增加功能。装饰者模式常常形成一条长的装饰链，而适配器模式通常只包装一次。代理模式是为了控制对对象的访问，通常也只包装一次。  
 - 外观模式的作用倒是和适配器比较相似，有人把外观模式看成一组对象的适配器，但外观模式最显著的特点是定义了一个新的接口。
+
+
