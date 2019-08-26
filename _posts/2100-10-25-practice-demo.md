@@ -213,3 +213,23 @@ function digui (num) {
     console.log('num', num);
 }
 ```
+
+```js
+var objArr = [{ id: 111, name: 'liaoxiaoxin', age: 20 }, { id: 222, name: 'liaoxiaoxin', age: 20 }, { id: 333, name: 'liaoxiaoxin', age: 18 }, { id: 444, name: 'Better', age: 19 }];
+objArr.forEach((item, index) => {
+    item.checked = true;
+});
+console.log(objArr);
+var arr1 = [].concat(objArr);
+var idx;
+arr1.forEach((item, index) => {
+    if (item.id !== 111 && item.checked && idx === undefined) {
+        idx = index;
+    }
+});
+if (idx !== undefined) {
+    var tempArr = arr1.splice(idx, 1);
+    tempArr[0] && arr1.splice(idx + 1, 0, tempArr[0]);
+}
+console.log(arr1);
+```
