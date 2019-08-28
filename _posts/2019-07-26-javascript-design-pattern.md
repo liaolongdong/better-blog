@@ -2863,6 +2863,80 @@ render(addressAdapter(getGuangdongCity));
 - 装饰者模式和代理模式也不会改变原有对象的接口，但装饰者模式的作用是为了给对象增加功能。装饰者模式常常形成一条长的装饰链，而适配器模式通常只包装一次。代理模式是为了控制对对象的访问，通常也只包装一次。  
 - 外观模式的作用倒是和适配器比较相似，有人把外观模式看成一组对象的适配器，但外观模式最显著的特点是定义了一个新的接口。
 
+## 15、模块模式
+
+> 模块模式需要具备两个必要条件：1. 必须有外部的封闭函数，该函数必须至少被调用一次（每次调用都会创建一个新的模块实例）。2. 封闭函数必须返回至少一个内部函数，这样内部函数才能在私有作用域中形成闭包，并且可以访问或者修改私有的状态。
+
+```js
+function CoolModule() {
+    var something = "cool";
+    var another = [1, 2, 3];
+    function doSomething() {
+        console.log(something);
+    }
+    function doAnother() {
+        console.log(another.join(" ! "));
+    }
+    return {
+        doSomething: doSomething,
+        doAnother: doAnother
+    };
+}
+var foo = CoolModule();
+foo.doSomething(); // cool
+foo.doAnother(); // 1 ! 2 ! 3
+```
+
+当只需要一个实例时，可以对这个模式进行简单的改进来实现单例模式：
+
+```js
+var foo = (function CoolModule() {
+    var something = "cool";
+    var another = [1, 2, 3];
+    function doSomething() {
+        console.log(something);
+    }
+    function doAnother() {
+        console.log(another.join(" ! "));
+    }
+    return {
+        doSomething: doSomething,
+        doAnother: doAnother
+    };
+})();
+foo.doSomething(); // cool
+foo.doAnother(); // 1 ! 2 ! 3
+```
+
+模块模式另一个简单但强大的变化用法是，命名将要作为公共API 返回的对象：
+
+```js
+var foo = (function CoolModule(id) {
+    function change() {
+        // 修改公共API
+        publicAPI.identify = identify2;
+    }
+    function identify1() {
+        console.log(id);
+    }
+    function identify2() {
+        console.log(id.toUpperCase());
+    }
+    var publicAPI = {
+        change: change,
+        identify: identify1
+    };
+    return publicAPI;
+})("foo module");
+foo.identify(); // foo module
+foo.change();
+foo.identify(); // FOO MODULE
+```
+
+通过在模块实例的内部保留对公共API 对象的内部引用，可以从内部对模块实例进行修改，包括添加或删除方法和属性，以及修改它们的值。
+
+模块有两个主要特征：（1）为创建内部作用域而调用了一个包装函数；（2）包装函数的返回值必须至少包括一个对内部函数的引用，这样就会创建涵盖整个包装函数内部作用域的闭包。
+
 ## 设计原则和编程技巧
 
 ### 1、单一职责原则
