@@ -137,7 +137,7 @@
 
   {% if site.changyan.enable %}
   <!--PC和WAP自适应版-->
-  <div id="SOHUCS" sid="{{ page.url }}" ></div> 
+  <div id="SOHUCS" style="display: none;" sid="{{ page.url }}" ></div> 
   <script type="text/javascript"> 
     (function () {
       var appid = 'cytRfk0Yl';
@@ -200,7 +200,7 @@
   {% endif %}
 
   {% if site.comments.disqus %}
-  <div id="disqus_thread"></div>
+  <div id="disqus_thread" style="display: none;"></div>
   <script>
     /**
     *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
