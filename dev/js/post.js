@@ -14,12 +14,12 @@
             complete: function (data) {
                 if (data.status == 200) {
                     // 如果能访问disqus网站(能翻墙)，则显示disqus评论系统
-                    console.log('this url can open');
+                    console.log('use disqus comment system');
                     $('#SOHUCS').hide();
                     $('#disqus_thread').show();
                 } else {
                     // 如果不能访问外网，这使用畅言评论系统
-                    console.log('this url can not open');
+                    console.log('use changyan comment system');
                     $('#disqus_thread').hide();
                     $('#SOHUCS').show();
                 }
