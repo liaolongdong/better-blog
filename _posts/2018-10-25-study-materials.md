@@ -121,6 +121,7 @@ tags: 前端学习资料
 - [diffchecker（在线文件对比工具）](https://www.diffchecker.com/ "diffchecker（在线文件对比工具）")
 - [JSON数据格式化](http://www.bejson.com/jsonviewernew/ "JSON数据格式化")
 - [二维码生成器](http://cli.im/ "二维码生成器")
+- [推荐5款前端在线编辑器 JS,css,SCSS 在线编辑器](https://blog.csdn.net/lohiecan/article/details/53301677)
 
 ## 在线PS工具
 
