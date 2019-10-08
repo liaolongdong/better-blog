@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>原生JS实现一键复制功能</title>
+    <script src="https://cdn.staticfile.org/jquery/3.2.1/jquery.min.js"></script>
     <style>
         body {
             margin: 50px auto;
             text-align: center;
         }
+
         #copyText {
             margin: 30px;
         }
     </style>
 </head>
+
 <body>
     <div id="copyText">
         这是要复制的内容!!!
@@ -41,7 +45,7 @@
      * 注意：对于 user-select: none 的元素无效
      * 注意：当 id 为 false 且 attr 不会空，会直接复制 attr 的内容
      */
-    function myCopy (id, attr) {
+    function myCopy(id, attr) {
         let target = null;
 
         if (attr) {
@@ -81,5 +85,27 @@
     document.getElementById('copyBtn').addEventListener('click', function () {
         myCopy('copyText');
     });
+
+    // 测试https://disqus.com/是否可访问
+    function testUrlCanOpen(url) {
+        $.ajax({
+            type: 'get',
+            url: url,
+            cache: false,
+            dataType: 'jsonp', // 跨域采用jsonp方式 
+            processData: false,
+            timeout: 3000, // 超时时间，毫秒
+            complete: function (data) {
+                if (data.status == 200) {
+                    console.log('this url can open');
+                } else {
+                    console.log('this url can not open');
+                }
+            }
+        });
+    }
+    testUrlCanOpen('https://disqus.com/');
+
 </script>
+
 </html>

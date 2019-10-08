@@ -88,9 +88,9 @@ changyan:
 livere:
   enable: false
 
-# Comments 评论功能
+# Comments 评论功能 disqus必须翻墙才能用
 comments:
-  disqus: false
+  disqus: true
   disqus_url: 'https://liaolongdong.disqus.com/embed.js'
 
 # MathJax 公式支持

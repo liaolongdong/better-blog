@@ -10,7 +10,9 @@ tags: JavaScript 设计模式
 
 # JavaScript常用设计模式总结
 
-设计模式的主题总是把不变的事物和变化的事物分离开来
+## 设计模式的作用
+
+> 设计模式的作用是让人们写出可复用和可维护性高的程序。
 
 ## 1、单例模式
 
@@ -546,7 +548,7 @@ var myImage = (function () {
     }
 })();
 
-// 使用虚拟代理与加载图片
+// 使用虚拟代理预加载图片
 var proxyImage = (function () {
     var image = new Image();
     image.onload = function () {
@@ -832,28 +834,35 @@ each([1, 2, 3, 4, 5], function (i, n) {
 ```js
 var arr = [1, 2, 3, 4, 5];
 arr.forEach(function (v, i) {
-    console.log(v); // 输出：1 2 3 4 5
+    console.log('中止之前：', v); // 输出：1 2 3 4 5
     if (v > 3) {
         // return false;
         throw Error('中止遍历');
     }
-    // console.log(v); // 输出：1 2 3
+    // console.log('中止之后：', v); // 输出：1 2 3
 });
+// 抛出错误以后下代码不会继续执行
+console.log(arr);
+```
 
+使用抛出错误的方式跳出循环会阻止后面代码的运行，我们可以使用`try-catch`来捕获异常，继续执行抛出错误以后需要执行的代码
+
+```js
 try {
     var arr = [1, 2, 3, 4, 5];
     arr.forEach(function (v, i) {
-        console.log(v); // 输出：1 2 3 4 5
+        console.log('中止之前：', v); // 输出：1 2 3 4 5
         if (v > 3) {
             // return false;
             throw Error('中止遍历');
         }
-        console.log(v); // 输出：1 2 3
+        // console.log('中止之后：', v); // 输出：1 2 3
     });
 } catch (e) {
-    console.log(e);
+    console.log('捕获的错误信息：', e);
 }
-console.log(1111);
+// 抛出错误以后下代码会继续执行
+console.log(arr);
 ```
 
 ## 5、发布订阅模式
@@ -2091,7 +2100,7 @@ order(1, false, 500); // 输出：普通购买，无优惠券
 
 ## 11、中介者模式
 
-中介者模式的作用就是解除对象与对象之间的紧耦合关系。增加一个中介者对象后，所有的相关对象都通过中介者对象来通信，而不是互相引用，所以当一个对象发生改变时，只需要通知中介者对象即可。中介者使各对象之间耦合松散，而且可以独立地改变它们之间的交互。中介者模式使网状的多对多关系变成了相对简单的一对多关系。
+> 中介者模式的作用就是解除对象与对象之间的紧耦合关系。增加一个中介者对象后，所有的相关对象都通过中介者对象来通信，而不是互相引用，所以当一个对象发生改变时，只需要通知中介者对象即可。中介者使各对象之间耦合松散，而且可以独立地改变它们之间的交互。中介者模式使网状的多对多关系变成了相对简单的一对多关系。
 
 ### 中介者模式的例子——泡泡堂游戏
 
@@ -2328,3 +2337,769 @@ player4.die();
 缺点： 最大的缺点是系统中会新增一个中介者对象，因为对象之间交互的复杂性，转移成了中介者对象的复杂性，使得中介者对象经常是巨大的。中介者对象自身往往就是一个难以维护的对象。
 
 中介者模式可以非常方便地对模块或者对象进行解耦，但对象之间并非一定需要解耦。在实际项目中，模块或对象之间有一些依赖关系是很正常的。毕竟我们写程序是为了快速完成项目交付生产，而不是堆砌模式和过度设计。关键就在于如何去衡量对象之间的耦合程度。一般来说，如果对象之间的复杂耦合确实导致调用和维护出现了困难，而且这些耦合度随项目的变化呈指数增长曲线，那我们就可以考虑用中介者模式来重构代码。
+
+## 12、装饰者模式
+
+> 装饰者模式能够在不改变对象自身的基础上，在程序运行期间给对象动态地添加职责。跟继承相比，装饰者是一种更轻便灵活的做法，这是一种“即用即付”的方式，比如天冷了就多穿一件外套，需要飞行时就在头上插一支竹蜻蜓，遇到一堆食尸鬼时就点开AOE（范围攻击）技能。这种给对象动态地增加职责的方式称为装饰者（decorator）模式。
+
+### 模拟传统面向对象语言的装饰者模式
+
+假设我们在编写一个飞机大战的游戏，随着经验值的增加，我们操作的飞机对象可以升级成更厉害的飞机，一开始这些飞机只能发射普通的子弹，升到第二级时可以发射导弹，升到第三级时可以发射原子弹。
+
+```js
+// 原始的飞机类
+var Plane = function () { }
+Plane.prototype.fire = function () {
+    console.log('发射普通子弹');
+}
+// 增加两个装饰类，分别是导弹和原子弹
+var MissileDecorator = function (plane) {
+    this.plane = plane;
+}
+MissileDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射导弹');
+}
+var AtomDecorator = function (plane) {
+    this.plane = plane;
+}
+AtomDecorator.prototype.fire = function () {
+    this.plane.fire();
+    console.log('发射原子弹');
+}
+var plane = new Plane();
+plane = new MissileDecorator(plane);
+plane = new AtomDecorator(plane);
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+这种给对象动态增加职责的方式，并没有真正地改动对象自身，而是将对象放入另一个对象之中，这些对象以一条链的方式进行引用，形成一个聚合对象。这些对象都拥有相同的接口（fire方法），当请求达到链中的某个对象时，这个对象会执行自身的操作，随后把请求转发给链中的下一个对象。
+
+### 使用JavaScript实现装饰者模式
+
+```js
+var plane = {
+    fire: function () {
+        console.log('发射普通子弹');
+    }
+}
+var missileDecorator = function () {
+    console.log('发射导弹');
+}
+var atomDecorator = function () {
+    console.log('发射原子弹');
+}
+var fire1 = plane.fire;
+plane.fire = function () {
+    fire1();
+    missileDecorator();
+}
+var fire2 = plane.fire;
+plane.fire = function () {
+    fire2();
+    atomDecorator();
+}
+plane.fire();
+// 分别输出： 发射普通子弹、发射导弹、发射原子弹
+```
+
+### 用AOP 装饰函数
+
+实现Function.prototype.before 方法和Function.prototype.after 方法
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this; // 保存原函数的引用
+    return function () { // 返回包含了原函数和新函数的"代理"函数
+        beforefn.apply(this, arguments); // 执行新函数，且保证this 不被劫持，新函数接受的参数也会被原封不动地传入原函数，新函数在原函数之前执行
+        return self.apply(this, arguments); // 执行原函数并返回原函数的执行结果并且保证this 不被劫持
+    }
+}
+Function.prototype.after = function (afterfn) {
+    var self = this;
+    return function () {
+        var ret = self.apply(this, arguments);
+        afterfn.apply(this, arguments);
+        return ret;
+    }
+};
+
+// 测试
+var func = function () {
+    console.log(2);
+};
+func = func.before(function () {
+    console.log(1);
+}).after(function () {
+    console.log(3);
+});
+func();
+
+// 带参数
+// var name = 'xiaoxin';
+// var func = function (name) {
+//     console.log(2, name);
+// };
+// func = func.before(function (name) {
+//     console.log(1, name);
+// }).after(function (name) {
+//     console.log(3, name);
+// });
+// func(name);
+```
+
+用AOP 装饰函数的技巧在实际开发中非常有用。不论是业务代码的编写，还是在框架层面，我们都可以把行为依照职责分成粒度更细的函数，随后通过装饰把它们合并到一起，这有助于我们编写一个松耦合和高复用性的系统。
+
+上面的AOP 实现是在Function.prototype 上添加before 和after 方法，但许多人不喜欢这种污染原型的方式，那么我们可以做一些变通，把原函数和新函数都作为参数传入before 或者after 方法
+
+```js
+var before = function (fn, beforeFn) {
+    return function () {
+        beforeFn.apply(this, arguments);
+        return fn.apply(this, arguments);
+    }
+}
+var after = function (fn, afterFn) {
+    return function () {
+        var ret = fn.apply(this, arguments);
+        afterFn.apply(this, arguments);
+        return ret;
+    }
+}
+
+var func = function () {
+    console.log(2);
+}
+var beforeFn = function () {
+    console.log(1);
+}
+var afterFn = function () {
+    console.log(3);
+}
+var a = before(func, beforeFn);
+a();
+var b = after(func, afterFn);
+b();
+```
+
+### 用AOP动态改变函数的参数
+
+解决CSRF 攻击最简单的一个办法就是在HTTP 请求中带上一个Token 参数。
+
+```js
+var ajax = function (type, url, param) {
+    console.log(param); // 发送ajax 请求的代码略
+};
+var getToken = function () {
+    return 'Token';
+}
+ajax = ajax.before(function (type, url, param) {
+    param.Token = getToken();
+});
+ajax('get', 'https://liaolongdong.com/userinfo', { name: 'liaoxiaoxin' }); // {name: "liaoxiaoxin", Token: "Token"}
+```
+
+### 插件式的表单验证
+
+在一个Web 项目中，可能存在非常多的表单，如注册、登录、修改用户信息等。
+
+```js
+Function.prototype.before = function (beforefn) {
+    var self = this;
+    return function () {
+        if (beforefn.apply(this, arguments) === false) {
+            // beforefn 返回false 的情况直接return，不再执行后面的原函数
+            return;
+        }
+        return self.apply(this, arguments);
+    }
+}
+var validata = function () {
+    if (username.value === '') {
+        alert('用户名不能为空');
+        return false;
+    }
+    if (password.value === '') {
+        alert('密码不能为空');
+        return false;
+    }
+}
+var formSubmit = function () {
+    var param = {
+        username: username.value,
+        password: password.value
+    }
+    ajax('https://liaolongdong.com//login', param);
+}
+formSubmit = formSubmit.before(validata);
+submitBtn.onclick = function () {
+    formSubmit();
+}
+```
+
+在这段代码中，校验输入和提交表单的代码完全分离开来，它们不再有任何耦合关系，formSubmit = formSubmit.before( validata )这句代码，如同把校验规则动态接在formSubmit 函数之前，validata 成为一个即插即用的函数，它甚至可以被写成配置文件的形式，这有利于我们分开维护这两个函数。再利用策略模式稍加改造，我们就可以把这些校验规则都写成插件的形式，用在不同的项目当中。
+
+### 装饰者模式和代理模式
+
+装饰者模式和代理模式的结构看起来非常相像，这两种模式都描述了怎样为对象提供一定程度上的间接引用，它们的实现部分都保留了对另外一个对象的引用，并且向那个对象发送请求。  
+代理模式和装饰者模式最重要的区别在于它们的意图和设计目的。代理模式的目的是，当直接访问本体不方便或者不符合需要时，为这个本体提供一个替代者。本体定义了关键功能，而代理提供或拒绝对它的访问，或者在访问本体之前做一些额外的事情。装饰者模式的作用就是为对象动态加入行为。换句话说，代理模式强调一种关系（Proxy 与它的实体之间的关系），这种关系可以静态的表达，也就是说，这种关系在一开始就可以被确定。而装饰者模式用于一开始不能确定对象的全部功能时。代理模式通常只有一层代理本体的引用，而装饰者模式经常会形成一条长长的装饰链。  
+在虚拟代理实现图片预加载的例子中，本体负责设置img 节点的src，代理则提供了预加载的功能，这看起来也是“加入行为”的一种方式，但这种加入行为的方式和装饰者模式的偏重点是不一样的。装饰者模式是实实在在的为对象增加新的职责和行为，而代理做的事情还是跟本体一样，最终都是设置src。但代理可以加入一些“聪明”的功能，比如在图片真正加载好之前，先使用一张占位的loading 图片反馈给客户。
+
+## 13、状态模式
+
+> 状态模式的关键是区分事物内部的状态，事物内部状态的改变往往会带来事物的行为改变。
+
+### 第一个例子：电灯程序
+
+有一个电灯，电灯上面只有一个开关。当电灯开着的时候，此时按下开关，电灯会切换到关闭状态；再按一次开关，电灯又将被打开。同一个开关按钮，在不同的状态下，表现出来的行为是不一样的。
+
+```js
+var Light = function () {
+    this.state = 'off'; // 给电灯设置初始状态off
+    this.button = null; // 电灯开关按钮
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '开关';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.buttonWasPressed();
+    }
+};
+// Light.prototype.buttonWasPressed = function () {
+//     if (this.state === 'off') {
+//         console.log('开灯');
+//         this.state = 'on';
+//     } else if (this.state === 'on') {
+//         console.log('关灯');
+//         this.state = 'off';
+//     }
+// };
+
+// 第一次按下打开弱光，第二次按下打开强光，第三次才是关闭电灯
+Light.prototype.buttonWasPressed = function () {
+    if (this.state === 'off') {
+        console.log('弱光');
+        this.state = 'weakLight';
+    } else if (this.state === 'weakLight') {
+        console.log('强光');
+        this.state = 'strongLight';
+    } else if (this.state === 'strongLight') {
+        console.log('关灯');
+        this.state = 'off';
+    }
+};
+
+var light = new Light();
+light.init();
+```
+
+### 使用状态模式改进电灯程序
+
+```js
+// OffLightState：
+var OffLightState = function (light) {
+    this.light = light;
+};
+OffLightState.prototype.buttonWasPressed = function () {
+    console.log('弱光'); // offLightState 对应的行为
+    this.light.setState(this.light.weakLightState); // 切换状态到weakLightState
+};
+// WeakLightState：
+var WeakLightState = function (light) {
+    this.light = light;
+};
+WeakLightState.prototype.buttonWasPressed = function () {
+    console.log('强光'); // weakLightState 对应的行为
+    this.light.setState(this.light.strongLightState); // 切换状态到strongLightState
+};
+// StrongLightState：
+var StrongLightState = function (light) {
+    this.light = light;
+};
+StrongLightState.prototype.buttonWasPressed = function () {
+    console.log('关灯'); // strongLightState 对应的行为
+    this.light.setState(this.light.offLightState); // 切换状态到offLightState
+};
+
+var Light = function () {
+    this.offLightState = new OffLightState(this);
+    this.weakLightState = new WeakLightState(this);
+    this.strongLightState = new StrongLightState(this);
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    this.button = document.body.appendChild(button);
+    this.button.innerHTML = '开关';
+    this.currState = this.offLightState; // 设置当前状态
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed();
+    }
+}
+Light.prototype.setState = function (newState) {
+    this.currState = newState;
+};
+var light = new Light();
+light.init();
+```
+
+### 使用JS实现状态机
+
+```js
+var Light = function () {
+    this.currState = FSM.off; // 设置当前状态
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '已关灯';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed.call(self); // 把请求委托给FSM 状态机
+    }
+};
+var FSM = {
+    off: {
+        buttonWasPressed: function () {
+            console.log('关灯');
+            this.button.innerHTML = '下一次按我是开灯';
+            this.currState = FSM.on;
+        }
+    },
+    on: {
+        buttonWasPressed: function () {
+            console.log('开灯');
+            this.button.innerHTML = '下一次按我是关灯';
+            this.currState = FSM.off;
+        }
+    }
+};
+var light = new Light();
+light.init();
+```
+
+```js
+var delegate = function (client, delegation) {
+    return {
+        buttonWasPressed: function () { // 将客户的操作委托给delegation 对象
+            return delegation.buttonWasPressed.apply(client, arguments);
+        }
+    }
+};
+var FSM = {
+    off: {
+        buttonWasPressed: function () {
+            console.log('关灯');
+            this.button.innerHTML = '下一次按我是开灯';
+            this.currState = this.onState;
+        }
+    },
+    on: {
+        buttonWasPressed: function () {
+            console.log('开灯');
+            this.button.innerHTML = '下一次按我是关灯';
+            this.currState = this.offState;
+        }
+    }
+};
+var Light = function () {
+    this.offState = delegate(this, FSM.off);
+    this.onState = delegate(this, FSM.on);
+    this.currState = this.offState; // 设置初始状态为关闭状态
+    this.button = null;
+};
+Light.prototype.init = function () {
+    var button = document.createElement('button'),
+        self = this;
+    button.innerHTML = '已关灯';
+    this.button = document.body.appendChild(button);
+    this.button.onclick = function () {
+        self.currState.buttonWasPressed();
+    }
+};
+var light = new Light();
+light.init();
+```
+
+这是面向对象设计和闭包互换的一个例子，前者把变量保存为对象的属性，而后者把变量封闭在闭包形成的环境中
+
+### 状态模式的优缺点
+
+状态模式的优点：
+
+- 状态模式定义了状态与行为之间的关系，并将它们封装在一个类里。通过增加新的状态类，很容易增加新的状态和转换。  
+- 避免Context 无限膨胀，状态切换的逻辑被分布在状态类中，也去掉了Context 中原本过多的条件分支。  
+- 用对象代替字符串来记录当前状态，使得状态的切换更加一目了然。  
+- Context 中的请求动作和状态类中封装的行为可以非常容易地独立变化而互不影响。  
+
+状态模式的缺点是会在系统中定义许多状态类，编写20 个状态类是一项枯燥乏味的工作，而且系统中会因此而增加不少对象。另外，由于逻辑分散在状态类中，虽然避开了不受欢迎的条件分支语句，但也造成了逻辑分散的问题，我们无法在一个地方就看出整个状态机的逻辑。
+
+### 状态模式和策略模式的关系
+
+状态模式和策略模式像一对双胞胎，它们都封装了一系列的算法或者行为，它们的类图看起来几乎一模一样，但在意图上有很大不同，因此它们是两种迥然不同的模式。  
+策略模式和状态模式的相同点是，它们都有一个上下文、一些策略或者状态类，上下文把请求委托给这些类来执行。  
+它们之间的区别是策略模式中的各个策略类之间是平等又平行的，它们之间没有任何联系，所以客户必须熟知这些策略类的作用，以便客户可以随时主动切换算法；而在状态模式中，状态和状态对应的行为是早已被封装好的，状态之间的切换也早被规定完成，“改变行为”这件事情发生在状态模式内部。对客户来说，并不需要了解这些细节。这正是状态模式的作用所在。
+
+## 14、适配器模式
+
+> 适配器模式的作用是解决两个软件实体间的接口不兼容的问题。使用适配器模式之后，原本由于接口不兼容而不能工作的两个软件实体可以一起工作。
+
+### 适配器模式的应用
+
+如果现有的接口已经能够正常工作，那我们就永远不会用上适配器模式。适配器模式是一种“亡羊补牢”的模式，没有人会在程序的设计之初就使用它。因为没有人可以完全预料到未来的事情，也许现在好好工作的接口，未来的某天却不再适用于新系统，那么我们可以用适配器模式把旧接口包装成一个新的接口，使它继续保持生命力。
+
+当我们向googleMap 和baiduMap 都发出“显示”请求时，googleMap和baiduMap 分别以各自的方式在页面中展现了地图
+
+```js
+var googleMap = {
+    show: function () {
+        console.log('开始渲染谷歌地图');
+    }
+};
+var baiduMap = {
+    show: function () {
+        console.log('开始渲染百度地图');
+    }
+};
+var renderMap = function (map) {
+    if (map.show instanceof Function) {
+        map.show();
+    }
+};
+renderMap(googleMap); // 输出：开始渲染谷歌地图
+renderMap(baiduMap); // 输出：开始渲染百度地图
+```
+
+这段程序得以顺利运行的关键是googleMap 和baiduMap 提供了一致的show 方法，但第三方的接口方法并不在我们自己的控制范围之内，假如baiduMap 提供的显示地图的方法不叫show 而叫display 呢？
+
+baiduMap 这个对象来源于第三方，正常情况下我们都不应该去改动它。此时我们可以通过增加baiduMapAdapter 来解决问题
+
+```js
+var googleMap = {
+    show: function () {
+        console.log('开始渲染谷歌地图');
+    }
+};
+var baiduMap = {
+    display: function () {
+        console.log('开始渲染百度地图');
+    }
+};
+var baiduMapAdapter = {
+    show: function () {
+        return baiduMap.display();
+    }
+};
+renderMap(googleMap); // 输出：开始渲染谷歌地图
+renderMap(baiduMapAdapter); // 输出：开始渲染百度地图
+```
+
+### 数据格式接口适配器
+
+```js
+var getGuangdongCity = function () {
+    var guangdongCity = [
+        {
+            name: 'shenzhen',
+            id: 11,
+        }, {
+            name: 'guangzhou',
+            id: 12,
+        }
+    ];
+    return guangdongCity;
+};
+var render = function (fn) {
+    console.log('开始渲染广东省地图');
+    console.log(JSON.stringify(fn()));
+};
+render(getGuangdongCity);
+```
+
+如果后面发现更详细的数据数据格式不是这样的，除了大动干戈地改写渲染页面的前端代码之外，另外一种更轻便的解决方式就是新增一个数
+据格式转换的适配器
+
+```js
+var guangdongCity = {
+    shenzhen: 11,
+    guangzhou: 12,
+    zhuhai: 13
+};
+var getGuangdongCity = function () {
+    var guangdongCity = [
+        {
+            name: 'shenzhen',
+            id: 11,
+        }, {
+            name: 'guangzhou',
+            id: 12,
+        }
+    ];
+    return guangdongCity;
+};
+var render = function (fn) {
+    console.log('开始渲染广东省地图');
+    console.log(JSON.stringify(fn()));
+};
+var addressAdapter = function (oldAddressfn) {
+    var address = {},
+        oldAddress = oldAddressfn();
+    for (var i = 0, c; c = oldAddress[i++];) {
+        address[c.name] = c.id;
+    }
+    return function () {
+        return address;
+    }
+};
+render(addressAdapter(getGuangdongCity));
+```
+
+- 适配器模式主要用来解决两个已有接口之间不匹配的问题，它不考虑这些接口是怎样实现的，也不考虑它们将来可能会如何演化。适配器模式不需要改变已有的接口，就能够使它们协同作用。  
+- 装饰者模式和代理模式也不会改变原有对象的接口，但装饰者模式的作用是为了给对象增加功能。装饰者模式常常形成一条长的装饰链，而适配器模式通常只包装一次。代理模式是为了控制对对象的访问，通常也只包装一次。  
+- 外观模式的作用倒是和适配器比较相似，有人把外观模式看成一组对象的适配器，但外观模式最显著的特点是定义了一个新的接口。
+
+## 15、模块模式
+
+> 模块模式需要具备两个必要条件：1. 必须有外部的封闭函数，该函数必须至少被调用一次（每次调用都会创建一个新的模块实例）。2. 封闭函数必须返回至少一个内部函数，这样内部函数才能在私有作用域中形成闭包，并且可以访问或者修改私有的状态。
+
+```js
+function CoolModule() {
+    var something = "cool";
+    var another = [1, 2, 3];
+    function doSomething() {
+        console.log(something);
+    }
+    function doAnother() {
+        console.log(another.join(" ! "));
+    }
+    return {
+        doSomething: doSomething,
+        doAnother: doAnother
+    };
+}
+var foo = CoolModule();
+foo.doSomething(); // cool
+foo.doAnother(); // 1 ! 2 ! 3
+```
+
+当只需要一个实例时，可以对这个模式进行简单的改进来实现单例模式：
+
+```js
+var foo = (function CoolModule() {
+    var something = "cool";
+    var another = [1, 2, 3];
+    function doSomething() {
+        console.log(something);
+    }
+    function doAnother() {
+        console.log(another.join(" ! "));
+    }
+    return {
+        doSomething: doSomething,
+        doAnother: doAnother
+    };
+})();
+foo.doSomething(); // cool
+foo.doAnother(); // 1 ! 2 ! 3
+```
+
+模块模式另一个简单但强大的变化用法是，命名将要作为公共API 返回的对象：
+
+```js
+var foo = (function CoolModule(id) {
+    function change() {
+        // 修改公共API
+        publicAPI.identify = identify2;
+    }
+    function identify1() {
+        console.log(id);
+    }
+    function identify2() {
+        console.log(id.toUpperCase());
+    }
+    var publicAPI = {
+        change: change,
+        identify: identify1
+    };
+    return publicAPI;
+})("foo module");
+foo.identify(); // foo module
+foo.change();
+foo.identify(); // FOO MODULE
+```
+
+通过在模块实例的内部保留对公共API 对象的内部引用，可以从内部对模块实例进行修改，包括添加或删除方法和属性，以及修改它们的值。
+
+模块有两个主要特征：（1）为创建内部作用域而调用了一个包装函数；（2）包装函数的返回值必须至少包括一个对内部函数的引用，这样就会创建涵盖整个包装函数内部作用域的闭包。
+
+## 设计原则和编程技巧
+
+### 1、单一职责原则
+
+> 单一职责原则（SRP）的职责被定义为“引起变化的原因”。
+
+SRP 原则体现为：一个对象（方法）只做一件事情。
+
+#### 设计模式中的SRP 原则
+
+SRP 原则在很多设计模式中都有着广泛的运用，例如代理模式、迭代器模式、单例模式和装饰者模式。
+
+#### SRP 原则的优缺点
+
+SRP 原则的优点是降低了单个类或者对象的复杂度，按照职责把对象分解成更小的粒度，这有助于代码的复用，也有利于进行单元测试。当一个职责需要变更的时候，不会影响到其他的职责。  
+SRP 原则的缺点，最明显的是会增加编写代码的复杂度。当我们按照职责把对象分解成更小的粒度之后，实际上也增大了这些对象之间相互联系的难度。
+
+### 2、最少知识原则
+
+> 最少知识原则（LKP）说的是一个软件实体应当尽可能少地与其他实体发生相互作用。
+
+#### 设计模式中的最少知识原则
+
+最少知识原则在设计模式中体现得最多的地方是中介者模式和外观模式。
+
+在世界杯期间购买足球彩票，如果没有博彩公司作为中介，上千万的人一起计算赔率和输赢绝对是不可能的事情。博彩公司作为中介，每个人都只和博彩公司发生关联，博彩公司会根据所有人的投注情况计算好赔率，彩民们赢了钱就从博彩公司拿，输了钱就赔给博彩公司。  
+
+中介者模式很好地体现了最少知识原则。通过增加一个中介者对象，让所有的相关对象都通过中介者对象来通信，而不是互相引用。所以，当一个对象发生改变时，只需要通知中介者对象即可。
+
+外观模式主要是为子系统中的一组接口提供一个一致的界面，外观模式定义了一个高层接口，这个接口使子系统更加容易使用。
+
+外观模式的作用是对客户屏蔽一组子系统的复杂性。外观模式对客户提供一个简单易用的高层接口，高层接口会把客户的请求转发给子系统来完成具体的功能实现。大多数客户都可以通过请求外观接口来达到访问子系统的目的。但在一段使用了外观模式的程序中，请求外观并不是强制的。如果外观不能满足客户的个性化需求，那么客户也可以选择越过外观来直接访问子系统。
+
+外观模式的作用主要有两点。  
+- 为一组子系统提供一个简单便利的访问入口。  
+- 隔离客户与复杂子系统之间的联系，客户不用去了解子系统的细节。
+
+从第二点来，外观模式是符合最少知识原则的。比如全自动洗衣机的一键洗衣按钮，隔开了客户和浸泡、洗衣、漂洗、脱水这些子系统的直接联系，客户不用去了解这些子系统的具体实现。
+
+#### 最小知识原则优缺点
+
+虽然遵守最小知识原则减少了对象之间的依赖，但也有可能增加一些庞大到难以维护的第三者对象。跟单一职责原则一样，在实际开发中，是否选择让代码符合最少知识原则，要根据具体的环境来定。
+
+### 3、开放-封闭原则
+
+> 开放-封闭原则的思想：当需要改变一个程序的功能或者给这个程序增加新功能的时候，可以使用增加代码的方式，但是不允许改动程序的源代码。
+
+通过动态装饰函数的方式（AOP面向切片编程的after函数），我们完全不用理会从前原函数的内部实现，无论它的实现优雅或是丑陋。就算我们作为维护者，拿到的是一份混淆压缩过的代码也没有关系。只要它从前是个稳定运行的函数，那么以后也不会因为我们的新增需求而产生错误。新增的代码和原有的代码可以井水不犯河水。
+
+在现实生活中，我们也能找到一些跟开放封闭原则相关的故事。下面这个故事人尽皆知，且跟肥皂相关。
+
+> 有一家生产肥皂的大企业，从欧洲花巨资引入了一条生产线。这条生产线可以自动完成从原材料加工到包装成箱的整个流程，但美中不足的是，生产出来的肥皂有一定的空盒几率。于是老板又从欧洲找来一支专家团队，花费数百万元改造这一生产线，终于解决了生产出空盒肥皂的问题。  
+> 另一家企业也引入了这条生产线，他们同样遇到了空盒肥皂的问题。但他们的解决办法很简单：用一个大风扇在生产线旁边吹，空盒肥皂就会被吹走。
+
+这个故事告诉我们，相比修改源程序，如果通过增加几行代码就能解决问题，那这显然更加简单和优雅，而且增加代码并不会影响原系统的稳定。讲述这个故事，我们的目的不在于说明风扇的成本有多低，而是想说明，如果使用风扇这样简单的方式可以解决问题，根本没有必要去大动干戈地改造原有的生产线。
+
+#### 用对象的多态性消除条件分支
+
+过多的条件分支语句是造成程序违反开放-封闭原则的一个常见原因。每当需要增加一个新的if 语句时，都要被迫改动原函数。把if 换成switch-case 是没有用的，这是一种换汤不换药的做法。实际上，每当我们看到一大片的if 或者swtich-case 语句时，第一时间就应该考虑，能否利用对象的多态性来重构它们。利用对象的多态性来让程序遵守开放-封闭原则，是一个常用的技巧。
+
+```js
+var makeSound = function (animal) {
+    if (animal instanceof Duck) {
+        console.log('嘎嘎嘎');
+    } else if (animal instanceof Chicken) {
+        console.log('咯咯咯');
+    }
+};
+var Duck = function () { };
+var Chicken = function () { };
+makeSound(new Duck()); // 输出：嘎嘎嘎
+makeSound(new Chicken()); // 输出：咯咯咯
+```
+
+动物世界里增加一只狗之后，makeSound 函数必须改成：
+
+```js
+var makeSound = function (animal) {
+    if (animal instanceof Duck) {
+        console.log('嘎嘎嘎');
+    } else if (animal instanceof Chicken) {
+        console.log('咯咯咯');
+    } else if (animal instanceof Dog) { // 增加跟狗叫声相关的代码
+        console.log('汪汪汪');
+    }
+};
+var Dog = function () { };
+makeSound(new Dog()); // 增加一只狗
+```
+
+利用多态的思想，我们把程序中不变的部分隔离出来（动物都会叫），然后把可变的部分封装起来（不同类型的动物发出不同的叫声），这样一来程序就具有了可扩展性。当我们想让一只狗发出叫声时，只需增加一段代码即可，而不用去改动原有的makeSound 函数
+
+```js
+var makeSound = function (animal) {
+    animal.sound();
+};
+var Duck = function () { };
+Duck.prototype.sound = function () {
+    console.log('嘎嘎嘎');
+};
+var Chicken = function () { };
+Chicken.prototype.sound = function () {
+    console.log('咯咯咯');
+};
+makeSound(new Duck()); // 嘎嘎嘎
+makeSound(new Chicken()); // 咯咯咯
+/********* 增加动物狗，不用改动原有的makeSound 函数 ****************/
+var Dog = function () { };
+Dog.prototype.sound = function () {
+    console.log('汪汪汪');
+};
+makeSound(new Dog()); // 汪汪汪
+```
+
+#### 找出变化的地方
+
+开放-封闭原则是一个看起来比较虚幻的原则，并没有实际的模板教导我们怎样亦步亦趋地实现它。但我们还是能找到一些让程序尽量遵守开放封闭原则的规律，最明显的就是找出程序中将要发生变化的地方，然后把变化封装起来。  
+通过封装变化的方式，可以把系统中稳定不变的部分和容易变化的部分隔离开来。在系统的演变过程中，我们只需要替换那些容易变化的部分，如果这些部分是已经被封装好的，那么替换起来也相对容易。而变化部分之外的就是稳定的部分。在系统的演变过程中，稳定的部分是不需要改变的。
+
+在上一节的例子中，由于每种动物的叫声都不同，所以动物具体怎么叫是可变的，于是我们把动物具体怎么叫的逻辑从makeSound 函数中分离出来。而动物都会叫这是不变的，makeSound 函数里的实现逻辑只跟动物都会叫有关，这样一来，makeSound 就成了一个稳定和封闭的函数。
+
+除了利用对象的多态性之外，还有其他方式可以帮助我们编写遵守开放封闭原则的代码：
+
+1. 放置挂钩
+
+放置挂钩（hook）也是分离变化的一种方式。我们在程序有可能发生变化的地方放置一个挂钩，挂钩的返回结果决定了程序的下一步走向。这样一来，原本的代码执行路径上就出现了一个分叉路口，程序未来的执行方向被预埋下多种可能性。
+
+2. 使用回调函数
+
+在JavaScript 中，函数可以作为参数传递给另外一个函数，这是高阶函数的意义之一。在这种情况下，我们通常会把这个函数称为回调函数。在JavaScript 版本的设计模式中，策略模式和命令模式等都可以用回调函数轻松实现。  
+回调函数是一种特殊的挂钩。我们可以把一部分易于变化的逻辑封装在回调函数里，然后把回调函数当作参数传入一个稳定和封闭的函数中。当回调函数被执行的时候，程序就可以因为回调函数的内部逻辑不同，而产生不同的结果。
+
+#### 设计模式中的开放－封闭原则
+
+几乎所有的设计模式都是遵守开放
+封闭原则的，我们见到的好设计，通常都经得起开放封闭原则的考验。不管是具体的各种设计模式，还是更抽象的面向对象设计原则，比如单一职责原则、最少知识原则、依赖倒置原则等，都是为了让程序遵守开放封闭原则而出现的。可以这样说，开放封闭原则是编写一个好程序的目标，其他设计原则都是达到这个目标的过程。
+
+1. 发布-订阅模式
+
+发布-订阅模式用来降低多个对象之间的依赖关系，它可以取代对象之间硬编码的通知机制，一个对象不用再显式地调用另外一个对象的某个接口。当有新的订阅者出现时，发布者的代码不需要进行任何修改；同样当发布者需要改变时，也不会影响到之前的订阅者。
+
+2. 模板方法模式
+
+模板方法模式是一种典型的通过封装变化来提高系统扩展性的设计模式。在一个运用了模板方法模式的程序中，子类的方法种类和执行顺序都是不变的，所以我们把这部分逻辑抽出来放到父类的模板方法里面；而子类的方法具体怎么实现则是可变的，于是把这部分变化的逻辑封装到子类中。通过增加新的子类，便能给系统增加新的功能，并不需要改动抽象父类以及其他的子类，这也是符合开放-封闭原则的。
+
+3. 策略模式
+
+策略模式和模板方法模式是一对竞争者。在大多数情况下，它们可以相互替换使用。模板方法模式基于继承的思想，而策略模式则偏重于组合和委托。
+
+策略模式将各种算法都封装成单独的策略类，这些策略类可以被交换使用。策略和使用策略的客户代码可以分别独立进行修改而互不影响。我们增加一个新的策略类也非常方便，完全不用修改之前的代码。
+
+4. 代理模式
+
+预加载图片的功能和给图片设置src 的功能被隔离在两个函数里，它们可以单独改变而互不影响。myImage 不知晓代理的存在，它可以继续专注于自己的职责——给图片设置src。
+
+5. 职责链模式
+
+#### 开放－封闭原则的相对性
+
+有一些代码是无论如何也不能完全封闭的，总会存在一些无法对其封闭的变化。作为程序员，我们可以做到的有下面两点。  
+- 挑选出最容易发生变化的地方，然后构造抽象来封闭这些变化。  
+- 在不可避免发生修改的时候，尽量修改那些相对容易修改的地方。拿一个开源库来说，修改它提供的配置文件，总比修改它的源代码来得简单。
+
+## 参考资料
+
+- [JavaScript设计模式与开发实践/曾探著]()
