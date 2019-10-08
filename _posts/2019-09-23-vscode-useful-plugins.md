@@ -46,6 +46,10 @@ tags: JavaScript vscode常用插件
 
 > Sublime Monokai主题界面，个人比较喜欢这个风格
 
+## Code Runner
+
+> 点击鼠标右键->run code, 执行对应的编程语言，比如C, C++, Java, JavaScript, PHP, Python, Perl, Perl 6, Ruby, Go等等
+
 ## open in browser
 
 > 选择中HTML文件，右键，可选择在浏览器中打开
@@ -87,3 +91,4 @@ tags: JavaScript vscode常用插件
 - 每个插件的具体用法可以查看，对应插件的使用说明
 - 在扩展搜素里面输入输入关键字，如"react"，即可查看react相关插件，可根据需要自行安装
 - 安装完插件，需要关闭vscode，重新打开，插件才会生效
+
