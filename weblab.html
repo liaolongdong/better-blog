@@ -1,0 +1,37 @@
+---
+layout: default
+title: Demo
+---
+
+{% include header.html %}
+
+<div class="g-banner tags-banner {{ site.demoPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
+    <h2 class="am-shake">前端在线编辑器</h2>
+</div>
+
+<main class="tags-content demo-content">
+    <div id="aceEditor">
+        <div class="editor">
+            <span class="label">html</span>
+            <pre id="editor1" class="edit-area"></pre>
+        </div>
+        <div class="editor">
+            <span class="label">css</span>
+            <pre id="editor2" class="edit-area"></pre>
+        </div>
+        <div class="editor">
+            <span class="label">javascript</span>
+            <pre id="editor3" class="edit-area"></pre>
+        </div>
+        <div class="editor">
+            <iframe style="top: 0;background: #fff;" class="edit-area" id="preview" frameborder="0" srcdoc="<!DOCTYPE html><html><head><meta charset=&quot;utf-8&quot; /><title>代码测试</title><meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot;/><meta name=&quot;format-detection&quot; content=&quot;telephone=no&quot; /><meta name=&quot;apple-mobile-web-app-status-bar-style&quot; content=&quot;black&quot; /><meta name=&quot;apple-mobile-web-app-capable&quot; content=&quot;yes&quot; /><meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;chrome=1,IE=edge&quot;/><meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0&quot;/><style type=&quot;text/css&quot;></style><script type=&quot;text/javascript&quot; src=&quot;//cdn.bootcss.com/vConsole/3.2.0/vconsole.min.js&quot;></script><script type=&quot;text/javascript&quot;>new window.VConsole();</script></head><body><script type=&quot;text/javascript&quot;></script></body></html>"></iframe>
+        </div>
+    </div>
+    <button class="submit-btn" id="submit">提交运行</button>
+</main>
+
+<script src="/ace/ace.js"></script>
+<script src="/ace/ext-language_tools.js"></script>
+<script src="/assets/js/lab.min.js"></script>
+    
+{% include footer.html %}

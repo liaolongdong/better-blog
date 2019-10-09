@@ -16,6 +16,7 @@ nav:
   home: '/'
   tags: '/tags.html'
   demo: '/demo.html'
+  weblab: '/weblab.html'
   about: '/about.html'
 
 # Author 配置博主信息
