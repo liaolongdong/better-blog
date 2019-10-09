@@ -108,6 +108,7 @@ theme-color: 'default'  # pink or default
 postPatterns: 'overlappingCircles'
 tagsPatterns: 'food'
 demoPatterns: 'glamorous'
+labPatterns: 'ticTacToe'
 
 # SNS settings 配置社交网站
 # url: email, weibo, zhihu, twitter, instagram, juejin, github, douban, facebook, dribble, uicn, jianshu, medium, linkedin

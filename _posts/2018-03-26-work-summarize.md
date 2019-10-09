@@ -447,6 +447,19 @@ gulp[9040]: c:\ws\src\node_contextify.cc:626: Assertion `args[1]->IsString()' fa
 
 详情可查看[解决升级nodejs导致gulp以及node-sass不兼容的问题](https://blog.csdn.net/A1922212258/article/details/89293160)
 
+### 运行gulp项目报错：AssertionError: Task function must be specified
+
+原因：那是因为你安装了gulp4.0.0，gulpfile.js用的是gulp3.9.1的语法。
+
+解决方案：
+
+AssertionError: Task function must be specified错误解决方案
+
+- npm i gulp@3.9.1重新安装gulp到3.91版
+- 按gulp4.0.0重写gulpfile.js任务列表
+
+[gulp运行报错：Task function must be specified必须指定任务函数](https://www.xinran001.com/frontend/47.html)
+
 ## 样式动画相关类
 
 ### 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
