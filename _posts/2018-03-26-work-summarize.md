@@ -423,6 +423,30 @@ if (!HTMLCanvasElement.prototype.toBlob) {
 }
 ```
 
+### 解决升级nodejs导致gulp以及node-sass不兼容的问题
+
+报错如下：
+
+```
+gulp[9040]: c:\ws\src\node_contextify.cc:626: Assertion `args[1]->IsString()' failed.
+ 1: 000000013F61F04A v8::internal::GCIdleTimeHandler::GCIdleTimeHandler+5114
+ 2: 000000013F5FA0C6 node::MakeCallback+4518
+ 3: 000000013F5FA17F node::MakeCallback+4703
+ 4: 000000013F5CF630 node::DecodeWrite+13024
+ 5: 000000013FDFC122 v8::internal::OptimizingCompileDispatcher::Unblock+59890
+ 6: 000000013FDFD289 v8::internal::OptimizingCompileDispatcher::Unblock+64345
+ 7: 000000013FDFC5CC v8::internal::OptimizingCompileDispatcher::Unblock+61084
+ 8: 000000013FDFC4EB v8::internal::OptimizingCompileDispatcher::Unblock+60859
+ 9: 000001ECD0EDC5C1
+```
+解决方案：
+
+- 执行命令npm i graceful-fs安装graceful-fs​​​​​​​即可解决上面的问题
+
+- 执行命令npm i natives​​​​​​​安装natives​​​​​​​也可解决上面的问题（网上大多说用此方法解决，但是不推荐使用此方法，原因如下图，来自npm官网）
+
+详情可查看[解决升级nodejs导致gulp以及node-sass不兼容的问题](https://blog.csdn.net/A1922212258/article/details/89293160)
+
 ## 样式动画相关类
 
 ### 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性

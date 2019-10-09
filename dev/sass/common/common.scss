@@ -4,6 +4,10 @@
     overflow-x: hidden;
 }
 
+.clearfix {
+    @include clearfix;
+}
+
 .g-container {
     width: $g-container-w;
 }
