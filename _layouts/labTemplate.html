@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-{% include demoHead.html %}
+{% include head.html %}
 <body>
     <!--[if lt IE 10]>
         <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="http://browsehappy.com">立即升级</a></div>
@@ -9,5 +9,8 @@
     <div class="visible">
         {{ content }}
     </div>
+
+    <script src="/assets/js/tools.min.js"></script>
+    <script src="/assets/js/index.min.js"></script>
 </body>
 </html>

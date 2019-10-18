@@ -27,3 +27,15 @@ yarn start
 ```git
 yarn build
 ```
+
+提交代码到github
+
+```git
+yarn deploy
+```
+
+服务器拉取github代码及部署
+
+```git
+yarn deploy:ali
+```
