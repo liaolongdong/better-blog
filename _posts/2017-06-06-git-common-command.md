@@ -127,3 +127,12 @@ git remote remove origin
 # 添加远程仓库新地址
 git remote add origin <url>
 ```
+
+### git获取不到gitLab创建的新分支
+
+```bash
+# 将远程主机的最新内容拉到本地
+git fetch
+# 查看所有分支
+git branch -a
+```
