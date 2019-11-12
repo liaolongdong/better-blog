@@ -418,7 +418,7 @@ function *sleep (time) {
 sleep(1000).next().value.then(() => {console.log('end');}); // 先输出start，延迟1000ms后输出end
 ```
 
-## 如何实现a == 1 && a == 2 && a == 3
+## 如何实现a == 1 && a == 2 && a == 3为true
 
 方法一：结合使用数组的`toString()`和`shift()`方法
 
