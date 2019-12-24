@@ -147,3 +147,5 @@ permalink: /:year/:month/:day/:title.html
 plugins_dir:
   - jekyll-paginate
   - jekyll-sitemap
+
+gems: [jekyll-paginate]
