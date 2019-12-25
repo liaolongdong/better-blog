@@ -58,7 +58,7 @@ tags: JavaScript vscode常用插件
 
 > 使用vue，必备的工具插件
 
-## Path Autocomplete
+## Path Intellisense/Path Autocomplete
 
 > 文件路径提示自动补全插件
 
