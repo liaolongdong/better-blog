@@ -66,6 +66,26 @@ window.addEventListener('load', function () {
 });
 ```
 
+### 解决键盘弹出后挡住表单的问题
+
+```js
+// 解决键盘弹出后挡表单的问题
+window.addEventListener('resize', function () {
+    if (
+        document.activeElement.tagName === 'INPUT' ||
+        document.activeElement.tagName === 'TEXTAREA'
+    ) {
+        window.setTimeout(function () {
+            if ('scrollIntoView' in document.activeElement) {
+                document.activeElement.scrollIntoView();
+            } else {
+                document.activeElement.scrollIntoViewIfNeeded();
+            }
+        }, 0);
+    }
+});
+```
+
 ### React中使用defaultValue、defaultChecked遇到的问题
 
 > The defaultValue and defaultChecked props are only used during initial render. If you need to update the value in a subsequent render, you will need to use a controlled component.
