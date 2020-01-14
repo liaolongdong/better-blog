@@ -282,7 +282,7 @@ html {
 
 2、把input字体设置16px以上
 
-### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白以及样式错位问题
+### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白以及定位样式错位问题
 
 如图：
 
@@ -295,6 +295,56 @@ inputBlur() {
     let ua = window.navigator.userAgent.toLowerCase();
     if (/(iPhone|iPad|iPod|iOS)/i.test(ua)) {
         window.scrollTo(0, 0);
+    }
+}
+```
+
+最佳解决方案：`focus`和`blur`不支持事件冒泡，利用`focusin`和`focusout`支持事件冒泡
+
+```js
+// 判断设备类型
+function getDevice () {
+    let device = '';
+    if (/(iPhone|iPad|iPod|iOS)/i.test(ua)) {
+        device = 'ios';
+    } else if (/(Android)/i.test(ua)) {
+        device = 'android';
+    }
+    return device;
+}
+
+let isReset = true; // 弹出键盘是否归位
+if (getDevice() === 'ios') {
+    document.body.addEventListener('focusin', () => {
+        // 软键盘弹出的事件处理
+        isReset = false;
+    });
+    document.body.addEventListener('focusout', () => {
+        // 软键盘收起的事件处理
+        isReset = true;
+        setTimeout(() => {
+            // 当焦点在弹出层的输入框之间切换时先不归位
+            if (isReset) {
+                window.scroll(0, 0); // 失焦后强制让页面归位
+            }
+        }, 300);
+    });
+} else if (getDevice() === 'android') {
+    window.onresize = function () {
+        // 键盘弹起与隐藏都会引起窗口的高度发生变化
+        let resizeHeight = document.documentElement.clientHeight || document.body.clientHeight;
+        if (resizeHeight < h) {
+            // 当软键盘弹起，在此处操作
+            isReset = false;
+        } else {
+            // 当软键盘收起，在此处操作
+            isReset = true;
+            setTimeout(() => {
+                if (isReset) {
+                    window.scroll(0, 0); // 失焦后强制让页面归位
+                }
+            }, 300);
+        }
     }
 }
 ```
