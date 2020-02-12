@@ -26,6 +26,10 @@ tags: JavaScript vscode常用插件
 
 > javascript语法高亮，支持 ES201x, React JSX, Flow and GraphQL
 
+## ES7 React/Redux/GraphQL/React-Native snippets
+
+> react开发语法插件
+
 ## GitLens
 
 > 查看每一行代码或者文件最近一次修改人以及修改历史记录等
@@ -41,6 +45,10 @@ tags: JavaScript vscode常用插件
 ## pxtorem
 
 > px转rem插件
+
+## Easy LESS
+
+> less转css或者wxss
 
 ## Identical Sublime Monokai
 
@@ -73,6 +81,10 @@ tags: JavaScript vscode常用插件
 ## webpack
 
 > webpack配置文件自动生成工具
+
+## Live Server
+
+> 启动一个本地环境
 
 ## markdownlint
 
