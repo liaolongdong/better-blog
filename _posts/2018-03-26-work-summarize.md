@@ -150,6 +150,31 @@ function fixScroll (type) {
 
 - [前端页面弹框遮罩禁止页面滚动](https://blog.csdn.net/yuhk231/article/details/74171734?utm_source=blogxgwz0)
 
+### 禁止页面复制、选中文本以及用户右击鼠标时触发并打开上下文菜单
+
+使用样式`user-select`属性
+
+```css
+body {
+  -webkit-touch-callout: none; /*系统默认菜单被禁用*/
+  -webkit-user-select: none; /*webkit浏览器*/
+  -khtml-user-select: none; /*早起浏览器*/
+  -moz-user-select: none; /*火狐浏览器*/
+  -ms-user-select: none; /*IE浏览器*/
+  user-select: none; /*用户是否能够选中文本*/
+}
+```
+
+此段css样式加入后能解决ios下手机浏览器,微信浏览器长按出现选择系统菜单问题,但是对于Android下微信浏览器还会出现不兼容问题,因此还需要在页面中加入以下JS代码
+
+```js
+// 阻止用户右击鼠标时触发并打开上下文菜单
+document.oncontextmenu = function(e) {
+    e.preventDefault();
+};
+```
+`oncontextmenu`事件在元素中用户右击鼠标时触发并打开上下文菜单，此处用于阻止菜单的出现。
+
 ### 上传图片格式转换(react)
 
 ```html
