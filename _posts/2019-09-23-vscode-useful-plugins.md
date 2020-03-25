@@ -26,6 +26,10 @@ tags: JavaScript vscode常用插件
 
 > javascript语法高亮，支持 ES201x, React JSX, Flow and GraphQL
 
+## ES7 React/Redux/GraphQL/React-Native snippets
+
+> react开发语法插件
+
 ## GitLens
 
 > 查看每一行代码或者文件最近一次修改人以及修改历史记录等
@@ -41,6 +45,10 @@ tags: JavaScript vscode常用插件
 ## pxtorem
 
 > px转rem插件
+
+## Easy LESS
+
+> less转css或者wxss
 
 ## Identical Sublime Monokai
 
@@ -74,6 +82,10 @@ tags: JavaScript vscode常用插件
 
 > webpack配置文件自动生成工具
 
+## Live Server
+
+> 启动一个本地环境
+
 ## markdownlint
 
 > markdown语法检测工具插件
@@ -85,6 +97,10 @@ tags: JavaScript vscode常用插件
 ## Markdown Shortcuts
 
 > 编写markdown使用快捷命令插件，在.md文件中，点击鼠标右键，显示快捷方式
+
+## minapp
+
+> 微信小程序标签、属性的智能补全（同时支持原生小程序、mpvue 和 wepy 框架，并提供 snippets）
 
 ## 插件用法总结
 
