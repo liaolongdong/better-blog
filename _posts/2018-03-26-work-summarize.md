@@ -284,7 +284,7 @@ html {
 
 ### 部分安卓手机点击img图片会全屏放大显示问题（变成全屏查看图片模式了）
 
-[pointer-events](https://developer.mozilla.org/zh-CN/docs/Web/CSS/pointer-events)值none表示鼠标事件“穿透”该元素并且指定该元素“下面”的任何东西。
+[pointer-events](https://developer.mozilla.org/zh-CN/docs/Web/CSS/pointer-events)值none表示鼠标事件"穿透"该元素并且指定该元素"下面"的任何东西。
 
 解决方案：在`img`标签上设置`pointer-events: none;`样式来屏蔽图片上所有的事件，如果在图片上有绑定事件，则在图片上增加一层div，把事件绑定到该div上
 
@@ -307,7 +307,7 @@ html {
 
 2、把input字体设置16px以上
 
-### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白以及定位样式错位问题
+### 微信H5页面ios遮罩弹出框input调用键盘收起键盘后底部出现空白、定位样式错位、关闭键盘input输入框获取不到焦点等问题解决方案
 
 如图：
 
@@ -408,6 +408,11 @@ window.onload = function() {
     document.addEventListener('gesturestart', function(event) {
         event.preventDefault();
     });
+
+    // 阻止IOS手势事件
+    document.addEventListener('gesturestart', function (e) {}, false);
+    document.addEventListener('gesturechange', function (e) {}, false);
+    document.addEventListener('gestureend', function (e) {}, false);
 }
 ```
 
