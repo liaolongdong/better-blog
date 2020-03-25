@@ -262,21 +262,21 @@ console.log(getUrlQueryString('name')); // 'xiaoxin'
  * @return 参数对象或者某个参数的值
  */
 export function urlParamToObj(name, url) {
-	let obj = {};
-	let a = document.createElement('a');
-	// 防止url编码，使用decodeURIComponent把编码解析出来
-	a.href = decodeURIComponent(url || window.location.href); // 设置默认url为当前页面地址
-	let search = a.search;
-	a = null;
-	if (search.indexOf('?') === 0) {
-		let str = search.substr(1);
-		let arr = str.split('&');
-		arr.forEach(item => {
-			let paramArr = item.split('=');
-			obj[paramArr[0]] = paramArr[1];
-		});
-	}
-	return name ? obj[name] : obj;
+    let obj = {};
+    let a = document.createElement('a');
+    // 防止url编码，使用decodeURIComponent把编码解析出来
+    a.href = decodeURIComponent(url || window.location.href); // 设置默认url为当前页面地址
+    let search = a.search;
+    a = null;
+    if (search.indexOf('?') === 0) {
+        let str = search.substr(1);
+        let arr = str.split('&');
+        arr.forEach(item => {
+            let paramArr = item.split('=');
+            obj[paramArr[0]] = paramArr[1];
+        });
+    }
+    return name ? obj[name] : obj;
 }
 
 // 测试结果：
@@ -315,6 +315,39 @@ console.log(urlParamToObj('name', 'https://www.baidu.com/?id=123456&name=Better&
 
  // 测试结果：
  addParamToUrl('https://www.baidu.com/?id=123456&name=Better&age=18', {from: 'wx'}); // "https://www.baidu.com/?id=123456&name=Better&age=18&from=wx"
+```
+
+##
+
+```js
+/** 
+ * @desc 在hash url上增加参数
+ * @param url type: string (require) url字符串， 如：https://c2b-test2.brightoilonline.com/bdh5/channel.html#/chelunGasList?pcode=c2b0293jm44x97an6339&fromApp=true
+ * @param param type: object (require)，如：{key: value}
+ * @return 返回拼接好的url字符串
+ */
+export function addParamToHashUrl (url, param) {
+    let a = document.createElement('a');
+    a.href = url;
+    let arr = [];
+    let hash = a.hash;
+    if (param) {
+        Object.keys(param).forEach((item) => {
+            if (param[item] !== '' && param[item] !== null && param[item] !== undefined) {
+                arr.push(encodeURIComponent(item) + '=' + encodeURIComponent(param[item]));
+            }
+        });
+    }
+    if (arr.length !== 0) {
+        hash += a.href.indexOf('?') === -1 ? '?' + arr.join('&') : '&' + arr.join('&');
+    }
+    let resultUrl = a.origin + a.pathname + a.search + hash;
+    a = null;
+    return resultUrl;
+ }
+
+// 测试结果：
+addParamToHashUrl('https://c2b-test2.brightoilonline.com/bdh5/channel.html#/chelunGasList?pcode=c2b0293jm44x97an6339&fromApp=true', {from: 'wx'}); // "https://c2b-test2.brightoilonline.com/bdh5/channel.html#/chelunGasList?pcode=c2b0293jm44x97an6339&fromApp=true&from=wx"
 ```
 
 ### 移动端判断微信浏览器、ios、Android
@@ -604,18 +637,18 @@ uniqueArrObj(objArr); // [{"id":111,"name":"liaoxiaoxin","age":20},{"id":222,"na
  *  @param  getVCodeText 获取验证码文本
  */
 timeCount () {
-	this.smsTimeout--; // 时间递减
-	this.vCodeStatus = false; // 短信验证码按钮是否可点击
-	this.getVCodeText = `${this.smsTimeout}s后重新获取`; // 短信验证码按钮文本
-	setTimeout(() => {
-		if (this.smsTimeout === 0) { // 倒计时结束时退出递归
-			this.vCodeStatus = true;
-			this.getVCodeText = '获取验证码';
-			this.smsTimeout = environment.smsTimeout; // 重置倒计时时间
-		} else {
-			this.timeCount(); // 递归执行自身
-		}
-	}, 1000)
+    this.smsTimeout--; // 时间递减
+    this.vCodeStatus = false; // 短信验证码按钮是否可点击
+    this.getVCodeText = `${this.smsTimeout}s后重新获取`; // 短信验证码按钮文本
+    setTimeout(() => {
+        if (this.smsTimeout === 0) { // 倒计时结束时退出递归
+            this.vCodeStatus = true;
+            this.getVCodeText = '获取验证码';
+            this.smsTimeout = environment.smsTimeout; // 重置倒计时时间
+        } else {
+            this.timeCount(); // 递归执行自身
+        }
+    }, 1000)
 }
 ```
 
