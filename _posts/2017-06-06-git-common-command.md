@@ -91,8 +91,11 @@ git checkout <name>
 # 创建 + 切换分支
 git checkout -b <name>
 
-# 合并某分支到当前分支
+# 合并某本地分支到当前分支
 git merge <name>
+
+# 合并某远程分支到当前分支 示例：git merge origin/dev
+git merge origin/<name>
 
 # 删除分支
 git branch -d <name>
@@ -104,8 +107,19 @@ git branch -d <name>
 # 撤销本地所有修改
 git checkout .
 
+
 # 重置暂存区与工作区，与上一次commit保持一致
 git reset --hard
+
+# 回退到某次提交版本
+git reset --hard <commit>
+
+# 查看分支当前版本
+git rev-parse HEAD
+
+# 提交回退的版本 (注：强制提交后，当前版本后面的提交版本将会删掉！)
+git push -f
+
 
 # 新建一个commit，用来撤销指定commit
 # 后者的所有变化都将被前者抵消，并且应用到当前分支
