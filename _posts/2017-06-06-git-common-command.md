@@ -118,7 +118,8 @@ git reset --hard <commit>
 git rev-parse HEAD
 
 # 提交回退的版本 (注：强制提交后，当前版本后面的提交版本将会删掉！)
-git push -f
+# git push -f
+git push origin HEAD --force
 
 
 # 新建一个commit，用来撤销指定commit
