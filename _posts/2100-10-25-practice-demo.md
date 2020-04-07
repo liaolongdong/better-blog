@@ -233,3 +233,33 @@ if (idx !== undefined) {
 }
 console.log(arr1);
 ```
+
+```js
+for (var i = 0; i < 5; i++) {
+    setTimeout((function (i) {
+        console.log(i);
+    })(i), i * 1000)
+}
+
+// 测试结果： 立即输出0 1 2 3 4
+```
+
+```js
+for (var i = 0; i < 5; i++) {
+    setTimeout(function () {
+        console.log(i);
+    }, i * 1000)
+}
+
+// 测试结果： 立即输出5 然后每隔一秒输出5 总共输出5次
+```
+
+```js
+for (let i = 0; i < 5; i++) {
+    setTimeout(function () {
+        console.log(i);
+    }, i * 1000)
+}
+
+// 测试结果：立即输出0 然后每隔一秒分别输出1 2 3 4
+```

@@ -84,7 +84,7 @@ tags: JavaScript vscode常用插件
 
 ## Live Server
 
-> 启动一个本地环境
+> 快速启动一个本地环境
 
 ## markdownlint
 
@@ -92,7 +92,7 @@ tags: JavaScript vscode常用插件
 
 ## docs-markdown
 
-> 编写markdown使用快捷命令插件，在首选项 -> 设置 -> 勾选“Show Toolbar”，在底部显示markdown工具栏
+> 编写markdown使用快捷命令插件，在首选项 -> 设置 -> 勾选"Show Toolbar"，在底部显示markdown工具栏
 
 ## Markdown Shortcuts
 
