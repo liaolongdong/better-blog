@@ -36,7 +36,7 @@ tags: JavaScript vscode常用插件
 
 ## Git History
 
-> git相关操作插件
+> View git log, file history, compare branches or commits
 
 ## cssrem
 
