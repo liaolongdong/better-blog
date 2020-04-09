@@ -264,4 +264,8 @@ console.log(str.match(reg));
 str = 'https://c2b-test2.brightoilonline.com/bdh5/channel.html#/chelungaslist?pcode=c2b0293jm44x97an6339&fromApp=true';
 console.log(str.match(reg));
 // 测试结果： ["pcode=c2b0293jm44x97an6339", "fromApp=true"]
+
+str = 'https://c2b-test2.brightoilonline.com/bdh5/channel.html?pcode=c2b0293jm44x97an6339&fromApp=true';
+console.log(str.match(reg));
+// 测试结果： ["pcode=c2b0293jm44x97an6339", "fromApp=true"]
 ```
