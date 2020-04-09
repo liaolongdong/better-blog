@@ -189,6 +189,9 @@ var str = '01234578';
 isSerial(str);
 ```
 
+
+## 写给小蓝童鞋的代码
+
 ```js
 // 写给小蓝童鞋的代码
 
@@ -203,6 +206,8 @@ function getValues (str) {
 getValues(str);
 ```
 
+## 递归测试
+
 ```js
 // 递归测试
 function digui (num) {
@@ -214,25 +219,8 @@ function digui (num) {
 }
 ```
 
-```js
-var objArr = [{ id: 111, name: 'liaoxiaoxin', age: 20 }, { id: 222, name: 'liaoxiaoxin', age: 20 }, { id: 333, name: 'liaoxiaoxin', age: 18 }, { id: 444, name: 'Better', age: 19 }];
-objArr.forEach((item, index) => {
-    item.checked = true;
-});
-console.log(objArr);
-var arr1 = [].concat(objArr);
-var idx;
-arr1.forEach((item, index) => {
-    if (item.id !== 111 && item.checked && idx === undefined) {
-        idx = index;
-    }
-});
-if (idx !== undefined) {
-    var tempArr = arr1.splice(idx, 1);
-    tempArr[0] && arr1.splice(idx + 1, 0, tempArr[0]);
-}
-console.log(arr1);
-```
+
+## 闭包和任务队列例子
 
 ```js
 for (var i = 0; i < 5; i++) {
@@ -262,4 +250,18 @@ for (let i = 0; i < 5; i++) {
 }
 
 // 测试结果：立即输出0 然后每隔一秒分别输出1 2 3 4
+```
+
+## 使用正则表达式匹配url参数键值对（兼容url中包含多个?和#号）
+
+```js
+let reg = /([^?&#]+=[^?&#]+)/g;
+let str = 'https://c2b.brightoilonline.com/bdh5/channel.html?chelun_params=ad0bb3e5fc3b3bfeb9b53cc9686eb1aaaecb8a53e9f4a77c5ed68714123b25913219200cba48d9044c7b48325436960f42c1cde18f349ef63ab53ee791970243a8ba79f9a2dc8aa1#/chelunGasList?pcode=c2b8g717rkj603o15005&fromApp=true';
+
+console.log(str.match(reg));
+// 测试结果：["chelun_params=ad0bb3e5fc3b3bfeb9b53cc9686eb1aaaecb…f42c1cde18f349ef63ab53ee791970243a8ba79f9a2dc8aa1", "pcode=c2b8g717rkj603o15005", "fromApp=true"]
+
+str = 'https://c2b-test2.brightoilonline.com/bdh5/channel.html#/chelungaslist?pcode=c2b0293jm44x97an6339&fromApp=true';
+console.log(str.match(reg));
+// 测试结果： ["pcode=c2b0293jm44x97an6339", "fromApp=true"]
 ```
