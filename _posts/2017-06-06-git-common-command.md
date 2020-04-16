@@ -151,3 +151,21 @@ git fetch
 # 查看所有分支
 git branch -a
 ```
+
+### 解决 Git 默认不区分文件名大小写的问题
+
+```bash
+git config core.ignorecase false
+```
+
+### git查看配置信息
+
+```bash
+git config --list
+```
+
+### git查看相关命令用法或帮助
+
+```bash
+git help
+```
