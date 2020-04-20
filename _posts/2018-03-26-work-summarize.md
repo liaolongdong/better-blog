@@ -380,7 +380,13 @@ if (getDevice() === 'ios') {
 
 ![ios遮罩弹出框input调用键盘样式问题](/assets/img/postCover/ios_input_mask.jpg)
 
-解决方案：设置`line-height: normal`, 如果还是不行，设置`line-height: 1px`
+解决方案：在input标签上设置`line-height: 1px`
+
+```css
+input {
+    line-height: 1px;
+}
+```
 
 ### 禁止ios10及以上h5页面缩放
 

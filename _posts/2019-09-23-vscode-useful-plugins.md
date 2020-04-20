@@ -70,6 +70,12 @@ tags: JavaScript vscode常用插件
 
 > 文件路径提示自动补全插件
 
+## koroFileHeader
+
+> 在vscode中用于生成文件头部注释和函数注释的插件，经过多版迭代后，插件：支持所有主流语言,功能强大，灵活方便，文档齐全，食用简单！
+
+**注意该插件和vscode-fileheader插件快捷键有冲突不可共用，推荐使用该插件**
+
 ## vscode-fileheader
 
 > 文件头自动生成工具插件

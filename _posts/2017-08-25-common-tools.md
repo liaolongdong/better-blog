@@ -378,6 +378,52 @@ console.log(whatDevice()); // ''
 console.log(whatDevice()); // 'wx'
 ```
 
+## localStorage用法封装
+
+```js
+/**
+ * @desc 设置本地存储
+ * @param {string} name key
+ * @param {string|object} value value 可以是string、obj等
+ * @param {number} cacheTime 缓存时间(ms)
+ * @return
+ */
+export const setStorage = (name, data, cacheTime) => {
+    if (!name) return;
+    const storage = {
+        data,
+        cacheTime,
+        createdTime: new Date().getTime(),
+    };
+    localStorage.setItem(name, JSON.stringify(storage));
+} 
+
+/**
+ * @desc 获取本地存储,如果未设置缓存时间或者在缓存时间内则返回数据,如果过期则返回undefined
+ * @param {string} name key
+ * @return
+ */
+export const getStorage = name => {
+    if (!name) return;
+    const storage = JSON.parse(localStorage.getItem(name));
+    if (!storage) return;
+    if (storage.cacheTime && new Date().getTime() - storage.createdTime > storage.cacheTime) {
+        clearStorage(name);
+        return;
+    }
+    return storage.data;
+} 
+/**
+ * @desc 清除本地存储
+ * @param {string} name key
+ * @return
+ */
+export const clearStorage = name => {
+    if (!name) return;
+    localStorage.removeItem(name);
+}
+```
+
 ## cookie的获取、添加、删除
 
 ```javascript
