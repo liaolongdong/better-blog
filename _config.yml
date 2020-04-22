@@ -67,6 +67,7 @@ showCat: true
 footer:
   since: 2018
   showBaiduStatics: true
+  showPV: true
 
 # Search
 search: true

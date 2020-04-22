@@ -1,3 +1,11 @@
+<!--
+ * @Descripttion: 
+ * @version: 
+ * @Author: liaolongdong
+ * @Date: 2019-04-12 15:16:33
+ * @LastEditors: liaolongdong
+ * @LastEditTime: 2020-04-22 10:22:33
+ -->
 {% if site.bottomFixedBtn %}
 {% include bottomFixedBtn.html %}
 {% endif %}
@@ -5,7 +13,8 @@
 <footer class="g-footer">
     <section>
         <a href="https://beian.aliyun.com/">粤ICP备18133653号</a> ©
-        {% assign current = "now" | date: "%Y" | plus: 0%}
+        <!-- {% assign current = "now" | date: "%Y" | plus: 0%} -->
+        {% assign current = "now" | date: "%Y" %}
         {% unless site.footer.since and site.footer.since == current %}
         {{ site.footer.since }}
         -
@@ -19,5 +28,12 @@
         </a>
         {{ endif }}
     </section>
-    <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section>
+    <!-- <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section> -->
+    <section>
+        Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a>
+        {% if site.footer.showPV %}
+            <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+            PV: <span id="busuanzi_value_site_pv"></span> | UV: <span id="busuanzi_value_site_uv"></span>
+        {% endif %}
+    </section>
 </footer>
