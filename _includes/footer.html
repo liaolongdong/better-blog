@@ -4,7 +4,7 @@
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
- * @LastEditTime: 2020-04-22 16:25:05
+ * @LastEditTime: 2020-04-22 17:33:29
  -->
 {% if site.bottomFixedBtn %}
 {% include bottomFixedBtn.html %}
@@ -31,9 +31,32 @@
     <!-- <section>Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a></section> -->
     <section>
         Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a>
+
         {% if site.footer.showPV %}
+            <!-- 不蒜子计数 -->
             <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
              | PV: <span id="busuanzi_value_site_pv"></span> | UV: <span id="busuanzi_value_site_uv"></span>
+            
+            <!-- 不蒜子计数初始值纠正 -->
+            <script>
+                $(document).ready(function() {
+                
+                    var int = setInterval(fixCount, 50);  // 50ms周期检测函数
+                    var PVCountOffset = 20000;  // 初始化PV首次数据
+                    var UVCountOffset = 2000;  // 初始化UV首次数据
+                
+                    function fixCount() {            
+                        if ($("#busuanzi_value_site_pv").html()) {
+                            $("#busuanzi_value_site_pv").html(parseInt($("#busuanzi_value_site_pv").html()) + PVCountOffset); 
+                            clearInterval(int);
+                        }                  
+                        if ($("#busuanzi_value_site_uv").html()) {
+                            $("#busuanzi_value_site_uv").html(parseInt($("#busuanzi_value_site_uv").html()) + UVCountOffset); // 加上初始数据 
+                            clearInterval(int); // 停止检测
+                        }  
+                    }  
+                });
+                </script>
         {% endif %}
     </section>
 </footer>
