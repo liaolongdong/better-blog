@@ -147,6 +147,7 @@ permalink: /:year/:month/:day/:title.html
 # jekyll-sitemap jekyll生成sitemap文件插件
 plugins_dir:
   - jekyll-paginate
-  - jekyll-sitemap
+  # - jekyll-sitemap
 
-gems: [jekyll-paginate, jekyll-sitemap]
+# gems: [jekyll-paginate, jekyll-sitemap]
+gems: [jekyll-paginate]
