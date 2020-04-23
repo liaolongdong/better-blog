@@ -4,7 +4,7 @@
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
- * @LastEditTime: 2020-04-23 12:00:00
+ * @LastEditTime: 2020-04-23 15:33:50
  -->
 {% if site.bottomFixedBtn %}
 {% include bottomFixedBtn.html %}
@@ -61,4 +61,8 @@
     <section>
         Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a> | Better
     </section>
+
+    {% if site.footer.showCursorEffects %}
+    <script src="/assets/js/cursor-effects.min.js"></script>
+    {% endif %}
 </footer>

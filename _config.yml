@@ -1,7 +1,7 @@
 # Site settings 配置站点
 title: 'Better’s study fairyland'
-description: '廖龙东,网名Better,一枚喜欢研究心理学的前端er,从大学毕业一直专注前端开发领域，技术栈React、Vue、微信公众号、小程序、node和mongodb'
-keyword: '廖龙东,廖龙东的个人网站,廖龙东的个人博客,Better,Better的个人网站,Better的个人博客,前端,web前端开发,H5,React,nodeJs,canvas'
+description: '廖龙东,又名廖小新,网名Better,一枚喜欢研究心理学的前端er,从大学毕业一直专注前端开发领域，技术栈React、Vue、微信公众号、小程序、node和mongodb、Python'
+keyword: '廖龙东,廖小新,廖龙东的个人网站,廖龙东的个人博客,Better,Better的个人网站,Better的个人博客,前端,web前端开发,H5,React,nodeJs,canvas，Python'
 # url: 'https://liaolongdong.github.io' # your host
 url: 'https://liaolongdong.com' # your host
 
@@ -58,7 +58,7 @@ aboutMe:
   ]
 
 # back to top
-bottomFixedBtn: true
+bottomFixedBtn: true 
 
 # show cat
 showCat: true
@@ -66,8 +66,9 @@ showCat: true
 # Footer
 footer:
   since: 2018
-  showBaiduStatics: true
-  showPV: true
+  showBaiduStatics: true # 是否显示百度统计
+  showPV: true # 是否显示博客PV和UV
+  showCursorEffects: true # 是否显示点击动效
 
 # Search
 search: true
