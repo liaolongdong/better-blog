@@ -1,7 +1,7 @@
 /*
  * @Author: liaolongdong
  * @Date: 2020-04-26 17:53:26
- * @LastEditTime: 2020-04-26 18:09:05
+ * @LastEditTime: 2020-04-26 18:16:19
  * @LastEditors: liaolongdong
  * @Description: 移动端实现类似于vconsole的实时拖拽功能
  */
@@ -16,9 +16,7 @@
     }
 
     const rtDraggable = {
-        init (node) {      
-            console.log(666, node);
-
+        init (node) {
             node && node.addEventListener('touchstart', (e) => {
                 draggable_params.startX = e.touches[0].pageX;
                 draggable_params.startY = e.touches[0].pageY;
