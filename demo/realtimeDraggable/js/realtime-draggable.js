@@ -1,7 +1,7 @@
 /*
  * @Author: liaolongdong
  * @Date: 2020-04-26 17:53:26
- * @LastEditTime: 2020-04-26 18:16:19
+ * @LastEditTime: 2020-04-26 18:44:24
  * @LastEditors: liaolongdong
  * @Description: 移动端实现类似于vconsole的实时拖拽功能
  */
@@ -40,10 +40,8 @@
                     if (y + node.offsetHeight > document.documentElement.offsetHeight) {
                         y = document.documentElement.offsetHeight - node.offsetHeight;
                     }
-                    // if (x < 0) { x = 0; }
-                    // if (y < 0) { y = 0; }
                     if (x < 0) { x = 0; }
-                    if (y < 0) { y = node.offsetHeight; }
+                    if (y < 0) { y = 0; }
                     // 如果节点不是fixed定位，则设置成fixed定位
                     if (node.style.position !== 'fixed') {
                         node.style.position = 'fixed';
