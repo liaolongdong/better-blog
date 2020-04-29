@@ -130,6 +130,44 @@ git revert <commit>
 git merge --abort
 ```
 
+### git储藏常用命令
+
+```bash
+# 储藏修改，将新的储藏推送到栈上，运行 git stash 或 git stash save
+git stash
+git stash save "save message"
+```
+
+```bash
+# 从git栈中获取到最近一次stash进去的内容，恢复工作区的内容。获取之后，会删除栈中对应的stash
+git stash pop
+```
+
+```bash
+# 要查看储藏的东西，可以使用 git stash list
+git stash list
+```
+
+```bash
+# 将你刚刚储藏的工作重新应用：git stash apply。 如果想要应用其中一个更旧的储藏，可以通过名字指定它，像这样：git stash apply stash@{2}。 如果不指定一个储藏，Git 认为指定的是最近的储藏
+git stash apply
+```
+
+```bash
+# 根据版本号，恢复储藏信息
+git stash apply stash@{1}
+```
+
+```bash
+# 要移除它，你可以运行 git stash drop，加上你希望移除的储藏的名字
+git stash drop stash@{0}
+```
+
+```bash
+# 清空git储藏栈
+git stash clear
+```
+
 ### git切换远程仓库地址
 
 ```bash
