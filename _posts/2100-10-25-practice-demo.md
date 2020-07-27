@@ -197,6 +197,7 @@ isSerial(str);
 
 var str = '{"alias":"aps","prefix":"powerbank","suffix":null,"suggestions":[{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank","refTag":"nb_sb_ss_i_1_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank","refTag":"nb_sb_ss_c_2_9","scopes":[{"type":"ALIAS","value":"electronics","display":"Elektronik & Foto"}],"ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank iphone","refTag":"nb_sb_ss_i_3_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank solar","refTag":"nb_sb_ss_i_4_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank 20000","refTag":"nb_sb_ss_i_5_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank anker","refTag":"nb_sb_ss_i_6_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank 30000mah","refTag":"nb_sb_ss_i_7_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank 10000","refTag":"nb_sb_ss_i_8_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank klein","refTag":"nb_sb_ss_i_9_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank usb c","refTag":"nb_sb_ss_i_10_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false},{"suggType":"KeywordSuggestion","type":"KEYWORD","value":"powerbank 20000mah","refTag":"nb_sb_ss_i_11_9","ghost":false,"help":false,"queryUnderstandingFeatures":[{"source":"QU_TOOL","annotations":[]}],"xcatOnly":false,"fallback":false,"spellCorrected":false,"blackListed":false}],"responseId":"1O2VGIO16EO05","shuffled":false}';
 
+// 提取出value字段中的关键字
 function getValues (str) {
     var reg = /(?<="value":")([^"])+/g;
     var result = str && str.match(reg);
@@ -204,19 +205,38 @@ function getValues (str) {
     return result;
 }
 getValues(str);
+
+
+// 写给蓝宝宝的代码(通过代码换行)
+function lineWrap(str) {
+    if (!str) return;
+    return String(str).replace(/(,|，)\s*/g, '\n');
+}
+// 使用示例
+var str = 'B08CGQRHFH, B08CGQRHFH, B08CGQRHFH, B08CGQRHFH';
+lineWrap(str);
 ```
 
 ## 递归测试
 
 ```js
 // 递归测试
+var arr = [];
 function digui (num) {
     if (num) {
         num--;
+        console.group(num);
+        console.time();
         digui(num);
     }
-    console.log('num', num);
+	arr.push(num);
+    console.groupEnd();
+    console.timeEnd();
 }
+digui(3);
+
+// 测试是结果：
+console.log(arr); // [0, 0, 1, 2]
 ```
 
 
@@ -268,4 +288,93 @@ console.log(str.match(reg));
 str = 'https://c2b-test2.brightoilonline.com/bdh5/channel.html?pcode=c2b0293jm44x97an6339&fromApp=true';
 console.log(str.match(reg));
 // 测试结果： ["pcode=c2b0293jm44x97an6339", "fromApp=true"]
+```
+
+## 查找字符串中出现最多的字符和个数
+
+```js
+var str = "abcabcabcbbccccc";
+var num = 0;
+var char = '';
+
+// 使其按照一定的次序排列
+str = str.split('').sort().join('');
+// "aaabbbbbcccccccc"
+
+// 定义正则表达式
+var re = /(\w)\1+/g; // \1为反向引用，匹配的是第一个捕获组(\w)所匹配的文本内容
+str.replace(re, ($0, $1) => {
+    console.log('$0', $0);
+    console.log('$1', $1);
+    if (num < $0.length) {
+        num = $0.length;
+        char = $1;
+    }
+});
+console.log(`字符最多的是${char}，出现了${num}次`); // 字符最多的是c，出现了8次
+```
+
+## 解析 URL Params 为对象
+```js
+let url = 'http://www.domain.com/?user=anonymous&id=123&id=456&city=%E5%8C%97%E4%BA%AC&enabled';
+parseParam(url)
+/* 结果
+{ user: 'anonymous',
+  id: [ 123, 456 ], // 重复出现的 key 要组装成数组，能被转成数字的就转成数字类型
+  city: '北京', // 中文需解码
+  enabled: true, // 未指定值得 key 约定为 true
+}
+*/
+
+function parseParam(url) {
+  const paramsStr = /.+\?(.+)$/.exec(url)[1]; // 将 ? 后面的字符串取出来
+  const paramsArr = paramsStr.split('&'); // 将字符串以 & 分割后存到数组中
+  let paramsObj = {};
+  // 将 params 存到对象中
+  paramsArr.forEach(param => {
+    if (/=/.test(param)) { // 处理有 value 的参数
+      let [key, val] = param.split('='); // 分割 key 和 value
+      val = decodeURIComponent(val); // 解码
+      val = /^\d+$/.test(val) ? parseFloat(val) : val; // 判断是否转为数字
+
+      if (paramsObj.hasOwnProperty(key)) { // 如果对象有 key，则添加一个值
+        paramsObj[key] = [].concat(paramsObj[key], val);
+      } else { // 如果对象没有这个 key，创建 key 并设置值
+        paramsObj[key] = val;
+      }
+    } else { // 处理没有 value 的参数
+      paramsObj[param] = true;
+    }
+  })
+  return paramsObj;
+}
+```
+
+## 求字符串中，出现次数最多的字符
+
+```js
+var str = "abcabcabcbbccccc";
+
+function findMaxChar (str) {
+    var num = 0;
+    var char = '';
+
+    // 使其按照一定的次序排列
+    str = str.split('').sort().join('');
+    // "aaabbbbbcccccccc"
+
+    // 定义正则表达式
+    var re = /(\w)\1+/g;
+    str.replace(re, ($0, $1) => {
+        if (num < $0.length) {
+            num = $0.length;
+            char = $1;
+        }
+    });
+    console.log(`字符最多的是${char}，出现了${num}次`);
+    return {
+        char,
+        num
+    }
+}
 ```
