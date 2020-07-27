@@ -378,3 +378,79 @@ function findMaxChar (str) {
     }
 }
 ```
+
+##  给定一个只包括 '(' ，')' ，'{' ，'}' ，'[' ，']' 的字符串，判断字符串是否有效。
+
+* 有效字符串需满足：
+* 左括号必须用相同类型的右括号闭合。
+* 左括号必须以正确的顺序闭合。
+* 注意空字符串可被认为是有效字符串。
+
+```js
+var isValidStr = function (str) {
+    var map = {
+        '{': '}',
+        '[': ']',
+        '(': ')'
+    };
+    var stack = [];
+    for (let i = 0; i < str.length; i++) {
+        if (map[str[i]]) {
+            stack.push(str[i]);
+        } else if (str[i] !== map[stack.pop()]) {
+            return false;
+        }
+    }
+    // 当遍历完成时，所有已匹配的字符都已匹配出栈，如果此时栈为空，则字符串有效，如果栈不为空，说明字符串中还有未匹配的字符，字符串无效
+    return stack.length === 0;
+}
+
+// 测试结果：
+isValidStr('{[()]}'); // true
+isValidStr('{}()'); // true
+isValidStr('{[)]}'); // false
+isValidStr('([]}'); // false
+```
+
+## 删除字符串中的所有相邻重复项
+
+- 给出由小写字母组成的字符串 S ，重复项删除操作 会选择两个相邻且相同的字母，并删除它们。
+- 在 S 上反复执行重复项删除操作，直到无法继续删除。
+- 在完成所有重复项删除操作后返回最终的字符串。答案保证唯一。
+        
+### 示例
+
+> 输入："abbaca"
+> 输出："ca"
+> 解释：
+> 例如，在 "abbaca" 中，我们可以删除 "bb" 由于两字母相邻且相同，这是此时唯一可以执行删除操作的重复项。之后我们得到字符串 "aaca"，其中又只有 "aa" 可以执行重复项删除操作，所以最后的字符串为 "ca"。
+
+
+解法：利用栈
+解题思路： 遍历字符串，依次入栈，入栈时判断与栈头元素是否一致，如果一致，即这两个元素相同相邻，则需要将栈头元素出栈，并且当前元素也无需入栈
+
+解题步骤： 遍历字符串，取出栈头字符，判断当前字符与栈头字符是否一致
+
+不一致，栈头字符进栈，当前字符进栈
+一致，即栈头字符与当前字符相同相邻，都不需要进栈，直接进入下次遍历即可
+遍历完成后，返回栈中字符串
+
+```js
+function deleteRepeatChar (str) {
+    var stack = [];
+    for (let s of str) {
+        var prev = stack.pop();
+        if (s !== prev) {
+            stack.push(prev);
+            stack.push(s);
+        }
+    }
+    return stack.join('');
+}
+
+// 测试结果：
+var str = 'abbaca';
+deleteRepeatChar(str); // ca
+str = 'abccdddaacb';
+deleteRepeatChar(str); // abdcb
+```
