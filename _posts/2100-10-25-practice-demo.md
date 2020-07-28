@@ -535,6 +535,21 @@ findIntersection (arr1, arr2); // [2, 3]
 
 // 方法二：使用map哈希表
 function findIntersection (arr1, arr2) {
+    var res = new Set();
+    var set1 = new Set(arr1);
+    var set2 = new Set(arr2);
+    for (let item of set2) {
+        if (set1.has(item)) {
+            res.add(item);
+        }
+    }
+    return [...res]
+}
+var arr1 = [1, 2, 2, 3];
+var arr2 = [2, 3, 3, 4];
+findIntersection (arr1, arr2); // [2, 3]
+
+function findIntersection (arr1, arr2) {
     var map = {};
     var res = [];
     arr1.forEach(item => {
@@ -570,3 +585,6 @@ var arr2 = [2, 3, 3, 4, 3, 5];
 var arr3 = [1, 2, 3, 3, 4, 5];
 findThreeIntersection (arr1, arr2, arr3); // [2, 3]
 ```
+
+更多集合操作[参考Set](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Set)
+
