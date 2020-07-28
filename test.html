@@ -1,16 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>test page</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <script>
-        
-    </script>
-</body>
+      var reverseWords = function (str) {
+        if (!str) return;
+        let left = 0;
+        let right = str.length - 1;
+        let queue = [];
+        let word = "";
+        // 去除字符串两端的空格
+        while (str.charAt(left) === " ") left++;
+        while (str.charAt(right) === " ") right--;
+        // 逐个读取字符串中的每个单词，依次放入双端队列的队头
+        while (left <= right) {
+          let char = str.charAt(left);
+          if (char === " " && word) {
+            queue.unshift(word);
+            word = "";
+          } else if (char !== " ") {
+            word += char;
+          }
+          left++;
+        }
+        queue.unshift(word);
+        return queue.join(" ");
+      };
 
+      // 测试结果：
+      reverseWords("  hello world!  "); // "world! hello"
+      reverseWords("a good   example"); // "example good a"
+    </script>
+  </body>
 </html>

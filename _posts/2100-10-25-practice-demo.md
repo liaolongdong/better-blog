@@ -454,3 +454,119 @@ deleteRepeatChar(str); // ca
 str = 'abccdddaacb';
 deleteRepeatChar(str); // abdcb
 ```
+
+## 给定一个字符串，逐个翻转字符串中的每个单词。
+
+示例
+
+```
+输入: "the sky is blue"
+输出: "blue is sky the"
+
+输入: "  hello world!  "
+输出: "world! hello"
+解释: 输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+
+输入: "a good   example"
+输出: "example good a"
+解释: 如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+```
+
+说明：
+
+- 无空格字符构成一个单词。
+- 输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+- 如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+
+
+解题思路：使用双端队列解题
+
+- 首先去除字符串左右空格
+- 逐个读取字符串中的每个单词，依次放入双端队列的队头
+- 再将队列转换成字符串输出（已空格为分隔符）
+
+```javascript
+var reverseWords = function (str) {
+    if (!str) return;
+    let left = 0;
+    let right = str.length - 1;
+    let queue = [];
+    let word = '';
+    // 去除字符串两端的空格
+    while (str.charAt(left) === ' ') left++;
+    while (str.charAt(right) === ' ') right--;
+    // 逐个读取字符串中的每个单词，依次放入双端队列的队头
+    while (left <= right) {
+        let char = str.charAt(left);
+        if (char === ' ' && word) {
+            queue.unshift(word);
+            word = '';
+        } else if (char !== ' ') {
+            word += char;
+        }
+        left++;
+    }
+    queue.unshift(word);
+    return queue.join(' ');
+}
+
+// 测试结果：
+reverseWords("the sky is blue"); // "blue is sky the"
+reverseWords("  hello world!  "); // "world! hello"
+reverseWords("a good   example"); // "example good a"
+```
+
+## 给定两个数组，编写一个函数来计算它们的交集
+
+说明:
+
+- 输出结果中的每个元素一定是唯一的。
+- 我们可以不考虑输出结果的顺序。
+
+```javascript
+// 方法一：使用filter和set方法
+function findIntersection (arr1, arr2) {
+    return [...new Set(arr1.filter(item => arr2.includes(item)))]
+}
+
+var arr1 = [1, 2, 2, 3];
+var arr2 = [2, 3, 3, 4];
+findIntersection (arr1, arr2); // [2, 3]
+
+// 方法二：使用map哈希表
+function findIntersection (arr1, arr2) {
+    var map = {};
+    var res = [];
+    arr1.forEach(item => {
+        map[item] = true;
+    });
+    arr2.forEach(item => {
+        if (map[item]) {
+            res.push(item)
+        }
+    });
+    res = [...new Set(res)];
+    return res;
+}
+var arr1 = [1, 2, 2, 3];
+var arr2 = [2, 3, 3, 4];
+findIntersection (arr1, arr2); // [2, 3]
+
+// 扩展求三个数组的交集
+function findThreeIntersection (arr1, arr2, arr3) {
+    const map1 = new Set(arr1);
+    const map2 = new Set(arr2);
+    const map3 = new Set(arr3);
+    const res = [];
+    arr1.forEach(item => {
+        if (map2.has(item) && map3.has(item)) {
+            res.push(item);
+        }
+    });
+    return [...new Set(res)];
+}
+var arr1 = [1, 2, 2, 3, 5];
+var arr2 = [2, 3, 3, 4, 3, 5];
+var arr3 = [1, 2, 3, 3, 4, 5];
+findThreeIntersection (arr1, arr2, arr3); // [2, 3]
+```
