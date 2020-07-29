@@ -588,3 +588,115 @@ findThreeIntersection (arr1, arr2, arr3); // [2, 3]
 
 更多集合操作[参考Set](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Set)
 
+## 给定一个整数数组 nums 和一个目标值 target ，请你在该数组中找出和为目标值的那 两个 整数，并返回他们的数组下标。
+
+你可以假设每种输入只会对应一个答案。但是，你不能重复利用这个数组中同样的元素。
+
+示例:
+
+```
+给定 nums = [2, 7, 11, 15], target = 9
+
+因为 nums[0] + nums[1] = 2 + 7 = 9
+所以返回 [0, 1]
+```
+
+解题思路：
+
+- 初始化一个 map = new Map()
+- 从第一个元素开始遍历 nums
+- 获取目标值与 nums[i] 的差值，即 k = target - nums[i] ，判断差值在 map 中是否存在
+- 不存在（ map.has(k) 为 false ） ，则将 nums[i] 加入到 map 中（key为nums[i], value为 i ，方便查找map中是否存在某值，并可以通过 get 方法直接拿到下标）
+- 存在（ map.has(k) ），返回 [map.get(k), i] ，求解结束
+- 遍历结束，则 nums 中没有符合条件的两个数，返回 []
+- 时间复杂度：O(n)
+
+```javascript
+var twoSum = function (arr, target) {
+    const map = new Map();
+    for (let i = 0; i < arr.length; i++) {
+        let k = target - arr[i];
+        if (map.has(k)) {
+            return [map.get(k), i];
+        }
+        map.set(arr[i], i)
+    }
+    return [];
+}
+
+// 测试结果： 
+var arr = [2, 7, 11, 15];
+var target = 9;
+twoSum(arr, target); // [0, 1]
+```
+
+更多内容参考[字节&leetcode1：两数之和](https://github.com/sisterAn/JavaScript-Algorithms/issues/4)
+
+## 给你一个包含 n 个整数的数组 nums，判断 nums 中是否存在三个元素 a ，b ，c ，使得 a + b + c = 0 ？请你找出所有满足条件且不重复的三元组。
+
+注意： 答案中不可以包含重复的三元组。
+
+示例：
+
+```
+给定数组 nums = [-1, 0, 1, 2, -1, -4]，
+满足要求的三元组集合为：
+[
+  [-1, 0, 1],
+  [-1, -1, 2]
+]
+```
+
+```javascript
+//这道题经典的是细节，需要考虑蛮多细节的
+//解法：
+//1.暴力破解，三层枚举，O（n^3）效率太低不考虑
+//2.a+b+c = 0，转换思路，a+b = -c，这不就是两数之和嘛？
+//3.利用双指针夹逼，但是怎么避免重复呢？
+//3.1 排序即可，利用排序好的数组，固定一个指针i，夹逼选举left和right
+//3.2 这道题难度在于要考虑的细节太多，多想想即可。
+//3.3 扩展一下，如果是4数之和，五数之和，N数之和呢？怎么解决？
+const threeSum = (nums) => {
+  const len = nums.length
+  const result = []
+  // 因为是三数之和，小于三个不用考虑了
+  if(len < 3){
+    return result
+  }
+  nums.sort((a, b) => a - b)
+  // len - 2 同样道理，小于三个不用考虑
+  for(let i = 0; i < len - 2; i++){
+    // 如果第一个就大于0了，三个加起来肯定大于0
+    if(nums[i] > 0){
+      break
+    }
+    // 避免掉重复的情况
+    if(i && nums[i] === nums[i - 1]){
+       continue
+    }
+    let left = i + 1
+    let right = len - 1
+    // 双指针夹逼
+    while(left < right){
+      const sum = nums[i] + nums[left] + nums[right]
+      if(sum === 0){
+         result.push([nums[i], nums[left++], nums[right--]])
+         // push 加了之后防止还存在重复
+         while(nums[left] === nums[left - 1]){
+           left++
+         }
+         while(nums[right] === nums[right + 1]){
+           right--
+         } 
+      }else if(sum > 0){
+          right--
+      }else{
+          left++
+      }
+    }
+  }
+  return result
+}
+```
+
+更多解答参考[腾讯&leetcode15：三数之和](https://github.com/sisterAn/JavaScript-Algorithms/issues/31)
