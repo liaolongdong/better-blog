@@ -38,7 +38,7 @@ function selectSort (arr) {
     return arr;
 }
 
-let arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
+var arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
 selectSort(arr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
@@ -61,10 +61,11 @@ function BubbleSort (arr) {
     let temp;
     const len = arr.length;
 
-    for (let i = 0; i < len; i++) {
-        for (let j = 0; j < len - (i + 1); j++) {
+    for (let i = 0; i < len - 1; i++) { // 外层循环只需比较length-1次
+        for (let j = 0; j < len - 1 - i; j++) { // 内层循环，只需遍历比较未排序的
             if (arr[j] > arr[j + 1]) { // 两两比较
                 // 交换值，大的值放后面
+                // [arr[j + 1], arr[j]] = [arr[j], arr[j + 1]]; // 可以用es6数组语法交换值
                 temp = arr[j];
                 arr[j] = arr[j + 1];
                 arr[j + 1] = temp;
@@ -74,7 +75,7 @@ function BubbleSort (arr) {
     return arr;
 }
 
-let arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
+var arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
 BubbleSort(arr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
@@ -100,7 +101,7 @@ function quickSort(arr) {
     return quickSort(leftArr).concat(prev, quickSort(rightArr));
 }
 
-let arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
+var arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
 quickSort(arr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
@@ -121,6 +122,30 @@ function quickSort (arr) {
     ]
 }
 
-let arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
+var arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
 quickSort(arr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+```
+
+## 插入排序
+
+```js
+function insertSort (arr) {
+    let res = [];
+    res.push(arr[0]);
+    for (let i = 1; i < arr.length; i++) {
+        let cur = arr[i];
+        for (let j = res.length; j >= 0; j++) {
+            if (cur > res[j]) {
+                res.splice(j + 1, 0, cur);
+                break;
+            }
+            if (j === 0) {
+                res.unshift(res[j]);
+            }
+        }
+    }
+    return res;
+}
+var arr = [3, 1, 5, 9, 4, 8, 7, 10, 2, 6];
+insertSort(arr); // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
