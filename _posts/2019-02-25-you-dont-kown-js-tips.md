@@ -31,6 +31,30 @@ var strInfo = str.split('').reduce((p, c) => (p[c]++ || (p[c] = 1), p), {});
 console.log(arrInfo); // {6: 3, a: 5, b: 5, c: 4}
 ```
 
+## 查找字符串中出现最多的字符和个数
+
+```js
+var str = "abcabcabcbbccccc";
+var num = 0;
+var char = '';
+
+// 使其按照一定的次序排列
+str = str.split('').sort().join('');
+// "aaabbbbbcccccccc"
+
+// 定义正则表达式
+var re = /(\w)\1+/g;
+str.replace(re, ($0, $1) => {
+    console.log('$0', $0);
+    console.log('$1', $1);
+    if (num < $0.length) {
+        num = $0.length;
+        char = $1;
+    }
+});
+console.log(`字符最多的是${char}，出现了${num}次`);
+```
+
 ## 一行代码准确判断出数据类型
 
 几种常用的类型判断方法：
@@ -202,7 +226,8 @@ var bankNo = '8888888888888888';
 var orderNo = '6666666666666666666';
 
 var formatBankNo = bankNo.replace(/\B(?<=(?<!\d)(\d{4})+)/g, ' ');
-var formatOrderNo = orderNo.replace(/\B(?<=(?<!\d)(\d{4})+)/g, ' ');
+// var formatOrderNo = orderNo.replace(/\B(?<=(?<!\d)(\d{4})+)/g, ' ');
+var formatOrderNo = orderNo.replace(/....(?!$)/g, '$& ');
 
 console.log(formatBankNo); // 8888 8888 8888 8888
 console.log(formatOrderNo); // 6666 6666 6666 6666 666

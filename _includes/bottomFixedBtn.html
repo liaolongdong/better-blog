@@ -1,3 +1,10 @@
+<!--
+ * @Author: liaolongdong
+ * @Date: 2019-04-12 15:16:33
+ * @LastEditTime: 2020-04-26 18:24:51
+ * @LastEditors: liaolongdong
+ * @Description: 
+ -->
 <link rel="stylesheet" href="/assets/css/bottomFixedBtn.min.css">
 <div class="bottom-fixed-btn">
     <!-- 返回顶部 滑动百分比 -->
@@ -32,3 +39,11 @@
 
 <script src="/assets/js/util.min.js"></script>
 <script src="/assets/js/bottomFixedBtn.min.js"></script>
+
+{% if.site.btnDraggable %}
+<!-- 需要在移动端模式下才会生效 -->
+<script src="/assets/js/realtime-draggable.min.js"></script>
+<script>
+    rtDraggable.init(document.querySelector('.bottom-fixed-btn'));
+</script>
+{% endif %}

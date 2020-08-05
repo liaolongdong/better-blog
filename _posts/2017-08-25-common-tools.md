@@ -388,7 +388,7 @@ console.log(whatDevice()); // 'wx'
  * @param {number} cacheTime 缓存时间(ms)
  * @return
  */
-export const setStorage = (name, data, cacheTime) => {
+export const setLocalStorage = (name, data, cacheTime) => {
     if (!name) return;
     const storage = {
         data,
@@ -403,12 +403,12 @@ export const setStorage = (name, data, cacheTime) => {
  * @param {string} name key
  * @return
  */
-export const getStorage = name => {
+export const getLocalStorage = name => {
     if (!name) return;
     const storage = JSON.parse(localStorage.getItem(name));
     if (!storage) return;
     if (storage.cacheTime && new Date().getTime() - storage.createdTime > storage.cacheTime) {
-        clearStorage(name);
+        clearLocalStorage(name);
         return;
     }
     return storage.data;
@@ -418,7 +418,7 @@ export const getStorage = name => {
  * @param {string} name key
  * @return
  */
-export const clearStorage = name => {
+export const clearLocalStorage = name => {
     if (!name) return;
     localStorage.removeItem(name);
 }

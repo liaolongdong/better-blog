@@ -4,7 +4,7 @@
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
- * @LastEditTime: 2020-04-23 15:33:50
+ * @LastEditTime: 2020-04-26 14:12:27
  -->
 {% if site.bottomFixedBtn %}
 {% include bottomFixedBtn.html %}
@@ -33,7 +33,7 @@
     <section>
         <!-- 不蒜子计数 -->
         <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-        总浏览量(PV): <span id="busuanzi_value_site_pv"></span> | 总访客数(UV): <span id="busuanzi_value_site_uv"></span>
+        总浏览量(PV): <span id="busuanzi_value_site_pv">-</span> | 总访客数(UV): <span id="busuanzi_value_site_uv">-</span>
         
         <!-- 不蒜子计数初始值纠正 -->
         <script>
@@ -44,11 +44,11 @@
                 var UVCountOffset = 15000;  // 初始化UV首次数据
             
                 function fixCount() {            
-                    if ($("#busuanzi_value_site_pv").html()) {
+                    if ($("#busuanzi_value_site_pv").html() !== '-') {
                         $("#busuanzi_value_site_pv").html(parseInt($("#busuanzi_value_site_pv").html()) + PVCountOffset); 
                         clearInterval(int);
                     }                  
-                    if ($("#busuanzi_value_site_uv").html()) {
+                    if ($("#busuanzi_value_site_uv").html() !== '-') {
                         $("#busuanzi_value_site_uv").html(parseInt($("#busuanzi_value_site_uv").html()) + UVCountOffset); // 加上初始数据 
                         clearInterval(int); // 停止检测
                     }  
