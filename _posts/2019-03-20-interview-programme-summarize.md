@@ -10,6 +10,63 @@ tags: JavaScript 前端面试常见编程题汇总
 
 # JS编程题
 
+## 阿里面试题(变量赋值)
+
+```js
+let a = {
+    n: 1
+}
+let b = a;
+a.x = a = {
+    n: 2
+}
+
+console.log(a.x); // undefined
+console.log(b); // {n: 1, x: {n: 2}}
+```
+
+```js
+let a = 12, b = 12;
+function fn () {
+    // console.log(a, b); // Uncaught ReferenceError: Cannot access 'a' before initialization at fn
+    console.log(b); // 12
+    let a = b = 13;
+    console.log(a, b); // 13 13
+}
+fn();
+console.log(a, b); // 12 13
+```
+
+```js
+let i = 1;
+let fn = i => n => console.log(n + (++i));
+let f = fn(1);
+f(2); // 4
+fn(3)(4); // 8
+f(5); // 8
+console.log(i); // 1
+```
+
+```js
+var n=0;
+function a(){
+    var n=10;
+    function b(){
+        n++;
+        console.log(n);
+    }
+    b();
+    return b;
+}
+var c=a();
+c();
+console.log(n);
+
+// 11 12 0
+```
+
+参考[js连续赋值的问题](https://www.jianshu.com/p/010c88d445b5)
+
 ## 阿里经典面试题(考察变量提升/静态方法/实例方法/原型方法调用)
 
 ```js
@@ -57,6 +114,49 @@ function fn () {
 }
 fn(); // 可以正常执行，为什么？
 // 解析：原因是因为setTImeout属于异步宏任务，不在主线程栈内存中
+```
+
+## 字节编程题
+
+```js
+const list = [1, 2, 3];
+const square = num => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(num * num);
+        }, 1000)
+    })
+}
+
+function test () {
+    list.forEach(async x => {
+        const res = await square(x);
+        console.log(res);
+    })
+}
+test();
+
+// 执行结果： 1s之后输出 1 4 9
+
+// 不能修改square方法，实现每隔一秒输出结果
+const list = [1, 2, 3];
+const square = num => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(num * num);
+        }, 1000)
+    })
+}
+
+function test () {
+    list.forEach((x, index) => {
+        setTimeout(async () => {
+            const res = await square(x);
+            console.log(res);
+        }, index * 1000);
+    })
+}
+test();
 ```
 
 ## 考察JS事件循环微任务和宏任务
