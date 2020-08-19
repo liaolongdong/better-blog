@@ -67,6 +67,32 @@ console.log(n);
 
 参考[js连续赋值的问题](https://www.jianshu.com/p/010c88d445b5)
 
+## 美团面试题
+
+```js
+var obj = {
+    2: 3,
+    3: 4,
+    length: 2,
+    push: Array.prototype.push
+}
+obj.push(1);
+obj.push(2);
+console.log(obj);
+// {2: 1, 3: 2, length: 4, push: ƒ} 解析：因为对象的length为2,所以push 1 2 会覆盖2 3 的值
+
+// 对比
+var obj = {
+    length: 2,
+    push: Array.prototype.push
+}
+obj.push(1);
+obj.push(2);
+obj.push(3);
+console.log(obj);
+// {2: 1, 3: 2, 4: 3, length: 5, push: ƒ}
+```
+
 ## 阿里经典面试题(考察变量提升/静态方法/实例方法/原型方法调用)
 
 ```js
