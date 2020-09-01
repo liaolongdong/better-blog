@@ -224,6 +224,44 @@ console.log(c);
 // 111
 ```
 
+## 快手面试编程题
+
+> 实现 add(1)(2)(3)(4)(5).sum()和 add(1)(2, 3)(4)(5).sum()参数不定的累加效果
+
+```js
+let add = (...args) => {
+  let foo = (...newArgs) => {
+    return add(...args, ...newArgs);
+  };
+  foo.toString = () => {
+    return args.reduce((a, b) => a + b);
+  };
+  foo.sum = () => {
+    return foo.toString();
+  };
+  return foo;
+};
+
+// 测试结果：
+console.log(add(1)(2)(3)(4)(5).sum()); // 15
+console.log(add(1)(2, 3)(4)(5).sum()); // 15
+
+// 优化版代码
+let add = (...args) => {
+  let foo = (...newArgs) => {
+    return add(...args, ...newArgs);
+  };
+  foo.sum = () => {
+    return args.reduce((a, b) => a + b);
+  };
+  return foo;
+};
+
+// 测试结果：
+console.log(add(1)(2)(3)(4)(5).sum()); // 15
+console.log(add(1)(2, 3)(4)(5).sum()); // 15
+```
+
 ## 考察 JS 事件循环微任务和宏任务
 
 ```js
