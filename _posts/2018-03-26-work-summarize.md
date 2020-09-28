@@ -388,6 +388,15 @@ input {
 }
 ```
 
+### JS如何关闭当前页面
+
+JS关闭浏览器当前页面的方法：
+
+```js
+// 关闭当前页面生效的关键："about:blank"
+window.open("about:blank","_self").close();
+```
+
 ### 禁止ios10及以上h5页面缩放
 
 移动端禁止页面缩放我们通常使用`<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=0">`就可以解决，但是在ios10以上有兼容问题，具体解决方案如下：

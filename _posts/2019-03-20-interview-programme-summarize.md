@@ -357,6 +357,32 @@ console.log("script end");
 // setTimeout
 ```
 
+## 如果让一个不可迭代对象，变成可迭代
+
+```js
+var obj = {
+  0: 0,
+  1: 1,
+  length: 2,
+};
+for (i of obj) {
+  console.log(i);
+}
+// 报错：Uncaught TypeError: obj is not iterable
+
+var obj = {
+  0: 0,
+  1: 1,
+  length: 2,
+  [Symbol.iterator]: Array.prototype[Symbol.iterator],
+};
+for (i of obj) {
+  console.log(i);
+}
+
+// 原理：可迭代对象都拥有@@iterator属性
+```
+
 ## 实现深拷贝
 
 常用的简单实现方式：类型判断+递归
