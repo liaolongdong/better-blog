@@ -234,6 +234,10 @@ var formatOrderNo1 = orderNo1.replace(/(\d{4}(?=\d))/g, '$1 ');
 console.log(formatBankNo); // 8888 8888 8888 8888
 console.log(formatOrderNo); // 6666 6666 6666 6666 666
 console.log(formatOrderNo1); // 6666 6666 6666 6666 666
+
+// 结合使用先行断言和后发断言
+var res = "6230 6666 6666 8851".replace(/(?<=\s+)(\d{4})(?=\s+)/g, '****');
+console.log(res); // 6230 **** **** 8851
 ```
 
 ## 用一行代码实现一个简易的模板字符串功能
