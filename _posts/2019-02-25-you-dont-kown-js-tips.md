@@ -224,13 +224,16 @@ console.log(formatPhone); // 135 5689 1025
 ```js
 var bankNo = '8888888888888888';
 var orderNo = '6666666666666666666';
+var orderNo1 = '6666666666666666666';
 
 var formatBankNo = bankNo.replace(/\B(?<=(?<!\d)(\d{4})+)/g, ' ');
 // var formatOrderNo = orderNo.replace(/\B(?<=(?<!\d)(\d{4})+)/g, ' ');
 var formatOrderNo = orderNo.replace(/....(?!$)/g, '$& ');
+var formatOrderNo1 = orderNo1.replace(/(\d{4}(?=\d))/g, '$1 ');
 
 console.log(formatBankNo); // 8888 8888 8888 8888
 console.log(formatOrderNo); // 6666 6666 6666 6666 666
+console.log(formatOrderNo1); // 6666 6666 6666 6666 666
 ```
 
 ## 用一行代码实现一个简易的模板字符串功能
