@@ -246,6 +246,30 @@ handleUploaderImgChangeTest = () => {
 
 解决方案：在html顶级div中加入样式`overflow-x: hidden;`
 
+
+### 解决h5页面引入fastclick点击input输入框获取焦点失效，需要点击多次才生效bug
+
+```js
+import FastClick from "fastclick";
+
+// 解决h5页面引入fastclick点击input输入框获取焦点失效，需要点击多次才生效bug
+FastClick.prototype.focus = function (targetElement) {
+    let length;
+    if (
+        targetElement.setSelectionRange &&
+        targetElement.type.indexOf("date") !== 0 &&
+        targetElement.type !== "time" &&
+        targetElement.type !== "month"
+    ) {
+        length = targetElement.value.length;
+        targetElement.focus();
+        targetElement.setSelectionRange(length, length);
+    } else {
+        targetElement.focus();
+    }
+};
+```
+
 ### 移动端手机浏览器滑动页面不流畅
 
 [-webkit-overflow-scrolling](https://developer.mozilla.org/zh-CN/docs/Web/CSS/-webkit-overflow-scrolling)属性控制元素在移动设备上是否使用滚动回弹效果.
