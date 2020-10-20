@@ -328,6 +328,24 @@ p {
 
 [查看demo效果](https://codepen.io/Better1025/pen/VRqwxM)
 
+## 给文字设置渐变效果
+
+```html
+<p>这是有渐变效果的文字</p>
+```
+
+```scss
+p {
+    max-width: 300px; // 因为块级元素width默认为100%，为了查看效果，把width设小一点
+    background-image: -webkit-linear-gradient(0deg, red, green, blue); // 设置颜色与渐变方向
+    -webkit-background-clip: text; // 主要用于剪掉文字以外的区域
+    -webkit-text-fill-color: transparent; // 设置文本的填充颜色
+}
+```
+
+[查看demo效果](https://codepen.io/Better1025/pen/ExygVqd)
+
+
 ### 更多CSS使用技巧，可以[查看You-Dont-Need-JavaScript中的demo](https://github.com/you-dont-need/You-Dont-Need-JavaScript)
 
 ### 持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步
