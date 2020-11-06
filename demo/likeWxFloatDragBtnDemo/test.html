@@ -1,0 +1,31 @@
+<!--
+ * @Author: liaolongdong
+ * @Date: 2020-11-05 11:51:18
+ * @LastEditTime: 2020-11-06 14:05:40
+ * @LastEditors: liaolongdong
+ * @Description: 实现类似微信悬浮拖拽吸附左右边按钮
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实现类似微信可拖拽左右吸边悬浮按钮</title>
+    <link rel="stylesheet" href="./css/index.css">
+</head>
+
+<body>
+    <h1 class="title">实现类似微信可拖拽左右吸边悬浮按钮</h1>
+    <h2 class="sub-title">手机模式下可拖拽“我的”按钮</h2>
+    <div id="app">
+        <div class="c-draggable-likewxfloat" :class="{ 'is-move': isMove, 'is-left': isLeft && !isMove }" @click="clickMineBtn">
+            <img src="./img/my_person_icon.png" alt="我的" class="mine-btn" />
+            <span class="text">我的</span>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12"></script>
+    <script src="./js/index.js"></script>
+</body>
+
+</html>

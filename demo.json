@@ -5,6 +5,10 @@
       "demoUrl": "demo/idCardDemo/index.html"
     },
     {
+      "title": "实现类似微信可拖拽左右吸边悬浮按钮",
+      "demoUrl": "demo/likeWxFloatDragBtnDemo/index.html"
+    },
+    {
       "title": "许愿墙",
       "demoUrl": "demo/wishingWallDemo/index.html"
     },
