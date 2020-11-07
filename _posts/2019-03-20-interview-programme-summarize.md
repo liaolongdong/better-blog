@@ -262,6 +262,47 @@ console.log(add(1)(2)(3)(4)(5).sum()); // 15
 console.log(add(1)(2, 3)(4)(5).sum()); // 15
 ```
 
+## 求字符串'(1+2)*3'运算结果(携程面试题)
+
+方法一：使用`eval`方法
+
+```js
+// 非严格模式下
+let str = '(1+2)*3';
+let result = eval(str);
+console.log(result);
+
+// 严格模式下报错：Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'strict-dynamic'
+```
+
+方法二：使用`new Funciton`方法
+
+```js
+// 非严格模式下
+let str = '(1+2)*3';
+function strCalc(str) {
+  return new Function(`return ${str}`)();
+}
+let result = strCalc(str);
+console.log(result);
+
+// 严格模式下报错：Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'strict-dynamic'
+```
+
+方法三：利用`script`标签内容为可执行代码
+
+```js
+let str = '(1+2)*3';
+function strCalc(str) {
+  let myScript = document.createElement('script');
+  myScript.innerHTML = `window.golal_calc_result=${str}`; // 把执行结果保存到全局对象
+  document.body.appendChild(myScript);
+  document.body.removeChild(myScript);
+}
+strCalc(str);
+console.log(window.golal_calc_result);
+```
+
 ## 考察 JS 事件循环微任务和宏任务
 
 ```js
