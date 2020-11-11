@@ -1,0 +1,39 @@
+<!--
+ * @Author: liaolongdong
+ * @Date: 2020-11-05 11:51:18
+ * @LastEditTime: 2020-11-11 17:50:06
+ * @LastEditors: liaolongdong
+ * @Description: H5实现打开导航地图app并自动导航到目的地
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H5实现打开导航地图app并自动导航到目的地</title>
+    <link rel="stylesheet" href="./css/index.css">
+</head>
+
+<body>
+    <h1 class="title">H5实现打开导航地图app并自动导航到目的地</h1>
+    <h2 class="sub-title">点击“导航”按钮</h2>
+    <div id="app">
+        <button class="goto-map" @click="gotoMap">导航</button>
+        <!-- https://cn.vuejs.org/v2/guide/components-registration.html -->
+        <!-- 组件名只能使用 直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。 -->
+        <!-- https://cn.vuejs.org/v2/guide/components-props.html -->
+        <!-- Prop 的大小写 (camelCase vs kebab-case) 在 HTML 中是 kebab-case 的 -->
+        <open-map
+            :visible.sync="openMapVisible"
+            :open-map-data="openMapData"
+            :local-position="position"
+        />
+    </div>
+    <script src="./js/vue.min.js"></script>
+    <script src="./js/gcoord.js"></script>
+    <script src="./js/openMap.js"></script>
+    <script src="./js/index.js"></script>
+</body>
+
+</html>

@@ -1,9 +1,9 @@
 <!--
  * @Author: liaolongdong
  * @Date: 2020-11-05 11:51:18
- * @LastEditTime: 2020-11-06 14:05:40
+ * @LastEditTime: 2020-11-09 11:54:58
  * @LastEditors: liaolongdong
- * @Description: 实现类似微信悬浮拖拽吸附左右边按钮
+ * @Description: H5实现类似微信可拖拽左右吸边悬浮按钮
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -11,12 +11,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>实现类似微信可拖拽左右吸边悬浮按钮</title>
+    <title>H5实现类似微信可拖拽左右吸边悬浮按钮</title>
     <link rel="stylesheet" href="./css/index.css">
 </head>
 
 <body>
-    <h1 class="title">实现类似微信可拖拽左右吸边悬浮按钮</h1>
+    <h1 class="title">H5实现类似微信可拖拽左右吸边悬浮按钮</h1>
     <h2 class="sub-title">手机模式下可拖拽“我的”按钮</h2>
     <div id="app">
         <div class="c-draggable-likewxfloat" :class="{ 'is-move': isMove, 'is-left': isLeft && !isMove }" @click="clickMineBtn">

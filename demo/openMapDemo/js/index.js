@@ -1,0 +1,41 @@
+const app = new Vue({
+  el: "#app",
+  data: {
+    isWx: false,
+    openMapVisible: false,
+    openMapData: {},
+    position: {
+      lat: 22.22222222, // 当前纬度
+      lon: 111.11111111, // 当前经度
+    }, // 当前定位经纬度
+  },
+  created() {
+    this.isWx = /MicroMessenger/i.test(navigator.userAgent);
+  },
+  methods: {
+    gotoMap() {
+      let e = {
+        addr: "广东省深圳市宝安区航城大道与广深公路交叉路口,路东", // 导航目的地址
+        latitude: 22.51257, // 导航目的地址纬度
+        longitude: 114.06336, // 导航目的地址经度
+      };
+      this.openMapVisible = true;
+      // this.openMapData = e;
+      this.openMapData = {
+        addr: e.addr,
+        lat: e.latitude,
+        lon: e.longitude,
+      };
+      if (this.isWx && wx) {
+        wx.openLocation({
+          latitude: e.latitude, // 纬度，浮点数，范围为90 ~ -90
+          longitude: e.longitude, // 经度，浮点数，范围为180 ~ -180。
+          name: e.addr, // 位置名
+          address: e.addr, // 地址详情说明
+          scale: 15, // 地图缩放级别,整形值,范围从1~28。默认为最大
+        });
+        return;
+      }
+    },
+  },
+});

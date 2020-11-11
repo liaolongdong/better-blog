@@ -1,11 +1,11 @@
 {
   "demoLists": [
     {
-      "title": "中国大陆身份证号码信息查询",
-      "demoUrl": "demo/idCardDemo/index.html"
+      "title": "H5实现打开导航地图app并自动导航到目的地",
+      "demoUrl": "demo/openMapDemo/index.html"
     },
     {
-      "title": "实现类似微信可拖拽左右吸边悬浮按钮",
+      "title": "H5实现类似微信可拖拽左右吸边悬浮按钮",
       "demoUrl": "demo/likeWxFloatDragBtnDemo/index.html"
     },
     {
@@ -23,6 +23,10 @@
     {
       "title": "H5页面实现摇一摇功能",
       "demoUrl": "demo/shakeDemo/index.html"
+    },
+    {
+      "title": "中国大陆身份证号码信息查询",
+      "demoUrl": "demo/idCardDemo/index.html"
     },
     {
       "title": "移动端实现类似于vconsole的实时拖拽功能",
