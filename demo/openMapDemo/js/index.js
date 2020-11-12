@@ -26,6 +26,7 @@ const app = new Vue({
         lat: e.latitude,
         lon: e.longitude,
       };
+      // 判断如果是在微信浏览器打开，则使用微信js-sdk进行导航
       if (this.isWx && wx) {
         wx.openLocation({
           latitude: e.latitude, // 纬度，浮点数，范围为90 ~ -90
