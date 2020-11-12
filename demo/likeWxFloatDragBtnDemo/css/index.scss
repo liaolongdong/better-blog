@@ -1,0 +1,62 @@
+html {
+    font-size: 100px;
+}
+
+body {
+    text-align: center;
+    font-size: 16px;
+    color: #2c55f2;
+}
+
+#app {
+    min-height: 100vh;
+}
+
+.title {
+    margin-top: 1rem;
+    font-size: 0.2rem;
+}
+
+.sub-title {
+    font-size: 0.18rem;
+}
+
+.c-draggable-likewxfloat {
+    position: fixed;
+    right: 0px;
+    bottom: 400px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-top-left-radius: 50%;
+    border-bottom-left-radius: 50%;
+    box-shadow: 0 0 10px #2c55f2;
+    background: #fff;
+    font-size: 12px;
+    color: #2c55f2;
+}
+
+.mine-btn {
+    width: 0.2rem;
+    height: 0.21rem;
+}
+
+.text {
+    margin-top: 0.05rem;
+}
+
+.is-left {
+    left: 0;
+    border-top-right-radius: 50%;
+    border-bottom-right-radius: 50%;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.is-move {
+    border-radius: 50%;
+}
