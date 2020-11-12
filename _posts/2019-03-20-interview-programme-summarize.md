@@ -398,6 +398,43 @@ console.log("script end");
 // setTimeout
 ```
 
+## promise串行问题（腾讯文档）
+
+```js
+let promiseArr = [
+  () => {
+    return new Promise(res => {
+      console.log('run 1', Date.now());
+      res('run 1 resolve');
+    });
+  },
+  () => {
+    return new Promise(res => {
+      console.log('run 2', Date.now());
+      res('run 2 resolve');
+    });
+  },
+  () => {
+    return new Promise(res => {
+      console.log('run 3', Date.now());
+      res('run 3 resolve');
+    });
+  },
+]
+
+async function fn () {
+  for (let i = 0; i < promiseArr.length; i++) {
+    // 串行打印console.log;
+    // await promiseArr[i]();
+    // 串行打印console.log并执行resolve
+    await promiseArr[i]().then((value) => {
+      console.log(value);
+    });
+  }
+}
+fn();
+```
+
 ## 如果让一个不可迭代对象，变成可迭代
 
 ```js
