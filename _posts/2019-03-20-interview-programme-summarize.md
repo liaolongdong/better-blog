@@ -357,7 +357,7 @@ promise
 
 [了解更多](https://www.cnblogs.com/wangziye/p/9566454.html)
 
-## async/await 和 setTimeout 以及 promise
+## async/await 和 setTimeout 以及 promise(字节面试题)
 
 ```js
 async function async1() {
@@ -433,6 +433,166 @@ async function fn () {
   }
 }
 fn();
+```
+
+## 事件循环(字节面试题)
+
+```js
+function test () {
+  console.log(1);
+  Promise.resolve().then(test);
+}
+test();
+setTimeout(() => {console.log(2)}, 0)
+
+// 打印结果：
+// 一直输出1 不会执行setTimeout里面的回调函数
+```
+
+## promise、async/await
+
+```js
+async function fn() {
+    let data = await (() => 4)();
+    console.log(data);
+}
+console.log(1);
+new Promise(resolve => resolve(console.log(2))).then(data => console.log(data));
+console.log(3);
+fn();
+
+// 打印结果：
+// 1
+// 2
+// 3
+// undefined
+// 4
+// Promise {<fulfilled>: undefined}
+```
+
+```js
+// 字节面试题
+new Promise((reslove, reject) => {
+    reject();
+}).then(null, () => {
+    console.log(1);
+}).then(() => {
+    console.log(2);
+}).then(() => {
+    console.log(3);
+});
+
+// 打印结果： 1 2 3
+```
+
+```js
+new Promise((reslove, reject) => {
+    reject();
+}).then(null, () => {
+    console.log(1);
+}).then(() => {
+    new Promise((reslove, reject) => {
+        reject();
+    }).then(null, () => {
+        console.log('a');
+    }).then(() => {
+        console.log('b');
+    }).then(() => {
+        console.log('c');
+    })
+}).then(() => {
+    console.log(3);
+})
+
+// 打印结果：
+// 1
+// a
+// 3
+// b
+// c
+```
+
+```js
+new Promise((resolve, reject) => {
+    resolve();
+}).then(null, () => {
+    console.log(1);
+}).then(() => {
+    new Promise((resolve, reject) => {
+        console.log(2);
+        resolve();
+    }).then(null, () => {
+        console.log('a');
+    }).then(() => {
+        console.log('b');
+    }).then(() => {
+        console.log('c');
+    })
+}).then(() => {
+    console.log(3);
+})
+
+// 打印结果：
+// 2
+// 3
+// b
+// c
+```
+
+```js
+new Promise((resolve, reject) => {
+    reject();
+}).then(null, () => {
+    console.log(1);
+}).then(() => {
+    new Promise((resolve, reject) => {
+        console.log(2);
+        reject();
+    }).then(null, () => {
+        console.log('a');
+    }).then(() => {
+        console.log('b');
+    }).then(() => {
+        console.log('c');
+    })
+}).then(() => {
+    console.log(3);
+})
+// 1
+// 2
+// a
+// 3
+// b
+// c
+```
+
+## 腾讯视频编程题
+
+```js
+function foo () {
+  var a = 0;
+  return function () {
+    console.log(a++);
+  }
+}
+var f1 = foo(),
+f2 = foo();
+f1(); // 0
+f1(); // 1
+f2(); // 0
+```
+
+```js
+function Page() {
+  console.log(this);
+  return this.hosts;
+}
+Page.hosts = ['h1'];
+Page.prototype.hosts = ['h2'];
+var p1 = new Page();
+var p2 = Page();
+console.log(p1.hosts); // undefined
+console.log(p2.hosts); // Uncaught TypeError: Cannot read property 'hosts' of undefined
 ```
 
 ## 如果让一个不可迭代对象，变成可迭代

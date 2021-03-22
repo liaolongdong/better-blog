@@ -207,3 +207,22 @@ git config --list
 ```bash
 git help
 ```
+
+### git导出某个时间段的代码提交记录到桌面
+
+```bash
+# 在项目根目录，执行以下命令
+
+git log --all --after="<date> 00:00" --before="<date> 23:59" --author="<author>"
+
+# 输出最近一年的格式化的git提交记录
+git log --pretty=format:"%ad - %an: %s" --after="2018-01-31" --until="2019-01-31" --author="Better"
+
+# 导出到文档
+git log --pretty=format:"%ad - %an: %s" --after="2018-01-31" --until="2019-01-31" --author="Better" >> ~/Desktop/commit.txt
+
+# 导出到excel
+git log --date=iso --pretty=format:’"%h","%an","%ad","%s"’ --after="2018-01-31" --until="2019-01-31" --author="Better" >> ~/Desktop/commit.csv
+```
+
+[查看更多](https://stackoverflow.com/questions/37311494/how-to-get-git-to-show-commits-in-a-specified-date-range-for-author-date)

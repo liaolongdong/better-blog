@@ -1,7 +1,7 @@
 <!--
  * @Author: liaolongdong
  * @Date: 2020-11-05 11:51:18
- * @LastEditTime: 2020-11-11 17:50:06
+ * @LastEditTime: 2020-11-19 00:39:19
  * @LastEditors: liaolongdong
  * @Description: H5实现打开导航地图app并自动导航到目的地
 -->
@@ -24,16 +24,29 @@
         <!-- 组件名只能使用 直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。 -->
         <!-- https://cn.vuejs.org/v2/guide/components-props.html -->
         <!-- Prop 的大小写 (camelCase vs kebab-case) 在 HTML 中是 kebab-case 的 -->
-        <open-map
-            :visible.sync="openMapVisible"
-            :open-map-data="openMapData"
-            :local-position="position"
-        />
+        <open-map :visible.sync="openMapVisible" :open-map-data="openMapData" :local-position="position" />
     </div>
     <script src="./js/vue.min.js"></script>
     <script src="./js/gcoord.js"></script>
     <script src="./js/openMap.js"></script>
     <script src="./js/index.js"></script>
+    <script>
+        window.onerror = function (a, b, c, d) {
+            console.log('错误描述：', a);
+            console.log('报错所在文件：', b);
+            console.log('报错所在行：', c);
+            console.log('报错所在列：', d);
+        }
+        let a = 1;
+        a();
+        // try {
+        //     a();
+        // } catch (error) {
+        //     console.log('catch error:', error);
+        // }
+        // 如果程序报错且没有捕获错误，后续代码将不会往下执行
+        console.log('报错以后继续执行的代码');
+    </script>
 </body>
 
 </html>
