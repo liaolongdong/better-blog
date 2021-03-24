@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>hash router</title>
+</head>
+
+<body>
+    <h1 id="app"></h1>
+    <a href="#/home">home</a>
+    <a href="#/about">about</a>
+    <script>
+        // 解决刷新页面bug
+        location.hash && (app.innerHTML = location.hash.slice(2));
+        window.addEventListener('hashchange', () => {
+            app.innerHTML = location.hash.slice(2)
+        })
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>history router</title>
+    <style>
+        .link {
+            color: -webkit-link;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 id="app"></h1>
+    <a class="link" onclick="to('home')">home</a>
+    <a class="link" onclick="to('about')">about</a>
+    <script>
+        function to(pathname) {
+            history.pushState({}, null, pathname)
+            app.innerHTML = pathname
+        }
+        window.addEventListener('popstate', () => {
+            to(location.pathname)
+        })
+    </script>
+</body>
+
+</html>
