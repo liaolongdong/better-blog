@@ -34,7 +34,7 @@ http://www.xxx.com/#/login
 
 我们可以结合某个api有什么功能，它是用来解决什么问题的以及该功能是如何实现的，为什么这样实现，如果是我，我会如何实现，带着这样的思考，来学习源码可能会更好。
 
-想来看一下vue-router的基本实现，具体代码如下：
+想来看一下vue-router使用的基本实现，具体代码如下：
 
 ```js
 import VueRouter from 'vue-router'
@@ -68,24 +68,24 @@ new Vue({
     |   |   |-- view.js  ---------------- router-view组件
     |   |-- history  -------------------------- 路由模式
     |   |   |-- abstract.js  ------------------------ abstract路由模式
-    |   |   |-- base.js
+    |   |   |-- base.js ---------------------------- history类
     |   |   |-- hash.js  ------------------------ hash路由模式
     |   |   |-- html5.js  ------------------------ HTML5History模式
     |   |-- util  ---------------------------- 工具类功能封装
-    |       |-- async.js
-    |       |-- dom.js
-    |       |-- errors.js
-    |       |-- location.js
-    |       |-- misc.js
-    |       |-- params.js
-    |       |-- path.js
-    |       |-- push-state.js
-    |       |-- query.js
-    |       |-- resolve-components.js
-    |       |-- route.js
-    |       |-- scroll.js
-    |       |-- state-key.js
-    |       |-- warn.js
+    |       |-- async.js ---------------------------- 异步任务调度
+    |       |-- dom.js  ---------------------------- 判断是否为浏览器环境
+    |       |-- errors.js  ---------------------------- 错误处理
+    |       |-- location.js  ---------------------------- 解析location
+    |       |-- misc.js ---------------------------- 对象浅拷贝方法extend
+    |       |-- params.js ---------------------------- 缓存params
+    |       |-- path.js  ---------------------------- 解析path
+    |       |-- push-state.js  ---------------------------- 判断是否支持pushState
+    |       |-- query.js  ---------------------------- 解析和序列化查询参数
+    |       |-- resolve-components.js  ---------------------------- 异步组件
+    |       |-- route.js  ---------------------------- 创建route对象
+    |       |-- scroll.js  ---------------------------- 滚动处理
+    |       |-- state-key.js ---------------------------- 获取和设置state key
+    |       |-- warn.js  ---------------------------- 断言错误和警告
 
 ```
 
@@ -232,6 +232,8 @@ function createHref(base: string, fullPath: string, mode) {
 
 VueRouter.install = install
 VueRouter.version = '__VERSION__'
+
+// ...
 
 if (inBrowser && window.Vue) {
     window.Vue.use(VueRouter)
@@ -394,6 +396,7 @@ export class HTML5History extends History {
 
 通过学习源码，我们可以收获：
 
-1. 学习到牛人优秀的编码风格以及编码技巧
-2. get到更多实用的api
-3. 对所使用的技术能做到，知其然，知其所以然
+1. 学习到牛人优秀的编码风格、编码技巧以及编程思想
+2. get到更多实用的新奇的api
+3. 获取到很多干货，包括一些常见的面试题等等
+4. 对所使用的技术能做到，知其然，知其所以然
