@@ -26,7 +26,7 @@ http://www.xxx.com/#/login
 
 ### 2. history 模式
 
-在 `HTML5` 标准发布之后，多了两个 API，`pushState` 和 `replaceState`，通过这两个 API 可以改变 url 地址且不会发送请求。同时还有 `popstate` 事件。通过这些就能用另一种方式来实现前端路由了，但原理都是跟 hash 实现相同的。用了 HTML5 的实现，单页路由的 url 就不会多出一个#，变得更加美观。但因为没有 # 号，所以当用户刷新页面之类的操作时，浏览器还是会给服务器发送请求, 如果在服务端找不到匹配的路由，就会出现404。为了避免出现这种情况，你要在服务端增加一个覆盖所有情况的候选资源：如果 URL 匹配不到任何静态资源，则应该返回同一个 `index.html` 页面，这个页面就是你 app 依赖的页面。
+在 `HTML5` 标准发布之后，多了两个 API，`pushState` 和 `replaceState`，通过这两个`API`可以改变`url`地址且不会发送请求。同时还有 `popstate` 事件。通过这些就能用另一种方式来实现前端路由了，但原理都是跟`hash`实现相同的。用了`HTML5`的实现，单页路由的`url`就不会多出一个#，变得更加美观。但因为没有 # 号，所以当用户刷新页面之类的操作时，浏览器还是会给服务器发送请求, 如果在服务端找不到匹配的路由，就会出现404。为了避免出现这种情况，你要在服务端增加一个覆盖所有情况的候选资源：如果`URL`匹配不到任何静态资源，则应该返回同一个 `index.html` 页面，这个页面就是你`app`依赖的页面。
 
 ## vue-router功能和用法
 
@@ -34,7 +34,11 @@ http://www.xxx.com/#/login
 
 我们可以结合某个api有什么功能，它是用来解决什么问题的以及该功能是如何实现的，为什么这样实现，如果是我，我会如何实现，带着这样的思考，来学习源码可能会更好。
 
-想来看一下vue-router使用的基本实现，具体代码如下：
+![注册](/assets/img/postCover/vue_router_install.webp)
+
+我们平时在使用`vue-router`的时候通常需要在 main.js 中初始化`Vue`实例时将`vue-router`实例对象当做参数传入
+
+先来看一下vue-router使用的基本实现，具体代码如下：
 
 ```js
 import VueRouter from 'vue-router'
@@ -52,6 +56,40 @@ new Vue({
 ```
 
 [详见vue-router官方文档](https://router.vuejs.org/zh/)
+
+### Vue.use
+
+那么`Vue.use(Router)`又在做什么事情呢
+
+问题定位到`Vue`源码中的`src/core/global-api/use.js`源码地址 (https://github.com/vuejs/vue/blob/dev/src/core/global-api/use.js)
+
+```js
+export function initUse (Vue: GlobalAPI) {
+  Vue.use = function (plugin: Function | Object) {
+    // 拿到 installPlugins 
+    const installedPlugins = (this._installedPlugins || (this._installedPlugins = []))
+    // 保证不会重复注册
+    if (installedPlugins.indexOf(plugin) > -1) {
+      return this
+    }
+    // 获取第一个参数 plugins 以外的参数
+    const args = toArray(arguments, 1)
+    // 将 Vue 实例添加到参数
+    args.unshift(this)
+    // 执行 plugin 的 install 方法 每个 insatll 方法的第一个参数都会变成 Vue，不需要额外引入
+    if (typeof plugin.install === 'function') {
+      plugin.install.apply(plugin, args)
+    } else if (typeof plugin === 'function') {
+      plugin.apply(null, args)
+    }
+    // 最后用 installPlugins 保存 
+    installedPlugins.push(plugin)
+    return this
+  }
+}
+```
+
+可以看到`Vue`的`use`方法会接受一个`plugin`参数，然后使用`installPlugins`数组 保存已经注册过的`plugin`。首先保证`plugin`不被重复注册，然后将`Vue`从函数参数中取出，将整个`Vue`作为`plugin`的install 方法的第一个参数，这样做的好处就是不需要麻烦的另外引入 Vue,便于操作。接着就去判断`plugin`上是否存在`install`方法。存在则将赋值后的参数传入执行 ，最后将所有的存在`install`方法的`plugin`交给`installPlugins`维护。
 
 ## vue-router源码目录
 
@@ -91,7 +129,7 @@ new Vue({
 
 ## install装载函数
 
-Vue 通过 use 方法，加载VueRouter中的 install 方法。install 完成 Vue 实例对 VueRouter 的挂载过程。下面我们来分析一下具体的执行过程：
+`Vue`通过`use`方法，加载VueRouter中的`install`方法。install 完成`Vue`实例对`VueRouter`的挂载过程。下面我们来分析一下具体的执行过程：
 
 `VueRouter`类中挂载了一个install方法，在我们引入`VueRouter`并且实例化它的时候，`VueRouter`内部帮助我们将router实例装载入vue的实例中，这样我们才可以在组件中可以直接使用`router-link`、`router-view`等组件。以及直接访问`this.$router`、`this.$route`等全局变量，这里主要归功于`install.js`帮助实现这一个过程,主要分以下几个步骤：
 
@@ -169,7 +207,7 @@ export function install(Vue) {
 
 ## 从入口开始分析
 
-我们从上面的目录结构可以看出，入口文件index.js提供了一个VueRouter类, 这个就是我们在 vue 项目中引入 vue-router 的时候所用到的new Router() 其中具体内部代码如下(为了方便阅读,省略部分代码)
+我们从上面的目录结构可以看出，入口文件`index.js`提供了一个`VueRouter`类, 这个就是我们在`vue`项目中引入`vue-router`的时候所用到的`new Router()`其中具体内部代码如下(为了方便阅读,省略部分代码)
 
 ```js
 // index.js
@@ -391,6 +429,10 @@ export class HTML5History extends History {
 ```
 
 可以看到在这种模式下，初始化作的工作相比 hash 模式少了很多，只是调用基类构造函数以及初始化监听事件，不需要再做额外的工作
+
+## addRoutes和addRoute的区别
+
+[详见router.addRoutes](https://router.vuejs.org/zh/api/#router-addroutes)
 
 ## 学习源码总结
 
