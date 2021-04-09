@@ -34,7 +34,7 @@ http://www.xxx.com/#/login
 
 我们可以结合某个api有什么功能，它是用来解决什么问题的以及该功能是如何实现的，为什么这样实现，如果是我，我会如何实现，带着这样的思考，来学习源码可能会更好。
 
-![注册](/assets/img/postCover/vue_router_install.webp)
+<!-- ![注册](/assets/img/postCover/vue_router_install.webp) -->
 
 我们平时在使用`vue-router`的时候通常需要在 main.js 中初始化`Vue`实例时将`vue-router`实例对象当做参数传入
 
