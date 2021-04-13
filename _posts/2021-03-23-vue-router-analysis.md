@@ -127,84 +127,6 @@ export function initUse (Vue: GlobalAPI) {
 
 ```
 
-## install装载函数
-
-`Vue`通过`use`方法，加载VueRouter中的`install`方法。install 完成`Vue`实例对`VueRouter`的挂载过程。下面我们来分析一下具体的执行过程：
-
-`VueRouter`类中挂载了一个install方法，在我们引入`VueRouter`并且实例化它的时候，`VueRouter`内部帮助我们将router实例装载入vue的实例中，这样我们才可以在组件中可以直接使用`router-link`、`router-view`等组件。以及直接访问`this.$router`、`this.$route`等全局变量，这里主要归功于`install.js`帮助实现这一个过程,主要分以下几个步骤：
-
-1. 在构造Vue实例的时候，我们会传入router对象，此时的router会被挂载到 Vue 的根组件`this.$options`选项中。在 option 上面存在 router 则代表是根组件。如果存在`this.$options`，则对`_routerRoot` 和 `_router`进行赋值操作，之后执行 `_router.init()` 方法
-2. 为了让 `_router` 的变化能及时响应页面的更新，所以又接着又调用了 `Vue.util.defineReactive`方法来进行get和set的响应式数据定义
-3. 然后通过`registerInstance(this, this)`这个方法来实现对`router-view`的挂载操作
-4. 同时设置全局访问变量`$router`和`$route`
-5. 完成`router-link`和 `router-view` 两个组件的注册
-
-```js
-// install.js
-import View from './components/view'
-import Link from './components/link'
-
-export let _Vue
-
-export function install(Vue) {
-    if (install.installed && _Vue === Vue) return
-    install.installed = true
-
-    _Vue = Vue
-
-    const isDef = v => v !== undefined
-    // 实现对router-view的挂载操作
-    const registerInstance = (vm, callVal) => {
-        let i = vm.$options._parentVnode
-        if (isDef(i) && isDef(i = i.data) && isDef(i = i.registerRouteInstance)) {
-            i(vm, callVal)
-        }
-    }
-
-    // 混入 beforeCreate 钩子
-    Vue.mixin({
-        beforeCreate() {
-            // 在option上面存在router则代表是根组件 
-            if (isDef(this.$options.router)) {
-                this._routerRoot = this
-                this._router = this.$options.router
-                // 执行_router实例的 init 方法
-                this._router.init(this)
-                // 利用vue工具库对当前路由进行数据劫持
-                Vue.util.defineReactive(this, '_route', this._router.history.current)
-            } else {
-                // 非根组件则直接从父组件中获取
-                this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
-            }
-            // 实现对router-view的挂载操作
-            registerInstance(this, this)
-        },
-        destroyed() {
-            registerInstance(this)
-        }
-    })
-    // 设置代理，当访问 this.$router 的时候，代理到 this._routerRoot._router
-    Object.defineProperty(Vue.prototype, '$router', {
-        get() {
-            return this._routerRoot._router
-        }
-    })
-    // 设置代理，当访问 this.$route 的时候，代理到 this._routerRoot._route
-    Object.defineProperty(Vue.prototype, '$route', {
-        get() {
-            return this._routerRoot._route
-        }
-    })
-    // 全局注册 router-view 和 router-link 组件
-    Vue.component('RouterView', View)
-    Vue.component('RouterLink', Link)
-    // Vue钩子合并策略
-    const strats = Vue.config.optionMergeStrategies
-    // use the same hook merging strategy for route hooks
-    strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created
-}
-```
-
 ## 从入口开始分析
 
 我们从上面的目录结构可以看出，入口文件`index.js`提供了一个`VueRouter`类, 这个就是我们在`vue`项目中引入`vue-router`的时候所用到的`new Router()`其中具体内部代码如下(为了方便阅读,省略部分代码)
@@ -212,60 +134,60 @@ export function install(Vue) {
 ```js
 // index.js
 export default class VueRouter {
-    constructor(options: RouterOptions = {}) {
-        this.app = null
-        this.apps = []
-        this.options = options
-        this.beforeHooks = []
-        this.resolveHooks = []
-        this.afterHooks = []
-        // 根据传入的routes参数生成路由状态表
-        this.matcher = createMatcher(options.routes || [], this)
-        // 默认使用hash路由模式
-        let mode = options.mode || 'hash'
-        this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false
-        if (this.fallback) {
-            mode = 'hash'
-        }
-        // 非浏览器环境（比如node环境）使用abstract路由模式
-        if (!inBrowser) {
-            mode = 'abstract'
-        }
-        this.mode = mode
+  constructor(options: RouterOptions = {}) {
+    this.app = null
+    this.apps = []
+    this.options = options
+    this.beforeHooks = []
+    this.resolveHooks = []
+    this.afterHooks = []
+    // 根据传入的routes参数生成路由状态表
+    this.matcher = createMatcher(options.routes || [], this)
+    // 默认使用hash路由模式
+    let mode = options.mode || 'hash'
+    this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false
+    if (this.fallback) {
+      mode = 'hash'
+    }
+    // 非浏览器环境（比如node环境）使用abstract路由模式
+    if (!inBrowser) {
+      mode = 'abstract'
+    }
+    this.mode = mode
 
-        switch (mode) {
-            case 'history':
-                this.history = new HTML5History(this, options.base)
-                break
-            case 'hash':
-                this.history = new HashHistory(this, options.base, this.fallback)
-                break
-            case 'abstract':
-                this.history = new AbstractHistory(this, options.base)
-                break
-            default:
-                if (process.env.NODE_ENV !== 'production') {
-                    assert(false, `invalid mode: ${mode}`)
-                }
+    switch (mode) {
+      case 'history':
+        this.history = new HTML5History(this, options.base)
+        break
+      case 'hash':
+        this.history = new HashHistory(this, options.base, this.fallback)
+        break
+      case 'abstract':
+        this.history = new AbstractHistory(this, options.base)
+        break
+      default:
+        if (process.env.NODE_ENV !== 'production') {
+          assert(false, `invalid mode: ${mode}`)
         }
     }
-    // 初始化
-    init() {}
+  }
+  // 初始化
+  init() {}
 }
 
 // ...省略部分方法
 
 function registerHook(list: Array < any > , fn: Function): Function {
-    list.push(fn)
-    return () => {
-        const i = list.indexOf(fn)
-        if (i > -1) list.splice(i, 1)
-    }
+  list.push(fn)
+  return () => {
+    const i = list.indexOf(fn)
+    if (i > -1) list.splice(i, 1)
+  }
 }
 
 function createHref(base: string, fullPath: string, mode) {
-    var path = mode === 'hash' ? '#' + fullPath : fullPath
-    return base ? cleanPath(base + '/' + path) : path
+  var path = mode === 'hash' ? '#' + fullPath : fullPath
+  return base ? cleanPath(base + '/' + path) : path
 }
 
 VueRouter.install = install
@@ -274,7 +196,7 @@ VueRouter.version = '__VERSION__'
 // ...
 
 if (inBrowser && window.Vue) {
-    window.Vue.use(VueRouter)
+  window.Vue.use(VueRouter)
 }
 ```
 
@@ -298,9 +220,257 @@ if (inBrowser && window.Vue) {
 
 6. 添加install装载函数
 
+## install装载函数
+
+从入口文件`index.js`代码中，我们可以看到`VueRouter`类中挂载了一个install方法，在我们引入`VueRouter`并且实例化它的时候，`VueRouter`内部会帮助我们将router实例装载入vue的实例中，这样我们才可以在组件中可以直接使用`router-link`、`router-view`等组件。以及直接访问`this.$router`、`this.$route`等全局变量，这里主要归功于`install.js`帮助实现这一个过程,主要分以下几个步骤：
+
+1. 使用`mixin`在组件中混入`beforeCreate`,`destory`这俩个生命周期钩子
+2. 在构造Vue实例的时候，会传入router对象，此时的router会被挂载到`Vue`的根组件`this.$options`选项中。在`option`上面存在`router`则代表是根组件。如果存在`this.$options`，则对`_routerRoot` 和 `_router`进行赋值操作，之后执行 `_router.init()` 方法
+3. 为了让 `_router` 的变化能及时响应页面的更新，所以又接着又调用了 `Vue.util.defineReactive`方法来进行get和set的响应式数据定义
+4. 然后通过`registerInstance(this, this)`这个方法来实现对`router-view`的挂载操作
+5. 同时设置全局访问变量`$router`和`$route`
+6. 全局注册`router-link`和 `router-view` 组件
+
+```js
+// install.js
+import View from './components/view'
+import Link from './components/link'
+
+export let _Vue
+
+export function install(Vue) {
+  if (install.installed && _Vue === Vue) return
+  install.installed = true
+
+  _Vue = Vue
+
+  const isDef = v => v !== undefined
+  // 实现对router-view的挂载操作
+  const registerInstance = (vm, callVal) => {
+    let i = vm.$options._parentVnode
+    if (isDef(i) && isDef(i = i.data) && isDef(i = i.registerRouteInstance)) {
+      i(vm, callVal)
+    }
+  }
+
+  // 混入 beforeCreate 钩子
+  Vue.mixin({
+    beforeCreate() {
+      // 在option上面存在router则代表是根组件 
+      if (isDef(this.$options.router)) {
+        this._routerRoot = this
+        this._router = this.$options.router
+        // 执行_router实例的 init 方法
+        this._router.init(this)
+        // 利用vue工具库对当前路由进行数据劫持
+        Vue.util.defineReactive(this, '_route', this._router.history.current)
+      } else {
+        // 非根组件则直接从父组件中获取
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+      }
+      // 实现对router-view的挂载操作
+      registerInstance(this, this)
+    },
+    destroyed() {
+      registerInstance(this)
+    }
+  })
+  // 设置代理，当访问 this.$router 的时候，代理到 this._routerRoot._router
+  Object.defineProperty(Vue.prototype, '$router', {
+    get() {
+      return this._routerRoot._router
+    }
+  })
+  // 设置代理，当访问 this.$route 的时候，代理到 this._routerRoot._route
+  Object.defineProperty(Vue.prototype, '$route', {
+    get() {
+      return this._routerRoot._route
+    }
+  })
+  // 全局注册 router-view 和 router-link 组件
+  Vue.component('RouterView', View)
+  Vue.component('RouterLink', Link)
+  // Vue钩子合并策略
+  const strats = Vue.config.optionMergeStrategies
+  // use the same hook merging strategy for route hooks
+  strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created
+}
+```
+
+## createMatcher方法
+
+之前在`vueRouter`的构造函数中初始化了`macther`,本节将详细分析下面这句代码到底在做什么事情,以及`match`方法在做什么,部分代码如下：
+
+```js
+export function createMatcher (
+  routes: Array<RouteConfig>,
+  router: VueRouter
+): Matcher {
+  // 创建映射表
+  const { pathList, pathMap, nameMap } = createRouteMap(routes)
+  // 添加动态路由
+  function addRoutes(routes){...}
+  // 计算新路径
+  function match (
+    raw: RawLocation,
+    currentRoute?: Route,
+    redirectedFrom?: Location
+  ): Route {...}
+  // ... 后面的一些方法暂不展开
+  
+  return {
+    match,
+    addRoute,
+    getRoutes,
+    addRoutes
+  }
+}
+```
+
+`createMatcher`接受俩参数,分别是`routes`,这个就是我们平时在`router.js`定义的路由表配置，然后还有一个参数是`router`是`new vueRouter` 返回的实例。这个函数返回包含`match`,`addRoutes`,`addRoute`,`getRoutes`这四个方法的对象
+
+- `createMatcher`: 根据路由的配置描述建立映射表,包括路径、名称到路由`record`的映射关系,最重要的就是`createRouteMap`: 这个方法这里也是动态路由匹配和嵌套路由的原理。
+- `addRoutes`: 动态添加路由配置
+- `match`: 根据传入的`raw`和当前的路径`currentRoute`计算出一个新的路径并返回。
+
+## createRouteMap方法
+
+```js
+export function createRouteMap (
+  routes: Array<RouteConfig>,
+  oldPathList?: Array<string>,
+  oldPathMap?: Dictionary<RouteRecord>,
+  oldNameMap?: Dictionary<RouteRecord>
+): {
+  pathList: Array<string>,
+  pathMap: Dictionary<RouteRecord>,
+  nameMap: Dictionary<RouteRecord>
+} {
+  // 记录所有的 path
+  const pathList: Array<string> = oldPathList || []
+  // 记录 path-RouteRecord 的 Map
+  const pathMap: Dictionary<RouteRecord> = oldPathMap || Object.create(null)
+   // 记录 name-RouteRecord 的 Map
+  const nameMap: Dictionary<RouteRecord> = oldNameMap || Object.create(null)
+  // 遍历所有的 route 生成对应映射表
+  routes.forEach(route => {
+    addRouteRecord(pathList, pathMap, nameMap, route)
+  })
+  // 调整优先级
+  for (let i = 0, l = pathList.length; i < l; i++) {
+    if (pathList[i] === '*') {
+      pathList.push(pathList.splice(i, 1)[0])
+      l--
+      i--
+    }
+  }
+  return {
+    pathList,
+    pathMap,
+    nameMap
+  }
+}
+```
+
+`createRouteMap`需要传入路由配置，支持传入旧路径数组和旧的`Map`这一步是为后面递归和`addRoutes`做好准备。首先用三个变量记录`pathList`,`pathMap`,`nameMap`, 接着我们来看`addRouteRecord`这个核心方法。
+
+```js
+// 添加路由记录
+function addRouteRecord (
+  pathList: Array<string>,
+  pathMap: Dictionary<RouteRecord>,
+  nameMap: Dictionary<RouteRecord>,
+  route: RouteConfig,
+  parent?: RouteRecord,
+  matchAs?: string
+) {
+  const { path, name } = route
+
+  const pathToRegexpOptions: PathToRegexpOptions =
+    route.pathToRegexpOptions || {}
+  const normalizedPath = normalizePath(path, parent, pathToRegexpOptions.strict)
+
+  if (typeof route.caseSensitive === 'boolean') {
+    pathToRegexpOptions.sensitive = route.caseSensitive
+  }
+  // 路由记录 对象
+  const record: RouteRecord = {
+    path: normalizedPath,
+    regex: compileRouteRegex(normalizedPath, pathToRegexpOptions),
+    components: route.components || { default: route.component },
+    alias: route.alias
+      ? typeof route.alias === 'string'
+        ? [route.alias]
+        : route.alias
+      : [],
+    instances: {},
+    enteredCbs: {},
+    name,
+    parent,
+    matchAs,
+    redirect: route.redirect,
+    beforeEnter: route.beforeEnter,
+    meta: route.meta || {},
+    props:
+      route.props == null
+        ? {}
+        : route.components
+          ? route.props
+          : { default: route.props }
+  }
+  // 嵌套子路由 则递归增加 记录
+  if (route.children) {
+    // Warn if route is named, does not redirect and has a default child route.
+    // If users navigate to this route by name, the default child will
+    // not be rendered (GH Issue #629)
+    route.children.forEach(child => {
+      const childMatchAs = matchAs
+        ? cleanPath(`${matchAs}/${child.path}`)
+        : undefined
+      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs)
+    })
+  }
+
+  if (!pathMap[record.path]) {
+    pathList.push(record.path)
+    pathMap[record.path] = record
+  }
+  // 处理别名 alias 逻辑 增加对应的 记录
+  if (route.alias !== undefined) {
+    const aliases = Array.isArray(route.alias) ? route.alias : [route.alias]
+    for (let i = 0; i < aliases.length; ++i) {
+      const alias = aliases[i]
+      const aliasRoute = {
+        path: alias,
+        children: route.children
+      }
+      addRouteRecord(
+        pathList,
+        pathMap,
+        nameMap,
+        aliasRoute,
+        parent,
+        record.path || '/' // matchAs
+      )
+    }
+  }
+
+  if (name) {
+    if (!nameMap[name]) {
+      nameMap[name] = record
+    }
+  }
+}
+```
+
+`addRouteRecord`方法主要做了以下几件事：
+1. 记录路由信息的关键对象，后续会依此建立映射表
+2. 如果有 `children` 递归调用`addRouteRecord`
+3. 最后映射两张表,并将`record.path`保存进 `pathList`,`nameMap`
+
 ## 分析HashHistory和HTML5History类
 
-### HashHistory的部分代码
+### HashHistory
 
 部分代码如下：
 
@@ -428,7 +598,7 @@ export class HTML5History extends History {
 }
 ```
 
-可以看到在这种模式下，初始化作的工作相比 hash 模式少了很多，只是调用基类构造函数以及初始化监听事件，不需要再做额外的工作
+可以看到在这种模式下，初始化作的工作相比`hash`模式少了很多，只是调用基类构造函数以及初始化监听事件，不需要再做额外的工作
 
 ## addRoutes和addRoute的区别
 
