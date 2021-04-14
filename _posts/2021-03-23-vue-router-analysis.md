@@ -14,7 +14,7 @@ tags: JavaScript vue vue-router
 
 ### 1. hash 模式
 
-随着 `ajax` 的流行，异步数据请求交互运行在不刷新浏览器的情况下进行。而异步交互体验的更高级版本就是 SPA —— 单页应用。单页应用不仅仅是在页面交互是无刷新的，连页面跳转都是无刷新的，为了实现单页应用，所以就有了前端路由。
+随着 `ajax` 的流行，异步数据请求交互可以在不刷新浏览器的情况下进行，而异步交互体验的更高级版本就是 SPA —— 单页应用。单页应用不仅仅是在页面交互是无刷新的，连页面跳转都是无刷新的，为了实现单页应用，所以就有了前端路由。
 
 前端路由实现起来比较简单，就是匹配不同的 `url` 路径，进行解析，然后动态的渲染出区域 html 内容。但是这样存在一个问题，就是 `url` 每次变化的时候，都会造成页面的刷新。那解决问题的思路便是在改变 `url` 的情况下，保证页面的不刷新。在 `html5` 出现之前，大家是通过 `hash` 来实现路由，`url hash` 就是类似于：
 
@@ -59,7 +59,7 @@ new Vue({
 
 ### Vue.use
 
-那么`Vue.use(Router)`又在做什么事情呢
+从上面`vue-router`的基本用法，我们可以看到使用了`Vue.use(VueRouter)`来安装`VueRouter`,那么`Vue.use(VueRouter)`做了什么事情呢？
 
 问题定位到`Vue`源码中的`src/core/global-api/use.js`源码地址 (https://github.com/vuejs/vue/blob/dev/src/core/global-api/use.js)
 
@@ -129,7 +129,7 @@ export function initUse (Vue: GlobalAPI) {
 
 ## 从入口开始分析
 
-我们从上面的目录结构可以看出，入口文件`index.js`提供了一个`VueRouter`类, 这个就是我们在`vue`项目中引入`vue-router`的时候所用到的`new Router()`其中具体内部代码如下(为了方便阅读,省略部分代码)
+通过目录结构找到入口文件`index.js`，从这个文件里面可以看到，该文件提供了一个`VueRouter`类, 这个就是我们在`vue`项目中引入`vue-router`的时候所用到的`new Router()`，其中具体内部代码如下(为了方便阅读,省略部分代码)
 
 ```js
 // index.js
@@ -145,6 +145,7 @@ export default class VueRouter {
     this.matcher = createMatcher(options.routes || [], this)
     // 默认使用hash路由模式
     let mode = options.mode || 'hash'
+    // 如果不支持history模式，则回退使用hash模式
     this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false
     if (this.fallback) {
       mode = 'hash'
@@ -177,6 +178,7 @@ export default class VueRouter {
 
 // ...省略部分方法
 
+// 注册hook
 function registerHook(list: Array < any > , fn: Function): Function {
   list.push(fn)
   return () => {
@@ -184,17 +186,18 @@ function registerHook(list: Array < any > , fn: Function): Function {
     if (i > -1) list.splice(i, 1)
   }
 }
-
+// 创建href
 function createHref(base: string, fullPath: string, mode) {
   var path = mode === 'hash' ? '#' + fullPath : fullPath
   return base ? cleanPath(base + '/' + path) : path
 }
-
+// 挂载install方法
 VueRouter.install = install
 VueRouter.version = '__VERSION__'
 
 // ...
 
+// 浏览器环境安装vue-router
 if (inBrowser && window.Vue) {
   window.Vue.use(VueRouter)
 }
@@ -202,9 +205,9 @@ if (inBrowser && window.Vue) {
 
 先来看一下`constructor`实例化的时候将会做的处理：通过`new VueRouter({...})`我们创建了一个 `VueRouter` 的实例。`VueRouter`中通过参数`mode`来指定路由模式，前面已经简单的了解了一下前端路由的2种模式。通过上面的代码，我们可以看出来 `VueRouter`对不同模式的实现大致是这样的：
 
-- 首先根据mode来确定所选的模式，如果当前环境不支持history模式，会强制切换到hash模式；
+- 首先根据`mode`来确定所选的模式，如果当前环境不支持`history`模式，会强制切换到`hash`模式；
 
-- 如果当前环境不是浏览器环境，会切换到abstract模式下。然后再根据不同模式来生成不同的history操作对象。
+- 如果当前环境不是浏览器环境，则会切换到abstract模式下，然后再根据不同模式来生成不同的history操作对象。
 
 入口文件代码主要做了以下几件事：
 
@@ -222,14 +225,7 @@ if (inBrowser && window.Vue) {
 
 ## install装载函数
 
-从入口文件`index.js`代码中，我们可以看到`VueRouter`类中挂载了一个install方法，在我们引入`VueRouter`并且实例化它的时候，`VueRouter`内部会帮助我们将router实例装载入vue的实例中，这样我们才可以在组件中可以直接使用`router-link`、`router-view`等组件。以及直接访问`this.$router`、`this.$route`等全局变量，这里主要归功于`install.js`帮助实现这一个过程,主要分以下几个步骤：
-
-1. 使用`mixin`在组件中混入`beforeCreate`,`destory`这俩个生命周期钩子
-2. 在构造Vue实例的时候，会传入router对象，此时的router会被挂载到`Vue`的根组件`this.$options`选项中。在`option`上面存在`router`则代表是根组件。如果存在`this.$options`，则对`_routerRoot` 和 `_router`进行赋值操作，之后执行 `_router.init()` 方法
-3. 为了让 `_router` 的变化能及时响应页面的更新，所以又接着又调用了 `Vue.util.defineReactive`方法来进行get和set的响应式数据定义
-4. 然后通过`registerInstance(this, this)`这个方法来实现对`router-view`的挂载操作
-5. 同时设置全局访问变量`$router`和`$route`
-6. 全局注册`router-link`和 `router-view` 组件
+从入口文件`index.js`代码中，我们可以看到`VueRouter`类中挂载了一个install方法，在我们引入`VueRouter`并且实例化它的时候，`VueRouter`内部会帮助我们将router实例装载入vue的实例中，这样我们才可以在组件中可以直接使用`router-link`、`router-view`等组件。以及直接访问`this.$router`、`this.$route`等全局变量，这些事情主要都是通过`install.js`来实现的，具体代码如下：
 
 ```js
 // install.js
@@ -239,11 +235,12 @@ import Link from './components/link'
 export let _Vue
 
 export function install(Vue) {
+  // 判断是否装载，如果已经安装过，则不再执行后续操作了
   if (install.installed && _Vue === Vue) return
   install.installed = true
-
+  // export 一个 Vue 引用
   _Vue = Vue
-
+  // 判断一个变量是否定义
   const isDef = v => v !== undefined
   // 实现对router-view的挂载操作
   const registerInstance = (vm, callVal) => {
@@ -297,9 +294,18 @@ export function install(Vue) {
 }
 ```
 
+再具体总结一下`install.js`主要做了哪些事情：
+
+1. 使用`mixin`在组件中混入`beforeCreate`,`destory`这俩个生命周期钩子
+2. 在构造Vue实例的时候，会传入router对象，此时的router会被挂载到`Vue`的根组件`this.$options`选项中。在`option`上面存在`router`则代表是根组件。如果存在`this.$options.router`，则对`_routerRoot` 和 `_router`进行赋值操作，之后执行 `_router.init()` 方法
+3. 为了让 `_route` 的变化能及时响应页面的更新，所以接着又调用了 `Vue.util.defineReactive`方法来进行get和set的响应式数据定义
+4. 然后通过`registerInstance(this, this)`这个方法来实现对`router-view`的挂载操作
+5. 同时设置全局访问变量`$router`和`$route`
+6. 全局注册`router-link`和 `router-view` 组件
+
 ## createMatcher方法
 
-之前在`vueRouter`的构造函数中初始化了`macther`,本节将详细分析下面这句代码到底在做什么事情,以及`match`方法在做什么,部分代码如下：
+之前在`VueRouter`的构造函数中初始化了`createMatcher`方法,下面我们分析下这句代码到底做了什么事,以及`match`方法在做什么,部分代码如下：
 
 ```js
 export function createMatcher (
@@ -308,8 +314,28 @@ export function createMatcher (
 ): Matcher {
   // 创建映射表
   const { pathList, pathMap, nameMap } = createRouteMap(routes)
-  // 添加动态路由
-  function addRoutes(routes){...}
+  // 动态添加路由配置(已废弃)
+  function addRoutes (routes) {
+    createRouteMap(routes, pathList, pathMap, nameMap)
+  }
+  // 动态添加路由配置
+  function addRoute (parentOrRoute, route) {
+    const parent = (typeof parentOrRoute !== 'object') ? nameMap[parentOrRoute] : undefined
+    // $flow-disable-line
+    createRouteMap([route || parentOrRoute], pathList, pathMap, nameMap, parent)
+
+    // add aliases of parent
+    if (parent) {
+      createRouteMap(
+        // $flow-disable-line route is defined if parent is
+        parent.alias.map(alias => ({ path: alias, children: [route] })),
+        pathList,
+        pathMap,
+        nameMap,
+        parent
+      )
+    }
+  }
   // 计算新路径
   function match (
     raw: RawLocation,
@@ -327,10 +353,11 @@ export function createMatcher (
 }
 ```
 
-`createMatcher`接受俩参数,分别是`routes`,这个就是我们平时在`router.js`定义的路由表配置，然后还有一个参数是`router`是`new vueRouter` 返回的实例。这个函数返回包含`match`,`addRoutes`,`addRoute`,`getRoutes`这四个方法的对象
+`createMatcher`方法接受俩参数,分别是`routes`,这个就是我们平时在`router.js`定义的路由表配置，然后还有一个参数是`router`，就是`new VueRouter` 返回的实例。这个函数返回一个包含`match`,`addRoutes`,`addRoute`,`getRoutes`这四个方法的对象。
 
 - `createMatcher`: 根据路由的配置描述建立映射表,包括路径、名称到路由`record`的映射关系,最重要的就是`createRouteMap`: 这个方法这里也是动态路由匹配和嵌套路由的原理。
 - `addRoutes`: 动态添加路由配置
+- `addRoute`: 添加一条新的路由规则记录作为现有路由的子路由
 - `match`: 根据传入的`raw`和当前的路径`currentRoute`计算出一个新的路径并返回。
 
 ## createRouteMap方法
@@ -372,7 +399,7 @@ export function createRouteMap (
 }
 ```
 
-`createRouteMap`需要传入路由配置，支持传入旧路径数组和旧的`Map`这一步是为后面递归和`addRoutes`做好准备。首先用三个变量记录`pathList`,`pathMap`,`nameMap`, 接着我们来看`addRouteRecord`这个核心方法。
+`createRouteMap`需要传入路由配置，支持传入旧路径数组和旧的`Map`这一步是为后面递归和添加路由做好准备。首先用三个变量记录`pathList`,`pathMap`,`nameMap`, 接着我们来看`addRouteRecord`这个核心方法。
 
 ```js
 // 添加路由记录
@@ -464,9 +491,10 @@ function addRouteRecord (
 ```
 
 `addRouteRecord`方法主要做了以下几件事：
+
 1. 记录路由信息的关键对象，后续会依此建立映射表
 2. 如果有 `children` 递归调用`addRouteRecord`
-3. 最后映射两张表,并将`record.path`保存进 `pathList`,`nameMap`
+3. 最后映射两张表(`nameMap`和`pathMap`),并将`record.path`保存进 `pathList`,把`record`通过`name`属性映射到`nameMap`表,通过`path`属性映射到`pathMap`
 
 ## 分析HashHistory和HTML5History类
 
@@ -571,7 +599,7 @@ export class HTML5History extends History {
       if (this.current === START && location === this._startLocation) {
         return
       }
-      // 执行跳转动作
+      // 路由切换动作
       this.transitionTo(location, route => {
         if (supportsScroll) {
           handleScroll(router, route, current, true)
