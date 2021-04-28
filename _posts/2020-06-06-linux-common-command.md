@@ -76,3 +76,4 @@ rz # 然后按 enter 回车键
 ```
 
 [更多linux常见命令详见](https://blog.csdn.net/qq_23329167/article/details/83856430/)
+[菜鸟教程-linux常用命令全拼](https://www.runoob.com/w3cnote/linux-command-full-fight.html)

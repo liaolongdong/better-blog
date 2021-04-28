@@ -226,4 +226,3 @@ git log --date=iso --pretty=format:'"%h" "%an" "%ad" "%s"' --after="2018-01-31" 
 ```
 
 [查看更多](https://stackoverflow.com/questions/37311494/how-to-get-git-to-show-commits-in-a-specified-date-range-for-author-date)
-[菜鸟教程-linux常用命令全拼](https://www.runoob.com/w3cnote/linux-command-full-fight.html)
