@@ -14,6 +14,12 @@ tags: git git常用命令
 
 ## git常用操作
 
+变量说明：
+
+- `<url>` = 项目地址(`https://github.com/liaolongdong/liaolongdong.github.io.git`)
+- `<repo>` = 关联仓库名称(`origin`, `upstream`)
+- `<branch>` = 分支名(`dev`)
+
 ### git新建代码仓库
 
 ```bash
@@ -24,7 +30,7 @@ git init
 git init [project-name]
 
 # 下载一个项目和它的整个代码历史
-git clone [url]
+git clone <url>
 ```
 
 ### git配置
@@ -37,8 +43,8 @@ git config --list
 git config -e [--global]
 
 # 设置提交代码时的用户信息
-git config [--global] user.name <name>
-git config [--global] user.email <email>
+git config --global user.name <name>
+git config --global user.email <email>
 ```
 
 ### git查看相关命令
@@ -70,10 +76,10 @@ git add .
 git commit -m <message>
 
 # 拉取远程仓库最新代码，并与本地分支合并
-git pull <remote> <branch>
+git pull <repo> <branch>
 
 # 上传本地指定分支到远程仓库
-git push <remote> <branch>
+git push <repo> <branch>
 ```
 
 ### git分支相关命令
@@ -114,7 +120,7 @@ git reset --hard
 # 回退到某次提交版本
 git reset --hard <commit>
 
-# 查看分支当前版本
+# 查看分支当前版本commit SHA
 git rev-parse HEAD
 
 # 提交回退的版本 (注：强制提交后，当前版本后面的提交版本将会删掉！)
@@ -177,6 +183,9 @@ git remote -v
 # 删除origin关联的远程仓库地址
 git remote remove origin
 
+# 重命名关联仓库名称
+git remote rename <repo> <new-repo>
+
 # 添加远程仓库新地址
 git remote add origin <url>
 ```
@@ -206,6 +215,13 @@ git config --list
 
 ```bash
 git help
+```
+
+### 修改提交信息
+
+```bash
+# 修改提交信息msg
+git commit --amend
 ```
 
 ### git导出某个时间段的代码提交记录到桌面
