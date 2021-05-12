@@ -10,7 +10,8 @@ tags: git git常用命令
 
 # git常用命令操作手册
 
-查看更多git操作命令，可以查看[阮一峰的git命令教程](http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html)
+[git命令官方文档](https://git-scm.com/docs)
+[阮一峰的git命令教程](http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html)
 
 ## git常用操作
 
