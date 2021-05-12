@@ -56,6 +56,9 @@ git status
 # 查看提交日志
 git log
 
+# 查看提交记录(更简洁)
+git reflog
+
 # 查看工作区余暂存区修改文件具体差异
 git diff
 
