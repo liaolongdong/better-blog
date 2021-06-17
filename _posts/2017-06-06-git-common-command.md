@@ -138,6 +138,9 @@ git revert <commit>
 
 # 分支合并有冲突，选择回退分支合并操作
 git merge --abort
+
+# 撤销变基操作
+git rebase --abort
 ```
 
 ### git储藏常用命令
