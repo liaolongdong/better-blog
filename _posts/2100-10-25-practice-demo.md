@@ -201,3 +201,72 @@ function bubleSort(arr) {
 var arr = [12, 34, 23, 88, 25, 16];
 bubleSort(arr);
 ```
+
+## 在两个🔢对象中，找出满足特定条件的🔢对象
+
+```js
+var arr1 = [
+    {name: '廖小新', position:'front-end', age: 18},
+    {name: '廖小明', position:'back-end', age: 20},
+    {name: '廖小王', position:'front-end', age: 18},
+    {name: '廖小黄', position:'front-end', age: 18},
+    {name: '廖小芳', position:'front-end', age: 18},
+    {name: '廖小物', position:'front-end', age: 18},
+]
+var arr2 = [
+    {name: '廖小新', position:'front-end', age: 18},
+    {name: '廖小王', position:'back-end', age: 22},
+    {name: '廖小明', position:'back-end', age: 20},
+    {name: '廖小芳', position:'front-end', age: 18},
+    {name: '廖小物', position:'back-end', age: 23},
+    {name: '廖小黄', position:'front-end', age: 18},
+]
+// 获取相同对象的数组
+function getSomeObjArr(arr1, arr2) {
+    var map = new Map()
+    var res = []
+    for (let i = 0; i < arr1.length; i++) {
+        map.set(`${arr1[i].name}&${arr1[i].position}`, i)
+    }
+    for (let i = 0; i < arr2.length; i++) {
+        let key = `${arr2[i].name}&${arr2[i].position}`
+        if (map.get(key) !== undefined) {
+            res.push(arr2[i])
+        }
+    }
+    return res
+}
+console.log(getSomeObjArr(arr1, arr2))
+```
+
+## 判断是否是回文数
+
+```javascript
+function isUnitStr (str) {
+    let arr = str.split('');
+    let head = 0
+    let tail = arr.length - 1
+    while (head < tail) {
+        if (arr[head++] !== arr[tail--]) {
+            return false
+        }
+        return true
+    }
+}
+
+var str = 'abccba'
+isUnitStr(str)
+```
+
+## 判断是否有效括号
+
+```javascript
+function isValidKuoHao (str) {
+    const map = new Map()
+    map.set('{', '}')
+    map.set('[', ']')
+    map.set('(', ')')
+    
+}
+```
+

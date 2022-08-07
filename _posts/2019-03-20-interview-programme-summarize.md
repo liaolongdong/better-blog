@@ -1566,3 +1566,68 @@ function xipai(arr, size) {
   return result;
 }
 ```
+
+## es6 尾调用-尾递归
+
+求正整数n的阶乘
+
+```js
+function factorial (n) {
+    if (n === 1) return 1
+    return n * factorial(n - 1)
+}
+console.time()
+factorial(1000)
+console.timeEnd()
+// default: 1.697998046875 ms
+```
+
+```js
+// 使用尾递归
+function factorial (n, total) {
+    if (n === 1) return total
+    return factorial(n - 1,  n * total) 
+}
+console.time()
+factorial(1000, 1)
+console.timeEnd()
+```
+
+[es6 尾调用-尾递归](https://blog.csdn.net/qq_30100043/article/details/53406001)
+
+## 数组对象去重
+
+```js
+/**
+* @param {Array} arr 去重的数组对象
+* @param {String} key 根据key进行去重
+* @return {Array} 去重后的数组对象
+*/
+// 方法一
+function uniqueArrObjByKey (arr, key) {
+    const map = Object.create(null)
+    const res = []
+    arr.forEach(item => {
+        if (!map[item[key]]) {
+          map[item[key]] = true
+          res.push(item)
+        }
+    })
+    return res
+}
+
+// 方法二
+function uniqueArrObjByKey (arr, key) {
+    const map = Object.create(null)
+    const res = arr.reduce((cur, next) => {
+      map[next[key]] ? '' : map[next[key]] = true && cur.push(next)
+      return cur
+    }, []) // 设置cur默认类型为数组，并且初始值为空的数组
+    return res
+}
+
+// 测试
+var arr = [{name: '廖小新', age: 18}, {name: '廖小物', age: 18}, {name: '廖小新', age: 20}, {name: '廖小物', age: 18}, {name: '廖小念', age: 18}]
+console.log(uniqueArrObjByKey(arr, 'name'))
+console.log(uniqueArrObjByKey(arr, 'age'))
+```
