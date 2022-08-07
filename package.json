@@ -1,7 +1,7 @@
 {
-  "name": "a",
+  "name": "liaolongdong.github.io",
   "version": "1.0.0",
-  "description": "",
+  "description": "廖小新的个人博客",
   "main": "index.js",
   "scripts": {
     "start": "gulp",
