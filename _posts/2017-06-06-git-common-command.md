@@ -18,8 +18,8 @@ tags: git git常用命令
 变量说明：
 
 - `<url>` = 项目地址(`https://github.com/liaolongdong/liaolongdong.github.io.git`)
-- `<repo>` = 关联仓库名称(`origin`, `upstream`)
-- `<branch>` = 分支名(`dev`)
+- `<repo>` = 关联仓库名称(`origin`, `upstream`) `origin`代表远程私仓，`up`或者`upstream`代表远程公仓
+- `<branch-name>` = 分支名(`dev`)
 
 ### git新建代码仓库
 
@@ -28,10 +28,13 @@ tags: git git常用命令
 git init
 
 # 新建一个目录，将其初始化为Git代码库
-git init [project-name]
+git init <project-name>
 
 # 下载一个项目和它的整个代码历史
 git clone <url>
+
+# 只拉取最近一次提交记录，用于快速clone代码仓库
+git clone --depth 1 <url>
 ```
 
 ### git配置
@@ -80,10 +83,10 @@ git add .
 git commit -m <message>
 
 # 拉取远程仓库最新代码，并与本地分支合并
-git pull <repo> <branch>
+git pull <repo> <branch-name>
 
 # 上传本地指定分支到远程仓库
-git push <repo> <branch>
+git push <repo> <branch-name>
 ```
 
 ### git分支相关命令
@@ -93,30 +96,38 @@ git push <repo> <branch>
 git branch -a
 
 # 创建分支
-git branch <name>
+git branch <branch-name>
 
 # 切换分支
-git checkout <name>
+git checkout <branch-name>
 
 # 创建 + 切换分支
-git checkout -b <name>
+git checkout -b <branch-name>
 
 # 合并某本地分支到当前分支
-git merge <name>
+git merge <branch-name>
 
 # 合并某远程分支到当前分支 示例：git merge origin/dev
-git merge origin/<name>
+git merge origin/<branch-name>
 
 # 删除分支
-git branch -d <name>
+git branch -d <branch-name>
 ```
 
 ### git撤销和回退
 
 ```bash
-# 撤销本地所有修改
+# 撤销本地所有修改（新创建的文件不能撤销）
 git checkout .
 
+# 撤销本地所有修过，包括新创建的文件
+git clean -f
+
+# 回退到某次提交
+git reset <commit-hash> # 默认是 --mixed 回退的代码保留在工作区
+git reset --mixed <commit-hash> # 回退的代码保留在暂存区
+git reset --soft <commit-hash> # 回退的代码保留在工作区
+git reset --hard <commit-hash> # 回退的代码不保留，该命令要谨慎操作
 
 # 重置暂存区与工作区，与上一次commit保持一致
 git reset --hard
@@ -131,15 +142,14 @@ git rev-parse HEAD
 # git push -f
 git push origin HEAD --force
 
-
 # 新建一个commit，用来撤销指定commit
 # 后者的所有变化都将被前者抵消，并且应用到当前分支
 git revert <commit>
 
-# 分支合并有冲突，选择回退分支合并操作
+# 分支合并有冲突，选择中止分支合并操作
 git merge --abort
 
-# 撤销变基操作
+# 中止变基操作
 git rebase --abort
 ```
 
@@ -202,8 +212,30 @@ git remote add origin <url>
 ```bash
 # 将远程主机的最新内容拉到本地
 git fetch
+
+# 查看对应分支的commit-sha
+git show-ref <branch-name>
+
 # 查看所有分支
 git branch -a
+```
+
+### fork模式切换新分支
+
+```bash
+# 获取远程私仓库（origin）和远程公仓库（up/upstream）代码、分支、tag等信息，该命令只是拉取，并未进行合并操作，所以不会又冲突（git pull命令等于git fetch && git merge）
+git fetch --all
+
+# 获取远程公仓的分支后就可以切换分支了
+git checkout <branch-name>
+
+# 推送本地代码到远程私仓之前，先拉取更新远程公仓的代码，看是否有冲突
+git pull up/upstream <branch-name>
+
+# 推送本地代码到远程私仓
+git push origin <branch-name>
+
+# 最后在gitlab发起merge request代码合并请求
 ```
 
 ### 解决 Git 默认不区分文件名大小写的问题
