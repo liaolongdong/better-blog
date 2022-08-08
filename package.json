@@ -11,7 +11,7 @@
     "deploy:ali": "bash deploy-ali.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Better",
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.2.2",
