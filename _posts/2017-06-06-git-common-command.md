@@ -124,7 +124,10 @@ git checkout .
 git clean -f
 
 # 从暂存区回退到工作区
-git reset HEAD filename
+git reset HEAD filename # 指定文件
+
+# 回退暂存区所有文件到工作区
+git reset HEAD .
 
 # 回退到某次提交
 git reset <commit-hash> # 默认是 --mixed 回退的代码保留在工作区
