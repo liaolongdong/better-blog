@@ -123,10 +123,13 @@ git checkout .
 # 撤销本地所有修过，包括新创建的文件
 git clean -f
 
+# 从暂存区回退到工作区
+git reset HEAD filename
+
 # 回退到某次提交
 git reset <commit-hash> # 默认是 --mixed 回退的代码保留在工作区
-git reset --mixed <commit-hash> # 回退的代码保留在暂存区
-git reset --soft <commit-hash> # 回退的代码保留在工作区
+git reset --mixed <commit-hash> # 回退的代码保留在工作区
+git reset --soft <commit-hash> # 回退的代码保留在暂存区
 git reset --hard <commit-hash> # 回退的代码不保留，该命令要谨慎操作
 
 # 重置暂存区与工作区，与上一次commit保持一致
