@@ -104,6 +104,9 @@ git checkout <branch-name>
 # 创建 + 切换分支
 git checkout -b <branch-name>
 
+# 两个分支来回切换，快捷方式
+git checkout -
+
 # 合并某本地分支到当前分支
 git merge <branch-name>
 
