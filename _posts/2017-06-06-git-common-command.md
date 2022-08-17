@@ -21,6 +21,12 @@ tags: git git常用命令
 - `<repo>` = 关联仓库名称(`origin`, `upstream`) `origin`代表远程私仓，`up`或者`upstream`代表远程公仓
 - `<branch-name>` = 分支名(`dev`)
 
+### git查看相关命令用法或帮助
+
+```bash
+git help
+```
+
 ### git新建代码仓库
 
 ```bash
@@ -66,9 +72,6 @@ git reflog
 # 查看工作区余暂存区修改文件具体差异
 git diff
 
-# 查看所有分支
-git branch -a
-
 # 查看本地项目关联远程仓库地址
 git remote -v
 ```
@@ -94,6 +97,10 @@ git push <repo> <branch-name>
 ```bash
 # 查看所有分支
 git branch -a
+
+# 查看当前分支名称
+git rev-parse --abbrev-ref HEAD # 低版本git获取当前分支名称
+git branch --show-current # 高版本git获取当前分支名称
 
 # 创建分支
 git branch <branch-name>
@@ -123,7 +130,7 @@ git branch -d <branch-name>
 # 撤销本地所有修改（新创建的文件不能撤销）
 git checkout .
 
-# 撤销本地所有修过，包括新创建的文件
+# 撤销本地所有修改，包括新创建的文件
 git clean -f
 
 # 从暂存区回退到工作区
@@ -251,18 +258,6 @@ git push origin <branch-name>
 
 ```bash
 git config core.ignorecase false
-```
-
-### git查看配置信息
-
-```bash
-git config --list
-```
-
-### git查看相关命令用法或帮助
-
-```bash
-git help
 ```
 
 ### 修改提交信息
