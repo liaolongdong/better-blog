@@ -55,6 +55,9 @@ git config -e [--global]
 # 设置提交代码时的用户信息
 git config --global user.name <name>
 git config --global user.email <email>
+
+# git可以将用户名，密码和仓库链接保存在硬盘中，而不用在每次push的时候都输入密码
+git config credential.helper store
 ```
 
 ### git查看相关命令
