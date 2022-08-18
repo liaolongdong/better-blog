@@ -20,6 +20,7 @@ tags: git git常用命令
 - `<url>` = 项目地址(`https://github.com/liaolongdong/liaolongdong.github.io.git`)
 - `<repo>` = 关联仓库名称(`origin`, `upstream`) `origin`代表远程私仓，`up`或者`upstream`代表远程公仓
 - `<branch-name>` = 分支名(`dev`)
+- `<commit-sha>` = 提交记录ID(`d6d826afd99c64a91473180e75351bab0a547c1f`)
 
 ### git查看相关命令用法或帮助
 
@@ -69,7 +70,7 @@ git status
 # 查看提交日志
 git log
 
-# 查看提交记录(更简洁)
+# 查看提交记录(更简洁)，该命令可以查看最近90天的git操作记录，关键时刻可以救命（比如，使用了 git reset --hard <commit-sha> 后找不到commit-sha后面的提交记录和代码了）
 git reflog
 
 # 查看工作区余暂存区修改文件具体差异
@@ -77,6 +78,9 @@ git diff
 
 # 查看本地项目关联远程仓库地址
 git remote -v
+
+# 查看某个分支本地、origin、up远程仓库当前的commit-sha，可用于对比三者代码是不是最新的
+git show-ref <branch-name> # 使用之前先执行 `git fetch --all` 拉取最新资源到本地
 ```
 
 ### git代码提交操作
@@ -88,7 +92,7 @@ git add .
 # 提交暂存区修改到仓库区
 git commit -m <message>
 
-# 拉取远程仓库最新代码，并与本地分支合并
+# 拉取远程仓库最新代码，并与本地分支合并，该命令相当于执行 git fetch && git merge
 git pull <repo> <branch-name>
 
 # 上传本地指定分支到远程仓库
@@ -111,6 +115,9 @@ git branch <branch-name>
 # 切换分支
 git checkout <branch-name>
 
+# 切换并关联到upstream上游仓库
+git checkout --track <repo>/<branch-name> # git checkout --track up/Release_IEP-WEBSITE-3.40.0_92224
+
 # 创建 + 切换分支
 git checkout -b <branch-name>
 
@@ -121,7 +128,7 @@ git checkout -
 git merge <branch-name>
 
 # 合并某远程分支到当前分支 示例：git merge origin/dev
-git merge origin/<branch-name>
+git merge <repo>/<branch-name>
 
 # 删除分支
 git branch -d <branch-name>
@@ -130,10 +137,10 @@ git branch -d <branch-name>
 ### git撤销和回退
 
 ```bash
-# 撤销本地所有修改（新创建的文件不能撤销）
+# 撤销本地所有修改（新创建的文件不会被撤销）
 git checkout .
 
-# 撤销本地所有修改，包括新创建的文件
+# 撤销本地新创建的文件（已存在文件的内容修改不会被撤销）
 git clean -f
 
 # 从暂存区回退到工作区
@@ -143,16 +150,16 @@ git reset HEAD filename # 指定文件
 git reset HEAD .
 
 # 回退到某次提交
-git reset <commit-hash> # 默认是 --mixed 回退的代码保留在工作区
-git reset --mixed <commit-hash> # 回退的代码保留在工作区
-git reset --soft <commit-hash> # 回退的代码保留在暂存区
-git reset --hard <commit-hash> # 回退的代码不保留，该命令要谨慎操作
+git reset <commit-sha> # 默认是 --mixed 回退的代码保留在工作区
+git reset --mixed <commit-sha> # 回退的代码保留在工作区
+git reset --soft <commit-sha> # 回退的代码保留在暂存区
+git reset --hard <commit-sha> # 回退的代码不保留，该命令要谨慎操作
 
 # 重置暂存区与工作区，与上一次commit保持一致
 git reset --hard
 
 # 回退到某次提交版本
-git reset --hard <commit>
+git reset --hard <commit-sha>
 
 # 查看分支当前版本commit SHA
 git rev-parse HEAD
@@ -162,8 +169,13 @@ git rev-parse HEAD
 git push origin HEAD --force
 
 # 新建一个commit，用来撤销指定commit
-# 后者的所有变化都将被前者抵消，并且应用到当前分支
-git revert <commit>
+# git revert和git reset的区别：
+# 前者只会创建一次新的提交（不会重置和更改原有的提交记录）而且只是撤销某一次提交
+# 后者则会回退某一次提交记录之后的所有提交（会重置和更改历史提交记录，如果回退的提交已经pull到远程，回退以后push到远程必须使用强制推送 --force）
+git revert <commit-sha>
+
+# 拷贝应用某些已经存在的提交
+git cherry-pick <commit-sha>
 
 # 分支合并有冲突，选择中止分支合并操作
 git merge --abort
@@ -232,6 +244,9 @@ git remote add origin <url>
 # 将远程主机的最新内容拉到本地
 git fetch
 
+# 获取所有远程分支并清除远程仓库已删除的分支
+git fetch --prune
+
 # 查看对应分支的commit-sha
 git show-ref <branch-name>
 
@@ -268,6 +283,12 @@ git config core.ignorecase false
 ```bash
 # 修改提交信息msg
 git commit --amend
+```
+
+### git清理不必要的文件和优化本地仓库内存
+
+```bash
+git gc
 ```
 
 ### git导出某个时间段的代码提交记录到桌面
