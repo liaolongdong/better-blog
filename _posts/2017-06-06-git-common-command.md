@@ -118,11 +118,24 @@ git checkout <branch-name>
 # 切换并关联到upstream上游仓库
 git checkout --track <repo>/<branch-name> # git checkout --track up/Release_IEP-WEBSITE-3.40.0_92224
 
+# 修改本地分支的关联仓库
+git branch --set-upstream-to <repo>/<branch-name>
+
 # 创建 + 切换分支
 git checkout -b <branch-name>
 
 # 两个分支来回切换，快捷方式
 git checkout -
+
+# 删除本地分支(已merge过分支)
+git branch  -d <branch-name>
+
+# 删除本地分支(为merge的分支)
+git branch  -D <branch-name> # 相当于 --delete --force
+
+# 删除远程仓库分支
+git push -d <repo> <branch-name> # 或者 git push <repo> :<branch-name>
+
 
 # 合并某本地分支到当前分支
 git merge <branch-name>
@@ -130,8 +143,8 @@ git merge <branch-name>
 # 合并某远程分支到当前分支 示例：git merge origin/dev
 git merge <repo>/<branch-name>
 
-# 删除分支
-git branch -d <branch-name>
+# 直接使用pull合并某远程分支到当前分支
+git pull <repo> <branch-name> # 等同于 git fetch <repo> && git merge <repo>/<branch-name>
 ```
 
 ### git撤销和回退
@@ -272,17 +285,23 @@ git push origin <branch-name>
 # 最后在gitlab发起merge request代码合并请求
 ```
 
+### 修改提交信息
+
+```bash
+# 修改最新commit提交信息
+git commit --amend
+
+# 修改某次历史commit提交信息
+git rebase -i father-commit-sha # 要修改历史提交信息的前一次commit-sha
+
+# 修改第一个commit的提交信息
+git rebase -i --root
+```
+
 ### 解决 Git 默认不区分文件名大小写的问题
 
 ```bash
 git config core.ignorecase false
-```
-
-### 修改提交信息
-
-```bash
-# 修改提交信息msg
-git commit --amend
 ```
 
 ### git清理不必要的文件和优化本地仓库内存
