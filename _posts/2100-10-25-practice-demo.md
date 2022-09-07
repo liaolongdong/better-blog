@@ -270,3 +270,29 @@ function isValidKuoHao (str) {
 }
 ```
 
+## 手动实现柯里化函数
+
+```javascript
+function curry (func) {
+    return function curried (...args) {
+        // 如果func传入的实参大于等于形参，则调用func自身
+        if (args.length >= func.length) {
+            return func.apply(this, args)
+        } else {
+            return function (...args1) {
+                return curried.apply(this, [...args, ...args1])
+            }
+        }
+    }
+}
+
+function sum (a, b, c) {
+    return a + b + c
+}
+
+// 测试结果：
+let currySum = curry(sum)
+console.log(currySum(1, 2, 3)) // 6
+console.log(currySum(1, 2)(3)) // 6
+console.log(currySum(1)(2)(3)) // 6
+```
