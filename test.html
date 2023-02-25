@@ -1,40 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>test page</title>
-  </head>
-  <body>
-      
-    <script>
-      var reverseWords = function (str) {
-        if (!str) return;
-        let left = 0;
-        let right = str.length - 1;
-        let queue = [];
-        let word = "";
-        // 去除字符串两端的空格
-        while (str.charAt(left) === " ") left++;
-        while (str.charAt(right) === " ") right--;
-        // 逐个读取字符串中的每个单词，依次放入双端队列的队头
-        while (left <= right) {
-          let char = str.charAt(left);
-          if (char === " " && word) {
-            queue.unshift(word);
-            word = "";
-          } else if (char !== " ") {
-            word += char;
-          }
-          left++;
-        }
-        queue.unshift(word);
-        return queue.join(" ");
-      };
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>test page</title>
+	</head>
+	<body>
+		<script>
+			console.log(111);
+			const p = new Promise((res, rej) => {
+				setTimeout(() => {
+					res(222);
+				});
+			});
+			p.then((data) => console.log(data));
+			console.log(333);
+		</script>
+		<script>
+			// console.log(444);
+
+			// 多叉树的结构
+			var tree = {
+				val: 1,
+				children: [
+					{
+						val: 2,
+						children: [
+							{
+								val: 5,
+								children: [
+									{
+										val: 12,
+									},
+								],
+							},
+							{
+								val: 6,
+								children: [
+									{
+										val: 13,
+									},
+									{
+										val: 14,
+									},
+									{
+										val: 15,
+									},
+									{
+										val: 16,
+									},
+								],
+							},
+							{
+								val: 7,
+							},
+						],
+					},
+					{
+						val: 3,
+						children: [
+							{
+								val: 8,
+								children: [
+									{
+										val: 17,
+									},
+								],
+							},
+						],
+					},
+					{
+						val: 4,
+					},
+				],
+			};
+
+      // 实现代码
+			var levelOrder = function (root) {
+				if (!root) {
+					return [];
+				}
+
+				const ans = [];
+				const queue = [root];
+
+				while (queue.length) {
+					const cnt = queue.length;
+					const level = [];
+					for (let i = 0; i < cnt; ++i) {
+						const cur = queue.shift();
+						level.push(cur.val);
+            if (cur.children) {
+              for (const child of cur.children) {
+                queue.push(child);
+              }
+            }
+					}
+					ans.push(level);
+				}
+
+				return ans;
+			};
 
       // 测试结果：
-      reverseWords("  hello world!  "); // "world! hello"
-      reverseWords("a good   example"); // "example good a"
-    </script>
-  </body>
+      console.log(levelOrder(tree))
+		</script>
+	</body>
 </html>

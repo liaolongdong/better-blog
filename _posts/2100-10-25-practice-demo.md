@@ -296,3 +296,194 @@ console.log(currySum(1, 2, 3)) // 6
 console.log(currySum(1, 2)(3)) // 6
 console.log(currySum(1)(2)(3)) // 6
 ```
+
+## 测试async/await返回结果
+
+```javascript
+function p () {
+    return new Promise(function (resolve, reject) {
+        const num = Math.floor(Math.random() * 10)
+        setTimeout(function () {
+            if (num % 2) {
+                resolve('resolve success')
+            } else {
+                reject('reject fail')
+            }
+        })
+    })
+}
+
+async function testP () {
+    try {
+        const res = await p()
+        console.log('res', res)
+        return res
+    } catch (err) {
+        console.log('catch err', err)
+    }
+}
+
+// 测试结果：
+testP()
+```
+
+## 二分查找算法
+
+```javascript
+/**
+* @desc 二分查找算法
+* @param 查询的数组
+* @param 查找的目标值
+* @return 返回查找的索引
+ */
+function binarySearch(arr, target) {
+    let left = 0, right = arr.length - 1;
+    while(left <= right) {
+        let mid = Math.floor((left + right)/2)
+        if (target === arr[mid]) return mid
+        if (target < arr[mid]) {
+            right = mid
+        }else {
+            left = mid + 1
+        }
+    }
+}
+
+// 测试结果：
+binarySearch([1,3,5,5,6,8,10,12], 1)
+```
+
+## 判断回文数或者回文字符串
+
+```javascript
+/**
+ * @desc 判断回文数
+ * @param {str: string}
+ * @return boolean
+ */
+function isHuiWenStr(str = ''){
+    if (str.length < 1) {
+        return true
+    }
+    let left = 0, right = str.length - 1
+    while(left < right) {
+        if (str[left++] !== str[right--]) {
+            return false
+        }
+    }
+    return true
+}
+
+// 测试结果：
+isHuiWenStr('1234321')
+```
+
+## 深度优先遍历、广度优先遍历、层序遍历
+
+```javascript
+const root = {
+    value: 1,
+    left: {
+        value: 2,
+        left: {
+            value: 4
+        },
+        right: {
+            value: 5
+        },
+    },
+    right: {
+        value: 3,
+        left: {
+            value: 6
+        },
+        right: {
+            value: 7
+        },
+    },
+}
+
+// 深度优先遍历
+function dfs(root) {
+    const helper = (root) => {
+        if (!root) return null
+        console.log(root.value)
+        return helper(root.left) || helper(root.right)
+    }
+    return helper(root)
+}
+
+// 测试结果：
+dfs(root)
+
+console.log('\n')
+
+// 广度优先遍历
+function bfs(root) {
+    const queue = [root]
+    while (queue.length) {
+        const node = queue.shift()
+        console.log(node.value)
+        if (node.left) queue.push(node.left) 
+        if (node.right) queue.push(node.right) 
+    }
+}
+
+// 测试结果：
+bfs(root)
+
+console.log('\n')
+
+// 层序遍历，每层生成数组
+function cfs(root) {
+    const ans = []
+    const queue = [root]
+    while (queue.length) {
+        const cur = queue.length
+        const level = []
+        for (let i = 0; i < cur; i++) {
+            const node = queue.shift()
+            level.push(node.value)
+            if (node.left) queue.push(node.left)
+            if (node.right) queue.push(node.right)
+        }
+        ans.push(level)
+    }
+    return ans
+}
+
+// 测试结果：
+cfs(root)
+```
+
+## 反转字符串
+
+```js
+var reverseWords = function (str) {
+        if (!str) return;
+        let left = 0;
+        let right = str.length - 1;
+        let queue = [];
+        let word = "";
+        // 去除字符串两端的空格
+        while (str.charAt(left) === " ") left++;
+        while (str.charAt(right) === " ") right--;
+        // 逐个读取字符串中的每个单词，依次放入双端队列的队头
+        while (left <= right) {
+          let char = str.charAt(left);
+          if (char === " " && word) {
+            queue.unshift(word);
+            word = "";
+          } else if (char !== " ") {
+            word += char;
+          }
+          left++;
+        }
+        queue.unshift(word);
+        return queue.join(" ");
+      };
+
+      // 测试结果：
+      reverseWords("  hello world!  "); // "world! hello"
+      reverseWords("a good   example"); // "example good a"
+```
