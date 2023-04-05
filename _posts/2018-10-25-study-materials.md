@@ -125,6 +125,7 @@ tags: 前端学习资料
 
 ## 在线PS工具
 
+- [在线免费图片压缩-熊猫压缩](https://tinypng.com/)
 - [在线PS工具](http://www.uupoop.com/ps/)
 
 ## 设计工具
