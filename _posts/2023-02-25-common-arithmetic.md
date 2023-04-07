@@ -330,3 +330,305 @@ var reverseWords = function (str) {
       reverseWords("  hello world!  "); // "world! hello"
       reverseWords("a good   example"); // "example good a"
 ```
+
+## 求字符串中，出现次数最多的字符
+
+```js
+var str = "abcabcabcbbccccc";
+
+function findMaxChar(str) {
+  var num = 0;
+  var char = "";
+
+  // 使其按照一定的次序排列
+  str = str.split("").sort().join("");
+  // "aaabbbbbcccccccc"
+
+  // 定义正则表达式
+  var re = /(\w)\1+/g;
+  str.replace(re, ($0, $1) => {
+    if (num < $0.length) {
+      num = $0.length;
+      char = $1;
+    }
+  });
+  console.log(`字符最多的是${char}，出现了${num}次`); // 字符最多的是c，出现了8次
+  return {
+    char,
+    num,
+  };
+}
+```
+
+## 给定一个只包括 '(' ，')' ，'{' ，'}' ，'[' ，']' 的字符串，判断字符串是否有效。
+
+- 有效字符串需满足：
+- 左括号必须用相同类型的右括号闭合。
+- 左括号必须以正确的顺序闭合。
+- 注意空字符串可被认为是有效字符串。
+
+```js
+var isValidStr = function (str) {
+  var map = {
+    "{": "}",
+    "[": "]",
+    "(": ")",
+  };
+  var stack = [];
+  for (let i = 0; i < str.length; i++) {
+    if (map[str[i]]) {
+      stack.push(str[i]);
+    } else if (str[i] !== map[stack.pop()]) {
+      return false;
+    }
+  }
+  // 当遍历完成时，所有已匹配的字符都已匹配出栈，如果此时栈为空，则字符串有效，如果栈不为空，说明字符串中还有未匹配的字符，字符串无效
+  return stack.length === 0;
+};
+
+// 测试结果：
+isValidStr("{[()]}"); // true
+isValidStr("{}()"); // true
+isValidStr("{[)]}"); // false
+isValidStr("([]}"); // false
+```
+
+## 删除字符串中的所有相邻重复项
+
+- 给出由小写字母组成的字符串 S ，重复项删除操作 会选择两个相邻且相同的字母，并删除它们。
+- 在 S 上反复执行重复项删除操作，直到无法继续删除。
+- 在完成所有重复项删除操作后返回最终的字符串。答案保证唯一。
+
+### 示例
+
+> 输入："abbaca"
+> 输出："ca"
+> 解释：
+> 例如，在 "abbaca" 中，我们可以删除 "bb" 由于两字母相邻且相同，这是此时唯一可以执行删除操作的重复项。之后我们得到字符串 "aaca"，其中又只有 "aa" 可以执行重复项删除操作，所以最后的字符串为 "ca"。
+
+解法：利用栈
+解题思路： 遍历字符串，依次入栈，入栈时判断与栈头元素是否一致，如果一致，即这两个元素相同相邻，则需要将栈头元素出栈，并且当前元素也无需入栈
+
+解题步骤： 遍历字符串，取出栈头字符，判断当前字符与栈头字符是否一致
+
+不一致，栈头字符进栈，当前字符进栈
+一致，即栈头字符与当前字符相同相邻，都不需要进栈，直接进入下次遍历即可
+遍历完成后，返回栈中字符串
+
+```js
+function deleteRepeatChar(str) {
+  var stack = [];
+  for (let s of str) {
+    var prev = stack.pop();
+    if (s !== prev) {
+      stack.push(prev);
+      stack.push(s);
+    }
+  }
+  return stack.join("");
+}
+
+// 测试结果：
+var str = "abbaca";
+deleteRepeatChar(str); // ca
+str = "abccdddaacb";
+deleteRepeatChar(str); // abdcb
+```
+
+## 给定一个字符串，逐个翻转字符串中的每个单词。
+
+示例
+
+```
+输入: "the sky is blue"
+输出: "blue is sky the"
+
+输入: "  hello world!  "
+输出: "world! hello"
+解释: 输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+
+输入: "a good   example"
+输出: "example good a"
+解释: 如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+```
+
+说明：
+
+- 无空格字符构成一个单词。
+- 输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+- 如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+
+解题思路：使用双端队列解题
+
+- 首先去除字符串左右空格
+- 逐个读取字符串中的每个单词，依次放入双端队列的队头
+- 再将队列转换成字符串输出（已空格为分隔符）
+
+```javascript
+var reverseWords = function (str) {
+  if (!str) return;
+  let left = 0;
+  let right = str.length - 1;
+  let queue = [];
+  let word = "";
+  // 去除字符串两端的空格
+  while (str.charAt(left) === " ") left++;
+  while (str.charAt(right) === " ") right--;
+  // 逐个读取字符串中的每个单词，依次放入双端队列的队头
+  while (left <= right) {
+    let char = str.charAt(left);
+    if (char === " " && word) {
+      queue.unshift(word);
+      word = "";
+    } else if (char !== " ") {
+      word += char;
+    }
+    left++;
+  }
+  queue.unshift(word);
+  return queue.join(" ");
+};
+
+// 测试结果：
+reverseWords("the sky is blue"); // "blue is sky the"
+reverseWords("  hello world!  "); // "world! hello"
+reverseWords("a good   example"); // "example good a"
+```
+
+## 给定一个整数数组 nums 和一个目标值 target ，请你在该数组中找出和为目标值的那 两个 整数，并返回他们的数组下标。
+
+你可以假设每种输入只会对应一个答案。但是，你不能重复利用这个数组中同样的元素。
+
+示例:
+
+```
+给定 nums = [2, 7, 11, 15], target = 9
+
+因为 nums[0] + nums[1] = 2 + 7 = 9
+所以返回 [0, 1]
+```
+
+解题思路：
+
+- 初始化一个 map = new Map()
+- 从第一个元素开始遍历 nums
+- 获取目标值与 nums[i] 的差值，即 k = target - nums[i] ，判断差值在 map 中是否存在
+- 不存在（ map.has(k) 为 false ） ，则将 nums[i] 加入到 map 中（key 为 nums[i], value 为 i ，方便查找 map 中是否存在某值，并可以通过 get 方法直接拿到下标）
+- 存在（ map.has(k) ），返回 [map.get(k), i] ，求解结束
+- 遍历结束，则 nums 中没有符合条件的两个数，返回 []
+- 时间复杂度：O(n)
+
+```javascript
+var twoSum = function (arr, target) {
+  const map = new Map();
+  for (let i = 0; i < arr.length; i++) {
+    let k = target - arr[i];
+    if (map.has(k)) {
+      return [map.get(k), i];
+    }
+    map.set(arr[i], i);
+  }
+  return [];
+};
+
+// 测试结果：
+var arr = [2, 7, 11, 15];
+var target = 9;
+twoSum(arr, target); // [0, 1]
+```
+
+更多内容参考[字节&leetcode1：两数之和](https://github.com/sisterAn/JavaScript-Algorithms/issues/4)
+
+## 给你一个包含 n 个整数的数组 nums，判断 nums 中是否存在三个元素 a ，b ，c ，使得 a + b + c = 0 ？请你找出所有满足条件且不重复的三元组。
+
+注意： 答案中不可以包含重复的三元组。
+
+示例：
+
+```
+给定数组 nums = [-1, 0, 1, 2, -1, -4]，
+满足要求的三元组集合为：
+[
+  [-1, 0, 1],
+  [-1, -1, 2]
+]
+```
+
+```javascript
+//这道题经典的是细节，需要考虑蛮多细节的
+//解法：
+//1.暴力破解，三层枚举，O（n^3）效率太低不考虑
+//2.a+b+c = 0，转换思路，a+b = -c，这不就是两数之和嘛？
+//3.利用双指针夹逼，但是怎么避免重复呢？
+//3.1 排序即可，利用排序好的数组，固定一个指针i，夹逼选举left和right
+//3.2 这道题难度在于要考虑的细节太多，多想想即可。
+//3.3 扩展一下，如果是4数之和，五数之和，N数之和呢？怎么解决？
+const threeSum = (nums) => {
+  const len = nums.length;
+  const result = [];
+  // 因为是三数之和，小于三个不用考虑了
+  if (len < 3) {
+    return result;
+  }
+  nums.sort((a, b) => a - b);
+  // len - 2 同样道理，小于三个不用考虑
+  for (let i = 0; i < len - 2; i++) {
+    // 如果第一个就大于0了，三个加起来肯定大于0
+    if (nums[i] > 0) {
+      break;
+    }
+    // 避免掉重复的情况
+    if (i && nums[i] === nums[i - 1]) {
+      continue;
+    }
+    let left = i + 1;
+    let right = len - 1;
+    // 双指针夹逼
+    while (left < right) {
+      const sum = nums[i] + nums[left] + nums[right];
+      if (sum === 0) {
+        result.push([nums[i], nums[left++], nums[right--]]);
+        // push 加了之后防止还存在重复
+        while (nums[left] === nums[left - 1]) {
+          left++;
+        }
+        while (nums[right] === nums[right + 1]) {
+          right--;
+        }
+      } else if (sum > 0) {
+        right--;
+      } else {
+        left++;
+      }
+    }
+  }
+  return result;
+};
+```
+
+更多解答参考[腾讯&leetcode15：三数之和](https://github.com/sisterAn/JavaScript-Algorithms/issues/31)
+
+## 洗牌算法
+
+```js
+/**
+ * 洗牌算法：
+ * 1. 生成一个0到arr.length的随机数
+ * 2. 交换该随机数位置元素和数组的最后一个元素，并把改随机位置的元素放入结果数组中
+ * 3. 生成一个0～arr.length-1的随机数
+ * 4. 交换该随机数位置元素和数组的倒数第二个元素，并把该随位置的元素放入结果数组中
+ * 以此类推，直至取完所需的n个元素
+ */
+function xipai(arr, size) {
+  let result = [];
+  for (let i = 0; i < size; i++) {
+    let index = Math.floor(Math.random() * (arr.length - i));
+    result.push(arr[index]);
+    [arr[index], arr[arr.length - i - 1]] = [
+      arr[arr.length - i - 1],
+      arr[index],
+    ];
+  }
+  return result;
+}
+```
