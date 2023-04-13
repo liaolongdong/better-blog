@@ -24,7 +24,7 @@ tags: JavaScript vue H5打开地图导航app
 
 直接通过`script`标签的方式引入vue需要注意一下几个点：
 
-- 确保引入正确的vue版本，[具体参考直接用 <script> 引入](https://cn.vuejs.org/v2/guide/installation.html#%E7%9B%B4%E6%8E%A5%E7%94%A8-lt-script-gt-%E5%BC%95%E5%85%A5)
+- 确保引入正确的vue版本，[具体参考直接用 `<script>` 引入](https://cn.vuejs.org/v2/guide/installation.html#%E7%9B%B4%E6%8E%A5%E7%94%A8-lt-script-gt-%E5%BC%95%E5%85%A5)
 - 在使用vue组件的时候，html代码里面的组件引入名称必须使用 kebab-case 命名方式, [具体参考vue组件名](https://cn.vuejs.org/v2/guide/components-registration.html#%E7%BB%84%E4%BB%B6%E5%90%8D)
   > 当使用 PascalCase (首字母大写命名) 定义一个组件时，你在引用这个自定义元素时两种命名法都可以使用。也就是说 <my-component-name> 和 <MyComponentName> 都是可接受的。注意，尽管如此，直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。
 - 组件传参props的属性名称也必须使用 kebab-case 命名方式，[具体参考Prop 的大小写 (camelCase vs kebab-case)](https://cn.vuejs.org/v2/guide/components-props.html#Prop-%E7%9A%84%E5%A4%A7%E5%B0%8F%E5%86%99-camelCase-vs-kebab-case)
