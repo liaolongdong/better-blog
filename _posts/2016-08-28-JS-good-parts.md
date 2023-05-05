@@ -1015,8 +1015,15 @@ console.log(myMatrix1[3][3]); // 8
 - 转义符：\ 用来转义正在表达式中有特殊含义的字符，如+、-、?等，如，\\+，表示匹配 + 。
 - 脱字符： [^abc] 表示匹配除a、b、c之外的任意字符。
 - 连字符：[0-9] 表示匹配0~9的数字。[A-Z] 表示匹配A到Z的26个大写字母。
-- 预定义模式：  
-![预定义模式常见模式的简写方式](/assets/img/postCover/reg_common_shorthand.png "预定义模式常见模式的简写方式")
+- 预定义模式：预定义模式常见模式的简写方式  
+`\d` 匹配0-9之间的任一数字，相当于[0-9]。  
+`\D`匹配所有0-9以外的字符，相当于[^0-9]。  
+`\w`匹配任意的字母、数字和下划线，相当于[A-Za-z0-9_]。  
+`\W`除所有字母、数字和下划线以外的字符，相当于 [^A-Za-z0-9_]。  
+`\s`匹配空格(包括制表符、空格符、断行符等)，相等于[\t\r\n\v\f]。  
+`\S`匹配非空格的字符，相当于 [^\t\r\n\v\f]。  
+`\b`匹配词的边界。  
+`\B`匹配非词边界，即在词的内部.  
 - 重复类：{n,m} 表示重复不少于n次，不多于m次。
 - 量词符：  
 1、a? 表示匹配a出现0次或1次，等同于a{0,1}。  
@@ -1091,6 +1098,9 @@ var reg = new RegExp('^\\d+$', 'g');
 console.log(reg.test(123)); // true
 console.log(reg.test('123s')); // false
 ```
+
+更详细的正则表达式文档参考mdn：https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Regular_Expressions
+
 ## 方法  
 JavaScript有不少内置对象，比如，Array,Date,RegExp,Error,Math以及基本数据类型的封装对象，Number,Boolean,String等，这些内置对象都提供许多操作该类型的属性和方法，这些方法存放在内置对象中或者内置对象的原型对象中。  
 
