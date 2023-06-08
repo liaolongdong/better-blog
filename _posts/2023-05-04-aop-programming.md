@@ -1,18 +1,18 @@
 ---
 layout: post
-title: JS中的面向切片编程（AOP）详解
-subtitle: JS中的面向切片编程（AOP）详解
+title: JS中面向切面编程(AOP)应用
+subtitle: JS中面向切面编程(AOP)应用
 date: 2023-04-12
 categories: 技术
 # cover: /assets/img/postCover/gulp_cover.png
-tags: AOP 面向切片编码
+tags: AOP 面向切面编码
 ---
 
-# JS中的面向切片编程（AOP）
+# JS中面向切面编程(AOP)应用
 
-## 什么是面向切片编程
+## 什么是面向切面编程
 
-面向切片编程（Aspect-Oriented Programming，AOP）是一种编程范式，是在面向对象编程（OOP）的基础上的一种补充。AOP提供了一种灵活的、易于维护和跨多个对象和组件的切面（Aspect）的方式，可以在不修改原有代码的情况下实现代码的特定功能。
+面向切面编程（Aspect-Oriented Programming，AOP）是一种编程范式，是在面向对象编程（OOP）的基础上的一种补充。AOP提供了一种灵活的、易于维护和跨多个对象和组件的切面（Aspect）的方式，可以在不修改原有代码的情况下实现代码的特定功能。
 
 下面是一个简单的JS示例代码，实现了AOP的日志记录功能：
 
