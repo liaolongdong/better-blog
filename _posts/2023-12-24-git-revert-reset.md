@@ -98,6 +98,33 @@ git commit -m "Revert multiple commits"
 
 使用`-n`选项，可以在一个提交中撤销多个提交，最后通过一次提交来保存这些撤销。
 
+### 常用选项
+
+```bash
+git revert -h
+
+usage: git revert [<options>] <commit-ish>...
+   or: git revert <subcommand>
+
+    --quit                end revert or cherry-pick sequence
+    --continue            resume revert or cherry-pick sequence
+    --abort               cancel revert or cherry-pick sequence
+    --skip                skip current commit and continue
+    --cleanup <mode>      how to strip spaces and #comments from message
+    -n, --no-commit       don't automatically commit
+    -e, --edit            edit the commit message
+    -s, --signoff         add Signed-off-by:
+    -m, --mainline <parent-number>
+                          select mainline parent
+    --rerere-autoupdate   update the index with reused conflict resolution if possible
+    --strategy <strategy>
+                          merge strategy
+    -X, --strategy-option <option>
+                          option for merge strategy
+    -S, --gpg-sign[=<key-id>]
+                          GPG sign commit
+```
+
 ### 注意事项
 
 - 新的提交历史： `git revert`创建新的提交，而不会改变现有的提交历史，这对于已经共享的分支是一种安全的操作。
