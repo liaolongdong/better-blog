@@ -87,13 +87,16 @@ usage: git reset [--mixed | --soft | --hard | --merge | --keep] [-q] [<commit>]
 # 撤销指定提交
 git revert <commit-hash>
 
-# 撤销多个非连续的提交
+# 撤销多个非连续的提交 -n 代表不自动提交
 git revert -n <commit-hash-1> <commit-hash-2>
 git commit -m "Revert multiple commits"
 
 # 撤销多个连续的提交
-git revert -n <commit-hash-b>..<commit-hash-a>
+git revert -n <commit-hash-a>..<commit-hash-b>
 git commit -m "Revert multiple commits"
+
+# 使用`--abort`取消回撤
+git revert --abort
 ```
 
 使用`-n`选项，可以在一个提交中撤销多个提交，最后通过一次提交来保存这些撤销。
