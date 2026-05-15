@@ -6,7 +6,7 @@ url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
 # if you don't need baseurl, you should leave this value blank.
-baseurl: ''
+baseurl: '/better-blog'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
