@@ -64,14 +64,14 @@
 
         {% if site.reward.wechatpay %}
         <div class="wechat" style="display: inline-block">
-            <img class="wechat_qr" src="{{ site.reward.wechatpay }}" title="用微信请{{ site.author }}喝杯咖啡？" alt="用微信请{{ site.author }}喝杯咖啡？" />
+            <img class="wechat_qr" src="{{ site.reward.wechatpay | prepend: site.baseurl }}" title="用微信请{{ site.author }}喝杯咖啡？" alt="用微信请{{ site.author }}喝杯咖啡？" />
             <p>微信支付</p>
         </div>
         {% endif %}
 
         {% if site.reward.alipay %}
         <div class="alipay" style="display: inline-block">
-            <img class="alipay_qr" src="{{ site.reward.alipay }}" title="用支付宝请{{ site.author }}喝杯咖啡？" alt="用支付宝请{{ site.author }}喝杯咖啡？" />
+            <img class="alipay_qr" src="{{ site.reward.alipay | prepend: site.baseurl }}" title="用支付宝请{{ site.author }}喝杯咖啡？" alt="用支付宝请{{ site.author }}喝杯咖啡？" />
             <p>支付宝</p>
         </div>
         {% endif %}
