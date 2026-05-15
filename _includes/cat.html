@@ -5,7 +5,7 @@
  * @LastEditors: liaolongdong
  * @Description: 
  -->
-<link rel="stylesheet" href="/assets/css/cat.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/cat.min.css">
 
 <div class="mao_box">
     <div class="mao">
@@ -76,11 +76,11 @@
     </div>
 </div>
 
-<script src="/assets/js/cat.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/cat.min.js"></script>
 
 {% if.site.catDraggable %}
 <!-- 需要在移动端模式下才会生效 -->
-<script src="/assets/js/realtime-draggable.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/realtime-draggable.min.js"></script>
 <script>
     rtDraggable.init(document.querySelector('.mao_box'));
 </script>

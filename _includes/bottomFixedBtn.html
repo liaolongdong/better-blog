@@ -5,7 +5,7 @@
  * @LastEditors: liaolongdong
  * @Description: 
  -->
-<link rel="stylesheet" href="/assets/css/bottomFixedBtn.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/bottomFixedBtn.min.css">
 <div class="bottom-fixed-btn">
     <!-- 返回顶部 滑动百分比 -->
     <div class="back-to-top">
@@ -23,7 +23,7 @@
     <div class="add-me-wechat">
         <span class="iconfont icon-gongzhonghao1"></span>
         <span class="b-tool-tip rfll-delay300">
-            <img src="/assets/img/add_me_wechat.png" alt="add_me_wechat" />
+            <img src="{{ site.baseurl }}/assets/img/add_me_wechat.png" alt="add_me_wechat" />
             <span>扫码加我微信</span>
         </span>
     </div>
@@ -31,18 +31,18 @@
     <div class="follow-official-account">
         <span class="iconfont icon-gongzhonghao"></span>
         <span class="b-tool-tip rfll-delay300">
-            <img src="/assets/img/official_account_qrcode.png" alt="add_me_wechat" />
+            <img src="{{ site.baseurl }}/assets/img/official_account_qrcode.png" alt="add_me_wechat" />
             <span>扫码关注公众号</span>
         </span>
     </div>
 </div>
 
-<script src="/assets/js/util.min.js"></script>
-<script src="/assets/js/bottomFixedBtn.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/util.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/bottomFixedBtn.min.js"></script>
 
 {% if.site.btnDraggable %}
 <!-- 需要在移动端模式下才会生效 -->
-<script src="/assets/js/realtime-draggable.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/realtime-draggable.min.js"></script>
 <script>
     rtDraggable.init(document.querySelector('.bottom-fixed-btn'));
 </script>

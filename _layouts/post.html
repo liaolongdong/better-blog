@@ -116,7 +116,7 @@
     {% include cat.html %}
   {% endif %}
 
-  <script src="/assets/js/social-share.min.js"></script>
+  <script src="{{ site.baseurl }}/assets/js/social-share.min.js"></script>
   <script>
     socialShare('.social-share', {
       url: window.location.href, // 分享链接地址 默认使用 window.location.href
@@ -224,8 +224,8 @@
 
   {% include footer.html %}
 
-  <script src="/assets/js/prism.min.js"></script>
-  <script src="/assets/js/index.min.js"></script>
+  <script src="{{ site.baseurl }}/assets/js/prism.min.js"></script>
+  <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
 
   {% if site.changyan.enable %}
   <script type="text/javascript">

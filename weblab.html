@@ -5,7 +5,7 @@ title: WebLab
 
 {% include header.html %}
 
-<link rel="stylesheet" href="/assets/css/webLab.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/webLab.min.css">
 
 <div class="g-banner tags-banner {{ site.labPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
     <h2 class="am-shake">前端在线编辑器</h2>
@@ -34,6 +34,6 @@ title: WebLab
 
 <script src="/ace/ace.js"></script>
 <script src="/ace/ext-language_tools.js"></script>
-<script src="/assets/js/webLab.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/webLab.min.js"></script>
     
 {% include footer.html %}
