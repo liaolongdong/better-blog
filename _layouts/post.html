@@ -44,7 +44,7 @@
     {% endif %}
 
     <article class="markdown-body">
-      {{ page.content }}
+      {{ page.content | add_baseurl_to_images }}
     </article>
 
     {% if site.reward.enable %}
