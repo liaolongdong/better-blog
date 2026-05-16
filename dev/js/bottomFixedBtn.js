@@ -1,4 +1,6 @@
 $(document).ready(function () {
+    var BASE_URL = window.SITE_BASEURL || '';
+    var pageRelPath = window.location.pathname.replace(BASE_URL, '') || '/';
     // 判断是否为移动端
     if (utils.isMobile()) {
         // $('.back-to-top').hide();
@@ -26,7 +28,7 @@ $(document).ready(function () {
     // about页面白昼切换 默认day night夜间模式
     function aboutMode (mode) {
         // 判断是否为about页面
-        if (window.location.pathname !== '/about.html') {
+        if (pageRelPath !== '/about.html') {
             return;
         }
         if (mode === 'night') {
@@ -37,7 +39,7 @@ $(document).ready(function () {
         } else {
             // 切换about页面白天模式
             $('.night-container').hide();
-            $('body').css('background-image', 'url(/assets/img/about_bg.png)');
+            $('body').css('background-image', 'url(' + BASE_URL + '/assets/img/about_bg.png)');
             $('body').css('background-repeat', 'no-repeat');
             $('body').css('background-size', 'cover');
             $('body').css('background-attachment', 'fixed');

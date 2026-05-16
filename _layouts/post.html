@@ -18,19 +18,23 @@
       <div class="post-tags">
         {% if page.tags.size > 0 %}
           {% for tag in page.tags  %}
-            <a href={{ "/tags.html#" | append: tag }} class="post-tag">{{ tag }}</a>
+            <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}" class="post-tag">{{ tag }}</a>
           {% endfor %}
         {% endif %}
       </div>
       <h1>{{ page.title }}</h1>
       <div class="post-meta">
-        <span class="post-meta-item"><i class="iconfont icon-author"></i><a href="{{ site.url }}" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></></span>
+        <span class="post-meta-item"><i class="iconfont icon-author"></i><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></></span>
         <time class="post-meta-item" datetime="{{ page.date | date:"%y-%m-%d" }}"><i class="iconfont icon-date"></i>{{ page.date | date_to_string }}</time>
       </div>
     </div>
+    {% assign coverSrc = page.cover %}
+    {% if coverSrc and coverSrc != '' %}
+      {% unless coverSrc contains '://' %}{% assign coverSrc = page.cover | prepend: site.baseurl %}{% endunless %}
+    {% endif %}
     {% if page.cover %}
     <div class="filter"></div>
-      <div class="post-cover" style="background: url('{{ page.cover }}') center no-repeat; background-size: cover;"></div>
+      <div class="post-cover" style="background: url('{{ coverSrc }}') center no-repeat; background-size: cover;"></div>
     {% endif %}
   </header>
 
@@ -77,29 +81,37 @@
     </section>
     <section class="post-footer-item read-next">
       {% if page.next.url %}
+      {% assign nextCover = page.next.cover %}
+      {% if nextCover and nextCover != '' %}
+        {% unless nextCover contains '://' %}{% assign nextCover = page.next.cover | prepend: site.baseurl %}{% endunless %}
+      {% endif %}
       <div class="read-next-item">
-        <a href="{{ page.next.url }}" class="read-next-link"></a>
+        <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link"></a>
         <section>
           <span>{{ page.next.title }}</span>
           <p>{{ page.next.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
         </section>
         {% if page.next.cover %}
         <div class="filter"></div>
-        <img src="{{ page.next.cover }}" alt="">
+        <img src="{{ nextCover }}" alt="">
         {% endif %}
      </div>
       {% endif %}
 
       {% if page.previous.url %}
+      {% assign prevCover = page.previous.cover %}
+      {% if prevCover and prevCover != '' %}
+        {% unless prevCover contains '://' %}{% assign prevCover = page.previous.cover | prepend: site.baseurl %}{% endunless %}
+      {% endif %}
       <div class="read-next-item">
-        <a href="{{ page.previous.url }}" class="read-next-link"></a>
+        <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link"></a>
           <section>
             <span>{{ page.previous.title }}</span>
             <p>{{ page.previous.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
           </section>
           {% if page.previous.cover %}
           <div class="filter"></div>
-          <img src="{{ page.previous.cover }}" alt="">
+          <img src="{{ prevCover }}" alt="">
           {% endif %}
       </div>
       {% endif %}
@@ -122,7 +134,7 @@
       url: window.location.href, // 分享链接地址 默认使用 window.location.href
       title: '{{ page.title }}', // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
       description: '{{ page.subtitle }}', // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
-      image: window.location.origin + '{{ page.cover }}', // 分享缩略图图片, 默认取网页中第一个img标签
+      image: window.location.origin + '{{ coverSrc }}', // 分享缩略图图片, 默认取网页中第一个img标签
       sites: [
         {% for i in site.social-share-items %}
           '{{ i }}'

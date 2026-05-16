@@ -662,7 +662,7 @@
             &:hover {
                 color: blue;
                 text-decoration: none;
-                background: url('/assets/icons/link_hover_line.svg') repeat-x 0 100%;
+                background: url('../icons/link_hover_line.svg') repeat-x 0 100%;
                 background-size: 20px auto;
                 animation: waveMove 1s infinite linear;
             }
@@ -1089,7 +1089,7 @@
 
                 &:hover {
                     color: #cbd5de;
-                    background: url('/assets/icons/link_hover_line_night.svg') repeat-x 0 100%;
+                    background: url('../icons/link_hover_line_night.svg') repeat-x 0 100%;
                     background-size: 20px auto;
                 }
             }

@@ -1,4 +1,6 @@
 $(document).ready(function(){
+    var BASE_URL = window.SITE_BASEURL || '';
+    var pageRelPath = window.location.pathname.replace(BASE_URL, '') || '/';
     var nav = $('.g-nav');
 
     /**
@@ -41,7 +43,7 @@ $(document).ready(function(){
                     'box-shadow': '0 1px 12px rgba(0, 0, 0, .08)'
                 });
                 logo.css({
-                    'background': 'url(/assets/icons/logo_' + themeStyle + '.svg) no-repeat center',
+                    'background': 'url(' + BASE_URL + '/assets/icons/logo_' + themeStyle + '.svg) no-repeat center',
                     'background-size': '100% 100%'
                 });
                 navText.css('color', '#666');
@@ -53,7 +55,7 @@ $(document).ready(function(){
                     'box-shadow': 'none'
                 });
                 logo.css({
-                    'background': 'url(/assets/icons/logo.svg) no-repeat center',
+                    'background': 'url(' + BASE_URL + '/assets/icons/logo.svg) no-repeat center',
                     'background-size': '100% 100%'
                 });
                 navText.css('color', '#fff');
@@ -174,7 +176,7 @@ $(document).ready(function(){
             $('.icon-search').css('color', '#CAD3DC');
         }
 
-        $.getJSON('../../search.json').done(function(data) {
+        $.getJSON(BASE_URL + '/search.json').done(function(data) {
             var html = '';
             for (var i in data) {
                 var item = data[i];
@@ -184,7 +186,7 @@ $(document).ready(function(){
 
                 var k = title + tags;
                 if (keywords !== '' && k.toLowerCase().indexOf(keywords) >= 0) {
-                    html += '<a class="search_item" href="' + item.url + '">' + item.title + '</a>';
+                    html += '<a class="search_item" href="' + BASE_URL + item.url + '">' + item.title + '</a>';
                 }
             }
             $('.search_result').html(html);
@@ -251,13 +253,13 @@ $(document).ready(function(){
     /**
      * demo page get demo data
      */
-    if (/demo.html$/.test(window.location.href)) {
-        $.getJSON('./../../demo.json').done(function(data) {
+    if (/demo\.html$/.test(pageRelPath)) {
+        $.getJSON(BASE_URL + '/demo.json').done(function(data) {
             var html = '';
             var demoLists = data.demoLists;
             for (var i = 0; i < demoLists.length; i++) {
                 html += '<li><a class="tag-post demo-link" target="_blank" href="'
-                + demoLists[i].demoUrl + '" title="'
+                + BASE_URL + '/' + demoLists[i].demoUrl + '" title="'
                 + demoLists[i].title + '">' 
                 + demoLists[i].title + '</a></li>';
             }
@@ -288,7 +290,7 @@ $(document).ready(function(){
         });
     }
     // 只在首页调用百度统计接口
-    if (window.location.pathname === '/') {
+    if (pageRelPath === '/') {
         // getBaiduStaticsData();
     }
 });
