@@ -39,13 +39,6 @@ jobs:
         with:
           ruby-version: '3.0'
           bundler-cache: true
-          cache-version: 1
-      
-      - name: Install dependencies
-        run: |
-          gem install bundler
-          bundle config set force_ruby_platform true
-          bundle install --jobs 4 --retry 3
       
       - name: Build with Jekyll (supports custom plugins)
         run: bundle exec jekyll build --destination ./_site
