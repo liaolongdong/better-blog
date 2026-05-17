@@ -16,3 +16,6 @@ class utils {
         return window.screen.width < 768;
     }
 }
+
+// 暴露到全局
+window.utils = utils;

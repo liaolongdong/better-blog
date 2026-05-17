@@ -127,7 +127,7 @@ $(document).ready(function(){
             if (i > 0 && i !== 1) {
                 link_html += '<a href="' + baseUrl + '/page' + i + '" class="page-link page-num">' + i + '</a>';
             } else if (i === 1) {
-                link_html += '<a href="' + baseUrl + '" class="page-link page-num">' + i + '</a>';
+                link_html += '<a href="' + baseUrl + '/" class="page-link page-num">' + i + '</a>';
             }
         }
 

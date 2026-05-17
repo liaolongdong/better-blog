@@ -1,0 +1,403 @@
+I"��<h1 id="前端那些你不知道的小技巧js篇">前端那些你不知道的小技巧(JS篇)</h1>
+
+<h2 id="用一行代码实现五星评价功能">用一行代码实现五星评价功能</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 评价5星</span>
+<span class="kd">var</span> <span class="nx">rate</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">result</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">★★★★★☆☆☆☆☆</span><span class="dl">'</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mi">5</span> <span class="o">-</span> <span class="nx">rate</span><span class="p">,</span> <span class="mi">10</span> <span class="o">-</span> <span class="nx">rate</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">result</span><span class="p">);</span> <span class="c1">// ★★★★★</span>
+</code></pre></div></div>
+
+<h2 id="统计字符串中相同字符出现的次数">统计字符串中相同字符出现的次数</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">str</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">aaabbbccc66aabbc6</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">strInfo</span> <span class="o">=</span> <span class="nx">str</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="dl">''</span><span class="p">).</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">p</span><span class="p">,</span> <span class="nx">c</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="nx">p</span><span class="p">[</span><span class="nx">c</span><span class="p">]</span><span class="o">++</span> <span class="o">||</span> <span class="p">(</span><span class="nx">p</span><span class="p">[</span><span class="nx">c</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">),</span> <span class="nx">p</span><span class="p">),</span> <span class="p">{});</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">arrInfo</span><span class="p">);</span> <span class="c1">// {6: 3, a: 5, b: 5, c: 4}</span>
+</code></pre></div></div>
+
+<h2 id="查找字符串中出现最多的字符和个数">查找字符串中出现最多的字符和个数</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">str</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">abcabcabcbbccccc</span><span class="dl">"</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">num</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">char</span> <span class="o">=</span> <span class="dl">''</span><span class="p">;</span>
+
+<span class="c1">// 使其按照一定的次序排列</span>
+<span class="nx">str</span> <span class="o">=</span> <span class="nx">str</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="dl">''</span><span class="p">).</span><span class="nx">sort</span><span class="p">().</span><span class="nx">join</span><span class="p">(</span><span class="dl">''</span><span class="p">);</span>
+<span class="c1">// "aaabbbbbcccccccc"</span>
+
+<span class="c1">// 定义正则表达式</span>
+<span class="kd">var</span> <span class="nx">re</span> <span class="o">=</span> <span class="sr">/</span><span class="se">(\w)\1</span><span class="sr">+/g</span><span class="p">;</span>
+<span class="nx">str</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="nx">re</span><span class="p">,</span> <span class="p">(</span><span class="nx">$0</span><span class="p">,</span> <span class="nx">$1</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">$0</span><span class="dl">'</span><span class="p">,</span> <span class="nx">$0</span><span class="p">);</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">$1</span><span class="dl">'</span><span class="p">,</span> <span class="nx">$1</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">num</span> <span class="o">&lt;</span> <span class="nx">$0</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">num</span> <span class="o">=</span> <span class="nx">$0</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span>
+        <span class="nx">char</span> <span class="o">=</span> <span class="nx">$1</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">`字符最多的是</span><span class="p">${</span><span class="nx">char</span><span class="p">}</span><span class="s2">，出现了</span><span class="p">${</span><span class="nx">num</span><span class="p">}</span><span class="s2">次`</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="一行代码准确判断出数据类型">一行代码准确判断出数据类型</h2>
+
+<p>几种常用的类型判断方法：</p>
+
+<ol>
+  <li>typeof，使用这种方法只能判断<code class="language-plaintext highlighter-rouge">undefined</code>、<code class="language-plaintext highlighter-rouge">number</code>、<code class="language-plaintext highlighter-rouge">string</code>、<code class="language-plaintext highlighter-rouge">boolean</code>、<code class="language-plaintext highlighter-rouge">symbol</code>、<code class="language-plaintext highlighter-rouge">function</code>类型</li>
+  <li>instanceof，该方法也只局限于判断引用类型</li>
+  <li>constructor，同instanceof</li>
+  <li>Object.prototype.toString.call(obj)，这个方法应该是类型判断神器</li>
+</ol>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">number</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>            <span class="c1">// [object Number]</span>
+<span class="kd">var</span> <span class="nx">string</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">123</span><span class="dl">'</span><span class="p">;</span>        <span class="c1">// [object String]</span>
+<span class="kd">var</span> <span class="nx">boolean</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>        <span class="c1">// [object Boolean]</span>
+<span class="kd">var</span> <span class="nx">und</span> <span class="o">=</span> <span class="kc">undefined</span><span class="p">;</span>       <span class="c1">// [object Undefined]</span>
+<span class="kd">var</span> <span class="nx">nul</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>            <span class="c1">// [object Null]</span>
+<span class="kd">var</span> <span class="nx">symbol</span> <span class="o">=</span> <span class="nb">Symbol</span><span class="p">(</span><span class="dl">'</span><span class="s1">a</span><span class="dl">'</span><span class="p">);</span>  <span class="c1">// [object Symbol]</span>
+<span class="kd">var</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span><span class="na">a</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>           <span class="c1">// [object Object]</span>
+<span class="kd">var</span> <span class="nx">array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">];</span>     <span class="c1">// [object Array]</span>
+<span class="kd">var</span> <span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">();</span>     <span class="c1">// [object Date]</span>
+<span class="kd">var</span> <span class="nx">error</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">();</span>   <span class="c1">// [object Error]</span>
+<span class="kd">var</span> <span class="nx">reg</span> <span class="o">=</span> <span class="sr">/a/g</span><span class="p">;</span>            <span class="c1">// [object RegExp]</span>
+<span class="kd">var</span> <span class="nx">func</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">a</span><span class="p">(){};</span> <span class="c1">// [object Function]</span>
+
+<span class="kd">function</span> <span class="nx">checkType</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">arguments</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">toString</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">arguments</span><span class="p">[</span><span class="nx">i</span><span class="p">]))</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">// 测试</span>
+<span class="nx">checkType</span><span class="p">(</span><span class="nx">number</span><span class="p">,</span> <span class="nx">string</span><span class="p">,</span> <span class="nx">boolean</span><span class="p">,</span> <span class="nx">und</span><span class="p">,</span> <span class="nx">nul</span><span class="p">,</span> <span class="nx">symbol</span><span class="p">,</span> <span class="nx">obj</span><span class="p">,</span> <span class="nx">array</span><span class="p">,</span> <span class="nx">date</span><span class="p">,</span> <span class="nx">error</span><span class="p">,</span> <span class="nx">reg</span><span class="p">,</span> <span class="nx">func</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/28">点击了解更多</a></p>
+
+<h2 id="数组去重">数组去重</h2>
+
+<p>方法一：使用Set</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">arr</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2</span><span class="dl">'</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">];</span>
+
+<span class="kd">var</span> <span class="nx">resultArr</span> <span class="o">=</span> <span class="p">[...</span><span class="k">new</span> <span class="nb">Set</span><span class="p">(</span><span class="nx">arr</span><span class="p">)];</span> <span class="c1">// Array.from(new Set(arr));</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">resultArr</span><span class="p">);</span> <span class="c1">// [1, 2, 3, 6, "2"]</span>
+</code></pre></div></div>
+
+<p>方法二：结合使用数组filter方法和indexOf()方法</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">arr</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2</span><span class="dl">'</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">];</span>
+
+<span class="kd">function</span> <span class="nx">uniqueArr</span> <span class="p">(</span><span class="nx">arr</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">arr</span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">ele</span><span class="p">,</span> <span class="nx">index</span><span class="p">,</span> <span class="nx">array</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// 利用数组indexOf()方法，返回找到的第一个值的索引</span>
+        <span class="c1">// 如果数组元素的索引值与indexOf方法查找返回的值不相等，则说明该值重复了，直接过滤掉</span>
+        <span class="k">return</span> <span class="nx">array</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="nx">ele</span><span class="p">)</span> <span class="o">===</span> <span class="nx">index</span><span class="p">;</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">uniqueArr</span><span class="p">(</span><span class="nx">arr</span><span class="p">));</span> <span class="c1">// [1, 2, 3, 6, "2"]</span>
+</code></pre></div></div>
+
+<h2 id="将类数组对象转成数组">将类数组对象转成数组</h2>
+
+<p>方法一：利用每个函数都包含<code class="language-plaintext highlighter-rouge">call()</code>和<code class="language-plaintext highlighter-rouge">apply()</code>方法，配合使用数组的<code class="language-plaintext highlighter-rouge">slice()</code>方法</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">likeArrObj</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">0</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="na">length</span><span class="p">:</span> <span class="mi">3</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nx">arr1</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">slice</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">likeArrObj</span><span class="p">);</span> <span class="c1">// 或者使用[].slice.call(likeArrObj);</span>
+<span class="kd">var</span> <span class="nx">arr2</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">slice</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">likeArrObj</span><span class="p">);</span> <span class="c1">// 或者使用[].slice.apply(likeArrObj);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">arr1</span><span class="p">);</span> <span class="c1">// [1, 2, 3]</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">arr2</span><span class="p">);</span> <span class="c1">// [1, 2, 3]</span>
+</code></pre></div></div>
+
+<p>方法二：使用ES6的<code class="language-plaintext highlighter-rouge">Array.from()</code>或者扩展运算符<code class="language-plaintext highlighter-rouge">...</code></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">likeArrObj</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">0</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="na">length</span><span class="p">:</span> <span class="mi">3</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nx">arr</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="nx">likeArrObj</span><span class="p">);</span>
+<span class="c1">// var arr1 = [...likeArrObj]; // likeArrObj is not iterable</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">arr</span><span class="p">);</span> <span class="c1">// [1, 2, 3]</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p>注意：ES6 中的扩展运算符…也能将某些数据结构转换成数组，但是这种数据结构必须是可迭代的对象</p>
+</blockquote>
+
+<h2 id="用一行代码将多维数组转成一维数组">用一行代码将多维数组转成一维数组</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">arr</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="p">[</span><span class="mi">14</span><span class="p">]</span> <span class="p">]</span> <span class="p">]</span> <span class="p">],</span> <span class="mi">10</span><span class="p">];</span>
+
+<span class="kd">var</span> <span class="nx">resultArr</span> <span class="o">=</span> <span class="nx">arr</span><span class="p">.</span><span class="nx">toString</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="dl">'</span><span class="s1">,</span><span class="dl">'</span><span class="p">).</span><span class="nx">map</span><span class="p">(</span><span class="nb">Number</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">resultArr</span><span class="p">);</span> <span class="c1">// [1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 9, 11, 12, 12, 13, 14, 10]</span>
+</code></pre></div></div>
+
+<h2 id="将数组扁平化并去除其中重复数据最终得到一个升序且不重复的数组">将数组扁平化并去除其中重复数据，最终得到一个升序且不重复的数组</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">arr</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="p">[</span><span class="mi">14</span><span class="p">]</span> <span class="p">]</span> <span class="p">]</span> <span class="p">],</span> <span class="mi">10</span><span class="p">];</span>
+
+<span class="kd">var</span> <span class="nx">resultArr</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="k">new</span> <span class="nb">Set</span><span class="p">(</span><span class="nx">arr</span><span class="p">.</span><span class="nx">toString</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="dl">'</span><span class="s1">,</span><span class="dl">'</span><span class="p">).</span><span class="nx">map</span><span class="p">(</span><span class="nb">Number</span><span class="p">))).</span><span class="nx">sort</span><span class="p">((</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="nx">a</span> <span class="o">-</span> <span class="nx">b</span><span class="p">));</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">resultArr</span><span class="p">);</span> <span class="c1">// [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]</span>
+</code></pre></div></div>
+
+<h2 id="数组混淆">数组混淆</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 随机更改数组元素顺序，混淆数组</span>
+<span class="p">(</span><span class="nx">arr</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nx">arr</span><span class="p">.</span><span class="nx">slice</span><span class="p">().</span><span class="nx">sort</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">()</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="数字金额千分位格式化">数字金额千分位格式化</h2>
+
+<p>方法一：使用<code class="language-plaintext highlighter-rouge">Number.prototype.toLocaleString()</code></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">num</span> <span class="o">=</span> <span class="mi">123455678</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">num1</span> <span class="o">=</span> <span class="mf">123455678.12345</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">formatNum</span> <span class="o">=</span> <span class="nx">num</span><span class="p">.</span><span class="nx">toLocaleString</span><span class="p">(</span><span class="dl">'</span><span class="s1">en-US</span><span class="dl">'</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">formatNum1</span> <span class="o">=</span> <span class="nx">num1</span><span class="p">.</span><span class="nx">toLocaleString</span><span class="p">(</span><span class="dl">'</span><span class="s1">en-US</span><span class="dl">'</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatNum</span><span class="p">);</span> <span class="c1">// 123,455,678</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatNum1</span><span class="p">);</span> <span class="c1">// 123,455,678.123</span>
+</code></pre></div></div>
+
+<p>方法二：使用正则表达式</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">num</span> <span class="o">=</span> <span class="mi">123455678</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">num1</span> <span class="o">=</span> <span class="mf">123455678.12345</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">formatNum</span> <span class="o">=</span> <span class="nb">String</span><span class="p">(</span><span class="nx">num</span><span class="p">).</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\B(?=(\d{3})</span><span class="sr">+</span><span class="se">(?!\d))</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1">,</span><span class="dl">'</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">formatNum1</span> <span class="o">=</span> <span class="nb">String</span><span class="p">(</span><span class="nx">num1</span><span class="p">).</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\B(?=(\d{3})</span><span class="sr">+</span><span class="se">(?!\d))</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1">,</span><span class="dl">'</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatNum</span><span class="p">);</span> <span class="c1">// 123,455,678</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatNum1</span><span class="p">);</span> <span class="c1">// 123,455,678.12,345</span>
+</code></pre></div></div>
+
+<h2 id="使用正则表达式格式化手机号码">使用正则表达式格式化手机号码</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">phone</span> <span class="o">=</span> <span class="mi">13556891025</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">formatPhone</span> <span class="o">=</span> <span class="nb">String</span><span class="p">(</span><span class="nx">phone</span><span class="p">).</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\B(?=(\d{4})</span><span class="sr">+</span><span class="se">(?!\d))</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1"> </span><span class="dl">'</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatPhone</span><span class="p">);</span> <span class="c1">// 135 5689 1025</span>
+</code></pre></div></div>
+
+<h2 id="使用正则表达式格式化订单号和银行卡号">使用正则表达式格式化订单号和银行卡号</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">bankNo</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">8888888888888888</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">orderNo</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">6666666666666666666</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">orderNo1</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">6666666666666666666</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">formatBankNo</span> <span class="o">=</span> <span class="nx">bankNo</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\B(?&lt;</span><span class="sr">=</span><span class="se">(?&lt;</span><span class="sr">!</span><span class="se">\d)(\d{4})</span><span class="sr">+</span><span class="se">)</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1"> </span><span class="dl">'</span><span class="p">);</span>
+<span class="c1">// var formatOrderNo = orderNo.replace(/\B(?&lt;=(?&lt;!\d)(\d{4})+)/g, ' ');</span>
+<span class="kd">var</span> <span class="nx">formatOrderNo</span> <span class="o">=</span> <span class="nx">orderNo</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/....</span><span class="se">(?!</span><span class="sr">$</span><span class="se">)</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$&amp; </span><span class="dl">'</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">formatOrderNo1</span> <span class="o">=</span> <span class="nx">orderNo1</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">(\d{4}(?=\d))</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$1 </span><span class="dl">'</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatBankNo</span><span class="p">);</span> <span class="c1">// 8888 8888 8888 8888</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatOrderNo</span><span class="p">);</span> <span class="c1">// 6666 6666 6666 6666 666</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">formatOrderNo1</span><span class="p">);</span> <span class="c1">// 6666 6666 6666 6666 666</span>
+
+<span class="c1">// 结合使用先行断言和后发断言</span>
+<span class="kd">var</span> <span class="nx">res</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">6230 6666 6666 8851</span><span class="dl">"</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">(?&lt;</span><span class="sr">=</span><span class="se">\s</span><span class="sr">+</span><span class="se">)(\d{4})(?=\s</span><span class="sr">+</span><span class="se">)</span><span class="sr">/g</span><span class="p">,</span> <span class="dl">'</span><span class="s1">****</span><span class="dl">'</span><span class="p">);</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span> <span class="c1">// 6230 **** **** 8851</span>
+</code></pre></div></div>
+
+<h2 id="用一行代码实现一个简易的模板字符串功能">用一行代码实现一个简易的模板字符串功能</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">String</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">render</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">context</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\{\{(</span><span class="sr">.*</span><span class="se">?)\}\}</span><span class="sr">/g</span><span class="p">,</span> <span class="p">(</span><span class="nx">match</span><span class="p">,</span> <span class="nx">key</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nx">context</span><span class="p">[</span><span class="nx">key</span><span class="p">.</span><span class="nx">trim</span><span class="p">()]);</span>
+<span class="p">};</span>
+
+<span class="c1">// 用户信息对象</span>
+<span class="kd">var</span> <span class="nx">userInfo</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Better</span><span class="dl">'</span><span class="p">,</span>
+    <span class="na">position</span><span class="p">:</span> <span class="dl">'</span><span class="s1">front-end engineer</span><span class="dl">'</span>
+<span class="p">}</span>
+
+<span class="c1">// 字符串中双大括号加`\`是为了防止模板语法冲突，在实际代码中要去掉`\`</span>
+<span class="dl">'</span><span class="s1">我叫</span><span class="se">\</span><span class="s1">{</span><span class="se">\</span><span class="s1">{name</span><span class="se">\</span><span class="s1">}</span><span class="se">\</span><span class="s1">}，是位</span><span class="se">\</span><span class="s1">{</span><span class="se">\</span><span class="s1">{position</span><span class="se">\</span><span class="s1">}</span><span class="se">\</span><span class="s1">}</span><span class="dl">'</span><span class="p">.</span><span class="nx">render</span><span class="p">(</span><span class="nx">userInfo</span><span class="p">);</span> <span class="c1">// 我叫Better，是位front-end engineer</span>
+</code></pre></div></div>
+
+<h2 id="小数取整">小数取整</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">num</span> <span class="o">=</span> <span class="mf">123.123</span>
+
+<span class="c1">// 常用方法</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nb">parseInt</span><span class="p">(</span><span class="nx">num</span><span class="p">));</span> <span class="c1">// 123</span>
+<span class="c1">// “双按位非”操作符</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="o">~~</span> <span class="nx">num</span><span class="p">);</span> <span class="c1">// 123</span>
+<span class="c1">// 按位或</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">num</span> <span class="o">|</span> <span class="mi">0</span><span class="p">);</span> <span class="c1">// 123</span>
+<span class="c1">// 按位异或</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">num</span> <span class="o">^</span> <span class="mi">0</span><span class="p">);</span> <span class="c1">// 123</span>
+<span class="c1">// 左移操作符</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">num</span> <span class="o">&lt;&lt;</span> <span class="mi">0</span><span class="p">);</span> <span class="c1">// 123</span>
+</code></pre></div></div>
+
+<h2 id="交换两个值">交换两个值</h2>
+
+<p>方法一：利用一个数异或本身等于0和异或运算符合交换率</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">a</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">b</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="nx">a</span> <span class="o">^=</span> <span class="nx">b</span><span class="p">;</span> <span class="c1">// a = a ^ b</span>
+<span class="nx">b</span> <span class="o">^=</span> <span class="nx">a</span><span class="p">;</span>
+<span class="nx">a</span> <span class="o">^=</span> <span class="nx">b</span><span class="p">;</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>方法二：使用ES6解构赋值</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">let</span> <span class="nx">a</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="kd">let</span> <span class="nx">b</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+
+<span class="p">[</span><span class="nx">b</span><span class="p">,</span> <span class="nx">a</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">];</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">);</span> <span class="c1">// 2 1</span>
+
+<span class="c1">// 使用babel转换代码</span>
+<span class="c1">// var a = 1;</span>
+<span class="c1">// var b = 2;</span>
+<span class="c1">// var _ref = [a, b];</span>
+<span class="c1">// b = _ref[0];</span>
+<span class="c1">// a = _ref[1];</span>
+<span class="c1">// console.log(a, b);</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p>注意：ES6解构赋值低版本浏览器运行会报错，需<a href="https://babeljs.io/repl">使用babel进行转换</a></p>
+</blockquote>
+
+<h2 id="用一行代码实现深拷贝">用一行代码实现深拷贝</h2>
+
+<p>常用的简单实现方式：类型判断+递归</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nx">deepClone</span><span class="p">(</span><span class="nx">obj</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">newObj</span> <span class="o">=</span> <span class="nx">obj</span> <span class="k">instanceof</span> <span class="nb">Array</span> <span class="p">?</span> <span class="p">[]</span> <span class="p">:</span> <span class="p">{};</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="k">in</span> <span class="nx">obj</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">newObj</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">=</span> <span class="k">typeof</span> <span class="nx">obj</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">===</span> <span class="dl">'</span><span class="s1">object</span><span class="dl">'</span> <span class="p">?</span> <span class="nx">deepClone</span><span class="p">(</span><span class="nx">obj</span><span class="p">[</span><span class="nx">i</span><span class="p">])</span> <span class="p">:</span> <span class="nx">obj</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nx">newObj</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// test</span>
+<span class="kd">var</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">number</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="na">string</span><span class="p">:</span> <span class="dl">'</span><span class="s1">abc</span><span class="dl">'</span><span class="p">,</span>
+    <span class="na">bool</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="na">undefined</span><span class="p">:</span> <span class="kc">undefined</span><span class="p">,</span>
+    <span class="na">null</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+    <span class="na">symbol</span><span class="p">:</span> <span class="nb">Symbol</span><span class="p">(</span><span class="dl">'</span><span class="s1">s</span><span class="dl">'</span><span class="p">),</span>
+    <span class="na">arr</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="na">date</span><span class="p">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(),</span>
+    <span class="na">userInfo</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Better</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">position</span><span class="p">:</span> <span class="dl">'</span><span class="s1">front-end engineer</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">skill</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">React</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Vue</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Angular</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Nodejs</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">mini programs</span><span class="dl">'</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="na">func</span><span class="p">:</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">hello better</span><span class="dl">'</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">deepClone</span><span class="p">(</span><span class="nx">obj</span><span class="p">));</span>
+</code></pre></div></div>
+
+<p>从打印的结果来看，这种实现方式还存在很多问题：这种方式只能实现特定的object的深度复制（比如对象、数组和函数），不能实现null以及包装对象Number，String ，Boolean，以及Date对象，RegExp对象的复制。</p>
+
+<p>一行代码实现方式：结合使用<code class="language-plaintext highlighter-rouge">JSON.stringify()</code>和<code class="language-plaintext highlighter-rouge">JSON.parse()</code></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">number</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="na">string</span><span class="p">:</span> <span class="dl">'</span><span class="s1">abc</span><span class="dl">'</span><span class="p">,</span>
+    <span class="na">bool</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="na">undefined</span><span class="p">:</span> <span class="kc">undefined</span><span class="p">,</span>
+    <span class="na">null</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+    <span class="na">symbol</span><span class="p">:</span> <span class="nb">Symbol</span><span class="p">(</span><span class="dl">'</span><span class="s1">s</span><span class="dl">'</span><span class="p">),</span>
+    <span class="na">arr</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="na">date</span><span class="p">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(),</span>
+    <span class="na">userInfo</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Better</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">position</span><span class="p">:</span> <span class="dl">'</span><span class="s1">front-end engineer</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">skill</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">React</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Vue</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Angular</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Nodejs</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">mini programs</span><span class="dl">'</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="na">func</span><span class="p">:</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">hello better</span><span class="dl">'</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nx">copyObj</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">obj</span><span class="p">));</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">copyObj</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>从打印结果可以得出以下结论：</p>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">undefined</code>、<code class="language-plaintext highlighter-rouge">symbol</code>、<code class="language-plaintext highlighter-rouge">function</code>类型直接被过滤掉了</li>
+  <li><code class="language-plaintext highlighter-rouge">date</code>类型被自动转成了字符串类型</li>
+</ol>
+
+<h2 id="一行代码生成数字字母组成的随机字符串">一行代码生成数字字母组成的随机字符串</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">().</span><span class="nx">toString</span><span class="p">(</span><span class="mi">16</span><span class="p">).</span><span class="nx">substring</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span> <span class="c1">// 586a3ef1e79ec</span>
+<span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">().</span><span class="nx">toString</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="nx">substring</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span> <span class="c1">// 1iqn39075lo</span>
+</code></pre></div></div>
+
+<h2 id="一行代码实现获取一个网页使用了多少种标签">一行代码实现获取一个网页使用了多少种标签</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[...</span><span class="k">new</span> <span class="nb">Set</span><span class="p">([...</span><span class="nb">document</span><span class="p">.</span><span class="nx">querySelectorAll</span><span class="p">(</span><span class="dl">'</span><span class="s1">*</span><span class="dl">'</span><span class="p">)].</span><span class="nx">map</span><span class="p">(</span><span class="nx">node</span> <span class="o">=&gt;</span> <span class="nx">node</span><span class="p">.</span><span class="nx">tagName</span><span class="p">))].</span><span class="nx">length</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>代码分解：</p>
+
+<ol>
+  <li>使用<code class="language-plaintext highlighter-rouge">document.querySelectorAll('*')</code>获取网页中所有标签节点</li>
+  <li>使用<code class="language-plaintext highlighter-rouge">[...arrayLike]</code>扩展运算符把类数组转成数组</li>
+  <li>使用<code class="language-plaintext highlighter-rouge">node.tagName</code>获取标签名称，比如<code class="language-plaintext highlighter-rouge">DIV</code>、<code class="language-plaintext highlighter-rouge">SPAN</code>等</li>
+  <li>使用<code class="language-plaintext highlighter-rouge">set</code>去重</li>
+  <li>使用<code class="language-plaintext highlighter-rouge">[...arrayLike]</code>扩展运算符把类数组转成数组</li>
+  <li>获取数组长度</li>
+</ol>
+
+<h2 id="一行代码获取过去未来七天的日期">一行代码获取过去/未来七天的日期</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 过去七天</span>
+<span class="p">[...</span><span class="nb">Array</span><span class="p">(</span><span class="mi">7</span><span class="p">)].</span><span class="nx">map</span><span class="p">((</span><span class="nx">v</span><span class="p">,</span> <span class="nx">k</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">-</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">*</span> <span class="nx">k</span><span class="p">).</span><span class="nx">toLocaleDateString</span><span class="p">());</span>
+
+<span class="c1">// 未来七天</span>
+<span class="p">[...</span><span class="nb">Array</span><span class="p">(</span><span class="mi">7</span><span class="p">)].</span><span class="nx">map</span><span class="p">((</span><span class="nx">v</span><span class="p">,</span> <span class="nx">k</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">+</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">*</span> <span class="nx">k</span><span class="p">).</span><span class="nx">toLocaleDateString</span><span class="p">());</span>
+</code></pre></div></div>
+
+<h2 id="一行代码获取url参数">一行代码获取url参数</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 获取URL的查询参数</span>
+<span class="nx">q</span><span class="o">=</span><span class="p">{};</span><span class="nx">location</span><span class="p">.</span><span class="nx">search</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">([^</span><span class="sr">?&amp;=</span><span class="se">]</span><span class="sr">+</span><span class="se">)</span><span class="sr">=</span><span class="se">([^</span><span class="sr">&amp;</span><span class="se">]</span><span class="sr">+</span><span class="se">)</span><span class="sr">/g</span><span class="p">,(</span><span class="nx">_</span><span class="p">,</span><span class="nx">k</span><span class="p">,</span><span class="nx">v</span><span class="p">)</span><span class="o">=&gt;</span><span class="nx">q</span><span class="p">[</span><span class="nx">k</span><span class="p">]</span><span class="o">=</span><span class="nx">v</span><span class="p">);</span><span class="nx">q</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="返回一个键盘惊呆了">返回一个键盘（惊呆了）</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 用字符串返回一个键盘图形</span>
+<span class="p">(</span><span class="nx">_</span><span class="o">=&gt;</span><span class="p">[...</span><span class="dl">"</span><span class="s2">`1234567890-=~~QWERTYUIOP[]</span><span class="se">\\</span><span class="s2">~ASDFGHJKL;'~~ZXCVBNM,./~</span><span class="dl">"</span><span class="p">].</span><span class="nx">map</span><span class="p">(</span><span class="nx">x</span><span class="o">=&gt;</span><span class="p">(</span><span class="nx">o</span><span class="o">+=</span><span class="s2">`/</span><span class="p">${</span><span class="nx">b</span><span class="o">=</span><span class="dl">'</span><span class="s1">_</span><span class="dl">'</span><span class="p">.</span><span class="nx">repeat</span><span class="p">(</span><span class="nx">w</span><span class="o">=</span><span class="nx">x</span><span class="o">&lt;</span><span class="nx">y</span><span class="p">?</span><span class="mi">2</span><span class="p">:</span><span class="dl">'</span><span class="s1"> 667699</span><span class="dl">'</span><span class="p">[</span><span class="nx">x</span><span class="o">=</span><span class="p">[</span><span class="dl">"</span><span class="s2">BS</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">TAB</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">CAPS</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">ENTER</span><span class="dl">"</span><span class="p">][</span><span class="nx">p</span><span class="o">++</span><span class="p">]</span><span class="o">||</span><span class="dl">'</span><span class="s1">SHIFT</span><span class="dl">'</span><span class="p">,</span><span class="nx">p</span><span class="p">])}</span><span class="s2">\\|`</span><span class="p">,</span><span class="nx">m</span><span class="o">+=</span><span class="nx">y</span><span class="o">+</span><span class="p">(</span><span class="nx">x</span><span class="o">+</span><span class="dl">'</span><span class="s1">    </span><span class="dl">'</span><span class="p">).</span><span class="nx">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nx">w</span><span class="p">)</span><span class="o">+</span><span class="nx">y</span><span class="o">+</span><span class="nx">y</span><span class="p">,</span><span class="nx">n</span><span class="o">+=</span><span class="nx">y</span><span class="o">+</span><span class="nx">b</span><span class="o">+</span><span class="nx">y</span><span class="o">+</span><span class="nx">y</span><span class="p">,</span><span class="nx">l</span><span class="o">+=</span><span class="dl">'</span><span class="s1"> __</span><span class="dl">'</span><span class="o">+</span><span class="nx">b</span><span class="p">)[</span><span class="mi">73</span><span class="p">]</span><span class="o">&amp;&amp;</span><span class="p">(</span><span class="nx">k</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">l</span><span class="p">,</span><span class="nx">m</span><span class="p">,</span><span class="nx">n</span><span class="p">,</span><span class="nx">o</span><span class="p">),</span><span class="nx">l</span><span class="o">=</span><span class="dl">''</span><span class="p">,</span><span class="nx">m</span><span class="o">=</span><span class="nx">n</span><span class="o">=</span><span class="nx">o</span><span class="o">=</span><span class="nx">y</span><span class="p">),</span><span class="nx">m</span><span class="o">=</span><span class="nx">n</span><span class="o">=</span><span class="nx">o</span><span class="o">=</span><span class="nx">y</span><span class="o">=</span><span class="dl">'</span><span class="s1">|</span><span class="dl">'</span><span class="p">,</span><span class="nx">p</span><span class="o">=</span><span class="nx">l</span><span class="o">=</span><span class="nx">k</span><span class="o">=</span><span class="p">[])</span><span class="o">&amp;&amp;</span><span class="nx">k</span><span class="p">.</span><span class="nx">join</span><span class="s2">`
+`</span><span class="p">)()</span>
+</code></pre></div></div>
+
+<h3 id="持续更新中欢迎大家留言收集更多的实用小技巧共同学习共同进步">持续更新中，欢迎大家留言，收集更多的实用小技巧，共同学习，共同进步</h3>
+:ET

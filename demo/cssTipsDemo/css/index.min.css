@@ -1,1 +1,89 @@
-.clearfix{zoom:1}.clearfix::after{display:block;content:'';height:0;line-height:0;visibility:hidden;clear:both}.p-css-tips{text-align:center}.p-css-tips h1{margin:2.66667vw 0}.p-css-tips h2{margin-bottom:1.33333vw}.p-css-tips h3{margin:2.66667vw 0}.p-css-tips .flex-left-center-right{display:-webkit-box;display:-webkit-flex;display:flex}.p-css-tips .flex-left-center-right .left{width:13.33333vw;height:13.33333vw;background:#ff0}.p-css-tips .flex-left-center-right .center{-webkit-box-flex:1;-webkit-flex:1;flex:1;height:13.33333vw;background:#00f}.p-css-tips .flex-left-center-right .right{width:13.33333vw;height:13.33333vw;background:green}.p-css-tips .float-left-center-right .left{float:left;width:13.33333vw;height:13.33333vw;background:#ff0}.p-css-tips .float-left-center-right .right{float:right;width:13.33333vw;height:13.33333vw;background:green}.p-css-tips .float-left-center-right .center{margin-left:13.33333vw;margin-right:13.33333vw;height:13.33333vw;background:#00f}.p-css-tips .table-left-center-right{display:table;table-layout:fixed;width:100%}.p-css-tips .table-left-center-right .center,.p-css-tips .table-left-center-right .left,.p-css-tips .table-left-center-right .right{display:table-cell;height:13.33333vw}.p-css-tips .table-left-center-right .left,.p-css-tips .table-left-center-right .right{width:13.33333vw}.p-css-tips .table-left-center-right .left{background:#ff0}.p-css-tips .table-left-center-right .center{background:#00f}.p-css-tips .table-left-center-right .right{background:green}
+.clearfix {
+  zoom: 1;
+}
+
+.clearfix::after {
+  display: block;
+  content: "";
+  height: 0;
+  line-height: 0;
+  visibility: hidden;
+  clear: both;
+}
+
+.p-css-tips {
+  text-align: center;
+}
+.p-css-tips h1 {
+  margin: 2.66667vw 0;
+}
+.p-css-tips h2 {
+  margin-bottom: 1.33333vw;
+}
+.p-css-tips h3 {
+  margin: 2.66667vw 0;
+}
+.p-css-tips .flex-left-center-right {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+}
+.p-css-tips .flex-left-center-right .left {
+  width: 13.33333vw;
+  height: 13.33333vw;
+  background: yellow;
+}
+.p-css-tips .flex-left-center-right .center {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1;
+          flex: 1;
+  height: 13.33333vw;
+  background: blue;
+}
+.p-css-tips .flex-left-center-right .right {
+  width: 13.33333vw;
+  height: 13.33333vw;
+  background: green;
+}
+.p-css-tips .float-left-center-right .left {
+  float: left;
+  width: 13.33333vw;
+  height: 13.33333vw;
+  background: yellow;
+}
+.p-css-tips .float-left-center-right .right {
+  float: right;
+  width: 13.33333vw;
+  height: 13.33333vw;
+  background: green;
+}
+.p-css-tips .float-left-center-right .center {
+  margin-left: 13.33333vw;
+  margin-right: 13.33333vw;
+  height: 13.33333vw;
+  background: blue;
+}
+.p-css-tips .table-left-center-right {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+}
+.p-css-tips .table-left-center-right .left,
+.p-css-tips .table-left-center-right .center,
+.p-css-tips .table-left-center-right .right {
+  display: table-cell;
+  height: 13.33333vw;
+}
+.p-css-tips .table-left-center-right .left,
+.p-css-tips .table-left-center-right .right {
+  width: 13.33333vw;
+}
+.p-css-tips .table-left-center-right .left {
+  background: yellow;
+}
+.p-css-tips .table-left-center-right .center {
+  background: blue;
+}
+.p-css-tips .table-left-center-right .right {
+  background: green;
+}

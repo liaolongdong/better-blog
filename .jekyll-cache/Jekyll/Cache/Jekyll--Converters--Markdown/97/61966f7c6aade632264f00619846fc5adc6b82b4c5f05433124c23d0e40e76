@@ -1,0 +1,183 @@
+I"RH<h1 id="echarts折线图饼状图圆环图使用总结">echarts折线图、饼状图、圆环图使用总结</h1>
+
+<p>这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。</p>
+
+<p><a href="https://liaolongdong.com/demo/echartsDemo/index.html">点这里查看demo效果</a></p>
+
+<h2 id="绘制图表">绘制图表</h2>
+
+<p>获取echarts有好几种方式：</p>
+
+<ul>
+  <li>使用npm或者yarn下载</li>
+  <li>使用cdn引入</li>
+  <li>直接把对应的js代码拷贝到项目中</li>
+</ul>
+
+<p>我们在实际项目开发中可以根据项目需要<a href="https://echarts.baidu.com/builder.html">在线定制</a>所需要的图标功能，如图：
+<img src="/assets/img/postCover/echarts_download.png" alt="echarts在线定制下载" /></p>
+
+<p>我这里为了方便直接使用cdn引入，代码如下：</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span><span class="nt">&gt;</span>
+    <span class="c">&lt;!-- 引入 ECharts 文件 --&gt;</span>
+    <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"https://cdn.bootcss.com/echarts/4.2.0-rc.2/echarts.min.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+    <span class="c">&lt;!-- 为ECharts准备一个具备大小（宽高）的Dom --&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"main"</span> <span class="na">style=</span><span class="s">"width: 600px;height:400px;"</span><span class="nt">&gt;&lt;/div&gt;</span>
+    <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">"text/javascript"</span><span class="nt">&gt;</span>
+        <span class="c1">// 基于准备好的dom，初始化echarts实例</span>
+        <span class="kd">var</span> <span class="nx">myChart</span> <span class="o">=</span> <span class="nx">echarts</span><span class="p">.</span><span class="nx">init</span><span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="dl">'</span><span class="s1">main</span><span class="dl">'</span><span class="p">));</span>
+
+        <span class="c1">// 指定图表的配置项和数据</span>
+        <span class="kd">var</span> <span class="nx">option</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="na">title</span><span class="p">:</span> <span class="p">{</span>
+                <span class="na">text</span><span class="p">:</span> <span class="dl">'</span><span class="s1">ECharts 入门示例</span><span class="dl">'</span>
+            <span class="p">},</span>
+            <span class="na">tooltip</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="na">legend</span><span class="p">:</span> <span class="p">{</span>
+                <span class="na">data</span><span class="p">:[</span><span class="dl">'</span><span class="s1">销量</span><span class="dl">'</span><span class="p">]</span>
+            <span class="p">},</span>
+            <span class="na">xAxis</span><span class="p">:</span> <span class="p">{</span>
+                <span class="na">data</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">衬衫</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">羊毛衫</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">雪纺衫</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">裤子</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">高跟鞋</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">袜子</span><span class="dl">"</span><span class="p">]</span>
+            <span class="p">},</span>
+            <span class="na">yAxis</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="na">series</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">销量</span><span class="dl">'</span><span class="p">,</span>
+                <span class="na">type</span><span class="p">:</span> <span class="dl">'</span><span class="s1">bar</span><span class="dl">'</span><span class="p">,</span>
+                <span class="na">data</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">]</span>
+            <span class="p">}]</span>
+        <span class="p">};</span>
+
+        <span class="c1">// 使用刚指定的配置项和数据显示图表。</span>
+        <span class="nx">myChart</span><span class="p">.</span><span class="nx">setOption</span><span class="p">(</span><span class="nx">option</span><span class="p">);</span>
+    <span class="nt">&lt;/script&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<h2 id="图表中常用的配置参数">图表中常用的配置参数</h2>
+
+<ul>
+  <li>title: 配置标题组件，包含主标题和副标题</li>
+  <li>legend: 配置图例组件</li>
+  <li>grid: 配置直角坐标系内绘图网格</li>
+  <li>xAxis: 直角坐标系 grid 中的 x 轴</li>
+  <li>yAxis: 直角坐标系 grid 中的 y 轴</li>
+  <li>tooltip: 配置提示框组件</li>
+  <li>series: 配置系列列表。每个系列通过 type 决定自己的图表类型，比如，line（折线图）、pie（饼状图）等等</li>
+  <li>color: 配置调色盘颜色列表。如果系列没有设置颜色，则会依次循环从该列表中取颜色作为系列颜色</li>
+  <li>graphic: 配置原生图形元素组件，比如文本块、添加水印等</li>
+</ul>
+
+<p>每个配置具体细节详见<a href="https://www.echartsjs.com/option.html#title">配置项</a></p>
+
+<h2 id="绘制图表经常遇到的问题">绘制图表经常遇到的问题</h2>
+
+<p>最基本的功能就不详细讲解了，直接看<a href="https://echarts.baidu.com/option.html#title">api文档配置项</a>或者<a href="https://echarts.baidu.com/examples/">图表demo</a>就可以了</p>
+
+<h3 id="echarts折线图周围空白区域处理">echarts折线图周围空白区域处理</h3>
+
+<p>我们在绘制折线图的时候经常会遇到折线图周围的空白区域太大了，这是我们需要进行配置，让缩小折线图周围的空白区域，具体代码如下：</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">option</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">grid</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// 直角坐标系内绘图网格，单个 grid 内最多可以放置上下两个 X 轴，左右两个 Y 轴。</span>
+        <span class="na">show</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="c1">// 是否显示直角坐标系网格</span>
+        <span class="na">borderWidth</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="c1">// 网格的边框线宽</span>
+        <span class="na">borderColor</span><span class="p">:</span> <span class="dl">'</span><span class="s1">#fff</span><span class="dl">'</span><span class="p">,</span> <span class="c1">// 网格的边框颜色</span>
+        <span class="na">backgroundColor</span><span class="p">:</span> <span class="dl">'</span><span class="s1">#CCF0F7</span><span class="dl">'</span><span class="p">,</span> <span class="c1">// 网格背景色</span>
+        <span class="c1">// 也可以使用top,left,right,bottom</span>
+        <span class="na">x</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="c1">// 图表canvas距左上角x轴的距离</span>
+        <span class="na">y</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span> <span class="c1">// 图表canvas距左上角y轴的距离</span>
+        <span class="na">x2</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span> <span class="c1">// 图表canvas距右下角x轴的距离</span>
+        <span class="na">y2</span><span class="p">:</span> <span class="mi">40</span><span class="p">,</span> <span class="c1">// 图表canvas距右下角y轴的距离</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>效果如图：
+<img src="/assets/img/postCover/echarts_line.png" alt="折线图周围空白区域" /></p>
+
+<h3 id="给echarts图标添加文本块或者水印">给echarts图标添加文本块或者水印</h3>
+
+<p>我们绘制图表时，经常会添加一些文本块或者水印，比如上面的折线图给特定月份添加节日，以及下面的圆环图增加文本块，具体配置代码如下：</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">option</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">graphic</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// graphic 是原生图形元素组件</span>
+        <span class="na">type</span><span class="p">:</span> <span class="dl">'</span><span class="s1">text</span><span class="dl">'</span><span class="p">,</span> <span class="c1">// 一个图形元素，类型是 text</span>
+        <span class="na">top</span><span class="p">:</span> <span class="dl">'</span><span class="s1">center</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">left</span><span class="p">:</span> <span class="dl">'</span><span class="s1">center</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">style</span><span class="p">:</span> <span class="p">{</span>
+            <span class="na">text</span><span class="p">:</span> <span class="dl">'</span><span class="s1">区域占比</span><span class="se">\n\n</span><span class="dl">'</span> <span class="o">+</span> <span class="dl">'</span><span class="s1">9.18%</span><span class="dl">'</span><span class="p">,</span>
+            <span class="na">textAlign</span><span class="p">:</span> <span class="dl">'</span><span class="s1">center</span><span class="dl">'</span><span class="p">,</span>
+            <span class="na">fontSize</span><span class="p">:</span> <span class="mi">22</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>效果如图：
+<img src="/assets/img/postCover/echarts_pie.png" alt="圆环图添加文本块" /></p>
+
+<h3 id="echarts图表标签文本超长展示不全或者重叠处理">echarts图表标签文本超长展示不全或者重叠处理</h3>
+
+<p>移动端在绘制饼状图表时，经常会遇到图表标签文本太长展示不下或者标签重叠在一起等问题，解决这个问题有以下几种解决方案：</p>
+
+<ul>
+  <li>调整标签文字的大小，以展示更多文字</li>
+  <li>缩小饼状图的大小</li>
+  <li>缩短标签文本视觉引导线长度</li>
+  <li>饼状图或者圆环图设置扇形区域最小角度<code class="language-plaintext highlighter-rouge">minAngle</code>，最小的扇区角度（0 ~ 360），同时可以防止某个值过小导致扇区太小影响交互。</li>
+  <li>使用<code class="language-plaintext highlighter-rouge">formatter</code>标签文本内容格式器，支持字符串模板和回调函数两种形式，字符串模板与回调函数返回的字符串均支持用 <code class="language-plaintext highlighter-rouge">\n</code> 换行</li>
+</ul>
+
+<p>具体配置代码如下：</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">option</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">series</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">服务类型占比</span><span class="dl">'</span><span class="p">,</span>
+            <span class="na">type</span><span class="p">:</span> <span class="dl">'</span><span class="s1">pie</span><span class="dl">'</span><span class="p">,</span>
+            <span class="na">radius</span><span class="p">:</span> <span class="dl">'</span><span class="s1">50%</span><span class="dl">'</span><span class="p">,</span>
+            <span class="na">center</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">50%</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">50%</span><span class="dl">'</span><span class="p">],</span>
+            <span class="na">silent</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="c1">// 图形是否不响应和触发鼠标事件，默认为 false，即响应和触发鼠标事件。</span>
+            <span class="na">minAngle</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span> <span class="c1">// 最小的扇区角度（0 ~ 360），用于防止某个值过小导致扇区太小影响交互。</span>
+            <span class="na">avoidLabelOverlap</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="c1">// 是否启用防止标签重叠策略</span>
+            <span class="na">label</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// 饼图图形上的文本标签，可用于说明图形的一些数据信息，比如值，名称等</span>
+                <span class="na">show</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="c1">// 是否显示文本标签</span>
+                <span class="c1">// formatter: '{b} {d}%', // 文本标签格式</span>
+                <span class="na">formatter</span><span class="p">:</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">params</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="c1">// 类目名长度大于5</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nx">params</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="k">return</span> <span class="nx">params</span><span class="p">.</span><span class="nx">name</span> <span class="o">+</span> <span class="dl">'</span><span class="se">\n</span><span class="dl">'</span> <span class="o">+</span> <span class="nx">params</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="dl">'</span><span class="s1">%</span><span class="dl">'</span><span class="p">;</span>
+                    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                        <span class="k">return</span> <span class="nx">params</span><span class="p">.</span><span class="nx">name</span> <span class="o">+</span> <span class="nx">params</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="dl">'</span><span class="s1">%</span><span class="dl">'</span><span class="p">;</span>
+                    <span class="p">}</span>
+                <span class="p">},</span> <span class="c1">// 文本标签格式</span>
+                <span class="na">color</span><span class="p">:</span> <span class="dl">'</span><span class="s1">#333</span><span class="dl">'</span><span class="p">,</span> <span class="c1">// 文本标签字体颜色</span>
+                <span class="na">align</span><span class="p">:</span> <span class="dl">'</span><span class="s1">left</span><span class="dl">'</span><span class="p">,</span> <span class="c1">// 文字水平对齐方式，默认自动</span>
+                <span class="na">fontSize</span><span class="p">:</span> <span class="mi">22</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="na">labelLine</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// 标签文本引导线样式</span>
+                <span class="na">show</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+                <span class="na">length</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="c1">// 视觉引导线第一段的长度</span>
+                <span class="na">length2</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="c1">// 视觉引导线第二段的长度</span>
+                <span class="c1">// lineStyle: {</span>
+                <span class="c1">//     width: 2</span>
+                <span class="c1">// }</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>效果如图：
+<img src="/assets/img/postCover/echarts_pie_label_overflow.png" alt="图表标签文本过长展示不下或重叠处理" /></p>
+
+<p>以上就是项目中使用echarts图表遇到的一些问题总结，更详细的配置可以参考demo源码，如图：
+<img src="/assets/img/postCover/echarts_pie_label_overflow.png" alt="echarts图表详细配置参数源码" /></p>
+:ET

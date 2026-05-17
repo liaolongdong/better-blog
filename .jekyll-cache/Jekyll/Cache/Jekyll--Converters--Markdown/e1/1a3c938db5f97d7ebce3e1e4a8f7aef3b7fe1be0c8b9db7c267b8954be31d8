@@ -1,0 +1,102 @@
+I"u&<h1 id="h5页面实现摇一摇功能">H5页面实现摇一摇功能</h1>
+
+<p>最近公司做了一个微信摇一摇领红包的活动，趁着刚上线有点空余时间，做一下摇一摇活动总结，记录一下做摇一摇活动过程中遇到的问题，旨在为了方便自己下次做类似活动的时候查阅以及让没做过摇一摇活动的小伙伴们少踩坑吧</p>
+
+<!-- > 注意：因为我的个人博客域名协议是http的，所以苹果手机ios12以上没有效果 -->
+
+<p><a href="https://liaolongdong.com/demo/shakeDemo/index.html">点这里查看摇一摇demo效果</a></p>
+
+<p>用手机扫描二维码查看效果：</p>
+
+<p><img src="/assets/img/postCover/shake_demo_qcode.png" alt="查看摇一摇demo效果" /></p>
+
+<h2 id="摇一摇要实现的功能细节">摇一摇要实现的功能细节</h2>
+
+<h3 id="1-如何实现监听手机设备摇一摇功能">1. 如何实现监听手机设备摇一摇功能</h3>
+
+<p>使用H5原生API <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Detecting_device_orientation#%E5%A4%84%E7%90%86%E7%A7%BB%E5%8A%A8%EF%BC%88motion%EF%BC%89%E4%BA%8B%E4%BB%B6">devicemotion</a>事件监听设备摇晃频率</p>
+
+<p>具体代码如下：</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//运动事件监听</span>
+<span class="k">if</span> <span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">DeviceMotionEvent</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span>
+        <span class="dl">"</span><span class="s2">devicemotion</span><span class="dl">"</span><span class="p">,</span>
+        <span class="nx">deviceMotionHandler</span><span class="p">,</span>
+        <span class="kc">false</span>
+    <span class="p">);</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nx">alert</span><span class="p">(</span><span class="dl">"</span><span class="s2">该浏览器不支持摇一摇功能</span><span class="dl">"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p>注意：该事件在ios12以上非https协议下会失效，安卓手机不会，所以在ios手机上测试必须要在https协议的域名环境测试</p>
+</blockquote>
+
+<p><img src="/assets/img/postCover/ios_device_motion.png" alt="ios_device_motion" /></p>
+
+<h3 id="2-如何判断手机设备是不是在摇一摇">2. 如何判断手机设备是不是在摇一摇</h3>
+
+<p>具体代码如下：</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 获取加速度信息</span>
+<span class="c1">// 通过监听上一步获取到的x, y, z 值在一定时间范围内的变化率，进行设备是否有进行晃动的判断。</span>
+<span class="c1">// 而为了防止正常移动的误判，需要给该变化率设置一个合适的临界值。</span>
+<span class="kd">let</span> <span class="nx">SHAKETHRESHOLD</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">;</span>
+<span class="kd">let</span> <span class="nx">lastUpdate</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="kd">let</span> <span class="nx">x</span><span class="p">,</span>
+    <span class="nx">y</span><span class="p">,</span>
+    <span class="nx">z</span><span class="p">,</span>
+    <span class="nx">lastX</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nx">lastY</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nx">lastZ</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="kd">function</span> <span class="nx">deviceMotionHandler</span><span class="p">(</span><span class="nx">eventData</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">acceleration</span> <span class="o">=</span> <span class="nx">eventData</span><span class="p">.</span><span class="nx">accelerationIncludingGravity</span><span class="p">;</span>
+    <span class="kd">let</span> <span class="nx">curTime</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">().</span><span class="nx">getTime</span><span class="p">();</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">curTime</span> <span class="o">-</span> <span class="nx">lastUpdate</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">let</span> <span class="nx">diffTime</span> <span class="o">=</span> <span class="nx">curTime</span> <span class="o">-</span> <span class="nx">lastUpdate</span><span class="p">;</span>
+        <span class="nx">lastUpdate</span> <span class="o">=</span> <span class="nx">curTime</span><span class="p">;</span>
+        <span class="nx">x</span> <span class="o">=</span> <span class="nx">acceleration</span><span class="p">.</span><span class="nx">x</span><span class="p">;</span>
+        <span class="nx">y</span> <span class="o">=</span> <span class="nx">acceleration</span><span class="p">.</span><span class="nx">y</span><span class="p">;</span>
+        <span class="nx">z</span> <span class="o">=</span> <span class="nx">acceleration</span><span class="p">.</span><span class="nx">z</span><span class="p">;</span>
+        <span class="kd">let</span> <span class="nx">speed</span> <span class="o">=</span> <span class="p">(</span><span class="nb">Math</span><span class="p">.</span><span class="nx">abs</span><span class="p">(</span><span class="nx">x</span> <span class="o">+</span> <span class="nx">y</span> <span class="o">+</span> <span class="nx">z</span> <span class="o">-</span> <span class="nx">lastX</span> <span class="o">-</span> <span class="nx">lastY</span> <span class="o">-</span> <span class="nx">lastZ</span><span class="p">)</span> <span class="o">/</span> <span class="nx">diffTime</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10000</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">speed</span> <span class="o">&gt;</span> <span class="nx">SHAKETHRESHOLD</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">setTimeout</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+                    <span class="nx">alert</span><span class="p">(</span><span class="dl">"</span><span class="s2">恭喜你，摇到漂亮妹纸一枚!</span><span class="dl">"</span><span class="p">);</span> <span class="c1">// Do something</span>
+                <span class="p">},</span> <span class="mi">1000</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="nx">lastX</span> <span class="o">=</span> <span class="nx">x</span><span class="p">;</span>
+        <span class="nx">lastY</span> <span class="o">=</span> <span class="nx">y</span><span class="p">;</span>
+        <span class="nx">lastZ</span> <span class="o">=</span> <span class="nx">z</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="3-如何实现手机振动功能">3. 如何实现手机振动功能</h3>
+
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/API/Navigator/vibrate">navigator.vibrate()</a> 该方法可以调用手机设备的振动功能</p>
+
+<blockquote>
+  <p>注意：1、ios手机上浏览器不支持该方法 2、该方法需要用户触发某种操作才能调用， 不能一加载完页面就调用振动功能</p>
+</blockquote>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 调用手机振动功能</span>
+<span class="nx">useVibrateAction</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nb">navigator</span><span class="p">.</span><span class="nx">vibrate</span> <span class="o">=</span>
+        <span class="nb">navigator</span><span class="p">.</span><span class="nx">vibrate</span> <span class="o">||</span>
+        <span class="nb">navigator</span><span class="p">.</span><span class="nx">webkitVibrate</span> <span class="o">||</span>
+        <span class="nb">navigator</span><span class="p">.</span><span class="nx">mozVibrate</span> <span class="o">||</span>
+        <span class="nb">navigator</span><span class="p">.</span><span class="nx">msVibrate</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">navigator</span><span class="p">.</span><span class="nx">vibrate</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">手机振动</span><span class="dl">"</span><span class="p">);</span>
+        <span class="nb">navigator</span><span class="p">.</span><span class="nx">vibrate</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span> <span class="c1">// 振动时间毫秒数</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">该浏览器不支持振动功能</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+:ET

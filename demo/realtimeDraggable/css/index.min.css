@@ -1,0 +1,25 @@
+.p-draggable {
+  height: 100vh;
+  overflow: hidden;
+  text-align: center;
+  font-size: 3.2vw;
+}
+.p-draggable h1 {
+  margin-top: 26.66667vw;
+}
+.p-draggable .tip {
+  margin-top: 6.66667vw;
+}
+.p-draggable .draggable-btn {
+  display: block;
+  position: fixed;
+  right: 2.66667vw;
+  bottom: 26.66667vw;
+  color: #FFF;
+  background-color: #04BE02;
+  line-height: 1;
+  padding: 2.66667vw 4vw;
+  z-index: 10000;
+  border-radius: 0.66667vw;
+  box-shadow: 0 0 0.66667vw rgba(0, 0, 0, 0.4);
+}

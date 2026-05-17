@@ -1,0 +1,130 @@
+I"�G<h1 id="h5实现类似微信可拖拽左右吸边浮动按钮">H5实现类似微信可拖拽左右吸边浮动按钮</h1>
+
+<h2 id="背景">背景</h2>
+
+<p>之前项目需求产品经理要求实现一个<code class="language-plaintext highlighter-rouge">可以实时拖拽的按钮</code>，刚好我们移动端H5用的调试工具vconsole也有类似功能，于是研究了一下vconsole里面具体实现的源码，参考其中代码自己也实现了一个, <a href="https://liaolongdong.com/demo/realtimeDraggable/index.html">点击查看demo效果</a></p>
+
+<p>然后在做另外一个需求的时候产品经理无意中看到我手机微信的那个可以拖拽并且可以自动左右吸附的浮窗按钮，说这个效果不错，就按照微信的这个效果来，于是在原来的那个基础上有实现了一个<code class="language-plaintext highlighter-rouge">类似微信可拖拽左右吸边浮动按钮</code>，<a href="https://liaolongdong.com/demo/likeWxFloatDragBtnDemo/index.html">点击查看demo效果</a></p>
+
+<h2 id="技术实现">技术实现</h2>
+
+<p>其实实现这个功能所使用到的技术点并不难，主要是要处理边界情况和各种细节</p>
+
+<p>实现实时拖拽功能技术点：</p>
+
+<ul>
+  <li>移动端： 监听<code class="language-plaintext highlighter-rouge">touchstart</code>、<code class="language-plaintext highlighter-rouge">touchmove</code>、<code class="language-plaintext highlighter-rouge">touchend</code>事件</li>
+  <li>PC端： 监听<code class="language-plaintext highlighter-rouge">mousedown</code>、<code class="language-plaintext highlighter-rouge">mousemove</code>、<code class="language-plaintext highlighter-rouge">mouseup</code>事件</li>
+  <li>以及一些dom操作的api，获取节点的位置等</li>
+</ul>
+
+<h2 id="实现源码">实现源码</h2>
+
+<p>废话不多说，直接上源码，这里只放js代码，要看html/css/js，直接可以在demo页面，按<code class="language-plaintext highlighter-rouge">F12</code>查看完整内容</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">app</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Vue</span><span class="p">({</span>
+  <span class="na">el</span><span class="p">:</span> <span class="dl">"</span><span class="s2">#app</span><span class="dl">"</span><span class="p">,</span>
+  <span class="na">data</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">isMove</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="c1">// 是否在移动</span>
+    <span class="na">isLeft</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="c1">// 吸附左边</span>
+    <span class="na">mineBtnPos</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">x</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="c1">// right</span>
+      <span class="na">y</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="c1">// bottom 该值必须是初始定位样式值的倍数(比如使用750px设计稿的需要设置初始值为设计稿的一半)，否则首次拖拽可能会错位</span>
+      <span class="na">startX</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+      <span class="na">startY</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+      <span class="na">endX</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+      <span class="na">endY</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+  <span class="nx">created</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">mineBtnPos</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">assign</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">btnInitStyle</span><span class="p">);</span>
+  <span class="p">},</span>
+  <span class="nx">mounted</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_bindEvent</span><span class="p">();</span>
+  <span class="p">},</span>
+  <span class="na">methods</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nx">clickMineBtn</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">location</span><span class="p">.</span><span class="nx">href</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">https://liaolongdong.com/</span><span class="dl">"</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="cm">/**
+     * bind DOM events
+     * @private
+     */</span>
+    <span class="nx">_bindEvent</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nx">that</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+      <span class="kd">let</span> <span class="nx">dWidth</span> <span class="o">=</span>
+        <span class="nb">document</span><span class="p">.</span><span class="nx">documentElement</span><span class="p">.</span><span class="nx">clientWidth</span> <span class="o">||</span> <span class="nb">document</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">clientWidth</span><span class="p">;</span>
+
+      <span class="kd">let</span> <span class="nx">$mineBtn</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="dl">"</span><span class="s2">.c-draggable-likewxfloat</span><span class="dl">"</span><span class="p">);</span>
+      <span class="kd">let</span> <span class="nx">mWidth</span> <span class="o">=</span> <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">getBoundingClientRect</span><span class="p">().</span><span class="nx">width</span><span class="p">;</span>
+      <span class="kd">let</span> <span class="nx">bottomPx</span> <span class="o">=</span>
+        <span class="nb">parseFloat</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">getComputedStyle</span><span class="p">(</span><span class="nx">$mineBtn</span><span class="p">,</span> <span class="kc">null</span><span class="p">).</span><span class="nx">bottom</span><span class="p">)</span> <span class="o">||</span> <span class="mi">0</span><span class="p">;</span>
+      <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">y</span> <span class="o">=</span> <span class="nx">bottomPx</span><span class="p">;</span>
+      <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">touchstart</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startX</span> <span class="o">=</span> <span class="nx">e</span><span class="p">.</span><span class="nx">touches</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">pageX</span><span class="p">;</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startY</span> <span class="o">=</span> <span class="nx">e</span><span class="p">.</span><span class="nx">touches</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">pageY</span><span class="p">;</span>
+      <span class="p">});</span>
+      <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">touchend</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">=</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">endX</span><span class="p">;</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">y</span> <span class="o">=</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">endY</span><span class="p">;</span>
+
+        <span class="c1">// 增加左右吸附效果</span>
+        <span class="c1">// that.mineBtnPos.x的值是从右边开始计算的</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">isMove</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">&lt;</span> <span class="nx">dWidth</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">isLeft</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">isLeft</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">=</span> <span class="nx">dWidth</span> <span class="o">-</span> <span class="nx">mWidth</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">right</span> <span class="o">=</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">+</span> <span class="dl">"</span><span class="s2">px</span><span class="dl">"</span><span class="p">;</span>
+
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startX</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startY</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+      <span class="p">});</span>
+      <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">touchmove</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">that</span><span class="p">.</span><span class="nx">isMove</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">touches</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+          <span class="kd">let</span> <span class="nx">offsetX</span> <span class="o">=</span> <span class="nx">e</span><span class="p">.</span><span class="nx">touches</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">pageX</span> <span class="o">-</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startX</span><span class="p">,</span>
+            <span class="nx">offsetY</span> <span class="o">=</span> <span class="nx">e</span><span class="p">.</span><span class="nx">touches</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">pageY</span> <span class="o">-</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">startY</span><span class="p">;</span>
+          <span class="kd">let</span> <span class="nx">x</span> <span class="o">=</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">x</span> <span class="o">-</span> <span class="nx">offsetX</span><span class="p">,</span>
+            <span class="nx">y</span> <span class="o">=</span> <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">y</span> <span class="o">-</span> <span class="nx">offsetY</span><span class="p">;</span>
+
+          <span class="c1">// check edge</span>
+          <span class="k">if</span> <span class="p">(</span><span class="nx">x</span> <span class="o">+</span> <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">offsetWidth</span> <span class="o">&gt;</span> <span class="nb">document</span><span class="p">.</span><span class="nx">documentElement</span><span class="p">.</span><span class="nx">offsetWidth</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">x</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">documentElement</span><span class="p">.</span><span class="nx">offsetWidth</span> <span class="o">-</span> <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">offsetWidth</span><span class="p">;</span>
+          <span class="p">}</span>
+          <span class="k">if</span> <span class="p">(</span>
+            <span class="nx">y</span> <span class="o">+</span> <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">offsetHeight</span> <span class="o">&gt;</span>
+            <span class="nb">document</span><span class="p">.</span><span class="nx">documentElement</span><span class="p">.</span><span class="nx">offsetHeight</span>
+          <span class="p">)</span> <span class="p">{</span>
+            <span class="nx">y</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">documentElement</span><span class="p">.</span><span class="nx">offsetHeight</span> <span class="o">-</span> <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">offsetHeight</span><span class="p">;</span>
+          <span class="p">}</span>
+          <span class="k">if</span> <span class="p">(</span><span class="nx">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+          <span class="p">}</span>
+          <span class="k">if</span> <span class="p">(</span><span class="nx">y</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+          <span class="p">}</span>
+          <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">right</span> <span class="o">=</span> <span class="nx">x</span> <span class="o">+</span> <span class="dl">"</span><span class="s2">px</span><span class="dl">"</span><span class="p">;</span>
+          <span class="nx">$mineBtn</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">bottom</span> <span class="o">=</span> <span class="nx">y</span> <span class="o">+</span> <span class="dl">"</span><span class="s2">px</span><span class="dl">"</span><span class="p">;</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">endX</span> <span class="o">=</span> <span class="nx">x</span><span class="p">;</span>
+          <span class="nx">that</span><span class="p">.</span><span class="nx">mineBtnPos</span><span class="p">.</span><span class="nx">endY</span> <span class="o">=</span> <span class="nx">y</span><span class="p">;</span>
+          <span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+        <span class="p">}</span>
+      <span class="p">});</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<h2 id="demo效果地址">demo效果地址</h2>
+
+<ul>
+  <li><a href="https://liaolongdong.com/demo/likeWxFloatDragBtnDemo/index.html">H5实现类似微信可拖拽左右吸边浮动按钮</a></li>
+  <li><a href="https://liaolongdong.com/demo/realtimeDraggable/index.html">H5实现类似于vconsole的实时拖拽功能</a></li>
+</ul>
+
+:ET

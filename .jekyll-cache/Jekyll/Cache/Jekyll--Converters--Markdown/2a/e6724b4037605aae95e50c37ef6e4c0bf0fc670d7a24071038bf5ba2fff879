@@ -1,0 +1,168 @@
+I"a <h1 id="如何开发一个npm包并发布到npm中央仓库">如何开发一个npm包并发布到npm中央仓库</h1>
+
+<p>需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm中央仓库或者私有仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到私有仓库。</p>
+
+<h2 id="npm包命名规则及文件夹结构">npm包命名规则及文件夹结构</h2>
+
+<ol>
+  <li>
+    <p>用模块的名称命名根目录，npm包名不能重复</p>
+  </li>
+  <li>
+    <p>每个npm包根目录下都包含一个index.js文件和package.json文件</p>
+  </li>
+  <li>
+    <p>src目录，用于放置未压缩的源码</p>
+  </li>
+  <li>
+    <p>dist目录，用于放置压缩后的代码</p>
+  </li>
+  <li>
+    <p>使用package.json文件的规格来描述本模块</p>
+  </li>
+</ol>
+
+<h2 id="发布npm到npm中央仓库公共仓库">发布npm到npm中央仓库(公共仓库)</h2>
+
+<h3 id="1注册npm账号">1、注册npm账号</h3>
+
+<p>我们在发布npm包之前，要去<a href="https://www.npmjs.com/">npm官网</a>注册一个账号，注册完账号以后，点击邮件链接完成验证</p>
+
+<h3 id="2编写模块">2、编写模块</h3>
+
+<p>首相，创建publishNpm文件夹，在该文件夹下添加helloworld.js文件和index.js文件，代码如下：</p>
+
+<pre><code class="language-linux">// 创建模块目录
+mkdir publishNpm
+
+// 进入目录
+cd publishNpm
+
+// 创建helloworld.js文件和index.js文件
+touch helloworld.js index.js
+</code></pre>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// helloworld.js文件</span>
+
+<span class="kd">function</span> <span class="nx">helloworld</span> <span class="p">(</span><span class="nx">name</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">hello world,</span><span class="dl">'</span><span class="p">,</span> <span class="nx">name</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="nx">exports</span><span class="p">.</span><span class="nx">helloworld</span> <span class="o">=</span> <span class="nx">helloworld</span><span class="p">;</span>
+</code></pre></div></div>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// index.js文件</span>
+
+<span class="kd">var</span> <span class="nx">helloworld</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./helloworld</span><span class="dl">'</span><span class="p">);</span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">'</span><span class="s1">helloworld</span><span class="dl">'</span><span class="p">,</span> <span class="nx">helloworld</span><span class="p">);</span>
+<span class="nx">helloworld</span><span class="p">.</span><span class="nx">helloworld</span><span class="p">(</span><span class="dl">'</span><span class="s1">better</span><span class="dl">'</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>接下来，在publishNpm目录下，执行<code class="language-plaintext highlighter-rouge">npm init</code>命令，初始化package.json文件</p>
+
+<pre><code class="language-git">npm init
+</code></pre>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">package.json</span><span class="w"> </span><span class="err">文件</span><span class="w">
+
+</span><span class="p">{</span><span class="w">
+    </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lld-npm-demo"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.1"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"publish npm demo"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"main"</span><span class="p">:</span><span class="w"> </span><span class="s2">"index.js"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"scripts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="s2">"echo </span><span class="se">\"</span><span class="s2">Error: no test specified</span><span class="se">\"</span><span class="s2"> &amp;&amp; exit 1"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">"better"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"license"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ISC"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>注意：1、npm包名称<code class="language-plaintext highlighter-rouge">name</code>的值不能和已经存在的npm包名相同；2、每次版本更新都必须修改版本号<code class="language-plaintext highlighter-rouge">version</code>的值</strong></p>
+
+<h3 id="3发布npm到npm公共仓库">3、发布npm到npm公共仓库</h3>
+
+<h4 id="添加账户">添加账户</h4>
+
+<pre><code class="language-git">npm adduser
+</code></pre>
+
+<p>输入用户名、密码和邮箱</p>
+
+<p>查看当前登录的用户</p>
+
+<pre><code class="language-git">npm who am i
+</code></pre>
+
+<h4 id="发布npm包">发布npm包</h4>
+
+<pre><code class="language-git">npm publish
+</code></pre>
+
+<p>发布成功以后，就可以在npm个人中心看到刚刚发布的npm包了</p>
+
+<h4 id="更新npm包">更新npm包</h4>
+
+<p>和发布npm一样都是使用<code class="language-plaintext highlighter-rouge">npm publish</code>命令，更新发布之前必须修改版本号</p>
+
+<h4 id="使用npm">使用npm</h4>
+
+<p>和我们平时使用npm一样</p>
+
+<pre><code class="language-git">npm install lld-npm-demo
+</code></pre>
+
+<h4 id="发布npm常见错误">发布npm常见错误</h4>
+
+<p>1、npm仓库设置了淘宝镜像</p>
+
+<pre><code class="language-git">npm ERR! code E403
+npm ERR! 403 Forbidden - PUT https://registry.npm.taobao.org/lld-npm-demo - no_perms
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     /Users/better/.npm/_logs/2019-01-24T02_08_54_914Z-debug.log
+</code></pre>
+
+<p>解决方案：</p>
+
+<pre><code class="language-git">// 检查仓库是否被设成了淘宝镜像库(https://registry.npm.taobao.org/)
+npm config get registry
+
+// 如果设置了淘宝镜像，执行以下命令
+npm config set registry=http://registry.npmjs.org
+
+// 解决问题后重新发布
+npm publish
+
+// 发布成功以后，在设会淘宝镜像
+npm config set registry=https://registry.npm.taobao.org/
+</code></pre>
+
+<p>2、账号未登录</p>
+
+<pre><code class="language-git">npm ERR! code E401
+npm ERR! 401 Unauthorized - PUT http://registry.npmjs.org/lld-npm-demo - You must be logged in to publish packages.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     /Users/better/.npm/_logs/2019-01-24T02_13_00_370Z-debug.log
+</code></pre>
+
+<p>解决方案：</p>
+
+<pre><code class="language-git">// 登录用户 npm login
+npm adduser
+
+// 登录用户以后重新发布
+npm publish
+</code></pre>
+
+<p>3、重新发布未修改版本号</p>
+
+<pre><code class="language-git">npm ERR! code E403
+npm ERR! 403 Forbidden - PUT http://registry.npmjs.org/lld-npm-demo - You cannot publish over the previously published versions: 1.0.0.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     /Users/better/.npm/_logs/2019-01-24T02_55_19_409Z-debug.log
+</code></pre>
+
+<p>解决方案：在package.json文件修改版本号</p>
+:ET

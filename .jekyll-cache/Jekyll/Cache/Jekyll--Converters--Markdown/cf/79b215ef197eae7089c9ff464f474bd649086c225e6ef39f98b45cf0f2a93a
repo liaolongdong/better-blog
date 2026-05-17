@@ -1,0 +1,302 @@
+I"C<h1 id="git常用命令操作手册">git常用命令操作手册</h1>
+
+<p><a href="https://git-scm.com/docs">git命令官方文档</a>
+<a href="http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html">阮一峰的git命令教程</a></p>
+
+<h2 id="git常用操作">git常用操作</h2>
+
+<p>变量说明：</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">&lt;url&gt;</code> = 项目地址(<code class="language-plaintext highlighter-rouge">https://github.com/liaolongdong/liaolongdong.github.io.git</code>)</li>
+  <li><code class="language-plaintext highlighter-rouge">&lt;repo&gt;</code> = 关联仓库名称(<code class="language-plaintext highlighter-rouge">origin</code>, <code class="language-plaintext highlighter-rouge">upstream</code>) <code class="language-plaintext highlighter-rouge">origin</code>代表远程私仓，<code class="language-plaintext highlighter-rouge">up</code>或者<code class="language-plaintext highlighter-rouge">upstream</code>代表远程公仓</li>
+  <li><code class="language-plaintext highlighter-rouge">&lt;branch-name&gt;</code> = 分支名(<code class="language-plaintext highlighter-rouge">dev</code>)</li>
+  <li><code class="language-plaintext highlighter-rouge">&lt;commit-sha&gt;</code> = 提交记录ID(<code class="language-plaintext highlighter-rouge">d6d826afd99c64a91473180e75351bab0a547c1f</code>)</li>
+</ul>
+
+<h3 id="git查看相关命令用法或帮助">git查看相关命令用法或帮助</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git <span class="nb">help</span>
+</code></pre></div></div>
+
+<h3 id="git新建代码仓库">git新建代码仓库</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 在当前目录新建一个Git代码库</span>
+git init
+
+<span class="c"># 新建一个目录，将其初始化为Git代码库</span>
+git init &lt;project-name&gt;
+
+<span class="c"># 下载一个项目和它的整个代码历史</span>
+git clone &lt;url&gt;
+
+<span class="c"># 只拉取最近一次提交记录，用于快速clone代码仓库</span>
+git clone <span class="nt">--depth</span> 1 &lt;url&gt;
+</code></pre></div></div>
+
+<h3 id="git配置">git配置</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 显示当前的Git配置</span>
+git config <span class="nt">--list</span>
+
+<span class="c"># 编辑Git配置文件</span>
+git config <span class="nt">-e</span> <span class="o">[</span><span class="nt">--global</span><span class="o">]</span>
+
+<span class="c"># 设置提交代码时的用户信息</span>
+git config <span class="nt">--global</span> user.name &lt;name&gt;
+git config <span class="nt">--global</span> user.email &lt;email&gt;
+
+<span class="c"># git可以将用户名，密码和仓库链接保存在硬盘中，而不用在每次push的时候都输入密码</span>
+git config credential.helper store
+</code></pre></div></div>
+
+<h3 id="git查看相关命令">git查看相关命令</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 查看工作区变更的文件</span>
+git status
+
+<span class="c"># 查看提交日志</span>
+git log
+
+<span class="c"># 查看提交记录(更简洁)，该命令可以查看最近90天的git操作记录，关键时刻可以救命（比如，使用了 git reset --hard &lt;commit-sha&gt; 后找不到commit-sha后面的提交记录和代码了）</span>
+git reflog
+
+<span class="c"># 查看工作区余暂存区修改文件具体差异</span>
+git diff
+
+<span class="c"># 查看本地项目关联远程仓库地址</span>
+git remote <span class="nt">-v</span>
+
+<span class="c"># 查看某个分支本地、origin、up远程仓库当前的commit-sha，可用于对比三者代码是不是最新的</span>
+git show-ref &lt;branch-name&gt; <span class="c"># 使用之前先执行 `git fetch --all` 拉取最新资源到本地</span>
+</code></pre></div></div>
+
+<h3 id="git代码提交操作">git代码提交操作</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 提交工作区所有修改到暂存区</span>
+git add <span class="nb">.</span>
+
+<span class="c"># 提交暂存区修改到仓库区</span>
+git commit <span class="nt">-m</span> &lt;message&gt;
+
+<span class="c"># 拉取远程仓库最新代码，并与本地分支合并，该命令相当于执行 git fetch &amp;&amp; git merge</span>
+git pull &lt;repo&gt; &lt;branch-name&gt;
+
+<span class="c"># 上传本地指定分支到远程仓库</span>
+git push &lt;repo&gt; &lt;branch-name&gt;
+</code></pre></div></div>
+
+<h3 id="git分支相关命令">git分支相关命令</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 查看所有分支</span>
+git branch <span class="nt">-a</span>
+
+<span class="c"># 查看当前分支名称</span>
+git rev-parse <span class="nt">--abbrev-ref</span> HEAD <span class="c"># 低版本git获取当前分支名称</span>
+git branch <span class="nt">--show-current</span> <span class="c"># 高版本git获取当前分支名称</span>
+
+<span class="c"># 创建分支</span>
+git branch &lt;branch-name&gt;
+
+<span class="c"># 切换分支</span>
+git checkout &lt;branch-name&gt;
+
+<span class="c"># 切换并关联到upstream上游仓库</span>
+git checkout <span class="nt">--track</span> &lt;repo&gt;/&lt;branch-name&gt; <span class="c"># git checkout --track up/Release_IEP-WEBSITE-3.40.0_92224</span>
+
+<span class="c"># 修改本地分支的关联仓库</span>
+git branch <span class="nt">--set-upstream-to</span> &lt;repo&gt;/&lt;branch-name&gt;
+
+<span class="c"># 创建 + 切换分支</span>
+git checkout <span class="nt">-b</span> &lt;branch-name&gt;
+
+<span class="c"># 两个分支来回切换，快捷方式</span>
+git checkout -
+
+<span class="c"># 删除本地分支(已merge过分支)</span>
+git branch  <span class="nt">-d</span> &lt;branch-name&gt;
+
+<span class="c"># 删除本地分支(为merge的分支)</span>
+git branch  <span class="nt">-D</span> &lt;branch-name&gt; <span class="c"># 相当于 --delete --force</span>
+
+<span class="c"># 删除远程仓库分支</span>
+git push <span class="nt">-d</span> &lt;repo&gt; &lt;branch-name&gt; <span class="c"># 或者 git push &lt;repo&gt; :&lt;branch-name&gt;</span>
+
+
+<span class="c"># 合并某本地分支到当前分支</span>
+git merge &lt;branch-name&gt;
+
+<span class="c"># 合并某远程分支到当前分支 示例：git merge origin/dev</span>
+git merge &lt;repo&gt;/&lt;branch-name&gt;
+
+<span class="c"># 直接使用pull合并某远程分支到当前分支</span>
+git pull &lt;repo&gt; &lt;branch-name&gt; <span class="c"># 等同于 git fetch &lt;repo&gt; &amp;&amp; git merge &lt;repo&gt;/&lt;branch-name&gt;</span>
+</code></pre></div></div>
+
+<h3 id="git撤销和回退">git撤销和回退</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 撤销本地所有修改（新创建的文件不会被撤销）</span>
+git checkout <span class="nb">.</span>
+
+<span class="c"># 撤销本地新创建的文件（已存在文件的内容修改不会被撤销）</span>
+git clean <span class="nt">-f</span>
+
+<span class="c"># 从暂存区回退到工作区</span>
+git reset HEAD filename <span class="c"># 指定文件</span>
+
+<span class="c"># 回退暂存区所有文件到工作区</span>
+git reset HEAD <span class="nb">.</span>
+
+<span class="c"># 回退到某次提交</span>
+git reset &lt;commit-sha&gt; <span class="c"># 默认是 --mixed 回退的代码保留在工作区</span>
+git reset <span class="nt">--mixed</span> &lt;commit-sha&gt; <span class="c"># 回退的代码保留在工作区</span>
+git reset <span class="nt">--soft</span> &lt;commit-sha&gt; <span class="c"># 回退的代码保留在暂存区</span>
+git reset <span class="nt">--hard</span> &lt;commit-sha&gt; <span class="c"># 回退的代码不保留，该命令要谨慎操作</span>
+
+<span class="c"># 重置暂存区与工作区，与上一次commit保持一致</span>
+git reset <span class="nt">--hard</span>
+
+<span class="c"># 回退到某次提交版本</span>
+git reset <span class="nt">--hard</span> &lt;commit-sha&gt;
+
+<span class="c"># 查看分支当前版本commit SHA</span>
+git rev-parse HEAD
+
+<span class="c"># 提交回退的版本 (注：强制提交后，当前版本后面的提交版本将会删掉！)</span>
+<span class="c"># git push -f</span>
+git push origin HEAD <span class="nt">--force</span>
+
+<span class="c"># 新建一个commit，用来撤销指定commit</span>
+<span class="c"># git revert和git reset的区别：</span>
+<span class="c"># 前者只会创建一次新的提交（不会重置和更改原有的提交记录）而且只是撤销某一次提交</span>
+<span class="c"># 后者则会回退某一次提交记录之后的所有提交（会重置和更改历史提交记录，如果回退的提交已经pull到远程，回退以后push到远程必须使用强制推送 --force）</span>
+git revert &lt;commit-sha&gt;
+
+<span class="c"># 拷贝应用某些已经存在的提交</span>
+git cherry-pick &lt;commit-sha&gt;
+
+<span class="c"># 分支合并有冲突，选择中止分支合并操作</span>
+git merge <span class="nt">--abort</span>
+
+<span class="c"># 中止变基操作</span>
+git rebase <span class="nt">--abort</span>
+</code></pre></div></div>
+
+<h3 id="git储藏常用命令">git储藏常用命令</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 储藏修改，将新的储藏推送到栈上，运行 git stash 或 git stash save</span>
+git stash
+git stash save <span class="s2">"save message"</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 从git栈中获取到最近一次stash进去的内容，恢复工作区的内容。获取之后，会删除栈中对应的stash</span>
+git stash pop
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 要查看储藏的东西，可以使用 git stash list</span>
+git stash list
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 将你刚刚储藏的工作重新应用：git stash apply。 如果想要应用其中一个更旧的储藏，可以通过名字指定它，像这样：git stash apply stash@{2}。 如果不指定一个储藏，Git 认为指定的是最近的储藏</span>
+git stash apply
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 根据版本号，恢复储藏信息</span>
+git stash apply stash@<span class="o">{</span>1<span class="o">}</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 要移除它，你可以运行 git stash drop，加上你希望移除的储藏的名字</span>
+git stash drop stash@<span class="o">{</span>0<span class="o">}</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 清空git储藏栈</span>
+git stash clear
+</code></pre></div></div>
+
+<h3 id="git切换远程仓库地址">git切换远程仓库地址</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 查看本地项目关联远程仓库地址</span>
+git remote <span class="nt">-v</span>
+
+<span class="c"># 删除origin关联的远程仓库地址</span>
+git remote remove origin
+
+<span class="c"># 重命名关联仓库名称</span>
+git remote rename &lt;repo&gt; &lt;new-repo&gt;
+
+<span class="c"># 添加远程仓库新地址</span>
+git remote add origin &lt;url&gt;
+</code></pre></div></div>
+
+<h3 id="git获取不到gitlab创建的新分支">git获取不到gitLab创建的新分支</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 将远程主机的最新内容拉到本地</span>
+git fetch
+
+<span class="c"># 获取所有远程分支并清除远程仓库已删除的分支</span>
+git fetch <span class="nt">--prune</span>
+
+<span class="c"># 查看对应分支的commit-sha</span>
+git show-ref &lt;branch-name&gt;
+
+<span class="c"># 查看所有分支</span>
+git branch <span class="nt">-a</span>
+</code></pre></div></div>
+
+<h3 id="fork模式切换新分支">fork模式切换新分支</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 获取远程私仓库（origin）和远程公仓库（up/upstream）代码、分支、tag等信息，该命令只是拉取，并未进行合并操作，所以不会又冲突（git pull命令等于git fetch &amp;&amp; git merge）</span>
+git fetch <span class="nt">--all</span>
+
+<span class="c"># 获取远程公仓的分支后就可以切换分支了</span>
+git checkout &lt;branch-name&gt;
+
+<span class="c"># 推送本地代码到远程私仓之前，先拉取更新远程公仓的代码，看是否有冲突</span>
+git pull up/upstream &lt;branch-name&gt;
+
+<span class="c"># 推送本地代码到远程私仓</span>
+git push origin &lt;branch-name&gt;
+
+<span class="c"># 最后在gitlab发起merge request代码合并请求</span>
+</code></pre></div></div>
+
+<h3 id="修改提交信息">修改提交信息</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 修改最新commit提交信息</span>
+git commit <span class="nt">--amend</span>
+
+<span class="c"># 修改某次历史commit提交信息</span>
+git rebase <span class="nt">-i</span> father-commit-sha <span class="c"># 要修改历史提交信息的前一次commit-sha</span>
+
+<span class="c"># 修改第一个commit的提交信息</span>
+git rebase <span class="nt">-i</span> <span class="nt">--root</span>
+</code></pre></div></div>
+
+<h3 id="解决-git-默认不区分文件名大小写的问题">解决 Git 默认不区分文件名大小写的问题</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config core.ignorecase <span class="nb">false</span>
+</code></pre></div></div>
+
+<h3 id="git清理不必要的文件和优化本地仓库内存">git清理不必要的文件和优化本地仓库内存</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git gc
+</code></pre></div></div>
+
+<h3 id="git导出某个时间段的代码提交记录到桌面">git导出某个时间段的代码提交记录到桌面</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 在项目根目录，执行以下命令</span>
+
+git log <span class="nt">--all</span> <span class="nt">--after</span><span class="o">=</span><span class="s2">"&lt;date&gt; 00:00"</span> <span class="nt">--before</span><span class="o">=</span><span class="s2">"&lt;date&gt; 23:59"</span> <span class="nt">--author</span><span class="o">=</span><span class="s2">"&lt;author&gt;"</span>
+
+<span class="c"># 输出最近一年的格式化的git提交记录</span>
+git log <span class="nt">--pretty</span><span class="o">=</span>format:<span class="s2">"%ad - %an: %s"</span> <span class="nt">--after</span><span class="o">=</span><span class="s2">"2018-01-31"</span> <span class="nt">--until</span><span class="o">=</span><span class="s2">"2019-01-31"</span> <span class="nt">--author</span><span class="o">=</span><span class="s2">"liaolongdong"</span>
+
+<span class="c"># 导出txt文档</span>
+git log <span class="nt">--pretty</span><span class="o">=</span>format:<span class="s2">"%ad - %an: %s"</span> <span class="nt">--after</span><span class="o">=</span><span class="s2">"2018-01-31"</span> <span class="nt">--until</span><span class="o">=</span><span class="s2">"2019-01-31"</span> <span class="nt">--author</span><span class="o">=</span><span class="s2">"liaolongdong"</span> <span class="o">&gt;&gt;</span> ~/Desktop/commit.txt
+
+<span class="c"># 导出excel</span>
+git log <span class="nt">--date</span><span class="o">=</span>iso <span class="nt">--pretty</span><span class="o">=</span>format:<span class="s1">'"%h" "%an" "%ad" "%s"'</span> <span class="nt">--after</span><span class="o">=</span><span class="s2">"2018-01-31"</span> <span class="nt">--until</span><span class="o">=</span><span class="s2">"2021-03-31"</span> <span class="nt">--author</span><span class="o">=</span><span class="s2">"liaolongdong"</span> <span class="o">&gt;&gt;</span> ~/Desktop/commit.csv
+</code></pre></div></div>
+
+<p><a href="https://stackoverflow.com/questions/37311494/how-to-get-git-to-show-commits-in-a-specified-date-range-for-author-date">查看更多</a></p>
+:ET

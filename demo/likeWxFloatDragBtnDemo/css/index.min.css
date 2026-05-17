@@ -1,0 +1,73 @@
+html {
+  font-size: 13.33333vw;
+}
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  text-align: center;
+  font-size: 2.13333vw;
+  color: #2c55f2;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.title {
+  margin-top: 1rem;
+  font-size: 0.2rem;
+}
+
+.sub-title {
+  font-size: 0.18rem;
+}
+
+.c-draggable-likewxfloat {
+  position: fixed;
+  right: 0px;
+  bottom: 53.33333vw;
+  z-index: 20;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+          justify-content: center;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+          align-items: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-top-left-radius: 50%;
+  border-bottom-left-radius: 50%;
+  box-shadow: 0 0 1.33333vw #2c55f2;
+  background: #fff;
+  font-size: 1.6vw;
+  color: #2c55f2;
+}
+
+.mine-btn {
+  width: 0.2rem;
+  height: 0.21rem;
+}
+
+.text {
+  margin-top: 0.05rem;
+}
+
+.is-left {
+  left: 0;
+  border-top-right-radius: 50%;
+  border-bottom-right-radius: 50%;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.is-move {
+  border-radius: 50%;
+}

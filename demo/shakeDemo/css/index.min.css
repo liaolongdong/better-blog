@@ -1,1 +1,84 @@
-@charset "UTF-8";.animated{-webkit-animation-duration:1s;animation-duration:1s;-webkit-animation-fill-mode:both;animation-fill-mode:both}@-webkit-keyframes tada{from{-webkit-transform:scale3d(1,1,1);transform:scale3d(1,1,1)}10%,20%{-webkit-transform:scale3d(.9,.9,.9) rotate3d(0,0,1,-6deg);transform:scale3d(.9,.9,.9) rotate3d(0,0,1,-6deg)}30%,50%,70%,90%{-webkit-transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,6deg);transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,6deg)}40%,60%,80%{-webkit-transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,-6deg);transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,-6deg)}to{-webkit-transform:scale3d(1,1,1);transform:scale3d(1,1,1)}}@keyframes tada{from{-webkit-transform:scale3d(1,1,1);transform:scale3d(1,1,1)}10%,20%{-webkit-transform:scale3d(.9,.9,.9) rotate3d(0,0,1,-6deg);transform:scale3d(.9,.9,.9) rotate3d(0,0,1,-6deg)}30%,50%,70%,90%{-webkit-transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,6deg);transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,6deg)}40%,60%,80%{-webkit-transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,-6deg);transform:translateY(-26.66667vw) scale3d(1.4,1.4,1.4) rotate3d(0,0,1,-6deg)}to{-webkit-transform:scale3d(1,1,1);transform:scale3d(1,1,1)}}.tada{-webkit-animation-name:tada;animation-name:tada}.p-wx-shake{position:relative;width:100%;max-width:100vw;height:100vh;overflow:hidden;background-color:#c3eaee;background-image:url(../img/shake_bg.png);background-size:100%;background-repeat:no-repeat;color:#fef699}.p-wx-shake .shake-img-section{text-align:center}.p-wx-shake .shake-img-section img{margin-top:58.66667vw;width:82.66667vw;height:94.66667vw}.p-wx-shake .shake-hand-mask{position:absolute;top:136vw}
+@charset "UTF-8";
+/* ------------------------ 摇一摇动画start ---------------------- */
+.animated {
+  -webkit-animation-duration: 1s;
+          animation-duration: 1s;
+  -webkit-animation-fill-mode: both;
+          animation-fill-mode: both;
+}
+
+@-webkit-keyframes tada {
+  from {
+    -webkit-transform: scale3d(1, 1, 1);
+            transform: scale3d(1, 1, 1);
+  }
+  10%, 20% {
+    -webkit-transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -6deg);
+            transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -6deg);
+  }
+  30%, 50%, 70%, 90% {
+    -webkit-transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, 6deg);
+            transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, 6deg);
+  }
+  40%, 60%, 80% {
+    -webkit-transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, -6deg);
+            transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, -6deg);
+  }
+  to {
+    -webkit-transform: scale3d(1, 1, 1);
+            transform: scale3d(1, 1, 1);
+  }
+}
+
+@keyframes tada {
+  from {
+    -webkit-transform: scale3d(1, 1, 1);
+            transform: scale3d(1, 1, 1);
+  }
+  10%, 20% {
+    -webkit-transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -6deg);
+            transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -6deg);
+  }
+  30%, 50%, 70%, 90% {
+    -webkit-transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, 6deg);
+            transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, 6deg);
+  }
+  40%, 60%, 80% {
+    -webkit-transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, -6deg);
+            transform: translateY(-26.66667vw) scale3d(1.4, 1.4, 1.4) rotate3d(0, 0, 1, -6deg);
+  }
+  to {
+    -webkit-transform: scale3d(1, 1, 1);
+            transform: scale3d(1, 1, 1);
+  }
+}
+.tada {
+  -webkit-animation-name: tada;
+          animation-name: tada;
+}
+
+/* ------------------------ 摇一摇动画end ---------------------- */
+.p-wx-shake {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #c3eaee;
+  background-image: url("/shake_bg.BBiMK73R.png");
+  background-size: 100%;
+  background-repeat: no-repeat;
+  color: #fef699;
+}
+.p-wx-shake .shake-img-section {
+  text-align: center;
+}
+.p-wx-shake .shake-img-section img {
+  margin-top: 58.66667vw;
+  width: 82.66667vw;
+  height: 94.66667vw;
+}
+.p-wx-shake .shake-hand-mask {
+  position: absolute;
+  top: 136vw;
+}

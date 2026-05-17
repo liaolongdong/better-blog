@@ -1,1 +1,94 @@
-@charset "UTF-8";*{margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;appearance:none;-webkit-appearance:none;outline:0;box-sizing:border-box;font-family:"Microsoft Yahei",sans-serif;cursor:pointer}img:not([src]),img[src=""]{opacity:0}html{overflow-y:scroll;text-size-adjust:100%;-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;-ms-text-size-adjust:100%;touch-action:manipulation;font-size:1.86667vw;-webkit-overflow-scrolling:touch}body{background:#fff;-webkit-overflow-scrolling:touch}::-webkit-scrollbar{display:none}label>*{pointer-events:none}html *{outline:0;-webkit-tap-highlight-color:transparent}body,html{width:100%;min-height:100vh;color:#333;background-color:#f9f9f9}h1,h2,h3,h4,h5,h6{font-weight:400}ol>li,ul>li{list-style:none}a{outline:0;text-decoration:none}em{font-style:normal}input{border:1px solid #d4d4d4;background:#fff;padding:1.33333vw;width:100%;display:block;margin:0;outline:0}button{border:none}
+@charset "UTF-8";
+
+* {
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: 0;
+    box-sizing: border-box;
+    font-family: "Microsoft Yahei", sans-serif;
+    cursor: pointer;
+}
+
+/* 防止谷歌浏览器在img标签没有制定src时 显示边框的问题 */
+img[src=""],
+img:not([src]) {
+    opacity: 0;
+}
+
+html {
+    overflow-y: scroll;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    touch-action: manipulation;
+    font-size: 1.86667vw;
+    -webkit-overflow-scrolling: touch;
+}
+
+body {
+    background: #fff;
+    -webkit-overflow-scrolling: touch;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+label>* {
+    pointer-events: none;
+}
+
+html * {
+    outline: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: 100vh;
+    color: #333;
+    background-color: #f9f9f9;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: normal;
+}
+
+ul>li,
+ol>li {
+    list-style: none;
+}
+
+a {
+    outline: 0;
+    text-decoration: none;
+}
+
+em {
+    font-style: normal;
+}
+
+input {
+    border: 1px solid #d4d4d4;
+    background: #fff;
+    padding: 1.33333vw;
+    width: 100%;
+    display: block;
+    margin: 0;
+    outline: 0;
+}
+
+button {
+    border: none;
+}

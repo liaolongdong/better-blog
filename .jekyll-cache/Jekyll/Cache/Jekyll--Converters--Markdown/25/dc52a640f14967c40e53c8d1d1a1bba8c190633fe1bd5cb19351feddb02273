@@ -1,0 +1,161 @@
+I"�L<h1 id="h5实现打开导航地图app并自动导航到目的地">H5实现打开导航地图app并自动导航到目的地</h1>
+
+<h2 id="背景">背景</h2>
+
+<p>公司项目需求，要实现一个H5页面打高德地图、百度地图、腾讯地图并自动进行导航到目的地的功能，在项目上线以后，抽时间做一下总结记录一下，同事也希望能帮到有这方面需求的同学</p>
+
+<h2 id="技术实现">技术实现</h2>
+
+<p>由于我们前端JS无法判断用户手机是否有安装某个地图导航app，所以只列出一些大家经常用到的地图导航app，这里只列出高德地图、百度地图、腾讯地图app,所以增加了一句“如果点击无响应，可能是您还没有安装该APP”提示文案。</p>
+
+<h3 id="具体实现源码">具体实现源码</h3>
+
+<p>这里为了快速开发出demo，使用<code class="language-plaintext highlighter-rouge">script</code>标签的方式引入vue并使用vue进行开发</p>
+
+<p>直接通过<code class="language-plaintext highlighter-rouge">script</code>标签的方式引入vue需要注意一下几个点：</p>
+
+<ul>
+  <li>确保引入正确的vue版本，<a href="https://cn.vuejs.org/v2/guide/installation.html#%E7%9B%B4%E6%8E%A5%E7%94%A8-lt-script-gt-%E5%BC%95%E5%85%A5">具体参考直接用 <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> 引入</a></li>
+  <li>在使用vue组件的时候，html代码里面的组件引入名称必须使用 kebab-case 命名方式, <a href="https://cn.vuejs.org/v2/guide/components-registration.html#%E7%BB%84%E4%BB%B6%E5%90%8D">具体参考vue组件名</a>
+    <blockquote>
+      <p>当使用 PascalCase (首字母大写命名) 定义一个组件时，你在引用这个自定义元素时两种命名法都可以使用。也就是说 <my-component-name> 和 <MyComponentName> 都是可接受的。注意，尽管如此，直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。</MyComponentName></my-component-name></p>
+    </blockquote>
+  </li>
+  <li>组件传参props的属性名称也必须使用 kebab-case 命名方式，<a href="https://cn.vuejs.org/v2/guide/components-props.html#Prop-%E7%9A%84%E5%A4%A7%E5%B0%8F%E5%86%99-camelCase-vs-kebab-case">具体参考Prop 的大小写 (camelCase vs kebab-case)</a></li>
+</ul>
+
+<p>具体实现代码：</p>
+
+<p>html代码部分</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">&lt;!-- index.html --&gt;</span>
+<span class="nt">&lt;h1</span> <span class="na">class=</span><span class="s">"title"</span><span class="nt">&gt;</span>H5实现打开导航地图app并自动导航到目的地<span class="nt">&lt;/h1&gt;</span>
+<span class="nt">&lt;h2</span> <span class="na">class=</span><span class="s">"sub-title"</span><span class="nt">&gt;</span>点击“导航”按钮<span class="nt">&lt;/h2&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"app"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;button</span> <span class="na">class=</span><span class="s">"goto-map"</span> <span class="err">@</span><span class="na">click=</span><span class="s">"gotoMap"</span><span class="nt">&gt;</span>导航<span class="nt">&lt;/button&gt;</span>
+    <span class="c">&lt;!-- https://cn.vuejs.org/v2/guide/components-registration.html --&gt;</span>
+    <span class="c">&lt;!-- 组件名只能使用 直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。 --&gt;</span>
+    <span class="c">&lt;!-- https://cn.vuejs.org/v2/guide/components-props.html --&gt;</span>
+    <span class="c">&lt;!-- Prop 的大小写 (camelCase vs kebab-case) 在 HTML 中是 kebab-case 的 --&gt;</span>
+    <span class="nt">&lt;open-map</span>
+        <span class="na">:visible.sync=</span><span class="s">"openMapVisible"</span>
+        <span class="na">:open-map-data=</span><span class="s">"openMapData"</span>
+        <span class="na">:local-position=</span><span class="s">"position"</span>
+    <span class="nt">/&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"./js/vue.min.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"./js/gcoord.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"./js/openMap.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"./js/index.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+</code></pre></div></div>
+
+<p>OpenMap组件部分</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// openMap.js</span>
+<span class="nx">Vue</span><span class="p">.</span><span class="nx">component</span><span class="p">(</span><span class="dl">"</span><span class="s2">OpenMap</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+  <span class="na">template</span><span class="p">:</span> <span class="s2">`
+        &lt;div v-if="visible" class="container"&gt;
+            &lt;div @click="close" class="mask"&gt;&lt;/div&gt;
+            &lt;div class="content"&gt;
+                &lt;div class="header"&gt;
+                    &lt;p class="lv1"&gt;使用地图打开导航&lt;/p&gt;
+                    &lt;p class="lv2"&gt;如果点击无响应，可能是您还没有安装该APP&lt;/p&gt;
+                &lt;/div&gt;
+                &lt;div class="list"&gt;
+                    &lt;a @click="gaode" href="javascript:void(0)"&gt;高德地图&lt;/a&gt;
+                &lt;/div&gt;
+                &lt;div class="list"&gt;
+                    &lt;a @click="baidu" href="javascript:void(0)"&gt;百度地图&lt;/a&gt;
+                &lt;/div&gt;
+                &lt;div class="list"&gt;
+                    &lt;a @click="tengxun" href="javascript:void(0)"&gt;腾讯地图&lt;/a&gt;
+                &lt;/div&gt;
+                &lt;div @click="close" class="footer"&gt;取消&lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    `</span><span class="p">,</span>
+  <span class="na">props</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">visible</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">type</span><span class="p">:</span> <span class="nb">Boolean</span><span class="p">,</span>
+      <span class="na">default</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="c1">// 目标地址数据</span>
+    <span class="na">openMapData</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">type</span><span class="p">:</span> <span class="nb">Object</span><span class="p">,</span>
+      <span class="na">default</span><span class="p">:</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="p">{};</span>
+      <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="c1">// 当前地址数据</span>
+    <span class="na">localPosition</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">type</span><span class="p">:</span> <span class="nb">Object</span><span class="p">,</span>
+      <span class="na">default</span><span class="p">:</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="p">{};</span>
+      <span class="p">},</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+  <span class="nx">data</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="p">{</span>
+      <span class="na">isIos</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+    <span class="p">};</span>
+  <span class="p">},</span>
+  <span class="nx">created</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">isIos</span> <span class="o">=</span> <span class="sr">/</span><span class="se">(</span><span class="sr">iPhone|iPad|iPod|iOS</span><span class="se">)</span><span class="sr">/i</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nb">navigator</span><span class="p">.</span><span class="nx">userAgent</span><span class="p">);</span>
+  <span class="p">},</span>
+  <span class="na">methods</span><span class="p">:</span> <span class="p">{</span>
+    <span class="c1">// 打开百度地图</span>
+    <span class="c1">// http://lbsyun.baidu.com/index.php?title=uri/api/android</span>
+    <span class="nx">baidu</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">str</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">isIos</span> <span class="p">?</span> <span class="dl">"</span><span class="s2">baidumap</span><span class="dl">"</span> <span class="p">:</span> <span class="dl">"</span><span class="s2">bdapp</span><span class="dl">"</span><span class="p">;</span>
+      <span class="c1">// const url = `${str}://map/direction?region=我的位置&amp;origin=${this.localPosition.lat},${this.localPosition.lon}&amp;destination=${this.openMapData.lat},${this.openMapData.lon}&amp;coord_type=bd09ll&amp;mode=driving&amp;src=andr.baidu.openAPIdemo`;</span>
+      <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="s2">`</span><span class="p">${</span><span class="nx">str</span><span class="p">}</span><span class="s2">://map/direction?origin=name:我的位置|latlng:</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lat</span><span class="p">}</span><span class="s2">,</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lon</span><span class="p">}</span><span class="s2">&amp;destination=name:</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">addr</span><span class="p">}</span><span class="s2">|latlng:</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lat</span><span class="p">}</span><span class="s2">,</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lon</span><span class="p">}</span><span class="s2">&amp;coord_type=bd09ll&amp;mode=driving&amp;src=andr.baidu.openAPIdemo`</span><span class="p">;</span>
+      <span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">href</span> <span class="o">=</span> <span class="nx">url</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="c1">// 打开高德地图</span>
+    <span class="c1">// https://lbs.amap.com/api/amap-mobile/guide/android/route</span>
+    <span class="nx">gaode</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nx">localResult</span> <span class="o">=</span> <span class="nx">gcoord</span><span class="p">.</span><span class="nx">transform</span><span class="p">(</span>
+        <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lon</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lat</span><span class="p">],</span> <span class="c1">// 经纬度坐标</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">BD09</span><span class="p">,</span> <span class="c1">// 当前坐标系</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">GCJ02</span> <span class="c1">// 目标坐标系</span>
+      <span class="p">);</span>
+      <span class="kd">let</span> <span class="nx">opendResult</span> <span class="o">=</span> <span class="nx">gcoord</span><span class="p">.</span><span class="nx">transform</span><span class="p">(</span>
+        <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lon</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lat</span><span class="p">],</span> <span class="c1">// 经纬度坐标</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">BD09</span><span class="p">,</span> <span class="c1">// 当前坐标系</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">GCJ02</span> <span class="c1">// 目标坐标系</span>
+      <span class="p">);</span>
+      <span class="kd">const</span> <span class="nx">str</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">isIos</span> <span class="p">?</span> <span class="dl">"</span><span class="s2">iosamap</span><span class="dl">"</span> <span class="p">:</span> <span class="dl">"</span><span class="s2">androidamap</span><span class="dl">"</span><span class="p">;</span>
+      <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="s2">`</span><span class="p">${</span><span class="nx">str</span><span class="p">}</span><span class="s2">://route/plan/?sid=&amp;slat=</span><span class="p">${</span><span class="nx">localResult</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span><span class="s2">&amp;slon=</span><span class="p">${</span><span class="nx">localResult</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span><span class="s2">&amp;sname=我的位置&amp;did=&amp;dlat=</span><span class="p">${</span><span class="nx">opendResult</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span><span class="s2">&amp;dlon=</span><span class="p">${</span><span class="nx">opendResult</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span><span class="s2">&amp;dname=</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">addr</span><span class="p">}</span><span class="s2">&amp;dev=1&amp;t=0`</span><span class="p">;</span>
+      <span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">href</span> <span class="o">=</span> <span class="nx">url</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="c1">// 打开腾讯地图</span>
+    <span class="nx">tengxun</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nx">localResult</span> <span class="o">=</span> <span class="nx">gcoord</span><span class="p">.</span><span class="nx">transform</span><span class="p">(</span>
+        <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lon</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">localPosition</span><span class="p">.</span><span class="nx">lat</span><span class="p">],</span> <span class="c1">// 经纬度坐标</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">BD09</span><span class="p">,</span> <span class="c1">// 当前坐标系</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">GCJ02</span> <span class="c1">// 目标坐标系</span>
+      <span class="p">);</span>
+      <span class="kd">let</span> <span class="nx">opendResult</span> <span class="o">=</span> <span class="nx">gcoord</span><span class="p">.</span><span class="nx">transform</span><span class="p">(</span>
+        <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lon</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">lat</span><span class="p">],</span> <span class="c1">// 经纬度坐标</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">BD09</span><span class="p">,</span> <span class="c1">// 当前坐标系</span>
+        <span class="nx">gcoord</span><span class="p">.</span><span class="nx">GCJ02</span> <span class="c1">// 目标坐标系</span>
+      <span class="p">);</span>
+      <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="s2">`qqmap://map/routeplan?type=drive&amp;from=我的位置&amp;fromcoord=</span><span class="p">${</span><span class="nx">localResult</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span><span class="s2">,</span><span class="p">${</span><span class="nx">localResult</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span><span class="s2">&amp;to=</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">openMapData</span><span class="p">.</span><span class="nx">addr</span><span class="p">}</span><span class="s2">&amp;tocoord=</span><span class="p">${</span><span class="nx">opendResult</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span><span class="s2">,</span><span class="p">${</span><span class="nx">opendResult</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span><span class="s2">&amp;referer=OB4BZ-D4W3U-B7VVO-4PJWW-6TKDJ-WPB77`</span><span class="p">;</span>
+      <span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">href</span> <span class="o">=</span> <span class="nx">url</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="nx">close</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">$emit</span><span class="p">(</span><span class="dl">"</span><span class="s2">update:visible</span><span class="dl">"</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<p><strong>还需要在html页面底部引入对饮的JS文件，vue和gcoord，完成代码可以demo页面，按F12控制台，查看完成源码和页面所需要引入的JS和Css文件</strong></p>
+
+<h2 id="demo效果地址">demo效果地址</h2>
+
+<ul>
+  <li><a href="https://liaolongdong.com/demo/openMapDemo/index.html">H5实现打开导航地图app并自动导航到目的地</a></li>
+</ul>
+
+:ET

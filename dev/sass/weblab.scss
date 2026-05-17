@@ -2,11 +2,11 @@
     .lab-content {
         width: 960px;
     }
-    #aceEditor {
+    .lab-content #aceEditor {
         width: 100%;
     }
 
-    #aceEditor .editor {
+    .lab-content #aceEditor .editor {
         height: 300px;
         width: 50%;
         overflow-y: hidden;
@@ -16,11 +16,11 @@
 }
 
 @media screen and (max-width: 959px) {
-    #aceEditor {
+    .lab-content #aceEditor {
         width: 100%;
     }
 
-    #aceEditor .editor {
+    .lab-content #aceEditor .editor {
         height: 300px;
         width: 100%;
         overflow-y: hidden;
@@ -28,15 +28,15 @@
     }
 }
 
-#aceEditor {
+.lab-content #aceEditor {
     margin: 30px 0;
 }
 
-#aceEditor .editor {
+.lab-content #aceEditor .editor {
     box-shadow: inset 0 1px 3px #161a1b;
 }
 
-.label {
+.lab-content .label {
     background: rgba(230, 230, 230, 0.5);
     height: 20px;
     padding: 0 6px;
@@ -48,7 +48,7 @@
     border-radius: 3px;
 }
 
-.editor iframe {
+.lab-content .editor iframe {
     border: 0 !important;
     min-height: 100px;
     min-width: 100px;
@@ -57,7 +57,7 @@
     background: #eee;
 }
 
-.submit-btn {
+.lab-content .submit-btn {
     color: #fff;
     background-color: #67c23a;
     display: block;
@@ -75,6 +75,6 @@
     border-radius: 4px;
 }
 
-.edit-area {
+.lab-content .edit-area {
     height: 85%;
 }

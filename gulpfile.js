@@ -6,7 +6,7 @@ var gulp = require('gulp'),
     gulpIf = require('gulp-if'), // 条件判断
     autoprefixer = require('gulp-autoprefixer'), // 样式兼容前缀自动补全
     staticHash = require('gulp-static-hash'), // 静态文件加hash字符串
-    sass = require('gulp-sass'), // 编译sass
+    sass = require('gulp-sass')(require('sass')), // 编译sass
     cleanCSS = require('gulp-clean-css'), // 压缩css文件
     postcss = require('gulp-postcss'),
     pxtoviewport = require('postcss-px-to-viewport'), // px转vw
@@ -37,7 +37,7 @@ function notMinCss (file) {
 // dev文件夹下gulp打包
 // 压缩打包JS
 gulp.task('buildJS', function() {
-    gulp.src(['dev/js/*.js'])
+    return gulp.src(['dev/js/*.js'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(babel({
             presets: ['@babel/env']
@@ -50,7 +50,7 @@ gulp.task('buildJS', function() {
 
 // 编译打包sass
 gulp.task('buildCss', function() {
-    gulp.src(['dev/sass/*.scss'])
+    return gulp.src(['dev/sass/*.scss'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(sass())
         .pipe(autoprefixer({
@@ -78,7 +78,18 @@ gulp.task('buildLibJS', function() {
 
 // 压缩打包libCss
 gulp.task('buildLibCss', function() {
-    gulp.src(['dev/libCss/*.*'])
+    var processors = [
+        pxtoviewport({
+            viewportWidth: 750,
+            viewportHeight: 1334,
+            unitPrecision: 5,
+            viewportUnit: 'vw',
+            selectorBlackList: [/^\.markdown-body/, /^\.pc/, /\.g-container/, /\.g-sidebar-wrapper/, /\.article-list/, /\.g-sidebar/],
+            minPixelValue: 1,
+            mediaQuery: false
+        })
+    ]
+    return gulp.src(['dev/libCss/*.*'])
         .pipe(staticHash({asset: 'static'}))
         .pipe(gulpIf(notMinCss, sass()))
         .pipe(gulpIf(notMinCss, autoprefixer({
@@ -86,6 +97,7 @@ gulp.task('buildLibCss', function() {
             cascade: true,
             remove:true
         })))
+        .pipe(gulpIf(notMinCss, postcss(processors)))
         .pipe(gulpIf(notMinCss, cleanCSS()))
         .pipe(gulpIf(notMinCss, rename({suffix: '.min'})))
         .pipe(gulp.dest('assets/css'))
@@ -140,20 +152,20 @@ gulp.task('DemoSass', function () {
 
 // 监听文件变化
 gulp.task('watch', function(){
-    gulp.watch(['dev/sass/common/*.scss', 'dev/sass/*.scss'], ['buildCss']);
-    gulp.watch('dev/js/*.js', ['buildJS']);
-    gulp.watch('dev/libJs/*.js', ['buildLibJS']);
-    gulp.watch('dev/libCss/*.*', ['buildLibCss']);
+    gulp.watch(['dev/sass/common/*.scss', 'dev/sass/*.scss'], gulp.series('buildCss'));
+    gulp.watch('dev/js/*.js', gulp.series('buildJS'));
+    gulp.watch('dev/libJs/*.js', gulp.series('buildLibJS'));
+    gulp.watch('dev/libCss/*.*', gulp.series('buildLibCss'));
     // 监听html文件变化
     gulp.watch('*.html');
     // 监听demo文件夹下的文件变化
-    // gulp.watch('demo/**/**/*.*', ['DemoJS', 'DemoSass']);
-    gulp.watch('demo/**/js/*.js', ['DemoJS']);
-    gulp.watch('demo/**/css/*.*', ['DemoSass']);
+    // gulp.watch('demo/**/**/*.*', gulp.series('DemoJS', 'DemoSass'));
+    gulp.watch('demo/**/js/*.js', gulp.series('DemoJS'));
+    gulp.watch('demo/**/css/*.*', gulp.series('DemoSass'));
     gulp.watch('demo/**/*.*');
 });
 
 // 打包
-gulp.task('build', ['buildJS', 'buildCss', 'buildLibJS', 'buildLibCss', 'DemoJS', 'DemoSass']);
+gulp.task('build', gulp.parallel('buildJS', 'buildCss', 'buildLibJS', 'buildLibCss', 'DemoJS', 'DemoSass'));
 
-gulp.task('default', ['buildJS', 'buildCss', 'buildLibJS', 'buildLibCss', 'DemoJS', 'DemoSass', 'watch']);
+gulp.task('default', gulp.series('build', 'watch'));

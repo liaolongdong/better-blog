@@ -48,7 +48,7 @@ description: 路漫漫其修远兮，吾将上下而求索
                             {% endfor %}
                         {% endif %}
                     </div>
-                    <time class="post-date" datetime="{{ post.date | date:"%y-%m-%d" }}">{{ post.date | date_to_string }}</time>
+                    <time class="post-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date_to_string }}</time>
                 </footer>
             </article>
         {% endfor %}

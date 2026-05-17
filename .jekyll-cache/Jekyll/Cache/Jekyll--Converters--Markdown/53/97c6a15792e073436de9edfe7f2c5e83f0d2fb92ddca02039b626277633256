@@ -1,0 +1,201 @@
+I"X<h1 id="如何优雅的实现一套前端项目环境无缝切换多套后端环境">如何优雅的实现一套前端项目环境无缝切换多套后端环境</h1>
+
+<h2 id="需求背景">需求背景</h2>
+
+<p>在开发或者测试前端项目时，经常需要切换不同的后端环境，比如开发环境、测试环境、预发布环境、生产环境等，开发环境和测试环境又可能存在多套环境，比如dev1、dev2、fat1、fat2、…等，由于前端域名和后端接口请求的域名不一致，会产生跨域问题，跨域问题我们可以使用代理来解决。</p>
+
+<p>前端项目切换后端环境有两个常用的场景，一种是在本地开发环境切换后端环境进行联调，使用频率最高，另一种是前端项目开发或者测试环境需要临时切换到后端环境进行测试或者排查问题，这种场景主要出现在某个迭代前端环境比后端环境少或者某个前端环境有问题暂时用不了需要应急使用。
+针对第一种情况，本地开发环境可以使用webpack或者vite等前端打包构建工具提供的proxy代理功能，使用这种方式切换后端环境，每次都需要修改proxy代理配置文件，修改完配置文件以后还需要手动启动项目（vite会监听变化自动启动），但是不管是手动启动还是自动启动项目，开发人员都需要等待项目编译构建完成后才能进行联调测试，每次重启项目都会耗费几分钟甚至更长的项目编译时间(项目越大耗费时间越长)，而且每次都需要修改配置文件，操作比较繁琐。
+针对第二种情况，开发/测试环境可以使用nginx反向代理，或者使用Fiddler、Whistle、Charles等代理工具，但是使用这些代理工具，需要下载安装，而且有一定的使用学习成本。<strong>因此，我们需要设计开发封装一个环境切换工具，可以在不修改前端项目proxy配置文件代码且不重启项目的情况下，只需在项目页面选择需要切换的后端环境，然后刷新页面，即可无缝切换不同的后端环境。</strong></p>
+
+<h2 id="前期调研">前期调研</h2>
+
+<p>目前，业界普遍的实现方案有以下几种：</p>
+
+<p>针对本地开发环境：</p>
+
+<p>方案一：直接使用前端打包构建构建提供的devServer proxy代理功能</p>
+
+<p>使用webpack或者vite等前端打包构建工具提供的proxy代理功能，使用这种方式切换后端环境，每次都需要修改proxy代理配置文件，修改完配置文件以后还需要手动启动项目（vite会监听变化自动启动），但是不管是手动启动还是自动启动项目，开发人员都需要等待项目编译构建完成后才能进行联调测试，每次重启项目都会耗费几分钟甚至更长的项目编译时间(项目越大耗费时间越长)，而且每次都需要修改配置文件，操作比较繁琐。这也是目前业界最常用的实现方案。</p>
+
+<p>示例代码如下（以webpack为例）：</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// webpack devsever proxy 配置</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="c1">//...</span>
+  <span class="na">devServer</span><span class="p">:</span> <span class="p">{</span>
+    <span class="c1">// 预设需要切换的后端开发/测试环境代理</span>
+    <span class="na">proxy</span><span class="p">:</span> <span class="p">{</span>
+      <span class="dl">'</span><span class="s1">/dev</span><span class="dl">'</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">target</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://dev.backend.com</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">changeOrigin</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+        <span class="na">pathRewrite</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">^/dev</span><span class="dl">'</span><span class="p">:</span> <span class="dl">''</span> <span class="p">},</span>
+      <span class="p">},</span>
+      <span class="dl">'</span><span class="s1">/fat</span><span class="dl">'</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">target</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://fat.backend.com</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">changeOrigin</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+        <span class="na">pathRewrite</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">^/fat</span><span class="dl">'</span><span class="p">:</span> <span class="dl">''</span> <span class="p">},</span>
+      <span class="p">},</span>
+      <span class="dl">'</span><span class="s1">/uat</span><span class="dl">'</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">target</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://uat.backend.com</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">changeOrigin</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+        <span class="na">pathRewrite</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">^/uat</span><span class="dl">'</span><span class="p">:</span> <span class="dl">''</span> <span class="p">},</span>
+      <span class="p">},</span>
+      <span class="dl">'</span><span class="s1">/prod</span><span class="dl">'</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">target</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://prod.backend.com</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">changeOrigin</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+        <span class="na">pathRewrite</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">^/prod</span><span class="dl">'</span><span class="p">:</span> <span class="dl">''</span> <span class="p">},</span>
+      <span class="p">},</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>方案二：利用 http-proxy-middleware 提供的 router 属性</p>
+
+<p>利用 <a href="https://github.com/chimurai/http-proxy-middleware">http-proxy-middleware</a> 提供的 <code class="language-plaintext highlighter-rouge">router</code> 属性，该属性可以动态覆盖devServer proxy中设置的 <code class="language-plaintext highlighter-rouge">target</code> 属性设置的值，而且router属性的值可以通过函数或者异步函数返回，所以我们可以通过同步或者异步函数去读取一个环境配置文件，然后根据配置文件中的值去动态设置router属性的值，从而实现动态切换后端环境。这种方案可以实现在不重启项目的情况下切换后端环境，但是这种方案每次切换后端环境还是需要手动去修改前端项目环境配置文件代码，而且无法实现同时预设多个环境。</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// webpack devsever proxy 配置</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="c1">//...</span>
+  <span class="na">devServer</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">proxy</span><span class="p">:</span> <span class="p">{</span>
+      <span class="dl">'</span><span class="s1">/dev</span><span class="dl">'</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">target</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://dev.backend.com</span><span class="dl">'</span><span class="p">,</span>
+        <span class="na">changeOrigin</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+        <span class="na">pathRewrite</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">^/dev</span><span class="dl">'</span><span class="p">:</span> <span class="dl">''</span> <span class="p">},</span>
+        <span class="c1">// router: () =&gt; url, // URL 会覆盖 target，成为新的代理地址，这个函数支持async异步操作</span>
+        <span class="na">router</span><span class="p">:</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">cwd</span><span class="p">()</span> <span class="o">+</span> <span class="dl">'</span><span class="s1">/.env.local</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">utf8</span><span class="dl">'</span><span class="p">),</span> <span class="c1">// 函数返回的URL会覆盖target属性，成为新的代理地址，这个函数支持async异步操作，.env.local 的内容为 http://fat.backend.com</span>
+      <span class="p">}</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>针对开发/测试环境：</p>
+
+<p>方案一：使用nginx反向代理</p>
+
+<p>在开发/测试环境，我们一般会使用nginx反向代理，将前端项目部署在nginx服务器上，然后通过nginx.config配置文件中的location配置来代理请求到不同的后端环境，这样我们就可以通过修改nginx的配置文件来手动切换后端环境，而且不需要重启nginx，只需要重新加载nginx配置文件即可，该方案也是目前比较主流的方案。但是使用该方案需要使用者拥有对应开发或者测试环境nginx服务器的操作权限，而且需要对nginx配置有一定的了解，存在一定的操作和学习成本。</p>
+
+<div class="language-nginx highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span>       <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name</span>  <span class="s">localhost</span><span class="p">;</span>
+
+    <span class="kn">location</span> <span class="n">/</span> <span class="p">{</span>
+        <span class="kn">root</span>   <span class="n">/path/to/your/project</span><span class="p">;</span>
+        <span class="kn">index</span>  <span class="s">index.html</span> <span class="s">index.htm</span><span class="p">;</span>
+        <span class="kn">try_files</span> <span class="nv">$uri</span> <span class="nv">$uri</span><span class="n">/</span> <span class="n">/index.html</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1"># 预设开发、测试环境代理</span>
+    <span class="kn">location</span> <span class="n">/dev/</span> <span class="p">{</span>
+        <span class="kn">proxy_pass</span> <span class="s">http://dev.backend.com</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="kn">location</span> <span class="n">/fat/</span> <span class="p">{</span>
+        <span class="kn">proxy_pass</span> <span class="s">http://fat.backend.com</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="kn">location</span> <span class="n">/uat/</span> <span class="p">{</span>
+        <span class="kn">proxy_pass</span> <span class="s">http://uat.backend.com</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>方案二：使用Fiddler、Whistle、Charles等代理工具</p>
+
+<p>可以使用Fiddler、Whistle、Charles等代理工具，但是使用这些代理工具，需要下载安装，而且有一定的使用学习成本，而且每次切换后端环境都需要重新配置代理，操作比较繁琐。</p>
+
+<h2 id="前端项目环境切换工具">前端项目环境切换工具</h2>
+
+<p>上述主流的实现方案，前端项目每次切换后端环境要么需要修改配置文件，要么需要重启项目，而且不能通过前端页面直观的看到自己所切换的后端环境，所以上述的主流方案并不是很完美，因此我们需要自主研发一种前端项目环境切换工具，该工具可以满足以下需求：</p>
+
+<ol>
+  <li>不需要修改配置文件，也不需要重启项目，更不需要下载安装代理工具，只需要在前端页面选择切换的后端环境，然后刷新页面即可切换后端环境；</li>
+  <li>可以在前端页面直观的看到自己当前所切换的后端环境，防止开发或者测试人员切换到错误后端环境而不自知；</li>
+  <li>本地开发环境可以自定义要切换的后端环境（需提前预设）；</li>
+  <li>支持本地开发环境以及开发/测试环境切换任意后端环境（需提前预设）；</li>
+  <li>支持同时预设多个后端环境，比如同时预设dev、fat、uat、prod等环境；</li>
+</ol>
+
+<h2 id="前端项目环境切换工具实现原理">前端项目环境切换工具实现原理</h2>
+
+<p>前端项目环境切换工具实现原理可以总结为如下几步：</p>
+
+<ol>
+  <li>在前端项目页面空白处按住shift键+鼠标双击，调出前端环境切换工具；</li>
+  <li>前端环境切换工具面板预设所需的各种后端环境，比如dev1、dev2、fat1、fat2、uat等，也可以自定义后端环境；</li>
+  <li>选择要切换的后端环境，然后点击保存按钮，点击保存按钮会把所选的后端环境保存到浏览器的localStorage中，然后刷新页面；</li>
+  <li>在前端项目接口请求中，会自动读取localStorage中保存的后端环境，然后根据所选的后端环境，自动拼接后端接口地址，然后发起请求；比如使用axios请求的时候，会设置默认的baseURL环境前缀地址，例如，前端fat1环境，默认的baseURL环境前缀地址为 /fat1，如果读取到localStorage中保存的后端环境为fat2，那么在发起请求的时候，会优先使用localStorage中保存的后端环境作为baseURL环境前缀地址，例如，前端请求的后端接口地址为 /user/login，那么最终向后端发起请求的地址为 /fat2/user/login；</li>
+  <li>同时在前端项目页面title标题增加当前或者切换环境的名称，方便区分前端项目当前所选的后端环境；</li>
+  <li>在触发页面刷新时，会区分当前前端项目是本地开发环境还是有域名的开发/测试环境，如果是本地开发环境，则后端接口代理走的是前端打包构建工具的devserver的proxy代理配置，如果是开发/测试环境，则后端接口代理走的是nginx的proxy代理配置；</li>
+</ol>
+
+<h2 id="实现原理流程图如下">实现原理流程图如下</h2>
+
+<p><img src="./前端环境切换工具实现原理流程图.png" alt="前端环境切换工具实现原理流程图" /></p>
+
+<h2 id="前端项目配置">前端项目配置</h2>
+
+<h3 id="配置前端项目接口请求的baseurl">配置前端项目接口请求的baseURL</h3>
+
+<p>前端项目接口请求需配置好 axios 的 baseURL，否则无法使用环境切换工具，前端项目接口请求配置的 baseURL 设置如下：</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 前端项目配置 axios 请求的 baseURL</span>
+
+<span class="c1">// 判断是否为生产环境</span>
+<span class="kd">const</span> <span class="nx">isProd</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">NODE_ENV</span> <span class="o">===</span> <span class="dl">'</span><span class="s1">production</span><span class="dl">'</span><span class="p">;</span>
+<span class="c1">// 非生产环境才使用环境切换工具</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">isProd</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// 设置 axios 请求默认的 baseURL，假设当前默认环境为fat1</span>
+  <span class="kd">const</span> <span class="nx">baseURL</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/fat1</span><span class="dl">'</span><span class="p">;</span> <span class="c1">// 设置默认环境前缀</span>
+  <span class="kd">const</span> <span class="nx">localEnv</span> <span class="o">=</span> <span class="nx">localStorage</span><span class="p">.</span><span class="nx">getItem</span><span class="p">(</span><span class="dl">'</span><span class="s1">currentEnv</span><span class="dl">'</span><span class="p">);</span> <span class="c1">// 获取本地存储的环境</span>
+  <span class="c1">// 针对本地开发或者测试环境，如果本地存储有选择环境配置，则优先使用本地存储的环境替换默认环境前缀</span>
+  <span class="c1">// 例如 localStorage 存储的是 fat2</span>
+  <span class="c1">// 原请求 URL: /fat1/api/user/login </span>
+  <span class="c1">// 替换后: /fat2/api/user/login</span>
+  <span class="nx">axios</span><span class="p">.</span><span class="nx">defaults</span><span class="p">.</span><span class="nx">baseURL</span> <span class="o">=</span> <span class="nx">localEnv</span> <span class="o">||</span> <span class="nx">baseURL</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="配置前端项目页面title">配置前端项目页面title</h3>
+
+<p>前端项目页面title，可以在页面title开头增加当前环境的名称，比如，当前切换到fat1环境，那么页面title就会显示为”fat1-前端项目名称“，方便区分当前所切换的后端环境，如下：</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 设置页面 title</span>
+<span class="kd">const</span> <span class="nx">setPageTitle</span> <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="c1">// 获取本地存储的环境</span>
+  <span class="kd">const</span> <span class="nx">localEnv</span> <span class="o">=</span> <span class="nx">localStorage</span><span class="p">.</span><span class="nx">getItem</span><span class="p">(</span><span class="dl">'</span><span class="s1">currentEnv</span><span class="dl">'</span><span class="p">);</span>
+  <span class="c1">// 获取原始页面标题</span>
+  <span class="kd">const</span> <span class="nx">originalTitle</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">title</span><span class="p">;</span>
+  
+  <span class="c1">// 如果有本地存储的环境，则在页面标题前加上环境名称</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">localEnv</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">`</span><span class="p">${</span><span class="nx">localEnv</span><span class="p">}</span><span class="s2">-</span><span class="p">${</span><span class="nx">originalTitle</span><span class="p">}</span><span class="s2">`</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// 页面加载完成后设置标题</span>
+<span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">'</span><span class="s1">load</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nx">setPageTitle</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="c1">// 监听 localStorage 变化,重新设置标题</span>
+<span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">'</span><span class="s1">storage</span><span class="dl">'</span><span class="p">,</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">key</span> <span class="o">===</span> <span class="dl">'</span><span class="s1">currentEnv</span><span class="dl">'</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">setPageTitle</span><span class="p">();</span>
+  <span class="p">}</span>
+<span class="p">});</span>
+
+</code></pre></div></div>
+
+<h2 id="本地开发环境和开发测试环境后端代理配置">本地开发环境和开发/测试环境后端代理配置</h2>
+
+<p>本地开发环境：参照上述devServer proxy配置
+开发/测试环境：参照上述nginx反向代理配置</p>
+
+<h2 id="总结">总结</h2>
+
+<p>前端项目环境切换工具的实现方式和业界通用的实现方案不同，目前业界普遍的实现方案是每次切换不同的后端环境都需要修改proxy代理配置文件，而且都要重新启动项目，每次重启都会耗费几分钟甚至更长的项目编译时间(项目越大耗费时间越长)，操作比较繁琐且不易区分当前所切换的后端环境，导致开发或者测试人员切换到错误后端环境而不自知。而我们自主研发实现的方案完全解决了上述问题，封装好该工具后，每次切换后端环境进行联调测试、排查问题等都不需要再额外修改代码以及重启项目，只需选择对应的后端环境，然后刷新页面即可，从原来需要花费几分钟时间下降到只需要一两秒，同时还能清晰区分当前所切换的后端环境，该方案极大的提高了开发联调测试效率以及排查问题的速度;</p>
+:ET
