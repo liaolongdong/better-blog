@@ -27,8 +27,12 @@ module Jekyll
         # 确保路径以 / 开头
         path = '/' + path unless path.start_with?('/')
         
-        # 为相对路径添加 baseurl
-        "![#{alt}](#{baseurl}#{path})"
+        # 为相对路径添加 baseurl，但如果已经包含 baseurl 则跳过
+        if path.start_with?(baseurl)
+          "![#{alt}](#{path})"
+        else
+          "![#{alt}](#{baseurl}#{path})"
+        end
       end
       
       # 再处理 HTML img 标签中的 src 属性
@@ -50,11 +54,11 @@ module Jekyll
         # 确保路径以 / 开头
         src = '/' + src unless src.start_with?('/')
         
-        # 只为以 / 开头的相对路径添加 baseurl（排除绝对路径和协议相对路径）
-        if src.start_with?('/') && !src.start_with?('//')
+        # 只为以 / 开头的相对路径添加 baseurl（排除绝对路径、协议相对路径和已包含 baseurl 的路径）
+        if src.start_with?('/') && !src.start_with?('//') && !src.start_with?(baseurl)
           "<img #{before_src}src=\"#{baseurl}#{src}\"#{after_src}>"
         else
-          "<img #{before_src}src=\"#{original_src}\"#{after_src}>"
+          "<img #{before_src}src=\"#{src}\"#{after_src}>"
         end
       end
       
