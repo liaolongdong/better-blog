@@ -3,4 +3,5 @@
 node_modules
 _site
 .jekyll-cache
+# 需要在本地使用 ruby2.6.0 兼容版本
 vendor/bundle
