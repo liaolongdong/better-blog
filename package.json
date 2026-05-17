@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "gulp watch",
-    "server": "vite build && jekyll server",
+    "server": "vite build && bundle exec jekyll serve",
     "build": "vite build && vite build --config vite.demo.config.js && jekyll build",
     "build:dev": "vite build",
     "build:demo": "vite build --config vite.demo.config.js",
