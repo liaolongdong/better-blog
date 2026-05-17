@@ -1,3 +1,13 @@
+---
+layout: post
+title: 超好用的 chrome 浏览器插件推荐（pa）
+subtitle: 超好用的 chrome 浏览器插件推荐（pa）
+date: 2024-01-05
+categories: 开发工具 chrome 浏览器插件 
+# cover: /assets/img/postCover/gulp_cover.png
+tags: chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件
+---
+
 # 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 
 安装一些工作中常用的chrome插件，可以极大的提升我们的工作效率，下面推荐几款使用体验超爽的chrome插件。
@@ -10,7 +20,7 @@
 
 **PS：使用 谷歌翻译 可能需要科学上网**
 
-![Google 翻译](./../assets/img/chrome-plugin-img/google-translate.png)
+![Google 翻译](/assets/img/chrome-plugin-img/google-translate.png)
 
 ## 沉浸式翻译: 双语对照网页翻译 & PDF文档翻译
 
@@ -18,7 +28,7 @@
 
 用法：点击插件图标进行相应的配置即可，免费版感觉够用了，对翻译要求比较高的可以使用付费版。
 
-![中英双语](./../assets/img/chrome-plugin-img/zh-en-translate.png)
+![中英双语](/assets/img/chrome-plugin-img/zh-en-translate.png)
 
 ## Web开发者助手 FeHelper
 
@@ -26,7 +36,7 @@
 
 用法：点击插件图标使用对应功能即可。
 
-![前端助手](./../assets/img/chrome-plugin-img/fe-helper.png)
+![前端助手](/assets/img/chrome-plugin-img/fe-helper.png)
 
 ## GoFullPage - Full Page Screen Capture
 
@@ -34,7 +44,7 @@
 
 用法：点击插件图标使用即可。
 
-![网页全屏截图](./../assets/img/chrome-plugin-img/full-page-screen-capture.png)
+![网页全屏截图](/assets/img/chrome-plugin-img/full-page-screen-capture.png)
 
 ## Nimbus 截幕 & 屏幕录像机
 
@@ -42,7 +52,7 @@
 
 用法：在需要截图或者录屏的页面，点击插件图标使用即可。
 
-![Nimbus 截幕 & 屏幕录像机](./../assets/img/chrome-plugin-img/nimbus-screenshot.png)
+![Nimbus 截幕 & 屏幕录像机](/assets/img/chrome-plugin-img/nimbus-screenshot.png)
 
 ## Vue.js devtools
 
@@ -50,7 +60,7 @@
 
 用法：启动本地Vue项目，在chrome浏览器中打开，打开chrome开发者工具，即可看到Vue的调试工具。
 
-![Vue.js devtools](./../assets/img/chrome-plugin-img/vue-devtools.png)
+![Vue.js devtools](/assets/img/chrome-plugin-img/vue-devtools.png)
 
 ## React Developer Tools
 
@@ -58,7 +68,7 @@
 
 用法：启动本地React项目，在chrome浏览器中打开，打开chrome开发者工具，即可看到React的调试工具。
 
-![React Developer Tools](./../assets/img/chrome-plugin-img/react-developer-tools.png)
+![React Developer Tools](/assets/img/chrome-plugin-img/react-developer-tools.png)
 
 ## console-importer
 
@@ -66,7 +76,7 @@
 
 用法：打开Chrome devtools控制台，可以使用名为 $i 的函数导入JavaScript和CSS资源。详细用法查看 https://github.com/pd4d10/console-importer
 
-![console-importer](./../assets/img/chrome-plugin-img/console-importer.png)
+![console-importer](/assets/img/chrome-plugin-img/console-importer.png)
 
 ## 篡改猴
 
@@ -80,7 +90,7 @@
 💾 通过压缩文件和/或云存储备份和恢复选项和用户脚本
 🔄 自动更新脚本，实现无缝体验
 
-![tampermonkey](./../assets/img/chrome-plugin-img/tampermonkey.png)
+![tampermonkey](/assets/img/chrome-plugin-img/tampermonkey.png)
 
 ## Proxy SwitchyOmega
 
@@ -88,7 +98,7 @@
 
 用法：点击插件图标进行相应的配置即可。
 
-![proxy](./../assets/img/chrome-plugin-img/proxy.png)
+![proxy](/assets/img/chrome-plugin-img/proxy.png)
 
 ## Axure RP Extension for Chrome
 
@@ -96,7 +106,7 @@
 
 用法：使用chrome浏览器直接打开Axure原型即可查看。
 
-![Axure](./../assets/img/chrome-plugin-img/Axure.png)
+![Axure](/assets/img/chrome-plugin-img/Axure.png)
 
 ## 后序
 

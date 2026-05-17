@@ -7,7 +7,7 @@
     <![endif]-->
     <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
     <div class="visible">
-      {{ content }}
+      {{ content | add_baseurl_to_images }}
     </div>
 
     <!-- 显示猫 -->

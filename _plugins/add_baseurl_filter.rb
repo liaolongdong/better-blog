@@ -11,9 +11,23 @@ module Jekyll
       content = content.gsub(/!\[([^\]]*)\]\((\.?\/[^)]+)\)/) do
         alt = $1
         path = $2
-        # 如果路径以 ./ 开头，移除 ./ 保留 /
-        path = path.sub(/^\.\//, '/') if path.start_with?('./')
-        # 为以 / 开头的相对路径添加 baseurl
+        
+        # 移除开头的 ./ 和 ../ 前缀，统一转换为绝对路径
+        # 例如: ./../assets/img/xxx.png -> /assets/img/xxx.png
+        # 例如: ../assets/img/xxx.png -> /assets/img/xxx.png
+        # 例如: ./assets/img/xxx.png -> /assets/img/xxx.png
+        while path.start_with?('./') || path.start_with?('../')
+          if path.start_with?('./')
+            path = path[2..-1]  # 移除 ./
+          elsif path.start_with?('../')
+            path = path[3..-1]  # 移除 ../
+          end
+        end
+        
+        # 确保路径以 / 开头
+        path = '/' + path unless path.start_with?('/')
+        
+        # 为相对路径添加 baseurl
         "![#{alt}](#{baseurl}#{path})"
       end
       
@@ -23,11 +37,24 @@ module Jekyll
         src = $2
         after_src = $3
         
+        # 处理相对路径：移除开头的 ./ 和 ../ 前缀
+        original_src = src
+        while src.start_with?('./') || src.start_with?('../')
+          if src.start_with?('./')
+            src = src[2..-1]  # 移除 ./
+          elsif src.start_with?('../')
+            src = src[3..-1]  # 移除 ../
+          end
+        end
+        
+        # 确保路径以 / 开头
+        src = '/' + src unless src.start_with?('/')
+        
         # 只为以 / 开头的相对路径添加 baseurl（排除绝对路径和协议相对路径）
         if src.start_with?('/') && !src.start_with?('//')
           "<img #{before_src}src=\"#{baseurl}#{src}\"#{after_src}>"
         else
-          "<img #{before_src}src=\"#{src}\"#{after_src}>"
+          "<img #{before_src}src=\"#{original_src}\"#{after_src}>"
         end
       end
       
