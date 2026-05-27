@@ -156,7 +156,7 @@ zhangsan         Prod!abc      https://app.example.com   生产环境  客户演
 可通过以下方式获取：
 
 - 关注微信公众号（小新的前端笔记），在聊天窗口发送”账号密码管理助手“，获取chrome浏览器插件压缩包
-- 在github仓库地址下载最新的chrome浏览器插件zip压缩包：https://github.com/liaolongdong/account-password-helper/releases
+- 在github仓库地址下载最新的chrome浏览器插件zip压缩包：[点击跳转下载最新zip压缩包](https://github.com/liaolongdong/account-password-helper/releases)
 
 方式二：针对开发人员
 
