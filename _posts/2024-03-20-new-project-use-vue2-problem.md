@@ -1,3 +1,13 @@
+---
+layout: post
+title: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
+subtitle: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
+date: 2024-03-20
+categories: 技术
+# cover: /assets/img/postCover/gulp_cover.png
+tags: vue
+---
+
 # vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
 
 ## vue2不维护了？
