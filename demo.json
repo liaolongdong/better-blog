@@ -1,6 +1,10 @@
 {
   "demoLists": [
     {
+      "title": "AI大模型排行榜2026年5月",
+      "demoUrl": "demo/ai/ai_model_rank_2026-05.html"
+    },
+    {
       "title": "H5实现打开导航地图app并自动导航到目的地",
       "demoUrl": "demo/openMapDemo/index.html"
     },
