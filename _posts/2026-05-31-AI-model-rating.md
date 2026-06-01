@@ -9,41 +9,41 @@ tags: AI AI大模型排行榜单 AI大模型2026年综合实力排行榜单 AI�
 ---
 
 <style>
-  .highlight-box { background: linear-gradient(135deg, #ebf4ff, #f0f7ff) !important; border-radius: 8px !important; padding: 18px 20px !important; margin: 18px 0 !important; border: 1px solid #bee3f8 !important; }
-  .highlight-box p { margin-bottom: 6px !important; }
-  .insight { background: #fffbeb !important; border-left: 4px solid #f6ad55 !important; padding: 14px 18px !important; margin: 18px 0 !important; border-radius: 0 8px 8px 0 !important; }
-  .insight strong { color: #c05621 !important; }
-  img.chart { width: 100% !important; border-radius: 8px !important; margin: 16px 0 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
-  .custom-table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; font-size: 13.5px !important; }
-  .custom-table th { background: #2b6cb0 !important; color: #fff !important; padding: 10px 8px !important; text-align: center !important; font-weight: 600 !important; border: none !important; }
-  .custom-table td { padding: 9px 8px !important; text-align: center !important; border-bottom: 1px solid #e2e8f0 !important; border-top: none !important; }
-  .custom-table tr:nth-child(even) { background: #f7fafc !important; }
-  .custom-table tr:nth-child(2n) { background: #f7fafc !important; }
-  .custom-table tr:hover { background: #ebf8ff !important; }
-  .rank-1 { font-weight: 700 !important; color: #c53030 !important; }
-  .rank-gold { background: linear-gradient(90deg, #fffff0, #fefcbf) !important; }
-  .tag { display: inline-block !important; font-size: 12px !important; padding: 2px 8px !important; border-radius: 4px !important; margin-right: 4px !important; }
-  .tag-overseas { background: #fed7e2 !important; color: #97266d !important; }
-  .tag-domestic { background: #c6f6d5 !important; color: #276749 !important; }
-  .tag-open { background: #bee3f8 !important; color: #2a4365 !important; }
-  .tag-closed { background: #e2e8f0 !important; color: #4a5568 !important; }
-  .flow-chart { background: #f7fafc !important; border-radius: 10px !important; padding: 20px !important; margin: 20px 0 !important; text-align: center !important; }
-  .flow-step { display: inline-block !important; background: #fff !important; border: 2px solid #2b6cb0 !important; border-radius: 8px !important; padding: 8px 14px !important; margin: 4px !important; font-size: 13px !important; font-weight: 600 !important; color: #2b6cb0 !important; }
-  .flow-arrow { display: inline-block !important; color: #2b6cb0 !important; font-size: 18px !important; margin: 0 2px !important; vertical-align: middle !important; }
-  .summary-card { display: flex !important; flex-wrap: wrap !important; gap: 10px !important; margin: 16px 0 !important; }
-  .custom-card { flex: 1 !important; min-width: 140px !important; background: #fff !important; border: 1px solid #e2e8f0 !important; border-radius: 8px !important; padding: 14px !important; text-align: center !important; }
-  .custom-card .num { font-size: 26px !important; font-weight: 800 !important; color: #2b6cb0 !important; }
-  .custom-card .label { font-size: 12px !important; color: #718096 !important; margin-top: 4px !important; line-height: 1.6 !important; }
-  .custom-card .label strong { color: #2d3748 !important; font-weight: 700 !important; }
-  .bold-text { font-weight: 700 !important; color: #1a1a1a !important; }
-  .ref { margin-top: 30px !important; padding-top: 18px !important; border-top: 1px solid #e2e8f0 !important; }
-  .ref h3 { font-size: 14px !important; color: #718096 !important; border-left: none !important; padding-left: 0 !important; }
-  .ref ol { font-size: 13px !important; color: #718096 !important; padding-left: 20px !important; }
-  .ref li { margin-bottom: 4px !important; }
-  .ref a { color: #2b6cb0 !important; text-decoration: none !important; word-break: break-all !important; }
+  .highlight-box { background: linear-gradient(135deg, #ebf4ff, #f0f7ff); border-radius: 8px; padding: 18px 20px; margin: 18px 0; border: 1px solid #bee3f8; }
+  .highlight-box p { margin-bottom: 6px; }
+  .insight { background: #fffbeb; border-left: 4px solid #f6ad55; padding: 14px 18px; margin: 18px 0; border-radius: 0 8px 8px 0; }
+  .insight strong { color: #c05621; }
+  img.chart { width: 100%; border-radius: 8px; margin: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .custom-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+  .custom-table th { background: #2b6cb0; color: #fff; padding: 10px 8px; text-align: center; font-weight: 600; border: none; }
+  .custom-table td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #e2e8f0; border-top: none; }
+  .custom-table tr:nth-child(even) { background: #f7fafc; }
+  .custom-table tr:nth-child(2n) { background: #f7fafc; }
+  .custom-table tr:hover { background: #ebf8ff; }
+  .rank-1 { font-weight: 700; color: #c53030; }
+  .rank-gold { background: linear-gradient(90deg, #fffff0, #fefcbf); }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-right: 4px; }
+  .tag-overseas { background: #fed7e2; color: #97266d; }
+  .tag-domestic { background: #c6f6d5; color: #276749; }
+  .tag-open { background: #bee3f8; color: #2a4365; }
+  .tag-closed { background: #e2e8f0; color: #4a5568; }
+  .flow-chart { background: #f7fafc; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center; }
+  .flow-step { display: inline-block; background: #fff; border: 2px solid #2b6cb0; border-radius: 8px; padding: 8px 14px; margin: 4px; font-size: 13px; font-weight: 600; color: #2b6cb0; }
+  .flow-arrow { display: inline-block; color: #2b6cb0; font-size: 18px; margin: 0 2px; vertical-align: middle; }
+  .summary-card { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  .custom-card { flex: 1; min-width: 140px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
+  .custom-card .num { font-size: 26px; font-weight: 800; color: #2b6cb0; }
+  .custom-card .label { font-size: 12px; color: #718096; margin-top: 4px; line-height: 1.6; }
+  .custom-card .label strong { color: #2d3748; font-weight: 700; }
+  .bold-text { font-weight: 700; color: #1a1a1a; }
+  .ref { margin-top: 30px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+  .ref h3 { font-size: 14px; color: #718096; border-left: none; padding-left: 0; }
+  .ref ol { font-size: 13px; color: #718096; padding-left: 20px; }
+  .ref li { margin-bottom: 4px; }
+  .ref a { color: #2b6cb0; text-decoration: none; word-break: break-all; }
   @media (max-width: 640px) {
-    .custom-table { font-size: 12px !important; }
-    .custom-card { min-width: 45% !important; }
+    .custom-table { font-size: 12px; }
+    .custom-card { min-width: 45%; }
   }
 </style>
 
