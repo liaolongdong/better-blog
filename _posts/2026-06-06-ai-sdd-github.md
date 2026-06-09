@@ -20,10 +20,6 @@ tags: AI SDD  Spec-Driven Development 规范驱动开发
 
 ---
 
-> 📡 **GitHub 实时数据**｜Spec Kit `108K ⭐ · v0.9.3` Jun 3｜OpenSpec `52.8K ⭐ · v1.4.1` Jun 3｜Superpowers `217K ⭐ · v5.1.0` May 4｜Kiro `Claude Opus 4.8 · Kiro Web 新上线`
-
----
-
 说实话，我被「vibe coding」坑惨过。
 
 年初有个项目，需求一股脑丢给 AI，一顿 prompt 猛如虎，三天后回头看代码，**重复代码没抽离**、**各种any大法好**、**公共方法未复用**、**代码规范和风格不统一**，功能测试验证？不存在的。那一刻才意识到：**不是 AI 不够强，是我没给 AI 一个「工程框架」**。
@@ -54,13 +50,9 @@ Thoughtworks 在 2025 年的 Technology Radar Vol. 32 里，把 SDD 列为「值
 
 ## 二、四大流派详解
 
----
-
 ### 🔷 1. GitHub Spec Kit — 最有背景的「官方正统派」
 
 > ⭐ **108K Stars** · `v0.9.3 · Jun 3, 2026` · MIT · GitHub 官方 · 1071 commits · 159 tags
-
----
 
 #### 🔥 最新动态（直接来自 GitHub Releases）
 
@@ -71,7 +63,6 @@ Thoughtworks 在 2025 年的 Technology Radar Vol. 32 里，把 SDD 列为「值
 - ▸ 修复 Windows 平台 Unicode 编码错误 · 修复 Copilot 模板解析 bug
 - ▸ 新增 **workflow resume** 支持，中断的工作流可带入更新输入继续执行
 
----
 
 #### 🧠 核心原理
 
@@ -82,8 +73,6 @@ Spec Kit 是 GitHub 官方在 2025 年 9 月开源的工具，核心 CLI 叫 `sp
 功能规范              技术方案              任务拆解              AI Agent
 用户故事       →      架构设计       →      验收标准       →      执行代码
 ```
-
----
 
 #### 🛠 使用指南（最新安装方式）
 
@@ -104,8 +93,6 @@ specify self upgrade --tag v0.9.3  # 或者固定某个版本
 # 支持 30+ AI 代理，7 个核心斜杠命令：
 /speckit.specify → /speckit.plan → /speckit.tasks → /speckit.implement
 ```
-
----
 
 #### 🎯 适用场景
 
@@ -143,8 +130,6 @@ specify self upgrade --tag v0.9.3  # 或者固定某个版本
 - ▸ 修复 `openspec update` 与 Dagster 等自带 `workspace.yaml` 的项目冲突问题
 - ▸ 新增大小写不敏感需求头部解析 · 修复 zsh/oh-my-zsh 下的 Tab 补全
 
----
-
 #### 🧠 核心原理
 
 OpenSpec 的哲学是：**把复杂性锁进变更本身，而不是整个系统**。每次功能开发都是一个独立的「变更包」，完成后归档，绝不污染主文档。它是目前唯一明确以 **Brownfield（存量系统）为第一优先级**的 SDD 工具。
@@ -154,8 +139,6 @@ OpenSpec 的哲学是：**把复杂性锁进变更本身，而不是整个系统
 变更动机      →      增量规范      →      技术方案      →      归档合并
 影响范围             Delta 格式            时序图               主文档更新
 ```
-
----
 
 #### 🛠 使用指南（最新版本）
 
@@ -178,13 +161,9 @@ openspec init --integration kimi   # skills → .kimi/skills/
 # 在 Kimi CLI 中调用：/skill:openspec-new 等
 ```
 
----
-
 #### 🎯 适用场景
 
 接手老项目重构 · 中小团队快速迭代 · 完整变更审计 · Token 使用效率优先 · 现已支持 Kimi CLI、Mistral Vibe 等新平台
-
----
 
 #### ⚖️ 优缺点
 
@@ -198,13 +177,9 @@ openspec init --integration kimi   # skills → .kimi/skills/
 
 📌 **一句话定位：** 改造旧系统、快速上手、轻量治理的「外科手术刀」
 
----
-
 ### ⚡ 3. Superpowers — 最有极客范的「Agentic 工作流派」
 
 > ⭐ **217K Stars** · `v5.1.0 · May 4, 2026` · MIT · Jesse Vincent · 441 commits · Fork 19.4K
-
----
 
 #### 🔥 最新动态（直接来自 GitHub Releases）
 
@@ -215,8 +190,6 @@ openspec init --integration kimi   # skills → .kimi/skills/
 - ▸ **Codex App 兼容性** —— 支持 OpenAI Codex 沙箱环境，新增 Codex plugin 镜像同步脚本
 - ▸ **代码审查优化** —— 子 Agent 审查循环替换为内联自审（Self-Review），速度从 ~25 分钟降至 ~30 秒，质量持平
 - ▸ **贡献者规范强化** —— 审查最近 100 个 PR，AI 生成 PR 拒绝率高达 **94%**，新增严格贡献指南
-
----
 
 #### 🧠 核心原理
 
@@ -231,8 +204,6 @@ Superpowers 不把规范当「文档」，而是当「技能（Skill）」。AI 
        ↓
 🔍 Review      →  v5.1.0 改为快速内联自审（30s），规范符合性 + 代码质量
 ```
-
----
 
 #### 🛠 使用指南（v5.1.0）
 
@@ -254,13 +225,9 @@ Superpowers 不把规范当「文档」，而是当「技能（Skill）」。AI 
 → 自动 git worktree → 子 Agent 并行实现...
 ```
 
----
-
 #### 🎯 适用场景
 
 长时间自主运行（Multi-hour sessions）· 复杂功能并行执行 · 独立开发者极致效率 · 重度使用 Claude Code / OpenAI Codex 的用户
-
----
 
 #### ⚖️ 优缺点
 
@@ -280,8 +247,6 @@ Superpowers 不把规范当「文档」，而是当「技能（Skill）」。AI 
 
 > ☁ **Amazon Web Services** · `Claude Opus 4.8 · Kiro Web 新上线` · 基于 VS Code 内核 · 正式版 2025.11
 
----
-
 #### 🔥 最新动态（来自 kiro.dev 官网）
 
 > **2026 年 5-6 月重大更新**
@@ -292,13 +257,9 @@ Superpowers 不把规范当「文档」，而是当「技能（Skill）」。AI 
 - ▸ **更快更智能的 Specs** —— Spec 生成速度优化，需求提炼准确率提升
 - ▸ **大使计划上线** —— 正式建立 Kiro Ambassadors 社区生态
 
----
-
 #### 🧠 核心原理
 
 Kiro 把 SDD 内置为 IDE 的第一公民，引入三大独特机制：**Steering 护栏文件**（约束 AI 行为边界）、**Spec 三件套**（需求/设计/任务）、**Kiro Hooks**（事件驱动的常驻后台 Agent）。现在还新增了 Kiro Web 和 Kiro CLI 两个轻量化入口。
-
----
 
 #### 🛠 使用指南（最新三种接入方式）
 
@@ -327,13 +288,9 @@ Tests MUST cover happy path and error cases
 # .kiro/hooks/onCommit.md → 每次提交代码，自动更新架构图
 ```
 
----
-
 #### 🎯 适用场景
 
 企业级项目强约束 · AWS 生态深度集成 · 需要 Hooks 自动化合规检查 · 从 vibe coding 迁移到规范化开发 · 现在还可通过 Kiro Web 零安装体验
-
----
 
 #### ⚖️ 优缺点
 
@@ -373,31 +330,21 @@ Tests MUST cover happy path and error cases
 
 经过实际使用，用这个决策框架快速定位：
 
----
-
 **→ 独立开发者 / 小团队，想要「自动驾驶」体验？**
 
 ⚡ **Superpowers v5.1.0**，217K Star，对话即启动，TDD 强制，审查速度 v5.1.0 提升 50 倍
-
----
 
 **→ 接手老代码库 / 需要最快上手 / 在意 Token 成本？**
 
 🟠 **OpenSpec v1.4.1**，5 分钟上手，变更包隔离，本月刚支持 Kimi CLI
 
----
-
 **→ 团队 5 人以上，多 AI 代理，有合规要求？**
 
 🔷 **GitHub Spec Kit v0.9.3**，官方维护，支持 30+ 代理，superspec 扩展桥接 Superpowers
 
----
-
 **→ 企业项目，需要 Hooks 自动化、Steering 强约束？**
 
 🟡 **AWS Kiro**，Hooks 自动扫描，Opus 4.8 加持，Kiro Web 可零安装体验
-
----
 
 **→ 实在纠结？业内已有经过验证的组合方案**
 
@@ -409,32 +356,26 @@ Tests MUST cover happy path and error cases
 
 回到最开始——被 vibe coding 坑惨的那次。SDD 带来的改变非常具体：
 
----
 
 🧭 **上下文不再漂移**
 换模型（比如 Sonnet 换 Opus 4.8）、换会话，AI 读 spec 文件立刻续接，不用重新解释背景。
 
----
 
 🔗 **需求与代码可追溯**
 每行代码都能追溯到 spec 里的哪条需求。Review 时心里有底，出了问题知道从哪查。
 
----
 
 🤝 **团队有公共语言**
 不再是「我以为你要这个」，而是「spec.md 第 3 条写的是这个」。消除歧义，减少内耗。
 
----
 
 💰 **大幅减少返工成本**
 问题在规范阶段暴露，比在代码阶段暴露便宜至少 10 倍。前期慢，是为了后期不崩。
 
----
 
 🤖 **让 AI 成为「有纪律的工程师」而不是脱缰的野马**
 SDD 最核心的价值：人类负责「想清楚要做什么」，AI 负责「把它做出来」。规范文档是人类保持架构主导权的最重要工具。随着 AI Agent 越来越强，这份「掌舵权」只会越来越珍贵。
 
----
 
 > 💡 SDD 不是银弹，它会增加前期规范成本。但就像写单元测试一样，**前期慢是为了后期不崩**。四大工具都在高频迭代，而且stars数量还在持续上升，说明这个方向已经验证，正在快速走向成熟。
 
