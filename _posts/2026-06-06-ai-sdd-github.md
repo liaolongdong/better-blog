@@ -98,8 +98,6 @@ specify self upgrade --tag v0.9.3  # 或者固定某个版本
 
 大型团队多人协作 · 有合规审查要求（金融/医疗）· 长期维护系统 · 支持 30+ AI 代理（Copilot、Claude Code、Gemini CLI、Cursor、Windsurf 等）· 绿地与存量项目均适用
 
----
-
 #### ⚖️ 优缺点
 
 | ✅ 优点 | ✗ 缺点 |
@@ -117,8 +115,6 @@ specify self upgrade --tag v0.9.3  # 或者固定某个版本
 ### 🟠 2. OpenSpec — 最务实的「轻量变更管理派」
 
 > ⭐ **52.8K Stars** · `v1.4.1 · Jun 3, 2026` · MIT · Fission AI · 200 branches · 602 commits
-
----
 
 #### 🔥 最新动态（直接来自 GitHub Releases）
 
@@ -176,6 +172,8 @@ openspec init --integration kimi   # skills → .kimi/skills/
 | ✓ 持续高频更新，一周内发了两个版本 | |
 
 📌 **一句话定位：** 改造旧系统、快速上手、轻量治理的「外科手术刀」
+
+---
 
 ### ⚡ 3. Superpowers — 最有极客范的「Agentic 工作流派」
 
