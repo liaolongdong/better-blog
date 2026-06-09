@@ -1,6 +1,10 @@
 {
   "demoLists": [
     {
+      "title": "被 217K Star 疯狂追捧！AI 编程的「规范革命」来了——SDD 四大流派深度拆解",
+      "demoUrl": "demo/ai/SDD-blog-github.html"
+    },
+    {
       "title": "AI大模型排行榜2026年5月",
       "demoUrl": "demo/ai/ai_model_rank_2026-05.html"
     },
