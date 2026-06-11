@@ -30,7 +30,11 @@
     </section>
     
     {% if site.footer.showPV %}
-    <section>
+    <section class="site-stats">
+        {% if site.waline.enable and site.waline.pageview %}
+        <!-- Waline 全站访问量统计 -->
+        总浏览量(PV): <span class="waline-pageview-count" data-path="/">-</span>
+        {% else %}
         <!-- 不蒜子计数 -->
         <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
         总浏览量(PV): <span id="busuanzi_value_site_pv">-</span> | 总访客数(UV): <span id="busuanzi_value_site_uv">-</span>
@@ -55,6 +59,18 @@
                 }  
             });
         </script>
+        {% endif %}
+        
+        {% if site.waline.enable and site.waline.pageview %}
+        <script type="module">
+            import { pageviewCount } from 'https://unpkg.com/@waline/client@v3/dist/pageview.js';
+            pageviewCount({
+                serverURL: '{{ site.waline.serverURL }}',
+                path: '/',
+                update: false,
+            });
+        </script>
+        {% endif %}
     </section>
     {% endif %}
 
