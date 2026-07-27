@@ -26,6 +26,12 @@
       <div class="post-meta">
         <span class="post-meta-item"><i class="iconfont icon-author"></i><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></></span>
         <time class="post-meta-item" datetime="{{ page.date | date:"%y-%m-%d" }}"><i class="iconfont icon-date"></i>{{ page.date | date_to_string }}</time>
+        {% if site.waline.enable and site.waline.pageview %}
+        <span class="post-meta-item waline-pageview-wrapper">
+          <i class="iconfont icon-view"></i>
+          阅读量: <span class="waline-pageview-count" data-path="{{ page.url }}">-</span>
+        </span>
+        {% endif %}
       </div>
     </div>
     {% assign coverSrc = page.cover %}
@@ -116,6 +122,11 @@
       </div>
       {% endif %}
     </section>
+    {% if site.waline.enable %}
+    <!-- Waline 评论系统 -->
+    {% include waline.html %}
+    {% endif %}
+
     {% if site.comments.disqus %}
     <section class="post-footer-item comment">
         <div id="disqus_thread"></div>

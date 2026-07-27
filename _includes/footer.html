@@ -21,40 +21,56 @@
         {% endunless %}
         {{ current }}
 
-        {{ if site.footer.showBaiduStatics }}
+        {% if site.footer.showBaiduStatics %}
         <a href="https://tongji.baidu.com/web/welcome/ico?s=a071a73db3cc35b4252e63887505980c">
             <!-- <img src="https://tongji.baidu.com/sc-web/image/icon/31.gif" alt=""> -->
             [百度统计]
         </a>
-        {{ endif }}
+        {% endif %}
     </section>
     
     {% if site.footer.showPV %}
-    <section>
-        <!-- 不蒜子计数 -->
+    <section class="site-stats">
+        {% if site.waline.enable and site.waline.pageview %}
+        <!-- Waline 全站 PV 统计 -->
+        总浏览量(PV): <span class="waline-pageview-count" data-path="/">-</span>
+        {% else %}
+        总浏览量(PV): <span id="busuanzi_value_site_pv">-</span>
+        {% endif %}
+
+        <!-- UV 统计（不蒜子，Waline 不支持 UV） -->
+        | 总访客数(UV): <span id="busuanzi_value_site_uv">-</span>
         <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-        总浏览量(PV): <span id="busuanzi_value_site_pv">-</span> | 总访客数(UV): <span id="busuanzi_value_site_uv">-</span>
-        
-        <!-- 不蒜子计数初始值纠正 -->
-        <script>
-            $(document).ready(function() {
-            
-                var int = setInterval(fixCount, 50);  // 50ms周期检测函数
-                var PVCountOffset = 50000;  // 初始化PV首次数据
-                var UVCountOffset = 15000;  // 初始化UV首次数据
-            
-                function fixCount() {            
-                    if ($("#busuanzi_value_site_pv").html() !== '-') {
-                        $("#busuanzi_value_site_pv").html(parseInt($("#busuanzi_value_site_pv").html()) + PVCountOffset); 
-                        clearInterval(int);
-                    }                  
-                    if ($("#busuanzi_value_site_uv").html() !== '-') {
-                        $("#busuanzi_value_site_uv").html(parseInt($("#busuanzi_value_site_uv").html()) + UVCountOffset); // 加上初始数据 
-                        clearInterval(int); // 停止检测
-                    }  
-                }  
+
+        {% if site.waline.enable and site.waline.pageview %}
+        <script type="module">
+            import { pageviewCount } from 'https://unpkg.com/@waline/client@v3/dist/pageview.js';
+            pageviewCount({
+                serverURL: '{{ site.waline.serverURL }}',
+                path: '/',
+                update: false,
             });
         </script>
+        {% else %}
+        <!-- 不蒜子 PV 初始值纠正 -->
+        <script>
+            $(document).ready(function() {
+                var int = setInterval(fixCount, 50);
+                var PVCountOffset = 50000;
+                var UVCountOffset = 15000;
+                function fixCount() {
+                    if ($("#busuanzi_value_site_pv").html() !== '-') {
+                        $("#busuanzi_value_site_pv").html(parseInt($("#busuanzi_value_site_pv").html()) + PVCountOffset);
+                        clearInterval(int);
+                    }
+                    if ($("#busuanzi_value_site_uv").html() !== '-') {
+                        $("#busuanzi_value_site_uv").html(parseInt($("#busuanzi_value_site_uv").html()) + UVCountOffset);
+                        clearInterval(int);
+                    }
+                }
+            });
+        </script>
+        {% endif %}
     </section>
     {% endif %}
 

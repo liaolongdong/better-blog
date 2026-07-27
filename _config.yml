@@ -85,9 +85,32 @@ reward:
   wechatpay: '/assets/img/wechatpay.jpg'
   alipay: '/assets/img/alipay.jpg'
 
+# Waline 评论系统（评论 + 阅读量 + 点赞一体化）
+# 部署教程: https://waline.js.org/guide/get-started/
+waline:
+  enable: true
+  # 部署后替换为你自己的 serverURL（Vercel 部署地址）
+  # serverURL: 'https://waline-comments-orcin.vercel.app/'
+  # Cloudflare Workers 部署，永久免费
+  serverURL: 'https://waline-on-worker.924902324.workers.dev'
+  # 语言
+  lang: 'zh-CN'
+  # 文章反应图标（点赞 + 收藏），图标可替换为本地 assets 图片
+  reaction:
+    - 'https://cdn.jsdelivr.net/npm/@waline/emojis@1.2.0/tieba/tieba_agree.png' # 点赞
+    - 'https://cdn.jsdelivr.net/npm/@waline/emojis@1.2.0/tieba/tieba_heart.png' # 收藏
+  # 是否开启浏览量统计
+  pageview: true
+
+# Cloudflare Web Analytics 全站 PV/UV 统计（永久免费、无 Cookie）
+# 获取 token: Cloudflare Dashboard -> Web Analytics -> 添加站点
+cloudflare_analytics:
+  enable: true # 填入 token 后改为 true
+  token: 'b53b200d7bfc40db83d9c546d78d730e'
+
 # 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:
-  enable: true
+  enable: false
 
 # 是否使用来必力评论系统
 livere:
@@ -95,7 +118,7 @@ livere:
 
 # Comments 评论功能 disqus必须翻墙才能用
 comments:
-  disqus: true
+  disqus: false
   disqus_url: 'https://liaolongdong.disqus.com/embed.js'
 
 # MathJax 公式支持

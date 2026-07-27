@@ -48,6 +48,11 @@ description: 路漫漫其修远兮，吾将上下而求索
                             {% endfor %}
                         {% endif %}
                     </div>
+                    {% if site.waline.enable and site.waline.pageview %}
+                    <span class="post-meta-item waline-pageview-wrapper">
+                      阅读 <span class="waline-pageview-count" data-path="{{ post.url }}">-</span>
+                    </span>
+                    {% endif %}
                     <time class="post-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date_to_string }}</time>
                 </footer>
             </article>
@@ -107,3 +112,16 @@ description: 路漫漫其修远兮，吾将上下而求索
 </main>
 
 {% include footer.html %}
+
+{% if site.waline.enable and site.waline.pageview %}
+<!-- Waline 阅读量统计（首页列表页） -->
+<script type="module">
+    import { pageviewCount } from 'https://unpkg.com/@waline/client@v3/dist/pageview.js';
+
+    pageviewCount({
+        serverURL: '{{ site.waline.serverURL }}',
+        path: window.location.pathname,
+        update: false, // 列表页不增加访问量，仅展示
+    });
+</script>
+{% endif %}

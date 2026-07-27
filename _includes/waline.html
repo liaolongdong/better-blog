@@ -1,0 +1,43 @@
+<!-- Waline 评论系统 - 评论 + 阅读量 + 点赞一体化 -->
+<!-- 文档: https://waline.js.org/ -->
+{% if site.waline.enable %}
+<section class="post-footer-item comment">
+    <div id="waline"></div>
+</section>
+<style>
+    #waline {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    /* 评论区域与博客风格适配 */
+    .post-footer-item.comment {
+        padding: 0;
+    }
+</style>
+<script type="module">
+    import { init } from 'https://unpkg.com/@waline/client@v3/dist/waline.js';
+
+    init({
+        el: '#waline',
+        serverURL: '{{ site.waline.serverURL }}',
+        lang: '{{ site.waline.lang | default: "zh-CN" }}',
+        {% if site.waline.reaction %}
+        // 文章反应：点赞 + 收藏
+        reaction: {{ site.waline.reaction | jsonify }},
+        locale: {
+            reactionTitle: '觉得这篇文章怎么样？',
+            reaction0: '点赞',
+            reaction1: '收藏',
+        },
+        {% endif %}
+        {% if site.waline.pageview %}
+        pageview: true,
+        {% endif %}
+        // 访客配置
+        login: 'enable',
+        // 页面路径使用 pathname
+        path: window.location.pathname,
+    });
+</script>
+{% endif %}
