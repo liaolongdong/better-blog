@@ -95,10 +95,18 @@ waline:
   serverURL: 'https://waline-on-worker.924902324.workers.dev'
   # 语言
   lang: 'zh-CN'
-  # 是否开启文章反应（点赞）
-  reaction: true
+  # 文章反应图标（点赞 + 收藏），图标可替换为本地 assets 图片
+  reaction:
+    - 'https://cdn.jsdelivr.net/npm/@waline/emojis@1.2.0/tieba/tieba_agree.png' # 点赞
+    - 'https://cdn.jsdelivr.net/npm/@waline/emojis@1.2.0/tieba/tieba_heart.png' # 收藏
   # 是否开启浏览量统计
   pageview: true
+
+# Cloudflare Web Analytics 全站 PV/UV 统计（永久免费、无 Cookie）
+# 获取 token: Cloudflare Dashboard -> Web Analytics -> 添加站点
+cloudflare_analytics:
+  enable: true # 填入 token 后改为 true
+  token: 'b53b200d7bfc40db83d9c546d78d730e'
 
 # 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:

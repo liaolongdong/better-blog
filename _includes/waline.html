@@ -23,7 +23,13 @@
         serverURL: '{{ site.waline.serverURL }}',
         lang: '{{ site.waline.lang | default: "zh-CN" }}',
         {% if site.waline.reaction %}
-        reaction: true,
+        // 文章反应：点赞 + 收藏
+        reaction: {{ site.waline.reaction | jsonify }},
+        locale: {
+            reactionTitle: '觉得这篇文章怎么样？',
+            reaction0: '点赞',
+            reaction1: '收藏',
+        },
         {% endif %}
         {% if site.waline.pageview %}
         pageview: true,
