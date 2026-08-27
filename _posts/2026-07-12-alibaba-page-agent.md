@@ -4,13 +4,13 @@ title: 阿里开源的 Page Agent：一行代码让网页"听懂人话"，这才
 subtitle: 告别截图识别和 OCR，用 DOM 脱水 + 大模型让网页操作进入自然语言时代
 date: 2026-07-12
 categories: AI frontend open-source
-cover: /assets/img/page-agent/banner.png
+cover: /assets/img/page-agent/banner.webp
 tags: AI Agent 前端 开源 阿里巴巴 page-agent GUI Agent
 ---
 
 # 阿里开源的 Page Agent：一行代码让网页"听懂人话"，这才是真正的前端 AI 交互
 
-![Page Agent Banner](/assets/img/page-agent/banner.png)
+![Page Agent Banner](/assets/img/page-agent/banner.webp)
 
 做前端这么多年，我一直在思考一个问题：用户和网页的交互，为什么到今天还停留在"点按钮、填表单、拖拽组件"这种原始方式？尤其是在 AI 大行其道的 2026 年，语音助手可以帮你点外卖、AI 可以帮你写代码，但在自己开发的 Web 应用里，你却还是得一个个字段手动填写。
 
@@ -48,7 +48,7 @@ Page Agent 的核心创新在于一个概念——**DOM 脱水（DOM Dehydration
 
 这个文本化的 DOM 描述被直接喂给大语言模型（LLM），LLM 就能理解页面上有哪些元素、它们的功能是什么，然后根据你的自然语言指令，输出对应的 DOM 操作指令。Page Agent 接收到指令后，直接在浏览器内执行——点击、输入、滚动、选择，一气呵成。
 
-![Page Agent 架构图](/assets/img/page-agent/architecture.png)
+![Page Agent 架构图](/assets/img/page-agent/architecture.webp)
 
 整个流程完全在浏览器端完成，没有 Python 后端，没有截图传输，没有 OCR。这意味着什么？意味着你可以把 Page Agent 当作一个 npm 包直接装进你的 React 或 Vue 项目里，它就是一个前端库，跟 lodash 或 dayjs 一样轻量。
 
@@ -108,7 +108,7 @@ API 设计非常克制，核心就一个 `execute` 方法，接收自然语言�
 | 部署成本 | 需要浏览器服务 | 需要 Python + 浏览器 | npm install |
 | 跨页面能力 | 强 | 强 | 仅限当前页 |
 
-![三种方案对比](/assets/img/page-agent/comparison.png)
+![三种方案对比](/assets/img/page-agent/comparison.webp)
 
 Page Agent 的定位非常清晰——它不是要替代 Playwright 做自动化测试，也不是要替代 browser-use 做爬虫。它的战场是**产品内部的智能交互**：让你的 SaaS 用户可以用自然语言操作复杂的仪表盘，让 ERP 系统的表单填写不再痛苦，让无障碍体验真正落地。
 

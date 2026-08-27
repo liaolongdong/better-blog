@@ -21,8 +21,5 @@
     <link rel="stylesheet" href="{{ site.baseurl }}/assets/iconFont/iconfont.css">
     {% include seoScript.html %}
     <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
-    {% if site.cloudflare_analytics.enable %}
-    <!-- Cloudflare Web Analytics 全站 PV/UV 统计 -->
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ site.cloudflare_analytics.token }}"}'></script>
-    {% endif %}
+    {% include cloudflareAnalytics.html %}
 </head>

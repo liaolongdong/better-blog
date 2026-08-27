@@ -89,8 +89,6 @@ reward:
 # 部署教程: https://waline.js.org/guide/get-started/
 waline:
   enable: true
-  # 部署后替换为你自己的 serverURL（Vercel 部署地址）
-  # serverURL: 'https://waline-comments-orcin.vercel.app/'
   # Cloudflare Workers 部署，永久免费
   serverURL: 'https://waline-on-worker.924902324.workers.dev'
   # 语言

@@ -50,7 +50,7 @@ description: 路漫漫其修远兮，吾将上下而求索
                     </div>
                     {% if site.waline.enable and site.waline.pageview %}
                     <span class="post-meta-item waline-pageview-wrapper">
-                      阅读 <span class="waline-pageview-count" data-path="{{ post.url }}">-</span>
+                      阅读 <span class="waline-pageview-count" data-path="{{ post.url | prepend: site.baseurl }}">-</span>
                     </span>
                     {% endif %}
                     <time class="post-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date_to_string }}</time>

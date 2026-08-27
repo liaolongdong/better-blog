@@ -29,7 +29,7 @@
         {% if site.waline.enable and site.waline.pageview %}
         <span class="post-meta-item waline-pageview-wrapper">
           <i class="iconfont icon-view"></i>
-          阅读量: <span class="waline-pageview-count" data-path="{{ page.url }}">-</span>
+          阅读量: <span class="waline-pageview-count" data-path="{{ page.url | prepend: site.baseurl }}">-</span>
         </span>
         {% endif %}
       </div>

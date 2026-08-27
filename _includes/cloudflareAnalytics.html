@@ -1,0 +1,5 @@
+{% if site.cloudflare_analytics.enable %}
+<!-- Cloudflare Web Analytics 全站 PV/UV 统计（无 Cookie、永久免费） -->
+<!-- 获取 token: Cloudflare Dashboard -> Web Analytics -> 添加站点 -->
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ site.cloudflare_analytics.token }}"}'></script>
+{% endif %}

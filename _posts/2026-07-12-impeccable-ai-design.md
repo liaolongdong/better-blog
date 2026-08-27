@@ -4,13 +4,13 @@ title: 用 AI 写的前端页面总是"一眼 AI 味"？Impeccable 用 46 条规
 subtitle: 一个让 AI 编程助手学会"审美"的开源设计系统，4.5 万 Star 背后的设计哲学
 date: 2026-07-12
 categories: AI frontend design open-source
-cover: /assets/img/impeccable/banner.png
+cover: /assets/img/impeccable/banner.webp
 tags: AI 前端设计 UI 开源 Impeccable 设计系统 Vibe Coding
 ---
 
 # 用 AI 写的前端页面总是"一眼 AI 味"？Impeccable 用 46 条规则彻底终结这个问题
 
-![Impeccable Banner](/assets/img/impeccable/banner.png)
+![Impeccable Banner](/assets/img/impeccable/banner.webp)
 
 如果你跟我一样，在过去一年里大量使用 Cursor、Claude Code、Copilot 这类 AI 编程助手来写前端页面，那你一定有过这种体验：AI 写出来的页面功能没问题、布局也合理，但就是有一种说不清道不明的"AI 味"——紫蓝色的渐变、圆角卡片套卡片、Inter 字体配灰色文字、到处是 bounce 弹性动画……
 
@@ -58,7 +58,7 @@ npx impeccable detect index.html
 npx impeccable detect https://your-site.com
 ```
 
-![Impeccable 检测结果](/assets/img/impeccable/detect-result.png)
+![Impeccable 检测结果](/assets/img/impeccable/detect-result.webp)
 
 运行之后，它会输出一个报告，精确标注哪些文件、哪些行违反了哪条规则，并给出具体的修改建议。
 
@@ -132,7 +132,7 @@ npx impeccable ignores add-value overused-font Inter --reason "Brand font"
 
 ## 一个真实的改进案例
 
-![Impeccable 前后对比](/assets/img/impeccable/before-after.png)
+![Impeccable 前后对比](/assets/img/impeccable/before-after.webp)
 
 我拿自己之前的一个个人项目做了一个对比测试。这是一个博客首页，让 Cursor 从零生成了一版 React + Tailwind 的代码。
 

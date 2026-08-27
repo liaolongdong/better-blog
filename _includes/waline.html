@@ -36,8 +36,8 @@
         {% endif %}
         // 访客配置
         login: 'enable',
-        // 页面路径使用 pathname
-        path: window.location.pathname,
+        // 记录路径与列表页 data-path 保持一致（含 baseurl），保证阅读量可正确回显
+        path: '{{ site.baseurl }}{{ page.url }}',
     });
 </script>
 {% endif %}

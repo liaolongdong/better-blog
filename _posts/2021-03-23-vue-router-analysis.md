@@ -4,7 +4,7 @@ title: vue-router源码解析
 subtitle: vue-router源码解析
 date: 2021-03-23
 categories: 技术 vue vue-router
-# cover: /assets/img/postCover/gulp_cover.png
+cover: /assets/img/postCover/vue-router-flow.jpeg
 tags: JavaScript vue vue-router
 ---
 

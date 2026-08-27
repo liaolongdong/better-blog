@@ -4,11 +4,11 @@ title: 别再手输账号密码了：我开发了一个一键自动登录的插�
 subtitle: 别再手输账号密码了：我开发了一个一键自动登录的插件
 date: 2026-06-28
 categories: chrome浏览器插件 工具 插件
-cover: /assets/img/account-password-helper/account_password_helper_banner.png
+cover: /assets/img/account-password-helper/account_password_helper_banner.webp
 tags: 账号密码管理助手 一键填充 自动登录 chrome浏览器插件 工具 插件
 ---
 
-![文章封面](/assets/img/account-password-helper/account_password_helper_banner.png)
+![文章封面](/assets/img/account-password-helper/account_password_helper_banner.webp)
 
 # 别再手输账号密码了：我开发了一个一键自动登录的插件
 

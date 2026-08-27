@@ -4,13 +4,13 @@ title: Meta 开源了 Astryx：一个同时为人类开发者和 AI Agent 设计
 subtitle: 150+ 组件、7 套主题、StyleX 驱动，还有让 AI 编程助手"零踩坑"的隐藏设计
 date: 2026-07-12
 categories: AI frontend design open-source
-cover: /assets/img/astryx/banner.png
+cover: /assets/img/astryx/banner.webp
 tags: AI React 设计系统 开源 Meta Astryx StyleX 前端组件库
 ---
 
 # Meta 开源了 Astryx：一个同时为人类开发者和 AI Agent 设计的 React UI 系统
 
-![Astryx Banner](/assets/img/astryx/banner.png)
+![Astryx Banner](/assets/img/astryx/banner.webp)
 
 作为一个每天和 React 组件库打交道的前端工程师，我对市面上的 UI 库可以说是如数家珍——Ant Design、MUI、Shadcn/ui、Radix、Headless UI……但说实话，最近一年我对这些库的新鲜感已经降到了冰点。直到上周看到 Meta（Facebook）开源了一个叫 **Astryx** 的设计系统，我才重新有了那种"眼前一亮"的感觉。
 
@@ -109,7 +109,7 @@ Astryx 的主题系统是我见过最灵活的之一。7 套预设主题涵盖�
 - **mono** —— 纯黑白极简，适合文档或工具类产品
 - **ocean** —— 蓝色调海洋风，适合科技或数据类产品
 
-![Astryx 7 套主题](/assets/img/astryx/themes.png)
+![Astryx 7 套主题](/assets/img/astryx/themes.webp)
 
 切换主题只需替换 ThemeProvider 的 theme 属性，组件源码完全不需要改动——这得益于 StyleX 和 CSS 自定义属性的配合：
 
@@ -136,7 +136,7 @@ import gothicTheme from '@astryxdesign/theme-gothic'
 | 运行时开销 | 有 | 有 | 无 | 无 |
 | 定制自由度 | 需要 ConfigProvider | 需要 theme 覆盖 | 直接改源码 | CSS 属性直接覆盖 |
 
-![组件库横向对比](/assets/img/astryx/comparison.png)
+![组件库横向对比](/assets/img/astryx/comparison.webp)
 
 Astryx 的优势在于，它不需要你在"开发体验"和"AI 兼容性"之间做取舍。它证明了这两件事可以同时做到。
 
