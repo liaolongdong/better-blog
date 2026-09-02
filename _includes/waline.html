@@ -18,7 +18,8 @@
 <script type="module">
     import { init } from 'https://unpkg.com/@waline/client@v3/dist/waline.js';
 
-    init({
+    // 基础配置（不含 pageview，便于提交后重载时避免阅读量被重复自增）
+    const walineConfig = {
         el: '#waline',
         serverURL: '{{ site.waline.serverURL }}',
         lang: '{{ site.waline.lang | default: "zh-CN" }}',
@@ -31,13 +32,60 @@
             reaction1: '收藏',
         },
         {% endif %}
-        {% if site.waline.pageview %}
-        pageview: true,
-        {% endif %}
         // 访客配置
         login: 'enable',
         // 记录路径与列表页 data-path 保持一致（含 baseurl），保证阅读量可正确回显
         path: '{{ site.baseurl }}{{ page.url }}',
-    });
+    };
+    const walinePageview = {% if site.waline.pageview %}true{% else %}false{% endif %};
+
+    let walineInstance = init({ ...walineConfig, pageview: walinePageview });
+
+    // 自定义 Waline 后端在评论提交成功后，客户端既不会乐观插入、也不会重新拉取列表，
+    // 导致新评论必须手动刷新整页才可见。此处在检测到提交成功后主动重载评论区：
+    // destroy 后以 pageview:false 重新 init —— 等效刷新评论列表，但不刷新整页、
+    // 不重复自增阅读量（头部 .waline-pageview-count 在 #waline 之外，其值予以保留）。
+    let walineReloading = false;
+    function reloadWalineComments() {
+        if (walineReloading) return;
+        walineReloading = true;
+        window.setTimeout(() => {
+            try {
+                if (walineInstance && typeof walineInstance.destroy === 'function') {
+                    walineInstance.destroy();
+                }
+                walineInstance = init({ ...walineConfig, pageview: false });
+            } catch (err) {
+                // 重载失败时静默降级：评论已保存，用户仍可手动刷新查看
+            } finally {
+                walineReloading = false;
+            }
+        }, 400);
+    }
+
+    // 拦截 fetch，捕获 POST /api/comment 的成功响应后重载评论列表。
+    // 仅在“新建评论/回复”成功时触发（响应含完整评论对象），异常绝不影响正常请求。
+    const originalFetch = window.fetch;
+    window.fetch = function (...args) {
+        const request = originalFetch.apply(this, args);
+        try {
+            const target = args[0];
+            const url = typeof target === 'string' ? target : (target && target.url) || '';
+            const method = ((args[1] && args[1].method) || (target && target.method) || 'GET').toUpperCase();
+            if (method === 'POST' && /\/api\/comment(?:\?|$)/.test(url)) {
+                request.then((response) => {
+                    if (!response || !response.ok) return;
+                    response.clone().json().then((body) => {
+                        if (body && body.errno === 0 && body.data && body.data.objectId && body.data.comment) {
+                            reloadWalineComments();
+                        }
+                    }).catch(() => {});
+                }).catch(() => {});
+            }
+        } catch (err) {
+            // 拦截逻辑异常时忽略，保证原始请求正常返回
+        }
+        return request;
+    };
 </script>
 {% endif %}
