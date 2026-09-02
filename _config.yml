@@ -5,9 +5,10 @@ keyword: '廖龙东,廖小新,廖龙东的个人网站,廖龙东的个人博客,
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
-# User site (username.github.io) is served from the domain root, so baseurl must be blank.
-# Only project sites (username.github.io/repo) need a baseurl like '/repo'.
-baseurl: ''
+# Project site: repo is 'better-blog', so GitHub Pages serves it at
+# https://liaolongdong.github.io/better-blog/ — baseurl must be '/better-blog'.
+# (CI's actions/configure-pages injects the same base_path at build time.)
+baseurl: '/better-blog'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
