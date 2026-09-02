@@ -160,26 +160,6 @@ $post-content-w: 720px;
     }
 }
 
-@mixin timeStyle {
-    display: inline-block;
-    font-size: 14px;
-    letter-spacing: .6px;
-    line-height: 22px;
-
-    &:before {
-        position: relative;
-        top: 2px;
-        left: -6px;
-        content: '';
-        float: left;
-        display: inline-block;
-        width: 18px;
-        height: 18px;
-        background: url('../icons/date.svg') no-repeat center;
-        background-size: 100%;
-    }
-}
-
 @mixin snsIcon {
     .iconfont {
         color: #B8BDC3;

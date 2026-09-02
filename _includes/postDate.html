@@ -1,0 +1,11 @@
+{%- comment -%}
+统一日期展示：front matter 里绝大多数文章只有日期没有时间，
+此时输出 YYYY-MM-DD；确实写了具体时间才补上 HH:mm:ss，避免满屏无意义的 00:00:00。
+用法：{% include postDate.html date=post.date %}
+{%- endcomment -%}
+{%- assign _postTime = include.date | date: '%H:%M:%S' -%}
+{%- if _postTime == '00:00:00' -%}
+{{- include.date | date: '%Y-%m-%d' -}}
+{%- else -%}
+{{- include.date | date: '%Y-%m-%d %H:%M:%S' -}}
+{%- endif -%}

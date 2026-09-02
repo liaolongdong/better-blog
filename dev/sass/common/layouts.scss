@@ -242,7 +242,9 @@
             }
 
             .post-meta {
+                gap: 6px 12px;
                 margin-top: 12px;
+                font-size: 12px;
 
                 .post-tags {
                     display: none;
@@ -276,7 +278,10 @@
         }
 
         .post-meta {
+            gap: 6px 14px;
             margin-top: 16px;
+            font-size: 13px;
+            line-height: 20px;
         }
     }
 

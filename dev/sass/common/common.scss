@@ -244,34 +244,35 @@
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 6px 12px;
+            gap: 6px 14px;
             margin-top: 16px;
+            font-size: 13px;
+            line-height: 20px;
 
-            // 阅读量：图标 + 数字，置于最前；等宽数字避免异步回填时抖动
-            .pageview-item {
+            .post-meta-item {
                 display: inline-flex;
                 align-items: center;
-                gap: 4px;
-                font-size: 14px;
-                line-height: 22px;
+                gap: 5px;
                 color: #A9B0BC;
-
-                .pageview-icon {
-                    color: #B8BDC3;
-                }
-
-                .waline-pageview-count {
-                    font-weight: 500;
-                    color: #868A94;
-                    font-variant-numeric: tabular-nums;
-                }
+                letter-spacing: .2px;
+                font-variant-numeric: tabular-nums;
             }
 
-            // 日期：靠右，保留 timeStyle 的日历图标
+            // 线性图标：颜色交给 currentColor，夜间模式可跟随变色
+            .meta-icon {
+                flex: none;
+                color: #C2C7CE;
+            }
+
+            // 阅读量：置于最前，数字略深以形成主次层级；等宽数字避免异步回填时抖动
+            .waline-pageview-count {
+                font-weight: 500;
+                color: #868A94;
+            }
+
+            // 日期：靠右
             .post-date {
                 margin-left: auto;
-                color: #A9B0BC;
-                @include timeStyle;
             }
 
             // 标签：独占一行，过多时自动换行，绝不与阅读量/日期重叠
@@ -280,7 +281,7 @@
                 display: flex;
                 flex-wrap: wrap;
                 gap: 6px 8px;
-                margin-top: 4px;
+                margin-top: 2px;
             }
         }
     }
@@ -575,27 +576,39 @@
     }
 
     .post-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
         margin-top: 32px;
+        font-size: 15px;
+        line-height: 22px;
 
         .post-meta-item {
-            display: inline-block;
-            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             color: #fff;
-            margin-right: 4px;
-            opacity: .8;
-
-            &:last-child {
-                margin-right: 0;
-            }
-
-            .iconfont {
-                font-size: 18px;
-                margin-right: 4px;
-            }
+            opacity: .82;
+            letter-spacing: .3px;
+            font-variant-numeric: tabular-nums;
 
             a {
                 color: #fff;
             }
+        }
+
+        .meta-icon {
+            flex: none;
+        }
+
+        .waline-pageview-count {
+            font-weight: 600;
+        }
+
+        .meta-unit {
+            font-size: 13px;
+            opacity: .72;
         }
     }
 
@@ -1038,18 +1051,10 @@
 
         .post-meta {
 
-            .post-tags,
-            .post-date,
-            .pageview-item {
+            .post-meta-item,
+            .meta-icon,
+            .waline-pageview-count {
                 color: $color-f-dark;
-            }
-
-            .pageview-item {
-
-                .pageview-icon,
-                .waline-pageview-count {
-                    color: $color-f-dark;
-                }
             }
         }
     }
