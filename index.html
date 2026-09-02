@@ -41,19 +41,23 @@ description: 路漫漫其修远兮，吾将上下而求索
                     {% endif %}
                 </section>
                 <footer class="post-meta">
-                    <div class="post-tags">
-                        {% if post.tags.size > 0 %}
-                            {% for tag in post.tags  %}
-                            <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}" class="post-tag">{{ tag }}</a>
-                            {% endfor %}
-                        {% endif %}
-                    </div>
                     {% if site.waline.enable and site.waline.pageview %}
-                    <span class="post-meta-item waline-pageview-wrapper">
-                      阅读 <span class="waline-pageview-count" data-path="{{ post.url | prepend: site.baseurl }}">-</span>
+                    <span class="post-meta-item pageview-item">
+                      <svg class="pageview-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                      </svg>
+                      <span class="u-sr-only">阅读量</span>
+                      <span class="waline-pageview-count" data-path="{{ post.url | prepend: site.baseurl }}">-</span>
                     </span>
                     {% endif %}
                     <time class="post-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date_to_string }}</time>
+                    {% if post.tags.size > 0 %}
+                    <div class="post-tags">
+                        {% for tag in post.tags  %}
+                        <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}" class="post-tag">{{ tag }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </footer>
             </article>
         {% endfor %}
