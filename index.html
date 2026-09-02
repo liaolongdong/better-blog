@@ -114,14 +114,21 @@ description: 路漫漫其修远兮，吾将上下而求索
 {% include footer.html %}
 
 {% if site.waline.enable and site.waline.pageview %}
-<!-- Waline 阅读量统计（首页列表页） -->
-<script type="module">
-    import { pageviewCount } from 'https://unpkg.com/@waline/client@v3/dist/pageview.js';
-
-    pageviewCount({
-        serverURL: '{{ site.waline.serverURL }}',
-        path: window.location.pathname,
-        update: false, // 列表页不增加访问量，仅展示
-    });
+<!-- Waline 阅读量统计（首页列表页）：逐条单路径只读查询，规避后端多路径批量查询缺陷 -->
+<script>
+    (function () {
+        var serverURL = '{{ site.waline.serverURL }}';
+        document.querySelectorAll('.waline-pageview-count').forEach(function (node) {
+            var path = node.getAttribute('data-path');
+            if (!path) return;
+            fetch(serverURL + '/api/article?path=' + encodeURIComponent(path) + '&type=time')
+                .then(function (res) { return res.json(); })
+                .then(function (resp) {
+                    var item = resp && resp.data && resp.data[0];
+                    node.textContent = item && typeof item.time === 'number' ? item.time : 0;
+                })
+                .catch(function () { node.textContent = '0'; });
+        });
+    })();
 </script>
 {% endif %}

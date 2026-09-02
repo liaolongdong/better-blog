@@ -5,8 +5,9 @@ keyword: '廖龙东,廖小新,廖龙东的个人网站,廖龙东的个人博客,
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
-# if you don't need baseurl, you should leave this value blank.
-baseurl: '/better-blog'
+# User site (username.github.io) is served from the domain root, so baseurl must be blank.
+# Only project sites (username.github.io/repo) need a baseurl like '/repo'.
+baseurl: ''
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
