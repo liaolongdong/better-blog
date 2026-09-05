@@ -38,22 +38,42 @@
         <!-- 不蒜子计数初始值纠正 -->
         <script>
             $(document).ready(function() {
-                var int = setInterval(fixCount, 50);
+                var timer = setInterval(fixCount, 50);
                 var PVCountOffset = 50000;
                 var UVCountOffset = 15000;
                 var pvFixed = false;
                 var uvFixed = false;
-                function fixCount() {
-                    if (!pvFixed && $("#busuanzi_value_site_pv").html() !== '-') {
-                        $("#busuanzi_value_site_pv").html(parseInt($("#busuanzi_value_site_pv").html()) + PVCountOffset);
-                        pvFixed = true;
+
+                /**
+                 * 纠正单个不蒜子计数：busuanzi 是异步回填的，读到有效数值后
+                 * 写入「数值 + 偏移量」；尚未回填（'-' 或空）或数值非法时放弃本次。
+                 * @param {string} selector 计数元素选择器
+                 * @param {number} offset 需叠加的初始值偏移量
+                 * @returns {boolean} 是否已完成纠正（true 表示无需再轮询该元素）
+                 */
+                function fixOne(selector, offset) {
+                    var $el = $(selector);
+                    var text = $el.html();
+                    if (text === '-' || text === '') {
+                        return false;
                     }
-                    if (!uvFixed && $("#busuanzi_value_site_uv").html() !== '-') {
-                        $("#busuanzi_value_site_uv").html(parseInt($("#busuanzi_value_site_uv").html()) + UVCountOffset);
-                        uvFixed = true;
+                    var val = parseInt(text, 10);
+                    if (isNaN(val)) {
+                        return false;
+                    }
+                    $el.html(val + offset);
+                    return true;
+                }
+
+                function fixCount() {
+                    if (!pvFixed) {
+                        pvFixed = fixOne('#busuanzi_value_site_pv', PVCountOffset);
+                    }
+                    if (!uvFixed) {
+                        uvFixed = fixOne('#busuanzi_value_site_uv', UVCountOffset);
                     }
                     if (pvFixed && uvFixed) {
-                        clearInterval(int);
+                        clearInterval(timer);
                     }
                 }
             });

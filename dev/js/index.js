@@ -9,7 +9,7 @@ $(document).ready(function(){
     $('#menu-toggle').on('click', function(e) {
         var duration = 200;
         nav.slideToggle(duration);
-        $(document).on('click', function() {
+        $(document).one('click', function() {
             nav.slideUp(duration);
         });
         e.stopPropagation();
@@ -116,8 +116,8 @@ $(document).ready(function(){
      * Pagination
      */
     function pagination() {
-        var total = parseInt($('#total_pages').val());
-        var current = parseInt($('#current_pages').val());
+        var total = parseInt($('#total_pages').val(), 10);
+        var current = parseInt($('#current_pages').val(), 10);
         var baseUrl = $('#base_url').val();
         var limit = 3;
 
@@ -125,7 +125,7 @@ $(document).ready(function(){
 
         for (var i = current - limit; i < current; i++) {
             if (i > 0 && i !== 1) {
-                link_html += '<a href="' + baseUrl + '/page' + i + '" class="page-link page-num">' + i + '</a>';
+                link_html += '<a href="' + baseUrl + '/page' + i + '/" class="page-link page-num">' + i + '</a>';
             } else if (i === 1) {
                 link_html += '<a href="' + baseUrl + '/" class="page-link page-num">' + i + '</a>';
             }
@@ -135,7 +135,7 @@ $(document).ready(function(){
 
         for (var j = current + 1; j <= current + limit; j++) {
             if (j <= total) {
-                link_html += '<a href="' + baseUrl + '/page' + j + '" class="page-link page-num">' + j + '</a>';
+                link_html += '<a href="' + baseUrl + '/page' + j + '/" class="page-link page-num">' + j + '</a>';
             }
         }
 
@@ -212,33 +212,12 @@ $(document).ready(function(){
     new Search();
 
     /**
-     * Night mode
-     */
-    function nightMode() {
-        var el = $('body');
-        var className = 'night-mode';
-
-        var date = new Date();
-        var hour = date.getHours();
-
-        if ((hour >= 0 && hour <= 6) || hour === 23) {
-            el.addClass(className);
-        }
-
-        // el.addClass(className);
-    }
-
-    // if ($('#nm-switch').val() === 'true') {
-    //     nightMode();
-    // }
-
-    /**
      * Copy and copyright
      */
     function setClipboardData(str) {
         str += '\n\n著作权归作者所有。\n商业转载请联系作者获得授权,非商业转载请注明出处。\n原文: ' + location.href;
-        $('.post-content').on('copy', function(e) {
-            var data = window.clipboardData || e.originalEvent.clipboardData;
+        $('.post-content').off('copy').on('copy', function(e) {
+            var data = e.originalEvent.clipboardData;
             data.setData('text/plain', str);
             e.preventDefault();
         });
@@ -265,32 +244,5 @@ $(document).ready(function(){
             }
             $('.demo-list').html(html);
         });
-    }
-
-    // 调用百度统计数据
-    function getBaiduStaticsData () {
-        let end_date = tools.formatDate(new Date().getTime()).replace(/\-/g, '/');
-        $.ajax({
-            url: 'https://api.baidu.com/json/tongji/v1/ReportService/getData',
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                site_id: 'liaolongdong.com',
-                method: 'trend/time/a',
-                start_date: '2018/01/01',
-                end_date: end_date,
-                metrics: 'pv_count,visitor_count'
-            },
-            success: function (data) {
-                console.log(data);
-            },
-            error: function (err) {
-                console.log(err);
-            }
-        });
-    }
-    // 只在首页调用百度统计接口
-    if (pageRelPath === '/') {
-        // getBaiduStaticsData();
     }
 });

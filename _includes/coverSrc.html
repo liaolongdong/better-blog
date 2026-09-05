@@ -1,0 +1,21 @@
+{%- comment -%}
+  封面图地址归一化。
+
+  文章 front-matter 里的 cover 有两种形态：站内相对路径（如 /assets/img/xxx.jpg）
+  和外部链接（如 https://...）。只有前者需要拼 site.baseurl；外链一旦拼上就会变成
+  "/better-bloghttps://..." 这样的无效地址，首页与文章页的封面都会 404。
+
+  入参：cover —— 原始封面地址
+  出参：coverSrc —— 可直接用于 src / background-image 的地址（Jekyll 的 include 与
+        调用方共享同一 Liquid 作用域，故赋值对外可见）
+
+  注意：同一模板中多次调用会互相覆盖 coverSrc。若前一处的结果还要在后续使用，
+  请在调用后立刻另存一份，例如：
+    {% include coverSrc.html cover=page.cover %}{% assign shareCover = coverSrc %}
+{%- endcomment -%}
+{%- assign coverSrc = include.cover -%}
+{%- if coverSrc and coverSrc != '' -%}
+  {%- unless coverSrc contains '://' -%}
+    {%- assign coverSrc = include.cover | prepend: site.baseurl -%}
+  {%- endunless -%}
+{%- endif -%}

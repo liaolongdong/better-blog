@@ -1,5 +1,9 @@
 # Vite 构建配置优化完成
 
+> ⚠️ **历史快照，内容已过时**（记录于 2026-05-16，反映当时的构建形态）。
+> 当前命令、产物约定与环境要求一律以 [README.md](./README.md) 与 [USAGE.md](./USAGE.md) 为准。
+> 与现状不符的关键几处，见文末「后续变更（订正）」。
+
 ## 优化时间
 2026-05-16
 
@@ -165,3 +169,21 @@ module.exports = {
 ---
 
 优化完成！所有构建命令均已测试通过，无错误或警告。
+
+---
+
+## 后续变更（订正）
+
+本节为事后补记，用于纠正上文已与现状不符的内容。**上文保留原样作为历史记录，不要照着执行。**
+
+| 上文说法 | 现状 |
+| --- | --- |
+| 「添加了 Vite dev server 配置（端口 3000）」`server: { port: 3000, open: true, host: true }` | 该配置块已不存在于 `vite.config.js`。本项目**没有** Vite dev server，页面由 Jekyll 提供；`pnpm dev` = `vite build --watch` + `bundle exec jekyll serve`（默认 4000 端口） |
+| `yarn dev` / `yarn dev:watch` / `yarn build:dev` / `yarn server` | 均已不存在。现为 `pnpm dev` / `pnpm dev:assets` / `pnpm build:assets` / `pnpm dev:server` |
+| 「包含 legacy 兼容版本」 | `@vitejs/plugin-legacy` 已从依赖中移除，不再产出 `-legacy` 文件。其遗留输出 `vite-dist/` 全站零引用，已加入 `_config.yml` 的 `exclude` 与 `.gitignore` |
+| 「生成 56 个 JS 文件到 `assets/js/`」 | 实际为 19 个（`assets/js/` 下的 `.min.js`） |
+| 「确保 Git 正确追踪生成的文件」 | **恰好相反**：`assets/**` 与 `demo/**` 下的 `.min.js` / `.min.css` 已改为不入库（见 `.gitignore`），由 CI 与部署机现场构建 |
+| 「浏览器支持范围不变（iOS >= 7, Android >= 4.1）」 | `postcss.config.js` 的 autoprefixer 目标仍是这个范围，但实际代码已使用 `fetch`、`NodeList.forEach`、flex `gap`（iOS >= 14.1）等特性，两者并不一致；兼容基线待重新确认 |
+| 依赖管理用 Yarn | 已改为 pnpm，`yarn.lock` 已删除；`package.json` 的 `packageManager` 锁定 pnpm 版本供 CI 使用 |
+| 提到的 `BUILD.md`、`VITE_UPGRADE.md` | 两个文件均已删除，`_config.yml` 的 `exclude` 中对应条目也一并清理 |
+| 部署走本地脚本 | GitHub Pages 现由 `.github/workflows/jekyll.yml` 独立构建发布；冗余且已失效的 `jekyll-docker.yml` 已删除 |

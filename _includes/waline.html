@@ -94,9 +94,18 @@
 
     // 后端渲染 markdown 时把整段评论做了 HTML 转义，表情面板插入的
     // <img class="wl-emoji"> 因此变成纯文本；同时 URL 里的 "_" 被当成斜体语法
-    // 解析成 <em>（weibo_smile -> weibo<em>smile）。这里在渲染后按白名单还原。
-    const ESCAPED_EMOJI_RE = /&lt;img\s+class=(?:"|&quot;)wl-emoji(?:"|&quot;)\s+src=(?:"|&quot;)([^"&]*)(?:"|&quot;)(?:\s+alt=(?:"|&quot;)([^"&]*)(?:"|&quot;))?\s*\/?&gt;/g;
-    const EMOJI_CDN_RE = /^(?:https?:)?\/\/(?:unpkg\.com|(?:cdn|fastly)\.jsdelivr\.net|npm\.elemecdn\.com)\/@waline\/emojis@[\w.-]+\/[\w-]+\/[\w.-]+\.(?:png|gif|jpe?g|webp)$/;
+    // 解析成 <em>（weibo_smile -> weibo<em>smile）；此外 markdown 还会把 src 中的
+    // URL 包成 a 标签（href 指向该 URL），导致 src 属性内出现额外引号与真实的 ">"，
+    // 无法用常规引号配对匹配。
+    // 策略：匹配整个 &lt;img...&gt; 标签块，再从内部提取 URL 并剥离所有嵌套标签。
+    // 收尾必须是 &gt;（而非 >），这样才能跳过嵌套 <a> 里真实的 ">"。
+    //
+    // 切勿把开标签放宽成 (?:&lt;|<)img：真实的 <img class="wl-emoji"> 说明 Waline
+    // 已正确渲染、本就不需要改写，而它内部不含 &gt;，惰性扫描会越过该标签一路
+    // 吃到后文任意一个 &gt;（技术评论里 ">" 极其常见），把中间的用户正文连同
+    // 该表情一起替换成单个 <img>，造成评论内容静默丢失。
+    const ESCAPED_EMOJI_RE = /&lt;img\s+class=(?:"|&quot;)wl-emoji(?:"|&quot;)\s+[\s\S]*?&gt;/g;
+    const EMOJI_CDN_RE = /^(?:https?:)?\/\/(?:unpkg\.com|(?:cdn|fastly)\.jsdelivr\.net(?:\/npm)?|npm\.elemecdn\.com)\/@waline\/emojis@[\w.-]+\/[\w-]+\/[\w.-]+\.(?:png|gif|jpe?g|webp)$/;
     const restoredContent = new WeakMap();
 
     function restoreWalineEmojis() {
@@ -106,17 +115,41 @@
             const html = el.innerHTML;
             // 已处理过同一段内容则跳过，避免自身写回再次触发观察者
             if (restoredContent.get(el) === html) return;
+            // 只处理被转义的表情；真实 <img> 说明已渲染正确，无需改写
             if (!html.includes('&lt;img')) {
                 restoredContent.set(el, html);
                 return;
             }
             let restored = false;
-            const next = html.replace(ESCAPED_EMOJI_RE, (matched, src, alt) => {
-                // <em> 是被 markdown 吃掉的 "_"，还原后才是合法文件名
-                const url = src.replace(/<\/?em>/g, '_');
+            const next = html.replace(ESCAPED_EMOJI_RE, (matched) => {
+                // 从完整标签中提取 alt（如果存在）
+                const altMatch = matched.match(/alt=(?:"|&quot;)([^"&]*)(?:"|&quot;)/i);
+                const alt = altMatch ? altMatch[1] : '';
+                // 提取 src 属性：找到 src= 后第一个引号，然后找到 " alt= 或 "&gt; 作为结束
+                const srcIdx = matched.search(/src=/i);
+                if (srcIdx === -1) return matched;
+                const afterSrc = matched.substring(srcIdx + 4);
+                const quoteChar = afterSrc[0];
+                if (quoteChar !== '"' && quoteChar !== "'") return matched;
+                const srcContent = afterSrc.substring(1);
+                // 查找结束位置：取最先出现的那个（srcContent 已被外层正则限定在单个标签块内，
+                // 在此枚举终止符是安全的）。'"/&gt;' 用于兼容自闭合写法 &lt;img ... /&gt;。
+                let endIndex = srcContent.length;
+                const endPatterns = [quoteChar + ' alt=', quoteChar + '&gt;', quoteChar + '/&gt;'];
+                for (const pattern of endPatterns) {
+                    const idx = srcContent.indexOf(pattern);
+                    if (idx !== -1 && idx < endIndex) endIndex = idx;
+                }
+                let rawSrc = srcContent.substring(0, endIndex);
+                // 1) 去掉 markdown 给 URL 套的 a 标签包装
+                let url = rawSrc.replace(/<\/?a\b[^>]*>/gi, '');
+                // 2) 去掉 markdown 把 "_" 吃成 <em> 的问题
+                url = url.replace(/<\/?em>/g, '_');
+                // 3) 只保留纯 URL（去掉可能残留的空白、引号等）
+                url = url.trim().replace(/^["']|["']$/g, '');
                 if (!EMOJI_CDN_RE.test(url)) return matched;
                 restored = true;
-                const safeAlt = (alt || '').replace(/<\/?em>/g, '_').replace(/[<>"'&]/g, '');
+                const safeAlt = alt.replace(/<\/?em>/g, '_').replace(/[<>"'&]/g, '');
                 const safeSrc = url.startsWith('//') ? 'https:' + url : url;
                 return '<img class="wl-emoji" src="' + safeSrc + '" alt="' + safeAlt + '" loading="lazy">';
             });

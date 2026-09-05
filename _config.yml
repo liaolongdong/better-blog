@@ -153,7 +153,29 @@ recommend-condition-size: 12 # a tag will be recommended if the size of it is mo
 # Build settings
 paginate: 5
 paginate_path: 'page:num'
-exclude: ['node_modules', 'dev', 'dist', '.vite', 'package.json', 'package-lock.json', 'yarn.lock', 'gulpfile.js', 'vite.config.js', 'vite.demo.config.js', 'postcss.config.js', '.gitignore', 'README.md', 'BUILD.md', 'VITE_UPGRADE.md']
+# 不参与站点构建的文件/目录（Jekyll 会与内置默认排除项合并，Gemfile、vendor/bundle 等无需重复列出）。
+# 这里列的都是仅开发/部署用的资产，一旦漏排就会被拷进 _site 并公开可访问。
+exclude:
+  - node_modules
+  - dev
+  - dist
+  - .vite
+  # 旧 @vitejs/plugin-legacy 的输出残留：该插件已从依赖中移除，全站零引用
+  - vite-dist
+  - package.json
+  - pnpm-lock.yaml
+  - vite.config.js
+  - vite.demo.config.js
+  - postcss.config.js
+  - .gitignore
+  - .npmrc
+  - .node-version
+  # 开发与部署文档/脚本，不属于站点内容
+  - README.md
+  - USAGE.md
+  - OPTIMIZATION_COMPLETE.md
+  - deploy-ali.sh
+  - deploy-github.sh
 
 # Markdown
 markdown: kramdown

@@ -91,12 +91,12 @@
     animation: rightToLeftFade 500ms ease 500ms both;
 }
 
-.ltrf-dalay0 {
+.ltrf-delay0 {
     animation: leftToRightFade 500ms ease 0ms both;
 }
 
-.ltrf-dalay500 {
-    animation: leftToRightFade 500ms ease 0ms both;
+.ltrf-delay500 {
+    animation: leftToRightFade 500ms ease 500ms both;
 }
 
 // 从右往左渐出

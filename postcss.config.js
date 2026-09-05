@@ -33,7 +33,9 @@ module.exports = {
         /^\.bottom-fixed-btn/,  // 悬浮按钮
         /^\.social-share/,      // 分享按钮
         /^\.lab-content/,       // weblab页面
-        /^\.p-about/            // about页面
+        /^\.p-about/,           // about页面
+        /^#SOHUCS/,             // 畅言评论区
+        /^\.headerUp/           // 头部隐藏动画
       ],
       minPixelValue: 1,
       mediaQuery: true

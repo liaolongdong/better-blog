@@ -4,7 +4,6 @@
          * 日期格式化
          */
         formatDate: function (timeStamp, type) {
-            console.log(666);
             let formatDateStr = '';
             let date = new Date(timeStamp);
             let year = date.getFullYear();

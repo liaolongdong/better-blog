@@ -41,7 +41,8 @@
         // 移动端屏蔽粒子效果
         refreshPage: function () {
             if (window.screen.availWidth < 695) {
-                document.querySelector('body > canvas').remove();
+                var canvas = document.querySelector('body > canvas');
+                if (canvas) canvas.remove();
             }
         }
     }

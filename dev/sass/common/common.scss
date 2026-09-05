@@ -240,6 +240,9 @@
             }
         }
 
+        // 元数据行：日期在前、阅读量在后，整体靠左。
+        // 列表页是纯扫读面，靠左能让日期形成一条垂直扫描列；
+        // 且与详情页 post-meta 的「日期 → 阅读量」顺序保持一致。
         .post-meta {
             display: flex;
             flex-wrap: wrap;
@@ -249,33 +252,26 @@
             font-size: 13px;
             line-height: 20px;
 
+            // 整行统一一个颜色：meta 是卡片页脚，不该有单项跳出来抢标题和摘要的注意力，
+            // 层级由位置（日期首位）承担。#6E7480 对白底 4.69:1，满足 WCAG AA 正文要求。
             .post-meta-item {
                 display: inline-flex;
                 align-items: center;
                 gap: 5px;
-                color: #A9B0BC;
+                color: #6E7480;
                 letter-spacing: .2px;
                 font-variant-numeric: tabular-nums;
             }
 
-            // 线性图标：颜色交给 currentColor，夜间模式可跟随变色
+            // 线性图标：颜色交给 currentColor，夜间模式可跟随变色。
+            // 图标比文字更淡是有意的——它是文字的冗余装饰（aria-hidden），
+            // 语义已由日期本身和 u-sr-only 的「阅读量」承担。
             .meta-icon {
                 flex: none;
                 color: #C2C7CE;
             }
 
-            // 阅读量：置于最前，数字略深以形成主次层级；等宽数字避免异步回填时抖动
-            .waline-pageview-count {
-                font-weight: 500;
-                color: #868A94;
-            }
-
-            // 日期：靠右
-            .post-date {
-                margin-left: auto;
-            }
-
-            // 标签：独占一行，过多时自动换行，绝不与阅读量/日期重叠
+            // 标签：独占一行，过多时自动换行，绝不与日期/阅读量重叠
             .post-tags {
                 flex: 0 0 100%;
                 display: flex;

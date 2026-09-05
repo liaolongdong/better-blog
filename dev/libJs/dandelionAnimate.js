@@ -1,5 +1,6 @@
 (function (window, document) {
     var canvas = document.querySelector('#dandelionCanvas')
+    if (!canvas) return;
     const randomInt = (min, max) => Math.floor( Math.random() * ( max - min ) + min)
     // get canvas
 

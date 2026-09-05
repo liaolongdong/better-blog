@@ -8,8 +8,20 @@
  -->
 <head>
     {% include seoMeta.html %}
-    <link rel="stylesheet" href="./css/base.min.css">
-    <link rel="stylesheet" href="./css/index.min.css">
+    {%- comment -%}
+      demo 页的样式由 vite.demo.config.js 产出到 demo/<目录>/css/*.min.css，且不入版本库。
+      并非每个 demo 都有自有样式（alipayDemo / designDemo / realtimeDraggableDemo 等就没有），
+      无条件输出 <link> 会让这些页面稳定产生 404，因此先确认产物存在再输出。
+      site.static_files 中每一项的 path 形如 "/demo/xxx/css/base.min.css"，与 page.dir 拼接后同构。
+    {%- endcomment -%}
+    {%- assign cssNames = 'base.min.css,index.min.css' | split: ',' -%}
+    {%- for cssName in cssNames -%}
+      {%- assign cssPath = page.dir | append: 'css/' | append: cssName -%}
+      {%- assign cssHit = site.static_files | where: 'path', cssPath | first -%}
+      {%- if cssHit %}
+    <link rel="stylesheet" href="./css/{{ cssName }}">
+      {%- endif -%}
+    {%- endfor %}
     {% include seoScript.html %}
     <!-- <script type="text/javascript" src="./lib/vconsole.min.js"></script>
     <script type="text/javascript">

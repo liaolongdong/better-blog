@@ -16,16 +16,16 @@
     }
 
     const rtDraggable = {
-        init (node) {      
-            console.log(666, node);
-
+        init (node) {
             node && node.addEventListener('touchstart', (e) => {
                 draggable_params.startX = e.touches[0].pageX;
                 draggable_params.startY = e.touches[0].pageY;
             });
-            node && node.addEventListener('touchend', (e) => {
-                draggable_params.x = draggable_params.endX;
-                draggable_params.y = draggable_params.endY;
+            node && node.addEventListener('touchend', () => {
+                var curRight = parseInt(node.style.right, 10) || 0;
+                var curBottom = parseInt(node.style.bottom, 10) || 0;
+                draggable_params.x = curRight;
+                draggable_params.y = curBottom;
                 draggable_params.startX = 0;
                 draggable_params.startY = 0;
             });

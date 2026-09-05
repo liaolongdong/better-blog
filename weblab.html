@@ -5,7 +5,9 @@ title: WebLab
 
 {% include header.html %}
 
-<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/webLab.min.css">
+<!-- 产物名严格跟随源文件名：dev/sass/weblab.scss -> weblab.min.css（全小写）。
+     GitHub Pages 构建在 Linux 上大小写敏感，写成 webLab.min.css 会 404，勿改。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/weblab.min.css">
 
 <div class="g-banner tags-banner {{ site.labPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
     <h2 class="am-shake">前端在线编辑器</h2>

@@ -1,66 +1,154 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { readdirSync } from 'fs';
+import { readdirSync, copyFileSync, mkdirSync } from 'fs';
 
-// 获取 dev/js 目录下的所有 JS 文件作为入口
+/**
+ * 入口名前缀的匹配正则，用于在输出阶段剥掉前缀。
+ *
+ * 四个来源目录（dev/js、dev/libJs、dev/sass、dev/libCss）存在同名文件，
+ * 例如 index.js 与 index.scss；Rollup 入口对象的同名键会互相覆盖，
+ * 故给每个入口加上 `js:` / `lib:` / `sass:` / `css:` 前缀区分，
+ * 输出文件名再把前缀剥掉，得到干净的 assets/js|css/<name>.min.js|.min.css。
+ * @type {RegExp}
+ */
+const PREFIX_RE = /^(js|lib|sass|css)[_:]/;
+
+/**
+ * 列出目录下的文件名（升序）。
+ *
+ * 排序是必需的：readdirSync 的返回顺序由文件系统决定、不作任何保证，
+ * 而入口的插入顺序会影响 Rollup 的模块顺序，进而影响产物的可复现性。
+ * 与 vite.demo.config.js 的 readDirSafe 不同，这里不做 try/catch——
+ * 这四个目录是构建的硬前提，缺失时应当直接失败，而不是静默产出残缺产物。
+ * @param {string} dir 目录绝对路径
+ * @returns {string[]} 已排序的文件名数组
+ */
+function readDirSorted(dir) {
+  return readdirSync(dir).sort();
+}
+
+/**
+ * IIFE 包装插件：恢复被 Vite ES module 转换剥离的 IIFE 作用域。
+ *
+ * 源文件原先各自包在 IIFE 里以避免全局变量冲突，转成 ES module 后外层作用域消失；
+ * 而这些产物最终以普通 <script>（非 module）直接引入页面，缺乏模块作用域隔离，
+ * 因此在打包末尾把 IIFE 重新包回去，防止多文件间的变量名互相污染。
+ * @returns {import('vite').Plugin} Vite 插件
+ */
+function iifeWrapPlugin() {
+  return {
+    name: 'iife-wrap',
+    generateBundle(_options, bundle) {
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        if (chunk.type === 'chunk' && fileName.endsWith('.js')) {
+          chunk.code = `(function(){${chunk.code}})();`;
+        }
+      }
+    }
+  };
+}
+
+/**
+ * 复制一类「已预压缩」的第三方库文件到发布目录。
+ *
+ * 这些文件本身已是最终产物，无需再经 terser/postcss 加工。以 dev/libCss/share.min.css
+ * 为例：若把它也当作入口，px-to-viewport 会改写其中的 px 值，而 writeBundle 晚于
+ * Vite 写盘，加工结果最终仍会被这里的原样复制覆盖，纯属无用功。
+ * 因此约定：预压缩文件一律不进入口（见 getDevLibJsEntries / getDevLibCssEntries
+ * 的过滤条件），只做复制。
+ * @param {string} srcDir 源目录绝对路径（dev/libJs 或 dev/libCss）
+ * @param {string} destDir 目标目录绝对路径（assets/js 或 assets/css）
+ * @param {string} suffix 需复制的文件后缀（'.min.js' 或 '.min.css'）
+ * @returns {void}
+ */
+function copyMinifiedLibs(srcDir, destDir, suffix) {
+  mkdirSync(destDir, { recursive: true });
+  readDirSorted(srcDir)
+    .filter(file => file.endsWith(suffix))
+    .forEach(file => {
+      copyFileSync(resolve(srcDir, file), resolve(destDir, file));
+    });
+}
+
+/**
+ * 复制预压缩的库文件到发布目录。
+ * @returns {import('vite').Plugin} Vite 插件
+ */
+function copyPreMinifiedPlugin() {
+  return {
+    name: 'copy-pre-minified',
+    writeBundle() {
+      const root = resolve(__dirname);
+      copyMinifiedLibs(resolve(root, 'dev/libJs'), resolve(root, 'assets/js'), '.min.js');
+      copyMinifiedLibs(resolve(root, 'dev/libCss'), resolve(root, 'assets/css'), '.min.css');
+    }
+  };
+}
+
+/**
+ * 获取 dev/js 目录下的业务 JS 入口（排除 .min.js 产物）。
+ * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
+ */
 function getDevJsEntries() {
   const jsDir = resolve(__dirname, 'dev/js');
-  return readdirSync(jsDir)
-    .filter(file => file.endsWith('.js'))
+  return readDirSorted(jsDir)
+    .filter(file => file.endsWith('.js') && !file.endsWith('.min.js'))
     .reduce((entries, file) => {
-      const name = file.replace('.js', '');
-      entries[name] = resolve(jsDir, file);
+      const name = file.replace(/\.js$/, '');
+      entries[`js:${name}`] = resolve(jsDir, file);
       return entries;
     }, {});
 }
 
-// 获取 dev/libJs 目录下的所有 JS 文件作为入口（排除已压缩的）
+/**
+ * 获取 dev/libJs 目录下的第三方库 JS 入口（排除已预压缩的 .min.js，那些只做复制）。
+ * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
+ */
 function getDevLibJsEntries() {
   const libJsDir = resolve(__dirname, 'dev/libJs');
-  return readdirSync(libJsDir)
-    .filter(file => file.endsWith('.js'))
+  return readDirSorted(libJsDir)
+    .filter(file => file.endsWith('.js') && !file.endsWith('.min.js'))
     .reduce((entries, file) => {
-      const name = file.replace('.js', '');
-      entries[name] = resolve(libJsDir, file);
+      const name = file.replace(/\.js$/, '');
+      entries[`lib:${name}`] = resolve(libJsDir, file);
       return entries;
     }, {});
 }
 
-// 获取 dev/sass 目录下的所有 SCSS 文件作为入口
+/**
+ * 获取 dev/sass 目录下的 SCSS 入口。
+ * 只扫根目录一层：子目录（如 dev/sass/common）是被 @import 的片段，不单独产出。
+ * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
+ */
 function getDevSassEntries() {
   const sassDir = resolve(__dirname, 'dev/sass');
-  const entries = {};
-  
-  // 处理根目录下的 scss 文件
-  readdirSync(sassDir)
+  return readDirSorted(sassDir)
     .filter(file => file.endsWith('.scss'))
-    .forEach(file => {
-      const name = file.replace('.scss', '');
-      entries[name] = resolve(sassDir, file);
-    });
-  
-  return entries;
+    .reduce((entries, file) => {
+      const name = file.replace(/\.scss$/, '');
+      entries[`sass:${name}`] = resolve(sassDir, file);
+      return entries;
+    }, {});
 }
 
-// 获取 dev/libCss 目录下的所有 CSS 文件作为入口
+/**
+ * 获取 dev/libCss 目录下的第三方样式入口。
+ * 排除已预压缩的 .min.css，理由见 copyMinifiedLibs；与 getDevLibJsEntries 保持对称。
+ * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
+ */
 function getDevLibCssEntries() {
   const libCssDir = resolve(__dirname, 'dev/libCss');
-  return readdirSync(libCssDir)
-    .filter(file => file.endsWith('.css') || file.endsWith('.scss'))
+  return readDirSorted(libCssDir)
+    .filter(file => (file.endsWith('.css') || file.endsWith('.scss')) && !file.endsWith('.min.css'))
     .reduce((entries, file) => {
       const name = file.replace(/\.(css|scss)$/, '');
-      entries[name] = resolve(libCssDir, file);
+      entries[`css:${name}`] = resolve(libCssDir, file);
       return entries;
     }, {});
 }
 
 export default defineConfig({
-  // 开发服务器配置
-  server: {
-    port: 3000,
-    open: true,
-    host: true
-  },
+  plugins: [iifeWrapPlugin(), copyPreMinifiedPlugin()],
   // CSS 配置
   css: {
     preprocessorOptions: {
@@ -90,12 +178,16 @@ export default defineConfig({
       },
       output: [
         {
-          entryFileNames: 'assets/js/[name].min.js',
+          entryFileNames: (chunk) => {
+            const name = chunk.name.replace(PREFIX_RE, '');
+            return `assets/js/${name}.min.js`;
+          },
           chunkFileNames: 'assets/js/[name].min.js',
           assetFileNames: (assetInfo) => {
             // CSS 文件输出到 assets/css 目录
             if (assetInfo.name && assetInfo.name.endsWith('.css')) {
-              return 'assets/css/[name].min.css';
+              const name = assetInfo.name.replace(PREFIX_RE, '').replace('.css', '.min.css');
+              return `assets/css/${name}`;
             }
             // 其他资源文件
             return 'assets/[ext]/[name].[hash][extname]';

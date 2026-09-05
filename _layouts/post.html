@@ -25,25 +25,16 @@
       <h1>{{ page.title }}</h1>
       <div class="post-meta">
         <span class="post-meta-item author-item">
-          <svg class="meta-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="M20 21v-1.8a4.2 4.2 0 0 0-4.2-4.2H8.2A4.2 4.2 0 0 0 4 19.2V21"/>
-            <circle cx="12" cy="7.4" r="3.9"/>
-          </svg>
+          {% include metaIcon.html name='author' size=16 %}
           <span class="meta-text"><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></span>
         </span>
         <time class="post-meta-item date-item" datetime="{{ page.date | date: '%Y-%m-%dT%H:%M:%S' }}">
-          <svg class="meta-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <rect x="3.5" y="5" width="17" height="15.5" rx="2.2"/>
-            <path d="M8 3v4M16 3v4M3.5 10.2h17"/>
-          </svg>
+          {% include metaIcon.html name='date' size=16 %}
           <span class="meta-text">{% include postDate.html date=page.date %}</span>
         </time>
         {% if site.waline.enable and site.waline.pageview %}
         <span class="post-meta-item pageview-item">
-          <svg class="meta-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="M1.6 12S5.2 5.6 12 5.6 22.4 12 22.4 12 18.8 18.4 12 18.4 1.6 12 1.6 12Z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
+          {% include metaIcon.html name='view' size=16 %}
           <span class="u-sr-only">阅读量</span>
           <span class="meta-text waline-pageview-count" data-path="{{ page.url | prepend: site.baseurl }}">-</span>
           <span class="meta-unit">次阅读</span>
@@ -51,10 +42,8 @@
         {% endif %}
       </div>
     </div>
-    {% assign coverSrc = page.cover %}
-    {% if coverSrc and coverSrc != '' %}
-      {% unless coverSrc contains '://' %}{% assign coverSrc = page.cover | prepend: site.baseurl %}{% endunless %}
-    {% endif %}
+    {% include coverSrc.html cover=page.cover %}
+    {% assign shareCover = coverSrc %}
     {% if page.cover %}
     <div class="filter"></div>
       <div class="post-cover" style="background: url('{{ coverSrc }}') center no-repeat; background-size: cover;"></div>
@@ -104,10 +93,7 @@
     </section>
     <section class="post-footer-item read-next">
       {% if page.next.url %}
-      {% assign nextCover = page.next.cover %}
-      {% if nextCover and nextCover != '' %}
-        {% unless nextCover contains '://' %}{% assign nextCover = page.next.cover | prepend: site.baseurl %}{% endunless %}
-      {% endif %}
+      {% include coverSrc.html cover=page.next.cover %}
       <div class="read-next-item">
         <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link"></a>
         <section>
@@ -116,16 +102,13 @@
         </section>
         {% if page.next.cover %}
         <div class="filter"></div>
-        <img src="{{ nextCover }}" alt="">
+        <img src="{{ coverSrc }}" alt="">
         {% endif %}
      </div>
       {% endif %}
 
       {% if page.previous.url %}
-      {% assign prevCover = page.previous.cover %}
-      {% if prevCover and prevCover != '' %}
-        {% unless prevCover contains '://' %}{% assign prevCover = page.previous.cover | prepend: site.baseurl %}{% endunless %}
-      {% endif %}
+      {% include coverSrc.html cover=page.previous.cover %}
       <div class="read-next-item">
         <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link"></a>
           <section>
@@ -134,7 +117,7 @@
           </section>
           {% if page.previous.cover %}
           <div class="filter"></div>
-          <img src="{{ prevCover }}" alt="">
+          <img src="{{ coverSrc }}" alt="">
           {% endif %}
       </div>
       {% endif %}
@@ -162,7 +145,7 @@
       url: window.location.href, // 分享链接地址 默认使用 window.location.href
       title: '{{ page.title }}', // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
       description: '{{ page.subtitle }}', // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
-      image: window.location.origin + '{{ coverSrc }}', // 分享缩略图图片, 默认取网页中第一个img标签
+      image: window.location.origin + '{{ shareCover }}', // 分享缩略图图片, 默认取网页中第一个img标签
       sites: [
         {% for i in site.social-share-items %}
           '{{ i }}'
