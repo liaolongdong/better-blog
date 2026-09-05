@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve, join } from 'path';
-import { readdirSync, statSync, copyFileSync } from 'fs';
+import { readdirSync, statSync, copyFileSync, readFileSync } from 'fs';
 
 const DEMO_DIR = resolve(__dirname, 'demo');
 
@@ -12,11 +12,30 @@ const DEMO_DIR = resolve(__dirname, 'demo');
  *
  * 必须绕开打包的原因：多个 demo 的 base.css 内容完全相同，Vite 会按内容对 CSS 资源去重，
  * 只产出字母序第一份（实测仅 catDemo、idCardDemo 幸存），其余 demo 的 base.min.css 直接消失；
- * 而 _includes/demoHead.html 对每个 layout: demoTemplate 的页面都硬链接 ./css/base.min.css，
- * 会导致 8 个 demo 的基础样式在 GitHub Pages 上 404。
+ * 而 _includes/demoHead.html 已改为“产物存在才输出 <link>”，缺失时不会报错 404，
+ * 而是静默地让该 demo 丢掉基础样式，比 404 更难发现。
  * @type {string[]}
  */
 const STATIC_DEMO_CSS = ['base.css'];
+
+/**
+ * 从 `_config.yml` 读取站点的 baseurl，作为 Vite 的 base 前缀。
+ *
+ * 站点发布在子路径下，而本配置的 outDir 是仓库根，被 Rollup 从 CSS url() 中提取出的
+ * 资源（当前是 demo/shakeDemo 的 shake_bg.png）会落在根目录。Vite 默认生成域名根的
+ * 绝对 URL（/shake_bg.<hash>.png），它越过了 baseurl，线上必然 404。
+ *
+ * 不用 `base: './'` 是因为 assetFileNames 已把 CSS 下沉到 demo/<name>/css/，
+ * 而资源仍在仓库根，Vite 按“与 CSS 同级”算出的 `./xxx.png` 同样是错的。
+ * 这里直接复用 baseurl，与 _config.yml 共用单一事实来源，避免两处配置漂移。
+ * @returns {string} 形如 '/better-blog/' 的 base；baseurl 为空时回退为 '/'
+ */
+function getSiteBase() {
+  const config = readFileSync(resolve(__dirname, '_config.yml'), 'utf8');
+  const matched = config.match(/^baseurl:\s*['"]?([^'"\s]*)['"]?\s*$/m);
+  const baseurl = matched ? matched[1] : '';
+  return `${baseurl.replace(/\/+$/, '')}/`;
+}
 
 /**
  * 安全读取目录：目录不存在时返回空数组，并强制排序。
@@ -114,6 +133,8 @@ function copyStaticDemoCssPlugin() {
 
 export default defineConfig({
   plugins: [copyStaticDemoCssPlugin()],
+  // 资源 URL 的部署前缀，取自 _config.yml 的 baseurl，详见 getSiteBase 的说明
+  base: getSiteBase(),
   // CSS 配置
   css: {
     preprocessorOptions: {

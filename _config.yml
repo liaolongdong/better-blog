@@ -176,6 +176,8 @@ exclude:
   - OPTIMIZATION_COMPLETE.md
   - deploy-ali.sh
   - deploy-github.sh
+  # 本地临时试验页（内容只有 console.log），全站零引用，不应出现在线上
+  - test.html
 
 # Markdown
 markdown: kramdown

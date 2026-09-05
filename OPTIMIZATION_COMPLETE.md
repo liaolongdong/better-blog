@@ -183,7 +183,12 @@ module.exports = {
 | 「包含 legacy 兼容版本」 | `@vitejs/plugin-legacy` 已从依赖中移除，不再产出 `-legacy` 文件。其遗留输出 `vite-dist/` 全站零引用，已加入 `_config.yml` 的 `exclude` 与 `.gitignore` |
 | 「生成 56 个 JS 文件到 `assets/js/`」 | 实际为 19 个（`assets/js/` 下的 `.min.js`） |
 | 「确保 Git 正确追踪生成的文件」 | **恰好相反**：`assets/**` 与 `demo/**` 下的 `.min.js` / `.min.css` 已改为不入库（见 `.gitignore`），由 CI 与部署机现场构建 |
-| 「浏览器支持范围不变（iOS >= 7, Android >= 4.1）」 | `postcss.config.js` 的 autoprefixer 目标仍是这个范围，但实际代码已使用 `fetch`、`NodeList.forEach`、flex `gap`（iOS >= 14.1）等特性，两者并不一致；兼容基线待重新确认 |
+| 「浏览器支持范围不变（iOS >= 7, Android >= 4.1）」 | `postcss.config.js` 的 autoprefixer 目标仍是这个范围，但实际代码已使用 `fetch`、`NodeList.forEach`、flex `gap`（iOS >= 14.1）等特性，两者并不一致。该矛盾已在 `USAGE.md` 的「已知未决：浏览器兼容基线自相矛盾」一节登记，**本次有意暂不改动** |
 | 依赖管理用 Yarn | 已改为 pnpm，`yarn.lock` 已删除；`package.json` 的 `packageManager` 锁定 pnpm 版本供 CI 使用 |
 | 提到的 `BUILD.md`、`VITE_UPGRADE.md` | 两个文件均已删除，`_config.yml` 的 `exclude` 中对应条目也一并清理 |
 | 部署走本地脚本 | GitHub Pages 现由 `.github/workflows/jekyll.yml` 独立构建发布；冗余且已失效的 `jekyll-docker.yml` 已删除 |
+| 「所有现有的 HTML 引用无需修改」 | 不成立。`_includes/demoHead.html` 无条件输出 `./css/base.min.css` 与 `./css/index.min.css`，而部分 demo 并无自有样式，导致 11 个 404；现改为根据 `site.static_files` 判定产物存在才输出 |
+| 未提及：CSS 内的资源引用 | `vite.demo.config.js` 原先未设 `base`，被 Rollup 提取的资源（shakeDemo 背景图）生成域名根绝对 URL `/shake_bg.<hash>.png`，在 `baseurl: /better-blog` 部署下恒定 404；现 `base` 直接读取 `_config.yml` 的 baseurl |
+| 未提及：文章封面图 | 首页对 cover 无条件拼 `baseurl`，11 篇使用外链封面的文章在首页 404；已抽出 `_includes/coverSrc.html`，与文章页共用同一套「外链不拼前缀」守卫 |
+| 未提及：`realtime-draggable.js` 的拖拽基准 | 它从 `parseInt(node.style.right)` 或上一次的 `endX/endY` 推导基准，而元素初始定位写在 CSS 类里（inline style 为空），又叠加硬编码的 `x: 20 / y: 100`——实测首次拖拽 bottom 瞬移 284px，纯点击不拖动也会把基准归零。现改为每次 `touchstart` 用 `getBoundingClientRect()` 取实际几何位置（详见该文件的 `getEdgeOffset`） |
+| 「`demo/*/css/base.css` 会被正常打包」 | 多个 demo 的 `base.css` 内容完全相同，Vite 按内容对 CSS 去重，只留下字母序前两份，其余 `base.min.css` 直接消失；现由 `copyStaticDemoCssPlugin` 绕开管线原样复制 |

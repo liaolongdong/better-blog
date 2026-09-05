@@ -14,6 +14,9 @@ demo/*/css/*.min.css
 demo/*/css/*.min.js
 # 旧 @vitejs/plugin-legacy 的输出目录（插件已移除，全站零引用）
 vite-dist/
+# Rollup 从 CSS url() 中提取到仓库根的 hash 命名资源（当前为 shakeDemo 的 shake_bg.<hash>.png）；
+# 文件名随内容变动，入库会不断堆积旧版本，由 pnpm build 重新生成
+/*.*.png
 
 # Keep third-party library files
 !demo/likeWxFloatDragBtnDemo/js/vue.min.js
