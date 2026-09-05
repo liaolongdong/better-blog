@@ -160,7 +160,11 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: resolve(__dirname),
+    // 输出基准目录设为仓库根下的 assets/（而非仓库根本身）。
+    // 原因：`vite build --watch`（pnpm dev）下 Rollup 会校验「输入不得是输出目录的子路径」，
+    // 若 outDir 为仓库根，则 dev/ 下的入口全部落在其内，watch 模式直接抛 RollupError。
+    // 下方各 output 文件名已相应去掉 `assets/` 前缀，最终产物落点与改前完全一致。
+    outDir: resolve(__dirname, 'assets'),
     emptyOutDir: false,
     minify: 'terser',
     terserOptions: {
@@ -180,17 +184,17 @@ export default defineConfig({
         {
           entryFileNames: (chunk) => {
             const name = chunk.name.replace(PREFIX_RE, '');
-            return `assets/js/${name}.min.js`;
+            return `js/${name}.min.js`;
           },
-          chunkFileNames: 'assets/js/[name].min.js',
+          chunkFileNames: 'js/[name].min.js',
           assetFileNames: (assetInfo) => {
-            // CSS 文件输出到 assets/css 目录
+            // CSS 文件输出到 assets/css 目录（outDir 已是 assets/，故此处只写 css/）
             if (assetInfo.name && assetInfo.name.endsWith('.css')) {
               const name = assetInfo.name.replace(PREFIX_RE, '').replace('.css', '.min.css');
-              return `assets/css/${name}`;
+              return `css/${name}`;
             }
             // 其他资源文件
-            return 'assets/[ext]/[name].[hash][extname]';
+            return '[ext]/[name].[hash][extname]';
           },
           // 将全局变量暴露到 window 对象
           globals: {}
