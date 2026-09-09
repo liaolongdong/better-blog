@@ -23,3 +23,15 @@ vite-dist/
 !demo/openMapDemo/js/vue.min.js
 !demo/echartsDemo/lib/echarts.min.js
 !demo/echartsDemo/lib/vconsole.min.js
+
+# 自动化写作流水线的中间产物
+# evidence/ 里是每篇的一手证据清单：抓取命令、UTC 时间戳、原始响应片段。
+# 这是最直接的机器生产痕迹，内容绝不入库；只保留目录本身（.gitkeep 反向放行）。
+_drafts/evidence/*
+!_drafts/evidence/.gitkeep
+# deep-research skill 默认往仓库根目录写报告，流水线已改道 _drafts/evidence/，此处兜底
+DEEP_RESEARCH_*.md
+# baoyu-post-to-wechat 处理纯文本输入时的暂存目录
+post-to-wechat/
+# baoyu skill 凭据（DASHSCOPE_API_KEY 等）
+.baoyu-skills/.env
