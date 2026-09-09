@@ -26,10 +26,35 @@
         "我没能复现官方注释里的那句话",
         "查自己项目：一条 npm ls，一条 grep"
       ]
+    },
+    {
+      "date": "2026-09-10",
+      "job": "A",
+      "slug": "agent-visual-toolchain",
+      "variant": "A4",
+      "titleTpl": "T3",
+      "emojiBudget": "none",
+      "h2Count": 6,
+      "words": 2341,
+      "tableMode": "none",
+      "openingType": "commitMsg",
+      "endingType": "oneLineVerdict",
+      "outlookForm": "h3",
+      "styleBlock": false,
+      "highlightBox": false,
+      "h2Titles": [
+        "我要的不是 agent 再给我一段 Markdown",
+        "第一个仓库我只 clone 到一半",
+        "archify 出图了，但它的品牌表里没有 Vite",
+        "装完 374MB，它又跑去 GitHub clone 了一遍",
+        "最后跑通的是 Google 那个",
+        "我打算提的 issue，和没干完的活"
+      ]
     }
   ],
   "titleTplHistory": [
-    "T8"
+    "T8",
+    "T3"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -117,16 +142,72 @@
     "我装了三个 sharp，读出三个 heif 版本号",
     "扣出发行版的门控函数，我喂了六个值",
     "我没能复现官方注释里的那句话",
-    "查自己项目：一条 npm ls，一条 grep"
+    "查自己项目：一条 npm ls，一条 grep",
+    "我要的不是 agent 再给我一段 Markdown",
+    "第一个仓库我只 clone 到一半",
+    "archify 出图了，但它的品牌表里没有 Vite",
+    "装完 374MB，它又跑去 GitHub clone 了一遍",
+    "最后跑通的是 Google 那个",
+    "我打算提的 issue，和没干完的活"
   ],
   "promiseQueue": [
     {
       "text": "拿 v20.11.1 把 <Image> 的 AVIF 请求字节数真跑出来一次（兑现或明确撤回）",
       "registered": "2026-09-10",
       "job": "B"
+    },
+    {
+      "text": "handraw-style 重新 clone，这次先 git ls-remote 探大小（正文 TODO 第 2 条）",
+      "registered": "2026-09-10",
+      "job": "A"
+    },
+    {
+      "text": "HyperFrames 的 render 跑一次完整的，前提是腾出 2 GB 临时盘（TODO 第 3 条）",
+      "registered": "2026-09-10",
+      "job": "A"
+    },
+    {
+      "text": "把 _posts/2026-06-15-webmcp-vs-puppeteer.md 第 57 行那段 mermaid 换成 archify 出的图，验 Pages 上糊不糊（TODO 第 4 条）",
+      "registered": "2026-09-10",
+      "job": "A"
+    },
+    {
+      "text": "archify 的 `brands capture <url> --json` 那条出口实跑一次，看它能不能收下 vite（TODO 第 5 条）",
+      "registered": "2026-09-10",
+      "job": "A"
+    },
+    {
+      "text": "chrome-devtools-mcp 的 docs/tool-reference.md:738 那条文档缺口：提 PR 或提 issue，二选一，正文里已公开草稿（TODO 第 1 条）",
+      "registered": "2026-09-10",
+      "job": "A"
     }
   ],
-  "starSnapshots": {},
+  "starSnapshots": {
+    "tt-a1i/archify": [
+      55778,
+      "2026-09-09T16:08:53Z"
+    ],
+    "ChromeDevTools/chrome-devtools-mcp": [
+      51447,
+      "2026-09-09T16:08:55Z"
+    ],
+    "heygen-com/hyperframes": [
+      48295,
+      "2026-09-09T16:08Z"
+    ],
+    "jo-inc/camofox-browser": [
+      10815,
+      "2026-09-09T16:08Z"
+    ],
+    "mksglu/context-mode": [
+      21637,
+      "2026-09-09T16:08Z"
+    ],
+    "magnitudedev/magnitude": [
+      4228,
+      "2026-09-09T16:08Z"
+    ]
+  },
   "aborted": [],
   "salt": {
     "A": 3,

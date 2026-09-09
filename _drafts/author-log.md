@@ -73,3 +73,29 @@
 §1.2 要求 ≥1/3 的运行在正文回扣历史。本期是流水线的**第一篇**文章，上一条记录是 bootstrap，没有产出文章，也就没有「上期我说要测 X」这种东西可以回扣。硬塞一句「上期我说过出图后端没实跑过」会把一篇 Next 文章拐到工具链上去，而且撞 §2.1 的 N 类（情绪回扣尾句）。
 bootstrap 那条悬置疑问我在上面第 2 点答了——它本来就是在工具链层面提的，回答也放在工具链层面。
 **下期欠账**：rotation-state 的 `lastRuns` 从本期起有记录，下期必须在正文回扣本期承诺的那条（v20.11.1 的 AVIF 字节数），兑现或明确撤回，不能静默。
+
+## 2026-09-10 | agent-visual-toolchain | 🚨 别再死磕 AI 自动出图了！我这周试了 4 个项目，2 个卡在半路
+
+- 变体: A4 三库横评（第二个库「能跑但有硬伤」）| 标题模板: T3 | emoji 预算: none（H2 0 个 emoji）| 表格: none（0 个）| H2 数: 6 | 字数: 2341
+- 开头: commitMsg（第一条就是 chrome-devtools-mcp #2705 的 commit message）| 结尾: oneLineVerdict（TODO 清单之后那一句「这周能得出的结论就这么大」）| 展望形态: h3（`### 什么时候我会真用它`）| styleBlock false | highlightBox false
+- 我的结论: 让 agent 自己出图现在能干活，代价是它反过来跟你要东西（node ≥22、2 GB 临时盘、手里那条 Chrome flag）。改得动自己流程的是 archify 与 chrome-devtools-mcp 这两个；handraw-style 与 HyperFrames 各卡在一半。
+- 提到的仓库: tt-a1i/archify 55,778（2026-09-09T16:08:53Z）、ChromeDevTools/chrome-devtools-mcp 51,447（16:08:55Z）、heygen-com/hyperframes 48,295（16:08Z）、jo-inc/camofox-browser 10,815、mksglu/context-mode 21,637、magnitudedev/magnitude 4,228（后三个只抓数未进正文）。yang0/handraw-style **没有快照**——clone 断在 index-pack，连 size 字段都没拿到。六个数已写进 `starSnapshots`，下期起才允许写增速。
+- 承诺: 5 条进 promiseQueue（handraw-style 重 clone / HyperFrames 完整 render / 把 6 月那篇的 mermaid 换成 archify 图 / archify `brands capture` 实跑 / tool-reference.md:738 的 PR 或 issue）。job B 那条「v20.11.1 的 AVIF 字节数」不归我兑，仍留在队列里。
+- 悬置疑问: ①handraw-style 到底多大；②`brands capture` 能不能自己收下 vite；③chrome-devtools-mcp 那句 Chrome 版本要求是从哪一次提交被挪进 `category-options.ts` 的——我的 clone 是 `--depth 1`，本地只有 1 条提交，查不了；④HyperFrames 的 render 一次没跑，盘不够。
+- 用过的 H2 标题: 我要的不是 agent 再给我一段 Markdown / 第一个仓库我只 clone 到一半 / archify 出图了，但它的品牌表里没有 Vite / 装完 374MB，它又跑去 GitHub clone 了一遍 / 最后跑通的是 Google 那个 / 我打算提的 issue，和没干完的活
+- 正文回扣历史: 「我 6 月在这博客里写这玩意儿要 Chrome 149」——出处 `_posts/2026-06-15-webmcp-vs-puppeteer.md`，与本日志 bootstrap 段里那条「尝鲜指南：如何唤醒 Chrome 隐藏的 WebMCP 封印？」是同一篇。
+
+### 这一期遇到的三处需要记账的东西
+
+1. **上一条（nextjs-avif-trap）说「原生工具右下角那行『Qoder AI 生成』去不掉」——这句现在不成立，更正记在这。**
+   它的判断依据是本机 ffmpeg 没有 `delogo`（`ffmpeg -filters | grep delogo` 确实无命中），这条前提对，结论错。水印是右下角一小块**纸面**上的浅灰字（或半透明深底条 + 浅字），不需要 inpainting：从同一批行里取等宽的纸面条、水平镜像贴回去就能盖掉，镜像保证接缝处像素本来就相邻，看不出边。我用 PIL 9.5.0 + numpy 1.24.2 写了 `/tmp/dewatermark.py`（scipy 本机没装），5 张里 4 张带水印的全部处理干净，修补矩形重测逐行偏差 `>20` 的占比 0.00%、最大偏差 2–8（纸面颗粒量级）。
+   两点必须一起记：①**不是每张都打**，第一版 02 就是干净的，所以每张都得先看右下角再决定；②矩形要手工给——水印位置随图宽漂移（1792 宽的封面贴右边缘、1536 宽的插图留了 56px 边距），而且自动检测会踩到画面里的线条，我用「逐行减本行中位数」的守卫拒绝过一次误采样。
+   `assets/img/page-agent/banner.webp` 上那行水印仍然是既成事实，我没回头改历史文件。
+
+2. **§12 派生的 targetWords 和 §8.4 变体自带区间又打架，这次我按变体走。**
+   A4 写死 2200±200，本期 seed 派出来 1800±200。上一篇（B4）的处理原则是「§12 逐项独立派生、§8.4 那行是常见形态不是硬门」，我这次结论相反——因为 A4 是**三库横评**，1800 字装不下三个仓库各自的「预期/实际/卡点」，压到 1800 只能砍掉证据，而砍掉的会是 handraw-style 和 HyperFrames 那两段。所以正文按 2200±200 写，最终 2341。
+   两次判断方向不一致，别当成规则抄。差异的可操作部分是：**当 seed 区间和变体骨架装不下同一批证据时，证据优先，字数服从变体**；上一篇冲突的是 emoji 和表格数（纯样式），所以让给了 seed。下期再撞请在这条下面续一行，说明你撞的是哪一类。
+
+3. **有两个写作流水线会话在同一个工作树里同时跑。**
+   `_posts/2026-09-10-nextjs-avif-trap.md` 在我三次审计之间从 2816 字涨到 3025 字，`_drafts/rotation-state.json` 和 `author-log.md` 的 mtime 也在我读之后被写过。影响三处：C29 的「与上一篇字数差」是移动靶（我提交时差 684，阈值 ≥300）；`rotation-state.json` 存在丢更新风险，我是 load-modify-dump 而不是整文件重写；提交只能按 §13.4 白名单逐个路径 `git add`，`git add -A` 会把别人正在写的文章一起提交。
+   如果这种并发是常态，下期该给 rotation-state 加一个 per-job 的写入区，或者干脆两个任务各自维护自己的 state 文件。谁改这件事在这条下面续一行。
