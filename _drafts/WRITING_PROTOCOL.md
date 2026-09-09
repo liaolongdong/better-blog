@@ -438,6 +438,36 @@ README 里的营销话**不得直接转述为事实**，必须以「声称」形
 - **必须**写诚实空白：「我跑了 40 分钟没碰到明显问题。这个时长不够看出稳定性问题，等我用久了再补一篇。」
 - 并在 `author-log.md` 登记为悬置疑问，下期回补
 
+### §5.8 数据源预算与限流（实测值，勿凭记忆）
+
+无 token 时的真实配额，2026-09-09 实测：
+
+| 数据源 | 配额 | 实测依据 |
+|---|---|---|
+| GitHub **Search** API | **10 次/小时** | `x-ratelimit-limit: 10`、`x-ratelimit-resource: search` |
+| GitHub **core** REST（repo/issue/PR/release） | 60 次/小时 | 官方文档，与 Search 分开计 |
+| GitHub Trending **HTML 页面** | 无 API 配额 | `https://github.com/trending?since=weekly` 返回 HTTP 200 |
+| npm downloads API | 宽松 | `api.npmjs.org/downloads/point/last-week/react` 正常返回 |
+
+**⚠️ Search 的 10 次/小时是最容易踩的坑。** 一次运行如果按语言/topic 分别查 6 次，
+就用掉了 60% 的额度；再加上重试或临时补查，会在运行中途 403，
+而那时候证据清单已经写了一半——正文数字无法反查，只能整篇 abort。
+
+**规则：**
+
+1. **优先级：无配额的 HTML 源 > core REST > Search API。**
+   Trending 页面能拿到周榜和「本周新增 star」，这恰好是 Search API 给不了的字段，
+   而且不花配额。先用它定候选，再用 Search API 补「本周新建」这一类它独有的查询。
+2. **Search API 一次运行最多 3 次查询**，把条件合并（用 `topic:ai topic:llm` 组合、
+   `language:` 取舍），不要为每个维度各发一次。
+3. **每次调用前读 `x-ratelimit-remaining`**。为 0 就不要再发，直接走降级路径。
+4. **降级路径（不是 abort）**：Search 额度耗尽 → 只用 Trending HTML + core REST 完成选题与核实。
+   这两个源的额度足够支撑一篇合格文章。只有当**一手来源整体不可用**
+   （Trending 也抓不到、core REST 也 403）时才按 §11.2 登记 abort。
+5. 收到 403/429 时**读 `retry-after` 与 `x-ratelimit-reset`**，不要在循环里重试——
+   重试只会把额度耗得更干净。把响应体登记进证据清单，然后走降级。
+6. **禁止**因为额度不够就改用记忆里的 star 数或版本号（§5.3）。宁可少写一个数字。
+
 ---
 
 ## §6 结构性反模式禁止清单
@@ -976,7 +1006,7 @@ tags: <空格分隔，每个必须单 token>
 - 结尾可写 `项目地址：[https://github.com/xxx](https://github.com/xxx)`（既有约定）。
 - **不要改已发布文章的 slug 或 date**——Waline 的评论与阅读量以 `page.url` 为键，改了会孤立历史数据。
 
-### §13.3 图片管线
+### §13.3 图片管线（本机实测过的命令，勿凭记忆改）
 
 ```bash
 # 1. 生成（两个 skill 都必须先写 prompts/ 再出图，这是 skill 的硬性要求）
@@ -984,6 +1014,11 @@ tags: <空格分隔，每个必须单 token>
 #    插图：baoyu-article-illustrator，直接生成不用确认，
 #          type 按内容选，style=sketch-notes，density=balanced(3-5张)，语言 zh
 #    后端走运行时原生出图工具（本机无 DASHSCOPE_API_KEY，不要尝试 dashscope provider）
+#
+#    ⚠️ 原生出图工具把 PNG 写到**仓库根的 `vibe_images/`**，文件名形如
+#       `{name}_{毫秒时间戳}_{8位hash}.png`，不是写进文章目录。搬运时按此路径找。
+#       该目录已加入 .gitignore 与 _config.yml exclude，但**仍要在收尾时删掉本次产生的文件**，
+#       否则每跑一次就堆一批 ~2MB 的 PNG。
 
 # 2. 搬运到博客约定位置
 mkdir -p assets/img/{slug}
@@ -992,12 +1027,24 @@ mkdir -p assets/img/{slug}
 #    prompts/ 整体  → assets/img/{slug}/prompts/
 #    （仓库已有先例：assets/img/page-agent/prompts/01-scene-banner.md）
 
-# 3. 转 webp（本机已装 /usr/local/bin/cwebp）
+# 3. 转 webp —— 用 ffmpeg，不要用 cwebp
+#    ❌ /usr/local/bin/cwebp 1.5.0 编译时没带 libpng，读不了 PNG，
+#       任何 PNG 都报 "PNG support not compiled"，管线会在这里整体断掉。
+#    ❌ macOS 自带 sips 能读 webp 但不能写（Unsupported output format）。
+#    ✅ ffmpeg 的 libwebp 可用，产物是 VP8 lossy，与既有资源编码一致。
+#       scale 用 min(1600,iw) 对齐既有资源的 1600px 宽，同时避免把方形插图无意义上采样。
 for f in assets/img/{slug}/*.png; do
-  cwebp -q 82 "$f" -o "${f%.png}.webp" && rm "$f"
+  ffmpeg -hide_banner -loglevel error -y -i "$f" \
+         -vf "scale='min(1600,iw)':-2" -c:v libwebp -quality 82 \
+         "${f%.png}.webp" && rm "$f"
 done
+#    实测：1792x1024 PNG 1.99MB → 1600x914 WebP 42KB，
+#    与 assets/img/page-agent/banner.webp（1600x914 VP8 lossy）格式完全一致。
 
 # 4. 把正文与 frontmatter cover 里的 .png 引用改成 .webp
+
+# 5. 清理本次的原生出图中间产物
+rm -f vibe_images/*.png
 ```
 
 **文件名必须全 ASCII**——commit `8dd87af` `fix(assets): 重命名中文命名静态文件为 ASCII 名，修复 Jekyll 构建崩溃`。

@@ -178,6 +178,9 @@ exclude:
   - deploy-github.sh
   # 本地临时试验页（内容只有 console.log），全站零引用，不应出现在线上
   - test.html
+  # 出图工具的中间产物目录：无 _ 或 . 前缀，不加 exclude 会被原样复制进 _site 并公开服务。
+  # 里面的 PNG 会被搬进 assets/img/{slug}/ 转成 webp，原件不属于站点内容
+  - vibe_images
 
 # Markdown
 markdown: kramdown

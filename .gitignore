@@ -35,3 +35,6 @@ DEEP_RESEARCH_*.md
 post-to-wechat/
 # baoyu skill 凭据（DASHSCOPE_API_KEY 等）
 .baoyu-skills/.env
+# 运行时原生出图工具的落盘目录：每张 ~2MB PNG，都是中间产物，
+# 会被搬进 assets/img/{slug}/ 并转成 webp，原件不入库
+vibe_images/
