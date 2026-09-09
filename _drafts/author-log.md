@@ -39,3 +39,37 @@
 口头禅池也删了 4 个 0 次出现的词（有点东西 / 讲真 / 一手 / 当我没说），只留语料里真实出现过的。
 
 **这条修正的意义**：人设档案是每篇文章都要读的，档案里编一条，就会被逐篇复制成规模的 T3 虚构。协议 §0 原则三对自己人也适用。
+
+## 2026-09-10 | nextjs-avif-trap | 别再问我 Next 该升到哪版：16.3.3 关掉 AVIF，6 天 3 小时后 16.3.4 又打开
+
+- 变体: B4 一个技术切面 | 标题模板: T8 | emoji 预算: full | H2 数: 9 | 字数: 3047（审计脚本口径，含图片 alt）
+- 我的结论: 不改自己任何线上东西——我这套 wxt + Vite 构建里没有这一段。这篇改得动的只有下期的复现脚本。
+- 提到的仓库: vercel/next.js、strukturag/libheif、lovell/sharp。三个都只读了 registry tarball 和 GHSA/release JSON，没有 clone，没有抓 star，所以 starSnapshots 仍然空着。
+- 承诺: [ ] 拿 v20.11.1 把 `<Image>` 的 AVIF 请求字节数真跑出来一次（下次要么给两个 KB 数，要么给新的报错原文）
+- 悬置疑问: ①`VipsForeignLoadHeif` 为什么管着 avif，没去翻 libvips 文档；②老项目 lockfile 里躺着的 `sharp@0.34.x` 会不会被 `npm update` 抬过 1.23.2 那条线，我没测；③注释里那句 *Node 18 installs always resolve the vulnerable 0.34 line* 既没证实也没推翻，本机 nvm 只有 18.17.0，连 next 自己声明的 `^18.18.0` 都不到。
+- 用过的 H2 标题: 公告正文那句"AVIF 已被禁用"我在发行版里没找到 / 16.3.3 动了两处不是一处 / 恢复的两处和 16.3.2 字节相同那这六天改了什么 / 真补丁在 package.json 那一行 / 15.5.25 换了个做法运行时去看 libheif 的版本 / 我装了三个 sharp 读出三个 heif 版本号 / 扣出发行版的门控函数我喂了六个值 / 我没能复现官方注释里的那句话 / 查自己项目一条 npm ls 一条 grep
+
+### 这一期遇到的四处需要记账的东西
+
+1. **§12 派生参数和 §8.4 变体自带参数打架，我按 §12 走。**
+   §8.4 给 B4 写死了「emoji none｜表格 wide｜字数 2600±200」，而本期 seed（idx=252、saltB=11）派出来的是 emoji full｜tableMode prose｜targetWords 3000±200。两者不可能同时满足。我的判断：§12 第 2 步是用不同质数乘子逐项独立派生的，本来就是设计成会跨变体发牌的，而 §8.4 那行「参数」写的是该变体的常见形态，不是硬门；cron prompt §3 也明确说 B1–B5 与轮换参数以 rotation-state 为唯一来源。所以正文按 §12 执行，emoji 走 full（9 个 H2 里 7 个带、2 个裸），表格 0 个，字数 3047。
+   B4 的**形状**保留了：起因+经过压在前两节，技术剖析占 6 节，影响单独一节按人群拆。这个冲突以后每轮 B4 都会遇到，先记下来，别每次重新判断。
+
+2. **上一段（bootstrap）那个悬置疑问，这期答上了。**
+   「出图后端走运行时原生工具，这条路径没实跑过」——实跑了，能通。两个 skill 的 Step 0 都被项目级 `.baoyu-skills/*/EXTEND.md` 解锁，`preferred_image_backend: auto` 按 skill 自己的第 3 步回落到运行时原生出图工具，5 张图（1 封面 + 4 插图）全部一次成功，只有 1 张因为我自己的措辞歧义重出过一次。
+   两个必须记的落地细节：原生工具把 PNG 丢在**仓库根的 `vibe_images/`**，文件名是 `{name}_{时间戳}_{hash}.png`，单张 2.1–2.4 MB；`_config.yml:183` 已经 exclude 了这个目录，所以它不会进 `_site`。转 webp 用 ffmpeg，本机 cwebp 1.5.0 缺 libpng、sips 不写 webp，这两条路都不通。1600px 宽 + quality 82 之后 5 张合计约 350 KB。
+   另外原生工具会在右下角打一行「Qoder AI 生成」，这个去不掉，`assets/img/page-agent/banner.webp` 上也有，属于既有站点的既成事实。
+
+3. **一条自己查出来、写进正文的反直觉事实（R-13）。**
+   清点 `/tmp/aviftest` 时发现：d-16.3.2 / d-16.3.3 / d-16.3.4 三个目录里 npm 解析到的其实都是 `sharp@0.35.4`。也就是说 16.3.4 抬的那个 `^0.35.3` → `^0.35.4` 下限，在当天干净安装下根本拦不住人——registry 上 `^0.35.3` 今天就给得出 0.35.4。抬下限真正影响的是锁文件已经把它压在 0.35.3 的老项目。
+   这条是「不太顺耳」的那类：它削弱了正文里我自己刚说过的那句「真补丁在 package.json 那一行」。仍然写进去了，放在「跑 16.3.3 的人」那段后面。协议 §4 要的就是这种自己拆自己台的东西，而不是留着一个更整齐但站不住的结论。
+
+4. **`assets/img/{slug}/prompts/*.md` 会被 Jekyll 渲染成游离 HTML 页。**
+   `bundle exec jekyll build` 之后 `_site/assets/img/nextjs-avif-trap/prompts/` 下多出 5 个 .html，`outline.md` 也变成一个 outline.html。这不是本期引入的——`_site/assets/img/page-agent/prompts/` 里早就有 3 个同样的文件。站点没装 sitemap 插件，所以不进索引，暂时不动 `_config.yml`。
+   下期如果想清掉：exclude 里加 `assets/img/*/prompts`，或者把 prompt 文件挪出 `assets/`。谁动这件事请在这本日志里追加一行，别让下下期再查一遍。
+
+### 本期没有回扣历史，理由记在这
+
+§1.2 要求 ≥1/3 的运行在正文回扣历史。本期是流水线的**第一篇**文章，上一条记录是 bootstrap，没有产出文章，也就没有「上期我说要测 X」这种东西可以回扣。硬塞一句「上期我说过出图后端没实跑过」会把一篇 Next 文章拐到工具链上去，而且撞 §2.1 的 N 类（情绪回扣尾句）。
+bootstrap 那条悬置疑问我在上面第 2 点答了——它本来就是在工具链层面提的，回答也放在工具链层面。
+**下期欠账**：rotation-state 的 `lastRuns` 从本期起有记录，下期必须在正文回扣本期承诺的那条（v20.11.1 的 AVIF 字节数），兑现或明确撤回，不能静默。

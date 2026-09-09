@@ -1,8 +1,48 @@
 {
-  "lastRuns": [],
-  "titleTplHistory": [],
+  "lastRuns": [
+    {
+      "date": "2026-09-10",
+      "job": "B",
+      "slug": "nextjs-avif-trap",
+      "variant": "B4",
+      "titleTpl": "T8",
+      "emojiBudget": "full",
+      "h2Count": 9,
+      "words": 3047,
+      "tableMode": "prose",
+      "openingType": "bluntClaim",
+      "endingType": "nextWeekHook",
+      "outlookForm": "embedded-in-limits",
+      "styleBlock": false,
+      "highlightBox": false,
+      "h2Titles": [
+        "公告正文那句“AVIF 已被禁用”，我在发行版里没找到",
+        "16.3.3 动了两处，不是一处",
+        "恢复的两处和 16.3.2 字节相同，那这六天改了什么",
+        "真补丁在 package.json 那一行",
+        "15.5.25 换了个做法：运行时去看 libheif 的版本",
+        "我装了三个 sharp，读出三个 heif 版本号",
+        "扣出发行版的门控函数，我喂了六个值",
+        "我没能复现官方注释里的那句话",
+        "查自己项目：一条 npm ls，一条 grep"
+      ]
+    }
+  ],
+  "titleTplHistory": [
+    "T8"
+  ],
   "emojiLedger": {
-    "lastSets": []
+    "lastSets": [
+      [
+        "🧾",
+        "🔍",
+        "🧬",
+        "📦",
+        "⚙️",
+        "📊",
+        "🚪"
+      ]
+    ]
   },
   "h2History": [
     "为什么选择它？",
@@ -68,9 +108,24 @@
     "Impeccable 的解法：给 AI 装一套\"反 AI 味\"的规则引擎",
     "安装和实际使用",
     "和同类工具的区别",
-    "一个真实的改进案例"
+    "一个真实的改进案例",
+    "公告正文那句“AVIF 已被禁用”，我在发行版里没找到",
+    "16.3.3 动了两处，不是一处",
+    "恢复的两处和 16.3.2 字节相同，那这六天改了什么",
+    "真补丁在 package.json 那一行",
+    "15.5.25 换了个做法：运行时去看 libheif 的版本",
+    "我装了三个 sharp，读出三个 heif 版本号",
+    "扣出发行版的门控函数，我喂了六个值",
+    "我没能复现官方注释里的那句话",
+    "查自己项目：一条 npm ls，一条 grep"
   ],
-  "promiseQueue": [],
+  "promiseQueue": [
+    {
+      "text": "拿 v20.11.1 把 <Image> 的 AVIF 请求字节数真跑出来一次（兑现或明确撤回）",
+      "registered": "2026-09-10",
+      "job": "B"
+    }
+  ],
   "starSnapshots": {},
   "aborted": [],
   "salt": {
