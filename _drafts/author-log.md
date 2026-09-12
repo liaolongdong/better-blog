@@ -99,3 +99,34 @@ bootstrap 那条悬置疑问我在上面第 2 点答了——它本来就是在�
 3. **有两个写作流水线会话在同一个工作树里同时跑。**
    `_posts/2026-09-10-nextjs-avif-trap.md` 在我三次审计之间从 2816 字涨到 3025 字，`_drafts/rotation-state.json` 和 `author-log.md` 的 mtime 也在我读之后被写过。影响三处：C29 的「与上一篇字数差」是移动靶（我提交时差 684，阈值 ≥300）；`rotation-state.json` 存在丢更新风险，我是 load-modify-dump 而不是整文件重写；提交只能按 §13.4 白名单逐个路径 `git add`，`git add -A` 会把别人正在写的文章一起提交。
    如果这种并发是常态，下期该给 rotation-state 加一个 per-job 的写入区，或者干脆两个任务各自维护自己的 state 文件。谁改这件事在这条下面续一行。
+
+## 2026-09-10 | silent-defaults | 谁才是 9 月最不动声色的改动？三桩实测排完，第一名是我自己
+
+- 变体: B5 三桩并列事件 | 标题模板: T5 | seed idx=253、saltB=11 | emoji 预算: sparse（1 个 ⚠️，预算 1/4）| 表格: irregular（4 列表，最后一行故意只有 3 格）| H2 数: 4 | 字数: 2783（审计脚本口径，含图片 alt 与代码块外正文）
+- 开头: commitMsg（`git log --format='%h %ad %s'` 的真实输出）| 结尾: oneLineVerdict | 展望形态: todo-list（三处观察点）| styleBlock false | highlightBox false
+- **上期承诺：已兑现。** nextjs-avif-trap 欠的那条「拿 v20.11.1 把 `<Image>` 的 AVIF 请求字节数真跑出来」用 node v20.11.1 + next 16.3.4/16.3.3 双实例跑完，正文第一节直接给 6,906 / 28,112 / 13,504 三组读数，promiseQueue 里那条已移除。兑现方式包含一次自我更正：上期说「16.3.3 关掉了 AVIF」写少了——按我这批读数，它关的是解码不是编码。
+- 事件与关键日期: DeepSeek V4.1 Flash 发布 2026-09-10，`deepseek-v4-pro` 改道 2026-09-14 12:00（北京）= 04:00 UTC；miniflare `latest` → `5.20260908.0-alpha` 发布于 09-08 17:03，wrangler 4.130.0 精确依赖它；Tailwind 加入 Shopify 公告 2026-09-09 13:15Z，`/plus` 302 → `/plus/login`。全部一手抓取时间 2026-09-10T14:48Z–15:27Z，登记在 `_drafts/evidence/silent-defaults.md`（N-/C-/I-/U-/R-/D- 六段 + 缺口 8 条）。
+- 我的结论: 三桩没有一个给 5xx，排序按「你多久会撞上一次」而不是按厂商有没有写公告——第一名是上期我自己那条没验就写下来的命令。改得动自己东西的只有一条：`npm ls sharp`，落在 0.35.2/0.35.3 抬到 0.35.4。
+- 提到的仓库/包: cloudflare/miniflare、cloudflare/wrangler、lovell/sharp（读的是昨天已存进 `nextjs-avif-trap/` 的 GHSA JSON，本期 GitHub API 0 次请求）、tailwindlabs/tailwindcss.com、vercel/next.js（本地 16.3.3/16.3.4 双实例）。starSnapshots 本期未追加——一个 star 数都没抓。
+- 承诺: 4 条进 promiseQueue（deepseek `model` 字段回什么 / miniflare 的 sharp 依赖 9 月底复查 / tailwindcss `insiders` 通道 / 真起 Miniflare 实例跑到 `imagesLocalFetcher`）。第 1 条自带撤回条件：本机仍然没有 key，下期要么给一手读数要么明确撤回。
+- 悬置疑问: ①`latest` 这个 tag 是哪一天从 4.x 挪到 alpha 的，npm 不给 tag 变更史，没找到第三方时间线；②同一份 manifest 在 node 20.11.1 `--dry-run` 报 56 个包、node 22 实装 29 个，原因没查（怀疑 dry-run 不做平台裁剪，正文里标了「这是猜的」）；③aftbit 引述的 "In keeping with our commitment to user responsibility" 在两个英文页面 `find` 全部 -1，既不能证实也不能证伪；④官方 110 million/week 与 registry 69,920,618 的口径差；⑤`w=1600` 那个 400 我只定位到「像 deviceSizes 白名单在挡」，没去读 next 的校验代码。
+- 用过的 H2 标题: 1af9274 那条命令我跑完了：6,906 和 28,112 / 同一份公告里，“下线”有三种写法 / ⚠️ npm i miniflare 今天装回来一个 alpha，全程零警告 / 注册入口没了：/plus 今天只剩一个登录框
+- 正文回扣历史: 两处。①第一节整节兑 nextjs-avif-trap 的账，并引用它 commit message `1af9274`；②「上期我在第 249 行留过一句话」直接指向 `_posts/2026-09-10-nextjs-avif-trap.md` 里那句「下次要么给你两个 KB 数，要么告诉你我又没跑成」。
+
+### 这一期遇到的四处需要记账的东西
+
+1. **出图后端的右下角标记有两种形态，`/tmp/dwm3.py` 那种「按亮度找暗带」的检测只能命中其中一种。**
+   上期说「从同一批行里取等宽纸面条镜像贴回去」，方法对，但本期 5 张图里：banner / 02 / 03 是**半透明暖色暗带**（相对同行左半图中位数下降 25 以上，能被检出）；04 是**浅灰字形直接压在纸面上**（角点亮度 239，无暗带）；05 是**圆角半透明块**（角点 224.7，降幅 <25 的阈值）。04、05 全部 NO-BAND，只能读 2× 角点裁图后手工给矩形。
+   结论：**每张图必须单独看右下角，禁止套上一张的 rect**。另外 02 自动检出的 rect 偏小（带从 x≈1495 渐入，检出报 1553），残留灰块是靠肉眼复核发现的——自动化在这里只能做到「不遗漏明显暗带」，做不到「一次修干净」。
+
+2. **clone-stamp 之后仍然留了 2 级左右的接缝，肉眼在 2× 裁图下能看见。**
+   03 修完第一版，右下角 x≈1430–1443 有一条约 20 级的竖直暗线（供体条带自身的边界 + 原水印的左渐入区没被覆盖）。修法是：对该窄带用左右两侧各 18px 的**逐行均值**做线性插值，再从干净邻域（同图 x 1476–1524，σ≈1.4 的纸纹）**借用噪声**填回去。直接保留原区域噪声的 `noise*0.5` 会把缺陷一起留下来——第一版就是这么失败的。
+   验收口径也定一下：改完后逐列均值曲线在修补带内应单调且落差 <2（本期 241.0→242.0 通过），不能只看「有没有暗带」。
+
+3. **一次脚本事故：批量替换 alt 文本时把整篇草稿截断到 4.7 KB。**
+   我在一个 heredoc 里写 `s = s[:m.start()] + alt + s[m.start():m.end()]`，漏掉了 `s[m.end():]`，`_drafts/silent-defaults.md` 只剩第 1 张图之前的内容。**恢复靠会话 transcript**：`~/.qoder-cn/projects/<proj>/<session>.jsonl` 里那条 Read 的 tool_result 存着带行号的完整 188 行，正则剥掉 `^\s*\d+\t` 前缀即可还原，17,500 字节，与截断前 ls 的 18,617 减去 4 行插图正好吻合。
+   记两条：**改稿一律用 Edit 工具，不要用 python 批量 replace**（断言失败时前面的替换已写回、且没有事务）；真要用脚本，先 `cp` 到 `/tmp` 再改，改完 diff 行数。
+
+4. **C26 在文件已经躺在 `_posts/` 里的时候会拿自己跟自己比，报 100% 重合。**
+   `recent=sorted(glob.glob('_posts/2026-*.md'))[-5:]` 没排除被审计文件本身。已改成先滤掉 `os.path.abspath(F)` 再取后 5 条——这是脚本口径修正，不是为了让检查通过（正文一个字没为此改动）。顺带记 C29 的真实口径：`cjk` 统计的是 **body 全文**，含代码块里的中文和 5 行图片 alt，所以「加 4 张插图」这件事本身就吃掉 205 个中文字符，写作时要把这部分预算算进去。
+   同一类问题在写回 state 之后又炸了一次：C12 拿本期 emoji 集合和 `emojiLedger.lastSets` 比「是否不同」，而脚本自带的 STATE-ROLLBACK 只回滚了 `lastRuns` 和 `h2History`，没回滚 `lastSets` 与 `titleTplHistory`，于是复跑审计报 `与最近集合不同=False`。已在回滚块里补上这两项（`lastSets` 的弹出条件是长度 ≤ 本期 h2Count，避免误弹别人的记录）。**审计脚本的 STATE-ROLLBACK 必须与 §6 的写回字段一一对应**，写回多一个字段，回滚就要多一项，否则「32 项全 PASS」这件事只在写回之前成立一次。
