@@ -72,12 +72,36 @@
         "⚠️ npm i miniflare 今天装回来一个 alpha，全程零警告",
         "注册入口没了：/plus 今天只剩一个登录框"
       ]
+    },
+    {
+      "date": "2026-09-12",
+      "job": "A",
+      "slug": "trending-skill-sweep",
+      "variant": "A5",
+      "titleTpl": "T6",
+      "emojiBudget": "none",
+      "h2Count": 5,
+      "words": 1198,
+      "tableMode": "none",
+      "openingType": "issueTitle",
+      "endingType": "oneLineVerdict",
+      "outlookForm": "embedded-in-limits",
+      "styleBlock": true,
+      "highlightBox": true,
+      "h2Titles": [
+        "排名：21 条里 10 条名字或描述带 skill",
+        "37 个 SKILL.md，发布 25 个，其中 14 个够不着",
+        "它说全仓不许用破折号，我数出 104 个",
+        "这周另外几笔",
+        "为什么我还拿单文件协议干活？"
+      ]
     }
   ],
   "titleTplHistory": [
     "T8",
     "T3",
-    "T5"
+    "T5",
+    "T6"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -178,15 +202,14 @@
     "1af9274 那条命令我跑完了：6,906 和 28,112",
     "同一份公告里，“下线”有三种写法",
     "⚠️ npm i miniflare 今天装回来一个 alpha，全程零警告",
-    "注册入口没了：/plus 今天只剩一个登录框"
+    "注册入口没了：/plus 今天只剩一个登录框",
+    "排名：21 条里 10 条名字或描述带 skill",
+    "37 个 SKILL.md，发布 25 个，其中 14 个够不着",
+    "它说全仓不许用破折号，我数出 104 个",
+    "这周另外几笔",
+    "为什么我还拿单文件协议干活？"
   ],
   "promiseQueue": [
-    {
-      "text": "handraw-style 重新 clone，这次先 git ls-remote 探大小（正文 TODO 第 2 条）",
-      "registered": "2026-09-10",
-      "job": "A",
-      "slug": "agent-visual-toolchain"
-    },
     {
       "text": "HyperFrames 的 render 跑一次完整的，前提是腾出 2 GB 临时盘（TODO 第 3 条）",
       "registered": "2026-09-10",
@@ -194,19 +217,7 @@
       "slug": "agent-visual-toolchain"
     },
     {
-      "text": "把 _posts/2026-06-15-webmcp-vs-puppeteer.md 第 57 行那段 mermaid 换成 archify 出的图，验 Pages 上糊不糊（TODO 第 4 条）",
-      "registered": "2026-09-10",
-      "job": "A",
-      "slug": "agent-visual-toolchain"
-    },
-    {
       "text": "archify 的 `brands capture <url> --json` 那条出口实跑一次，看它能不能收下 vite（TODO 第 5 条）",
-      "registered": "2026-09-10",
-      "job": "A",
-      "slug": "agent-visual-toolchain"
-    },
-    {
-      "text": "chrome-devtools-mcp 的 docs/tool-reference.md:738 那条文档缺口：提 PR 或提 issue，二选一，正文里已公开草稿（TODO 第 1 条）",
       "registered": "2026-09-10",
       "job": "A",
       "slug": "agent-visual-toolchain"
@@ -234,32 +245,64 @@
       "registered": "2026-09-10",
       "job": "B",
       "slug": "silent-defaults"
+    },
+    {
+      "text": "magnitude 连抓两天（正文承诺「下次连抓两天」）：09-13/09-14 各打一次 REST stargazers_count，把页面 2,616 与实测 343/周 的 7.6 倍差归因到窗口口径，归不出来就在正文撤回该 repo",
+      "registered": "2026-09-12",
+      "job": "A",
+      "slug": "trending-skill-sweep"
+    },
+    {
+      "text": "盯 `disable-model-invocation` 在 Claude Code 里的语义有没有官方定稿（定稿则正文那句 14/25 作废，需要更正）",
+      "registered": "2026-09-12",
+      "job": "A",
+      "slug": "trending-skill-sweep"
+    },
+    {
+      "text": "盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag；打出来说明按版本拉有稳定入口，可以考虑换装载方式",
+      "registered": "2026-09-12",
+      "job": "A",
+      "slug": "trending-skill-sweep"
+    },
+    {
+      "text": "handraw-style 不再 clone 整库（97 MiB / 280 张 PNG），改走 contents API 读 MANIFEST.md 与 handdraw-style-prompter/SKILL.md，判断它跟 archify 是不是同一类东西",
+      "registered": "2026-09-12",
+      "job": "A",
+      "slug": "trending-skill-sweep"
     }
   ],
   "starSnapshots": {
     "tt-a1i/archify": [
-      55778,
-      "2026-09-09T16:08:53Z"
+      59250,
+      "2026-09-12T14:39Z"
     ],
     "ChromeDevTools/chrome-devtools-mcp": [
-      51447,
-      "2026-09-09T16:08:55Z"
+      51734,
+      "2026-09-12T14:39Z"
     ],
     "heygen-com/hyperframes": [
-      48295,
-      "2026-09-09T16:08Z"
+      49128,
+      "2026-09-12T14:39Z"
     ],
     "jo-inc/camofox-browser": [
-      10815,
-      "2026-09-09T16:08Z"
+      10955,
+      "2026-09-12T14:39Z"
     ],
     "mksglu/context-mode": [
-      21637,
-      "2026-09-09T16:08Z"
+      22289,
+      "2026-09-12T14:39Z"
     ],
     "magnitudedev/magnitude": [
-      4228,
-      "2026-09-09T16:08Z"
+      4372,
+      "2026-09-12T14:39Z"
+    ],
+    "mattpocock/skills": [
+      260245,
+      "2026-09-12T14:39Z"
+    ],
+    "ayghri/i-have-adhd": [
+      43037,
+      "2026-09-12T14:39Z"
     ]
   },
   "aborted": [],

@@ -130,3 +130,37 @@ bootstrap 那条悬置疑问我在上面第 2 点答了——它本来就是在�
 4. **C26 在文件已经躺在 `_posts/` 里的时候会拿自己跟自己比，报 100% 重合。**
    `recent=sorted(glob.glob('_posts/2026-*.md'))[-5:]` 没排除被审计文件本身。已改成先滤掉 `os.path.abspath(F)` 再取后 5 条——这是脚本口径修正，不是为了让检查通过（正文一个字没为此改动）。顺带记 C29 的真实口径：`cjk` 统计的是 **body 全文**，含代码块里的中文和 5 行图片 alt，所以「加 4 张插图」这件事本身就吃掉 205 个中文字符，写作时要把这部分预算算进去。
    同一类问题在写回 state 之后又炸了一次：C12 拿本期 emoji 集合和 `emojiLedger.lastSets` 比「是否不同」，而脚本自带的 STATE-ROLLBACK 只回滚了 `lastRuns` 和 `h2History`，没回滚 `lastSets` 与 `titleTplHistory`，于是复跑审计报 `与最近集合不同=False`。已在回滚块里补上这两项（`lastSets` 的弹出条件是长度 ≤ 本期 h2Count，避免误弹别人的记录）。**审计脚本的 STATE-ROLLBACK 必须与 §6 的写回字段一一对应**，写回多一个字段，回滚就要多一项，否则「32 项全 PASS」这件事只在写回之前成立一次。
+
+## 2026-09-12 | trending-skill-sweep | 我把 37 个 SKILL.md 挨个数了一遍，发现 14 个不会被自动加载
+
+- 变体: A5 短帖（seed 派到 A4，因 §7.6 与上一篇 job A 变体撞车降级）| 标题模板: T6 | seed idx=35、saltA=3 | emoji 预算: none（H2 0 个）| 表格: none（0 个）| H2 数: 5 | 字数: 1198
+- 开头: issueTitle（#1055 的标题原文）| 结尾: oneLineVerdict（「结论就这么大」）| 展望形态: embedded-in-limits（展望压在最后一节的「真到拆的那天，我盯两个信号」一句里，5.0% 篇幅）| styleBlock **true** | highlightBox true
+- seed 覆盖清单（全部记在这，别当下期规则抄）：h2Count 派生 6 → 去重后 7 → 被 A5 的 3–5 段压回 **5**；targetWords 派生 1800 → 被 A5 自带区间 **800–1200** 覆盖（延续上期「证据优先，字数服从变体」）；openingType commitMsg → 去重（上期已用）→ **issueTitle**；titleTpl T3 → 去重 → T8 → 去重 → T5 → **并发会话把 T5 占了，再退到 T6**；outlookForm h3 → 去重 → **embedded-in-limits**；highlightBox 派到 true、styleBlock 派到 false，两者互斥，见下面第 4 点。
+- 我的结论: 这周周榜 21 条里 10 条名字或描述带 skill，占页面周增量的 55.2%；我唯一能逐文件数完的那条（mattpocock/skills）发布 25 个 skill，其中 14 个标了 `disable-model-invocation: true`，模型不会主动加载。它的仓库规则禁止破折号，我数出 104 处，100% 在机器生成的 CHANGELOG.md 里。
+- 提到的仓库: mattpocock/skills 260,245（REST，2026-09-12T14:39Z；同一时刻 Trending 页显示 260,241）、i-have-adhd 43,037（14:39Z）、archify 59,250（14:39Z，旧值 55,778@09-09T16:08Z）、magnitude 4,372（14:39Z，旧值 4,228）、hyperframes 49,128、context-mode 22,289、chrome-devtools-mcp 51,734、camofox-browser 10,955、ponytail 136,338（**只有 HTML 值，无 REST 快照**）。九条的 star 数与抓取时间全登记在 `_drafts/evidence/trending-skill-sweep.md`（N-/C-/F-/R-/I-/U-/S-/P- 八段 + 缺口 5 条）。
+- 承诺: 4 条新承诺进 promiseQueue（magnitude 连抓两天 / 盯 `disable-model-invocation` 语义定稿 / 盯 #1064 那个 tag / handraw-style 改走 contents API 读两份文档）。
+- 上期 5 条 job A 承诺的逐条处置：①**handraw-style 探大小——已兑**，`git ls-remote` 拿到 HEAD `58dee61`，REST `size=99,634` KB，tree API 349 项里 280 个 PNG 占 83,865 KB，上期断在 index-pack 的原因就是这 100 MB 图片；**没有下整库 clone**，改用 tree API，证据 P-01…P-04，正文一个字没用。②HyperFrames 完整 render——**未兑，明确顺延**：本期是 A5 短帖，取证范围全给 mattpocock/skills；`df` 显示现在剩 5.6 Gi，上期那句「2 GB 临时盘不够」的前提已经变了，下期要么真跑要么撤回，不能再顺延第三次。③把 6 月那篇的 mermaid 换成 archify 图——**未兑，撤回原承诺、改挂新条件**：换图要 archify 真出图，而 archify 的 node 门槛本期没解决；正文里我改口盯的是「disable-model-invocation 语义定稿」和「#1064 打 tag」两个信号，换图这件事等下期真写 archify 时顺路做，不占队列。④`brands capture` 实跑——**未兑，顺延**，理由同 ②。⑤chrome-devtools-mcp `tool-reference.md:738` 提 PR/issue——**未兑，撤回**：本期一次没打开那份 docs，挂着一条三期没动的承诺不如撤回，将来真提的时候在新段落里重新登记。
+- 悬置疑问: ①`disable-model-invocation` 在 Claude Code 里到底是「不列进模型视野」还是「列了但不自动调用」，仓库和 issue 都没写，我 14/25 这个数只能证明「发布清单里有 14 个带这个标记」；②Trending 页 "stars this week" 的窗口起点（周日 UTC？滚动 7 天？）没查到官方定义，magnitude 那 7.6 倍差解释不了；③misc/ 那 4 个 skill 为什么排除在 25 之外，C-17 那条 commit 只说「stop linking misc/ into local skill directories」，没说是发布清单也一起排除还是巧合；④`wayfinder` 一个 SKILL.md 11,908 字节，比最小的 `grill-me` 大 75 倍，粒度差异有没有约定，没找到。
+- 用过的 H2 标题: 排名：21 条里 10 条名字或描述带 skill / 37 个 SKILL.md，发布 25 个，其中 14 个够不着 / 它说全仓不许用破折号，我数出 104 个 / 这周另外几笔 / 为什么我还拿单文件协议干活？
+- 正文回扣历史: 两处，都逐字对得上。①magnitude 那条写「上期日志记它“只抓数未进正文”」——引号里就是本日志 2026-09-10 agent-visual-toolchain 段「提到的仓库」那一行的原话；②hyperframes 那条写「上期卡在 2 GB 临时盘，这期依旧没跑」——对应上期悬置疑问④与本段第②条的顺延。
+
+### 这一期遇到的六处需要记账的东西
+
+1. **A5 短帖的开头模板是「这周没什么大东西」，而这周正好相反，我没照抄。**
+   §7.5（协议第 605 行）给 A5 的第一句是那句谦辞。本期实测 10/21 命中 skill、占 55.2% 增量，写「没什么大东西」就是假话。我用 issue 标题原文开头（seed 的 openingType 本来就派到 issueTitle），把 A5 的「短、碎、不展开」执行在结构上（5 个 H2、1198 字、7 条不等长 bullet、单句结论），没执行在那句开场白上。变体骨架和事实打架时，这期还是事实赢，跟上期 targetWords 那次同向。
+   顺带记 A5 的来历：它是 §7.6 轮换算法派出来的（`cands[(35+3)%5]=A4`，与上期 job A 的 A4 撞车 → `cands[(3+1)%5]=A5`；第 618 行的 `weeksSinceLastA5 < 5` 不触发，因为流水线历史上还没有过 A5），**不是** §7.5 那个「本周 trending 确实无料」的触发条件。也就是说变体的名字（低产周）这期是假的，只有它的形式约束（800–1200 字、碎片、无表格、无独立展望节、one-line verdict）成立。下期若再轮到 A5 而材料照样充足，请照这条写，别为了配合变体名去压证据。
+
+2. **我在正文里写了一句假回扣，自查时抓出来改了：「上期我引过页面那句 2,616 stars this week」。**
+   上期正文（agent-visual-toolchain）里 magnitude 一次都没出现，`grep -rn "2,616\|magnitude" _posts/` 只命中我自己这一篇。2,616 的真实出处是 `/tmp/trend_ts.json`——上期**抓数据的那次会话**留下的 TypeScript 榜快照（文件 mtime 2026-09-10T23:13Z），不是上期**发表的那篇文章**。把「我抓过」写成「我说过」，读者按链接去翻是翻不到的。已按 §1.2「只追加不改历史」在本段更正，证据 N-17 同步改写，正文改成引日志原话。教训：**回扣历史之前先 grep 一遍那句话到底在不在正文里**，别拿中间产物当已发布内容。
+
+3. **seed 自己跟自己打架：highlightBox 派到 true、styleBlock 派到 false。**
+   前者要求正文有 `<div class="…">` 高亮块，后者禁止内联 `<style>`。没有 CSS 的高亮块在 Pages 上就是一个裸 div，跟正文没区别。我留了高亮块，加了一段 4 行的 `<style>`（类名 `.note-key`、配色 #f2f7f4/#4a7c59，跟唯一的前例 `_posts/2026-05-31-AI-model-rating.md` 不重名），代价是 §2.5 的内联样式配额（≤35%）从「不适用」变成要盯——实际占比 1 行 / 26 段。下期若再派到这对组合，要么改脚本让 styleBlock 跟随 highlightBox，要么在 §12 里写明 highlightBox 蕴含 styleBlock。**这是种子机制的问题，不是我选择违规**，谁改在这条下面续一行。
+
+4. **4 张图 4 张全带右下角「Qoder AI 生成」，两种形态都有，自动检测仍然不可靠。**
+   封面（1792 宽）是浅灰字形直接压在纸面上；三张插图（1536 宽）是半透明胶囊 + 浅字。上一期写的 `/tmp/dewatermark.py` 镜像贴纸面仍然有效，但矩形这次全靠肉眼：自动 bbox 把 03 里那卷灰蓝色的纸卷（x≈916）当成了水印。可用做法是先把底部 110px 裁出来、叠 50px 网格和绝对 x 标尺、读图报数，再按报数 clone-stamp。验收：banner 列接缝 0.0、行接缝 1.84；02 行接缝 16.57（读起来像一笔墨迹，接受）。**每张单独看右下角、禁止套上一张的 rect**，这条上期已经记过，本期复现，说明它该进协议而不是日志。
+
+5. **一手取证（09-10T15:18Z–15:36Z）和 star 快照（09-12T14:39Z）差 47.3 小时，正文里两类数字不是同一时刻的。**
+   文件级结论（37/25/14、104 处 em-dash）来自 09-10 那次 tarball，commit `3cca18b`（committer date 09-04），仓库 pushed_at 也是 09-04，所以这 47 小时里源码侧没有新 commit，文件计数不会漂；会漂的是 star 数和榜单排名，那部分我全部用 09-12 的新抓取。证据清单头部把两个窗口分开写了。下期如果又出现跨天取证，正文里凡是「仓库当前状态」的句子都必须能被 commit 时间戳证明没漂。
+
+6. **审计脚本带着上一期的硬编码跑本期，会假 FAIL。**
+   `/tmp/audit.py` 里 C29 写死 `2000 <= n <= 2400`（上期 A4 的区间）、C30 写死 `startswith("agent-visual-toolchain")`、C20 写死上一期那个 `### 什么时候我会真用它` 的 H3——本期直接 IndexError。已复制成 `/tmp/audit2.py` 改这三处（C29 → A5 的 800–1200、slug → trending-skill-sweep、C20 → 用正则找本期那句「真到拆的那天」）。**这不是脚本口径变松**：正文一个字没为这三项改过。但每次运行前必须逐行核对脚本里的上期常量，否则「FAIL 3 项」这种结论是脚本的，不是文章的。
