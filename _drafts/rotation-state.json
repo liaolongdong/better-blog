@@ -95,13 +95,39 @@
         "这周另外几笔",
         "为什么我还拿单文件协议干活？"
       ]
+    },
+    {
+      "date": "2026-09-17",
+      "job": "A",
+      "slug": "gods-eye-view-keyless",
+      "variant": "A1",
+      "titleTpl": "T2",
+      "emojiBudget": "sparse",
+      "h2Count": 7,
+      "words": 2792,
+      "tableMode": "none",
+      "openingType": "errorBlock",
+      "endingType": "decision",
+      "outlookForm": "todo-list",
+      "styleBlock": false,
+      "highlightBox": false,
+      "h2Titles": [
+        "📡 13 条免密路径，是我一行行数出来的",
+        "npm ci 跑了 17 分钟没结束，卡点在下载 Chrome",
+        "4,145 个测试，23 个红的，其中 5 个是我自己弄的",
+        "README 那句 1.86 秒冷启动，指的是表里的哪一列",
+        "它把动作收成 28 个名字，跟我 6 月写的那套是两条路",
+        "413 那一行，我拿 9,025 字节的请求体去撞，它没来",
+        "顺手记一笔"
+      ]
     }
   ],
   "titleTplHistory": [
     "T8",
     "T3",
     "T5",
-    "T6"
+    "T6",
+    "T2"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -116,6 +142,9 @@
       ],
       [
         "⚠️"
+      ],
+      [
+        "📡"
       ]
     ]
   },
@@ -207,17 +236,24 @@
     "37 个 SKILL.md，发布 25 个，其中 14 个够不着",
     "它说全仓不许用破折号，我数出 104 个",
     "这周另外几笔",
-    "为什么我还拿单文件协议干活？"
+    "为什么我还拿单文件协议干活？",
+    "📡 13 条免密路径，是我一行行数出来的",
+    "npm ci 跑了 17 分钟没结束，卡点在下载 Chrome",
+    "4,145 个测试，23 个红的，其中 5 个是我自己弄的",
+    "README 那句 1.86 秒冷启动，指的是表里的哪一列",
+    "它把动作收成 28 个名字，跟我 6 月写的那套是两条路",
+    "413 那一行，我拿 9,025 字节的请求体去撞，它没来",
+    "顺手记一笔"
   ],
   "promiseQueue": [
     {
-      "text": "HyperFrames 的 render 跑一次完整的，前提是腾出 2 GB 临时盘（TODO 第 3 条）",
+      "text": "HyperFrames 的 render 跑一次完整的，前提是腾出 2 GB 临时盘（TODO 第 3 条）（09-12、09-17 两次顺延；下期必须真跑或撤回，第三次顺延按撤回处理）",
       "registered": "2026-09-10",
       "job": "A",
       "slug": "agent-visual-toolchain"
     },
     {
-      "text": "archify 的 `brands capture <url> --json` 那条出口实跑一次，看它能不能收下 vite（TODO 第 5 条）",
+      "text": "archify 的 `brands capture <url> --json` 那条出口实跑一次，看它能不能收下 vite（TODO 第 5 条）（09-12、09-17 两次顺延；下期必须真跑或撤回，第三次顺延按撤回处理）",
       "registered": "2026-09-10",
       "job": "A",
       "slug": "agent-visual-toolchain"
@@ -247,62 +283,78 @@
       "slug": "silent-defaults"
     },
     {
-      "text": "magnitude 连抓两天（正文承诺「下次连抓两天」）：09-13/09-14 各打一次 REST stargazers_count，把页面 2,616 与实测 343/周 的 7.6 倍差归因到窗口口径，归不出来就在正文撤回该 repo",
-      "registered": "2026-09-12",
+      "text": "key-setup.js 的 266–273 行有没有换位（413 挪到 req.destroy() 前面）。挪了我回来删正文那一节；顺手看有没有测试开始断言 413",
+      "registered": "2026-09-17",
       "job": "A",
-      "slug": "trending-skill-sweep"
+      "slug": "gods-eye-view-keyless"
     },
     {
-      "text": "盯 `disable-model-invocation` 在 Claude Code 里的语义有没有官方定稿（定稿则正文那句 14/25 作废，需要更正）",
-      "registered": "2026-09-12",
+      "text": "issue #22（security-audit，OpenAI/Google broker 在 dev+preview 双注册）会不会进下一个 release notes。没进我就不把 4174 preview 当本地服务用",
+      "registered": "2026-09-17",
       "job": "A",
-      "slug": "trending-skill-sweep"
+      "slug": "gods-eye-view-keyless"
     },
     {
-      "text": "盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag；打出来说明按版本拉有稳定入口，可以考虑换装载方式",
-      "registered": "2026-09-12",
+      "text": "docs/PERFORMANCE.md 会不会放出可跑的采集脚本。放出来就在同一台机器、同一组参数（1440×900、关缓存、无 key、gate=voiceCommands）重测，并更新正文那句 6,733 ms",
+      "registered": "2026-09-17",
       "job": "A",
-      "slug": "trending-skill-sweep"
+      "slug": "gods-eye-view-keyless"
     },
     {
-      "text": "handraw-style 不再 clone 整库（97 MiB / 280 张 PNG），改走 contents API 读 MANIFEST.md 与 handdraw-style-prompter/SKILL.md，判断它跟 archify 是不是同一类东西",
-      "registered": "2026-09-12",
+      "text": "下次拿 gods-eye-view 当基线之前，先把本机 node 升到 24.14、git 升到认 `--initial-branch` 的版本，否则报出来的红分不清是谁的",
+      "registered": "2026-09-17",
       "job": "A",
-      "slug": "trending-skill-sweep"
+      "slug": "gods-eye-view-keyless"
+    },
+    {
+      "text": "继续盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag（09-17 复查：tags 最新仍 v1.2.3，未落地）",
+      "registered": "2026-09-17",
+      "job": "A",
+      "slug": "gods-eye-view-keyless"
+    },
+    {
+      "text": "i-have-adhd 页面周增 13,737 与 REST 摊平 847/天 差 5.8 倍，验它与 magnitude 那次是否同一个「窗口错位 + 曲线衰减」成因（证据 N-11）",
+      "registered": "2026-09-17",
+      "job": "A",
+      "slug": "gods-eye-view-keyless"
     }
   ],
   "starSnapshots": {
+    "bilawalsidhu/gods-eye-view": [
+      36658,
+      "2026-09-17T14:09:26Z"
+    ],
     "tt-a1i/archify": [
-      59250,
-      "2026-09-12T14:39Z"
-    ],
-    "ChromeDevTools/chrome-devtools-mcp": [
-      51734,
-      "2026-09-12T14:39Z"
-    ],
-    "heygen-com/hyperframes": [
-      49128,
-      "2026-09-12T14:39Z"
-    ],
-    "jo-inc/camofox-browser": [
-      10955,
-      "2026-09-12T14:39Z"
-    ],
-    "mksglu/context-mode": [
-      22289,
-      "2026-09-12T14:39Z"
-    ],
-    "magnitudedev/magnitude": [
-      4372,
-      "2026-09-12T14:39Z"
-    ],
-    "mattpocock/skills": [
-      260245,
-      "2026-09-12T14:39Z"
+      65605,
+      "2026-09-17T14:19:28Z"
     ],
     "ayghri/i-have-adhd": [
-      43037,
-      "2026-09-12T14:39Z"
+      47261,
+      "2026-09-17T14:13Z"
+    ],
+    "mattpocock/skills": [
+      264126,
+      "2026-09-17T14:13Z"
+    ],
+    "heygen-com/hyperframes": [
+      50948,
+      "2026-09-17T14:13Z"
+    ],
+    "ChromeDevTools/chrome-devtools-mcp": [
+      52185,
+      "2026-09-17T14:14Z"
+    ],
+    "mksglu/context-mode": [
+      23335,
+      "2026-09-17T14:14Z"
+    ],
+    "jo-inc/camofox-browser": [
+      11069,
+      "2026-09-17T14:14Z"
+    ],
+    "magnitudedev/magnitude": [
+      4611,
+      "2026-09-17T14:14Z"
     ]
   },
   "aborted": [],
