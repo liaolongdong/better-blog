@@ -120,6 +120,35 @@
         "413 那一行，我拿 9,025 字节的请求体去撞，它没来",
         "顺手记一笔"
       ]
+    },
+    {
+      "date": "2026-09-21",
+      "job": "A",
+      "slug": "one-worktree-per-agent",
+      "variant": "A2",
+      "titleTpl": "T7",
+      "emojiBudget": "sparse",
+      "h2Count": 11,
+      "words": 3200,
+      "tableMode": "irregular",
+      "openingType": "number",
+      "endingType": "oneLineVerdict",
+      "outlookForm": "inline-paragraph",
+      "styleBlock": false,
+      "highlightBox": true,
+      "h2Titles": [
+        "一个人、一台 13.1、三家没一家跑成并行",
+        "Worktrunk：0.213 秒就把我拒了，现场一点没动",
+        "它 FAQ 第 59 行写着的事，我拿 400 个文件验了一遍",
+        "📎 cp -Rc 省的是块，不省 inode：我测到 2.1 倍",
+        "atlas：78 MB、23 crate，没写一句 git 版本要求",
+        "那台 212 MB 的 orca，我连清单都没拿全",
+        "三桩旧账：gods-eye-view 那三条、掉榜那两条、09-10 那两条",
+        "上期那 18 个红测试，需要的东西一直在这台机器上",
+        "≥2.43、78 MB、212 MB：三家的门槛、体积和成本",
+        "我会留 Worktrunk，但不上并行",
+        "2.43 我装不上，那就换个条件"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -127,7 +156,8 @@
     "T3",
     "T5",
     "T6",
-    "T2"
+    "T2",
+    "T7"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -145,6 +175,9 @@
       ],
       [
         "📡"
+      ],
+      [
+        "📎"
       ]
     ]
   },
@@ -243,35 +276,52 @@
     "README 那句 1.86 秒冷启动，指的是表里的哪一列",
     "它把动作收成 28 个名字，跟我 6 月写的那套是两条路",
     "413 那一行，我拿 9,025 字节的请求体去撞，它没来",
-    "顺手记一笔"
+    "顺手记一笔",
+    "一个人、一台 13.1、三家没一家跑成并行",
+    "Worktrunk：0.213 秒就把我拒了，现场一点没动",
+    "它 FAQ 第 59 行写着的事，我拿 400 个文件验了一遍",
+    "📎 cp -Rc 省的是块，不省 inode：我测到 2.1 倍",
+    "atlas：78 MB、23 crate，没写一句 git 版本要求",
+    "那台 212 MB 的 orca，我连清单都没拿全",
+    "三桩旧账：gods-eye-view 那三条、掉榜那两条、09-10 那两条",
+    "上期那 18 个红测试，需要的东西一直在这台机器上",
+    "≥2.43、78 MB、212 MB：三家的门槛、体积和成本",
+    "我会留 Worktrunk，但不上并行",
+    "2.43 我装不上，那就换个条件"
   ],
   "promiseQueue": [
     {
-      "text": "HyperFrames 的 render 跑一次完整的，前提是腾出 2 GB 临时盘（TODO 第 3 条）（09-12、09-17 两次顺延；下期必须真跑或撤回，第三次顺延按撤回处理）",
-      "registered": "2026-09-10",
+      "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）",
+      "registered": "2026-09-21",
       "job": "A",
-      "slug": "agent-visual-toolchain"
+      "slug": "one-worktree-per-agent"
     },
     {
-      "text": "archify 的 `brands capture <url> --json` 那条出口实跑一次，看它能不能收下 vite（TODO 第 5 条）（09-12、09-17 两次顺延；下期必须真跑或撤回，第三次顺延按撤回处理）",
-      "registered": "2026-09-10",
+      "text": "orca 若把 cask 拆成能增量更新的包（v1.4.203→206 五天涨 5,483,650 B 的 mac zip），给它一次真跑的机会；否则一个钟头的下法不该只对我一个人成立",
+      "registered": "2026-09-21",
       "job": "A",
-      "slug": "agent-visual-toolchain"
+      "slug": "one-worktree-per-agent"
+    },
+    {
+      "text": "atlas 若 README 里那行 `<!-- #todo homebrew tap -->` 变成真的 `brew install atlas`，就拿它和 worktrunk 在同一个假仓库上对一次 checkpoint 与工作树磁盘成本",
+      "registered": "2026-09-21",
+      "job": "A",
+      "slug": "one-worktree-per-agent"
+    },
+    {
+      "text": "下次跑任何前端仓库的测试之前，先 `which -a git` 把 PATH 换一遍再报数（上期那 18 个红的真因是 /usr/local/bin/git 2.23.0 挡住了 2.39.2，不是仓库的问题）",
+      "registered": "2026-09-21",
+      "job": "A",
+      "slug": "one-worktree-per-agent"
+    },
+    {
+      "text": "继续盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag（09-17、09-21 两次复查均仍为 v1.2.3，本期已是第三次挂账）",
+      "registered": "2026-09-21",
+      "job": "A",
+      "slug": "one-worktree-per-agent"
     },
     {
       "text": "9 月 14 日 12:00（北京时间）之后打一次 /v1/chat/completions，看响应体 model 字段回什么；本机仍无 deepseek key，下期要么给出一手读数要么明确撤回",
-      "registered": "2026-09-10",
-      "job": "B",
-      "slug": "silent-defaults"
-    },
-    {
-      "text": "9 月底复查 `npm view miniflare dependencies.sharp` 是否仍钉 0.35.2；若是，在自己项目 package.json 加 overrides 抬到 0.35.4 并记一次实跑结果",
-      "registered": "2026-09-10",
-      "job": "B",
-      "slug": "silent-defaults"
-    },
-    {
-      "text": "复查 `npm view tailwindcss dist-tags --json` 里 insiders 会不会变成唯一的 prerelease 通道",
       "registered": "2026-09-10",
       "job": "B",
       "slug": "silent-defaults"
@@ -281,56 +331,20 @@
       "registered": "2026-09-10",
       "job": "B",
       "slug": "silent-defaults"
-    },
-    {
-      "text": "key-setup.js 的 266–273 行有没有换位（413 挪到 req.destroy() 前面）。挪了我回来删正文那一节；顺手看有没有测试开始断言 413",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
-    },
-    {
-      "text": "issue #22（security-audit，OpenAI/Google broker 在 dev+preview 双注册）会不会进下一个 release notes。没进我就不把 4174 preview 当本地服务用",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
-    },
-    {
-      "text": "docs/PERFORMANCE.md 会不会放出可跑的采集脚本。放出来就在同一台机器、同一组参数（1440×900、关缓存、无 key、gate=voiceCommands）重测，并更新正文那句 6,733 ms",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
-    },
-    {
-      "text": "下次拿 gods-eye-view 当基线之前，先把本机 node 升到 24.14、git 升到认 `--initial-branch` 的版本，否则报出来的红分不清是谁的",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
-    },
-    {
-      "text": "继续盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag（09-17 复查：tags 最新仍 v1.2.3，未落地）",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
-    },
-    {
-      "text": "i-have-adhd 页面周增 13,737 与 REST 摊平 847/天 差 5.8 倍，验它与 magnitude 那次是否同一个「窗口错位 + 曲线衰减」成因（证据 N-11）",
-      "registered": "2026-09-17",
-      "job": "A",
-      "slug": "gods-eye-view-keyless"
     }
   ],
   "starSnapshots": {
     "bilawalsidhu/gods-eye-view": [
-      36658,
-      "2026-09-17T14:09:26Z"
+      40272,
+      "2026-09-21T14:59:40Z"
     ],
     "tt-a1i/archify": [
       65605,
       "2026-09-17T14:19:28Z"
     ],
     "ayghri/i-have-adhd": [
-      47261,
-      "2026-09-17T14:13Z"
+      49625,
+      "2026-09-21T14:50:31Z"
     ],
     "mattpocock/skills": [
       264126,
@@ -355,6 +369,22 @@
     "magnitudedev/magnitude": [
       4611,
       "2026-09-17T14:14Z"
+    ],
+    "stablyai/orca": [
+      74323,
+      "2026-09-21T14:05:07Z"
+    ],
+    "max-sixty/worktrunk": [
+      8261,
+      "2026-09-21T14:05:07Z"
+    ],
+    "pacifio/atlas": [
+      5135,
+      "2026-09-21T14:05:07Z"
+    ],
+    "browser-use/jev-ultrafast": [
+      14539,
+      "2026-09-21T14:03:47Z"
     ]
   },
   "aborted": [],
