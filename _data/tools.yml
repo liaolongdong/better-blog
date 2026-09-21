@@ -1,0 +1,74 @@
+# 作者自研浏览器插件产品清单 —— 顶栏「工具箱」下拉、/tools.html 产品页、首页侧栏卡片共用这一份数据源。
+# 新增产品只需在此追加一条；icon/screenshot 放 assets/img/tools/ 下。
+# post_tag: 用于在 /tools.html 自动挂上对应博客文章（按 post.tags 精确匹配）。
+- slug: account-password-helper
+  index: '01'
+  name: 账号密码管理助手
+  en_name: Account Password Helper
+  tagline: 本地优先的账号密码管理器，一键登录连按钮一起点
+  summary: 开发、测试、预发布多套环境的账号散落在 Excel、便签和浏览器里？它把账号存在本机、按精确域名隔离，选中即自动填充并替你点击登录，内置 TOTP 两步验证接力。
+  icon: /assets/img/tools/aph-icon.svg
+  screenshot: /assets/img/account-password-helper/account_password_helper_banner.webp
+  accent: '#0F62FE'
+  badges:
+    - Chrome MV3
+    - GPL-3.0 开源
+    - 已上架应用商店
+  features:
+    - 一键填充并自动点击登录按钮，多账号切换不用复制粘贴
+    - 精确域名匹配，dev / test / staging / prod 账号天然隔离
+    - 内置 TOTP 活码，跳到验证码页自动锚定并填入
+    - PBKDF2 600K 迭代 + AES-256-GCM，数据只存本机
+  links:
+    store: https://chromewebstore.google.com/detail/account-password-helper/fgimkdodpjfkddmildjieojpfakpanli
+    demo: https://liaolongdong.github.io/account-password-helper/
+    repo: https://github.com/liaolongdong/account-password-helper
+  post_tag: 账号密码管理助手
+
+- slug: cross-origin-proxy
+  index: '02'
+  name: 跨域代理助手
+  en_name: Cross Origin Proxy
+  tagline: 一条浏览器规则，把 FAT 前端指到 UAT 后端
+  summary: 不改代码、不改后端 CORS、不用重新构建。同一套规则还能改写请求头与响应、Mock 数据、注入延迟、阻断埋点、转发 WebSocket，规则与日志只存本机。
+  icon: /assets/img/tools/cop-icon.png
+  screenshot: /assets/img/tools/cop-rules.jpg
+  accent: '#409EFF'
+  badges:
+    - Chrome MV3
+    - MIT 开源
+    - 已上架应用商店
+  features:
+    - 通配符匹配 + 目标重写，前端环境想切就切
+    - 请求头 / 响应改写、Mock 数据、延迟注入、阻断埋点
+    - WebSocket 转发与实时请求日志，命中链路一目了然
+    - 6 套主题 · 中英双语，代理与改写链路有单测覆盖
+  links:
+    store: https://chromewebstore.google.com/detail/dednngakllblfilbndkaggphohmpgcbg
+    demo: https://liaolongdong.github.io/cross-origin-proxy/
+    repo: https://github.com/liaolongdong/cross-origin-proxy
+  post_tag: 跨域代理助手
+
+- slug: transfer-any-file
+  index: '03'
+  name: Transfer Any File
+  en_name: Transfer Any File
+  tagline: 14 种文件格式互转，一个字节都不用上传
+  summary: Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片之间的 48+ 条转换路径，全部在你自己电脑的一个标签页里完成。无服务器、无账号、无排队，文件永远不出本机。
+  icon: /assets/img/tools/taf-icon.png
+  screenshot: /assets/img/tools/taf-workbench.png
+  accent: '#0B815A'
+  badges:
+    - Chrome MV3
+    - MIT 开源
+    - 零网络请求
+  features:
+    - 14 种格式、48+ 条转换路径，批量拖拽一次出全部
+    - 纯本地转换，断网可用，敏感文件不经过任何服务器
+    - 输出预设与历史记录，重复转换任务一键复用
+    - 转换结果可预览可再编辑，不用来回切应用
+  links:
+    store: ''
+    demo: https://liaolongdong.github.io/transfer-any-file/
+    repo: https://github.com/liaolongdong/transfer-any-file
+  post_tag: Transfer Any File

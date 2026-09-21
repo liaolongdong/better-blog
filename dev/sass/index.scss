@@ -1,8 +1,16 @@
 /**
  * Jekyll Theme Style
+ *
+ * 引入顺序是有意的：
+ * helper 提供 SCSS 变量与 mixin → tokens 用 CSS 自定义属性重新定义语义色
+ * （并把 helper 里的 $color-* 别名指向它们）→ 主题既有层 → 响应式 → editorial 改造层。
+ * tokens 必须紧跟 helper：它的 `$color-xxx: var(--xxx)` 只有晚于 helper 的同名赋值才会生效；
+ * editorial 必须最后：它靠「同特异度、后加载」覆盖 common/layouts 的旧规则。
  */
 @import './common/helper';
+@import './common/tokens';
 @import './common/animate';
 @import './common/base';
 @import './common/common';
 @import './common/layouts';
+@import './common/editorial';

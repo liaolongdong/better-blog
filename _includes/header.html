@@ -1,13 +1,81 @@
+<a class="skip-link" href="#main">跳到主要内容</a>
 <header class="g-header">
+    {%- comment -%}
+    标识改用文字缩写 + 刊名，不再依赖 assets/icons/logo*.svg：
+    那三张图把蓝色渐变烧进了矢量里，无法跟随明暗主题与新的墨色基调变色，
+    而 index.js 只能靠内联 style 在两张图之间硬切。
+    {%- endcomment -%}
     <div class="g-logo">
-        <a href="{{ '/' | prepend: site.baseurl }}"></a>
+        <a href="{{ '/' | prepend: site.baseurl }}" aria-label="返回首页">
+            <span class="logo-mark" aria-hidden="true">B</span>
+            <span class="logo-word">Better<span class="logo-poss">’s</span> study fairyland</span>
+        </a>
     </div>
-    <i id="menu-toggle" class="iconfont icon-menu"></i>
-    <nav class="g-nav">
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="g-nav" aria-label="展开或收起导航菜单">
+        <span class="menu-bar" aria-hidden="true"></span>
+    </button>
+    <nav id="g-nav" class="g-nav" aria-label="主导航">
         <ul>
-            {% for i in site.nav %}
-            <li><a href="{{ i[1] | prepend: site.baseurl }}">{{ i[0] }}</a></li>
+            {% for item in site.nav %}
+            {% assign is_current = false %}
+            {% if page.url == item.url or (item.url != '/' and page.url contains item.url) %}
+            {% assign is_current = true %}
+            {% endif %}
+            <li class="nav-item{% if item.dropdown %} has-sub{% endif %}{% if is_current %} is-current{% endif %}">
+                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if is_current %} aria-current="page"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}</a>
+                {% if item.dropdown == 'tools' %}
+                <span class="nav-caret" aria-hidden="true"></span>
+                <ul class="nav-sub">
+                    {% for tool in site.data.tools %}
+                    <li>
+                        <a class="nav-sub-link" href="{{ '/tools.html' | append: '#' | append: tool.slug | prepend: site.baseurl }}" data-tool="{{ tool.slug }}">
+                            <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                            <span class="nav-sub-text">
+                                <strong>{{ tool.name }}</strong>
+                                <small>{{ tool.tagline }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                    <li><a class="nav-sub-more" href="{{ '/tools.html' | prepend: site.baseurl }}">全部工具与安装方式 →</a></li>
+                </ul>
+                {% endif %}
+            </li>
             {% endfor %}
+            <li class="nav-item nav-search">
+                <button type="button" class="nav-search-btn" data-search-open aria-label="搜索文章（快捷键 ⌘K 或 Ctrl+K）">
+                    {%- comment -%} 图标走内联 SVG：主题原本依赖远程 alicdn 图标字体，断网或被墙时按钮会只剩一个方框。 {%- endcomment -%}
+                    <svg class="nav-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true" focusable="false">
+                        <circle cx="10.6" cy="10.6" r="6.8"/><path d="M15.6 15.6 21 21"/>
+                    </svg>
+                    <span class="nav-search-key">⌘K</span>
+                </button>
+            </li>
         </ul>
     </nav>
 </header>
+
+{% if site.search %}
+<div class="cmdk" id="cmdk" hidden>
+    <div class="cmdk-mask" data-search-close></div>
+    <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="站内搜索">
+        <div class="cmdk-field">
+            <svg class="cmdk-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true" focusable="false">
+                <circle cx="10.6" cy="10.6" r="6.8"/><path d="M15.6 15.6 21 21"/>
+            </svg>
+            <input id="cmdk-input" type="search" placeholder="搜标题、标签、摘要或分类…" autocomplete="off"
+                   spellcheck="false" aria-controls="cmdk-results" aria-activedescendant="">
+            <kbd class="cmdk-esc" aria-hidden="true">Esc</kbd>
+        </div>
+        <div class="cmdk-meta">
+            <span id="cmdk-count" class="cmdk-count" aria-live="polite"></span>
+            <span class="cmdk-hint" aria-hidden="true"><kbd>↑</kbd><kbd>↓</kbd> 选择 · <kbd>Enter</kbd> 打开</span>
+        </div>
+        <ul id="cmdk-results" class="cmdk-results" role="listbox" aria-label="搜索结果"></ul>
+        <div class="cmdk-empty" id="cmdk-empty" hidden>
+            <p id="cmdk-empty-lead">没有匹配的文章</p>
+            <span id="cmdk-empty-sub">换个关键词，或去<a href="{{ '/categories.html' | prepend: site.baseurl }}">分类</a>、<a href="{{ '/tags.html' | prepend: site.baseurl }}">标签</a>页逛逛</span>
+        </div>
+    </div>
+</div>
+{% endif %}

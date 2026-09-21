@@ -10,64 +10,98 @@
   
   {% include header.html %}
 
-  <header
-    class="g-banner post-header {{ site.postPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }} {% unless page.cover %}post-no-cover{% endunless %}"
-    data-theme="{{ site.theme-color }}"
-  >
-    <div class="post-wrapper">
-      <div class="post-tags">
-        {% if page.tags.size > 0 %}
-          {% for tag in page.tags  %}
-            <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}" class="post-tag">{{ tag }}</a>
-          {% endfor %}
+  <div class="reading-progress" aria-hidden="true"><span class="reading-progress-bar"></span></div>
+
+  {%- assign post_body = page.content | strip_leading_title: page.title -%}
+  {%- assign post_chars = post_body | char_count -%}
+  <header class="g-masthead post-masthead">
+    <div class="g-container">
+      <nav class="post-crumb" aria-label="所在栏目">
+        <a href="{{ '/' | prepend: site.baseurl }}">首页</a>
+        <span class="crumb-sep" aria-hidden="true">/</span>
+        {% if page.categories.size > 0 %}
+        <a href="{{ '/categories.html#' | append: page.categories | first | prepend: site.baseurl }}">{{ page.categories | first }}</a>
+        {% else %}
+        <span>正文</span>
         {% endif %}
-      </div>
-      <h1>{{ page.title }}</h1>
-      <div class="post-meta">
-        <span class="post-meta-item author-item">
-          {% include metaIcon.html name='author' size=16 %}
-          <span class="meta-text"><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></span>
-        </span>
-        <time class="post-meta-item date-item" datetime="{{ page.date | date: '%Y-%m-%dT%H:%M:%S' }}">
-          {% include metaIcon.html name='date' size=16 %}
-          <span class="meta-text">{% include postDate.html date=page.date %}</span>
-        </time>
-        {% if site.waline.enable and site.waline.pageview %}
-        <span class="post-meta-item pageview-item">
-          {% include metaIcon.html name='view' size=16 %}
-          <span class="u-sr-only">阅读量</span>
-          <span class="meta-text waline-pageview-count" data-path="{{ page.url | prepend: site.baseurl }}">-</span>
-          <span class="meta-unit">次阅读</span>
-        </span>
+      </nav>
+
+      <div class="post-wrapper">
+        <div class="post-tags">
+          {% if page.tags.size > 0 %}
+            {% for tag in page.tags  %}
+              <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}" class="post-tag">{{ tag }}</a>
+            {% endfor %}
+          {% endif %}
+        </div>
+        <h1 class="post-masthead-title">{{ page.title }}</h1>
+        {% if page.subtitle %}
+        <p class="post-masthead-lede">{{ page.subtitle }}</p>
         {% endif %}
+        <div class="post-meta">
+          <span class="post-meta-item author-item">
+            {% include metaIcon.html name='author' size=16 %}
+            <span class="meta-text"><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></span>
+          </span>
+          <time class="post-meta-item date-item" datetime="{{ page.date | date: '%Y-%m-%dT%H:%M:%S' }}">
+            {% include metaIcon.html name='date' size=16 %}
+            <span class="meta-text">{% include postDate.html date=page.date %}</span>
+          </time>
+          {% if site.waline.enable and site.waline.pageview %}
+          <span class="post-meta-item pageview-item">
+            {% include metaIcon.html name='view' size=16 %}
+            <span class="u-sr-only">阅读量</span>
+            <span class="meta-text waline-pageview-count" data-path="{{ page.url | prepend: site.baseurl }}">-</span>
+            <span class="meta-unit">次阅读</span>
+          </span>
+          {% endif %}
+          <span class="post-meta-item">
+            {% include metaIcon.html name='time' size=16 %}
+            <span class="meta-text">约 {{ post_chars }} 字 · {{ post_chars | plus: 399 | divided_by: 400 }} 分钟</span>
+          </span>
+        </div>
       </div>
     </div>
     {% include coverSrc.html cover=page.cover %}
     {% assign shareCover = coverSrc %}
     {% if page.cover %}
-    <div class="filter"></div>
-      <div class="post-cover" style="background: url('{{ coverSrc }}') center no-repeat; background-size: cover;"></div>
+    <figure class="post-hero">
+      <div class="g-container">
+        <img src="{{ coverSrc }}" alt="{{ page.title }} 头图">
+      </div>
+    </figure>
     {% endif %}
   </header>
 
   <div class="post-content visible">
-    {% if page.subtitle %}
-    <h2 class="post-subtitle">{{ page.subtitle }}</h2>
-    {% endif %}
+    <div class="g-container post-grid">
+    <div class="post-main">
+      <article class="markdown-body" id="post-body">
+        {{ post_body | add_baseurl_to_images }}
+      </article>
 
-    <article class="markdown-body">
-      {{ page.content | add_baseurl_to_images }}
-    </article>
+      {% if site.reward.enable %}
+        {% include reward.html %}
+      {% endif %}
 
-    {% if site.reward.enable %}
-      {% include reward.html %}
-    {% endif %}
-
-    {% if site.social-share %}
-    <div class="social-share-wrapper">
-      <div class="social-share"></div>
+      {% if site.social-share %}
+      <div class="social-share-wrapper">
+        <div class="social-share"></div>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
+
+    {%- comment -%}
+    目录由 dev/js/editorial.js 从 #post-body 的 h2/h3 构建，构不出条目时不给
+    body 加 .has-toc，此处即保持隐藏，不会出现空白框或无 JS 环境的残缺列表。
+    {%- endcomment -%}
+    <aside class="post-rail" aria-label="文章目录">
+      <nav class="toc">
+        <p class="toc-title">本文目录</p>
+        <ol class="toc-list" id="toc-list"></ol>
+      </nav>
+    </aside>
+    </div>
   </div>
 
   <section class="author-detail">
@@ -122,6 +156,42 @@
       </div>
       {% endif %}
     </section>
+
+    {%- comment -%}
+    相关阅读：按「共享任一标签」取最近 3 篇，排除本文。
+    用单次遍历 site.posts + contains 判断，而不是 for tag in page.tags 外层循环，
+    这样一篇命中多个共同标签的文章只会进列表一次，无需再对对象数组做 uniq。
+    {%- endcomment -%}
+    {%- assign related = "" | split: "" -%}
+    {%- for rpost in site.posts -%}
+      {%- if rpost.url == page.url -%}{%- continue -%}{%- endif -%}
+      {%- for tag in page.tags -%}
+        {%- if rpost.tags contains tag -%}
+          {%- assign related = related | push: rpost -%}
+          {%- break -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endfor -%}
+    {%- assign related = related | slice: 0, 3 -%}
+    {% if related.size > 0 %}
+    <section class="post-footer-item related-posts">
+      <h3 class="related-title">相关阅读</h3>
+      <ul class="related-list">
+        {% for rpost in related %}
+        <li class="related-item">
+          <a class="related-link" href="{{ rpost.url | prepend: site.baseurl }}">
+            <span class="related-name">{{ rpost.title }}</span>
+            <span class="related-info">
+              <time datetime="{{ rpost.date | date: '%Y-%m-%d' }}">{{ rpost.date | date: '%Y.%m.%d' }}</time>
+              {% if rpost.tags.size > 0 %}<span class="related-tag">{{ rpost.tags | first }}</span>{% endif %}
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     {% if site.waline.enable %}
     <!-- Waline 评论系统 -->
     {% include waline.html %}
@@ -249,6 +319,7 @@
 
   <script src="{{ site.baseurl }}/assets/js/prism.min.js"></script>
   <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
+  <script src="{{ site.baseurl }}/assets/js/editorial.min.js"></script>
 
   {% if site.changyan.enable %}
   <script type="text/javascript">

@@ -1,0 +1,100 @@
+---
+layout: default
+title: 工具箱
+subtitle: 我写的三款 Chrome 浏览器插件
+---
+{% include header.html %}
+
+<section class="g-masthead tools-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Toolbox / 我写的浏览器插件</p>
+        <h1 class="masthead-title">工具箱</h1>
+        <p class="masthead-lede">
+            这三款 Chrome 扩展都出自同一个动机：把自己每天重复几十次的动作，交给浏览器去做。
+            全部本地优先、开源可审计，数据只待在你自己的机器上。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.data.tools.size }}</strong><span>款产品</span></li>
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>MV3</strong><span>统一架构</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tools-content" id="main">
+    {% for tool in site.data.tools %}
+    {% assign related = "" | split: "" %}
+    {% for post in site.posts %}
+    {% if tool.post_tag != '' and post.tags contains tool.post_tag %}
+    {% assign related = related | push: post %}
+    {% endif %}
+    {% endfor %}
+    <section class="tool-section" id="{{ tool.slug }}" style="--tool-accent: {{ tool.accent }};">
+        <header class="tool-head">
+            <span class="tool-index" aria-hidden="true">{{ tool.index }}</span>
+            <div class="tool-heading">
+                <span class="tool-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                <h2 class="tool-name">{{ tool.name }}</h2>
+                <p class="tool-en">{{ tool.en_name }}</p>
+            </div>
+        </header>
+
+        <div class="tool-body">
+            <div class="tool-copy">
+                <p class="tool-tagline">{{ tool.tagline }}</p>
+                <p class="tool-summary">{{ tool.summary }}</p>
+
+                <ul class="tool-features">
+                    {% for f in tool.features %}
+                    <li>{{ f }}</li>
+                    {% endfor %}
+                </ul>
+
+                <ul class="tool-badges">
+                    {% for b in tool.badges %}
+                    <li>{{ b }}</li>
+                    {% endfor %}
+                </ul>
+
+                <div class="tool-cta">
+                    {% if tool.links.store != '' %}
+                    <a class="cta cta-primary" href="{{ tool.links.store }}" target="_blank" rel="noopener">
+                        Chrome 应用商店安装
+                    </a>
+                    {% else %}
+                    <span class="cta cta-muted" title="正在审核中，可先从仓库 Releases 下载">商店上架中 · 可先下载 zip</span>
+                    {% endif %}
+                    {% if tool.links.demo != '' %}
+                    <a class="cta" href="{{ tool.links.demo }}" target="_blank" rel="noopener">在线演示</a>
+                    {% endif %}
+                    <a class="cta" href="{{ tool.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+                </div>
+            </div>
+
+            <figure class="tool-media">
+                {% if tool.screenshot != '' %}
+                <img src="{{ tool.screenshot | prepend: site.baseurl }}" alt="{{ tool.name }} 界面截图" loading="lazy">
+                {% endif %}
+            </figure>
+        </div>
+
+        <footer class="tool-posts">
+            <h3 class="tool-posts-title">相关记录</h3>
+            {% if related.size > 0 %}
+            <ul>
+                {% for post in related %}
+                <li>
+                    <time datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%Y.%m' }}</time>
+                    <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="tool-posts-empty">这篇的产品长文还在写，先到<em>仓库</em>看完整说明与更新日志。</p>
+            {% endif %}
+        </footer>
+    </section>
+    {% endfor %}
+</main>
+
+{% include footer.html %}

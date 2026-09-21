@@ -74,6 +74,43 @@ module Jekyll
       
       content
     end
+
+    # 去掉正文开头与文章标题重复的 H1
+    #
+    # 文章 banner 已经渲染过一次 page.title，而多数稿件的 Markdown 正文第一行
+    # 又手写了一遍同名一级标题，导致同一标题在页面上出现两次。
+    # 仅当正文*首个*块级元素就是 H1 且文本与标题完全相同（忽略标签与大小写）时才删除，
+    # 否则原样返回，避免误删作者有意写下的副标题式 H1。
+    # @param content [String] 渲染后的 HTML 正文
+    # @param title [String] 文章标题
+    # @return [String] 处理后的正文
+    def strip_leading_title(content, title)
+      return content if content.nil? || title.nil?
+
+      body = content.lstrip
+      match = body.match(/\A<h1\b[^>]*>(.*?)<\/h1>/im)
+      return content unless match
+
+      inner = match[1].gsub(/<[^>]+>/, '').gsub('&amp;', '&').strip
+      return content unless inner.casecmp(title.to_s.strip).zero?
+
+      body[match[0].length..-1].to_s.lstrip
+    end
+
+    # 统计正文的「字数」，用于文章页的阅读时长
+    #
+    # 中文语境下的字数不含空白，因此先剥掉标签与 HTML 实体，再移除所有空白；
+    # kramdown 会为每行输出缩进，若只按字符数粗算会明显虚高。
+    # @param content [String] 渲染后的 HTML 正文
+    # @return [Integer] 非空白字符数
+    def char_count(content)
+      return 0 if content.nil?
+
+      content.gsub(/<[^>]*>/, '')
+             .gsub(/&(?:[a-zA-Z]+|#\d+);/, '')
+             .gsub(/\s+/, '')
+             .length
+    end
   end
 end
 

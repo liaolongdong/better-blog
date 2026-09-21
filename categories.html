@@ -1,0 +1,78 @@
+---
+layout: default
+title: 分类
+subtitle: 按主题归档的全部文章
+---
+{% include header.html %}
+
+{%- comment -%}
+site.categories 按插入顺序迭代（Jekyll 只对 tags 做字母序），43 个分类会乱成一团。
+这里把「补零计数 + 分类名」拼成一个字符串排序再倒序，得到「文章最多的主题排最前」；
+补零到 5 位是为了让 2 位数与 5 位数在字符串序下也正确，读回时用定长 slice 拆。
+{%- endcomment -%}
+{%- assign cat_rows = "" | split: "" -%}
+{%- for cat in site.categories -%}
+    {%- assign padded = cat[1].size | prepend: "00000" | slice: -5, 5 -%}
+    {%- assign row = padded | append: cat[0] -%}
+    {%- assign cat_rows = cat_rows | push: row -%}
+{%- endfor -%}
+{%- assign cat_rows = cat_rows | sort | reverse -%}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Archive / 按主题浏览</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">{{ site.categories.size }} topics</span>
+        </p>
+        <h1 class="masthead-title">分类</h1>
+        <p class="masthead-lede">
+            一篇文章可以同时属于几个主题，所以这里的数字加起来会比文章总数多。
+            想按关键字找，按 <kbd>⌘K</kbd> 直接搜更快。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ site.categories.size }}</strong><span>个分类</span></li>
+            <li><strong>{{ site.tags.size }}</strong><span>个标签</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container archive-content" id="main">
+    <nav class="cat-index" aria-label="分类索引">
+        {%- for row in cat_rows -%}
+        {%- assign cat_name = row | slice: 5, 200 -%}
+        <a class="cat-chip" href="#{{ cat_name }}">{{ cat_name }}<em>{{ row | slice: 0, 5 | plus: 0 }}</em></a>
+        {%- endfor -%}
+    </nav>
+
+    {%- for row in cat_rows -%}
+    {%- assign cat_name = row | slice: 5, 200 -%}
+    {%- assign cat_posts = site.categories[cat_name] -%}
+    <section class="cat-section" id="{{ cat_name }}">
+        <header class="cat-head">
+            <h2 class="cat-name">{{ cat_name }}</h2>
+            <span class="cat-count">{{ cat_posts.size }} 篇</span>
+            <a class="cat-top" href="#main">回到分类索引</a>
+        </header>
+        <ol class="cat-list">
+            {% for post in cat_posts %}
+            <li class="cat-row">
+                <time class="cat-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%Y.%m.%d' }}</time>
+                <a class="cat-title" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+                {% if post.tags.size > 0 %}
+                <span class="cat-tags">
+                    {% for tag in post.tags limit: 3 %}
+                    <a href="{{ '/tags.html#' | append: tag | prepend: site.baseurl }}">{{ tag }}</a>
+                    {% endfor %}
+                    {% if post.tags.size > 3 %}<i>+{{ post.tags.size | minus: 3 }}</i>{% endif %}
+                </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+    {% endfor %}
+</main>
+
+{% include footer.html %}

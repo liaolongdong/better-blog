@@ -1,16 +1,76 @@
 ---
 layout: default
-description: "Sorry, Page Not Found :("
+title: 404
+description: "这个地址上没有内容。"
+permalink: /404.html
 ---
-
 {% include header.html %}
 
-<header class="g-banner np-banner {{ site.postPatterns | prepend: 'post-pattern-' }}" data-theme="{{ site.theme-color }}">
-    <div class="post-wrapper">
-        <h1>404</h1>
-        <span class="subheading">{{ page.description }}</span>
-        <a href="{{ site.nav.home | prepend: site.baseurl }}" class="btn">Back to home</a>
+{%- comment -%}
+历史文章链接有两个来源：Jekyll 的 /YYYY/MM/DD/slug.html，以及早期分享出去的
+/YYYY-MM-DD/slug.html。后者如今只命中 404，所以在报「找不到」之前先在前端补一次
+斜杠——纯路径改写，不查任何接口，改写后若仍 404 就停在这里，不会来回弹。
+{%- endcomment -%}
+<script>
+    (function () {
+        var base = {{ site.baseurl | jsonify }};
+        var path = location.pathname;
+        var target = path;
+
+        if (base && base !== '/' && base !== '') {
+            // 构建时 baseurl 被重复拼接产生的 /better-blog/better-blog/... 只存在于旧产物里
+            var doubled = base + base;
+            if (path.indexOf(doubled) === 0) {
+                target = base + path.slice(doubled.length);
+            }
+        }
+
+        if (target === path) {
+            var tail = base && path.indexOf(base) === 0 ? path.slice(base.length) : path;
+            var fixed = tail.replace(/^\/?(\d{4})-(\d{2})-(\d{2})\//, '/$1/$2/$3/');
+            if (fixed !== tail) {
+                target = (base === '/' ? '' : base) + fixed + location.search;
+            }
+        }
+
+        if (target !== path) {
+            location.replace(target);
+        }
+    })();
+</script>
+
+<section class="g-masthead notfound-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">404 / Page Not Found</p>
+        <h1 class="masthead-title">这一页没在这里</h1>
+        <p class="masthead-lede">
+            可能是文章改了地址，也可能是链接抄错了一段。
+            下面三个入口能把你带回正文；实在找不到，按 <kbd>⌘K</kbd> 搜关键词更快。
+        </p>
+        <div class="notfound-actions">
+            <a class="cta cta-primary" href="{{ '/' | prepend: site.baseurl }}">回到首页</a>
+            <a class="cta" href="{{ '/categories.html' | prepend: site.baseurl }}">按分类找</a>
+            <a class="cta" href="{{ '/tags.html' | prepend: site.baseurl }}">按标签找</a>
+        </div>
     </div>
-</header>
+</section>
 
+<main class="g-container notfound-content" id="main">
+    <section class="notfound-latest">
+        <h2 class="notfound-latest-title">最近在写什么</h2>
+        <ol class="cat-list">
+            {% for post in site.posts limit: 6 %}
+            {% assign main_cat = post.categories | first %}
+            <li class="cat-row">
+                <time class="cat-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%Y.%m.%d' }}</time>
+                <a class="cat-title" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+                {% if main_cat %}
+                <span class="cat-tags"><a href="{{ '/categories.html#' | append: main_cat | prepend: site.baseurl }}">{{ main_cat }}</a></span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+</main>
 
+{% include footer.html %}

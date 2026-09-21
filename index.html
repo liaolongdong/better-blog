@@ -6,33 +6,50 @@ description: 路漫漫其修远兮，吾将上下而求索
 
 {% include header.html %}
 
-<div
-    class="g-banner home-banner {{ site.theme-color | prepend: 'banner-theme-' }}"
-    data-theme="{{ site.theme-color }}"
-    style="{% if page.header-img %}background: url({{ page.header-img | prepend: site.baseurl }}) no-repeat center center; background-size: cover;{% endif %}"
->
-    <h2 class="utdf-delay0">{{ page.home-title }}</h2>
-    <h3 class="dtuf-delay0">{{ page.description }}</h3>
+<section class="g-masthead home-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Frontend · AI · Tools — 自 2016 年写到这里</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">Vol. {{ site.posts.size }}</span>
+        </p>
+        <h1 class="masthead-title">{{ page.home-title }}</h1>
+        <p class="masthead-lede">{{ page.description }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ site.tags.size }}</strong><span>个标签</span></li>
+            <li><strong>{{ site.data.tools.size }}</strong><span>款插件</span></li>
+            <li class="masthead-updated">
+                最近更新
+                <strong>{{ site.posts.first.date | date: '%Y.%m.%d' }}</strong>
+            </li>
+        </ul>
+    </div>
+</section>
 
-    {% if site.dandelionAnimate %}
-        {% include dandelionAnimate.html %}
-    {% endif %}
-
-</div>
-
-<main class="g-container home-content">
+<main class="g-container home-content" id="main">
     <div class="article-list">
+        <div class="feed-toolbar">
+            <span class="feed-label">最新</span>
+            <nav class="feed-topics" aria-label="热门话题">
+                {% for tag in site.tags limit: 6 %}
+                <a class="feed-topic" href="{{ '/tags.html#' | append: tag[0] | prepend: site.baseurl }}">{{ tag[0] }}<em>{{ tag[1].size }}</em></a>
+                {% endfor %}
+            </nav>
+        </div>
+
         {% for post in paginator.posts %}
             <article class="article-item">
                 {% if post.cover %}
                 {% include coverSrc.html cover=post.cover %}
                 <div class="post-cover">
                     <a class="post-link" href="{{ post.url | prepend: site.baseurl }}" title="{{ post.title }}"></a>
-                    <img src="{{ coverSrc }}" alt="">
+                    <img src="{{ coverSrc }}" alt="" loading="lazy">
                 </div>
                 {% endif %}
                 <section class="post-preview">
                     <a class="post-link" href="{{ post.url | prepend: site.baseurl }}" title="{{ post.title }}"></a>
+                    <p class="post-kicker">{{ post.date | date: '%Y' }} · {{ post.categories | first }}</p>
                     <h2 class="post-title">{{ post.title }}</h2>
                     {% if post.subtitle %}
                     <h3 class="post-subtitle">{{ post.subtitle }}</h3>
@@ -93,8 +110,27 @@ description: 路漫漫其修远兮，吾将上下而求索
                 {% endif %}
             </section>
 
+            <section class="tools-card">
+                <h2 class="card-title">工具箱</h2>
+                <ul class="tools-list">
+                    {% for tool in site.data.tools %}
+                    <li>
+                        <a href="{{ '/tools.html#' | append: tool.slug | prepend: site.baseurl }}">
+                            <span class="tools-card-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                            <span class="tools-card-text">
+                                <strong>{{ tool.name }}</strong>
+                                <small>{{ tool.tagline }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <a class="card-more" href="{{ '/tools.html' | prepend: site.baseurl }}">查看全部 →</a>
+            </section>
+
             {% if site.recommend-tags and site.tags.size>0 %}
             <section class="tags-card">
+                <h2 class="card-title">标签</h2>
                 {% for tag in site.tags %}
                     {% if forloop.index > site.recommend-condition-size %}
                         {% break %}
@@ -107,9 +143,10 @@ description: 路漫漫其修远兮，吾将上下而求索
 
         {% if site.search %}
         <div class="search-card rtlf-delay500">
-            <input id="search_input" type="text" placeholder="Search..." autocomplete="off">
-            <i class="iconfont icon-search"></i>
-            <div class="search_result"></div>
+            <button type="button" class="search-trigger" data-search-open>
+                <span class="search-text">搜索文章…</span>
+                <kbd class="search-kbd">⌘K</kbd>
+            </button>
         </div>
         {% endif %}
 

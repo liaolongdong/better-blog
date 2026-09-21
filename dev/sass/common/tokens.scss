@@ -1,0 +1,82 @@
+/*** Editorial Design Tokens ***/
+// 「纸与墨」编辑杂志风：暖纸底色 + 近黑墨色 + 单一信号蓝，
+// 明暗主题共用同一组语义变量（暗色只在 body.night-mode 下重新赋值），
+// 因此新组件不必再写第二份 .night-mode 覆盖表。
+
+:root {
+    --paper: #FAF9F6;
+    --surface: #FFF;
+    --surface-2: #F4F2ED;
+    --ink: #14161A;
+    --ink-2: #33373E;
+    --ink-3: #6E7480;
+    --ink-4: #A6ABB2;
+    --rule: #E6E2D9;
+    --rule-2: #D8D3C7;
+    --signal: #0F62FE;
+    --signal-ink: #0B4AC0;
+    --signal-soft: rgba(15, 98, 254, .07);
+    --shadow-1: 0 1px 2px rgba(20, 22, 26, .04);
+    --shadow-2: 0 2px 4px rgba(20, 22, 26, .04), 0 12px 28px -18px rgba(20, 22, 26, .28);
+    --shadow-3: 0 4px 8px rgba(20, 22, 26, .06), 0 24px 48px -24px rgba(20, 22, 26, .34);
+    --scrim: rgba(20, 22, 26, .55);
+    --radius-s: 2px;
+    --radius-m: 4px;
+    --radius-l: 8px;
+    --gutter: 32px;
+}
+
+body.night-mode {
+    --paper: #12141A;
+    --surface: #191C23;
+    --surface-2: #20242C;
+    --ink: #E9E7E2;
+    --ink-2: #C4C7CD;
+    --ink-3: #949AA4;
+    --ink-4: #6B7280;
+    --rule: #2A2E37;
+    --rule-2: #3A3F4A;
+    --signal: #6EA8FE;
+    --signal-ink: #9CC2FF;
+    --signal-soft: rgba(110, 168, 254, .1);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-2: 0 2px 4px rgba(0, 0, 0, .24), 0 12px 28px -18px rgba(0, 0, 0, .7);
+    --shadow-3: 0 4px 8px rgba(0, 0, 0, .3), 0 24px 48px -24px rgba(0, 0, 0, .8);
+    --scrim: rgba(6, 8, 12, .68);
+}
+
+// SCSS 别名，供既有与新写的规则集复用
+$font-display: Georgia,
+'Iowan Old Style',
+'Times New Roman',
+'Songti SC',
+'STSong',
+'Noto Serif CJK SC',
+'Source Han Serif SC',
+'SimSun',
+serif;
+
+$font-meta: 'SF Mono',
+'JetBrains Mono',
+Menlo,
+Consolas,
+'Courier New',
+monospace;
+
+$editorial-container-w: 1140px;
+$editorial-measure-w: 760px;
+$editorial-rail-w: 236px;
+
+// 保留主题原有变量名，指向上面的语义色，避免 common/layouts 两份定义打架
+$color-bg: var(--paper);
+$color-f-primary: var(--ink);
+$color-f-secondary: var(--ink-2);
+$color-f-dark: var(--ink-3);
+$color-brand: var(--ink-4);
+$color-theme-default: var(--signal);
+
+// common.scss 结尾那一大块 .night-mode 覆盖表全部引用这两个「暗色」变量。
+// 把它们也指向自定义属性后，夜间取值会自动变成 body.night-mode 下重赋的值，
+// 旧覆盖表因此继续有效而不必逐条改——新增组件则完全不用再写夜间分支。
+$color-dark-primary: var(--paper);
+$color-dark-secondary: var(--surface);

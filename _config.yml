@@ -14,12 +14,31 @@ baseurl: '/better-blog'
 githubUrl: 'https://github.com/liaolongdong'
 
 # Navigation links
+# 列表形式而非哈希：Jekyll 对哈希的迭代顺序不保证，导航条必须按人眼预期的顺序渲染。
+# dropdown: tools 表示该项渲染为「工具箱」下拉菜单，子项取自 _data/tools.yml。
 nav:
-  home: '/'
-  tags: '/tags.html'
-  demo: '/demo.html'
-  weblab: '/weblab.html'
-  about: '/about.html'
+  - key: home
+    label: 首页
+    url: '/'
+  - key: tools
+    label: 工具箱
+    url: '/tools.html'
+    dropdown: tools
+  - key: categories
+    label: 分类
+    url: '/categories.html'
+  - key: tags
+    label: 标签
+    url: '/tags.html'
+  - key: demo
+    label: 示例
+    url: '/demo.html'
+  - key: weblab
+    label: 编辑器
+    url: '/weblab.html'
+  - key: about
+    label: 关于
+    url: '/about.html'
 
 # Author 配置博主信息
 author: 'Better'
@@ -151,7 +170,8 @@ recommend-tags: true # whether or not display recommend-tags on the sidebar
 recommend-condition-size: 12 # a tag will be recommended if the size of it is more than this value
 
 # Build settings
-paginate: 5
+# 首页信息流改为横向缩略图卡片后，单屏可见篇数提高，每页 8 篇足够填满首屏并减少翻页。
+paginate: 8
 paginate_path: 'page:num'
 # 不参与站点构建的文件/目录（Jekyll 会与内置默认排除项合并，Gemfile、vendor/bundle 等无需重复列出）。
 # 这里列的都是仅开发/部署用的资产，一旦漏排就会被拷进 _site 并公开可访问。
