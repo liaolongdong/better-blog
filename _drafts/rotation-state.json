@@ -176,6 +176,32 @@
         "锁了版本的人现在该改哪一行？",
         "我把旧账结四笔，新账留三条"
       ]
+    },
+    {
+      "date": "2026-09-21",
+      "job": "A",
+      "slug": "security-audit-two-validators",
+      "variant": "A1",
+      "titleTpl": "T4",
+      "emojiBudget": "sparse",
+      "h2Count": 8,
+      "words": 2550,
+      "tableMode": "none",
+      "openingType": "code",
+      "endingType": "decision",
+      "outlookForm": "h3",
+      "styleBlock": false,
+      "highlightBox": true,
+      "h2Titles": [
+        "192 行的 SKILL.md 后面挂着 14 个文件",
+        "clone 下来不到四分钟，65 个测试就跑完了",
+        "我本机 51 个 SKILL.md，没有一个干这个的",
+        "153 个类别里我用得上 14 个，另外一大片我不会去撞",
+        "16 条探针，3 条没按文档走",
+        "它说 5 MiB 装 2,000-5,000 条，我按两种形状各算一遍",
+        "八笔旧账：三笔我今天重验，三笔上期就结了",
+        "这周另外几笔"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -185,6 +211,7 @@
     "T6",
     "T2",
     "T7",
+    "T4",
     "T4"
   ],
   "emojiLedger": {
@@ -215,6 +242,10 @@
         "🤖",
         "🧭",
         "🧮"
+      ],
+      [
+        "🔬",
+        "🧾"
       ]
     ]
   },
@@ -333,7 +364,15 @@
     "同一处拼错，11.27.1 拦下来，12.5.1 放过去",
     "Claude Code 署名的那四条回复",
     "锁了版本的人现在该改哪一行？",
-    "我把旧账结四笔，新账留三条"
+    "我把旧账结四笔，新账留三条",
+    "192 行的 SKILL.md 后面挂着 14 个文件",
+    "clone 下来不到四分钟，65 个测试就跑完了",
+    "我本机 51 个 SKILL.md，没有一个干这个的",
+    "153 个类别里我用得上 14 个，另外一大片我不会去撞",
+    "16 条探针，3 条没按文档走",
+    "它说 5 MiB 装 2,000-5,000 条，我按两种形状各算一遍",
+    "八笔旧账：三笔我今天重验，三笔上期就结了",
+    "这周另外几笔"
   ],
   "promiseQueue": [
     {
@@ -395,6 +434,36 @@
       "registered": "2026-09-21",
       "job": "B",
       "slug": "pnpm-task-settings"
+    },
+    {
+      "text": "复查 PR #45（Bound source line numbers from above）和 PR #9（fix: reject invalid trace line numbers）有没有被合——两条都堵 validate-findings.cjs:512 那个 `line` 无上界的洞（#9 建于 08-11、#45 建于 09-19，都还 0 评论）。任一被合，正文里 `1e21` 与 `2^53+1` 都 exit=0 那两句必须删",
+      "registered": "2026-09-22",
+      "job": "A",
+      "slug": "security-audit-two-validators"
+    },
+    {
+      "text": "复查 PR #44（findings 与 coverage ledger 对账）和 #34/#26/#25（local-check artifact 是否真在盘上）的状态：#44 一进 main，我那组「两道各自绿灯的门之间没人对账」的组合实验就失效，那一节要重写",
+      "registered": "2026-09-22",
+      "job": "A",
+      "slug": "security-audit-two-validators"
+    },
+    {
+      "text": "复查 PR #33（给两份 validator test suite 加 CI workflow，09-17 建）。合了就删正文「65 个测试目前没有自动执行入口」那句，并回去确认 `.github/` 是否出现在仓库树里",
+      "registered": "2026-09-22",
+      "job": "A",
+      "slug": "security-audit-two-validators"
+    },
+    {
+      "text": "下期再写 skill 类主角，安装环节先跑一次 `npx skills add --list` 并把退出码重定向到文件外取（不要用管道，管道会把 `$?` 变成 head 的），补上本期 I-02b 那个「首跑退出码未取到」的洞",
+      "registered": "2026-09-22",
+      "job": "A",
+      "slug": "security-audit-two-validators"
+    },
+    {
+      "text": "拿本期量出的 planned 1,053 B / covered 2,276 B 每 unit 这两个字节数，回头量我自己那两份 wxt 扩展仓库的真实 ledger 形状（`src/` 入口面数 × 信任边界数），确认 5 MiB 这道门对我到不到得了",
+      "registered": "2026-09-22",
+      "job": "A",
+      "slug": "security-audit-two-validators"
     }
   ],
   "starSnapshots": {
@@ -407,8 +476,8 @@
       "2026-09-17T14:19:28Z"
     ],
     "ayghri/i-have-adhd": [
-      49625,
-      "2026-09-21T14:50:31Z"
+      49664,
+      "2026-09-21T16:43:41Z"
     ],
     "mattpocock/skills": [
       264126,
@@ -453,6 +522,42 @@
     "pnpm/pnpm": [
       36589,
       "2026-09-21T15:01Z"
+    ],
+    "cloudflare/security-audit-skill": [
+      18757,
+      "2026-09-21T16:24:27Z"
+    ],
+    "alibaba/open-code-review": [
+      39029,
+      "2026-09-21T16:24:27Z"
+    ],
+    "addyosmani/agent-skills": [
+      98038,
+      "2026-09-21T16:24:27Z"
+    ],
+    "JustVugg/colibri": [
+      36751,
+      "2026-09-21T16:24:27Z"
+    ],
+    "debpalash/VoiceStudio": [
+      33814,
+      "2026-09-21T16:24:27Z"
+    ],
+    "kunchenguid/lavish-axi": [
+      3785,
+      "2026-09-21T16:24:27Z"
+    ],
+    "Panniantong/Agent-Reach": [
+      84255,
+      "2026-09-21T16:24:27Z"
+    ],
+    "blader/humanizer": [
+      50968,
+      "2026-09-21T16:24:27Z"
+    ],
+    "vastsa/PI-Desktop": [
+      4926,
+      "2026-09-21T16:24:27Z"
     ]
   },
   "aborted": [],
