@@ -12,11 +12,26 @@ permalink: /weblab.html
      GitHub Pages 构建在 Linux 上大小写敏感，写成 webLab.min.css 会 404，勿改。 -->
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/weblab.min.css">
 
-<div class="g-banner tags-banner {{ site.labPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
-    <h2 class="am-shake">前端在线编辑器</h2>
-</div>
+{%- comment -%}
+编辑器容器走 .g-container 居中栅格，实际宽度由 weblab.scss 里 ≥960px 的
+.lab-content 规则接管。
+{%- endcomment -%}
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Playground / 不装依赖，改完即预览</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">HTML · CSS · JS</span>
+        </p>
+        <h1 class="masthead-title">编辑器</h1>
+        <p class="masthead-lede">
+            浏览器里直接跑三段代码，右侧实时出结果。
+            适合验证一段样式或复现一个最小示例，不用为几行代码开一个工程。
+        </p>
+    </div>
+</section>
 
-<main class="tags-content demo-content lab-content" id="main">
+<main class="g-container lab-content" id="main">
     <div id="aceEditor" class="clearfix">
         <div class="editor">
             <span class="label">html</span>

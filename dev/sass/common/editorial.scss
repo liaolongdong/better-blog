@@ -1740,6 +1740,33 @@ body.has-toc .post-rail {
     list-style: none;
 }
 
+/*** 7.0.1 示例页列表（条目由 index.js 从 demo.json 注入） ***/
+
+// 与 .cat-row 同一套发丝线语言，只是示例没有日期与分类，只留标题一列。
+.demo-list {
+    list-style: none;
+}
+
+.demo-row {
+    border-bottom: 1px solid var(--rule);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover .demo-link {
+        color: var(--signal);
+    }
+}
+
+.demo-link {
+    display: block;
+    padding: 13px 0;
+    font-size: 16px;
+    line-height: 26px;
+    color: var(--ink);
+}
+
 /*** 7.1 404（复用上面的归档行样式） ***/
 
 .notfound-content {

@@ -7,13 +7,27 @@ permalink: /demo.html
 ---
 {% include header.html %}
 
-<div class="g-banner tags-banner {{ site.demoPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
-    <h2 class="am-shake">DEMO</h2>
-</div>
+{%- comment -%}
+条目由 index.js 读 demo.json 注入，本页只留容器；行样式见 editorial.scss 的 .demo-list。
+{%- endcomment -%}
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Sandbox / 点开即跑的前端示例</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">no build</span>
+        </p>
+        <h1 class="masthead-title">示例</h1>
+        <p class="masthead-lede">
+            这些是文章里那些说法的最小可运行验证：不装依赖、不拉仓库，新标签打开就能看到效果。
+            多数是当年为踩一个坑留下的复现页。
+        </p>
+    </div>
+</section>
 
-<main class="tags-content demo-content" id="main">
-    <ul class="tags-list demo-list">
+<main class="g-container archive-content" id="main">
+    <ul class="demo-list">
     </ul>
 </main>
-    
+
 {% include footer.html %}

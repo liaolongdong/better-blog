@@ -4,37 +4,70 @@ title: 标签归档
 # title 从英文 "Tags" 换成中文检索词：这个页面是全站内链的落点（首页每张卡片的标签、
 # 文章页底部标签云都指向这里的锚点），它自己的 <title> 却是英文单词，等于白扔一个入口。
 seo_description: 按标签检索全部文章：AI Agent、npm、React、Vue、Chrome 插件、前端小技巧、开源项目实测等，每个标签下列出写过的相关篇目。
-# 理由同 categories.html 里的注释：不写死 permalink，page.url 就没有 .html，
+# 理由同 categories.html：不写死 permalink，page.url 就没有 .html，
 # 站点地图收不到、canonical 与站内链接也对不上。
 permalink: /tags.html
 ---
 
 {% include header.html %}
 
-<div class="g-banner tags-banner {{ site.tagsPatterns | prepend: 'post-pattern-' }} {{ site.theme-color | prepend: 'bgcolor-' }}" data-theme="{{ site.theme-color }}">
-    <h2 class="stbz-delay0">TAGS</h2>
-</div>
+{%- comment -%}
+与 categories.html 同构的归档骨架，复用 .cat-* 那套样式，本页不需要新 CSS。
+section 的 id 就是文章页底部 /tags.html#标签 这类入链的落点——改 id 等于改全站锚点表，
+标签名里也不能出现空格。滚动落点让开 64px 固定顶栏靠 .cat-section 的 scroll-margin-top。
+{%- endcomment -%}
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Index / 按标签浏览</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">{{ site.tags.size }} tags</span>
+        </p>
+        <h1 class="masthead-title">标签</h1>
+        <p class="masthead-lede">
+            标签是文章自己长出来的关键词，比分类更细一层。
+            首页卡片与文章页底部的任意一个标签，都直接落到下面对应的区块。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.tags.size }}</strong><span>个标签</span></li>
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ site.categories.size }}</strong><span>个分类</span></li>
+        </ul>
+    </div>
+</section>
 
-<main class="tags-content" id="main">
-  
-    <ul class="tags-list">
-        <!-- <li>
-        {% if site.recommend-tags and site.tags.size>0 %}
-            {% for tag in site.tags %}
-            <a href="#{{ tag[0] }}" class="tag stbz-delay0">{{ tag[0]}}</a>
-            {% endfor %}
-        {% endif %}
-        </li> -->
-        
+<main class="g-container archive-content" id="main">
+    <nav class="cat-index" aria-label="标签索引">
         {% for tag in site.tags %}
-        <li>
-            <span class="tag-name" id="{{ tag[0] }}">「{{ tag[0] }}」</span>
+        <a class="cat-chip" href="#{{ tag[0] }}">{{ tag[0] }}<em>{{ tag[1].size }}</em></a>
+        {% endfor %}
+    </nav>
+
+    {% for tag in site.tags %}
+    <section class="cat-section" id="{{ tag[0] }}">
+        <header class="cat-head">
+            <h2 class="cat-name">{{ tag[0] }}</h2>
+            <span class="cat-count">{{ tag[1].size }} 篇</span>
+            <a class="cat-top" href="#main">回到标签索引</a>
+        </header>
+        <ol class="cat-list">
             {% for post in tag[1] %}
-            <a class="tag-post" href="{{ post.url | prepend: site.baseurl }}" title="{{ post.title }}">{{ post.title }}</a>
+            <li class="cat-row">
+                <time class="cat-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%Y.%m.%d' }}</time>
+                <a class="cat-title" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+                {% if post.categories.size > 0 %}
+                <span class="cat-tags">
+                    {% for cat in post.categories limit: 2 %}
+                    <a href="{{ '/categories.html#' | append: cat | prepend: site.baseurl }}">{{ cat }}</a>
+                    {% endfor %}
+                    {% if post.categories.size > 2 %}<i>+{{ post.categories.size | minus: 2 }}</i>{% endif %}
+                </span>
+                {% endif %}
+            </li>
             {% endfor %}
-        </li>
-        {% endfor%}
-    </ul>
+        </ol>
+    </section>
+    {% endfor %}
 </main>
-    
+
 {% include footer.html %}

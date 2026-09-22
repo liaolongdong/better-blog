@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+    <!-- 与页头 .logo-mark 同一枚标识：墨底圆角方块 + 衬线 B。
+         字形用 <text> 而非描点，跟随 $font-display 的字体栈；
+         颜色写在属性上、<style> 只做暗色档增强，浏览器不执行 SVG 内 CSS 时仍是可读的墨底白字。 -->
+    <style>
+        @media (prefers-color-scheme: dark) {
+            .mark-tile { fill: #E9E7E2 }
+            .mark-glyph { fill: #12141A }
+        }
+    </style>
+    <rect class="mark-tile" width="64" height="64" rx="9" fill="#14161A"/>
+    <text class="mark-glyph" x="32" y="46.5" fill="#FFFFFF" text-anchor="middle"
+          font-family="Georgia,'Iowan Old Style','Times New Roman','Songti SC',serif"
+          font-size="42" font-weight="700">B</text>
+</svg>

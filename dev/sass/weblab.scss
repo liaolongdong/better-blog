@@ -1,6 +1,15 @@
+// 编辑器区宽度与刊头中轴必须同一个数：改一处两处一起动，否则页头比工具区宽一截。
+$lab-w: 960px;
+
 @media screen and (min-width: 960px) {
     .lab-content {
-        width: 960px;
+        width: $lab-w;
+    }
+
+    // 刊头跟随全局 .g-container 的 1140px，编辑器被上一条钉在 $lab-w，
+    // 两者相差 180px 时页头明显宽出下方工具区，这里把刊头收同一根中轴。
+    .archive-masthead .masthead-inner {
+        width: $lab-w;
     }
     .lab-content #aceEditor {
         width: 100%;

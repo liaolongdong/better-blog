@@ -126,15 +126,17 @@ $(document).ready(function(){
 
     /**
      * demo page get demo data
+     * 条目结构跟随 editorial.scss 的 .demo-list：一行一条、发丝线分隔，
+     * 与分类/标签归档页的 .cat-row 同一套列表语言（示例没有日期，所以只有标题一列）。
      */
     if (/demo\.html$/.test(pageRelPath)) {
         $.getJSON(BASE_URL + '/demo.json').done(function(data) {
             var html = '';
             var demoLists = data.demoLists;
             for (var i = 0; i < demoLists.length; i++) {
-                html += '<li><a class="tag-post demo-link" target="_blank" href="'
+                html += '<li class="demo-row"><a class="demo-link" target="_blank" rel="noopener" href="'
                 + BASE_URL + '/' + demoLists[i].demoUrl + '" title="'
-                + demoLists[i].title + '">' 
+                + demoLists[i].title + '">'
                 + demoLists[i].title + '</a></li>';
             }
             $('.demo-list').html(html);

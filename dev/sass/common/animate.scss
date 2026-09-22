@@ -71,32 +71,12 @@
     }
 }
 
-// 从左往右渐入
-@keyframes leftToRightFade {
-    0% {
-        opacity: 0;
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
 .rtlf-delay0 {
     animation: rightToLeftFade 500ms ease 0ms both;
 }
 
 .rtlf-delay500 {
     animation: rightToLeftFade 500ms ease 500ms both;
-}
-
-.ltrf-delay0 {
-    animation: leftToRightFade 500ms ease 0ms both;
-}
-
-.ltrf-delay500 {
-    animation: leftToRightFade 500ms ease 500ms both;
 }
 
 // 从右往左渐出
@@ -114,64 +94,9 @@
     animation:  rightToLeftLetter ease-in-out 300ms both;
 }
 
-// 由小到大缩放
-@keyframes smallToBigZoom {
-    0% {
-        transform: scale(0);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
-// 由小到大再小再大缩放
-@keyframes randomZoom {
-    0% {
-        transform: scale(0);
-    }
-
-    50% {
-        transform: scale(1);
-    }
-
-    85% {
-        transform: scale(1.5);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
-.stbz-delay0 {
-    animation: smallToBigZoom 1000ms ease-in-out 0ms both;
-}
-
-.rz-delay0 {
-    animation: randomZoom 1000ms ease-in-out 0ms both;
-}
-
-// 上下抖动动画
-@keyframes upDownShake {
-    0%, 18%, 45%, 72% {
-        transform: translateY(0);
-    }
-    36% {
-        transform: translateY(-10px);
-    }
-    54% {
-        transform: translateY(-5px);
-    }
-    100% {
-        transform: none;
-    }
-}
-
-.am-shake {
-    animation: upDownShake 1000ms ease 0ms both;
-}
-
+// 正文链接悬停时让 link_hover_line.svg 沿着下划线滚动。
+// 消费方在 common.scss 的 .post-content .markdown-body a:hover 里，
+// 不在本文件的 .xxx-delayNNN 工具类表上——按「工具类没人用就删」清这一层时容易带走它。
 @keyframes waveMove {
     0% {
         background-position: 0 100%;
