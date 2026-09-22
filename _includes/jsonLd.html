@@ -1,0 +1,129 @@
+{%- comment -%}
+结构化数据（JSON-LD）。由 seoMeta.html 在 </head> 前引入，依赖它已经算好的三个变量：
+  page_title —— 与 <title> 同口径的标题
+  page_desc  —— 与 meta description 同口径的描述
+  og_image   —— 与 og:image 同口径的绝对地址（外链 cover 已回落到站点默认图）
+这三个变量必须与 meta 标签保持一致，否则搜索引擎会把「摘要与卡片不符」判为低质量信号。
+
+为什么值得加：
+  · BlogPosting 让 Google 直接拿到标题/导语/发布日/作者/封面，文章页才有富媒体摘要；
+  · BreadcrumbList 把结果里的面包屑（首页 › 分类 › 标题）显式声明出来，
+    站内分类与标签归档页因此拿到锚点级的内链权重；
+  · Person + sameAs 是「廖龙东 / Better」这个检索实体的锚，品牌词搜索时决定
+    右侧知识面板拿不拿得到东西。
+一律用 | jsonify 输出字符串字段，避免标题里的引号、破折号把 JSON 打断。
+{%- endcomment -%}
+{%- assign site_home = '/' | absolute_url -%}
+{%- assign page_url = page.url | absolute_url -%}
+{%- if page.layout == 'post' -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": {{ page_title | strip | jsonify }},
+  "description": {{ page_desc | jsonify }},
+  "inLanguage": "zh-CN",
+  "image": "{{ og_image }}",
+  "datePublished": "{{ page.date | date_to_xmlschema }}",
+  "dateModified": "{{ page.last_modified_at | default: page.date | date_to_xmlschema }}",
+  "author": {
+    "@type": "Person",
+    "name": "{{ site.author }}",
+    "alternateName": "廖龙东",
+    "url": "{{ '/about.html' | absolute_url }}"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "{{ site.author }}"
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "{{ page_url }}" },
+  "url": "{{ page_url }}",
+  "isPartOf": { "@type": "Blog", "@id": "{{ site_home }}#blog" },
+  "keywords": {{ page.tags | join: ', ' | jsonify }},
+  "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans",
+  "copyrightNotice": "© 廖龙东（Better）· 文字与配图按 CC BY-NC-SA 4.0 授权，文中的第三方代码片段沿用其原始许可"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+{%- comment -%}
+位置号必须连续：分类占 2，标题就得是 3。早期写法用 categories.size + 1，
+在有 1 个分类的文章上会算出 2，和分类自己撞位，Google 判为无效列表。
+{%- endcomment -%}
+{%- assign _crumb_pos = 2 -%}
+{%- if page.categories and page.categories.size > 0 %}{% assign _crumb_pos = 3 %}{% endif -%}
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "首页", "item": "{{ site_home }}" }
+{%- if page.categories and page.categories.size > 0 %}
+    , { "@type": "ListItem", "position": 2, "name": {{ page.categories | first | jsonify }}, "item": {{ '/categories.html' | append: '#' | append: page.categories[0] | absolute_url | jsonify }} }
+{%- endif %}
+    , { "@type": "ListItem", "position": {{ _crumb_pos }}, "name": {{ page.title | jsonify }}, "item": "{{ page_url }}" }
+  ]
+}
+</script>
+{%- elsif page.title -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": {{ page_title | strip | jsonify }},
+  "description": {{ page_desc | jsonify }},
+  "inLanguage": "zh-CN",
+  "url": "{{ page_url }}",
+  "isPartOf": { "@type": "Blog", "@id": "{{ site_home }}#blog" }
+}
+</script>
+{%- elsif page.url == '/' -%}
+{%- comment -%}
+第三支必须再加 page.url == '/' 这道门：jekyll-paginate 生成的 /page2/ … /pageN/
+没有 page.title，会一路掉进 else，于是 9 个翻页视图全都自称 WebSite + Blog，
+还各自声明一遍 Person——同一实体在站内出现 9 份互相竞争的规范声明，
+爬虫只会挑一个，剩下的变成噪音。站点实体只在首页声明一次。
+{%- endcomment -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": {{ site.title | jsonify }},
+  "alternateName": {{ site.seo_title | jsonify }},
+  "url": "{{ site_home }}",
+  "inLanguage": "zh-CN",
+  "description": {{ site.description | jsonify }}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "@id": "{{ site_home }}#blog",
+  "name": {{ site.title | jsonify }},
+  "url": "{{ site_home }}",
+  "inLanguage": "zh-CN",
+  "description": {{ site.description | jsonify }},
+  "author": { "@id": "{{ '/about.html' | absolute_url }}#author" }
+}
+</script>
+{%- assign _sameAs = '' -%}
+{%- for s in site.sns -%}
+{%- unless s[1] contains 'mailto:' -%}
+{%- if _sameAs != '' -%}{%- assign _sameAs = _sameAs | append: ',' -%}{%- endif -%}
+{%- assign _sameAs = _sameAs | append: '"' | append: s[1] | append: '"' -%}
+{%- endunless -%}
+{%- endfor -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": "{{ '/about.html' | absolute_url }}#author",
+  "name": "廖龙东",
+  "alternateName": ["Better", "廖小新"],
+  "jobTitle": "前端开发工程师",
+  "url": "{{ '/about.html' | absolute_url }}",
+  "image": "{{ site.avatar | absolute_url }}",
+  "sameAs": [{{ _sameAs }}],
+  "knowsAbout": ["前端开发", "React", "Vue", "Node.js", "npm", "Chrome 扩展", "AI Agent 工具链"]
+}
+</script>
+{%- endif -%}

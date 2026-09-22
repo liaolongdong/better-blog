@@ -2,6 +2,10 @@
 layout: default
 home-title: Better’s study fairyland
 description: 路漫漫其修远兮，吾将上下而求索
+# seo_description 只进 <meta description> / og:description，不改上面那行可见导语。
+# 原先首页摘要就是那句诗：零检索词、零价值主张，等于把全站权重最高的一页的
+# 搜索结果摘要白送给搜索引擎自己猜。
+seo_description: 廖龙东（Better）的前端与 AI 博客：React、Vue、Node.js、npm、Chrome 插件与 AI Agent 工具链的长期记录，开源项目实测多附可复现的命令与数据。自 2016 年持续更新。
 ---
 
 {% include header.html %}
@@ -68,7 +72,11 @@ description: 路漫漫其修远兮，吾将上下而求索
                 {% include coverSrc.html cover=post.cover %}
                 <div class="post-cover">
                     <a class="post-link" href="{{ post.url | prepend: site.baseurl }}" title="{{ post.title }}"></a>
-                    <img src="{{ coverSrc }}" alt="" loading="lazy">
+                    {%- comment -%}
+                    封面 alt 用文章标题：alt="" 在语义上是「纯装饰图」，等于放弃图片检索
+                    与读屏器里的唯一线索。首页每张封面都指向一篇文章，标题就是它最准的描述。
+                    {%- endcomment -%}
+                    <img src="{{ coverSrc }}" alt="{{ post.title }}" loading="lazy">
                 </div>
                 {% endif %}
                 <section class="post-preview">

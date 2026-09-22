@@ -3,12 +3,12 @@ layout: post
 title: git管理项目关联多个远程仓库（github、coding）
 subtitle: 把github pages博客迁移到coding pages
 date: 2018-12-05
-categories: 技术 blog
-cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1545187742&di=7d8e45e81d6781b8ce775417c40786c9&imgtype=jpg&er=1&src=http%3A%2F%2Fwww.emmielewis.com%2Fwp-content%2Fuploads%2F2015%2F07%2Fgithub-logo.png'
+categories: [前端工程化]
+# cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。
+# 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1545187742&di=7d8e45e81d6781b8ce775417c40786c9&imgtype=jpg&er=1&src=http%3A%2F%2Fwww.emmielewis.com%2Fwp-content%2Fuploads%2F2015%2F07%2Fgithub-logo.png
 tags: git github coding blog 博客
 ---
-
-# git管理项目关联多个远程仓库（github、coding）
 
 ## 背景
 

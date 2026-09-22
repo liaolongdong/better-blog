@@ -3,12 +3,10 @@ layout: post
 title: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 subtitle: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 date: 2024-01-05
-categories: 开发工具 chrome 浏览器插件 
+categories: [Chrome插件]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件
 ---
-
-# 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 
 安装一些工作中常用的chrome插件，可以极大的提升我们的工作效率，下面推荐几款使用体验超爽的chrome插件。
 

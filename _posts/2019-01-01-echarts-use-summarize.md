@@ -3,12 +3,10 @@ layout: post
 title: echarts折线图、饼状图、圆环图使用总结
 subtitle: echarts折线图、饼状图、圆环图使用总结
 date: 2019-01-01
-categories: 技术 echarts
+categories: [JavaScript]
 cover: '/assets/img/postCover/echarts_cover.png'
 tags: echarts
 ---
-
-# echarts折线图、饼状图、圆环图使用总结
 
 这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。
 

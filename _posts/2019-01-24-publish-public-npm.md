@@ -3,12 +3,12 @@ layout: post
 title: 如何开发一个npm包并发布到npm中央仓库
 subtitle: 如何开发一个npm包并发布到npm中央仓库
 date: 2019-01-24
-categories: 技术 部署 仓库 npm
-cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1548388440630&di=113721b90da880056b64bac0f84154a8&imgtype=0&src=http%3A%2F%2Fwww.bccn.net%2Fmedia%2Fnews%2F2017%2F01%2F16%2F1484556320_99662422.jpg
+categories: [前端工程化]
+# cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
+# 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1548388440630&di=113721b90da880056b64bac0f84154a8&imgtype=0&src=http%3A%2F%2Fwww.bccn.net%2Fmedia%2Fnews%2F2017%2F01%2F16%2F1484556320_99662422.jpg
 tags: npm 仓库
 ---
-
-# 如何开发一个npm包并发布到npm中央仓库
 
 需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm中央仓库或者私有仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到私有仓库。
 

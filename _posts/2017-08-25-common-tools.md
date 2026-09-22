@@ -3,12 +3,12 @@ layout: post
 title: '前端开发中经常使用到的公用方法'
 subtitle: '前端开发中经常使用到的公用方法'
 date: 2017-08-25
-categories: 技术
+categories: [JavaScript]
 cover: '/assets/img/postCover/code_tools.png'
 tags: JavaScript JavaScript公用方法
 ---
 
-# 前端开发中经常使用到的公用方法（使用的是ES6的语法）
+## 前端开发中经常使用到的公用方法（使用的是ES6的语法）
 
 ## 毫秒数转换成日期（格式：yyyy-mm-dd、yyyy-mm-dd hh:mm、yyyy-mm-dd hh:mm:ss）
 

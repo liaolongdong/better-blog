@@ -3,12 +3,10 @@ layout: post
 title: npm、yarn和pnpm包管理工具详解
 subtitle: npm、yarn和pnpm包管理工具详解
 date: 2023-06-14
-categories: 技术
+categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: npm yarn pnpm node包管理工具
 ---
-
-# npm、yarn和pnpm包管理工具详解
 
 ## npm、yarn和pnpm介绍、用法以及注意事项
 

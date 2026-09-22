@@ -3,12 +3,10 @@ layout: post
 title: 使用verdaccio搭建npm私有仓库
 subtitle: 使用verdaccio搭建npm私有仓库
 date: 2019-01-24
-categories: 技术 部署 仓库 私有仓库 npm
+categories: [前端工程化]
 cover: /assets/img/postCover/npm_private_cover.png
 tags: npm 私有仓库 组件库
 ---
-
-# 使用verdaccio搭建npm私有仓库
 
 需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm中央仓库或者私有仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到私有仓库。
 

@@ -3,12 +3,12 @@ layout: post
 title: JavaScript常用设计模式总结
 subtitle: JavaScript常用设计模式总结
 date: 2019-07-26
-categories: JavaScript 设计模式
-cover: https://pic1.zhimg.com/v2-0391689010c83495ba3923cd04c71206_1200x500.jpg
+categories: [JavaScript]
+# cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
+# 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://pic1.zhimg.com/v2-0391689010c83495ba3923cd04c71206_1200x500.jpg
 tags: JavaScript 设计模式
 ---
-
-# JavaScript常用设计模式总结
 
 ## 设计模式的作用
 

@@ -3,12 +3,12 @@ layout: post
 title: H5页面实现摇一摇功能
 subtitle: H5页面实现摇一摇功能
 date: 2019-07-10
-categories: 技术
-cover: http://img3.imgtn.bdimg.com/it/u=1571861328,916520973&fm=26&gp=0.jpg
+categories: [H5与微信]
+# cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
+# 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: http://img3.imgtn.bdimg.com/it/u=1571861328,916520973&fm=26&gp=0.jpg
 tags: JavaScript H5实现摇一摇
 ---
-
-# H5页面实现摇一摇功能
 
 最近公司做了一个微信摇一摇领红包的活动，趁着刚上线有点空余时间，做一下摇一摇活动总结，记录一下做摇一摇活动过程中遇到的问题，旨在为了方便自己下次做类似活动的时候查阅以及让没做过摇一摇活动的小伙伴们少踩坑吧
 

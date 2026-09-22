@@ -3,12 +3,10 @@ layout: post
 title: 几种常见的排序算法
 subtitle: 几种常见的排序算法
 date: 2019-03-06
-categories: 技术
+categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 常见的排序算法
 ---
-
-# 几种常见的排序算法
 
 ## 选择排序
 

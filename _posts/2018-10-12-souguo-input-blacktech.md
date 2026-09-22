@@ -3,8 +3,10 @@ layout: post
 title: '搜狗输入法黑科技'
 subtitle: '搜狗输入法黑科技'
 date: 2018-10-12
-categories: 生活 技巧
-cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542002122271&di=099a362b90f33485d2e4437ad16e7b65&imgtype=0&src=http%3A%2F%2Fku.90sjimg.com%2Felement_origin_min_pic%2F17%2F12%2F27%2F1c45a62ef2c292a9e6b24cf892815f62.jpg'
+categories: [工具与效率]
+# cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。
+# 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542002122271&di=099a362b90f33485d2e4437ad16e7b65&imgtype=0&src=http%3A%2F%2Fku.90sjimg.com%2Felement_origin_min_pic%2F17%2F12%2F27%2F1c45a62ef2c292a9e6b24cf892815f62.jpg
 tags: 生活 技巧 黑科技
 ---
 

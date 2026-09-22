@@ -3,12 +3,15 @@ layout: post
 title: 阿里云服务器上部署node+mongodb
 subtitle: 阿里云服务器上部署node+mongodb
 date: 2018-11-01
-categories: 技术 云服务器
-cover: 'https://img.alicdn.com/tfs/TB14GrElwHqK1RjSZJnXXbNLpXa-3840-1280.jpg'
+categories: [服务器与部署]
+# cover 原本是阿里 CDN 外链（当时 200 可访问）。外链随时会回收，且 og:image 只认站内图，
+# 故把原图拉到本地转成 1440×480 webp（43KB），分享卡片与站点地图封面都能稳定引用。
+# cover: https://img.alicdn.com/tfs/TB14GrElwHqK1RjSZJnXXbNLpXa-3840-1280.jpg
+cover: /assets/img/alicloud-node-mongodb/banner.webp
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
 ---
 
-# 阿里云服务器上部署node和mongodb教程
+## 阿里云服务器上部署node和mongodb教程
 
 -------------------------------------
 前言：从阿里云购买域名、ECS云服务器到实名认证、域名解析、网站备案再到部署node和mongodb数据到阿里云服务器，查了很多相关的资料，踩过无数的坑，终于完成了。作为一个没怎么接触过后端以及运维知识的前端er来说，真心不容易啊，所以特意写一篇博客记录一下自己踩过的坑，避免自己以后再踩同样的坑，同时，也能让一些想在阿里云服务器上部署自己的博客或者网站的新手少走弯路、少踩坑。

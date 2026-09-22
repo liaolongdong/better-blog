@@ -3,12 +3,10 @@ layout: post
 title: 谁才是 9 月最不动声色的改动？三桩实测排完，第一名是我自己
 subtitle: DeepSeek 换了模型名底下的人，miniflare 的 latest 变成 alpha，Tailwind Plus 关了注册门。三件事没有一个给过 5xx，我把它们一个个跑完之后，排序和我想的不一样
 date: 2026-09-10
-categories: frontend AI npm
+categories: [前端工程化, 开源实测]
 cover: /assets/img/silent-defaults/banner.webp
 tags: npm next AI 开源 前端小技巧
 ---
-
-# 谁才是 9 月最不动声色的改动？三桩实测排完，第一名是我自己
 
 ![三处被静默改掉的默认值：DeepSeek 的模型路由、miniflare 的 npm dist-tag、Tailwind Plus 的注册入口，全程没有一条报错](/assets/img/silent-defaults/banner.webp)
 

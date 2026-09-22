@@ -5,30 +5,118 @@
 <meta name="google-site-verification" content="JMobx2kEvbdWmhZ3vzFBbSrVNz4if5UGwRbprlQDmEM" />
 <meta name="360-site-verification" content="66a6d55065761caeb8d685def4e5204a" />
 <meta name="sogou_site_verification" content="icwLU81OPy"/>
-<title>{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+{%- comment -%}
+标题一律走 seo_title，不用 title：
+title 是品牌名（导航刊头、og:site_name、feed 站点名都在用它），改成中文等于改署名；
+seo_title 只出现在 <title> 与 og:title 里，是搜索结果那一行蓝链的后缀。
+旧写法把「Better’s study fairyland」拼在每个页面后面——这串字不含任何检索词，
+中文读者搜「前端博客」「npm」「React」时它一个都命不中，白占后缀的位置。
+（它不会挤掉文章标题：SERP 是从右往左截断的，超长时先被剪掉的是后缀本身。）
+{%- endcomment -%}
+{%- comment -%}
+首页信息流的分页（/page2/ … /page9/）由 jekyll-paginate 复用同一份 index.html 渲染，
+不加区分就会让这 9 个可被抓取的 URL 和首页共用同一个 <title> 与 description，
+在 Search Console 里表现为「重复网页，Google 选择了不同的规范网页」。
+
+页码一律放在「不会被截掉的位置」：SERP 从右往左截断，seo_home_title 已经接近 60 列
+预算，往后拼「· 第 2 页」只会先被剪掉，等于没区分。所以分页页走一条独立的短标题，
+描述里的页码前置。分页页也没有 page.title，正好和首页共用这条分支。
+{%- endcomment -%}
+{%- capture page_title -%}
+{%- if paginator.page > 1 -%}{{ site.seo_archive_title }} · 第 {{ paginator.page }}/{{ paginator.total_pages }} 页
+{%- elsif page.title -%}{{ page.title }} - {{ site.seo_title }}
+{%- else -%}{{ site.seo_home_title }}{%- endif -%}
+{%- endcapture -%}
+<title>{{ page_title | strip }}</title>
 <meta name="author"  content="{{ site.author }}">
 {%- comment -%}
 描述按页取：文章几乎都写了 subtitle（就是导语），比全站沿用 site.description 更贴题，
 搜索引擎抓到的摘要也不再是同一句话。
+
+seo_description 是「只改摘要、不改页面」的口子：首页与文章页会把 description / subtitle
+直接渲染成可见的导语文字，想给爬虫换一句更值钱的摘要又不想动版面时，加这个字段即可。
+优先级：seo_description > description > subtitle > site.description。
 {%- endcomment -%}
 {%- capture page_desc -%}
-{%- if page.description -%}{{ page.description }}
+{%- if paginator.page > 1 -%}信息流第 {{ paginator.page }} 页（共 {{ paginator.total_pages }} 页）：{%- endif -%}
+{%- if page.seo_description -%}{{ page.seo_description }}
+{%- elsif page.description -%}{{ page.description }}
 {%- elsif page.subtitle -%}{{ page.subtitle }}
 {%- else -%}{{ site.description }}{%- endif -%}
 {%- endcapture -%}
-<meta name="description" content="{{ page_desc | strip | xml_escape }}">
+{%- assign page_desc = page_desc | strip -%}
+<meta name="description" content="{{ page_desc | xml_escape }}">
 <meta name="keywords"  content="{{ site.keyword }}">
+{%- comment -%}
+canonical：站点是 GitHub Pages 项目页（baseurl=/better-blog），absolute_url 会带上
+site.url + baseurl，得到唯一正确的规范地址。缺了它，?from=feed、分页、锚点变体都会
+被当成独立页面抓，权重分散。noindex 只在 404 这类页面打开。
+{%- endcomment -%}
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+{%- if page.noindex %}
+<meta name="robots" content="noindex, follow">
+{% else %}
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+{%- endif -%}
 <!-- 图片加载出现403错误（该设置会禁用掉百度统计功能） -->
 <!-- <meta name="referrer" content="no-referrer" /> -->
+{%- comment -%}
+分享卡片图：只认站内 cover。
+历史上 11 篇的 cover 是外链（timgsa.baidu.com / pic*.zhimg.com / img.alicdn.com 这类），
+2026-09-22 逐个 curl 复测：timgsa 域名已停服（连不上），zhimg 防盗链 403，
+vscode 官网那张改版后 404 —— 外链封面基本全灭，故已从 front matter 里下线。
+只有一张 img.alicdn.com 当时还活着，已拉到本地转 webp 再引用。
+这道判断留着不是为存量文章，是因为 front matter 是自由文本：
+以后谁再往 cover 上贴外链，分享卡片会静默坏掉，宁可用品牌图也不给爬虫一个取不到的地址。
+{%- endcomment -%}
+{%- if page.cover and page.cover contains '://' -%}
+  {%- assign og_cover = '' -%}
+{%- elsif page.cover -%}
+  {%- assign og_cover = page.cover -%}
+{%- else -%}
+  {%- assign og_cover = '' -%}
+{%- endif -%}
+{%- assign og_image = og_cover | default: site.social.og_default_image | absolute_url -%}
 <!-- Open Graph -->
-<meta property="og:title" content="{% if page.title %}{{ page.title }} - {{ site.title }}{% else %}{{ site.title }}{% endif %}">
+<meta property="og:title" content="{{ page_title | strip | xml_escape }}">
 <meta property="og:type" content="{% if page.layout == 'post' %}article{% else %}website{% endif %}">
 {%- comment -%}
 og:url 必须走 absolute_url：站点是 GitHub Pages 项目页（baseurl=/better-blog），
 旧写法只 prepend site.url，分享卡片和爬虫拿到的地址少了路径段，落在 404 上。
 {%- endcomment -%}
 <meta property="og:url" content="{{ page.url | absolute_url }}">
-<meta property="og:description" content="{{ page_desc | strip | xml_escape }}">
+<meta property="og:image" content="{{ og_image }}">
+{%- comment -%}
+宽高只在「用站点默认图」时声明：assets/img/social-default.jpg 是固定 1200×630 制作的，
+而文章 cover 的尺寸各不统一（实测 1600×914 有 11 张、1792×592 有 3 张，最大到 3872×1972）。
+Jekyll 侧拿不到图片真实尺寸，硬写 1200/630 就是在给爬虫一组错的元数据——宁可不说。
+{%- endcomment -%}
+{%- if og_cover == '' -%}
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{%- endif -%}
+<meta property="og:image:alt" content="{{ page_title | strip | xml_escape }}">
+<meta property="og:description" content="{{ page_desc | xml_escape }}">
 <meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:locale" content="{{ site.social.og_locale | default: 'zh_CN' }}">
+{%- if page.layout == 'post' %}
+<meta property="article:published_time" content="{{ page.date | date_to_xmlschema }}">
+<meta property="article:author" content="{{ site.url }}{{ site.baseurl }}/about.html">
+{%- for cat in page.categories %}
+<meta property="article:section" content="{{ cat | xml_escape }}">
+{%- endfor -%}
+{%- for tag in page.tags %}
+<meta property="article:tag" content="{{ tag | xml_escape }}">
+{%- endfor -%}
+{%- endif %}
+<!-- Twitter / X 卡片：没有这三行，X 只抓 og:* 里的第一张图且按小卡渲染 -->
+<meta name="twitter:card" content="{{ site.social.twitter_card | default: 'summary_large_image' }}">
+<meta name="twitter:title" content="{{ page_title | strip | xml_escape }}">
+<meta name="twitter:description" content="{{ page_desc | truncate: 190, '' | xml_escape }}">
+<meta name="twitter:image" content="{{ og_image }}">
+{%- if site.social.twitter_site and site.social.twitter_site != '' %}
+<meta name="twitter:site" content="{{ site.social.twitter_site }}">
+{%- endif %}
 <link rel="alternate" type="application/atom+xml" title="{{ site.title }}" href="{{ '/feed.xml' | absolute_url }}">
+{% include jsonLd.html %}
 <!-- 通用meta以及seo meta end -->

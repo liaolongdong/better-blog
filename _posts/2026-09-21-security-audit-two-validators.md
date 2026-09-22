@@ -3,12 +3,10 @@ layout: post
 title: 18,757 Star 的 Cloudflare 安全审计 skill 来了——16 条探针戳它的两个校验器
 subtitle: 六阶段 fleet 我在自己机器上跑不动，于是只把仓库里那两个 validator 拎出来跑：65 个测试全绿，可这两道各自绿灯的门，中间没人管
 date: 2026-09-21
-categories: AI frontend open-source
+categories: [AI, 开源实测]
 cover: /assets/img/security-audit-two-validators/banner.webp
 tags: AI 开源 Agent 工具
 ---
-
-# 18,757 Star 的 Cloudflare 安全审计 skill 来了——16 条探针戳它的两个校验器
 
 ![两只各管一头的闸门，中间一道对不齐的缝隙被顶光照亮](/assets/img/security-audit-two-validators/banner.webp)
 

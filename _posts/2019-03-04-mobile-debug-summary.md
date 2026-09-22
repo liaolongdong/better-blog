@@ -3,12 +3,10 @@ layout: post
 title: 移动端调试技巧总结
 subtitle: 移动端调试技巧总结
 date: 2019-03-04
-categories: 技术
+categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 移动端调试技巧
 ---
-
-# 移动端调试技巧总结
 
 ## 前言
 

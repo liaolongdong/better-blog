@@ -3,12 +3,12 @@ layout: post
 title: 网站SEO搜索引擎优化
 subtitle: 网站SEO搜索引擎优化
 date: 2019-01-17
-categories: 技术 seo
+categories: [工具与效率]
 cover: /assets/img/postCover/seo_cover.png
 tags: 网站seo seo优化 搜索引擎网站收录
 ---
 
-# 网站seo优化、搜索引擎网站收录
+## 网站seo优化、搜索引擎网站收录
 
 网站做SEO最主要的目的：让用户在搜索引擎搜索和自己网站相关的关键字时，能够让自己网站展示在搜索结果靠前的位置，以此来增加网站的曝光率和点击率。
 

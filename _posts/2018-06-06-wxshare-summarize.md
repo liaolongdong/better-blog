@@ -3,12 +3,10 @@ layout: post
 title: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 subtitle: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 date: 2018-06-06
-categories: 技术
+categories: [H5与微信]
 cover: '/assets/img/postCover/wxshare_cover.png'
 tags: JavaScript 微信分享 微信公众号
 ---
-
-# 微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总
 
 微信分享官方推荐使用[微信JS-SDk](https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115)，还有一种方法是使用微信浏览器特有的内置对象`WeixinJSBridge`，这种方式的分享不知道还能不能用，微信内H5支付使用这种方式也是可以的，分享功能没测试过。
 

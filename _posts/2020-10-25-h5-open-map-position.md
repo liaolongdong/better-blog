@@ -3,12 +3,10 @@ layout: post
 title: H5实现打开导航地图app并自动导航到目的地
 subtitle: H5实现打开导航地图app并自动导航到目的地
 date: 2020-10-25
-categories: 技术 前端小技巧 地图导航
+categories: [H5与微信]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript vue H5打开地图导航app
 ---
-
-# H5实现打开导航地图app并自动导航到目的地
 
 ## 背景
 

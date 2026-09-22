@@ -2,13 +2,12 @@
 layout: post
 title: 一个 API key 都不配就能看卫星图？gods-eye-view 用 13 条免密路径彻底终结这个问题
 subtitle: 我把全语言周榜第一那家 clone 到 /tmp，全程没填一个 key：21 个图层上屏、0 条 console 错误，另外顺手撞出两件它自己没兜住的事——一句 1.86 秒冷启动指的是哪一列，和一个永远收不到的 413
+seo_description: 把开源榜第一的 gods-eye-view clone 到本机跑一遍：不配一个 API key，21 个图层上屏、0 条 console 错误，另外撞出两件它自己没兜住的事。
 date: 2026-09-17
-categories: AI frontend open-source
+categories: [AI, 开源实测]
 cover: /assets/img/gods-eye-view-keyless/banner.webp
 tags: AI 开源 JavaScript webmcp Agent
 ---
-
-# 一个 API key 都不配就能看卫星图？gods-eye-view 用 13 条免密路径彻底终结这个问题
 
 ![手绘封面：一颗绕着观测轨道的地球，和一个手里没接任何设备的小人](/assets/img/gods-eye-view-keyless/banner.webp)
 

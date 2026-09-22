@@ -3,12 +3,12 @@ layout: post
 title: 使用react+next实现服务端渲染
 subtitle: 使用react+next实现服务端渲染
 date: 2018-11-25
-categories: 技术 服务端渲染
+categories: [React]
 cover: '/assets/img/postCover/next_cover.png'
 tags: react next ssr 服务端渲染
 ---
 
-# 使用next.js实现服务端渲染
+## 使用next.js实现服务端渲染
 
 <!-- [next.js项目效果展示](http://cn.liaolongdong.com:3000/)  
 [next.js完整项目github地址](https://github.com/liaolongdong/react-next-project)   -->

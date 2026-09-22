@@ -1,14 +1,18 @@
 ---
 layout: post
 title: 前端面试常见编程题汇总
-subtitle: 前端面试常见编程题汇总
+subtitle: 20 道手写题按难度排，每题给能跑的解法与踩坑点
 date: 2100-10-25
-categories: 技术
-cover: ''
-tags: JavaScript 前端面试常见编程题汇总
+# categories 必须写成中括号列表，空格分隔会被拆成多个分类；tags 相反，要空格分隔
+categories: [算法与面试]
+# cover 要么整行不写（列表卡片走纯文字版式、og:image 回落站点默认图），要么给站内图路径。
+# 两个反例：写成 cover: '' 会被 Liquid 判成「有封面」，渲染出 <img src="/better-blog"> 的破图；
+# 写外链（历史文章里那种 timgsa/zhimg 图床）则进不了 og:image 与 sitemap，且迟早失效。
+# 见 USAGE.md「三个会静默生效的陷阱」。
+tags: JavaScript 前端面试 手写题
 ---
 
-# JS编程题
+## JS编程题
 
 ```js
 function User () {

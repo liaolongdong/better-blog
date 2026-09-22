@@ -1,7 +1,13 @@
 ---
 layout: default
-title: 分类
-subtitle: 按主题归档的全部文章
+title: 分类归档
+subtitle: 按主题归档的全部文章：前端开发、AI 工具实测、npm 与包管理、Chrome 插件、服务器部署
+# permalink 必须写死：站点配了全局 permalink（/:year/:month/:day/:title.html），
+# 不显式声明时 Jekyll 给页面的 page.url 是 /categories（不带 .html）。
+# 后果有两层：① sitemap.xml 的 `page.url contains '.html'` 判假，整页从站点地图里消失；
+# ② canonical / og:url 算出 /categories，而导航条链接的是 /categories.html，
+# 同一个页面两个地址，GitHub Pages 两个都能 200，权重被劈开。
+permalink: /categories.html
 ---
 {% include header.html %}
 

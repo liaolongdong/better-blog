@@ -3,12 +3,10 @@ layout: post
 title: git常用命令操作手册
 subtitle: git常用命令操作手册
 date: 2017-06-06
-categories: 技术 git
+categories: [前端工程化]
 cover: /assets/img/postCover/git_cover.png
 tags: git git常用命令
 ---
-
-# git常用命令操作手册
 
 [git命令官方文档](https://git-scm.com/docs)
 [阮一峰的git命令教程](http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html)

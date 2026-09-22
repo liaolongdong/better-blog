@@ -3,12 +3,10 @@ layout: post
 title: 2023年都结束了，你还不知道新增了哪些JS特性？
 subtitle: 2023年都结束了，你还不知道新增了哪些JS特性？
 date: 2023-12-29
-categories: 技术
+categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript ES2023 JS新特性
 ---
-
-# 2023年都结束了，你还不知道新增了哪些JS特性？
 
 ECMAScript 的版本通常每年发布一次，每个版本都会引入新的语法、功能和改进，以满足不断变化的开发需求。比如我们非常熟悉的ECMAScript 2015，也就是我们常说的ES6，ECMAScript 2023，该语言的第 14 版，进行了一些重大更改，将使我们前端er的编程体验更加轻松、简洁、高效。
  

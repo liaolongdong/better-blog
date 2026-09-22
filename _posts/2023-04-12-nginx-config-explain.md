@@ -3,12 +3,12 @@ layout: post
 title: nginx配置详解
 subtitle: nginx配置详解
 date: 2023-04-12
-categories: 技术
+categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: nginx
 ---
 
-# Nginx安装配置详解
+## Nginx安装配置详解
 
 ## Nginx简介
 

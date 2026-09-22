@@ -3,12 +3,12 @@ layout: post
 title: linux常用命令
 subtitle: linux常用命令
 date: 2021-03-23
-categories: 技术 linux 
+categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: linux linux命令 
 ---
 
-# Linux常用命令详解
+## Linux常用命令详解
 
 作为一枚程序员，熟练掌握一些常见的linux命令是很有必要的，掌握这些命令能帮助我们更好地管理Linux系统，提高工作效率，并有效地解决各种问题，为了方便自己后续查阅以及帮助不熟悉linux命令的小伙伴，特意花费了大量时间整理了这篇将近两万字的超长文博客，大家可以先收藏起来，然后细读一两遍留个印象，后续有用到不熟悉的命令的时候再回来查阅这篇文章（当然英文厉害的也可以直接查看帮助手册，只不过帮助手册干扰项太多，也没有突出重点）。
 

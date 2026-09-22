@@ -1,4 +1,12 @@
-# webpack打包项目迁移到vite
+---
+layout: post
+title: webpack 打包项目迁移到 Vite 的实践记录
+subtitle: 把行E通门户与管理台的前端构建从 webpack 换到 Vite —— 记录迁移动机、团队分工与冷启动瓶颈的来龙去脉
+date: 2022-08-08
+categories: [前端工程化]
+tags: webpack vite 前端构建 工程化
+---
+## webpack打包项目迁移到vite
 
 ## 项目名称
 

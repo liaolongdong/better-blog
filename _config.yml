@@ -1,7 +1,28 @@
 # Site settings 配置站点
+#
+# title 与 seo_title 是两个口径，不要合并：
+#   title     —— 品牌名，出现在导航刊头（_includes/header.html 里目前是硬编码的同一串字）、
+#                og:site_name、feed/sitemap 的站点名。改它等于改站点的对外署名。
+#   seo_title —— 只进 <title> 与 og:title，是搜索结果里那一行蓝链的标题。
+# 品牌名「Better’s study fairyland」不含任何检索词，中文读者搜「前端博客」「npm」
+# 「React」时它一个都命不中，却占着每个页面 <title> 后缀的位置。
+# 所以后缀换成「Better 前端博客」：保住 Better 这个检索实体，同时把「前端博客」这个
+# 真正有人在搜的词放进每个页面的标题里。
 title: 'Better’s study fairyland'
-description: '廖龙东,又名廖小新,网名Better,一枚喜欢研究心理学的前端er,从大学毕业一直专注前端开发领域，技术栈React、Vue、微信公众号、小程序、node和mongodb、Python'
-keyword: '廖龙东,廖小新,廖龙东的个人网站,廖龙东的个人博客,Better,Better的个人网站,Better的个人博客,前端,web前端开发,H5,React,nodeJs,canvas，Python'
+seo_title: 'Better 前端博客'
+# 首页没有 page.title（刊头用的是 home-title），所以 <title> 单独给一条：
+# 检索实体「廖龙东」+ 品牌「Better」+ 类目词「前端博客 / AI 工具实测」一次带到。
+seo_home_title: '廖龙东（Better）的前端与 AI 技术博客 · npm 与 AI Agent 实测'
+# 信息流分页页（/page2/ …）专用的短标题前缀。不能用上面那条：它已经 59 显示列，
+# 再往后拼页码就会被 SERP 从右边截掉，页码等于没写。这条留 36 列，够放「· 第 N/M 页」。
+seo_archive_title: '廖龙东（Better）的前端与 AI 技术博客'
+# 全站兜底描述（无 page.seo_description / description / subtitle 时才用）。控制在 158
+# 显示字符内，中文按全宽计——超出的部分搜索引擎直接省略号截断。
+# 口径注意：这里不写「每篇都实测过」这类全站级断言，2016–2024 那批文章里有工作总结、
+# 学习资料与踩坑记录，并不都成立；「开源项目实测多附可复现命令」才是能被文章对上的说法。
+description: '廖龙东（网名 Better，写作廖小新）的前端与 AI 博客：React、Vue、Node.js、npm、Chrome 插件与 AI Agent 工具链的长期记录，开源实测多附可复现命令，自 2016 年更新。'
+# 逗号一律用半角：旧值里的全角「，」把 canvas 和 Python 粘成了一个检索词。
+keyword: '廖龙东,廖小新,廖龙东博客,廖龙东前端,Better,Better前端博客,前端开发,web前端,React,Vue,Node.js,npm,Chrome插件,微信小程序,AI Agent,前端开源项目实测'
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
@@ -9,6 +30,13 @@ url: 'https://liaolongdong.github.io' # your host
 # https://liaolongdong.github.io/better-blog/ — baseurl must be '/better-blog'.
 # (CI's actions/configure-pages injects the same base_path at build time.)
 baseurl: '/better-blog'
+
+# 站点版本号。唯一的口径是 git tag：tag 打在 master 上（Pages 的 Workflow 只监听 master），
+# 与线上产物同源，所以这里的值必须等于 master 上最新的 tag。
+# 三处要一起改：本字段、package.json 的 version、CHANGELOG.md 的新条目——
+# 递增规则与发版步骤见 USAGE.md「版本号与 tag 约定」。
+# 页脚读它（_includes/footer.html），置空则页脚不显示版本，不影响任何页面。
+version: '2.0.0'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
@@ -48,6 +76,17 @@ author: 'Better'
 nickname: 'Better'
 bio: '一枚喜欢研究心理学的前端er'
 avatar: '/assets/img/profile.png'
+
+# Social / Open Graph 默认值
+# 分享卡片用的站点级默认图：微信、微博、X、Telegram 抓 og:image 时，文章若没写
+# cover 就回落到这张。1200×630 是 OG 的推荐比例（Twitter 大卡在 2:1 时不被裁切）。
+social:
+  og_default_image: '/assets/img/social-default.jpg'
+  # X/Twitter 卡片类型：summary_large_image 才会渲染 2:1 大图
+  twitter_card: 'summary_large_image'
+  twitter_site: ''   # 没有 X 站点账号就留空，会跳过 twitter:site
+  # 中文站固定 zh_CN；留空会让部分平台按抓取语言猜，简繁混排时卡片文案会跳
+  og_locale: 'zh_CN'
 
 # home page dandelion animate
 dandelionAnimate: true
@@ -187,6 +226,7 @@ exclude:
   - vite-dist
   - package.json
   - pnpm-lock.yaml
+  - pnpm-workspace.yaml
   - vite.config.js
   - vite.demo.config.js
   - postcss.config.js
@@ -196,14 +236,34 @@ exclude:
   # 开发与部署文档/脚本，不属于站点内容
   - README.md
   - USAGE.md
+  # 版本记录与许可文本：给仓库读者看，不是站点页面。不带 front matter 的 .md 也会被
+  # 原样复制进 _site（Jekyll 只把「有 front matter 的 md」当页面渲染），所以必须显式排除；
+  # LICENSE 同理，否则线上多一个 /LICENSE 静态文件。
+  - CHANGELOG.md
+  - LICENSE
+  - LICENSE-CONTENT.md
   - OPTIMIZATION_COMPLETE.md
   - deploy-ali.sh
   - deploy-github.sh
   # 本地临时试验页（内容只有 console.log），全站零引用，不应出现在线上
   - test.html
+  # 与 feed.xml 内容等价的第二份全文订阅源：站内零引用（<link rel=alternate> 指向的是
+  # feed.xml），却同样公开可访问。两份全文源等于给爬虫两套重复语料，
+  # 且它的 atom:link self 反指 /feed.xml，口径自相矛盾。留源不发。
+  - rss.xml
   # 出图工具的中间产物目录：无 _ 或 . 前缀，不加 exclude 会被原样复制进 _site 并公开服务。
   # 里面的 PNG 会被搬进 assets/img/{slug}/ 转成 webp，原件不属于站点内容
   - vibe_images
+  # 文章配图的工作笔记：assets/img/{slug}/prompts/*.md（出图 prompt）与
+  # assets/img/{slug}/outline.md（配图大纲）。它们带 YAML front matter，会被 Jekyll
+  # 当成页面渲染成 /assets/img/.../xxx.html 并公开——修之前线上有 44 个这样的英文笔记
+  # （42 份 prompts + 2 份 outline，逐个核对过首行都是 ---，全部会被渲染），
+  # 与博客主题无关、内容又薄，正是拉低全站质量评分的那类低价值页。
+  # 用 exclude 而不是删文件：这些是重新生成配图的依据，要留在仓库里。
+  - "assets/**/*.md"
+  # iconfont.cn 下载包里自带的字形预览页，全站零引用，却在线上 200 可访问：
+  # 一个只有图标 class 列表的第三方页面挂在域名下，属于纯粹的收录噪音。
+  - assets/iconFont/demo_index.html
 
 # Markdown
 markdown: kramdown

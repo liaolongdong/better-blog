@@ -3,12 +3,10 @@ layout: post
 title: 浏览器缓存机制
 subtitle: 浏览器缓存机制
 date: 2020-04-08
-categories: 原理
+categories: [JavaScript]
 # cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png
 tags: JavaScript 浏览器缓存机制
 ---
-
-# 浏览器缓存机制
 
 ## 原理
 

@@ -3,14 +3,12 @@ layout: post
 title: 别再手输账号密码了：我开发了一个一键自动登录的插件
 subtitle: 别再手输账号密码了：我开发了一个一键自动登录的插件
 date: 2026-06-28
-categories: chrome浏览器插件 工具 插件
+categories: [Chrome插件]
 cover: /assets/img/account-password-helper/account_password_helper_banner.webp
 tags: 账号密码管理助手 一键填充 自动登录 chrome浏览器插件 工具 插件
 ---
 
 ![文章封面](/assets/img/account-password-helper/account_password_helper_banner.webp)
-
-# 别再手输账号密码了：我开发了一个一键自动登录的插件
 
 做开发久了，我发现一个特别真实的问题：很多时间不是浪费在写代码、测功能、看需求上，而是浪费在“找账号”上。
 

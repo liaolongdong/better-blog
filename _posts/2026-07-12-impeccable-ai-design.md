@@ -3,12 +3,10 @@ layout: post
 title: 用 AI 写的前端页面总是"一眼 AI 味"？Impeccable 用 46 条规则彻底终结这个问题
 subtitle: 一个让 AI 编程助手学会"审美"的开源设计系统，4.5 万 Star 背后的设计哲学
 date: 2026-07-12
-categories: AI frontend design open-source
+categories: [AI, 开源实测]
 cover: /assets/img/impeccable/banner.webp
 tags: AI 前端设计 UI 开源 Impeccable 设计系统 Vibe Coding
 ---
-
-# 用 AI 写的前端页面总是"一眼 AI 味"？Impeccable 用 46 条规则彻底终结这个问题
 
 ![Impeccable Banner](/assets/img/impeccable/banner.webp)
 

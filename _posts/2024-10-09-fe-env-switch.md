@@ -3,12 +3,10 @@ layout: post
 title: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 subtitle: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 date: 2024-10-08
-categories: 技术
+categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 前端环境切换工具 代理 proxy dev-server
 ---
-
-# 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 
 ## 需求背景
 

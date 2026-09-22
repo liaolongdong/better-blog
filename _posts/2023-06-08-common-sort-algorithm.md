@@ -3,12 +3,12 @@ layout: post
 title: JS实现常见的十大排序算法
 subtitle: JS实现常见的十大排序算法
 date: 2023-06-08
-categories: 技术
+categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 常见的排序算法
 ---
 
-# 前端需要掌握的十大排序算法
+## 前端需要掌握的十大排序算法
 
 ## 学习排序算法的目的
 

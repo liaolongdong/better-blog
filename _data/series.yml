@@ -1,6 +1,14 @@
 # 合集（系列）单一数据源。
-# url 用 Jekyll 的 page.url 口径（不含 baseurl），与 permalink /:year/:month/:day/:title.html 一致；
+# url 用 Jekyll 的 page.url 口径（不含 baseurl），与 permalink /:year/:month/:day/:title.html 一致。
+# ⚠️ 日期段取自 front matter 的 date，不是文件名前缀——Jekyll 的 :title 来自文件名，
+#    但 :year/:month/:day 来自文章的 date 字段，而这个字段会覆盖文件名里的日期。仓库里有
+#    两处不一致的存量文章（2019-01-25-build-private-package.md 的 date 是 2019-01-24，
+#    2020-06-06-linux-common-command.md 的 date 是 2021-03-23），它们的 URL 跟着 date 走。
+#    这两条 date 不要「顺手改正」：改了 URL 就变，早年分享出去的链接会全部失效。
 # 标题大小写必须和文件名一致，例如 AI-model-rating 不能被写成 ai-model-rating。
+# 写错不会构建失败，而是让这一条在文章页与合集页渲染成
+# 「_data/series.yml 里的地址对不上任何文章：<url>」——这段兜底文案是给用户看的错误提示，
+# 不该出现在线上。改完请按 USAGE.md「合集与精选」一节里的脚本逐条比对 page.url。
 # 顺序即阅读顺序，文章页的「第 N/M 篇」和系列内上下篇都按这里来，不按时间。
 
 - slug: silent-changes-2026-09

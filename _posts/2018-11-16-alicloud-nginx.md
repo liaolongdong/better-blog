@@ -3,12 +3,14 @@ layout: post
 title: 阿里云服务器部署nginx以及配置https
 subtitle: 阿里云服务器部署nginx以及配置https
 date: 2018-11-16
-categories: 技术 服务器 nginx
-cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1544596712507&di=137b7928b3d4ca1c310c84c0a3174272&imgtype=0&src=http%3A%2F%2Fs3.51cto.com%2Foss%2F201801%2F12%2Fc04e0d7bf8ef89a2d4e7a2fa554ff137.jpg-wh_651x-s_2430839636.jpg'
+categories: [服务器与部署]
+# cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。
+# 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1544596712507&di=137b7928b3d4ca1c310c84c0a3174272&imgtype=0&src=http%3A%2F%2Fs3.51cto.com%2Foss%2F201801%2F12%2Fc04e0d7bf8ef89a2d4e7a2fa554ff137.jpg-wh_651x-s_2430839636.jpg
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nginx 配置https
 ---
 
-# 阿里云服务器（centos）部署nginx以及配置https
+## 阿里云服务器（centos）部署nginx以及配置https
 
 ## 阿里云服务安装nginx
 

@@ -2,26 +2,66 @@
 permalink: /sitemap.xml
 ---
 <?xml version="1.0" encoding="utf-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{%- comment -%}
+手写站点地图（jekyll-sitemap 插件在 _config.yml 里是关掉的，两者不能同时开，
+否则争抢同一个 /sitemap.xml 输出）。
+
+历史坑：页面段原先写的是 `page.url contains '.html'`，而站点配了全局 permalink
+（/:year/:month/:day/:title.html），没显式声明 permalink 的页面拿到的 page.url 是
+/categories 这种无扩展名形态，条件判假——结果除了自己声明过 permalink 的 404，
+所有归档页都静默地不在站点地图里。现在归档页都写死了 permalink，
+收录范围改由下面的 site.nav 白名单决定。
+{%- endcomment -%}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
     <url>
         <loc>{{ '/' | absolute_url }}</loc>
         <lastmod>{{ site.posts.first.date | date: '%Y-%m-%d' }}</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
-{% for page in site.pages %}{% if page.sitemap != false and page.url contains '.html' and page.layout %}
+{%- comment -%}
+导航页用 site.nav 当白名单，而不是遍历 site.pages。上面那条 `.html` 判据正是这次的坑，
+一旦把它去掉，遍历就会把两类不该进站点地图的东西一起捞进来：
+  ① /demo/ 下 18 个由 Jekyll 渲染的实验页（数的是产物里带站点 chrome 的那些，
+     源文件另有 15 个纯静态 demo 页不经 Jekyll；它们内容薄、多数没有独立检索需求，
+     page.url 又是 /demo/xxx/ 这种无扩展名形态，本来就在判据的边缘上）；
+  ② jekyll-paginate 复用 index.html 生成的 /page2/ … /page9/ 共 8 个翻页视图，
+     与首页同源，属于纯重复语料。
+站点地图应当等于「人能导航到的那几页 + 全部文章」，nav 就是这件事的单一数据源：
+以后往导航里加页，站点地图自动跟上；不想被收录的页，从导航里摘掉即可。
+{%- endcomment -%}
+{% for item in site.nav %}{% if item.url != '/' %}
     <url>
-        <loc>{{ page.url | absolute_url }}</loc>
-        <changefreq>monthly</changefreq>
+        <loc>{{ item.url | absolute_url }}</loc>
+        <changefreq>weekly</changefreq>
         <priority>0.7</priority>
     </url>
 {% endif %}{% endfor %}
-{% for post in site.posts %}
+{%- comment -%}
+noindex 的文章不进站点地图：一边在页面里写「别收」，一边在 sitemap 里递地址，
+两个信号互相抵消，还可能被判定为站点地图质量差。目前站内没有这种文章，留着是为了
+以后真要摘某一篇出去时（比如写了公司内部项目）只用改 front matter，不必两头记。
+{%- endcomment -%}
+{% for post in site.posts %}{% unless post.noindex %}
     <url>
         <loc>{{ post.url | absolute_url }}</loc>
         <lastmod>{{ post.date | date: '%Y-%m-%d' }}</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.8</priority>
+{%- comment -%}
+封面进站点地图只对站内图开启：外链封面（百度图床 / 知乎图床一类）随时会 404，
+把它写进 <image:loc> 等于给爬虫一个取不到的地址，Google 会整条丢弃，不如不报。
+判外链只看有没有协议头，写法上必须用 unless ——
+`a and b contains '://' == false` 在 Liquid 里是语法错误（contains 后不能再接 ==），
+构建时只报一条 Warning，然后静默把条件判成恒假：修之前 32 篇站内封面只出了 11 条。
+{%- endcomment -%}
+{%- if post.cover %}{%- unless post.cover contains '://' %}
+        <image:image>
+            <image:loc>{{ post.cover | absolute_url }}</image:loc>
+            <image:title>{{ post.title | xml_escape }}</image:title>
+        </image:image>
+{%- endunless %}{%- endif %}
     </url>
-{% endfor %}
+{% endunless %}{% endfor %}
 </urlset>

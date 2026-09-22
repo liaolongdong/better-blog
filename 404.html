@@ -1,7 +1,9 @@
 ---
 layout: default
-title: 404
-description: "这个地址上没有内容。"
+title: 页面不存在 · 404
+description: "这个地址上没有内容。可以从这里回到首页、分类归档或搜索框，继续找那篇文章。"
+# noindex 让 404 不进索引；robots meta 由 _includes/seoMeta.html 统一输出。
+noindex: true
 permalink: /404.html
 ---
 {% include header.html %}

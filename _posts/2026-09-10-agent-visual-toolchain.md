@@ -3,12 +3,10 @@ layout: post
 title: 🚨 别再死磕 AI 自动出图了！我这周试了 4 个项目，2 个卡在半路
 subtitle: archify 的品牌表里没有 Vite，HyperFrames 的 init 顺手 clone 了整仓，最后跑通的是 chrome-devtools-mcp
 date: 2026-09-10
-categories: AI frontend open-source
+categories: [AI, 开源实测]
 cover: /assets/img/agent-visual-toolchain/banner.webp
 tags: AI 前端 开源 Agent webmcp
 ---
-
-# 🚨 别再死磕 AI 自动出图了！我这周试了 4 个项目，2 个卡在半路
 
 ![编码 agent 试图自己产出图表却接连卡住的现场](/assets/img/agent-visual-toolchain/banner.webp)
 

@@ -3,12 +3,10 @@ layout: post
 title: 36K Star 的仓库自己先翻车！pnpm 的「并发组」来了——7 个版本挨个跑
 subtitle: 它给自己仓库的 25 条 task 加了并发组，于是 pnpm 11 的用户在那个 checkout 里连 pnpm --version 都跑不动了
 date: 2026-09-21
-categories: AI frontend npm
+categories: [前端工程化, 开源实测]
 cover: /assets/img/pnpm-task-settings/banner.webp
 tags: pnpm npm 开源 AI 前端小技巧
 ---
-
-# 36K Star 的仓库自己先翻车！pnpm 的「并发组」来了——7 个版本挨个跑
 
 ![pnpm 12.5.0 到 12.5.1 之间那 4 小时 38 分：一次 +62 行的提交、六个 PR、七个版本的实测结果](/assets/img/pnpm-task-settings/banner.webp)
 

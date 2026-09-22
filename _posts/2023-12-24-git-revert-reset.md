@@ -3,12 +3,12 @@ layout: post
 title: git之reset和revert详解
 subtitle: git之reset和revert详解
 date: 2023-12-24
-categories: 技术
+categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: git reset revert 代码回退 代码回撤
 ---
 
-# `git reset`和`git revert`详解
+## `git reset`和`git revert`详解
 
 ## 背景
 

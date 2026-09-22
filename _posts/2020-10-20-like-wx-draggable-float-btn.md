@@ -3,12 +3,10 @@ layout: post
 title: H5实现类似微信可拖拽左右吸边浮动按钮
 subtitle: H5实现类似微信可拖拽左右吸边浮动按钮
 date: 2020-10-20
-categories: 技术 前端小技巧 实现可拖拽悬浮按钮
+categories: [H5与微信]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript vue 实现可拖拽悬浮按钮
 ---
-
-# H5实现类似微信可拖拽左右吸边浮动按钮
 
 ## 背景
 

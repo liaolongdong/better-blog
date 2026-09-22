@@ -3,12 +3,12 @@ layout: post
 title: vscode编辑器常用插件汇总
 subtitle: vscode编辑器常用插件汇总
 date: 2019-09-23
-categories: 工具类
-cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png
+categories: [工具与效率]
+# cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
+# 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png
 tags: JavaScript vscode常用插件
 ---
-
-# vscode编辑器常用插件汇总
 
 ## Chinese (Simplified) Language Pack for Visual Studio Code
 

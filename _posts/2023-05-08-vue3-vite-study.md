@@ -1,4 +1,12 @@
-# vue3+vite项目研究分析对比
+---
+layout: post
+title: Vue3 + Vite 项目研究与对比
+subtitle: Vue3 与 Vue2 逐项对比（性能、Diff、TS 支持、包体积、API），外加 Vite 与 webpack 的构建模型差异
+date: 2023-05-08
+categories: [Vue, 前端工程化]
+tags: Vue3 Vue2 Vite webpack 前端框架
+---
+## vue3+vite项目研究分析对比
 
 ## vue3和vue2分析对比
 

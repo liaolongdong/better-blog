@@ -3,12 +3,10 @@ layout: post
 title: vue-router源码解析
 subtitle: vue-router源码解析
 date: 2021-03-23
-categories: 技术 vue vue-router
+categories: [Vue]
 cover: /assets/img/postCover/vue-router-flow.jpeg
 tags: JavaScript vue vue-router
 ---
-
-# vue-router源码解析
 
 ## 前端路由简介及实现原理
 

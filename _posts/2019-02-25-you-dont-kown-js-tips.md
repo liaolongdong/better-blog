@@ -3,12 +3,10 @@ layout: post
 title: 前端那些你不知道的小技巧(JS篇)
 subtitle: 前端那些你不知道的小技巧(JS篇)
 date: 2019-02-25
-categories: 技术 前端小技巧
+categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript 前端小技巧 黑科技
 ---
-
-# 前端那些你不知道的小技巧(JS篇)
 
 ## 用一行代码实现五星评价功能
 

@@ -3,12 +3,10 @@ layout: post
 title: JS函数式编程的应用
 subtitle: JS函数式编程的应用
 date: 2023-04-30
-categories: 技术
+categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 函数式编程
 ---
-
-# JS函数式编程的应用
 
 ## 常见的编程范式
 

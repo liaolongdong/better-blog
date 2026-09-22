@@ -3,12 +3,10 @@ layout: post
 title: 2026年5月最新AI大模型排行榜：国产模型集体突围，谁才是真正的王者？
 subtitle: 2026年5月最新AI大模型排行榜：国产模型集体突围，谁才是真正的王者？
 date: 2026-05-30
-categories: AI AI大模型排行榜单
+categories: [AI]
 cover: /assets/img/postCover/AI_2026_llm_ranking.png
 tags: AI AI大模型排行榜单 AI大模型测评
 ---
-
-# 2026年5月最新AI大模型排行榜：国产模型集体突围，谁才是真正的王者？
 
 > 本文基于 **SuperCLUE 2026年5月测评**（23个国内外主流模型、492道原创新题）及 Artificial Analysis 最新 Intelligence Index 数据整理，所有评分均来自公开权威测评。
 

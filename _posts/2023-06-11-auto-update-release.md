@@ -3,12 +3,12 @@ layout: post
 title: 前端项目版本投产实现浏览器自动刷新更新版本内容
 subtitle: 前端项目版本投产实现浏览器自动刷新更新版本内容
 date: 2023-06-11
-categories: 技术
+categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 版本投产 更新版本内容
 ---
 
-# 如何优雅的实现前端版本投产自动触发浏览器刷新更新版本内容
+## 如何优雅的实现前端版本投产自动触发浏览器刷新更新版本内容
 
 ## 需求背景
 

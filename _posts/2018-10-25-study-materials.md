@@ -3,12 +3,10 @@ layout: post
 title: '前端学习资料'
 subtitle: '前端学习资料'
 date: 2018-10-25
-categories: 学习资料
+categories: [工具与效率]
 cover: '/assets/img/postCover/web_study_materials.png'
 tags: 前端学习资料 
 ---
-
-# 前端学习资料  
 
 ## 大杂烩
 

@@ -3,12 +3,10 @@ layout: post
 title: 使用gulp搭建多页面项目
 subtitle: 使用gulp搭建多页面项目
 date: 2019-01-28
-categories: 技术 项目搭建 gulp
+categories: [前端工程化]
 cover: /assets/img/postCover/gulp_cover.png
 tags: gulp 项目搭建
 ---
-
-# 使用gulp搭建多页面项目
 
 [github-demo](https://github.com/liaolongdong/use-gulp-build-project)
 

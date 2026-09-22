@@ -3,8 +3,10 @@ layout: post
 title: 'JavaScript语言精粹学习笔记'
 subtitle: 'JavaScript语言精粹学习笔记'
 date: 2016-08-28
-categories: 技术
-cover: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542012939549&di=d56a6b85934801df0180d9915614cd8f&imgtype=jpg&src=http%3A%2F%2Fimg1.imgtn.bdimg.com%2Fit%2Fu%3D1616011421%2C1741217182%26fm%3D214%26gp%3D0.jpg'
+categories: [JavaScript]
+# cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。
+# 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
+# cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542012939549&di=d56a6b85934801df0180d9915614cd8f&imgtype=jpg&src=http%3A%2F%2Fimg1.imgtn.bdimg.com%2Fit%2Fu%3D1616011421%2C1741217182%26fm%3D214%26gp%3D0.jpg
 tags: JavaScript JavaScript语言精粹 学习笔记
 ---
 

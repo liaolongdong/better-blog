@@ -3,12 +3,10 @@ layout: post
 title: 被 217K Star 疯狂追捧！AI 编程的「规范革命」来了——SDD 四大流派深度拆解
 subtitle: 被 217K Star 疯狂追捧！AI 编程的「规范革命」来了——SDD 四大流派深度拆解
 date: 2026-06-06
-categories: AI SDD 
+categories: [AI]
 cover: /assets/img/ai-sdd/banner-3.png
 tags: AI SDD  Spec-Driven Development 规范驱动开发 
 ---
-
-# 被 217K Star 疯狂追捧！AI 编程的「规范革命」来了——SDD 四大流派深度拆解
 
 ![banner](/assets/img/ai-sdd/banner-3.png)
 

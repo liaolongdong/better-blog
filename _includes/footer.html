@@ -83,6 +83,20 @@
 
     <section>
         Powered by <a href="//jekyllrb.com">Jekyll</a> | <a href="https://github.com/kaeyleo/jekyll-theme-H2O">Theme H2O</a> | Better
+        {%- if site.version %}
+        | <a href="{{ site.githubUrl }}/better-blog/blob/master/CHANGELOG.md" title="站点版本与变更记录">v{{ site.version }}</a>
+        {%- endif %}
+    </section>
+
+    {%- comment -%}
+    授权口径要写在站内可见处：转载文章前先看到「CC BY-NC-SA 4.0」，比事后开 issue 争论省事；
+    搜索引擎与 LLM 抓取时也把作者与许可读成站点自述的一部分。
+    版本号与 site.version 同源，发版时和 CHANGELOG、package.json 一起改（见 USAGE.md）。
+    {%- endcomment -%}
+    <section>
+        代码 <a href="{{ site.githubUrl }}/better-blog/blob/master/LICENSE">MIT</a> ·
+        文章与配图 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" rel="license">CC BY-NC-SA 4.0</a> ·
+        <a href="{{ '/about.html' | relative_url }}">关于作者</a>
     </section>
 
     {% if site.footer.showCursorEffects %}

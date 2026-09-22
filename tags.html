@@ -1,6 +1,12 @@
 ---
 layout: default
-title: Tags
+title: 标签归档
+# title 从英文 "Tags" 换成中文检索词：这个页面是全站内链的落点（首页每张卡片的标签、
+# 文章页底部标签云都指向这里的锚点），它自己的 <title> 却是英文单词，等于白扔一个入口。
+seo_description: 按标签检索全部文章：AI Agent、npm、React、Vue、Chrome 插件、前端小技巧、开源项目实测等，每个标签下列出写过的相关篇目。
+# 理由同 categories.html 里的注释：不写死 permalink，page.url 就没有 .html，
+# 站点地图收不到、canonical 与站内链接也对不上。
+permalink: /tags.html
 ---
 
 {% include header.html %}

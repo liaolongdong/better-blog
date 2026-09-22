@@ -3,12 +3,10 @@ layout: post
 title: JS中面向切面编程(AOP)应用
 subtitle: JS中面向切面编程(AOP)应用
 date: 2023-04-12
-categories: 技术
+categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: AOP 面向切面编码
 ---
-
-# JS中面向切面编程(AOP)应用
 
 ## 什么是面向切面编程
 

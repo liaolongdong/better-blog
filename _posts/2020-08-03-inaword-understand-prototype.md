@@ -3,12 +3,10 @@ layout: post
 title: 一句话理解原型和原型链
 subtitle: 一句话理解原型和原型链
 date: 2020-08-03
-categories: 技术 前端小技巧 原型和原型链
+categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript 原型和原型链
 ---
-
-# 一句话理解原型和原型链
 
 ## 原型
 

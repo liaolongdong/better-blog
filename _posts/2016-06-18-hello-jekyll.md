@@ -5,6 +5,7 @@ date: 2016-06-18
 author: Jekyll
 cover: '/assets/img/postCover/hello_jekyll.png'
 tags: jekyll
+categories: [随笔]
 ---
 
 > Transform your plain text into static websites and blogs.

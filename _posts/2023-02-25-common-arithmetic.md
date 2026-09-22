@@ -3,12 +3,12 @@ layout: post
 title: 常见的算法题
 subtitle: 常见的算法题
 date: 2023-02-25
-categories: 技术
+categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 常见的算法
 ---
 
-# 常见的算法
+## 常见的算法
 
 ## 选择排序
 
