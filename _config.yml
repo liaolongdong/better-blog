@@ -245,7 +245,10 @@ exclude:
   - OPTIMIZATION_COMPLETE.md
   - deploy-ali.sh
   - deploy-github.sh
-  # 本地临时试验页（内容只有 console.log），全站零引用，不应出现在线上
+  # 本地临时试验页（内容只有 console.log），全站零引用，不应出现在线上。
+  # 注意 exclude 按源目录相对路径匹配，这一条只排得掉根目录的 test.html；
+  # demo/*/test.html 那 6 个嵌套同名文件排不掉（构建产物里实测仍在），
+  # 它们又是 demo 页的调试入口不便删除，所以改用页面内的 noindex meta 处理。
   - test.html
   # 与 feed.xml 内容等价的第二份全文订阅源：站内零引用（<link rel=alternate> 指向的是
   # feed.xml），却同样公开可访问。两份全文源等于给爬虫两套重复语料，

@@ -6,8 +6,9 @@
 
 ## 2.0.0 — 2026-09-22
 
-从 1.0.0 起：14 次提交、133 个文件、+13579/−349。这一版的主线是**把站点从「写着方便」
-改成「读着舒服、爬着看得懂」**——一次编辑杂志风改版，加一条完整的检索层治理。
+从 1.0.0 起：15 次提交、214 个文件、+14665/−563（`git diff --shortstat 1.0.0..2.0.0` 的口径）。
+这一版的主线是**把站点从「写着方便」改成「读着舒服、爬着看得懂」**——
+一次编辑杂志风改版，加一条完整的检索层治理。
 
 ### 新增（阅读体验）
 
@@ -33,7 +34,8 @@
 
 ### 修复
 
-- **线上主分支缺内容**：`master` 落后 14 次提交，`sitemap.xml`、`feed.xml`、`categories.html`、
+- **线上主分支缺内容**：`master` 落后 15 次提交（含本次检索层改版），
+  `sitemap.xml`、`feed.xml`、`categories.html`、
   `series.html`、`tools.html` 全部 404，而 `robots.txt` 与每页 `<link rel=alternate>` 正指向它们。
   根因是 `deploy-github.sh` 推的是当前分支（`main`），Workflow 只监听 `master`。
 - sitemap.xml 一处 Liquid 语法错误（`a and b contains '://' == false`）让条件恒假：
