@@ -1074,12 +1074,12 @@ body {
 
 .post-grid {
     display: grid;
-    grid-template-columns: minmax(0, 760px);
+    grid-template-columns: minmax(0, var(--measure));
     justify-content: center;
 }
 
 body.has-toc .post-grid {
-    grid-template-columns: minmax(0, 760px) 236px;
+    grid-template-columns: minmax(0, var(--measure)) 236px;
     justify-content: center;
     column-gap: 48px;
 }
@@ -1092,9 +1092,17 @@ body.has-toc .post-grid {
 .post-content .markdown-body {
     width: 100%;
     padding: 0 0 8px;
-    font-size: 17px;
-    line-height: 32px;
+    // 基准 17px 乘以阅读偏好档位（tokens.scss 的 --rs），行高跟着乘，
+    // 换成 unitless 会改变后代元素的继承值、动到既有垂直节奏，所以留 calc。
+    font-size: calc(17px * var(--rs));
+    line-height: calc(32px * var(--rs));
     color: var(--ink-2);
+}
+
+// github-markdown 把 p 的字号写死成 17px，不显式退回继承就不跟着缩放；
+// 缩放只覆盖叙述文字，代码块与表格保持原尺寸（放大代码只会顶出横向滚动条）。
+.markdown-body p {
+    font-size: inherit;
 }
 
 // 让锚点跳转不被固定顶栏盖住
@@ -1108,19 +1116,34 @@ body.has-toc .post-grid {
     letter-spacing: -.2px;
 }
 
+// 标题按同一倍率缩放，但外边距不缩放：段落间距属于版面骨架，
+// 跟着字号一起长会让长文的分节感变松。
 .markdown-body h2 {
     margin: 44px 0 16px;
-    font-size: 27px;
+    font-size: calc(27px * var(--rs));
     line-height: 1.4;
 }
 
 .markdown-body h3 {
     margin: 32px 0 12px;
-    font-size: 21px;
+    font-size: calc(21px * var(--rs));
 }
 
 .markdown-body h4 {
-    font-size: 17.5px;
+    font-size: calc(17.5px * var(--rs));
+}
+
+.markdown-body h5 {
+    font-size: calc(14px * var(--rs));
+}
+
+.markdown-body h6 {
+    font-size: calc(12px * var(--rs));
+}
+
+// 正文字体族可切到衬线（$font-display 与标题同源），默认维持系统的无衬线栈
+html[data-rs-font="serif"] .post-content .markdown-body {
+    font-family: $font-display;
 }
 
 .post-rail {
@@ -2524,6 +2547,352 @@ body.js-reveal .reveal.is-in {
 }
 
 
+/*** 7.11 阅读偏好面板（字号 / 行宽 / 正文字体） ***/
+
+// 面板与触发按钮写在 _layouts/post.html 的刊头 meta 行里，行为由 editorial.js §11 接管：
+// 它负责把选择写进 localStorage 并同步到 html[data-rs-*]，缩放与栏宽的实际取值全部
+// 落在 tokens.scss 的 --rs / --measure 上。这里只负责面板本身长什么样。
+// 没 JS 时按钮点开的是个空白框吗？不是——面板带 hidden 属性，只有脚本会把它打开。
+.post-masthead .reader-item {
+    position: relative;
+    margin-left: auto;
+}
+
+// .g-masthead 的 overflow:hidden 是给首页飘籽层准备的，但文章页的刊头同样带着它，
+// 面板向下伸出 ~190px，没有头图的短文会被就地裁掉半截。只在展开期间放行，
+// 收起后仍由 hidden 兜住飘籽层的越界绘制。
+body.reader-open .post-masthead {
+    overflow: visible;
+}
+
+.reader-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+    }
+}
+
+.reader-btn-glyph {
+    font-family: $font-display;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--signal);
+}
+
+.reader-btn[aria-expanded='true'] {
+    color: var(--ink);
+    background-color: var(--signal-soft);
+    border-color: var(--signal);
+}
+
+.reader-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 30;
+    box-sizing: border-box;
+    width: 264px;
+    padding: 14px 14px 12px;
+    text-align: left;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-3);
+    animation: readerIn .18s ease-out both;
+}
+
+.reader-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 10px;
+}
+
+.reader-label {
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.reader-seg {
+    display: inline-flex;
+    padding: 2px;
+    background-color: var(--surface-2);
+    border-radius: 999px;
+}
+
+.reader-opt {
+    height: 26px;
+    padding: 0 11px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    border-radius: 999px;
+    transition: color .16s ease, background-color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.reader-opt[aria-pressed='true'] {
+    font-weight: 600;
+    color: var(--signal-ink);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-1);
+}
+
+.reader-reset {
+    width: 100%;
+    height: 28px;
+    margin-top: 2px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink-4);
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    border-top: 1px solid var(--rule);
+    transition: color .16s ease;
+
+    &:hover {
+        color: var(--signal-ink);
+    }
+}
+
+@keyframes readerIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+
+/*** 7.12 文内链接预览卡 ***/
+
+// 卡片由 editorial.js §12 建在 body 末尾、fixed 定位（省掉「相对链接锚点 + 滚动偏移」
+// 那套换算），pointer-events:none 让它永远不参与命中测试。
+.lp-card {
+    position: fixed;
+    z-index: 45;
+    box-sizing: border-box;
+    width: 320px;
+    // 窗口宽度接近卡片宽度时，place() 的夹取已无空间可用，靠这条兜底不越出视口。
+    max-width: calc(100vw - 24px);
+    padding: 12px 14px 11px;
+    pointer-events: none;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-2);
+    animation: lpIn .16s ease-out both;
+}
+
+.lp-kicker {
+    margin: 0 0 5px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--signal);
+}
+
+.lp-title {
+    overflow: hidden;
+    margin: 0 0 4px;
+    font-family: $font-display;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ink);
+}
+
+.lp-excerpt {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.62;
+    color: var(--ink-3);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+}
+
+.lp-meta {
+    margin: 7px 0 0;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    color: var(--ink-4);
+}
+
+// 外链角标由 JS 加类（editorial.js §12），不用 `[href^=http]` 猜域名——
+// 本站自己的绝对链接写全了协议也会被它算成外链。
+.markdown-body a.lp-external:after {
+    content: '↗';
+    margin-left: 1px;
+    font-family: $font-meta;
+    font-size: .82em;
+    color: var(--ink-4);
+}
+
+@keyframes lpIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+
+/*** 7.13 金句分享卡片 ***/
+
+// 选中正文 → 浮出一颗深色药丸「做成卡片」→ dialog 里预览 canvas 画的分享图。
+// 药丸底色取 --ink、文字取 --paper，夜间自动翻成浅底深字，不需要第二套配色。
+.quote-bar {
+    position: fixed;
+    z-index: 62;
+    padding: 3px;
+    background-color: var(--ink);
+    border-radius: 999px;
+    box-shadow: var(--shadow-3);
+    animation: quoteBarIn .14s ease-out both;
+}
+
+.quote-bar-btn {
+    height: 30px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--paper);
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    border-radius: 999px;
+    transition: opacity .16s ease;
+
+    &:hover {
+        opacity: .82;
+    }
+}
+
+.quote-dialog {
+    box-sizing: border-box;
+    width: min(560px, calc(100vw - 32px));
+    padding: 18px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-3);
+}
+
+.quote-dialog::backdrop {
+    background-color: var(--scrim);
+}
+
+.quote-hint {
+    margin: 0 0 12px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+// 画布按 2 倍像素绘制，这里靠 CSS 缩回对话框宽度
+.quote-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background-color: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+}
+
+.quote-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.quote-btn {
+    flex: 1;
+    height: 34px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-2);
+    cursor: pointer;
+    background-color: var(--surface-2);
+    border: none;
+    border-radius: var(--radius-m);
+    transition: background-color .16s ease, color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+        background-color: var(--signal-soft);
+    }
+}
+
+.quote-btn.is-primary {
+    color: var(--paper);
+    background-color: var(--signal);
+
+    &:hover {
+        color: var(--paper);
+        background-color: var(--signal-ink);
+    }
+}
+
+.quote-status {
+    min-height: 16px;
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+@keyframes quoteBarIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+
 /*** 7.10 窄屏悬浮按钮按滚动方向收放 ***/
 
 // 右下角那组是 40×190 的常驻方块，正文每次滚过都被压住（合辑行的日期列首当其冲）。
@@ -2792,13 +3161,38 @@ body.cmdk-open {
     .bottom-fixed-btn {
         transition: none;
     }
+
+    // 阅读偏好面板同理：滑入去掉，出现与消失本身要保留（否则选项看不见）
+    .reader-btn,
+    .reader-opt,
+    .reader-reset {
+        transition: none;
+    }
+
+    .reader-panel {
+        animation: none;
+    }
+
+    // 预览卡与外链角标属于「信息」，出现本身要保留，只去掉那 4px 的上浮
+    .lp-card {
+        animation: none;
+    }
+
+    .quote-bar {
+        animation: none;
+    }
+
+    .quote-bar-btn,
+    .quote-btn {
+        transition: none;
+    }
 }
 
 // 目录栏在可用宽度不足以同时容纳「正文 + 栏位」时隐藏：
 // 1240 = 760 正文 + 48 间距 + 236 目录 + 两侧余量
 @media screen and (max-width: 1239px) {
     body.has-toc .post-grid {
-        grid-template-columns: minmax(0, 760px);
+        grid-template-columns: minmax(0, var(--measure));
     }
 
     .post-rail {
@@ -3079,5 +3473,19 @@ body.cmdk-open {
 
     .tool-name {
         font-size: 24px;
+    }
+
+    // 窄屏不做悬空弹层：meta 行是块级流，按钮右边没有 264px 的余量，右对齐会把面板
+    // 顶出左边界。改成挤进文档流的一张卡，顺带绕开刊头 overflow:hidden 的裁切问题。
+    .post-masthead .reader-item {
+        display: block;
+        width: auto;
+    }
+
+    .reader-panel {
+        position: static;
+        width: auto;
+        margin-top: 10px;
+        box-shadow: none;
     }
 }

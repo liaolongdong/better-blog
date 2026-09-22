@@ -25,6 +25,27 @@
     --radius-m: 4px;
     --radius-l: 8px;
     --gutter: 32px;
+
+    // 阅读偏好（editorial.js §11）的两个可调令牌：正文栏宽与字号倍率。
+    // 放在 :root 是因为这块在 postcss 像素转视口的黑名单里，px 不会被换成 vw；
+    // 具体取值由 html[data-rs-*] 覆盖，未设偏好时即为下面的默认值。
+    --measure: 760px;
+    --rs: 1;
+}
+
+// 三档取值只改变量，不直接写尺寸：正文里所有需要跟随字号的规则都用
+// calc(基准 px * var(--rs)) 或 em 表达，缩放后行距与段落比例保持一致。
+html[data-rs-size="sm"] {
+    --rs: .92;
+}
+
+html[data-rs-size="lg"] {
+    --rs: 1.12;
+}
+
+html[data-rs-width="wide"] {
+    // 848 = 1140 容器 − 48 间距 − 236 目录栏，带目录时也不会顶出横向滚动
+    --measure: 848px;
 }
 
 // 深色标记同时挂在 <html> 和 <body> 上：<head> 里的内联脚本只能碰到 documentElement，

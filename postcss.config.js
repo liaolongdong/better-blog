@@ -72,6 +72,10 @@ module.exports = {
         '.lightbox',          // 图片灯箱，尺寸本来就按 vw/vh 写
         '.toc-',              // 目录抽屉的按钮/遮罩/关闭键（.toc 那条只覆盖得到 .toc 本身）
         '.notfound',          // 404 页（无 .masthead 之外的父选择器可借力）
+        '.reader-',           // 阅读偏好面板与触发按钮
+        '[data-rs-',          // tokens.scss 里靠属性选择器改 --measure/--rs 的那几条
+        '.lp-',               // 文内链接 hover 预览卡
+        '.quote-',            // 金句分享卡片（工具条、对话框、画布与按钮）
         '#cmdk',              // id 选择器不含 ".cmdk" 这个子串，单独列
         ':focus-visible'      // 裸伪类选择器同上，2px 描边不能被放大成 vw
       ],

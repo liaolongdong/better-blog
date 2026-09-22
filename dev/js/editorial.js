@@ -10,6 +10,10 @@
 
     var BASE_URL = window.SITE_BASEURL || '';
 
+    // search.json 的共享缓存，见 getCorpus()
+    var corpusCache = null;
+    var corpusLoading = null;
+
     /**
      * 是否开启了「减少动态效果」。平滑滚动属于可关闭的装饰性动效。
      * @returns {boolean}
@@ -326,6 +330,33 @@
         }
     }
 
+    /**
+     * 检索语料（search.json）：命令面板与链接预览共用同一份，
+     * 前者按输入词打分，后者按 url 取标题与摘要，都是首次用到才拉。
+     * @returns {Promise<Array>}
+     */
+    function getCorpus() {
+        if (corpusCache) return Promise.resolve(corpusCache);
+        if (!corpusLoading) {
+            corpusLoading = fetch(BASE_URL + '/search.json')
+                .then(function (res) { return res.json(); })
+                .then(function (data) { corpusCache = data; return data; })
+                .catch(function () { corpusLoading = null; return []; });
+        }
+        return corpusLoading;
+    }
+
+    /**
+     * 转义 HTML。查询词、链接文本与摘要都来自数据或用户，必须按文本处理。
+     * @param {string} str
+     * @returns {string}
+     */
+    function esc(str) {
+        return String(str).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        });
+    }
+
     /* ------------------------------------------------------------------
      * 4. 全站搜索命令面板
      * ------------------------------------------------------------------ */
@@ -344,8 +375,6 @@
         // 它会被 innerHTML 覆写，所以先把初始内容存下来。
         var defaultSub = emptySub.innerHTML;
         var lastTrigger = null;
-        var corpus = null;
-        var loading = null;
         var activeIndex = -1;
         var matches = [];
         var seq = 0;
@@ -363,20 +392,6 @@
             panel.hidden = true;
             document.body.classList.remove('cmdk-open');
             if (lastTrigger) lastTrigger.focus();
-        }
-
-        /**
-         * 拉取并缓存检索语料。搜索是低频动作，首次唤起时才请求。
-         * @returns {Promise<Array>}
-         */
-        function load() {
-            if (corpus) return Promise.resolve(corpus);
-            if (!loading) {
-                loading = fetch(BASE_URL + '/search.json')
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) { corpus = data; return data; });
-            }
-            return loading;
         }
 
         /**
@@ -398,17 +413,6 @@
                 }
             }
             return { score: total, hits: hits };
-        }
-
-        /**
-         * 转义 HTML，查询词来自用户输入，必须按文本处理。
-         * @param {string} str
-         * @returns {string}
-         */
-        function esc(str) {
-            return String(str).replace(/[&<>"]/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-            });
         }
 
         /** 用 <mark> 包住第一个命中片段，帮助用户确认「为什么这条被搜到」。 */
@@ -450,7 +454,7 @@
                 showEmpty('输入关键词开始搜索', '↑ ↓ 选择条目，Enter 打开文章');
                 return;
             }
-            load().then(function (data) {
+            getCorpus().then(function (data) {
                 // 连续输入会让多次检索并发返回；只渲染最后一次查询的结果，
                 // 否则慢响应可能覆盖快响应，出现「输入 b 却显示 a 的结果」。
                 if (token !== seq) return;
@@ -917,6 +921,635 @@
         else if (mq.addListener) mq.addListener(onBreak);
     }
 
+    /* ------------------------------------------------------------------
+     * 11. 阅读偏好（字号 / 行宽 / 正文字体）
+     * ------------------------------------------------------------------ */
+
+    // 键名、取值域与默认值必须和 head.html 里那段无闪烁内联脚本一致：
+    // 两边各自解析同一份 localStorage，任何一边改了枚举而另一边没改，
+    // 表现都是「刷新后偏好悄悄回到默认」，很难在肉眼回归里发现。
+    var READER_KEY = 'readerPrefs';
+    var READER_GROUPS = {
+        size: { attr: 'data-rs-size', values: ['sm', 'md', 'lg'], dft: 'md' },
+        width: { attr: 'data-rs-width', values: ['normal', 'wide'], dft: 'normal' },
+        font: { attr: 'data-rs-font', values: ['sans', 'serif'], dft: 'sans' }
+    };
+
+    function readReaderPrefs() {
+        var prefs = {};
+        var raw = null;
+        for (var g in READER_GROUPS) {
+            if (READER_GROUPS.hasOwnProperty(g)) prefs[g] = READER_GROUPS[g].dft;
+        }
+        try {
+            raw = localStorage.getItem(READER_KEY);
+        } catch (e) {
+            return prefs;
+        }
+        if (!raw) return prefs;
+        var stored;
+        try {
+            stored = JSON.parse(raw);
+        } catch (e) {
+            return prefs;
+        }
+        var short = { size: 's', width: 'w', font: 'f' };
+        for (var k in short) {
+            if (!short.hasOwnProperty(k)) continue;
+            var v = stored[short[k]];
+            if (READER_GROUPS[k].values.indexOf(v) >= 0) prefs[k] = v;
+        }
+        return prefs;
+    }
+
+    function applyReaderPrefs(prefs) {
+        var el = document.documentElement;
+        for (var g in READER_GROUPS) {
+            if (!READER_GROUPS.hasOwnProperty(g)) continue;
+            var cfg = READER_GROUPS[g];
+            if (prefs[g] === cfg.dft) el.removeAttribute(cfg.attr);
+            else el.setAttribute(cfg.attr, prefs[g]);
+        }
+    }
+
+    function writeReaderPrefs(prefs) {
+        var short = { size: 's', width: 'w', font: 'f' };
+        var out = {};
+        var used = false;
+        for (var g in short) {
+            if (!short.hasOwnProperty(g)) continue;
+            if (prefs[g] !== READER_GROUPS[g].dft) {
+                out[short[g]] = prefs[g];
+                used = true;
+            }
+        }
+        try {
+            // 全是默认值时删键而不是存 '{}'：head 的内联脚本据此直接早退，
+            // 「没设过偏好」和「设过又改回默认」在存储层保持同一个状态。
+            if (used) localStorage.setItem(READER_KEY, JSON.stringify(out));
+            else localStorage.removeItem(READER_KEY);
+        } catch (e) {
+            /* 无痕模式下写不进去：本次浏览内依然生效，只是下次进来回到默认 */
+        }
+    }
+
+    function initReaderPrefs() {
+        var btn = document.querySelector('.reader-btn');
+        var panel = document.getElementById('reader-panel');
+        if (!btn || !panel) return;
+
+        var opts = panel.querySelectorAll('.reader-opt');
+        var reset = panel.querySelector('.reader-reset');
+        var prefs = readReaderPrefs();
+        // head 的内联脚本已经先应用过一次，这里以 JS 解析出的同一份状态为准再写一遍，
+        // 保证「界面 aria-pressed」「html 属性」「localStorage」三者出自同一次读取。
+        applyReaderPrefs(prefs);
+
+        function sync() {
+            for (var i = 0; i < opts.length; i++) {
+                var group = opts[i].getAttribute('data-rs');
+                var value = opts[i].getAttribute('data-val');
+                opts[i].setAttribute('aria-pressed', prefs[group] === value ? 'true' : 'false');
+            }
+        }
+
+        function open() {
+            panel.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            // 桌面端面板是悬空的弹层，刊头那层 overflow:hidden 会把它裁掉半截，
+            // 展开期间临时放行（editorial.scss §7.11）。
+            document.body.classList.add('reader-open');
+        }
+
+        function close() {
+            if (panel.hidden) return;
+            panel.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('reader-open');
+        }
+
+        sync();
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (panel.hidden) open(); else close();
+        });
+
+        panel.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var opt = e.target.closest ? e.target.closest('.reader-opt') : null;
+            if (!opt) return;
+            var group = opt.getAttribute('data-rs');
+            var value = opt.getAttribute('data-val');
+            if (!group || prefs[group] === value) return;
+            prefs[group] = value;
+            applyReaderPrefs(prefs);
+            writeReaderPrefs(prefs);
+            sync();
+        });
+
+        if (reset) {
+            reset.addEventListener('click', function (e) {
+                e.stopPropagation();
+                for (var g in READER_GROUPS) {
+                    if (READER_GROUPS.hasOwnProperty(g)) prefs[g] = READER_GROUPS[g].dft;
+                }
+                applyReaderPrefs(prefs);
+                writeReaderPrefs(prefs);
+                sync();
+            });
+        }
+
+        // 点面板外任意处收起；面板内的点击上面已经 stopPropagation。
+        document.addEventListener('click', close);
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (panel.hidden) return;
+            close();
+            btn.focus();
+        });
+        // Tab 走出面板也算「离开」，否则键盘用户要手动 Esc 才能关掉一个已经看不见的框。
+        panel.addEventListener('focusout', function (e) {
+            var next = e.relatedTarget;
+            if (next && (panel.contains(next) || next === btn)) return;
+            close();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * 12. 文内链接预览卡
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 正文里的链接悬停片刻后浮出一张小卡：站内链接给标题、摘要与日期，
+     * 站外链给主机名与路径并说明「会离开本站」。
+     *
+     * 只在真有 hover 能力的设备启用（触屏上它只会变成误触后赖着不走的浮层），
+     * 卡片本身 pointer-events:none，指针永远进不到卡里，因此不需要「移入卡片保持显示」
+     * 那套延迟切换，收起逻辑只有一条：指针离开链接即收。
+     */
+    function initLinkPreview() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+        if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+        var card = null;
+        var slots = null;
+        var timer = null;
+        var current = null;
+        var index = null;
+
+        function ensureCard() {
+            if (card) return card;
+            card = document.createElement('div');
+            card.className = 'lp-card';
+            card.id = 'lp-card';
+            card.setAttribute('role', 'tooltip');
+            card.hidden = true;
+            slots = {
+                kicker: document.createElement('p'),
+                title: document.createElement('p'),
+                excerpt: document.createElement('p'),
+                meta: document.createElement('p')
+            };
+            slots.kicker.className = 'lp-kicker';
+            slots.title.className = 'lp-title';
+            slots.excerpt.className = 'lp-excerpt';
+            slots.meta.className = 'lp-meta';
+            card.appendChild(slots.kicker);
+            card.appendChild(slots.title);
+            card.appendChild(slots.excerpt);
+            card.appendChild(slots.meta);
+            document.body.appendChild(card);
+            return card;
+        }
+
+        /**
+         * 这条链接值不值得预览。返回 null 表示跳过。
+         * @param {HTMLAnchorElement} link
+         * @returns {Object|null}
+         */
+        function describe(link) {
+            var href = link.getAttribute('href') || '';
+            if (/^(mailto|tel|javascript):/i.test(href)) return null;
+            // 同页锚点跳转（含正文标题的 #锚点）不是「去别处」，预览只会挡视线
+            if (link.host === location.host && link.pathname === location.pathname && link.hash) return null;
+            if (link.host !== location.host) {
+                return { external: true, host: link.hostname, path: link.pathname + (link.search || '') };
+            }
+            var key = link.pathname;
+            if (BASE_URL && key.indexOf(BASE_URL) === 0) key = key.slice(BASE_URL.length);
+            return { external: false, key: key, hash: link.hash };
+        }
+
+        function fill(link, desc) {
+            if (desc.external) {
+                slots.kicker.textContent = '外部链接 · 会离开本站';
+                slots.title.textContent = desc.host;
+                slots.excerpt.textContent = desc.path;
+                slots.meta.textContent = '点击将在当前标签页打开';
+                return;
+            }
+            var item = index ? index[desc.key] : null;
+            if (item) {
+                slots.kicker.textContent = [item.category, item.date].filter(Boolean).join(' · ');
+                slots.title.textContent = item.title || '';
+                slots.excerpt.textContent = (item.excerpt || '').slice(0, 96);
+                slots.meta.textContent = '站内文章 · 点击查看';
+                return;
+            }
+            // 语料里只有文章，标签页 / 合集页 / 分类页这类站内目标退化成
+            // 「链接文字 + 路径」，仍然比什么都不给有用，且不为此再加一份数据源。
+            slots.kicker.textContent = '站内页面';
+            slots.title.textContent = (link.textContent || '').trim().slice(0, 48);
+            slots.excerpt.textContent = desc.key;
+            slots.meta.textContent = '点击查看';
+        }
+
+        function place(link) {
+            var r = link.getBoundingClientRect();
+            var pad = 12;
+            var cw = card.offsetWidth;
+            var ch = card.offsetHeight;
+            var left = r.left + r.width / 2 - cw / 2;
+            left = Math.max(pad, Math.min(left, window.innerWidth - cw - pad));
+            var top = r.bottom + 10;
+            if (top + ch > window.innerHeight - pad) top = r.top - ch - 10;
+            if (top < pad) top = pad;
+            card.style.left = Math.round(left) + 'px';
+            card.style.top = Math.round(top) + 'px';
+        }
+
+        function hide() {
+            window.clearTimeout(timer);
+            if (current) current.removeAttribute('aria-describedby');
+            current = null;
+            if (card) card.hidden = true;
+        }
+
+        function show(link, desc) {
+            fill(link, desc);
+            card.hidden = false;
+            // 卡片是全局复用的，只在显示期间挂描述关系，否则读屏会念到上一条链接的内容
+            link.setAttribute('aria-describedby', 'lp-card');
+            place(link);
+        }
+
+        function reveal(link, desc) {
+            ensureCard();
+            current = link;
+            if (desc.external) {
+                show(link, desc);
+                return;
+            }
+            getCorpus().then(function (data) {
+                if (!index) {
+                    index = {};
+                    for (var i = 0; i < data.length; i++) index[data[i].url] = data[i];
+                }
+                // 语料是异步回来的，期间指针可能已经移到另一根链接上
+                if (current !== link) return;
+                show(link, desc);
+            });
+        }
+
+        function onEnter(link, delay) {
+            var desc = describe(link);
+            if (!desc) return;
+            current = link;
+            window.clearTimeout(timer);
+            if (delay <= 0) reveal(link, desc);
+            else timer = window.setTimeout(function () { reveal(link, desc); }, delay);
+        }
+
+        var links = body.querySelectorAll('a[href]');
+        for (var i = 0; i < links.length; i++) {
+            (function (link) {
+                var desc = describe(link);
+                if (desc && desc.external) link.classList.add('lp-external');
+                link.addEventListener('mouseenter', function () { onEnter(link, 280); });
+                link.addEventListener('mouseleave', hide);
+                link.addEventListener('focus', function () { onEnter(link, 0); });
+                link.addEventListener('blur', hide);
+            })(links[i]);
+        }
+
+        // 卡片是 fixed 定位，一旦滚动就会和链接脱开；缩放同理。
+        window.addEventListener('scroll', hide, { passive: true, capture: true });
+        window.addEventListener('resize', hide, { passive: true });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') hide();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * 13. 金句分享卡片
+     * ------------------------------------------------------------------ */
+
+    // 选中正文里的一段话 → 画成一张可以直接转发的图。
+    // 太短的选中（一个词、一个数字）出不来好看的卡片，太长的会撑满卡片且不像「金句」，
+    // 因此卡在 8~150 字之间；换行按字符测宽，中英文混排都成立。
+    var QUOTE_MIN = 8;
+    var QUOTE_MAX = 150;
+    var QUOTE_W = 900;
+
+    function initQuoteCard() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+        var probe = document.createElement('dialog');
+        if (typeof probe.showModal !== 'function') return;
+
+        var bar = null;
+        var barBtn = null;
+        var dlg = null;
+        var canvas = null;
+        var status = null;
+        var quote = '';
+
+        function ensureBar() {
+            if (bar) return;
+            bar = document.createElement('div');
+            bar.className = 'quote-bar';
+            bar.hidden = true;
+            barBtn = document.createElement('button');
+            barBtn.type = 'button';
+            barBtn.className = 'quote-bar-btn';
+            barBtn.textContent = '做成卡片';
+            barBtn.addEventListener('click', function () { open(); });
+            bar.appendChild(barBtn);
+            document.body.appendChild(bar);
+        }
+
+        function hideBar() {
+            if (bar) bar.hidden = true;
+        }
+
+        function showBar(rect) {
+            ensureBar();
+            bar.hidden = false;
+            var w = bar.offsetWidth;
+            var left = Math.max(12, Math.min(rect.left + rect.width / 2 - w / 2, window.innerWidth - w - 12));
+            var top = rect.bottom + 12;
+            if (top + bar.offsetHeight > window.innerHeight - 12) top = Math.max(12, rect.top - bar.offsetHeight - 12);
+            bar.style.left = Math.round(left) + 'px';
+            bar.style.top = Math.round(top) + 'px';
+        }
+
+        /** 页面上那根选区：必须整段落在正文里，且不在代码块内。 */
+        function currentQuote() {
+            var sel = window.getSelection && window.getSelection();
+            if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+            var text = String(sel.toString()).replace(/\s+/g, ' ').trim();
+            if (text.length < QUOTE_MIN || text.length > QUOTE_MAX) return null;
+            var a = sel.anchorNode;
+            var f = sel.focusNode;
+            if (!a || !f || !body.contains(a) || !body.contains(f)) return null;
+            var node = a.nodeType === 1 ? a : a.parentNode;
+            if (node.closest && node.closest('pre, code')) return null;
+            return { text: text, rect: sel.getRangeAt(0).getBoundingClientRect() };
+        }
+
+        function onSelected() {
+            var q = currentQuote();
+            if (!q) { hideBar(); return; }
+            quote = q.text;
+            showBar(q.rect);
+        }
+
+        /** 画布上用的四条墨色 + 纸色，全部取自当前生效的设计令牌。 */
+        function ink() {
+            var cs = window.getComputedStyle(document.documentElement);
+            function v(name, dft) {
+                var got = cs.getPropertyValue(name);
+                return (got && got.trim()) || dft;
+            }
+            return {
+                paper: v('--paper', '#FAF9F6'),
+                ink: v('--ink', '#14161A'),
+                ink2: v('--ink-2', '#33373E'),
+                ink3: v('--ink-3', '#6E7480'),
+                ink4: v('--ink-4', '#A6ABB2'),
+                rule: v('--rule', '#E6E2D9'),
+                signal: v('--signal', '#0F62FE')
+            };
+        }
+
+        function meta() {
+            var title = document.querySelector('.post-masthead-title');
+            var time = document.querySelector('.post-masthead time .meta-text');
+            var brand = document.querySelector('.logo-word');
+            var url = location.href.replace(/^https?:\/\//, '');
+            if (BASE_URL) url = url.replace(BASE_URL + '/', '');
+            return {
+                title: (title && title.textContent.trim()) || document.title,
+                date: (time && time.textContent.trim()) || '',
+                brand: (brand && brand.textContent.trim()) || '',
+                url: url
+            };
+        }
+
+        /**
+         * 按字符测宽换行：中文没有空格可断，按词切分会整段溢出。
+         * @returns {string[]}
+         */
+        function wrap(ctx, text, maxWidth) {
+            var lines = [];
+            var line = '';
+            for (var i = 0; i < text.length; i++) {
+                var next = line + text[i];
+                if (line && ctx.measureText(next).width > maxWidth) {
+                    lines.push(line);
+                    line = text[i];
+                } else {
+                    line = next;
+                }
+            }
+            if (line) lines.push(line);
+            return lines;
+        }
+
+        function draw() {
+            var m = meta();
+            var c = ink();
+            var dpr = Math.min(window.devicePixelRatio || 1, 2);
+            var ctx = canvas.getContext('2d');
+            var pad = 64;
+            var boxW = QUOTE_W - pad * 2;
+            // 字号自适应：短句子放大到 46，长句子缩到 30，避免出现半空的卡片
+            var size = quote.length > 110 ? 30 : (quote.length > 60 ? 36 : 44);
+            var lh = Math.round(size * 1.55);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.font = '400 ' + size + 'px Georgia, "Songti SC", "Noto Serif CJK SC", serif';
+            var lines = wrap(ctx, quote, boxW);
+            var h = 176 + lines.length * lh + 96;
+            canvas.width = Math.round(QUOTE_W * dpr);
+            canvas.height = Math.round(h * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            ctx.fillStyle = c.paper;
+            ctx.fillRect(0, 0, QUOTE_W, h);
+            ctx.fillStyle = c.signal;
+            ctx.fillRect(0, 0, QUOTE_W, 5);
+
+            ctx.font = '400 16px "SF Mono", Menlo, Consolas, monospace';
+            ctx.fillStyle = c.ink4;
+            ctx.textBaseline = 'alphabetic';
+            var top = 74;
+            if (m.brand) ctx.fillText(m.brand.toUpperCase(), pad, top);
+            if (m.date) {
+                var dw = ctx.measureText(m.date).width;
+                ctx.fillText(m.date, QUOTE_W - pad - dw, top);
+            }
+
+            // 引号只做质感，不参与排版计算
+            ctx.font = '400 132px Georgia, serif';
+            ctx.fillStyle = c.signal;
+            ctx.globalAlpha = 0.16;
+            ctx.fillText('“', pad - 14, 178);
+            ctx.globalAlpha = 1;
+
+            ctx.font = '400 ' + size + 'px Georgia, "Songti SC", "Noto Serif CJK SC", serif';
+            ctx.fillStyle = c.ink;
+            var y = 176 + size * 0.8;
+            for (var i = 0; i < lines.length; i++) {
+                ctx.fillText(lines[i], pad, y);
+                y += lh;
+            }
+
+            var foot = h - 66;
+            ctx.strokeStyle = c.rule;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad, foot - 26 + 0.5);
+            ctx.lineTo(QUOTE_W - pad, foot - 26 + 0.5);
+            ctx.stroke();
+
+            // 页脚一行要放两段文字（左标题、右本页 URL），两者都会溢出，所以先量 URL、
+            // 把剩下的宽度给标题。固定预留 150px 是不够的：60 字符的 URL 按 15px 等宽实测 542px。
+            ctx.font = '400 15px "SF Mono", Menlo, Consolas, monospace';
+            var urlText = m.url;
+            var uw = ctx.measureText(urlText).width;
+            var urlCap = boxW * .45;
+            if (uw > urlCap) {
+                // 从左侧退字符：尾部是文件名，比协议和日期更能认出是哪篇
+                while (urlText.length > 8 && ctx.measureText('…' + urlText).width > urlCap) urlText = urlText.slice(1);
+                urlText = '…' + urlText;
+                uw = ctx.measureText(urlText).width;
+            }
+
+            ctx.font = '400 20px -apple-system, "Helvetica Neue", sans-serif';
+            ctx.fillStyle = c.ink2;
+            var t = m.title;
+            var titleCap = boxW - uw - 24;
+            while (t.length > 1 && ctx.measureText(t + '…').width > titleCap) t = t.slice(0, -1);
+            ctx.fillText(t + (t === m.title ? '' : '…'), pad, foot);
+            ctx.font = '400 15px "SF Mono", Menlo, Consolas, monospace';
+            ctx.fillStyle = c.ink4;
+            ctx.fillText(urlText, QUOTE_W - pad - uw, foot);
+        }
+
+        function ensureDialog() {
+            if (dlg) return;
+            dlg = document.createElement('dialog');
+            dlg.className = 'quote-dialog';
+            dlg.setAttribute('aria-label', '金句分享卡片');
+            canvas = document.createElement('canvas');
+            canvas.className = 'quote-canvas';
+            var hint = document.createElement('p');
+            hint.className = 'quote-hint';
+            hint.textContent = '选中的一段话已画成分享图';
+            var actions = document.createElement('div');
+            actions.className = 'quote-actions';
+            actions.innerHTML = '<button class="quote-btn is-primary" type="button" data-act="download">下载图片</button>'
+                + '<button class="quote-btn" type="button" data-act="copy">复制图片</button>'
+                + '<button class="quote-btn" type="button" data-act="close">关闭</button>';
+            status = document.createElement('p');
+            status.className = 'quote-status';
+            status.setAttribute('role', 'status');
+            dlg.appendChild(hint);
+            dlg.appendChild(canvas);
+            dlg.appendChild(actions);
+            dlg.appendChild(status);
+            document.body.appendChild(dlg);
+
+            actions.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-act]');
+                if (!btn) return;
+                var act = btn.getAttribute('data-act');
+                if (act === 'close') dlg.close();
+                else if (act === 'download') download();
+                else if (act === 'copy') copyImage();
+            });
+            // 点遮罩关闭：只有落在 dialog 自身（即遮罩区域）的点击才收，画布上的不算
+            dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+            // 主题在卡片打开期间被切换时，按当前墨色重画一次；关闭状态下不动画布
+            new MutationObserver(function () { if (dlg.open) draw(); }).observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+
+        function open() {
+            if (!quote) return;
+            ensureDialog();
+            hideBar();
+            draw();
+            status.textContent = '';
+            dlg.showModal();
+        }
+
+        function say(text) {
+            status.textContent = text;
+        }
+
+        function download() {
+            canvas.toBlob(function (blob) {
+                if (!blob) { say('生成图片失败，请改用截图'); return; }
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = (meta().title || 'quote').replace(/[\\/:*?"<>|]/g, '').slice(0, 40).replace(/[\s—–·、，,]+$/, '') + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+                say('已下载 PNG');
+            }, 'image/png');
+        }
+
+        function copyImage() {
+            if (!navigator.clipboard || !window.ClipboardItem) {
+                say('当前浏览器不支持复制图片，请长按或右键保存');
+                return;
+            }
+            canvas.toBlob(function (blob) {
+                if (!blob) { say('生成图片失败'); return; }
+                navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]).then(
+                    function () { say('图片已复制到剪贴板'); },
+                    function () { say('复制被拒绝，请改用下载'); }
+                );
+            }, 'image/png');
+        }
+
+        var pending = null;
+        document.addEventListener('selectionchange', function () {
+            // 选中过程中的 mouseup / 方向键连发都会触发，合并到下一帧再量选区
+            if (pending) return;
+            pending = window.requestAnimationFrame(function () {
+                pending = null;
+                onSelected();
+            });
+        });
+
+        document.addEventListener('mousedown', function (e) {
+            if (bar && !bar.hidden && !bar.contains(e.target)) hideBar();
+        });
+        window.addEventListener('scroll', hideBar, { passive: true });
+        window.addEventListener('resize', hideBar, { passive: true });
+        window.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') hideBar();
+        });
+    }
+
     function boot() {
         initTheme();
         initToc();
@@ -932,6 +1565,9 @@
         initReveal();
         initCountUp();
         initFabAutoTuck();
+        initReaderPrefs();
+        initLinkPreview();
+        initQuoteCard();
     }
 
     if (document.readyState === 'loading') {

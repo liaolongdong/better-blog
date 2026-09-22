@@ -29,6 +29,30 @@
         })();
     </script>
     {% endif %}
+    {%- comment -%}
+    阅读偏好也要在 <head> 里同步定档：字号与行宽改变的是正文首屏的量，
+    等 editorial.js 在 DOMContentLoaded 再应用，读者会先看到一屏默认排版再跳一下。
+    属性统一挂在 <html> 上，键名与取值与 editorial.js §11 保持一致。
+    {%- endcomment -%}
+    <script>
+        (function () {
+            var raw = null;
+            try { raw = localStorage.getItem('readerPrefs'); } catch (e) { return; }
+            if (!raw) return;
+            var p;
+            try { p = JSON.parse(raw); } catch (e) { return; }
+            var el = document.documentElement;
+            // 只写非默认值：默认档位由 tokens.scss 的 --rs / --measure 兜着，
+            // 属性留空即「未设偏好」，重置按钮也走同一条判定。
+            var pick = function (v, ok, dft) { return ok.indexOf(v) >= 0 && v !== dft ? v : null; };
+            var s = pick(p.s, ['sm', 'md', 'lg'], 'md');
+            var w = pick(p.w, ['normal', 'wide'], 'normal');
+            var f = pick(p.f, ['sans', 'serif'], 'sans');
+            if (s) el.setAttribute('data-rs-size', s);
+            if (w) el.setAttribute('data-rs-width', w);
+            if (f) el.setAttribute('data-rs-font', f);
+        })();
+    </script>
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     {% include seoMeta.html %}

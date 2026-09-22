@@ -95,6 +95,41 @@
             {% include metaIcon.html name='time' size=16 %}
             <span class="meta-text">约 {{ post_chars }} 字 · {{ post_chars | plus: 399 | divided_by: 400 }} 分钟</span>
           </span>
+          {%- comment -%}
+          阅读偏好：字号 / 行宽 / 正文字体三档，选择写入 localStorage 并同步到
+          html[data-rs-*]，取值由 tokens.scss 的 --rs 与 --measure 生效。
+          面板默认带 hidden，只有 editorial.js §11 会把它打开，无 JS 时不会出现空白框。
+          {%- endcomment -%}
+          <span class="post-meta-item reader-item">
+            <button class="reader-btn" type="button" aria-expanded="false" aria-controls="reader-panel">
+              <span class="reader-btn-glyph" aria-hidden="true">Aa</span>阅读设置
+            </button>
+            <div class="reader-panel" id="reader-panel" role="group" aria-label="阅读设置" hidden>
+              <p class="reader-group">
+                <span class="reader-label">字号</span>
+                <span class="reader-seg">
+                  <button class="reader-opt" type="button" data-rs="size" data-val="sm">小</button>
+                  <button class="reader-opt" type="button" data-rs="size" data-val="md">标准</button>
+                  <button class="reader-opt" type="button" data-rs="size" data-val="lg">大</button>
+                </span>
+              </p>
+              <p class="reader-group">
+                <span class="reader-label">行宽</span>
+                <span class="reader-seg">
+                  <button class="reader-opt" type="button" data-rs="width" data-val="normal">标准</button>
+                  <button class="reader-opt" type="button" data-rs="width" data-val="wide">宽阔</button>
+                </span>
+              </p>
+              <p class="reader-group">
+                <span class="reader-label">正文</span>
+                <span class="reader-seg">
+                  <button class="reader-opt" type="button" data-rs="font" data-val="sans">无衬线</button>
+                  <button class="reader-opt" type="button" data-rs="font" data-val="serif">衬线</button>
+                </span>
+              </p>
+              <button class="reader-reset" type="button">恢复默认</button>
+            </div>
+          </span>
         </div>
       </div>
     </div>
