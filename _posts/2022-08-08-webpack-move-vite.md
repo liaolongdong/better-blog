@@ -6,8 +6,6 @@ date: 2022-08-08
 categories: [前端工程化]
 tags: webpack vite 前端构建 工程化
 ---
-## webpack打包项目迁移到vite
-
 ## 项目名称
 
 webpack打包项目迁移到vite

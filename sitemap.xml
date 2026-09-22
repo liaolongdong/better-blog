@@ -52,9 +52,14 @@ noindex 的文章不进站点地图：一边在页面里写「别收」，一边
 {%- comment -%}
 封面进站点地图只对站内图开启：外链封面（百度图床 / 知乎图床一类）随时会 404，
 把它写进 <image:loc> 等于给爬虫一个取不到的地址，Google 会整条丢弃，不如不报。
-判外链只看有没有协议头，写法上必须用 unless ——
-`a and b contains '://' == false` 在 Liquid 里是语法错误（contains 后不能再接 ==），
-构建时只报一条 Warning，然后静默把条件判成恒假：修之前 32 篇站内封面只出了 11 条。
+判外链只看有没有协议头，写法上必须用 unless 单独一层——
+`if post.cover and post.cover contains '://' == false` 这种顺着读过去的写法，
+Liquid 既不报语法错也不报 Warning（实测 errors 为空），却把条件求值成「只保留外链」：
+本次开发的第一版就是这么写的，产物里 11 条 image:loc 全是 timgsa/zhimg 那些失效图床，
+站内 32 张封面一条没进去，而构建日志干净得像没事发生。
+这类「读起来对、跑起来反」的条件，只能靠产物计数发现，别指望构建报错。
+（本注释里不能出现真正的花括号标签写法——Liquid 4 会把注释体内的 if 当块解析，
+一路吃到 endcomment 才报「不是合法分隔符」，构建直接失败。）
 {%- endcomment -%}
 {%- if post.cover %}{%- unless post.cover contains '://' %}
         <image:image>

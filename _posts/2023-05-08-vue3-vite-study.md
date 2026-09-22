@@ -6,8 +6,6 @@ date: 2023-05-08
 categories: [Vue, 前端工程化]
 tags: Vue3 Vue2 Vite webpack 前端框架
 ---
-## vue3+vite项目研究分析对比
-
 ## vue3和vue2分析对比
 
 `Vue3`和`Vue2`之间的详细对比，具体如下：

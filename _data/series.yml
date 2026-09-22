@@ -2,9 +2,14 @@
 # url 用 Jekyll 的 page.url 口径（不含 baseurl），与 permalink /:year/:month/:day/:title.html 一致。
 # ⚠️ 日期段取自 front matter 的 date，不是文件名前缀——Jekyll 的 :title 来自文件名，
 #    但 :year/:month/:day 来自文章的 date 字段，而这个字段会覆盖文件名里的日期。仓库里有
-#    两处不一致的存量文章（2019-01-25-build-private-package.md 的 date 是 2019-01-24，
-#    2020-06-06-linux-common-command.md 的 date 是 2021-03-23），它们的 URL 跟着 date 走。
-#    这两条 date 不要「顺手改正」：改了 URL 就变，早年分享出去的链接会全部失效。
+#    四处不一致的存量文章（逐个实测于 2026-09-22，URL 一律跟着 date 走）：
+#      2019-01-25-build-private-package.md  date 2019-01-24
+#      2020-06-06-linux-common-command.md   date 2021-03-23
+#      2023-05-04-aop-programming.md        date 2023-04-12
+#      2024-10-09-fe-env-switch.md          date 2024-10-08
+#    这四条 date 不要「顺手改正」：改了 URL 就变，早年分享出去的链接会全部失效。
+#    核对办法：跑 USAGE.md「合集与精选」里那段脚本，它按 date 反推 URL 并逐条比对
+#    order 里的每个地址（注意篇目键名是 order，写成 posts 会被静默忽略）。
 # 标题大小写必须和文件名一致，例如 AI-model-rating 不能被写成 ai-model-rating。
 # 写错不会构建失败，而是让这一条在文章页与合集页渲染成
 # 「_data/series.yml 里的地址对不上任何文章：<url>」——这段兜底文案是给用户看的错误提示，

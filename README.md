@@ -29,7 +29,7 @@
 | 分类归档 | [/categories.html](https://liaolongdong.github.io/better-blog/categories.html) | 13 个分类，一篇文章可同时归属多个 |
 | 合集 | [/series.html](https://liaolongdong.github.io/better-blog/series.html) | 10 组连载，文章页内自动挂上下篇导航 |
 | 标签云 | [/tags.html](https://liaolongdong.github.io/better-blog/tags.html) | 全量标签检索 |
-| 示例 | [/demo.html](https://liaolongdong.github.io/better-blog/demo.html) | 18 个可直接操作的 demo（拖拽、shake、echarts、倒计时红包等） |
+| 示例 | [/demo.html](https://liaolongdong.github.io/better-blog/demo.html) | 19 条可直接打开的示例入口（来自 `demo/` 下 18 个目录，拖拽、shake、echarts、倒计时红包等） |
 | WebLab | [/weblab.html](https://liaolongdong.github.io/better-blog/weblab.html) | 浏览器里的 HTML / CSS / JS 编辑器，无需账号 |
 | 工具箱 | [/tools.html](https://liaolongdong.github.io/better-blog/tools.html) | 自研 Chrome 插件产品页 |
 | 关于 | [/about.html](https://liaolongdong.github.io/better-blog/about.html) | 作者信息与职业时间线 |

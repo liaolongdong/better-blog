@@ -1,6 +1,6 @@
 {
   "name": "liaolongdong.github.io",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "廖小新的个人博客",
   "scripts": {
     "dev": "concurrently -n assets,jekyll -c blue,magenta \"vite build --watch\" \"bundle exec jekyll serve\"",

@@ -204,33 +204,43 @@ AI(13)、开源实测(11)、JavaScript(10)、H5与微信(6)、算法与面试(5)
 ### 合集与精选
 
 连载关系写在 `_data/series.yml`，首页手工挑选的推荐写在 `_data/picks.yml`。
-`series.yml` 里的 `posts` 必须是文章的**完整 URL 路径**（含 `.html`，不含 `baseurl`）：
+每条合集的篇目放在 **`order`** 键下（不是 `posts`——写错键名不会报错，只会被静默忽略，
+合集凭空变成空壳），值必须是文章的**完整 URL 路径**（含 `.html`，不含 `baseurl`）：
 
 ```yaml
 - slug: my-series
   title: 合集名
-  posts:
+  lede: 一句话简介
+  order:
     - /2026/09/22/slug.html
 ```
 
 写错不会构建失败，而是在文章页的连载条上直接渲染出错误文本。加完跑一次构建，
-用 `_posts` 里的实际 permalink 逐条核对：
+用 `_posts` 里的实际 permalink 逐条核对（这段脚本同时校验 series 与 picks）：
 
 ```bash
 python3 - <<'PY'
 import re, glob, yaml
 urls = set()
 for f in glob.glob('_posts/*.md'):
-    m = re.search(r'^date:\s*([\d-]+)', open(f, encoding='utf-8').read(), re.M)
+    t = open(f, encoding='utf-8').read()
+    m = re.search(r'^date:\s*([\d-]+)', t, re.M)
     slug = re.sub(r'^\d{4}-\d{2}-\d{2}-', '', f.split('/')[-1])[:-3]
     if m:
         y, mo, d = m.group(1).split('-')
         urls.add(f'/{y}/{mo}/{d}/{slug}.html')
-bad = [(s['slug'], p) for s in yaml.safe_load(open('_data/series.yml'))
-       for p in s.get('posts', []) if p not in urls]
-print('series.yml 中失效的链接：', bad or '无')
+series = yaml.safe_load(open('_data/series.yml'))
+bad = [(s['slug'], p) for s in series for p in s.get('order', []) if p not in urls]
+checked = sum(len(s.get('order', [])) for s in series)
+picks = yaml.safe_load(open('_data/picks.yml'))
+bad += [('picks', p['url']) for p in picks if p.get('url') not in urls]
+print(f'核对 {checked} 条连载链接 + {len(picks)} 条精选：失效 {bad or "无"}')
+assert checked > 0, '一条都没核对到——键名是不是又写成 posts 了？'
 PY
 ```
+
+最后那行 assert 是这段脚本的关键：它自己也可能「静默通过」，键名写错时核对数是 0，
+输出照样是「失效 无」。
 
 ## 📁 开发工作流程
 
@@ -363,34 +373,83 @@ pnpm deploy:ali    # 阿里云服务器部署
 
 ## 🔎 检索层自查
 
-Jekyll 构建成功不代表 SEO 没问题。改完模板跑这四条，能在本地就把结构性问题挡下来：
+Jekyll 构建成功不代表 SEO 没问题。改完模板跑下面这六条，能在本地就把结构性问题挡下来：
+第一条命令负责重建，后面五条全部读它的产物——**每次都要带着第一条一起跑**。
+这个目录留着上一次的构建时踩过一次：脚本对着旧产物输出一串「异常」，
+看起来像刚修的问题没修好，其实是读错了目录。
 
 ```bash
 bundle exec jekyll build --destination /tmp/seo-check   # 不污染共享的 _site/
 
-# 1. 每篇文章应当只有一个 H1（多余的 H1 会稀释标题信号）
-grep -l '<h1' /tmp/seo-check/20*/*/*/*.html | wc -l
+# 这几条的通过标准一律是「没有输出」或「数字对得上预期」。写自检脚本最容易犯的错
+# 是它永远通过：`grep -l '<h1' | wc -l` 数的是「有 H1 的文件数」，永远等于文章总数，
+# 出两个 H1 也照样是那个数——所以这里全部改成「统计异常项」的写法。
 
-# 2. 不应出现重复标题 / 空描述
+# 1. 每篇文章应当只有一个 H1（多余的 H1 会稀释标题信号）——预期：无输出
+for f in /tmp/seo-check/20*/*/*/*.html; do
+    n=$(grep -o '<h1' "$f" | wc -l | tr -d ' ')
+    [ "$n" -ne 1 ] && echo "H1=$n  $f"
+done
+
+# 2. 不应出现重复标题 / 空描述 —— 预期：无输出
 grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.html | sort | uniq -d
 
 # 3. JSON-LD 必须是合法 JSON（模板里一个未转义引号就能让它整块失效）
+#    预期：blocks 与站内页面结构吻合（当前口径 160：BlogPosting 66 + BreadcrumbList 66
+#    + CollectionPage 25 + WebSite/Blog/Person 各 1），且 failures 为 0
+#    （noindex 的 404 页不声明结构化数据，见 _includes/jsonLd.html）
 python3 - <<'PY'
-import json, pathlib, re
-blocks = 0
+import json, pathlib, re, collections
+blocks, types, failures = 0, collections.Counter(), 0
 for p in pathlib.Path('/tmp/seo-check').rglob('*.html'):
     for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>',
                          p.read_text(encoding='utf-8'), re.S):
         blocks += 1
         try:
-            json.loads(m.group(1))
+            types[json.loads(m.group(1)).get('@type')] += 1
         except Exception as e:
+            failures += 1
             print('解析失败:', p, e)
-print('JSON-LD 块数:', blocks)
+print('JSON-LD 块:', blocks, dict(types), '失败:', failures)
 PY
 
-# 4. sitemap 与 canonical 必须说同一套地址
-grep -c '<loc>' /tmp/seo-check/sitemap.xml
+# 4. sitemap 的每个地址都要有落盘文件、且那一页有自引用 canonical —— 预期：missing/canon 为空
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+locs = re.findall(r'<loc>(.*?)</loc>', (root / 'sitemap.xml').read_text(encoding='utf-8'))
+missing, canon = [], []
+for u in locs:
+    rel = u.split('/better-blog/')[-1] or 'index.html'   # 首页那条 loc 以 / 结尾，切出来是空串
+    f = root / rel
+    if not f.is_file():
+        missing.append(u); continue
+    if 'rel="canonical"' not in f.read_text(encoding='utf-8'):
+        canon.append(u)
+print('loc 总数:', len(locs), '| 无文件:', missing, '| 缺 canonical:', canon)
+PY
+
+# 5. 文章页面包屑必须链到分类锚点。这里塌过一次：`| append: page.categories | first`
+#    对字符串取 first 得 nil，66 页的栏目链接全变成裸 baseurl —— 预期：bad 为 0
+python3 - <<'PY'
+import pathlib, re
+bad = [str(p) for p in pathlib.Path('/tmp/seo-check').rglob('*.html')
+       if (m := re.search(r'class="post-crumb".*?</nav>', p.read_text(encoding='utf-8'), re.S))
+       and '#' not in m.group(0)]
+print('面包屑缺锚点:', len(bad), bad[:3])
+PY
+
+# 6. noindex 的页面不得出现在 sitemap 里，也不得声明 JSON-LD —— 预期：两条都是 []
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+ni = {str(p.relative_to(root)) for p in root.rglob('*.html')
+      if 'content="noindex' in p.read_text(encoding='utf-8')}
+inmap = {u.split('/better-blog/')[-1] for u in
+         re.findall(r'<loc>(.*?)</loc>', (root / 'sitemap.xml').read_text(encoding='utf-8'))}
+withld = {n for n in ni if 'application/ld+json' in (root / n).read_text(encoding='utf-8')}
+print('noindex 却进了 sitemap:', sorted(inmap & ni), '| 还带 JSON-LD:', sorted(withld))
+PY
 ```
 
 `_site`（或上面的临时目录）里不该出现的东西：`README.html`、`USAGE.html`、

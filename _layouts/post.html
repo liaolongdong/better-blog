@@ -47,7 +47,13 @@
         <a href="{{ '/' | prepend: site.baseurl }}">首页</a>
         <span class="crumb-sep" aria-hidden="true">/</span>
         {% if page.categories.size > 0 %}
-        <a href="{{ '/categories.html#' | append: page.categories | first | prepend: site.baseurl }}">{{ page.categories | first }}</a>
+        {%- comment -%}
+        这里必须是 page.categories[0]，不能写成 `… | append: page.categories | first`：
+        append 先把数组转成字符串 `/categories.html#["JavaScript"]`，再对字符串取 first
+        得到 nil，整条链塌成 baseurl——66 篇文章的面包屑全指向站点根地址（实测产物里
+        href="/better-blog" 出现 66 次），分类锚点的内链权重一分都没送出去。
+        {%- endcomment -%}
+        <a href="{{ '/categories.html#' | append: page.categories[0] | prepend: site.baseurl }}">{{ page.categories | first }}</a>
         {% else %}
         <span>正文</span>
         {% endif %}
@@ -166,7 +172,8 @@
 
   <div class="post-content visible">
     <div class="g-container post-grid">
-    <div class="post-main">
+    {%- comment -%} id="main" 是 _includes/header.html 那条「跳到主要内容」的落点 {%- endcomment -%}
+    <div class="post-main" id="main">
       <article class="markdown-body" id="post-body"
                data-chars="{{ post_chars }}"
                data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"

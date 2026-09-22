@@ -36,7 +36,7 @@ baseurl: '/better-blog'
 # 三处要一起改：本字段、package.json 的 version、CHANGELOG.md 的新条目——
 # 递增规则与发版步骤见 USAGE.md「版本号与 tag 约定」。
 # 页脚读它（_includes/footer.html），置空则页脚不显示版本，不影响任何页面。
-version: '2.0.0'
+version: '2.0.1'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'

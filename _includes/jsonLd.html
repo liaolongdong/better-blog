@@ -15,7 +15,13 @@
 {%- endcomment -%}
 {%- assign site_home = '/' | absolute_url -%}
 {%- assign page_url = page.url | absolute_url -%}
-{%- if page.layout == 'post' -%}
+{%- comment -%}
+noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「整站唯一的收录开关」，
+如果一边在 meta 里说别收、一边又递一份 BlogPosting/CollectionPage，开关就不止一个了。
+目前站内用到这条分支的只有 404。
+{%- endcomment -%}
+{%- if page.noindex -%}
+{%- elsif page.layout == 'post' -%}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
