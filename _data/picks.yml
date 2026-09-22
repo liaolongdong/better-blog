@@ -1,0 +1,20 @@
+# 首页「编辑精选」。
+# 为什么不是自动热榜：这台 Waline 服务端只暴露单路径读取（GET /api/article?path=…），
+# 没有全站排行接口，且对已计入浏览量的文章会返回 {"time":0}——拿不到可信的排序数据，
+# 与其前端轮询 66 次拼一个假榜单，不如手工挑。
+# url 同样是 page.url 口径（不含 baseurl）。
+
+- url: /2026/06/15/webmcp-vs-puppeteer.html
+  why: Chrome 官方新 API 的 first-hand 实测，结论直接决定还值不值得写 Puppeteer 脚本
+
+- url: /2026/06/28/account-password-helper-new.html
+  why: 自己写的插件：一键填充并自动点击登录，多环境账号天然隔离
+
+- url: /2026/06/06/ai-sdd-github.html
+  why: 把 SDD 四个流派摆开对比，判断哪套规范流程真能约束住 Agent
+
+- url: /2026/09/17/gods-eye-view-keyless.html
+  why: 一个 API key 都不配就能看卫星图，13 条免密路径逐条验证
+
+- url: /2019/02/25/you-dont-kown-js-tips.html
+  why: 站内长尾最稳的一篇，JS 边角料翻了源码才敢写

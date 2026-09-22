@@ -184,4 +184,8 @@ class CursorSpecialEffects {
 }
 
 const cursorSpecialEffects = new CursorSpecialEffects();
-cursorSpecialEffects.init();
+
+// 鼠标尾迹是纯装饰，且完全跟随指针持续重绘，属于「减少动态效果」明确要关的那一类。
+if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    cursorSpecialEffects.init();
+}

@@ -1,0 +1,66 @@
+---
+layout: default
+title: 合集
+description: 把散在几个月里的同一件事串成一条线，按阅读顺序一次看完
+---
+
+{% include header.html %}
+
+{%- assign in_series = 0 -%}
+{%- for s in site.data.series -%}
+{%- assign in_series = in_series | plus: s.order.size -%}
+{%- endfor -%}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Collection · 按剧集浏览</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">{{ site.data.series.size }} collections</span>
+        </p>
+        <h1 class="masthead-title">合集</h1>
+        <p class="masthead-lede">
+            有些主题不是一篇能写完的：同一批仓库会被连着看好几周，同一个插件会迭代好几版。
+            这里把它们按阅读顺序串起来，不用自己在时间线里翻。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.data.series.size }}</strong><span>个合集</span></li>
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ in_series }}</strong><span>篇已归入合集</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container archive-content" id="main">
+    <nav class="cat-index" aria-label="合集索引">
+        {% for s in site.data.series %}
+        <a class="cat-chip" href="#{{ s.slug }}">{{ s.title }}<em>{{ s.order.size }}</em></a>
+        {% endfor %}
+    </nav>
+
+    {% for s in site.data.series %}
+    <section class="cat-section series-section" id="{{ s.slug }}">
+        <header class="cat-head">
+            <h2 class="cat-name">{{ s.title }}</h2>
+            <span class="cat-count">{{ s.order.size }} 篇</span>
+        </header>
+        <p class="series-lede">{{ s.lede }}</p>
+        <ol class="series-list">
+            {% for u in s.order %}
+            {% assign sp = site.posts | where: "url", u | first %}
+            <li class="series-row">
+                <span class="series-no">{{ forloop.index }}</span>
+                {% if sp %}
+                <a class="series-link" href="{{ sp.url | prepend: site.baseurl }}">{{ sp.title }}</a>
+                <time class="series-date" datetime="{{ sp.date | date: '%Y-%m-%d' }}">{{ sp.date | date: '%Y.%m' }}</time>
+                {% else %}
+                <span class="series-missing">_data/series.yml 里的地址对不上任何文章：{{ u }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+    {% endfor %}
+</main>
+
+{% include footer.html %}

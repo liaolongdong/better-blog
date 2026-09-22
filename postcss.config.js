@@ -66,6 +66,11 @@ module.exports = {
         '.archive-',
         '.cat-',
         '.cta',
+        '.series-',           // 合集清单（.post-series* 已被上面的 /\.post-/ 覆盖）
+        '.heading-anchor',
+        '.resume',            // 续读浮条（.resume-* 同理，靠子串命中）
+        '.lightbox',          // 图片灯箱，尺寸本来就按 vw/vh 写
+        '.toc-',              // 目录抽屉的按钮/遮罩/关闭键（.toc 那条只覆盖得到 .toc 本身）
         '.notfound',          // 404 页（无 .masthead 之外的父选择器可借力）
         '#cmdk',              // id 选择器不含 ".cmdk" 这个子串，单独列
         ':focus-visible'      // 裸伪类选择器同上，2px 描边不能被放大成 vw

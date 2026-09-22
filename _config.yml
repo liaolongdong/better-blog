@@ -27,6 +27,9 @@ nav:
   - key: categories
     label: 分类
     url: '/categories.html'
+  - key: series
+    label: 合集
+    url: '/series.html'
   - key: tags
     label: 标签
     url: '/tags.html'

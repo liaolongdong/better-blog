@@ -1,0 +1,88 @@
+# 合集（系列）单一数据源。
+# url 用 Jekyll 的 page.url 口径（不含 baseurl），与 permalink /:year/:month/:day/:title.html 一致；
+# 标题大小写必须和文件名一致，例如 AI-model-rating 不能被写成 ai-model-rating。
+# 顺序即阅读顺序，文章页的「第 N/M 篇」和系列内上下篇都按这里来，不按时间。
+
+- slug: silent-changes-2026-09
+  title: 九月的静默改动
+  lede: 八个上游仓库，在你没翻 changelog 的那天各自改了什么——逐条跑过再说话。
+  order:
+    - /2026/09/10/agent-visual-toolchain.html
+    - /2026/09/10/nextjs-avif-trap.html
+    - /2026/09/10/silent-defaults.html
+    - /2026/09/12/trending-skill-sweep.html
+    - /2026/09/17/gods-eye-view-keyless.html
+    - /2026/09/21/one-worktree-per-agent.html
+    - /2026/09/21/pnpm-task-settings.html
+    - /2026/09/21/security-audit-two-validators.html
+
+- slug: ai-sdd
+  title: AI 编程工程化
+  lede: 从「用 Spec 管住 Agent」到四大流派拆解，AI 编码从手艺人活变成工程活。
+  order:
+    - /2026/06/05/ai-sdd.html
+    - /2026/06/06/ai-sdd-github.html
+
+- slug: ai-model-rating
+  title: 大模型排行榜实测
+  lede: 同一批任务跑两轮排名，看国产模型怎么在两个月里把位次改掉。
+  order:
+    - /2026/05/30/AI-model-rating.html
+    - /2026/05/31/AI-model-rating.html
+
+- slug: account-password-helper
+  title: 账号密码管理插件
+  lede: 一款本地优先插件从想法到一键自动登录的两次记录。
+  order:
+    - /2026/05/25/account-password-helper.html
+    - /2026/06/28/account-password-helper-new.html
+
+- slug: fe-ai-opensource-0712
+  title: 前端 AI 开源速览
+  lede: 同一天扫过的三个项目：让网页听懂人话、给人和 Agent 共用的 UI 系统、终结 AI 味的 46 条规则。
+  order:
+    - /2026/07/12/alibaba-page-agent.html
+    - /2026/07/12/facebook-astryx.html
+    - /2026/07/12/impeccable-ai-design.html
+
+- slug: js-css-tips
+  title: 你不知道的前端小技巧
+  lede: JS 与 CSS 各一篇，都是翻源码时顺手记下来的边角料。
+  order:
+    - /2019/02/25/you-dont-kown-js-tips.html
+    - /2019/02/26/you-dont-kown-css-tips.html
+
+- slug: npm-package
+  title: 包管理与私有仓库
+  lede: 发公网包、搭私有源、三种包管理器横向对比。
+  order:
+    - /2019/01/24/publish-public-npm.html
+    - /2019/01/24/build-private-package.html
+    - /2023/06/14/npm-yarn-pnpm.html
+
+- slug: server-deploy
+  title: 服务器部署手记
+  lede: 阿里云上从 node+mongodb 到 nginx https，再到配置详解的完整链路。
+  order:
+    - /2018/11/01/alicloud-node-mongodb.html
+    - /2018/11/16/alicloud-nginx.html
+    - /2021/03/23/linux-common-command.html
+    - /2023/04/12/nginx-config-explain.html
+
+- slug: algo-interview
+  title: 算法与面试手写题
+  lede: 排序、查找、常见手写题与面试题汇总，五篇凑一份可刷的清单。
+  order:
+    - /2019/03/06/common-sort-arithmetic.html
+    - /2019/03/20/interview-programme-summarize.html
+    - /2023/02/25/common-arithmetic.html
+    - /2023/06/07/common-search-algorithm.html
+    - /2023/06/08/common-sort-algorithm.html
+
+- slug: wechat-h5
+  title: 微信生态 H5 踩坑
+  lede: JSAPI 支付、分享到好友与朋友圈、原生 JS 实现三方分享。
+  order:
+    - /2017/09/09/wxpay.html
+    - /2018/06/06/wxshare-summarize.html
+    - /2018/12/25/qqweiboshare.html

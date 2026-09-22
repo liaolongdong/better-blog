@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://liaolongdong.github.io/better-blog/sitemap.xml

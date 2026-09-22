@@ -9,6 +9,26 @@
 <head>
     <meta name="base-url" content="{{ site.baseurl }}">
     <script>window.SITE_BASEURL = "{{ site.baseurl }}";</script>
+    {%- comment -%}
+    夜间模式在 <head> 里同步定档，不等 editorial.js：主题类原本只在 DOMContentLoaded
+    才加到 body 上，系统深色偏好的用户每次跳转都会先白闪一屏。
+    这段必须排在所有 <link rel=stylesheet> 之前——classic script 会等待它前面的
+    样式表加载完才执行，放后面就失去意义了。
+    只写用户显式选过的模式；没选过时跟随 prefers-color-scheme，
+    与 editorial.js 里 EditorialTheme 的解析口径保持一致。
+    {%- endcomment -%}
+    {% if site.nightMode %}
+    <script>
+        (function () {
+            var m = null;
+            try { m = localStorage.getItem('daytimeMode'); } catch (e) {}
+            if (m !== 'day' && m !== 'night') {
+                m = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'night' : 'day';
+            }
+            if (m === 'night') document.documentElement.className += ' night-mode';
+        })();
+    </script>
+    {% endif %}
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     {% include seoMeta.html %}

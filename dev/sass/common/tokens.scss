@@ -4,6 +4,7 @@
 // 因此新组件不必再写第二份 .night-mode 覆盖表。
 
 :root {
+    color-scheme: light;
     --paper: #FAF9F6;
     --surface: #FFF;
     --surface-2: #F4F2ED;
@@ -26,7 +27,11 @@
     --gutter: 32px;
 }
 
+// 深色标记同时挂在 <html> 和 <body> 上：<head> 里的内联脚本只能碰到 documentElement，
+// 而既有的切换逻辑（以及 body.night-mode 选择器）依赖 body，两边都认才不会有白闪。
+html.night-mode,
 body.night-mode {
+    color-scheme: dark;
     --paper: #12141A;
     --surface: #191C23;
     --surface-2: #20242C;
@@ -80,3 +85,13 @@ $color-theme-default: var(--signal);
 // 旧覆盖表因此继续有效而不必逐条改——新增组件则完全不用再写夜间分支。
 $color-dark-primary: var(--paper);
 $color-dark-secondary: var(--surface);
+
+// 跨文档 View Transitions（Chrome 126+ / Safari 26+）：站内跳转由浏览器做一次
+// 交叉淡化，替代「白屏 → 内容突然出现」。不支持的浏览器忽略这条 at-rule，
+// 行为与现在完全一致，因此不需要任何降级代码。
+// 它属于纯装饰动效，所以只在「未要求减少动态效果」时开启。
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+        navigation: auto;
+    }
+}

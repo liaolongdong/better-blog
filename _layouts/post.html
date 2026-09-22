@@ -14,6 +14,33 @@
 
   {%- assign post_body = page.content | strip_leading_title: page.title -%}
   {%- assign post_chars = post_body | char_count -%}
+
+  {%- comment -%}
+  合集解析：_data/series.yml 里每个 order 数组存 page.url 口径（不含 baseurl）。
+  命中后拿到本篇序号，用于刊头 chip 和页尾系列导航；
+  数组是 0 基、forloop.index 是 1 基，所以上一篇要减 2、下一篇直接取当前序号。
+  {%- endcomment -%}
+  {%- assign series_of_post = nil -%}
+  {%- assign series_index = 0 -%}
+  {%- for s in site.data.series -%}
+    {%- for u in s.order -%}
+      {%- if u == page.url -%}
+        {%- assign series_of_post = s -%}
+        {%- assign series_index = forloop.index -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- if series_of_post -%}
+    {%- assign series_total = series_of_post.order | size -%}
+    {%- assign series_prev_i = series_index | minus: 2 -%}
+    {%- assign series_next_i = series_index -%}
+    {%- if series_index > 1 -%}
+      {%- assign series_prev_url = series_of_post.order[series_prev_i] -%}
+    {%- endif -%}
+    {%- if series_index < series_total -%}
+      {%- assign series_next_url = series_of_post.order[series_next_i] -%}
+    {%- endif -%}
+  {%- endif -%}
   <header class="g-masthead post-masthead">
     <div class="g-container">
       <nav class="post-crumb" aria-label="所在栏目">
@@ -25,6 +52,15 @@
         <span>正文</span>
         {% endif %}
       </nav>
+
+      {% if series_of_post %}
+      {%- assign series_pct = series_index | times: 100 | divided_by: series_total -%}
+      <p class="post-series">
+        <a class="post-series-name" href="{{ '/series.html#' | append: series_of_post.slug | prepend: site.baseurl }}">{{ series_of_post.title }}</a>
+        <span class="post-series-no">第 {{ series_index }}/{{ series_total }} 篇</span>
+        <span class="post-series-track" aria-hidden="true"><span class="post-series-fill" style="width: {{ series_pct }}%"></span></span>
+      </p>
+      {% endif %}
 
       <div class="post-wrapper">
         <div class="post-tags">
@@ -94,10 +130,16 @@
     {%- comment -%}
     目录由 dev/js/editorial.js 从 #post-body 的 h2/h3 构建，构不出条目时不给
     body 加 .has-toc，此处即保持隐藏，不会出现空白框或无 JS 环境的残缺列表。
+    窄屏（<1240px）右侧栏位放不下，这一栏改由左下角「目录」按钮唤起的底部抽屉呈现：
+    用的是同一份 DOM 和同一套高亮逻辑，不复制列表，无 JS 环境也拿不到半截抽屉。
     {%- endcomment -%}
-    <aside class="post-rail" aria-label="文章目录">
+    <button class="toc-fab" type="button" aria-expanded="false" aria-controls="post-rail">
+      <span class="toc-fab-glyph" aria-hidden="true">≡</span>目录
+    </button>
+    <div class="toc-mask" data-toc-close></div>
+    <aside class="post-rail" id="post-rail" aria-label="文章目录">
       <nav class="toc">
-        <p class="toc-title">本文目录</p>
+        <p class="toc-title">本文目录<button class="toc-close" type="button" data-toc-close aria-label="关闭目录">×</button></p>
         <ol class="toc-list" id="toc-list"></ol>
       </nav>
     </aside>
@@ -125,6 +167,40 @@
       </ul>
       {% endif %}
     </section>
+    {% if series_of_post %}
+    <section class="post-footer-item series-posts">
+      <header class="series-head">
+        <p class="series-kicker">Collection · 合集</p>
+        <h3 class="series-title">{{ series_of_post.title }}</h3>
+        <p class="series-lede">{{ series_of_post.lede }}</p>
+      </header>
+      <ol class="series-list">
+        {% for u in series_of_post.order %}
+        {% assign sp = site.posts | where: "url", u | first %}
+        <li class="series-row{% if u == page.url %} is-current{% endif %}"{% if u == page.url %} aria-current="true"{% endif %}>
+          <span class="series-no">{{ forloop.index }}</span>
+          {% if sp %}
+          {% if u == page.url %}<span class="series-link">{{ sp.title }}</span>{% else %}<a class="series-link" href="{{ sp.url | prepend: site.baseurl }}">{{ sp.title }}</a>{% endif %}
+          <time class="series-date" datetime="{{ sp.date | date: '%Y-%m-%d' }}">{{ sp.date | date: '%Y.%m' }}</time>
+          {% else %}
+          <span class="series-missing">_data/series.yml 里的地址对不上任何文章：{{ u }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      <nav class="series-nav" aria-label="合集内上一篇与下一篇">
+        {% if series_prev_url %}
+        {% assign prev_post = site.posts | where: "url", series_prev_url | first %}
+        {% if prev_post %}<a class="series-nav-link" href="{{ prev_post.url | prepend: site.baseurl }}"><span class="series-nav-dir">上一篇</span><span class="series-nav-title">{{ prev_post.title }}</span></a>{% endif %}
+        {% endif %}
+        {% if series_next_url %}
+        {% assign next_post = site.posts | where: "url", series_next_url | first %}
+        {% if next_post %}<a class="series-nav-link is-next" href="{{ next_post.url | prepend: site.baseurl }}"><span class="series-nav-dir">下一篇</span><span class="series-nav-title">{{ next_post.title }}</span></a>{% endif %}
+        {% endif %}
+      </nav>
+    </section>
+    {% endif %}
+
     <section class="post-footer-item read-next">
       {% if page.next.url %}
       {% include coverSrc.html cover=page.next.cover %}

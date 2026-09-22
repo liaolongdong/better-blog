@@ -47,48 +47,47 @@ $(document).ready(function () {
         }
     }
 
-    // 初始化白昼模式
-    function initDaytimeMode () {
-        // 记录当前模式 'day'白天 'night'夜间模式
-        var mode = localStorage.getItem('daytimeMode') || 'day';
+    // 昼夜图标成对显隐：夜间露出太阳、白天露出月亮。
+    // 白天态与 bottomFixedBtn.scss 里 .icon-baitianmoshimingliangmoshi{display:none} 的默认值一致。
+    function syncNmIcon (mode) {
         if (mode === 'night') {
-            // 切换图标
             $('.icon-yejianmoshi').hide();
             $('.icon-baitianmoshimingliangmoshi').show();
-            // 切换到夜间模式
-            if ($('#nm-switch').val() === 'true') {
-                $('body').addClass('night-mode');
-                aboutMode('night');
-            }
-        }
-
-    }
-    initDaytimeMode();
-    
-    // 点击白昼切换模式
-    $('.switch-daytime-mode').on('click', function () {
-        // 记录当前模式 'day'白天 'night'夜间模式
-        var mode = localStorage.getItem('daytimeMode') || 'day';
-        if (mode === 'day') {
-            localStorage.setItem('daytimeMode', 'night');
-            // 切换图标
-            $('.icon-yejianmoshi').hide();
-            $('.icon-baitianmoshimingliangmoshi').show();
-            // 切换到夜间模式
-            if ($('#nm-switch').val() === 'true') {
-                $('body').addClass('night-mode');
-                aboutMode('night');
-            }
-        } else if (mode === 'night') {
-            localStorage.setItem('daytimeMode', 'day');
-            // 切换图标
+        } else {
             $('.icon-baitianmoshimingliangmoshi').hide();
             $('.icon-yejianmoshi').show();
-            // 切换到白天模式
-            if ($('#nm-switch').val() === 'true') {
-                $('body').removeClass('night-mode');
-                aboutMode('day');
-            }
         }
+    }
+
+    // 主题真值只有 window.EditorialTheme 一份（未表过态=跟随系统偏好，点过一次=固定其所选）。
+    // 本文件只负责图标和 about 页背景，不再自己读写 daytimeMode，避免两处语义打架。
+    // 依赖顺序：footer.html 早于 editorial.min.js，但下面的逻辑都在 .ready 回调里，
+    // 而 EditorialTheme 是在 editorial.min.js 求值期同步挂到 window 上的，取值时一定已就绪。
+    var nmEnabled = function () {
+        return $('#nm-switch').val() === 'true';
+    };
+
+    // 初始化白昼模式
+    function initDaytimeMode () {
+        if (!nmEnabled()) {
+            return;
+        }
+        var mode = window.EditorialTheme.get();
+        syncNmIcon(mode);
+        if (mode === 'night') {
+            aboutMode('night');
+        }
+    }
+    initDaytimeMode();
+
+    // 点击白昼切换模式
+    $('.switch-daytime-mode').on('click', function () {
+        if (!nmEnabled()) {
+            return;
+        }
+        var mode = window.EditorialTheme.get() === 'day' ? 'night' : 'day';
+        window.EditorialTheme.set(mode);
+        syncNmIcon(mode);
+        aboutMode(mode);
     });
 })

@@ -19,6 +19,88 @@
     }
 
     /* ------------------------------------------------------------------
+     * 0. 主题（白昼 / 夜间）
+     * ------------------------------------------------------------------ */
+
+    // 与 bottomFixedBtn.js 共用的旧键名，历史选择不会被丢弃。
+    // 键缺失 = 用户没表过态 = 跟随系统；点过切换按钮后固定为其所选，不再跟随。
+    var THEME_KEY = 'daytimeMode';
+
+    function themeSwitchOn() {
+        var sw = document.getElementById('nm-switch');
+        return !!sw && sw.value === 'true';
+    }
+
+    function systemPrefersDark() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    function storedTheme() {
+        try {
+            var v = localStorage.getItem(THEME_KEY);
+            return (v === 'day' || v === 'night') ? v : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * 当前生效的模式。
+     * @returns {'day'|'night'}
+     */
+    function currentTheme() {
+        return storedTheme() || (systemPrefersDark() ? 'night' : 'day');
+    }
+
+    function applyTheme(mode) {
+        if (!themeSwitchOn()) return;
+        var night = mode === 'night';
+        // <html> 上的标记由 head.html 的内联脚本先写好（避免白闪），
+        // 这里把两边一起对齐，切换按钮只改 body 也不会和 <html> 脱节。
+        var html = document.documentElement;
+        if (night) {
+            html.classList.add('night-mode');
+            document.body.classList.add('night-mode');
+        } else {
+            html.classList.remove('night-mode');
+            document.body.classList.remove('night-mode');
+        }
+    }
+
+    /**
+     * 设定模式；传 'auto' 交还给系统偏好。
+     * @param {'day'|'night'|'auto'} mode
+     */
+    function setTheme(mode) {
+        try {
+            if (mode === 'auto') localStorage.removeItem(THEME_KEY);
+            else localStorage.setItem(THEME_KEY, mode);
+        } catch (e) {
+            /* 隐私模式下 localStorage 会抛，主题仍然当场生效，只是下次进来回到 auto */
+        }
+        applyTheme(mode === 'auto' ? currentTheme() : mode);
+    }
+
+    function initTheme() {
+        applyTheme(currentTheme());
+        if (!window.matchMedia) return;
+
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        var onChange = function () {
+            if (!storedTheme()) applyTheme(currentTheme());
+        };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+    }
+
+    window.EditorialTheme = {
+        get: currentTheme,
+        set: setTheme,
+        /** @returns {boolean} 用户是否显式选过模式 */
+        hasUserChoice: function () { return storedTheme() !== null; }
+    };
+
+    /* ------------------------------------------------------------------
      * 1. 文章目录（TOC）
      * ------------------------------------------------------------------ */
 
@@ -55,6 +137,12 @@
 
         document.body.className += ' has-toc';
 
+        // 贴在目录左竖线上的「读到第几节」进度线，高度随 activate() 更新。
+        var progress = document.createElement('span');
+        progress.className = 'toc-progress';
+        progress.setAttribute('aria-hidden', 'true');
+        list.appendChild(progress);
+
         var current = null;
         /** 高亮切换集中在一处，避免 observer 与滚动兜底互相抢状态。 */
         function activate(item) {
@@ -62,6 +150,8 @@
             if (current) current.link.parentNode.classList.remove('is-active');
             current = item;
             item.link.parentNode.classList.add('is-active');
+            var li = item.link.parentNode;
+            progress.style.height = Math.max(0, li.offsetTop + li.offsetHeight / 2) + 'px';
         }
 
         if ('IntersectionObserver' in window) {
@@ -98,9 +188,60 @@
         activate(items[0]);
     }
 
+    /**
+     * 窄屏目录抽屉：<1240px 时正文字栏和目录栏并排放不下，右侧栏位整栏隐藏，
+     * 目录于是彻底消失。这里让左下角那颗「目录」按钮把它换成底部抽屉。
+     *
+     * 复用 initToc 建好的同一份列表与同一套高亮状态，避免为窄屏再写一套目录；
+     * 因此必须在 initToc 之后调用（.toc-link 那时才存在）。
+     */
+    function initTocDrawer() {
+        var fab = document.querySelector('.toc-fab');
+        var rail = document.getElementById('post-rail');
+        if (!fab || !rail || !document.body.classList.contains('has-toc')) return;
+
+        function isOpen() {
+            return document.body.classList.contains('toc-open');
+        }
+        function close() {
+            if (!isOpen()) return;
+            document.body.classList.remove('toc-open');
+            fab.setAttribute('aria-expanded', 'false');
+        }
+        function toggle() {
+            if (isOpen()) { close(); return; }
+            document.body.classList.add('toc-open');
+            fab.setAttribute('aria-expanded', 'true');
+        }
+
+        fab.addEventListener('click', toggle);
+        // 遮罩、关闭按钮、每条目录项都指向同一个关闭动作：点完目录应该立刻看到正文。
+        var closers = document.querySelectorAll('[data-toc-close], .toc-link');
+        for (var i = 0; i < closers.length; i++) closers[i].addEventListener('click', close);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+
+        // 抽屉打开时正文是锁滚的；窗口拉宽后目录回到右侧栏位，不收掉就留下一屏滚不动的正文。
+        var mq = window.matchMedia('(max-width: 1239px)');
+        var onViewport = function (e) { if (!e.matches) close(); };
+        if (mq.addEventListener) mq.addEventListener('change', onViewport);
+        else if (mq.addListener) mq.addListener(onViewport);
+    }
+
     /* ------------------------------------------------------------------
      * 2. 阅读进度条
      * ------------------------------------------------------------------ */
+
+    /**
+     * 当前阅读进度，进度条与续读记录共用同一口径。
+     * @returns {number} 0~1
+     */
+    function readRatio() {
+        var doc = document.documentElement;
+        var scrollable = doc.scrollHeight - window.innerHeight;
+        return scrollable > 0 ? Math.min(Math.max(doc.scrollTop / scrollable, 0), 1) : 0;
+    }
 
     function initReadingProgress() {
         var bar = document.querySelector('.reading-progress-bar');
@@ -109,10 +250,7 @@
         var ticking = false;
         function update() {
             ticking = false;
-            var doc = document.documentElement;
-            var scrollable = doc.scrollHeight - window.innerHeight;
-            var ratio = scrollable > 0 ? doc.scrollTop / scrollable : 0;
-            bar.style.transform = 'scaleX(' + Math.min(Math.max(ratio, 0), 1) + ')';
+            bar.style.transform = 'scaleX(' + readRatio() + ')';
         }
         function onScroll() {
             if (ticking) return;
@@ -447,13 +585,353 @@
         });
     }
 
+    function initHeadingAnchors() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+
+        var heads = body.querySelectorAll('h2[id], h3[id]');
+        for (var i = 0; i < heads.length; i++) {
+            (function (heading) {
+                var link = document.createElement('a');
+                link.className = 'heading-anchor';
+                link.href = '#' + heading.id;
+                link.setAttribute('aria-label', '复制这一节的链接');
+                link.textContent = '#';
+                link.addEventListener('click', function () {
+                    // 不拦默认行为：地址栏要真的变成 #id，复制到的链接才有锚点
+                    copyText(window.location.href.split('#')[0] + '#' + heading.id).then(function (ok) {
+                        if (!ok) return;
+                        link.classList.add('is-done');
+                        window.setTimeout(function () { link.classList.remove('is-done'); }, 1600);
+                    });
+                });
+                heading.appendChild(link);
+            })(heads[i]);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * 7. 续读（跨会话记住没读完的那一篇）
+     * ------------------------------------------------------------------ */
+
+    // 只留「最近一篇没读完的」这一条，而不是一个书签列表：
+    // 博客的阅读场景是「昨天那篇没看完，今天接着看」，列表反而要人认路。
+    var RESUME_KEY = 'resumeRead';
+    var RESUME_TTL = 7 * 24 * 60 * 60 * 1000;
+
+    function readResume() {
+        var data = null;
+        try {
+            var raw = localStorage.getItem(RESUME_KEY);
+            if (!raw) return null;
+            data = JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
+        if (!data || typeof data.p !== 'string' || typeof data.r !== 'number') return null;
+        if (Date.now() - data.at > RESUME_TTL) {
+            clearResume();
+            return null;
+        }
+        return data;
+    }
+
+    function writeResume(data) {
+        try {
+            localStorage.setItem(RESUME_KEY, JSON.stringify(data));
+        } catch (e) {
+            /* 无痕模式下 setItem 会抛：续读没有，正文照读 */
+        }
+    }
+
+    function clearResume() {
+        try {
+            localStorage.removeItem(RESUME_KEY);
+        } catch (e) {
+            /* 同上 */
+        }
+    }
+
+    /**
+     * 文章页：记录阅读进度；若是从首页那条「上次读到」浮条点进来的，
+     * 直接把视口放回上次的位置（只在带 resumeJump 标记时发生，正常访问不被打断）。
+     */
+    function initResumeTracking() {
+        var path = window.location.pathname;
+        var heading = document.querySelector('.post-masthead-title');
+        var title = ((heading && heading.textContent) || document.title).trim().slice(0, 60);
+
+        function commit(force) {
+            var pct = Math.round(readRatio() * 100);
+            var current = readResume();
+            if (pct >= 98) {
+                if (current && current.p === path) clearResume();
+                return;
+            }
+            // 只翻了个开头就划走的不算「在读」，否则浮条会被一次误点挂满一周。
+            if (pct < 3) return;
+            if (current && current.p === path && !force && Math.abs(current.r - pct) < 3) return;
+            writeResume({ p: path, t: title, r: pct, at: Date.now() });
+        }
+
+        var jumpTo = null;
+        var marked = null;
+        try {
+            marked = sessionStorage.getItem('resumeJump');
+            sessionStorage.removeItem('resumeJump');
+        } catch (e) {
+            /* 拿不到 sessionStorage 就不跳位，只是少了个便利 */
+        }
+        var saved = readResume();
+        if (marked === path && saved && saved.p === path && saved.r > 3 && saved.r < 98) jumpTo = saved.r;
+
+        // 图片、代码高亮都在改变文档高度，等 load 之后量出来的位置才对得上。
+        function restore() {
+            if (jumpTo === null) return;
+            var scrollable = document.documentElement.scrollHeight - window.innerHeight;
+            window.scrollTo(0, Math.round(scrollable * jumpTo / 100));
+        }
+        if (window.addEventListener) {
+            window.addEventListener('load', restore);
+        }
+
+        window.setInterval(function () { commit(false); }, 2000);
+        window.addEventListener('pagehide', function () { commit(true); });
+    }
+
+    /**
+     * 非文章页（首页、分类、合集…）：挂一条浮条把人接回没读完的那篇。
+     */
+    function initResumeBar() {
+        var data = readResume();
+        if (!data || data.p === window.location.pathname) return;
+
+        var box = document.createElement('div');
+        box.className = 'resume';
+
+        var link = document.createElement('a');
+        link.className = 'resume-link';
+        // data.p 存的就是 location.pathname，本身已经带 baseurl，不能再 prepend 一次。
+        link.href = data.p;
+        link.addEventListener('click', function () {
+            try {
+                sessionStorage.setItem('resumeJump', data.p);
+            } catch (e) {
+                /* 只是少了「接着上次的位置」，链接照跳 */
+            }
+        });
+
+        var kicker = document.createElement('span');
+        kicker.className = 'resume-kicker';
+        kicker.textContent = '上次读到';
+        var title = document.createElement('span');
+        title.className = 'resume-title';
+        title.textContent = data.t;
+        var pct = document.createElement('span');
+        pct.className = 'resume-pct';
+        pct.textContent = data.r + '%';
+        link.appendChild(kicker);
+        link.appendChild(title);
+        link.appendChild(pct);
+
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'resume-close';
+        close.setAttribute('aria-label', '收起续读提示');
+        close.textContent = '×';
+        close.addEventListener('click', function () {
+            clearResume();
+            if (box.parentNode) box.parentNode.removeChild(box);
+        });
+
+        box.appendChild(link);
+        box.appendChild(close);
+        document.body.appendChild(box);
+    }
+
+    function initResume() {
+        if (document.getElementById('post-body')) initResumeTracking();
+        else initResumeBar();
+    }
+
+    /* ------------------------------------------------------------------
+     * 8. 正文图片灯箱
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 正文图片点击放大。用原生 <dialog>：遮罩、Esc、焦点都归浏览器管，
+     * 不用自己再写一层模态框；不支持 showModal 的浏览器直接不启用（图片保持原样，
+     * 也不会被挂上误导性的放大镜）。
+     */
+    function initLightbox() {
+        var body = document.getElementById('post-body');
+        var probe = document.createElement('dialog');
+        if (!body || typeof probe.showModal !== 'function') return;
+
+        var dlg = document.createElement('dialog');
+        dlg.className = 'lightbox';
+        dlg.setAttribute('aria-label', '图片查看');
+        var big = document.createElement('img');
+        var cap = document.createElement('p');
+        cap.className = 'lightbox-cap';
+        dlg.appendChild(big);
+        dlg.appendChild(cap);
+        document.body.appendChild(dlg);
+        dlg.addEventListener('click', function () { dlg.close(); });
+
+        var imgs = body.querySelectorAll('img');
+        for (var i = 0; i < imgs.length; i++) {
+            (function (img) {
+                // 表情包、行内小图标放大只会糊成一团；被 <a> 包住的图让链接先响应。
+                if (img.offsetWidth < 160 || img.closest('a')) return;
+                img.classList.add('is-zoomable');
+                img.addEventListener('click', function () {
+                    big.src = img.currentSrc || img.src;
+                    big.alt = img.alt || '';
+                    cap.textContent = img.alt || '';
+                    cap.hidden = !cap.textContent;
+                    dlg.showModal();
+                });
+            })(imgs[i]);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * 9. 滚动揭示与刊头数字
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 首屏以下的行块淡入。
+     *
+     * 只处理「进页面时已经在折叠线以下」的元素：首屏内容一起淡入只会让人觉得
+     * 加载慢。未揭示态由 body.js-reveal 限定，所以脚本没跑、或浏览器不支持
+     * IntersectionObserver 时列表原样可见，不会留下一屏空白卡。
+     */
+    function initReveal() {
+        if (!('IntersectionObserver' in window) || prefersReducedMotion()) return;
+
+        var nodes = document.querySelectorAll('.article-list .article-item, .cat-row, .series-row');
+        var below = [];
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].getBoundingClientRect().top > window.innerHeight) below.push(nodes[i]);
+        }
+        if (!below.length) return;
+
+        document.body.classList.add('js-reveal');
+        var io = new IntersectionObserver(function (entries) {
+            var batch = [];
+            for (var j = 0; j < entries.length; j++) {
+                if (entries[j].isIntersecting) batch.push(entries[j].target);
+            }
+            for (var k = 0; k < batch.length; k++) {
+                // 按「同一批里第几个」排延迟：按全局序号排会让靠后滚动到的行等得越来越久。
+                batch[k].style.transitionDelay = Math.min(k, 5) * 60 + 'ms';
+                batch[k].classList.add('is-in');
+                io.unobserve(batch[k]);
+            }
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+
+        for (var m = 0; m < below.length; m++) {
+            below[m].classList.add('reveal');
+            io.observe(below[m]);
+        }
+    }
+
+    /**
+     * 刊头统计数字从 0 数到真值。
+     *
+     * 只处理纯数字：日期（2026.09.21）和「MV3」这类值会被跳过，
+     * 不做「解析失败就当 0」的猜测，免得把真实信息数成乱码。
+     */
+    function initCountUp() {
+        var nums = document.querySelectorAll('.masthead-stats strong');
+        if (!nums.length || prefersReducedMotion()) return;
+
+        for (var i = 0; i < nums.length; i++) {
+            (function (el) {
+                var text = el.textContent.trim();
+                var target = parseInt(text, 10);
+                if (!text || String(target) !== text) return;
+
+                var duration = 700 + String(target).length * 120;
+                var start = null;
+                el.textContent = '0';
+                window.requestAnimationFrame(function step(now) {
+                    if (start === null) start = now;
+                    var t = Math.min((now - start) / duration, 1);
+                    var eased = 1 - Math.pow(1 - t, 3);
+                    el.textContent = String(Math.round(target * eased));
+                    if (t < 1) window.requestAnimationFrame(step);
+                });
+            })(nums[i]);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * 10. 窄屏悬浮按钮按滚动方向收放
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 手机上右下角那组悬浮按钮是 40×190 的常驻方块，正文（含合辑行的日期列）
+     * 每次滚过它都会被压住。这里在向下滚动时把它收出屏幕，向上滚或到达文末时再放出来
+     * ——「要往上翻才是找按钮」是这个范式下的用户预期。
+     * 只在 ≤695px 生效，跨过断点时清掉状态类，免得桌面上按钮被永久藏掉。
+     */
+    function initFabAutoTuck() {
+        var mq = window.matchMedia('(max-width: 695px)');
+        var fab = document.querySelector('.bottom-fixed-btn');
+        if (!fab) return;
+
+        var lastY = window.pageYOffset;
+        var ticking = false;
+
+        function setTucked(on) {
+            document.body.classList.toggle('fab-tucked', !!on);
+        }
+
+        function update() {
+            ticking = false;
+            if (!mq.matches) { setTucked(false); return; }
+
+            var y = window.pageYOffset;
+            var delta = y - lastY;
+            if (Math.abs(delta) < 8) return;
+
+            var atBottom = y + window.innerHeight >= document.documentElement.scrollHeight - 4;
+            if (y < 120 || atBottom || delta < 0) setTucked(false);
+            else setTucked(true);
+            lastY = y;
+        }
+
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(update);
+        }
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll, { passive: true });
+        // 竖屏横屏切换、桌面拖到窄窗时，跨过断点要立刻复位而不是等下一次滚动。
+        var onBreak = function () { if (!mq.matches) setTucked(false); };
+        if (mq.addEventListener) mq.addEventListener('change', onBreak);
+        else if (mq.addListener) mq.addListener(onBreak);
+    }
+
     function boot() {
+        initTheme();
         initToc();
+        initTocDrawer();
         initReadingProgress();
         initCodeCopy();
         initPalette();
         initTouchDropdown();
         initAnchorScroll();
+        initHeadingAnchors();
+        initResume();
+        initLightbox();
+        initReveal();
+        initCountUp();
+        initFabAutoTuck();
     }
 
     if (document.readyState === 'loading') {

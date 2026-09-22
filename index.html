@@ -7,6 +7,9 @@ description: 路漫漫其修远兮，吾将上下而求索
 {% include header.html %}
 
 <section class="g-masthead home-masthead">
+    {% if site.dandelionAnimate %}
+    {% include dandelionAnimate.html %}
+    {% endif %}
     <div class="g-container masthead-inner">
         <p class="kicker">Frontend · AI · Tools — 自 2016 年写到这里</p>
         <p class="masthead-issue" aria-hidden="true">
@@ -37,6 +40,27 @@ description: 路漫漫其修远兮，吾将上下而求索
                 {% endfor %}
             </nav>
         </div>
+
+        {% if site.data.picks.size > 0 %}
+        <section class="feed-picks" aria-label="编辑精选">
+            <p class="feed-picks-label">编辑精选<em>手工挑的，不是热榜</em></p>
+            <ol class="feed-picks-list">
+                {% for p in site.data.picks limit: 5 %}
+                {% assign pp = site.posts | where: "url", p.url | first %}
+                <li class="feed-pick">
+                    {% if pp %}
+                    <a class="feed-pick-link" href="{{ pp.url | prepend: site.baseurl }}">
+                        <span class="feed-pick-title">{{ pp.title }}</span>
+                        <span class="feed-pick-why">{{ p.why }}</span>
+                    </a>
+                    {% else %}
+                    <span class="series-missing">_data/picks.yml 里的地址对不上任何文章：{{ p.url }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+        </section>
+        {% endif %}
 
         {% for post in paginator.posts %}
             <article class="article-item">

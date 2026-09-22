@@ -55,6 +55,10 @@ body {
 /*** 1. 顶栏 ***/
 
 .g-header {
+    // 跨页跳转（tokens.scss 里的 @view-transition）默认把整屏淡掉，顶栏跟着闪一下很廉价。
+    // 给它一个 view-transition-name，浏览器就把它认作新旧两页共有的同一块，只做位置过渡。
+    view-transition-name: site-header;
+
     height: 64px;
     padding: 0;
     background-color: var(--paper);
@@ -614,6 +618,19 @@ body {
 
 .masthead-inner {
     position: relative;
+    z-index: 1;
+}
+
+// 首页刊头的蒲公英飘籽层：铺满刊头这一块，压在文字层下面，不吃指针事件。
+// 画色由 dandelionAnimate.js 从 --ink-4 读，这里只负责位置和「不碍事」。
+.dandelion-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
 }
 
 .kicker {
@@ -1723,6 +1740,806 @@ body.has-toc .post-rail {
     color: var(--ink-4);
 }
 
+/*** 7.2 合集：刊头连载条 / 页尾清单 / 系列内翻页 ***/
+
+// 刊头这道 2px 竖线用的是阅读进度条同一根信号蓝：让「这篇属于一条连载」
+// 在文章页第一眼就被读到，而不是等到页尾才发现还有前后篇。
+.post-series {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 20px;
+    padding-left: 11px;
+    border-left: 2px solid var(--signal);
+    font-family: $font-meta;
+    font-size: 11.5px;
+    letter-spacing: .6px;
+    color: var(--ink-4);
+}
+
+.post-series-name {
+    font-family: $font-display;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--ink);
+
+    &:hover {
+        color: var(--signal);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+}
+
+.post-series-no {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.post-series-track {
+    flex: 1 1 60px;
+    max-width: 150px;
+    height: 2px;
+    overflow: hidden;
+    background-color: var(--rule);
+    border-radius: 999px;
+}
+
+.post-series-fill {
+    display: block;
+    height: 100%;
+    background-color: var(--signal);
+    border-radius: inherit;
+    transform-origin: 0 50%;
+    animation: seriesFillIn .7s cubic-bezier(.22, .61, .36, 1) both;
+}
+
+@keyframes seriesFillIn {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+.series-posts {
+    padding-top: 26px;
+    margin-bottom: 40px !important;
+    border-top: 1px solid var(--rule);
+}
+
+.series-kicker {
+    font-family: $font-meta;
+    font-size: 11.5px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.series-title {
+    margin-top: 8px;
+    font-family: $font-display;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.34;
+    color: var(--ink);
+}
+
+.series-lede {
+    max-width: 620px;
+    margin-top: 6px;
+    font-size: 14.5px;
+    line-height: 25px;
+    color: var(--ink-3);
+}
+
+.series-list {
+    margin-top: 16px;
+    list-style: none;
+}
+
+// 编号 / 标题 / 日期三列，与分类归档页的 .cat-row 同一套栅格语言，
+// 让「合集」和「分类」在扫读时看起来是同类事物。
+.series-row {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover .series-link {
+        color: var(--signal-ink);
+    }
+}
+
+.series-no {
+    font-family: $font-meta;
+    font-size: 11.5px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+}
+
+.series-link {
+    font-size: 15.5px;
+    line-height: 26px;
+    color: var(--ink);
+}
+
+.series-date {
+    font-family: $font-meta;
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+}
+
+// 当前这篇在清单里就地标记，不给自链接
+.series-row.is-current {
+    .series-no {
+        color: var(--signal);
+    }
+
+    .series-link {
+        font-weight: 600;
+        color: var(--ink);
+    }
+}
+
+// 数据文件里的 url 对不上任何文章时构建产物会留下这一行，
+// 宁可让它在页面上显眼地报错，也不要静默地少一行——否则改 permalink 时
+// 整条合集会在无人察觉的情况下断掉。
+.series-missing {
+    grid-column: 2;
+    padding: 6px 9px;
+    font-family: $font-meta;
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+    border: 1px dashed var(--rule-2);
+    border-radius: var(--radius-s);
+}
+
+.series-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.series-nav-link {
+    display: block;
+    padding: 13px 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+    transition: border-color .2s, box-shadow .2s;
+
+    &:hover {
+        border-color: var(--signal);
+        box-shadow: var(--shadow-2);
+    }
+}
+
+.series-nav-link.is-next {
+    // 只有下一篇时（合集第一篇）不能占住左格，否则右对齐的文字跑到左半边
+    grid-column: 2;
+    text-align: right;
+}
+
+.series-nav-dir {
+    display: block;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.series-nav-title {
+    display: block;
+    margin-top: 6px;
+    font-family: $font-display;
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--ink);
+}
+
+.series-nav-link:hover .series-nav-title {
+    color: var(--signal-ink);
+}
+
+// 合集索引页里 .series-lede 落在 .cat-head 之下，需要自己的下边距
+.series-section>.series-lede {
+    margin-bottom: 4px;
+}
+
+/*** 7.3 首页编辑精选 ***/
+
+.feed-picks {
+    padding: 16px 18px 10px;
+    margin-bottom: 6px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+}
+
+.feed-picks-label {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 9px;
+    padding-bottom: 10px;
+    font-family: $font-meta;
+    font-size: 11.5px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+
+    em {
+        font-size: 11px;
+        font-style: normal;
+        letter-spacing: .3px;
+        text-transform: none;
+        color: var(--ink-4);
+    }
+}
+
+.feed-picks-list {
+    counter-reset: feed-pick;
+    padding-top: 4px;
+    list-style: none;
+}
+
+.feed-pick {
+    counter-increment: feed-pick;
+}
+
+.feed-pick-link {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    column-gap: 4px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+
+    &::before {
+        content: counter(feed-pick, decimal-leading-zero);
+        font-family: $font-meta;
+        font-size: 11.5px;
+        line-height: 26px;
+        color: var(--ink-4);
+    }
+
+    &:hover .feed-pick-title {
+        color: var(--signal-ink);
+    }
+}
+
+.feed-pick:last-child .feed-pick-link {
+    border-bottom: none;
+}
+
+.feed-pick-title {
+    grid-column: 2;
+    font-family: $font-display;
+    font-size: 16.5px;
+    line-height: 26px;
+    color: var(--ink);
+    transition: color .2s;
+}
+
+.feed-pick-why {
+    grid-column: 2;
+    margin-top: 1px;
+    font-size: 13.5px;
+    line-height: 22px;
+    color: var(--ink-4);
+}
+
+/*** 7.4 标题锚点 ***/
+
+// 权重账：common.scss 的 `.post-content .markdown-body a{color:#0095ff;underline}`
+// 是 (0,2,2)，github-markdown 的 `.markdown-body a` 是 (0,1,1)。
+// 只写 `.markdown-body .heading-anchor` 会被前者压住，锚点变成一根扎眼的蓝色下划线，
+// 所以这一节的每条规则都带上 .post-content。
+.post-content .markdown-body .heading-anchor {
+    position: relative;
+    margin-left: 8px;
+    font-family: $font-meta;
+    font-size: .68em;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--ink-4);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity .18s ease, color .2s;
+}
+
+.post-content .markdown-body h2:hover .heading-anchor,
+.post-content .markdown-body h3:hover .heading-anchor,
+.post-content .markdown-body .heading-anchor:focus-visible,
+.post-content .markdown-body .heading-anchor.is-done {
+    opacity: 1;
+}
+
+.post-content .markdown-body .heading-anchor:hover,
+.post-content .markdown-body .heading-anchor.is-done {
+    color: var(--signal);
+    text-decoration: none;
+}
+
+// 复制成功的瞬时反馈：把「#」换成一句浮在标题上方的气泡，
+// 1.6s 后由 JS 摘掉 .is-done 自动收回。
+.post-content .markdown-body .heading-anchor.is-done::after {
+    content: '链接已复制';
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    padding: 4px 9px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .4px;
+    white-space: nowrap;
+    color: var(--surface);
+    background-color: var(--ink);
+    border-radius: var(--radius-s);
+    transform: translateX(-50%);
+    animation: anchorTipIn .18s ease-out both;
+    pointer-events: none;
+}
+
+@keyframes anchorTipIn {
+    // 关键帧里的选择器只有 from/to，任何选择器黑名单都拦不住它，
+    // 因此位移用 em（相对气泡自己的 11px）而不是 px。
+    from {
+        opacity: 0;
+        transform: translate(-50%, .25em);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+// 触屏没有 hover，锚点若隐藏等于功能不存在。这里不降 opacity——父元素的
+// opacity 会连气泡一起压暗，改用本来的 --ink-4 常显即可保持克制。
+@media (hover: none) {
+    .post-content .markdown-body .heading-anchor {
+        opacity: 1;
+    }
+}
+
+
+/*** 7.5 目录抽屉（窄屏） ***/
+
+// 1240 以下正文 + 栏位并排不下，旧规则把目录整栏 display:none —— 移动端等于没有目录。
+// 这里改成左下角按钮唤起的底部抽屉，用的还是 initToc 建好的那一份列表。
+.toc-fab,
+.toc-close {
+    display: none;
+}
+
+.toc-mask {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 58;
+    background-color: var(--scrim);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .22s ease, visibility .22s ease;
+}
+
+body.toc-open {
+    overflow: hidden;
+
+    .toc-mask {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    // 平板宽度（有触屏判定之外的 500–1239）右下角那组悬浮按钮会压在抽屉上，
+    // 抽屉本身已经承担了「导航」职责，让路比叠一层干净。
+    // 权重 (0,2,0) 高于 bottomFixedBtn.min.css 里的 .bottom-fixed-btn，不受引入顺序影响。
+    .bottom-fixed-btn {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+@keyframes tocSheetIn {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+// 断点条件里的 px 不参与视口换算（postcss 的 mediaQuery 未开启），
+// 但块内的值会：这一整段选择器都带 .toc / .post-rail / .has-toc，已在黑名单里。
+@media screen and (max-width: 1239px) {
+    body.has-toc .toc-fab {
+        position: fixed;
+        bottom: 20px;
+        left: 16px;
+        z-index: 59;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 15px;
+        font-family: $font-meta;
+        font-size: 12px;
+        letter-spacing: .6px;
+        color: var(--ink);
+        background-color: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: 999px;
+        box-shadow: var(--shadow-2);
+        cursor: pointer;
+    }
+
+    .toc-fab-glyph {
+        font-size: 13px;
+        color: var(--signal);
+    }
+
+    // 抽屉已经盖住按钮，再留一颗半透明胶囊只会脏一层。
+    body.has-toc.toc-open .toc-fab {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    // §9 里那条 .post-rail{display:none !important} 权重更低，同样加 !important 才抬得回来。
+    body.has-toc.toc-open .post-rail {
+        position: fixed;
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 60;
+        display: block !important;
+        overflow-y: auto;
+        max-height: 68vh;
+        padding: 18px 20px calc(20px + env(safe-area-inset-bottom));
+        background-color: var(--surface);
+        border-top: 1px solid var(--rule);
+        border-radius: var(--radius-l) var(--radius-l) 0 0;
+        box-shadow: var(--shadow-3);
+        animation: tocSheetIn .26s cubic-bezier(.22, .61, .36, 1) both;
+    }
+
+    body.has-toc .toc {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    body.has-toc .toc-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        font-size: 11.5px;
+    }
+
+    body.has-toc .toc-close {
+        display: block;
+        width: 30px;
+        height: 30px;
+        margin: -6px -8px 0 0;
+        font-size: 20px;
+        line-height: 1;
+        color: var(--ink-4);
+        background: none;
+        border: 0;
+        cursor: pointer;
+    }
+
+    body.has-toc .toc-list {
+        max-height: none;
+    }
+
+    // 抽屉里 .toc 的左竖线被去掉，进度线没有可贴的轨道
+    body.has-toc .toc-progress {
+        display: none;
+    }
+
+    // 抽屉里的条目是手指点的，桌面端 12.5px/4px 的行高密度不够。
+    body.has-toc .toc-link {
+        padding: 8px 0;
+        margin-left: 0;
+        padding-left: 0;
+        font-size: 14.5px;
+        line-height: 21px;
+        border-left: 0;
+    }
+
+    body.has-toc .toc-h3 .toc-link {
+        padding-left: 14px;
+        font-size: 13.5px;
+        color: var(--ink-3);
+    }
+
+    body.has-toc .toc-item.is-active>.toc-link {
+        color: var(--signal);
+        border-left: 0;
+    }
+}
+
+/*** 7.6 续读浮条 ***/
+
+.resume {
+    position: fixed;
+    bottom: 20px;
+    left: 16px;
+    z-index: 57;
+    display: flex;
+    align-items: center;
+    max-width: min(420px, 100vw - 96px);
+    padding-left: 14px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: 999px;
+    box-shadow: var(--shadow-2);
+    animation: resumeIn .3s cubic-bezier(.22, .61, .36, 1) both;
+}
+
+@keyframes resumeIn {
+    from {
+        opacity: 0;
+        transform: translateY(.6em);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.resume-link {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-2);
+    text-decoration: none;
+}
+
+.resume-kicker {
+    flex: none;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.resume-title {
+    overflow: hidden;
+    min-width: 0;
+    font-family: $font-display;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.resume-pct {
+    flex: none;
+    font-family: $font-meta;
+    font-size: 11px;
+    color: var(--signal);
+}
+
+.resume-close {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    margin-left: 2px;
+    font-size: 17px;
+    line-height: 1;
+    color: var(--ink-4);
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+/*** 7.7 正文图片灯箱 ***/
+
+.markdown-body img.is-zoomable {
+    cursor: zoom-in;
+}
+
+.lightbox {
+    overflow: hidden;
+    max-width: 92vw;
+    max-height: 90vh;
+    margin: auto;
+    padding: 0;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 0;
+    border-radius: var(--radius-m);
+}
+
+.lightbox img {
+    display: block;
+    max-width: 92vw;
+    max-height: calc(90vh - 44px);
+    object-fit: contain;
+}
+
+.lightbox-cap {
+    margin: 0;
+    padding: 10px 14px;
+    font-family: $font-meta;
+    font-size: 12.5px;
+    line-height: 19px;
+    color: var(--ink-3);
+}
+
+.lightbox::backdrop {
+    background-color: var(--scrim);
+}
+
+.lightbox[open] {
+    animation: lightboxIn .22s ease-out both;
+}
+
+// showModal() 会把焦点交给 <dialog>，Chrome 默认画一圈紧贴边缘的 focus ring，
+// 看起来像卡片自己的边框。保留可见焦点（键盘用户需要），只把它挪出圆角外并换成主题色。
+.lightbox:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 4px;
+}
+
+@keyframes lightboxIn {
+    from {
+        opacity: 0;
+        transform: scale(.985);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+
+/*** 7.8 滚动揭示 / 目录进度 / 数字与复制反馈 ***/
+
+// C2 卡片滚动揭示。初始的「未揭示」态挂在 body.js-reveal 上，
+// 这个类由 editorial.js 亲自打上：脚本没跑或浏览器不支持 IntersectionObserver 时，
+// 列表原样可见，绝不会留下一屏空白卡片。
+body.js-reveal .reveal {
+    opacity: 0;
+    transform: translateY(1em);
+    transition: opacity .5s ease, transform .5s cubic-bezier(.22, .61, .36, 1);
+}
+
+body.js-reveal .reveal.is-in {
+    opacity: 1;
+    transform: none;
+}
+
+// C3 目录左侧的「读到第几节」进度线：贴在 .toc 那条 1px 竖线上，
+// 高度由 activate() 按当前条目在列表中的位置写入。
+.toc-list {
+    position: relative;
+}
+
+.toc-progress {
+    position: absolute;
+    top: 0;
+    left: -17px;
+    width: 2px;
+    height: 0;
+    background-color: var(--signal);
+    transition: height .28s ease;
+}
+
+// C4 刊头数字 count-up：等宽数字，否则 6→66 的过程中整行会左右跳。
+.masthead-stats strong {
+    font-variant-numeric: lining-nums tabular-nums;
+}
+
+// C5 复制成功的一下脉冲
+@keyframes copyPulse {
+    from {
+        box-shadow: 0 0 0 0 var(--signal-soft);
+    }
+
+    to {
+        box-shadow: 0 0 0 .7em rgba(0, 0, 0, 0);
+    }
+}
+
+.code-copy.is-done {
+    animation: copyPulse .55s ease-out;
+}
+
+
+/*** 7.9 横向溢出治理（分享栏居中写法 / 行内 code 长词 / 宽表格） ***/
+
+// 旧主题靠「外层 float:left + left:50%、内层 left:-50%」把分享栏居中：
+// 外层盒子自身仍是 210 宽并停在容器中线右侧，视口窄到 210+容器左内边距*2 以内时，
+// 这个看不见的盒子会把整页顶出 15px 左右的横向滚动条（390px 上可左右拖动）。
+// 内层才是可见内容，改成外层收缩居中、内层归零，观感不变。
+.social-share-wrapper {
+    float: none;
+    left: auto;
+    width: fit-content;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.social-share-wrapper .social-share {
+    left: auto;
+}
+
+// 行内 code 装的是 commit hash、长路径这类「一整块不可断的词」。
+// 父级 <p> 上的 overflow-wrap 不会穿透到子元素身上，320px 屏上一个 40 位 hash
+// 就是 330px 宽，直接把整页顶出横向滚动条（正文跟着一起左右晃）。
+// 第二条选择器是必须的：prism.min.css 用 code[class*="language-"]（0,1,1）写死
+// overflow-wrap: normal，只写 :not(pre) > code（0,0,2）压不过它；补一个属性段反超。
+// pre > code 被 :not(pre) 排除，代码块内部的换行行为不变。
+:not(pre) > code,
+:not(pre) > code[class*="language-"] {
+    overflow-wrap: anywhere;
+}
+
+// 正文里的宽表格（六列对比表实测 640px）过去把整页顶出 339px 横向滚动，
+// 手机上连正文都要跟着左右晃。github-markdown 给 table 写的 overflow:auto 是空头的：
+// display:table 的盒子不滚动。改成 block 后表格盒宽 = 正文宽，
+// 列宽按原样排（首列实测仍是 120px），超出部分在自己的盒子里滚；
+// 表格本身不宽时 scrollWidth == clientWidth，观感与改动前完全一致。
+.markdown-body table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/*** 7.10 窄屏悬浮按钮按滚动方向收放 ***/
+
+// 右下角那组是 40×190 的常驻方块，正文每次滚过都被压住（合辑行的日期列首当其冲）。
+// 状态类由 editorial.js 的 initFabAutoTuck 挂在 body 上，只在 ≤695px 命中。
+// 位移用百分比：bottom-fixed-btn 在 postcss 黑名单里写 px 不会被换算，
+// 但百分比本来就跟着盒子高度走，比写死 190px 稳。
+.bottom-fixed-btn {
+    transition: transform .3s ease, opacity .3s ease;
+}
+
+body.fab-tucked .bottom-fixed-btn {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
 
 /*** 8. 命令面板 ***/
 
@@ -1768,9 +2585,11 @@ body.has-toc .post-rail {
 }
 
 @keyframes cmdkIn {
+    // 关键帧的选择器只有 from/to，选择器黑名单拦不到，px 会被换成 vw
+    // （-8px 在 1440 屏上变成 -15px 的位移）。用 em 绕开。
     from {
         opacity: 0;
-        transform: translateY(-8px) scale(.99);
+        transform: translateY(-.5em) scale(.99);
     }
 
     to {
@@ -1931,6 +2750,48 @@ body.cmdk-open {
     .g-logo:hover .logo-mark {
         transform: none;
     }
+
+    // 连载进度条与锚点气泡属于「告知」而非「装饰」，直接瞬开瞬收
+    .post-series-fill,
+    .post-content .markdown-body .heading-anchor.is-done::after {
+        animation: none;
+    }
+
+    .post-content .markdown-body .heading-anchor {
+        transition: none;
+    }
+
+    // 抽屉与浮条的位移属于「出现」而不是「装饰」，去掉之后直接呈现即可
+    .toc-mask {
+        transition: none;
+    }
+
+    body.has-toc.toc-open .post-rail,
+    .resume,
+    .lightbox[open] {
+        animation: none;
+    }
+
+    // 揭示动效对这类用户不是「慢一点」而是「多余」，直接呈现终态；
+    // 进度线与复制脉冲同理，只保留颜色变化本身。
+    body.js-reveal .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+
+    .toc-progress {
+        transition: none;
+    }
+
+    .code-copy.is-done {
+        animation: none;
+    }
+
+    // 收放本身是功能（让开正文），不是装饰，状态照旧切换，只去掉滑行
+    .bottom-fixed-btn {
+        transition: none;
+    }
 }
 
 // 目录栏在可用宽度不足以同时容纳「正文 + 栏位」时隐藏：
@@ -1942,6 +2803,14 @@ body.cmdk-open {
 
     .post-rail {
         display: none !important;
+    }
+}
+
+// 696–860：抽屉样式还没生效，但 9 项导航（含 ⌘K）已经和 223px 宽的刊名重叠。
+// 只收掉刊名文字、保留桌面导航条，比把抽屉提前到 860 的改动面小得多。
+@media screen and (min-width: 696px) and (max-width: 860px) {
+    .g-header .logo-word {
+        display: none;
     }
 }
 
@@ -2161,6 +3030,51 @@ body.cmdk-open {
 
     .cat-top {
         display: none;
+    }
+
+    // 窄屏两列翻页会把标题挤成三行，改成上下堆叠，下一篇的右对齐一并取消
+    .series-nav {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .series-nav-link.is-next {
+        grid-column: auto;
+        text-align: left;
+    }
+
+    .series-title {
+        font-size: 19px;
+    }
+
+    .series-row {
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+        column-gap: 9px;
+    }
+
+    // 精选带在 390px 上实测高 677px（标题与理由各折两行），几乎占满一屏，
+    // 手机上只留标题，把首屏还给最新一篇。
+    .feed-pick-why {
+        display: none;
+    }
+
+    .feed-pick-link {
+        padding: 7px 0;
+    }
+
+    // 窄屏浮条左移贴边，但宽度上限保持 100vw-96px：右下角那组悬浮按钮在平板宽度
+    // （非触屏判定）下仍然显示，铺满一行会被它压住末尾的百分比和关闭键。
+    .resume {
+        bottom: 14px;
+        left: 12px;
+    }
+
+    body.has-toc .toc-fab {
+        bottom: 14px;
+        left: 12px;
+    }
+
+    body.has-toc.toc-open .post-rail {
+        max-height: 74vh;
     }
 
     .tool-name {
