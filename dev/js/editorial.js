@@ -82,8 +82,71 @@
         } catch (e) {
             /* 隐私模式下 localStorage 会抛，主题仍然当场生效，只是下次进来回到 auto */
         }
-        applyTheme(mode === 'auto' ? currentTheme() : mode);
+        withEclipse(function () {
+            applyTheme(mode === 'auto' ? currentTheme() : mode);
+        });
     }
+
+    /**
+     * 页面「可见时长」。§14 记账与 §15 的篇末用时共用这一份，
+     * 否则同一件事要在两处各自累计，切后台的扣减逻辑也会写两遍。
+     */
+    var dwell = { last: Date.now(), ms: 0 };
+
+    function dwellTick() {
+        var now = Date.now();
+        if (document.visibilityState !== 'hidden') dwell.ms += now - dwell.last;
+        dwell.last = now;
+    }
+
+    /**
+     * @returns {number} 从打开这一页起、处于可见状态的累计毫秒数
+     */
+    function visibleMs() {
+        dwellTick();
+        return dwell.ms;
+    }
+
+    /* 最近一次真实点击的位置，用于判断主题切换是不是「用户主动按的」。 */
+    var lastPress = { x: 0, y: 0, at: 0 };
+
+    /* 日蚀转场的序号：连点两次时只有最后一次的收尾有权摘掉 .vt-eclipse。 */
+    var eclipseSeq = 0;
+
+    /**
+     * 把一次 DOM 改动包成「从点击处扩散」的日蚀转场。
+     *
+     * 跨页跳转已经在用 @view-transition，同页切主题却只是 0.3s 变色，白瞎了
+     * 全站令牌化这件事的存在感。这里给 <html> 临时挂上 .vt-eclipse，
+     * editorial.scss §7.16 按这个类分派动画，跨页那套淡入淡出不受影响。
+     * 不支持 startViewTransition 或开了「减少动态效果」时直接改 DOM，行为同一前。
+     * @param {Function} mutate 真正改 DOM 的回调
+     */
+    function withEclipse(mutate) {
+        if (!document.startViewTransition || prefersReducedMotion()) { mutate(); return; }
+        // 系统偏好自动翻色时没有指针位置，不该从屏幕某个角落凭空扩出一个圆。
+        if (Date.now() - lastPress.at > 800) { mutate(); return; }
+        var x = lastPress.x;
+        var y = lastPress.y;
+        var radius = Math.ceil(Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)));
+        var root = document.documentElement;
+        root.style.setProperty('--vt-x', x + 'px');
+        root.style.setProperty('--vt-y', y + 'px');
+        root.style.setProperty('--vt-r', radius + 'px');
+        var mine = ++eclipseSeq;
+        root.classList.add('vt-eclipse');
+        var done = function () {
+            if (mine === eclipseSeq) root.classList.remove('vt-eclipse');
+        };
+        document.startViewTransition(mutate).finished.then(done, done);
+    }
+
+    // 捕获阶段记录，避免按钮上的 stopPropagation 让这里收不到。
+    document.addEventListener('pointerdown', function (e) {
+        lastPress.x = e.clientX;
+        lastPress.y = e.clientY;
+        lastPress.at = Date.now();
+    }, true);
 
     function initTheme() {
         applyTheme(currentTheme());
@@ -929,10 +992,14 @@
     // 两边各自解析同一份 localStorage，任何一边改了枚举而另一边没改，
     // 表现都是「刷新后偏好悄悄回到默认」，很难在肉眼回归里发现。
     var READER_KEY = 'readerPrefs';
+    // short 是 localStorage 里的键名，head.html 的内联脚本按同一套字母取值。
     var READER_GROUPS = {
-        size: { attr: 'data-rs-size', values: ['sm', 'md', 'lg'], dft: 'md' },
-        width: { attr: 'data-rs-width', values: ['normal', 'wide'], dft: 'normal' },
-        font: { attr: 'data-rs-font', values: ['sans', 'serif'], dft: 'sans' }
+        size: { attr: 'data-rs-size', values: ['sm', 'md', 'lg'], dft: 'md', short: 's' },
+        width: { attr: 'data-rs-width', values: ['normal', 'wide'], dft: 'normal', short: 'w' },
+        font: { attr: 'data-rs-font', values: ['sans', 'serif'], dft: 'sans', short: 'f' },
+        // 纸色只在白昼档生效（tokens.scss 把这三档挂在 :not(.night-mode) 上）：
+        // 夜间本就是墨蓝底，再叠一层暖白只会把对比度拉下来。
+        paper: { attr: 'data-rs-paper', values: ['warm', 'cool', 'sage'], dft: 'warm', short: 'p' }
     };
 
     function readReaderPrefs() {
@@ -953,10 +1020,9 @@
         } catch (e) {
             return prefs;
         }
-        var short = { size: 's', width: 'w', font: 'f' };
-        for (var k in short) {
-            if (!short.hasOwnProperty(k)) continue;
-            var v = stored[short[k]];
+        for (var k in READER_GROUPS) {
+            if (!READER_GROUPS.hasOwnProperty(k)) continue;
+            var v = stored[READER_GROUPS[k].short];
             if (READER_GROUPS[k].values.indexOf(v) >= 0) prefs[k] = v;
         }
         return prefs;
@@ -973,13 +1039,12 @@
     }
 
     function writeReaderPrefs(prefs) {
-        var short = { size: 's', width: 'w', font: 'f' };
         var out = {};
         var used = false;
-        for (var g in short) {
-            if (!short.hasOwnProperty(g)) continue;
+        for (var g in READER_GROUPS) {
+            if (!READER_GROUPS.hasOwnProperty(g)) continue;
             if (prefs[g] !== READER_GROUPS[g].dft) {
-                out[short[g]] = prefs[g];
+                out[READER_GROUPS[g].short] = prefs[g];
                 used = true;
             }
         }
@@ -1043,7 +1108,13 @@
             var value = opt.getAttribute('data-val');
             if (!group || prefs[group] === value) return;
             prefs[group] = value;
-            applyReaderPrefs(prefs);
+            // 只给纸色档加转场：字号和行宽改的是排版量，套上转场会变成 250ms 的
+            // 模糊重排，读者只想立刻看效果；纸色是纯变色，正好适合从点击处漫开。
+            if (group === 'paper') {
+                withEclipse(function () { applyReaderPrefs(prefs); });
+            } else {
+                applyReaderPrefs(prefs);
+            }
             writeReaderPrefs(prefs);
             sync();
         });
@@ -1252,6 +1323,10 @@
     var QUOTE_MIN = 8;
     var QUOTE_MAX = 150;
     var QUOTE_W = 900;
+
+    // §15 的篇末「生成金句卡」按钮要复用同一套画布逻辑，这里留一个窄接口，
+    // 而不是把整块 canvas 代码再写一遍。initQuoteCard 探测到不支持 dialog 时保持为 null。
+    var quoteCardCtl = null;
 
     function initQuoteCard() {
         var body = document.getElementById('post-body');
@@ -1548,6 +1623,628 @@
         window.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hideBar();
         });
+
+        quoteCardCtl = {
+            /**
+             * 拿当前选区直接开卡，供篇末收束层调用。
+             * @returns {boolean} 选区不合规（空、太短、太长、在代码块里）时返回 false，
+             * 由调用方就地给提示，而不是弹一张画了半句话的图
+             */
+            openFromSelection: function () {
+                var q = currentQuote();
+                if (!q) return false;
+                quote = q.text;
+                open();
+                return true;
+            }
+        };
+    }
+
+    /* ------------------------------------------------------------------
+     * 14. 书架（待读 / 足迹 / 账本）
+     * ------------------------------------------------------------------ */
+
+    // 与 §7 续读分键存储：续读是「昨天那篇没看完」的单条状态、带 7 天 TTL，
+    // 书架是要一直攒下去的清单，合在一个键里会被那个 TTL 连坐清掉。
+    // 两边只在一个点上对齐：读到 98% 时同时清续读、摘待读。
+    var SHELF_KEY = 'shelf';
+    var DAY_MS = 24 * 60 * 60 * 1000;
+
+    // 点「清空」后本模块对本页停止写入。否则正在读的这篇会被下面的轮询立刻记回足迹，
+    // 用户看到的是「清空没生效」。
+    var shelfStopped = false;
+
+    // 抽屉打开时由 initShelfDrawer 挂上重绘函数，书签切换与轮询都要它刷新列表。
+    var shelfRerender = null;
+
+    function emptyShelf() {
+        return { q: {}, f: {}, d: {} };
+    }
+
+    function countKeys(obj) {
+        var n = 0;
+        for (var k in obj) {
+            if (obj.hasOwnProperty(k)) n++;
+        }
+        return n;
+    }
+
+    /**
+     * @returns {{q: Object, f: Object, d: Object}} 待读队列 / 足迹 / 每日可见时长
+     */
+    function readShelf() {
+        var shelf = emptyShelf();
+        var raw = null;
+        try {
+            raw = localStorage.getItem(SHELF_KEY);
+        } catch (e) {
+            return shelf;
+        }
+        if (!raw) return shelf;
+        var data = null;
+        try {
+            data = JSON.parse(raw);
+        } catch (e) {
+            return shelf;
+        }
+        if (!data || typeof data !== 'object') return shelf;
+        // 逐区合并而不是整体替换：某一块被旧版本或手工改成畸形结构时，坏的只是那一区，
+        // 不会让整只书架解析失败、在界面上显示成一个「空书架」。
+        var zones = ['q', 'f', 'd'];
+        for (var i = 0; i < zones.length; i++) {
+            if (data[zones[i]] && typeof data[zones[i]] === 'object') shelf[zones[i]] = data[zones[i]];
+        }
+        return shelf;
+    }
+
+    function writeShelf(shelf) {
+        try {
+            localStorage.setItem(SHELF_KEY, JSON.stringify(shelf));
+        } catch (e) {
+            /* 无痕模式写不进去：内存里那份照常工作，下次进来回到空书架 */
+        }
+    }
+
+    function dayKey(ts) {
+        var dt = new Date(ts);
+        var m = dt.getMonth() + 1;
+        var d = dt.getDate();
+        return dt.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+    }
+
+    /**
+     * @param {string} key 'YYYY-MM-DD'
+     * @returns {Date} 当天零点（本地时区，与 dayKey 同一套口径）
+     */
+    function parseDay(key) {
+        var parts = String(key).split('-');
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+
+    /** 毫秒 → 「30 秒」/「42 分钟」/「3 小时 5 分」：账本里不该出现六位数字。 */
+    function humanizeMs(ms) {
+        var sec = Math.max(Math.round(ms / 1000), 0);
+        if (sec < 60) return sec + ' 秒';
+        var min = Math.round(sec / 60);
+        if (min < 60) return min + ' 分钟';
+        return Math.floor(min / 60) + ' 小时 ' + (min % 60) + ' 分';
+    }
+
+    /** 时间戳 → 「今天」/「昨天」/「3 天前」/「2026-05-01」。 */
+    function humanizeAgo(ts) {
+        if (!ts) return '较早';
+        var days = Math.floor((Date.now() - ts) / DAY_MS);
+        if (days <= 0) return '今天';
+        if (days === 1) return '昨天';
+        if (days < 30) return days + ' 天前';
+        return dayKey(ts);
+    }
+
+    /** 过一万改说「x.x 万字」：六位数字在读屏和扫读里都没有量感。 */
+    function humanizeChars(n) {
+        return n >= 10000 ? (n / 10000).toFixed(1) + ' 万字' : n + ' 字';
+    }
+
+    /** 文章页自己就是目标：从刊头与 #post-body 的数据载体取。 */
+    function shelfFromPage() {
+        var body = document.getElementById('post-body');
+        var heading = document.querySelector('.post-masthead-title');
+        return {
+            p: window.location.pathname,
+            t: ((heading && heading.textContent) || document.title || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+            c: (body && body.getAttribute('data-cat')) || '',
+            m: (body && parseInt(body.getAttribute('data-mins'), 10)) || 0,
+            w: (body && parseInt(body.getAttribute('data-chars'), 10)) || 0
+        };
+    }
+
+    /**
+     * 一个 [data-shelf-add] 按钮指向哪篇。首页卡片把元数据挂在按钮上（那里没有正文可问），
+     * 文章页与篇末不挂，回落到当前页。
+     */
+    function shelfTarget(btn) {
+        var path = btn.getAttribute('data-path');
+        if (!path) return shelfFromPage();
+        return {
+            p: path,
+            t: btn.getAttribute('data-title') || '',
+            c: btn.getAttribute('data-cat') || '',
+            m: parseInt(btn.getAttribute('data-mins'), 10) || 0,
+            w: 0
+        };
+    }
+
+    /** 回填页面上所有书签按钮，让「已在架」这件事看得见、按得动。 */
+    function syncShelfMarks(shelf) {
+        var marks = document.querySelectorAll('[data-shelf-add]');
+        for (var i = 0; i < marks.length; i++) {
+            var btn = marks[i];
+            var info = shelfTarget(btn);
+            var on = !!(info.p && shelf.q[info.p]);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.classList.toggle('is-on', on);
+            // 卡片上那颗只有图标，状态走 aria-pressed 与 title 就够；
+            // 文章页与篇末那两颗有可见文字，必须跟着变，否则点了像没反应。
+            var label = btn.querySelector('.shelf-mark-text');
+            if (label) label.textContent = on ? '已在书架' : '稍后再读';
+            else if (btn.classList.contains('wrap-up-btn')) btn.textContent = on ? '已在书架' : '放进书架';
+            if (btn.hasAttribute('data-path')) btn.title = on ? '已在书架，点击移出' : '放进书架，稍后再读';
+        }
+    }
+
+    /** 角标只在待读非空时出现：空书架不该在顶栏占一个视觉位置。 */
+    function syncShelfBadge(shelf) {
+        var badge = document.querySelector('[data-shelf-count]');
+        if (!badge) return;
+        var n = countKeys(shelf.q);
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.hidden = n === 0;
+    }
+
+    function toggleShelfQueue(btn) {
+        var info = shelfTarget(btn);
+        if (!info.p) return;
+        var shelf = readShelf();
+        if (shelf.q[info.p]) delete shelf.q[info.p];
+        else shelf.q[info.p] = { t: info.t, c: info.c, m: info.m, at: Date.now() };
+        writeShelf(shelf);
+        syncShelfMarks(shelf);
+        syncShelfBadge(shelf);
+        if (shelfRerender) shelfRerender();
+    }
+
+    /**
+     * 单行条目。列表内容全用 textContent 写入 —— 标题里出现引号或尖括号是常态，
+     * 拼 HTML 字符串迟早要出事。
+     * @param {boolean=} droppable 待读条目给「移出」按钮，足迹条目不给
+     */
+    function shelfRow(href, title, metaText, ratio, droppable) {
+        var li = document.createElement('li');
+        li.className = 'shelf-row';
+
+        var a = document.createElement('a');
+        a.className = 'shelf-row-link';
+        a.href = href;
+        a.textContent = title;
+
+        var p = document.createElement('p');
+        p.className = 'shelf-row-meta';
+        p.textContent = metaText;
+
+        li.appendChild(a);
+        li.appendChild(p);
+
+        if (typeof ratio === 'number') {
+            var bar = document.createElement('span');
+            bar.className = 'shelf-row-bar';
+            var fill = document.createElement('i');
+            fill.style.width = Math.max(0, Math.min(100, Math.round(ratio * 100))) + '%';
+            bar.appendChild(fill);
+            li.appendChild(bar);
+        }
+        if (droppable) {
+            var btn = document.createElement('button');
+            btn.className = 'shelf-row-drop';
+            btn.type = 'button';
+            btn.setAttribute('data-shelf-drop', href);
+            btn.setAttribute('aria-label', '把《' + title + '》移出书架');
+            btn.textContent = '×';
+            li.appendChild(btn);
+        }
+        return li;
+    }
+
+    function shelfMeta(c, m, extra) {
+        var bits = [];
+        if (c) bits.push(c);
+        if (m) bits.push('约 ' + m + ' 分钟');
+        if (extra) bits.push(extra);
+        return bits.join(' · ');
+    }
+
+    /** 按时间倒序摊平一个区，供列表渲染。 */
+    function shelfEntries(zone) {
+        var out = [];
+        for (var p in zone) {
+            if (zone.hasOwnProperty(p) && zone[p] && typeof zone[p] === 'object') out.push({ p: p, e: zone[p] });
+        }
+        out.sort(function (x, y) { return (y.e.at || 0) - (x.e.at || 0); });
+        return out;
+    }
+
+    function shelfStats(shelf) {
+        var totalMs = 0;
+        var chars = 0;
+        var cats = {};
+        var read = 0;
+        for (var p in shelf.f) {
+            if (!shelf.f.hasOwnProperty(p)) continue;
+            var e = shelf.f[p];
+            read++;
+            chars += Math.round((e.w || 0) * Math.min(Math.max(e.r || 0, 0), 100) / 100);
+            if (e.c) cats[e.c] = 1;
+        }
+        var days = [];
+        for (var k in shelf.d) {
+            if (!shelf.d.hasOwnProperty(k) || !(shelf.d[k] > 0)) continue;
+            totalMs += shelf.d[k];
+            days.push(k);
+        }
+
+        var recent = 0;
+        for (var i = 0; i < days.length; i++) {
+            if (Date.now() - parseDay(days[i]).getTime() <= 30 * DAY_MS) recent++;
+        }
+        // 从今天往回数；今天还没读就从昨天起算，否则「连续」会在每天零点准时归零。
+        var streak = 0;
+        var cursor = new Date();
+        cursor.setHours(0, 0, 0, 0);
+        if (!(shelf.d[dayKey(cursor.getTime())] > 0)) cursor.setDate(cursor.getDate() - 1);
+        while (streak < 400 && shelf.d[dayKey(cursor.getTime())] > 0) {
+            streak++;
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        return [
+            ['读过', read + ' 篇'],
+            ['累计在用', read ? humanizeMs(totalMs) : '—'],
+            ['约当读完', chars ? humanizeChars(chars) : '—'],
+            ['近 30 天', recent ? recent + ' 天' : '—'],
+            ['连续', streak ? streak + ' 天' : '—'],
+            ['覆盖分类', countKeys(cats) ? countKeys(cats) + ' 个' : '—']
+        ];
+    }
+
+    function renderShelfStats(panel, shelf) {
+        panel.innerHTML = '';
+        var rows = shelfStats(shelf);
+        var dl = document.createElement('dl');
+        dl.className = 'shelf-ledger';
+        for (var i = 0; i < rows.length; i++) {
+            var cell = document.createElement('div');
+            cell.className = 'shelf-cell';
+            var dt = document.createElement('dt');
+            dt.textContent = rows[i][0];
+            var dd = document.createElement('dd');
+            dd.textContent = rows[i][1];
+            cell.appendChild(dt);
+            cell.appendChild(dd);
+            dl.appendChild(cell);
+        }
+        panel.appendChild(dl);
+    }
+
+    function initShelfDrawer() {
+        var dlg = document.getElementById('shelf-dlg');
+        if (!dlg || typeof dlg.showModal !== 'function') return null;
+
+        var tabs = dlg.querySelectorAll('[data-shelf-tab]');
+        var panels = dlg.querySelectorAll('[data-shelf-panel]');
+        var emptyLine = dlg.querySelector('[data-shelf-empty]');
+        var clearBtn = dlg.querySelector('[data-shelf-clear]');
+        var current = 'queue';
+        var armed = 0;
+        var opener = null;
+
+        var EMPTY_TEXT = {
+            queue: '待读队列是空的。文章页的书签、首页卡片右上角的小书签都能放进来。',
+            log: '还没有阅读记录 —— 翻开任意一篇文章，读完或中途划走都会留痕。'
+        };
+
+        function render() {
+            var shelf = readShelf();
+            var list = dlg.querySelector('[data-shelf-panel="queue"]');
+            var foot = dlg.querySelector('[data-shelf-panel="log"]');
+
+            list.innerHTML = '';
+            var qEntries = shelfEntries(shelf.q);
+            for (var i = 0; i < qEntries.length; i++) {
+                var q = qEntries[i];
+                list.appendChild(shelfRow(q.p, q.e.t || q.p,
+                    shelfMeta(q.e.c, q.e.m, humanizeAgo(q.e.at) + '加入'), null, true));
+            }
+
+            foot.innerHTML = '';
+            var fEntries = shelfEntries(shelf.f);
+            for (var j = 0; j < fEntries.length; j++) {
+                var f = fEntries[j];
+                var pct = Math.min(Math.max(f.e.r || 0, 0), 100);
+                // 刚点开就算一次足迹，但「读到 0%」看着像坏了 —— 这一步用文案区分。
+                var stage = pct >= 98 ? '读完' : pct < 3 ? '刚打开' : '读到 ' + pct + '%';
+                foot.appendChild(shelfRow(f.p, f.e.t || f.p,
+                    shelfMeta(f.e.c, f.e.m, stage + ' · ' + humanizeAgo(f.e.at)),
+                    pct / 100, false));
+            }
+
+            renderShelfStats(dlg.querySelector('[data-shelf-panel="stats"]'), shelf);
+
+            var nums = dlg.querySelectorAll('[data-shelf-n]');
+            for (var k = 0; k < nums.length; k++) {
+                var which = nums[k].getAttribute('data-shelf-n');
+                var count = which === 'queue' ? qEntries.length : fEntries.length;
+                nums[k].textContent = count ? String(count) : '';
+            }
+
+            // 空态只给列表类面板说一句话，账本面板永远有数字（哪怕是「—」），
+            // 再叠一句空态就成了自相矛盾的废话。
+            var isEmpty = current !== 'stats' && (current === 'queue' ? !qEntries.length : !fEntries.length);
+            if (emptyLine) {
+                emptyLine.hidden = !isEmpty;
+                emptyLine.textContent = isEmpty ? EMPTY_TEXT[current] : '';
+            }
+        }
+
+        function showTab(name) {
+            current = name;
+            for (var i = 0; i < tabs.length; i++) {
+                var on = tabs[i].getAttribute('data-shelf-tab') === name;
+                tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+                tabs[i].classList.toggle('is-on', on);
+            }
+            for (var j = 0; j < panels.length; j++) {
+                panels[j].hidden = panels[j].getAttribute('data-shelf-panel') !== name;
+            }
+            render();
+        }
+
+        dlg.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('[data-shelf-close]')) { dlg.close(); return; }
+
+            var tab = e.target.closest ? e.target.closest('[data-shelf-tab]') : null;
+            if (tab) { showTab(tab.getAttribute('data-shelf-tab')); return; }
+
+            var drop = e.target.closest ? e.target.closest('[data-shelf-drop]') : null;
+            if (drop) {
+                var shelf = readShelf();
+                delete shelf.q[drop.getAttribute('data-shelf-drop')];
+                writeShelf(shelf);
+                syncShelfMarks(shelf);
+                syncShelfBadge(shelf);
+                render();
+                return;
+            }
+            if (e.target === dlg) dlg.close();   // 落在遮罩上（dialog 自身区域）才收
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (!armed) {
+                    // 两步确认：足迹是几个月的阅读时间，不该被一次误点抹掉。
+                    armed = Date.now();
+                    clearBtn.classList.add('is-armed');
+                    clearBtn.textContent = '再点一次，清空全部';
+                    window.setTimeout(function () {
+                        if (!armed) return;
+                        armed = 0;
+                        clearBtn.classList.remove('is-armed');
+                        clearBtn.textContent = '清空';
+                    }, 4000);
+                    return;
+                }
+                armed = 0;
+                clearBtn.classList.remove('is-armed');
+                clearBtn.textContent = '清空';
+                shelfStopped = true;
+                writeShelf(emptyShelf());
+                var fresh = emptyShelf();
+                syncShelfMarks(fresh);
+                syncShelfBadge(fresh);
+                render();
+            });
+        }
+
+        dlg.addEventListener('close', function () {
+            shelfRerender = null;
+            if (opener && opener.focus) opener.focus();
+        });
+
+        showTab('queue');
+        return {
+            open: function (from) {
+                opener = from || null;
+                shelfRerender = render;
+                dlg.showModal();
+                render();
+            }
+        };
+    }
+
+    /** 文章页：每 5 秒结算一次足迹，读完就把这条从待读队列摘掉。 */
+    function initShelfTracking() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+        var page = shelfFromPage();
+        if (!page.p || !page.t) return;
+
+        var reportedMs = 0;
+        var lastPct = -1;
+
+        function flush(force) {
+            if (shelfStopped) return;
+            var pct = Math.round(readRatio() * 100);
+            var gained = visibleMs() - reportedMs;
+            if (!force && pct === lastPct && gained < 1000) return;
+            lastPct = pct;
+
+            var shelf = readShelf();
+            var e = shelf.f[page.p];
+            if (!e || typeof e !== 'object') e = shelf.f[page.p] = { r: 0, ms: 0, at: 0 };
+            e.t = page.t;
+            if (page.c) e.c = page.c;
+            if (page.m) e.m = page.m;
+            if (page.w) e.w = page.w;
+            if (pct > (e.r || 0)) e.r = pct;
+            e.at = Date.now();
+
+            if (gained > 0) {
+                e.ms = (e.ms || 0) + gained;
+                reportedMs += gained;
+                var key = dayKey(Date.now());
+                shelf.d[key] = (shelf.d[key] || 0) + gained;
+            }
+            // 读完了就摘出「稍后再读」：这条不需要再被提醒，留在架上只会让角标虚高。
+            // 与 §7 的 clearResume 是同一个阈值，两边的判断不会打架。
+            var dropped = false;
+            if (e.r >= 98) {
+                e.r = 100;
+                if (shelf.q[page.p]) {
+                    delete shelf.q[page.p];
+                    dropped = true;
+                }
+            }
+            writeShelf(shelf);
+            if (dropped || force) {
+                syncShelfMarks(shelf);
+                syncShelfBadge(shelf);
+            }
+            if (shelfRerender) shelfRerender();
+        }
+
+        window.setInterval(function () { flush(false); }, 5000);
+        window.addEventListener('pagehide', function () { flush(true); });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flush(true);
+        });
+        flush(true);
+    }
+
+    function initShelf() {
+        var drawer = initShelfDrawer();
+        var marks = document.querySelectorAll('[data-shelf-add]');
+        if (!drawer && !marks.length) return;
+
+        if (!drawer) {
+            // 老浏览器没有 <dialog>，抽屉没有承载面，把入口收掉而不是留一个
+            // 点了没反应的按钮；书签本身仍然可用，它只是往 localStorage 写一条。
+            var opens = document.querySelectorAll('[data-shelf-open]');
+            for (var i = 0; i < opens.length; i++) {
+                var item = opens[i].closest('.nav-shelf');
+                if (item) item.hidden = true;
+            }
+        }
+
+        var shelf = readShelf();
+        syncShelfMarks(shelf);
+        syncShelfBadge(shelf);
+
+        // 直接绑在按钮上，不做 document 委托：顶栏导航那条链上有 stopPropagation
+        // （实测委托监听根本收不到 .nav-shelf-btn 的点击），委托写法会让抽屉打不开。
+        var binds = document.querySelectorAll('[data-shelf-add], [data-shelf-open]');
+        for (var j = 0; j < binds.length; j++) {
+            (function (el) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (el.hasAttribute('data-shelf-open')) {
+                        if (drawer) drawer.open(el);
+                        return;
+                    }
+                    toggleShelfQueue(el);
+                });
+            })(binds[j]);
+        }
+
+        initShelfTracking();
+    }
+
+    /* ------------------------------------------------------------------
+     * 15. 篇末收束层
+     * ------------------------------------------------------------------ */
+
+    // 划到文末那一刻是「读完」这个动作唯一被感知的瞬间，也是唯一值得打断读者的位置。
+    // 先把这一篇的用时、覆盖、字数结算出来（数字来自本地，不请求任何服务），
+    // 再递两个留存动作：进书架、把刚读过的那句话做成图。
+    function initWrapUp() {
+        var body = document.getElementById('post-body');
+        var card = document.getElementById('wrap-up');
+        if (!body || !card) return;
+
+        var chars = parseInt(body.getAttribute('data-chars'), 10) || 0;
+        var heads = body.querySelectorAll('h2, h3');
+        var note = card.querySelector('[data-wrap-note]');
+        var done = false;
+        var ticking = false;
+
+        function put(what, text) {
+            var cell = card.querySelector('[data-wrap="' + what + '"]');
+            if (cell) cell.textContent = text;
+        }
+
+        /** 已滚过视口中线的章节数 —— 比百分比更能说明「读没读全」。 */
+        function passedSections() {
+            var n = 0;
+            for (var i = 0; i < heads.length; i++) {
+                if (heads[i].getBoundingClientRect().top < window.innerHeight * .5) n++;
+            }
+            return n;
+        }
+
+        function settle() {
+            if (done) return;
+            done = true;
+            var pct = Math.round(readRatio() * 100);
+            var read = pct >= 98 ? chars : Math.round(chars * pct / 100);
+
+            put('time', humanizeMs(visibleMs()));
+            put('sections', heads.length ? passedSections() + ' / ' + heads.length + ' 节' : '—');
+            put('chars', read ? humanizeChars(read) : '—');
+
+            card.hidden = false;
+            // 类名与 hidden 分开用：hidden 是「这块存不存在」，is-in 只管入场动画，
+            // 减少动态效果时前者照常、后者在样式里被关掉。
+            card.classList.add('is-in');
+        }
+
+        function onScroll() {
+            if (ticking || done) return;
+            ticking = true;
+            window.requestAnimationFrame(function () {
+                ticking = false;
+                if (done) return;
+                // 短文一屏就读完，永远不会有滚动事件：这种情况下直接结算。
+                if (document.documentElement.scrollHeight - window.innerHeight <= 0) { settle(); return; }
+                if (readRatio() >= .96) settle();
+            });
+        }
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('load', onScroll);
+        onScroll();
+
+        var quoteBtn = card.querySelector('[data-wrap-quote]');
+        if (quoteBtn) {
+            quoteBtn.addEventListener('click', function () {
+                if (quoteCardCtl && quoteCardCtl.openFromSelection()) {
+                    if (note) note.hidden = true;
+                    return;
+                }
+                if (!note) return;
+                // 没有选区（或选的是代码、太长太短）时不静默失败：说清楚要点哪颗按钮之前先做什么。
+                note.hidden = false;
+                note.textContent = quoteCardCtl
+                    ? '先在正文里选中一句 8~150 字的话，再回来点这里。'
+                    : '当前浏览器不支持卡片画布，请改用截图。';
+            });
+        }
     }
 
     function boot() {
@@ -1568,6 +2265,8 @@
         initReaderPrefs();
         initLinkPreview();
         initQuoteCard();
+        initShelf();
+        initWrapUp();
     }
 
     if (document.readyState === 'loading') {

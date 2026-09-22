@@ -127,8 +127,28 @@
                   <button class="reader-opt" type="button" data-rs="font" data-val="serif">衬线</button>
                 </span>
               </p>
+              <p class="reader-group">
+                <span class="reader-label">纸色</span>
+                <span class="reader-seg">
+                  <button class="reader-opt" type="button" data-rs="paper" data-val="warm">暖纸</button>
+                  <button class="reader-opt" type="button" data-rs="paper" data-val="cool">冷灰</button>
+                  <button class="reader-opt" type="button" data-rs="paper" data-val="sage">护眼</button>
+                </span>
+              </p>
               <button class="reader-reset" type="button">恢复默认</button>
             </div>
+          </span>
+          {%- comment -%}
+          稍后再读。状态（是否已在架、角标数字）全部由 editorial.js §14 从 localStorage 回填，
+          这里只留一个中性的按钮，无 JS 时它不响应也不会显示错误状态。
+          {%- endcomment -%}
+          <span class="post-meta-item shelf-item">
+            <button class="shelf-mark" type="button" data-shelf-add aria-pressed="false">
+              <svg class="shelf-mark-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M6.5 3.8h11a1 1 0 0 1 1 1v15.4l-6.5-4-6.5 4V4.8a1 1 0 0 1 1-1z"/>
+              </svg>
+              <span class="shelf-mark-text">稍后再读</span>
+            </button>
           </span>
         </div>
       </div>
@@ -147,9 +167,43 @@
   <div class="post-content visible">
     <div class="g-container post-grid">
     <div class="post-main">
-      <article class="markdown-body" id="post-body">
+      <article class="markdown-body" id="post-body"
+               data-chars="{{ post_chars }}"
+               data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"
+               data-cat="{{ page.categories | first }}">
         {{ post_body | add_baseurl_to_images }}
       </article>
+
+      {%- comment -%}
+      篇末收束：读完 17 分钟的长文，此刻最容易直接划走，所以先把「你在这篇上花了多久、
+      读过了哪几节」结算出来，再把两个留存动作（进书架、生成金句卡）递到手边。
+      数字全部由 editorial.js §15 在本地算，推荐位不放这里——下面已有合集、
+      上下篇与相关阅读三块，再加一块只会互相稀释。
+      {%- endcomment -%}
+      <section class="wrap-up" id="wrap-up" aria-label="本篇阅读小结" hidden>
+        <p class="wrap-up-kicker">End of article · 读完这一篇</p>
+        <dl class="wrap-up-stats">
+          <div class="wrap-up-cell">
+            <dt>实际用时</dt>
+            <dd data-wrap="time">—</dd>
+          </div>
+          <div class="wrap-up-cell">
+            <dt>章节覆盖</dt>
+            <dd data-wrap="sections">—</dd>
+          </div>
+          <div class="wrap-up-cell">
+            <dt>约读字数</dt>
+            <dd data-wrap="chars">—</dd>
+          </div>
+        </dl>
+        <div class="wrap-up-actions">
+          <button class="wrap-up-btn is-primary" type="button" data-shelf-add>放进书架</button>
+          <button class="wrap-up-btn" type="button" data-wrap-quote>生成金句卡</button>
+          <a class="wrap-up-btn" href="{{ '/series.html' | prepend: site.baseurl }}">逛合集</a>
+        </div>
+        {%- comment -%} 只在点了「生成金句卡」但当前没有合规选区时出现，由 editorial.js §15 填文案。 {%- endcomment -%}
+        <p class="wrap-up-note" data-wrap-note role="status" hidden></p>
+      </section>
 
       {% if site.reward.enable %}
         {% include reward.html %}

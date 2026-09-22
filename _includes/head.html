@@ -48,9 +48,11 @@
             var s = pick(p.s, ['sm', 'md', 'lg'], 'md');
             var w = pick(p.w, ['normal', 'wide'], 'normal');
             var f = pick(p.f, ['sans', 'serif'], 'sans');
+            var ppr = pick(p.p, ['warm', 'cool', 'sage'], 'warm');
             if (s) el.setAttribute('data-rs-size', s);
             if (w) el.setAttribute('data-rs-width', w);
             if (f) el.setAttribute('data-rs-font', f);
+            if (ppr) el.setAttribute('data-rs-paper', ppr);
         })();
     </script>
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">

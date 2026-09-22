@@ -3489,3 +3489,599 @@ body.cmdk-open {
         box-shadow: none;
     }
 }
+
+
+/*** 7.14 书架：顶栏入口、书签与抽屉 ***/
+
+// 待读队列是「这台设备上还没读完的东西」，值得一个常驻入口；
+// 但它不该和「首页/归档/工具」抢导航权重，所以做成图标药丸 + 数字角标。
+.nav-shelf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 9px;
+    margin-left: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: border-color .2s, color .2s, box-shadow .2s;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+        box-shadow: var(--shadow-1);
+    }
+}
+
+.nav-shelf-count {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    line-height: 16px;
+    color: var(--paper);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    background-color: var(--signal);
+    border-radius: 999px;
+}
+
+// 书签按钮：文章页 meta 行与首页卡片页脚共用一套外观，只有尺寸略有差。
+// 未加架是描边、已加架是信号蓝实心填充 —— 靠图标自身变色表态，
+// 不额外占宽度（卡片上那颗只有图标）。
+.shelf-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--rule-2);
+    border-radius: 999px;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--ink-4);
+    }
+}
+
+.shelf-mark.is-on {
+    color: var(--signal);
+    background-color: var(--signal-soft);
+    border-color: var(--signal);
+
+    // 图标写的是 fill="none"，presentation attribute 的优先级低于样式，这里能填上
+    .shelf-mark-icon {
+        fill: currentColor;
+    }
+}
+
+.shelf-mark.is-card {
+    position: relative;
+    z-index: 2;   // .post-link 覆盖层是 z-index:1，不抬高就只能点到跳转
+    height: 22px;
+    padding: 0;
+    margin-left: auto;
+    width: 22px;
+    justify-content: center;
+    font-size: 0;
+}
+
+// 触屏没有 hover 的 title 提示，22px 也低于 24×24 的最小可点面积，
+// 所以直接按粗指针放大一档（连外观一起变大，而不是加透明的 padding 区域）。
+@media (hover: none) {
+    .shelf-mark.is-card {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+// dialog 的 UA 样式在老浏览器上不存在，:not([open]) 那一条是给它们的兜底：
+// 没有 open 属性就整块藏起来，而不是在页脚露出一坨列表。
+dialog.shelf {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(76vh, 660px);
+    padding: 0;
+    overflow: hidden;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-3);
+}
+
+dialog.shelf:not([open]) {
+    display: none;
+}
+
+dialog.shelf::backdrop {
+    background-color: var(--scrim);
+}
+
+// 抽屉从下方轻微抬入：和金句卡那根药丸同一套语言（都是「凭空出现的一层」），
+// 但位移更小 —— 这是一块要读内容的面板，不是提示。
+dialog.shelf[open] {
+    animation: shelfIn .2s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes shelfIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.shelf-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.shelf-kicker {
+    margin: 0;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .9px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.shelf-close {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--ink-3);
+    cursor: pointer;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-m);
+    transition: color .16s ease, background-color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+        background-color: var(--surface-2);
+    }
+}
+
+.shelf-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 12px 0;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--rule);
+}
+
+.shelf-tab {
+    position: relative;
+    padding: 7px 11px 9px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: color .16s ease, border-color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.shelf-tab.is-on {
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom-color: var(--ink);
+}
+
+.shelf-tab-n {
+    margin-left: 4px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    color: var(--ink-4);
+}
+
+.shelf-body {
+    flex: 1;
+    min-height: 0;
+    padding: 4px 16px 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.shelf-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.shelf-row {
+    position: relative;
+    padding: 11px 30px 11px 0;
+    border-bottom: 1px solid var(--rule);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.shelf-row-link {
+    display: block;
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+        color: var(--signal);
+    }
+}
+
+.shelf-row-meta {
+    margin: 3px 0 0;
+    font-size: 11.5px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+}
+
+.shelf-row-bar {
+    display: block;
+    width: 100%;
+    height: 2px;
+    margin-top: 7px;
+    background-color: var(--surface-2);
+    border-radius: 999px;
+
+    i {
+        display: block;
+        height: 100%;
+        background-color: var(--signal);
+        border-radius: 999px;
+    }
+}
+
+.shelf-row-drop {
+    position: absolute;
+    top: 12px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--ink-4);
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-radius: var(--radius-s);
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+// 账本用的是「一行一个数」的清单而不是卡片网格：六项指标挤在两列里
+// 会让「3 小时 5 分」这种长短不一的值对不齐，读不出比较关系。
+.shelf-ledger {
+    margin: 6px 0 0;
+}
+
+.shelf-cell {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    dt {
+        font-family: $font-meta;
+        font-size: 11px;
+        letter-spacing: .6px;
+        text-transform: uppercase;
+        color: var(--ink-4);
+    }
+
+    dd {
+        margin: 0;
+        font-family: $font-display;
+        font-size: 17px;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.shelf-empty {
+    margin: 22px 0;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--ink-3);
+    text-align: center;
+}
+
+.shelf-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background-color: var(--surface-2);
+    border-top: 1px solid var(--rule);
+}
+
+.shelf-note {
+    font-size: 11.5px;
+    line-height: 17px;
+    color: var(--ink-3);
+}
+
+.shelf-clear {
+    flex: none;
+    height: 26px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: 999px;
+    transition: color .16s ease, border-color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+// 两步确认的第二步：把它做成会咬人的样子，而不是一颗看起来随时可点的灰药丸
+.shelf-clear.is-armed {
+    color: var(--paper);
+    background-color: var(--signal);
+    border-color: var(--signal);
+}
+
+
+/*** 7.15 篇末收束层 ***/
+
+// 顶端那道 2px 墨线是「本文完」的老杂志记号，下面接的是结算数字而不是下一篇推荐：
+// 推荐位已经由合集、上下篇、相关阅读三块承担，这里再加只会互相稀释。
+.wrap-up {
+    position: relative;
+    margin: 46px 0 6px;
+    padding: 18px 22px 20px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 2px solid var(--ink);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-1);
+}
+
+.wrap-up-kicker {
+    margin: 0 0 14px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .9px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+}
+
+.wrap-up-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 18px;
+    margin: 0;
+}
+
+.wrap-up-cell {
+    dt {
+        font-size: 11.5px;
+        color: var(--ink-3);
+    }
+
+    dd {
+        margin: 2px 0 0;
+        font-family: $font-display;
+        font-size: 21px;
+        line-height: 28px;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.wrap-up-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.wrap-up-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 15px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-2);
+    text-decoration: none;
+    cursor: pointer;
+    background-color: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: color .16s ease, background-color .16s ease, border-color .16s ease;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+    }
+}
+
+.wrap-up-btn.is-primary {
+    color: var(--paper);
+    background-color: var(--signal);
+    border-color: var(--signal);
+
+    &:hover {
+        color: var(--paper);
+        background-color: var(--signal-ink);
+        border-color: var(--signal-ink);
+    }
+}
+
+.wrap-up-btn.is-on {
+    color: var(--signal);
+    background-color: var(--signal-soft);
+    border-color: var(--signal);
+}
+
+.wrap-up-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--ink-3);
+}
+
+// hidden 由 JS 摘掉决定「这块存不存在」，is-in 只管入场，两件事分开写，
+// 无 JS 环境就永远停在 hidden —— 不会出现一块数字全是「—」的空壳。
+.wrap-up.is-in {
+    animation: wrapUpIn .48s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes wrapUpIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+
+/*** 7.16 日蚀转场（主题 / 纸色切换） ***/
+
+// 开关是 <html> 上的 .vt-eclipse：editorial.js 只在「读者手动改主题 / 改纸色」这条
+// 路径上短暂挂这个类，转场一结束就摘掉。跨页跳转（tokens.scss 的 @view-transition）
+// 拿不到这个类，仍然走 UA 的交叉淡化，两套转场各管各的。
+//
+// 为什么不用 startViewTransition 的 types：type 要配 CSS view-transition-types 属性
+// 才会变成快照伪元素上的类名，而这一档在 Chrome 153 上
+// CSS.supports('view-transition-types', 'eclipse') 仍是 false，写了也不生效
+// （实测 .eclipse 那条选择器连解析都不通过，被序列化成 :where() 空壳）。
+@media (prefers-reduced-motion: no-preference) {
+    .vt-eclipse::view-transition-old(root),
+    .vt-eclipse::view-transition-new(root) {
+        animation: none;
+        mix-blend-mode: normal;
+    }
+
+    .vt-eclipse::view-transition-old(root) {
+        z-index: 0;
+    }
+
+    // 新快照盖在旧快照之上，靠 clip-path 从点击处扩散出来 —— 这就是「日蚀」的方向。
+    .vt-eclipse::view-transition-new(root) {
+        z-index: 1;
+        animation: eclipseReveal .46s cubic-bezier(.22, .61, .36, 1) both;
+    }
+}
+
+@keyframes eclipseReveal {
+    from {
+        clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+
+    to {
+        clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+}
+
+
+/*** 7.17 书架 / 收束层的响应式与动效偏好 ***/
+
+@media screen and (max-width: 695px) {
+    dialog.shelf {
+        width: calc(100vw - 20px);
+        max-height: 86vh;
+    }
+
+    .shelf-body {
+        padding: 2px 12px 10px;
+    }
+
+    .shelf-row-link {
+        font-size: 13.5px;
+    }
+
+    .wrap-up {
+        padding: 16px 14px 18px;
+    }
+
+    .wrap-up-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 14px;
+    }
+
+    .wrap-up-cell dd {
+        font-size: 19px;
+    }
+
+    .wrap-up-btn {
+        flex: 1;
+        justify-content: center;
+        min-width: 96px;
+    }
+}
+
+@media screen and (max-width: 1023px) {
+    .nav-shelf-btn {
+        width: 100%;
+        height: 38px;
+        justify-content: space-between;
+        margin: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wrap-up.is-in {
+        animation: none;
+    }
+
+    dialog.shelf[open] {
+        animation: none;
+    }
+}

@@ -42,6 +42,21 @@
                 {% endif %}
             </li>
             {% endfor %}
+            <li class="nav-item nav-shelf">
+                {%- comment -%}
+                书架入口。角标只在待读队列非空时出现——空书架不该占一个视觉位置。
+                用 button 而不是链接：它打开的是当前页上的对话框，不是一次跳转，
+                做成链接会让右键「新标签打开」得到一个空白页。
+                {%- endcomment -%}
+                <button type="button" class="nav-shelf-btn" data-shelf-open aria-haspopup="dialog"
+                        aria-controls="shelf-dlg" aria-label="我的书架">
+                    <svg class="nav-shelf-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M4 4.6h6.2A1.8 1.8 0 0 1 12 6.4v13a1.6 1.6 0 0 0-1.6-1.6H4z"/>
+                        <path d="M20 4.6h-6.2A1.8 1.8 0 0 0 12 6.4v13a1.6 1.6 0 0 1 1.6-1.6H20z"/>
+                    </svg>
+                    <span class="nav-shelf-count" data-shelf-count hidden>0</span>
+                </button>
+            </li>
             <li class="nav-item nav-search">
                 <button type="button" class="nav-search-btn" data-search-open aria-label="搜索文章（快捷键 ⌘K 或 Ctrl+K）">
                     {%- comment -%} 图标走内联 SVG：主题原本依赖远程 alicdn 图标字体，断网或被墙时按钮会只剩一个方框。 {%- endcomment -%}
@@ -79,3 +94,30 @@
     </div>
 </div>
 {% endif %}
+
+{%- comment -%}
+书架抽屉。用原生 <dialog>：Esc 关闭、焦点陷阱、模态语义都由浏览器负责，
+和金句卡片同一套做法，不自己实现一遍。
+三个分区各自一个面板，切换只改 hidden——列表内容由 editorial.js §14 渲染。
+{%- endcomment -%}
+<dialog class="shelf" id="shelf-dlg" aria-label="我的书架">
+    <header class="shelf-head">
+        <p class="shelf-kicker">Shelf · 书架</p>
+        <button class="shelf-close" type="button" data-shelf-close aria-label="关闭书架">×</button>
+    </header>
+    <div class="shelf-tabs" role="tablist" aria-label="书架分区">
+        <button class="shelf-tab is-on" type="button" role="tab" aria-selected="true" data-shelf-tab="queue">待读<span class="shelf-tab-n" data-shelf-n="queue"></span></button>
+        <button class="shelf-tab" type="button" role="tab" aria-selected="false" data-shelf-tab="log">足迹<span class="shelf-tab-n" data-shelf-n="log"></span></button>
+        <button class="shelf-tab" type="button" role="tab" aria-selected="false" data-shelf-tab="stats">账本</button>
+    </div>
+    <div class="shelf-body">
+        <ul class="shelf-list" data-shelf-panel="queue"></ul>
+        <ul class="shelf-list" data-shelf-panel="log" hidden></ul>
+        <div class="shelf-stats" data-shelf-panel="stats" hidden></div>
+        <p class="shelf-empty" data-shelf-empty hidden></p>
+    </div>
+    <footer class="shelf-foot">
+        <span class="shelf-note">全部记录只存在这台设备的浏览器里，清缓存即消失。</span>
+        <button class="shelf-clear" type="button" data-shelf-clear>清空</button>
+    </footer>
+</dialog>

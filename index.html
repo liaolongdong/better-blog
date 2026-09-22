@@ -101,6 +101,21 @@ description: 路漫漫其修远兮，吾将上下而求索
                         {% endfor %}
                     </div>
                     {% endif %}
+                    {%- comment -%}
+                    卡片上的「稍后再读」。整张卡片被 .post-link 覆盖层接管，
+                    所以这个按钮必须自己抬到覆盖层之上（editorial.scss 里给 z-index），
+                    否则点了只会跳文章。状态由 editorial.js §14 从 localStorage 回填。
+                    {%- endcomment -%}
+                    <button class="shelf-mark is-card" type="button" data-shelf-add aria-pressed="false"
+                            data-path="{{ post.url | prepend: site.baseurl }}"
+                            data-title="{{ post.title | escape }}"
+                            data-cat="{{ post.categories | first }}"
+                            data-mins="{{ post.content | char_count | plus: 399 | divided_by: 400 }}"
+                            aria-label="把《{{ post.title }}》放进书架">
+                        <svg class="shelf-mark-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M6.5 3.8h11a1 1 0 0 1 1 1v15.4l-6.5-4-6.5 4V4.8a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    </button>
                 </footer>
             </article>
         {% endfor %}

@@ -48,6 +48,28 @@ html[data-rs-width="wide"] {
     --measure: 848px;
 }
 
+// 纸张色温三档（editorial.js §11 的 paper 组）。默认暖纸即 :root 那套值，
+// 所以属性留空不在此处重复；两档偏冷的只重新赋纸/面/分割线这一族，
+// 墨色与信号蓝全部沿用——改色温不该顺带改对比度。
+//
+// 排除 .night-mode 是必须的：夜间由下面的暗色块重新赋值，若这里也生效，
+// 两条规则同权重、谁在后面谁赢，切到夜间就会得到一张「发绿的深色纸」。
+html[data-rs-paper="cool"]:not(.night-mode) {
+    --paper: #F7F8FA;
+    --surface: #FFFFFF;
+    --surface-2: #EFF1F5;
+    --rule: #DFE3EA;
+    --rule-2: #CBD2DC;
+}
+
+html[data-rs-paper="sage"]:not(.night-mode) {
+    --paper: #EFF4ED;
+    --surface: #FAFCF8;
+    --surface-2: #E6EDE3;
+    --rule: #D3DED0;
+    --rule-2: #BCCBB8;
+}
+
 // 深色标记同时挂在 <html> 和 <body> 上：<head> 里的内联脚本只能碰到 documentElement，
 // 而既有的切换逻辑（以及 body.night-mode 选择器）依赖 body，两边都认才不会有白闪。
 html.night-mode,
