@@ -1,0 +1,54 @@
+{%- comment -%}
+主题引导：夜间模式 + 阅读偏好，两处都在 <head> 里同步定档。
+
+站点的 <head> 有两份拷贝：head.html，以及只有文章页在用的 postHead.html。这两段脚本
+必须在两份里都出现、且都排在任何 <link rel=stylesheet> 之前——少一份的表现是系统深色
+偏好的读者每次跳进文章先白闪一屏，设过非默认字号或行宽的读者先看到一屏默认排版再跳
+一下。抽成共用文件就是为了让「两边都要有」这件事只由一处保证。
+
+位置约束单独说一句：classic script 会等它前面的样式表全部加载完才执行，
+排到 <link> 后面就失去了「首帧即定档」的意义，所以引用它的那一行不能往下挪。
+
+localStorage 键名、取值域与默认值的权威定义在 editorial.js §11（READER_GROUPS /
+THEME_KEY），tokens.scss 的 html.night-mode 与 html[data-rs-*] 是对应的另一端。
+{%- endcomment -%}
+{%- comment -%}
+夜间模式：只写用户显式选过的模式；没选过时跟随 prefers-color-scheme。
+{%- endcomment -%}
+{% if site.nightMode %}
+<script>
+    (function () {
+        var m = null;
+        try { m = localStorage.getItem('daytimeMode'); } catch (e) {}
+        if (m !== 'day' && m !== 'night') {
+            m = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'night' : 'day';
+        }
+        if (m === 'night') document.documentElement.className += ' night-mode';
+    })();
+</script>
+{% endif %}
+{%- comment -%}
+阅读偏好：字号与行宽改变的是正文首屏的量，等 editorial.js 在 DOMContentLoaded
+再应用，读者会先看到一屏默认排版再跳一下。属性统一挂在 <html> 上。
+{%- endcomment -%}
+<script>
+    (function () {
+        var raw = null;
+        try { raw = localStorage.getItem('readerPrefs'); } catch (e) { return; }
+        if (!raw) return;
+        var p;
+        try { p = JSON.parse(raw); } catch (e) { return; }
+        var el = document.documentElement;
+        // 只写非默认值：默认档位由 tokens.scss 的 --rs / --measure 兜着，
+        // 属性留空即「未设偏好」，重置按钮也走同一条判定。
+        var pick = function (v, ok, dft) { return ok.indexOf(v) >= 0 && v !== dft ? v : null; };
+        var s = pick(p.s, ['sm', 'md', 'lg'], 'md');
+        var w = pick(p.w, ['normal', 'wide'], 'normal');
+        var f = pick(p.f, ['sans', 'serif'], 'sans');
+        var ppr = pick(p.p, ['warm', 'cool', 'sage'], 'warm');
+        if (s) el.setAttribute('data-rs-size', s);
+        if (w) el.setAttribute('data-rs-width', w);
+        if (f) el.setAttribute('data-rs-font', f);
+        if (ppr) el.setAttribute('data-rs-paper', ppr);
+    })();
+</script>

@@ -59,7 +59,7 @@
     function applyTheme(mode) {
         if (!themeSwitchOn()) return;
         var night = mode === 'night';
-        // <html> 上的标记由 head.html 的内联脚本先写好（避免白闪），
+        // <html> 上的标记由 _includes/themeBootstrap.html 的内联脚本先写好（避免白闪），
         // 这里把两边一起对齐，切换按钮只改 body 也不会和 <html> 脱节。
         var html = document.documentElement;
         if (night) {
@@ -988,11 +988,11 @@
      * 11. 阅读偏好（字号 / 行宽 / 正文字体）
      * ------------------------------------------------------------------ */
 
-    // 键名、取值域与默认值必须和 head.html 里那段无闪烁内联脚本一致：
+    // 键名、取值域与默认值必须和 _includes/themeBootstrap.html 里那段无闪烁内联脚本一致：
     // 两边各自解析同一份 localStorage，任何一边改了枚举而另一边没改，
     // 表现都是「刷新后偏好悄悄回到默认」，很难在肉眼回归里发现。
     var READER_KEY = 'readerPrefs';
-    // short 是 localStorage 里的键名，head.html 的内联脚本按同一套字母取值。
+    // short 是 localStorage 里的键名，themeBootstrap.html 的内联脚本按同一套字母取值。
     var READER_GROUPS = {
         size: { attr: 'data-rs-size', values: ['sm', 'md', 'lg'], dft: 'md', short: 's' },
         width: { attr: 'data-rs-width', values: ['normal', 'wide'], dft: 'normal', short: 'w' },

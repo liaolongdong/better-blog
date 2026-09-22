@@ -9,6 +9,8 @@
 <head>
     <meta name="base-url" content="{{ site.baseurl }}">
     <script>window.SITE_BASEURL = "{{ site.baseurl }}";</script>
+    <!-- 位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头 -->
+    {% include themeBootstrap.html %}
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
