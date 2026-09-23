@@ -66,7 +66,9 @@ body {
     box-shadow: none;
     transition: transform .4s ease, background-color .3s ease, box-shadow .3s ease;
 
-    // 旧版用内联背景图，这里彻底交还给文字标识
+    // 标识交给下面的文字缩写 + 刊名。`background: none` 是防回归的显式声明：
+    // 基础层曾经挂过主题自带的 assets/icons/logo.svg（把蓝色渐变烧进了矢量，跟不上
+    // 明暗主题），别再把它加回来。
     .g-logo {
         float: none;
         position: absolute;

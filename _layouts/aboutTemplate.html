@@ -9,5 +9,7 @@
     <!-- editorial.min.js 不能省：window.EditorialTheme 是主题的唯一真值源，
          缺了它 footer 里的昼夜切换会在求值期抛错、按钮根本不绑定（default/post 两个 layout 都带） -->
     <script src="{{ site.baseurl }}/assets/js/editorial.min.js"></script>
+    {%- comment -%} 位置勿动：必须晚于 .bottom-fixed-btn 进 DOM，约束见 draggableSetup.html 文件头 {%- endcomment -%}
+    {% include draggableSetup.html %}
 </body>
 </html>

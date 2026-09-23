@@ -19,5 +19,7 @@
     <script src="{{ site.baseurl }}/assets/js/tools.min.js"></script>
     <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
     <script src="{{ site.baseurl }}/assets/js/editorial.min.js"></script>
+    {%- comment -%} 位置勿动：必须晚于 .mao_box 与 .bottom-fixed-btn 进 DOM，约束见 draggableSetup.html 文件头 {%- endcomment -%}
+    {% include draggableSetup.html %}
 </body>
 </html>

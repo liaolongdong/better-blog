@@ -6,14 +6,6 @@
  * @Description: 移动端实现类似于vconsole的实时拖拽功能
  */
 (function (window, document) {
-    const draggable_params = {
-        startX: 0,
-        startY: 0,
-        // 本次拖拽的基准：按下瞬间节点距视口右/下边缘的实际偏移（px）
-        baseRight: 0,
-        baseBottom: 0
-    }
-
     /**
      * 取节点当前距离视口右边缘与下边缘的实际偏移。
      *
@@ -37,16 +29,29 @@
     }
 
     const rtDraggable = {
+        /**
+         * @param {Element} node 被拖拽的节点，为空时什么都不做
+         */
         init (node) {
+            if (!node) { return; }
+            // 本次拖拽的基准：按下瞬间节点距视口右/下边缘的实际偏移（px）
+            // 状态挂在每次 init 上而不是模块作用域：一个页面会 init 两个节点
+            // （.mao_box 与 .bottom-fixed-btn），共用一份会把前一个节点的起点覆盖掉
+            const draggable_params = {
+                startX: 0,
+                startY: 0,
+                baseRight: 0,
+                baseBottom: 0
+            }
             // 每次按下都以当前真实位置为基准，因此上一次拖拽的结果与初始 CSS 定位都能正确继承
-            node && node.addEventListener('touchstart', (e) => {
+            node.addEventListener('touchstart', (e) => {
                 var offset = getEdgeOffset(node);
                 draggable_params.baseRight = offset.right;
                 draggable_params.baseBottom = offset.bottom;
                 draggable_params.startX = e.touches[0].pageX;
                 draggable_params.startY = e.touches[0].pageY;
             });
-            node && node.addEventListener('touchmove', (e) => {
+            node.addEventListener('touchmove', (e) => {
                 if (e.touches.length > 0) {
                     let offsetX = e.touches[0].pageX - draggable_params.startX,
                         offsetY = e.touches[0].pageY - draggable_params.startY;

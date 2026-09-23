@@ -28,8 +28,8 @@
         margin-left: 2%;
         width: 60px;
         height: $g-header-h;
-        background: url('../icons/logo.svg') no-repeat center;
-        background-size: 100% 100%;
+        // 这里原来挂的是主题自带的 assets/icons/logo.svg，已删；标识由 editorial.scss
+        // 的文字缩写 + 刊名负责，原因写在那一处。
         opacity: .8;
         transition: all .2s;
 

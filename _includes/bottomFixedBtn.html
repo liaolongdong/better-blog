@@ -39,11 +39,7 @@
 
 <script src="{{ site.baseurl }}/assets/js/util.min.js"></script>
 <script src="{{ site.baseurl }}/assets/js/bottomFixedBtn.min.js"></script>
-
-{% if.site.btnDraggable %}
-<!-- 需要在移动端模式下才会生效 -->
-<script src="{{ site.baseurl }}/assets/js/realtime-draggable.min.js"></script>
-<script>
-    rtDraggable.init(document.querySelector('.bottom-fixed-btn'));
-</script>
-{% endif %}
+{%- comment -%}
+拖拽（rtDraggable）不在这里注入：脚本与 init 收进了 _includes/draggableSetup.html，
+和 cat.html 那份合成一处，免得同页把脚本加载两遍。约束写在那个文件的文件头。
+{%- endcomment -%}

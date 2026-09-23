@@ -1,0 +1,28 @@
+{%- comment -%}
+移动端拖拽（rtDraggable）的单一注入点，由三个 layout 放在 </body> 前引入。
+
+两个被拖的节点分属两处：.mao_box 在 cat.html、.bottom-fixed-btn 在 bottomFixedBtn.html。
+以前它们各自抄了一份 <script src> + init，同页两个开关都开时（全站 84 个页面如此），
+同一份脚本要请求并重跑两遍（实测 window.rtDraggable 被赋值 2 次），
+后一份默默把前一份的实例覆盖掉。
+
+为什么不把脚本只留在其中一处、另一处只调 init：两处 include 的先后次序在两个 layout 里
+正好相反 —— default.html 的 footer 在 {{ content }} 内、cat 排在其后，post.html 则 cat(381)
+在 footer(490) 之前。谁先加载都靠不住，落到后面那处就会报 rtDraggable is not defined。
+所以脚本统一提到两个节点都已进 DOM 的文档末尾，只这一处。
+
+外层那两个开关不能省：脚本原先写在 cat.html / bottomFixedBtn.html 内部，而这两个 include
+分别被 layout 的 site.showCat 和 footer.html 的 site.bottomFixedBtn 包着，等于天然吃了一层
+门控。收拢到这一处之后门控就没了，所以这里把外层条件并进来，保持「关掉显示开关就不再
+加载脚本」的既有行为。init 传空节点时自己短路，所以节点没渲染也只是空跑一行。
+{%- endcomment -%}
+{%- assign catDrag = site.showCat and site.catDraggable -%}
+{%- assign btnDrag = site.bottomFixedBtn and site.btnDraggable -%}
+{% if catDrag or btnDrag %}
+<!-- 需要在移动端模式下才会生效 -->
+<script src="{{ site.baseurl }}/assets/js/realtime-draggable.min.js"></script>
+<script>
+    {% if catDrag %}rtDraggable.init(document.querySelector('.mao_box'));{% endif %}
+    {% if btnDrag %}rtDraggable.init(document.querySelector('.bottom-fixed-btn'));{% endif %}
+</script>
+{% endif %}
