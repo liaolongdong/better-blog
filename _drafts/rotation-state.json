@@ -202,6 +202,29 @@
         "八笔旧账：三笔我今天重验，三笔上期就结了",
         "这周另外几笔"
       ]
+    },
+    {
+      "date": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row",
+      "variant": "B2",
+      "titleTpl": "T6",
+      "emojiBudget": "none",
+      "h2Count": 5,
+      "words": 1998,
+      "tableMode": "none",
+      "openingType": "code",
+      "endingType": "oneLineVerdict",
+      "outlookForm": "h3",
+      "styleBlock": false,
+      "highlightBox": true,
+      "h2Titles": [
+        "246 行里那一行为什么还站着",
+        "往回倒 11 天：上架 35 分 37 秒，摘掉条目用了 7 分 2 秒",
+        "那 2 个字符是谁打进去的",
+        "五道门，每一道都放了一次水",
+        "上期那 5 笔账"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -212,7 +235,8 @@
     "T2",
     "T7",
     "T4",
-    "T4"
+    "T4",
+    "T6"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -372,7 +396,12 @@
     "16 条探针，3 条没按文档走",
     "它说 5 MiB 装 2,000-5,000 条，我按两种形状各算一遍",
     "八笔旧账：三笔我今天重验，三笔上期就结了",
-    "这周另外几笔"
+    "这周另外几笔",
+    "246 行里那一行为什么还站着",
+    "往回倒 11 天：上架 35 分 37 秒，摘掉条目用了 7 分 2 秒",
+    "那 2 个字符是谁打进去的",
+    "五道门，每一道都放了一次水",
+    "上期那 5 笔账"
   ],
   "promiseQueue": [
     {
@@ -406,36 +435,6 @@
       "slug": "one-worktree-per-agent"
     },
     {
-      "text": "起一个真 Miniflare 实例 + Images binding，把 imagesLocalFetcher 那条 sharp 路径跑到，验 503/9523（09-21 第二次顺延：本机数据卷 avail 只剩 4.68 GiB，为跑七个版本已删过三轮临时目录）",
-      "registered": "2026-09-10",
-      "job": "B",
-      "slug": "silent-defaults"
-    },
-    {
-      "text": "把 fixture 从 1 个 task 扩成 2 个（`ci:compile` + 被拼错依赖的 `ci:lint`），验正文第六节我引用而没复现的那个执行顺序；验不出来就删掉那半段引用",
-      "registered": "2026-09-21",
-      "job": "B",
-      "slug": "pnpm-task-settings"
-    },
-    {
-      "text": "读 12.5.1 那条延后报告路径的实现，解释为什么同一份文件、同一个自 pin：`install` 是 exit=1 而 `--version` 只是 exit=0 + 一句 [WARN]——这是本篇我唯一看见但解释不了一手的输出",
-      "registered": "2026-09-21",
-      "job": "B",
-      "slug": "pnpm-task-settings"
-    },
-    {
-      "text": "把那张七行版本表拿去一个真有几十个 workspace 的 monorepo 上重跑一遍；我的样本是一份五行 fixture 加一份改过 `packages:` 的真实文件，太干净",
-      "registered": "2026-09-21",
-      "job": "B",
-      "slug": "pnpm-task-settings"
-    },
-    {
-      "text": "两个触发条件：12.5.x 的 [WARN] 若出现 `Did you mean` 我就删第六节那半段批评；`latest-11` 若从 11.27.1 变成 11.28.x 我就重跑第四节那张表（两者都不引用别人的结论）",
-      "registered": "2026-09-21",
-      "job": "B",
-      "slug": "pnpm-task-settings"
-    },
-    {
       "text": "复查 PR #45（Bound source line numbers from above）和 PR #9（fix: reject invalid trace line numbers）有没有被合——两条都堵 validate-findings.cjs:512 那个 `line` 无上界的洞（#9 建于 08-11、#45 建于 09-19，都还 0 评论）。任一被合，正文里 `1e21` 与 `2^53+1` 都 exit=0 那两句必须删",
       "registered": "2026-09-22",
       "job": "A",
@@ -464,6 +463,42 @@
       "registered": "2026-09-22",
       "job": "A",
       "slug": "security-audit-two-validators"
+    },
+    {
+      "text": "盯 `GET /commits?path=README.md`：`claude-for-financial-advisors` 那一行（正文引的 `:113`）哪天消失，正文「集合差活下来 1 行」那句必须改写成「后来也被删了」；09-23T10:34Z 复核它还在",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "盯 #367（09-23T03:57:13Z，rohitberia 问为什么不恢复 wealth-management 或给个理由，建时 0 评论）：到我下次跑这题之前若仍无任何官方回复，就不再把它当「会被回应的问题」来跟，正文那句引用改成一次性记录",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "反向判断也下一条可证伪的：我不觉得这个仓库会补 README 与 markdown 链接的校验（`check.py` docstring 五项没有一项输入是 markdown）。若哪天 `.github/workflows/` 或 `scripts/check.py` 里出现 markdown/README 链接解析，正文第五节「五道门每一道放了一次水」的结论范围要收窄",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "我自己那两份 wxt 扩展仓库补 `.mcp.json` 的 `json.load` 校验（本期 39 parsed / 1 failed 那条 5 行扫描是在 anthropics 那份里跑的，自家还没加），下期正文交代加完之后自家扫描的结果",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "`pnpm-workspace.yaml` 的 `packages:` 一旦出现成员 ≥10 的仓库，就把那张七行版本表拿去重跑；本机两次同口径只扫出 1 份（本博客自己那份、0 个 glob），这是第 2 次顺延，下次仍无成员 ≥10 的样本就按撤回处理",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "pnpm fixture 扩成 2 个 task（`ci:compile` + 被拼错依赖的 `ci:lint`）那笔做了一半，另一半栽在 `git init` exit=128；下期先解 exit=128 再验第六节我引用而没复现的执行顺序，验不出来就删那半段引用",
+      "registered": "2026-09-22",
+      "job": "B",
+      "slug": "claude-advisor-readme-row"
     }
   ],
   "starSnapshots": {
@@ -558,6 +593,14 @@
     "vastsa/PI-Desktop": [
       4926,
       "2026-09-21T16:24:27Z"
+    ],
+    "anthropics/financial-services": [
+      36662,
+      "2026-09-23T10:34Z"
+    ],
+    "anthropics/claude-for-financial-advisors": [
+      54,
+      "2026-09-23T10:34Z"
     ]
   },
   "aborted": [],
