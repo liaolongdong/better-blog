@@ -580,7 +580,7 @@ PY
 
 ### 产物里的样式回归
 
-前面十一条查的都是 HTML 与 feed。另有四处改动同属「失效了也不报错」的那类，只能直接查 CSS：
+前面十一条查的都是 HTML 与 feed。另有五处改动同属「失效了也不报错」的那类，只能直接查 CSS：
 
 ```bash
 python3 - <<'PY'
@@ -588,10 +588,13 @@ import pathlib, re
 root = pathlib.Path('/tmp/seo-check')
 css = (root / 'assets/css/index.min.css').read_text(encoding='utf-8')
 share = (root / 'assets/css/share.min.css').read_text(encoding='utf-8')
+cat = (root / 'assets/css/cat.min.css').read_text(encoding='utf-8')
 print('死样式类回流:', bool(re.search(r'(utdf|dtuf)-delay0', css)),        # 预期 False
       '| downToUpFade 关键帧:', '@keyframes downToUpFade' in css,          # 预期 True
       '| reduce 全站兜底:', 'animation-duration:.01ms!important' in css,   # 预期 True
-      '| socialshare font-display:', 'font-display:swap' in share)         # 预期 True
+      '| socialshare font-display:', 'font-display:swap' in share,         # 预期 True
+      '| 猫按 px 落地:', bool(re.search(r'\.mao_box \.mao\{[^}]*width:200px', cat)),  # 预期 True
+      '| 猫样式里的 vw:', cat.count('vw'))                                 # 预期 0
 PY
 ```
 
@@ -599,7 +602,8 @@ PY
   `@keyframes upToDownFade` 一起删掉（`dev/sass/common/animate.scss`）。它们回流只有一种来路：
   又有人照着旧笔记抄了一遍。
   `vite-dist/` 里那份旧 CSS 还带着这两个类（旧 `@vitejs/plugin-legacy` 的输出残留，
-  已被 `_config.yml` 排除、不进产物）——在仓库里 grep 到命中不算回流，上面查的那份才是真下发的。
+  已被 `_config.yml` 排除、不进产物，并且已从 git 索引里摘掉）——本机 `grep -r` 仍会命中
+  那份磁盘副本，`git grep` 和全新克隆不会；上面查的那份产物才是真下发的。
 - **`downToUpFade` 关键帧**：在 `animate.scss` 里查不到任何 `.类名` 用它，看着就是死代码——
   但 `dev/sass/common/common.scss:229-245` 与 `:417` 是直接写 `animation: downToUpFade …` 的
   （首页文章列表、read-next 的错峰入场）。删掉它，那 6 处动画**静默消失**，
@@ -614,3 +618,9 @@ PY
   原先 `base.scss` 里那两个 Merriweather `@font-face` 是空壳、字体文件已删
   （缘由记在 `dev/blog-growth-analysis-2026-09.md` 的 P0-11）。
   别为了「让这个指标通过」往 `base.scss` 里补 `font-display`——那里没有可挂的字族。
+- **猫的 px→vw 豁免**：`.mao_box` 是 fixed 浮层，被换算过一次之后，设计稿里 200px 的猫在
+  1560px 视口下长成 416×362，正好压在刊头导语与统计行上。构建不报错、HTML 也看不出端倪。
+  豁免只有 `postcss.config.js` 里 `/^\.mao_box/` 那一条，而它管得住全猫的前提是整份
+  `dev/sass/cat.scss` 收在 `.mao_box` 一层内（缘由写在文件头）——把猫改回平铺、或者删掉
+  那一条黑名单，都是静默回膨胀。所以查两件事：`.mao_box .mao` 的 width 仍是 `200px`，
+  且 `cat.min.css` 里 `vw` 计数为 0（半 px 半 vw 的猫会直接画变形）。

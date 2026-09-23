@@ -57,17 +57,17 @@
                         offsetY = e.touches[0].pageY - draggable_params.startY;
                     let x = draggable_params.baseRight - offsetX,
                         y = draggable_params.baseBottom - offsetY;
-                    // check edge
-                    if (x + node.offsetWidth > document.documentElement.offsetWidth) {
-                        x = document.documentElement.offsetWidth - node.offsetWidth;
+                    // check edge —— 基准沿用 getEdgeOffset 的 JSDoc 那套 window.innerWidth/Height。
+                    // 本机 overlay 滚动条下两式数值相同，但经典滚动条环境里
+                    // documentElement.offsetWidth 不含滚动条宽度，混用会让左边界多让出一条。
+                    if (x + node.offsetWidth > window.innerWidth) {
+                        x = window.innerWidth - node.offsetWidth;
                     }
-                    if (y + node.offsetHeight > document.documentElement.offsetHeight) {
-                        y = document.documentElement.offsetHeight - node.offsetHeight;
+                    if (y + node.offsetHeight > window.innerHeight) {
+                        y = window.innerHeight - node.offsetHeight;
                     }
-                    // if (x < 0) { x = 0; }
-                    // if (y < 0) { y = 0; }
                     if (x < 0) { x = 0; }
-                    if (y < 0) { y = node.offsetHeight; }
+                    if (y < 0) { y = 0; }
                     // 如果节点不是fixed定位，则设置成fixed定位
                     if (node.style.position !== 'fixed') {
                         node.style.position = 'fixed';

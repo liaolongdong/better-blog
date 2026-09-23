@@ -28,6 +28,7 @@ module.exports = {
         /^\.search-/,
         /^\.pagination/,
         /^\.bottom-fixed-btn/,  // 悬浮按钮
+        /^\.mao_box/,           // 右下角那只猫：同为 fixed 浮层。整份 cat.scss 已收进 .mao_box 一层，编译出的 35 条选择器全部以它开头，所以一条就够；理由与「漏一条会怎样」见 dev/sass/cat.scss 文件头
         /^\.social-share/,      // 分享按钮
         /^\.lab-content/,       // weblab页面
         /^\.p-about/,           // about页面
