@@ -546,7 +546,7 @@
                         + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
                         + '<span class="cmdk-item-title">' + mark(item.title || '', q) + '</span>'
                         + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), q) + '</span>'
-                        + '<span class="cmdk-item-meta">' + meta.join('</span><span class="cmdk-item-meta">') + '</span>'
+                        + '<span class="cmdk-item-meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</span>'
                         + '</a></li>';
                 }).join('');
 

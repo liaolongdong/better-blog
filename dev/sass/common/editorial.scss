@@ -3100,10 +3100,16 @@ body.fab-tucked .bottom-fixed-btn {
     white-space: nowrap;
 }
 
+// 日期 / 分类 / 标签这三条纵向排。写成三个 .cmdk-item-meta 会被放进同一个格子
+// （grid-column: 2 + grid-row: 1 / span 2），而 grid 同格不会另起一行，三条文字就互相叠印。
+// 所以 JS 侧只输出一个 .cmdk-item-meta，里面每条各包一个 <span> 当 flex 项。
 .cmdk-item-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: center;
     grid-column: 2;
     grid-row: 1 / span 2;
-    align-self: center;
     font-family: $font-meta;
     font-size: 11px;
     letter-spacing: .4px;
