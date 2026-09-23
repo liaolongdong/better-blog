@@ -276,6 +276,12 @@ pnpm build:demo
 - `demo/*/css/base.css` 属于「已预处理完成的静态样式」，构建时原样复制成 `base.min.css`，
   不走打包管线——因为多份 `base.css` 内容完全相同，Vite 会按内容对 CSS 资源去重，
   走管线会导致大部分 demo 拿不到自己的 `base.min.css`。
+- `demo/` 下 33 个页面里有 15 个**没有 front matter**（各 `test.html`、`cssTipsDemo/*`、`ai/*` 等），
+  Jekyll 把它们当静态文件原样拷贝、**不执行 Liquid**，所以这类页里不能写 `{{ site.baseurl }}`——
+  花括号会作为字面量输出到线上。它们的图标声明因此写相对路径 `../../favicon.*`，
+  而 `../../` 只对「距站点根两层」的 `demo/<目录>/<页>.html` 成立，页面挪进更深一层就静默 404、构建不报错。
+  另外 18 个走 `layout: demoTemplate` → `_includes/demoHead.html`，声明由那份 include 统一给，别在这里手抄。
+  新增静态 demo 页后跑一条：`grep -rL 'rel="icon"' $(find _site/demo -name '*.html')`，输出应为空。
 
 ### 4. 修改 Liquid 模板
 
