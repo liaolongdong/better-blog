@@ -74,7 +74,11 @@ nav:
 # Author 配置博主信息
 author: 'Better'
 nickname: 'Better'
-bio: '一枚喜欢研究心理学的前端er'
+# 一句话自我介绍，消费点只有两处：首页侧栏的作者卡（index.html）与文章页页脚那张
+# （_layouts/post.html），都是 238px 宽的窄栏，一行约 17 个汉字，写长了会折第二行。
+# 与 about.html 那段五行介绍、_includes/jsonLdAuthor.html 的 knowsAbout 是同一套口径，
+# 三处各自为政会让「我是做什么的」在站内有三种说法。
+bio: '大前端与 AI 工具链：Vue、Chrome 扩展、小程序、Node.js'
 avatar: '/assets/img/profile.png'
 # 检索实体的名字口径，只给 JSON-LD 与 llms.txt 用，页面可见文案一律不读这两个字段。
 # author 是「署名」：文章页作者行、打赏提示、meta name=author 都在用它，改它会改到看得见的字。
