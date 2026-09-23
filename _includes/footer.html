@@ -99,6 +99,20 @@
         <a href="{{ '/about.html' | relative_url }}">关于作者</a>
     </section>
 
+    {%- comment -%}
+    订阅与索引的可见入口（分析报告 P1-F6 / S4）。机器可读的那条 <link rel="alternate">
+    一直在 head 里（seoMeta.html:182），但读者看不见它——阅读器扩展抓得到，人抓不到。
+    页脚是全站唯一每页都渲染的位置（_layouts/post.html 与九个页面模板都 include 这里），
+    补在这一行等于每一页都有入口，不必在文章页再单加一块、多养一套样式。
+    同排带上全站索引与 llms.txt：前者是给「不执行 JavaScript 的抓取」兜底的那一页，
+    后者是 AI 引擎读的那份清单。两个地址都在构建期算出，没有任何脚本行为。
+    {%- endcomment -%}
+    <section>
+        <a href="{{ '/feed.xml' | relative_url }}" title="Atom 全文订阅源：正文完整，含图片与代码块">RSS 订阅</a> ·
+        <a href="{{ '/index-all.html' | relative_url }}" title="按年份列全部文章，另附合集、示例与页面清单">全站索引</a> ·
+        <a href="{{ '/llms.txt' | relative_url }}" title="给 AI 引擎的站点说明与全篇索引">llms.txt</a>
+    </section>
+
     {% if site.footer.showCursorEffects %}
     <script src="{{ site.baseurl }}/assets/js/cursor-effects.min.js"></script>
     {% endif %}

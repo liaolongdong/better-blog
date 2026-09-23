@@ -1,0 +1,82 @@
+---
+permalink: /llms.txt
+---
+{%- comment -%}
+给 AI 引擎的站点说明与全篇索引（llms.txt 约定，见 llmstxt.org）。分析报告 P1-S2。
+
+为什么做成 Jekyll 页而不是仓库里一份手写 txt：这份文件的价值全在「和站内实际内容一致」。
+手写版每加一篇文章就悄悄过期，而它过期比没有更糟——AI 引擎会把拿到的那份当成权威摘要。
+所以篇目、地址、摘要、计数全部由 site.posts / site.data 现算，唯一的维护成本是最上面那段自述。
+
+取摘要的优先级与 _includes/seoMeta.html 一致（seo_description > description > subtitle
+> 站点描述），唯独不抄它的最后一道闸：那边「不足 25 字符就退回站级描述」是为了填满 SERP
+那一行约 140 列的预算（空着的部分引擎自己猜，猜出来的往往是正文碎片）；这里没有列宽约束，
+一句 6 个字的 subtitle 对 AI 读者仍比通用的站级摘要有用，所以照原样给。
+代价是这两处对同一篇可能给出不完全相同的一句话——实测当前站内 67 篇的取值全都 ≥25 字符，
+两边逐篇一致；将来某篇写了极短 subtitle 时，这里保留短的那句，Google 那边退回站级描述。
+
+排版有一条必须知道的坑：Liquid 标签结尾若带减号，会把它后面那个换行一起吃掉。
+整篇清单如果按「开标签闭标签两侧都带减号」的习惯写，产物里 67 条会全挤在同一行——
+构建不报错，人眼扫过去也看不出问题。所以下面凡是往外吐文本的那一行，它前面那个标签
+都只在自己这一侧带减号（保留其后的换行），闭标签才两侧都带，把多余空行收掉。
+（这段说明本身不能写成真正的标签字面量：注释体内的标签会被 Liquid 当真解析，
+构建直接失败，缘由见 sitemap.xml 里同类的注释。）
+{%- endcomment -%}
+{%- assign base = site.url | append: site.baseurl -%}
+{%- comment -%}年份列表：与 index-all.html 同一套算法（先把日期 assign 出来再比较，不把滤镜写进 if 条件）{%- endcomment -%}
+{%- assign year_rows = "" | split: "" -%}
+{%- for post in site.posts -%}
+    {%- assign py = post.date | date: '%Y' -%}
+    {%- unless year_rows contains py -%}
+        {%- assign year_rows = year_rows | push: py -%}
+    {%- endunless -%}
+{%- endfor -%}
+{%- assign year_rows = year_rows | sort | reverse -%}
+# {{ site.seo_home_title }}
+
+> {{ site.description }}
+>
+> 站内现有 {{ site.posts.size }} 篇文章、{{ site.data.series.size }} 个合集、{{ site.data.demoLists.size }} 个可运行示例，最早一篇写于 {{ site.posts.last.date | date: '%Y' }} 年。作者 {{ site.author }}（本名与公众号署名见本文开头），前端工程师。
+>
+> 全文订阅：[{{ base }}/feed.xml]({{ base }}/feed.xml) ｜ 全站地址索引：[{{ base }}/index-all.html]({{ base }}/index-all.html) ｜ 站点地图：[{{ base }}/sitemap.xml]({{ base }}/sitemap.xml)
+>
+> 许可：代码 MIT，文章与配图 CC BY-NC-SA 4.0。引用请连作者与实测日期一起注明。
+
+## 站点页面
+
+{%- for item in site.nav %}
+{%- assign pgdesc = "" -%}
+{%- for pg in site.pages -%}
+{%- if pg.url == item.url and pg.subtitle -%}{%- assign pgdesc = pg.subtitle -%}{%- endif -%}
+{%- endfor %}
+- [{{ item.label }}]({{ base }}{{ item.url }}){% if pgdesc != "" %}：{{ pgdesc }}{% endif %}
+{%- endfor %}
+- [全站索引]({{ base }}/index-all.html)：按年份列全部文章，另附合集、示例与页面清单；纯服务端渲染，不执行脚本也能读全
+- [全文订阅源]({{ base }}/feed.xml)：Atom 全文源，正文完整（含图片与代码块），是站内最容易被直接引用的资产
+- [站点地图]({{ base }}/sitemap.xml)：可索引页面地址与最后更新日
+
+## 合集（同一主题按阅读顺序连读）
+
+{%- for s in site.data.series %}
+- [{{ s.title }}]({{ base }}/series.html#{{ s.slug }})：{{ s.lede }}（共 {{ s.order.size }} 篇）
+{%- endfor %}
+
+## 全部文章（按年份，新→旧）
+{%- for year in year_rows %}
+
+### {{ year }} 年
+{%- for post in site.posts -%}
+{%- assign py = post.date | date: '%Y' -%}
+{%- if post.seo_description -%}{%- assign desc = post.seo_description -%}{%- elsif post.description -%}{%- assign desc = post.description -%}{%- elsif post.subtitle -%}{%- assign desc = post.subtitle -%}{%- else -%}{%- assign desc = site.description -%}{%- endif -%}
+{%- if py == year %}
+- [{{ post.title | strip }}]({{ base }}{{ post.url }})：{{ desc | strip }}
+{%- endif -%}
+{%- endfor -%}
+{%- endfor %}
+
+## 怎么引用这份内容
+
+- 文章地址形如 `{{ base }}/2026/09/21/<slug>.html`：年/月/日取自文章的 `date`，`<slug>` 取自文件名，发布后不再变动，可以长期引用。
+- 文内的命令、配置与版本号都是作者本人环境实测，实测日期写在正文里；上游行为会变，引用时请连日期一起给出，不要只摘结论句。
+- 需要结构化字段（标题、摘要、发布日、作者、分类）时，读同一 URL 的 JSON-LD（`BlogPosting` + `BreadcrumbList`），或直接读上面的 Atom 全文源。
+- 本文件由站点构建自动生成、与站内内容同步，不存在需要人工同步的第二份清单。

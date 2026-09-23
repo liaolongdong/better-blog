@@ -39,6 +39,17 @@ permalink: /sitemap.xml
     </url>
 {% endif %}{% endfor %}
 {%- comment -%}
+全站索引页是这条 nav 白名单唯一的一次破例。它确实该被收录（把抓取深度从「翻 9 页」
+压成 1 次），但不该出现在导航条上——导航是给人用的常显入口，一页纯目录挤进去
+只会把第 9 项推到移动端换行。所以在这里单独点名，而不是往 site.nav 里加一项。
+llms.txt 不进站点地图：它是纯文本，不是可浏览页面，放在 urlset 里属于噪声。
+{%- endcomment -%}
+    <url>
+        <loc>{{ '/index-all.html' | absolute_url }}</loc>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+    </url>
+{%- comment -%}
 noindex 的文章不进站点地图：一边在页面里写「别收」，一边在 sitemap 里递地址，
 两个信号互相抵消，还可能被判定为站点地图质量差。目前站内没有这种文章，留着是为了
 以后真要摘某一篇出去时（比如写了公司内部项目）只用改 front matter，不必两头记。

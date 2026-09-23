@@ -1,0 +1,165 @@
+---
+layout: default
+title: 全站索引
+subtitle: 全站可访问地址一页列全：按年份归档的全部文章、合集、可运行示例与站点页面，无脚本、无懒加载，人和爬虫读同一份
+seo_description: 按年份列出本站全部文章，并汇总合集、可运行示例与站点页面的一页式索引；纯服务端渲染，链接直接可见，不需要执行 JavaScript
+permalink: /index-all.html
+---
+{% include header.html %}
+
+{%- comment -%}
+纯 HTML 全站索引（分析报告 P1-S4）。存在的理由不是给人当目录用——分类、合集、标签、
+⌘K 都比这一页好逛——而是给两件事兜底：
+  ① 爬虫顺着导航走不全站内页（翻页视图 /page2/… 只到最近 9 页，更早的文章没有入口路径），
+     这一页把全部文章一次摊平，抓取深度从「翻页 N 次」变成 1 次；
+  ② AI 引擎抓 HTML 时不执行 JavaScript，凡是靠脚本填内容的地方对它们都是空的。
+所以这一页刻意不引入任何新交互：类名全部沿用 categories.html / series.html / demo.html
+（.cat-row / .cat-chip / .demo-list），一条新 CSS 都不写，构建产物体积不变。
+{%- endcomment -%}
+
+{%- comment -%}
+年份去重：site.categories 有 Jekyll 自带的顺序，年份没有，只能自己攒。
+站点 posts 已按日期倒序，所以攒出来的顺序本来就是新→旧，末尾的 sort | reverse
+是防止将来 posts 改成非时序排序后这一页跟着乱掉。
+{%- endcomment -%}
+{%- assign year_rows = "" | split: "" -%}
+{%- for post in site.posts -%}
+    {%- assign py = post.date | date: '%Y' -%}
+    {%- unless year_rows contains py -%}
+        {%- assign year_rows = year_rows | push: py -%}
+    {%- endunless -%}
+{%- endfor -%}
+{%- assign year_rows = year_rows | sort | reverse -%}
+{%- comment -%}
+页面数不能直接写 site.nav.size：下面那一节除了 nav 列出的那些，还额外列了本页、订阅源、
+llms.txt 三个地址（它们不在导航条上，但确实是站内地址，这一页的意义就是列全）。
+只加 3 不写死总数，是为了将来往导航里加项时这个数字自己跟上。
+{%- endcomment -%}
+{%- assign page_count = site.nav.size | plus: 3 -%}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Index / 全站索引</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">{{ site.posts.size }} articles</span>
+        </p>
+        <h1 class="masthead-title">全站索引</h1>
+        <p class="masthead-lede">
+            一页列全站内地址：按年份归档的文章、合集、可运行示例与站点页面。
+            要找某一篇，按 <kbd>⌘K</kbd> 搜更快；这一页是给「顺着链接逛」和「不执行脚本的抓取」准备的。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ site.data.series.size }}</strong><span>个合集</span></li>
+            <li><strong>{{ site.data.demoLists.size }}</strong><span>个示例</span></li>
+            <li><strong>{{ site.categories.size }}</strong><span>个分类</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container archive-content" id="main">
+    <nav class="cat-index" aria-label="索引分组">
+        {%- for year in year_rows -%}
+        {%- assign ycount = 0 -%}
+        {%- for p in site.posts -%}
+            {%- assign cy = p.date | date: '%Y' -%}
+            {%- if cy == year -%}{%- assign ycount = ycount | plus: 1 -%}{%- endif -%}
+        {%- endfor -%}
+        <a class="cat-chip" href="#y{{ year }}">{{ year }} 年<em>{{ ycount }}</em></a>
+        {%- endfor -%}
+        <a class="cat-chip" href="#collections">合集<em>{{ site.data.series.size }}</em></a>
+        <a class="cat-chip" href="#demos">示例<em>{{ site.data.demoLists.size }}</em></a>
+        <a class="cat-chip" href="#pages">页面<em>{{ page_count }}</em></a>
+    </nav>
+
+    {%- comment -%}
+    年份一律先 assign 再比较，不写 `if post.date | date: '%Y' == year`。
+    滤镜嵌在 if 条件里是这仓库栽过的那类「读起来对、跑起来反」（见 sitemap.xml 里
+    关于 `contains '://' == false` 的注释），而且构建日志一样干净。
+    {%- endcomment -%}
+    {%- for year in year_rows -%}
+    {%- assign ycount = 0 -%}
+    {%- for p in site.posts -%}
+        {%- assign cy = p.date | date: '%Y' -%}
+        {%- if cy == year -%}{%- assign ycount = ycount | plus: 1 -%}{%- endif -%}
+    {%- endfor -%}
+    <section class="cat-section" id="y{{ year }}">
+        <header class="cat-head">
+            <h2 class="cat-name">{{ year }} 年</h2>
+            <span class="cat-count">{{ ycount }} 篇</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ol class="cat-list">
+            {%- for post in site.posts -%}
+            {%- assign gy = post.date | date: '%Y' -%}
+            {%- if gy == year %}
+            <li class="cat-row">
+                <time class="cat-date" datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%m.%d' }}</time>
+                <a class="cat-title" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+            </li>
+            {%- endif -%}
+            {%- endfor -%}
+        </ol>
+    </section>
+    {%- endfor -%}
+
+    <section class="cat-section" id="collections">
+        <header class="cat-head">
+            <h2 class="cat-name">合集</h2>
+            <span class="cat-count">{{ site.data.series.size }} 个</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ol class="cat-list">
+            {%- for s in site.data.series %}
+            <li class="cat-row">
+                <span class="cat-date">{{ s.order.size }} 篇</span>
+                <a class="cat-title" href="{{ '/series.html#' | append: s.slug | prepend: site.baseurl }}">{{ s.title }}</a>
+            </li>
+            {%- endfor -%}
+        </ol>
+    </section>
+
+    <section class="cat-section" id="demos">
+        <header class="cat-head">
+            <h2 class="cat-name">可运行示例</h2>
+            <span class="cat-count">{{ site.data.demoLists.size }} 个</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ul class="demo-list">
+            {%- for item in site.data.demoLists %}
+            <li class="demo-row"><a class="demo-link" target="_blank" rel="noopener" href="{{ site.baseurl }}/{{ item.demoUrl }}" title="{{ item.title | escape }}">{{ item.title | escape }}</a></li>
+            {%- endfor -%}
+        </ul>
+    </section>
+
+    <section class="cat-section" id="pages">
+        <header class="cat-head">
+            <h2 class="cat-name">站点页面</h2>
+            <span class="cat-count">{{ page_count }} 个</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ol class="cat-list">
+            {%- for item in site.nav %}
+            <li class="cat-row">
+                <span class="cat-date">{{ item.key }}</span>
+                <a class="cat-title" href="{{ item.url | prepend: site.baseurl }}">{{ item.label }}</a>
+            </li>
+            {%- endfor -%}
+            <li class="cat-row">
+                <span class="cat-date">index</span>
+                <a class="cat-title" href="{{ '/index-all.html' | relative_url }}">本页（全站索引）</a>
+            </li>
+            <li class="cat-row">
+                <span class="cat-date">feed</span>
+                <a class="cat-title" href="{{ '/feed.xml' | relative_url }}">全文订阅源（Atom）</a>
+            </li>
+            <li class="cat-row">
+                <span class="cat-date">llms</span>
+                <a class="cat-title" href="{{ '/llms.txt' | relative_url }}">llms.txt（给 AI 引擎的站点说明与全篇索引）</a>
+            </li>
+        </ol>
+    </section>
+</main>
+
+{% include footer.html %}

@@ -67,7 +67,7 @@
 | 12 | **CSS/JS 全量下发** | `index.min.css` 100,079B 整站在一个文件里，每个文章页都背 ✅；本地 CSS 120KB + JS 92KB（未压） | LCP / 首屏解析 | 拆出 print/critical；文章页只载需要的片段（至少把 about/demo/weblab 专用样式分拆） |
 | 13 | **`prefers-reduced-motion` 有漏网** | reduce 块原先只存在于 `about.scss` 与 `editorial.scss`（`tokens.scss` 那处是 `no-preference` 的 view-transition，不算兜底）；`animate.scss`、`common.scss`（`.article-item`/`.read-next-item` 错峰 6 处）、`cat.scss`、`bottomFixedBtn.scss`、`weblab.scss`、`helper.scss` 均无，`base.scss` 的 `a{transition:.2s}` 也没有 | 无障碍 + 前庭功能敏感用户 | 已做，但没有逐组件补：在 `base.scss` 末尾加一份全站兜底（`*`,`::before`,`::after` 的 `animation-duration`/`transition-duration` → `.01ms !important`、`animation-iteration-count:1`、`animation-delay:0s`、`scroll-behavior:auto`）。用 `.01ms` 而不是 `animation: none`：后者管不到 transition 那一侧（`a{transition:.2s}`、悬浮位移、抽屉 transform），逐条补又回到"每个组件再补一遍"；实测当前全站 0 个规则块同时写了 `opacity:0` 与 `animation`，所以两种写法今天都不会藏掉内容，选前者是为了覆盖过渡与未来的动效。`index.min.css` 全站下发，6 个文件一次覆盖，后来的新动效也自动在里面 |
 | 14 | **死代码** | `.utdf-delay0` / `.dtuf-delay0` 只在 `animate.scss` 与产物 CSS 里出现，模板中 0 引用（`_posts` 里唯一命中这两个类名的是本报告自己） | 维护噪音 | 已删：两个类一起删，连带只有它们一处消费的 `@keyframes upToDownFade`；**`@keyframes downToUpFade` 必须留**——它的消费者在别的文件（common.scss 那 6 处直接写 `animation: downToUpFade …`），按类名 grep 会把它误判成死码 |
-| 15 | **无 AI 引擎可读入口** | `robots.txt` 只有 3 行（`User-agent: *` / `Allow: /` / `Sitemap:`），AI 爬虫隐式放行但**未显式表态**；全站无 `llms.txt`；无 `<noscript>`（⌘K 结果容器静态是空 `<ul>`）；无纯 HTML 全站索引页 | 被 ChatGPT / Perplexity / Claude 引用的概率 | 已做（本批口径只到"显式表态"）：`robots.txt` 逐条写出 13 个引擎的 `Allow: /`，检索型与训练型不区分（2026-09-23 确认全部放行）；`llms.txt` / `<noscript>` / 纯 HTML 索引页见 P1-S2/S3/S4 |
+| 15 | **无 AI 引擎可读入口** | `robots.txt` 只有 3 行（`User-agent: *` / `Allow: /` / `Sitemap:`），AI 爬虫隐式放行但**未显式表态**；全站无 `llms.txt`；无 `<noscript>`（⌘K 结果容器静态是空 `<ul>`）；无纯 HTML 全站索引页 | 被 ChatGPT / Perplexity / Claude 引用的概率 | 已做（本批口径只到"显式表态"）：`robots.txt` 逐条写出 13 个引擎的 `Allow: /`，检索型与训练型不区分（2026-09-23 确认全部放行）；`llms.txt`（P1-S2）与纯 HTML 索引页（P1-S4）已于 2026-09-23 落地，剩 `<noscript>` 未做 |
 | 16 | **`<head>` 里两个阻塞资源挂在同一个外部域上**（核验 P0-11 时撞出来的，不在原 15 条里） | `headAssets.html:38/40` 从 `cdn.staticfile.org` 取 normalize.min.css（阻塞渲染的样式表）与 jQuery 3.3.1（阻塞解析的 `<script>`，无 defer/async）。2026-09-23 本机实测：normalize **15s 超时、code=000**；jquery **3.88s / 86KB**；同页的 at.alicdn 图标 CSS 只要 0.07s → 慢的是这个域，不是网络总体。后果实测可复现：headless Chrome 打开任意页拿不到 `document.body`，`--dump-dom` 两分钟不退出；把该域用 `--host-resolver-rules` 指到本地后 1.2 秒就量完了 | LCP / 首屏白屏 / 抓取预算；`$` 依赖脚本（`anchor.html` 等）全在 jQuery 之后 | 把这两个文件自托管进 `assets/`（normalize 6.0.0 约 1.7KB gz、jquery 3.3.1 约 30KB gz），或至少给 jQuery 加 `defer` 并把它下游那些"必须早于 `$`"的脚本改成 `DOMContentLoaded` 触发。**属于动性能基线的改动，本批未擅自做** |
 
 > 另有一个部署层事实：Pages 只监听 `master`，本地 `main` 上的提交在推上去之前不会上线（写这段时领先 5 个，P0 批次做完已到 11 个；以 `git rev-list --left-right --count origin/master...HEAD` 为准）。修完 P0 一起发一版更划算。
@@ -107,9 +107,10 @@ front matter 支持 `updated: ['2026-03-12 补充 pnpm 9 的行为变化', ...]`
 已有 ⌘K，但可发现性靠一个 `<kbd>`；`?` 唤出快捷键总览，补 `j/k` 跳章节、`t` 切主题、`b` 开书架、`g` 回顶。
 - 成本：极低；对"开发者读者"是强好感点，且和已有 TOC/主题/书架完全复用。
 
-### F6 订阅入口（东西都在，只是看不见）
+### F6 订阅入口（东西都在，只是看不见）— 已做（2026-09-23）
 全文 Atom 质量很高（20 条、正文中位 17,462 字），但修好图片（P0-1）之后仍要让人**能订阅**：页脚 + 文章页加 `RSS` 链接与 `rel=alternate` 可见化。
 - 附带收益：订阅数是可迁移的自有受众，GitHub Pages 域名变更（这个项目历史上就发生过 `liaolongdong.com` → `liaolongdong.github.io`）时不会归零。
+- 落地口径：`rel=alternate` 一直在 head（`_includes/seoMeta.html:182`），补的是**看得见**的那一份——放在 `_includes/footer.html`，因为它是全站唯一每页都渲染的位置（`_layouts/post.html` 与九个页面模板都 include 它），同排带上全站索引与 `llms.txt` 三个地址。没有在文章页另加一块，也就没有多养一套样式与新的视觉层级。
 
 ### F7 PWA / 书架离线（和"稍后再读"是天然一对）
 现状：**无 service worker、无 manifest.json**（已 grep 确认）。书架的语义就是"我待会儿要读"，而"待会儿"经常是地铁里。
@@ -117,7 +118,7 @@ front matter 支持 `updated: ['2026-03-12 补充 pnpm 9 的行为变化', ...]`
 - 成本：中；收益是把一个已有功能从"标记"升级成"能兑现"。
 
 ### F8 合集读完的成就反馈
-`_data/series.yml` 已有 25 个合集、进度 chip 已有。检测 5/5 读完后给一次庆祝（复用 `seriesFillIn` 的完成脉冲 + 一张可分享卡）。
+`_data/series.yml` 已有 10 个合集、进度 chip 已有。检测 5/5 读完后给一次庆祝（复用 `seriesFillIn` 的完成脉冲 + 一张可分享卡）。
 - 收益：系列连读率 —— 对"提升浏览页数"是最直接的机制；成本极低。
 
 ---
@@ -128,17 +129,24 @@ front matter 支持 `updated: ['2026-03-12 补充 pnpm 9 的行为变化', ...]`
 就是 P0-2/P0-3。做法上给 `USAGE.md` 的写作规范加两条硬约束，并扩写"检索层自查"脚本（`USAGE.md:380` 那节已扩到 11 条，列数区间已是第 9 条：标题 ≤60 列、描述 ∈[50,158] 列，按 CJK=2 列算）。
 下限取 50 是对齐 P0-2 的补写门槛（subtitle < 50 列才补 `seo_description`），不是终点：S1 把文案推到 150 列档之后，这条下限可以直接抬到 100，那时它才真正在挡"摘要拼成无意义片段"。
 
-### S2 `llms.txt`（低成本，直接服务 AI 引用）
-一份 markdown：站点是谁、写什么、25 个合集的主题、66 篇的分组索引（标题 + URL + 一句话结论）。Google 明确说 AI Overviews 不需要它，但 ChatGPT/Claude/Perplexity 侧确实会读；对 Google 无害。
+### S2 `llms.txt`（低成本，直接服务 AI 引用）— 已做（2026-09-23）
+一份 markdown：站点是谁、写什么、10 个合集的主题、全部文章的分组索引（标题 + URL + 一句话结论）。Google 明确说 AI Overviews 不需要它，但 ChatGPT/Claude/Perplexity 侧确实会读；对 Google 无害。
 - 进阶（可选）：每篇 40–60 字的"结论块"汇成 `llms-full.txt`。注意别把正文拆碎重排，那是 Google 点名的反模式。
+- 落地口径：根目录 `llms.txt` 是一份**由 Jekyll 渲染**的页（`permalink: /llms.txt`，无 layout），不是手写 txt。理由只有一条：这份文件的价值全在"和站内实际内容一致"，手写版每加一篇文章就悄悄过期，而它过期比没有更糟——引擎会把拿到的那份当权威摘要。现在篇目、地址、摘要、计数全部现算，唯一的维护成本是最上面那段自述。
+- 摘要取值链与 `seoMeta.html` 同序（`seo_description > description > subtitle > 站级描述`），但**不抄**它"不足 25 字符退回站级描述"那道闸：那道闸是为 SERP 那约 140 列的预算服务的，纯文本清单没有列宽约束，6 个字的 subtitle 对引擎仍比一句通用站级摘要有用。当前 67 篇实测两边逐篇一致。
+- 三个入口互相指：`llms.txt` 里列 feed / 全站索引 / sitemap，页脚三个链接并列，sitemap 收录 `index-all.html` 但**不收** `llms.txt`（纯文本进 `urlset` 是噪声）。
 
-### S3 `robots.txt` 显式表态
+### S3 `robots.txt` 显式表态 — 已做（2026-09-23，见 P0-15）
 现在是一行 `Allow: /`。建议显式放行检索型爬虫（`GPTBot`、`OAI-SearchBot`、`ChatGPT-User`、`PerplexityBot`、`ClaudeBot`/`anthropic-ai`、`Google-Extended`、`Bingbot`），并按意愿处理只用于训练的种子（`CCBot`、`Bytespider`、`Applebot-Extended`）。
 - 这是个取舍不是纯收益：挡训练爬虫 = 放弃这些引擎的引用位。默认建议**放行**，把决定权留给你。
+- 结论：2026-09-23 确认全部放行，13 个引擎逐条写 `Allow: /`，检索型与训练型不区分。
 
-### S4 纯 HTML 全站索引页
+### S4 纯 HTML 全站索引页 — 已做（2026-09-23）
 `/index-all.html`：按年份 + 分类列出全部 66 篇（服务端渲染，非 JS）。同时解决 P0-7 的 demo 孤儿（另起一段列出 19 个 demo）。
 - 收益：抓取覆盖 + 长尾内链，也把权重送进现在拿不到的 demo 页。
+- 落地口径：这一页存在的理由不是"给人当目录"（分类/合集/标签/⌘K 都比它好逛），而是给两件事兜底——翻页视图只到最近 9 页、更早文章没有导航路径；以及不执行 JavaScript 的抓取。**一条新 CSS 都不写**：类名全部沿用 `editorial.scss` 已有的 `.cat-*` / `.demo-*`，产物体积不变，栅格行为与分类归档页同源。
+- 站点页数的计数写 `site.nav.size | plus: 3`（nav 之外还列本页 / feed / llms.txt 三个地址），不写死 11，将来往导航加项时它自己跟上。
+- 它进 sitemap 是那条 nav 白名单**唯一一次破例**：该收录，但不该上导航条（导航是给人的常显入口，一页纯目录挤进去只会把第 9 项推到移动端换行）。
 
 ### S5 结构化数据补齐（底子好，补的是最后一公里）
 - `speakable`：0 篇有 → 给 `BlogPosting` 加（`cssSelector` 指向首个结论段）。
@@ -209,6 +217,9 @@ P0-12 CSS 拆分、P0-16 `cdn.staticfile.org` 自托管。
 
 **第 2 步 · CTR + AEO 批（S1/S2/S4/S6/S7）**
 标题描述重写 + `llms.txt` + 全站索引 + og:image 兜底卡 + 两个薄页补实文。这批是曝光率的主战场。
+进度（2026-09-23）：S2、S4 已做，外加 F6 的可见订阅入口（它记在功能批，但和这两个是同一次改动，
+一起落最省）；S1 的文案重写仍是独立工作量（要逐篇判断，不适合机器代笔）；S6/S7 会动视觉或
+需要新产出物，等点头。
 
 **第 3 步 · 功能批（F1 → F3 → F4 → F2 → F5 → F6 → F8 → F7）**
 按"改动小 / 复用多"的顺序排：编辑器联动和修订记录很轻，全文搜索中等，PWA 最重放最后。

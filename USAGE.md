@@ -403,9 +403,12 @@ done
 grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.html | sort | uniq -d
 
 # 3. JSON-LD 必须是合法 JSON（模板里一个未转义引号就能让它整块失效）
-#    预期：blocks 与站内页面结构吻合（当前口径 160：BlogPosting 66 + BreadcrumbList 66
-#    + CollectionPage 25 + WebSite/Blog/Person 各 1），且 failures 为 0
-#    （noindex 的 404 页不声明结构化数据，见 _includes/jsonLd.html）
+#    预期：failures 为 0，且类型分布对得上口径——BlogPosting 与 BreadcrumbList 各等于
+#    可索引文章数（第 11 条的命中页数），WebSite / Blog / Person 各 1（只在首页声明一次，
+#    见 _includes/jsonLd.html 的 page.url == '/' 那道门），CollectionPage 等于所有带
+#    page.title 的站点页与归档页（含 index-all.html）。当前站内是
+#    BlogPosting 67 + BreadcrumbList 67 + CollectionPage 26 + WebSite/Blog/Person 各 1 = 163 块
+#    （noindex 的 404 页不声明结构化数据）
 python3 - <<'PY'
 import json, pathlib, re, collections
 blocks, types, failures = 0, collections.Counter(), 0
