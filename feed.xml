@@ -29,7 +29,20 @@ permalink: /feed.xml
 {% for tag in post.tags %}
         <category term="{{ tag | xml_escape }}" scheme="tag"/>
 {% endfor %}
-        <content type="html" xml:base="{{ post.url | absolute_url }}">{{ post.content | xml_escape }}</content>
+{%- comment -%}
+正文必须先过 add_baseurl_to_images 再转义：这个站点是 GitHub Pages 项目页，
+产物挂在 /better-blog/ 下，而 Markdown 里写的是 /assets/img/… 这种站点根相对路径。
+_layouts/default.html 与 _layouts/post.html 都过了这道滤镜，唯独这里没有，
+于是全文订阅源里 64 处图片地址全部指到域名根上——实测
+https://liaolongdong.github.io/assets/img/…/banner.webp 返 404，
+同文件加 /better-blog 前缀返 200。
+
+ xml:base 救不了这种情况：它只对「相对 URL」生效，而以 / 开头的路径是绝对路径，
+浏览器与阅读器都直接按域名根解析，不会拼到 xml:base 上。所以只能改写地址本身。
+顺序也不能换：add_baseurl_to_images 要匹配 <img …> 标签，放在 xml_escape 之后
+标签已经变成 &lt;img …&gt;，正则就什么都抓不到了。
+{%- endcomment -%}
+        <content type="html" xml:base="{{ post.url | absolute_url }}">{{ post.content | add_baseurl_to_images | xml_escape }}</content>
     </entry>
 {% endfor %}
 </feed>

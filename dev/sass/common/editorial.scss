@@ -1101,6 +1101,14 @@ body.has-toc .post-grid {
     color: var(--ink-2);
 }
 
+// _plugins/image_dims.rb 会在构建期给正文图补 width/height 属性（消 CLS 跳动）。
+// 补了属性就必须让高度按属性推出的比例走：github-markdown 的 `.markdown-body img`
+// 只写了 max-width:100%（(0,1,1)），图比正文容器宽时高度会停在属性值上，压成扁图。
+// height:auto 本就是初始值，对没带属性的图是 no-op；这里用 (0,2,1) 覆盖，不依赖加载顺序。
+.post-content .markdown-body img {
+    height: auto;
+}
+
 // github-markdown 把 p 的字号写死成 17px，不显式退回继承就不跟着缩放；
 // 缩放只覆盖叙述文字，代码块与表格保持原尺寸（放大代码只会顶出横向滚动条）。
 .markdown-body p {

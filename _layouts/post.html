@@ -4,7 +4,7 @@
 
 <body>
   <!--[if lt IE 10]>
-    <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="http://browsehappy.com">立即升级</a></div>
+    <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="https://browsehappy.com">立即升级</a></div>
   <![endif]-->
   <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
   
@@ -164,7 +164,14 @@
     {% if page.cover %}
     <figure class="post-hero">
       <div class="g-container">
-        <img src="{{ coverSrc }}" alt="{{ page.title }} 头图">
+        {%- comment -%}
+        头图不在 post_body 那条 add_image_dims 链上（它不属于 content 变量），所以单独过一次：
+        它是文章页最大、且在首屏的图，没有宽高属性时首帧按 0 高占位、图一到就把
+        标题和正文整体往下顶，是文章页 CLS 的第一笔。滤镜只补属性，不加懒加载
+        （单次调用里它是第一张图，LCP 候选必须保持 eager）。
+        {%- endcomment -%}
+        {%- capture hero_img -%}<img src="{{ coverSrc }}" alt="{{ page.title }} 头图">{%- endcapture -%}
+        {{ hero_img | add_image_dims }}
       </div>
     </figure>
     {% endif %}
@@ -178,7 +185,7 @@
                data-chars="{{ post_chars }}"
                data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"
                data-cat="{{ page.categories | first }}">
-        {{ post_body | add_baseurl_to_images }}
+        {{ post_body | add_baseurl_to_images | add_image_dims }}
       </article>
 
       {%- comment -%}

@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/about.min.css">
 <body>
     <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
-    {{ content }}
+    {{ content | add_image_dims }}
     <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
     <!-- editorial.min.js 不能省：window.EditorialTheme 是主题的唯一真值源，
          缺了它 footer 里的昼夜切换会在求值期抛错、按钮根本不绑定（default/post 两个 layout 都带） -->
