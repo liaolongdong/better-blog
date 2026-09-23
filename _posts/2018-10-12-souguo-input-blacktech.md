@@ -2,6 +2,7 @@
 layout: post
 title: '搜狗输入法黑科技'
 subtitle: '搜狗输入法黑科技'
+seo_description: 搜狗输入法黑科技：不会拼的汉字（比如饕和餮）不用查字典，输入 uhaohushi 这种 u 开头的拆字描述就能直接打出来，配图演示这种输入方式。
 date: 2018-10-12
 categories: [工具与效率]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。

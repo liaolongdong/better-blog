@@ -2,6 +2,7 @@
 layout: post
 title: vscode编辑器常用插件汇总
 subtitle: vscode编辑器常用插件汇总
+seo_description: vscode 常用插件汇总：简体中文语言包、ESLint、Beautify 格式化、Babel JavaScript 高亮、ES7 React snippets、GitLens、cssrem、Easy LESS、Code Runner、Vetur。
 date: 2019-09-23
 categories: [工具与效率]
 # cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；

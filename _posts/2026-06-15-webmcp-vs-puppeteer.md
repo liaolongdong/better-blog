@@ -2,6 +2,7 @@
 layout: post
 title: 🚨 别再死磕 Puppeteer 了！Chrome 祭出“王炸”新 API，前端自动化面临彻底洗牌！
 subtitle: 🚨 别再死磕 Puppeteer 了！Chrome 祭出“王炸”新 API，前端自动化面临彻底洗牌！
+seo_short_title: WebMCP 对比 Puppeteer：Chrome 新 API 实测
 date: 2026-06-15
 categories: [AI, Chrome插件]
 cover: /assets/img/ai-sdd/banner-3.png

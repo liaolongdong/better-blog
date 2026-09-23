@@ -2,6 +2,7 @@
 layout: post
 title: 🚨 别再死磕 AI 自动出图了！我这周试了 4 个项目，2 个卡在半路
 subtitle: archify 的品牌表里没有 Vite，HyperFrames 的 init 顺手 clone 了整仓，最后跑通的是 chrome-devtools-mcp
+seo_short_title: 4 个 AI 出图项目实测，2 个卡在半路
 date: 2026-09-10
 categories: [AI, 开源实测]
 cover: /assets/img/agent-visual-toolchain/banner.webp

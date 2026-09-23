@@ -2,6 +2,7 @@
 layout: post
 title: 网站SEO搜索引擎优化
 subtitle: 网站SEO搜索引擎优化
+seo_description: 网站 SEO 实操：标题、关键字、描述与 h1~h6、header、footer 语义化，再用添加站点、链接提交自动推送、sitemap 三种方式主动让搜索引擎收录。
 date: 2019-01-17
 categories: [工具与效率]
 cover: /assets/img/postCover/seo_cover.png
@@ -111,7 +112,7 @@ tags: 网站seo seo优化 搜索引擎网站收录
 
 > 站点地图对于SEO非常重要，在网站中加入sitemap有利于搜索引擎蜘蛛的抓取和收录。
 
-1. 生成sitemap文件，可通过[网站地图爬虫在线工具](http://help.bj.cn/)生成
+1. 生成sitemap文件，可通过[网站地图爬虫在线工具](https://help.bj.cn/)生成
 2. 在网站的根目录添加sitemap.xml文件
 3. 在百度站长工具提交文件地址
 
@@ -154,7 +155,7 @@ tags: 网站seo seo优化 搜索引擎网站收录
 
 - [百度](https://ziyuan.baidu.com/)
 - [google](https://search.google.com/search-console) （注：google国内要翻墙才能正常访问）
-- [360](http://zhanzhang.so.com/)
-- [搜狗](http://zhanzhang.sogou.com/index.php/site/index)
+- [360](https://zhanzhang.so.com/)
+- [搜狗](https://zhanzhang.sogou.com/index.php/site/index)
 
 **总结：让自己网站搜索排名靠前最快的方式当然是花钱参与竞价排名，除了上面介绍的几种方式之外，让自己的网站增加搜索量、点击量、网站频繁更新也能让网站搜索排名靠前，所以没事的时候就多点点自己的网站，O(∩_∩)O哈哈~**

@@ -1,4 +1,58 @@
+# 全站收录策略：允许一切抓取，包括 AI 引擎
+#
+# 为什么显式写出来而不是留一行 User-agent: *：
+# 只有一行 Allow 时，AI 爬虫在语义上「隐式可抓」，但这个决定从来没有被记录过。
+# 显式列出等于把「愿意被引用」写进仓库，日后有人想加 Disallow 时会看到这里的取舍，
+# 而不是顺手挡掉一个自己没意识到的引用来源。
+#
+# 口径（2026-09-23 确认）：全部放行。
+# 挡训练爬虫省不下什么，但会直接丢掉那个引擎的引用位——对个人技术博客是净亏。
+# 检索型（会被引用）与训练型（喂模型）不做区分；若将来要区分，只删对应那一段。
+#
+# 改之前请先读 dev/blog-growth-analysis-2026-09.md 第 4 节 S3。
+
 User-agent: *
+Allow: /
+
+# --- 检索型 AI 爬虫（会给出链接，是曝光来源）---
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: MistralAI-Bot
+Allow: /
+
+# --- 抓取/共建索引型 ---
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
 Allow: /
 
 Sitemap: https://liaolongdong.github.io/better-blog/sitemap.xml

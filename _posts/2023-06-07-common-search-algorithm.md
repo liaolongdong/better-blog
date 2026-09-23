@@ -2,6 +2,7 @@
 layout: post
 title: 前端开发应该掌握的查找算法
 subtitle: 前端开发应该掌握的查找算法
+seo_description: 前端开发应该掌握的查找算法：线性、二分、插值、哈希查找（函数与类两种实现）、二叉搜索树，以及 AVL 树、红黑树、B 树和 B+ 树查找与选型总结。
 date: 2023-06-07
 categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png

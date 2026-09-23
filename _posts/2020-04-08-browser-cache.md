@@ -2,6 +2,7 @@
 layout: post
 title: 浏览器缓存机制
 subtitle: 浏览器缓存机制
+seo_description: 浏览器缓存机制：HTTP 头的 Cache-Control（或 Expires）决定强缓存、Last-Modified 与 ETag 决定协商缓存，例如 max-age=600 就是 600 秒内复用本地缓存。
 date: 2020-04-08
 categories: [JavaScript]
 # cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png

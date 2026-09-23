@@ -2,6 +2,7 @@
 layout: post
 title: npm、yarn和pnpm包管理工具详解
 subtitle: npm、yarn和pnpm包管理工具详解
+seo_description: npm、yarn 和 pnpm 包管理工具详解：三者定位与常用命令，以及 dependencies、devDependencies、peerDependencies 三种依赖类型的区别与适用场景，附深度对比。
 date: 2023-06-14
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

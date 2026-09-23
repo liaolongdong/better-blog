@@ -2,6 +2,7 @@
 layout: post
 title: 使用react+next实现服务端渲染
 subtitle: 使用react+next实现服务端渲染
+seo_description: 用 react + next.js 实现服务端渲染：先说清 SPA 为什么对 SEO 不友好，再过 next.js 的路由、接口取数、嵌入样式、静态文件服务与自定义 App 和 Document。
 date: 2018-11-25
 categories: [React]
 cover: '/assets/img/postCover/next_cover.png'

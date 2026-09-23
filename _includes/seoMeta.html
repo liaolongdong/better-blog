@@ -12,6 +12,17 @@ seo_title 只出现在 <title> 与 og:title 里，是搜索结果那一行蓝链
 旧写法把「Better’s study fairyland」拼在每个页面后面——这串字不含任何检索词，
 中文读者搜「前端博客」「npm」「React」时它一个都命不中，白占后缀的位置。
 （它不会挤掉文章标题：SERP 是从右往左截断的，超长时先被剪掉的是后缀本身。）
+
+seo_short_title 是同一问题的另一半：实测 66 篇里 27 篇的 <title> 超过 60 显示列，
+20 篇超 70，最长 97 列（一个 API key 都不配就能看卫星图？gods-eye-view 用 13 条免密
+路径彻底终结这个问题 + 后缀）。SERP 从右边截，被剪掉的正是「Better 前端博客」这个
+检索实体和句子后半段的关键词——标题写得越满，丢的越多。
+所以给这类文章加一个只用于检索的短标题（目标 ≤45 列，留出后缀的 16 列）。
+它是页面之外的字段：可见 H1、正文、合集与归档列表里的篇名一律不受影响。
+两处跟着它一起变、且应当跟着变：og:image:alt（分享卡片本就该和检索标题同口径），
+以及 og:title / twitter:title（社交侧同样会截，X 约 70 字符、微信约 40）。
+唯一的例外是 JSON-LD 的 headline——那个必须与用户看得见的一级标题一致，
+所以 jsonLd.html 里 headline 走 page.title 而不是本变量。
 {%- endcomment -%}
 {%- comment -%}
 首页信息流的分页（/page2/ … /page9/）由 jekyll-paginate 复用同一份 index.html 渲染，
@@ -22,9 +33,13 @@ seo_title 只出现在 <title> 与 og:title 里，是搜索结果那一行蓝链
 预算，往后拼「· 第 2 页」只会先被剪掉，等于没区分。所以分页页走一条独立的短标题，
 描述里的页码前置。分页页也没有 page.title，正好和首页共用这条分支。
 {%- endcomment -%}
+{%- comment -%}
+结构化数据（jsonLd.html）额外依赖第四个变量：
+  page_modified —— 下面算出的真实修订时间；没有真值时为 nil，JSON-LD 便不输出 dateModified。
+{%- endcomment -%}
 {%- capture page_title -%}
 {%- if paginator.page > 1 -%}{{ site.seo_archive_title }} · 第 {{ paginator.page }}/{{ paginator.total_pages }} 页
-{%- elsif page.title -%}{{ page.title }} - {{ site.seo_title }}
+{%- elsif page.title -%}{{ page.seo_short_title | default: page.title }} - {{ site.seo_title }}
 {%- else -%}{{ site.seo_home_title }}{%- endif -%}
 {%- endcapture -%}
 <title>{{ page_title | strip }}</title>
@@ -45,6 +60,19 @@ seo_description 是「只改摘要、不改页面」的口子：首页与文章�
 {%- else -%}{{ site.description }}{%- endif -%}
 {%- endcapture -%}
 {%- assign page_desc = page_desc | strip -%}
+{%- comment -%}
+兜底链的一道闸：subtitle 只有几个字时，宁可用站点级描述也不要它。
+实测 66 篇里 39 篇最终 description 短于 50 显示列、12 篇短于 20 列，最短只有 12 列——
+「前端学习资料」「nginx配置详解」这类 6 字 subtitle 被原样搬进 meta description，
+SERP 那一行剩下约 140 列全部交给引擎自己猜，猜出来的往往是把正文开头连导航文字
+一起截断的碎片。这一栏的预算是给得出去就用，不给就等于白送。
+长度用 | size 按字符计（Liquid 拿不到显示列数，中文一字约两列，25 字符≈50 列，
+正好是「值不值得单独写一条」的分界）。留站级描述而不是留空：空 description 会让引擎
+去抓页头导航，比一句通用的站点摘要更不可控。真正的解法仍是给这些文章补 seo_description。
+{%- endcomment -%}
+{%- if page_desc.size < 25 -%}
+{%- assign page_desc = site.description -%}
+{%- endif -%}
 <meta name="description" content="{{ page_desc | xml_escape }}">
 <meta name="keywords"  content="{{ site.keyword }}">
 {%- comment -%}
@@ -99,8 +127,42 @@ Jekyll 侧拿不到图片真实尺寸，硬写 1200/630 就是在给爬虫一组
 <meta property="og:description" content="{{ page_desc | xml_escape }}">
 <meta property="og:site_name" content="{{ site.title }}">
 <meta property="og:locale" content="{{ site.social.og_locale | default: 'zh_CN' }}">
+{%- comment -%}
+真实修订时间的唯一口径。两种写法都接受，取较新者：
+  · `last_modified_at: 'YYYY-MM-DD'` —— jekyll-last-modified-at 的既有字段名，保持兼容；
+  · `updated: ['2026-03-12 …', '2026-08-01 …']` —— 给后续「本文修订记录」用的列表，末项最新。
+
+以前 jsonLd.html 直接写 `page.last_modified_at | default: page.date`，而这个仓库
+0 篇文章声明过 last_modified_at —— 结果是 66 篇文章的 dateModified 恒等于 datePublished。
+那不是「没有更新信息」，是「伪造了一条更新信息」：引擎能看出两个时间一模一样，
+长期等于反复申报零翻新，比不声明更伤新鲜度信号。
+
+所以这里的规则是「没有真值就不说」：page_modified 为空时，下面的 article:modified_time
+与 JSON-LD 的 dateModified 一并不输出。哪天某篇真的补了 updated，它自然就开始说话。
+变量在 include 之间共享（coverSrc.html 的 coverSrc 也是这么跨出去的），
+jsonLd.html 直接读它，不在两处各自解析一遍 front matter。
+{%- endcomment -%}
+{%- assign page_modified = page.last_modified_at -%}
+{%- if page.updated and page.updated.size > 0 -%}
+{%- assign _upd_last = page.updated | last -%}
+{%- assign _upd_date = _upd_last | date: '%Y-%m-%d' -%}
+{%- assign _mod_date = page_modified | date: '%Y-%m-%d' -%}
+{%- if page_modified == nil or _upd_date > _mod_date -%}
+{%- assign page_modified = _upd_last -%}
+{%- endif -%}
+{%- endif -%}
+{%- comment -%} 修订时间与发布时间同日视为未修订，避免产出 2019=2019 这种假新鲜度。 {%- endcomment -%}
+{%- comment -%} 空串在 Liquid 里是 truthy，所以这里必须显式比一次 ''，只写 if page_modified 挡不住。 {%- endcomment -%}
+{%- if page_modified and page_modified != '' -%}
+{%- assign _pm_day = page_modified | date: '%Y-%m-%d' -%}
+{%- assign _pd_day = page.date | date: '%Y-%m-%d' -%}
+{%- if _pm_day == _pd_day -%}{%- assign page_modified = nil -%}{%- endif -%}
+{%- endif -%}
 {%- if page.layout == 'post' %}
 <meta property="article:published_time" content="{{ page.date | date_to_xmlschema }}">
+{%- if page_modified %}
+<meta property="article:modified_time" content="{{ page_modified | date_to_xmlschema }}">
+{%- endif %}
 <meta property="article:author" content="{{ site.url }}{{ site.baseurl }}/about.html">
 {%- for cat in page.categories %}
 <meta property="article:section" content="{{ cat | xml_escape }}">

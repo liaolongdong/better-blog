@@ -2,6 +2,7 @@
 layout: post
 title: H5实现打开导航地图app并自动导航到目的地
 subtitle: H5实现打开导航地图app并自动导航到目的地
+seo_description: H5 打开高德、百度、腾讯地图 App 并自动导航到目的地：JS 无法判断用户装了哪个地图 app，按 scheme 依次尝试并给「点击无响应可能是未安装」的兜底提示。
 date: 2020-10-25
 categories: [H5与微信]
 # cover: /assets/img/postCover/gulp_cover.png
@@ -159,6 +160,6 @@ Vue.component("OpenMap", {
 
 ## demo效果地址
 
-- [H5实现打开导航地图app并自动导航到目的地](https://liaolongdong.com/demo/openMapDemo/index.html)
+- [H5实现打开导航地图app并自动导航到目的地]({{ site.baseurl }}/demo/openMapDemo/index.html)
 
 

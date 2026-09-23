@@ -1,6 +1,4 @@
 $(document).ready(function(){
-    var BASE_URL = window.SITE_BASEURL || '';
-    var pageRelPath = window.location.pathname.replace(BASE_URL, '') || '/';
     var nav = $('.g-nav');
 
     /**
@@ -124,22 +122,7 @@ $(document).ready(function(){
     }
     pagination();
 
-    /**
-     * demo page get demo data
-     * 条目结构跟随 editorial.scss 的 .demo-list：一行一条、发丝线分隔，
-     * 与分类/标签归档页的 .cat-row 同一套列表语言（示例没有日期，所以只有标题一列）。
-     */
-    if (/demo\.html$/.test(pageRelPath)) {
-        $.getJSON(BASE_URL + '/demo.json').done(function(data) {
-            var html = '';
-            var demoLists = data.demoLists;
-            for (var i = 0; i < demoLists.length; i++) {
-                html += '<li class="demo-row"><a class="demo-link" target="_blank" rel="noopener" href="'
-                + BASE_URL + '/' + demoLists[i].demoUrl + '" title="'
-                + demoLists[i].title + '">'
-                + demoLists[i].title + '</a></li>';
-            }
-            $('.demo-list').html(html);
-        });
-    }
+    // demo.html 的列表不再在这里回填：条目已由 demo.html 在构建期用
+    // site.data.demoLists（_plugins/demo_data.rb 读仓库根的 demo.json）服务端渲染，
+    // 禁用 JS 的访客与爬虫都能直接读到 19 条链接。
 });

@@ -2,6 +2,7 @@
 layout: post
 title: Meta 开源了 Astryx：一个同时为人类开发者和 AI Agent 设计的 React UI 系统
 subtitle: 150+ 组件、7 套主题、StyleX 驱动，还有让 AI 编程助手"零踩坑"的隐藏设计
+seo_short_title: Meta 开源 Astryx：为人与 Agent 同时设计
 date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/astryx/banner.webp

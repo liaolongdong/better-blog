@@ -2,6 +2,7 @@
 layout: post
 title: 前端那些你不知道的小技巧(CSS篇)
 subtitle: 前端那些你不知道的小技巧(CSS篇)
+seo_description: 前端你不知道的小技巧（CSS 篇）：复位与继承 box-sizing、优化文本显示、not() 取消首尾边框、伪元素妙用、清除浮动、border 画三角形、负 nth-child 选择。
 date: 2019-02-26
 categories: [CSS]
 # cover: /assets/img/postCover/gulp_cover.png
@@ -350,6 +351,6 @@ p {
 
 相关链接：  
 
-- [用css如何实现圣杯布局(两侧定宽，中间自适应布局)](https://liaolongdong.com/demo/cssTipsDemo/leftCenterRight.html)
-- [七种CSS方式让一个容器水平垂直居中](https://liaolongdong.com/demo/cssTipsDemo/containerCenter.html)
-- [网页元素CSS水平居中、垂直居中、水平垂直居中汇总](https://liaolongdong.com/demo/cssTipsDemo/summaryCenter.html)
+- [用css如何实现圣杯布局(两侧定宽，中间自适应布局)]({{ site.baseurl }}/demo/cssTipsDemo/leftCenterRight.html)
+- [七种CSS方式让一个容器水平垂直居中]({{ site.baseurl }}/demo/cssTipsDemo/containerCenter.html)
+- [网页元素CSS水平居中、垂直居中、水平垂直居中汇总]({{ site.baseurl }}/demo/cssTipsDemo/summaryCenter.html)

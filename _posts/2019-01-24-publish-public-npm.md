@@ -2,6 +2,7 @@
 layout: post
 title: 如何开发一个npm包并发布到npm中央仓库
 subtitle: 如何开发一个npm包并发布到npm中央仓库
+seo_description: 如何开发一个 npm 包并发布到 npm 中央仓库：包命名规则与根目录必备的 index.js、package.json，注册账号点邮件验证，发布到公共仓库的完整命令步骤。
 date: 2019-01-24
 categories: [前端工程化]
 # cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；

@@ -2,6 +2,7 @@
 layout: post
 title: 三家并行工作区翻车了：唯一装上的那家，0.213 秒就把我拒了
 subtitle: 为了这期横评，我在 /tmp 造了个 400 文件的假仓库，手动开 5 个工作树吃掉 40,020 KB，又拿 APFS 裸测复算了 worktrunk FAQ 里那句 2.6TB by du and 0.7TB on disk
+seo_short_title: 三家并行工作区实测：0.213 秒被拒
 date: 2026-09-21
 categories: [AI, 开源实测]
 cover: /assets/img/one-worktree-per-agent/banner.webp

@@ -2,6 +2,7 @@
 layout: post
 title: '总结前端工作当中遇到的那些坑'
 subtitle: '总结前端工作当中遇到的那些坑'
+seo_description: 前端工作踩坑汇总：微信公众号 js-sdk 常见问题与接口调用频次限制、获取 openid、微信内 H5 调起支付，以及点击穿透、图片 403、键盘遮挡表单等兼容问题。
 date: 2018-03-26
 categories: [随笔]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。

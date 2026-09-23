@@ -2,6 +2,7 @@
 layout: post
 title: 几种常见的排序算法
 subtitle: 几种常见的排序算法
+seo_description: 几种常见排序算法的 JS 实现与原理：选择、冒泡、快速、插入排序，每种附逐行注释代码，并说明选择排序为什么不稳定、循环边界为什么写 len - 1。
 date: 2019-03-06
 categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png

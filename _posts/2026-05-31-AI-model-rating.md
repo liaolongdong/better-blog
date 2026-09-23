@@ -2,6 +2,7 @@
 layout: post
 title: 谁才是最强大脑？2026年5月全球AI大模型实测排名出炉，结果让人意外
 subtitle: 谁才是最强大脑？2026年5月全球AI大模型实测排名出炉，结果让人意外
+seo_short_title: 2026 年 5 月全球 AI 大模型实测排名
 date: 2026-05-31
 categories: [AI]
 cover: /assets/img/postCover/AI-model-rating-banner.png

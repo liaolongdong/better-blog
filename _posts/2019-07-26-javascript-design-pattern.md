@@ -2,6 +2,7 @@
 layout: post
 title: JavaScript常用设计模式总结
 subtitle: JavaScript常用设计模式总结
+seo_description: JavaScript 常用设计模式总结：单例模式（简单版与完整 getInstance）、策略模式（重构表单校验、给同一输入框加多种规则）、代理模式（保护与虚拟代理）。
 date: 2019-07-26
 categories: [JavaScript]
 # cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
@@ -400,7 +401,7 @@ registerForm.onsubmit = function () {
 };
 ```
 
-[使用策略模式重构表单校验demo](https://liaolongdong.com/demo/designDemo/strategyFormDemo.html)
+[使用策略模式重构表单校验demo]({{ site.baseurl }}/demo/designDemo/strategyFormDemo.html)
 
 ## 3、代理模式
 
@@ -595,7 +596,7 @@ var proxyImage = (function () {
 proxyImage('https://pic1.zhimg.com/v2-0391689010c83495ba3923cd04c71206_1200x500.jpg');
 ```
 
-[使用代理模式实现图片预加载demo](https://liaolongdong.com/demo/designDemo/proxyImageDemo.html)
+[使用代理模式实现图片预加载demo]({{ site.baseurl }}/demo/designDemo/proxyImageDemo.html)
 
 ### 缓存代理
 
@@ -1204,7 +1205,7 @@ setCommand(button2, addSubMenuCommand);
 setCommand(button3, delSubMenuCommand);
 ```
 
-[使用命令模式demo](https://liaolongdong.com/demo/designDemo/commandDemo.html)
+[使用命令模式demo]({{ site.baseurl }}/demo/designDemo/commandDemo.html)
 
 ### 使用闭包实现命令模式
 
@@ -1359,7 +1360,7 @@ macroCommand.execute();
 
 JavaScript 可以用高阶函数非常方便地实现命令模式。命令模式在JavaScript 语言中是一种隐形的模式。
 
-[使用命令模式demo](https://liaolongdong.com/demo/designDemo/commandDemo.html)
+[使用命令模式demo]({{ site.baseurl }}/demo/designDemo/commandDemo.html)
 
 ## 7、组合模式
 

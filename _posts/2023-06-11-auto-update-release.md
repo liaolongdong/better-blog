@@ -2,6 +2,8 @@
 layout: post
 title: 前端项目版本投产实现浏览器自动刷新更新版本内容
 subtitle: 前端项目版本投产实现浏览器自动刷新更新版本内容
+seo_short_title: 前端版本投产让浏览器自动刷新更新内容
+seo_description: 前端项目投产后让浏览器自动刷新拿到新版本：漏更新会有缺新功能、安全修复没生效、接口字段改了旧 JS 报错三类风险；方案是 node 读 git 版本加监听可见性事件。
 date: 2023-06-11
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

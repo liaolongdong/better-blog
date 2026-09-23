@@ -2,6 +2,7 @@
 layout: post
 title: 使用gulp搭建多页面项目
 subtitle: 使用gulp搭建多页面项目
+seo_description: 用 gulp 搭建多页面项目：gulp.src、dest、task、watch 等常用 API 逐个讲解，说明独立活动页为什么更适合用 gulp 构建，并解答报错 Task function must be specified。
 date: 2019-01-28
 categories: [前端工程化]
 cover: /assets/img/postCover/gulp_cover.png

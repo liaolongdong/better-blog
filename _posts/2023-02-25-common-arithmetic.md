@@ -2,6 +2,7 @@
 layout: post
 title: 常见的算法题
 subtitle: 常见的算法题
+seo_description: 常见的算法题与手写解法：选择、冒泡、快速、插入四种排序，二叉树深度优先/广度优先/层序遍历与多叉树层序遍历，反转字符串、有效括号、删除相邻重复项、两数之和。
 date: 2023-02-25
 categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png

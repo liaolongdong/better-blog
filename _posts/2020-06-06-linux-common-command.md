@@ -2,6 +2,7 @@
 layout: post
 title: linux常用命令
 subtitle: linux常用命令
+seo_description: linux 常用命令详解（近两万字的查阅手册）：man 查用法，/、~、./、../ 的含义，cd、ls、pwd、vim 等路径编辑操作，mkdir、mv、rm、cp、ln 等逐条给示例。
 date: 2021-03-23
 categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png

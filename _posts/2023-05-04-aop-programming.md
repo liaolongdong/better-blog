@@ -2,6 +2,7 @@
 layout: post
 title: JS中面向切面编程(AOP)应用
 subtitle: JS中面向切面编程(AOP)应用
+seo_description: JS 中面向切面编程（AOP）的应用：在不改原代码的前提下，用一个高阶函数给目标函数包上日志等横切逻辑，从最朴素的实现逐步扩展到终极方案，每步附代码。
 date: 2023-04-12
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png

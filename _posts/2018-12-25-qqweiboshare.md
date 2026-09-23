@@ -2,13 +2,14 @@
 layout: post
 title: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
 subtitle: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
+seo_short_title: 原生 JS 实现 QQ 与微博分享功能
 date: 2018-12-25
 categories: [H5与微信]
 cover: '/assets/img/postCover/share_cover.png'
 tags: H5分享
 ---
 
-[点这里查看demo效果](https://liaolongdong.com/demo/shareDemo/myshare.html)
+[点这里查看demo效果]({{ site.baseurl }}/demo/shareDemo/myshare.html)
 
 在分享功能中我们通常用的最多的几个配置参数：分享的标题、分享的内容链接地址、分享描述信息以及分享的缩略图地址，具体实现代码如下：
 

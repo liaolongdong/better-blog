@@ -2,6 +2,7 @@
 layout: post
 title: 前端面试常见编程题汇总
 subtitle: 前端面试常见编程题汇总
+seo_description: 前端面试常见编程题汇总（附真题出处与实际输出）：阿里变量赋值题、字节递归与宏微任务、携程表达式求值、腾讯文档 promise 串行、async/await 事件循环顺序。
 date: 2019-03-20
 categories: [算法与面试]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。

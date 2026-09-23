@@ -8,7 +8,10 @@ permalink: /demo.html
 {% include header.html %}
 
 {%- comment -%}
-条目由 index.js 读 demo.json 注入，本页只留容器；行样式见 editorial.scss 的 .demo-list。
+条目由构建期渲染：数据源是仓库根的 demo.json，经 _plugins/demo_data.rb 注入
+site.data.demoLists。以前这里是空容器 + index.js 拉 JSON 回填，爬虫与禁用 JS 的
+访客看到的就是一页空白，19 个示例的入口链接一条都不存在。
+行样式见 editorial.scss 的 .demo-list；标记结构与旧 JS 生成的保持逐字一致。
 {%- endcomment -%}
 <section class="g-masthead archive-masthead">
     <div class="g-container masthead-inner">
@@ -27,6 +30,9 @@ permalink: /demo.html
 
 <main class="g-container archive-content" id="main">
     <ul class="demo-list">
+        {%- for item in site.data.demoLists -%}
+        <li class="demo-row"><a class="demo-link" target="_blank" rel="noopener" href="{{ site.baseurl }}/{{ item.demoUrl }}" title="{{ item.title | escape }}">{{ item.title | escape }}</a></li>
+        {%- endfor -%}
     </ul>
 </main>
 

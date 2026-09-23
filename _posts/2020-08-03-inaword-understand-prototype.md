@@ -2,6 +2,7 @@
 layout: post
 title: 一句话理解原型和原型链
 subtitle: 一句话理解原型和原型链
+seo_description: 一句话理解原型和原型链：每个对象的 proto 指向其构造函数的 prototype，每个函数都有 prototype，函数本身也是对象，所有函数对象的 proto 都指向 Function。
 date: 2020-08-03
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png

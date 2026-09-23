@@ -2,6 +2,7 @@
 layout: post
 title: 阿里云服务器上部署node+mongodb
 subtitle: 阿里云服务器上部署node+mongodb
+seo_description: 阿里云服务器部署 node + mongodb 图文教程：购买域名与云服务器 ECS（1 核 1GB CentOS 7.4），进控制台找到实例，再在服务器上装 node 和 mongodb。
 date: 2018-11-01
 categories: [服务器与部署]
 # cover 原本是阿里 CDN 外链（当时 200 可访问）。外链随时会回收，且 og:image 只认站内图，
@@ -194,8 +195,8 @@ node app.js
 所以我们需要在云服务上全局安装pm2，使用pm2就可以保证我们的nodeapp一直处于启动状态，除非你手动关闭
 
 12、使用node自带的包安装管理器npm，安装express和pm2，这两个模块推荐全局安装  
-express - node web应用框架（可自行根据需要安装），[详细用法](http://www.expressjs.com.cn/)  
-pm2 - 是一个带有负载均衡功能的Node应用的进程管理器.当你要把你的独立代码利用全部的服务器上的所有CPU,并保证进程永远都活着，[详细用法](http://www.cnblogs.com/flyingeagle/p/9219376.html)  
+express - node web应用框架（可自行根据需要安装），[详细用法](https://www.expressjs.com.cn/)  
+pm2 - 是一个带有负载均衡功能的Node应用的进程管理器.当你要把你的独立代码利用全部的服务器上的所有CPU,并保证进程永远都活着，[详细用法](https://www.cnblogs.com/flyingeagle/p/9219376.html)  
 安装了pm2后，我们一起来试试吧  
 
 ```linux
@@ -312,7 +313,7 @@ bind_ip=0.0.0.0
 
 ```
 
-[linux下安装mongodb详情可查看](http://www.runoob.com/mongodb/mongodb-linux-install.html)  
+[linux下安装mongodb详情可查看](https://www.runoob.com/mongodb/mongodb-linux-install.html)  
 
 5、启动和终止mongodb
 
@@ -453,7 +454,7 @@ mongodb数据库`连接\增\删\改\查`操作就不再做详细介绍了，内�
 [Nodejs 部署到阿里云全过程](https://blog.csdn.net/moumaobuchiyu/article/details/55004430)  
 [手把手教你在阿里云CentOS7上部署基于MongoDB+Node.js的博客](https://blog.csdn.net/weixin_39350487/article/details/82185387)  
 [如何将网站部署到阿里云服务器](https://www.jianshu.com/p/a4e4a8c9b86c)  
-[linux下安装mongodb详情可查看](http://www.runoob.com/mongodb/mongodb-linux-install.html)  
+[linux下安装mongodb详情可查看](https://www.runoob.com/mongodb/mongodb-linux-install.html)  
 [在Linux服务器中配置mongodb环境](https://www.aliyun.com/jiaocheng/127114.html)  
 [阿里云centos下部署mongodb](https://www.aliyun.com/jiaocheng/125928.html)  
 [Mongoose基础入门](https://www.cnblogs.com/xiaohuochai/p/7215067.html?utm_source=itdadao&utm_medium=referral)  

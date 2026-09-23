@@ -2,6 +2,7 @@
 layout: post
 title: 前端那些你不知道的小技巧(JS篇)
 subtitle: 前端那些你不知道的小技巧(JS篇)
+seo_description: 前端你不知道的小技巧（JS 篇）：一行代码实现五星评价、统计字符出现次数、准确判断数据类型、数组去重、类数组转数组、多维数组扁平化去重升序、金额千分位。
 date: 2019-02-25
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png

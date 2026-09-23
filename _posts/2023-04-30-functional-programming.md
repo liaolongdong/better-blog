@@ -2,6 +2,7 @@
 layout: post
 title: JS函数式编程的应用
 subtitle: JS函数式编程的应用
+seo_description: JS 函数式编程的应用：先摆清面向过程、面向对象、函数式三种范式，再展开高阶函数、纯函数、柯里化、函数组合、惰性求值与尾递归的使用场景和优缺点。
 date: 2023-04-30
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png

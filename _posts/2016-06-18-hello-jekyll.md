@@ -1,6 +1,7 @@
 ---
 layout: post
 title: 'Hello Jekyll'
+seo_description: Jekyll 是什么：把装满纯文本文件的模板目录，经 Markdown 与 Liquid 渲染成静态网站和博客的轻量静态站点生成器，含内容管理与部署入门。
 date: 2016-06-18
 author: Jekyll
 cover: '/assets/img/postCover/hello_jekyll.png'

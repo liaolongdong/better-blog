@@ -2,6 +2,7 @@
 layout: post
 title: 告别复制粘贴！这款本地账号密码管理插件，让多账号切换效率翻倍
 subtitle: 告别复制粘贴！这款本地账号密码管理插件，让多账号切换效率翻倍
+seo_short_title: 本地账号密码管理插件，多账号一键切
 date: 2026-05-25
 categories: [Chrome插件]
 cover: /assets/img/postCover/06-sidepanel-fill.png

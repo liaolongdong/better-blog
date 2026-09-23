@@ -2,6 +2,7 @@
 layout: post
 title: 移动端调试技巧总结
 subtitle: 移动端调试技巧总结
+seo_description: 移动端调试技巧总结：H5 通用调试方法，iOS 与 Android 各自的真机调试，微信内调试与安卓微信清理缓存，以及在手机上访问电脑本地服务验证兼容问题。
 date: 2019-03-04
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

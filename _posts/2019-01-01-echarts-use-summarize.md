@@ -2,6 +2,7 @@
 layout: post
 title: echarts折线图、饼状图、圆环图使用总结
 subtitle: echarts折线图、饼状图、圆环图使用总结
+seo_description: echarts 折线图、饼状图、圆环图使用总结：常用配置参数，以及官方 demo 没写的问题——折线图周围空白、加水印文本块、标签超长重叠，均配注释与在线 demo。
 date: 2019-01-01
 categories: [JavaScript]
 cover: '/assets/img/postCover/echarts_cover.png'
@@ -10,7 +11,7 @@ tags: echarts
 
 这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。
 
-[点这里查看demo效果](https://liaolongdong.com/demo/echartsDemo/index.html)
+[点这里查看demo效果]({{ site.baseurl }}/demo/echartsDemo/index.html)
 
 ## 绘制图表
 

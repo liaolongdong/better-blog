@@ -2,6 +2,7 @@
 layout: post
 title: nginx配置详解
 subtitle: nginx配置详解
+seo_description: nginx 配置详解：高性能 Web 与反向代理服务器的事件驱动异步结构，安装与 nginx -V 参数、全局指令与内置变量、events/http/server 模块，重点对比 root 与 alias。
 date: 2023-04-12
 categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png

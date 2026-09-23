@@ -2,6 +2,7 @@
 layout: post
 title: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 subtitle: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
+seo_short_title: 一套前端项目切换多套后端环境
 date: 2024-10-08
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

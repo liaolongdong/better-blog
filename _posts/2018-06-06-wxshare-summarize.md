@@ -2,6 +2,7 @@
 layout: post
 title: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 subtitle: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
+seo_short_title: 微信分享到好友、朋友圈、QQ 的总结
 date: 2018-06-06
 categories: [H5与微信]
 cover: '/assets/img/postCover/wxshare_cover.png'

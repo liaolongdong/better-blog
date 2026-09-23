@@ -2,6 +2,8 @@
 layout: post
 title: 2023年都结束了，你还不知道新增了哪些JS特性？
 subtitle: 2023年都结束了，你还不知道新增了哪些JS特性？
+seo_short_title: ES2023 新增的 JS 特性汇总
+seo_description: ES2023（ECMAScript 第 14 版）新增的 JS 特性：Object.groupBy 与 Map.groupBy 按回调值分组的差异与适用场景，数组新增的方法等，每个特性配可运行代码。
 date: 2023-12-29
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png

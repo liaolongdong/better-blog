@@ -2,6 +2,7 @@
 layout: post
 title: '前端开发中经常使用到的公用方法'
 subtitle: '前端开发中经常使用到的公用方法'
+seo_description: 前端常用公用方法合集（ES6，每段带 JSDoc 可直接复制）：毫秒转日期、倒计时、手机号校验与脱敏、正则格式化银行卡号、URL 取参拼参、判断微信浏览器。
 date: 2017-08-25
 categories: [JavaScript]
 cover: '/assets/img/postCover/code_tools.png'

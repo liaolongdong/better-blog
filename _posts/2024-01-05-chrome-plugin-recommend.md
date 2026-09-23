@@ -2,6 +2,7 @@
 layout: post
 title: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 subtitle: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
+seo_short_title: 超好用的 Chrome 浏览器插件推荐
 date: 2024-01-05
 categories: [Chrome插件]
 # cover: /assets/img/postCover/gulp_cover.png

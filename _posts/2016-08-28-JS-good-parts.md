@@ -2,6 +2,7 @@
 layout: post
 title: 'JavaScript语言精粹学习笔记'
 subtitle: 'JavaScript语言精粹学习笔记'
+seo_description: 《JavaScript 语言精粹》逐章学习笔记：语法、对象、函数、继承、数组、正则、方法、JSON，附可运行代码与引用共享、原型链等易错点。
 date: 2016-08-28
 categories: [JavaScript]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。

@@ -2,6 +2,7 @@
 layout: post
 title: 阿里云服务器部署nginx以及配置https
 subtitle: 阿里云服务器部署nginx以及配置https
+seo_description: 阿里云 CentOS 部署 nginx 并配置 https：yum 升级内核及 update 与 upgrade 的区别、安装 nginx、下载免费证书，以及 HTTP 转 HTTPS 后必补的 301 重定向。
 date: 2018-11-16
 categories: [服务器与部署]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。
@@ -134,7 +135,7 @@ vim nginx.conf // 查看nginx.conf配置文件信息
 
 参考文章：  
 [nginx服务部署 说明](https://www.aliyun.com/jiaocheng/118630.html?spm=5176.100033.2.31.689d54del9j0g1)  
-[Nginx 配置详解](http://www.runoob.com/w3cnote/nginx-setup-intro.html)  
-[Nginx 服务器安装及配置文件详解](http://www.runoob.com/w3cnote/nginx-install-and-config.html)  
+[Nginx 配置详解](https://www.runoob.com/w3cnote/nginx-setup-intro.html)  
+[Nginx 服务器安装及配置文件详解](https://www.runoob.com/w3cnote/nginx-install-and-config.html)  
 [Centos7安装升级Ruby](https://blog.csdn.net/qq_26440803/article/details/82717244)  
 [搞懂nginx的rewrite模块](https://segmentfault.com/a/1190000008102599)

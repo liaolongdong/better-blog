@@ -2,6 +2,7 @@
 layout: post
 title: JS实现常见的十大排序算法
 subtitle: JS实现常见的十大排序算法
+seo_description: JS 实现常见的十大排序算法：冒泡、选择、插入、快速、归并、堆、希尔、计数、桶、基数排序逐个给思路与代码，并说明前端学排序的目的与复杂度对比。
 date: 2023-06-08
 categories: [算法与面试]
 # cover: /assets/img/postCover/gulp_cover.png

@@ -2,6 +2,7 @@
 layout: post
 title: vue-router源码解析
 subtitle: vue-router源码解析
+seo_description: vue-router 源码解析：从 SPA 与前端路由的由来讲起，比较 hash 与 history 模式的原理，再按源码目录分析 install、createMatcher、createRouteMap 与两类 History。
 date: 2021-03-23
 categories: [Vue]
 cover: /assets/img/postCover/vue-router-flow.jpeg

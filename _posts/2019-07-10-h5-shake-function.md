@@ -2,6 +2,7 @@
 layout: post
 title: H5页面实现摇一摇功能
 subtitle: H5页面实现摇一摇功能
+seo_description: H5 实现摇一摇（源自微信摇一摇领红包活动）：怎么用设备加速度接口监听摇晃、阈值怎么定、如何实现振动反馈，并说明 http 域名下 iOS 12 以上没效果的坑。
 date: 2019-07-10
 categories: [H5与微信]
 # cover: <原外链封面> 已于 2026-09-22 实测失效（403/404/超时），故注释掉。留着会让首页卡片和文章页头图渲染成破图；
@@ -14,7 +15,7 @@ tags: JavaScript H5实现摇一摇
 
 <!-- > 注意：因为我的个人博客域名协议是http的，所以苹果手机ios12以上没有效果 -->
 
-[点这里查看摇一摇demo效果](https://liaolongdong.com/demo/shakeDemo/index.html)
+[点这里查看摇一摇demo效果]({{ site.baseurl }}/demo/shakeDemo/index.html)
 
 用手机扫描二维码查看效果：
 

@@ -2,6 +2,7 @@
 layout: post
 title: git之reset和revert详解
 subtitle: git之reset和revert详解
+seo_description: git 之 reset 和 revert 详解：reset 移动 HEAD 并移除之后的提交，revert 生成一次反向提交；逐个说明 --mixed、--soft 等选项与注意事项，再横向比较该用哪个。
 date: 2023-12-24
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

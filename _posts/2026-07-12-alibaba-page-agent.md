@@ -2,6 +2,7 @@
 layout: post
 title: 阿里开源的 Page Agent：一行代码让网页"听懂人话"，这才是真正的前端 AI 交互
 subtitle: 告别截图识别和 OCR，用 DOM 脱水 + 大模型让网页操作进入自然语言时代
+seo_short_title: 阿里开源 Page Agent，让网页听懂人话
 date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/page-agent/banner.webp

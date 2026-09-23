@@ -2,6 +2,7 @@
 layout: post
 title: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
 subtitle: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
+seo_short_title: 新项目继续用 vue2 会有什么影响
 date: 2024-03-20
 categories: [Vue]
 # cover: /assets/img/postCover/gulp_cover.png

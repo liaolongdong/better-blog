@@ -2,6 +2,7 @@
 layout: post
 title: 别再问我 Next 该升到哪版：16.3.3 关掉 AVIF，6 天 3 小时后 16.3.4 又打开
 subtitle: 我把三个版本的 image-optimizer.js 拉到本地对着看，发现决定 AVIF 到底有没有在跑的那行字，不在 Next 的版本号里
+seo_short_title: Next 16.3.3 关掉 AVIF，16.3.4 又打开
 date: 2026-09-10
 categories: [前端工程化, 开源实测]
 cover: /assets/img/nextjs-avif-trap/banner.webp

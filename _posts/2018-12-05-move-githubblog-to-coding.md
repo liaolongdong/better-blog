@@ -2,6 +2,8 @@
 layout: post
 title: git管理项目关联多个远程仓库（github、coding）
 subtitle: 把github pages博客迁移到coding pages
+seo_short_title: git 关联多个远程仓库（github、coding）
+seo_description: 让一个 git 仓库同时关联 github 与 coding 多个远程：github 屏蔽百度蜘蛛导致博客搜不到，迁到国内的 coding pages 后，一次改代码分别提交两个仓库。
 date: 2018-12-05
 categories: [前端工程化]
 # cover: 外链封面 2026-09-22 实测已失效（timgsa.baidu.com 域名已停服，请求直接连不上），故注释掉。

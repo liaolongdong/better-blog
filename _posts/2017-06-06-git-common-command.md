@@ -2,6 +2,7 @@
 layout: post
 title: git常用命令操作手册
 subtitle: git常用命令操作手册
+seo_description: git 常用命令手册：查看帮助、新建仓库、配置、提交代码、分支、撤销回退、储藏、切换远程仓库地址，附修改提交信息和不区分文件名大小写的处理。
 date: 2017-06-06
 categories: [前端工程化]
 cover: /assets/img/postCover/git_cover.png
