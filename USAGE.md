@@ -411,24 +411,38 @@ grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.h
 
 # 3. JSON-LD 必须是合法 JSON（模板里一个未转义引号就能让它整块失效）
 #    预期：failures 为 0，且类型分布对得上口径——BlogPosting 与 BreadcrumbList 各等于
-#    可索引文章数（第 11 条的命中页数），WebSite / Blog / Person 各 1（只在首页声明一次，
-#    见 _includes/jsonLd.html 的 page.url == '/' 那道门），CollectionPage 等于所有带
-#    page.title 的站点页与归档页（含 index-all.html）。当前站内是
-#    BlogPosting 67 + BreadcrumbList 67 + CollectionPage 26 + WebSite/Blog/Person 各 1 = 163 块
+#    可索引文章数（第 11 条的命中页数），WebSite / Blog 各 1（只在首页声明一次，
+#    见 _includes/jsonLd.html 的 page.url == '/' 那道门），Person 2（首页 + about.html，
+#    两处都由 _includes/jsonLdAuthor.html 同一份模板渲染，所以内容必须逐字节相同；
+#    about.html 是 Person.@id 指向的那一页，缺它全站 @id 引用就落空），
+#    CollectionPage 等于所有带 page.title 的站点页与归档页（含 index-all.html）。当前站内是
+#    BlogPosting 67 + BreadcrumbList 67 + CollectionPage 26 + WebSite/Blog 各 1 + Person 2 = 164 块
 #    （noindex 的 404 页不声明结构化数据）
+#    下面顺带核两件事：作者实体的 name 是否全站只有一个值（同一 @id 出现两个 name 就是噪音），
+#    以及文章的 author 是否 @id 与 name 都在——只留 @id，Rich Results 校验器报缺 author.name。
 python3 - <<'PY'
 import json, pathlib, re, collections
 blocks, types, failures = 0, collections.Counter(), 0
+person, author_shapes = collections.Counter(), collections.Counter()
 for p in pathlib.Path('/tmp/seo-check').rglob('*.html'):
     for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>',
                          p.read_text(encoding='utf-8'), re.S):
         blocks += 1
         try:
-            types[json.loads(m.group(1)).get('@type')] += 1
+            d = json.loads(m.group(1))
         except Exception as e:
             failures += 1
             print('解析失败:', p, e)
+            continue
+        types[d.get('@type')] += 1
+        if d.get('@type') == 'Person':
+            person[m.group(1).strip()] += 1
+        if d.get('@type') == 'BlogPosting':
+            a = d.get('author', {})
+            author_shapes[bool(a.get('@id')) and bool(a.get('name'))] += 1
 print('JSON-LD 块:', blocks, dict(types), '失败:', failures)
+print('Person 声明份数:', sum(person.values()), '/ 去重后:', len(person), '（应为 2 / 1）')
+print('author 带 @id+name 的文章数:', dict(author_shapes))
 PY
 
 # 4. sitemap 的每个地址都要有落盘文件、且那一页有自引用 canonical —— 预期：missing/canon 为空

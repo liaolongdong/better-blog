@@ -36,7 +36,7 @@ permalink: /llms.txt
 
 > {{ site.description }}
 >
-> 站内现有 {{ site.posts.size }} 篇文章、{{ site.data.series.size }} 个合集、{{ site.data.demoLists.size }} 个可运行示例，最早一篇写于 {{ site.posts.last.date | date: '%Y' }} 年。作者 {{ site.author }}（本名与公众号署名见本文开头），前端工程师。
+> 站内现有 {{ site.posts.size }} 篇文章、{{ site.data.series.size }} 个合集、{{ site.data.demoLists.size }} 个可运行示例，最早一篇写于 {{ site.posts.last.date | date: '%Y' }} 年。作者 {{ site.author_name }}，站内署名 {{ site.author }}，其余写法 {{ site.author_alt_name | join: '、' }}；前端工程师。
 >
 > 全文订阅：[{{ base }}/feed.xml]({{ base }}/feed.xml) ｜ 全站地址索引：[{{ base }}/index-all.html]({{ base }}/index-all.html) ｜ 站点地图：[{{ base }}/sitemap.xml]({{ base }}/sitemap.xml)
 >

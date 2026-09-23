@@ -19,6 +19,14 @@
 {%- endcomment -%}
 {%- assign site_home = '/' | absolute_url -%}
 {%- assign page_url = page.url | absolute_url -%}
+{%- assign person_url = '/about.html' | absolute_url -%}
+{%- assign person_id = person_url | append: '#author' -%}
+{%- comment -%}
+person_id 是全站作者实体的唯一标识。文章页的 author / publisher 只带 @id 加 name，
+不带完整节点：Google 的校验器对只有 @id 的作者会报缺 author.name，所以 name 必须留着；
+而 name 取 author_name（中文正名）而非署名，是为了和 _includes/jsonLdAuthor.html
+发出去的那个节点同字段同值——同一份图里同一个 @id 出现两个不同的 name 才是噪音。
+{%- endcomment -%}
 {%- comment -%}
 noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「整站唯一的收录开关」，
 如果一边在 meta 里说别收、一边又递一份 BlogPosting/CollectionPage，开关就不止一个了。
@@ -40,13 +48,14 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
 {%- endif %}
   "author": {
     "@type": "Person",
-    "name": "{{ site.author }}",
-    "alternateName": "廖龙东",
-    "url": "{{ '/about.html' | absolute_url }}"
+    "@id": "{{ person_id }}",
+    "name": {{ site.author_name | jsonify }},
+    "url": "{{ person_url }}"
   },
   "publisher": {
     "@type": "Person",
-    "name": "{{ site.author }}"
+    "@id": "{{ person_id }}",
+    "name": {{ site.author_name | jsonify }}
   },
   "mainEntityOfPage": { "@type": "WebPage", "@id": "{{ page_url }}" },
   "url": "{{ page_url }}",
@@ -87,12 +96,21 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   "isPartOf": { "@type": "Blog", "@id": "{{ site_home }}#blog" }
 }
 </script>
+{%- comment -%}
+about.html 是 Person.@id 指向的那一页，所以它除了 CollectionPage 还要把作者实体本身发出来。
+站点的页面都走这一支，因此这道判断是必须的：没有它，全站所有 @id 引用都会落到一个
+从未声明过该节点的地址上。
+{%- endcomment -%}
+{%- if page.url == '/about.html' -%}
+{%- include jsonLdAuthor.html -%}
+{%- endif -%}
 {%- elsif page.url == '/' -%}
 {%- comment -%}
 第三支必须再加 page.url == '/' 这道门：jekyll-paginate 生成的 /page2/ … /pageN/
 没有 page.title，会一路掉进 else，于是 9 个翻页视图全都自称 WebSite + Blog，
 还各自声明一遍 Person——同一实体在站内出现 9 份互相竞争的规范声明，
-爬虫只会挑一个，剩下的变成噪音。站点实体只在首页声明一次。
+爬虫只会挑一个，剩下的变成噪音。站点实体只在首页声明一次；作者实体多一处 about.html，
+是因为 @id 指向的就是那一页，见上面 CollectionPage 分支里的说明。
 {%- endcomment -%}
 <script type="application/ld+json">
 {
@@ -114,28 +132,8 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   "url": "{{ site_home }}",
   "inLanguage": "zh-CN",
   "description": {{ site.description | jsonify }},
-  "author": { "@id": "{{ '/about.html' | absolute_url }}#author" }
+  "author": { "@id": "{{ person_id }}" }
 }
 </script>
-{%- assign _sameAs = '' -%}
-{%- for s in site.sns -%}
-{%- unless s[1] contains 'mailto:' -%}
-{%- if _sameAs != '' -%}{%- assign _sameAs = _sameAs | append: ',' -%}{%- endif -%}
-{%- assign _sameAs = _sameAs | append: '"' | append: s[1] | append: '"' -%}
-{%- endunless -%}
-{%- endfor -%}
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Person",
-  "@id": "{{ '/about.html' | absolute_url }}#author",
-  "name": "廖龙东",
-  "alternateName": ["Better", "廖小新"],
-  "jobTitle": "前端开发工程师",
-  "url": "{{ '/about.html' | absolute_url }}",
-  "image": "{{ site.avatar | absolute_url }}",
-  "sameAs": [{{ _sameAs }}],
-  "knowsAbout": ["前端开发", "React", "Vue", "Node.js", "npm", "Chrome 扩展", "AI Agent 工具链"]
-}
-</script>
+{%- include jsonLdAuthor.html -%}
 {%- endif -%}

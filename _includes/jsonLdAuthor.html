@@ -1,0 +1,33 @@
+{%- comment -%}
+作者实体（Person）——全站唯一的一份声明。由 _includes/jsonLd.html 在首页与 about.html
+两处引入，其余页面只以 @id 引用它，不再各自复述一遍。
+
+为什么只发两处：同一份 Person 声明如果跟着翻页视图重复 9 遍，站内就有 10 份互相竞争的
+规范声明，爬虫只挑一个，其余变成噪音；而 about.html 是 @id 指向的那一页，不在这里发出
+节点就留下一个解析不到的悬空引用——这一版之前就是这个状态：首页早就在发 Person，
+被指向的那一页反而没有（分析报告 P1-S5 实测到的缺陷）。
+
+名字口径见 _config.yml 的 author_name / author_alt_name，不在这里硬写，
+否则每加一个别名就要改两个文件。
+{%- endcomment -%}
+{%- assign _sameAs = '' -%}
+{%- for s in site.sns -%}
+{%- unless s[1] contains 'mailto:' -%}
+{%- if _sameAs != '' -%}{%- assign _sameAs = _sameAs | append: ',' -%}{%- endif -%}
+{%- assign _sameAs = _sameAs | append: '"' | append: s[1] | append: '"' -%}
+{%- endunless -%}
+{%- endfor -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": "{{ '/about.html' | absolute_url }}#author",
+  "name": {{ site.author_name | jsonify }},
+  "alternateName": {{ site.author_alt_name | jsonify }},
+  "jobTitle": "前端开发工程师",
+  "url": "{{ '/about.html' | absolute_url }}",
+  "image": "{{ site.avatar | absolute_url }}",
+  "sameAs": [{{ _sameAs }}],
+  "knowsAbout": ["前端开发", "React", "Vue", "Node.js", "npm", "Chrome 扩展", "AI Agent 工具链"]
+}
+</script>

@@ -76,6 +76,14 @@ author: 'Better'
 nickname: 'Better'
 bio: '一枚喜欢研究心理学的前端er'
 avatar: '/assets/img/profile.png'
+# 检索实体的名字口径，只给 JSON-LD 与 llms.txt 用，页面可见文案一律不读这两个字段。
+# author 是「署名」：文章页作者行、打赏提示、meta name=author 都在用它，改它会改到看得见的字。
+# author_name 是 Person 的 name。不取署名而取中文名，是因为 about.html 才是 Person.@id
+# 指向的那一页，它的 H1 是本名——而 Better / 廖龙东 / 小新 三种写法站内都出现过，
+# 把它们与正名一起收进 alternateName，搜索引擎才会解析成同一个实体，
+# 而不是各建一份知识面板。新增别名只改这一行，三处声明自动跟上。
+author_name: '廖小新'
+author_alt_name: ['Better', '廖龙东', '小新']
 
 # Social / Open Graph 默认值
 # 分享卡片用的站点级默认图：微信、微博、X、Telegram 抓 og:image 时，文章若没写
