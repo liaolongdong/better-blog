@@ -1,15 +1,11 @@
-/** Font **/
-@font-face {
-    // font-family: "Merriweather";
-    // src: url("../fonts/Merriweather-Black.ttf");
-}
-
-@font-face {
-    // font-family: "Merriweather-Light";
-    // src: url("../fonts/Merriweather-Light.ttf");
-}
-
 /*** Base ***/
+// 这里原有两个 @font-face 空壳（Merriweather / Merriweather-Light）：font-family 和
+// src 都被注释掉了，只剩一个空的花括号对，编译进 index.min.css 时被 Sass 丢掉，
+// 所以它既不下发字节、也不报错，纯源码头寸。对应的
+// assets/fonts/Merriweather-{Black,Light}.ttf（合计 83,652B）随之一并删除——
+// 全站除 common.scss:163/180/632 那三行同样被注释掉的 font-family 外没有任何引用。
+// 真要启用 Merriweather：重新引入 ttf（或换成 woff2 + font-display: swap），
+// 别只解开那三行注释，那只会拿到系统的 fallback 字体。
 html,
 body {
     height: 100%;
@@ -81,4 +77,46 @@ a {
 
 ::-webkit-selection {
     background-color: rgba(0, 147, 254, .2);
+}
+
+/*** 减少动态效果：全站兜底 ***/
+
+// 这一块的由来：reduce 适配原先只写在 editorial.scss（§9 与 §13 两处）和 about.scss
+// 的时间线里，是按组件补的；而动画声明散在 animate.scss、common.scss
+// （`.article-item` / `.read-next-item` 的错峰入场）、cat.scss、bottomFixedBtn.scss、
+// weblab.scss、helper.scss，以及上面那句 `a { transition: .2s }`——
+// 逐个组件补永远会漏掉下一个，每加一个动效就重新欠一次债（分析报告 P0-13）。
+//
+// 为什么是 .01ms 而不是各家惯例的 animation: none：
+// ① none 只管动画，管不到过渡——上面那句 `a { transition: .2s }`、悬浮位移、抽屉的
+//    transform 全在 transition 那一侧；要等价就得逐条写 transition: none，
+//    而那等于回到"每个组件再补一遍"。
+// ② .01ms 保留"动画会跑完"这件事：带 both / forwards 填充的规则终态照旧落在元素上，
+//    animationend 也仍然触发，不依赖"基础样式恰好就是终态"这个前提
+//    （实测：当前全站 0 个规则块同时写了 opacity:0 与 animation，所以今天用 none
+//    也不会把谁藏起来——②买的是以后有人这么写时的保险，不是现在的路径）。
+// iteration-count: 1 是防止无限循环的装饰动效（走马灯、呼吸点）在 .01ms 下空转。
+// animation-delay 归零是顺带补的：错峰入场靠的全是 delay（common.scss 给
+// .article-item:nth-child(3/4/5) 排到 .8s / 1s / 1.2s），而这些动画带 both 填充，
+// 按 CSS Animations 的填充规则，延迟期内元素停在**首帧**——downToUpFade 的 0% 是
+// opacity:0 + translateY(200%)。只压时长不动 delay，reduce 档就会"先空 1.2 秒再出现"，
+// 比不降级更糟。这一条是照规则兜的，没能在真机里把那个窗口抓住：本机首页的动画起点
+// 早于 load（外链 CSS 是阻塞的），load 后 120ms 采样时延迟期已经过去、读到的是 opacity:1。
+// 注：不写 transition-delay。它不参与"停在起始帧"这件事，而悬浮提示类依赖它防抖，
+// 归零会让提示框在鼠标扫过时集体闪现——那是给 reduce 用户新增的问题。
+//
+// !important 是这套兜底的全部意义：它必须盖过任何组件里后写的动画时长，
+// 否则又回到"记得给每个组件补一遍"的原点。组件级的 reduce 块（editorial/about）
+// 保留——它们做的不只是"不计时"，还有撤掉位移与装饰层。
+// base.scss 在 index.scss 里排在 editorial.scss 之前，靠的就是这个 !important 而非次序。
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-delay: 0s !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

@@ -27,19 +27,13 @@
     }
 }
 
-// 从上往下渐入
-@keyframes upToDownFade {
-    0% {
-        opacity: 0;
-        transform: translateY(-200%);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
-// 从下往上渐入
+// 从下往上渐入。
+//
+// 只留关键帧，不留 .dtuf-delay0：关键帧的消费者在**别的文件**——common.scss:229-245
+// 与 :417（首页文章列表、read-next 的错峰入场直接写 `animation: downToUpFade …`），
+// 把它当死代码删掉会静默杀掉那 6 处动画。而 .dtuf-delay0 / .utdf-delay0 两个类
+// 全站 0 引用（模板、JS、正文、_data 都查过），连带只有它们一处消费的
+// upToDownFade 一起删了。
 @keyframes downToUpFade {
     0% {
         opacity: 0;
@@ -49,14 +43,6 @@
     100% {
         transform: none;
     }
-}
-
-.utdf-delay0 {
-    animation: upToDownFade 1000ms ease 0ms both;
-}
-
-.dtuf-delay0 {
-    animation: downToUpFade 1000ms ease 0ms both;
 }
 
 // 从右往左渐入
