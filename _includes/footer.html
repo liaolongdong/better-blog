@@ -106,11 +106,21 @@
     补在这一行等于每一页都有入口，不必在文章页再单加一块、多养一套样式。
     同排带上全站索引与 llms.txt：前者是给「不执行 JavaScript 的抓取」兜底的那一页，
     后者是 AI 引擎读的那份清单。两个地址都在构建期算出，没有任何脚本行为。
+
+    末尾那句 noscript 是这一排存在的理由的另一半：页面上会「点了没反应」的那几个都在
+    JS 侧——⌘K 搜索、书架抽屉、返回顶部与阅读百分比、日夜主题切换（`bottomFixedBtn.html`
+    与 `header.html` 里那四个 `<div class=…>` / `<button data-…>`，都不是 `<a>`）。
+    而导航条、分类、标签、全站索引全是服务端渲染的普通链接，禁用脚本照样能用。
+    必须挂在这里而不是搜索弹窗里——弹窗整块带 hidden，父级不显示时里面的 noscript
+    也不会被渲染；挂进导航条那一行则要新写样式、且窄屏会把按钮挤位。
+    noscript 的内容在开启脚本时根本不进渲染树，所以这一句对今天的每一位访客都是
+    零变化，也不新增任何 CSS 选择器。
     {%- endcomment -%}
     <section>
         <a href="{{ '/feed.xml' | relative_url }}" title="Atom 全文订阅源：正文完整，含图片与代码块">RSS 订阅</a> ·
         <a href="{{ '/index-all.html' | relative_url }}" title="按年份列全部文章，另附合集、示例与页面清单">全站索引</a> ·
         <a href="{{ '/llms.txt' | relative_url }}" title="给 AI 引擎的站点说明与全篇索引">llms.txt</a>
+        <noscript> · 这里的搜索、书架、返回顶部与主题切换需要 JavaScript；上面三个入口和导航栏都不依赖它。</noscript>
     </section>
 
     {% if site.footer.showCursorEffects %}
