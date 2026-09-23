@@ -7,14 +7,22 @@ $(document).ready(function () {
     }
 
     // 监听窗口滚动事情
-    $(window).scroll(function () {
+    function syncScrollPercent () {
         var scrollValue = $(window).scrollTop();
-        var scrollPercentRounded = Math.round((scrollValue / utils.getContentVisibilityHeight()) *
-            100);
-        var scrollPercentMaxed = (scrollPercentRounded > 100) ? 100 : scrollPercentRounded;
+        // 分母为 0（页面滚不动 / 刚进页面布局未稳）时按 0 算，
+        // 否则 Infinity 会被下面的上限夹成 100，一进来就显示「已读完」
+        var scrollable = utils.getContentVisibilityHeight();
+        var scrollPercentMaxed = scrollable > 0
+            ? Math.min(100, Math.round((scrollValue / scrollable) * 100))
+            : 0;
         $('.scrollpercent').html(scrollPercentMaxed);
         scrollValue > 100 ? $('.back-to-top').fadeIn() : $('.back-to-top').fadeOut();
-    });
+    }
+
+    // resize 也要重算：分母里有 window.innerHeight，窗口变矮后可滚距离变小，
+    // 不重算就会一直停在旧比例上（只有滚一下才更新）。
+    $(window).on('scroll resize', syncScrollPercent);
+    syncScrollPercent();
 
     // 点击返回顶部
     $('.back-to-top').click(function () {
