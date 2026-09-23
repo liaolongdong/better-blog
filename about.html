@@ -10,51 +10,37 @@ permalink: /about.html
 
 {% include header.html %}
 {%- comment -%}
-.about-title 的样式就地写在页面里，没有进 dev/sass/about.scss：
-加进 scss 就得跑 pnpm build:assets 重出 about.min.css，而 assets/** 是全仓共用的产物目录，
-为单个页面的一次标题改动去重跑整条构建不值当。
+页头走全站统一的 .g-masthead 刊头（tags/categories/series/weblab 同一套骨架），
+样式全部来自 index.min.css 的 editorial 层，about.min.css 里不再写一遍标题字号。
 
-颜色不能走 var(--ink)：about 页 body 挂的是 about_bg.png（深色星系图，background-size: cover
-且固定），窄屏下退成 #292929，两种情况底都是黑的——墨色文字上去直接看不见。
-所以沿用同页 .author-introduction 已有的白字 + 蓝光晕口径，不引新令牌。
+作者介绍直接充当刊头的导语，所以它同时挂 .masthead-lede：字号、行距、640px 栏宽、
+墨色和窄屏降级都跟着别的页面一起变。打字机会把这里的子节点逐个摘走再塞回来，
+容器因此会塌成一帧行高——about.scss 里给它占了 5 行的位，别在这里改成行内样式。
+
+.masthead-title 必须是这页唯一的 H1：about 页是搜索引擎建立「廖龙东 / Better」这个
+检索实体的主页面，也是 JSON-LD 里 Person.@id 指向的地址，早期这页最靠前的标题只是
+时间线里的 <h2> 日期，等于把这个信号丢掉了。
 {%- endcomment -%}
-<style>
-    .about-title {
-        max-width: 1000px;
-        margin: 72px auto -28px;
-        padding: 0 24px;
-        color: #fff;
-        font-weight: 600;
-        font-size: 30px;
-        letter-spacing: -.01em;
-        text-align: center;
-        text-shadow: 0 0 8px #1890ff;
-    }
-
-    @media screen and (max-width: 1000px) {
-        .about-title {
-            margin-top: 40px;
-            margin-bottom: -12px;
-            font-size: 24px;
-        }
-    }
-</style>
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">About / 关于我</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">React · Vue · Node.js · Chrome 插件</span>
+        </p>
+        <h1 class="masthead-title">关于我 · 廖龙东（Better）</h1>
+        <section class="masthead-lede author-introduction" id="authorIntroduction">
+            <p>廖龙东，又名廖小新，网名Better</p>
+            <p>一枚喜欢研究心理学的文艺闷骚前端er</p>
+            <p>从大学毕业一直从事前端开发工作</p>
+            <p>技术栈React、Vue、Angular、微信公众号</p>
+            <p>小程序、node和mongodb、Python</p>
+        </section>
+    </div>
+</section>
 <div class="p-about" id="main">
-    {%- comment -%}
-    补一个 H1：这个页面此前最靠前的标题是时间线里的 <h2> 日期，整页没有 H1。
-    about 页是搜索引擎建立「廖龙东 / Better」这个检索实体的主页面，也是 JSON-LD 里
-    Person.@id 指向的地址，没有 H1 等于把这个信号丢掉了。
-    {%- endcomment -%}
-    <h1 class="about-title">关于我 · 廖龙东（Better）</h1>
-    <section class="author-introduction" id="authorIntroduction">
-        <p>廖龙东，又名廖小新，网名Better</p>
-        <p>一枚喜欢研究心理学的文艺闷骚前端er</p>
-        <p>从大学毕业一直从事前端开发工作</p>
-        <p>技术栈React、Vue、Angular、微信公众号</p>
-        <p>小程序、node和mongodb、Python</p>
-    </section>
     <!-- PC -->
-    <div class="pc-container daytime-container">
+    <div class="pc-container">
         <section class="pc-timeline">
             <div class="content">
                 <div class="events_list">
@@ -62,28 +48,22 @@ permalink: /about.html
                     <ul>
                         {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
                             {% assign items = site.aboutMe.authorWorkTimeLine %}
+                            {%- comment -%}
+                            两个分支合成一个：以前偶数条和奇数条要各写一份，是因为节点图标是
+                            about_events.png 上两张朝向相反的雪碧图（左边的还多套一层 <i>），
+                            顺带漏掉了右支的 </p>。圆点改成 CSS 画的之后，两侧只差一个类名。
+                            {%- endcomment -%}
                             {% for item in items %}
                                 {% assign mod = forloop.index | modulo: 2 %}
-                                {% if mod == 0 %}
-                                    <li class="right_li">
-                                        <span class="ic_events"></span>
-                                        <p class="txt_events">
-                                            <strong>
-                                                {{ item.date }}
-                                            </strong>
-                                            <span>{{ item.content }}</span>
-                                    </li>
-                                {% else %}
-                                    <li class="left_li">
-                                        <span class="ic_events"><i></i></span>
-                                        <p class="txt_events">
-                                            <strong>
-                                                {{ item.date }}
-                                            </strong>
-                                            <span>{{ item.content }}</span>
-                                        </p>
-                                    </li>
-                                {% endif %}
+                                <li class="{% if mod == 0 %}right_li{% else %}left_li{% endif %}">
+                                    <span class="ic_events"></span>
+                                    <p class="txt_events">
+                                        <strong>
+                                            {{ item.date }}
+                                        </strong>
+                                        <span>{{ item.content }}</span>
+                                    </p>
+                                </li>
                             {% endfor %}
                         {% endif %}
                     </ul>
@@ -93,7 +73,7 @@ permalink: /about.html
         </section>
     </div>
     <!-- mobile -->
-    <div class="mobile-container night-container">
+    <div class="mobile-container">
         <section class="timeline">
             <div class="wrapper" id="timeline">
                 {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
@@ -113,7 +93,11 @@ permalink: /about.html
     </div>
 </div>
 <script src="{{ site.baseurl }}/assets/js/noframework.waypoints.min.js"></script>
-<script src="{{ site.baseurl }}/assets/js/canvas-nest.min.js"></script>
+{%- comment -%}
+canvas-nest 不在这里加载：它画的是深色底上的白点星链（连线走白色，点其实是未设 fillStyle 的黑色），
+白昼态挂上去就是暖纸底上一片黑噪点。改由 about.js 在进夜间时注入、切回白昼时停机摘布
+（窄屏与「减少动态效果」下完全不加载）。
+{%- endcomment -%}
 <script src="{{ site.baseurl }}/assets/js/typeWriter.min.js"></script>
 <script src="{{ site.baseurl }}/assets/js/about.min.js"></script>
 {% include footer.html %}

@@ -25,6 +25,7 @@
     }
 
     function b() {
+        if (!cnLife.running) return;
         e.clearRect(0, 0, r, n);
         var w = [f].concat(t);
         var x, v, A, B, z, y;
@@ -48,11 +49,28 @@
             window.setTimeout(i, 1000 / 45)
         },
         a = Math.random,
+        // 本文件相对上游原版唯一的改动：补一套生命周期（running 标志 + window.CanvasNest.stop），
+        // 并在赋值 window.on* 前存下旧值以便还原。上游是「一次加载管到页面关闭」的写法，
+        // 而站内 about 页需要「进夜间才注入、切回白昼就停」，没有这个接口就只能去改全局 rAF。
+        // 名字不能图省事用单字母：下面那个 for 循环里有 `var h` 和 `var g`，var 是函数作用域，
+        // 同名声明会在循环里被随机数覆盖掉（实测踩过一次，stop() 全程空转且一帧都不画）。
+        cnLife = {
+            running: true
+        },
+        cnPrev = {
+            resize: window.onresize,
+            mousemove: window.onmousemove,
+            mouseout: window.onmouseout
+        },
         f = {
             x: null,
             y: null,
             max: 20000
         };
+    // 同一页面只允许一张星链：重复注入时先停掉上一份，避免留下没人持有的活循环
+    if (window.CanvasNest) {
+        window.CanvasNest.stop()
+    }
     u.id = c;
     u.style.cssText = "position:fixed;top:0;pointer-events:none;left:0;z-index:" + s.z + ";opacity:" + s.o;
     j("body")[0].appendChild(u);
@@ -61,6 +79,14 @@
         i = i || window.event, f.x = i.clientX, f.y = i.clientY
     }, window.onmouseout = function () {
         f.x = null, f.y = null
+    };
+    window.CanvasNest = {
+        stop: function () {
+            if (!cnLife.running) return;
+            cnLife.running = false;
+            u.parentNode === document.body && document.body.removeChild(u);
+            window.onresize = cnPrev.resize, window.onmousemove = cnPrev.mousemove, window.onmouseout = cnPrev.mouseout
+        }
     };
     for (var t = [], p = 0; s.n > p; p++) {
         var h = a() * r,

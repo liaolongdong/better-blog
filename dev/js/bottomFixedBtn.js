@@ -1,6 +1,4 @@
 $(document).ready(function () {
-    var BASE_URL = window.SITE_BASEURL || '';
-    var pageRelPath = window.location.pathname.replace(BASE_URL, '') || '/';
     // 判断是否为移动端
     if (utils.isMobile()) {
         // $('.back-to-top').hide();
@@ -25,28 +23,6 @@ $(document).ready(function () {
         }, 300);
     });
 
-    // about页面白昼切换 默认day night夜间模式
-    function aboutMode (mode) {
-        // 判断是否为about页面
-        if (pageRelPath !== '/about.html') {
-            return;
-        }
-        if (mode === 'night') {
-            // 切换about页面到夜间模式
-            $('body').css('background', '#282c33');
-            $('.daytime-container').hide();
-            $('.night-container').show();
-        } else {
-            // 切换about页面白天模式
-            $('.night-container').hide();
-            $('body').css('background-image', 'url(' + BASE_URL + '/assets/img/about_bg.png)');
-            $('body').css('background-repeat', 'no-repeat');
-            $('body').css('background-size', 'cover');
-            $('body').css('background-attachment', 'fixed');
-            $('.daytime-container').show();
-        }
-    }
-
     // 昼夜图标成对显隐：夜间露出太阳、白天露出月亮。
     // 白天态与 bottomFixedBtn.scss 里 .icon-baitianmoshimingliangmoshi{display:none} 的默认值一致。
     function syncNmIcon (mode) {
@@ -60,7 +36,8 @@ $(document).ready(function () {
     }
 
     // 主题真值只有 window.EditorialTheme 一份（未表过态=跟随系统偏好，点过一次=固定其所选）。
-    // 本文件只负责图标和 about 页背景，不再自己读写 daytimeMode，避免两处语义打架。
+    // 本文件只负责把这份真值反映到按钮图标上，不再自己读写 daytimeMode，也不碰页面样式，
+    // 避免两处语义打架；夜间态的视觉差异全部由 body.night-mode 下的令牌覆盖承担。
     // 依赖顺序：footer.html 早于 editorial.min.js，但下面的逻辑都在 .ready 回调里，
     // 而 EditorialTheme 是在 editorial.min.js 求值期同步挂到 window 上的，取值时一定已就绪。
     var nmEnabled = function () {
@@ -72,11 +49,7 @@ $(document).ready(function () {
         if (!nmEnabled()) {
             return;
         }
-        var mode = window.EditorialTheme.get();
-        syncNmIcon(mode);
-        if (mode === 'night') {
-            aboutMode('night');
-        }
+        syncNmIcon(window.EditorialTheme.get());
     }
     initDaytimeMode();
 
@@ -88,6 +61,5 @@ $(document).ready(function () {
         var mode = window.EditorialTheme.get() === 'day' ? 'night' : 'day';
         window.EditorialTheme.set(mode);
         syncNmIcon(mode);
-        aboutMode(mode);
     });
 })

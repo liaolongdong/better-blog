@@ -1,74 +1,40 @@
+/*** about 页 ***/
+// 页头已经收进全站统一的 .g-masthead 刊头（见 about.html）：标题、作者介绍的字号栏宽、
+// 窄屏降级全部由 index.min.css 的 editorial 层负责，这一层只剩下面两条时间线。
+//
+// 配色一律走 tokens.scss 的语义变量。白昼是暖纸，同一批变量在 html.night-mode /
+// body.night-mode 下重赋值，所以这里不写任何 .night-mode 分支——旧版 body 上那张深色星系底图、
+// 白字蓝晕的正文、窄屏退成的 #292929，以及文末那块「夜间把 text-shadow 去掉」的覆盖，
+// 就是这么长出来的两套。同理也不再单独立 .g-header{height:58px}：顶栏全站 64px。
+//
+// 本文件承重规则的选择器全部落在 postcss.config.js 的像素转视口黑名单里（.p-about / .pc /
+// .author- / .masthead），时间线的 98px 行高、1000px 轴宽必须是固定值；新增规则别写到
+// .p-about / .g-masthead 之外去，否则会被换成 vw。唯一的例外是 @keyframes：那条黑名单按
+// 选择器匹配，关键帧块的「选择器」是 0%/100%，一律不命中，所以 aboutTextIn 起手的 -10px
+// 在产物里就是 1.33333vw（旧版 enttxt_effect 同样如此，不是这次改出来的）。
+
 * {
     box-sizing: border-box;
 }
-body {
-    width: 100%;
-    height: 100%;
-    background-image: url("../img/about_bg.png");
-    background-repeat: no-repeat;
-    background-size: cover;
-    background-attachment: fixed;
+
+// 作者介绍住在刊头里，这里只补打字机需要的两件事：先藏、并把 5 行的位占住。
+// TypeWriter 播放前会把子节点逐个摘走再塞回去，容器因此会塌成一帧行高；不占位的话
+// window.load 之后刊头下面整块内容会往上跳一下（旧版 min-height:80px 只挡掉了一半）。
+// 150 / 130 = 5 行 × .masthead-lede 的行高（editorial.scss 的窄屏档在 695px 断点降到 26px）。
+.g-masthead .author-introduction {
+    visibility: hidden;
+    min-height: 150px;
 }
 
-@media screen and (max-width: 1000px) {
-    body {
-        background-image: none;
-        background-color: #292929;
+@media screen and (max-width: 695px) {
+    .g-masthead .author-introduction {
+        min-height: 130px;
     }
-
-    .pc-container {
-        display: none !important;
-    }
-
-    .mobile-container {
-        display: block !important;
-    }
-}
-
-.show {
-    display: block !important;
-}
-
-.hide {
-    display: none !important;
-}
-
-.g-header {
-    height: 58px;
-}
-
-.g-footer {
-    border-top: none;
 }
 
 .p-about {
-    .author-introduction {
-        margin: auto;
-        margin-top: 100px;
-        margin-bottom: 40px;
-        width: 1000px;
-        min-height: 80px;
-        text-align: center;
-        font-size: 18px;
-        text-shadow: 0 0 8px #1890ff;
-        color: #fff;
-        visibility: hidden;
-    }
-
-    @media screen and (max-width: 1000px) {
-        .author-introduction {
-            margin: auto;
-            margin-top: 100px;
-            margin-bottom: 40px;
-            padding: 0 40px;
-            width: 100%;
-            text-align: center;
-            font-size: 15px;
-            text-shadow: none;
-            color: #fff;
-            visibility: hidden;
-        }
-    }
+    // 刊头与内容之间的留白，取自 .archive-content（tags / categories 那一层）
+    padding: 40px 0 88px;
 
     // pc样式
     .pc-container {
@@ -79,452 +45,367 @@ body {
             min-height: 800px;
         }
 
-        .events_list .ic_time {
-            display: block;
-            background: url("../img/about_events.png") no-repeat -428px -30px;
-            width: 38px;
-            height: 68px;
-            margin: 0 auto;
-        }
-
-        .events_list .ic_arr {
-            display: block;
-            background: url("../img/about_events.png") no-repeat -476px -38px;
-            width: 38px;
-            height: 59px;
-            margin: 0 auto;
-            position: relative;
-            top: -14px;
-        }
-
         .events_list ul {
             position: relative;
         }
 
+        // 中轴：原来由一张张 51×98 的雪碧图逐行拼出来，现在是一条真实的线，
+        // 1s 内自上而下长完，之后节点再按 1s→5s 的节拍逐条点亮。
+        .events_list ul:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            margin-left: -1px;
+            background-color: var(--rule-2);
+            transform-origin: top;
+            animation: aboutAxisGrow 1s ease both;
+        }
+
+        // ic_time / ic_arr 是雪碧图时代留下的类名，图标文件撤了之后它们分别当中轴的
+        // 起点帽和终点箭头，类名没跟着改是因为 about.html 的骨架还在沿用。
+        .events_list .ic_time {
+            display: block;
+            width: 12px;
+            height: 12px;
+            margin: 0 auto;
+            background-color: var(--paper);
+            border: 2px solid var(--signal);
+            border-radius: 50%;
+            animation: aboutNodeIn .8s linear both;
+        }
+
+        // 末端：朝下的箭头，等所有条目落位后再出现（5.8s = .2 + .8×7，即第 6 条之后一档）
+        .events_list .ic_arr {
+            display: block;
+            width: 10px;
+            height: 10px;
+            margin: 0 auto;
+            border-right: 2px solid var(--signal);
+            border-bottom: 2px solid var(--signal);
+            transform: rotate(45deg);
+            animation: aboutFadeIn .6s 5.8s linear both;
+        }
+
         .events_list li {
             position: relative;
+            display: flex;
+            align-items: center;
             height: 98px;
         }
 
+        // 节点：骑在中轴上的小圆点（原来是左右各一张朝向不同的雪碧图）
         .events_list .ic_events {
             position: absolute;
-            width: 51px;
-            height: 98px;
-            top: 0;
-            overflow: hidden;
+            top: 50%;
+            width: 10px;
+            height: 10px;
+            margin-top: -5px;
+            background-color: var(--paper);
+            border: 2px solid var(--signal);
+            border-radius: 50%;
+            animation: aboutNodeIn .8s linear both;
+        }
+
+        // 圆点是 10×10 的 border-box（描边算在里面），要压住 50% 那条线得左右各外溢 5px
+        .events_list .right_li {
+            margin-left: 50%;
+        }
+
+        .events_list .right_li .ic_events {
+            left: -5px;
+        }
+
+        .events_list .right_li .txt_events {
+            margin-left: 56px;
+        }
+
+        .events_list .left_li {
+            width: 50%;
+            justify-content: flex-end;
+            text-align: right;
+        }
+
+        .events_list .left_li .ic_events {
+            right: -5px;
+        }
+
+        .events_list .left_li .txt_events {
+            margin-right: 56px;
         }
 
         .events_list .txt_events {
             font-size: 16px;
             line-height: 1.5;
-            color: #fff;
-            position: absolute;
+            color: var(--ink-3);
             white-space: nowrap;
-            top: -12px;
-            text-shadow: 0 0 8px #1890ff;
+            animation: aboutTextIn .8s linear both;
+            // github-markdown.min.css 里有一条漏了 .markdown-body 前缀的 `li p:nth-child(2)`，
+            // 产物写作 `margin-bottom: 2.13333vw !important`——正文这个 <p> 正好是 li 的第二个子元素，
+            // 于是被顶下一截（1440px 视口实测 30.7px，随视口线性变化，不是固定 px）。
+            // 旧版靠 top:-12px 绝对定位排版，flex 居中一改这个 margin 就露出来了；
+            // 压它只需要同档 !important，且只能压 bottom（同一条规则没设 margin-top，实测确认）。
+            margin-bottom: 0 !important;
         }
 
         .events_list .txt_events strong {
             display: block;
             font-size: 30px;
             line-height: 34px;
-            font-weight: 400;
+            font-weight: 700;
+            color: var(--ink);
+            font-variant-numeric: tabular-nums;
         }
 
-        .events_list .right_li {
-            margin-left: 50%;
-        }
-
-        .events_list .right_li .ic_events {
-            left: -7px;
-            background: url("../img/about_events.png") no-repeat -396px -116px;
-        }
-
-        .events_list .right_li .txt_events {
-            left: 56px;
-        }
-
-        .events_list .left_li {
-            text-align: right;
-            width: 50%;
-        }
-
-        .events_list .left_li .ic_events {
-            right: -7px;
-        }
-
-        .events_list .left_li .ic_events i {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 51px;
-            height: 98px;
-            background: url("../img/about_events.png") no-repeat -460px -116px;
-        }
-
-        .events_list .left_li .txt_events {
-            right: 56px;
-        }
-
-        .events_list .ic_time {
-            animation: enttime_effect 1s ease both;
-            -webkit-animation: enttime_effect 1s ease both;
-        }
-
-        @keyframes enttime_effect {
-
-            0%,
-            18%,
-            45%,
-            72% {
-                transform: translateY(0);
-                height: 32px;
-            }
-
-            36% {
-                transform: translateY(-10px);
-                height: 32px;
-            }
-
-            54% {
-                transform: translateY(-5px);
-                height: 32px;
-            }
-
-            100% {
-                height: 68px;
-            }
-        }
-
-        .events_list li:nth-child(1) .ic_events {
-            animation: entic_effect .8s 1s linear both;
-            -webkit-animation: entic_effect .8s 1s linear both;
-        }
-
-        .events_list li:nth-child(2) .ic_events {
-            animation: entic_effect .8s 1.8s linear both;
-            -webkit-animation: entic_effect .8s 1.8s linear both;
-        }
-
-        .events_list li:nth-child(3) .ic_events {
-            animation: entic_effect .8s 2.6s linear both;
-            -webkit-animation: entic_effect .8s 2.6s linear both;
-        }
-
-        .events_list li:nth-child(4) .ic_events {
-            animation: entic_effect .8s 3.4s linear both;
-            -webkit-animation: entic_effect .8s 3.4s linear both;
-        }
-
-        .events_list li:nth-child(5) .ic_events {
-            animation: entic_effect .8s 4.2s linear both;
-            -webkit-animation: entic_effect .8s 4.2s linear both;
-        }
-
-        .events_list li:nth-child(6) .ic_events {
-            animation: entic_effect .8s 5s linear both;
-            -webkit-animation: entic_effect .8s 5s linear both;
-        }
-
-        @keyframes entic_effect {
-            0% {
-                width: 20px;
-                height: 24px;
-                opacity: 0;
-            }
-
-            40% {
-                width: 20px;
-                height: 24px;
-                opacity: 1;
-            }
-
-            100% {
-                width: 51px;
-                height: 98px;
-            }
-        }
-
-        .events_list li:nth-child(1) .txt_events {
-            animation: enttxt_effect .8s 1s linear both;
-            -webkit-animation: enttxt_effect .8s 1s linear both;
-        }
-
-        .events_list li:nth-child(2) .txt_events {
-            animation: enttxt_effect .8s 1.8s linear both;
-            -webkit-animation: enttxt_effect .8s 1.8s linear both;
-        }
-
-        .events_list li:nth-child(3) .txt_events {
-            animation: enttxt_effect .8s 2.6s linear both;
-            -webkit-animation: enttxt_effect .8s 2.6s linear both;
-        }
-
-        .events_list li:nth-child(4) .txt_events {
-            animation: enttxt_effect .8s 3.4s linear both;
-            -webkit-animation: enttxt_effect .8s 3.4s linear both;
-        }
-
-        .events_list li:nth-child(5) .txt_events {
-            animation: enttxt_effect .8s 4.2s linear both;
-            -webkit-animation: enttxt_effect .8s 4.2s linear both;
-        }
-
-        .events_list li:nth-child(6) .txt_events {
-            animation: enttxt_effect .8s 5s linear both;
-            -webkit-animation: enttxt_effect .8s 5s linear both;
-        }
-
-        @keyframes enttxt_effect {
-            0% {
-                transform: translateY(-10px);
-                opacity: 0;
-            }
-
-            100% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .events_list .ic_arr {
-            animation: entarr_effect .6s 5.8s linear both;
-            -webkit-animation: entarr_effect .6s 5.8s linear both;
-        }
-
-        @keyframes entarr_effect {
-            0% {
-                opacity: 0;
-            }
-
-            100% {
-                opacity: 1;
+        // 逐条错峰：.2s 起步、每条隔 .8s，和旧版写死的 1..6 完全同拍；
+        // 这里循环到 8 档，时间线加条目时不必回来补选择器。
+        @for $i from 1 through 8 {
+            .events_list li:nth-child(#{$i}) .ic_events,
+            .events_list li:nth-child(#{$i}) .txt_events {
+                animation-delay: .2s + .8s * $i;
             }
         }
     }
 
-    // mobile
+    // mobile：≤1000px 换竖向单轴版本，几何照旧，配色换成纸墨
     .mobile-container {
         display: none;
+    }
 
-        * {
-            box-sizing: border-box;
+    .mobile-container .wrapper {
+        padding-left: 18px;
+        padding-right: 18px;
+        max-width: 1000px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .mobile-container .timeline {
+        position: relative;
+        margin: 30px auto;
+        padding: 60px 0;
+    }
+
+    .mobile-container .timeline:before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 10%;
+        width: 4px;
+        height: 100%;
+        background-color: var(--rule-2);
+    }
+
+    .mobile-container .timeline__item {
+        margin-bottom: 100px;
+        position: relative;
+    }
+
+    .mobile-container .timeline__item:after {
+        content: "";
+        clear: both;
+        display: table;
+    }
+
+    .mobile-container .timeline__item:last-child {
+        margin-bottom: 0;
+    }
+
+    .mobile-container .timeline__item__station {
+        position: absolute;
+        top: 0;
+        left: 10%;
+        width: 40px;
+        height: 40px;
+        padding: 10px;
+        margin-left: -33px;
+        border-radius: 50%;
+        background-color: var(--surface);
+        border: 4px solid var(--rule-2);
+        transition: all .3s ease-out;
+    }
+
+    .mobile-container .timeline__item__content {
+        position: relative;
+        float: right;
+        width: 80%;
+        padding: 20px 30px;
+        border-radius: 6px;
+        background-color: var(--surface);
+        border: 1px solid var(--rule);
+        transition: all .3s ease-out;
+    }
+
+    // 卡片到主轴之间的连接杆，压在卡片下面（z-index:-1），只露出靠轴的那半截
+    .mobile-container .timeline__item__content:before {
+        content: '';
+        position: absolute;
+        left: 10%;
+        top: 20px;
+        width: 10%;
+        height: 4px;
+        z-index: -1;
+        background-color: var(--rule-2);
+        transition: all .3s ease-out;
+    }
+
+    // 偶数条卡片靠右：≥800px 的双栏交替全靠这一条。它必须比下面 @media (min-width:800px)
+    // 里的 float:inherit 更重（多一个 :nth-child，0-3-0 > 0-2-0）才压得住。
+    // 删掉它的后果实测过：六张卡片全挤到中轴左侧，而连接杆还按「偶数在右」摆着。
+    .mobile-container .timeline__item:nth-child(2n) .timeline__item__content {
+        float: right;
+    }
+
+    // 偶数条的连接杆朝右。left 在窄屏仍由上面那条占住（同时给 left/right/width 时 left 赢），
+    // 到 ≥800px 才让位，这段几何旧版本来就是这样，别顺手「简化」掉。
+    .mobile-container .timeline__item:nth-child(2n) .timeline__item__content:before {
+        right: 40%;
+    }
+
+    .mobile-container .timeline__item__content__date {
+        display: inline-block;
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        border: 2px solid var(--surface);
+        border-radius: 4px;
+        font-size: 15px;
+        background-color: var(--signal);
+        color: var(--surface);
+    }
+
+    .mobile-container .timeline__item__content__description {
+        margin: 0;
+        padding: 0;
+        font-size: 16px;
+        line-height: 1.5;
+        font-weight: 300;
+        color: var(--ink-3);
+    }
+
+    // Waypoint 滚过 80% 时加上的「点亮」态：站点、连接杆转信号蓝，卡片只换描边，
+    // 描述回到墨色。旧版是把整块卡片刷成蓝 / 紫（偶数条又一套色）再把文字刷白，
+    // 两套都跳出了纸墨口径。
+    .mobile-container .timeline__item-bg .timeline__item__station,
+    .mobile-container .timeline__item-bg .timeline__item__content:before {
+        background-color: var(--signal);
+    }
+
+    .mobile-container .timeline__item-bg .timeline__item__station {
+        border-color: var(--signal);
+    }
+
+    .mobile-container .timeline__item-bg .timeline__item__content {
+        border-color: var(--signal);
+    }
+
+    .mobile-container .timeline__item-bg .timeline__item__content__description {
+        color: var(--ink);
+    }
+
+    @media (min-width: 800px) {
+        .mobile-container .timeline:before {
+            left: 50%;
+            margin-left: -2px;
         }
 
-        .timeline {
-            /* _wrapper.css */
-            .wrapper {
-                padding-left: 18px;
-                padding-right: 18px;
-                max-width: 1000px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-    
-    
-            .timeline__item {
-                margin-bottom: 100px;
-                position: relative;
-            }
-    
-            .timeline__item::after {
-                content: "";
-                clear: both;
-                display: table;
-            }
-    
-            .timeline__item:nth-child(2n) .timeline__item__content {
-                float: right;
-            }
-    
-            .timeline__item:nth-child(2n) .timeline__item__content::before {
-                content: '';
-                right: 40%;
-            }
-    
-            @media (min-width: 800px) {
-                .timeline__item:nth-child(2n) .timeline__item__content::before {
-                    left: inherit;
-                }
-            }
-    
-            .timeline__item:nth-child(2n) .timeline__item__content__date {
-                background-color: #b292c5;
-            }
-    
-            .timeline__item:nth-child(2n) .timeline__item__content__description {
-                color: #b292c5;
-            }
-    
-            .timeline__item:last-child {
-                margin-bottom: 0;
-            }
-    
-            .timeline__item-bg {
-                -webkit-transition: all 1s ease-out;
-                transition: all 1s ease-out;
-                color: #fff;
-            }
-    
-            .timeline__item-bg:nth-child(2n) .timeline__item__station {
-                background-color: #7646b5;
-            }
-    
-            .timeline__item-bg:nth-child(2n) .timeline__item__content {
-                background-color: #7646b5;
-            }
-    
-            .timeline__item-bg:nth-child(2n) .timeline__item__content::before {
-                background-color: #b292c5;
-            }
-    
-            .timeline__item-bg:nth-child(2n) .timeline__item__content__description {
-                color: #fff;
-            }
-    
-            .timeline__item-bg .timeline__item__station {
-                background-color: #0072e8;
-            }
-    
-            .timeline__item-bg .timeline__item__content {
-                background-color: #0072e8;
-            }
-    
-            .timeline__item-bg .timeline__item__content::before {
-                background-color: #65adb7;
-            }
-    
-            .timeline__item-bg .timeline__item__content__description {
-                color: #fff;
-            }
-    
-            .timeline__item__station {
-                background-color: #9aa0b9;
-                width: 40px;
-                height: 40px;
-                position: absolute;
-                border-radius: 50%;
-                padding: 10px;
-                top: 0;
-                left: 10%;
-                margin-left: -33px;
-                border: 4px solid #8d94b1;
-                -webkit-transition: all .3s ease-out;
-                transition: all .3s ease-out;
-            }
-    
-            @media (min-width: 800px) {
-                .timeline__item__station {
-                    left: 50%;
-                    margin-left: -30px;
-                    width: 60px;
-                    height: 60px;
-                    padding: 15px;
-                    border-width: 6px;
-                }
-            }
-    
-            .timeline__item__content {
-                width: 80%;
-                background: #fff;
-                padding: 20px 30px;
-                border-radius: 6px;
-                float: right;
-                -webkit-transition: all .3s ease-out;
-                transition: all .3s ease-out;
-            }
-    
-            @media (min-width: 800px) {
-                .timeline__item__content {
-                    width: 40%;
-                    float: inherit;
-                    padding: 30px 40px;
-                }
-            }
-    
-            .timeline__item__content::before {
-                content: '';
-                position: absolute;
-                left: 10%;
-                background: #8d94b1;
-                top: 20px;
-                width: 10%;
-                height: 4px;
-                z-index: -1;
-                -webkit-transition: all .3s ease-out;
-                transition: all .3s ease-out;
-            }
-    
-            @media (min-width: 800px) {
-                .timeline__item__content::before {
-                    left: 40%;
-                    top: 30px;
-                    height: 4px;
-                    margin-top: -2px;
-                }
-            }
-    
-            .timeline__item__content__date {
-                margin: 0;
-                padding: 8px 12px;
-                font-size: 15px;
-                margin-bottom: 10px;
-                background-color: #65adb7;
-                color: #fff;
-                display: inline-block;
-                border-radius: 4px;
-                border: 2px solid #fff;
-            }
-    
-            .timeline__item__content__description {
-                margin: 0;
-                padding: 0;
-                font-size: 16px;
-                line-height: 1.5;
-                font-weight: 300;
-                color: #65adb7;
-            }
-    
-            // @media (min-width: 800px) {
-            //     .timeline__item__content__description {
-            //         font-size: 19px;
-            //         line-height: 28px;
-            //     }
-            // }
+        .mobile-container .timeline__item__station {
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            padding: 15px;
+            margin-left: -30px;
+            border-width: 6px;
         }
-    
-        /* _timeline.css */
-        .timeline {
-            position: relative;
-            margin: 30px auto;
-            padding: 60px 0;
-    
+
+        .mobile-container .timeline__item__content {
+            float: inherit;
+            width: 40%;
+            padding: 30px 40px;
         }
-    
-        .timeline::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 10%;
-            width: 4px;
-            height: 100%;
-            background-color: #8d94b1;
+
+        .mobile-container .timeline__item__content:before {
+            left: 40%;
+            top: 30px;
+            margin-top: -2px;
         }
-    
-        @media (min-width: 800px) {
-            .timeline::before {
-                left: 50%;
-                margin-left: -2px;
-            }
+
+        .mobile-container .timeline__item:nth-child(2n) .timeline__item__content:before {
+            left: inherit;
         }
     }
 }
 
-// 夜间模式样式
-.night-mode {
-    .p-about {
-        .author-introduction {
-            text-shadow: none;
-        }
+@keyframes aboutAxisGrow {
+    0% {
+        transform: scaleY(0);
+    }
+
+    100% {
+        transform: scaleY(1);
+    }
+}
+
+@keyframes aboutNodeIn {
+
+    0%,
+    40% {
+        opacity: 0;
+        transform: scale(.2);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes aboutTextIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// 末端箭头靠 rotate(45deg) 定向，不能套用任何带 transform 的关键帧，所以单独只淡入。
+@keyframes aboutFadeIn {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+// 时间线入场属于「好看」不属于「告知」，要求减少动态效果时直接呈现终态；
+// 终态就是上面各规则的默认值，所以 animation:none 之后不必再补一遍样式。
+// .pc-container 这一段不能省：被压的规则全部嵌在 .p-about .pc-container 之下（0-4-0），
+// 少写一层就只有 0-3-0，而媒体查询不参与权重计算——早先写漏过一次，整块静默失效。
+@media (prefers-reduced-motion: reduce) {
+    .p-about .pc-container .events_list ul:before,
+    .p-about .pc-container .events_list .ic_time,
+    .p-about .pc-container .events_list .ic_arr,
+    .p-about .pc-container .events_list .ic_events,
+    .p-about .pc-container .events_list .txt_events {
+        animation: none;
+    }
+}
+
+// 窄屏只留一条时间线。这两条 !important 当初是为「星系底图 + 双容器」那套写的，
+// 现在仍然靠它们按视口切换，只是不再有白昼 / 夜间两套容器的含义。
+@media screen and (max-width: 1000px) {
+    .pc-container {
+        display: none !important;
+    }
+
+    .mobile-container {
+        display: block !important;
     }
 }
