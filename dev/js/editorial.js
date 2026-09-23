@@ -562,13 +562,21 @@
             window.location.href = BASE_URL + url;
         }
 
+        // 入口直接绑在按钮上，不走 document 委托：index.js 在 .g-nav 上无条件
+        // stopPropagation（那是给移动端抽屉「点外面收起」用的），委托监听收得到
+        // 侧栏 .search-trigger，却收不到顶栏那颗 .nav-search-btn——点了没反应。
+        // 书架入口早就是同样的写法，这里补齐。
+        var openers = document.querySelectorAll('[data-search-open]');
+        for (var i = 0; i < openers.length; i++) {
+            (function (el) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    open(el);
+                });
+            })(openers[i]);
+        }
+
         document.addEventListener('click', function (e) {
-            var opener = e.target.closest('[data-search-open]');
-            if (opener) {
-                e.preventDefault();
-                open(opener);
-                return;
-            }
             if (e.target.closest && e.target.closest('[data-search-close]')) close();
         });
 

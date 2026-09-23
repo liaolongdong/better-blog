@@ -148,10 +148,23 @@ body {
             text-transform: none;
         }
 
+        // 书架与搜索是 32px 高的药丸，而 li 是 64px 高的 list-item：按钮落在 li 首行
+        // 的行盒里，于是贴顶排布（实测 top:0），比旁边垂直居中的导航文字高出一截。
+        // 只把这两项转成 flex——8 个文字链接的 li 里有绝对定位的下拉与 caret，
+        // 折叠成抽屉时还要靠块级流上下叠放，动它们的 display 不划算。
+        &>ul>li.nav-shelf,
+        &>ul>li.nav-search {
+            display: flex;
+            align-items: center;
+        }
+
         .nav-link {
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            // 不写这句，64px 高 + 2px 下边框按 content-box 算成 66px，
+            // 当前页那条下划线会盖在顶栏 1px 分隔线下面、还多出 1px。
+            box-sizing: border-box;
             height: 64px;
             padding: 0 12px;
             font-size: 14px;
@@ -645,7 +658,9 @@ body {
 
 .masthead-issue {
     position: absolute;
-    top: 4px;
+    // 与 .kicker 同一条基线：刊头第一行是流里的 kicker（top 0），这里原本写死
+    // top:4px，两个行盒又只差 0.6px 高，结果「Vol. 67」整串比左边那行低 4px。
+    top: 0;
     right: 0;
     display: flex;
     align-items: center;
@@ -698,6 +713,9 @@ body {
 .masthead-stats {
     display: flex;
     flex-wrap: wrap;
+    // 默认 stretch 会把每个 li 拉到本行最高（21px 大数字撑出 24.1px），内容更矮的
+    // 「最近更新 2026.09.22」就贴顶排布，基线比前三项高约 8px，一行读下来是断的。
+    align-items: baseline;
     gap: 8px 34px;
     margin-top: 30px;
     padding-top: 18px;
@@ -1099,14 +1117,6 @@ body.has-toc .post-grid {
     font-size: calc(17px * var(--rs));
     line-height: calc(32px * var(--rs));
     color: var(--ink-2);
-}
-
-// _plugins/image_dims.rb 会在构建期给正文图补 width/height 属性（消 CLS 跳动）。
-// 补了属性就必须让高度按属性推出的比例走：github-markdown 的 `.markdown-body img`
-// 只写了 max-width:100%（(0,1,1)），图比正文容器宽时高度会停在属性值上，压成扁图。
-// height:auto 本就是初始值，对没带属性的图是 no-op；这里用 (0,2,1) 覆盖，不依赖加载顺序。
-.post-content .markdown-body img {
-    height: auto;
 }
 
 // github-markdown 把 p 的字号写死成 17px，不显式退回继承就不跟着缩放；
@@ -4112,7 +4122,10 @@ dialog.shelf[open] {
     }
 }
 
-@media screen and (max-width: 1023px) {
+// 抽屉态（.g-nav 折叠成竖排）只在 ≤695 发生，这条规则必须跟它同断点。
+// 原先写在 max-width:1023 里：696–1023 那段顶栏还是横排，书架药丸被拉成 38px 高、
+// 还吃掉 6px 左间距，和旁边 32px 的搜索药丸明显不齐（实测 800px 下 38 vs 32）。
+@media screen and (max-width: 695px) {
     .nav-shelf-btn {
         width: 100%;
         height: 38px;
