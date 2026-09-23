@@ -379,10 +379,12 @@ pnpm deploy:ali    # 阿里云服务器部署
 
 ## 🔎 检索层自查
 
-Jekyll 构建成功不代表 SEO 没问题。改完模板跑下面这六条，能在本地就把结构性问题挡下来：
-第一条命令负责重建，后面五条全部读它的产物——**每次都要带着第一条一起跑**。
+Jekyll 构建成功不代表 SEO 没问题。改完模板跑下面这十一条，能在本地就把结构性问题挡下来：
+第一条命令负责重建，后面十条全部读它的产物——**每次都要带着第一条一起跑**。
 这个目录留着上一次的构建时踩过一次：脚本对着旧产物输出一串「异常」，
 看起来像刚修的问题没修好，其实是读错了目录。
+第 10 条与后面的样式回归还要读 Vite 产物（`assets/**`），本地没构建过就先 `pnpm build:assets`；
+第 10 条要读仓库根的 `demo.json`，所以整块命令在仓库根目录下跑。
 
 ```bash
 bundle exec jekyll build --destination /tmp/seo-check   # 不污染共享的 _site/
@@ -456,9 +458,149 @@ inmap = {u.split('/better-blog/')[-1] for u in
 withld = {n for n in ni if 'application/ld+json' in (root / n).read_text(encoding='utf-8')}
 print('noindex 却进了 sitemap:', sorted(inmap & ni), '| 还带 JSON-LD:', sorted(withld))
 PY
+
+# 7. 订阅源里的图片必须带 baseurl —— 预期：裸路径为空
+#    阅读器不会替你拼 base，它只照 <content> 里的 src 去站点根取，裸 /assets/... 在
+#    feed 里就是死图。feed.xml 的图片又全裹在转义过的 HTML 里（src=&quot;/…），
+#    所以正则必须同时吃 `src="` 和 `src=&quot;`：只写一种会一条都匹配不到，
+#    然后以「0 张图、0 异常」的结果假装通过。
+python3 - <<'PY'
+import pathlib, re
+feed = pathlib.Path('/tmp/seo-check/feed.xml').read_text(encoding='utf-8')
+srcs = re.findall(r'src=(?:"|&quot;)([^"&]+)', feed)
+print('图片 src:', len(srcs), '条 | 裸路径:',
+      [s for s in srcs if s.startswith('/') and not s.startswith('/better-blog/')])
+PY
+
+# 8. 正文图必须带 width+height，且每篇首图保持 eager —— 预期：两个列表都为空
+#    缺宽高会在图片加载时把下方正文顶走（CLS），首图被懒加载则直接拖 LCP。
+#    容器选择器照模板写全 `<article class="markdown-body" id="post-body">`：
+#    只按 id 匹配、或属性顺序写反，都会一页都匹配不到，于是「0 张图全通过」。
+#    所以这里连命中页数一起打出来，它必须等于可索引文章数（第 3 条的 BlogPosting 计数）。
+#    报出缺宽高的文件名时，先看第 11 条：如果那页的图片本来就取不到文件，
+#    那是路径写错或配图没生成，不是补尺寸的滤镜坏了。
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+hits = imgs = lazy = 0
+nodim, firstlazy = [], []
+for p in sorted(root.glob('20*/*/*/*.html')):
+    m = re.search(r'<article class="markdown-body" id="post-body".*?</article>',
+                  p.read_text(encoding='utf-8'), re.S)
+    if not m:
+        continue
+    hits += 1
+    tags = re.findall(r'<img\b[^>]*>', m.group(0))
+    imgs += len(tags)
+    lazy += sum('loading="lazy"' in t for t in tags)
+    if any(not ('width=' in t and 'height=' in t) for t in tags):
+        nodim.append(p.name)
+    if tags and 'loading="lazy"' in tags[0]:
+        firstlazy.append(p.name)
+print(f'命中 {hits} 页 / {imgs} 图（懒加载 {lazy}）| 缺宽高 {nodim} | 首图被懒加载 {firstlazy}')
+PY
+
+# 9. 标题与描述的 SERP 列数区间 —— 预期：四个列表都为空
+#    Google 按「列」截断，CJK 字符占 2 列，所以 len() 不合格，要按宽度算。
+#    口径：标题 ≤60 列；描述 ∈[50,158] 列（低于 50 等于没写，高于 158 会被截）。
+#    首页一起查：它是站内唯一不套文章模板的那页，改标题口径时最容易漏。
+python3 - <<'PY'
+import pathlib, re
+def cols(s):
+    return sum(2 if ord(c) > 0x2E80 else 1 for c in s)   # CJK 与全角标点都落在 0x2E80 之上
+root = pathlib.Path('/tmp/seo-check')
+long_t, short_d, long_d, none_d = [], [], [], []
+for p in sorted(root.glob('20*/*/*/*.html')) + [root / 'index.html']:
+    html = p.read_text(encoding='utf-8')
+    t = re.search(r'<title>(.*?)</title>', html, re.S)
+    d = re.search(r'<meta name="description" content="([^"]*)"', html)
+    if t and cols(t.group(1)) > 60:
+        long_t.append(cols(t.group(1)))
+    if not d:
+        none_d.append(p.name)
+    elif cols(d.group(1)) < 50:
+        short_d.append(cols(d.group(1)))
+    elif cols(d.group(1)) > 158:
+        long_d.append(cols(d.group(1)))
+print('标题>60列', long_t, '| 描述<50列', short_d, '| 描述>158列', long_d, '| 无描述', none_d)
+PY
+
+# 10. demo 列表必须是渲染进 HTML 的静态链接（P0-7）—— 预期：一致 True、落盘缺失 []
+#     原先这 19 个入口靠前端 fetch demo.json 生成，爬虫侧等于 0 个链接。改成 Liquid
+#     循环之后要防的是回退：模板哪天改回 fetch，构建正常、页面看着也正常，收录却掉光。
+#     所以不数「有几个链接」，而是拿 demo.json 当基准对三项：条数、href 集合、
+#     每个 href 在产物里真有文件。注意 demo 目录是 18 个而条目是 19 条
+#     （demo/ai/ 一个目录放了两页），别拿目录数当预期。
+python3 - <<'PY'
+import json, pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+entries = json.loads(pathlib.Path('demo.json').read_text(encoding='utf-8'))['demoLists']
+links = re.findall(r'class="demo-link"[^>]*href="([^"]+)"',
+                   (root / 'demo.html').read_text(encoding='utf-8'))
+got = sorted(u.split('/better-blog/')[-1] for u in links)
+print('链接数', len(links), '| 与 demo.json 一致', got == sorted(e['demoUrl'] for e in entries),
+      '| 落盘缺失', [g for g in got if not (root / g).is_file()])
+PY
+
+#     配套一条：JS 包里不该再出现 demo.json（前端拉取已经删掉了）。
+#     命中 0 时 grep 以退出码 1 结束，这不是报错。
+grep -c 'demo\.json' /tmp/seo-check/assets/js/index.min.js
+
+# 11. 正文与列表引用的站内图片必须真的在产物里 —— 预期：取不到文件 0 条
+#     路径打错一个字母，第 8 条只会报「缺宽高」，看着像滤镜没跑；实际是
+#     `_plugins/image_dims.rb` 读不到文件头，只能原样放过，线上就是一个 404 的空图框。
+#     所以这两条要连着看：缺宽高 + 文件存在 = 滤镜的问题；缺宽高 + 文件不存在 = 写错了路径
+#     （或配图还没生成）。全站近千处站内引用一次扫完，比人肉点图快得多。
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+gone = []
+for p in sorted(root.rglob('*.html')):
+    for src in re.findall(r'<img\b[^>]*?\bsrc="(/better-blog/[^"?#]+)', p.read_text(encoding='utf-8')):
+        if not (root / src.split('/better-blog/')[-1]).is_file():
+            gone.append((str(p.relative_to(root)), src))
+print('产物里取不到文件:', len(gone), gone[:4])
+PY
 ```
 
 `_site`（或上面的临时目录）里不该出现的东西：`README.html`、`USAGE.html`、
 `assets/img/**` 下的 `.html` 工作笔记、`test.html`、`rss.xml`、
 `assets/iconFont/demo_index.html`。它们都靠 `_config.yml` 的 `exclude` 挡着，
 每一行的理由写在注释里——不要图省事改成 `include` 白名单，也不要随手删这些排除项。
+
+### 产物里的样式回归
+
+前面十一条查的都是 HTML 与 feed。另有四处改动同属「失效了也不报错」的那类，只能直接查 CSS：
+
+```bash
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')
+css = (root / 'assets/css/index.min.css').read_text(encoding='utf-8')
+share = (root / 'assets/css/share.min.css').read_text(encoding='utf-8')
+print('死样式类回流:', bool(re.search(r'(utdf|dtuf)-delay0', css)),        # 预期 False
+      '| downToUpFade 关键帧:', '@keyframes downToUpFade' in css,          # 预期 True
+      '| reduce 全站兜底:', 'animation-duration:.01ms!important' in css,   # 预期 True
+      '| socialshare font-display:', 'font-display:swap' in share)         # 预期 True
+PY
+```
+
+- **死样式类**：`.utdf-delay0` / `.dtuf-delay0` 全站 0 引用，已连同只被这两个类用到的
+  `@keyframes upToDownFade` 一起删掉（`dev/sass/common/animate.scss`）。它们回流只有一种来路：
+  又有人照着旧笔记抄了一遍。
+  `vite-dist/` 里那份旧 CSS 还带着这两个类（旧 `@vitejs/plugin-legacy` 的输出残留，
+  已被 `_config.yml` 排除、不进产物）——在仓库里 grep 到命中不算回流，上面查的那份才是真下发的。
+- **`downToUpFade` 关键帧**：在 `animate.scss` 里查不到任何 `.类名` 用它，看着就是死代码——
+  但 `dev/sass/common/common.scss:229-245` 与 `:417` 是直接写 `animation: downToUpFade …` 的
+  （首页文章列表、read-next 的错峰入场）。删掉它，那 6 处动画**静默消失**，
+  构建不报错、HTML 也看不出端倪。这条和上一条是一对：留关键帧、删延迟类。
+  跨文件查消费者再动手，别只 grep 类名。
+- **reduce 全站兜底**：`dev/sass/common/base.scss` 末尾那段 `@media (prefers-reduced-motion)`。
+  它在不在，决定的是「全站动效都尊重系统偏好」还是「只有当初单独补过的那几个组件生效」——
+  后者正是这一批修之前的状态（`animate.scss`、`common.scss`、`cat.scss`、`bottomFixedBtn.scss`、
+  `weblab.scss`、`helper.scss` 各自为政）。所以新加动效不用再补 reduce，但这段不能被动效重构顺手删掉。
+- **`font-display:swap`**：全站只有 `socialshare` 一个字族会走网络，所以只有
+  `dev/libCss/share.min.css` 需要它。其余字族是内联 data URI（本就不阻塞），
+  原先 `base.scss` 里那两个 Merriweather `@font-face` 是空壳、字体文件已删
+  （缘由记在 `dev/blog-growth-analysis-2026-09.md` 的 P0-11）。
+  别为了「让这个指标通过」往 `base.scss` 里补 `font-display`——那里没有可挂的字族。

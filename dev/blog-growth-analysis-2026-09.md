@@ -49,7 +49,7 @@
 
 ---
 
-## 2. P0 · 正在漏流量的缺陷（建议全部做，都不影响交互）
+## 2. P0 · 正在漏流量的缺陷（1-5、7、9、11、13-15 已做；6/10/12/16 会动性能或视觉基线，待确认）
 
 | # | 问题 | 实测证据 | 影响到 | 修法 |
 | --- | --- | --- | --- | --- |
@@ -70,7 +70,7 @@
 | 15 | **无 AI 引擎可读入口** | `robots.txt` 只有 3 行（`User-agent: *` / `Allow: /` / `Sitemap:`），AI 爬虫隐式放行但**未显式表态**；全站无 `llms.txt`；无 `<noscript>`（⌘K 结果容器静态是空 `<ul>`）；无纯 HTML 全站索引页 | 被 ChatGPT / Perplexity / Claude 引用的概率 | 已做（本批口径只到"显式表态"）：`robots.txt` 逐条写出 13 个引擎的 `Allow: /`，检索型与训练型不区分（2026-09-23 确认全部放行）；`llms.txt` / `<noscript>` / 纯 HTML 索引页见 P1-S2/S3/S4 |
 | 16 | **`<head>` 里两个阻塞资源挂在同一个外部域上**（核验 P0-11 时撞出来的，不在原 15 条里） | `headAssets.html:38/40` 从 `cdn.staticfile.org` 取 normalize.min.css（阻塞渲染的样式表）与 jQuery 3.3.1（阻塞解析的 `<script>`，无 defer/async）。2026-09-23 本机实测：normalize **15s 超时、code=000**；jquery **3.88s / 86KB**；同页的 at.alicdn 图标 CSS 只要 0.07s → 慢的是这个域，不是网络总体。后果实测可复现：headless Chrome 打开任意页拿不到 `document.body`，`--dump-dom` 两分钟不退出；把该域用 `--host-resolver-rules` 指到本地后 1.2 秒就量完了 | LCP / 首屏白屏 / 抓取预算；`$` 依赖脚本（`anchor.html` 等）全在 jQuery 之后 | 把这两个文件自托管进 `assets/`（normalize 6.0.0 约 1.7KB gz、jquery 3.3.1 约 30KB gz），或至少给 jQuery 加 `defer` 并把它下游那些"必须早于 `$`"的脚本改成 `DOMContentLoaded` 触发。**属于动性能基线的改动，本批未擅自做** |
 
-> 另有一个部署层事实：本地 `main` 比 `origin/master` 领先 5 个提交（`git rev-list --left-right --count origin/master...HEAD` = `0 5`），Pages 只监听 `master`，所以最近 5 个重构还没上线。修完 P0 一起发一版更划算。
+> 另有一个部署层事实：Pages 只监听 `master`，本地 `main` 上的提交在推上去之前不会上线（写这段时领先 5 个，P0 批次做完已到 11 个；以 `git rev-list --left-right --count origin/master...HEAD` 为准）。修完 P0 一起发一版更划算。
 
 ---
 
@@ -125,7 +125,8 @@ front matter 支持 `updated: ['2026-03-12 补充 pnpm 9 的行为变化', ...]`
 ## 4. P1 · SEO / AEO：曝光率与点击率
 
 ### S1 标题 + 描述重写（CTR 最高杠杆，先做这条）
-就是 P0-2/P0-3。做法上给 `USAGE.md` 的写作规范加两条硬约束，并扩写"检索层自查"脚本（`USAGE.md:380` 那节已有 6 条自检，正好加第 7/8 条：标题 ≤60 列、描述 ∈ [150,160] 列）。
+就是 P0-2/P0-3。做法上给 `USAGE.md` 的写作规范加两条硬约束，并扩写"检索层自查"脚本（`USAGE.md:380` 那节已扩到 11 条，列数区间已是第 9 条：标题 ≤60 列、描述 ∈[50,158] 列，按 CJK=2 列算）。
+下限取 50 是对齐 P0-2 的补写门槛（subtitle < 50 列才补 `seo_description`），不是终点：S1 把文案推到 150 列档之后，这条下限可以直接抬到 100，那时它才真正在挡"摘要拼成无意义片段"。
 
 ### S2 `llms.txt`（低成本，直接服务 AI 引用）
 一份 markdown：站点是谁、写什么、25 个合集的主题、66 篇的分组索引（标题 + URL + 一句话结论）。Google 明确说 AI Overviews 不需要它，但 ChatGPT/Claude/Perplexity 侧确实会读；对 Google 无害。
@@ -194,9 +195,17 @@ AI 引用份额最高的是对比文（≈33%）、权威指南（≈15%）、�
 
 ## 7. 落地顺序
 
-**第 1 步 · 缺陷批（P0 全 15 项）**
+**第 1 步 · 缺陷批（P0）** — 原 15 项里 11 项已修（1-5、7、9、11、13-15），P0-8 复核后判定不是缺陷故不改，剩 3 项 + 新增 1 项待确认
 纯修复，不改交互。发版按 `USAGE.md` 的三处版本号约定（`_config.yml:39`、`package.json`、`CHANGELOG.md`）+ 打 tag。
-验收：`USAGE.md:380` 检索层自查 6 条全过 + 新增 3 条自检（feed 图片 URL 必带 baseurl、`<img>` 必带 width/height、title/description 列数区间）。
+验收：`USAGE.md:380` 检索层自查已从 6 条扩到 11 条，另加一节《产物里的样式回归》。新增口径：
+feed 图片必带 baseurl（裸路径 0 条）、正文图必带宽高且每篇首图 eager、
+title ≤60 列 / description ∈[50,158] 列（按 CJK=2 列算）、demo 静态链接对齐 `demo.json`
+（19 条，注意 demo 目录只有 18 个）、全站 946 处 `<img>` 引用逐个查文件是否真的落盘；
+样式回归查死样式类回流、`downToUpFade` 关键帧是否被误删、reduce 全站兜底、`socialshare` 的 `font-display`。
+2026-09-23 跑通：本批 P0 相关项全绿，第 11 条当场逮到一篇在写文章的配图尚未生成（引用了不存在的
+`banner.webp`）——这条自检的价值正在这里：补尺寸的滤镜读不到文件头时会安静放过，线上就是一个 404 空图框。
+**未做的 4 项都是会动性能或视觉基线的**，等单独点头：P0-6 og:image 品牌卡、P0-10 ace 懒注入、
+P0-12 CSS 拆分、P0-16 `cdn.staticfile.org` 自托管。
 
 **第 2 步 · CTR + AEO 批（S1/S2/S4/S6/S7）**
 标题描述重写 + `llms.txt` + 全站索引 + og:image 兜底卡 + 两个薄页补实文。这批是曝光率的主战场。
