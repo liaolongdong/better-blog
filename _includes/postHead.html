@@ -15,15 +15,9 @@
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     {% include seoMeta.html %}
-    <link rel="stylesheet" href="//cdn.staticfile.org/normalize/6.0.0/normalize.min.css">
-    <link rel="stylesheet" href="//at.alicdn.com/t/font_roc50gemkxpw4s4i.css">
-    <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/github-markdown.min.css">
-    <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/prism.min.css">
-    <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/share.min.css">
-    <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/index.min.css">
+    {% include headAssets.html %}
+    <!-- 只在文章页加载：站内唯一用到 fa 类的是 anchor.html 给标题锚点设的 fa-anchor -->
     <link rel="stylesheet" href="https://cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="{{ site.baseurl }}/assets/iconFont/iconfont.css">
-    <script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
     {% include seoScript.html %}
     
 	{% if site.mathjax %}

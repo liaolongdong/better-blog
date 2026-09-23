@@ -347,7 +347,7 @@ pnpm deploy:ali    # 阿里云服务器部署
 
 | 依赖 | 实际最低要求 |
 | --- | --- |
-| jQuery 3.3.1（`_includes/head.html`） | iOS ≥ 9 / Android ≥ 4.4 |
+| jQuery 3.3.1（`_includes/headAssets.html`） | iOS ≥ 9 / Android ≥ 4.4 |
 | `fetch` + `NodeList.forEach`（阅读量统计） | iOS ≥ 10 |
 | flex `gap`（`.post-meta` 等） | iOS ≥ 14.1 |
 
@@ -355,7 +355,7 @@ pnpm deploy:ali    # 阿里云服务器部署
 而 `gap` 这类高要求特性又不在 autoprefixer 的补偿范围内。**这条基线目前没有真实约束力，
 但它决定 autoprefixer 该保留哪些前缀，属于需要单独决策的事项（收敛到现代基线会删掉一批前缀，
 回退到标称基线则要把 `gap` 改回 margin），因此暂不改动，仅在此登记。**
-动它之前先确认目标设备分布，再一次性同步 `postcss.config.js`、`_includes/head.html` 的 jQuery 版本与阅读量脚本的降级策略。
+动它之前先确认目标设备分布，再一次性同步 `postcss.config.js`、`_includes/headAssets.html` 的 jQuery 版本与阅读量脚本的降级策略。
 
 ## 🎯 开发建议
 

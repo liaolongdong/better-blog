@@ -1,0 +1,42 @@
+{%- comment -%}
+站点共享的样式表与 jQuery：两份 <head> 的唯一权威清单。
+
+和 themeBootstrap.html 同一个道理——head.html 与 postHead.html（只有文章页用它）
+各自抄了一份资源列表，抄本一定会漂移。这份清单此前已经漂出三处实际差异：
+
+1. at.alicdn 的图标字体两边是**不同的项目 id**。文章页底部与首页的社交图标走
+   `class="iconfont icon-{{ s[0] }}"`（post.html:259 / index.html:152），
+   这些类只由这份外部 CSS 定义，本地 assets/iconFont/iconfont.css 里没有。
+   两个项目恰好都含 email/weibo/juejin/zhihu/github 五个用得到的字形，所以一直
+   没人看出来；用在的类一旦超出交集，就只会在其中一类页面上变成空白方块。
+   现统一到 font_271755。注意两份互不包含，换过去不等于白拿另一批字形：
+   仅 271755 有 dribbble/vk/youtube，仅旧的 roc50gemkxpw4s4i 有 dribble（H2O
+   拼错的那份，_config.yml:192 的候选名列表就沿用了这个拼法）和
+   socialyoutubecircle。往后往 sns: 里加键时，先确认拼法在 271755 里存在。
+2. jQuery 一边 cdn.bootcss.com、一边 cdn.staticfile.org，同版本同字节数，纯漂移。
+3. normalize 一边写 https:// 一边写协议相对 //。协议相对在本地 file:// 或 http
+   预览下会直接取不到，统一写 https。
+
+font-awesome 不在这里：站内唯一用到 `fa` 类的是 _includes/anchor.html 给标题锚点
+设的 class="fa fa-anchor"，而 anchor 只在文章页出现。放进共享清单等于让全站
+多背 31KB 用不上的 CSS，所以它留在 postHead.html 里。
+
+加载顺序里真正承重的是 jQuery：它必须早于任何用 $ 的脚本，anchor.html 就是其一。
+样式表之间目前不因先后而产生可观察差异（index.min.css 与 iconfont.css 都命中
+.iconfont，但重合的属性值相同，helper.scss:129 的 22px 与 layouts.scss:96 的 32px
+靠嵌套特异性而非次序盖过它们）。
+两份 @font-face 的 family 都叫 "iconfont"，按字面读规范像是后声明的本地那份把
+alicdn 那份遮蔽了——实测不是：在文章页禁用 alicdn 样式表，email/juejin/zhihu/github
+四个图标的 ::before 立刻变成 content:none、宽度 0；禁用本地 iconfont.css 则四个图标
+纹丝不动。本地字体只有 8 个字形（e632/e620/e607/e692/e6c1/eaf1/e625/e614），根本不
+含社交图标那些码点，同名 family 在浏览器里是当回退链用的。别照着"后者覆盖前者"去
+删这两份里的任何一份。
+{%- endcomment -%}
+<link rel="stylesheet" href="https://cdn.staticfile.org/normalize/6.0.0/normalize.min.css">
+<link rel="stylesheet" href="https://at.alicdn.com/t/font_271755_rdxzzo2kqwk.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/github-markdown.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/prism.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/share.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/index.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/iconFont/iconfont.css">
+<script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
