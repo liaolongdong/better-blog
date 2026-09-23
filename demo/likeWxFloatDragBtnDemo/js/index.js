@@ -20,7 +20,9 @@ const app = new Vue({
   },
   methods: {
     clickMineBtn() {
-      location.href = "https://liaolongdong.com/";
+      // 站点首页：demo 页固定挂在 <baseurl>/demo/<名称>/ 下，往上两级即站点根，
+      // 用相对路径而不是写死域名——原来的 https://liaolongdong.com/ 已停用，点了必死链。
+      location.href = '../../';
     },
     /**
      * bind DOM events
