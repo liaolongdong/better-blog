@@ -49,6 +49,15 @@ footer {
     outline: 0 none;
 }
 
+// _plugins/image_dims.rb 在构建期给站内 <img> 补 width/height 属性消 CLS。补了属性
+// 就必须让高度按比例走：只要哪个组件再写一条 `width: 100%`（头像 70×640、工具页
+// banner 302×676 就是这么塌的），属性里那个高度会顶住不放，把图纵向拉长两三倍。
+// height:auto 本就是初始值，对没带属性的图是 no-op；写成元素选择器，是为了任何
+// 显式设过 height 的组件规则（.nav-sub-icon img、.b-wechat img 等）仍以自身为准。
+img {
+    height: auto;
+}
+
 body {
     font-family: $fonts;
     color: $color-f-secondary;
