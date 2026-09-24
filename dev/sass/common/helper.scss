@@ -161,11 +161,13 @@ $post-content-w: 720px;
 
 @mixin snsIcon {
     .iconfont {
-        color: #B8BDC3;
+        // 原来是写死的 #B8BDC3：对白底只有 1.9:1，五个真链接排在一起看着像一组禁用图标。
+        // 提到 --ink-3（对白底 4.5:1，与导航文字同档），夜间态由令牌自己翻，不必再补一份覆盖。
+        color: var(--ink-3);
         transition: .2s;
 
         &:hover {
-            color: #7B848F;
+            color: var(--ink);
         }
     }
 

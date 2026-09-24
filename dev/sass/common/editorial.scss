@@ -54,6 +54,38 @@ body {
 
 /*** 1. 顶栏 ***/
 
+// 顶栏图标药丸的共同外观（书架、GitHub 两颗）。做成 mixin 而不是并排写选择器列表：
+// GitHub 那颗是 <a>，layouts.scss 的 .g-header .g-nav>ul>li>a（(0,2,3)）会把它拍回
+// inline-block + content-box，实测高 34 而不是 32，所以它必须嵌进 .g-header .g-nav
+// 取到 (0,3,0) 才压得住；而书架那颗是 <button>，那条 a 规则根本命不中它，写在顶层就够。
+// 两处嵌套深度不同，共享选择器列表写不出来，能共享的只有声明。
+@mixin nav-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-sizing: border-box;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 9px;
+    margin-left: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: var(--surface);
+    // 描边是这三颗药丸唯一的「可按」线索，--rule（对白底 1.2:1）几乎看不见，
+    // 整颗就成了一块灰字白底的面板。用 --rule-2 让边先立起来。
+    border: 1px solid var(--rule-2);
+    border-radius: 999px;
+    transition: border-color .2s, color .2s, box-shadow .2s;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+        box-shadow: var(--shadow-1);
+    }
+}
+
 .g-header {
     // 跨页跳转（tokens.scss 里的 @view-transition）默认把整屏淡掉，顶栏跟着闪一下很廉价。
     // 给它一个 view-transition-name，浏览器就把它认作新旧两页共有的同一块，只做位置过渡。
@@ -148,11 +180,12 @@ body {
             text-transform: none;
         }
 
-        // 书架与搜索是 32px 高的药丸，而 li 是 64px 高的 list-item：按钮落在 li 首行
-        // 的行盒里，于是贴顶排布（实测 top:0），比旁边垂直居中的导航文字高出一截。
-        // 只把这两项转成 flex——8 个文字链接的 li 里有绝对定位的下拉与 caret，
-        // 折叠成抽屉时还要靠块级流上下叠放，动它们的 display 不划算。
+        // 书架、GitHub、搜索是 32px 高的药丸，而 li 是 64px 高的 list-item：按钮落在 li
+        // 首行的行盒里，于是贴顶排布（实测 top:0），比旁边垂直居中的导航文字高出一截。
+        // 只把这几项转成 flex——文字链接的 li 里有绝对定位的下拉，折叠成抽屉时还要靠
+        // 块级流上下叠放，动它们的 display 不划算。
         &>ul>li.nav-shelf,
+        &>ul>li.nav-git,
         &>ul>li.nav-search {
             display: flex;
             align-items: center;
@@ -161,7 +194,9 @@ body {
         .nav-link {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            // 文字与下拉箭头的间距。4px 时箭头墨迹几乎贴上「箱」的右边缘，
+            // 5px 是量出来看着还成对的最小值。
+            gap: 5px;
             // 不写这句，64px 高 + 2px 下边框按 content-box 算成 66px，
             // 当前页那条下划线会盖在顶栏 1px 分隔线下面、还多出 1px。
             box-sizing: border-box;
@@ -187,16 +222,15 @@ body {
         }
     }
 
+    // 箭头是 .nav-link 的一个 flex 项：垂直位置交给父级的 align-items:center，
+    // 水平间距交给父级的 gap，这里只管自己的尺寸与朝向。
+    // 换成内联 SVG 而不是原来那个 border 三角形，是为了让包围盒等于墨迹：
+    // 7×7 的方块转 45° 后包围盒 11.3×11.3，墨迹却只占下半部，于是「按盒居中」必然
+    // 比文字中线低约 5px，transform-origin 与 translate 那两个偏移就是在补这个差。
+    // 折线的 viewBox 是 12×8 且铺满，盒中心即视觉中心，不需要补偿值。
     .nav-caret {
-        position: absolute;
-        top: 29px;
-        right: 2px;
-        width: 7px;
-        height: 7px;
-        border-right: 1.4px solid var(--ink-4);
-        border-bottom: 1.4px solid var(--ink-4);
-        transform: rotate(45deg);
-        transform-origin: 50% 35%;
+        flex: none;
+        color: var(--ink-4);
         pointer-events: none;
         transition: transform .2s ease;
     }
@@ -204,7 +238,7 @@ body {
     .nav-item.has-sub:hover .nav-caret,
     .nav-item.has-sub:focus-within .nav-caret,
     .nav-item.has-sub.is-open .nav-caret {
-        transform: rotate(225deg) translate(-2px, -2px);
+        transform: rotate(180deg);
     }
 
     // 下拉：hover / 键盘 focus-within / 触屏 .is-open 三种触发共用同一显示规则
@@ -306,7 +340,7 @@ body {
         font-size: 13px;
         color: var(--ink-3);
         background-color: var(--surface);
-        border: 1px solid var(--rule);
+        border: 1px solid var(--rule-2);
         border-radius: 999px;
         cursor: pointer;
         transition: border-color .2s, color .2s, box-shadow .2s;
@@ -316,6 +350,24 @@ body {
             border-color: var(--rule-2);
             box-shadow: var(--shadow-1);
         }
+    }
+
+    // 个人 GitHub 仓库入口。它和书架药丸同源，但选择器必须多带一层 .g-nav：它是 <a>，
+    // layouts.scss 的 .g-header .g-nav>ul>li>a 是 (0,2,3)，只写 .g-header .nav-git-btn
+    // 拿到的是 (0,2,0)，比不过，实测那样药丸被拍成 inline-block + content-box、高 34 而非 32。
+    .g-nav .nav-git-btn {
+        @include nav-pill;
+    }
+
+    // 猫标与标签同档（--ink-3）。原先压到 --ink-4，对白底只有 2.4:1，
+    // 整颗药丸看着像被禁用的占位；hover 时跟着文字一起变墨色。
+    .g-nav .nav-git-icon {
+        flex: none;
+        color: var(--ink-3);
+    }
+
+    .g-nav .nav-git-btn:hover .nav-git-icon {
+        color: var(--ink);
     }
 
     .nav-search-key {
@@ -1036,15 +1088,27 @@ body {
         }
     }
 
+    // 老主题的 flex 排版挂在 .post-header 上（common.scss），改版后文章页的刊头
+    // 叫 .post-masthead，那条选择器整个失配 —— 这一行退回了 inline 排版：
+    // 16px 图标按基线站（比文字高 2.5px）、24px 的按钮从 20px 的行里溢出，
+    // 条目之间只剩一个空格的宽度。这里在编辑层把排版显式补回来，取值与首页卡片一致。
     .post-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
         margin-top: 22px;
         font-size: 13px;
         line-height: 20px;
         color: var(--ink-3);
 
         .post-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
             color: var(--ink-3);
             opacity: 1;
+            font-variant-numeric: tabular-nums;
 
             a {
                 color: var(--ink-2);
@@ -1056,7 +1120,18 @@ body {
         }
 
         .meta-icon {
+            flex: none;
             color: var(--ink-4);
+        }
+
+        // 两颗操作按钮作为一组靠右，与左侧的四项信息分开。
+        // auto 外边距必须挂在这一组上而不是挂在 .reader-item 上：
+        // 后者在 flex-wrap 下会被单独推到下一行，把按钮组拆成两截。
+        .post-meta-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
         }
 
         .meta-unit {
@@ -2602,9 +2677,11 @@ body.js-reveal .reveal.is-in {
 // 它负责把选择写进 localStorage 并同步到 html[data-rs-*]，缩放与栏宽的实际取值全部
 // 落在 tokens.scss 的 --rs / --measure 上。这里只负责面板本身长什么样。
 // 没 JS 时按钮点开的是个空白框吗？不是——面板带 hidden 属性，只有脚本会把它打开。
+// 只负责给面板当定位包含块。原先这里还挂着 margin-left:auto 把按钮推到行尾，
+// 但 meta 行是 flex-wrap 的，窄屏换行时那项会被单独甩到下一行最左、与「稍后再读」拆散，
+// 对齐已改由 _layouts/post.html 的 .post-meta-actions 整组承担。
 .post-masthead .reader-item {
     position: relative;
-    margin-left: auto;
 }
 
 // .g-masthead 的 overflow:hidden 是给首页飘籽层准备的，但文章页的刊头同样带着它，
@@ -3255,9 +3332,12 @@ body.cmdk-open {
     }
 }
 
-// 696–860：抽屉样式还没生效，但 9 项导航（含 ⌘K）已经和 223px 宽的刊名重叠。
-// 只收掉刊名文字、保留桌面导航条，比把抽屉提前到 860 的改动面小得多。
-@media screen and (min-width: 696px) and (max-width: 860px) {
+// 696–959：抽屉样式还没生效，但 8 个文字项加三颗药丸（含 ⌘K 与 GitHub）已经和
+// 223px 宽的刊名重叠——实测 900px 下导航左边缘落在 245，而刊名右边缘在 255。
+// 只收掉刊名文字、保留桌面导航条，比把抽屉提前到 959 的改动面小得多。
+// 上限原本写 860，是 GitHub 入口进来后按实测余量抬到 959 的（959 以下 .g-container
+// 还是定宽档，960 起换档，两条界线对齐在这里最省事）。
+@media screen and (min-width: 696px) and (max-width: 959px) {
     .g-header .logo-word {
         display: none;
     }
@@ -3417,6 +3497,23 @@ body.cmdk-open {
             padding: 0 14px;
             margin: 0;
         }
+
+        // GitHub 药丸在抽屉里同样拉成整行。这里必须多写一层 .g-nav 凑到 (0,3,0)：
+        // 基础态那条就是 .g-header .g-nav .nav-git-btn，少一层就会被它自己盖住。
+        .g-nav .nav-git-btn {
+            width: 100%;
+            height: 38px;
+            // 书架那行的 space-between 是给「图标 ←→ 数字角标」用的；GitHub 拉成整行宽
+            // 之后没有第二个承重元素，space-between 会把「GitHub」甩到最右边去。
+            justify-content: flex-start;
+            padding: 0 14px;
+            margin: 0;
+        }
+
+        // 抽屉里有整行宽度，字该露出来——收字那条规则是为 696–1199 的横排顶栏写的
+        .nav-git-label {
+            display: inline;
+        }
     }
 
     .g-masthead {
@@ -3551,26 +3648,14 @@ body.cmdk-open {
 // 待读队列是「这台设备上还没读完的东西」，值得一个常驻入口；
 // 但它不该和「首页/归档/工具」抢导航权重，所以做成图标药丸 + 数字角标。
 .nav-shelf-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 32px;
-    min-width: 32px;
-    padding: 0 9px;
-    margin-left: 6px;
-    font-family: inherit;
-    font-size: 13px;
-    color: var(--ink-3);
-    cursor: pointer;
-    background-color: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 999px;
-    transition: border-color .2s, color .2s, box-shadow .2s;
+    @include nav-pill;
+}
 
-    &:hover {
-        color: var(--ink);
-        border-color: var(--rule-2);
-        box-shadow: var(--shadow-1);
+// 1199 以下收掉「GitHub」四个字，只留猫标：这一档刊名文字也是收着的，
+// 顶栏余量已经给不了整颗带字药丸的 ~86px。
+@media screen and (max-width: 1199px) {
+    .nav-git-label {
+        display: none;
     }
 }
 
@@ -4125,6 +4210,7 @@ dialog.shelf[open] {
 // 抽屉态（.g-nav 折叠成竖排）只在 ≤695 发生，这条规则必须跟它同断点。
 // 原先写在 max-width:1023 里：696–1023 那段顶栏还是横排，书架药丸被拉成 38px 高、
 // 还吃掉 6px 左间距，和旁边 32px 的搜索药丸明显不齐（实测 800px 下 38 vs 32）。
+// GitHub 那颗的同一条改写在上一个 695 块里，它得借 .g-header .g-nav 凑特异性。
 @media screen and (max-width: 695px) {
     .nav-shelf-btn {
         width: 100%;

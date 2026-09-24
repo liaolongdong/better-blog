@@ -22,9 +22,19 @@
             {% assign is_current = true %}
             {% endif %}
             <li class="nav-item{% if item.dropdown %} has-sub{% endif %}{% if is_current %} is-current{% endif %}">
-                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if is_current %} aria-current="page"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}</a>
+                {%- comment -%}
+                下拉箭头住在 .nav-link 里面，不是它的兄弟节点：外面那版是绝对定位的
+                border 三角形（top:29 / right:2），旋转 45° 后墨迹落在包围盒下半部，
+                实测视觉中心比文字中线低 5px、左边缘还压进文字 0.5px。放进 flex 容器里
+                让 align-items 与 gap 去管，这两个数就不必靠魔法偏移去凑。
+                画成内联 SVG 而不是图标字体，同下面搜索按钮那条理由：断网时只剩方框。
+                {%- endcomment -%}
+                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if is_current %} aria-current="page"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}
+                    {% if item.dropdown == 'tools' %}
+                    <svg class="nav-caret" viewBox="0 0 12 8" width="12" height="8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 1.6 6 6.6 11 1.6"/></svg>
+                    {% endif %}
+                </a>
                 {% if item.dropdown == 'tools' %}
-                <span class="nav-caret" aria-hidden="true"></span>
                 <ul class="nav-sub">
                     {% for tool in site.data.tools %}
                     <li>
@@ -42,6 +52,24 @@
                 {% endif %}
             </li>
             {% endfor %}
+            {%- comment -%}
+            个人 GitHub 仓库入口。地址取 site.sns.github 而不是往 site.nav 里加一项：
+            site.nav 是「站内页面白名单」，sitemap.xml:34 / llms.txt:47 / index-all.html:143
+            三处都按它拼 baseurl，index-all.html:38 还拿 site.nav.size 当页面数——
+            塞一个站外地址进去，那三处会拼出坏链、计数会虚高一名。
+            放在书架之前：文字导航是站内去处，这三颗药丸是「动作与外部身份」。
+            {%- endcomment -%}
+            {% if site.sns.github %}
+            <li class="nav-item nav-git">
+                <a class="nav-git-btn" href="{{ site.sns.github }}" target="_blank" rel="noopener noreferrer me"
+                   title="{{ site.sns.github }}" aria-label="我的 GitHub 仓库（新标签页打开）">
+                    <svg class="nav-git-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.02-3.59-.9-3.59-3.99 0-.88.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.11-1.87 3.8-3.65 3.91.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+                    </svg>
+                    <span class="nav-git-label">GitHub</span>
+                </a>
+            </li>
+            {% endif %}
             <li class="nav-item nav-shelf">
                 {%- comment -%}
                 书架入口。角标只在待读队列非空时出现——空书架不该占一个视觉位置。

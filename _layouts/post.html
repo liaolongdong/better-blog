@@ -102,6 +102,12 @@
             <span class="meta-text">约 {{ post_chars }} 字 · {{ post_chars | plus: 399 | divided_by: 400 }} 分钟</span>
           </span>
           {%- comment -%}
+          操作按钮成组：这层 span 承担 meta 行右侧的对齐（margin-left:auto 挂在组上，
+          而不是挂在「阅读设置」那一项上）。挂在单项上时，窄屏换行会把「稍后再读」
+          单独甩到下一行的最左侧，两颗按钮被拆散。
+          {%- endcomment -%}
+          <span class="post-meta-actions">
+          {%- comment -%}
           阅读偏好：字号 / 行宽 / 正文字体三档，选择写入 localStorage 并同步到
           html[data-rs-*]，取值由 tokens.scss 的 --rs 与 --measure 生效。
           面板默认带 hidden，只有 editorial.js §11 会把它打开，无 JS 时不会出现空白框。
@@ -156,6 +162,7 @@
               <span class="shelf-mark-text">稍后再读</span>
             </button>
           </span>
+          </span><!-- /.post-meta-actions -->
         </div>
       </div>
     </div>
