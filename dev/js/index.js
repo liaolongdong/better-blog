@@ -26,29 +26,53 @@ $(document).ready(function(){
     *  Header Bar
     *
     *  只负责切换状态类（is-scrolled / headerUp / headerDown），外观全部交给
-    *  editorial.scss：原先这里用 header.css() / logo.css() 写内联样式，
+    *  common.scss：原先这里用 header.css() / logo.css() 写内联样式，
     *  既无法跟随夜间模式，也让顶栏在页面加载瞬间是透明的（新刊头是浅底，
     *  透明态下的白字导航会直接看不见）。
     */
-    if ($(window).width() > 695) {
-        var header = $('.g-header');
+    var header = $('.g-header');
+    if (header.length) {
         var headerHeight = header.outerHeight();
         var scFlag = $(document).scrollTop();
 
-        $(document).scroll(function() {
-            var scrollTop = $(this).scrollTop();
+        function measureHeader() {
+            headerHeight = header.outerHeight();
+        }
 
-            if (scrollTop > headerHeight) {
-                header.addClass('is-scrolled');
-                // headerUp 必须两向切换：只加不减会让顶栏在往回滚到 1~3 屏高之间时仍然隐身。
-                header.toggleClass('headerUp', scrollTop > 3 * headerHeight);
-            } else {
-                header.removeClass('is-scrolled headerUp');
+        $(document).scroll(function() {
+            // 断点判断放在每次滚动里，而不是加载时求值一次：后者让平板转屏、
+            // 桌面拖窗口跨过 695px 之后与页面永久失配（窄屏进来的页面从此没有
+            // 自动隐藏，宽屏进来的则在窄屏下继续藏）。窗口宽度读取不触发布局。
+            if (window.innerWidth <= 695) {
+                header.removeClass('is-scrolled headerUp headerDown');
+                return;
             }
 
-            header.toggleClass('headerDown', scFlag <= scrollTop);
+            var scrollTop = $(document).scrollTop();
+            var goingDown = scrollTop > scFlag;
             scFlag = scrollTop;
+
+            header.toggleClass('is-scrolled', scrollTop > headerHeight);
+
+            if (scrollTop <= 3 * headerHeight) {
+                header.removeClass('headerUp headerDown');
+                return;
+            }
+
+            // 两态必须在这里互斥，不能指望 CSS 里谁写在后面：上一版向下滚时
+            // headerUp 与 headerDown 同时挂上，排在后面的 headerDown 把位移抵消，
+            // 顶栏从来没藏过；向上滚只剩 headerUp，反而在该露出的时候隐身。
+            // 阈值是三倍顶栏高（实测 195px），不是「三屏」。
+            header.toggleClass('headerUp', goingDown);
+            header.toggleClass('headerDown', !goingDown);
         });
+
+        // 高度会变的两件事：转屏（.g-header 在 ≤695 下是 56px）与 webfont 落地
+        // （.logo-word 换一次度量）。阈值和 translateY(-100%) 都按它算，取旧值会错位。
+        $(window).on('resize', measureHeader);
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+            document.fonts.ready.then(measureHeader);
+        }
     }
 
     /*

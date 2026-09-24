@@ -1,6 +1,6 @@
 {
   "name": "liaolongdong.github.io",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "廖小新的个人博客",
   "scripts": {
     "dev": "concurrently -n assets,jekyll -c blue,magenta \"vite build --watch\" \"bundle exec jekyll serve\"",
@@ -10,6 +10,8 @@
     "build:assets": "vite build",
     "build:demo": "vite build --config vite.demo.config.js",
     "build:site": "pnpm build && bundle exec jekyll build",
+    "og:images": "node scripts/og-images.mjs",
+    "og:check": "node scripts/og-images.mjs --check",
     "deploy": "bash deploy-github.sh",
     "deploy:ali": "bash deploy-ali.sh"
   },

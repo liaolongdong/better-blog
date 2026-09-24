@@ -25,8 +25,32 @@
     repo: https://github.com/liaolongdong/account-password-helper
   post_tag: 账号密码管理助手
 
-- slug: cross-origin-proxy
+- slug: transfer-any-file
   index: '02'
+  name: 文件转换助手
+  en_name: Transfer Any File
+  tagline: 14 种文件格式互转，一个字节都不用上传
+  summary: Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片之间的 48+ 条转换路径，全部在你自己电脑的一个标签页里完成。无服务器、无账号、无排队，文件永远不出本机。
+  icon: /assets/img/tools/taf-icon.png
+  screenshot: /assets/img/tools/taf-workbench.png
+  accent: '#0B815A'
+  badges:
+    - Chrome MV3
+    - MIT 开源
+    - 零网络请求
+  features:
+    - 14 种格式、48+ 条转换路径，批量拖拽一次出全部
+    - 纯本地转换，断网可用，敏感文件不经过任何服务器
+    - 输出预设与历史记录，重复转换任务一键复用
+    - 转换结果可预览可再编辑，不用来回切应用
+  links:
+    store: ''
+    demo: https://liaolongdong.github.io/transfer-any-file/
+    repo: https://github.com/liaolongdong/transfer-any-file
+  post_tag: Transfer Any File
+
+- slug: cross-origin-proxy
+  index: '03'
   name: 跨域代理助手
   en_name: Cross Origin Proxy
   tagline: 一条浏览器规则，把 FAT 前端指到 UAT 后端
@@ -48,27 +72,3 @@
     demo: https://liaolongdong.github.io/cross-origin-proxy/
     repo: https://github.com/liaolongdong/cross-origin-proxy
   post_tag: 跨域代理助手
-
-- slug: transfer-any-file
-  index: '03'
-  name: Transfer Any File
-  en_name: Transfer Any File
-  tagline: 14 种文件格式互转，一个字节都不用上传
-  summary: Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片之间的 48+ 条转换路径，全部在你自己电脑的一个标签页里完成。无服务器、无账号、无排队，文件永远不出本机。
-  icon: /assets/img/tools/taf-icon.png
-  screenshot: /assets/img/tools/taf-workbench.png
-  accent: '#0B815A'
-  badges:
-    - Chrome MV3
-    - MIT 开源
-    - 零网络请求
-  features:
-    - 14 种格式、48+ 条转换路径，批量拖拽一次出全部
-    - 纯本地转换，断网可用，敏感文件不经过任何服务器
-    - 输出预设与历史记录，重复转换任务一键复用
-    - 转换结果可预览可再编辑，不用来回切应用
-  links:
-    store: ''
-    demo: https://liaolongdong.github.io/transfer-any-file/
-    repo: https://github.com/liaolongdong/transfer-any-file
-  post_tag: Transfer Any File

@@ -50,7 +50,12 @@ $post-content-w: 720px;
     height: 22px;
     padding: 0 8px;
     font-size: 14px;
-    color: #A6ABB2;
+    // 药丸底是 #FAFAFA，旧值 #A6ABB2 对它只有 2.2:1，14px 的标签读起来像被擦过一层
+    // （这个数比 --ink-4 #7A8089 还浅，是 token 化之前漏改的）。提到 --ink-3
+    // （同底 4.8:1），hover 再落到 --ink-2；不直接上 --ink-2 是因为侧栏卡片标题
+    // 「标签」本身才 --ink-4，正文标签比它重两级会把层级倒过来。
+    // 夜间模式另有 .night-mode 一条覆盖 color，不受这里影响。
+    color: var(--ink-3);
     font-family: $fonts;
     line-height: 22px;
     box-sizing: border-box;
@@ -66,7 +71,7 @@ $post-content-w: 720px;
     }
 
     &:hover {
-        color: #83888F;
+        color: var(--ink-2);
     }
 }
 

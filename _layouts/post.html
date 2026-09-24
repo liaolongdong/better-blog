@@ -4,7 +4,7 @@
 
 <body>
   <!--[if lt IE 10]>
-    <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="https://browsehappy.com">立即升级</a></div>
+    <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" rel="noopener noreferrer" class="alert-link" href="https://browsehappy.com">立即升级</a></div>
   <![endif]-->
   <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
   
@@ -64,7 +64,12 @@
       <p class="post-series">
         <a class="post-series-name" href="{{ '/series.html#' | append: series_of_post.slug | prepend: site.baseurl }}">{{ series_of_post.title }}</a>
         <span class="post-series-no">第 {{ series_index }}/{{ series_total }} 篇</span>
-        <span class="post-series-track" aria-hidden="true"><span class="post-series-fill" style="width: {{ series_pct }}%"></span></span>
+        {%- comment -%}
+        .is-complete 在这里判定而不是交给 JS：篇数与序号在构建期就是确定的，
+        「读到最后一篇」不是一次运行时的跨越，而是一个恒真的事实。
+        放在模板里还顺带买到了「禁用 JS 也照常庆祝」。动画侧见 editorial.scss §M9。
+        {%- endcomment -%}
+        <span class="post-series-track{% if series_index == series_total %} is-complete{% endif %}" aria-hidden="true"><span class="post-series-fill" style="width: {{ series_pct }}%"></span></span>
       </p>
       {% endif %}
 
@@ -83,7 +88,7 @@
         <div class="post-meta">
           <span class="post-meta-item author-item">
             {% include metaIcon.html name='author' size=16 %}
-            <span class="meta-text"><a href="{{ site.baseurl }}/" target="_blank" rel="author">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></span>
+            <span class="meta-text"><a href="{{ site.baseurl }}/" target="_blank" rel="author noopener">{% if page.author %}{{ page.author }}{% else %}{{ site.author }}{% endif %}</a></span>
           </span>
           <time class="post-meta-item date-item" datetime="{{ page.date | date: '%Y-%m-%dT%H:%M:%S' }}">
             {% include metaIcon.html name='date' size=16 %}
@@ -177,7 +182,7 @@
         标题和正文整体往下顶，是文章页 CLS 的第一笔。滤镜只补属性，不加懒加载
         （单次调用里它是第一张图，LCP 候选必须保持 eager）。
         {%- endcomment -%}
-        {%- capture hero_img -%}<img src="{{ coverSrc }}" alt="{{ page.title }} 头图">{%- endcapture -%}
+        {%- capture hero_img -%}<img src="{{ coverSrc }}" alt="{{ page.title | escape }} 头图">{%- endcapture -%}
         {{ hero_img | add_image_dims }}
       </div>
     </figure>
@@ -266,11 +271,18 @@
         <p>{{ site.bio }}</p>
       </div>
       {% if site.sns.size > 0 %}
+      {%- comment -%}
+      与 index.html 那组同源：图标即链接的唯一内容，名称由 _data/sns_label.yml 给出，
+      读屏器与悬停提示才有得念。两处各自的 <ul> 结构和外边距不同，只共用标签数据；
+      键先落进 sns_key 再查表的原因写在 index.html。
+      {%- endcomment -%}
       <ul class="sns-links">
         {% for s in site.sns %}
+        {% assign sns_key = s[0] %}
+        {% assign sns_label = site.data.sns_label[sns_key] | default: sns_key %}
         <li>
-          <a href="{{ s[1] }}" target="_blank">
-                    <i class="iconfont icon-{{ s[0] }}"></i>
+          <a href="{{ s[1] }}" target="_blank" rel="noopener noreferrer" aria-label="{{ sns_label }}" title="{{ sns_label }}">
+                    <i class="iconfont icon-{{ sns_key }}" aria-hidden="true"></i>
                 </a>
         </li>
         {% endfor %}
@@ -399,8 +411,10 @@
   <script>
     socialShare('.social-share', {
       url: window.location.href, // 分享链接地址 默认使用 window.location.href
-      title: '{{ page.title }}', // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
-      description: '{{ page.subtitle }}', // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
+      // jsonify 而不是手写引号：标题里的半角引号会把这条 JS 字面量截断，
+      // 整个 socialShare 调用随之语法错误（3 篇带引号的标题实测如此）。
+      title: {{ page.title | jsonify }}, // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
+      description: {{ page.subtitle | jsonify }}, // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
       image: window.location.origin + '{{ shareCover }}', // 分享缩略图图片, 默认取网页中第一个img标签
       sites: [
         {% for i in site.social-share-items %}

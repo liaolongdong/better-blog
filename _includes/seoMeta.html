@@ -89,20 +89,28 @@ site.url + baseurl，得到唯一正确的规范地址。缺了它，?from=feed�
 <!-- 图片加载出现403错误（该设置会禁用掉百度统计功能） -->
 <!-- <meta name="referrer" content="no-referrer" /> -->
 {%- comment -%}
-分享卡片图：只认站内 cover。
-历史上 11 篇的 cover 是外链（timgsa.baidu.com / pic*.zhimg.com / img.alicdn.com 这类），
-2026-09-22 逐个 curl 复测：timgsa 域名已停服（连不上），zhimg 防盗链 403，
-vscode 官网那张改版后 404 —— 外链封面基本全灭，故已从 front matter 里下线。
+分享卡片图的三级取值链：front matter cover > 本篇的生成卡片 > 站点兜底图。
+
+第一级只认站内 cover。历史上 11 篇的 cover 是外链（timgsa.baidu.com / pic*.zhimg.com /
+img.alicdn.com 这类），2026-09-22 逐个 curl 复测：timgsa 域名已停服（连不上），zhimg
+防盗链 403，vscode 官网那张改版后 404 —— 外链封面基本全灭，故已从 front matter 里下线。
 只有一张 img.alicdn.com 当时还活着，已拉到本地转 webp 再引用。
-这道判断留着不是为存量文章，是因为 front matter 是自由文本：
-以后谁再往 cover 上贴外链，分享卡片会静默坏掉，宁可用品牌图也不给爬虫一个取不到的地址。
+这道判断留着不是为存量文章，是因为 front matter 是自由文本：以后谁再往 cover 上贴外链，
+分享卡片会静默坏掉，宁可用品牌图也不给爬虫一个取不到的地址。
+
+第二级是 scripts/og-images.mjs 生成的 1200×630 品牌卡（键为 page.url，见 _data/og_images.yml）。
+补的是第三级原本吃掉的那一大片：34/67 篇没有 cover，全部落到同一张兜底图上，
+转发行里认不出是哪篇，标题信息白送不要。
 {%- endcomment -%}
+{%- assign og_card = site.data.og_images[page.url].image -%}
+{%- assign og_fixed_dims = true -%}
 {%- if page.cover and page.cover contains '://' -%}
   {%- assign og_cover = '' -%}
 {%- elsif page.cover -%}
   {%- assign og_cover = page.cover -%}
+  {%- assign og_fixed_dims = false -%}
 {%- else -%}
-  {%- assign og_cover = '' -%}
+  {%- assign og_cover = og_card -%}
 {%- endif -%}
 {%- assign og_image = og_cover | default: site.social.og_default_image | absolute_url -%}
 <!-- Open Graph -->
@@ -115,11 +123,11 @@ og:url 必须走 absolute_url：站点是 GitHub Pages 项目页（baseurl=/bett
 <meta property="og:url" content="{{ page.url | absolute_url }}">
 <meta property="og:image" content="{{ og_image }}">
 {%- comment -%}
-宽高只在「用站点默认图」时声明：assets/img/social-default.jpg 是固定 1200×630 制作的，
-而文章 cover 的尺寸各不统一（实测 1600×914 有 11 张、1792×592 有 3 张，最大到 3872×1972）。
+宽高只在确定的时候声明：站点兜底图与生成卡片都是 1200×630（后者由脚本逐张量过），
+而文章 cover 的尺寸各不统一（实测 1600×914 有 11 张、1792×592 有 3 张，最大到 3872×1972），
 Jekyll 侧拿不到图片真实尺寸，硬写 1200/630 就是在给爬虫一组错的元数据——宁可不说。
 {%- endcomment -%}
-{%- if og_cover == '' -%}
+{%- if og_fixed_dims -%}
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 {%- endif -%}

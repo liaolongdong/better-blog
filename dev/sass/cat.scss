@@ -16,6 +16,123 @@
     left: 30px;
     bottom: 30px;
     display: none;
+    // 「探出来 / 沉下去」的位移过渡。放在容器上，因为 is-tucked 改的就是容器的 translate。
+    transition: translate var(--dur-4) var(--ease-back);
+
+    // ———— 收放（开关由 cat.js 挂）————
+    // 视口够宽、不是 about 页 → is-on；用户手动收起过 → 再加 is-tucked。
+    // 没沿用原先 jQuery 的 fadeIn(2000)：两秒的淡入在这套动效节奏里太慢，交给 CSS 也少一次依赖。
+    // 入场只淡入不位移：给 .mao 或容器加 translate/scale 会在动画期间把 .erduo 那批
+    // position:absolute 的包含块从 .mao_box 改到 .mao 上，而且容器的 translate 正是
+    // is-tucked 在用的属性，两者叠在一起就是「收起状态先探出来再沉下去」。
+    &.is-on {
+        display: block;
+        animation: maoRise var(--dur-3) var(--ease-out) backwards;
+    }
+
+    // 收起 = 整只猫往下沉，只留耳朵尖在屏幕底边上。为什么不是一条 `bottom: -170px`：
+    // rtDraggable 在被拖节点上写的是行内 transform，独立变换属性与它相加而非互相覆盖；
+    // 而且 100% 跟着盒子自身高度走，改猫的尺寸不必回头改这个数。
+    //
+    // `+ 8px` 而不是从前的 `- 10px`：那 10px 是按盒子高度留的，落在屏幕上等于露出
+    // 40px 高、187px 宽的一对完整耳朵——收起来了却还占着左下角一大块。多沉 18px 之后
+    // 只剩 22px 高的耳尖，「收起来」才真的像是收起来了。
+    &.is-tucked {
+        translate: 0 calc(100% + 8px);
+
+        // 收起后这块地方不该再拦鼠标：盒子是 200×174 的实面元素，透明处照样吃事件，
+        // 沉到底边之后那 22px 长的横条会盖住正文里同一条带上的链接与文字。
+        // 整块放行、只留扣子可点（下面 .mao-toggle 自己收回来）。代价是收起态也不能
+        // 再拖着猫走——`site.catDraggable` 那条 rtDraggable 挂在同一个节点上，
+        // pointer-events:none 让它收不到 pointerdown；先点开扣子放回来再拖。
+        pointer-events: none;
+    }
+
+    // 收放那颗扣子。图形用 CSS 的 − / + 画：iconfont 里没有现成的猫爪字形，
+    // 而为一颗扣子往全站图标集里塞字形不值当。
+    .mao-toggle {
+        position: absolute;
+        top: 0;
+        right: 4px;
+        z-index: 40;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 2px solid #2e2e2e;
+        border-radius: 50%;
+        background-color: #F6F7F2;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 20px;
+        color: #2e2e2e;
+        cursor: pointer;
+        // 平时既不显形也不接受点击：一颗看不见的扣子摆在猫耳朵边上，
+        // 误点一下「嗖」地缩下去，使用者只会觉得是猫自己跑的。
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+
+        &::before {
+            content: "−";
+        }
+
+        &:focus-visible {
+            opacity: 1;
+            pointer-events: auto;
+            outline: 2px solid var(--signal);
+            outline-offset: 2px;
+        }
+    }
+
+    // 手放到猫身上才现身（.mao_box 整块都是 hover 区，不必精确摸到扣子）。
+    &:hover .mao-toggle {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    // 收起状态下它得常显：那时候它是唯一的恢复入口，hover 才出现就等于没有入口。
+    // `top: -2px` 是让扣子贴着屏幕底边：盒子只留 22px 在屏内（露出量由上面的
+    // `calc(100% + 8px)` 决定），扣子高 24px，-2 恰好让它上沿落在屏内 22px 那条
+    // 带的正上方、下沿齐屏底。此前是 `top: -32px`，扣子悬在屏底上方 30px 处，
+    // 正压在左侧正文某一行的中间——一颗按钮盖住一句能点的话，比猫本身碍事得多。
+    // 沉到底边后它挡的那 24×24 就是屏底边缘，不在任何一行文字当中。
+    // 父级的 pointer-events:none 由这里单独收回来。
+    &.is-tucked .mao-toggle {
+        top: -2px;
+        opacity: 1;
+        pointer-events: auto;
+
+        &::before {
+            content: "+";
+        }
+    }
+
+    // ———— 让它看着是活的 ————
+    // 眨眼：把眼盒竖向压扁到 8%，靠既有的 overflow 裁出「合上」的样子。
+    // 周期 7.5s 且只在一小段里动，大多数时候它就是一对正常的猫眼。
+    .yanquan {
+        animation: maoBlink 7.5s infinite;
+    }
+
+    // 视线跟着指针走：cat.js 只把 -1~1 归一化后的 --mx/--my 写在容器上，幅度在这里定。
+    // 动 .yanjing（两只眼一起平移）而不是动瞳孔：瞳孔那条规则带着既有的
+    // `transition: all 1s`（hover 时瞳孔放大靠的就是它），在这儿补 transition 会连它一起改掉。
+    .yanjing {
+        translate: calc(var(--mx, 0) * 5px) calc(var(--my, 0) * 3px);
+        transition: translate var(--dur-2) var(--ease-out);
+    }
+
+    // 耳朵各自抖一下，两只各走各的相位（负延迟只是把同一条动画往后挪，不额外加时长）。
+    // 用 rotate 而不是再写一遍 transform：那两条 rotate(±15deg)、hover 归零的既有
+    // transform 还在，独立变换属性与它们叠加而不是抢。
+    .erduo>div:first-child {
+        animation: maoEar 6.2s infinite;
+    }
+
+    .erduo>div:last-child {
+        animation: maoEar 6.2s infinite;
+        animation-delay: -2.9s;
+    }
 
     .mao {
         margin: 0 auto;
@@ -381,5 +498,93 @@
         margin-left: -15px;
         border-radius: 50% 50% 50% 50%;
         /*transition:  border-radius  1s;*/
+    }
+}
+
+// ———— 上面这批动效的关键帧 ————
+// 数值一律不写 px：postcss-px-to-viewport 的黑名单按选择器文本匹配，而 @keyframes 块的
+// 「选择器」是 from/to/百分比，命中不了 /^\.mao_box/ 那条，写在里面的 px 照样会被换成 vw。
+// 所以位移用百分比（相对元素自身盒子），压扁和抖动本来就是无量纲的。
+@keyframes maoRise {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+// 眨眼：眼盒竖向压到 8%，靠 .yanjing 既有的 overflow 裁出一条合上的缝。
+// 88%~94% 就是最后 450ms，其余时间是常态 —— 周期长一点，眨得太勤成了抽筋。
+@keyframes maoBlink {
+    0% {
+        scale: 1 1;
+    }
+
+    88% {
+        scale: 1 1;
+    }
+
+    91% {
+        scale: 1 .08;
+    }
+
+    94% {
+        scale: 1 1;
+    }
+
+    100% {
+        scale: 1 1;
+    }
+}
+
+@keyframes maoEar {
+    0% {
+        rotate: 0deg;
+    }
+
+    90% {
+        rotate: 0deg;
+    }
+
+    93% {
+        rotate: -5deg;
+    }
+
+    96% {
+        rotate: 2deg;
+    }
+
+    100% {
+        rotate: 0deg;
+    }
+}
+
+// 减弱动效：base.scss 那份全站 .01ms 兜底压得住时长，压不住「无限循环」这件事本身，
+// 三条 infinite 在这里一次性掐掉；视线跟随由 cat.js 自己不去挂 mousemove。
+@media (prefers-reduced-motion: reduce) {
+    .mao_box {
+        transition: none;
+
+        &.is-on {
+            animation: none;
+        }
+
+        .yanquan {
+            animation: none;
+        }
+
+        // 耳朵这两条必须把 :first-child / :last-child 照抄一遍：上面挂动画的就是这两个
+        // 带伪类的选择器（特异度 0-3-0），这里只写 `.erduo>div` 是 0-2-0，压不动。
+        .erduo>div:first-child,
+        .erduo>div:last-child {
+            animation: none;
+            animation-delay: 0s;
+        }
+
+        .yanjing {
+            transition: none;
+        }
     }
 }

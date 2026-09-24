@@ -17,11 +17,14 @@
 3. normalize 一边写 https:// 一边写协议相对 //。协议相对在本地 file:// 或 http
    预览下会直接取不到，统一写 https。
 
-font-awesome 不在这里：站内唯一用到 `fa` 类的是 _includes/anchor.html 给标题锚点
-设的 class="fa fa-anchor"，而 anchor 只在文章页出现。放进共享清单等于让全站
-多背 31KB 用不上的 CSS，所以它留在 postHead.html 里。
+（上面 2、3 两条漂移已由「两份都自托管」终结：不再有第二个来源可漂。）
 
-加载顺序里真正承重的是 jQuery：它必须早于任何用 $ 的脚本，anchor.html 就是其一。
+font-awesome 此前只在文章页的 postHead.html 里，因为站内唯一用到 `fa` 类的是
+_includes/anchor.html 给标题锚点设的 class="fa fa-anchor"。那份 anchor 已删
+（它与 editorial.js 的 initHeadingAnchors() 命中同一批标题，每个标题两枚锚点），
+全站再无 `fa` 类，31KB 的 font-awesome 连同它那个 CDN 引用一起撤掉。
+
+加载顺序里真正承重的是 jQuery：它必须早于任何用 $ 的脚本，dev/js/index.js 就是其一。
 样式表之间目前不因先后而产生可观察差异（index.min.css 与 iconfont.css 都命中
 .iconfont，但重合的属性值相同，helper.scss:129 的 22px 与 layouts.scss:96 的 32px
 靠嵌套特异性而非次序盖过它们）。
@@ -32,11 +35,54 @@ alicdn 那份遮蔽了——实测不是：在文章页禁用 alicdn 样式表�
 含社交图标那些码点，同名 family 在浏览器里是当回退链用的。别照着"后者覆盖前者"去
 删这两份里的任何一份。
 {%- endcomment -%}
-<link rel="stylesheet" href="https://cdn.staticfile.org/normalize/6.0.0/normalize.min.css">
+{%- comment -%}
+normalize 与 jQuery 自托管，不再走 cdn.staticfile.org（2026-09-23 实测）：
+那份 normalize 15s 超时、code=000，同页的 at.alicdn 图标 CSS 只要 0.07s —— 慢的是这个域，
+不是网络总体。后果是可复现的：normalize 是阻塞渲染的样式表、jQuery 是阻塞解析的 <script>，
+两者都挂在 <head> 里，headless Chrome 打开任意页都取不到 document.body。
+文件落在 dev/libCss 与 dev/libJs（同名 .min.* 由 vite 原样复制到 assets/，见 vite.config.js
+的 copyMinifiedLibs），版本与字节数与原外链一致（jQuery 3.3.1 / 86,927B，
+normalize 6.0.0 / 2,216B），只换来源不换实现。
+jQuery 仍同步加载、仍排在所有用 $ 的脚本之前：加 defer 会改到执行次序，那是另一回事。
+{%- endcomment -%}
+{%- comment -%}
+preload Newsreader：刊头 H1 的拉丁字母与数字都归它，是首屏最显眼的 swap 回退对象
+（不 preload 时先以系统 Georgia 画一遍，字体到了再重排一次）。
+IBM Plex Mono 不 preload —— 它只服务小号元信息，抢在首屏关键请求前面不划算，
+font-display: swap 已经保证它晚到也不藏内容。
+crossorigin 不能省：字体请求恒为 CORS 模式，即便同源，缺这个属性会让 preload 与真正的
+请求对不上，变成下两遍。
+{%- endcomment -%}
+<link rel="preload" href="{{ site.baseurl }}/assets/fonts/newsreader-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/normalize.min.css">
 <link rel="stylesheet" href="https://at.alicdn.com/t/font_271755_rdxzzo2kqwk.css">
+{%- comment -%}
+github-markdown / prism / share 只在文章页下发（P0-12 里能确定兑现的那一部分）。
+
+产物实测（119 个 HTML，其中 67 篇为文章页）：
+  · `markdown-body` 命中 67 个文件，全部是文章页，非文章页 0 个；
+  · `social-share` 命中 68 个，多出的那一个是 demo/shareDemo/index.html，
+    而它引的是 cdnjs 上的 share.min.css（demo 页走 demoHead，根本不加载本清单）；
+  · `class="language-` 命中 59 个，同样全在文章页里。
+所以另外 52 个页面每个都在背 16,159B（三份 gzip 相加 5,608B）匹配不到任何节点的样式。
+
+为什么写在 headAssets 里而不是搬到 postHead.html：这三个包必须排在 index.min.css
+之前（editorial 层靠「同特异度、后加载」覆盖旧规则，见 index.scss 文件头），而
+postHead.html 的 `{% include headAssets.html %}` 在第 18 行，挪到它后面就排到了
+index.min.css 之后，等于把覆盖关系整个反过来。清单留在一处也正是这份文件存在的理由
+（下面第 1—3 条漂移都是抄本漂出来的），所以在这里按 layout 收口，次序一字不改。
+
+prism.min.js 以前留在公共脚本里，理由是「⌘K 的悬浮预览卡会在运行期造出带 language- 的
+<code>」。这条站不住：search.json 的 excerpt 过了 strip_html，⌘K 的行模板与链接预览卡
+又都是 textContent 落 DOM（editorial.js 的 showEmpty 只塞一段 <kbd>），运行期造不出待
+高亮的代码；真会带代码块的只有 waline 评论区，而它挂在 post.html 上。所以这份脚本一并
+收口到文章页，位置与理由见 _layouts/default.html 末尾。
+{%- endcomment -%}
+{%- if page.layout == 'post' %}
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/github-markdown.min.css">
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/prism.min.css">
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/share.min.css">
+{%- endif %}
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/index.min.css">
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/iconFont/iconfont.css">
-<script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/jquery.min.js"></script>

@@ -1,0 +1,175 @@
+# 分享卡片（og:image）的取值表：page.url -> 用哪张图。
+# 由 scripts/og-images.mjs 生成，请勿手改：新增文章或改了文章标题/日期/分类之后，
+# 跑 `node scripts/og-images.mjs` 重画并刷新这张表（--check 会揪出没刷新的提交）。
+# seoMeta.html 只在 front matter 没有 cover 时查这张表；表里 cover 那几篇的条目
+# 是「已经安排好了」的记录，作用是让自检能分清「有 cover」和「漏生成」。
+/2016/06/18/hello-jekyll.html:
+  image: /assets/img/postCover/hello_jekyll.png
+/2016/08/28/JS-good-parts.html:
+  image: /assets/img/og/JS-good-parts.jpg
+  sig: d557d466d168
+/2017/06/06/git-common-command.html:
+  image: /assets/img/postCover/git_cover.png
+/2017/08/25/common-tools.html:
+  image: /assets/img/postCover/code_tools.png
+/2017/09/09/wxpay.html:
+  image: /assets/img/postCover/wxpay_cover.png
+/2018/03/26/work-summarize.html:
+  image: /assets/img/og/work-summarize.jpg
+  sig: eabff7180e07
+/2018/06/06/wxshare-summarize.html:
+  image: /assets/img/postCover/wxshare_cover.png
+/2018/10/12/souguo-input-blacktech.html:
+  image: /assets/img/og/souguo-input-blacktech.jpg
+  sig: 789b49c0a6e8
+/2018/10/25/study-materials.html:
+  image: /assets/img/postCover/web_study_materials.png
+/2018/11/01/alicloud-node-mongodb.html:
+  image: /assets/img/alicloud-node-mongodb/banner.webp
+/2018/11/16/alicloud-nginx.html:
+  image: /assets/img/og/alicloud-nginx.jpg
+  sig: e23cb2599416
+/2018/11/25/react-next-ssr.html:
+  image: /assets/img/postCover/next_cover.png
+/2018/12/05/move-githubblog-to-coding.html:
+  image: /assets/img/og/move-githubblog-to-coding.jpg
+  sig: 255550edd915
+/2018/12/25/qqweiboshare.html:
+  image: /assets/img/postCover/share_cover.png
+/2019/01/01/echarts-use-summarize.html:
+  image: /assets/img/postCover/echarts_cover.png
+/2019/01/17/website-seo.html:
+  image: /assets/img/postCover/seo_cover.png
+/2019/01/24/build-private-package.html:
+  image: /assets/img/postCover/npm_private_cover.png
+/2019/01/24/publish-public-npm.html:
+  image: /assets/img/og/publish-public-npm.jpg
+  sig: 1f84edeb67cf
+/2019/01/28/use-gulp-build-project.html:
+  image: /assets/img/postCover/gulp_cover.png
+/2019/02/25/you-dont-kown-js-tips.html:
+  image: /assets/img/og/you-dont-kown-js-tips.jpg
+  sig: 8d28c0ab7cb2
+/2019/02/26/you-dont-kown-css-tips.html:
+  image: /assets/img/og/you-dont-kown-css-tips.jpg
+  sig: d1c13a4b2292
+/2019/03/04/mobile-debug-summary.html:
+  image: /assets/img/og/mobile-debug-summary.jpg
+  sig: 9c6611d29fad
+/2019/03/06/common-sort-arithmetic.html:
+  image: /assets/img/og/common-sort-arithmetic.jpg
+  sig: 416b9abb96f6
+/2019/03/20/interview-programme-summarize.html:
+  image: /assets/img/og/interview-programme-summarize.jpg
+  sig: faf38967c178
+/2019/07/10/h5-shake-function.html:
+  image: /assets/img/og/h5-shake-function.jpg
+  sig: 53083df6456d
+/2019/07/26/javascript-design-pattern.html:
+  image: /assets/img/og/javascript-design-pattern.jpg
+  sig: bf53c8d3269a
+/2019/09/23/vscode-useful-plugins.html:
+  image: /assets/img/og/vscode-useful-plugins.jpg
+  sig: ce6dc45edbeb
+/2020/04/08/browser-cache.html:
+  image: /assets/img/og/browser-cache.jpg
+  sig: fe43bba37ff6
+/2020/08/03/inaword-understand-prototype.html:
+  image: /assets/img/og/inaword-understand-prototype.jpg
+  sig: 3dd6522271a9
+/2020/10/20/like-wx-draggable-float-btn.html:
+  image: /assets/img/og/like-wx-draggable-float-btn.jpg
+  sig: 59513cfa4917
+/2020/10/25/h5-open-map-position.html:
+  image: /assets/img/og/h5-open-map-position.jpg
+  sig: 59004e18fa03
+/2021/03/23/linux-common-command.html:
+  image: /assets/img/og/linux-common-command.jpg
+  sig: 4fbfe504fc56
+/2021/03/23/vue-router-analysis.html:
+  image: /assets/img/postCover/vue-router-flow.jpeg
+/2022/08/08/webpack-move-vite.html:
+  image: /assets/img/og/webpack-move-vite.jpg
+  sig: 38859d8a2544
+/2023/02/25/common-arithmetic.html:
+  image: /assets/img/og/common-arithmetic.jpg
+  sig: 408af620fc88
+/2023/04/12/aop-programming.html:
+  image: /assets/img/og/aop-programming.jpg
+  sig: c719b926932c
+/2023/04/12/nginx-config-explain.html:
+  image: /assets/img/og/nginx-config-explain.jpg
+  sig: e4fb4c6d1273
+/2023/04/30/functional-programming.html:
+  image: /assets/img/og/functional-programming.jpg
+  sig: 6fbc18905663
+/2023/05/08/vue3-vite-study.html:
+  image: /assets/img/og/vue3-vite-study.jpg
+  sig: 5859cea2fce5
+/2023/06/07/common-search-algorithm.html:
+  image: /assets/img/og/common-search-algorithm.jpg
+  sig: 9836cb93cfcd
+/2023/06/08/common-sort-algorithm.html:
+  image: /assets/img/og/common-sort-algorithm.jpg
+  sig: f90eadd85a30
+/2023/06/11/auto-update-release.html:
+  image: /assets/img/og/auto-update-release.jpg
+  sig: d13cfb290acf
+/2023/06/14/npm-yarn-pnpm.html:
+  image: /assets/img/og/npm-yarn-pnpm.jpg
+  sig: eae33c8f9258
+/2023/12/24/git-revert-reset.html:
+  image: /assets/img/og/git-revert-reset.jpg
+  sig: 8526df9aeb5a
+/2023/12/29/2023-js-new-features.html:
+  image: /assets/img/og/2023-js-new-features.jpg
+  sig: fd21d1a90b94
+/2024/01/05/chrome-plugin-recommend.html:
+  image: /assets/img/og/chrome-plugin-recommend.jpg
+  sig: 64f62c7b7c50
+/2024/03/20/new-project-use-vue2-problem.html:
+  image: /assets/img/og/new-project-use-vue2-problem.jpg
+  sig: b0d31255f03d
+/2024/10/08/fe-env-switch.html:
+  image: /assets/img/og/fe-env-switch.jpg
+  sig: 0fc598fc9349
+/2026/05/25/account-password-helper.html:
+  image: /assets/img/postCover/06-sidepanel-fill.png
+/2026/05/30/AI-model-rating.html:
+  image: /assets/img/postCover/AI_2026_llm_ranking.png
+/2026/05/31/AI-model-rating.html:
+  image: /assets/img/postCover/AI-model-rating-banner.png
+/2026/06/05/ai-sdd.html:
+  image: /assets/img/ai-sdd/banner-1.png
+/2026/06/06/ai-sdd-github.html:
+  image: /assets/img/ai-sdd/banner-3.png
+/2026/06/15/webmcp-vs-puppeteer.html:
+  image: /assets/img/ai-sdd/banner-3.png
+/2026/06/28/account-password-helper-new.html:
+  image: /assets/img/account-password-helper/account_password_helper_banner.webp
+/2026/07/12/alibaba-page-agent.html:
+  image: /assets/img/page-agent/banner.webp
+/2026/07/12/facebook-astryx.html:
+  image: /assets/img/astryx/banner.webp
+/2026/07/12/impeccable-ai-design.html:
+  image: /assets/img/impeccable/banner.webp
+/2026/09/10/agent-visual-toolchain.html:
+  image: /assets/img/agent-visual-toolchain/banner.webp
+/2026/09/10/nextjs-avif-trap.html:
+  image: /assets/img/nextjs-avif-trap/banner.webp
+/2026/09/10/silent-defaults.html:
+  image: /assets/img/silent-defaults/banner.webp
+/2026/09/12/trending-skill-sweep.html:
+  image: /assets/img/trending-skill-sweep/banner.webp
+/2026/09/17/gods-eye-view-keyless.html:
+  image: /assets/img/gods-eye-view-keyless/banner.webp
+/2026/09/21/one-worktree-per-agent.html:
+  image: /assets/img/one-worktree-per-agent/banner.webp
+/2026/09/21/pnpm-task-settings.html:
+  image: /assets/img/pnpm-task-settings/banner.webp
+/2026/09/21/security-audit-two-validators.html:
+  image: /assets/img/security-audit-two-validators/banner.webp
+/2026/09/22/claude-advisor-readme-row.html:
+  image: /assets/img/claude-advisor-readme-row/banner.webp
+/2026/09/24/google-ax-workspace-materialization.html:
+  image: /assets/img/google-ax-workspace-materialization/banner.webp

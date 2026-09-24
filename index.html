@@ -145,11 +145,19 @@ seo_description: 廖龙东（Better）的前端与 AI 博客：React、Vue、Nod
                     <p>{{ site.bio }}</p>
                 </div>
                 {% if site.sns.size > 0 %}
+                {%- comment -%}
+                每个链接只有一个 ::before 画出来的图标字形，读屏器念不出「这去处是谁」，
+                悬停也没有提示。名称取 _data/sns_label.yml，未登记的键退回图标名。
+                {%- endcomment -%}
                 <ul id="sns-links" class="sns-links">
                     {% for s in site.sns %}
+                        {% comment %} 键要先落进变量再查表：Liquid 的变量解析器只认一层下标，
+                        直接写 site.data.sns_label[s[0]] 会被当成字面量下标，静默取到 nil。 {% endcomment %}
+                        {% assign sns_key = s[0] %}
+                        {% assign sns_label = site.data.sns_label[sns_key] | default: sns_key %}
                         <li>
-                            <a href="{{ s[1] }}" target="_blank">
-                                <i class="iconfont icon-{{ s[0] }}"></i>
+                            <a href="{{ s[1] }}" target="_blank" rel="noopener noreferrer" aria-label="{{ sns_label }}" title="{{ sns_label }}">
+                                <i class="iconfont icon-{{ sns_key }}" aria-hidden="true"></i>
                             </a>
                         </li>
                     {% endfor %}

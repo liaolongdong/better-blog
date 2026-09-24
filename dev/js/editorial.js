@@ -22,6 +22,22 @@
         return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
+    /**
+     * fixed 浮层可用的视口尺寸，用于把浮层钳回可视区。
+     *
+     * 口径与 realtime-draggable.js 的 viewport() 一致：fixed 能占的那一段不含经典滚动条，
+     * 按 window.innerWidth/innerHeight 钳右/钳下会把浮层推出可视区，差值恰是那条滚动条的宽。
+     * overlay 滚动条（移动端与 macOS 默认）下两值恒等，所以这条只影响 Windows / Linux 桌面
+     * 和带常驻滚动条的触屏。两个文件各自打包、没有共享模块层，因此宁可各留一份也不抽公共库。
+     *
+     * 判「用户能看见多宽」或与媒体查询同基的地方不适用，那里 innerWidth 才是对的。
+     * @returns {{w: number, h: number}} 可视宽与高（px）
+     */
+    function fixedViewport() {
+        var de = document.documentElement;
+        return { w: de.clientWidth, h: de.clientHeight };
+    }
+
     /* ------------------------------------------------------------------
      * 0. 主题（白昼 / 夜间）
      * ------------------------------------------------------------------ */
@@ -193,6 +209,9 @@
             }
             var li = document.createElement('li');
             li.className = 'toc-item toc-' + heading.tagName.toLowerCase();
+            // 序号交给 CSS §M6 的错峰延迟用；目录行只在这里构建一次，之后不再重建，
+            // 所以下面那次 is-fresh 挂上就不必再摘。
+            li.style.setProperty('--i', i);
             var link = document.createElement('a');
             link.className = 'toc-link';
             link.href = '#' + heading.id;
@@ -203,6 +222,11 @@
         }
 
         document.body.className += ' has-toc';
+
+        // 桌面栏和窄屏抽屉是同一份 DOM：加载时这一批错峰涌出只有桌面看得到，
+        // 窄屏那一次留给抽屉自己的滑入动效，不叠第二层。
+        var rail = list.closest('.post-rail');
+        if (rail) rail.classList.add('is-fresh');
 
         // 贴在目录左竖线上的「读到第几节」进度线，高度随 activate() 更新。
         var progress = document.createElement('span');
@@ -310,14 +334,53 @@
         return scrollable > 0 ? Math.min(Math.max(doc.scrollTop / scrollable, 0), 1) : 0;
     }
 
+    /**
+     * 中文阅读速度，单位「字/分钟」。
+     *
+     * 这个数字不是估的：post.html 页头那行「约 N 字 · M 分钟」
+     * 用的就是 `{{ chars | plus: 399 | divided_by: 400 }}`，即 ceil(chars / 400)。
+     * 进度条末端的气泡必须跟它同一个口径，否则页头写「17 分钟」、
+     * 滚到一半气泡却说「还剩 9 分钟」，同一页两套数字互相拆台。
+     * 改这一处必须同时改 post.html 那一行。
+     * @type {number}
+     */
+    var CHARS_PER_MIN = 400;
+
     function initReadingProgress() {
-        var bar = document.querySelector('.reading-progress-bar');
+        var rail = document.querySelector('.reading-progress');
+        var bar = rail && rail.querySelector('.reading-progress-bar');
         if (!bar) return;
+
+        var body = document.getElementById('post-body');
+        var chars = (body && parseInt(body.getAttribute('data-chars'), 10)) || 0;
+        var eta = null;
+        var lastMin = -1;
+        if (chars > 0) {
+            eta = document.createElement('span');
+            eta.className = 'reading-progress-eta';
+            rail.appendChild(eta);
+        }
 
         var ticking = false;
         function update() {
             ticking = false;
-            bar.style.transform = 'scaleX(' + readRatio() + ')';
+            var p = readRatio();
+            // 进度只写这一个自定义属性：细条的 scaleX 与气泡的 left 都读它（见
+            // editorial.scss §10 M7）。此前是 bar.style.transform，那样气泡无从复用
+            // 同一个数，两处各算各的必然错位。
+            rail.style.setProperty('--rp-p', p);
+            if (!eta) return;
+
+            var done = p <= 0.02 || p >= 0.98;
+            eta.classList.toggle('is-edge', done);
+            eta.classList.add('is-on');
+            if (done) return;
+
+            // 与页头同式：ceil(剩余字数 / 400)，起手时它必须等于页头那个数
+            var min = Math.ceil(chars * (1 - p) / CHARS_PER_MIN);
+            if (min === lastMin) return;
+            lastMin = min;
+            eta.textContent = '还剩约 ' + min + ' 分钟';
         }
         function onScroll() {
             if (ticking) return;
@@ -441,12 +504,19 @@
         var activeIndex = -1;
         var matches = [];
         var seq = 0;
+        // 错峰入场的开关挂在 .cmdk-panel 上（CSS §M6 的选择器就是它），不是外层 #cmdk：
+        // 外层还管遮罩，把它一起淡入会连背景一起闪。
+        var panelBox = panel.querySelector('.cmdk-panel');
+        // 「这一次渲染是不是面板刚打开」——只有这一次给行挂入场动画，
+        // 之后每敲一个字的重绘都直接出结果，否则打字看着像在闪。
+        var freshNext = false;
 
         function open(trigger) {
             lastTrigger = trigger || null;
             panel.hidden = false;
             document.body.classList.add('cmdk-open');
             input.value = '';
+            freshNext = true;
             window.setTimeout(function () { input.focus(); }, 0);
             render('');
         }
@@ -542,7 +612,7 @@
                     if (item.date) meta.push(esc(item.date));
                     if (item.category) meta.push(esc(item.category));
                     if (item.tags) meta.push(esc(item.tags.split(/\s+/).filter(Boolean).slice(0, 2).join(' · ')));
-                    return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '">'
+                    return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
                         + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
                         + '<span class="cmdk-item-title">' + mark(item.title || '', q) + '</span>'
                         + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), q) + '</span>'
@@ -550,11 +620,25 @@
                         + '</a></li>';
                 }).join('');
 
+                // 每一次渲染都重新裁决这个开关：挂上则这批行按 --i 错峰涌出，
+                // 摘掉则这批行直接落位。行是每次新建的，所以不需要强制重排来重启动画。
+                if (panelBox) panelBox.classList.toggle('is-fresh', freshNext);
+                freshNext = false;
+
                 for (var k = 0; k < results.children.length; k++) {
                     (function (el, idx) {
                         el.addEventListener('mouseenter', function () { setActive(idx); });
                     })(results.children[k], k);
                 }
+
+                // 首行必须补一遍 setActive。activeIndex 在上面已经置 0、HTML 串里也把
+                // aria-selected="true" 烤进了第一行，但视觉高亮（.is-active）和
+                // aria-activedescendant 只有 setActive 会挂。不叫它的后果：
+                // 输入完那一下屏幕上没有任何选中指示（此时按 Enter 其实会打开第一条），
+                // 而第一次按 ↓ 是从「看不见的 0」走到 1，看着像第一条被跳过。
+                // 放在 mouseenter 之后：setActive 里的 scrollIntoView 走 block:'nearest'，
+                // 刚渲染完列表停在顶部，第一行本就在视野内，不会产生滚动。
+                if (scored.length) setActive(0);
             });
         }
 
@@ -664,13 +748,18 @@
         var body = document.getElementById('post-body');
         if (!body) return;
 
-        var heads = body.querySelectorAll('h2[id], h3[id]');
+        // h1 也在内：被删掉的那套 legacy anchor 覆盖 h1/h2/h3，只留 h2/h3 会让
+        // 正文里出现一级标题的文章丢掉这一枚锚点。
+        var heads = body.querySelectorAll('h1[id], h2[id], h3[id]');
         for (var i = 0; i < heads.length; i++) {
             (function (heading) {
                 var link = document.createElement('a');
                 link.className = 'heading-anchor';
                 link.href = '#' + heading.id;
-                link.setAttribute('aria-label', '复制这一节的链接');
+                // 标题文本必须在这枚链接被 append 之前取，否则会把 "#" 自己念进去。
+                // 每条各带小节名：全站一排 aria-label 完全相同的链接，读屏器列出来
+                // 就是「复制这一节的链接 ×12」，等于没有信息。
+                link.setAttribute('aria-label', '复制「' + heading.textContent.trim() + '」这一节的链接');
                 link.textContent = '#';
                 link.addEventListener('click', function () {
                     // 不拦默认行为：地址栏要真的变成 #id，复制到的链接才有锚点
@@ -703,7 +792,9 @@
         } catch (e) {
             return null;
         }
-        if (!data || typeof data.p !== 'string' || typeof data.r !== 'number') return null;
+        // at 也在校验之列：缺它时 Date.now() - undefined 得 NaN，而 NaN > TTL 恒为
+        // false，于是这条「上次读到」永远熬不过期，浮条一挂就是无限久。
+        if (!data || typeof data.p !== 'string' || typeof data.r !== 'number' || typeof data.at !== 'number') return null;
         if (Date.now() - data.at > RESUME_TTL) {
             clearResume();
             return null;
@@ -852,7 +943,94 @@
         dlg.appendChild(big);
         dlg.appendChild(cap);
         document.body.appendChild(dlg);
-        dlg.addEventListener('click', function () { dlg.close(); });
+
+        // FLIP 的两次「首」：开是点的那张缩略图，关是它当时的位置（中间可能已滚动）。
+        var origin = null;
+
+        /**
+         * 把对话框从它自己的终态矩形拉回缩略图的位置，再放开让它飞回去。
+         *
+         * 只写 transform（配 .is-flip 的 will-change），宽高一律不碰 —— 碰了就是
+         * 逐帧重排一张 92vw 的图。缩放按 x/y 分别算，因为正文配图大多是横长条、
+         * 灯箱里却是按 contain 摆的，等比缩放会先「跳」一下再飞。
+         * @param {DOMRect} from 起点矩形
+         * @param {boolean} [reverse] 反向：从终态飞回 from（关闭时用）
+         */
+        function fly(from, reverse) {
+            var to = dlg.getBoundingClientRect();
+            if (!to.width || !to.height || !from.width) return;
+            var sx = from.width / to.width;
+            var sy = from.height / to.height;
+            var tf = 'translate(' + (from.left - to.left) + 'px,' + (from.top - to.top) + 'px)'
+                + ' scale(' + sx + ',' + sy + ')';
+
+            dlg.classList.add('is-flip');
+            dlg.style.transformOrigin = '0 0';
+            // 两个方向的差别只在「从哪儿起、到哪儿收」：
+            // 开 = 先跳到缩略图位置（无过渡）再放开到终态；
+            // 关 = 从终态（此刻 transform 正是 none）过渡到缩略图位置。
+            // 早先这里两行都写 tf，反向那次起止同值，transition 不产生变化、
+            // transitionend 也就不来，关闭只能靠 400ms 超时兜底 —— 看着像能用，
+            // 实际是每次关都要等满 400ms。
+            dlg.style.transition = 'none';
+            dlg.style.transform = reverse ? 'none' : tf;
+            void dlg.offsetWidth;
+            dlg.style.transition = 'transform ' + (reverse ? 240 : 300) + 'ms cubic-bezier(.22,.61,.36,1)';
+            dlg.style.transform = reverse ? tf : 'none';
+        }
+
+        /** 飞完/失败都要把内联样式收干净，否则下次打开还带着上一次的 transform。 */
+        function settle() {
+            dlg.classList.remove('is-flip');
+            dlg.style.transition = '';
+            dlg.style.transform = '';
+            dlg.style.transformOrigin = '';
+        }
+
+        function open(img) {
+            big.src = img.currentSrc || img.src;
+            big.alt = img.alt || '';
+            cap.textContent = img.alt || '';
+            cap.hidden = !cap.textContent;
+            origin = img;
+            dlg.showModal();
+            if (prefersReducedMotion()) { settle(); return; }
+            // showModal 之后才拿得到终态矩形，所以起点先记着、这一步才做 FLIP。
+            fly(img.getBoundingClientRect());
+        }
+
+        function close() {
+            if (dlg.hasAttribute('data-closing')) return;
+            var img = origin;
+            if (prefersReducedMotion() || !img || !img.isConnected) { dlg.close(); return; }
+            var r = img.getBoundingClientRect();
+            // 缩略图已经滚出视口时不飞：那会画出一条冲出屏幕的长距离位移，
+            // 看着像页面在抽风而不是图片在归位。
+            if (r.bottom < 0 || r.top > window.innerHeight || !r.width) { dlg.close(); return; }
+            dlg.setAttribute('data-closing', '1');
+            fly(r, true);
+            var done = false;
+            var finish = function () {
+                if (done) return;
+                done = true;
+                dlg.removeEventListener('transitionend', finish);
+                dlg.removeAttribute('data-closing');
+                settle();
+                dlg.close();
+            };
+            dlg.addEventListener('transitionend', finish);
+            // transitionend 不是一定会来的（标签页切走、被 CSS 打断都会让它不来），
+            // 没有这道兜底就是一个关不掉的遮罩。
+            setTimeout(finish, 400);
+        }
+
+        dlg.addEventListener('click', close);
+        // Esc 走的是 cancel → close 这条原生路径，不拦的话遮罩直接消失、没有回程。
+        dlg.addEventListener('cancel', function (e) {
+            if (prefersReducedMotion()) return;
+            e.preventDefault();
+            close();
+        });
 
         var imgs = body.querySelectorAll('img');
         for (var i = 0; i < imgs.length; i++) {
@@ -860,13 +1038,7 @@
                 // 表情包、行内小图标放大只会糊成一团；被 <a> 包住的图让链接先响应。
                 if (img.offsetWidth < 160 || img.closest('a')) return;
                 img.classList.add('is-zoomable');
-                img.addEventListener('click', function () {
-                    big.src = img.currentSrc || img.src;
-                    big.alt = img.alt || '';
-                    cap.textContent = img.alt || '';
-                    cap.hidden = !cap.textContent;
-                    dlg.showModal();
-                });
+                img.addEventListener('click', function () { open(img); });
             })(imgs[i]);
         }
     }
@@ -1250,10 +1422,12 @@
             var pad = 12;
             var cw = card.offsetWidth;
             var ch = card.offsetHeight;
+            // 钳制基准走 fixedViewport()：卡片是 fixed，可用宽度不含经典滚动条。
+            var vp = fixedViewport();
             var left = r.left + r.width / 2 - cw / 2;
-            left = Math.max(pad, Math.min(left, window.innerWidth - cw - pad));
+            left = Math.max(pad, Math.min(left, vp.w - cw - pad));
             var top = r.bottom + 10;
-            if (top + ch > window.innerHeight - pad) top = r.top - ch - 10;
+            if (top + ch > vp.h - pad) top = r.top - ch - 10;
             if (top < pad) top = pad;
             card.style.left = Math.round(left) + 'px';
             card.style.top = Math.round(top) + 'px';
@@ -1370,10 +1544,12 @@
         function showBar(rect) {
             ensureBar();
             bar.hidden = false;
+            // 同 place()：药丸是 fixed，钳右/钳下要用不含经典滚动条的那一段宽度。
+            var vp = fixedViewport();
             var w = bar.offsetWidth;
-            var left = Math.max(12, Math.min(rect.left + rect.width / 2 - w / 2, window.innerWidth - w - 12));
+            var left = Math.max(12, Math.min(rect.left + rect.width / 2 - w / 2, vp.w - w - 12));
             var top = rect.bottom + 12;
-            if (top + bar.offsetHeight > window.innerHeight - 12) top = Math.max(12, rect.top - bar.offsetHeight - 12);
+            if (top + bar.offsetHeight > vp.h - 12) top = Math.max(12, rect.top - bar.offsetHeight - 12);
             bar.style.left = Math.round(left) + 'px';
             bar.style.top = Math.round(top) + 'px';
         }
@@ -1825,10 +2001,12 @@
      * 单行条目。列表内容全用 textContent 写入 —— 标题里出现引号或尖括号是常态，
      * 拼 HTML 字符串迟早要出事。
      * @param {boolean=} droppable 待读条目给「移出」按钮，足迹条目不给
+     * @param {number=} idx 行在列表中的序号，写进 --i 供 CSS §M6 排错峰延迟
      */
-    function shelfRow(href, title, metaText, ratio, droppable) {
+    function shelfRow(href, title, metaText, ratio, droppable, idx) {
         var li = document.createElement('li');
         li.className = 'shelf-row';
+        if (typeof idx === 'number') li.style.setProperty('--i', idx);
 
         var a = document.createElement('a');
         a.className = 'shelf-row-link';
@@ -1953,23 +2131,68 @@
         var current = 'queue';
         var armed = 0;
         var opener = null;
+        // 与搜索面板同一套做法（CSS §M6）：只有「刚点开抽屉」的那一次渲染给行挂错峰入场，
+        // 换标签页、移出、每 5 秒的足迹回写都只是重绘，不该再涌一遍。
+        var shelfFresh = false;
 
         var EMPTY_TEXT = {
             queue: '待读队列是空的。文章页的书签、首页卡片右上角的小书签都能放进来。',
             log: '还没有阅读记录 —— 翻开任意一篇文章，读完或中途划走都会留痕。'
         };
 
+        /**
+         * 记下焦点落在「哪个面板 / 哪一行 / 行内哪个控件」上。
+         * 只认行内的两个已知控件类，其余（标签页按钮、关闭键）不在重建范围内，
+         * 返回 null 让调用方什么都不做。
+         */
+        function captureShelfFocus() {
+            var af = document.activeElement;
+            if (!af || !af.closest || !dlg.contains(af)) return null;
+            var cls = af.className === 'shelf-row-link' ? 'shelf-row-link'
+                : af.className === 'shelf-row-drop' ? 'shelf-row-drop' : '';
+            var host = af.closest('[data-shelf-panel]');
+            var key = af.getAttribute('href') || af.getAttribute('data-shelf-drop');
+            if (!cls || !host || !key) return null;
+            return { panel: host.getAttribute('data-shelf-panel'), cls: cls, key: key };
+        }
+
+        /** 按 captureShelfFocus 记下的坐标找回去。面板属性值只跟自家两个字面量比，不拼选择器。 */
+        function restoreShelfFocus(snap) {
+            if (!snap) return;
+            var hosts = dlg.querySelectorAll('[data-shelf-panel]');
+            for (var h = 0; h < hosts.length; h++) {
+                if (hosts[h].getAttribute('data-shelf-panel') !== snap.panel) continue;
+                var rows = hosts[h].children;
+                for (var i = 0; i < rows.length; i++) {
+                    var el = rows[i].querySelector('.' + snap.cls);
+                    if (!el) continue;
+                    if ((el.getAttribute('href') || el.getAttribute('data-shelf-drop')) === snap.key) {
+                        // preventScroll 是必须的：不加这句浏览器会滚到那一行，
+                        // 每 5 秒的足迹回写就把抽屉的位置挪一次。
+                        el.focus({ preventScroll: true });
+                        return;
+                    }
+                }
+            }
+        }
+
         function render() {
             var shelf = readShelf();
             var list = dlg.querySelector('[data-shelf-panel="queue"]');
             var foot = dlg.querySelector('[data-shelf-panel="log"]');
+
+            // 两个列表都是整块 innerHTML='' 重建，而这条 render 每 5 秒会被足迹回写
+            // 调一次（§10 的 setInterval）：不跨重建保焦点，键盘用户每 5 秒被踢回
+            // <body> 一次，正读到的那一行也顺手销毁。认路径不认序号，因为这次的
+            // 回写本身就可能改变排序。
+            var focusSnap = captureShelfFocus();
 
             list.innerHTML = '';
             var qEntries = shelfEntries(shelf.q);
             for (var i = 0; i < qEntries.length; i++) {
                 var q = qEntries[i];
                 list.appendChild(shelfRow(q.p, q.e.t || q.p,
-                    shelfMeta(q.e.c, q.e.m, humanizeAgo(q.e.at) + '加入'), null, true));
+                    shelfMeta(q.e.c, q.e.m, humanizeAgo(q.e.at) + '加入'), null, true, i));
             }
 
             foot.innerHTML = '';
@@ -1981,8 +2204,13 @@
                 var stage = pct >= 98 ? '读完' : pct < 3 ? '刚打开' : '读到 ' + pct + '%';
                 foot.appendChild(shelfRow(f.p, f.e.t || f.p,
                     shelfMeta(f.e.c, f.e.m, stage + ' · ' + humanizeAgo(f.e.at)),
-                    pct / 100, false));
+                    pct / 100, false, j));
             }
+
+            // 错峰入场只属于「刚点开」那一次；两个列表都在这次渲染里被重建，
+            // 但只有当前可见面板的行会被看到，隐藏面板的行不会启动动画。
+            dlg.classList.toggle('is-fresh', shelfFresh);
+            shelfFresh = false;
 
             renderShelfStats(dlg.querySelector('[data-shelf-panel="stats"]'), shelf);
 
@@ -2000,6 +2228,8 @@
                 emptyLine.hidden = !isEmpty;
                 emptyLine.textContent = isEmpty ? EMPTY_TEXT[current] : '';
             }
+
+            restoreShelfFocus(focusSnap);
         }
 
         function showTab(name) {
@@ -2071,6 +2301,7 @@
             open: function (from) {
                 opener = from || null;
                 shelfRerender = render;
+                shelfFresh = true;
                 dlg.showModal();
                 render();
             }

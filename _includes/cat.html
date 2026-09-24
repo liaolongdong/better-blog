@@ -8,6 +8,12 @@
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/cat.min.css">
 
 <div class="mao_box">
+    {%- comment -%}
+    收放按钮。它必须在 .mao_box 里面：整份 cat.scss 收在那一层里，
+    postcss 像素转视口的黑名单也只有一条 /^\.mao_box/（约束见 cat.scss 文件头）。
+    图形用 CSS 的 +/- 画，不占用 iconfont 的字形。
+    {%- endcomment -%}
+    <button class="mao-toggle" type="button" aria-expanded="true" aria-label="把小猫收起来"></button>
     <div class="mao">
         <div class="mao_head">
             <div class="huawen">

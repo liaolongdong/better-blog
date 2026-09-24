@@ -68,7 +68,7 @@
 // 从右往左渐出
 @keyframes rightToLeftLetter {
     0% {
-        transform: translateX(10px);
+        transform: translateX(var(--travel-l));
     }
 
     100% {
@@ -83,12 +83,16 @@
 // 正文链接悬停时让 link_hover_line.svg 沿着下划线滚动。
 // 消费方在 common.scss 的 .post-content .markdown-body a:hover 里，
 // 不在本文件的 .xxx-delayNNN 工具类表上——按「工具类没人用就删」清这一层时容易带走它。
+// 行程与那张 tile 的宽度必须严格相等，否则一个周期滚完接不上、看着像跳动。
+// 两边都取 --wave-tile：关键帧里的 px 会被像素转视口换成 vw（黑名单按选择器文本
+// 匹配，够不到 0%/to），而消费方的 background-size 在 .post- 黑名单里保持 px，
+// 于是一座视口宽 375 的屏上只走 10px、1440 的屏上走 38.4px，只有 750 恰好对上。
 @keyframes waveMove {
     0% {
         background-position: 0 100%;
     }
 
     100% {
-        background-position: -20px 100%;
+        background-position: calc(var(--wave-tile) * -1) 100%;
     }
 }

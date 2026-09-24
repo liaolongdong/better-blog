@@ -70,7 +70,11 @@ body {
     margin-left: 6px;
     font-family: inherit;
     font-size: 13px;
-    color: var(--ink-3);
+    // 药丸上的字与图标一律 --ink-2（对白底 12.0:1），不再用 --ink-3（4.7:1）。
+    // --ink-3 那档是给 14px 的导航文字准备的，药丸只有 13px、又叠在一层白底面板上，
+    // 同一个灰阶摆在胶囊里就糊成「这块是灰的、不能点」——上一轮从 --ink-4 提到
+    // --ink-3 只解决了一半，GitHub 那四个字仍然偏灰。
+    color: var(--ink-2);
     cursor: pointer;
     background-color: var(--surface);
     // 描边是这三颗药丸唯一的「可按」线索，--rule（对白底 1.2:1）几乎看不见，
@@ -338,7 +342,9 @@ body {
         margin-left: 8px;
         font-family: inherit;
         font-size: 13px;
-        color: var(--ink-3);
+        // 与 @include nav-pill 那颗同档（--ink-2）：它靠 @mixin 拿到这个色，但它是
+        // <button>、样式写在这里，两档不一致会显得书架和 GitHub 是另一类东西。
+        color: var(--ink-2);
         background-color: var(--surface);
         border: 1px solid var(--rule-2);
         border-radius: 999px;
@@ -359,11 +365,12 @@ body {
         @include nav-pill;
     }
 
-    // 猫标与标签同档（--ink-3）。原先压到 --ink-4，对白底只有 2.4:1，
-    // 整颗药丸看着像被禁用的占位；hover 时跟着文字一起变墨色。
+    // 猫标跟着标签同档（--ink-2）。它此前是 --ink-4（对白底 2.4:1），上一轮提到 --ink-3
+    // 只解决了一半——字是深了，图标仍然灰，整颗药丸左右两半不是一个浓度。
+    // hover 时和文字一起变墨色。
     .g-nav .nav-git-icon {
         flex: none;
-        color: var(--ink-3);
+        color: var(--ink-2);
     }
 
     .g-nav .nav-git-btn:hover .nav-git-icon {
@@ -434,14 +441,9 @@ body {
     }
 }
 
-// 滚动后仅加投影，不再整条换色——顶栏本身就是纸色，无需二次适应
-.headerUp {
-    top: -65px;
-}
-
-.headerDown {
-    top: 0;
-}
+// 顶栏的隐藏两态（.headerUp / .headerDown）只在 common.scss 定义一份。
+// 这里曾有过一份逐字重复的 top: -65px / 0，两条规则同权重、靠引入顺序决胜，
+// 改一处不改另一处不会报错，只会让隐藏距离变成随机数——已删，勿再补。
 
 /*** 2. 侧栏与页脚 ***/
 
@@ -1136,7 +1138,9 @@ body {
 
         .meta-unit {
             font-size: 12px;
-            color: var(--ink-4);
+            // 12px 的字数/时长是正文性信息，不是装饰：--ink-4 只到 3.78:1，
+            // 够图标和 ≥18px 的次要文字，不够这个。
+            color: var(--ink-3);
         }
     }
 }
@@ -1264,7 +1268,8 @@ body.has-toc .post-rail {
     font-size: 11px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    // 大写 + 1.5px 字距已经把它推到「勉强能读」，11px 配 2.19:1 的灰等于没打算让人读。
+    color: var(--ink-3);
 }
 
 .toc-list {
@@ -1301,9 +1306,14 @@ body.has-toc .post-rail {
     font-weight: 500;
 }
 
+// 只做 .code-copy 的定位上下文，不贡献任何间距：它包的是 pre，落在
+// common.scss 的 .markdown-body .highlight（overflow:auto，自成 BFC）里面，
+// 所以这里写 margin 就是在滚动容器内部垫高一截——实测容器 180px、代码本身 162px。
+// 块间距由那条 .highlight{margin:0 0 16px} 负责，禁用 JS 时也是同一个 16px：
+// 这层包装由 editorial.js 运行时注入，它自己的边距让「有没有 JS」差出 18px。
 .code-wrap {
     position: relative;
-    margin: 0 0 18px;
+    margin: 0;
 }
 
 .code-copy {
@@ -2732,7 +2742,9 @@ body.reader-open .post-masthead {
     z-index: 30;
     box-sizing: border-box;
     width: 264px;
-    padding: 14px 14px 12px;
+    // 底部那 12px 挪进 .reader-reset 的高度里了：分隔线以下「线上／线下」两段
+    // 空白此前是 9px 与 18.5px，「恢复默认」看着就贴着线往下坠。
+    padding: 14px 14px 0;
     text-align: left;
     background-color: var(--surface);
     border: 1px solid var(--rule);
@@ -2788,13 +2800,20 @@ body.reader-open .post-masthead {
     box-shadow: var(--shadow-1);
 }
 
+// 面板底部那 12px 并进来（28 → 40），分隔线与面板底边之间就是等高的两段，
+// 文字靠 align-items 居中，不再靠 <button> 各自 UA 的默认居中行为。
 .reader-reset {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
     width: 100%;
-    height: 28px;
+    height: 40px;
     margin-top: 2px;
+    padding: 0;
     font-family: inherit;
     font-size: 12px;
-    color: var(--ink-4);
+    line-height: 1;
+    color: var(--ink-3);
     cursor: pointer;
     background-color: transparent;
     border: none;
@@ -2809,7 +2828,7 @@ body.reader-open .post-masthead {
 @keyframes readerIn {
     from {
         opacity: 0;
-        transform: translateY(-6px);
+        transform: translateY(calc(var(--travel-m) * -1));
     }
 
     to {
@@ -2890,7 +2909,7 @@ body.reader-open .post-masthead {
 @keyframes lpIn {
     from {
         opacity: 0;
-        transform: translateY(-4px);
+        transform: translateY(calc(var(--travel-s) * -1));
     }
 
     to {
@@ -3009,7 +3028,7 @@ body.reader-open .post-masthead {
 @keyframes quoteBarIn {
     from {
         opacity: 0;
-        transform: translateY(-4px);
+        transform: translateY(calc(var(--travel-s) * -1));
     }
 
     to {
@@ -3335,8 +3354,8 @@ body.cmdk-open {
 // 696–959：抽屉样式还没生效，但 8 个文字项加三颗药丸（含 ⌘K 与 GitHub）已经和
 // 223px 宽的刊名重叠——实测 900px 下导航左边缘落在 245，而刊名右边缘在 255。
 // 只收掉刊名文字、保留桌面导航条，比把抽屉提前到 959 的改动面小得多。
-// 上限原本写 860，是 GitHub 入口进来后按实测余量抬到 959 的（959 以下 .g-container
-// 还是定宽档，960 起换档，两条界线对齐在这里最省事）。
+// 上限按导航自己的余量定，与 .g-container 的换档线（1179，见下）无关：
+// 顶栏不住在容器里，它按视口定位（.g-nav 是 .g-header 的绝对定位子元素）。
 @media screen and (min-width: 696px) and (max-width: 959px) {
     .g-header .logo-word {
         display: none;
@@ -3355,12 +3374,28 @@ body.cmdk-open {
     }
 }
 
-@media screen and (max-width: 959px) {
+// 容器的左右内边距要保证任何视口下都不贴边。基础态是 width:1140 + max-width:100%，
+// 视口一进到 1179（=1140+2×20）以内，容器两侧的量就不够 20px 了，而这条 padding
+// 原先只写在 ≤959 那块里 —— 于是 960–1179 整档刊头横线、面包屑与页脚规则线直接贴到
+// 窗口两边（实测 1100px 下容器左边缘落在 0，1140px 视口下余量正好是 0）。
+// 界取 1179 而不是 1139：写在 1139 的话，1139→1140 内宽从 1099 跳到 1140，
+// 而 1140 视口本身仍是零余量，等于把同一个毛病留在那一档；1179 起换档后余量是连续的，
+// 全程最小 20px。这一档用 width:auto + border-box，算出的内宽最大 1139，不会撑过设计宽。
+@media screen and (max-width: 1179px) {
     .g-container {
         width: auto;
         padding: 0 20px;
     }
 
+    // 头图外层自己也钉在 1140 + 居中：容器放开成通栏后它若不动，图就比正文两侧各窄
+    // 20px（实测 1179 下正文内容 20–1159、图 40–1140）。它的内边距是 0，留白由里面
+    // 那层 .g-container 承担，所以这里只需要把宽度一起放开。
+    .post-hero {
+        width: auto;
+    }
+}
+
+@media screen and (max-width: 959px) {
     .article-list,
     .g-sidebar-wrapper {
         float: none;
@@ -3762,7 +3797,7 @@ dialog.shelf[open] {
 @keyframes shelfIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(var(--travel-l));
     }
 
     to {
@@ -4122,7 +4157,7 @@ dialog.shelf[open] {
 @keyframes wrapUpIn {
     from {
         opacity: 0;
-        transform: translateY(14px);
+        transform: translateY(var(--travel-xl));
     }
 
     to {
@@ -4162,7 +4197,7 @@ dialog.shelf[open] {
 
 @keyframes eclipseReveal {
     from {
-        clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
+        clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 50%));
     }
 
     to {
@@ -4227,5 +4262,289 @@ dialog.shelf[open] {
 
     dialog.shelf[open] {
         animation: none;
+    }
+}
+
+
+/*** 10. 动效增强批（M1 / M3 / M4 / M6 / M7 / M9） ***/
+// 三条写死的前提，新增动效一律遵守：
+//   1. 只动 transform / opacity / scale 这类合成器属性，不动 width / left / top / margin；
+//   2. 时长与曲线取 tokens.scss 的 --dur-* / --ease-*，不再落字面量；
+//   3. @keyframes 里不写 px —— 本文件顶部那串像素转视口的黑名单按选择器文本匹配，
+//      关键帧块的「选择器」是 from/to，一条都命中不了，px 会被换成 vw
+//      （-8px 在 1440 屏上是 -15px 的位移）。要位移就用 em。cmdkIn 是同一个坑的先例。
+
+// ———— M3 · 报排行的 hover 语言 ————
+// 体检报告原本建议「卡片 hover 抬升 translateY(-2px) + shadow」，这里没有照做：
+// .article-list .article-item 在 861-865 行显式把 background / border / box-shadow
+// 清成了 transparent / none / none，.cat-row / .series-row / .shelf-row 同样是
+// 「发丝线分隔的报排行」而不是卡片。给它们加投影抬升，等于推翻上一层的有意决定，
+// 一列行各自浮起来还会把发丝线拉成锯齿。改成同一种语言里的另一套强调：
+// 行线加深（纸被墨压出痕迹）+ 标题横移（视线有个落点）+ 封面图在自身框内微缩放。
+// 用独立的 translate 属性而非 transform，是为了不与任何既有 transform 抢写同一条声明。
+.article-list .article-item,
+.cat-row,
+.series-row,
+.shelf-row {
+    transition: border-color var(--dur-2) var(--ease-out);
+}
+
+.article-list .article-item:hover,
+.cat-row:hover,
+.series-row:hover,
+.shelf-row:hover {
+    border-bottom-color: var(--rule-2);
+}
+
+.post-preview .post-title,
+.cat-title,
+.series-link,
+.shelf-row-link {
+    transition: color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+}
+
+.article-list .article-item:hover .post-preview .post-title,
+.cat-row:hover .cat-title,
+.series-row:hover .series-link,
+.shelf-row:hover .shelf-row-link {
+    translate: .18em 0;
+}
+
+// 封面是这批里唯一真正的「卡片」，微缩放给它：外层裁掉溢出，图本身只走 scale。
+.article-list .article-item .post-cover {
+    overflow: hidden;
+}
+
+.article-list .article-item .post-cover img {
+    transition: scale var(--dur-3) var(--ease-out);
+}
+
+.article-list .article-item:hover .post-cover img {
+    scale: 1.03;
+}
+
+// ———— M4 · 按压反馈 ————
+// 全站此前只有 .cta 与 .icon-menu 两处有 :active。这里一次补齐 10 类控件。
+// 用独立 scale 属性：既有的 transform 用法（比如未来某个按钮自己写了 translateY）
+// 不会被这条顶掉，两者相乘而非互相覆盖。
+.nav-link,
+.nav-search-btn,
+.toc-fab,
+.code-copy,
+.reader-btn,
+.reader-opt,
+.quote-btn,
+.quote-bar-btn,
+.shelf-tab,
+.shelf-close,
+.wrap-up-btn {
+    transition: scale var(--dur-1) var(--ease-back);
+}
+
+.nav-link:active,
+.nav-search-btn:active,
+.toc-fab:active,
+.code-copy:active,
+.reader-btn:active,
+.reader-opt:active,
+.quote-btn:active,
+.quote-bar-btn:active,
+.shelf-tab:active,
+.shelf-close:active,
+.wrap-up-btn:active {
+    scale: .97;
+}
+
+// ———— M1 · 灯箱 FLIP 的 CSS 侧 ————
+// 位移与缩放由 JS 逐帧写在 style 上（起点是那张缩略图的实际 rect，只有运行期才知道），
+// 这里只负责两件事：让入场的淡入不再抢 transform，以及飞行期间提示合成器。
+.lightbox.is-flip {
+    will-change: transform;
+}
+
+.lightbox.is-flip[open] {
+    animation: lightboxFade var(--dur-2) var(--ease-out) both;
+}
+
+@keyframes lightboxFade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+// ———— M6 · 面板逐项错峰入场 ————
+// 整体淡入改成「涌出」：每一行按 --i 排延迟。
+// 延迟上限写死在第 6 项，之后的行共用同一个延迟 —— 不设上限的话一列 20 条结果
+// 要排到 360ms 才出最后一行，慢的不是动效而是面板本身。
+//
+// 三条动画一律挂在 .is-fresh 这个开关下面，而不是无条件写在行本身上：
+// ⌘K 的结果每敲一个字就重绘一次，书架换标签页、目录抽屉开合同理。若 CSS 无条件生效，
+// 打字时每行都要重新淡入升起一遍 —— 那不是错峰，是闪烁。所以由 JS 只在
+// 「这一列是刚打开的那一次」挂上 is-fresh，其余重绘一律摘掉开关。
+.cmdk-panel.is-fresh .cmdk-item,
+.shelf.is-fresh .shelf-row,
+.post-rail.is-fresh .toc-item {
+    // --i 由 JS 在渲染每一行时写进行内样式（三处渲染点各一行）。
+    // 上限用 min() 夹在第 6 项：一列 20 条结果若照序号排下去，最后一行要等
+    // 560ms 才出现，慢的不是动效而是面板本身。
+    // 不写成第二条 :nth-child(n+7) 覆盖是因为那样得把三个选择器再抄一遍，
+    // 抄本迟早和上面那条走散 —— 这里一个 min() 就说完了。
+    // fill 用 backwards 而不是 both：both 会把 100% 帧的 translate 一直钉在行上，
+    // 而动画的优先级高于普通声明，行（或其内部链接）之后的 hover 位移就被静默吃掉；
+    // backwards 只管「延迟期间先按 from 藏着」，跑完即交还给样式表，
+    // 因此 .is-fresh 即使没被摘干净也不会留下副作用。
+    animation: itemRise var(--dur-2) var(--ease-out) backwards;
+    animation-delay: calc(min(var(--i, 0), 6) * 28ms);
+}
+
+@keyframes itemRise {
+    from {
+        opacity: 0;
+        translate: 0 .35em;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+// ———— M7 · 进度条末端的剩余时长气泡 ————
+// .reading-progress 是 pointer-events:none 的 2px 细条，气泡挂在它下面、
+// 跟着 --rp-p 走。left 用百分比而不是 translate，是因为 translate 的百分比
+// 相对的是元素自身宽度，而这里要跟的是「整条进度条的长度」。
+//
+// 进度从 328 行的 bar.style.transform 改成写容器上的 --rp-p：一个数只留一处真值，
+// 细条和气泡读同一个变量，不会各算各的然后错位半格。
+.reading-progress {
+    --rp-p: 0;
+}
+
+.reading-progress-bar {
+    transform: scaleX(var(--rp-p));
+}
+
+.reading-progress-eta {
+    position: absolute;
+    top: 6px;
+    left: calc(var(--rp-p) * 100%);
+    padding: 2px 7px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    line-height: 15px;
+    white-space: nowrap;
+    color: var(--ink-3);
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    box-shadow: var(--shadow-1);
+    opacity: 0;
+    translate: -50% 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.reading-progress-eta.is-on {
+    opacity: 1;
+}
+
+// 两端不显示：0% 时气泡压在左上角像没加载完，100% 时「还剩 0 分钟」是句废话。
+.reading-progress-eta.is-edge {
+    opacity: 0;
+}
+
+// ———— M9 · 合集进度轨的完成脉冲 ————
+// 轨本身此前只有 scaleX 0→1 的填充（seriesFillIn），读完最后一篇时它静默到顶。
+// 补一次性的光扫 + 轻微弹跳：这是「完成」这个事件唯一的可见回报，
+// .is-complete 由 _layouts/post.html 在「本篇是合集最后一篇」时直接写进 class，
+// 不随 hover 反复触发，也不依赖 JS。
+// reduce 下不必单独压：base.scss 那份 .01ms 兜底配 `both` 会把光扫直接送到
+// translate: 100% 的终态，而 .post-series-fill 的 overflow: hidden 把它裁在条外。
+// 这两个条件缺一个，reduce 用户就会看到一道永久停在进度条上的浅色带。
+.post-series-track.is-complete {
+    animation: trackPop var(--dur-3) var(--ease-back) both;
+}
+
+.post-series-track.is-complete .post-series-fill {
+    position: relative;
+    overflow: hidden;
+}
+
+.post-series-track.is-complete .post-series-fill::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    content: "";
+    background-image: linear-gradient(90deg, transparent, var(--surface), transparent);
+    animation: fillSweep var(--dur-4) var(--ease-out) both;
+}
+
+@keyframes trackPop {
+    0% {
+        scale: 1 1;
+    }
+
+    45% {
+        scale: 1 1.9;
+    }
+
+    100% {
+        scale: 1 1;
+    }
+}
+
+@keyframes fillSweep {
+    from {
+        translate: -100% 0;
+    }
+
+    to {
+        translate: 100% 0;
+    }
+}
+
+// ———— 动效偏好兜底 ————
+// base.scss 末尾那份全站 .01ms 兜底（P0-13）已经能把这批的时长一并压掉，
+// 但「横移」和「错峰延迟」是两回事：它们不靠 duration 生效，
+// 前者是 hover 的终态位移、后者是 animation-delay，兜底块碰不到。
+// 所以这三条必须在这里显式归零，否则 reduce 用户仍会看到标题偏走、
+// 以及一列行按 28ms 步进依次出现。
+@media (prefers-reduced-motion: reduce) {
+    .post-preview .post-title,
+    .cat-title,
+    .series-link,
+    .shelf-row-link {
+        transition: color var(--dur-2) var(--ease-out);
+    }
+
+    .article-list .article-item:hover .post-preview .post-title,
+    .cat-row:hover .cat-title,
+    .series-row:hover .series-link,
+    .shelf-row:hover .shelf-row-link {
+        translate: none;
+    }
+
+    // 选择器必须和上面那三条一一对应地写全 .is-fresh —— 这里若图省事只写
+    // `.cmdk-item`，看着是「覆盖得更宽」，实际是另一回事：动画只在挂 .is-fresh
+    // 时才存在，而本条要压的正是那条带开关的 animation。少了开关层，两边特异度
+    // 不同，压不压得动取决于源码次序而不是意图，改天谁调一下段落顺序就静默失效。
+    .cmdk-panel.is-fresh .cmdk-item,
+    .shelf.is-fresh .shelf-row,
+    .post-rail.is-fresh .toc-item {
+        animation: none;
+        animation-delay: 0s;
+    }
+
+    .lightbox.is-flip {
+        will-change: auto;
+    }
+
+    .reading-progress-eta {
+        translate: -50% 0;
     }
 }

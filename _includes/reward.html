@@ -24,17 +24,10 @@
         background-color: #F7877F;
     }
   
-    .wechat:hover p {
-        animation: roll 0.1s infinite linear;
-        -webkit-animation: roll 0.1s infinite linear;
-        -moz-animation: roll 0.1s infinite linear;
-    }
-  
-    .alipay:hover p {
-        animation: roll 0.1s infinite linear;
-        -webkit-animation: roll 0.1s infinite linear;
-        -moz-animation: roll 0.1s infinite linear;
-    }
+    /* 这里原有两条 .wechat:hover p / .alipay:hover p 的 animation: roll .1s infinite，
+       但全站（26 个 @keyframes）没有叫 roll 的那一个，两条都是空转的死引用。
+       上游主题里的 roll 是每秒 10 次、每次 1deg 的抖动，从没在这座站上出现过，
+       补一个回来等于新增一个谁也没见过的抖动画——所以按死代码删掉。 */
   
     .QR {
         padding-top: 20px;

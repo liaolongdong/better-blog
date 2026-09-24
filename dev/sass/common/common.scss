@@ -103,13 +103,17 @@
     }
 }
 
-// header scroll
+// header scroll：顶栏自动隐藏的两态，由 dev/js/index.js 按滚动方向互斥地挂其中一个。
+// 用 transform 而不是 top：本文件 .g-header 的 transition 在 editorial 层被从 `all .6s`
+// 收窄成了 transform / background-color / box-shadow（:103），top 早就不在过渡列表里——
+// 旧写法于是从「滑出去」退化成「瞬移」。改成 translateY(-100%) 既回到已过渡的属性上，
+// 也不再需要那个手抄的 -65px：桌面 64+1、移动 56+1，写死一个数就会和实际高度脱钩。
 .headerUp {
-    top: -65px;
+    transform: translateY(-100%);
 }
 
 .headerDown {
-    top: 0;
+    transform: translateY(0);
 }
 
 // 全站页首（首页 / 文章页 / 归档 / 标签 / 示例 / 编辑器 / 404）统一走 editorial.scss
@@ -620,7 +624,7 @@
                 color: blue;
                 text-decoration: none;
                 background: url('../icons/link_hover_line.svg') repeat-x 0 100%;
-                background-size: 20px auto;
+                background-size: var(--wave-tile) auto;
                 animation: waveMove 1s infinite linear;
             }
         }

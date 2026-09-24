@@ -10,8 +10,15 @@
     --surface-2: #F4F2ED;
     --ink: #14161A;
     --ink-2: #33373E;
-    --ink-3: #6E7480;
-    --ink-4: #A6ABB2;
+    // #6E7480 → #6A6F7B：旧值在暖纸上是 4.46:1，差 0.04 没过 AA 的小字号下限，
+    // 而它正是全站次要文字的主力色。新值在三种底色上都不低于 4.5
+    // （纸 4.78 / 卡面 4.9 / --surface-2 4.50），肉眼与旧值几乎同灰。
+    --ink-3: #6A6F7B;
+    // 2.19 → 3.78：旧值在纸面上只有 2.19:1，而夜间档是 3.81:1——同一层语义在两套
+    // 主题里差近一倍，说明亮色档没跟着调过。现在两档都对齐到 ≈3.8（WCAG 大字号与非
+    // 文本控件的下限）。它仍服务于图标、描边和 ≥18px 的次要文字；小于 18px 的正文性
+    // 文字归 --ink-3，不要让一档灰同时承担「更弱」和「能读正文」。
+    --ink-4: #7A8089;
     --rule: #E6E2D9;
     --rule-2: #D8D3C7;
     --signal: #0F62FE;
@@ -25,6 +32,33 @@
     --radius-m: 4px;
     --radius-l: 8px;
     --gutter: 32px;
+
+    // 动效令牌。补这一组是因为此前全站 23 个自定义属性里没有一个 easing/duration，
+    // 时长与曲线一律硬编码在四十多处规则里（.22s / .2s / 1s / .6s ease-out …），
+    // 新写的动效要么再抄一个字面量，要么和邻居对不齐。
+    // 只收录本批动效真正用到的档位，不做「把每一处旧值都搬进来」的迁移：
+    // 旧规则改引用令牌属于无收益的纯替换，且 cat.scss 那批 1s 过渡是猫表情的
+    // 有意慢半拍，统一成 --dur-3 反而改掉它的性格。
+    --dur-1: 120ms;   // 焦点环、按压回弹这类「要跟手」的
+    --dur-2: 200ms;   // 颜色与位移的默认档
+    --dur-3: 320ms;   // 面板入场、灯箱这类成块的运动
+    --dur-4: 560ms;   // 光扫、脉冲这类装饰性一次性动作
+    --ease-out: cubic-bezier(.22, .61, .36, 1);      // 默认退场曲线，收尾不拖沓
+    --ease-in-out: cubic-bezier(.65, .05, .36, 1);   // 两端都慢，用于面板开合
+    --ease-back: cubic-bezier(.34, 1.56, .64, 1);    // 轻微过冲，用于按压与完成脉冲
+
+    // 入场位移档位。这一组存在的理由不是「统一魔法数字」，而是 postcss 的
+    // 像素转视口黑名单按选择器文本匹配，@keyframes 帧的选择器是 0%/to，
+    // 任何黑名单都够不到——写在关键帧里的 px 一定会被换成 vw（见 editorial.scss
+    // §M6 顶部那条「@keyframes 里不写 px」的规定，以及产物里 9 处 -1.33333vw）。
+    // 只有挂在 :root（黑名单内）的值能原样落地，所以位移量必须从这里取。
+    --travel-s: 4px;    // 悬停预览卡、金句条这类小元素
+    --travel-m: 6px;    // 阅读偏好面板
+    --travel-l: 10px;   // 书架抽屉、逐字入场
+    --travel-xl: 14px;  // 篇末收束层这类整块版面
+    // 正文链接下划线那张 tile 的宽度：关键帧的行程必须与它严格相等，
+    // 否则滚动一个周期接不上。消费方在 common.scss，两边都引用这个令牌。
+    --wave-tile: 20px;
 
     // 阅读偏好（editorial.js §11）的两个可调令牌：正文栏宽与字号倍率。
     // 放在 :root 是因为这块在 postcss 像素转视口的黑名单里，px 不会被换成 vw；
@@ -93,8 +127,85 @@ body.night-mode {
     --scrim: rgba(6, 8, 12, .68);
 }
 
+// 西文 webfont：只下拉丁子集，中文一律不引字体。
+//
+// 为什么只下拉丁：三条栈原先全是系统字体、零 webfont（历史上 base.scss 那两个
+// Merriweather @font-face 是空壳，连同两个 ttf 一起清掉了，见该文件头注）。结果是同一份页面在
+// macOS 上是 Georgia + PingFang，到 Windows 掉成 Times New Roman + 微软雅黑，
+// 到 Linux 可能直接方框——「换字体」真正的收益不在挑更好看的字，而在把这套
+// 跨平台不一致固定下来。补齐中文字形的代价是 MB 级（霞鹜文楷全量 woff2 约 10MB，
+// 按 unicode-range 分片后首片仍要 1.5MB），对一个人博客的首屏不划算；
+// 而拉丁子集里最重的 Newsreader 可变体也只有 57KB，三份合计 76.4KB（78,264B）。
+//
+// url() 相对的是产物（assets/css/）而不是源文件，与 common.scss:622 的
+// `../icons/link_hover_line.svg` 同一套约定：dev/sass/../fonts 这个路径在仓库里
+// 并不存在，Vite 因此不去解析它、原样写进产物，浏览器再按 assets/css/ 解回
+// assets/fonts/。若哪天 dev/fonts/ 真的被建出来，这几条会立刻被 Vite 接管并改名加 hash。
+//
+// 授权：Newsreader、IBM Plex Mono 均为 SIL OFL 1.1，来源与许可见 assets/fonts/LICENSES.md。
+$font-unicode-latin: U+0000-00FF,
+U+0131,
+U+0152-0153,
+U+02BB-02BC,
+U+02C6,
+U+02DA,
+U+02DC,
+U+0304,
+U+0308,
+U+0329,
+U+2000-206F,
+U+20AC,
+U+2122,
+U+2191,
+U+2193,
+U+2212,
+U+2215,
+U+FEFF,
+U+FFFD;
+
+// 标题衬线：Newsreader（可变 wght 400–700，latin 子集）。
+//
+// 为什么不用 Fraunces：它的 f 带一道向左甩出的横担，单看有性格，混在宋体汉字里
+// 就成了「f 像装饰件、不像字母」。而这个 f 是字体本身的字形，不在任何可变轴上
+// （WONK 在 Google 那份 latin 子集里已被裁掉，调 font-variation-settings 无反应），
+// 换不掉，只能换族。
+//
+// 为什么选 Newsreader：f 是正常的衬线 f，同时仍有辨识度（y 的长尾），不至于退化成
+// 又一个 Georgia；它的数字齐线、开口清楚，汉字／英文／数字三者互相好认——这正是
+// Fraunces 那套数字（3 平顶、4 斜开口）做不到的，所以换族之后也不必再为数字单裁
+// 一份子集。
+@font-face {
+    font-family: 'Newsreader';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/newsreader-latin-var.woff2') format('woff2');
+    unicode-range: $font-unicode-latin;
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-mono-latin-400.woff2') format('woff2');
+    unicode-range: $font-unicode-latin;
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-mono-latin-500.woff2') format('woff2');
+    unicode-range: $font-unicode-latin;
+}
+
 // SCSS 别名，供既有与新写的规则集复用
-$font-display: Georgia,
+// 新字体排在各栈首位，其后紧跟原有系统字体：拉丁字形走 webfont，中文由后面的
+// Songti SC / PingFang SC 等接手，两者互不抢占（靠上面的 unicode-range 分派）。
+$font-display: 'Newsreader',
+Georgia,
 'Iowan Old Style',
 'Times New Roman',
 'Songti SC',
@@ -104,7 +215,8 @@ $font-display: Georgia,
 'SimSun',
 serif;
 
-$font-meta: 'SF Mono',
+$font-meta: 'IBM Plex Mono',
+'SF Mono',
 'JetBrains Mono',
 Menlo,
 Consolas,

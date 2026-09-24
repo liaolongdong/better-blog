@@ -10,8 +10,9 @@
 // 本文件承重规则的选择器全部落在 postcss.config.js 的像素转视口黑名单里（.p-about / .pc /
 // .author- / .masthead），时间线的 98px 行高、1000px 轴宽必须是固定值；新增规则别写到
 // .p-about / .g-masthead 之外去，否则会被换成 vw。唯一的例外是 @keyframes：那条黑名单按
-// 选择器匹配，关键帧块的「选择器」是 0%/100%，一律不命中，所以 aboutTextIn 起手的 -10px
-// 在产物里就是 1.33333vw（旧版 enttxt_effect 同样如此，不是这次改出来的）。
+// 选择器匹配，关键帧块的「选择器」是 0%/100%，一律不命中——所以 aboutTextIn 起手的位移
+// 不写字面量，走 tokens.scss 的 --travel-l（:root 在黑名单内，px 原样落地）。
+// 旧版这里曾是 -10px，在产物里被换成 -1.33333vw：1440 屏上多滑 5px，375 屏上只滑 5px。
 
 * {
     box-sizing: border-box;
@@ -364,7 +365,7 @@
 @keyframes aboutTextIn {
     0% {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(calc(var(--travel-l) * -1));
     }
 
     100% {

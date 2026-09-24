@@ -33,7 +33,6 @@ module.exports = {
         /^\.lab-content/,       // weblab页面
         /^\.p-about/,           // about页面
         /^#SOHUCS/,             // 畅言评论区
-        /^\.headerUp/,          // 头部隐藏动画
         // editorial 改造层：这一层的栅格宽度、正文 measure、目录栏宽都是按桌面
         // 视口设计的固定值，一旦被换成 vw 会整体等比缩放（1440 屏上 760px 正文
         // 变成 ~1400px），所以整层选择器一律排除在像素转视口之外。

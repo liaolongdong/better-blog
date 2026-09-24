@@ -192,14 +192,39 @@ AI(13)、开源实测(11)、JavaScript(10)、H5与微信(6)、算法与面试(5)
    那张已下载到本地转成 1440×480 webp，其余 10 篇的 `cover` 已在 front matter 里注释下线。
    另一个写法陷阱是 `cover: ''`：Liquid 里空字符串是**真值**，`{% if post.cover %}` 照样进分支，
    于是渲染出 `<img src="/better-blog">` 的破图。没有封面就整行删掉，别留空串。
-   没写封面时列表卡片走纯文字版式、`og:image` 回落到 `site.social.og_default_image`，都不会破图。
+   没写封面时列表卡片走纯文字版式，`og:image` 则按「本篇生成卡片 → 站点兜底图」两级回落
+   （见下一节），都不会破图。
 
-### 封面图
+### 封面图与分享卡片
 
 `assets/img/{slug}/` 下放成品图。分享卡按 1200×630 出，列表缩略图用 `.webp`。
 配图的工作笔记（出图 prompt、大纲）留在同一目录的 `.md` 里即可——`_config.yml`
 已排除 `"assets/**/*.md"`，它们不会被渲染成公开页面。这条排除项别删：
 一旦去掉，几十份英文出图笔记会变成域名下的薄页面。
+
+**没写 `cover` 的文章不用管分享卡**：`scripts/og-images.mjs` 会为它们逐篇出一张
+1200×630 的品牌卡（分类 · 日期 · 标题 · 站名），落在 `assets/img/og/{slug}.jpg`，
+取值表写在 `_data/og_images.yml`，`_includes/seoMeta.html` 按
+「front matter cover → 本篇卡片 → `site.social.og_default_image`」三级取 `og:image`。
+补这一级是因为兜底图只有的一张：34/67 篇没有 cover，转发到任何平台都是同一张图，
+标题信息白送不要。
+
+新增文章或改了标题/日期/分类之后跑一次：
+
+```bash
+pnpm og:images    # 只画缺失或过期的卡，并刷新 _data/og_images.yml
+pnpm og:check     # 只校验并以非零码退出（缺图、尺寸不对、sig 过期、孤儿 jpg、
+                  # 表里的地址在 _site 中不存在）
+```
+
+两条注意：
+
+1. **卡片是本地生成、提交进仓库的**，GitHub Pages 的构建镜像里没有 Chrome，
+   出图这一步没法放到线上。`--check` 就是为此存在的：它不写文件，只把「图与 front
+   matter 已经不一致」这件事变成一次失败。
+2. **`_data/og_images.yml` 不要手改**，它是脚本产物。表里也登记了有 cover 的那 33 篇
+   （指向各自的 cover），作用是让 `--check` 能分清「有 cover、本就不该有卡」和「漏了」，
+   顺带把每条 cover 指向的文件是否存在一起量一遍。
 
 ### 合集与精选
 
@@ -342,6 +367,8 @@ pnpm build         # 构建全部静态资源
 pnpm build:assets  # 只构建主站
 pnpm build:demo    # 只构建 demo
 pnpm build:site    # 构建静态资源 + 生成 _site
+pnpm og:images     # 为没有 cover 的文章出 1200×630 分享卡（需本机 Chrome）
+pnpm og:check      # 只校验分享卡与 _data/og_images.yml 是否一致，不改文件
 pnpm deploy        # 交互式提交并推送当前分支（推 main 不会触发 Pages 构建）
 pnpm deploy:ali    # 阿里云服务器部署
 ```
@@ -627,11 +654,14 @@ PY
   它在不在，决定的是「全站动效都尊重系统偏好」还是「只有当初单独补过的那几个组件生效」——
   后者正是这一批修之前的状态（`animate.scss`、`common.scss`、`cat.scss`、`bottomFixedBtn.scss`、
   `weblab.scss`、`helper.scss` 各自为政）。所以新加动效不用再补 reduce，但这段不能被动效重构顺手删掉。
-- **`font-display:swap`**：全站只有 `socialshare` 一个字族会走网络，所以只有
-  `dev/libCss/share.min.css` 需要它。其余字族是内联 data URI（本就不阻塞），
+- **`font-display:swap`**：走外网的只有 `socialshare` 一个字族，所以
+  `dev/libCss/share.min.css` 必须带它。`assets/fonts/` 那三份自托管 webfont
+  （Newsreader + IBM Plex Mono 400/500）是同源请求，`dev/sass/common/tokens.scss`
+  里三条 `@font-face` 也都写了 `font-display: swap`，刊头那一条另有 `preload`。
   原先 `base.scss` 里那两个 Merriweather `@font-face` 是空壳、字体文件已删
   （缘由记在 `dev/blog-growth-analysis-2026-09.md` 的 P0-11）。
-  别为了「让这个指标通过」往 `base.scss` 里补 `font-display`——那里没有可挂的字族。
+  别为了「让这个指标通过」往 `base.scss` 里补 `font-display`——那里没有可挂的字族，
+  要挂挂在 `tokens.scss`。
 - **猫的 px→vw 豁免**：`.mao_box` 是 fixed 浮层，被换算过一次之后，设计稿里 200px 的猫在
   1560px 视口下长成 416×362，正好压在刊头导语与统计行上。构建不报错、HTML 也看不出端倪。
   豁免只有 `postcss.config.js` 里 `/^\.mao_box/` 那一条，而它管得住全猫的前提是整份

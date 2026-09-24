@@ -1,0 +1,11 @@
+# 社交入口的可访问名称，键与 _config.yml 的 sns 一一对应。
+# sns 本身是「标识 → 地址」的扁平映射，侧栏图标（index.html / _layouts/post.html）
+# 直接把它画成 <i class="iconfont icon-{键}">，链接里没有任何文字，读屏器只能念出
+# 私有区字符；名字单独放一份，是为了两处消费点共用同一口径，也免得把 sns 改成
+# 结构体——jsonLdAuthor.html:15 与 header.html:64 都按 s[1] 直接取地址。
+# 新增 sns 键却忘了在这里登记时，模板用 `| default: 键名` 兜底，不至于发出空标签。
+email: 邮箱
+weibo: 微博
+juejin: 掘金
+zhihu: 知乎
+github: GitHub

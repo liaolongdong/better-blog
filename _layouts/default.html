@@ -3,7 +3,7 @@
 {% include head.html %}
 <body>
     <!--[if lt IE 10]>
-        <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" class="alert-link" href="https://browsehappy.com">立即升级</a></div>
+        <div class="alert-danger" role="alert">你的浏览器实在太太太旧了，放学别走，升级完浏览器再说！<a target="_blank" rel="noopener noreferrer" class="alert-link" href="https://browsehappy.com">立即升级</a></div>
     <![endif]-->
     <input id="nm-switch" type="hidden" value="{{ site.nightMode }}">
     <div class="visible">
@@ -15,7 +15,12 @@
       {% include cat.html %}
     {% endif %}
 
-    <script src="{{ site.baseurl }}/assets/js/prism.min.js"></script>
+    {%- comment -%}
+    这一版曾经在这里也挂 prism.min.js。删掉：post.html 是自带 <html> 的独立布局，
+    从不走 default，所以这里只会发给非文章页——产物实测 52 个非文章页面里，
+    带 language- 或 code 标记的只有 demo/ 下两个自带骨架、根本不引这份布局的静态页。
+    文章页那一处在 _layouts/post.html 末尾，没动。省 22,482B 未压缩。
+    {%- endcomment -%}
     <script src="{{ site.baseurl }}/assets/js/tools.min.js"></script>
     <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
     <script src="{{ site.baseurl }}/assets/js/editorial.min.js"></script>

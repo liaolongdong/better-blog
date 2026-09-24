@@ -16,14 +16,16 @@
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     {% include seoMeta.html %}
     {% include headAssets.html %}
-    <!-- 只在文章页加载：站内唯一用到 fa 类的是 anchor.html 给标题锚点设的 fa-anchor -->
-    <link rel="stylesheet" href="https://cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css">
     {% include seoScript.html %}
     
 	{% if site.mathjax %}
 	{% include mathjax.html %}
 	{% endif %}
-    {% include anchor.html %}
+    <!-- 标题锚点由 editorial.js 的 initHeadingAnchors() 生成（§6）。
+         这里曾另有一套 jQuery + FontAwesome 的 anchor.html，两套选择器同时命中
+         #post-body 里的同一批标题，于是每个标题两枚锚点、读屏器念两遍；
+         删掉旧那套的同时，站内唯一消费 fa 类的代码也没了，
+         所以下面那行 bootcss 的 font-awesome 一并撤掉。 -->
     {% if site.waline.enable %}
     <link rel="stylesheet" href="https://unpkg.com/@waline/client@v3/dist/waline.css" />
     {% endif %}
