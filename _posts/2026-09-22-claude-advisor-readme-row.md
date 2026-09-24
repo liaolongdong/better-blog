@@ -53,7 +53,7 @@ survivor: README.md status=modified +1 -0 changes=1
 
 倒着排。时间全是 UTC，取自 `/commits` 和 `/pulls/{n}`。
 
-![从最近一次合并往回倒推的时间轴，两段窗口被单独放大：35 分 37 秒与 7 分 2 秒](/assets/img/claude-advisor-readme-row/02-timeline-reverse-window.webp)
+![一条手绘的波浪时间轴上标着两段珊瑚色窗口：左端一块空白招牌配绿色节点，中间一只翻开的空箱，右端一把剪刀剪断飘带、再一个绿色节点与小旗，下方一只眼睛配一支向左的箭头](/assets/img/claude-advisor-readme-row/02-timeline-reverse-window.webp)
 
 - [`2026-09-21T21:10:41Z`](https://github.com/anthropics/financial-services/commit/574ed3624aebd0418c7e96cd101262f30210ab26)，`574ed362` 合进 main，**−2,561 / +0 / 24 个文件**，24 条 `status=removed`。这是 main 上最后一次提交，复核那刻已 1 天 13 小时没动过。
 - [#354](https://github.com/anthropics/financial-services/pull/354) 标题是 `Delete claude-for-financial-advisors directory`，09-16T00:20:43Z 开、09-21T21:10:42Z 合，在路上跑了 5 天 20 小时 49 分 59 秒。
@@ -131,7 +131,7 @@ T2b exit=0
 
 ## 五道门，每一道都放了一次水
 
-![五道门排成一条通道，每道门上方挂着一枚放行标记，漏网的那份文件从中间穿过](/assets/img/claude-advisor-readme-row/03-framework-five-gates.webp)
+![五道门框排成一条通道，一条虚线从左下角的信封出发、贴着门底一路穿到右端的小圆圈；门里分别挂着一面镜子、一把梳子、一道栅栏、一把钥匙，最后一道门的门槛断成几块红色木板](/assets/img/claude-advisor-readme-row/03-framework-five-gates.webp)
 
 `scripts/check.py` 的 docstring 列了它自己干的 5 项，逐字贴第 2 项和第 4 项：
 
