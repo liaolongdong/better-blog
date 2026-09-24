@@ -8,7 +8,14 @@ layout: null
       "url"      : "{{ post.url }}",
       "date"     : "{{ post.date | date: '%Y-%m-%d' }}",
       "category" : {{ post.categories | first | jsonify }},
-      "tags"     : "{% for tag in post.tags %}{% if forloop.rindex != 1 %}{{ tag }} {% else %}{{ tag }}{% endif %}{% endfor %}",
+      {%- comment -%}
+      标签原来是手写循环拼的：循环体里的 {{ tag }} 不过 jsonify，标签里出现一个引号就整份
+      search.json 解析失败，而 editorial.js 的 getCorpus 把这个失败吞成空数组——
+      表现是 ⌘K 无论输什么都显示「没有匹配的文章」，看着像站里没内容。
+      循环本身也只是把数组用空格连起来；join + jsonify 与旧输出逐字相同，
+      消费者 score() 拿字符串做 indexOf、渲染处再 .split(/\s+/)，两头都不需要跟着改。
+      {%- endcomment -%}
+      "tags"     : {{ post.tags | join: ' ' | jsonify }},
       {%- comment -%}
       正文普遍以与标题同文的一级标题开头，excerpt 又只取第一个块：
       先剥标题、再截正文前 160 字，才有既不与标题重复、又不撑大 payload 的摘要。

@@ -40,9 +40,17 @@ pnpm build:site
 ### 部署
 
 ```bash
-pnpm deploy       # 交互式提交并推送「当前分支」
+pnpm deploy       # 交互式提交并推送「当前分支」（提交前列出改动，推送前需按 y 确认）
 pnpm deploy:ali   # 阿里云服务器：拉代码 -> pnpm install -> pnpm build:site
 ```
+
+`deploy-github.sh` 里那两道检查是为这个仓库的实际情况加的：工作区经常同时开着
+第二个会话（在写草稿、在生成插图），`git add -A` 会把它们的半成品一起卷进来，所以
+暂存后先把 `--name-status` 摊开、并要求显式确认；命中私钥 / `ghp_` / `AKIA` 这类
+内容则直接中止（文章示例里真出现这种串时，用 `ALLOW_SECRETS=1 pnpm deploy` 放行）。
+`git pull` 用的是 `--ff-only`：和远端分叉时脚本会停下，而不是自动造一个 merge 提交混进部署。
+中止（密钥命中，或确认时没按 `y`）会把 `add -A` 暂存的东西退回工作区，不留一个「替别人暂存好了」
+的索引；但本次运行前暂存区就已非空时不替你重置——那里可能有只暂存了一半的文件，摊平了就是丢工作。
 
 GitHub Pages 的构建发布由 `.github/workflows/jekyll.yml` 独立完成：
 Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jekyll build`。
@@ -55,7 +63,7 @@ Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jeky
 
 | 环节 | 实际行为 |
 | --- | --- |
-| `pnpm deploy` → `deploy-github.sh` | `git pull` 当前分支 → `git add .` → 交互式输入 commit 信息 → `git push origin <当前分支>` |
+| `pnpm deploy` → `deploy-github.sh` | `git pull --ff-only` 当前分支 → `git add -A` → 列出将提交的文件、拦一道密钥内容检查 → 输入 commit 信息 → 按 `y` 确认后才 `git push origin <当前分支>` |
 | `.github/workflows/jekyll.yml` | `on.push.branches: ["master"]`，另支持 `workflow_dispatch` 手动触发 |
 | Pages 地址 | project site，`baseurl: /better-blog` → <https://liaolongdong.github.io/better-blog/> |
 
