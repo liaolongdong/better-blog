@@ -41,8 +41,12 @@ normalize 与 jQuery 自托管，不再走 cdn.staticfile.org（2026-09-23 实�
 不是网络总体。后果是可复现的：normalize 是阻塞渲染的样式表、jQuery 是阻塞解析的 <script>，
 两者都挂在 <head> 里，headless Chrome 打开任意页都取不到 document.body。
 文件落在 dev/libCss 与 dev/libJs（同名 .min.* 由 vite 原样复制到 assets/，见 vite.config.js
-的 copyMinifiedLibs），版本与字节数与原外链一致（jQuery 3.3.1 / 86,927B，
+的 copyMinifiedLibs），落地那天版本与字节数和原外链一致（jQuery 3.3.1 / 86,927B，
 normalize 6.0.0 / 2,216B），只换来源不换实现。
+jQuery 后来在 2026-09-25 升到 3.7.1 / 87,533B：3.3.1 带着 CVE-2019-11358（$.extend 深拷贝
+原型污染）与 CVE-2020-11022/11023（.html() 解析片段），这三个都是 3.4 / 3.5 里修的，
+停在 3.3.1 就是长年在页面里放一个已知漏洞。新文件由 code.jquery.com 与 jsdelivr 各下一份
+比对，字节一致（sha256 fc9a93dd…f0b1a），仍是同源同实现的那一条 <script>。
 jQuery 仍同步加载、仍排在所有用 $ 的脚本之前：加 defer 会改到执行次序，那是另一回事。
 {%- endcomment -%}
 {%- comment -%}

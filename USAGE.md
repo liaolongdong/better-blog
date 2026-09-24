@@ -380,7 +380,7 @@ pnpm deploy:ali    # 阿里云服务器部署
 
 | 依赖 | 实际最低要求 |
 | --- | --- |
-| jQuery 3.3.1（`_includes/headAssets.html`） | iOS ≥ 9 / Android ≥ 4.4 |
+| jQuery 3.7.1（`dev/libJs/jquery.min.js`，由 `_includes/headAssets.html` 自托管引入） | iOS ≥ 9 / Android ≥ 4.4 |
 | `fetch` + `NodeList.forEach`（阅读量统计） | iOS ≥ 10 |
 | flex `gap`（`.post-meta` 等） | iOS ≥ 14.1 |
 

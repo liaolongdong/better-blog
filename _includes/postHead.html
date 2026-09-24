@@ -27,7 +27,11 @@
          删掉旧那套的同时，站内唯一消费 fa 类的代码也没了，
          所以下面那行 bootcss 的 font-awesome 一并撤掉。 -->
     {% if site.waline.enable %}
-    <link rel="stylesheet" href="https://unpkg.com/@waline/client@v3/dist/waline.css" />
+    <!-- 与 _includes/waline.html 里那行 import 同一个版本、同一个域：JS 钉在 3.15.2、
+         CSS 也必须钉在 3.15.2，否则上游一发新版，样式先跑一步而脚本还停在旧版。
+         原地址是 unpkg.com + 浮动的 @v3；两个域名各下一份 dist/waline.css 比对，
+         均 22,609B、sha256 33b834ad…17a7 完全一致，换源换的是解析确定性，不是样式。 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@waline/client@3.15.2/dist/waline.css" />
     {% endif %}
     {% include cloudflareAnalytics.html %}
 </head>

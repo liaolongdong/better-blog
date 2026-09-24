@@ -426,6 +426,17 @@
       wechatQrcodeTitle: "分享到微信朋友圈",
       wechatQrcodeHelper: '<p>扫码后点击右上角</p><p>将本文分享至朋友圈</p>'
     });
+
+    // social-share.min.js 建链接时只写 href 和 target="_blank"：不带 rel，
+    // 端点常量还全是 http://（weibo/qzone/qq/douban 四个，见 dev/libJs/social-share.min.js）。
+    // 缺 noopener 让第三方分享页能反向操作 window.opener；http 端点在 https 页上
+    // 多一次协议跳转。四个端点都 curl 验证过支持 https，所以直接改写属性。
+    var shareLinks = document.querySelectorAll('.social-share a[target="_blank"]');
+    for (var si = 0; si < shareLinks.length; si++) {
+      var sl = shareLinks[si];
+      sl.rel = ((sl.getAttribute('rel') || '') + ' noopener noreferrer').trim();
+      if (sl.href.indexOf('http://') === 0) sl.href = 'https://' + sl.href.slice(7);
+    }
   </script>
 
   {% if site.changyan.enable %}
