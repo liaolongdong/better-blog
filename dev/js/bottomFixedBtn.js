@@ -1,10 +1,11 @@
 $(document).ready(function () {
-    // 判断是否为移动端
-    if (utils.isMobile()) {
-        // $('.back-to-top').hide();
-        $('.bottom-fixed-btn').hide();
-        return;
-    }
+    // 「小屏不出这组浮层」的判据在 bottomFixedBtn.scss 的 @media 里，不在这里：
+    // 原先读的是 window.screen.width（屏幕宽度，不是视口宽度），窄窗口的桌面
+    // 会被误判成手机、横屏的手机又漏判，还会在首屏留下一次 hide() 的闪烁。
+    // 这组浮层是全站唯一的昼夜切换与返回顶部入口，换判据不等于改口径（小屏依旧不出）。
+    var $pct = $('.scrollpercent');
+    var $top = $('.back-to-top');
+    var lastPercent = null;
 
     // 监听窗口滚动事情
     function syncScrollPercent () {
@@ -15,8 +16,18 @@ $(document).ready(function () {
         var scrollPercentMaxed = scrollable > 0
             ? Math.min(100, Math.round((scrollValue / scrollable) * 100))
             : 0;
-        $('.scrollpercent').html(scrollPercentMaxed);
-        scrollValue > 100 ? $('.back-to-top').fadeIn() : $('.back-to-top').fadeOut();
+        // 读数与无障碍名称一起改：scroll 一帧能来好几次，数字没变就不写 DOM。
+        if (scrollPercentMaxed !== lastPercent) {
+            lastPercent = scrollPercentMaxed;
+            $pct.html(scrollPercentMaxed);
+            // 百分比那截是 aria-hidden 的纯视觉读数，读屏拿不到，所以同步进无障碍名称；
+            // 固定语义在前，数字在后。
+            $top.attr('aria-label', '返回顶部，已阅读 ' + scrollPercentMaxed + '%');
+        }
+        // 显隐由 .is-shown 类驱动（见 bottomFixedBtn.scss）。不再用 fadeIn/fadeOut：
+        // 它按标签名回填 display，<button> 会被放回 inline-block，
+        // 淡入收尾那一刻这颗按钮就从竖排掉进横排。
+        $top.toggleClass('is-shown', scrollValue > 100);
     }
 
     // resize 也要重算：分母里有 window.innerHeight，窗口变矮后可滚距离变小，
@@ -26,6 +37,12 @@ $(document).ready(function () {
 
     // 点击返回顶部
     $('.back-to-top').click(function () {
+        // reduce 档直接跳顶：base.scss 那条 !important 只压得住 CSS 动画，管不了
+        // jQuery 的逐帧滚动，所以这处得自己判 —— 与 about.js / cat.js 的写法一致。
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            $('html, body').scrollTop(0);
+            return;
+        }
         $('html, body').animate({
             scrollTop: 0
         }, 300);

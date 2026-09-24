@@ -6,35 +6,45 @@
  * @Description: 
  -->
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/bottomFixedBtn.min.css">
+<!--
+ 四个控件必须是 <button> 而不是 <div>：它们各带一个 click 处理器（回到顶部 / 切昼夜），
+ 而昼夜切换与返回顶部在全站都没有第二个入口。div 不带 tabindex，根本不在顺序聚焦环里，
+ 键盘无论按多少次 Tab 都跳不到它身上，等于把这两件事对键盘访客收走了。
+ 改后实测（headless，首页 1440×900）：Tab 走到第 111~114 次依次落在这四颗上，
+ Enter 与 Space 各都能切昼夜。换成 button 之后这两种激活由浏览器负责，
+ 下面的 JS 只绑 click，不用补 keydown。
+ aria-label 挂在 button 而不是靠 .b-tool-tip 的文本：提示层是 hover 才 display 的，
+ 读屏器拿不到；「返回顶部」那颗的读数由 bottomFixedBtn.js 同步进 aria-label。
+-->
 <div class="bottom-fixed-btn">
     <!-- 返回顶部 滑动百分比 -->
-    <div class="back-to-top">
+    <button type="button" class="back-to-top" aria-label="返回顶部">
         <span class="iconfont icon-fanhuidingbu"></span>
-        <span class="percent-section"><span class="scrollpercent"></span><span>%</span></span>
+        <span class="percent-section" aria-hidden="true"><span class="scrollpercent"></span><span>%</span></span>
         <span class="b-tool-tip rfll-delay300">返回顶部</span>
-    </div>
+    </button>
     <!-- 切换昼夜模式 -->
-    <div class="switch-daytime-mode">
+    <button type="button" class="switch-daytime-mode" aria-label="切换昼夜模式">
         <span class="iconfont icon-baitianmoshimingliangmoshi"></span>
         <span class="iconfont icon-yejianmoshi"></span>
         <span class="b-tool-tip rfll-delay300">切换模式</span>
-    </div>
+    </button>
     <!-- 加我微信 -->
-    <div class="add-me-wechat">
+    <button type="button" class="add-me-wechat" aria-label="加我微信：扫码添加">
         <span class="iconfont icon-gongzhonghao1"></span>
         <span class="b-tool-tip rfll-delay300">
-            <img src="{{ site.baseurl }}/assets/img/add_me_wechat.png" alt="add_me_wechat" />
+            <img src="{{ site.baseurl }}/assets/img/add_me_wechat.png" alt="个人微信二维码" />
             <span>扫码加我微信</span>
         </span>
-    </div>
+    </button>
     <!-- 关注公众号 -->
-    <div class="follow-official-account">
+    <button type="button" class="follow-official-account" aria-label="关注公众号：扫码订阅">
         <span class="iconfont icon-gongzhonghao"></span>
         <span class="b-tool-tip rfll-delay300">
-            <img src="{{ site.baseurl }}/assets/img/official_account_qrcode.png" alt="add_me_wechat" />
+            <img src="{{ site.baseurl }}/assets/img/official_account_qrcode.png" alt="微信公众号二维码" />
             <span>扫码关注公众号</span>
         </span>
-    </div>
+    </button>
 </div>
 
 <script src="{{ site.baseurl }}/assets/js/util.min.js"></script>

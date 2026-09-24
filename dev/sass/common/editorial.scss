@@ -2314,9 +2314,17 @@ body.toc-open {
 
     // 平板宽度（有触屏判定之外的 500–1239）右下角那组悬浮按钮会压在抽屉上，
     // 抽屉本身已经承担了「导航」职责，让路比叠一层干净。
-    // 权重 (0,2,0) 高于 bottomFixedBtn.min.css 里的 .bottom-fixed-btn，不受引入顺序影响。
-    .bottom-fixed-btn {
+    // 权重 (0,2,1)（body 那层也算一个选择器）高于 bottomFixedBtn.min.css 里的
+    // .bottom-fixed-btn（0,1,0），不受引入顺序影响。
+    //
+    // 原来只有 opacity + pointer-events，漏了一件事：opacity: 0 的元素照样在顺序聚焦环里，
+    // 实测抽屉开着时 Tab 会停在这四颗看不见的按钮上（焦点框画在空气里）。visibility 才是
+    // 把它们移出环的那把钥匙（.toc-mask 用的也是这套）。必须一路点到 .back-to-top：
+    // 它自己那条 .is-shown{visibility:visible} 会把从容器继承来的 hidden 顶掉。
+    .bottom-fixed-btn,
+    .bottom-fixed-btn .back-to-top {
         opacity: 0;
+        visibility: hidden;
         pointer-events: none;
     }
 }
@@ -2331,8 +2339,9 @@ body.toc-open {
     }
 }
 
-// 断点条件里的 px 不参与视口换算（postcss 的 mediaQuery 未开启），
-// 但块内的值会：这一整段选择器都带 .toc / .post-rail / .has-toc，已在黑名单里。
+// 断点阈值里的 px 不会被换掉：postcss-px-to-viewport（1.1.1）只改写规则里的声明值，
+// 从不碰 at-rule 的 params，配置里的 mediaQuery: true 管的是「块内声明要不要一起换」，
+// 与阈值无关。而这一整段块内声明也换不动：选择器都带 .toc / .post-rail / .has-toc，全在黑名单里。
 @media screen and (max-width: 1239px) {
     body.has-toc .toc-fab {
         position: fixed;
@@ -2360,8 +2369,12 @@ body.toc-open {
     }
 
     // 抽屉已经盖住按钮，再留一颗半透明胶囊只会脏一层。
+    // visibility 不只管观感：少了它，抽屉开着时 Shift+Tab 会停在这颗看不见的胶囊上。
+    // 关掉抽屉时 editoral.js 是先摘 .toc-open 再 fab.focus()，所以「把焦点还给触发器」
+    // 这一步发生在它重新可聚焦之后，不会被这条规则挡住（实测 Esc 后 activeElement 仍是它）。
     body.has-toc.toc-open .toc-fab {
         opacity: 0;
+        visibility: hidden;
         pointer-events: none;
     }
 
@@ -2469,6 +2482,17 @@ body.toc-open {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+// 猫和这条浮条钉在同一个角。实测（headless，1240 / 1440 / 1920 三档）只要猫在屏上，
+// 两者就稳定压掉 5200px²：猫的盒子 bottom:30 + 高 174，浮条 bottom:20 + 高 36，
+// 上下正好交叠 26px，盖住的是猫的两只前爪。
+// 让位的是浮条：它是临时的（读完 / 点 × 就没了）、可关的，而猫是全站常驻的门面；
+// 反过来抬猫会连带弄坏 is-tucked 那套「沉下去只留 22px 耳尖」的算法。
+// 抬高量 = 猫的 bottom(30) + 猫盒高(--mao-box-h，在 cat.scss 里只说一次) + 12px 呼吸位。
+// 判据走 body.has-mao（cat.js 的 paint() 独家写），不在这里重算 1240 那条阈值。
+body.has-mao .resume {
+    bottom: calc(30px + var(--mao-box-h, 174px) + 12px);
 }
 
 .resume-link {

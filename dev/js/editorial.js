@@ -294,28 +294,56 @@
         function isOpen() {
             return document.body.classList.contains('toc-open');
         }
-        function close() {
+        /**
+         * @param {boolean} restore 关掉后要不要把焦点接回那颗按钮。
+         *   抽屉关掉时 .post-rail 回到 display:none，落在里面的焦点会被清零、
+         *   掉回 <body>，下一次 Tab 从文档开头重新数 —— 那是把键盘用户扔回页首。
+         *   只在焦点确实还留在抽屉里时接管：鼠标点遮罩那次不抢焦点。
+         */
+        function close(restore) {
             if (!isOpen()) return;
             document.body.classList.remove('toc-open');
             fab.setAttribute('aria-expanded', 'false');
+            if (restore && rail.contains(document.activeElement)) fab.focus();
+        }
+        /**
+         * 跳去某条目录项对应的小节：焦点交给标题，而不是弹回按钮。
+         * 这里既不能 restore=true（人已经不在目录上了），也不能什么都不做
+         * （实测那样焦点会掉成 <body>，下一次 Tab 从文档开头重数）。
+         * 标题本身不可聚焦，按站内锚点的通行做法临时补一个 tabindex="-1"。
+         * preventScroll：滚动是 <a href="#id"> 的默认动作，焦点只负责认领位置。
+         */
+        function jumpToSection(link) {
+            close(false);
+            var id = (link.getAttribute('href') || '').slice(1);
+            var heading = id && document.getElementById(id);
+            if (!heading) return;
+            heading.setAttribute('tabindex', '-1');
+            heading.focus({ preventScroll: true });
         }
         function toggle() {
-            if (isOpen()) { close(); return; }
+            if (isOpen()) { close(true); return; }
             document.body.classList.add('toc-open');
             fab.setAttribute('aria-expanded', 'true');
         }
 
         fab.addEventListener('click', toggle);
         // 遮罩、关闭按钮、每条目录项都指向同一个关闭动作：点完目录应该立刻看到正文。
-        var closers = document.querySelectorAll('[data-toc-close], .toc-link');
-        for (var i = 0; i < closers.length; i++) closers[i].addEventListener('click', close);
+        // 两类的前景不一样，所以分开绑：目录项是「跳走」，其余是「关掉后回到按钮」。
+        var closers = document.querySelectorAll('[data-toc-close]');
+        for (var i = 0; i < closers.length; i++) closers[i].addEventListener('click', function () { close(true); });
+        var links = document.querySelectorAll('.toc-link');
+        for (var j = 0; j < links.length; j++) links[j].addEventListener('click', function (e) {
+            jumpToSection(e.currentTarget || e.target);
+        });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') close();
+            if (e.key === 'Escape') close(true);
         });
 
         // 抽屉打开时正文是锁滚的；窗口拉宽后目录回到右侧栏位，不收掉就留下一屏滚不动的正文。
+        // 这条路径不还原焦点：栏位在宽屏下本来就看得见，焦点没丢。
         var mq = window.matchMedia('(max-width: 1239px)');
-        var onViewport = function (e) { if (!e.matches) close(); };
+        var onViewport = function (e) { if (!e.matches) close(false); };
         if (mq.addEventListener) mq.addEventListener('change', onViewport);
         else if (mq.addListener) mq.addListener(onViewport);
     }

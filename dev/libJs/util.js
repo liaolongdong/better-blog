@@ -12,13 +12,6 @@ class utils {
         var scrollable = document.documentElement.scrollHeight - window.innerHeight;
         return scrollable > 0 ? scrollable : 0;
     }
-
-    /**
-     * 是否为小屏设备
-     */
-    static isMobile() {
-        return window.screen.width < 768;
-    }
 }
 
 // 暴露到全局

@@ -11,6 +11,17 @@
 //
 // 收进一层的代价：每条猫规则的特异度都从 0-1-0 抬到 0-2-0 起，今后想从别的文件用
 // 单类选择器（比如夜间模式改猫配色）覆盖它们，是盖不动的，得写够 .mao_box 那一层。
+//
+// 猫盒子的高度对外说一次：左下角这块地方不只它在用（续读浮条 .resume 也钉在同一角），
+// 让位的一方需要一个能直接比对的数。174 = .mao_head 的 170 加它自己那圈 2px 描边，
+// 与下面「盒子是 200×174」那条注释同源，改猫身形时两处一起改。
+// 放 :root 有两个前提：postcss.config.js 的 selectorBlackList 里有 ':root'（否则这个数
+// 会跟着 px→vw 放大），而 custom property 在计算值阶段解析，不依赖 cat.min.css（footer）
+// 与 index.min.css（head）谁先到。
+:root {
+    --mao-box-h: 174px;
+}
+
 .mao_box {
     position: fixed;
     left: 30px;

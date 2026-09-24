@@ -19,7 +19,16 @@
     .switch-daytime-mode,
     .add-me-wechat,
     .follow-official-account {
-        margin-top: 5px;
+        // 这四个现在是 <button>（键盘可达性要求，见 _includes/bottomFixedBtn.html 的注释）。
+        // button 的 UA 默认是 inline-block，而这一组靠「块级 + margin-top」竖着摞起来，
+        // 所以 display: block 必须显式写回来，否则容器 shrink-to-fit 会把四颗横排。
+        // font: inherit 要排在 font-size 之前，让下面的 12px 盖得住它。
+        display: block;
+        padding: 0;
+        border: 0;
+        font: inherit;
+        -webkit-appearance: none;
+        appearance: none;
         width: 40px;
         height: 40px;
         line-height: 40px;
@@ -32,9 +41,31 @@
         box-shadow: 0 1px 3px rgba(26, 26, 26, 0.1);
     }
 
+    // 上边距只给下面三颗：四颗都带 margin-top 的话，最上面那颗也白吃 5px，
+    // 整组会往上顶一格（容器是按 bottom 定位的，多出来的高度全落在顶部）。
+    .switch-daytime-mode,
+    .add-me-wechat,
+    .follow-official-account {
+        margin-top: 5px;
+    }
+
     .back-to-top {
-        display: none;
+        // 显隐改由 .is-shown 驱动，不再用 jQuery 的 fadeIn/fadeOut：
+        // fadeIn 收尾时按标签名回填 display，<div> 拿回 block、<button> 拿回的却是
+        // inline-block —— 这颗一改成按钮，淡入结束那一刻就会从竖排掉进横排。
+        // 换成 visibility 还有个附带好处：位置始终占着（容器按 bottom 定位，下面三颗
+        // 的落点不变），不像 display:none 那样在滚过 100px 时把整组往上弹一次。
         margin-bottom: 15px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .3s ease, visibility .3s;
+    }
+
+    .back-to-top.is-shown {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
     }
 
     .icon-fanhuidingbu {
@@ -47,15 +78,36 @@
     .back-to-top:hover,
     .switch-daytime-mode:hover,
     .add-me-wechat:hover,
-    .follow-official-account:hover {
+    .follow-official-account:hover,
+    .back-to-top:focus-visible,
+    .switch-daytime-mode:focus-visible,
+    .add-me-wechat:focus-visible,
+    .follow-official-account:focus-visible {
         background: #D3D3D3;
     }
 
-    .back-to-top:hover .percent-section {
+    // 键盘焦点必须有可见落点。这四个在改造前是 <div> 且不带 tabindex，根本不在
+    // 顺序聚焦环里，Tab 永远跳不过去；改成 <button> 之后才轮得到这一条描边。
+    // 颜色跟着站点的焦点语言走 --signal（editorial.scss 的全局 :focus-visible 与
+    // .mao-toggle 用的都是它），明暗两档各有一个值：亮色 #0F62FE、夜间 #6EA8FE。
+    // 这里不省成「靠全局那条就够了」——本文件在 footer 里，比 head 的 index.min.css
+    // 后到，同特异度时是它说了算；写清楚也免得今后有人改这组的盒子时把焦点框改没。
+    // 描边留在外侧 2px，不挤 40×40 的盒子。
+    .back-to-top:focus-visible,
+    .switch-daytime-mode:focus-visible,
+    .add-me-wechat:focus-visible,
+    .follow-official-account:focus-visible {
+        outline: 2px solid var(--signal);
+        outline-offset: 2px;
+    }
+
+    .back-to-top:hover .percent-section,
+    .back-to-top:focus-visible .percent-section {
         display: none;
     }
 
-    .back-to-top:hover .icon-fanhuidingbu {
+    .back-to-top:hover .icon-fanhuidingbu,
+    .back-to-top:focus-visible .icon-fanhuidingbu {
         display: block;
     }
 
@@ -80,7 +132,11 @@
             display: none;
         }
 
-        &:hover {
+        // 提示随焦点一起出现：这四颗现在是可 Tab 到的按钮，键盘用户停上去
+        // 却看不到任何 hover 才有的东西（微信/公众号那颗里是二维码本体），
+        // 等于把功能只留给鼠标。:focus-visible 而不是 :focus，避免鼠标点击时也弹。
+        &:hover,
+        &:focus-visible {
             .b-tool-tip {
                 position: relative;
                 top: -40px;
@@ -113,7 +169,8 @@
     }
 
     .switch-daytime-mode {
-        &:hover {
+        &:hover,
+        &:focus-visible {
             .b-tool-tip {
                 top: -45px;
             }
@@ -122,7 +179,8 @@
 
     .add-me-wechat,
     .follow-official-account {
-        &:hover {
+        &:hover,
+        &:focus-visible {
             .b-tool-tip {
                 top: -76px;
                 left: -112px;
@@ -144,6 +202,20 @@
                 border-color: transparent transparent transparent #FFFFFF;
             }
         }
+    }
+}
+
+// 手机等小视口不出这组浮层（口径与改造前一致，只是判据从 JS 搬到这里，理由见 bottomFixedBtn.js 顶部）。
+// 767 是为了复刻旧的 `screen.width < 768`：严格小于 768 才算小屏，768 整保留可见。
+// 注意 layouts.scss 的移动端布局用的是 `max-width: 768px`，所以恰好 768px 这一像素带里
+// 「移动端布局 + 浮层可见」两件事会同时成立——改前如此，改后也如此，不在这轮顺手挪断点。
+// 单位安全：postcss-px-to-viewport 1.1.1 只改写规则里的声明值，从不碰 at-rule 的 params，
+// 所以这条断点阈值里的 767px 不会被换成 vw（配置里的 mediaQuery: true 管的是「@media 块内的
+// 声明要不要一起换」，与阈值本身无关）。块内只有 display，且 .bottom-fixed-btn 整条选择器
+// 本就在 selectorBlackList 里，两重保险。
+@media screen and (max-width: 767px) {
+    .bottom-fixed-btn {
+        display: none;
     }
 }
 
