@@ -225,6 +225,34 @@
         "五道门，每一道都放了一次水",
         "上期那 5 笔账"
       ]
+    },
+    {
+      "date": "2026-09-24",
+      "job": "B",
+      "slug": "google-ax-workspace-materialization",
+      "variant": "B4",
+      "titleTpl": "T1",
+      "emojiBudget": "sparse",
+      "h2Count": 6,
+      "words": 2654,
+      "tableMode": "irregular",
+      "openingType": "commitMsg",
+      "endingType": "openQuestion",
+      "outlookForm": "todo-list",
+      "styleBlock": false,
+      "highlightBox": true,
+      "h2Titles": [
+        "5 天，4 个提交，30 条讨论",
+        "三样预装，只有第一样动了手",
+        "🕳 那个字段最远走到哪一行",
+        "15 秒、10 分钟，和一次都不会报错的失败",
+        "🪤 照着示例敲完，你手里剩下什么",
+        "那 6 笔账，今天结 3 笔"
+      ],
+      "h2Emoji": [
+        "🕳",
+        "🪤"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -236,7 +264,8 @@
     "T7",
     "T4",
     "T4",
-    "T6"
+    "T6",
+    "T1"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -270,6 +299,10 @@
       [
         "🔬",
         "🧾"
+      ],
+      [
+        "🕳",
+        "🪤"
       ]
     ]
   },
@@ -401,7 +434,13 @@
     "往回倒 11 天：上架 35 分 37 秒，摘掉条目用了 7 分 2 秒",
     "那 2 个字符是谁打进去的",
     "五道门，每一道都放了一次水",
-    "上期那 5 笔账"
+    "上期那 5 笔账",
+    "5 天，4 个提交，30 条讨论",
+    "三样预装，只有第一样动了手",
+    "🕳 那个字段最远走到哪一行",
+    "15 秒、10 分钟，和一次都不会报错的失败",
+    "🪤 照着示例敲完，你手里剩下什么",
+    "那 6 笔账，今天结 3 笔"
   ],
   "promiseQueue": [
     {
@@ -465,40 +504,28 @@
       "slug": "security-audit-two-validators"
     },
     {
-      "text": "盯 `GET /commits?path=README.md`：`claude-for-financial-advisors` 那一行（正文引的 `:113`）哪天消失，正文「集合差活下来 1 行」那句必须改写成「后来也被删了」；09-23T10:34Z 复核它还在",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
-      "text": "盯 #367（09-23T03:57:13Z，rohitberia 问为什么不恢复 wealth-management 或给个理由，建时 0 评论）：到我下次跑这题之前若仍无任何官方回复，就不再把它当「会被回应的问题」来跟，正文那句引用改成一次性记录",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
-      "text": "反向判断也下一条可证伪的：我不觉得这个仓库会补 README 与 markdown 链接的校验（`check.py` docstring 五项没有一项输入是 markdown）。若哪天 `.github/workflows/` 或 `scripts/check.py` 里出现 markdown/README 链接解析，正文第五节「五道门每一道放了一次水」的结论范围要收窄",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
-      "text": "我自己那两份 wxt 扩展仓库补 `.mcp.json` 的 `json.load` 校验（本期 39 parsed / 1 failed 那条 5 行扫描是在 anthropics 那份里跑的，自家还没加），下期正文交代加完之后自家扫描的结果",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
-      "text": "`pnpm-workspace.yaml` 的 `packages:` 一旦出现成员 ≥10 的仓库，就把那张七行版本表拿去重跑；本机两次同口径只扫出 1 份（本博客自己那份、0 个 glob），这是第 2 次顺延，下次仍无成员 ≥10 的样本就按撤回处理",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
       "text": "pnpm fixture 扩成 2 个 task（`ci:compile` + 被拼错依赖的 `ci:lint`）那笔做了一半，另一半栽在 `git init` exit=128；下期先解 exit=128 再验第六节我引用而没复现的执行顺序，验不出来就删那半段引用",
       "registered": "2026-09-22",
       "job": "B",
       "slug": "claude-advisor-readme-row"
+    },
+    {
+      "text": "roadmap §2 那句 `MCP and skill materialization` 一旦出现 setup actor，或 `internal/workspace/` 里冒出读 `Spec.Mcp` 的第四处（同一条 grep：`grep -rn \"\\.Mcp\\b\" --include='*.go' . | grep -v '_test.go\\|\\.pb\\.go'`），回来把本篇第二节「零装配」改成「曾有」",
+      "registered": "2026-09-24",
+      "job": "B",
+      "slug": "google-ax-workspace-materialization"
+    },
+    {
+      "text": "`examples/task.yaml:49` 那份 chalk 的 `git:` 声明若也被从示例里清掉，说明 #391 之后的「稳定面」又缩了一格，本篇第五节那条 todo 兑现",
+      "registered": "2026-09-24",
+      "job": "B",
+      "slug": "google-ax-workspace-materialization"
+    },
+    {
+      "text": "`Spec.Mcp` 的第 4 个读取点：0 就是 0，下次用同一条 grep 复跑，出现就把本篇第三节整节改写",
+      "registered": "2026-09-24",
+      "job": "B",
+      "slug": "google-ax-workspace-materialization"
     }
   ],
   "starSnapshots": {
@@ -601,6 +628,10 @@
     "anthropics/claude-for-financial-advisors": [
       54,
       "2026-09-23T10:34Z"
+    ],
+    "google/ax": [
+      9835,
+      "2026-09-24T14:31:12Z"
     ]
   },
   "aborted": [],
