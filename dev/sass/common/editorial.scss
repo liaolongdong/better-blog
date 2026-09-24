@@ -474,7 +474,7 @@ body {
     font-weight: 500;
     letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .g-sidebar .author-card {
@@ -597,7 +597,7 @@ body {
     padding: 12px 14px;
     font-family: inherit;
     font-size: 14px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     text-align: left;
     background-color: transparent;
     cursor: pointer;
@@ -630,7 +630,7 @@ body {
 
     section,
     section a {
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     section a:hover {
@@ -731,7 +731,7 @@ body {
         font-family: $font-meta;
         font-size: 11.5px;
         letter-spacing: 1px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -777,7 +777,7 @@ body {
 
     li {
         font-size: 12.5px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     strong {
@@ -821,7 +821,7 @@ body {
         font-size: 11.5px;
         letter-spacing: 1.6px;
         text-transform: uppercase;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -847,7 +847,7 @@ body {
         font-family: $font-meta;
         font-size: 10.5px;
         font-style: normal;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     &:hover {
@@ -895,7 +895,7 @@ body {
         font-size: 11.5px;
         letter-spacing: 1.1px;
         text-transform: uppercase;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     .post-preview .post-title {
@@ -933,7 +933,7 @@ body {
         font-size: 12.5px;
 
         .post-meta-item {
-            color: var(--ink-4);
+            color: var(--ink-3);
         }
 
         .meta-icon {
@@ -1024,7 +1024,7 @@ body {
     font-size: 11.5px;
     letter-spacing: 1.1px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 
     a {
         color: var(--ink-3);
@@ -1035,7 +1035,12 @@ body {
     }
 
     .crumb-sep {
-        color: var(--rule-2);
+        // 这一根 "/" 在模板里就写着 aria-hidden="true"（_layouts/post.html:48），
+        // 是纯装饰，不参与文字对比度；但它同时负责把面包屑的几段分开，
+        // 原来取 --rule-2 是分割线那一族（纸面 1.42 / 夜间 1.74），肉眼几乎看不见，
+        // 三段文字于是糊成一条。挪到 --ink-4：图标与描边那一档，3.78 / 3.81，
+        // 够看见、又不跟真正的链接抢注意力。
+        color: var(--ink-4);
     }
 }
 
@@ -1297,7 +1302,7 @@ body.has-toc .post-rail {
 .toc-h3 .toc-link {
     padding-left: 28px;
     font-size: 12px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .toc-item.is-active>.toc-link {
@@ -1382,7 +1387,7 @@ body.has-toc .post-rail {
         font-weight: 500;
         letter-spacing: 1.6px;
         text-transform: uppercase;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -1415,7 +1420,7 @@ body.has-toc .post-rail {
         font-family: $font-meta;
         font-size: 11.5px;
         letter-spacing: .4px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     .related-tag {
@@ -1463,7 +1468,7 @@ body.has-toc .post-rail {
     font-family: $font-meta;
     font-size: 11.5px;
     letter-spacing: 2px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .tool-heading {
@@ -1509,7 +1514,7 @@ body.has-toc .post-rail {
     font-size: 11.5px;
     letter-spacing: 1.1px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .tool-body {
@@ -1524,6 +1529,14 @@ body.has-toc .post-rail {
     font-weight: 500;
     line-height: 28px;
     color: var(--tool-accent, var(--signal));
+}
+
+// --tool-accent 由 tools.html 以内联 style 挂在每个 .tool-section 上，而内联声明压过
+// 任何选择器，所以 tokens 那套「body.night-mode 重新赋值」的换算法对它不生效：
+// 三个产品色在夜间纸面上分别是 3.68 / 3.77 / 3.72，全部够不到 17px 正文要求的 4.5。
+// 夜间退回主题的 --signal（7.62），产品色继续留在特征圈点和主按钮悬停那两处装饰上。
+.night-mode .tool-tagline {
+    color: var(--signal);
 }
 
 .tool-summary {
@@ -1619,12 +1632,12 @@ body.has-toc .post-rail {
     height: auto;
     padding: 0;
     font-size: 13px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     background-color: transparent;
     box-shadow: none;
 
     &:hover {
-        color: var(--ink-4);
+        color: var(--ink-3);
         background-color: transparent;
         box-shadow: none;
     }
@@ -1649,7 +1662,7 @@ body.has-toc .post-rail {
         font-size: 11.5px;
         letter-spacing: .4px;
         text-align: center;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -1666,7 +1679,7 @@ body.has-toc .post-rail {
     font-weight: 500;
     letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .tool-posts ul li {
@@ -1681,7 +1694,7 @@ body.has-toc .post-rail {
         font-family: $font-meta;
         font-size: 12px;
         letter-spacing: .4px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     a {
@@ -1698,7 +1711,7 @@ body.has-toc .post-rail {
 .tool-posts-empty {
     padding: 4px 0;
     font-size: 13.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 
     em {
         font-style: normal;
@@ -1737,7 +1750,7 @@ body.has-toc .post-rail {
         font-family: $font-meta;
         font-size: 11px;
         font-style: normal;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     &:hover {
@@ -1776,13 +1789,13 @@ body.has-toc .post-rail {
     font-family: $font-meta;
     font-size: 11.5px;
     letter-spacing: .8px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .cat-top {
     margin-left: auto;
     font-size: 12.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 
     &:hover {
         color: var(--signal);
@@ -1806,7 +1819,7 @@ body.has-toc .post-rail {
     font-family: $font-meta;
     font-size: 12px;
     letter-spacing: .3px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     font-variant-numeric: tabular-nums;
 }
 
@@ -1826,10 +1839,10 @@ body.has-toc .post-rail {
     justify-content: flex-end;
     gap: 4px 8px;
     font-size: 12px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 
     a {
-        color: var(--ink-4);
+        color: var(--ink-3);
 
         &:hover {
             color: var(--signal);
@@ -1894,7 +1907,7 @@ body.has-toc .post-rail {
     font-weight: 500;
     letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 /*** 7.2 合集：刊头连载条 / 页尾清单 / 系列内翻页 ***/
@@ -1912,7 +1925,7 @@ body.has-toc .post-rail {
     font-family: $font-meta;
     font-size: 11.5px;
     letter-spacing: .6px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .post-series-name {
@@ -1973,7 +1986,7 @@ body.has-toc .post-rail {
     font-size: 11.5px;
     letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .series-title {
@@ -2020,7 +2033,7 @@ body.has-toc .post-rail {
 .series-no {
     font-family: $font-meta;
     font-size: 11.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     font-variant-numeric: tabular-nums;
 }
 
@@ -2034,7 +2047,7 @@ body.has-toc .post-rail {
     font-family: $font-meta;
     font-size: 11.5px;
     letter-spacing: .3px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     font-variant-numeric: tabular-nums;
 }
 
@@ -2098,7 +2111,7 @@ body.has-toc .post-rail {
     font-size: 11px;
     letter-spacing: 1.4px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .series-nav-title {
@@ -2148,7 +2161,7 @@ body.has-toc .post-rail {
         font-style: normal;
         letter-spacing: .3px;
         text-transform: none;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -2174,7 +2187,7 @@ body.has-toc .post-rail {
         font-family: $font-meta;
         font-size: 11.5px;
         line-height: 26px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     &:hover .feed-pick-title {
@@ -2200,7 +2213,7 @@ body.has-toc .post-rail {
     margin-top: 1px;
     font-size: 13.5px;
     line-height: 22px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 /*** 7.4 标题锚点 ***/
@@ -2511,7 +2524,7 @@ body.has-mao .resume {
     font-size: 10.5px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .resume-title {
@@ -2790,7 +2803,7 @@ body.reader-open .post-masthead {
     font-size: 11px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .reader-seg {
@@ -2917,7 +2930,7 @@ body.reader-open .post-masthead {
     margin: 7px 0 0;
     font-family: $font-meta;
     font-size: 10.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 // 外链角标由 JS 加类（editorial.js §12），不用 `[href^=http]` 猜域名——
@@ -2995,7 +3008,7 @@ body.reader-open .post-masthead {
     font-size: 11px;
     letter-spacing: .8px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 // 画布按 2 倍像素绘制，这里靠 CSS 缩回对话框宽度
@@ -3158,7 +3171,7 @@ body.fab-tucked .bottom-fixed-btn {
     background: none;
 
     &::placeholder {
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 }
 
@@ -3167,7 +3180,7 @@ body.fab-tucked .bottom-fixed-btn {
     padding: 1px 6px;
     font-family: $font-meta;
     font-size: 11px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     border: 1px solid var(--rule);
     border-radius: var(--radius-s);
 }
@@ -3180,7 +3193,7 @@ body.fab-tucked .bottom-fixed-btn {
     font-family: $font-meta;
     font-size: 11px;
     letter-spacing: .5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .cmdk-hint kbd {
@@ -3243,7 +3256,7 @@ body.fab-tucked .bottom-fixed-btn {
     font-family: $font-meta;
     font-size: 11px;
     letter-spacing: .4px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     white-space: nowrap;
 }
 
@@ -3267,7 +3280,7 @@ body.fab-tucked .bottom-fixed-btn {
         display: block;
         margin-top: 6px;
         font-size: 13px;
-        color: var(--ink-4);
+        color: var(--ink-3);
 
         a {
             color: var(--signal);
@@ -3844,7 +3857,7 @@ dialog.shelf[open] {
     font-size: 11px;
     letter-spacing: .9px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .shelf-close {
@@ -3902,7 +3915,7 @@ dialog.shelf[open] {
     margin-left: 4px;
     font-family: $font-meta;
     font-size: 10.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .shelf-body {
@@ -3946,7 +3959,7 @@ dialog.shelf[open] {
 .shelf-row-meta {
     margin: 3px 0 0;
     font-size: 11.5px;
-    color: var(--ink-4);
+    color: var(--ink-3);
     font-variant-numeric: tabular-nums;
 }
 
@@ -4010,7 +4023,7 @@ dialog.shelf[open] {
         font-size: 11px;
         letter-spacing: .6px;
         text-transform: uppercase;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     dd {
@@ -4093,7 +4106,7 @@ dialog.shelf[open] {
     font-size: 11px;
     letter-spacing: .9px;
     text-transform: uppercase;
-    color: var(--ink-4);
+    color: var(--ink-3);
 }
 
 .wrap-up-stats {

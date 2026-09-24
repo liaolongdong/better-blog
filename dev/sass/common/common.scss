@@ -421,6 +421,11 @@
         animation: downToUpFade .3s ease 1.5s both;
     }
 
+    // 这一层只留布局：颜色和底色删掉了，因为它们从来没有生效过 ——
+    // editorial.scss 的 .pagination 用同权重 (0,2,0) 的后到规则把
+    // .page-link / :hover / .active 的文字与底色整个换成了语义令牌。
+    // 留着这几行十六进制，每一次对比度审计都会把已经过 AA 的页面重新标成
+    // 「#A9B0BC 2.07:1 / #8F98AA 2.76:1」的缺陷，改的人对着一堆改了没反应的数字。
     .page-link {
         display: block;
         float: left;
@@ -428,21 +433,10 @@
         height: 34px;
         margin: 6px;
         font-size: 16px;
-        color: #A9B0BC;
         line-height: 34px;
         text-align: center;
         border-radius: 2px;
         cursor: pointer;
-
-        &:hover {
-            color: #8F98AA;
-            background-color: #EEF0F4;
-        }
-    }
-
-    .active {
-        color: #8F98AA;
-        background-color: #EEF0F4;
     }
 
     #page-link-container {
@@ -457,19 +451,12 @@
     border-top: 1px solid #E7EAF1;
     text-align: center;
 
+    // 同上：#A6ABB2 在纸面上只有 2.19:1，但它从未是最终取值 ——
+    // editorial.scss 的 .g-footer section / section a 同权重后到，已经把
+    // 文字与链接都换成 --ink-3（4.85）/ hover --ink-2。这里只留排布。
     section {
         font-size: 14px;
         line-height: 20px;
-        color: #A6ABB2;
-
-        a {
-            color: #A6ABB2;
-
-            &:hover {
-                color: #83888F;
-            }
-
-        }
     }
 }
 
@@ -618,10 +605,16 @@
     .markdown-body {
         a {
             text-decoration: underline;
-            color: #0095ff;
-    
+            // #0095ff → var(--signal)：旧值在暖纸上只有 2.96:1，而正文链接是全站出现
+            // 频率最高的可点元素。--signal 亮档 4.75（卡面 5.00）刚好过 AA。
+            // 夜间这一条被下面 .night-mode 里的 #9eacb9 整条盖掉（多一层选择器，权重更高），
+            // 那一档本身有 7.94:1，所以这次改色的实际作用面只有亮色。
+            color: var(--signal);
+
             &:hover {
-                color: blue;
+                // 亮档 #0000FF 在暖纸上是 8.16:1，能用；但它不是令牌，跟着上面的
+                // --signal 一起挪到 --signal-ink（7.24:1），字与下面那条波浪线同色。
+                color: var(--signal-ink);
                 text-decoration: none;
                 background: url('../icons/link_hover_line.svg') repeat-x 0 100%;
                 background-size: var(--wave-tile) auto;
@@ -702,7 +695,12 @@
     height: 260px;
     padding: 0;
     top: 0;
-    background-color: #AAB4CA;
+    // 这张卡在 no-cover 时就是最终底色（有封面时 <img> 会铺满它，改这里不影响那种）。
+    // 原来写死 #AAB4CA：白字 22px/700 在上面只有 2.08，正文下方那行 15px、opacity .8
+    // 的摘要折成 1.82 —— 全站 70 篇里 35 篇没配封面，也就是半站文章的「上一篇/下一篇」
+    // 是一块读不出字的灰板。挪到同色相的深板岩：标题 7.85、摘要 5.74，
+    // 和夜间那张 #484D59 的卡属于同一族，观感上只是把「照片位」换成了「无照片的同一块板」。
+    background-color: #4A5262;
     border-radius: 3px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(109, 127, 144, .5);
@@ -818,17 +816,12 @@
         }
     }
 
-    .pagination {
-        .page-link {
-            &:hover {
-                background-color: rgba(255, 255, 255, .1);
-            }
-        }
-
-        .active {
-            background-color: rgba(255, 255, 255, .1);
-        }
-    }
+    // 这里原有 .pagination 的夜间覆盖两条（.active 的底色、.page-link:hover 的底色，
+    // 分别是 rgba(255,255,255,.1)），删掉是因为 editorial.scss 已经用语义令牌写全了
+    // 分页控件的明暗两态，而这两条多一层 .night-mode（(0,3,0) / (0,4,0)）只盖掉了
+    // 「底色」那一半：.active 的文字仍取自 editorial 的 color: var(--surface)，
+    // 于是夜间变成深色字压在半透明白 pill 上，实测 1.34:1 完全读不出页码。
+    // 令牌在 body.night-mode 下会重新赋值，夜间不需要第二份覆盖表。
 
     .g-sidebar {
         section {
@@ -900,7 +893,10 @@
                 &:hover {
                     color: #cbd5de;
                     background: url('../icons/link_hover_line_night.svg') repeat-x 0 100%;
-                    background-size: 20px auto;
+                    // 亮色那条写的是 var(--wave-tile)，这里原先是字面量 20px。
+                    // 两者今天恰好相等，但 animate.scss 里波动的行程取的是令牌，
+                    // 谁改了 --wave-tile 就会让夜间这条下划线滚完一个周期接不上。
+                    background-size: var(--wave-tile) auto;
                 }
             }
         }
@@ -928,10 +924,11 @@
     .read-next-item {
         background-color: #484D59;
 
-        section {
-            color: #AEB4BD;
-        }
-
+        // 这里原本写着 `section { color: #AEB4BD }`，删掉而不是换个更亮的值：
+        // #AEB4BD 在 #484D59 上，标题 4.06（22px/700 算大字，3.0 门槛够过），
+        // 但那行摘要带 opacity .8、15px，要按 4.5 判 —— 折出来只有 3.19，读不出。
+        // 日间的 `section { color: #fff }` 继承过来就是 8.46 / 6.13，
+        // 而且这块底色本来已经和日间那张深色板同族，没有再单独压一档灰的必要。
         .filter {
             background-color: rgba(0, 0, 0, .6);
         }

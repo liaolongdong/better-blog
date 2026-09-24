@@ -7,7 +7,10 @@
     }
   
     .rewardButton {
-        background-color: #f44236;
+        /* #f44236 上的白字只有 3.70:1（18px 常规字重要求 4.5），压深到 #d93025 是 4.77。
+           悬停档原先是变浅的 #F7877F —— 白字掉到 2.41:1，正是「按下去才看不清」的那类
+           反直觉反馈，改成同色系变深 #b3261e（6.54:1），悬停读作「更实」而不是「更淡」。 */
+        background-color: #d93025;
         -moz-border-radius: 8px;
         -webkit-border-radius: 8px;
         border-radius: 8px;
@@ -21,7 +24,7 @@
     }
   
     .rewardButton:hover {
-        background-color: #F7877F;
+        background-color: #b3261e;
     }
   
     /* 这里原有两条 .wechat:hover p / .alipay:hover p 的 animation: roll .1s infinite，

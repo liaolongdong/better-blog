@@ -57,7 +57,9 @@
   summary: 不改代码、不改后端 CORS、不用重新构建。同一套规则还能改写请求头与响应、Mock 数据、注入延迟、阻断埋点、转发 WebSocket，规则与日志只存本机。
   icon: /assets/img/tools/cop-icon.png
   screenshot: /assets/img/tools/cop-rules.jpg
-  accent: '#409EFF'
+  # 品牌官方蓝是 #409EFF，但它在暖纸底上只有 2.64:1、白字压上去也只有 2.78:1，
+  # 两处都够不到 AA；压深到 #1B6FD1 后 4.70 / 4.95，同一条色相不变。
+  accent: '#1B6FD1'
   badges:
     - Chrome MV3
     - MIT 开源
