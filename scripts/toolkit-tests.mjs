@@ -849,3 +849,279 @@ test('A12 读侧六个入口的入参口径一致，结构非法不得带出派�
     if (resolveRegion(c).level === 'county') assert.equal(isGeneratable(c, 'county'), true, c);
   }
 });
+
+// ── §B 身份证 ──────────────────────────────────────────────────────────────
+
+const { parseIdCard, parseIdCardList, generateIdCards, computeCheckDigit,
+  WEIGHTS, CHECK_MAP, BIRTH_FLOOR, GENERATE_MAX, USE_NOTE, isLeapYear, daysInMonth,
+} = await import('../dev/js/tools/idcard.js');
+const { seededRandom } = await import('../dev/js/tools/random.js');
+
+const FX = JSON.parse(read('scripts/fixtures/id-validator-checkbit-1000.json'));
+/** 用已钉死的校验位算法造合法输入：判据里不再手算末位 */
+const mk = (body17) => body17 + computeCheckDigit(body17);
+const p = (c) => parseIdCard(c.id, { today: c.today });
+const failedKeys = (r) => r.checks.filter((k) => k.ok === false).map((k) => k.key);
+const rowOf = (r, key) => r.checks.find((k) => k.key === key);
+
+test('B1 校验位：§2.2 实跑样本 + 权重表等价性 + 非法输入返回 null 不抛', () => {
+  // 这 9 条的期望值全部来自 2026-09-25 对 demo/idCardDemo/lib/IDValidator.js 的实跑，
+  // 不是自家算完自说自话。440524…0014 就是 §2.2 那条"示例号末位是 4 不是 8"。
+  // '11010119900307001' 那一档实跑是 1（旧库对 …011 放行、对 …013 拒绝），计划早期写的 3
+  // 是抄自上面那条 350 结尾的样本，B4 的三处期望值同步跟。
+  const known = {
+    '11010119900307350': '3', '44052418800101001': '4', '11010118991231001': 'X',
+    '11010119000101001': '4', '11010119900307001': '1', '11011419900307001': '3',
+    '11010120000229001': '8', '11010119990229001': '8', '99010119900307001': '5',
+  };
+  for (const [body, want] of Object.entries(known)) {
+    assert.equal(computeCheckDigit(body), want, `${body} 校验位应为 ${want}`);
+  }
+  assert.equal(WEIGHTS.length, 17);
+  for (let i = 0; i < 17; i += 1) {
+    assert.equal(WEIGHTS[i], 2 ** (17 - i) % 11, `第 ${i + 1} 位权重与 2^(18-i) mod 11 不符`);
+  }
+  assert.equal(CHECK_MAP, '10X98765432');
+  assert.equal(computeCheckDigit('1101011990030735'), null, '16 位 body 要返回 null 而不是抛');
+  assert.equal(computeCheckDigit('11010119900307350X'), null, 'body 含非数字要返回 null');
+  assert.equal(computeCheckDigit(null), null);
+});
+
+test('B2 三态判定与逐项表：三种结论分得开，且看得见是谁否决的', () => {
+  const ok = parseIdCard('110101199003073503', { today: TODAY });
+  assert.equal(ok.state, 'valid');
+  assert.deepEqual(failedKeys(ok), []);
+  assert.deepEqual(ok.checks.map((k) => k.key),
+    ['charset', 'length', 'region', 'birth', 'order', 'checkBit']);
+  assert.equal(ok.info.region.fullName, '北京市东城区');
+  assert.equal(ok.info.sex, '女');                                  // 顺序码 350 → 偶 → 女（旧库同结论）
+  assert.equal(CHECK_MAP[ok.info.checkWork.sum % 11], ok.info.expectedCheckBit);
+
+  const bad = parseIdCard('110101199003073504', { today: TODAY });   // 末位应为 3
+  assert.equal(bad.state, 'checkdigit');
+  assert.deepEqual(failedKeys(bad), ['checkBit']);
+  assert.equal(bad.expectedCheckBit, '3');
+  assert.equal(bad.value, '110101199003073504', '必须原样保留用户填的错末位');
+  assert.equal(bad.suggestedId18, '110101199003073503');
+
+  const malformed = parseIdCard('110101199902290018', { today: TODAY });
+  assert.equal(malformed.state, 'malformed');
+  assert.deepEqual(failedKeys(malformed), ['birth']);
+  assert.equal(rowOf(malformed, 'checkBit').ok, true);               // 校验位本身是通的
+  assert.equal(parseIdCard('', { today: TODAY }).state, 'empty');
+  assert.equal(parseIdCard('   ', { today: TODAY }).state, 'empty');
+});
+
+test('B3 字符集与长度：13 组实测边界，含旧库放过而我们不放的', () => {
+  const cases = [
+    // 小写 x 的样本必须是末位真的该是 X 的号：'…350x' 那一版本体算出来是 3，
+    // 拿它当"小写也接受"的用例只会测到 checkdigit 分支（实跑旧库对 …002x 也是 true）
+    ['11010119900307002x', 'valid'],
+    [' 110101199003073503 ', 'valid'],       // 只 trim 首尾
+    ['110101 199003073503', 'malformed'],    // 内部空格不吞，并给出原因
+    ['1101011990030735031', 'malformed'],    // 19 位
+    ['11010119900307350', 'malformed'],      // 17 位
+    ['11010A199003073503', 'malformed'],
+    ['1101011990030735X3', 'malformed'],     // X 只允许出现在 18 位串末位
+    ['000000000000000000', 'malformed'],     // 省码不存在
+    ['11010190030700A', 'malformed'],        // 旧库判有效（checkOrder 恒真），我们不放过
+    ['110101900307001', 'valid'],            // 15 位
+    ['11010190030700', 'malformed'],         // 14 位
+    [null, 'empty'],
+    [12345678901234567, 'malformed'],        // 数字入参：转字符串后按长度判（旧库对 >15 位的数字直接拒）
+  ];
+  for (const [input, want] of cases) {
+    assert.equal(parseIdCard(input, { today: TODAY }).state, want, `${String(input)} 应判 ${want}`);
+  }
+  const spaced = parseIdCard('110101 199003073503', { today: TODAY });
+  assert.match(rowOf(spaced, 'charset').detail, /空格/);
+  assert.equal(spaced.repairedHint, '110101199003073503');
+});
+
+test('B4 15 位与 18 位互为等价写法，且只在无歧义时给', () => {
+  const from15 = parseIdCard('110101900307001', { today: TODAY });
+  assert.equal(from15.state, 'valid');
+  assert.equal(from15.id18, '110101199003070011');   // body 用「区划 + 19 + yyMMdd + 顺序码」拼，不是错位取 8 位
+  assert.equal(from15.id15, '110101900307001');
+
+  const from18 = parseIdCard('110101199003070011', { today: TODAY });
+  assert.equal(from18.id15, '110101900307001');
+  assert.match(from18.id15Note, /由 18 位去世纪位得来/);
+
+  const y2003 = parseIdCard(mk('11010120030701001'), { today: TODAY });
+  assert.equal(y2003.state, 'valid');
+  assert.equal(y2003.id15, '', '20xx 出生不得给 15 位等价写法（§2.2：造出来是给人埋坑）');
+  assert.equal(y2003.id15Note, '');
+
+  // 校验位不符时也要保留用户末位，同时给出建议形态：判据要显示的就是那个错的位
+  const wrong = parseIdCard('110101199003070014', { today: TODAY });
+  assert.equal(wrong.state, 'checkdigit');
+  assert.equal(wrong.id18, '110101199003070014');
+  assert.equal(wrong.suggestedId18, '110101199003070011');
+});
+
+test('B5 出生日期：闰年、非闰年、上下界、周岁', () => {
+  const leap = parseIdCard('110101200002290018', { today: '2026-09-25' });
+  assert.equal(leap.state, 'valid');
+  assert.equal(leap.info.birth, '2000-02-29');
+  assert.equal(leap.info.ageYears, 26);
+  assert.equal(parseIdCard('110101190001010014', { today: '2026-09-25' }).state, 'valid', `${BIRTH_FLOOR} 本身在界内`);
+  const tooEarly = parseIdCard('11010118991231001X', { today: '2026-09-25' });
+  assert.equal(tooEarly.state, 'malformed');
+  assert.match(rowOf(tooEarly, 'birth').detail, /1900-01-01/);
+  assert.equal(tooEarly.info.birth, '1899-12-31', '越出我们自设下界，仍要把解出来的日期给用户看');
+  const notADate = parseIdCard('110101199902290018', { today: '2026-09-25' });
+  assert.equal(notADate.info.birth, null, '连真实日期都不成立时不给日期');
+  assert.equal(notADate.info.birthRaw, '19990229');
+  const future = parseIdCard(mk('11010120270101001'), { today: '2026-09-25' });
+  assert.equal(future.state, 'malformed');
+  assert.match(rowOf(future, 'birth').detail, /晚于今天/);
+
+  // 生日未到 → 周岁减一；整日比较，不受本机时区影响
+  const b = parseIdCard(mk('11010120001231001'), { today: '2026-09-25' });
+  assert.equal(b.state, 'valid');
+  assert.equal(b.info.ageYears, 25);
+  assert.equal(parseIdCard('110101200002290018', { today: '2026-09-25' }).info.ageYears, 26);
+  assert.equal(isLeapYear(1900), false);
+  assert.equal(isLeapYear(2000), true);
+  assert.equal(daysInMonth(2100, 2), 28);
+});
+
+test('B6 区划查不到不下"无效"结论，且任何输出里不出现「未知」', () => {
+  const uncollected = parseIdCard(mk('11019919900307001'), { today: TODAY });
+  assert.equal(uncollected.state, 'valid', '县级码查不到不能判无效（§5.4）');
+  assert.equal(rowOf(uncollected, 'region').ok, null, '未收录是"不下结论"，不是 false');
+  assert.equal(uncollected.hasCaveat, true);
+  assert.match(uncollected.caveat, /未收录/);
+
+  const historical = parseIdCard(mk('11010319900307001'), { today: TODAY });   // 崇文区，2010 撤销
+  assert.equal(historical.state, 'valid');
+  assert.equal(historical.info.region.status, 'abolished');
+  assert.match(historical.caveat, /未见于现行区划表/, '历史层措辞要诚实，不能断言"已撤销建制"');
+  assert.equal(historical.info.region.fullName, '北京市崇文区');
+
+  // 反面对手：站内旧库对 440524 吐的是「广东省汕头市未知地区」（§2.2 末尾）
+  const fallback = parseIdCard(mk('44052419900307001'), { today: TODAY });
+  assert.equal(fallback.state, 'valid');
+  assert.doesNotMatch(JSON.stringify(fallback.info), /未知/, '我们的输出里不允许出现「未知地区」');
+  assert.ok(fallback.info.region.fullName.length > 0);
+
+  // 顺序码 000：记一条但不下无效结论
+  const seqZero = parseIdCard(mk('11010119900307000'), { today: TODAY });
+  assert.equal(seqZero.state, 'valid');
+  assert.equal(rowOf(seqZero, 'order').ok, null);
+  assert.match(rowOf(seqZero, 'order').detail, /未分配/);
+
+  for (const code of ['110101', '110103', '110199', '440524', '371202', '500101', '990101', 'abcdef', '', null]) {
+    assert.doesNotMatch(resolveRegion(code).fullName, /未知/, `${code} 解出了「未知」`);
+  }
+});
+
+test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', () => {
+  assert.equal(FX.total, 1000);
+  assert.equal(Object.values(FX.groupCounts).reduce((a, b) => a + b, 0), FX.total);
+  for (const [g, n] of Object.entries(FX.groupCounts)) {
+    assert.equal(FX.cases[g].length, n, `${g} 组实际条数与声明的 ${n} 不符`);
+  }
+  for (const [g, n] of Object.entries(FX.groupCounts)) {
+    const uniq = new Set(FX.cases[g].map((c) => c.id));
+    // 覆盖率而不是固定条数：这一档原来是 `>= 250`，可 agree15 只有 100 条样本，
+    // 250 个不同号码数学上取不到（实跑必红）。取样池塌掉时 uniq 会跟着塌，
+    // 一半这个门槛照样有牙：2026-09-25 实跑七组 uniq/n 全是 1.000。
+    assert.ok(uniq.size >= Math.ceil(n / 2),
+      `${g} 去重后只有 ${uniq.size}/${n} 条，取样池太薄，判据没有覆盖力`);
+  }
+
+  for (const c of FX.cases.agree18) {
+    assert.equal(c.oracleValid, true);
+    const r = p(c);
+    assert.equal(r.state, 'valid', `agree18 ${c.id} 判成 ${r.state}`);
+    assert.equal(r.info.region.fullName, c.oracleAddr, `${c.id} 地址名与旧库不一致`);
+    assert.equal(r.info.birth, c.oracleBirth);
+    assert.equal(r.info.sex, c.oracleSex);
+  }
+  for (const c of FX.cases.agree15) {
+    const r = p(c);
+    assert.equal(r.state, 'valid', `agree15 ${c.id} 判成 ${r.state}`);
+    assert.equal(r.info.region.fullName, c.oracleAddr);
+    assert.equal(r.id18.slice(0, 17), `${c.id.slice(0, 6)}19${c.id.slice(6, 12)}${c.id.slice(-3)}`);
+  }
+
+  // 我们更新（一）：旧库在"仅现行表有"的码上回落到市级并吐「未知地区」
+  for (const c of FX.cases.name_current_only) {
+    assert.match(c.oracleAddr, /未知地区/, '夹具里旧库结论应带「未知地区」，否则这组不成立');
+    const r = p(c);
+    assert.equal(r.state, 'valid');
+    assert.equal(r.info.region.status, 'current');
+    assert.equal(r.info.region.county, c.currentName, `${c.id} 没解出现行县级名`);
+    assert.doesNotMatch(r.info.region.fullName, /未知/);
+  }
+  // 我们更新（二）：同码异名，旧库给 2015 年前后的旧名（63 条改的是县名，93 条改的是旧表里的市名/省名）
+  for (const c of FX.cases.renamed) {
+    assert.equal(c.oracleValid, true);
+    assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`));
+    const r = p(c);
+    assert.equal(r.state, 'valid');
+    assert.equal(r.info.region.county, c.currentName, `${c.id} 应当给现行名`);
+    assert.equal(r.info.region.fullName.endsWith(c.currentName), true);
+    assert.notEqual(r.info.region.fullName, c.oracleAddr, `${c.areaCode} 新旧同名，不该进这组`);
+  }
+
+  // 我们更严：只允许由出生日期单独否决，别把校验位算术也污染了
+  for (const g of ['birth_before_1900', 'birth_after_today', 'feb29_nonleap']) {
+    for (const c of FX.cases[g]) {
+      assert.equal(c.oracleValid, true, `${g}: 旧库判了无效，这组的分歧方向不成立`);
+      const r = p(c);
+      assert.equal(r.state, 'malformed', `${g} ${c.id} 判成 ${r.state}`);
+      assert.deepEqual(failedKeys(r), ['birth'], `${g} 应只由出生日期否决`);
+      assert.equal(rowOf(r, 'checkBit').ok, true, `${g} 的校验位算术被污染了`);
+    }
+  }
+});
+
+test('B8 生成：确定性、边界、只用现行码、每条自检为有效', () => {
+  const a = generateIdCards({ count: 5, today: TODAY, rng: seededRandom(20260925), provinceCode: '11' });
+  const b = generateIdCards({ count: 5, today: TODAY, rng: seededRandom(20260925), provinceCode: '11' });
+  assert.deepEqual(a.map((x) => x.id18), b.map((x) => x.id18), '同种子必须同输出');
+  assert.equal(a.length, 5);
+  for (const g of a) {
+    assert.match(g.areaCode, /^11/);
+    assert.equal(resolveRegion(g.areaCode).status, 'current', `${g.areaCode} 不是现行县级码（历史码禁止用于生成）`);
+    assert.equal(parseIdCard(g.id18, { today: TODAY }).state, 'valid', `${g.id18} 自检不过`);
+    assert.ok(g.id18.endsWith(g.checkBit));
+    assert.ok(/[1-9]\d{2}/.test(g.seq), `顺序码 ${g.seq} 不该是 000`);
+  }
+  assert.equal(generateIdCards({ count: 1, today: TODAY, rng: seededRandom(1), sex: 'male' })[0].sex, '男');
+  assert.equal(generateIdCards({ count: 20, today: TODAY, rng: seededRandom(7), sex: 'female' })
+    .every((x) => x.sex === '女'), true, '指定性别却出了男，奇偶调整有洞');
+  assert.equal(generateIdCards({ count: 3, today: TODAY, rng: seededRandom(8), birthDate: '2005-04-01' })
+    .every((x) => x.birth === '2005-04-01'), true);
+  // 边界一律抛，不静默截断（§7 输入硬上限口径）
+  for (const bad of [0, -1, 51, 1.5, '5', null]) {
+    assert.throws(() => generateIdCards({ count: bad, today: TODAY }), RangeError, `count=${String(bad)} 应抛`);
+  }
+  assert.throws(() => generateIdCards({ count: 1, today: TODAY, birthDate: '2099-01-01' }), RangeError);
+  assert.throws(() => generateIdCards({ count: 1, today: TODAY, birthDate: '1899-01-01' }), RangeError);
+  assert.throws(() => generateIdCards({ count: 1, today: TODAY, areaCode: '990101' }), RangeError);
+  assert.throws(() => generateIdCards({ count: 1, today: TODAY, minAge: 60, maxAge: 18 }), RangeError);
+  assert.equal(GENERATE_MAX, 50, '上限 50：不提供"批量导出 1 万条"（§11 风险表）');
+  assert.match(USE_NOTE, /不得用于任何真实身份用途/);
+  assert.match(USE_NOTE, /仅供开发与测试用途/);
+});
+
+test('B9 批量粘贴：逐行独立、行号与粘贴对齐、空行也占一条', () => {
+  const rows = parseIdCardList(
+    '110101199003073503\n\n440524188001010014\n110101199003073504',
+    { today: TODAY },
+  );
+  assert.equal(rows.length, 4, '空行也要占一条，用户看的是同一个行号');
+  assert.deepEqual(rows.map((r) => r.no), [1, 2, 3, 4]);
+  assert.equal(rows[0].result.state, 'valid');
+  assert.equal(rows[1].result.state, 'empty');
+  // 第 3 行是 §2.2 那条 1880 年出生的样本：单条与批量必须同结论（出生日期早于下界）
+  assert.equal(rows[2].result.state, 'malformed');
+  assert.deepEqual(failedKeys(rows[2].result), ['birth']);
+  assert.equal(rows[3].result.state, 'checkdigit');
+  assert.equal(parseIdCardList(null, { today: TODAY }).length, 0);
+  assert.equal(parseIdCardList('110101199003073503\r\n110101199003073504', { today: TODAY }).length, 2);
+});
