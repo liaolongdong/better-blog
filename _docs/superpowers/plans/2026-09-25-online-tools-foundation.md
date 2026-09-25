@@ -325,9 +325,11 @@ test('A2 三级表条数与元信息吻合，码唯一，历史层可分级', ()
   assert.deepEqual(REGION_META.historicalLevels, { county: 1159, city: 70 });
 });
 
-test('A3 产物体积在预算内（gzip ≤ 34KB，设计文档 §7）', () => {
+test('A3 产物体积在预算内（gzip ≤ 36KB，设计文档 §7）', () => {
   const gz = gzipSync(Buffer.from(read('dev/js/tools/region-data.js'))).length;
-  assert.ok(gz <= 34 * 1024, `区划表 gzip ${(gz / 1024).toFixed(1)}KB 超预算`);
+  // 34KB 那条实测只剩 9 字节余量，而同一份字节在 level 6/9 之间就差 194B（Z_FILTERED 下差 2KB）。
+  // 抬到 36KB 吸收的是压缩器抖动，不是数据增长：四张表直接 JSON.stringify 是 62.7KB，照样被拦。
+  assert.ok(gz <= 36 * 1024, `区划表 gzip ${(gz / 1024).toFixed(1)}KB 超预算`);
 });
 
 test('A4 生成物是确定性字节：重跑 --check 必须说一致', () => {
@@ -789,7 +791,7 @@ function joinNames(provinceCode, cityCode, countyName) {
 /**
  * 解一个 6 位行政区划码。返回结构在 §5.4 里定义，供身份证与统一代码两个面板共用。
  *
- * @param {string|number|null} code 6 位行政区划码
+ * @param {string|null} code 6 位行政区划码。只接受字符串：数值、对象等即使数值合法也按结构非法落 none
  * @returns {{
  *   code:string, status:'current'|'abolished'|'uncoded'|'unknown',
  *   level:'county'|'city'|'province'|'none',
@@ -806,7 +808,9 @@ export function resolveRegion(code) {
     province: PROVINCES.get(provinceCode) || '', city: '', county: '',
     fullName: '', note: '',
   };
-  if (!/^\d{6}$/.test(c6)) return { ...base, note: '行政区划码应为 6 位数字' };
+  // 码串按字符串处理，数值入参即使位数合法也拒绝：Number 表达不了前导零，
+  // 静默 String(110101) 解出地名会把调用方的类型错误藏成一次"成功解析"。
+  if (typeof code !== 'string' || !/^\d{6}$/.test(c6)) return { ...base, note: '行政区划码应为 6 位数字字符串' };
 
   // 优先级：现行县级 → 现行市/省级（6 位形如「市级码+00」）→ 历史层 → 市级回落 → 省级回落 → 落空
   const county = COUNTIES.get(c6);
@@ -2925,9 +2929,9 @@ git commit -m "docs(tools): 区划数据与 IDValidator 的许可归属记录，
 
 ### 8.0 为什么收口任务不给功能
 
-段 1 交付的是"将来别人会依赖的东西"：算法表、区划口径、面板契约。这类东西最坏的失败模式不是红，是**绿着错**——判据与被测实现共用同一张表、同一种误解，测试永远亮绿灯。所以 Step 1 用四条变异反向证明判据有牙，一次改错一处，看它是否按预期变红、且红的正是该管的那条。
+段 1 交付的是"将来别人会依赖的东西"：算法表、区划口径、面板契约。这类东西最坏的失败模式不是红，是**绿着错**——判据与被测实现共用同一张表、同一种误解，测试永远亮绿灯。所以 Step 1 用五条变异反向证明判据有牙，一次改错一处，看它是否按预期变红、且红的正是该管的那条。
 
-四条变异各自覆盖一种"复制粘贴就会错"的位置：字符表抄反、模运算少一步、属性值少一对引号、诚实措辞的分支被"简化"掉。**任何一条变异后仍全绿，就是在这一节里补判据，不许把断言删短。**
+五条变异各自覆盖一种"复制粘贴就会错"的位置：字符表抄反、模运算少一步、属性值少一对引号、诚实措辞的分支被"简化"掉、类型闸门被"多余"名义删掉。**任何一条变异后仍全绿，就是在这一节里补判据，不许把断言删短。**
 
 Step 2–4 是同方向的另一半：本段所有新文件都落在 `dev/js/tools/`（Vite 子目录不成入口）、`scripts/`（Jekyll 已排除）、`assets/data/`（`assets/**/*.md` 已排除）三个"应当完全不被产物看见"的位置。这个断言必须用产物证，不能用"我看过配置了"证。
 
@@ -2973,7 +2977,17 @@ mv /tmp/seg1/idcard.orig dev/js/tools/idcard.js && mv /tmp/seg1/uscc.orig dev/js
 
 Expected（M4）：**B6 与 C6 同时红**，红的都是那句措辞断言（`未见于现行区划表`）。这条是本轮写计划时真踩到过的：先只给 `uncoded` 留话、觉得 `abolished` 反正 `ok=true` 不必解释，判据当场把它抓住——63 条同码改名的事实决定了历史层不能断言"已撤销建制"。
 
-四条都还原后，复跑测试命令：
+```bash
+# M5 删掉"只接受字符串"这道类型闸门：数值 110101 会被静默 String() 解成「北京市东城区」
+cp dev/js/tools/region.js /tmp/seg1/region.orig
+node -e "const f='dev/js/tools/region.js',s=require('fs'),t=s.readFileSync(f,'utf8'),n=\"typeof code !== 'string' || \";if(t.split(n).length!==2)throw new Error('M5 匹配数不是 1：'+(t.split(n).length-1));s.writeFileSync(f,t.replace(n,''))"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>/dev/null | grep -E '^(not ok|# (pass|fail))'
+mv /tmp/seg1/region.orig dev/js/tools/region.js
+```
+
+Expected（M5）：`not ok 5 - A5 四级回落链每一档的结论…`，`# pass 5`、`# fail 1`（实测 2026-09-25 逐字如此，且只有 A5 红）。这条是 Task 3 落地时补的：计划原稿的 `resolveRegion` 用 `String(code ?? '')`，而 A5 要求裸数值 `110101` 落到 `level:'none'`，两者直接冲突——照抄实现则判据恒红，照抄判据则实现必须有一道类型闸门。用 `node -e` 而不是 `sed` 下手，是因为这段文本里有 `||` 与引号，`sed` 的转义一旦写错就是**静默不匹配**（`sed -i ''` 匹配不到时退出码仍是 0），而这里先数了匹配次数、不等于 1 就抛错。
+
+五条都还原后，复跑测试命令：
 
 ```bash
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
@@ -3039,7 +3053,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 五条全中才算完：
 
 1. `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` → `# pass 28`、`# fail 0`、`exit=0`。
-2. Task 8 Step 1 四条变异各自让预期那几条判据变红，且还原后复绿。
+2. Task 8 Step 1 五条变异各自让预期那几条判据变红，且还原后复绿。
 3. `pnpm build` 后 `assets/**/*.min.*` 的 29 条哈希与开工基线逐字节一致。
 4. `bundle exec jekyll build` 产物里按路径关键字归因为零命中。
 5. `git log` 上本段的提交边界干净：没有本段文件出现在别人的 commit 里。
@@ -3097,3 +3111,5 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **Task 1 落地后按质量复核改了 `SOURCES.json` 的四条口径**（数据一字未动，四份快照的 `bytes`/`sha256`/`count` 全部复算不变）：① `ref` 与三份 `url` 从可前进的 `master` 换成 pin `6fb5380de7e6…`（tag `2.7.0`，实测三份字节与该 pin 全等），Task 3 的 `REMOTE` 同步换，`--fetch` 因此不可能拉到与记录不符的字节；② `license` 从 `"WTFPL-2.0"` 改成接口真给的 `WTFPL`；③ `licenseVerifiedVia: "…(HTTP 200)"` 换成 `licenseEvidence`，把结论挂到原文哈希上——一次成功的 HTTP 请求不是证据；④ `historical.licenseTextAt` 说清站内只有声明、MIT 的版权行与全文只在上游 `MIT-LICENSE`，Task 7 必须逐字抄。另注：`SOURCES.json` 仍由脚本生成，改的是计划里那段脚本。
 - **§A 判据按质量复核加固五处，其中一条审查建议被有据否决**（`scripts/toolkit-tests.mjs` 与计划正文同步，回抽 diff 仍逐字节相同）：① `TODAY` 从 `new Date(Date.UTC(2026,8,25))` 改成字符串 `'2026-09-25'`——`idcard.js` 的 `toDay()` 对 Date 走本地分量，实测 `TZ=America/Los_Angeles` 下那个 Date 就是 09-24，而 §B 另有十几处直接传字符串，两种基准会随时区翻脸；② A4 的 `assert.match(out, /一致/)` 是假闸门（"不一致"含子串"一致"，实测 stub 打 `与快照不一致` 仍 `# pass`），改成 `/与快照一致/` 加一条 `doesNotMatch(/不一致/)`；③ A5 末行只扫 4 个抽样对象，升格为对全部现行县级 + 全部历史码扫 `fullName`；④ A6 那两行"从快照独立数一遍"里，`provinceCode==='11'` 那行被 `cityCode==='1101'` + 写死的 16 完全蕴含（北京只有一个市辖区），且两行用的都是生成器同一个判据，换成 `Map` 预聚合的逐市对账（实测 342 个 cityCode 两表全等、无孤儿、无空市，O(n)）；⑤ A2 的跨层互斥集补上 `省+'0000'` 形态、`b.note` 改 `b.note ?? ''` 并补 message。**否决 `describe` + `before()` 分段隔离**：实测 suite 形状下失败用例的 `not ok` 行是缩进的（`    not ok 2 - A2`），而 Task 8 Step 1 的四条变异判据全部按行首 `^not ok <用例名>` 锚定，改了就会只看到组名、点名不到该红的判据；`# pass` 计数倒是不变（实测两种形状都是 `# pass 3`），所以这条纯粹是判据形状冲突，代价与理由已写进测试文件头注释。
 - **开工基线里有一个已归因的外部漂移，Task 8 Step 2 会撞上它**：`/tmp/seg1/assets-sha-before.txt` 录于 12:11，第二个会话 12:14 改了 `dev/js/editorial.js`、12:16 重建，`assets/js/editorial.min.js` 现为 `b18d9155…` 而基线里是 `a2e11cbd…`。本段一行代码都没落地（Task 1 只新增 4 份 JSON + 1 份清单，不碰 `dev/`、不碰 Vite 入口），所以**按 Step 2 既有的归因流程处理，不重录基线**：`git log --oneline $(cat /tmp/seg1/head-before.txt)..HEAD -- dev/` 查不到本段对该文件的改动，再 `git status --porcelain dev/js/editorial.js` 见到它是 `M`（别人未提交的改动）即可判定与本段无关，把这一条 diff 单独写进结论。`head-before.txt` 与 `git-before.txt` 保持不动。
+- **Task 3 落地时计划自相矛盾一处，按判据为准收口**：plan 的 `resolveRegion` 写 `String(code ?? '')`、`@param {string|number|null}`，而已提交的 A5 要求裸数值 `110101` 落到 `level:'none'`——照抄实现则 A5 恒红（首跑实测 `not ok 5 … 'county' !== 'none'`）。改成 `typeof code !== 'string' ||` 前置门 + note 补"字符串"三字，理由不是位数而是类型：`Number` 表达不了前导零，静默 `String()` 会把调用方的类型错误藏成一次"成功解析"。影响面实测为零（计划内三个调用方传的都是字符串；全计划无一处断言那句 note 文案），并为此在 Task 8 补了 M5。计划正文的两处（`@param` 行与那道 `if`）已回填，三块代码与磁盘文件的 diff 仍逐字节为空。
+- **A3 的预算从 34KB 抬到 36KB，是量出来的不是让出来的**：钉死输入下产物 gzip 实测 34,807B，34KB 这条只剩 **9 字节**余量；而同一份字节换 `level 6→9` 就差 194B、换 `strategy` 到 `Z_FILTERED` 差 2,036B（本机 Node v22.19.0 实跑）。9 字节挡不住压缩器抖动，那条判据会从"防体积回退"变成"防今天用哪个 Node"。抬预算只吸收抖动、不给数据增长放行：四张表退回朴素 `JSON.stringify` 实测 62.7KB gzip，照样被 36KB 拦下；`--fetch` 刷新带来的增长同样该红。设计文档 §7 里两个估计（92.6KB/31.9KB、32.5KB）偏低约 2KB，已按实测口径改写，差额未逐项归因。
