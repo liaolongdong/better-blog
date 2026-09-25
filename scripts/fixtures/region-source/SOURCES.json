@@ -3,16 +3,18 @@
   "fetchedAt": "2026-09-25",
   "dataset": {
     "provider": "modood/Administrative-divisions-of-China",
-    "ref": "master",
-    "license": "WTFPL-2.0",
-    "licenseVerifiedVia": "GitHub API /repos/modood/Administrative-divisions-of-China/license (HTTP 200)",
+    "ref": "6fb5380de7e6c961869dcd1629df4adc088fa9bb",
+    "refTag": "2.7.0",
+    "refNote": "钉死在不可变的 commit 上；该 commit 是 tag 2.7.0 指向的对象（npm publish china-division@2.7.0，2023-09-13）。抓取当时走的是 `/master/`，实测三份字节与该 pin 完全一致，故清单与生成器的 URL 一律改用 pin，避免分支前进后快照不可复现。",
+    "license": "WTFPL",
+    "licenseEvidence": "以 LICENSE 原文为准（该 commit 下 479 字节，内容 sha256 ee820ff0db4ce628569e0975ac27dc926052a9f85d102b101edb104311ef4d90，blob c6c7def73428adec5eae68aa233c207b3f4957dc），正文首段为「DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE / Version 2, December 2004」，故版本是 v2。GitHub API /repos/modood/Administrative-divisions-of-China/license 返回 license.spdx_id=WTFPL、key=wtfpl，仅作索引佐证——注意该接口给的是 WTFPL 而非 WTFPL-2.0（SPDX 无后者），v2 这个结论的证据在原文而不在接口。",
     "dataAsOf": "2022-10-31",
-    "releaseNote": "数据截止 2022-10-31、发布 2022-12-29；dist/areas.json 最后提交 dc3a1d7acd (2023-09-13)"
+    "releaseNote": "数据截止 2022-10-31、发布 2022-12-29；dist/areas.json 最后提交 dc3a1d7acd85ca1b0979543e9259604142c52e8e (2023-09-13T01:31:33Z)"
   },
   "files": [
     {
       "file": "provinces.json",
-      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/provinces.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/provinces.json",
       "kind": "provinces",
       "bytes": 1081,
       "sha256": "a7e6a230102fee054daa7f63d91ca8da4320c11a2ddd4e5f093999b579fd7d4f",
@@ -20,7 +22,7 @@
     },
     {
       "file": "cities.json",
-      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/cities.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/cities.json",
       "kind": "cities",
       "bytes": 19528,
       "sha256": "3f569aaa0bfbeba72f1597657511c64f54107baae71710fef7146f390a41af32",
@@ -28,7 +30,7 @@
     },
     {
       "file": "areas.json",
-      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/areas.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/areas.json",
       "kind": "areas",
       "bytes": 228316,
       "sha256": "fbe1575eecba4ffd4d50c3d2d6887bd873ceca6a203fb2d66698b5007826b6b6",
@@ -39,9 +41,9 @@
     "file": "gb2260-2015.json",
     "extractedFrom": "demo/idCardDemo/lib/GB2260.js",
     "extractedFromSha256": "7ddc4d7a98009e84689b9f8ebc43652d90551983c640b2825c70971d2286aa54",
-    "upstream": "mc-zone/IDValidator v1.2.0（npm id-validator@1.3.0 同表）",
+    "upstream": "mc-zone/IDValidator v1.2.0（站内副本文件头标称，见 demo/idCardDemo/lib/IDValidator.js:2）",
     "license": "MIT",
-    "licenseTextAt": "demo/idCardDemo/lib/IDValidator.js 文件头：Released under the MIT license",
+    "licenseTextAt": "站内只有声明没有文本：demo/idCardDemo/lib/IDValidator.js:6 为 `Released under the MIT license`，而 GB2260.js 自身零许可头（grep license/copyright 命中 0）。MIT 要求的版权行与许可全文只存在于上游 mc-zone/IDValidator 的 `MIT-LICENSE`（1100 字节，blob 13ded76fafbe13595632ef8128f78fd95de27005，内容 sha256 26efe3b31a157796b88f9fe2633f88ab010fcd31efbedccd8436ac173e01a482，首行 `Copyright (c) 2014 mc-zone`；GitHub API 对它返回 spdx_id=NOASSERTION，只是自动识别失败）。所以本条不算许可文本证据，全文由 Task 7 逐字抄进 assets/data/LICENSES.md。",
     "bytes": 146802,
     "sha256": "9f5142103eb1f1ff0d4a55b8c6cb8c5c2367b4017ab339bd2756839e27bdbdbe",
     "count": 3465,

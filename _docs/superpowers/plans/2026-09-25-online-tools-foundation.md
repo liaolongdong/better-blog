@@ -116,7 +116,7 @@ mkdir -p scripts/fixtures/region-source
 for f in provinces cities areas; do
   curl -sS --http1.1 --retry 5 --retry-delay 3 --max-time 180 \
     -o "scripts/fixtures/region-source/$f.json" \
-    "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/$f.json" \
+    "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/$f.json" \
     && echo "$f -> $(wc -c < scripts/fixtures/region-source/$f.json)B"
 done
 ```
@@ -130,6 +130,8 @@ areas ->      228316B
 ```
 
 > 本机到 `raw.githubusercontent.com` 偶发 `curl: (56) LibreSSL SSL_read ... Operation timed out`（本计划起草过程中 `cities.json` 连续两次超时、`areas.json` 一次成功）。超时重试即可，**不要换成国内镜像源**——字节不同就是另一份数据。三次重试仍拿不到，就停下来报告，不要用旧 `/tmp` 里的文件凑。
+
+> URL 里用 40 位 commit `6fb5380de7e6c961869dcd1629df4adc088fa9bb`（tag `2.7.0`）而不是 `master`：`master` 是可前进的分支，一旦上游再发一版数据，清单里的 URL 就永久不再返回所记录的字节，而 CI 无外网、没人能重下这份快照。该 commit 下三份 `dist/*.json` 与 `master` 同时刻逐字节相同（Task 1 落地后复核：`provinces a7e6a230…`、`cities 3f569aaa…`、`areas fbe1575e…`，sha256 前 12 位本地与 pin 全等），所以换成 pin 不改变任何 Expected 数字，只是把"可复现"从借来的变成自己的。
 
 - [ ] **Step 3: 核对字节数与条数**
 
@@ -187,17 +189,19 @@ const sha = (f) => crypto.createHash("sha256").update(fs.readFileSync(`${dir}/${
 const json = (f) => JSON.parse(fs.readFileSync(`${dir}/${f}`, "utf8"));
 const bytes = (f) => fs.statSync(`${dir}/${f}`).size;
 const count = (f) => { const j = json(f); return Array.isArray(j) ? j.length : Object.keys(j).length; };
-const SRC = "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/";
+const SRC = "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/";
 const manifest = {
   schema: 1,
   fetchedAt: "2026-09-25",
   dataset: {
     provider: "modood/Administrative-divisions-of-China",
-    ref: "master",
-    license: "WTFPL-2.0",
-    licenseVerifiedVia: "GitHub API /repos/modood/Administrative-divisions-of-China/license (HTTP 200)",
+    ref: "6fb5380de7e6c961869dcd1629df4adc088fa9bb",
+    refTag: "2.7.0",
+    refNote: "钉死在不可变的 commit 上；该 commit 是 tag 2.7.0 指向的对象（npm publish china-division@2.7.0，2023-09-13）。抓取当时走的是 `/master/`，实测三份字节与该 pin 完全一致，故清单与生成器的 URL 一律改用 pin，避免分支前进后快照不可复现。",
+    license: "WTFPL",
+    licenseEvidence: "以 LICENSE 原文为准（该 commit 下 479 字节，内容 sha256 ee820ff0db4ce628569e0975ac27dc926052a9f85d102b101edb104311ef4d90，blob c6c7def73428adec5eae68aa233c207b3f4957dc），正文首段为「DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE / Version 2, December 2004」，故版本是 v2。GitHub API /repos/modood/Administrative-divisions-of-China/license 返回 license.spdx_id=WTFPL、key=wtfpl，仅作索引佐证——注意该接口给的是 WTFPL 而非 WTFPL-2.0（SPDX 无后者），v2 这个结论的证据在原文而不在接口。",
     dataAsOf: "2022-10-31",
-    releaseNote: "数据截止 2022-10-31、发布 2022-12-29；dist/areas.json 最后提交 dc3a1d7acd (2023-09-13)",
+    releaseNote: "数据截止 2022-10-31、发布 2022-12-29；dist/areas.json 最后提交 dc3a1d7acd85ca1b0979543e9259604142c52e8e (2023-09-13T01:31:33Z)",
   },
   files: ["provinces", "cities", "areas"].map((n) => ({
     file: `${n}.json`, url: SRC + n + ".json", kind: n,
@@ -207,9 +211,9 @@ const manifest = {
     file: "gb2260-2015.json",
     extractedFrom: "demo/idCardDemo/lib/GB2260.js",
     extractedFromSha256: crypto.createHash("sha256").update(fs.readFileSync("demo/idCardDemo/lib/GB2260.js")).digest("hex"),
-    upstream: "mc-zone/IDValidator v1.2.0（npm id-validator@1.3.0 同表）",
+    upstream: "mc-zone/IDValidator v1.2.0（站内副本文件头标称，见 demo/idCardDemo/lib/IDValidator.js:2）",
     license: "MIT",
-    licenseTextAt: "demo/idCardDemo/lib/IDValidator.js 文件头：Released under the MIT license",
+    licenseTextAt: "站内只有声明没有文本：demo/idCardDemo/lib/IDValidator.js:6 为 `Released under the MIT license`，而 GB2260.js 自身零许可头（grep license/copyright 命中 0）。MIT 要求的版权行与许可全文只存在于上游 mc-zone/IDValidator 的 `MIT-LICENSE`（1100 字节，blob 13ded76fafbe13595632ef8128f78fd95de27005，内容 sha256 26efe3b31a157796b88f9fe2633f88ab010fcd31efbedccd8436ac173e01a482，首行 `Copyright (c) 2014 mc-zone`；GitHub API 对它返回 spdx_id=NOASSERTION，只是自动识别失败）。所以本条不算许可文本证据，全文由 Task 7 逐字抄进 assets/data/LICENSES.md。",
     bytes: bytes("gb2260-2015.json"), sha256: sha("gb2260-2015.json"), count: count("gb2260-2015.json"),
     normalization: "按码升序重序列化，与源 JS 文件的键序无关，因此哈希稳定",
     note: "GB/T 2260 的 2015 年前后口径；只用于解码已撤销建制的历史码，生成侧一律不用",
@@ -449,9 +453,9 @@ const AS_CHECK = ARGV.includes('--check');
 const AS_FETCH = ARGV.includes('--fetch');
 
 const REMOTE = [
-  ['provinces', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/provinces.json'],
-  ['cities', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/cities.json'],
-  ['areas', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/areas.json'],
+  ['provinces', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/provinces.json'],
+  ['cities', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/cities.json'],
+  ['areas', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/areas.json'],
 ];
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -2793,12 +2797,15 @@ Copyright (c) 2014 mc-zone / http://weibo.com/mcishere / The MIT License (MIT)
 
 | 用途 | 来源 | 许可 | 取到的东西 |
 | --- | --- | --- | --- |
-| 现行省／市／县三级区划（`region-data.js` 主层） | [modood/Administrative-divisions-of-China](https://github.com/modood/Administrative-divisions-of-China) 的 `dist/{provinces,cities,areas}.json`，`master` 分支 | WTFPL v2 | 31 / 342 / 2,978 条快照；数据截止 2022-10-31 |
+| 现行省／市／县三级区划（`region-data.js` 主层） | [modood/Administrative-divisions-of-China](https://github.com/modood/Administrative-divisions-of-China) 的 `dist/{provinces,cities,areas}.json`，pin 在 tag `2.7.0` → commit `6fb5380de7e6c961869dcd1629df4adc088fa9bb`（不用可前进的 `master`） | WTFPL v2 | 31 / 342 / 2,978 条快照；数据截止 2022-10-31 |
 | 历史码（已撤销建制，只用于解码） | [mc-zone/IDValidator](https://github.com/mc-zone/IDValidator) 随包的 `GB2260.js`（站内旧副本 `demo/idCardDemo/lib/GB2260.js`） | MIT | 3,465 条，2015 年前后口径 |
 
 WTFPL 的复核方式记在这里，因为它推翻了"记得是 MIT"这类口口相传：GitHub API
 `/repos/modood/Administrative-divisions-of-China/license` 返回 `path=LICENSE`、
-`license.spdx_id=WTFPL`，正文为 WTFPL v2 原文。WTFPL 无任何附加条件，署名纯按惯例。
+`license.spdx_id=WTFPL`，正文为 WTFPL v2 原文（479 字节，`Version 2, December 2004`）。
+**注意接口的 `spdx_id` 只有 `WTFPL`、没有 `WTFPL-2.0`**，版本号是从原文首段读出来的——
+`SOURCES.json` 里 `license` 因此写 `WTFPL`，`licenseEvidence` 则记原文哈希而非「HTTP 200」，
+因为一次成功的请求不是证据。WTFPL 无任何附加条件，署名纯按惯例。
 
 ## 二、数据本体不是这两个仓库的创作
 
@@ -3057,3 +3064,5 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **`uscc.js` 的 `caveat` 条件从只认 `uncoded` 改成 `abolished || uncoded`**：历史码 `ok=true`，漏一句措辞不会红在结构上、只红在文案上，所以判据必须直接断言那句话（C6）。这也是 Task 8 变异 M4 的来源。
 - **Task 8 的四条 sed 已用计划正文抽出的代码块实跑核验**：每条匹配唯一（`grep -c` 变异前后 1↔1），M4 还原后两文件其余 5 处 `abolished` 用法仍在，说明 sed 的匹配范围没有溢出到 `regionOk` 判断与 `detail` 措辞。
 - **面板模块的构造参数 `prefix` 与 `toHash()` 返回 `''` 的两种形状，是原型阶段收敛出来的**：草稿里 `move()` 混用过 `.active` 与 `.active()`、`D4` 少一个 `});`，`node --test` 一次就抓到了。§D 判据 5 条在 `/tmp` 里跑过 `# pass 5 / # fail 0` 才抄进本文件。
+- **Task 1 落地后按质量复核改了 `SOURCES.json` 的四条口径**（数据一字未动，四份快照的 `bytes`/`sha256`/`count` 全部复算不变）：① `ref` 与三份 `url` 从可前进的 `master` 换成 pin `6fb5380de7e6…`（tag `2.7.0`，实测三份字节与该 pin 全等），Task 3 的 `REMOTE` 同步换，`--fetch` 因此不可能拉到与记录不符的字节；② `license` 从 `"WTFPL-2.0"` 改成接口真给的 `WTFPL`；③ `licenseVerifiedVia: "…(HTTP 200)"` 换成 `licenseEvidence`，把结论挂到原文哈希上——一次成功的 HTTP 请求不是证据；④ `historical.licenseTextAt` 说清站内只有声明、MIT 的版权行与全文只在上游 `MIT-LICENSE`，Task 7 必须逐字抄。另注：`SOURCES.json` 仍由脚本生成，改的是计划里那段脚本。
+- **开工基线里有一个已归因的外部漂移，Task 8 Step 2 会撞上它**：`/tmp/seg1/assets-sha-before.txt` 录于 12:11，第二个会话 12:14 改了 `dev/js/editorial.js`、12:16 重建，`assets/js/editorial.min.js` 现为 `b18d9155…` 而基线里是 `a2e11cbd…`。本段一行代码都没落地（Task 1 只新增 4 份 JSON + 1 份清单，不碰 `dev/`、不碰 Vite 入口），所以**按 Step 2 既有的归因流程处理，不重录基线**：`git log --oneline $(cat /tmp/seg1/head-before.txt)..HEAD -- dev/` 查不到本段对该文件的改动，再 `git status --porcelain dev/js/editorial.js` 见到它是 `M`（别人未提交的改动）即可判定与本段无关，把这一条 diff 单独写进结论。`head-before.txt` 与 `git-before.txt` 保持不动。
