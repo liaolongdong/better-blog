@@ -64,7 +64,9 @@ test('A3 产物体积在预算内（gzip ≤ 34KB，设计文档 §7）', () => 
 });
 
 test('A4 生成物是确定性字节：重跑 --check 必须说一致', () => {
-  const out = execFileSync('node', ['scripts/build-region-data.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+  // 用 process.execPath 而不是字面量 'node'：本机 /usr/local/bin/node 是 v16 残留，
+  // 谁把 PATH 顺序改一下，生成器就会被 Node 16 执行，报出的 bad option 会被误读成生成器的 bug。
+  const out = execFileSync(process.execPath, ['scripts/build-region-data.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
   assert.match(out, /一致/);
 });
 

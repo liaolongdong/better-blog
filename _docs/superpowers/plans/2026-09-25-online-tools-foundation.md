@@ -317,7 +317,9 @@ test('A3 产物体积在预算内（gzip ≤ 34KB，设计文档 §7）', () => 
 });
 
 test('A4 生成物是确定性字节：重跑 --check 必须说一致', () => {
-  const out = execFileSync('node', ['scripts/build-region-data.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+  // 用 process.execPath 而不是字面量 'node'：本机 /usr/local/bin/node 是 v16 残留，
+  // 谁把 PATH 顺序改一下，生成器就会被 Node 16 执行，报出的 bad option 会被误读成生成器的 bug。
+  const out = execFileSync(process.execPath, ['scripts/build-region-data.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
   assert.match(out, /一致/);
 });
 
@@ -396,6 +398,8 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected: `Cannot find module ... dev/js/tools/region.js`，`exit=1`。**这一步必须是红的**；如果绿了，说明测试在够不到真产物的地方自我循环，停下来查。
+
+> **本机跑 node 命令不要把 `/usr/local/bin` 放进 PATH 前面**：那里躺着一个 v16.16.0 残留，而本仓库要的是 nvm 的 v22.19.0（默认 PATH 已优先它）。被 v16 跑起来的症状是 `node: bad option: --disable-warning` / `--test`、`exit=9`——那不是判据红，是环境错。若某条命令报 `command not found`，只补 `/usr/bin:/bin:/usr/sbin:/sbin` 这三段，别补 `/usr/local/bin`。
 
 - [ ] **Step 3: 提交红灯**
 
