@@ -23,7 +23,7 @@ seo_archive_title: 'Better 的前端与 AI 技术博客'
 # 学习资料与踩坑记录，并不都成立；「开源项目实测多附可复现命令」才是能被文章对上的说法。
 description: 'Better（中文署名廖小新）的前端与 AI 博客：React、Vue、Node.js、npm、Chrome 插件与 AI Agent 工具链的长期记录，开源实测多附可复现命令，自 2016 年更新。'
 # 逗号一律用半角：旧值里的全角「，」把 canvas 和 Python 粘成了一个检索词。
-# 真名相关的词（廖龙东 / 廖龙东博客 / 廖龙东前端）已按本人要求撤掉。
+# 与真名相关的三个词（本名、本名+「博客」、本名+「前端」）已按本人要求撤掉。
 keyword: '廖小新,Better,Better前端博客,前端开发,web前端,React,Vue,Node.js,npm,Chrome插件,微信小程序,AI Agent,前端开源项目实测'
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
