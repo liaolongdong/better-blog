@@ -253,6 +253,36 @@
         "🕳",
         "🪤"
       ]
+    },
+    {
+      "date": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes",
+      "variant": "A3",
+      "titleTpl": "T5",
+      "emojiBudget": "single",
+      "h2Count": 9,
+      "words": 2971,
+      "tableMode": "none",
+      "openingType": "error",
+      "endingType": "openQuestion",
+      "outlookForm": "embedded-in-limits",
+      "styleBlock": false,
+      "highlightBox": false,
+      "h2Titles": [
+        "bsk doctor 那句报错：我要的 flag 还在 PR 里",
+        "6,804 字节：它只让这一份常驻我的上下文",
+        "四条入口按字节排开，最便宜的反而最能干",
+        "42 个方法、13,581,816 字节的二进制，和 3,037 字节的 --help",
+        "同一条 wxt 线：它那份 extension 和我那个插件",
+        "32 个 a–p 字符：这道门只认形状，不认身份",
+        "我没测的那一半：扩展没装进真浏览器",
+        "17,076 行 skills 目录，和上期那句 16,599 行",
+        "🗂 十笔旧账：五笔结、两笔改撤、一笔结一半、两笔仍挂"
+      ],
+      "h2Emoji": [
+        "🗂"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -265,7 +295,8 @@
     "T4",
     "T4",
     "T6",
-    "T1"
+    "T1",
+    "T5"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -303,6 +334,9 @@
       [
         "🕳",
         "🪤"
+      ],
+      [
+        "🗂"
       ]
     ]
   },
@@ -440,17 +474,20 @@
     "🕳 那个字段最远走到哪一行",
     "15 秒、10 分钟，和一次都不会报错的失败",
     "🪤 照着示例敲完，你手里剩下什么",
-    "那 6 笔账，今天结 3 笔"
+    "那 6 笔账，今天结 3 笔",
+    "bsk doctor 那句报错：我要的 flag 还在 PR 里",
+    "6,804 字节：它只让这一份常驻我的上下文",
+    "四条入口按字节排开，最便宜的反而最能干",
+    "42 个方法、13,581,816 字节的二进制，和 3,037 字节的 --help",
+    "同一条 wxt 线：它那份 extension 和我那个插件",
+    "32 个 a–p 字符：这道门只认形状，不认身份",
+    "我没测的那一半：扩展没装进真浏览器",
+    "17,076 行 skills 目录，和上期那句 16,599 行",
+    "🗂 十笔旧账：五笔结、两笔改撤、一笔结一半、两笔仍挂"
   ],
   "promiseQueue": [
     {
       "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）",
-      "registered": "2026-09-21",
-      "job": "A",
-      "slug": "one-worktree-per-agent"
-    },
-    {
-      "text": "orca 若把 cask 拆成能增量更新的包（v1.4.203→206 五天涨 5,483,650 B 的 mac zip），给它一次真跑的机会；否则一个钟头的下法不该只对我一个人成立",
       "registered": "2026-09-21",
       "job": "A",
       "slug": "one-worktree-per-agent"
@@ -462,46 +499,11 @@
       "slug": "one-worktree-per-agent"
     },
     {
-      "text": "下次跑任何前端仓库的测试之前，先 `which -a git` 把 PATH 换一遍再报数（上期那 18 个红的真因是 /usr/local/bin/git 2.23.0 挡住了 2.39.2，不是仓库的问题）",
-      "registered": "2026-09-21",
-      "job": "A",
-      "slug": "one-worktree-per-agent"
-    },
-    {
-      "text": "继续盯 mattpocock/skills 是否按 #1064 打出第一个 plugin tag（09-17、09-21 两次复查均仍为 v1.2.3，本期已是第三次挂账）",
-      "registered": "2026-09-21",
-      "job": "A",
-      "slug": "one-worktree-per-agent"
-    },
-    {
-      "text": "复查 PR #45（Bound source line numbers from above）和 PR #9（fix: reject invalid trace line numbers）有没有被合——两条都堵 validate-findings.cjs:512 那个 `line` 无上界的洞（#9 建于 08-11、#45 建于 09-19，都还 0 评论）。任一被合，正文里 `1e21` 与 `2^53+1` 都 exit=0 那两句必须删",
+      "text": "拿本期量出的 planned 1,053 B / covered 2,276 B 每 unit 这两个字节数，回头量我自己那两份 wxt 扩展仓库的真实 ledger 形状（`src/` 入口面数 × 信任边界数），确认 5 MiB 这道门对我到不到得了｜09-23 半结：第一份已量（10 份 spec / 2,029 行 / 报告 543,871 B），第二份仍未动",
       "registered": "2026-09-22",
       "job": "A",
-      "slug": "security-audit-two-validators"
-    },
-    {
-      "text": "复查 PR #44（findings 与 coverage ledger 对账）和 #34/#26/#25（local-check artifact 是否真在盘上）的状态：#44 一进 main，我那组「两道各自绿灯的门之间没人对账」的组合实验就失效，那一节要重写",
-      "registered": "2026-09-22",
-      "job": "A",
-      "slug": "security-audit-two-validators"
-    },
-    {
-      "text": "复查 PR #33（给两份 validator test suite 加 CI workflow，09-17 建）。合了就删正文「65 个测试目前没有自动执行入口」那句，并回去确认 `.github/` 是否出现在仓库树里",
-      "registered": "2026-09-22",
-      "job": "A",
-      "slug": "security-audit-two-validators"
-    },
-    {
-      "text": "下期再写 skill 类主角，安装环节先跑一次 `npx skills add --list` 并把退出码重定向到文件外取（不要用管道，管道会把 `$?` 变成 head 的），补上本期 I-02b 那个「首跑退出码未取到」的洞",
-      "registered": "2026-09-22",
-      "job": "A",
-      "slug": "security-audit-two-validators"
-    },
-    {
-      "text": "拿本期量出的 planned 1,053 B / covered 2,276 B 每 unit 这两个字节数，回头量我自己那两份 wxt 扩展仓库的真实 ledger 形状（`src/` 入口面数 × 信任边界数），确认 5 MiB 这道门对我到不到得了",
-      "registered": "2026-09-22",
-      "job": "A",
-      "slug": "security-audit-two-validators"
+      "slug": "security-audit-two-validators",
+      "half_open": true
     },
     {
       "text": "pnpm fixture 扩成 2 个 task（`ci:compile` + 被拼错依赖的 `ci:lint`）那笔做了一半，另一半栽在 `git init` exit=128；下期先解 exit=128 再验第六节我引用而没复现的执行顺序，验不出来就删那半段引用",
@@ -526,6 +528,36 @@
       "registered": "2026-09-24",
       "job": "B",
       "slug": "google-ax-workspace-materialization"
+    },
+    {
+      "text": "把这份扩展装进一个不登录任何站点的新 profile，跑一次 `snapshot`，量它一次任务真吐给 agent 多少字节，与 `SKILL.md` 那 6,804 常驻比谁大（09-23 悬置疑问①②：本期没把扩展装进真浏览器，「一次任务吐多少字节」这个数没有）",
+      "registered": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes"
+    },
+    {
+      "text": "`allowed_extension_ids` 哪天从 `crates/bsk-cli/src/daemon/ws.rs:39` 的注释变成 `DaemonConfig` 的真实字段（配 `ws.rs:41-44` 那句「同机侧载现在能过」被删），就回来改写安全那一节；它一直是注释，那一节就照形状口径写",
+      "registered": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes"
+    },
+    {
+      "text": "PR #275 一旦进 main，开头那段 `error: unexpected argument '--no-wait' found` 压成一句，并把「我要的 flag 还在 PR 里」这个小标题作废",
+      "registered": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes"
+    },
+    {
+      "text": "chrome-devtools-mcp 升到 1.9.0 之后重跑同一条 `tools/list` stdio 探测，看 25,766 是否继续涨、`name`+`description` 层（1.8.0 是 4,037 B）是否继续缩",
+      "registered": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes"
+    },
+    {
+      "text": "第二份 wxt 扩展仓库的 ledger 形状（承接上期那半笔）：入口面数 × 信任边界数，与 10 份 spec / 2,029 行 / 543,871 B 那份并排，再判 5 MiB 那道门",
+      "registered": "2026-09-23",
+      "job": "A",
+      "slug": "browser-skill-context-bytes"
     }
   ],
   "starSnapshots": {
@@ -632,6 +664,10 @@
     "google/ax": [
       9835,
       "2026-09-24T14:31:12Z"
+    ],
+    "Tencent/BrowserSkill": [
+      6823,
+      "2026-09-23T10:40:32Z"
     ]
   },
   "aborted": [],
