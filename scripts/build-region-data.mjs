@@ -16,11 +16,19 @@
  *                                                 # 退出码 1（此刻 SOURCES.json 哈希已落后，见上面第 3 条）
  *
  * 三条输入闸门口径（第 1 条由判据 A7 自证，第 2 条由 A10 自证，第 3 条由 A8 自证）：
- *   1. 四份快照逐条过形状校验，历史层与现行三层走同一套规则：名称必须是"非空字符串"。
- *      少了这道闸，缺字段的行会被 String() 成 `undefined` 编进产物，读侧解出「北京市undefined」。
+ *   1. 四份快照逐条过形状与引用两道校验，历史层与现行三层同一套规则：码与名称都必须是"非空
+ *      字符串"，父级码必须与该行码的前缀**逐字相等**且**真的在那张表里**。少了名称那道闸，
+ *      缺字段的行会被 String() 成 `undefined` 编进产物，读侧解出「北京市undefined」；少了码的
+ *      类型闸，数值 1101 同样被 String() 洗成合法码，而 §build 里"按层级查现行"的三个集合存的
+ *      是原始值，旧表的 110100 因此凭空多成一条历史码；少了父码存在性那道，孤儿县编进产物之后
+ *      只有条数判据会红，且 A9 那句指向"产物被截断"，指错了方向。三样各有独立注入：摘名称闸
+ *      红 A7 + A11（`# pass 10 / # fail 2`），摘码类型闸只红 A7 的第 8 条，摘父码存在性闸只红
+ *      A7 的第 9、10 条——最后那道的两个分支各钉一条，因为只钉县级那条时删掉市级分支没人红。
  *   2. --fetch 先把三份抓进内存并全部过第 1 条那道闸，才一次性落盘；任何一步失败都不改任何文件。
  *   3. 换数据是两步动作，不是一步：--fetch 写快照 → 人工把新的 sha256/bytes/count 同步进
  *      SOURCES.json → 再跑一次生成器。产物与清单必须同时换版，所以清单哈希不符时拒绝生成。
+ *      生成器只认 sha256，bytes / count / schema 三样在门里是惰性的；§B 要求人照着它们核对，
+ *      所以 A8 按真实字节复算一遍，注解腐烂即红。
  *
  * 编码格式（与 dev/js/tools/region.js 的解析器一一对应，改一边必须改另一边）：
  *   RAW_PROVINCES    `码2,名`                     组间 | 分隔
@@ -59,7 +67,7 @@ function parseArgs(argv) {
 }
 
 // 参数闸门在读写任何文件之前生效；用法错只打一行、不打堆栈——手打错一个字母的人
-// 要看的是用法行，不是 build-region-data.mjs:53 那一段。
+// 要看的是用法行，不是 `parseArgs` 那一段抛栈。
 let flags;
 try {
   flags = parseArgs(process.argv.slice(2));
@@ -101,13 +109,13 @@ function verifyManifest(manifest) {
 }
 
 /**
- * 名称必须是"真正的非空字符串"。这是全生成器唯一的一道名称类型闸门，被 assertShape 与
- * assertNoDelimiters 共用：少了它，`String(undefined)` 会得到 `'undefined'`，一路编进产物变成
- * `02undefined`，读侧解出「北京市undefined」这种看着像地名的事实上不是的东西，
+ * 名称必须是"真正的非空字符串"。全生成器只有这一道名称类型闸门，挂在 assertShape 上：
+ * 少了它，`String(undefined)` 会得到 `'undefined'`，一路编进产物变成 `02undefined`，
+ * 读侧解出「北京市undefined」这种看着像地名的事实上不是的东西，
  * 而 §A 原有六条判据一条都不会红（实测：删掉 areas.json 里 110102 的 name 并重算清单哈希）。
  * @param {string} code 该行的区划码，只用于把报错指到具体行
  * @param {unknown} name 待校验的名称
- * @param {string} scope 层级名（省级 / 县级 / 历史层 / 快照），出现在报错里
+ * @param {string} scope 层级名（省级 / 市级 / 县级 / 历史层），出现在报错里
  */
 function assertNameString(code, name, scope) {
   if (typeof name === 'string' && name !== '') return;
@@ -118,10 +126,15 @@ function assertNameString(code, name, scope) {
   throw new Error(`${scope} ${code} 的名称不是非空字符串（${got}），拒绝生成`);
 }
 
-/** 名称里出现分隔符会让整张表错位解析，必须在生成时挡住 */
+/**
+ * 名称里出现分隔符会让整张表错位解析，必须在生成时挡住。
+ * 这里**不再**重复做一遍类型检查：唯一调用方在 assertShape 之后，四张表的 name 已逐行过了
+ * assertNameString，所以那一道内层闸门永远不会单独被触发——实测删掉它，12 条判据一条都不红。
+ * 一道红不起来的闸门等于没有闸门，还可能反过来误导（让人以为这里另有独立的类型规则）。
+ * 类型闸门只有一个家，就是 assertShape；assertNoDelimiters 那道调用本身有牙，
+ * 删掉它 A7 的第 7 条（名字里带全角逗号、形状全对）会红。
+ */
 function assertNoDelimiters(pairs) {
-  // 类型闸门必须在任何 String() 转换之前：先转再判，undefined 就成了合法字符串 "undefined"
-  for (const [code, name] of pairs) assertNameString(code, name, '快照');
   const bad = pairs.filter(([, name]) => /[|,\s，、；：]/.test(name));
   if (bad.length) {
     throw new Error(`名称含分隔符，编码格式会崩：${bad.slice(0, 5).map(([c, n]) => `${c}:${n}`).join('  ')}`);
@@ -129,8 +142,9 @@ function assertNoDelimiters(pairs) {
 }
 
 /**
- * 逐行形状校验。四道：行是对象、码形、name 是非空字符串、父码逐字前缀，外加码唯一。
- * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。
+ * 逐行形状校验。五道：行是对象、码是非空数字字符串、name 是非空字符串、父码逐字前缀，外加码唯一。
+ * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。code 那一道同理由：
+ * `String(row.code)` 会先把数值 1101 洗成合法码串，见下面的注释。
  * 父码那一道原本只查 startsWith，位数不足的父码漏过去了，见函数体注释。
  * @param {Array<{code:string, name:unknown}>} rows 待校验行
  * @param {number} len 码的位数
@@ -140,7 +154,19 @@ function assertNoDelimiters(pairs) {
 function assertShape(rows, len, label, parentField) {
   for (const row of rows) {
     if (!row || typeof row !== 'object') throw new Error(`${label} 存在非对象行：${JSON.stringify(row)}`);
-    const code = String(row.code);
+    // 码的类型闸门必须在 String() 之前，理由与 name 那道一模一样，但后果不一样：
+    // 数值 1101 过了 `String()` 之后码形正则、父子码等式、重复码检查全部放行，而 build()
+    // 里"按其层级查现行"的三个 Set 存的是原始值（`new Set(cities.map(c => c.code))` 里是
+    // 数字 1101，不是字符串 '1101'），旧表里的 110100 因此在市级查不到、凭空多出一条历史码。
+    // 实测注入之后生成器 exit 0，产物把 110100 照样解成「北京市」（读侧毫无异常），
+    // 判据红的是 A1（historical 1230 期望 1229）与 A2（110100 同时出现在两层）两道条数/层级
+    // 检查（`# pass 9 / # fail 3`）；多出来那条红是 A7 自己的 findRow 助手找不到 1101 那行
+    // （码成了数值就按字符串匹配不上），不是闸门在说话。三道没有一道的报错说得出
+    // "1101 这一行的 code 类型不对"。
+    if (typeof row.code !== 'string') {
+      throw new Error(`${label} 的码不是字符串：${JSON.stringify(row.code)}`);
+    }
+    const code = row.code;
     if (!new RegExp(`^\\d{${len}}$`).test(code)) throw new Error(`${label} 码形不对：${code}`);
     assertNameString(code, row.name, label);
     // 父码必须与 code 的前 len-2 位**逐字相等**。这里原本写的是 startsWith，而它挡不住
@@ -150,7 +176,8 @@ function assertShape(rows, len, label, parentField) {
     // currentCityCodes('11') 变成空数组（1101 被挂到了 '1' 名下）。
     // 等式不需要额外的"父码是 len-2 位数字"正则：code 自己已过数字码形，
     // 任何与 code.slice(0, len-2) 相等的值自动就是 len-2 位数字。
-    if (parentField && code.slice(0, len - 2) !== String(row[parentField])) {
+    // 父码的类型同样不用单独查：与已过类型闸门的 code 逐字相等的值必然是字符串。
+    if (parentField && code.slice(0, len - 2) !== row[parentField]) {
       throw new Error(
         `${label} ${code} 的父级码应逐字等于 ${code.slice(0, len - 2)}，实际是 ${JSON.stringify(row[parentField])}`,
       );
@@ -158,6 +185,34 @@ function assertShape(rows, len, label, parentField) {
   }
   const codes = rows.map((r) => r.code);
   if (new Set(codes).size !== codes.length) throw new Error(`${label} 存在重复码`);
+}
+
+/**
+ * 引用完整性：父码"形状对"不等于"父码存在"。这是 assertShape 管不到的一层——它只把
+ * parentField 与 code 的前缀比对，两边都是这一行自己的字段，整张表里有没有那个父亲它不知道。
+ * 实测注入一条 `{code:'119901', cityCode:'1199'}`（1199 不是任何现行市）之后生成器 exit 0，
+ * 产物里 119901 自成一组编进 counties 段，读侧对 119901 给出 uncoded/province「北京市」；
+ * 红下来的三道判据报的都是条数，其中 A9 那句是「产物被截断，或编码格式与解析器已经不同步」，
+ * 指错了方向。而 §B 的 --fetch 流程本来就要求人在新数据进来时上调 REGION_META.counts，
+ * 拿条数当唯一防线等于把这道闸门写在会被顺手改掉的注释里。
+ * @param {Array<{code:string}>} provinces 已过形状闸门的省级行
+ * @param {Array<{code:string, provinceCode:string}>} cities 已过形状闸门的市级行
+ * @param {Array<{code:string, cityCode:string}>} areas 已过形状闸门的县级行
+ */
+function assertParentsExist(provinces, cities, areas) {
+  const provCodes = new Set(provinces.map((p) => p.code));
+  const cityCodes = new Set(cities.map((c) => c.code));
+  // 先市后县：县码的父码是市码，市码的父码是省码，报错时不必让人自己去查是哪一层悬空
+  for (const c of cities) {
+    if (!provCodes.has(c.provinceCode)) {
+      throw new Error(`市级 ${c.code} 的父级码 ${c.provinceCode} 不在省级表里，拒绝生成`);
+    }
+  }
+  for (const a of areas) {
+    if (!cityCodes.has(a.cityCode)) {
+      throw new Error(`县级 ${a.code} 的父级码 ${a.cityCode} 不在市级表里，拒绝生成`);
+    }
+  }
 }
 
 /**
@@ -178,15 +233,17 @@ function assertInputShape({ provinces, cities, areas, legacy }) {
   // 任何按条数的判据都看不见它，产物里却编进 `110224,null`，读侧解出 fullName「null」；
   // 5 位键同样能过，然后由 region.js 按 00/0000 后缀猜层级。所以形状规则与现行三层同一条。
   const legacyRows = Object.entries(legacy).map(([code, name]) => ({ code, name }));
-  // 顺序是"先形状、后分隔符"：assertShape 带层级名（县级 110102 …），报错能指到是哪张表的
-  // 哪一行；assertNoDelimiters 只拿到 (码, 名) 对，说不了层级。它内部那道类型闸门仍然保留，
-  // 这样任何调用方传进来的非字符串名字也不会先被 String() 洗成合法值。
-  // 两道各有独立的注入：去掉下面那次 assertNoDelimiters 调用，A7 只有第 6 条（名字里带全角
-  // 逗号、形状全对）会红；去掉 assertShape 里的父码前缀判断，红的只有第 5 条。
+  // 顺序是"先形状、再引用、后分隔符"：assertShape 带层级名（县级 110102 …），报错能指到是
+  // 哪张表的哪一行；引用完整性那道要等三张表都过了形状才查得到"父亲在不在"；
+  // assertNoDelimiters 只拿到 (码, 名) 对，说不了层级，所以排最后。
+  // 三道各有独立的注入：去掉 assertNoDelimiters 那次调用，A7 只有第 7 条（名字里带全角逗号、
+  // 形状全对）会红；去掉 assertShape 里的父码逐字等式，红的是第 5、6 条；去掉
+  // assertParentsExist，红的是第 9、10 条；去掉 code 的类型闸门，红的是第 8 条。
   assertShape(provinces, 2, '省级');
   assertShape(cities, 4, '市级', 'provinceCode');
   assertShape(areas, 6, '县级', 'cityCode');
   assertShape(legacyRows, 6, '历史层');
+  assertParentsExist(provinces, cities, areas);
   assertNoDelimiters(
     [...provinces, ...cities, ...areas].map((x) => [x.code, x.name])
       .concat(legacyRows.map((x) => [x.code, x.name])),

@@ -100,8 +100,8 @@ test('A3 产物体积在预算内（gzip ≤ 36KB，设计文档 §7）', () => 
   // 数的候选写法摊成网格复算（四表各自的列集与键序 × 历史层五种取法 × 四种包裹方式，320 格），
   // 最接近的原文只有 262,183B，那一版压根没有对应构造，已删。
   // 下面两版是照着构造跑得出来的（输入 = scripts/fixtures/region-source/ 的四份快照，
-  // 历史层走生成器那道按层级查现行的判据 build-region-data.mjs:204-217，得 1,229 条
-  // = 1,159 县 + 70 市）：
+  // 历史层走生成器 build() 里 curCounty/curCity/curProv 三个 Set 那道按层级查现行的判据，
+  // 得 1,229 条 = 1,159 县 + 70 市）：
   //   单对象 {provinces,cities,counties,historical}，行形状 provinces{code,name} /
   //     cities{code,provinceCode,name} / counties{code,cityCode,name} / historical{code,name}
   //     —— 262,233B 原文 / 47,559B(L6) / 44,578B(L9)
@@ -186,6 +186,37 @@ test('A5 六档回落链每一档的结论（样本全部 2026-09-25 实读自�
   assert.equal(resolveRegion('469001').fullName, '海南省五指山市');
   assert.equal(resolveRegion('653201').fullName, '新疆维吾尔自治区和田地区和田市');
   assert.equal(resolveRegion('522702').fullName, '贵州省黔南布依族苗族自治州福泉市');
+
+  // 第五档"自己哪一档都不在、只有父级市在历史层"（region.js 的 histCity 分支）。
+  // 整档此前零判据：把它删掉之后 12 条判据一条都不红（2026-09-25 实测），而 371299 从
+  // abolished/city「山东省莱芜市」退成 uncoded/province「山东省」——用户看到的是省名，
+  // 建制结论整档丢了。3712 是 2019 年并入济南的莱芜市市码，现行市级表没有它，
+  // 而 371299 这个「市码+99」连旧表里也没有，所以全链条只有这一档接得住。
+  const underHistCity = resolveRegion('371299');
+  assert.deepEqual(
+    { s: underHistCity.status, l: underHistCity.level, n: underHistCity.fullName },
+    { s: 'abolished', l: 'city', n: '山东省莱芜市' },
+    '市级父码在历史层这一档必须独立成立，不得退到省级回落');
+  assert.match(underHistCity.note ?? '', /^所属地市/, '这一档走市级的半句文案');
+  assert.equal(underHistCity.county, '', '这一档没有县级名可挂');
+
+  // 同一段地名不得在fullName里出现两次。快照实读两类共 19 条：
+  //   市名==县名 4 条（441900 东莞市、442000 中山市、460400 儋州市、620201 嘉峪关市）；
+  //   县名本身以市名开头 15 条（130272「唐山市汉沽管理区」挂在 1302 唐山市 下等，
+  //   全是 2022 口径里的功能区）。朴素拼接给出「广东省东莞市东莞市」「河北省唐山市唐山市
+  //   汉沽管理区」。整改前把剥离那一行摘掉，12 条判据一条都不红——那 19 条既不在 A5 的
+  //   抽样里，A5 的全表扫描又只查「未知」。现在摘它红的是 A5 一处（`# pass 11 / # fail 1`）。
+  assert.equal(resolveRegion('441900').fullName, '广东省东莞市');
+  assert.equal(resolveRegion('620201').fullName, '甘肃省嘉峪关市');
+  assert.equal(resolveRegion('130272').fullName, '河北省唐山市汉沽管理区');
+  assert.equal(resolveRegion('410773').fullName, '河南省新乡市平原城乡一体化示范区');
+  // 前缀剥离只剥得掉重复的那一段：同一个市下不以市名开头的县，名字一个字都不许少
+  assert.equal(resolveRegion('130204').fullName, '河北省唐山市古冶区');
+  assert.equal(resolveRegion('130207').fullName, '河北省唐山市丰南区');
+  for (const code of [...currentCountyCodes(), ...historicalCodes()]) {
+    const { fullName } = resolveRegion(code);
+    assert.doesNotMatch(fullName, /(.{2,})\1/u, `${code} 的全名有相邻重复：${fullName}`);
+  }
 
   // 结构非法的输入不得抛异常，只能落到 none
   for (const bad of ['', '11010', '1101010', 'abcdef', null, undefined, 110101]) {
@@ -405,11 +436,12 @@ const patchTable = (exportName, mutate) => (src) => {
   return `${src.slice(0, m.index)}${m[1]}'${mutate(m[3])}';${src.slice(m.index + m[0].length)}`;
 };
 
-test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点名到码与闸门', () => {
-  // 七条各打一道不同的规则，不让它们互相顶包：
-  //   名称闸门（缺字段 / 空串 / null）、历史层码形闸门（5 位键，分隔符检查看不见它）、
-  //   父子码前缀闸门（名字全对，只有分组依据坏了）、分隔符闸门（形状全对，只有名称里带了
-  //   编码格式用的标点——去掉 assertNoDelimiters 那一次调用，只有这一条会红）。
+test('A7 生成器的输入闸门：十种坏形状各自独立被拒，且点名到码与闸门', () => {
+  // 十条各打一道不同的规则，不让它们互相顶包（同一道规则的两个分支算两道，见市/县那两条
+  // 引用完整性）：名称闸门（缺字段 / 空串 / null）、码类型闸门、历史层码形闸门（5 位键，
+  // 分隔符检查看不见它）、父子码前缀闸门（名字全对，只有分组依据坏了）、父码引用完整性闸门
+  // （父码形状对、前缀也对，但表里没有那个父亲）、分隔符闸门（形状全对，只有名称里带了
+  // 编码格式用的标点——去掉 assertNoDelimiters 那一次调用，只有第 7 条会红）。
   // 每条注入后都重封 SOURCES.json，所以红的一定是形状闸门而不是哈希闸门。
   const cases = [
     // [注入, 改哪份快照, 怎么改, 报错必须点名的码, 报错必须出现的那道闸门/表名]
@@ -417,7 +449,7 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
     ['县级行的 name 是空字符串', 'areas.json', (d) => { findRow(d, '110105').name = ''; }, '110105', '县级'],
     ['历史层某条的值是 null', 'gb2260-2015.json', (d) => { d['110224'] = null; }, '110224', '历史层'],
     ['历史层出现 5 位键', 'gb2260-2015.json', (d) => { d['11022'] = d['110224']; delete d['110224']; }, '11022', '历史层'],
-    ['市级行的父码对不上', 'cities.json', (d) => { findRow(d, '1101').provinceCode = '99'; }, '1101', '市级'],
+    ['市级行的父码对不上', 'cities.json', (d) => { findRow(d, '1101').provinceCode = '99'; }, '1101', '父级码应逐字等于'],
     // 这一条打的不是"父码不相等"，而是"父码短了一位还算不算相等"：'1' 是 '1101' 的合法前缀，
     // 原本那道 startsWith 会放行，只有逐字等式拦得住。实测注入它之后旧闸门 exit 0、
     // 12 条判据全绿，产物里 currentCityCodes('11') 是空数组（1101 挂到了 '1' 名下）。
@@ -425,6 +457,22 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
       (d) => { findRow(d, '1101').provinceCode = '1'; }, '1101', '父级码应逐字等于'],
     ['县级名里带全角逗号：形状全对，只有分隔符违规', 'areas.json',
       (d) => { findRow(d, '110108').name = '海淀区，北京'; }, '110108', '名称含分隔符'],
+    // 码必须是字符串。`String(row.code)` 会把数值 1101 洗成合法的 '1101' 过掉码形正则，
+    // 可 §build 那三个"查现行"的集合存的是原始值（Set 里有数字 1101、没有字符串 '1101'），
+    // 于是旧表里的 110100 按市级查不到，凭空多出一条历史码。实测注入之后生成器 exit 0，
+    // 红的是 A1「historical: 1230 期望 1229」与 A2「110100 同时出现在两层」两道条数/层级判据
+    // （A7 也红，但红在它自己的 findRow 助手找不到 1101 那行，与闸门无关），
+    // 没有一道的报错说得出"1101 这一行的 code 类型不对"。（读侧看不出任何异常：110100 照样解成北京市。）
+    ['市级行的 code 是数值：String() 洗白、按层级查现行时漏配', 'cities.json',
+      (d) => { findRow(d, '1101').code = 1101; }, '1101', '码不是字符串'],
+    ['县级行的父码表里根本没有：形状对、引用悬空', 'areas.json',
+      (d) => { d.push({ code: '119901', name: '孤儿区', cityCode: '1199', provinceCode: '11' }); },
+      '119901', '不在市级表'],
+    // 引用完整性那道有两个分支（市查省、县查市），各钉一条才谈得上"独立被拒"：只留县那一条，
+    // 删掉市那个 for 循环没有任何判据会红。这一条的父码 '99' 与 code 前 2 位逐字相等，
+    // 前缀等式那道拦不住它，只有"表里到底有没有这个父亲"拦得住。
+    ['市级行的父码形对、等式也对，可省级表里没有 99', 'cities.json',
+      (d) => { d.push({ code: '9901', name: '新设市', provinceCode: '99' }); }, '9901', '不在省级表'],
   ];
   for (const [what, file, mutate, code, gate] of cases) {
     const r = runGeneratorOn((fix) => patchJson(fix, file, mutate));
@@ -435,13 +483,13 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
     assert.match(r.out, new RegExp(gate), `${what}：报错没指认是哪张表/哪道闸门（${gate}）`);
   }
   // 正向对照：同一套闸门必须放过干净快照，且产物字节与仓库里那份逐字节相同。
-  // 少了这一句，上面六条可以是因为"怎么跑都红"而变绿。
+  // 少了这一句，上面十条可以是因为"怎么跑都红"而变绿。
   const clean = runGeneratorOn();
   assert.equal(clean.code, 0, `干净快照被拒：${clean.out}`);
   assert.equal(clean.artifactSameBytes, true, '干净快照生成的产物与仓库产物不是同一份字节');
 });
 
-test('A8 清单哈希的两条消费路径都盖住历史层快照', () => {
+test('A8 清单哈希的两条消费路径都盖住历史层快照，人读注解字段与真实字节一致', () => {
   const manifest = JSON.parse(read('scripts/fixtures/region-source/SOURCES.json'));
   const declared = new Map(manifest.files.map((f) => [f.file, f.sha256])
     .concat([[manifest.historical.file, manifest.historical.sha256]]));
@@ -461,6 +509,21 @@ test('A8 清单哈希的两条消费路径都盖住历史层快照', () => {
   assert.notEqual(r.code, 0, '历史层快照换了字节，verifyManifest 竟然放过');
   assert.match(r.out, /快照哈希不符：gb2260-2015\.json/, '哈希闸门没指到历史层那一份');
   assert.equal(r.wroteArtifact, false, '哈希不符还继续生成产物');
+  // 路径三（人读的那一半）：清单里除哈希还有 schema / bytes / count，生成器一个都不看——
+  // 它只认 sha256，那是唯一的机器闸门。这三样一旦腐烂就没有任何自动机制会发现，而 §B 的
+  // --fetch 流程恰恰要求人照着 bytes 与 count 核对新抓下来的数据，等于把对不上号的注解
+  // 当成核对基准。所以这里按真实字节复算：注解字段不进门，但必须与门里的东西一致。
+  // 只核 bytes 不核 sha 的反面不成立：bytes 相同而内容不同是可能的，那道由 sha256 管。
+  // 不核 historical.extractedFromSha256——那是站内旧副本 demo/idCardDemo/lib/GB2260.js 的哈希，
+  // 段 5 删掉 demo 之后这条断言必然挂，而清单里的这个字段是归属证据、不是输入依赖。
+  assert.equal(manifest.schema, 1, '清单的 schema 版本变了，读它的判据要一起改');
+  for (const e of manifest.files.concat([manifest.historical])) {
+    const buf = readFileSync(resolve(ROOT, 'scripts/fixtures/region-source', e.file));
+    const table = JSON.parse(buf.toString('utf8'));
+    assert.equal(e.bytes, buf.length, `${e.file} 的 bytes 注解与真实字节不符`);
+    assert.equal(e.count, Array.isArray(table) ? table.length : Object.keys(table).length,
+      `${e.file} 的 count 注解与表里实际条数不符`);
+  }
 });
 
 test('A9 读侧对产物自检：schema、条数、分隔符漂移，坏一处必须抛', async () => {
@@ -734,14 +797,27 @@ test('A12 读侧六个入口的入参口径一致，结构非法不得带出派�
     assert.equal(provinceName(padded), '北京市', JSON.stringify(padded));
     assert.equal(cityName(padded), '市辖区', JSON.stringify(padded));
     assert.equal(currentCountyCodes(padded).length, 1, JSON.stringify(padded));
-    assert.equal(currentCityCodes(padded).length, currentCityCodes('11').length, JSON.stringify(padded));
   }
   // 前缀入口同样 trim：不 trim 的话 ' 1101 ' 会被当成 6 位前缀去 startsWith，静默空集
   for (const [padded, bare] of [[' 1101 ', '1101'], ['\t11\t', '11']]) {
     assert.equal(currentCountyCodes(padded).length, currentCountyCodes(bare).length,
       `${JSON.stringify(padded)} 与不带空白的必须同一个答案`);
+    assert.equal(currentCityCodes(padded).length, currentCityCodes(bare).length,
+      `${JSON.stringify(padded)}：市级入口同理，两个入口不能一个 trim 一个不 trim`);
     assert.ok(currentCountyCodes(bare).length > 0, `前缀 ${bare} 一个结果都没有，这条对照本身坏了`);
   }
+  // 前缀只收窄、绝不放宽，两个入口必须是同一个意思。市级入口旧写法把任意长前缀一律
+  // `slice(0, 2)` 回去查省索引，实测 currentCityCodes('4419') 给 21 条（整个广东省）
+  // 而 currentCountyCodes('4419') 给 1 条——'4419' 在县级入口是"东莞市的县"，
+  // 在市级入口却变成"广东省的市"。随机地址面板同时用这两个入口，口径分叉就是错数据。
+  // 条数是 2026-09-25 快照实读值，'44' 一档同时钉住"省级前缀仍走省索引"：
+  // 收窄不等于把 2 位前缀也当成 4 位码的前缀去筛。
+  for (const [p, expect] of [['44', 21], ['441', 8], ['4419', 1], ['44190', 0], ['441900', 0]]) {
+    const got = currentCityCodes(p);
+    assert.equal(got.length, expect, `前缀 ${p} 的收窄结果不对：${got.join(' ')}`);
+    assert.ok(got.every((c) => c.startsWith(p)), `前缀 ${p} 收窄出了不匹配前缀的市码：${got}`);
+  }
+  assert.deepEqual(currentCityCodes('4419'), ['4419'], '4 位前缀只能收窄到那一个市码');
   // 前缀查表的口径写死在这里，免得哪天被当成"入口漏了校验"顺手收紧掉：
   // 传长码取省名/市名是面板的正常用法，位数不等于建制结论
   assert.equal(provinceName('110101'), '北京市');

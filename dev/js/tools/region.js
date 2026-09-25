@@ -1,5 +1,6 @@
 /**
  * 区划码表的读侧：解析生成物、拼三级全名、跑六档回落链（§5.4 的六档，不是四级）。
+ * 六档数的是六种结论，不是六个 `if`——历史层那一档有两个入口（码自己、或它的前 4 位父市）。
  *
  * 为什么单独一层：region-data.js 是生成物、只放数据；回落规则（哪一级算命中、
  * 什么时候不下"无效"结论）是设计判断，混进生成文件等于把它写在模板字符串里，
@@ -160,7 +161,12 @@ function joinNames(provinceCode, cityCode, countyName) {
   const province = PROVINCES.get(provinceCode) || '';
   const city = CITIES.get(cityCode);
   const middle = city && !PLACEHOLDER_CITY.has(city.name) ? city.name : '';
-  return `${province}${middle}${countyName || ''}`;
+  let tail = countyName || '';
+  // 现行县级表里有 19 条的名字与所属市名重叠：4 条完全同名（441900 东莞市 挂在 4419 东莞市
+  // 名下），15 条县名以市名打头（130272「唐山市汉沽管理区」，全是 2022 口径里的功能区）。
+  // 不剥这段前缀，全名就是「广东省东莞市东莞市」「河北省唐山市唐山市汉沽管理区」。
+  if (middle && tail.startsWith(middle)) tail = tail.slice(middle.length);
+  return `${province}${middle}${tail}`;
 }
 
 /**
@@ -241,7 +247,9 @@ export function resolveRegion(code) {
     fullName: '', note: '',
   };
 
-  // 优先级：现行县级 → 现行市/省级（6 位形如「市级码+00」）→ 历史层 → 市级回落 → 省级回落 → 落空
+  // 优先级：现行县级 → 现行市/省级（6 位形如「市级码+00」）→ 历史层 → 市级回落（含父码的
+  // 历史层命中）→ 省级回落 → 落空。§5.4 的"六档"数是六种结论，不是六个 if：父码那一档
+  // 给出的结论与历史层同型（abolished/city），只是被查的码换成前 4 位。
   const county = COUNTIES.get(c6);
   if (county) {
     const city = CITIES.get(county.cityCode);
@@ -281,6 +289,8 @@ export function resolveRegion(code) {
       fullName: joinNames(provinceCode, base.cityCode, ''), note: NOT_COLLECTED_NOTE,
     };
   }
+  // 自己两表都不在、只有父级市在历史层：371299（莱芜市 3712 已并入济南，现行市级表没有它）。
+  // 少这一档它退成 uncoded/province「山东省」，建制结论整档丢失，所以 A5 单独钉着。
   const histCity = HISTORICAL.get(`${base.cityCode}00`);
   if (histCity) {
     return {
@@ -308,12 +318,19 @@ export function currentCountyCodes(prefix = '') {
   return ALL_COUNTY_CODES.filter((c) => c.startsWith(p));
 }
 
-/** 现行市级码集合，可按省码收窄（统一代码的区划段只到地市，用这条） */
+/**
+ * 现行市级码集合，按前缀收窄（统一代码的区划段只到地市，用这条）。
+ * 前缀只收窄、绝不放宽：'4419' 问的是东莞市那一个市码，不是广东省那 21 个。
+ * 早先这里把任意长前缀一律 `slice(0, 2)` 回去查省索引，于是 currentCityCodes('4419')
+ * 给 21 条而 currentCountyCodes('4419') 给 1 条——同一个"前缀"在两个入口是两种意思。
+ * 位数超过 4 的前缀在该层必然无匹配，返回空集而不是整省。
+ */
 export function currentCityCodes(provinceCode = '') {
   const p = normalizePrefix(provinceCode);
   if (p === null) return [];
   if (p === '') return [...CITIES.keys()].sort();
-  return (CITY_CODES_BY_PROV.get(p.slice(0, 2)) || []).slice().sort();
+  if (p.length <= 2) return (CITY_CODES_BY_PROV.get(p) || []).slice().sort();
+  return [...CITIES.keys()].filter((c) => c.startsWith(p)).sort();
 }
 
 export function provinceCodes() {
@@ -355,7 +372,7 @@ const TIERS = {
  */
 export function isGeneratable(code, level = 'county') {
   const tier = TIERS[level];
-  if (!tier || !tier.len) return false;
+  if (!tier) return false;
   const c = normalizeCode(code);
   return c.length === tier.len && tier.index.has(c);
 }

@@ -353,8 +353,8 @@ test('A3 产物体积在预算内（gzip ≤ 36KB，设计文档 §7）', () => 
   // 数的候选写法摊成网格复算（四表各自的列集与键序 × 历史层五种取法 × 四种包裹方式，320 格），
   // 最接近的原文只有 262,183B，那一版压根没有对应构造，已删。
   // 下面两版是照着构造跑得出来的（输入 = scripts/fixtures/region-source/ 的四份快照，
-  // 历史层走生成器那道按层级查现行的判据 build-region-data.mjs:204-217，得 1,229 条
-  // = 1,159 县 + 70 市）：
+  // 历史层走生成器 build() 里 curCounty/curCity/curProv 三个 Set 那道按层级查现行的判据，
+  // 得 1,229 条 = 1,159 县 + 70 市）：
   //   单对象 {provinces,cities,counties,historical}，行形状 provinces{code,name} /
   //     cities{code,provinceCode,name} / counties{code,cityCode,name} / historical{code,name}
   //     —— 262,233B 原文 / 47,559B(L6) / 44,578B(L9)
@@ -439,6 +439,37 @@ test('A5 六档回落链每一档的结论（样本全部 2026-09-25 实读自�
   assert.equal(resolveRegion('469001').fullName, '海南省五指山市');
   assert.equal(resolveRegion('653201').fullName, '新疆维吾尔自治区和田地区和田市');
   assert.equal(resolveRegion('522702').fullName, '贵州省黔南布依族苗族自治州福泉市');
+
+  // 第五档"自己哪一档都不在、只有父级市在历史层"（region.js 的 histCity 分支）。
+  // 整档此前零判据：把它删掉之后 12 条判据一条都不红（2026-09-25 实测），而 371299 从
+  // abolished/city「山东省莱芜市」退成 uncoded/province「山东省」——用户看到的是省名，
+  // 建制结论整档丢了。3712 是 2019 年并入济南的莱芜市市码，现行市级表没有它，
+  // 而 371299 这个「市码+99」连旧表里也没有，所以全链条只有这一档接得住。
+  const underHistCity = resolveRegion('371299');
+  assert.deepEqual(
+    { s: underHistCity.status, l: underHistCity.level, n: underHistCity.fullName },
+    { s: 'abolished', l: 'city', n: '山东省莱芜市' },
+    '市级父码在历史层这一档必须独立成立，不得退到省级回落');
+  assert.match(underHistCity.note ?? '', /^所属地市/, '这一档走市级的半句文案');
+  assert.equal(underHistCity.county, '', '这一档没有县级名可挂');
+
+  // 同一段地名不得在fullName里出现两次。快照实读两类共 19 条：
+  //   市名==县名 4 条（441900 东莞市、442000 中山市、460400 儋州市、620201 嘉峪关市）；
+  //   县名本身以市名开头 15 条（130272「唐山市汉沽管理区」挂在 1302 唐山市 下等，
+  //   全是 2022 口径里的功能区）。朴素拼接给出「广东省东莞市东莞市」「河北省唐山市唐山市
+  //   汉沽管理区」。整改前把剥离那一行摘掉，12 条判据一条都不红——那 19 条既不在 A5 的
+  //   抽样里，A5 的全表扫描又只查「未知」。现在摘它红的是 A5 一处（`# pass 11 / # fail 1`）。
+  assert.equal(resolveRegion('441900').fullName, '广东省东莞市');
+  assert.equal(resolveRegion('620201').fullName, '甘肃省嘉峪关市');
+  assert.equal(resolveRegion('130272').fullName, '河北省唐山市汉沽管理区');
+  assert.equal(resolveRegion('410773').fullName, '河南省新乡市平原城乡一体化示范区');
+  // 前缀剥离只剥得掉重复的那一段：同一个市下不以市名开头的县，名字一个字都不许少
+  assert.equal(resolveRegion('130204').fullName, '河北省唐山市古冶区');
+  assert.equal(resolveRegion('130207').fullName, '河北省唐山市丰南区');
+  for (const code of [...currentCountyCodes(), ...historicalCodes()]) {
+    const { fullName } = resolveRegion(code);
+    assert.doesNotMatch(fullName, /(.{2,})\1/u, `${code} 的全名有相邻重复：${fullName}`);
+  }
 
   // 结构非法的输入不得抛异常，只能落到 none
   for (const bad of ['', '11010', '1101010', 'abcdef', null, undefined, 110101]) {
@@ -658,11 +689,12 @@ const patchTable = (exportName, mutate) => (src) => {
   return `${src.slice(0, m.index)}${m[1]}'${mutate(m[3])}';${src.slice(m.index + m[0].length)}`;
 };
 
-test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点名到码与闸门', () => {
-  // 七条各打一道不同的规则，不让它们互相顶包：
-  //   名称闸门（缺字段 / 空串 / null）、历史层码形闸门（5 位键，分隔符检查看不见它）、
-  //   父子码前缀闸门（名字全对，只有分组依据坏了）、分隔符闸门（形状全对，只有名称里带了
-  //   编码格式用的标点——去掉 assertNoDelimiters 那一次调用，只有这一条会红）。
+test('A7 生成器的输入闸门：十种坏形状各自独立被拒，且点名到码与闸门', () => {
+  // 十条各打一道不同的规则，不让它们互相顶包（同一道规则的两个分支算两道，见市/县那两条
+  // 引用完整性）：名称闸门（缺字段 / 空串 / null）、码类型闸门、历史层码形闸门（5 位键，
+  // 分隔符检查看不见它）、父子码前缀闸门（名字全对，只有分组依据坏了）、父码引用完整性闸门
+  // （父码形状对、前缀也对，但表里没有那个父亲）、分隔符闸门（形状全对，只有名称里带了
+  // 编码格式用的标点——去掉 assertNoDelimiters 那一次调用，只有第 7 条会红）。
   // 每条注入后都重封 SOURCES.json，所以红的一定是形状闸门而不是哈希闸门。
   const cases = [
     // [注入, 改哪份快照, 怎么改, 报错必须点名的码, 报错必须出现的那道闸门/表名]
@@ -670,7 +702,7 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
     ['县级行的 name 是空字符串', 'areas.json', (d) => { findRow(d, '110105').name = ''; }, '110105', '县级'],
     ['历史层某条的值是 null', 'gb2260-2015.json', (d) => { d['110224'] = null; }, '110224', '历史层'],
     ['历史层出现 5 位键', 'gb2260-2015.json', (d) => { d['11022'] = d['110224']; delete d['110224']; }, '11022', '历史层'],
-    ['市级行的父码对不上', 'cities.json', (d) => { findRow(d, '1101').provinceCode = '99'; }, '1101', '市级'],
+    ['市级行的父码对不上', 'cities.json', (d) => { findRow(d, '1101').provinceCode = '99'; }, '1101', '父级码应逐字等于'],
     // 这一条打的不是"父码不相等"，而是"父码短了一位还算不算相等"：'1' 是 '1101' 的合法前缀，
     // 原本那道 startsWith 会放行，只有逐字等式拦得住。实测注入它之后旧闸门 exit 0、
     // 12 条判据全绿，产物里 currentCityCodes('11') 是空数组（1101 挂到了 '1' 名下）。
@@ -678,6 +710,22 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
       (d) => { findRow(d, '1101').provinceCode = '1'; }, '1101', '父级码应逐字等于'],
     ['县级名里带全角逗号：形状全对，只有分隔符违规', 'areas.json',
       (d) => { findRow(d, '110108').name = '海淀区，北京'; }, '110108', '名称含分隔符'],
+    // 码必须是字符串。`String(row.code)` 会把数值 1101 洗成合法的 '1101' 过掉码形正则，
+    // 可 §build 那三个"查现行"的集合存的是原始值（Set 里有数字 1101、没有字符串 '1101'），
+    // 于是旧表里的 110100 按市级查不到，凭空多出一条历史码。实测注入之后生成器 exit 0，
+    // 红的是 A1「historical: 1230 期望 1229」与 A2「110100 同时出现在两层」两道条数/层级判据
+    // （A7 也红，但红在它自己的 findRow 助手找不到 1101 那行，与闸门无关），
+    // 没有一道的报错说得出"1101 这一行的 code 类型不对"。（读侧看不出任何异常：110100 照样解成北京市。）
+    ['市级行的 code 是数值：String() 洗白、按层级查现行时漏配', 'cities.json',
+      (d) => { findRow(d, '1101').code = 1101; }, '1101', '码不是字符串'],
+    ['县级行的父码表里根本没有：形状对、引用悬空', 'areas.json',
+      (d) => { d.push({ code: '119901', name: '孤儿区', cityCode: '1199', provinceCode: '11' }); },
+      '119901', '不在市级表'],
+    // 引用完整性那道有两个分支（市查省、县查市），各钉一条才谈得上"独立被拒"：只留县那一条，
+    // 删掉市那个 for 循环没有任何判据会红。这一条的父码 '99' 与 code 前 2 位逐字相等，
+    // 前缀等式那道拦不住它，只有"表里到底有没有这个父亲"拦得住。
+    ['市级行的父码形对、等式也对，可省级表里没有 99', 'cities.json',
+      (d) => { d.push({ code: '9901', name: '新设市', provinceCode: '99' }); }, '9901', '不在省级表'],
   ];
   for (const [what, file, mutate, code, gate] of cases) {
     const r = runGeneratorOn((fix) => patchJson(fix, file, mutate));
@@ -688,13 +736,13 @@ test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点�
     assert.match(r.out, new RegExp(gate), `${what}：报错没指认是哪张表/哪道闸门（${gate}）`);
   }
   // 正向对照：同一套闸门必须放过干净快照，且产物字节与仓库里那份逐字节相同。
-  // 少了这一句，上面六条可以是因为"怎么跑都红"而变绿。
+  // 少了这一句，上面十条可以是因为"怎么跑都红"而变绿。
   const clean = runGeneratorOn();
   assert.equal(clean.code, 0, `干净快照被拒：${clean.out}`);
   assert.equal(clean.artifactSameBytes, true, '干净快照生成的产物与仓库产物不是同一份字节');
 });
 
-test('A8 清单哈希的两条消费路径都盖住历史层快照', () => {
+test('A8 清单哈希的两条消费路径都盖住历史层快照，人读注解字段与真实字节一致', () => {
   const manifest = JSON.parse(read('scripts/fixtures/region-source/SOURCES.json'));
   const declared = new Map(manifest.files.map((f) => [f.file, f.sha256])
     .concat([[manifest.historical.file, manifest.historical.sha256]]));
@@ -714,6 +762,21 @@ test('A8 清单哈希的两条消费路径都盖住历史层快照', () => {
   assert.notEqual(r.code, 0, '历史层快照换了字节，verifyManifest 竟然放过');
   assert.match(r.out, /快照哈希不符：gb2260-2015\.json/, '哈希闸门没指到历史层那一份');
   assert.equal(r.wroteArtifact, false, '哈希不符还继续生成产物');
+  // 路径三（人读的那一半）：清单里除哈希还有 schema / bytes / count，生成器一个都不看——
+  // 它只认 sha256，那是唯一的机器闸门。这三样一旦腐烂就没有任何自动机制会发现，而 §B 的
+  // --fetch 流程恰恰要求人照着 bytes 与 count 核对新抓下来的数据，等于把对不上号的注解
+  // 当成核对基准。所以这里按真实字节复算：注解字段不进门，但必须与门里的东西一致。
+  // 只核 bytes 不核 sha 的反面不成立：bytes 相同而内容不同是可能的，那道由 sha256 管。
+  // 不核 historical.extractedFromSha256——那是站内旧副本 demo/idCardDemo/lib/GB2260.js 的哈希，
+  // 段 5 删掉 demo 之后这条断言必然挂，而清单里的这个字段是归属证据、不是输入依赖。
+  assert.equal(manifest.schema, 1, '清单的 schema 版本变了，读它的判据要一起改');
+  for (const e of manifest.files.concat([manifest.historical])) {
+    const buf = readFileSync(resolve(ROOT, 'scripts/fixtures/region-source', e.file));
+    const table = JSON.parse(buf.toString('utf8'));
+    assert.equal(e.bytes, buf.length, `${e.file} 的 bytes 注解与真实字节不符`);
+    assert.equal(e.count, Array.isArray(table) ? table.length : Object.keys(table).length,
+      `${e.file} 的 count 注解与表里实际条数不符`);
+  }
 });
 
 test('A9 读侧对产物自检：schema、条数、分隔符漂移，坏一处必须抛', async () => {
@@ -987,14 +1050,27 @@ test('A12 读侧六个入口的入参口径一致，结构非法不得带出派�
     assert.equal(provinceName(padded), '北京市', JSON.stringify(padded));
     assert.equal(cityName(padded), '市辖区', JSON.stringify(padded));
     assert.equal(currentCountyCodes(padded).length, 1, JSON.stringify(padded));
-    assert.equal(currentCityCodes(padded).length, currentCityCodes('11').length, JSON.stringify(padded));
   }
   // 前缀入口同样 trim：不 trim 的话 ' 1101 ' 会被当成 6 位前缀去 startsWith，静默空集
   for (const [padded, bare] of [[' 1101 ', '1101'], ['\t11\t', '11']]) {
     assert.equal(currentCountyCodes(padded).length, currentCountyCodes(bare).length,
       `${JSON.stringify(padded)} 与不带空白的必须同一个答案`);
+    assert.equal(currentCityCodes(padded).length, currentCityCodes(bare).length,
+      `${JSON.stringify(padded)}：市级入口同理，两个入口不能一个 trim 一个不 trim`);
     assert.ok(currentCountyCodes(bare).length > 0, `前缀 ${bare} 一个结果都没有，这条对照本身坏了`);
   }
+  // 前缀只收窄、绝不放宽，两个入口必须是同一个意思。市级入口旧写法把任意长前缀一律
+  // `slice(0, 2)` 回去查省索引，实测 currentCityCodes('4419') 给 21 条（整个广东省）
+  // 而 currentCountyCodes('4419') 给 1 条——'4419' 在县级入口是"东莞市的县"，
+  // 在市级入口却变成"广东省的市"。随机地址面板同时用这两个入口，口径分叉就是错数据。
+  // 条数是 2026-09-25 快照实读值，'44' 一档同时钉住"省级前缀仍走省索引"：
+  // 收窄不等于把 2 位前缀也当成 4 位码的前缀去筛。
+  for (const [p, expect] of [['44', 21], ['441', 8], ['4419', 1], ['44190', 0], ['441900', 0]]) {
+    const got = currentCityCodes(p);
+    assert.equal(got.length, expect, `前缀 ${p} 的收窄结果不对：${got.join(' ')}`);
+    assert.ok(got.every((c) => c.startsWith(p)), `前缀 ${p} 收窄出了不匹配前缀的市码：${got}`);
+  }
+  assert.deepEqual(currentCityCodes('4419'), ['4419'], '4 位前缀只能收窄到那一个市码');
   // 前缀查表的口径写死在这里，免得哪天被当成"入口漏了校验"顺手收紧掉：
   // 传长码取省名/市名是面板的正常用法，位数不等于建制结论
   assert.equal(provinceName('110101'), '北京市');
@@ -1077,11 +1153,19 @@ git commit -m "test(tools): 区划码表判据先行（当前为红，待生成�
  *                                                 # 退出码 1（此刻 SOURCES.json 哈希已落后，见上面第 3 条）
  *
  * 三条输入闸门口径（第 1 条由判据 A7 自证，第 2 条由 A10 自证，第 3 条由 A8 自证）：
- *   1. 四份快照逐条过形状校验，历史层与现行三层走同一套规则：名称必须是"非空字符串"。
- *      少了这道闸，缺字段的行会被 String() 成 `undefined` 编进产物，读侧解出「北京市undefined」。
+ *   1. 四份快照逐条过形状与引用两道校验，历史层与现行三层同一套规则：码与名称都必须是"非空
+ *      字符串"，父级码必须与该行码的前缀**逐字相等**且**真的在那张表里**。少了名称那道闸，
+ *      缺字段的行会被 String() 成 `undefined` 编进产物，读侧解出「北京市undefined」；少了码的
+ *      类型闸，数值 1101 同样被 String() 洗成合法码，而 §build 里"按层级查现行"的三个集合存的
+ *      是原始值，旧表的 110100 因此凭空多成一条历史码；少了父码存在性那道，孤儿县编进产物之后
+ *      只有条数判据会红，且 A9 那句指向"产物被截断"，指错了方向。三样各有独立注入：摘名称闸
+ *      红 A7 + A11（`# pass 10 / # fail 2`），摘码类型闸只红 A7 的第 8 条，摘父码存在性闸只红
+ *      A7 的第 9、10 条——最后那道的两个分支各钉一条，因为只钉县级那条时删掉市级分支没人红。
  *   2. --fetch 先把三份抓进内存并全部过第 1 条那道闸，才一次性落盘；任何一步失败都不改任何文件。
  *   3. 换数据是两步动作，不是一步：--fetch 写快照 → 人工把新的 sha256/bytes/count 同步进
  *      SOURCES.json → 再跑一次生成器。产物与清单必须同时换版，所以清单哈希不符时拒绝生成。
+ *      生成器只认 sha256，bytes / count / schema 三样在门里是惰性的；§B 要求人照着它们核对，
+ *      所以 A8 按真实字节复算一遍，注解腐烂即红。
  *
  * 编码格式（与 dev/js/tools/region.js 的解析器一一对应，改一边必须改另一边）：
  *   RAW_PROVINCES    `码2,名`                     组间 | 分隔
@@ -1120,7 +1204,7 @@ function parseArgs(argv) {
 }
 
 // 参数闸门在读写任何文件之前生效；用法错只打一行、不打堆栈——手打错一个字母的人
-// 要看的是用法行，不是 build-region-data.mjs:53 那一段。
+// 要看的是用法行，不是 `parseArgs` 那一段抛栈。
 let flags;
 try {
   flags = parseArgs(process.argv.slice(2));
@@ -1162,13 +1246,13 @@ function verifyManifest(manifest) {
 }
 
 /**
- * 名称必须是"真正的非空字符串"。这是全生成器唯一的一道名称类型闸门，被 assertShape 与
- * assertNoDelimiters 共用：少了它，`String(undefined)` 会得到 `'undefined'`，一路编进产物变成
- * `02undefined`，读侧解出「北京市undefined」这种看着像地名的事实上不是的东西，
+ * 名称必须是"真正的非空字符串"。全生成器只有这一道名称类型闸门，挂在 assertShape 上：
+ * 少了它，`String(undefined)` 会得到 `'undefined'`，一路编进产物变成 `02undefined`，
+ * 读侧解出「北京市undefined」这种看着像地名的事实上不是的东西，
  * 而 §A 原有六条判据一条都不会红（实测：删掉 areas.json 里 110102 的 name 并重算清单哈希）。
  * @param {string} code 该行的区划码，只用于把报错指到具体行
  * @param {unknown} name 待校验的名称
- * @param {string} scope 层级名（省级 / 县级 / 历史层 / 快照），出现在报错里
+ * @param {string} scope 层级名（省级 / 市级 / 县级 / 历史层），出现在报错里
  */
 function assertNameString(code, name, scope) {
   if (typeof name === 'string' && name !== '') return;
@@ -1179,10 +1263,15 @@ function assertNameString(code, name, scope) {
   throw new Error(`${scope} ${code} 的名称不是非空字符串（${got}），拒绝生成`);
 }
 
-/** 名称里出现分隔符会让整张表错位解析，必须在生成时挡住 */
+/**
+ * 名称里出现分隔符会让整张表错位解析，必须在生成时挡住。
+ * 这里**不再**重复做一遍类型检查：唯一调用方在 assertShape 之后，四张表的 name 已逐行过了
+ * assertNameString，所以那一道内层闸门永远不会单独被触发——实测删掉它，12 条判据一条都不红。
+ * 一道红不起来的闸门等于没有闸门，还可能反过来误导（让人以为这里另有独立的类型规则）。
+ * 类型闸门只有一个家，就是 assertShape；assertNoDelimiters 那道调用本身有牙，
+ * 删掉它 A7 的第 7 条（名字里带全角逗号、形状全对）会红。
+ */
 function assertNoDelimiters(pairs) {
-  // 类型闸门必须在任何 String() 转换之前：先转再判，undefined 就成了合法字符串 "undefined"
-  for (const [code, name] of pairs) assertNameString(code, name, '快照');
   const bad = pairs.filter(([, name]) => /[|,\s，、；：]/.test(name));
   if (bad.length) {
     throw new Error(`名称含分隔符，编码格式会崩：${bad.slice(0, 5).map(([c, n]) => `${c}:${n}`).join('  ')}`);
@@ -1190,8 +1279,9 @@ function assertNoDelimiters(pairs) {
 }
 
 /**
- * 逐行形状校验。四道：行是对象、码形、name 是非空字符串、父码逐字前缀，外加码唯一。
- * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。
+ * 逐行形状校验。五道：行是对象、码是非空数字字符串、name 是非空字符串、父码逐字前缀，外加码唯一。
+ * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。code 那一道同理由：
+ * `String(row.code)` 会先把数值 1101 洗成合法码串，见下面的注释。
  * 父码那一道原本只查 startsWith，位数不足的父码漏过去了，见函数体注释。
  * @param {Array<{code:string, name:unknown}>} rows 待校验行
  * @param {number} len 码的位数
@@ -1201,7 +1291,19 @@ function assertNoDelimiters(pairs) {
 function assertShape(rows, len, label, parentField) {
   for (const row of rows) {
     if (!row || typeof row !== 'object') throw new Error(`${label} 存在非对象行：${JSON.stringify(row)}`);
-    const code = String(row.code);
+    // 码的类型闸门必须在 String() 之前，理由与 name 那道一模一样，但后果不一样：
+    // 数值 1101 过了 `String()` 之后码形正则、父子码等式、重复码检查全部放行，而 build()
+    // 里"按其层级查现行"的三个 Set 存的是原始值（`new Set(cities.map(c => c.code))` 里是
+    // 数字 1101，不是字符串 '1101'），旧表里的 110100 因此在市级查不到、凭空多出一条历史码。
+    // 实测注入之后生成器 exit 0，产物把 110100 照样解成「北京市」（读侧毫无异常），
+    // 判据红的是 A1（historical 1230 期望 1229）与 A2（110100 同时出现在两层）两道条数/层级
+    // 检查（`# pass 9 / # fail 3`）；多出来那条红是 A7 自己的 findRow 助手找不到 1101 那行
+    // （码成了数值就按字符串匹配不上），不是闸门在说话。三道没有一道的报错说得出
+    // "1101 这一行的 code 类型不对"。
+    if (typeof row.code !== 'string') {
+      throw new Error(`${label} 的码不是字符串：${JSON.stringify(row.code)}`);
+    }
+    const code = row.code;
     if (!new RegExp(`^\\d{${len}}$`).test(code)) throw new Error(`${label} 码形不对：${code}`);
     assertNameString(code, row.name, label);
     // 父码必须与 code 的前 len-2 位**逐字相等**。这里原本写的是 startsWith，而它挡不住
@@ -1211,7 +1313,8 @@ function assertShape(rows, len, label, parentField) {
     // currentCityCodes('11') 变成空数组（1101 被挂到了 '1' 名下）。
     // 等式不需要额外的"父码是 len-2 位数字"正则：code 自己已过数字码形，
     // 任何与 code.slice(0, len-2) 相等的值自动就是 len-2 位数字。
-    if (parentField && code.slice(0, len - 2) !== String(row[parentField])) {
+    // 父码的类型同样不用单独查：与已过类型闸门的 code 逐字相等的值必然是字符串。
+    if (parentField && code.slice(0, len - 2) !== row[parentField]) {
       throw new Error(
         `${label} ${code} 的父级码应逐字等于 ${code.slice(0, len - 2)}，实际是 ${JSON.stringify(row[parentField])}`,
       );
@@ -1219,6 +1322,34 @@ function assertShape(rows, len, label, parentField) {
   }
   const codes = rows.map((r) => r.code);
   if (new Set(codes).size !== codes.length) throw new Error(`${label} 存在重复码`);
+}
+
+/**
+ * 引用完整性：父码"形状对"不等于"父码存在"。这是 assertShape 管不到的一层——它只把
+ * parentField 与 code 的前缀比对，两边都是这一行自己的字段，整张表里有没有那个父亲它不知道。
+ * 实测注入一条 `{code:'119901', cityCode:'1199'}`（1199 不是任何现行市）之后生成器 exit 0，
+ * 产物里 119901 自成一组编进 counties 段，读侧对 119901 给出 uncoded/province「北京市」；
+ * 红下来的三道判据报的都是条数，其中 A9 那句是「产物被截断，或编码格式与解析器已经不同步」，
+ * 指错了方向。而 §B 的 --fetch 流程本来就要求人在新数据进来时上调 REGION_META.counts，
+ * 拿条数当唯一防线等于把这道闸门写在会被顺手改掉的注释里。
+ * @param {Array<{code:string}>} provinces 已过形状闸门的省级行
+ * @param {Array<{code:string, provinceCode:string}>} cities 已过形状闸门的市级行
+ * @param {Array<{code:string, cityCode:string}>} areas 已过形状闸门的县级行
+ */
+function assertParentsExist(provinces, cities, areas) {
+  const provCodes = new Set(provinces.map((p) => p.code));
+  const cityCodes = new Set(cities.map((c) => c.code));
+  // 先市后县：县码的父码是市码，市码的父码是省码，报错时不必让人自己去查是哪一层悬空
+  for (const c of cities) {
+    if (!provCodes.has(c.provinceCode)) {
+      throw new Error(`市级 ${c.code} 的父级码 ${c.provinceCode} 不在省级表里，拒绝生成`);
+    }
+  }
+  for (const a of areas) {
+    if (!cityCodes.has(a.cityCode)) {
+      throw new Error(`县级 ${a.code} 的父级码 ${a.cityCode} 不在市级表里，拒绝生成`);
+    }
+  }
 }
 
 /**
@@ -1239,15 +1370,17 @@ function assertInputShape({ provinces, cities, areas, legacy }) {
   // 任何按条数的判据都看不见它，产物里却编进 `110224,null`，读侧解出 fullName「null」；
   // 5 位键同样能过，然后由 region.js 按 00/0000 后缀猜层级。所以形状规则与现行三层同一条。
   const legacyRows = Object.entries(legacy).map(([code, name]) => ({ code, name }));
-  // 顺序是"先形状、后分隔符"：assertShape 带层级名（县级 110102 …），报错能指到是哪张表的
-  // 哪一行；assertNoDelimiters 只拿到 (码, 名) 对，说不了层级。它内部那道类型闸门仍然保留，
-  // 这样任何调用方传进来的非字符串名字也不会先被 String() 洗成合法值。
-  // 两道各有独立的注入：去掉下面那次 assertNoDelimiters 调用，A7 只有第 6 条（名字里带全角
-  // 逗号、形状全对）会红；去掉 assertShape 里的父码前缀判断，红的只有第 5 条。
+  // 顺序是"先形状、再引用、后分隔符"：assertShape 带层级名（县级 110102 …），报错能指到是
+  // 哪张表的哪一行；引用完整性那道要等三张表都过了形状才查得到"父亲在不在"；
+  // assertNoDelimiters 只拿到 (码, 名) 对，说不了层级，所以排最后。
+  // 三道各有独立的注入：去掉 assertNoDelimiters 那次调用，A7 只有第 7 条（名字里带全角逗号、
+  // 形状全对）会红；去掉 assertShape 里的父码逐字等式，红的是第 5、6 条；去掉
+  // assertParentsExist，红的是第 9、10 条；去掉 code 的类型闸门，红的是第 8 条。
   assertShape(provinces, 2, '省级');
   assertShape(cities, 4, '市级', 'provinceCode');
   assertShape(areas, 6, '县级', 'cityCode');
   assertShape(legacyRows, 6, '历史层');
+  assertParentsExist(provinces, cities, areas);
   assertNoDelimiters(
     [...provinces, ...cities, ...areas].map((x) => [x.code, x.name])
       .concat(legacyRows.map((x) => [x.code, x.name])),
@@ -1470,6 +1603,7 @@ Expected（2026-09-25 在同一快照上独立实算得到的值）：
 ```js
 /**
  * 区划码表的读侧：解析生成物、拼三级全名、跑六档回落链（§5.4 的六档，不是四级）。
+ * 六档数的是六种结论，不是六个 `if`——历史层那一档有两个入口（码自己、或它的前 4 位父市）。
  *
  * 为什么单独一层：region-data.js 是生成物、只放数据；回落规则（哪一级算命中、
  * 什么时候不下"无效"结论）是设计判断，混进生成文件等于把它写在模板字符串里，
@@ -1630,7 +1764,12 @@ function joinNames(provinceCode, cityCode, countyName) {
   const province = PROVINCES.get(provinceCode) || '';
   const city = CITIES.get(cityCode);
   const middle = city && !PLACEHOLDER_CITY.has(city.name) ? city.name : '';
-  return `${province}${middle}${countyName || ''}`;
+  let tail = countyName || '';
+  // 现行县级表里有 19 条的名字与所属市名重叠：4 条完全同名（441900 东莞市 挂在 4419 东莞市
+  // 名下），15 条县名以市名打头（130272「唐山市汉沽管理区」，全是 2022 口径里的功能区）。
+  // 不剥这段前缀，全名就是「广东省东莞市东莞市」「河北省唐山市唐山市汉沽管理区」。
+  if (middle && tail.startsWith(middle)) tail = tail.slice(middle.length);
+  return `${province}${middle}${tail}`;
 }
 
 /**
@@ -1711,7 +1850,9 @@ export function resolveRegion(code) {
     fullName: '', note: '',
   };
 
-  // 优先级：现行县级 → 现行市/省级（6 位形如「市级码+00」）→ 历史层 → 市级回落 → 省级回落 → 落空
+  // 优先级：现行县级 → 现行市/省级（6 位形如「市级码+00」）→ 历史层 → 市级回落（含父码的
+  // 历史层命中）→ 省级回落 → 落空。§5.4 的"六档"数是六种结论，不是六个 if：父码那一档
+  // 给出的结论与历史层同型（abolished/city），只是被查的码换成前 4 位。
   const county = COUNTIES.get(c6);
   if (county) {
     const city = CITIES.get(county.cityCode);
@@ -1751,6 +1892,8 @@ export function resolveRegion(code) {
       fullName: joinNames(provinceCode, base.cityCode, ''), note: NOT_COLLECTED_NOTE,
     };
   }
+  // 自己两表都不在、只有父级市在历史层：371299（莱芜市 3712 已并入济南，现行市级表没有它）。
+  // 少这一档它退成 uncoded/province「山东省」，建制结论整档丢失，所以 A5 单独钉着。
   const histCity = HISTORICAL.get(`${base.cityCode}00`);
   if (histCity) {
     return {
@@ -1778,12 +1921,19 @@ export function currentCountyCodes(prefix = '') {
   return ALL_COUNTY_CODES.filter((c) => c.startsWith(p));
 }
 
-/** 现行市级码集合，可按省码收窄（统一代码的区划段只到地市，用这条） */
+/**
+ * 现行市级码集合，按前缀收窄（统一代码的区划段只到地市，用这条）。
+ * 前缀只收窄、绝不放宽：'4419' 问的是东莞市那一个市码，不是广东省那 21 个。
+ * 早先这里把任意长前缀一律 `slice(0, 2)` 回去查省索引，于是 currentCityCodes('4419')
+ * 给 21 条而 currentCountyCodes('4419') 给 1 条——同一个"前缀"在两个入口是两种意思。
+ * 位数超过 4 的前缀在该层必然无匹配，返回空集而不是整省。
+ */
 export function currentCityCodes(provinceCode = '') {
   const p = normalizePrefix(provinceCode);
   if (p === null) return [];
   if (p === '') return [...CITIES.keys()].sort();
-  return (CITY_CODES_BY_PROV.get(p.slice(0, 2)) || []).slice().sort();
+  if (p.length <= 2) return (CITY_CODES_BY_PROV.get(p) || []).slice().sort();
+  return [...CITIES.keys()].filter((c) => c.startsWith(p)).sort();
 }
 
 export function provinceCodes() {
@@ -1825,7 +1975,7 @@ const TIERS = {
  */
 export function isGeneratable(code, level = 'county') {
   const tier = TIERS[level];
-  if (!tier || !tier.len) return false;
+  if (!tier) return false;
   const c = normalizeCode(code);
   return c.length === tier.len && tier.index.has(c);
 }
@@ -4056,7 +4206,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 
   | 摘掉的那道闸门 | 变红的判据 | 红在哪一句 |
   |---|---|---|
-  | `assertShape` 的 name 类型闸门 | A7 + A11 | 县级行删掉 name 字段：报错没指认是哪张表（县级） |
+  | `assertShape` 的 name 类型闸门 | A7 + A11 | 县级行删掉 name 字段：生成器竟然退出 0，坏数据会一路编进产物（**第五轮改过这一格**：内层那道兜底闸门删了，红从"报错没指认表名"变成"退出 0"，见下面的连带红说明） |
   | 历史层 `assertShape` | A7 | 历史层某条的值是 null：报错没指认是哪张表（历史层） |
   | 父子码前缀校验 | A7 | 市级行的父码对不上：生成器竟然退出 0 |
   | `assertNoDelimiters` 调用 | A7 | 县级名里带全角逗号：生成器竟然退出 0 |
@@ -4079,8 +4229,17 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
   | 生成器里的上游域名换掉、判据不跟着改 | A10 + A11 | 副本源码里的上游 URL 命中 0 处，这两条判据假设的是 3 处——**加固前 A10 假绿**：它那句 `replace` 匹配不到就原样返回，整条用例其实一次网络都没发，红不红取决于本机 DNS |
   | 闸门 helper 往仓库产物写一个字节 | A9 + A10 + A11（`# pass 9 / # fail 3`） | `importRegionWithPatchedSource 动过仓库里的产物`——产物是这三条共用的输入，谁被写坏谁就红 |
   | 闸门 helper 往 `scripts/fixtures/region-source/` 写一个字节 | A7 + A8 + A10 + A11（`# pass 8 / # fail 4`） | `runGeneratorOn 动过仓库里的快照`，快照是 git 跟踪的可复现输入，四个用到它的用例一起红 |
+  | 读侧"父级市在历史层"那一档整块删掉 | 只 A5（`# pass 11 / # fail 1`） | `371299` 的 status/level/fullName 三项一起不符：abolished/city「山东省莱芜市」退成 uncoded/province「山东省」。**加固前同一变异 12 条全绿** |
+  | `joinNames` 的市名前缀剥离 | 只 A5 | 「广东省东莞市东莞市」≠「广东省东莞市」。**加固前 12 条全绿**：快照里 19 条现行县名自带市名前缀，一条都不红 |
+  | `currentCityCodes` 退回 `slice(0, 2)` 放宽 | 只 A12 | 前缀 `'4419'` 的收窄条数不符（给 21 条 = 整个广东省） |
+  | 生成器的 code 类型闸门 | 只 A7 | 注入"市级行 code 是数值 1101"之后生成器退出 0——**加固前同一注入红 A1 + A2 + A7（`# pass 9 / # fail 3`，A12 实测是绿的）**，而 A7 那道红来自它的 `findRow` 助手匹配不到数值码行，不是闸门在说话 |
+  | `assertParentsExist` 整道 | 只 A7 | 注入"孤儿县 119901（父码 1199 表里没有）"之后生成器退出 0 |
+  | `assertParentsExist` 只删市级那个循环 | 只 A7 | 注入"新设市 9901（父码 99 不在省级表）"之后生成器退出 0——**这一行就是"两个分支各钉一条注入"的理由**：只留县级那条，删掉市级分支没有任何判据会红 |
+  | 清单的 `bytes` / `count` / `schema` 各改一处（共四次注入） | 各只 A8 | 例：`areas.json 的 count 注解与表里实际条数不符`。生成器只看 sha256，这三样在门里是惰性的，腐烂了没人发现 |
 
-  两处连带红不是判据互相依赖，是同一道闸门本来就被两条路径看着：摘 `assertShape` 的 name 闸门后 A11 也红，因为 `--fetch` 的 S3 场景断言的是**报错要指认到"县级"这张表**，闸门一摘，兜住它的只剩 `assertNoDelimiters` 内部那道类型门，那句的 scope 是"快照"而不是层级名；`manifestPairs` 那一处一摘就连红五条（A4/A7/A8/A10/A11），因为 `verifyManifest` 与写进产物的 `REGION_META.sha256` 共用这一个推导，摘掉之后四条真哈希变成 `{'g':undefined,'b':undefined,…}` 的按字符拆解，`got !== undefined` 恒成立，**生成器从此对任何输入都拒绝出货**——这正是 A8 那条"两条消费路径必须出自同一份推导"想要的样子：拆共享点会立刻大面积红，而不是安静地少校一份。
+  上表最后七行是第五轮（质量复核）补的，变异都在 `git archive HEAD` 之后覆盖工作区三文件的 /tmp 镜像上跑，基线 `# pass 12 / # fail 0`。**反向对照一例**：把删掉的 `assertNoDelimiters` 内层名称闸门原样补回去，12 条判据一条都不红——一道永远触发不了的闸门本身就是要防的东西，删它的依据是这一句，不是"看着冗余"。
+
+  两处连带红不是判据互相依赖，是同一道闸门本来就被两条路径看着：摘 `assertShape` 的 name 闸门后 A11 也红，因为 `--fetch` 的 S3 场景断言的是**报错要指认到"县级"这张表**，而 name 闸门是报错里唯一的层级名来源。（第五轮之前这里写的是"闸门一摘，兜住它的只剩 `assertNoDelimiters` 内部那道类型门，那句的 scope 是'快照'而不是层级名"——那道内层门已经在第五轮删了，它当时确实会把报错接住、只是接成了没有层级名的一句；现在接不住，`undefined` 一路编进产物，两条判据一起红在"生成器竟然退出 0"。）`manifestPairs` 那一处一摘就连红五条（A4/A7/A8/A10/A11），因为 `verifyManifest` 与写进产物的 `REGION_META.sha256` 共用这一个推导，摘掉之后四条真哈希变成 `{'g':undefined,'b':undefined,…}` 的按字符拆解，`got !== undefined` 恒成立，**生成器从此对任何输入都拒绝出货**——这正是 A8 那条"两条消费路径必须出自同一份推导"想要的样子：拆共享点会立刻大面积红，而不是安静地少校一份。
 
   两处"只摘一半不算数"记在这里省得下一个人重踩：A9 的县级 token 闸门是复核批次的漏网之鱼——它拦的是 `01东城区` 少掉 `01` 之后凑出的假码 `1101东城`，条数照旧 2,978，字段闸门与条数自检都看不见，补注入用例之前它一条判据都不挂；M5 摘 `normalizeCode` 那道类型门时 `resolveRegion` 自己的早退还在，A5 仍绿，只有 A12 红，所以 Task 8 的 M5 现在是两处一起摘（实测 `# pass 10 / # fail 2`，A5 与 A12 同时红）。
 - **A11 用 `spawnSync` 起子进程会挂死整份 §A**：这条判据要把生成器的 `--fetch` 成功路径真跑一遍，父进程必须同时当那台上游服务器，而 `spawnSync` 停在系统调用期间事件循环是不转的——子进程卡在 `fetch()`、父进程卡在 `waitpid`，实测 `--test-timeout=6000` 下恒为 `test timed out after 6000ms`，整份 §A 一个数字都出不来。改成 promisify 的 `execFile` 并在用例上显式写 `{ timeout: 20000 }`：**判据挂死比判据红更糟**，红会指名道姓，挂死只让整组静默没有结论。
@@ -4103,3 +4262,15 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
   ② **「Z_FILTERED 在 level 9 下高 2,036B」是错位口径**：那是 36,843B（L9+FILTERED）减 34,807B（**L6** 基线）。统一成同级相减之后是 level 6 高 2,275B（37,082 − 34,807）、level 9 高 2,230B（36,843 − 34,613）。A3 注释与 §7 那两处口径已改。
   ③ **§7 的"读侧 369 行"是被上一轮自己改红的**：369 是 `3723917` 的值，`6573e23` 补完 A5 三条断言之后是 372 行（逐 commit 核过：`eed1b52`=347、`3723917`=369、`6573e23`=372）。同类漂移这次一并防住：计划里三块代码的行号区间全部由脚本按**内容锚点**重算（`/tmp/resync4.cjs` 那一类），本轮三块与磁盘逐字节一致。区间的具体数字不写在这里——第四轮光是收口这一处就让 A3 注释长了几行、三个区间各位移一次，抄进文档的下一句就会过期；要复核就跑那段脚本看它打出的区间。
   这一轮之后立一条规矩：**文档里凡是"gzip = 某字节数"的句子，旁边必须写出跑得出来的构造**（哪个对象、哪些键、历史层走哪道判据、跟哪条基线相减），否则不许写成"实测"。①里那版就是靠"构造写得很像话、数字却不是它算的"蒙过前两轮复核的。
+- **第五轮是代码质量复核（不是规格复核），五条 Important 全落在"判据没看着的地方"，另加四条 Minor**（`region.js` 389 行、`build-region-data.mjs` 428 行，复算见 §7 那句 `wc -l`；产物字节一字未动，仍是 `a7e26d54…`；收口 `# pass 12 / # fail 0`）：
+  ① 读侧"父级市在历史层"那一档（`resolveRegion` 的 `histCity` 分支）**整档零判据**——删掉它 12 条全绿，而 `371299` 从 abolished/city「山东省莱芜市」退成 uncoded/province「山东省」。A5 补三条（三项结论 + note 那半句 + `county` 必须空）之后同一变异只红 A5。
+  ② `joinNames` 不处理市名与县名重叠，全名里同一段地名出现两次。这一条我原本只当它是 4 个码的小事（441900 东莞 / 442000 中山 / 460400 儋州 / 620201 嘉峪关，市名==县名），按快照实数是 **19 条**：另外 15 条是县名自带市名前缀（130272「唐山市汉沽管理区」挂在 1302 唐山市 下，全是 2022 口径里的功能区）。所以修法不是给那 4 个码开列清单，而是剥掉重复的前缀那一段；判据同时升格成全表扫描（现行 2,978 + 历史 1,229 条全名一律不得有相邻重复的 ≥2 字面，历史层实测 0 命中）。
+  ③ 生成器的 `assertShape` 有 name 的类型闸门却没有 code 的：`String(row.code)` 先把数值 `1101` 洗成合法码串，而 `build()` 里那三个"按层级查现行"的 Set 存的是**原始值**，于是旧表的 `110100` 在市级查不到、凭空多出一条历史码。实测注入之后生成器 exit 0，红的是 A1「historical: 1230 期望 1229」与 A2「110100 同时出现在两层」两道（`# pass 9 / # fail 3`）；第三道红是 A7 自己的 `findRow` 助手在数值码上找不到 `1101` 那一行，与闸门无关——没有一道的报错说得出坏的是哪一行的类型；读侧毫无异常（`110100` 照样解成「北京市」）。补 code 类型闸门，A7 第 8 条注入它。（这一句初稿写的是"A1/A2/A12 三道条数不符"，第六轮复跑证伪：注入之下 A12 是**绿**的，红的是 A7，而 A7 那句红根本不是判据在说话。同类错误在 §生成器注释与 A7 用例注释里各有一份，三处一起改。）
+  ④ 父码只有"逐字等式"却没有"存在性"：`119901` 的 `cityCode` 是 `'1199'`，前 4 位等式成立而市码 `1199` 根本不存在。实测注入之后生成器 exit 0，红的三道里 A9 那句是「产物被截断，或编码格式与解析器已经不同步」，**指错了方向**；而 §B 的 `--fetch` 流程本来就要求人在新数据进来时上调 `REGION_META.counts`，拿条数当唯一防线等于把闸门写在会被顺手改掉的注释里。补 `assertParentsExist`（市查省、县查市），两个分支各钉一条注入——只钉县级那一条时，删掉市级那个循环没有判据会红。
+  ⑤ `currentCityCodes` 把任意长前缀一律 `slice(0, 2)` 回去查省索引，`'4419'` 给 21 条（整个广东省）而 `currentCountyCodes('4419')` 给 1 条：同一个"前缀"在两个入口是两种意思，随机地址面板同时用这两个入口就是错数据。A12 原本还把这种放宽**当成期望值**钉着（`currentCityCodes(padded) === currentCityCodes('11')`），改口径时那一句必须一起改，不然判据站在旧行为那边。现在契约是"前缀只收窄、绝不放宽"，`['44'→21, '441'→8, '4419'→1, '44190'→0, '441900'→0]` 五档条数写死，并逐项复算"结果都匹配前缀"。
+  四条 Minor：`isGeneratable` 里 `!tier.len` 永远触发不了（三档 `len` 都是硬编码的非零数），删；`assertNoDelimiters` 内层那道名称闸门在唯一调用方之后永远不会单独触发（实测补回去 12 条全绿），删并把两处注释改成实话——**连带变异台账里"`assertShape` 的 name 类型闸门"那一行与"两处连带红"那段的归因一起改**，它们当时依赖的正是这道内层门；A7 的正向对照注释写着"上面六条"而用例已有十条，改；`SOURCES.json` 的 `schema` / `bytes` / `count` 三样没有任何代码看（生成器只认 `sha256`），既然 §B 要求人照着它们核对新抓取的数据，就在 A8 里按真实字节复算，四次注入各只红 A8。`historical.extractedFromSha256` **故意不核**：那是 `demo/idCardDemo/lib/GB2260.js` 的哈希，段 5 删掉 demo 之后这条断言必挂，而它是归属证据、不是输入依赖。
+- **第六轮是第五轮整改的复审**（复核者逐项复算，结论是五条 Important 的**代码与判据全部成立**：19 条重叠独立复算吻合、五档前缀表 21/8/1/0/0 实跑全对、九组变异的红名单与台账一致、计划三块与磁盘逐字节相同；剩下的三条全在"注释说了一件没发生过的事"）：
+  ① **Important：③那一句"A1/A2/A12"是我自己新写的、任何状态下都复算不出来的实测句**（生成器注释、A7 用例注释、本计划第五轮 ③ 各有一份）。复算口径：`git archive HEAD` 建镜像 → `cities.json` 里 `code` 改成数值 `1101` → 重封清单 → 生成 → 跑判据 = `# pass 9 / # fail 3`，红 A1（`historical: 1230` vs `1229`）、A2（`110100 同时出现在两层`）、A7（原文 `error: '快照里没有 1101 这一条，注入无从下手'`——**这条红是测试助手自己的失败，不是闸门在说话**），A12 全程绿。三处一起改成"红的是 A1 + A2，第三道红是 A7 的 findRow 助手"。这一条的教训不是"数字要核"（第五轮已经立过），而是**红名单也要核**：A12 是当时手边最像"条数判据"的一条，就被顺手写进去了。
+  ② **Minor：注释里引用别的文件的位置，用行号等于埋一颗定时炸弹**——`toolkit-tests.mjs` 的 A3 注释里有一句写着"生成器那道按层级查现行的判据 `build-region-data.mjs:204-217`"，而第五轮在同一个文件里插了 `assertParentsExist`，那段区间现在装的是引用完整性那道闸门，判据本体已经移到 `build()` 里的 `curCounty`/`curCity`/`curProv`。改成按名字锚（函数名 + 变量名），复算的人照名字 grep 就行，不必担心位移。同类还有生成器自己注释里那句 `build-region-data.mjs:53`（`parseArgs` 插了参数白名单之后也漂了），一起换成 `parseArgs`。三份代码文件里的行号引用现在为 0。`SOURCES.json` 里指向 `demo/idCardDemo/lib/*.js:2` / `:6` 的两处**不动**：那是站内旧副本的原文摘录、归属证据，段 5 删 demo 时要连着 `historical.extractedFromSha256` 一起处理，不在本轮范围（清单本身不被自己核 sha256，所以改它不会立刻炸出判据——正因为这样更不能顺手改）。
+  ③ **Minor：描述旧行为的句子丢了时态锚，读的人会以为它在说今天**。A5 那段"把 `joinNames` 的中段改成不做前缀剥离，12 条判据一条都不红"在整改前为真，整改之后恰好相反——复跑：摘掉剥离那一行 → `# pass 11 / # fail 1`，只红 A5。补"整改前"三字，并把今天的红名单一并写上。
+  三条都只动注释与文档，产物字节一字未动（`a7e26d54…`），收口 `# pass 12 / # fail 0`、`--check` 退出 0；行数变成 431 / 389 / 851（`wc -l scripts/build-region-data.mjs dev/js/tools/region.js scripts/toolkit-tests.mjs`）。复核者另记一条**未处理观察**：`currentCityCodes('4')` 返回空集而 `currentCountyCodes('4')` 返回数百条，1 位前缀在两个入口的收窄强度不一致——它不违反"只收窄不放宽"的承诺，本轮也没有为它立主张，所以不改，留到 Task 8 一并钉口径。
