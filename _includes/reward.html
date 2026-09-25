@@ -17,7 +17,8 @@
         display: inline-block;
         cursor: pointer;
         color: #ffffff;
-        font-family: '微软雅黑';
+        /* 这里原来写死 font-family: '微软雅黑'（单家族名、无兜底），实测根本没解析成功，
+           整块打赏掉到浏览器默认字；删掉它继承 body 那条栈，Windows 上仍是雅黑。 */
         font-size: 18px;
         padding: 5px 25px;
         text-decoration: none;
@@ -54,7 +55,7 @@
     <div class="QR" style="display: none;">
         {% if site.reward.reward_comment %}
         <div>
-            <span style="font-family: '微软雅黑'; font-size: 18px; ">{{ site.reward.reward_comment }}</span>
+            <span style="font-size: 18px;">{{ site.reward.reward_comment }}</span>
         </div>
         {% endif %}
 

@@ -151,6 +151,10 @@ body {
     }
 
     .logo-poss {
+        // 这一档 3.78 是有意留着的：它属于 wordmark（"Better’s study fairyland" 里那个 ’s），
+        // WCAG 1.4.3 对「作为 logo 或品牌名一部分的文字」明确免检，所以不跟着上一轮把
+        // 次要文字抬到 AA 的那批改动走。改这里之前先确认它还在标识里——一旦这个 ’s
+        // 被挪去正文或别的非标识位置，免检理由就没了。
         padding: 0 1px;
         color: var(--ink-4);
     }
