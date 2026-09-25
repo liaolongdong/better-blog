@@ -2038,23 +2038,25 @@ git commit -m "feat(tools): 区划码表两层落地，生成器可离线重跑�
 | `110101290001010012` | true | …/ 2900-01-01 | 晚于今天 → 结构非法 | birth_after_today |
 | `110101199902290018` | true | …/ 1999-02-29 | 非闰年 2 月 29 → 结构非法 | feb29_nonleap |
 | `110114199003070013` | true | `北京市市辖区未知地区` | 昌平区（现行表有、旧表无） | name_current_only |
-| `150203…`（昆都伦区→昆都仑区） | true | 旧名 | 现行名 | renamed |
+| `150203199003070017`（旧表昆都伦区，现行昆都仑区） | true | 内蒙古自治区包头市昆都伦区 | 现行名 | renamed |
 | `990101199003070015` | false | false | 结构非法 | 不取样（省码不存在） |
 | `110101199003073504`（末位错） | false | false | 校验位不符 | 单独用例，不进批量 |
 | 17 位 / 19 位 / 14 位 | false | false | 结构非法 | B3 |
 | 内部含空格 | false | false | 结构非法（只 trim 首尾） | B3 |
-| 末位小写 `x` | true | 北京市东城区 | trim + 大写后接受 | agree18 |
+| `11010119900307002x`（末位小写 `x`） | true | 北京市东城区 | trim + 大写后接受 | agree18 |
 | `11010190030700A`（15 位末位字母） | **true** | 北京市东城区 | 结构非法 | B3（写进判据，不进夹具） |
 
 最后一条是旧库的真实缺陷：`checkArg` 只校长度并大写化、`checkOrder` 恒真、15 位又没有校验位算术，字母混进去没人拦。
 
-`renamed` 这一组是实读出来的：现行表 ∩ 旧表 = 1,934 条，其中 **63 条码相同而名字不同**（`130502` 桥东区→襄都区、`210112` 东陵区→浑南区、`210782` 北宁市→北镇市、`150203` 昆都伦区→昆都仑区 等）。这意味着两件事：① 同结论组的样本**只能从"同码同名"的那 1,871 条里取**，否则"两边地址名必须相等"这条判据会因数据版本差异而误红；② `region.js` 里历史层的措辞不能写成"已撤销建制"——这 63 条没撤销，只是改名。Task 3 的 `historicalNote()` 就是为此存在。
+`renamed` 这一组是实读出来的：旧表的 6 位键逐字出现在现行县级表里的有 1,934 条（含 441900 东莞、442000 中山那两条「市码 + 00」），生成器按"排除 xx00 键"的口径取到的是 **1,932** 条，其中 **63 条码相同而县名不同**（`130502` 桥东区→襄都区、`210112` 东陵区→浑南区、`210782` 北宁市→北镇市、`150203` 昆都伦区→昆都仑区 等）。这意味着两件事：① 同结论组的样本**只能从"两边全名逐字相等"的那 1,776 条里取**，否则"两边地址名必须相等"这条判据会因数据版本差异而误红；② `region.js` 里历史层的措辞不能写成"已撤销建制"——这 63 条没撤销，只是改名。Task 3 的 `historicalNote()` 就是为此存在。
+
+①那一句在实现轮被实测推翻过一次（2026-09-25 实现轮回填）：只按"县名相同"筛会得到 1,869 条，其中 **93 条两边全名必然不等**——县名没变，旧表里的市名或省名是旧口径（1406「晋城市」实为朔州市、3208 淮阴市→淮安市、4206 襄樊市→襄阳市、6203「嘉峪关市」实为金昌市、65xxxx 多写一个"族"字）。所以同名池的判据换成"省名 + 市名(非占位段) + 县名三段各自与快照一致"，筛出 1,776 条；`renamed` 组随之是 156 条（63 条改县名 + 93 条改的是旧表那一段名），两组的断言方向都不必放宽。这份口径只用三份快照，不读 `region.js`——否则就成了让被测侧自己挑样本。
 
 **所以"对拍"绝不能写成"两个实现结论必须完全一致"**：那样要么把上面几类分歧判成 bug，要么逼我们把判据写松。夹具的做法是**把分歧登记成组，每组各自断言方向**——同结论组守住"不许无故变红"，异结论组守住"分歧只朝我们更严 / 我们更新这两个方向，且只由指定的那一项否决引起"。
 
 ### 4.1 Step 1：写夹具生成器
 
-`scripts/build-id-fixture.mjs` 只在开工时跑一次（段 5 按 §10 删掉 `demo/idCardDemo/`，届时旧库不在了，夹具自身成为长期守卫）。它读仓库内的两份快照 + 旧库，产出自带旧库结论的 JSON；带 `--check` 幂等模式；任何一组的不变量不成立就直接抛——**宁可生成失败，不产出"看起来对"的夹具**。
+`scripts/build-id-fixture.mjs` 只在开工时跑一次（段 5 按 §10 删掉 `demo/idCardDemo/`，届时旧库不在了，夹具自身成为长期守卫）。它读仓库内的三份现行快照（省 / 市 / 县）+ 一份旧表快照 + 旧库，产出自带旧库结论的 JSON；带 `--check` 幂等模式；任何一组的不变量不成立就直接抛——**宁可生成失败，不产出"看起来对"的夹具**。
 
 ```js
 #!/usr/bin/env node
@@ -2105,19 +2107,45 @@ const rng = mulberry32(20260925);
 const readJson = (p) => JSON.parse(readFileSync(resolve(ROOT, p), 'utf8'));
 const areas = readJson('scripts/fixtures/region-source/areas.json');
 const cities = readJson('scripts/fixtures/region-source/cities.json');
+const provinces = readJson('scripts/fixtures/region-source/provinces.json');
 const legacy = readJson('scripts/fixtures/region-source/gb2260-2015.json');
 
 const currentCounty = new Set(areas.map((a) => a.code));
 const countyName = new Map(areas.map((a) => [a.code, a.name]));
 const currentCity = new Set(cities.map((c) => c.code));
+const provinceOf = new Map(provinces.map((p) => [p.code, p.name]));
+const cityOf = new Map(cities.map((c) => [c.code, c.name]));
 const legacyCounty = new Set(Object.keys(legacy).filter((k) => !k.endsWith('00')));
 
+/** 与 dev/js/tools/region.js 的 PLACEHOLDER_CITY 同口径，独立写一份是故意的：
+ *  取样池不许读被测侧，否则 B7 那条"两边地址名必须相等"就成了让读侧自己挑样本、当场自证。 */
+const PLACEHOLDER_CITY = new Set(['市辖区', '县', '省直辖县级行政区划', '自治区直辖县级行政区划']);
+
 const both = [...currentCounty].filter((c) => legacyCounty.has(c)).sort();
-/** 同码同名（实读 1,871 条）：只有这里的样本允许断言"两边地址名相等" */
-const BOTH = both.filter((c) => String(legacy[c]).endsWith(countyName.get(c))).sort();
-/** 同码改名（实读 63 条）：我们给现行名、旧库给 2015 年前后的旧名 */
-const RENAMED = both.filter((c) => !String(legacy[c]).endsWith(countyName.get(c))).sort();
-/** 现行有、旧表无且市级可回落（实读 1,044 条里市级在表的那批）：旧库必然吐「未知地区」 */
+/**
+ * 只看三份快照，把"旧表地址串 == 现行省名 + 现行市名(非占位段) + 现行县名"当作同名判据。
+ *
+ * 为什么不能只看县名（计划原先的 `legacy[c].endsWith(countyName[c])`）：2026-09-25 实读，
+ * 那样筛出的 1,869 条里有 93 条两边全名必然不等——县名没变，变的是旧表里的市名或省名，
+ * 那 93 条是旧表停留在 2015 年之前的口径：1406「晋城市」应为朔州市、3208 淮阴市→淮安市、
+ * 4206 襄樊市→襄阳市、6203「嘉峪关市」应为金昌市、65xxxx「新疆维吾尔族自治区」多写一个"族"字。
+ * 混进 agree18 只会因数据版本差异误红，而这组的断言方向是"两边一模一样"。
+ * 本判据筛出 1,776 条，与读侧 resolveRegion().fullName 的实算结果 0 分叉（双向都核过）。
+ */
+const sameNameAsLegacy = (code) => {
+  const prov = provinceOf.get(code.slice(0, 2)) || '';
+  const city = cityOf.get(code.slice(0, 4)) || '';
+  const tail = countyName.get(code);
+  const want = PLACEHOLDER_CITY.has(city) || city === '' ? `${prov}${tail}` : `${prov}${city}${tail}`;
+  return String(legacy[code]) === want;
+};
+/** 同码同名（实读 1,776 条）：只有这里的样本允许断言"两边地址名相等" */
+const BOTH = both.filter(sameNameAsLegacy).sort();
+/** 同码而异名（实读 156 条）：我们给现行名、旧库给 2015 年前后的旧名 */
+const RENAMED = both.filter((c) => !sameNameAsLegacy(c)).sort();
+/** RENAMED 的两种成因，拆开记，免得后来人以为这 156 条都是县名改过 */
+const COUNTY_RENAMED = RENAMED.filter((c) => !String(legacy[c]).endsWith(countyName.get(c)));
+/** 仅现行有、且旧表市级可回落（实读 1,046 条市级在表的那批）：旧库必然吐「未知地区」 */
 const ONLY_CURRENT = [...currentCounty]
   .filter((c) => !legacyCounty.has(c) && currentCity.has(c.slice(0, 4)))
   .sort();
@@ -2246,12 +2274,17 @@ const doc = {
       'checkBirth 只判 month>12||month===0||day>31||day===0：非闰年 2 月 29 放过；年份上下限整段注释掉并留 TODO',
       'getAddrInfo 回落到市/省级后吐「…未知地区」，给不出可用的县级信息',
       '地址名取自 2015 年前后的 GB2260：同码改名的 63 条会给旧名',
+      '同一份旧表里还有 93 条县名没变、市名或省名却是 2015 年前的旧口径（3208 淮阴市、4206 襄樊市、65xxxx「新疆维吾尔族自治区」等），它们与 renamed 同组',
     ],
   },
   datasetVersion: '2022-10-31',
   seed: 20260925,
   today: TODAY,
-  pools: { sameName: BOTH.length, renamed: RENAMED.length, onlyCurrent: ONLY_CURRENT.length },
+  pools: {
+    sameName: BOTH.length, renamed: RENAMED.length, onlyCurrent: ONLY_CURRENT.length,
+    /** renamed 的成因拆分：县名自己改过 vs 只有旧表那一段名是旧口径 */
+    renamedByCounty: COUNTY_RENAMED.length, renamedByLegacyPrefix: RENAMED.length - COUNTY_RENAMED.length,
+  },
   groupCounts: { ...GROUPS },
   total,
   divergencePolicy: 'agree* 必须同结论；name_current_only 与 renamed 是我们更新；birth_* / feb29_nonleap 是我们更严且只由出生日期单独否决',
@@ -2285,7 +2318,7 @@ node scripts/build-id-fixture.mjs && node scripts/build-id-fixture.mjs --check; 
 
 Expected: 两次都 `… 与生成器一致` / `exit=0`（字节级幂等）。
 
-任一组抛错时**不要放宽断言**：抛错说明取样落进了没预料的分支，先把那条号码和它的地址码打出来，查它属于哪一层再改取样池。`pools` 字段会告诉你三个池的实际大小（开工前实读 1,871 / 63 / ≤1,044）。
+任一组抛错时**不要放宽断言**：抛错说明取样落进了没预料的分支，先把那条号码和它的地址码打出来，查它属于哪一层再改取样池。`pools` 字段会告诉你这几个池的实际大小（实现轮回填：`sameName=1,776` / `renamed=156`（其中 `renamedByCounty=63`、`renamedByLegacyPrefix=93`）/ `onlyCurrent=1,046`；计划初稿预估的 1,871 / 63 / ≤1,044 三个数没有一个跑得出来，前两个换成上面的口径、第三个是 1,046）。跑完还要看一眼 `pools` 与七组的去重率：本轮 1,000 条 id 全部互不相同（uniq/n = 1.000），这正是 B7 那条覆盖率判据的分母。
 
 - [ ] **Step 3: 写 §B 判据（追加到 `scripts/toolkit-tests.mjs` 末尾）**
 
@@ -2307,9 +2340,11 @@ const rowOf = (r, key) => r.checks.find((k) => k.key === key);
 test('B1 校验位：§2.2 实跑样本 + 权重表等价性 + 非法输入返回 null 不抛', () => {
   // 这 9 条的期望值全部来自 2026-09-25 对 demo/idCardDemo/lib/IDValidator.js 的实跑，
   // 不是自家算完自说自话。440524…0014 就是 §2.2 那条"示例号末位是 4 不是 8"。
+  // '11010119900307001' 那一档实跑是 1（旧库对 …011 放行、对 …013 拒绝），计划早期写的 3
+  // 是抄自上面那条 350 结尾的样本，B4 的三处期望值同步跟。
   const known = {
     '11010119900307350': '3', '44052418800101001': '4', '11010118991231001': 'X',
-    '11010119000101001': '4', '11010119900307001': '3', '11011419900307001': '3',
+    '11010119000101001': '4', '11010119900307001': '1', '11011419900307001': '3',
     '11010120000229001': '8', '11010119990229001': '8', '99010119900307001': '5',
   };
   for (const [body, want] of Object.entries(known)) {
@@ -2352,7 +2387,9 @@ test('B2 三态判定与逐项表：三种结论分得开，且看得见是谁�
 
 test('B3 字符集与长度：13 组实测边界，含旧库放过而我们不放的', () => {
   const cases = [
-    ['11010119900307350x', 'valid'],         // 小写 x：trim + 大写后接受
+    // 小写 x 的样本必须是末位真的该是 X 的号：'…350x' 那一版本体算出来是 3，
+    // 拿它当"小写也接受"的用例只会测到 checkdigit 分支（实跑旧库对 …002x 也是 true）
+    ['11010119900307002x', 'valid'],
     [' 110101199003073503 ', 'valid'],       // 只 trim 首尾
     ['110101 199003073503', 'malformed'],    // 内部空格不吞，并给出原因
     ['1101011990030735031', 'malformed'],    // 19 位
@@ -2377,10 +2414,10 @@ test('B3 字符集与长度：13 组实测边界，含旧库放过而我们不�
 test('B4 15 位与 18 位互为等价写法，且只在无歧义时给', () => {
   const from15 = parseIdCard('110101900307001', { today: TODAY });
   assert.equal(from15.state, 'valid');
-  assert.equal(from15.id18, '110101199003070013');   // body 用「区划 + 19 + yyMMdd + 顺序码」拼，不是错位取 8 位
+  assert.equal(from15.id18, '110101199003070011');   // body 用「区划 + 19 + yyMMdd + 顺序码」拼，不是错位取 8 位
   assert.equal(from15.id15, '110101900307001');
 
-  const from18 = parseIdCard('110101199003070013', { today: TODAY });
+  const from18 = parseIdCard('110101199003070011', { today: TODAY });
   assert.equal(from18.id15, '110101900307001');
   assert.match(from18.id15Note, /由 18 位去世纪位得来/);
 
@@ -2393,7 +2430,7 @@ test('B4 15 位与 18 位互为等价写法，且只在无歧义时给', () => {
   const wrong = parseIdCard('110101199003070014', { today: TODAY });
   assert.equal(wrong.state, 'checkdigit');
   assert.equal(wrong.id18, '110101199003070014');
-  assert.equal(wrong.suggestedId18, '110101199003070013');
+  assert.equal(wrong.suggestedId18, '110101199003070011');
 });
 
 test('B5 出生日期：闰年、非闰年、上下界、周岁', () => {
@@ -2459,9 +2496,13 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
   for (const [g, n] of Object.entries(FX.groupCounts)) {
     assert.equal(FX.cases[g].length, n, `${g} 组实际条数与声明的 ${n} 不符`);
   }
-  for (const g of ['agree18', 'agree15']) {
+  for (const [g, n] of Object.entries(FX.groupCounts)) {
     const uniq = new Set(FX.cases[g].map((c) => c.id));
-    assert.ok(uniq.size >= 250, `${g} 去重后只有 ${uniq.size} 条，取样池太薄，判据没有覆盖力`);
+    // 覆盖率而不是固定条数：这一档原来是 `>= 250`，可 agree15 只有 100 条样本，
+    // 250 个不同号码数学上取不到（实跑必红）。取样池塌掉时 uniq 会跟着塌，
+    // 一半这个门槛照样有牙：2026-09-25 实跑七组 uniq/n 全是 1.000。
+    assert.ok(uniq.size >= Math.ceil(n / 2),
+      `${g} 去重后只有 ${uniq.size}/${n} 条，取样池太薄，判据没有覆盖力`);
   }
 
   for (const c of FX.cases.agree18) {
@@ -2488,7 +2529,7 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
     assert.equal(r.info.region.county, c.currentName, `${c.id} 没解出现行县级名`);
     assert.doesNotMatch(r.info.region.fullName, /未知/);
   }
-  // 我们更新（二）：同码改名，旧库给 2015 年前后的旧名
+  // 我们更新（二）：同码异名，旧库给 2015 年前后的旧名（63 条改的是县名，93 条改的是旧表里的市名/省名）
   for (const c of FX.cases.renamed) {
     assert.equal(c.oracleValid, true);
     assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`));
@@ -2557,6 +2598,7 @@ test('B9 批量粘贴：逐行独立、行号与粘贴对齐、空行也占一�
   assert.equal(parseIdCardList(null, { today: TODAY }).length, 0);
   assert.equal(parseIdCardList('110101199003073503\r\n110101199003073504', { today: TODAY }).length, 2);
 });
+
 ```
 
 - [ ] **Step 4: 跑测试，确认它红**
@@ -2565,7 +2607,9 @@ test('B9 批量粘贴：逐行独立、行号与粘贴对齐、空行也占一�
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected: `exit` 非 0，报 `Cannot find module '…/dev/js/tools/idcard.js'`（整个测试文件加载失败，§A 那 12 条一起不跑）。这是预期的红：模块不存在，不是判据写松了。若 §A 仍绿而 §B 一条没跑，说明 import 写得比 §A 早、把文件切断了——挪到 §A 之后。
+Expected: `exit=1`，报 `Cannot find module '…/dev/js/tools/idcard.js'`。这是预期的红：模块不存在，不是判据写松了。
+
+红灯的实际形状在实现轮回填过一次（2026-09-25）：计划初稿写的是"整个测试文件加载失败、§A 那 12 条一起不跑"，实测**不是这样**——§A 的用例是同步注册的，顶层 `await import()` 的拒绝发生在它们跑完之后，所以看到的是 `# pass 12 / # fail 1`，那一条失败是文件级 subtest（`not ok 1 - scripts/toolkit-tests.mjs`，`location` 指到 `:1:1`），错误文案点名缺哪个模块。§B 的九条一条都没注册，所以「§A 全绿 + §B 零条 + 一条文件级红」就是这一步该有的样子，**不要**为此把 §B 的 import 往前挪（挪到 §A 之前只会把 12 条一起变成不跑，Task 8 的变异锚定也就看不到 §A 了）。顺带：文件级 subtest 的 `not ok` 写在行首，正是 Task 8 按 `^not ok` 锚定要的形状。
 
 - [ ] **Step 5: 提交红灯**
 
@@ -2728,7 +2772,11 @@ export function parseIdCard(raw, opts = {}) {
 
   const areaCode = compact.slice(0, 6);
   const birthRaw = compact.slice(6, out.lengthType === 18 ? 14 : 12);
-  const seq = compact.slice(-3);
+  // 顺序码是**本体**的最后 3 位，不是整串的最后 3 位：18 位串上 `slice(-3)` 会把校验位
+  // 一起当成顺序码（'…3503' 解成 503），性别奇偶与 000 判定同时错位——B2/B4/B6/B7/B8 五条
+  // 判据一起抓到它，旧库那边 `code.body.slice(-3)` 吃的本来就是去掉末位的本体。
+  const orderStart = out.lengthType === 18 ? 14 : 12;
+  const seq = compact.slice(orderStart, orderStart + 3);
   const seqNum = Number(seq);
 
   // 3) 行政区划：未收录只给 null + note，绝不下"无效"（§5.4）
@@ -2810,10 +2858,14 @@ export function parseIdCard(raw, opts = {}) {
 
 /**
  * 多行批量：每行一条结论，空行也占一条（用户看到的是粘贴时的行号）。
+ * 例外是"根本没粘贴"：null / undefined / 空串给 0 行，而不是凭空造一行 empty 结论——
+ * 面板按 rows.length 报"共 N 条"，一行都不该有的时候报 1 条就是错的。
  * @returns {Array<{no:number, raw:string, result:object}>}
  */
 export function parseIdCardList(text, opts = {}) {
-  return String(text === null || text === undefined ? '' : text)
+  const s = String(text === null || text === undefined ? '' : text);
+  if (s === '') return [];
+  return s
     .split(/\r?\n/)
     .map((raw, i) => ({ no: i + 1, raw, result: parseIdCard(raw, opts) }));
 }
@@ -2850,7 +2902,8 @@ function randomBirthDay(rng, minAge, maxAge, today) {
 export function generateIdCards(options = {}) {
   const today = toDay(options.today);
   const rng = typeof options.rng === 'function' ? options.rng : seededRandom(Date.now());
-  const count = options.count ?? 1;
+  // 只把「没传」当默认值：`?? 1` 会把 count: null 也吞成 1，等于一次类型错误静默出货一条号码
+  const count = options.count === undefined ? 1 : options.count;
   if (!Number.isInteger(count) || count < 1 || count > GENERATE_MAX) {
     throw new RangeError(`数量应为 1..${GENERATE_MAX} 的整数，收到 ${String(count)}`);
   }
@@ -2923,6 +2976,27 @@ Expected: `… 与生成器一致`、`exit=0`。
 git add dev/js/tools/random.js dev/js/tools/idcard.js scripts/toolkit-tests.mjs
 git commit -m "feat(tools): 身份证三态判定、解码与测试号生成，与旧库 1000 条对拍"
 ```
+
+### 4.10 实现轮回填：这一轮哪里偏离了计划，以及凭什么
+
+先说没偏离的那件：**旧库在 Node 里直接可跑**。`demo/idCardDemo/lib/IDValidator.js` 是 UMD 包装，Node 走的是 `module.exports = factory(isWindow, global)` 那一支（`window` 未定义 → `isWindow` 为 false），`GB2260.js` 同理，所以 4.1 那三行 `createRequire` + `global.GB2260 = require(…)` 照抄就能用，`oracle.isValid / getInfo` 全部原样返回。**旧库一行都没改**，`demo/idCardDemo/` 与 `scripts/fixtures/region-source/` 到本轮结束仍是原字节。
+
+其余八处是实测推翻计划或计划代码本身带缺陷，逐条列在这里（代码块与 `pools` 字段都已按磁盘回灌）：
+
+| # | 位置 | 计划原文 | 实测与处置 |
+|---|---|---|---|
+| 1 | 4.0 同名池 | 按"县名相同"筛，1,871 条 | 那样筛出的 1,869 条里有 93 条两边全名必然不等（旧表市名/省名是旧口径），agree18 会误红。改成三段名各自与快照一致的口径，1,776 条；`renamed` 组随之 156 条并拆两个成因字段记录。判据一条没放宽 |
+| 2 | B1 已知校验位表 | `'11010119900307001': '3'` | 该本体算出来是 **1**：旧库对 `…011` 返回 true、对 `…013` 返回 false。'3' 是抄了上一行 `…350` 那一档的期望值 |
+| 3 | B3 小写 x 用例 | `'11010119900307350x'` 应判 valid | 那串的本体末位该是 3，填 x 只能落进 `checkdigit`，测不到"小写也接受"。换成 `11010119900307002x`（本体算得 X，旧库对它也返回 true） |
+| 4 | B4 三处期望值 | `id18 = '110101199003070013'` 等 | 跟着 #2 改成 `…011`（含 `suggestedId18` 与反例输入） |
+| 5 | B7 取样覆盖判据 | 两组 `uniq.size >= 250` | agree15 只抽 100 条，250 个不同号码数学上取不到，实跑必红。改成按组比对 `uniq >= n/2`，并且七组全查（原写法只查两组）；本轮实测七组 uniq/n 都是 1.000，池子塌掉时这条照样红 |
+| 6 | idcard.js 顺序码 | `const seq = compact.slice(-3)` | **计划代码的真缺陷**：18 位串上它把校验位一起吃进顺序码（`…3503` 解成 503），性别、`000 未分配`、15 位等价写法三处口径同时错位。Step 7 首跑 B2/B4/B6/B7/B8 五条一起红（`'男' !== '女'` / `true !== null`），改成按 `lengthType` 取本体第 15–17 位后 21 条全绿 |
+| 7 | `parseIdCardList` | 空输入走 `split` 得到 1 行 | B9 要求 `parseIdCardList(null)` 长度为 0：`''.split(/\r?\n/)` 给 `['']` 一条。改成 null / undefined / 空串直接 `[]`，"粘贴了空行"仍占一条 |
+| 8 | `generateIdCards` 的 count | `options.count ?? 1` | B8 要求 `count: null` 抛 RangeError，`??` 把 null 当成"没传"静默出 1 条号码。改成只把 `undefined` 当没传 |
+
+还有一处**没改、但下一轮要盯着**的：B8 里 `assert.ok(/[1-9]\d{2}/.test(g.seq))` 靠的是"顺序码首位不是 0"，而它只在 seed 20260925 那 5 条上成立（896/709/251/476/430）——换个种子抽出 `0XX` 就会假红。它守的其实是"永不 000"，`pickSeq` 的 1..999 已经在实现里保证。这句留在这里，不替评审的人提前动手。
+
+Step 7 的最终形状（回填）：`# tests 21 / # pass 21 / # fail 0`、`exit=0`；夹具 248,803 字节、`sha256 c1657987e987f50a…`，连跑两次字节一致；`dev/js/tools/region-data.js` 仍是 `a7e26d543e55e9c0…`，`build-region-data.mjs --check` 退 0。
 
 ---
 
