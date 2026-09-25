@@ -12,7 +12,7 @@ module.exports = {
       viewportUnit: 'vw',
       selectorBlackList: [
         /^\.markdown-body/, 
-        /^\.pc/, 
+        /^\.pc/,            // 只在 demo/echartsDemo/css/index.scss 有活干（.pc-style 那条 750px 版心）；dev/ 下确实没有消费者，别按主站源码判死
         /\.g-container/, 
         /\.g-sidebar-wrapper/, 
         /\.article-list/, 
@@ -66,6 +66,8 @@ module.exports = {
         '.series-',           // 合集清单（.post-series* 已被上面的 /\.post-/ 覆盖）
         '.heading-anchor',
         '.resume',            // 续读浮条（.resume-* 同理，靠子串命中）
+        '.home-intro',        // 首页信息流前的自我介绍条：不排的话 640 上限会变成 85.3vw，
+                              // 959 屏上实测条子撑到 818px 宽，比它下面那条 640 的信息流还宽
         '.lightbox',          // 图片灯箱，尺寸本来就按 vw/vh 写
         '.toc-',              // 目录抽屉的按钮/遮罩/关闭键（.toc 那条只覆盖得到 .toc 本身）
         '.notfound',          // 404 页（无 .masthead 之外的父选择器可借力）

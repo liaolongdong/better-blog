@@ -2,7 +2,7 @@
 
 # Better 的前端与 AI 技术博客
 
-**廖龙东（网名 Better，写作廖小新）的个人博客源码仓库 —— 从 2016 年写到现在的 React、Vue、npm、Chrome 插件与 AI Agent 工具链记录。**
+**Better（中文署名廖小新）的个人博客源码仓库 —— 从 2016 年写到现在的 React、Vue、npm、Chrome 插件与 AI Agent 工具链记录。**
 
 [![在线访问](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E8%AE%BF%E9%97%AE-liaolongdong.github.io%2Fbetter--blog-0A66C2?style=for-the-badge&logo=githubpages&logoColor=white)](https://liaolongdong.github.io/better-blog/)
 [![Deploy Jekyll site to Pages](https://img.shields.io/github/actions/workflow/status/liaolongdong/better-blog/jekyll.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=Pages%20build)](https://github.com/liaolongdong/better-blog/actions/workflows/jekyll.yml)
@@ -158,7 +158,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 
 This is the source repository for a personal frontend & AI engineering blog written in Chinese, maintained continuously since June 2016.
 
-**Live site:** <https://liaolongdong.github.io/better-blog/> · **Author:** 廖龙东 (Liao Longdong), online as *Better* / *廖小新*
+**Live site:** <https://liaolongdong.github.io/better-blog/> · **Author:** *Better* (Chinese pen name *廖小新*)
 
 The site is a static Jekyll 4.3 build. Vite 6 compiles Sass and JavaScript into minified assets during CI; GitHub Actions publishes the result to GitHub Pages as a project site. Comments, page views and reactions run on a self-hosted Waline instance deployed to Cloudflare Workers. No third-party analytics script is required to read the content.
 
@@ -170,7 +170,7 @@ Beyond articles, the repo contains 18 runnable interaction demos, an in-browser 
 
 **Repository layout:** `_posts/` Markdown articles · `_includes/` and `_layouts/` Liquid templates (SEO metadata lives in `_includes/seoMeta.html` and `_includes/jsonLd.html`) · `dev/` unminified sources · `demo/` standalone examples · `_data/` collections, curated picks and product listings.
 
-**Keywords:** frontend blog, Jekyll theme source, GitHub Pages project site, Vite build pipeline, React, Vue, Node.js, npm, pnpm, Chrome extension, WeChat Mini Program, AI Agent, web performance, Chinese tech blog, 前端博客, 廖龙东
+**Keywords:** frontend blog, Jekyll theme source, GitHub Pages project site, Vite build pipeline, React, Vue, Node.js, npm, pnpm, Chrome extension, WeChat Mini Program, AI Agent, web performance, Chinese tech blog, 前端博客, 廖小新
 
 ## 相关项目
 
@@ -190,6 +190,6 @@ Beyond articles, the repo contains 18 runnable interaction demos, an in-browser 
 
 [![Star this repo](https://img.shields.io/github/stars/liaolongdong/better-blog?style=for-the-badge&logo=github&label=Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/better-blog/stargazers)
 
-Built by [廖龙东 / Better](https://github.com/liaolongdong) · [liaolongdong.github.io/better-blog](https://liaolongdong.github.io/better-blog/)
+Built by [Better](https://github.com/liaolongdong) · [liaolongdong.github.io/better-blog](https://liaolongdong.github.io/better-blog/)
 
 </div>

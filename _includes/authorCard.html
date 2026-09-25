@@ -1,0 +1,41 @@
+{%- comment -%}
+作者名片。首页用两次：桌面在右栏 `.g-sidebar` 里，窄屏（≤959）换到信息流之前的
+`.home-intro` 里——同一份 markup 两处 include，各自只渲染一个（另一个 display:none，
+不进无障碍树），所以这里的 id 会是重复的：这张卡过去挂的 `id="sns-links"` 全站无人读
+（JS 与 CSS 只认 `.sns-links` 类），已经删掉，日后要加 id 得先想清楚两棵树怎么分。
+
+`.author-text` 那层包裹是给窄屏的横排版用的：头像在左、名字与简介在右，靠 flex 排。
+桌面那档它是普通块级元素，`.author-name` / `.bio` 全是后代选择器，多一层不影响样式。
+文章页末尾那张（_layouts/post.html 的 `.author-detail`）内容同源但外壳不同
+（`.post-footer-item` 自带边框与内边距），没并进来，改这里不会波及它。
+{%- endcomment -%}
+<section class="author-card">
+    <div class="avatar rtlr-delay500">
+        <img src="{{ site.avatar | prepend: site.baseurl }}" alt="">
+    </div>
+    <div class="author-text">
+        <div class="author-name" rel="author">{{ site.author }}</div>
+        <div class="bio">
+            <p>{{ site.bio }}</p>
+        </div>
+    </div>
+    {% if site.sns.size > 0 %}
+    {%- comment -%}
+    每个链接只有一个 ::before 画出来的图标字形，读屏器念不出「这去处是谁」，
+    悬停也没有提示。名称取 _data/sns_label.yml，未登记的键退回图标名。
+    {%- endcomment -%}
+    <ul class="sns-links">
+        {% for s in site.sns %}
+            {% comment %} 键要先落进变量再查表：Liquid 的变量解析器只认一层下标，
+            直接写 site.data.sns_label[s[0]] 会被当成字面量下标，静默取到 nil。 {% endcomment %}
+            {% assign sns_key = s[0] %}
+            {% assign sns_label = site.data.sns_label[sns_key] | default: sns_key %}
+            <li>
+                <a href="{{ s[1] }}" target="_blank" rel="noopener noreferrer" aria-label="{{ sns_label }}" title="{{ sns_label }}">
+                    <i class="iconfont icon-{{ sns_key }}" aria-hidden="true"></i>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>

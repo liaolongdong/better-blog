@@ -392,6 +392,13 @@ body {
         border-radius: var(--radius-s);
     }
 
+    // 书架与搜索的字标签只在抽屉（≤695 折叠成竖排）里露脸，见 695 那一档。
+    // 横排顶栏连「GitHub」四个字都要收掉（1199 那条），更没有位置给它们。
+    .nav-shelf-label,
+    .nav-search-label {
+        display: none;
+    }
+
     .menu-toggle {
         display: none;
         position: absolute;
@@ -481,7 +488,11 @@ body {
     color: var(--ink-3);
 }
 
-.g-sidebar .author-card {
+// 名片两处 include（右栏 `.g-sidebar`、窄屏信息流之前的 `.home-intro`）共用这一套排版，
+// 少了 `.home-intro` 那一条，手机上这张卡会退回 common.scss 的老主题样式：
+// 名字不是展示字体、头像 hover 还会被 common.scss:261 那条 140×100 的椭圆拉伸复活。
+.g-sidebar .author-card,
+.home-intro .author-card {
     padding: 0;
 
     .author-name {
@@ -507,6 +518,55 @@ body {
         img {
             transform: scale(1.08);
         }
+    }
+}
+
+// 窄屏的自我介绍条：信息流之前的那张横排版名片（markup 见 _includes/authorCard.html，
+// 与右栏那张是同一份 include）。桌面整块收掉——右栏本来就常驻，重复一份只会把
+// 刊头和数据条往下挤；≤959 由下面那条媒体查询放开，同时把右栏那张藏起来。
+// 横排而不是照搬右栏那张竖排：竖排实测 197.1px 高（1440×900、右栏 278 宽），
+// 横排把名字与简介挪到头像右边、五个图标各占一行，390/360 屏实测 137.4/156.1px。
+.home-intro {
+    display: none;
+    box-sizing: border-box;
+    max-width: 640px;
+    margin: 0 auto 20px;
+    padding: 14px 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+
+    .author-card {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        text-align: left;
+    }
+
+    // 头像在 flex 行里不能带 margin: 0 auto —— auto 边会把文字柱推到最右边。
+    .avatar {
+        flex: none;
+        margin: 0;
+    }
+
+    // 150 而不是 190：320 屏这条的内宽只有 248，190 的基准加上头像 70 + 间距 14 = 274
+    // 放不下，文字柱会整根换到头像下面，横排版当场退化成 208px 高的竖排版（实测）。
+    .author-text {
+        flex: 1 1 150px;
+        min-width: 0;
+    }
+
+    .author-name {
+        margin: 0 0 2px;
+    }
+
+    // 图标行自己占一整行：它本身要 152.5px（26×5 加 4 段 5.6 间距，390 屏实测），
+    // 留在第一行的话文字柱只剩 316−70−14−14−152.5 = 65.5px，一行不到五个汉字。
+    .sns-links {
+        flex: 1 0 100%;
+        margin-top: 4px;
     }
 }
 
@@ -2476,11 +2536,15 @@ body.toc-open {
 .resume {
     position: fixed;
     bottom: 20px;
-    left: 16px;
+    left: 0;
+    right: 0;
     z-index: 57;
     display: flex;
     align-items: center;
+    box-sizing: border-box;
+    width: max-content;
     max-width: min(420px, 100vw - 96px);
+    margin-inline: auto;
     padding-left: 14px;
     background-color: var(--surface);
     border: 1px solid var(--rule-2);
@@ -2501,17 +2565,13 @@ body.toc-open {
     }
 }
 
-// 猫和这条浮条钉在同一个角。实测（headless，1240 / 1440 / 1920 三档）只要猫在屏上，
-// 两者就稳定压掉 5200px²：猫的盒子 bottom:30 + 高 174，浮条 bottom:20 + 高 36，
-// 上下正好交叠 26px，盖住的是猫的两只前爪。
-// 让位的是浮条：它是临时的（读完 / 点 × 就没了）、可关的，而猫是全站常驻的门面；
-// 反过来抬猫会连带弄坏 is-tucked 那套「沉下去只留 22px 耳尖」的算法。
-// 抬高量 = 猫的 bottom(30) + 猫盒高(--mao-box-h，在 cat.scss 里只说一次) + 12px 呼吸位。
-// 判据走 body.has-mao（cat.js 的 paint() 独家写），不在这里重算 1240 那条阈值。
-body.has-mao .resume {
-    bottom: calc(30px + var(--mao-box-h, 174px) + 12px);
-}
-
+// 这里不再有「猫在屏上就把浮条抬高」那条 body.has-mao .resume：
+// 浮条原先也钉在左下角，与猫稳定压掉 5200px²（猫的盒子 bottom:30 + 高 174，
+// 浮条 bottom:20 + 高 36，上下交叠 26px，1240 / 1440 / 1920 三档实测），
+// 当时的解法是抬高到 bottom: calc(30 + 174 + 12) = 216px——结果浮条悬在视口中段
+// 盖住信息流（1440×900 实测落在 y 648–684，正是第二张卡片的标题行），读起来像坏了。
+// 改成横向居中之后抬高量没有存在理由：猫只在 ≥1240 出现（cat.js 的 MIN_W），
+// 那一档居中浮条的左边缘在 (1240 - 420) / 2 = 410，猫的右边缘在 30 + 200 = 230。
 .resume-link {
     display: flex;
     align-items: center;
@@ -2842,10 +2902,14 @@ body.reader-open .post-masthead {
 }
 
 // 面板底部那 12px 并进来（28 → 40），分隔线与面板底边之间就是等高的两段，
-// 文字靠 align-items 居中，不再靠 <button> 各自 UA 的默认居中行为。
+// 文字靠 align-items 居中、justify-content 居中，不再靠 <button> 各自 UA 的默认行为。
+// 横向也得显式居中，不能只指望 <button> 的默认表现：面板在两档都比这行文字宽得多——
+// 桌面 264px（内容盒 234px），窄屏那只底部抽屉是整列宽（390 实测面板 350px、这颗按钮
+// 320px），而「恢复默认」四个字只占 ~48px，贴左写就空出大半条，读起来像这行没做完。
 .reader-reset {
     display: flex;
     align-items: center;
+    justify-content: center;
     box-sizing: border-box;
     width: 100%;
     height: 40px;
@@ -3454,6 +3518,21 @@ body.cmdk-open {
         margin-top: 32px;
     }
 
+    // 名片搬到信息流之前，右栏那一份就藏起来（display:none 同时把它摘出无障碍树，
+    // 读屏器不会念两遍「Better」）。藏的是 section 而不是从 DOM 删掉，:first-child
+    // 那条「首个 section 不给上内边距」按 DOM 算，够不到 tools-card，得手动补一条。
+    .home-intro {
+        display: block;
+    }
+
+    .g-sidebar .author-card {
+        display: none;
+    }
+
+    .g-sidebar .tools-card {
+        padding-top: 0;
+    }
+
     .g-masthead {
         --masthead-title-size: 40px;
     }
@@ -3506,13 +3585,24 @@ body.cmdk-open {
             box-shadow: var(--shadow-2);
 
             &>ul {
-                display: block;
+                // 抽屉的正文是「一行一项」，但 GitHub / 书架 / 搜索这三颗是同一类东西
+                // ——动作入口。它们各占一整行时是三个 358×38 的胶囊，中间空得能停车
+                // （书架那颗的 space-between 在角标隐藏时尤其明显）。三列网格把它们压成
+                // 一行：正文项一律 grid-column: 1 / -1 占满，三颗顺次落进最后一行的三格。
+                // row-gap 留 0，纵向节奏仍由各自的 padding 管，横向上只多出一份 8px 的缝。
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                column-gap: 8px;
                 height: auto;
             }
 
             &>ul>li {
                 height: auto;
                 position: relative;
+            }
+
+            &>ul>li:not(.nav-git):not(.nav-shelf):not(.nav-search) {
+                grid-column: 1 / -1;
             }
 
             .nav-link {
@@ -3562,33 +3652,41 @@ body.cmdk-open {
             display: none;
         }
 
-        .nav-search {
-            padding-top: 6px;
-        }
-
-        .nav-search-btn {
-            width: 100%;
-            justify-content: space-between;
-            height: 38px;
-            padding: 0 14px;
-            margin: 0;
-        }
-
-        // GitHub 药丸在抽屉里同样拉成整行。这里必须多写一层 .g-nav 凑到 (0,3,0)：
-        // 基础态那条就是 .g-header .g-nav .nav-git-btn，少一层就会被它自己盖住。
+        // 三颗动作药丸压成一行之后，内部一律「图标 + 文字」居中：宽度是网格给的 1fr，
+        // 横向 space-between 是旧版给「图标 ←→ 数字角标」两头撑开用的，现在角标紧跟文字，
+        // 再 space-between 就把角标甩到最右边（角标十有八九还是 hidden 的，于是变成
+        // 图标贴左、右半片空白）。
+        // 选择器三条都要带 .g-nav：GitHub 那颗的基础态就是 .g-header .g-nav .nav-git-btn
+        //（0,3,0），少一层就会被它自己盖住；书架与搜索同理，一并凑齐同一档。
+        .g-nav .nav-search-btn,
+        .g-nav .nav-shelf-btn,
         .g-nav .nav-git-btn {
             width: 100%;
             height: 38px;
-            // 书架那行的 space-between 是给「图标 ←→ 数字角标」用的；GitHub 拉成整行宽
-            // 之后没有第二个承重元素，space-between 会把「GitHub」甩到最右边去。
-            justify-content: flex-start;
-            padding: 0 14px;
+            padding: 0 8px;
             margin: 0;
+            justify-content: center;
         }
 
-        // 抽屉里有整行宽度，字该露出来——收字那条规则是为 696–1199 的横排顶栏写的
-        .nav-git-label {
+        // 这一行与上方正文之间的那口气，从今往后是三颗一起垫的：只给 .nav-search
+        // 垫 6px 是它们还各占一行时的写法，如今会让三颗高低不齐。
+        .nav-git,
+        .nav-shelf,
+        .nav-search {
+            padding-top: 12px;
+        }
+
+        // 抽屉里有整行宽度，字该露出来——收字那条规则是为 696–1199 的横排顶栏写的。
+        // 搜索那颗原本显示的是 ⌘K，触屏上没有键盘可按，换成「搜索」两个字；
+        // 书架那颗原本只有图标，同一行里它就成了唯一没名字的一颗。
+        .nav-git-label,
+        .nav-shelf-label,
+        .nav-search-label {
             display: inline;
+        }
+
+        .nav-search-key {
+            display: none;
         }
     }
 
@@ -3683,11 +3781,15 @@ body.cmdk-open {
         padding: 7px 0;
     }
 
-    // 窄屏浮条左移贴边，但宽度上限保持 100vw-96px：右下角那组悬浮按钮在平板宽度
-    // （非触屏判定）下仍然显示，铺满一行会被它压住末尾的百分比和关闭键。
+    // 窄屏浮条回到左下贴边，横向居中的那套 left/right + auto 外边距一起撤掉，
+    // 否则 margin-inline: auto 会在 left:12px 与 right:0 之间再居中一次，
+    // 落点变成一个跟屏幕宽度有关的数。宽度上限保持 100vw-96px：右下角那组悬浮按钮
+    // 在平板宽度（非触屏判定）下仍然显示，铺满一行会被它压住末尾的百分比和关闭键。
     .resume {
         bottom: 14px;
         left: 12px;
+        right: auto;
+        margin-inline: 0;
     }
 
     body.has-toc .toc-fab {
@@ -3703,18 +3805,27 @@ body.cmdk-open {
         font-size: 24px;
     }
 
-    // 窄屏不做悬空弹层：meta 行是块级流，按钮右边没有 264px 的余量，右对齐会把面板
-    // 顶出左边界。改成挤进文档流的一张卡，顺带绕开刊头 overflow:hidden 的裁切问题。
-    .post-masthead .reader-item {
-        display: block;
-        width: auto;
-    }
-
+    // 窄屏的展开态：贴着视口底部的抽屉。
+    // 前三版都不对。桌面那套 `right: 0` + 264px 在 390 屏会把面板顶出左边界；
+    // 留在文档流里（position: static）它是 .reader-item 撑出来的一张 216px 窄卡，
+    // 还把刊头从 552px 撑到 812px；改成挂在 meta 行下方的浮层，横竖是齐了，
+    // 竖着不够用——meta 行本身就压在头图下面（390×844 实测 y 500~580），面板要 256px，
+    // 360×780 与 320×700 实测分别有 93px、214px 掉在视口外，「纸色」那档和「恢复默认」
+    // 根本够不着。钉在视口底部就不吃这个几何：面板多高都完整可见，
+    // 改字号时正文照旧露在上半屏。
+    // z-index 63：这条街最高的是 62 的划词药丸，58/59/60 是目录那组浮层，
+    // 都要被它盖住；再往上的 1200 阅读进度条和 1500 分享弹窗该盖住它，不动。
+    // 点面板外收起、Esc 收起由 editorial.js §11 统一负责，这里不再加遮罩。
     .reader-panel {
-        position: static;
+        position: fixed;
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 63;
         width: auto;
-        margin-top: 10px;
-        box-shadow: none;
+        padding-bottom: env(safe-area-inset-bottom);
+        border-radius: var(--radius-l) var(--radius-l) 0 0;
     }
 }
 
@@ -4283,18 +4394,11 @@ dialog.shelf[open] {
     }
 }
 
-// 抽屉态（.g-nav 折叠成竖排）只在 ≤695 发生，这条规则必须跟它同断点。
-// 原先写在 max-width:1023 里：696–1023 那段顶栏还是横排，书架药丸被拉成 38px 高、
+// 书架药丸的抽屉态不在这里了：它和 GitHub、搜索那两颗一起并进了 695 那一档的
+// .g-header .g-nav 分组规则（三颗等宽排成一行）。留这段话是因为那条断点选错过一次：
+// 原先写在 max-width:1023 里，696–1023 那段顶栏还是横排，书架药丸被拉成 38px 高、
 // 还吃掉 6px 左间距，和旁边 32px 的搜索药丸明显不齐（实测 800px 下 38 vs 32）。
-// GitHub 那颗的同一条改写在上一个 695 块里，它得借 .g-header .g-nav 凑特异性。
-@media screen and (max-width: 695px) {
-    .nav-shelf-btn {
-        width: 100%;
-        height: 38px;
-        justify-content: space-between;
-        margin: 0;
-    }
-}
+// 抽屉态只发生在 ≤695，改写必须跟它同断点。
 
 @media (prefers-reduced-motion: reduce) {
     .wrap-up.is-in {

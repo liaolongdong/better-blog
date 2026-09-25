@@ -1,344 +1,478 @@
 /*** about 页 ***/
-// 页头已经收进全站统一的 .g-masthead 刊头（见 about.html）：标题、作者介绍的字号栏宽、
-// 窄屏降级全部由 index.min.css 的 editorial 层负责，这一层只剩下面两条时间线。
+// 这一层现在只剩「按年份的更新记录」一根轴。旧版是两套 DOM：.pc-container 在桌面把
+// 条目左右交错、.mobile-container 在 ≤1000px 换成竖向卡片，用两条 !important 按视口
+// 切换，内容取自 _config 里六条「这段时间在哪里工作」的占位履历，动效全部按
+// animation-delay 在载入那一秒播完——滚到时间轴时早就结束了。
+// 现在内容由 _posts 现算，容器只剩一根轴，入场交给 IntersectionObserver、
+// 轴上的墨由滚动位置驱动（都在 about.js）。
 //
 // 配色一律走 tokens.scss 的语义变量。白昼是暖纸，同一批变量在 html.night-mode /
-// body.night-mode 下重赋值，所以这里不写任何 .night-mode 分支——旧版 body 上那张深色星系底图、
-// 白字蓝晕的正文、窄屏退成的 #292929，以及文末那块「夜间把 text-shadow 去掉」的覆盖，
-// 就是这么长出来的两套。同理也不再单独立 .g-header{height:58px}：顶栏全站 64px。
+// body.night-mode 下重赋值，所以这里不写任何 .night-mode 分支——旧版 body 上那张
+// 深色星系底图、白字蓝晕的正文、窄屏退成的 #292929，就是这么长出来的两套。
 //
-// 本文件承重规则的选择器全部落在 postcss.config.js 的像素转视口黑名单里（.p-about / .pc /
-// .author- / .masthead），时间线的 98px 行高、1000px 轴宽必须是固定值；新增规则别写到
-// .p-about / .g-masthead 之外去，否则会被换成 vw。唯一的例外是 @keyframes：那条黑名单按
-// 选择器匹配，关键帧块的「选择器」是 0%/100%，一律不命中——所以 aboutTextIn 起手的位移
-// 不写字面量，走 tokens.scss 的 --travel-l（:root 在黑名单内，px 原样落地）。
-// 旧版这里曾是 -10px，在产物里被换成 -1.33333vw：1440 屏上多滑 5px，375 屏上只滑 5px。
+// 像素转视口：postcss.config.js 的黑名单里有 /^\.p-about/，它匹配的是编译后选择器的
+// 开头，所以本文件带 px 的规则必须嵌在 .p-about 里面。@keyframes 是唯一命中不了的：
+// 关键帧块的「选择器」是 0%/100%，一条都不命中——所以位移一律走 tokens.scss 的
+// --travel-*，不写字面 px。
+//
+// 字族：about.scss 是独立入口（vite 按 dev/sass/*.scss 逐个打包），拿不到 tokens.scss
+// 的 $font-display / $font-meta。下面重复的是字族名，不是字体文件——@font-face 归
+// index.min.css，这里缺字会退到 Georgia / SF Mono，中文由栈尾的 Songti SC 接手。
+// 字号抄的是 .cat-name / .cat-count（tags.html 与 categories.html 的分组抬头），
+// 年表在口径上就是同一类东西：一个分组标题，加它名下的内容。
+$tl-display: 'Newsreader', Georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', 'STSong', 'SimSun', serif;
+$tl-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
 
-* {
-    box-sizing: border-box;
-}
-
-// 作者介绍住在刊头里，这里只补打字机需要的两件事：先藏、并把 5 行的位占住。
-// TypeWriter 播放前会把子节点逐个摘走再塞回去，容器因此会塌成一帧行高；不占位的话
-// window.load 之后刊头下面整块内容会往上跳一下（旧版 min-height:80px 只挡掉了一半）。
-// 150 / 130 = 5 行 × .masthead-lede 的行高（editorial.scss 的窄屏档在 695px 断点降到 26px）。
+// 打字机播放前会把 #authorIntroduction 的子节点逐个摘走再塞回去，容器因此会塌成一帧
+// 行高；不占位的话 window.load 之后刊头下面整块内容会往上跳一下（旧版 min-height:80px
+// 只挡掉了一半）。
+// 占位的数不在这里写，由 about.js 在摘子节点前量本机这一帧的实际高度、写成行内
+// min-height。CSS 里给常数挡不住：这段介绍每折一行就多 26px（宽屏行高 30px），而折几
+// 行取决于视口——实测 696 以上 150px，414~695 五行各一行 130px，390 折一次 156px，
+// 375 182px，360 208px，320 要 260px。整个窄屏区间是 130~260 的连续跨度，常数取任何一
+// 个值都是「窄的那头照旧跳、宽的那头白占一截」（上一版按 390 定的 182px 就是这样：
+// 414~695 白占 52px，360 和 320 仍分别差 26px 和 78px）。
 .g-masthead .author-introduction {
     visibility: hidden;
-    min-height: 150px;
 }
 
-@media screen and (max-width: 695px) {
-    .g-masthead .author-introduction {
-        min-height: 130px;
-    }
+// 年份跳转是页内锚点，瞬跳会让人不知道自己是「翻过去」的。只写在本文件里：
+// about.min.css 只在 aboutTemplate 加载，波及不到别的页面。
+// base.scss 末尾那条 scroll-behavior: auto !important（要求减少动态效果时）压得住它。
+html {
+    scroll-behavior: smooth;
 }
 
 .p-about {
-    // 刊头与内容之间的留白，取自 .archive-content（tags / categories 那一层）
+    // 四个承重数：
+    //   --tl-gutter 左栏宽（轴 + 圆点 + 一点呼吸），卡片从这条线之后起排
+    //   --tl-axis-x  轴心所在的横坐标，圆点靠它对齐
+    //   --tl-top     吸顶导航的下沿（桌面 64 顶栏 + 41 导航条；窄屏 56 + 41；桌面顶栏
+    //                收起时只剩那 41，见下面 .g-header.headerUp 那条），
+    //                年表行的滚动落点由它加 16px 余量算出来
+    //   --tl-tail    年表最后一行下面留的空白，为什么要有这段空白见 .tl-end
+    --tl-gutter: 30px;
+    --tl-axis-x: 6px;
+    --tl-top: 105px;
+    --tl-tail: max(0px, calc(100dvh - 420px));
+    // 轴上的墨流到几成。默认 1 是「无 JS / 减少动态效果」的终态；about.js 只在两者都
+    // 不成立时才把它置 0，再随滚动逐帧改写。
+    --tl-p: 1;
+
     padding: 40px 0 88px;
 
-    // pc样式
-    .pc-container {
-        .content {
-            margin: auto;
-            width: 1000px;
-            height: 100%;
-            min-height: 800px;
-        }
-
-        .events_list ul {
-            position: relative;
-        }
-
-        // 中轴：原来由一张张 51×98 的雪碧图逐行拼出来，现在是一条真实的线，
-        // 1s 内自上而下长完，之后节点再按 1s→5s 的节拍逐条点亮。
-        .events_list ul:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 50%;
-            width: 2px;
-            margin-left: -1px;
-            background-color: var(--rule-2);
-            transform-origin: top;
-            animation: aboutAxisGrow 1s ease both;
-        }
-
-        // ic_time / ic_arr 是雪碧图时代留下的类名，图标文件撤了之后它们分别当中轴的
-        // 起点帽和终点箭头，类名没跟着改是因为 about.html 的骨架还在沿用。
-        .events_list .ic_time {
-            display: block;
-            width: 12px;
-            height: 12px;
-            margin: 0 auto;
-            background-color: var(--paper);
-            border: 2px solid var(--signal);
-            border-radius: 50%;
-            animation: aboutNodeIn .8s linear both;
-        }
-
-        // 末端：朝下的箭头，等所有条目落位后再出现（5.8s = .2 + .8×7，即第 6 条之后一档）
-        .events_list .ic_arr {
-            display: block;
-            width: 10px;
-            height: 10px;
-            margin: 0 auto;
-            border-right: 2px solid var(--signal);
-            border-bottom: 2px solid var(--signal);
-            transform: rotate(45deg);
-            animation: aboutFadeIn .6s 5.8s linear both;
-        }
-
-        .events_list li {
-            position: relative;
-            display: flex;
-            align-items: center;
-            height: 98px;
-        }
-
-        // 节点：骑在中轴上的小圆点（原来是左右各一张朝向不同的雪碧图）
-        .events_list .ic_events {
-            position: absolute;
-            top: 50%;
-            width: 10px;
-            height: 10px;
-            margin-top: -5px;
-            background-color: var(--paper);
-            border: 2px solid var(--signal);
-            border-radius: 50%;
-            animation: aboutNodeIn .8s linear both;
-        }
-
-        // 圆点是 10×10 的 border-box（描边算在里面），要压住 50% 那条线得左右各外溢 5px
-        .events_list .right_li {
-            margin-left: 50%;
-        }
-
-        .events_list .right_li .ic_events {
-            left: -5px;
-        }
-
-        .events_list .right_li .txt_events {
-            margin-left: 56px;
-        }
-
-        .events_list .left_li {
-            width: 50%;
-            justify-content: flex-end;
-            text-align: right;
-        }
-
-        .events_list .left_li .ic_events {
-            right: -5px;
-        }
-
-        .events_list .left_li .txt_events {
-            margin-right: 56px;
-        }
-
-        .events_list .txt_events {
-            font-size: 16px;
-            line-height: 1.5;
-            color: var(--ink-3);
-            white-space: nowrap;
-            animation: aboutTextIn .8s linear both;
-            // github-markdown.min.css 里有一条漏了 .markdown-body 前缀的 `li p:nth-child(2)`，
-            // 产物写作 `margin-bottom: 2.13333vw !important`——正文这个 <p> 正好是 li 的第二个子元素，
-            // 于是被顶下一截（1440px 视口实测 30.7px，随视口线性变化，不是固定 px）。
-            // 旧版靠 top:-12px 绝对定位排版，flex 居中一改这个 margin 就露出来了；
-            // 压它只需要同档 !important，且只能压 bottom（同一条规则没设 margin-top，实测确认）。
-            margin-bottom: 0 !important;
-        }
-
-        .events_list .txt_events strong {
-            display: block;
-            font-size: 30px;
-            line-height: 34px;
-            font-weight: 700;
-            color: var(--ink);
-            font-variant-numeric: tabular-nums;
-        }
-
-        // 逐条错峰：.2s 起步、每条隔 .8s，和旧版写死的 1..6 完全同拍；
-        // 这里循环到 8 档，时间线加条目时不必回来补选择器。
-        @for $i from 1 through 8 {
-            .events_list li:nth-child(#{$i}) .ic_events,
-            .events_list li:nth-child(#{$i}) .txt_events {
-                animation-delay: .2s + .8s * $i;
-            }
-        }
+    .about-body {
+        width: 680px;
+        max-width: 100%;
+        margin: 0 auto;
     }
 
-    // mobile：≤1000px 换竖向单轴版本，几何照旧，配色换成纸墨
-    .mobile-container {
-        display: none;
+    // ———— 板块：一块一段履历，各自带一根轴（markup 见 about.html）————
+    // 这条只在真的出现第二块时有活干：authorWorkTimeLine 每填一条就多一块履历板块，
+    // 留空时页上只有 _posts 现算出来的年表一块。
+    .tl-block + .tl-block {
+        margin-top: 40px;
     }
 
-    .mobile-container .wrapper {
-        padding-left: 18px;
-        padding-right: 18px;
-        max-width: 1000px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .mobile-container .timeline {
-        position: relative;
-        margin: 30px auto;
-        padding: 60px 0;
-    }
-
-    .mobile-container .timeline:before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 10%;
-        width: 4px;
-        height: 100%;
-        background-color: var(--rule-2);
-    }
-
-    .mobile-container .timeline__item {
-        margin-bottom: 100px;
-        position: relative;
-    }
-
-    .mobile-container .timeline__item:after {
-        content: "";
-        clear: both;
-        display: table;
-    }
-
-    .mobile-container .timeline__item:last-child {
-        margin-bottom: 0;
-    }
-
-    .mobile-container .timeline__item__station {
-        position: absolute;
-        top: 0;
-        left: 10%;
-        width: 40px;
-        height: 40px;
-        padding: 10px;
-        margin-left: -33px;
-        border-radius: 50%;
-        background-color: var(--surface);
-        border: 4px solid var(--rule-2);
-        transition: all .3s ease-out;
-    }
-
-    .mobile-container .timeline__item__content {
-        position: relative;
-        float: right;
-        width: 80%;
-        padding: 20px 30px;
-        border-radius: 6px;
-        background-color: var(--surface);
-        border: 1px solid var(--rule);
-        transition: all .3s ease-out;
-    }
-
-    // 卡片到主轴之间的连接杆，压在卡片下面（z-index:-1），只露出靠轴的那半截
-    .mobile-container .timeline__item__content:before {
-        content: '';
-        position: absolute;
-        left: 10%;
-        top: 20px;
-        width: 10%;
-        height: 4px;
-        z-index: -1;
-        background-color: var(--rule-2);
-        transition: all .3s ease-out;
-    }
-
-    // 偶数条卡片靠右：≥800px 的双栏交替全靠这一条。它必须比下面 @media (min-width:800px)
-    // 里的 float:inherit 更重（多一个 :nth-child，0-3-0 > 0-2-0）才压得住。
-    // 删掉它的后果实测过：六张卡片全挤到中轴左侧，而连接杆还按「偶数在右」摆着。
-    .mobile-container .timeline__item:nth-child(2n) .timeline__item__content {
-        float: right;
-    }
-
-    // 偶数条的连接杆朝右。left 在窄屏仍由上面那条占住（同时给 left/right/width 时 left 赢），
-    // 到 ≥800px 才让位，这段几何旧版本来就是这样，别顺手「简化」掉。
-    .mobile-container .timeline__item:nth-child(2n) .timeline__item__content:before {
-        right: 40%;
-    }
-
-    .mobile-container .timeline__item__content__date {
-        display: inline-block;
-        margin: 0 0 10px;
-        padding: 8px 12px;
-        border: 2px solid var(--surface);
-        border-radius: 4px;
-        font-size: 15px;
-        background-color: var(--signal);
-        color: var(--surface);
-    }
-
-    .mobile-container .timeline__item__content__description {
+    // ———— 板块标题 ————
+    .tl-title {
         margin: 0;
-        padding: 0;
-        font-size: 16px;
-        line-height: 1.5;
-        font-weight: 300;
-        color: var(--ink-3);
-    }
-
-    // Waypoint 滚过 80% 时加上的「点亮」态：站点、连接杆转信号蓝，卡片只换描边，
-    // 描述回到墨色。旧版是把整块卡片刷成蓝 / 紫（偶数条又一套色）再把文字刷白，
-    // 两套都跳出了纸墨口径。
-    .mobile-container .timeline__item-bg .timeline__item__station,
-    .mobile-container .timeline__item-bg .timeline__item__content:before {
-        background-color: var(--signal);
-    }
-
-    .mobile-container .timeline__item-bg .timeline__item__station {
-        border-color: var(--signal);
-    }
-
-    .mobile-container .timeline__item-bg .timeline__item__content {
-        border-color: var(--signal);
-    }
-
-    .mobile-container .timeline__item-bg .timeline__item__content__description {
+        font-family: $tl-display;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.3;
         color: var(--ink);
     }
 
-    @media (min-width: 800px) {
-        .mobile-container .timeline:before {
+    .tl-note {
+        margin: 6px 0 0;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-3);
+    }
+
+    .tl-all {
+        margin-left: 4px;
+        white-space: nowrap;
+        color: var(--signal);
+    }
+
+    // ———— 年份导航：吸顶的一行胶囊 ————
+    // 顶栏是 fixed 的 64px（editorial.scss 全站口径，窄屏 56px，在下面 695 档里改），
+    // 所以吸顶位置就是它自己。宽度跟着 .about-body 走：卡片不会超出这条线，
+    // 满宽反而要在两侧留白里露出滚动条。
+    //
+    // 这条带子和卡片同宽、又是同一个 --paper，卡片从它下面滚过去时看到的原本是
+    // 「卡片被挖掉了一条」而不是「有一条浮在上面的导航」——1440×900 实测带子占
+    // y 64–94，正好把 2021 那三个数字的下半截切在里头。上下各给一点内边距把带子
+    // 抬到 41px，再压一层下沿投影，让它读起来是浮在内容之前的一层 chrome。
+    .tl-nav {
+        position: sticky;
+        top: 64px;
+        z-index: 30;
+        box-sizing: border-box;
+        margin: 20px 0 10px;
+        padding: 5px 0 6px;
+        background-color: var(--paper);
+        border-bottom: 1px solid var(--rule);
+        box-shadow: 0 10px 12px -12px rgb(20 22 26 / 26%);
+        // 顶栏收起时这条带的吸顶位置要跟着往上挪（见下面 .headerUp 那条），
+        // 挪的过程和顶栏同步，否则顶栏用 .4s 滑走、带子瞬移，中间会露出
+        // 一条 64px 的卡片缝隙——正是这次要修的那个现象。
+        transition: top .4s ease;
+    }
+
+    // 年份多到一行放不下时横向滚动；滚动条藏掉——胶囊条本身就是指示，
+    // 多出一条 4px 的槽反而像坏了。
+    // 两侧各留 12px 内缩，配下面那道 mask：没留白时首尾那颗胶囊会被槽口齐刷刷
+    // 切掉一笔（1440 实测滚到 2021 时最左边只剩「017 3」），留白让渐隐有地方落，
+    // 停在原位的第一颗也不受 mask 影响。
+    .tl-nav-track {
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-inline: 12px;
+        mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent);
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .tl-chips {
+        display: flex;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tl-chip {
+        display: inline-flex;
+        flex: none;
+        align-items: baseline;
+        gap: 5px;
+        padding: 5px 11px;
+        font-size: 13px;
+        line-height: 16px;
+        color: var(--ink-3);
+        background-color: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), scale var(--dur-1) var(--ease-back);
+
+        // 篇数走等宽数字，和首页 .feed-topic 那颗同类控件一个写法
+        em {
+            font-family: $tl-meta;
+            font-size: 11px;
+            font-style: normal;
+            color: var(--ink-3);
+            font-variant-numeric: tabular-nums;
+        }
+
+        &:hover {
+            color: var(--signal);
+            background-color: var(--surface-2);
+            border-color: var(--signal);
+        }
+
+        // 与 M4 那批控件同档按压反馈（用独立 scale 属性，不跟别处的 transform 抢）
+        &:active {
+            scale: .97;
+        }
+    }
+
+    // 当前年份：信号蓝描边 + 软底。.is-on 由 about.js 按滚动位置挂，
+    // 同时把这颗平移进导航条的视野。
+    .tl-chip.is-on {
+        color: var(--signal-ink);
+        background-color: var(--signal-soft);
+        border-color: var(--signal);
+    }
+
+    // 断更年份的胶囊：轴上有它那一行，导航条上就得有它这一颗，否则「一行一颗」对不上，
+    // 滚到「2025 年没有更新」时高亮无处可去。只把描边换成虚线、不给它篇数徽标——
+    // 颜色一档都不往下调，是因为 --ink-4 在 13px 上对白底只有 3.78:1，过不了 AA。
+    .tl-chip--gap {
+        border-style: dashed;
+    }
+
+    // ———— 年表 ————
+    .tl-wrap {
+        position: relative;
+    }
+
+    // 轴。旧版是一条 1s 内自上而下「长」出来的线，长完就不管了；现在分两层：
+    // 底子是整条淡线（入场时从上往下拉开一次，只在载入那一下），上面盖一层信号蓝，
+    // 高度就是 --tl-p——读到哪里，墨流到哪里。
+    .tl-axis {
+        position: absolute;
+        top: 6px;
+        bottom: 12px;
+        left: var(--tl-axis-x);
+        width: 2px;
+        margin-left: -1px;
+        background-color: var(--rule);
+        transform-origin: top;
+        animation: tlAxisGrow var(--dur-4) var(--ease-out) both;
+
+        // 针尖：流到哪里，哪里就是一个实心蓝点。挂在轴上、用 --tl-p 定位，所以它和墨
+        // 永远是同一个位置；不能挂回 .tl-axis-fill 下面——那层现在被 scaleY 压着，
+        // 8px 的圆点会跟着压成 8px×p 的扁椭圆。
+        &:after {
+            content: '';
+            position: absolute;
+            top: calc(var(--tl-p) * 100%);
             left: 50%;
-            margin-left: -2px;
+            width: 8px;
+            height: 8px;
+            margin-top: -4px;
+            margin-left: -4px;
+            background-color: var(--signal);
+            border-radius: 50%;
+        }
+    }
+
+    // 内层是真正被裁的那一段。只能用 scaleY，不能用平移：平移要凑出整槽行程，就得让
+    // 墨层比轴槽高出一截，而 .tl-axis 没有 overflow，高出来的部分在槽外照画不误——
+    // 1440×1000 实测墨层顶边 -773.6px，一条信号蓝从年表一路穿过刊头正文和顶栏下面。
+    // 缩在槽内则任何 p 都不会越界，代价是针尖得搬出去（见上）。
+    .tl-axis-fill {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background-color: var(--signal);
+        transform: scaleY(var(--tl-p));
+        transform-origin: top;
+    }
+
+    .tl-list {
+        margin: 0;
+        padding: 0 0 0 var(--tl-gutter);
+        list-style: none;
+    }
+
+    .tl-row {
+        position: relative;
+        margin-bottom: 14px;
+        scroll-margin-top: calc(var(--tl-top) + 16px);
+    }
+
+    // 节点：骑在轴上的空心圆。卡片到位之后才「啵」出来（--ease-back 带一点过冲）。
+    // 圆点 12px，要让圆心落在 --tl-axis-x（6px）上，就得从行的左边缘（30px）再往左 30px。
+    // box-sizing 必须显式写：border 是 2px，content-box 下外框会变成 16px，圆心比轴心
+    // 偏右 2px（390／820／1440 三档实测都是 28 vs 26，误差不随视口变，正是这个 4px 差一半）。
+    .tl-dot {
+        box-sizing: border-box;
+        position: absolute;
+        top: 20px;
+        left: calc(var(--tl-axis-x) - var(--tl-gutter) - 6px);
+        width: 12px;
+        height: 12px;
+        background-color: var(--paper);
+        border: 2px solid var(--rule-2);
+        border-radius: 50%;
+        transition: border-color var(--dur-2) var(--ease-out);
+    }
+
+    .tl-card {
+        box-sizing: border-box;
+        padding: 14px 16px 15px;
+        background-color: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-l);
+        // 位移用独立的 translate 属性，而不是 transform：hover 抬升和入场位移
+        // 各写各的，不会互相顶掉（editorial.scss M3/M4 同一套做法）
+        transition: translate var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+
+    .tl-row:hover .tl-card {
+        border-color: var(--rule-2);
+        box-shadow: var(--shadow-1);
+        translate: 0 -2px;
+    }
+
+    .tl-row:hover .tl-dot {
+        border-color: var(--signal);
+    }
+
+    // 分组抬头：与 tags/categories 的 .cat-head 同一套（基线对齐 + 下沿发丝线）
+    .tl-year {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--rule-2);
+    }
+
+    .tl-year-no {
+        margin: 0;
+        font-family: $tl-display;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.3;
+        color: var(--ink);
+        font-variant-numeric: lining-nums tabular-nums;
+    }
+
+    .tl-year-count {
+        margin-left: auto;
+        font-family: $tl-meta;
+        font-size: 11.5px;
+        letter-spacing: .8px;
+        white-space: nowrap;
+        color: var(--ink-3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tl-focus,
+    .tl-pick {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        margin: 9px 0 0;
+        font-size: 13.5px;
+        line-height: 20px;
+        color: var(--ink-2);
+    }
+
+    .tl-focus-label,
+    .tl-pick-label {
+        font-family: $tl-meta;
+        font-size: 11px;
+        letter-spacing: .6px;
+        white-space: nowrap;
+        color: var(--ink-3);
+    }
+
+    // 标签胶囊：与首页 .feed-topic 同族（文字 + 等宽计数），点下去是标签页的锚点
+    .tl-tag {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+        padding: 1px 8px;
+        font-size: 12.5px;
+        color: var(--ink-2);
+        background-color: var(--surface-2);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+
+        em {
+            font-family: $tl-meta;
+            font-size: 10.5px;
+            font-style: normal;
+            color: var(--ink-3);
         }
 
-        .mobile-container .timeline__item__station {
-            left: 50%;
-            width: 60px;
-            height: 60px;
-            padding: 15px;
-            margin-left: -30px;
-            border-width: 6px;
+        &:hover {
+            color: var(--signal-ink);
+            border-color: var(--signal);
+        }
+    }
+
+    .tl-pick-link {
+        color: var(--ink);
+        border-bottom: 1px solid var(--rule-2);
+        transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+
+        &:hover {
+            color: var(--signal-ink);
+            border-bottom-color: var(--signal);
+        }
+    }
+
+    .tl-pick-chars {
+        font-family: $tl-meta;
+        font-size: 11.5px;
+        font-style: normal;
+        color: var(--ink-3);
+    }
+
+    .tl-milestone {
+        margin: 9px 0 0;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--ink-2);
+    }
+
+    // 断更的年份：不套卡片，轴上就是一行小字加一个空心点。「这一年没写」本身就是事实，
+    // 值得占一行，而不是被跳过去装作没发生。
+    .tl-row--gap {
+        display: flex;
+        align-items: center;
+        min-height: 24px;
+    }
+
+    .tl-gap {
+        margin: 0;
+        font-family: $tl-meta;
+        font-size: 11.5px;
+        letter-spacing: .8px;
+        color: var(--ink-3);
+    }
+
+    // 轴脚：年表走完的那一句，也是 --tl-tail 那段空白存在的理由。
+    // 不留白时末尾几行永远顶不到导航线下面：1440×900 实测 2022~2026 五行的行停在
+    // 138~521（线在 57），点这五颗胶囊页面一动不动、高亮还赖在 2021 —— 用户报的
+    // 「菜单和年份节点对不上、有偏差」就是这么来的。留出空白之后每一颗都跳得动，
+    // 判据线那条规则一个字都不用改。
+    // 420 是「这段空白里不用轴再走的那一截」：最后一行自己的高度 + 16px 落点余量 +
+    // 页脚。三档实测需要的留白是 465 / 365 / 286（900 / 800 / 844 视口高），
+    // 这条式子给的是 480 / 380 / 304，各留 15~18px 余量；窄屏那一档在下面的 695 里改。
+    // 句子跟着轴停在留白末尾，滚到底那一刻墨针正好落在它左侧那颗圆点的横坐标上。
+    .tl-end {
+        margin: var(--tl-tail) 0 0 var(--tl-gutter);
+        font-family: $tl-meta;
+        font-size: 11.5px;
+        letter-spacing: .8px;
+        color: var(--ink-3);
+    }
+
+    // ———— 入场（滚动揭示）————
+    // 与首页报排行同一套做法：未揭示态由 .tl-in 限定，所以脚本没跑、浏览器没有
+    // IntersectionObserver、或者要求减少动态效果时，年表原样可见，不会留下一屏隐身卡片。
+    // --tl-delay 由 JS 按「同一批里第几个」写在行上（自定义属性可继承，所以圆点和卡片
+    // 共用这一档错峰；圆点再晚 80ms，读出「先落卡、后盖章」的先后）。
+    // 必须是 &.tl-in 而不是 .tl-in：这个类加在 .p-about 自己身上（about.js 拿的就是这个
+    // 元素），写成后代选择器编译出 .p-about .tl-in .tl-row，永远匹配不到，整套揭示会
+    // 静默失效——三档视口实测「未滚动时隐藏的行数」为 0，才看出来选中了。
+    &.tl-in {
+        .tl-row {
+            opacity: 0;
+            transition: opacity var(--dur-3) var(--ease-out);
+            transition-delay: var(--tl-delay, 0ms);
         }
 
-        .mobile-container .timeline__item__content {
-            float: inherit;
-            width: 40%;
-            padding: 30px 40px;
+        .tl-card {
+            translate: 0 var(--travel-m);
         }
 
-        .mobile-container .timeline__item__content:before {
-            left: 40%;
-            top: 30px;
-            margin-top: -2px;
+        .tl-dot {
+            scale: .3;
+            transition-property: opacity, scale;
+            transition-duration: var(--dur-3), var(--dur-3);
+            transition-timing-function: var(--ease-out), var(--ease-back);
+            transition-delay: calc(var(--tl-delay, 0ms) + 80ms);
         }
 
-        .mobile-container .timeline__item:nth-child(2n) .timeline__item__content:before {
-            left: inherit;
+        .tl-row.is-in {
+            opacity: 1;
+        }
+
+        .tl-row.is-in .tl-card {
+            translate: 0 0;
+        }
+
+        .tl-row.is-in .tl-dot {
+            scale: 1;
         }
     }
 }
 
-@keyframes aboutAxisGrow {
+@keyframes tlAxisGrow {
     0% {
         transform: scaleY(0);
     }
@@ -348,65 +482,96 @@
     }
 }
 
-@keyframes aboutNodeIn {
-
-    0%,
-    40% {
-        opacity: 0;
-        transform: scale(.2);
-    }
-
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes aboutTextIn {
-    0% {
-        opacity: 0;
-        transform: translateY(calc(var(--travel-l) * -1));
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-// 末端箭头靠 rotate(45deg) 定向，不能套用任何带 transform 的关键帧，所以单独只淡入。
-@keyframes aboutFadeIn {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
-}
-
-// 时间线入场属于「好看」不属于「告知」，要求减少动态效果时直接呈现终态；
-// 终态就是上面各规则的默认值，所以 animation:none 之后不必再补一遍样式。
-// .pc-container 这一段不能省：被压的规则全部嵌在 .p-about .pc-container 之下（0-4-0），
-// 少写一层就只有 0-3-0，而媒体查询不参与权重计算——早先写漏过一次，整块静默失效。
+// 要求减少动态效果：轴直接满格、针尖摘掉、卡片不再淡入。终态就是上面各规则的默认值，
+// 所以 animation / transform 归零之后不必再补一遍样式。
+// .p-about 这一层不能省：被压的规则全部嵌在它之下（0-3-0），少写一层就只有 0-2-0，
+// 而媒体查询不参与权重计算——早先在同一条上写漏过一次，整块静默失效。
 @media (prefers-reduced-motion: reduce) {
-    .p-about .pc-container .events_list ul:before,
-    .p-about .pc-container .events_list .ic_time,
-    .p-about .pc-container .events_list .ic_arr,
-    .p-about .pc-container .events_list .ic_events,
-    .p-about .pc-container .events_list .txt_events {
+    .p-about .tl-axis {
         animation: none;
     }
-}
 
-// 窄屏只留一条时间线。这两条 !important 当初是为「星系底图 + 双容器」那套写的，
-// 现在仍然靠它们按视口切换，只是不再有白昼 / 夜间两套容器的含义。
-@media screen and (max-width: 1000px) {
-    .pc-container {
-        display: none !important;
+    .p-about .tl-axis-fill {
+        transform: none;
     }
 
-    .mobile-container {
-        display: block !important;
+    // 针尖搬到了轴上，这里就得跟着改选择器：还写在 .tl-axis-fill 下面会静默漏掉，
+    // 减少动态效果时末端留一颗不该出现的蓝点。
+    .p-about .tl-axis:after {
+        display: none;
+    }
+
+    .p-about.tl-in .tl-row {
+        opacity: 1;
+        transition: none;
+    }
+
+    .p-about.tl-in .tl-card {
+        translate: 0 0;
+    }
+
+    .p-about.tl-in .tl-dot {
+        scale: 1;
+        transition: none;
+    }
+}
+
+// 顶栏自动隐藏时，这条带子要接住它腾出来的那 64px。
+// 状态类原本只有 index.js 在滚动过程中挂（它只往 .g-header 上加减类，不带子玩）：
+// 1200×800 实测收起后顶栏停在 y −65，带子仍吸在 64，中间空出的 64px 里滚过去的
+// 既不是导航也不是内容，是「被咬掉一口的卡片」——就是这次要修的现象。
+// .g-header 与 .p-about 是 <body> 的兄弟节点（aboutTemplate.html 没有 .visible
+// 包裹层，这点和 default.html 不一样），兄弟选择器直接够用，不必往 <html> 加类。
+// 两个值必须一起改：--tl-top 是「吸顶导航的下沿」，.tl-row 的 scroll-margin-top
+// 由它加 16px 算出，滚动跟随的判据线又从 scroll-margin-top 读回来。只挪 top
+// 不改它，跳转落点就会凭空多出 64px 空白。41px 是带子自身高度（实测 y 64–105）。
+// 这条也吃 about.js 的 alignChipJump：锚点跳转的落点只在跳转那一刻算一次，所以在
+// 点击时就按方向把类先挂上——也就是说 headerUp 不总是「滚出来的」，它可能是这一下
+// 点击预置的。≤695 用不到这两处：index.js 在那个宽度里直接把三个状态类摘掉，
+// about.js 的同一段也提前 return，headerUp 不会成立。
+// 像素转视口：黑名单里 /\.g-header/ 那条没有锚，匹配的是整条编译后选择器的子串，
+// 所以这条已经被盖住了，不落在 /^\.p-about/ 的空档里（曾为它单列一条 '.headerUp'，
+// 是重复，已删）。
+.g-header.headerUp ~ .p-about {
+    --tl-top: 41px;
+
+    .tl-nav {
+        top: 0;
+    }
+}
+
+// 窄屏：顶栏 56px，导航条贴住它；卡片内边距收一档，年段字号降一级。
+// 这一档全部嵌在 .p-about 里，px 是字面值，不会被换成 vw。
+@media screen and (max-width: 695px) {
+    .p-about {
+        --tl-top: 97px;
+        --tl-tail: max(0px, calc(100dvh - 540px));
+
+        padding: 32px 0 72px;
+
+        .tl-nav {
+            top: 56px;
+        }
+
+        .tl-title {
+            font-size: 21px;
+        }
+
+        .tl-year {
+            gap: 8px;
+        }
+
+        .tl-year-no {
+            font-size: 20px;
+        }
+
+        .tl-card {
+            padding: 12px 13px 13px;
+        }
+
+        .tl-focus,
+        .tl-pick {
+            font-size: 13px;
+        }
     }
 }

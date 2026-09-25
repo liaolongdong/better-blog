@@ -11,18 +11,20 @@
 title: 'Better’s study fairyland'
 seo_title: 'Better 前端博客'
 # 首页没有 page.title（刊头用的是 home-title），所以 <title> 单独给一条：
-# 检索实体「廖龙东」+ 品牌「Better」+ 类目词「前端博客 / AI 工具实测」一次带到。
-seo_home_title: '廖龙东（Better）的前端与 AI 技术博客 · npm 与 AI Agent 实测'
-# 信息流分页页（/page2/ …）专用的短标题前缀。不能用上面那条：它已经 59 显示列，
-# 再往后拼页码就会被 SERP 从右边截掉，页码等于没写。这条留 36 列，够放「· 第 N/M 页」。
-seo_archive_title: '廖龙东（Better）的前端与 AI 技术博客'
+# 检索实体「Better」+ 中文署名「廖小新」+ 类目词「前端博客 / AI 工具实测」一次带到。
+# 真名不进对外文案（2026-09-25 本人要求），所以这条从 59 显示列缩到 50。
+seo_home_title: 'Better 的前端与 AI 技术博客 · npm 与 AI Agent 实测'
+# 信息流分页页（/page2/ …）专用的短标题前缀。不能用上面那条：它已经 50 显示列，
+# 再往后拼页码就会被 SERP 从右边截掉，页码等于没写。这条留 27 列，够放「· 第 N/M 页」。
+seo_archive_title: 'Better 的前端与 AI 技术博客'
 # 全站兜底描述（无 page.seo_description / description / subtitle 时才用）。控制在 158
 # 显示字符内，中文按全宽计——超出的部分搜索引擎直接省略号截断。
 # 口径注意：这里不写「每篇都实测过」这类全站级断言，2016–2024 那批文章里有工作总结、
 # 学习资料与踩坑记录，并不都成立；「开源项目实测多附可复现命令」才是能被文章对上的说法。
-description: '廖龙东（网名 Better，写作廖小新）的前端与 AI 博客：React、Vue、Node.js、npm、Chrome 插件与 AI Agent 工具链的长期记录，开源实测多附可复现命令，自 2016 年更新。'
+description: 'Better（中文署名廖小新）的前端与 AI 博客：React、Vue、Node.js、npm、Chrome 插件与 AI Agent 工具链的长期记录，开源实测多附可复现命令，自 2016 年更新。'
 # 逗号一律用半角：旧值里的全角「，」把 canvas 和 Python 粘成了一个检索词。
-keyword: '廖龙东,廖小新,廖龙东博客,廖龙东前端,Better,Better前端博客,前端开发,web前端,React,Vue,Node.js,npm,Chrome插件,微信小程序,AI Agent,前端开源项目实测'
+# 真名相关的词（廖龙东 / 廖龙东博客 / 廖龙东前端）已按本人要求撤掉。
+keyword: '廖小新,Better,Better前端博客,前端开发,web前端,React,Vue,Node.js,npm,Chrome插件,微信小程序,AI Agent,前端开源项目实测'
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
@@ -82,12 +84,12 @@ bio: '大前端与 AI 工具链：Vue、Chrome 扩展、小程序、Node.js'
 avatar: '/assets/img/profile.png'
 # 检索实体的名字口径，只给 JSON-LD 与 llms.txt 用，页面可见文案一律不读这两个字段。
 # author 是「署名」：文章页作者行、打赏提示、meta name=author 都在用它，改它会改到看得见的字。
-# author_name 是 Person 的 name。不取署名而取中文名，是因为 about.html 才是 Person.@id
-# 指向的那一页，它的 H1 是本名——而 Better / 廖龙东 / 小新 三种写法站内都出现过，
-# 把它们与正名一起收进 alternateName，搜索引擎才会解析成同一个实体，
-# 而不是各建一份知识面板。新增别名只改这一行，三处声明自动跟上。
+# author_name 是 Person 的 name。不取署名而取中文正名「廖小新」，是因为 about.html 才是
+# Person.@id 指向的那一页，它的 H1 把 Better 与廖小新一起写着；再把 Better / 小新 收进
+# alternateName，搜索引擎才会解析成同一个实体，而不是各建一份知识面板。
+# 新增别名只改这一行，三处声明自动跟上。真名按本人要求（2026-09-25）从这三个字段撤掉。
 author_name: '廖小新'
-author_alt_name: ['Better', '廖龙东', '小新']
+author_alt_name: ['Better', '小新']
 
 # Social / Open Graph 默认值
 # 分享卡片用的站点级默认图：微信、微博、X、Telegram 抓 og:image 时，文章若没写
@@ -105,32 +107,13 @@ dandelionAnimate: true
 
 # about me config
 aboutMe:
-  authorWorkTimeLine: [
-    {
-      date: '2015-07',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    },
-    {
-      date: '2016-07',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    },
-    {
-      date: '2017-07',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    },
-    {
-      date: '2018-07',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    },
-    {
-      date: '2019-07',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    },
-    {
-      date: '未来',
-      content: '这段时间在哪里工作，工作经验，项目经验等等'
-    }
-  ]
+  # 人工里程碑，排在关于页年表最前面，条目形如 { date: '2016-11', content: '……' }。
+  # 这里原来是六条「这段时间在哪里工作，工作经验，项目经验等等」的占位文案，2015 到
+  # 「未来」平铺成一条职业履历——它既不是事实，也没打算被填上，而关于页是搜索引擎
+  # 建立「Better / 廖小新」这个检索实体的主页面，虚假履历会直接被当成陈述抓取。
+  # 关于页的时间轴因此改由 _posts 自动生成（哪一年写了几篇、在写什么、最长的一篇）。
+  # 这个键保留：只填得出能核实的事件（开源项目发布、扩展上架、线下分享），留空即不渲染。
+  authorWorkTimeLine: []
 
 # back to top
 bottomFixedBtn: true

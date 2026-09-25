@@ -13,7 +13,7 @@
   · BlogPosting 让 Google 直接拿到标题/导语/发布日/作者/封面，文章页才有富媒体摘要；
   · BreadcrumbList 把结果里的面包屑（首页 › 分类 › 标题）显式声明出来，
     站内分类与标签归档页因此拿到锚点级的内链权重；
-  · Person + sameAs 是「廖小新 / Better / 廖龙东 / 小新」这一个检索实体的锚（正名与别名
+  · Person + sameAs 是「廖小新 / Better / 小新」这一个检索实体的锚（正名与别名
     的口径在 _config.yml），品牌词搜索时决定右侧知识面板拿不拿得到东西。
 一律用 | jsonify 输出字符串字段，避免标题里的引号、破折号把 JSON 打断。
 {%- endcomment -%}
@@ -62,7 +62,7 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   "isPartOf": { "@type": "Blog", "@id": "{{ site_home }}#blog" },
   "keywords": {{ page.tags | join: ', ' | jsonify }},
   "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans",
-  "copyrightNotice": "© 廖龙东（Better）· 文字与配图按 CC BY-NC-SA 4.0 授权，文中的第三方代码片段沿用其原始许可"
+  "copyrightNotice": "© Better（廖小新）· 文字与配图按 CC BY-NC-SA 4.0 授权，文中的第三方代码片段沿用其原始许可"
 }
 </script>
 <script type="application/ld+json">

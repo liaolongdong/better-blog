@@ -1,7 +1,7 @@
 ---
 layout: aboutTemplate
-title: 关于我 · 廖龙东（Better）
-seo_description: 廖龙东（网名 Better，写作廖小新）的前端与 AI 博客：大前端全线（Vue、React、Node.js、npm）、自研 Chrome 扩展、微信小程序与 AI Agent 工具链的实测记录与踩坑复盘，自 2016 年持续更新。
+title: 关于我 · Better（廖小新）
+seo_description: Better（中文署名廖小新）的前端与 AI 博客：大前端全线（Vue、React、Node.js、npm）、自研 Chrome 扩展、微信小程序与 AI Agent 工具链的实测记录与踩坑复盘，自 2016 年持续更新。
 # 理由同 categories.html：不写死 permalink，page.url 就没有 .html，站点地图收不到、
 # canonical 与导航链接也对不上。这页还是 JSON-LD 里 Person.@id 指向的地址，
 # 两个地址漂移会让检索实体拿不到页面。
@@ -15,12 +15,24 @@ permalink: /about.html
 
 作者介绍直接充当刊头的导语，所以它同时挂 .masthead-lede：字号、行距、640px 栏宽、
 墨色和窄屏降级都跟着别的页面一起变。打字机会把这里的子节点逐个摘走再塞回来，
-容器因此会塌成一帧行高——about.scss 里给它占了 5 行的位，别在这里改成行内样式。
+容器因此会塌成一帧行高——占位由 about.js 在摘子节点之前现量本机高度、写成行内
+min-height（这段介绍每折一行多 26px，折几行看视口：1440 150、695 130、390 156、
+320 260，写死在 CSS 里必然两头错），别在这里改成行内样式。
 
-.masthead-title 必须是这页唯一的 H1：about 页是搜索引擎建立「廖龙东 / Better」这个
+.masthead-title 必须是这页唯一的 H1：about 页是搜索引擎建立「Better / 廖小新」这个
 检索实体的主页面，也是 JSON-LD 里 Person.@id 指向的地址，早期这页最靠前的标题只是
 时间线里的 <h2> 日期，等于把这个信号丢掉了。
+
+刊头那条数字改成复用首页的 .masthead-stats：字号、栏宽、count-up 全是现成的，
+about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseurl_filter.rb），
+与文章页的「阅读时长」同一条口径；不能用 number_of_words，它按空白切分，一整篇中文
+只算一个词。
 {%- endcomment -%}
+{%- assign chars_total = 0 -%}
+{%- for p in site.posts -%}
+    {%- assign p_chars = p.content | char_count -%}
+    {%- assign chars_total = chars_total | plus: p_chars -%}
+{%- endfor -%}
 <section class="g-masthead archive-masthead">
     <div class="g-container masthead-inner">
         <p class="kicker">About / 关于我</p>
@@ -28,75 +40,221 @@ permalink: /about.html
             <span class="issue-rule"></span>
             <span class="issue-no">AI · 大前端 · Vue · Chrome 扩展 · 小程序 · Node.js</span>
         </p>
-        <h1 class="masthead-title">关于我 · 廖龙东（Better）</h1>
+        <h1 class="masthead-title">关于我 · Better（廖小新）</h1>
         <section class="masthead-lede author-introduction" id="authorIntroduction">
-            <p>廖龙东，网名 Better，写作廖小新，前端开发工程师</p>
+            <p>Better，中文署名廖小新，前端开发工程师</p>
             <p>主战场是大前端：Vue、React、Node.js 与工程化</p>
             <p>自己做了 {{ site.data.tools.size }} 款 Chrome 扩展，也写微信小程序</p>
             <p>最近在 AI Agent 与 MCP 工具链上花的时间最多</p>
             <p>自 2016 年起在这里记录实测、踩坑与复盘</p>
         </section>
+        {%- comment -%}
+        禁 JS 时把这五行放出来。about.scss 里 .author-introduction 默认 visibility: hidden，
+        是为了压住打字机开始前的那一帧空白；代价是没脚本就永远不显形（no-JS 实测
+        computed visibility 仍是 hidden）。这段是「我是谁」的正文本体，也是 JSON-LD
+        Person 的可见对应物，不该整块读不到。style 放在 body 里的 noscript 内是规范
+        允许的写法（HTML5：noscript in body 允许子节点 style）。
+        {%- endcomment -%}
+        <noscript>
+            <style>
+                .g-masthead .author-introduction { visibility: visible }
+            </style>
+        </noscript>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
+            <li><strong>{{ chars_total }}</strong><span>字</span></li>
+            <li><strong>{{ site.tags.size }}</strong><span>个标签</span></li>
+            <li><strong>{{ site.data.tools.size }}</strong><span>款插件</span></li>
+            <li class="masthead-updated">
+                最近更新
+                <strong>{{ site.posts.first.date | date: '%Y.%m.%d' }}</strong>
+            </li>
+        </ul>
     </div>
 </section>
+{%- comment -%}
+时间轴不再抄 _config 里那份手写履历，改成构建时从 _posts 现算：哪一年、几篇、写了多少字、
+当年在写什么（出现两次以上的标签，取前三名）、最长的一篇是哪篇。
+
+「工作履历」和「写在这里的每一年」是两块各带一根轴的独立内容，不再挤进同一个 `<ol>`：
+它们的数据来源不同（一份手写、一份构建时算出来）、可信度也不同（履历那句「填了才渲染」），
+共用一根轴时读者分不清哪条是经历、哪条是产量，断更的年份还会被履历行接上。
+手写那份默认空数组（_config.yml 的 aboutMe.authorWorkTimeLine），填了才渲染这一块。
+
+按年分组用 group_by_exp 而不是 group_by：后者的键只能取属性名，而年份是 date 算出来的。
+%Y 是四位数，所以 sort: "name" 按字符串排出来的就是时间顺序。
+
+断更的年份要占一行：跳过去读起来像这里漏了，写出来才是事实——2025 年确实一篇都没发。
+{%- endcomment -%}
+{%- assign years = site.posts | group_by_exp: "post", "post.date | date: '%Y'" | sort: "name" -%}
+{%- assign prev_year = nil -%}
 <div class="p-about" id="main">
-    <!-- PC -->
-    <div class="pc-container">
-        <section class="pc-timeline">
-            <div class="content">
-                <div class="events_list">
-                    <span class="ic_time"></span>
-                    <ul>
-                        {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
-                            {% assign items = site.aboutMe.authorWorkTimeLine %}
-                            {%- comment -%}
-                            两个分支合成一个：以前偶数条和奇数条要各写一份，是因为节点图标是
-                            about_events.png 上两张朝向相反的雪碧图（左边的还多套一层 <i>），
-                            顺带漏掉了右支的 </p>。圆点改成 CSS 画的之后，两侧只差一个类名。
-                            {%- endcomment -%}
-                            {% for item in items %}
-                                {% assign mod = forloop.index | modulo: 2 %}
-                                <li class="{% if mod == 0 %}right_li{% else %}left_li{% endif %}">
-                                    <span class="ic_events"></span>
-                                    <p class="txt_events">
-                                        <strong>
-                                            {{ item.date }}
-                                        </strong>
-                                        <span>{{ item.content }}</span>
-                                    </p>
-                                </li>
-                            {% endfor %}
-                        {% endif %}
-                    </ul>
-                    <span class="ic_arr"></span>
-                </div>
-            </div>
-        </section>
-    </div>
-    <!-- mobile -->
-    <div class="mobile-container">
-        <section class="timeline">
-            <div class="wrapper" id="timeline">
-                {% if site.aboutMe.authorWorkTimeLine.size > 0 %}
-                    {% assign items = site.aboutMe.authorWorkTimeLine %}
-                    {% for item in items %}
-                        <div class="timeline__item timeline__item--{{ forloop.index }}">
-                            <div class="timeline__item__station"></div>
-                            <div class="timeline__item__content">
-                                <h2 class="timeline__item__content__date">{{ item.date }}</h2>
-                                <p class="timeline__item__content__description">{{ item.content }}</p>
-                            </div>
+    <div class="g-container about-body">
+        {%- if site.aboutMe.authorWorkTimeLine.size > 0 -%}
+        <section class="tl-block" aria-labelledby="tl-title-career">
+            <h2 class="tl-title" id="tl-title-career">工作履历</h2>
+            <p class="tl-note">这一段是手写的，和下面那根的口径不一样：它不随文章数量变化。</p>
+            <div class="tl-wrap">
+                <span class="tl-axis" aria-hidden="true"><i class="tl-axis-fill"></i></span>
+                <ol class="tl-list">
+                    {%- for item in site.aboutMe.authorWorkTimeLine -%}
+                    <li class="tl-row tl-row--milestone">
+                        <span class="tl-dot" aria-hidden="true"></span>
+                        <div class="tl-card">
+                            <header class="tl-year"><h3 class="tl-year-no">{{ item.date }}</h3></header>
+                            <p class="tl-milestone">{{ item.content }}</p>
                         </div>
-                    {% endfor %}
-                {% endif %}
+                    </li>
+                    {%- endfor -%}
+                </ol>
             </div>
         </section>
+        {%- endif -%}
+        <section class="tl-block" aria-labelledby="tl-title-writing">
+        <h2 class="tl-title" id="tl-title-writing">写在这里的每一年</h2>
+        <p class="tl-note">
+            下面的篇数、字数和标签，是构建时从 {{ site.posts.size }} 篇文章现算出来的，不是手填的。
+            <a class="tl-all" href="{{ '/index-all.html' | prepend: site.baseurl }}">全部文章 →</a>
+        </p>
+        <nav class="tl-nav" aria-label="按年份跳转">
+            <div class="tl-nav-track">
+                {%- comment -%}
+                胶囊必须和轴上的节点一行不差：早先这里只跟着「有文章的年份」生成，
+                而下面的年表还会替断更的年份插一行「XXXX 年没有更新」（有节点、有落点），
+                于是 11 个节点对 10 颗胶囊，滚到 2025 那一行时导航条上根本没有它。
+                断更年份这里同样发一颗胶囊，点它照样跳得到那一行。
+                计数另起一个 chip_prev：年表那个循环在用 prev_year，串了会把首行判断带歪。
+                {%- endcomment -%}
+                {%- assign chip_prev = nil -%}
+                <ul class="tl-chips">
+                    {%- for y in years %}
+                        {%- assign chip_year = y.name | plus: 0 -%}
+                        {%- if chip_prev -%}
+                            {%- assign chip_from = chip_prev | plus: 1 -%}
+                            {%- assign chip_to = chip_year | minus: 1 -%}
+                            {%- if chip_from <= chip_to -%}
+                                {%- for gy in (chip_from..chip_to) %}
+                    <li>
+                        <a class="tl-chip tl-chip--gap" id="tl-chip-{{ gy }}" href="#tl-{{ gy }}" data-year="{{ gy }}" aria-label="{{ gy }} 年没有更新">
+                            {{- gy -}}
+                        </a>
+                    </li>
+                                {%- endfor -%}
+                            {%- endif -%}
+                        {%- endif -%}
+                        {%- assign chip_prev = chip_year -%}
+                    <li>
+                        <a class="tl-chip" id="tl-chip-{{ y.name }}" href="#tl-{{ y.name }}" data-year="{{ y.name }}">
+                            {{- y.name -}}<em>{{ y.size }}</em>
+                        </a>
+                    </li>
+                    {%- endfor -%}
+                </ul>
+            </div>
+        </nav>
+        <div class="tl-wrap">
+            <span class="tl-axis" aria-hidden="true"><i class="tl-axis-fill"></i></span>
+            <ol class="tl-list">
+                {%- for y in years -%}
+                    {%- assign this_year = y.name | plus: 0 -%}
+                    {%- if prev_year -%}
+                        {%- assign gap_from = prev_year | plus: 1 -%}
+                        {%- assign gap_to = this_year | minus: 1 -%}
+                        {%- if gap_from <= gap_to -%}
+                            {%- for gy in (gap_from..gap_to) %}
+                            <li class="tl-row tl-row--gap" id="tl-{{ gy }}">
+                                <span class="tl-dot" aria-hidden="true"></span>
+                                <p class="tl-gap">{{ gy }} 年没有更新</p>
+                            </li>
+                            {%- endfor -%}
+                        {%- endif -%}
+                    {%- endif -%}
+                    {%- assign y_chars = 0 -%}
+                    {%- assign best = nil -%}
+                    {%- assign best_chars = 0 -%}
+                    {%- for p in y.items -%}
+                        {%- assign p_chars = p.content | char_count -%}
+                        {%- assign y_chars = y_chars | plus: p_chars -%}
+                        {%- if forloop.first or p_chars > best_chars -%}
+                            {%- assign best = p -%}
+                            {%- assign best_chars = p_chars -%}
+                        {%- endif -%}
+                    {%- endfor -%}
+                    {%- comment -%}
+                    「这一年在写」只收出现过两次以上的标签，一年最多三颗。跨年比「哪年用什么框架」
+                    这种判断靠谱：它统计的是发出去的文章本身。前三名靠三次比较手工滚动，
+                    没用 sort——Liquid 的 sort 对 "9" 和 "13" 是按字符串比的。
+                    {%- endcomment -%}
+                    {%- assign t1 = '' -%}{%- assign c1 = 0 -%}
+                    {%- assign t2 = '' -%}{%- assign c2 = 0 -%}
+                    {%- assign t3 = '' -%}{%- assign c3 = 0 -%}
+                    {%- for pair in site.tags -%}
+                        {%- assign tag_name = pair[0] -%}
+                        {%- assign hits = y.items | where_exp: "p", "p.tags contains tag_name" -%}
+                        {%- if hits.size > 1 -%}
+                            {%- if hits.size > c1 -%}
+                                {%- assign t3 = t2 -%}{%- assign c3 = c2 -%}
+                                {%- assign t2 = t1 -%}{%- assign c2 = c1 -%}
+                                {%- assign t1 = tag_name -%}{%- assign c1 = hits.size -%}
+                            {%- elsif hits.size > c2 -%}
+                                {%- assign t3 = t2 -%}{%- assign c3 = c2 -%}
+                                {%- assign t2 = tag_name -%}{%- assign c2 = hits.size -%}
+                            {%- elsif hits.size > c3 -%}
+                                {%- assign t3 = tag_name -%}{%- assign c3 = hits.size -%}
+                            {%- endif -%}
+                        {%- endif -%}
+                    {%- endfor -%}
+                    <li class="tl-row" id="tl-{{ y.name }}">
+                        <span class="tl-dot" aria-hidden="true"></span>
+                        <div class="tl-card">
+                            <header class="tl-year">
+                                <h3 class="tl-year-no">{{ y.name }}</h3>
+                                <span class="tl-year-count">{{ y.size }} 篇 · {{ y_chars }} 字</span>
+                            </header>
+                            {%- if t1 != '' %}
+                            <p class="tl-focus">
+                                <span class="tl-focus-label">这一年在写</span>
+                                <a class="tl-tag" href="{{ '/tags.html#' | append: t1 | prepend: site.baseurl }}">{{ t1 }}<em>{{ c1 }}</em></a>
+                                {%- if t2 != '' %}
+                                <a class="tl-tag" href="{{ '/tags.html#' | append: t2 | prepend: site.baseurl }}">{{ t2 }}<em>{{ c2 }}</em></a>
+                                {%- endif -%}
+                                {%- if t3 != '' %}
+                                <a class="tl-tag" href="{{ '/tags.html#' | append: t3 | prepend: site.baseurl }}">{{ t3 }}<em>{{ c3 }}</em></a>
+                                {%- endif -%}
+                            </p>
+                            {%- endif -%}
+                            {%- if best %}
+                            <p class="tl-pick">
+                                <span class="tl-pick-label">最长的一篇</span>
+                                <a class="tl-pick-link" href="{{ best.url | prepend: site.baseurl }}">{{ best.title }}</a>
+                                <em class="tl-pick-chars">{{ best_chars }} 字</em>
+                            </p>
+                            {%- endif -%}
+                        </div>
+                    </li>
+                    {%- assign prev_year = this_year -%}
+                {%- endfor -%}
+            </ol>
+            {%- comment -%}
+            轴脚的收口句。它和 .p-about 的 --tl-tail 是一对：年表底下留出的那一段空白是
+            「让最后几行也能被顶到导航线下面」用的（1440×900 实测不留时 2022~2026 五行的
+            行顶停在 138~521，点它们中任何一颗页面都不再动、高亮赖在 2021）。空白要是没有
+            着落就会读成「页尾坏了一段」，所以让轴一路走到这里收口——滚到底那一刻墨针正好
+            落在这一行左侧，和每一行的圆点同一个横坐标。
+            {%- endcomment -%}
+            <p class="tl-end">{{ years.first.name }} 年起，共 {{ site.posts.size }} 篇写在这里，再往后是现在。</p>
+        </div>
+        </section><!-- /.tl-block（写在这里的每一年） -->
     </div>
 </div>
-<script src="{{ site.baseurl }}/assets/js/noframework.waypoints.min.js"></script>
 {%- comment -%}
 canvas-nest 不在这里加载：它画的是深色底上的白点星链（连线走白色，点其实是未设 fillStyle 的黑色），
 白昼态挂上去就是暖纸底上一片黑噪点。改由 about.js 在进夜间时注入、切回白昼时停机摘布
 （窄屏与「减少动态效果」下完全不加载）。
+
+noframework.waypoints 也在这里下线：它当初只为「滚过 80% 点亮时间线节点」服务，
+那是全站唯一的消费点（10,478 B），IntersectionObserver 一行就能替。年表的入场揭示
+用的就是这个 IO（滚动跟随按行的落点线判定，不需要第二套观察器），索性并成一个。
 {%- endcomment -%}
 <script src="{{ site.baseurl }}/assets/js/typeWriter.min.js"></script>
 <script src="{{ site.baseurl }}/assets/js/about.min.js"></script>

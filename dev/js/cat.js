@@ -73,11 +73,9 @@
         halfH = document.documentElement.clientHeight / 2;
         box.classList.toggle('is-on', shown);
         box.classList.toggle('is-tucked', shown && tucked);
-        // 「这一帧猫真的在屏上」报到 body 上：左下角同一块地方还钉着续读浮条 .resume，
-        // 让位的那条规则（editorial.scss 7.6）读这个标记，而不是自己再判一次宽度。
-        // 判定只有 shown 这一个来源 —— 拖拽、about 页、窄屏都从它走，两处各算各的
-        // 正是这两个浮层当初叠在一起的原因。
-        document.body.classList.toggle('has-mao', shown);
+        // 这里原先还往 body 上写一个 has-mao：左下角同一块地方钉着续读浮条 .resume，
+        // 让位的那条规则要读它。浮条改成横向居中之后那条规则删了，这个标记也就没有读者
+        // （全站 grep 只剩这一处写入）——判定收回来只喂 is-on / is-tucked 和下面的视线跟随。
         if (!toggle) return;
         var label = tucked ? '把小猫放出来' : '把小猫收起来';
         toggle.setAttribute('aria-expanded', shown && !tucked ? 'true' : 'false');
