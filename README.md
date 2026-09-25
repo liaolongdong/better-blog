@@ -98,7 +98,7 @@ pnpm build:demo     # 只构建 demo 资源
 pnpm build:site     # 构建静态资源并生成 _site（部署到自有服务器时用）
 
 pnpm deploy         # 交互式提交并推送当前分支（提交前列出改动并拦密钥，推送前需确认）
-pnpm deploy:ali     # 阿里云服务器：拉代码 -> pnpm install -> pnpm build:site
+pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:site（工作区脏或有未推送提交时中止）
 ```
 
 推送到 GitHub 后由 `.github/workflows/jekyll.yml` 完成构建发布：Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jekyll build`，最后 `actions/upload-pages-artifact` + `deploy-pages`。

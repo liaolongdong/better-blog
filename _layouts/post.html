@@ -113,8 +113,10 @@
           {%- endcomment -%}
           <span class="post-meta-actions">
           {%- comment -%}
-          阅读偏好：字号 / 行宽 / 正文字体三档，选择写入 localStorage 并同步到
+          阅读偏好：字号 / 行宽 / 正文字体 / 纸色四档，选择写入 localStorage 并同步到
           html[data-rs-*]，取值由 tokens.scss 的 --rs 与 --measure 生效。
+          昼夜那一档走另一条链（editorial.js §0 的 theme.set，键名 daytimeMode，
+          由 themeBootstrap.html 在首屏绘制前先读一次），不并进 data-rs-*。
           面板默认带 hidden，只有 editorial.js §11 会把它打开，无 JS 时不会出现空白框。
           {%- endcomment -%}
           <span class="post-meta-item reader-item">
@@ -144,6 +146,22 @@
                   <button class="reader-opt" type="button" data-rs="font" data-val="serif">衬线</button>
                 </span>
               </p>
+              {%- comment -%}
+              昼夜。右下角那组浮层在小屏是整组 display:none（口径见 bottomFixedBtn.scss），
+              所以手机上这一档在别处没有入口；面板本身在 390px 仍然可见，就挂在这里。
+              「跟随系统」= 删掉 daytimeMode 键，交还给 prefers-color-scheme。
+              整行由 site.nightMode 开关：关掉时浮层与 #nm-switch 都不存在，这一档无处可去。
+              {%- endcomment -%}
+              {% if site.nightMode %}
+              <p class="reader-group">
+                <span class="reader-label">昼夜</span>
+                <span class="reader-seg">
+                  <button class="reader-opt" type="button" data-rs="theme" data-val="auto">跟随系统</button>
+                  <button class="reader-opt" type="button" data-rs="theme" data-val="day">白天</button>
+                  <button class="reader-opt" type="button" data-rs="theme" data-val="night">夜间</button>
+                </span>
+              </p>
+              {% endif %}
               <p class="reader-group">
                 <span class="reader-label">纸色</span>
                 <span class="reader-seg">

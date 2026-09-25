@@ -87,6 +87,18 @@
         }
     }
 
+    /** setTheme 的每一处界面跟随者（§11 阅读设置面板是目前的唯一一个）。 */
+    var themeWatchers = [];
+
+    /**
+     * 订阅主题变化。setTheme 是唯一的写入口（右下角那颗也走 window.EditorialTheme.set），
+     * 所以「界面要跟着主题重刷」这件事只有这一个触发点。
+     * @param {function()} fn
+     */
+    function onThemeChange(fn) {
+        themeWatchers.push(fn);
+    }
+
     /**
      * 设定模式；传 'auto' 交还给系统偏好。
      * @param {'day'|'night'|'auto'} mode
@@ -100,6 +112,7 @@
         }
         withEclipse(function () {
             applyTheme(mode === 'auto' ? currentTheme() : mode);
+            for (var w = 0; w < themeWatchers.length; w++) themeWatchers[w]();
         });
     }
 
@@ -1273,16 +1286,28 @@
 
         var opts = panel.querySelectorAll('.reader-opt');
         var reset = panel.querySelector('.reader-reset');
+        // 昼夜那一行的存在与否由模板按 site.nightMode 决定；它存在时才是「面板里的一档」。
+        var hasTheme = !!panel.querySelector('[data-rs="theme"]');
         var prefs = readReaderPrefs();
         // head 的内联脚本已经先应用过一次，这里以 JS 解析出的同一份状态为准再写一遍，
         // 保证「界面 aria-pressed」「html 属性」「localStorage」三者出自同一次读取。
         applyReaderPrefs(prefs);
 
+        /**
+         * 面板里某一档的当前值。昼夜不查 prefs —— 它的状态在 daytimeMode 里，
+         * 由 §0 与 themeBootstrap.html 共同管，这里只是第二个入口。
+         * @param {string} group
+         * @returns {string}
+         */
+        function valueOf(group) {
+            return group === 'theme' ? (storedTheme() || 'auto') : prefs[group];
+        }
+
         function sync() {
             for (var i = 0; i < opts.length; i++) {
                 var group = opts[i].getAttribute('data-rs');
                 var value = opts[i].getAttribute('data-val');
-                opts[i].setAttribute('aria-pressed', prefs[group] === value ? 'true' : 'false');
+                opts[i].setAttribute('aria-pressed', valueOf(group) === value ? 'true' : 'false');
             }
         }
 
@@ -1302,6 +1327,9 @@
         }
 
         sync();
+        // 面板开着的时候点右下角那颗昼夜钮，aria-pressed 得跟着翻：读屏念到的选中态
+        // 不能停在点击之前的那一档。写入口只有 setTheme 一个，所以订阅一次就够。
+        if (hasTheme) onThemeChange(sync);
 
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -1314,7 +1342,14 @@
             if (!opt) return;
             var group = opt.getAttribute('data-rs');
             var value = opt.getAttribute('data-val');
-            if (!group || prefs[group] === value) return;
+            if (!group || valueOf(group) === value) return;
+            if (group === 'theme') {
+                // 交回 §0：它负责写 daytimeMode、给 <html>/<body> 加 night-mode、
+                // 以及那圈日食转场；aria-pressed 由上面订阅的 sync 重刷。
+                // readerPrefs 里永远不出现 theme 这个键。
+                setTheme(value);
+                return;
+            }
             prefs[group] = value;
             // 只给纸色档加转场：字号和行宽改的是排版量，套上转场会变成 250ms 的
             // 模糊重排，读者只想立刻看效果；纸色是纯变色，正好适合从点击处漫开。
@@ -1335,6 +1370,10 @@
                 }
                 applyReaderPrefs(prefs);
                 writeReaderPrefs(prefs);
+                // 昼夜也一起交还系统：它就显示在同一块面板里，「恢复默认」不该留一档在面板外。
+                // nightMode 关掉时这一行根本不渲染（hasTheme 为假），不去动别人可能存在的旧选择；
+                // 键本来就不在时也不调 —— setTheme 会照常走一圈日食转场，无事可转就别闪这一下。
+                if (hasTheme && storedTheme()) setTheme('auto');
                 sync();
             });
         }

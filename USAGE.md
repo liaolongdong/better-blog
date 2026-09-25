@@ -41,7 +41,7 @@ pnpm build:site
 
 ```bash
 pnpm deploy       # 交互式提交并推送「当前分支」（提交前列出改动，推送前需按 y 确认）
-pnpm deploy:ali   # 阿里云服务器：拉代码 -> pnpm install -> pnpm build:site
+pnpm deploy:ali   # 部署机：对齐 origin -> pnpm install -> pnpm build:site（脏或有未推送提交时中止）
 ```
 
 `deploy-github.sh` 里那两道检查是为这个仓库的实际情况加的：工作区经常同时开着
@@ -51,6 +51,11 @@ pnpm deploy:ali   # 阿里云服务器：拉代码 -> pnpm install -> pnpm build
 `git pull` 用的是 `--ff-only`：和远端分叉时脚本会停下，而不是自动造一个 merge 提交混进部署。
 中止（密钥命中，或确认时没按 `y`）会把 `add -A` 暂存的东西退回工作区，不留一个「替别人暂存好了」
 的索引；但本次运行前暂存区就已非空时不替你重置——那里可能有只暂存了一半的文件，摊平了就是丢工作。
+
+`deploy-ali.sh` 是部署机上的非交互版本：分支名同样走 `symbolic-ref`，`fetch` 之后先判断这次
+`reset --hard` 会不会吃掉东西——工作区相对 HEAD 有改动、或有没推上去的提交就停下并列出清单，
+确认不需要了再用 `FORCE_RESET=1` 重跑；`pnpm install` 与 `build:site` 任一步失败都会明确说出
+「代码已更新但站点仍是上一版」，而不是让 cron 静默吞掉退出码。
 
 GitHub Pages 的构建发布由 `.github/workflows/jekyll.yml` 独立完成：
 Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jekyll build`。
@@ -377,8 +382,8 @@ pnpm build:demo    # 只构建 demo
 pnpm build:site    # 构建静态资源 + 生成 _site
 pnpm og:images     # 为没有 cover 的文章出 1200×630 分享卡（需本机 Chrome）
 pnpm og:check      # 只校验分享卡与 _data/og_images.yml 是否一致，不改文件
-pnpm deploy        # 交互式提交并推送当前分支（推 main 不会触发 Pages 构建）
-pnpm deploy:ali    # 阿里云服务器部署
+pnpm deploy        # 交互式提交并推送当前分支（列出改动、拦密钥、按 y 确认；推 main 不会触发 Pages 构建）
+pnpm deploy:ali    # 部署机更新：对齐 origin -> 装依赖 -> 构建；工作区脏或有未推送提交时中止
 ```
 
 ## ⚠️ 已知未决：浏览器兼容基线自相矛盾
