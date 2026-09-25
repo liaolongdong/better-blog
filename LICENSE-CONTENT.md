@@ -12,7 +12,7 @@
 
 除另有注明外，以上内容采用 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans) 授权：
 
-- **BY 署名**：注明作者「廖龙东（廖小新）」并链接到原文地址
+- **BY 署名**：注明作者「Better（廖小新）」并链接到原文地址
   （形如 `https://liaolongdong.github.io/better-blog/2026/09/21/pnpm-task-settings.html`）。
 - **NC 非商业**：不得用于商业目的，包括带广告的转载站、付费专栏、卖课素材。
 - **SA 相同方式共享**：演绎、翻译、摘编后的内容必须继续用 CC BY-NC-SA 4.0 发布。
