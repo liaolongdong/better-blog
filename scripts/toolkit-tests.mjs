@@ -16,6 +16,16 @@
  * 关于 §C 的真实样本：设计文档 §11 要求"≥5 条可公开核实的真实码"，实际只拿到
  * GB 32100-2015 的标准示例 1 条——凭记忆写的 4 条候选码有 3 条校验位不通，故不收录。
  * 该缺口由 C8 显式记录为"未充分验证"，不许悄悄当成已过。
+ *
+ * 两个环境口径，都是踩过的坑：
+ *   看到 `bad option: --disable-warning` 或 `exit=9` 是环境错——本机 /usr/local/bin/node 是 v16 残留，
+ *   别把它当判据红；先 `node -v` 确认 v22。跑 node 命令时不要把 /usr/local/bin 排在 PATH 前面。
+ *   必须显式传本文件路径：裸 `node --test` 匹配不到 toolkit-tests.mjs 这个文件名，实测静默报 0 条且退出码 0。
+ *
+ * 本文件刻意保持"平铺 test()"、不用 describe/suite：Task 8 的变异判据按行首 `^not ok <用例名>` 锚定，
+ * 而 suite 形状下失败用例的 not ok 行是缩进的（实测 `    not ok 2 - A2`），行首锚定只会看到 §A/§B 这种
+ * 组名，点名不到具体该红的判据。代价是明写的：某段模块缺失时整文件不可跑（顶层 await import 决定），
+ * 红阶段的隔离性由"报错文案点名是哪个模块"来保证。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,8 +39,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const read = (p) => readFileSync(resolve(ROOT, p), 'utf8');
 
-/** 固定"今天"，让年龄与日期上限类判据可复现 */
-const TODAY = new Date(Date.UTC(2026, 8, 25));
+/** 固定"今天"，让年龄与日期上限类判据可复现。必须是字符串：idcard 的 toDay() 对 Date
+ *  走本地分量，`new Date(Date.UTC(2026,8,25))` 在 TZ=America/Los_Angeles 下是 09-24，
+ *  而 §B 里另一批用例直接传 '2026-09-25'——两种基准会随跑测试的时区翻脸。 */
+const TODAY = '2026-09-25';
 
 // ── §A 区划码表 ────────────────────────────────────────────────────────────
 
@@ -53,7 +65,9 @@ test('A2 三级表条数与元信息吻合，码唯一，历史层可分级', ()
   assert.equal(historicalCodes().length, REGION_META.counts.historical);
   assert.equal(new Set(currentCountyCodes()).size, currentCountyCodes().length, '县级码重复');
   assert.equal(new Set(historicalCodes()).size, historicalCodes().length, '历史码重复');
-  const cur = new Set([...currentCountyCodes(), ...currentCityCodes().map((c) => `${c}00`)]);
+  // 三层形态都要进对照集：只放县级 + 市级+'00' 的话，快照一旦带出历史省级码就静默漏判
+  const cur = new Set([...currentCountyCodes(),
+    ...currentCityCodes().map((c) => `${c}00`), ...provinceCodes().map((p) => `${p}0000`)]);
   for (const code of historicalCodes()) assert.equal(cur.has(code), false, `${code} 同时出现在两层`);
   assert.deepEqual(REGION_META.historicalLevels, { county: 1159, city: 70 });
 });
@@ -67,7 +81,9 @@ test('A4 生成物是确定性字节：重跑 --check 必须说一致', () => {
   // 用 process.execPath 而不是字面量 'node'：本机 /usr/local/bin/node 是 v16 残留，
   // 谁把 PATH 顺序改一下，生成器就会被 Node 16 执行，报出的 bad option 会被误读成生成器的 bug。
   const out = execFileSync(process.execPath, ['scripts/build-region-data.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
-  assert.match(out, /一致/);
+  // 必须是「与快照一致」而不是「一致」：后者是前者的子串，"不一致"也能匹配上，等于没闸
+  assert.match(out, /与快照一致/);
+  assert.doesNotMatch(out, /不一致/);
 });
 
 test('A5 四级回落链每一档的结论（样本全部 2026-09-25 实读自快照）', () => {
@@ -81,7 +97,8 @@ test('A5 四级回落链每一档的结论（样本全部 2026-09-25 实读自�
   assert.equal(b.status, 'uncoded');
   assert.equal(b.level, 'city');
   assert.equal(b.fullName, '广东省汕头市');
-  assert.match(b.note, /未收录/);
+  // note 缺字段时 assert.match 报的是"argument must be of type string"，不指认是谁；补 ?? 与 message
+  assert.match(b.note ?? '', /未收录/, 'uncoded 结论必须带「未收录」说明');
 
   // 历史县级（2010 撤销的崇文区）与历史市级（2019 并入济南的莱芜市）及其下辖县
   const c = resolveRegion('110103');
@@ -115,6 +132,10 @@ test('A5 四级回落链每一档的结论（样本全部 2026-09-25 实读自�
   for (const bad of ['', '11010', '1101010', 'abcdef', null, undefined, 110101]) {
     assert.equal(resolveRegion(bad).level, 'none', `${String(bad)} 应落到 none`);
   }
+  // 样本判据只覆盖抽到的那 4 个码，653201 之类回归成「未知」不会红；把这条升格成全表扫描
+  for (const code of [...currentCountyCodes(), ...historicalCodes()]) {
+    assert.doesNotMatch(resolveRegion(code).fullName, /未知/, `${code} 解出了「未知」`);
+  }
   assert.equal(/未知/.test(JSON.stringify([a, b, c, d])), false, '任何结论里都不许出现「未知」');
 });
 
@@ -127,10 +148,15 @@ test('A6 生成侧只暴露现行码，历史码不进级联', () => {
   const shiXiaQu = currentCountyCodes('1101');
   assert.equal(shiXiaQu.length, 16, '北京市市辖区现行 16 个县级单位');
   assert.ok(shiXiaQu.every((c) => c.startsWith('1101')));
-  // 快照里 1101 下的县级数独立数一遍，判据不依赖生成物自身
+  // 快照独立对账，逐市比条数。原来那两行北京断言是退化的：11 省下只有 1101 一个市，
+  // 两行数的是同一批记录，而且"按 cityCode 数"与生成器"按码前缀分"是同一个判定的两种写法——
+  // 只能抓漏记录，抓不到归错市。全表逐市比才钉得住"某个市少 3 条、另一个市多 3 条"这种内部搬运。
   const snapshot = JSON.parse(read('scripts/fixtures/region-source/areas.json'));
-  assert.equal(snapshot.filter((x) => x.cityCode === '1101').length, shiXiaQu.length);
-  assert.equal(snapshot.filter((x) => x.provinceCode === '11').length, beijing.length);
+  const perCity = new Map();
+  for (const x of snapshot) perCity.set(x.cityCode, (perCity.get(x.cityCode) ?? 0) + 1);
+  for (const city of currentCityCodes()) {
+    assert.equal(currentCountyCodes(city).length, perCity.get(city) ?? 0, `${city} 的县级数与快照对不上`);
+  }
   assert.equal(currentCityCodes('35').includes('3501'), true, '福州市应在现行市级里');
   assert.equal(currentCityCodes('37').includes('3712'), false, '莱芜市不得出现在现行市级候选里');
 });
