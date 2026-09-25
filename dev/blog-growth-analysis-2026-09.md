@@ -156,7 +156,7 @@ front matter 支持 `updated: ['2026-03-12 补充 pnpm 9 的行为变化', ...]`
   - 节点模板抽到 `_includes/jsonLdAuthor.html` 一份，首页与 `about.html` 各引入一次——产物里两份声明逐字节相同，将来加别名不会让两处漂移。
   - `about.html` 这一处是本次真正的修复：`@id` 一直指向它，它自己却从没发出过节点，全站引用落在空地址上。
   - 67 篇的 `author`/`publisher` 由内联无名对象改为 `"@id": ".../about.html#author"` **同时带 `name`**——只留 `@id` 时 Rich Results 校验器报缺 `author.name`，所以两处字段都保留。
-  - 名字口径由本人确认：站内可见署名仍是 `Better`（一个字没改），Person 的 `name` 用中文正名 `廖小新`，`alternateName` 收 `Better / 小新`——2026-09-25 本人要求把真名从这三个字段撤掉，此前该列表含真名一项。三处取值来自 `_config.yml` 的 `author_name` / `author_alt_name`，可见文案不读这两个字段。
+  - 名字口径由本人确认：站内可见署名仍是 `Better`（一个字没改），Person 的 `name` 用中文正名 `廖小新`，`alternateName` 收 `Better / 小新`。三处取值来自 `_config.yml` 的 `author_name` / `author_alt_name`，可见文案不读这两个字段。
   - 自检固化在 `USAGE.md` 第 3 条：核 Person 份数 2、去重后 1，以及 `author` 是否 `@id`+`name` 双全。
 - **不要加 `SearchAction`**：Google 2024 年已停用 sitelinks search box，且本站搜索是纯客户端、没有真实可寻址的结果 URL，声明它属于虚假结构化数据。（这条是主动劝阻，别顺手加。）
 
