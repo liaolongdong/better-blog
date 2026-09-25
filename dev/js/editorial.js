@@ -979,6 +979,10 @@
         dlg.className = 'lightbox';
         dlg.setAttribute('aria-label', '图片查看');
         var big = document.createElement('img');
+        // 建出来到第一次点开之间，这张图是没有任何属性的 <img>：dialog 关着时 display:none
+        // 看不见，但它一直在 DOM 里，验证器/AT 按「img 缺 alt」记账（全站 69 篇文章各记一次，
+        // 把真正漏写 alt 的图淹成噪声）。open() 里会用原图的 alt 覆盖这一行。
+        big.alt = '';
         var cap = document.createElement('p');
         cap.className = 'lightbox-cap';
         dlg.appendChild(big);

@@ -12,6 +12,9 @@
     <style>
         body {
             padding: 20px 40px;
+            /* 每条「方法：」里都塞着 position:relative;display:flex 这类无空格的 CSS 串，
+               390 宽的手机上它算一个 487px 的长单词，把整页顶出横向滚动条。 */
+            overflow-wrap: break-word;
         }
     </style>
 </head>

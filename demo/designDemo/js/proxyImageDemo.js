@@ -29,6 +29,9 @@
     // 把代理对象和本体对象改为一个函数（函数也是对象），函数必然都能被执行，则可以认为它们也具有一致的“接口”
     var myImage = (function () {
         var imgNode = document.createElement('img');
+        // 这张图是演示用的装饰图，但 createElement 出来一直没写 alt，读屏会念出一个无名图片；
+        // 显式写空串表示「装饰、可跳过」，也是这段示范代码该有的样子。
+        imgNode.alt = '';
         document.body.appendChild(imgNode);
         return function (src) {
             imgNode.src = src;
@@ -41,7 +44,10 @@
             myImage(this.src);
         }
         return function (src) {
-            myImage('E:/demo/liaolongdong.github.io/assets/img/profile.png');
+            // 这里原来写的是 'E:/demo/liaolongdong.github.io/assets/img/profile.png' ——
+            // 作者本机 Windows 的绝对路径，部署后任何访客都取不到图，加载态永远是个碎图标。
+            // demo 页发在 /better-blog/demo/designDemo/ 下，两级上跳就是站点根的 assets/img/。
+            myImage('../../assets/img/profile.png');
             image.src = src;
         }
     })();

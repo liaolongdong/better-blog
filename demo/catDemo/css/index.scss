@@ -389,3 +389,29 @@ body {
         /*transition:  border-radius  1s;*/
     }
 }
+
+// 这只猫是按 400px 画的，未缩放时墨迹实测宽 459：390 的手机上从 -36 一直铺到 423，
+// 整页多一条 33px 的横向滚动，而左边那 36px 谁也回不来（超出容器起始边的内容不可滚达）。
+// 断点上界取 460 而不是 440 —— 墨迹本身 459 宽，441~458 那一段不换档就是白多一条滚动条（实测 441 溢出 7px）。
+// 三档等比缩放让墨迹始终落进视口：459×.84=386 管 386~460，459×.74=340 管 340~385，459×.66=303 管到 320。
+@media (max-width: 460px) {
+    .pc-style {
+        overflow-x: hidden;
+    }
+
+    .pc-style .mao_box {
+        transform: scale(.84);
+    }
+}
+
+@media (max-width: 385px) {
+    .pc-style .mao_box {
+        transform: scale(.74);
+    }
+}
+
+@media (max-width: 339px) {
+    .pc-style .mao_box {
+        transform: scale(.66);
+    }
+}
