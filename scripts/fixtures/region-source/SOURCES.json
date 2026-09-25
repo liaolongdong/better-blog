@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "fetchedAt": "2026-09-25",
+  "dataset": {
+    "provider": "modood/Administrative-divisions-of-China",
+    "ref": "master",
+    "license": "WTFPL-2.0",
+    "licenseVerifiedVia": "GitHub API /repos/modood/Administrative-divisions-of-China/license (HTTP 200)",
+    "dataAsOf": "2022-10-31",
+    "releaseNote": "数据截止 2022-10-31、发布 2022-12-29；dist/areas.json 最后提交 dc3a1d7acd (2023-09-13)"
+  },
+  "files": [
+    {
+      "file": "provinces.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/provinces.json",
+      "kind": "provinces",
+      "bytes": 1081,
+      "sha256": "a7e6a230102fee054daa7f63d91ca8da4320c11a2ddd4e5f093999b579fd7d4f",
+      "count": 31
+    },
+    {
+      "file": "cities.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/cities.json",
+      "kind": "cities",
+      "bytes": 19528,
+      "sha256": "3f569aaa0bfbeba72f1597657511c64f54107baae71710fef7146f390a41af32",
+      "count": 342
+    },
+    {
+      "file": "areas.json",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/master/dist/areas.json",
+      "kind": "areas",
+      "bytes": 228316,
+      "sha256": "fbe1575eecba4ffd4d50c3d2d6887bd873ceca6a203fb2d66698b5007826b6b6",
+      "count": 2978
+    }
+  ],
+  "historical": {
+    "file": "gb2260-2015.json",
+    "extractedFrom": "demo/idCardDemo/lib/GB2260.js",
+    "extractedFromSha256": "7ddc4d7a98009e84689b9f8ebc43652d90551983c640b2825c70971d2286aa54",
+    "upstream": "mc-zone/IDValidator v1.2.0（npm id-validator@1.3.0 同表）",
+    "license": "MIT",
+    "licenseTextAt": "demo/idCardDemo/lib/IDValidator.js 文件头：Released under the MIT license",
+    "bytes": 146802,
+    "sha256": "9f5142103eb1f1ff0d4a55b8c6cb8c5c2367b4017ab339bd2756839e27bdbdbe",
+    "count": 3465,
+    "normalization": "按码升序重序列化，与源 JS 文件的键序无关，因此哈希稳定",
+    "note": "GB/T 2260 的 2015 年前后口径；只用于解码已撤销建制的历史码，生成侧一律不用"
+  }
+}
