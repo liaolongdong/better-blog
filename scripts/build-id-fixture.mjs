@@ -23,8 +23,33 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const require = createRequire(import.meta.url);
 const OUT = 'scripts/fixtures/id-validator-checkbit-1000.json';
+const USAGE = '用法：node scripts/build-id-fixture.mjs [--check]';
 /** 写死而不是取墙钟：每条样本自带 today，判据永不误红于"出生日期晚于今天" */
 const TODAY = '2026-09-25';
+
+/**
+ * 参数白名单（I-8）。此前全文只有一句 `process.argv.includes('--check')`，于是
+ * `node scripts/build-id-fixture.mjs --nope`（或 `--chek` / `--CHECK` / `--help`）
+ * 一律被当成"没写参数"，直接落进最后那行 `writeFileSync`——**手打错一个字母就把
+ * 只读比对换成了覆盖提交进仓库的产物**，而且退 0。`build-region-data.mjs` 早就为
+ * 同一件事加了白名单（由 A10 钉着），本生成器此前一次都没有被任何判据跑过（现由 B14 钉）。
+ * @param {string[]} argv 去掉 node 与脚本名之后的参数
+ * @returns {{check:boolean}}
+ */
+function parseArgs(argv) {
+  for (const a of argv) if (a !== '--check') throw new Error(`未知参数：${a}\n${USAGE}`);
+  return { check: argv.includes('--check') };
+}
+
+// 闸门在读写任何文件之前生效；用法错只打一行到 stderr、不打堆栈，且**一个字节都不写**。
+let AS_CHECK;
+try {
+  AS_CHECK = parseArgs(process.argv.slice(2)).check;
+} catch (e) {
+  process.stderr.write(`${e.message}\n`);
+  process.exit(1);
+}
+
 
 /** 分组配额，合计 1000；改配额要同步改 §B 的 B7 */
 const GROUPS = {
@@ -62,28 +87,53 @@ const PLACEHOLDER_CITY = new Set(['市辖区', '县', '省直辖县级行政区�
 
 const both = [...currentCounty].filter((c) => legacyCounty.has(c)).sort();
 /**
- * 只看三份快照，把"旧表地址串 == 现行省名 + 现行市名(非占位段) + 现行县名"当作同名判据。
+ * 只看三份快照，把"旧表地址串 == 现行省名 + 现行市名(非占位段，且剥掉与县名重叠的前缀)"
+ * 当作同名判据。
  *
  * 为什么不能只看县名（计划原先的 `legacy[c].endsWith(countyName[c])`）：2026-09-25 实读，
  * 那样筛出的 1,869 条里有 93 条两边全名必然不等——县名没变，变的是旧表里的市名或省名，
  * 那 93 条是旧表停留在 2015 年之前的口径：1406「晋城市」应为朔州市、3208 淮阴市→淮安市、
  * 4206 襄樊市→襄阳市、6203「嘉峪关市」应为金昌市、65xxxx「新疆维吾尔族自治区」多写一个"族"字。
  * 混进 agree18 只会因数据版本差异误红，而这组的断言方向是"两边一模一样"。
- * 本判据筛出 1,776 条，与读侧 resolveRegion().fullName 的实算结果 0 分叉（双向都核过）。
+ *
+ * `tail.startsWith(middle)` 那一刀（I-7）必须与读侧 `region.js` 的 `joinNames` 同规则：
+ * 两边算的不是同一个字符串，"同名池"筛出来的样本就会在 B7 那句
+ * `r.info.region.fullName === c.oracleAddr` 上按重叠前缀那一批（实读 19 条：15 条县名以市名
+ * 打头的功能区 + 4 条省市县同名，如 441900 东莞市）逐条误红。本轮实测：加与不加，
+ * `sameName` 都是 1,776 条、成员一模一样（那 19 条**没有一条同时在 2015 旧表里**，
+ * 全是 2022 口径新增），所以这一刀不改变任何一条样本的归属——它堵的是"两份实现算的
+ * 不是同一个字符串"这件事本身，而不是一批当下恰好为空的误红。别因为它今天测不出差别就删掉。
+ *
+ * 本判据筛出 1,776 条；与读侧 `resolveRegion().fullName` 的分叉数在两个方向上都是 0
+ * （B7 逐条核过 agree18 的相等、renamed 的不等，双向都钉着）。
  */
 const sameNameAsLegacy = (code) => {
   const prov = provinceOf.get(code.slice(0, 2)) || '';
   const city = cityOf.get(code.slice(0, 4)) || '';
-  const tail = countyName.get(code);
-  const want = PLACEHOLDER_CITY.has(city) || city === '' ? `${prov}${tail}` : `${prov}${city}${tail}`;
-  return String(legacy[code]) === want;
+  const middle = city === '' || PLACEHOLDER_CITY.has(city) ? '' : city;
+  let tail = countyName.get(code) || '';
+  if (middle && tail.startsWith(middle)) tail = tail.slice(middle.length);
+  return String(legacy[code]) === `${prov}${middle}${tail}`;
 };
 /** 同码同名（实读 1,776 条）：只有这里的样本允许断言"两边地址名相等" */
 const BOTH = both.filter(sameNameAsLegacy).sort();
 /** 同码而异名（实读 156 条）：我们给现行名、旧库给 2015 年前后的旧名 */
 const RENAMED = both.filter((c) => !sameNameAsLegacy(c)).sort();
-/** RENAMED 的两种成因，拆开记，免得后来人以为这 156 条都是县名改过 */
-const COUNTY_RENAMED = RENAMED.filter((c) => !String(legacy[c]).endsWith(countyName.get(c)));
+/**
+ * 156 条按**成因**拆三类（I-7：上一版只记了"两种成因"，实际数字是三种，且把 620201 记错档）：
+ *   1. 旧串不以现行县名结尾 → 县名段自己改过（130502 桥东区→襄都区、650107 南山矿区→达坂城区…）
+ *      共 63 条；
+ *   2. 其中 1 条（620201）旧表在市级码下挂的是「…市辖区」占位条（甘肃省嘉峪关市市辖区），
+ *      而现行 620201 的名字就叫「嘉峪关市」——差异来自旧表那条占位尾巴，不是谁改了名；
+ *   3. 剩下的 62 条是真正的县名改名，另 93 条县名没变、变的是旧表里的市名 / 省名口径。
+ * 拆分规则必须写成可复算的一句话，`pools` 里的三个数之和要等于 RENAMED.length，B7 钉着。
+ */
+const legacyEndsTail = (c) => String(legacy[c]).endsWith(countyName.get(c));
+/** 旧表末段是市级占位名（市辖区 / 省直辖县级行政区划 / …）的那一类：不是"县改名" */
+const PLACEHOLDER_TAIL = /(市辖区|省直辖县级行政区划|自治区直辖县级行政区划)$/;
+const RENAMED_BY_PLACEHOLDER = RENAMED.filter((c) => !legacyEndsTail(c) && PLACEHOLDER_TAIL.test(String(legacy[c])));
+/** 真·县名改过：旧串连现行县名都不以它结尾，且不属上面那类占位尾巴 */
+const RENAMED_BY_COUNTY = RENAMED.filter((c) => !legacyEndsTail(c) && !PLACEHOLDER_TAIL.test(String(legacy[c])));
 /** 仅现行有、且旧表市级可回落（实读 1,046 条市级在表的那批）：旧库必然吐「未知地区」 */
 const ONLY_CURRENT = [...currentCounty]
   .filter((c) => !legacyCounty.has(c) && currentCity.has(c.slice(0, 4)))
@@ -190,9 +240,14 @@ for (let i = 0; i < GROUPS.birth_after_today; i += 1) {
   }));
 }
 for (let i = 0; i < GROUPS.feb29_nonleap; i += 1) {
+  // 非闰年的 2/29：摇一年，闰年就退一年。**一句就够**，别再往下加第二句——
+  // 原先后面跟着一句 `if (isLeap(y)) y -= 2`，那一句永不可达：能被 `-= 1` 摸到的 y 必是
+  // 闰年、必是偶数，减一之后是奇数，而闰年要求被 4 整除 ⇒ 奇数年满天下都是非闰。
+  // 留着它的唯一效果是让人以为这里还需要第二道兜底（M-13：不可达分支不加判据就等于没有，
+  // 而给它加判据又是造一条永绿的断言）。所以这一支删掉，闰律的正面覆盖挪到 B13——
+  // 那里 1901..2100 每一年都拿 2/29 试一次，判据一侧独立写一遍闰规则。
   let y = 1901 + Math.floor(rng() * 105);
   if (isLeap(y)) y -= 1;
-  if (isLeap(y)) y -= 2;
   cases.feb29_nonleap.push(record(make18(pick(BOTH), `${y}0229`, seq3()), (valid) => {
     if (valid !== true) throw new Error('feb29_nonleap: 旧库判无效，这组的分歧方向不成立');
   }));
@@ -212,7 +267,7 @@ const doc = {
       'checkOrder 恒真：15 位号码末位可以是字母',
       'checkBirth 只判 month>12||month===0||day>31||day===0：非闰年 2 月 29 放过；年份上下限整段注释掉并留 TODO',
       'getAddrInfo 回落到市/省级后吐「…未知地区」，给不出可用的县级信息',
-      '地址名取自 2015 年前后的 GB2260：同码改名的 63 条会给旧名',
+      '地址名取自 2015 年前后的 GB2260：同码异名的 156 条会给旧名（其中 62 条县名自己改过、1 条（620201）旧表挂的是「…市辖区」占位条）',
       '同一份旧表里还有 93 条县名没变、市名或省名却是 2015 年前的旧口径（3208 淮阴市、4206 襄樊市、65xxxx「新疆维吾尔族自治区」等），它们与 renamed 同组',
     ],
   },
@@ -221,8 +276,10 @@ const doc = {
   today: TODAY,
   pools: {
     sameName: BOTH.length, renamed: RENAMED.length, onlyCurrent: ONLY_CURRENT.length,
-    /** renamed 的成因拆分：县名自己改过 vs 只有旧表那一段名是旧口径 */
-    renamedByCounty: COUNTY_RENAMED.length, renamedByLegacyPrefix: RENAMED.length - COUNTY_RENAMED.length,
+    /** renamed 的成因三分：县名自己改过 / 只有旧表那一段名是旧口径 / 旧表挂的是市级占位条 */
+    renamedByCounty: RENAMED_BY_COUNTY.length,
+    renamedByLegacyPrefix: RENAMED.length - RENAMED_BY_COUNTY.length - RENAMED_BY_PLACEHOLDER.length,
+    renamedByPlaceholder: RENAMED_BY_PLACEHOLDER.length,
   },
   groupCounts: { ...GROUPS },
   total,
@@ -232,10 +289,16 @@ const doc = {
 
 const out = `${JSON.stringify(doc, null, 2)}\n`;
 const target = resolve(ROOT, OUT);
-if (process.argv.includes('--check')) {
+if (AS_CHECK) {
+  // 绿：一行 stdout，退 0。红：一行 **stderr**（内容与"一致"那条分得开，B14 双向都钉），
+  // 退 1，且**绝不写文件**——CI 里 `--check` 的全部意义就是"发现落后但不掩盖它"。
   const cur = readFileSync(target, 'utf8');
-  process.stdout.write(cur === out ? `${OUT} 与生成器一致\n` : `${OUT} 落后于生成器\n`);
-  process.exit(cur === out ? 0 : 1);
+  if (cur === out) {
+    process.stdout.write(`${OUT} 与生成器一致\n`);
+    process.exit(0);
+  }
+  process.stderr.write(`${OUT} 与生成器不一致：请跑 node scripts/build-id-fixture.mjs 重新生成\n`);
+  process.exit(1);
 }
 writeFileSync(target, out);
 process.stdout.write(`${OUT}: ${total} 条 · ${Object.entries(GROUPS).map(([k, v]) => `${k}=${v}`).join(' ')}

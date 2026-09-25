@@ -9,7 +9,7 @@
       "checkOrder 恒真：15 位号码末位可以是字母",
       "checkBirth 只判 month>12||month===0||day>31||day===0：非闰年 2 月 29 放过；年份上下限整段注释掉并留 TODO",
       "getAddrInfo 回落到市/省级后吐「…未知地区」，给不出可用的县级信息",
-      "地址名取自 2015 年前后的 GB2260：同码改名的 63 条会给旧名",
+      "地址名取自 2015 年前后的 GB2260：同码异名的 156 条会给旧名（其中 62 条县名自己改过、1 条（620201）旧表挂的是「…市辖区」占位条）",
       "同一份旧表里还有 93 条县名没变、市名或省名却是 2015 年前的旧口径（3208 淮阴市、4206 襄樊市、65xxxx「新疆维吾尔族自治区」等），它们与 renamed 同组"
     ]
   },
@@ -20,8 +20,9 @@
     "sameName": 1776,
     "renamed": 156,
     "onlyCurrent": 1046,
-    "renamedByCounty": 63,
-    "renamedByLegacyPrefix": 93
+    "renamedByCounty": 62,
+    "renamedByLegacyPrefix": 93,
+    "renamedByPlaceholder": 1
   },
   "groupCounts": {
     "agree18": 670,
