@@ -33,7 +33,7 @@
 | §5.4 | 区划回落由"三级"改写为**六档**（含 6 位「市级码 + 00」直接命中这一档）；历史层措辞从「已撤销建制」改为「未见于现行区划表」 | 实读两表交集 1,934 条里有 63 条同码改名，"已撤销"对这批是错的；`110100` 这类市本级码大量存在，走回落档会把命中的事说成查不到 |
 | §11 | 风险行同步成"不输出名称 + 内层值 10 三档处理" | 让风险表与真实交付一致，不留"文档说标参考、代码里根本没有名称"这种两套口径 |
 | §6.2 | 文件清单加 `dev/js/tools/region.js` | 生成物只放数据；解析与回落链是手写判断，混进生成文件等于把代码塞进模板字符串 |
-| §7 | 区划表预算 30KB → 34KB，并补实测数字 | 30KB 是估的；实测四表合计 ≈93KB 原始 / 31.9KB gzip |
+| §7 | 区划表预算 30KB → 34KB → **36KB**，并补实测数字 | 30KB 是估的；实测 100,020B 原始 / 34,807B gzip，34KB 那条只剩 9 字节余量，挡不住 gzip 参数抖动 |
 | §11 | USCC 风险行补"样本必须先算校验位再入库" | 试取的 4 条候选真实码 3 条校验位不通，只有国标示例站得住 |
 
 ---
@@ -454,7 +454,7 @@ git commit -m "test(tools): 区划码表判据先行（当前为红，待生成�
  *
  * 三条硬要求（设计文档 §6.5）：
  *   1. 不联网。默认只读仓库内快照，因此 CI 与段 5（旧 GB2260.js 已删）之后照样能跑。
- *   2. 确定性。键按码升序、不写入运行时刻；generatedAt 取快照的 fetchedAt，
+ *   2. 确定性。键按码升序、不写入运行时刻；snapshotFetchedAt 取快照的 fetchedAt，
  *      所以"同一输入 → 同一字节"成立，--check 才有意义。
  *   3. 快照哈希与 SOURCES.json 不符就拒绝生成。数据被悄悄换过比数据旧更危险。
  *
@@ -646,10 +646,10 @@ const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
 
 if (AS_CHECK) {
   if (current === output) {
-    process.stdout.write(`region-data.js 与快照一致（${(output.length / 1024).toFixed(1)}KB）\n`);
+    process.stdout.write(`region-data.js 与快照一致（${(Buffer.byteLength(output) / 1024).toFixed(1)}KB）\n`);
   } else {
     process.stderr.write('region-data.js 与快照不一致（产物落后于 scripts/fixtures/region-source/）\n'
-      + `  产物 ${current === null ? '不存在' : `${current.length}B`} / 期望 ${output.length}B\n`);
+      + `  产物 ${current === null ? '不存在' : `${Buffer.byteLength(current)}B`} / 期望 ${Buffer.byteLength(output)}B\n`);
     process.exitCode = 1;
   }
 } else if (current === output) {
@@ -658,7 +658,7 @@ if (AS_CHECK) {
   writeFileSync(OUT, output);
   const { gzipSync } = await import('node:zlib');
   const gz = gzipSync(Buffer.from(output)).length;
-  process.stdout.write(`已生成 dev/js/tools/region-data.js：${(output.length / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
+  process.stdout.write(`已生成 dev/js/tools/region-data.js：${(Buffer.byteLength(output) / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
 }
 ```
 
@@ -670,7 +670,7 @@ if (AS_CHECK) {
 node scripts/build-region-data.mjs
 ```
 
-Expected: `已生成 dev/js/tools/region-data.js：≈95KB 原始 / ≈32KB gzip`。gzip 若 > 34KB，先停下来核对 `counts`（多半是多算了一层分组），不要直接抬预算。
+Expected: `已生成 dev/js/tools/region-data.js：97.7KB 原始 / 34.0KB gzip`（2026-09-25 实测落盘 100,020 字节 / gzip 34,807B；这两行按字节算，早先写的是 JS 字符串长度，同一份产物会少报一半）。gzip 若超过 36KB：先核对 `counts` 五个数（多半是多算了一层分组），counts 全对而只是产物长胖的，停下来按 §7 重新量一次再决定预算——**不要**顺手把断言改宽或删除。
 
 - [ ] **Step 3: 核对元信息里的分级数字**
 
@@ -2935,7 +2935,7 @@ git commit -m "docs(tools): 区划数据与 IDValidator 的许可归属记录，
 
 Step 2–4 是同方向的另一半：本段所有新文件都落在 `dev/js/tools/`（Vite 子目录不成入口）、`scripts/`（Jekyll 已排除）、`assets/data/`（`assets/**/*.md` 已排除）三个"应当完全不被产物看见"的位置。这个断言必须用产物证，不能用"我看过配置了"证。
 
-- [ ] **Step 1: 四条变异，逐条确认它红、还原、复绿**
+- [ ] **Step 1: 五条变异，逐条确认它红、还原、复绿**
 
 ```bash
 # M1 少一步模：末位在"余数为 0"那一档越界（约 1/31 的真实码会被判错）
@@ -3106,10 +3106,11 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **随机源抽成 `dev/js/tools/random.js`**：原稿让 `uscc.js` 去 `import` `idcard.js` 里的 mulberry32——同级模块互相依赖，将来谁改种子语义都会暗伤对方。夹具生成器里那份副本**故意独立**（重跑要字节级不变），已写进 §1。
 - **§C 的 C5 批量样本换成全自洽码**：草稿里那条 `R_ZERO` 的第 17 位与内层校验位不自洽，批量判 `valid` 必红；换成 `913501000000001660`（余数 0 那一档、且内层自洽）。换的时候顺手把常量计数注释从 12 改 13、C4 里写死的 16 位字面量改成 `R_ZERO.slice(0,16)`。
 - **`uscc.js` 的 `caveat` 条件从只认 `uncoded` 改成 `abolished || uncoded`**：历史码 `ok=true`，漏一句措辞不会红在结构上、只红在文案上，所以判据必须直接断言那句话（C6）。这也是 Task 8 变异 M4 的来源。
-- **Task 8 的四条 sed 已用计划正文抽出的代码块实跑核验**：每条匹配唯一（`grep -c` 变异前后 1↔1），M4 还原后两文件其余 5 处 `abolished` 用法仍在，说明 sed 的匹配范围没有溢出到 `regionOk` 判断与 `detail` 措辞。
+- **Task 8 的 M1–M4 四条 sed 已用计划正文抽出的代码块实跑核验**：每条匹配唯一（`grep -c` 变异前后 1↔1），M4 还原后两文件其余 5 处 `abolished` 用法仍在，说明 sed 的匹配范围没有溢出到 `regionOk` 判断与 `detail` 措辞。**M5 不在那四条之列**（它是 Task 3 落地时才补的），本轮另跑过一次：删掉 `typeof code !== 'string' || ` 之后只有 A5 红、`# pass 5` / `# fail 1`，`mv` 还原后 `region.js` 的 sha256 与变异前逐字符相同。
 - **面板模块的构造参数 `prefix` 与 `toHash()` 返回 `''` 的两种形状，是原型阶段收敛出来的**：草稿里 `move()` 混用过 `.active` 与 `.active()`、`D4` 少一个 `});`，`node --test` 一次就抓到了。§D 判据 5 条在 `/tmp` 里跑过 `# pass 5 / # fail 0` 才抄进本文件。
 - **Task 1 落地后按质量复核改了 `SOURCES.json` 的四条口径**（数据一字未动，四份快照的 `bytes`/`sha256`/`count` 全部复算不变）：① `ref` 与三份 `url` 从可前进的 `master` 换成 pin `6fb5380de7e6…`（tag `2.7.0`，实测三份字节与该 pin 全等），Task 3 的 `REMOTE` 同步换，`--fetch` 因此不可能拉到与记录不符的字节；② `license` 从 `"WTFPL-2.0"` 改成接口真给的 `WTFPL`；③ `licenseVerifiedVia: "…(HTTP 200)"` 换成 `licenseEvidence`，把结论挂到原文哈希上——一次成功的 HTTP 请求不是证据；④ `historical.licenseTextAt` 说清站内只有声明、MIT 的版权行与全文只在上游 `MIT-LICENSE`，Task 7 必须逐字抄。另注：`SOURCES.json` 仍由脚本生成，改的是计划里那段脚本。
 - **§A 判据按质量复核加固五处，其中一条审查建议被有据否决**（`scripts/toolkit-tests.mjs` 与计划正文同步，回抽 diff 仍逐字节相同）：① `TODAY` 从 `new Date(Date.UTC(2026,8,25))` 改成字符串 `'2026-09-25'`——`idcard.js` 的 `toDay()` 对 Date 走本地分量，实测 `TZ=America/Los_Angeles` 下那个 Date 就是 09-24，而 §B 另有十几处直接传字符串，两种基准会随时区翻脸；② A4 的 `assert.match(out, /一致/)` 是假闸门（"不一致"含子串"一致"，实测 stub 打 `与快照不一致` 仍 `# pass`），改成 `/与快照一致/` 加一条 `doesNotMatch(/不一致/)`；③ A5 末行只扫 4 个抽样对象，升格为对全部现行县级 + 全部历史码扫 `fullName`；④ A6 那两行"从快照独立数一遍"里，`provinceCode==='11'` 那行被 `cityCode==='1101'` + 写死的 16 完全蕴含（北京只有一个市辖区），且两行用的都是生成器同一个判据，换成 `Map` 预聚合的逐市对账（实测 342 个 cityCode 两表全等、无孤儿、无空市，O(n)）；⑤ A2 的跨层互斥集补上 `省+'0000'` 形态、`b.note` 改 `b.note ?? ''` 并补 message。**否决 `describe` + `before()` 分段隔离**：实测 suite 形状下失败用例的 `not ok` 行是缩进的（`    not ok 2 - A2`），而 Task 8 Step 1 的四条变异判据全部按行首 `^not ok <用例名>` 锚定，改了就会只看到组名、点名不到该红的判据；`# pass` 计数倒是不变（实测两种形状都是 `# pass 3`），所以这条纯粹是判据形状冲突，代价与理由已写进测试文件头注释。
 - **开工基线里有一个已归因的外部漂移，Task 8 Step 2 会撞上它**：`/tmp/seg1/assets-sha-before.txt` 录于 12:11，第二个会话 12:14 改了 `dev/js/editorial.js`、12:16 重建，`assets/js/editorial.min.js` 现为 `b18d9155…` 而基线里是 `a2e11cbd…`。本段一行代码都没落地（Task 1 只新增 4 份 JSON + 1 份清单，不碰 `dev/`、不碰 Vite 入口），所以**按 Step 2 既有的归因流程处理，不重录基线**：`git log --oneline $(cat /tmp/seg1/head-before.txt)..HEAD -- dev/` 查不到本段对该文件的改动，再 `git status --porcelain dev/js/editorial.js` 见到它是 `M`（别人未提交的改动）即可判定与本段无关，把这一条 diff 单独写进结论。`head-before.txt` 与 `git-before.txt` 保持不动。
 - **Task 3 落地时计划自相矛盾一处，按判据为准收口**：plan 的 `resolveRegion` 写 `String(code ?? '')`、`@param {string|number|null}`，而已提交的 A5 要求裸数值 `110101` 落到 `level:'none'`——照抄实现则 A5 恒红（首跑实测 `not ok 5 … 'county' !== 'none'`）。改成 `typeof code !== 'string' ||` 前置门 + note 补"字符串"三字，理由不是位数而是类型：`Number` 表达不了前导零，静默 `String()` 会把调用方的类型错误藏成一次"成功解析"。影响面实测为零（计划内三个调用方传的都是字符串；全计划无一处断言那句 note 文案），并为此在 Task 8 补了 M5。计划正文的两处（`@param` 行与那道 `if`）已回填，三块代码与磁盘文件的 diff 仍逐字节为空。
 - **A3 的预算从 34KB 抬到 36KB，是量出来的不是让出来的**：钉死输入下产物 gzip 实测 34,807B，34KB 这条只剩 **9 字节**余量；而同一份字节换 `level 6→9` 就差 194B、换 `strategy` 到 `Z_FILTERED` 差 2,036B（本机 Node v22.19.0 实跑）。9 字节挡不住压缩器抖动，那条判据会从"防体积回退"变成"防今天用哪个 Node"。抬预算只吸收抖动、不给数据增长放行：四张表退回朴素 `JSON.stringify` 实测 62.7KB gzip，照样被 36KB 拦下；`--fetch` 刷新带来的增长同样该红。设计文档 §7 里两个估计（92.6KB/31.9KB、32.5KB）偏低约 2KB，已按实测口径改写，差额未逐项归因。
+- **规格复核又抓出 5 处口径没跟着走，都是文档级但每一处都会误导下一个人**：① §0 表里"§7 预算 30KB→34KB / 实测 31.9KB"这一行的两个旧值同步为 36KB / 34,807B；② Task 3 Step 2 的 Expected 从 `≈95KB 原始 / ≈32KB gzip` 改成实测 `97.7KB / 34.0KB`，并把"不要直接抬预算"那句改写成分叉判据（先核 counts，全对才回到 §7 重量）；③ Task 8 Step 1 标题"四条变异"→五条；④ 生成器与 §6.5 都写 `generatedAt`，产物里的真名是 `snapshotFetchedAt`，两处一起改；⑤ **生成器的自报体积用的是 `output.length`（UTF-16 码元数），50,104 个字符报成"48.9KB"，而落盘是 100,020 字节——一个贴着 36KB 预算的判据，配一条少报一半的日志，比没有日志更危险**。改成 `Buffer.byteLength()`，删产物重生成后 sha256 仍是 `a7e26d54…`（只有日志变，产物一字未动），§A 仍 `# pass 6`。

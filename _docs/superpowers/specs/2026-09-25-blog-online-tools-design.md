@@ -234,7 +234,7 @@ scripts/toolkit-tests.mjs                                  §8.1
 
 ### 6.5 数据构建与第三方许可
 
-`scripts/build-region-data.mjs`（Node 22，无新依赖）：抓 `provinces.json` + `cities.json` + `areas.json`，读站内旧 `GB2260.js`，产出 `dev/js/tools/region-data.js`，内含两张表 + 元信息（`source` / `datasetVersion` / `generatedAt` / 各表计数）。要求：
+`scripts/build-region-data.mjs`（Node 22，无新依赖）：抓 `provinces.json` + `cities.json` + `areas.json`，读站内旧 `GB2260.js`，产出 `dev/js/tools/region-data.js`，内含两张表 + 元信息（`source` / `datasetVersion` / `snapshotFetchedAt` / 各表计数）。要求：
 
 - 生成侧只暴露现行县级码集合；解码侧可查两层，历史层带撤销标记。
 - 脚本可重复执行（同一输入 → 同一字节输出，字典序排序、无时间戳抖动），并支持"离线用本地缓存的 JSON"跑通（CI 无外网时不能挂）。

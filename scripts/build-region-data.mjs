@@ -4,7 +4,7 @@
  *
  * 三条硬要求（设计文档 §6.5）：
  *   1. 不联网。默认只读仓库内快照，因此 CI 与段 5（旧 GB2260.js 已删）之后照样能跑。
- *   2. 确定性。键按码升序、不写入运行时刻；generatedAt 取快照的 fetchedAt，
+ *   2. 确定性。键按码升序、不写入运行时刻；snapshotFetchedAt 取快照的 fetchedAt，
  *      所以"同一输入 → 同一字节"成立，--check 才有意义。
  *   3. 快照哈希与 SOURCES.json 不符就拒绝生成。数据被悄悄换过比数据旧更危险。
  *
@@ -196,10 +196,10 @@ const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
 
 if (AS_CHECK) {
   if (current === output) {
-    process.stdout.write(`region-data.js 与快照一致（${(output.length / 1024).toFixed(1)}KB）\n`);
+    process.stdout.write(`region-data.js 与快照一致（${(Buffer.byteLength(output) / 1024).toFixed(1)}KB）\n`);
   } else {
     process.stderr.write('region-data.js 与快照不一致（产物落后于 scripts/fixtures/region-source/）\n'
-      + `  产物 ${current === null ? '不存在' : `${current.length}B`} / 期望 ${output.length}B\n`);
+      + `  产物 ${current === null ? '不存在' : `${Buffer.byteLength(current)}B`} / 期望 ${Buffer.byteLength(output)}B\n`);
     process.exitCode = 1;
   }
 } else if (current === output) {
@@ -208,5 +208,5 @@ if (AS_CHECK) {
   writeFileSync(OUT, output);
   const { gzipSync } = await import('node:zlib');
   const gz = gzipSync(Buffer.from(output)).length;
-  process.stdout.write(`已生成 dev/js/tools/region-data.js：${(output.length / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
+  process.stdout.write(`已生成 dev/js/tools/region-data.js：${(Buffer.byteLength(output) / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
 }
