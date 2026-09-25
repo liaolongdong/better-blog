@@ -1,5 +1,5 @@
 /**
- * 区划码表的读侧：解析生成物、拼三级全名、跑四级回落链。
+ * 区划码表的读侧：解析生成物、拼三级全名、跑六档回落链（§5.4 的六档，不是四级）。
  *
  * 为什么单独一层：region-data.js 是生成物、只放数据；回落规则（哪一级算命中、
  * 什么时候不下"无效"结论）是设计判断，混进生成文件等于把它写在模板字符串里，
@@ -130,7 +130,7 @@ for (const [i, row] of RAW_HISTORICAL.split('|').entries()) {
 /**
  * 载完就自检：schema 版本必须是 1，四张索引的条数必须与生成器写进产物的 REGION_META.counts
  * 逐项相等。这一层此前是"生成器写了、读侧谁都不看"——实测把 RAW_COUNTIES 截掉 20%（字符串
- * 完整闭合）模块照样加载成功，浏览器里变成 2,394 个县对着一份声明 2,978 个的元信息，全静默。
+ * 完整闭合）模块照样加载成功，浏览器里变成 2,389 个县对着一份声明 2,978 个的元信息，全静默。
  * 与上面那道 fields() 是分工不是重复：这里管"少了行"（截断最典型），
  * fields() 管"行数没变但行内坏了"——那种漂移在这里的条数是看不出来的（实测 31/342/2978/1229
  * 一个都不动），两道缺一条就有一类产物损坏安静出货。
@@ -166,7 +166,7 @@ function joinNames(provinceCode, cityCode, countyName) {
  * 解出东城区；isGeneratable(110101) 是 true，而 resolveRegion(110101) 落到 none）。
  * 只接受字符串并 trim；非字符串归一成 ''，由调用方按结构非法处理。
  * 类型判断必须在任何 String() 之前：`String(Object.create(null))` 抛
- * "Cannot convert object to primitive value"，而 §5.4 要求 resolveRegion 永不抛。
+ * "Cannot convert object to primitive value"，而本层对外的承诺是永不抛（见 resolveRegion）。
  * @param {unknown} code 任意入参
  * @returns {string} 归一后的码串，非字符串入参得到 ''
  */
@@ -175,10 +175,26 @@ function normalizeCode(code) {
 }
 
 /**
- * 结构非法时的返回值：11 个键一个不少（§5.4 的形状契约），但除 code 与 note 全为空。
- * 此前这道分支照抄入参切片，于是 resolveRegion(110101) 在给出 level:'none' 的同时挂着
- * province「北京市」与 countyCode「110101」——被拒绝的数字旁边显示一个地名，正是这层
- * 设计要防的"看着像成功了"。
+ * 前缀型入参的归一，与 normalizeCode 同一条类型规则，但非法时给 null 而不是 ''。
+ *
+ * 差别是必须的：currentCountyCodes / currentCityCodes 里 '' 的含义是"不收窄、返回全表"，
+ * 所以把 null / 数值 / 对象归一成 '' 等于把一次类型错误放大成 2,978 条候选地址。
+ * 实测改之前：`currentCountyCodes(null)` 返回 2,978 条（`null ?? ''` 落到"全表"那一支），
+ * `currentCountyCodes(Object.create(null))` 直接抛，`currentCountyCodes(1101)` 返回 16 条
+ * 而 isGeneratable(1101, 'city') 为 false——同一份数字，两个入口一个认一个不认。
+ * @param {unknown} prefix 任意入参
+ * @returns {string|null} 字符串 trim 后的前缀；非字符串为 null，调用方返回空集
+ */
+function normalizePrefix(prefix) {
+  return typeof prefix === 'string' ? prefix.trim() : null;
+}
+
+/**
+ * 结构非法时的返回值：11 个键一个不少，但除 code 与 note 全为空。
+ * 这个形状是本层自己定的契约（不是 §5.4 写的——§5.4 只规定"区划查不到时其余项照常判定"，
+ * 那正是这里不能抛、也不能少键的理由）。此前这道分支照抄入参切片，于是
+ * resolveRegion(110101) 在给出 level:'none' 的同时挂着 province「北京市」与
+ * countyCode「110101」——被拒绝的数字旁边显示一个地名，正是这层设计要防的"看着像成功了"。
  * @param {string} c6 归一后的码串（非字符串入参传 ''）
  * @returns {ReturnType<typeof resolveRegion>}
  */
@@ -192,8 +208,10 @@ function rejectRegion(c6) {
 }
 
 /**
- * 解一个 6 位行政区划码。返回结构在 §5.4 里定义，供身份证与统一代码两个面板共用。
- * 永不抛异常：任何形状的入参都拿到同一套 11 个键。
+ * 解一个 6 位行政区划码。供身份证与统一代码两个面板共用。
+ * §5.4 定的是回落链的六档顺序与 `level` 的四档取值（county / city / province / none），
+ * 以及"区划查不到时其余项照常判定"；下面这套 11 个键的形状是本层自己定的。
+ * 永不抛异常：任何形状的入参都拿到同一套键。
  *
  * @param {unknown} code 6 位行政区划码。只接受字符串（首尾空白会被 trim），
  *   数值、对象等即使位数合法也按结构非法落 level:'none'，且不带任何派生字段
@@ -276,9 +294,11 @@ export function resolveRegion(code) {
 /**
  * 现行县级码集合，可按省码 / 市码 / 任意前缀收窄。
  * 这是生成侧唯一的地址来源：历史码永不进候选（§5.4）。
+ * 入参只接受字符串（trim 后比较），非字符串得到空集而不是全表——见 normalizePrefix。
  */
 export function currentCountyCodes(prefix = '') {
-  const p = String(prefix ?? '');
+  const p = normalizePrefix(prefix);
+  if (p === null) return [];
   if (p === '') return ALL_COUNTY_CODES.slice();
   if (p.length === 2) return (COUNTY_CODES_BY_PROV.get(p) || []).slice();
   if (p.length === 4) return (COUNTY_CODES_BY_CITY.get(p) || []).slice();
@@ -287,8 +307,10 @@ export function currentCountyCodes(prefix = '') {
 
 /** 现行市级码集合，可按省码收窄（统一代码的区划段只到地市，用这条） */
 export function currentCityCodes(provinceCode = '') {
-  if (provinceCode === '') return [...CITIES.keys()].sort();
-  return (CITY_CODES_BY_PROV.get(String(provinceCode).slice(0, 2)) || []).slice().sort();
+  const p = normalizePrefix(provinceCode);
+  if (p === null) return [];
+  if (p === '') return [...CITIES.keys()].sort();
+  return (CITY_CODES_BY_PROV.get(p.slice(0, 2)) || []).slice().sort();
 }
 
 export function provinceCodes() {

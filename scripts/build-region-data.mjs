@@ -129,12 +129,13 @@ function assertNoDelimiters(pairs) {
 }
 
 /**
- * 逐行形状校验。四道：行是对象、码形、name 是非空字符串、父码前缀，外加码唯一。
+ * 逐行形状校验。四道：行是对象、码形、name 是非空字符串、父码逐字前缀，外加码唯一。
  * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。
+ * 父码那一道原本只查 startsWith，位数不足的父码漏过去了，见函数体注释。
  * @param {Array<{code:string, name:unknown}>} rows 待校验行
  * @param {number} len 码的位数
  * @param {string} label 层级名，出现在报错里
- * @param {string} [parentField] 父级码字段名，用于校验前缀关系
+ * @param {string} [parentField] 父级码字段名；给了就必须与 code 的前 len-2 位逐字相等
  */
 function assertShape(rows, len, label, parentField) {
   for (const row of rows) {
@@ -142,8 +143,17 @@ function assertShape(rows, len, label, parentField) {
     const code = String(row.code);
     if (!new RegExp(`^\\d{${len}}$`).test(code)) throw new Error(`${label} 码形不对：${code}`);
     assertNameString(code, row.name, label);
-    if (parentField && !code.startsWith(String(row[parentField]))) {
-      throw new Error(`${label} ${code} 不以父级码 ${row[parentField]} 开头，分组编码会解错`);
+    // 父码必须与 code 的前 len-2 位**逐字相等**。这里原本写的是 startsWith，而它挡不住
+    // 位数不足的父码：provinceCode 为 '1' 时 '1101'.startsWith('1') 成立，闸门放行，
+    // 可读侧是按前 2 位分组的——同一行在生成侧的父亲是 '1'、在读侧是 '11'。
+    // 实测注入 provinceCode:'1' 之后生成器 exit 0、12 条判据全绿，产物里
+    // currentCityCodes('11') 变成空数组（1101 被挂到了 '1' 名下）。
+    // 等式不需要额外的"父码是 len-2 位数字"正则：code 自己已过数字码形，
+    // 任何与 code.slice(0, len-2) 相等的值自动就是 len-2 位数字。
+    if (parentField && code.slice(0, len - 2) !== String(row[parentField])) {
+      throw new Error(
+        `${label} ${code} 的父级码应逐字等于 ${code.slice(0, len - 2)}，实际是 ${JSON.stringify(row[parentField])}`,
+      );
     }
   }
   const codes = rows.map((r) => r.code);

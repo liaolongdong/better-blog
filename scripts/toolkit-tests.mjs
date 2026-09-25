@@ -4,15 +4,19 @@
  *
  * "不联网"的准确口径：全部用例只碰 127.0.0.1，且 A10/A11 在跑之前先把生成器副本里的
  * 上游 URL 换掉（A10 指向一个没人听信的端口，A11 指向本文件自己起的临时服务器）。
- * 仓库里的 scripts/fixtures/region-source/ 一份都不写——A7–A11 都在 tmpdir 副本上跑，
- * 每条用例结尾还各自断言"仓库快照与产物的字节没被动过"。
+ * 换没换成由 rewriteUpstreamUrls 数命中条数钉住的——replace 匹配不到时静默返回原串，
+ * 实测那样做 A10 会"因为 DNS 挂了"而假绿。
+ * 仓库里的 scripts/fixtures/region-source/ 与产物一份都不写：A7–A11 全在 tmpdir 副本上跑，
+ * 每条用例结尾都比对"仓库快照与产物的字节没被动过"——A7/A8/A9 那三条由两个 helper
+ * （runGeneratorOn / importRegionWithPatchedSource）逐条兜，A10/A11 另外自己点名断言。
  *
  * 运行：
  *   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs
  * 判断成败看退出码，不要用 `| tail` 之后的 $?（管道会吞退出码）。
  *
  * 用例分布（后续每段往这个文件里加，不另起测试入口）：
- *   §A 区划码表 —— 生成物结构与四级回落（§2.2 / §5.4），A7–A12 另测四道闸门的牙齿
+ *   §A 区划码表 —— 生成物结构与六档回落（§2.2 / §5.4）；A7–A11 另测生成侧的输入闸门
+ *                （`assertShape` 那四道在内）与读侧载入自检有没有牙，A12 测六个读入口的入参口径是否还是同一套
  *   §B 身份证   —— 校验位、三态、解码、生成、与站内旧库对拍（§2.2 / §5.1）
  *   §C 统一代码 —— 31 字符集、两套权重、双校验位自洽（§2.2 / §5.1）
  *   §D 面板框架 —— ARIA、roving tabindex、hash、方向键（§6.3）
@@ -85,10 +89,16 @@ test('A2 三级表条数与元信息吻合，码唯一，历史层可分级', ()
 
 test('A3 产物体积在预算内（gzip ≤ 36KB，设计文档 §7）', () => {
   const gz = gzipSync(Buffer.from(read('dev/js/tools/region-data.js'))).length;
-  // 实测同一份字节（2026-09-25，34,807B）：level 6→9 差 194B（34,613），这就是 36KB 预算吸收的
-  // 全部压缩器抖动。它吸收不了 strategy：Z_FILTERED 在默认 level 下是 37,082B，比 36,864 的
-  // 预算高 218B，真出现那种 zlib 参数就应当红着（level 9 + Z_FILTERED 是 36,843B，勉强过）。
-  // 抬预算不等于放宽口径：四张表直接 JSON.stringify 是 62.7KB，照样被这条拦下。
+  // 实测同一份字节（2026-09-25，100,020B 原文 / 34,807B gzip）：level 6→9 差 194B（34,613B），
+  // 这就是 36KB 预算吸收的全部压缩器抖动。它吸收不了 strategy：Z_FILTERED 在默认 level 下是
+  // 37,082B，比 36,864B 的预算高 218B，真出现那种 zlib 参数就应当红着（level 9 + Z_FILTERED 是
+  // 36,843B，勉强过）。
+  // 抬预算不等于放宽口径：同样这些信息量（四张表行数 31/342/2,978/1,229，列名取
+  // provinces{code,name} / cities{code,provinceCode,name} / counties{code,cityCode,name} /
+  // historical{code,name}，即把生成物反解回行对象再朴素 stringify，2026-09-25 实跑）是
+  // 260,533B 原文 / 47,443B gzip（默认 level 6）/ 44,425B（level 9），三种口径都在 36,864B 之上。
+  // 这里刻意不写"约 44KB"了事——朴素口径也分 level，只有把两个数都摆出来，
+  // "退回朴素编码仍然红"才是可复算的事实而不是估计。
   assert.ok(gz <= 36 * 1024, `区划表 gzip ${(gz / 1024).toFixed(1)}KB 超预算`);
 });
 
@@ -101,7 +111,7 @@ test('A4 生成物是确定性字节：重跑 --check 必须说一致', () => {
   assert.doesNotMatch(out, /不一致/);
 });
 
-test('A5 四级回落链每一档的结论（样本全部 2026-09-25 实读自快照）', () => {
+test('A5 六档回落链每一档的结论（样本全部 2026-09-25 实读自快照）', () => {
   const a = resolveRegion('110101');
   assert.deepEqual({ status: a.status, level: a.level, fullName: a.fullName },
     { status: 'current', level: 'county', fullName: '北京市东城区' });
@@ -122,6 +132,21 @@ test('A5 四级回落链每一档的结论（样本全部 2026-09-25 实读自�
   assert.equal(resolveRegion('371200').fullName, '山东省莱芜市');
   assert.equal(resolveRegion('371202').fullName, '山东省莱芜市莱城区');
   assert.equal(resolveRegion('110221').fullName, '北京市昌平县');
+  // fullName 那一句测不到历史层的 level：region.js 里历史码的 level 是按码尾算的
+  // （0000→province / 00→city / 其余→county），而它同时决定 note 用「所属地市」还是
+  // 「该区划」、county 字段挂不挂名。把整条 ternary 硬编码成 'county' 之后
+  // 12 条判据一条都不红（实测），所以这里三样各钉一条。
+  const laiWu = resolveRegion('371200');
+  assert.equal(laiWu.level, 'city', '莱芜市是历史市级，不是历史县级');
+  assert.equal(laiWu.status, 'abolished');
+  assert.match(laiWu.note ?? '', /^所属地市/, '历史市级必须说「所属地市」，不能说「该区划」');
+  assert.equal(laiWu.county, '', '市级历史码不得把市名挂进 county');
+  assert.match(resolveRegion('110103').note ?? '', /^该区划/, '县级历史码反过来，不得说「所属地市」');
+  // 历史层里省级形（XX0000）实测 0 条，上面那条 ternary 的 province 分支在当前产物下不可达。
+  // 留着它的理由：--fetch 换进来的旧表完全可能带省本级条目（历史层的码形闸门只要求 6 位数字）。
+  // 所以这条断言测的不是那个分支，是把"它现在不可达"钉成一件会变红的事。
+  assert.equal(historicalCodes().filter((x) => x.endsWith('0000')).length, 0,
+    '历史层出现了省级形的码：那条 province 分支从没测过的代码变成必须测的代码，补判据再放行');
 
   // 6 位「市级码 + 00」是统一社会信用代码区划段的常见形态（示例 350100 即福州市），
   // 必须按现行市级解出来，不能落进「未收录」——这条是 §C 的 USCC 面板的地基。
@@ -176,10 +201,11 @@ test('A6 生成侧只暴露现行码，历史码不进级联', () => {
   assert.equal(currentCityCodes('37').includes('3712'), false, '莱芜市不得出现在现行市级候选里');
 });
 
-// ── §A 生成器与解析器的闸门（A7 输入形状 / A8 哈希清单 / A9 载入自检 / A10 参数白名单）──
+// ── §A 生成器与解析器的闸门（A7 输入形状 / A8 哈希清单 / A9 载入自检 / A10 参数白名单
+//     / A11 --fetch 成功路径 / A12 读侧入参口径）──
 //
-// A1–A6 检查的是"产物对不对"，这一组检查的是"闸门还在不在"。四道闸门此前只有两道被机器
-// 看过一眼，其余全靠人肉遵守，实测都能安静放过一种坏数据（下面每个用例的注释写了是哪一种）。
+// A1–A6 检查的是"产物对不对"，这一组检查的是"闸门还在不在"。这些闸门此前大多只有人肉
+// 遵守过，实测每一道都能安静放过一种坏数据（各用例注释里写明了是哪一种）。
 
 /** 仓库里的快照目录、生成器与产物路径。闸门用例一律在 tmpdir 的副本上跑：
  *  scripts/fixtures/region-source/ 是哈希钉死、git 跟踪的可复现输入，动一下就没了。 */
@@ -187,6 +213,29 @@ const FIXDIR = resolve(HERE, 'fixtures/region-source');
 const GENERATOR = resolve(HERE, 'build-region-data.mjs');
 const ARTIFACT = resolve(ROOT, 'dev/js/tools/region-data.js');
 const sha256Of = (buf) => createHash('sha256').update(buf).digest('hex');
+
+/**
+ * 仓库侧的写入指纹：四份快照（连 SOURCES.json 一起）与生成物。
+ * 判据全在 tmpdir 副本上跑，但"跑在副本里"这件事本身没人验过——A10/A11 各自在结尾断言，
+ * 而 A7/A8/A9 用同一套 helper 却没人断言。这里把它下沉进 helper，让文件头那句
+ * "每条用例结尾都断言仓库字节没被动过"从陈述变成机器读得过的事实。
+ * @returns {{artifact:string, fixtures:Object<string,string>}}
+ */
+function repoFingerprint() {
+  return {
+    artifact: readFileSync(ARTIFACT, 'utf8'),
+    fixtures: Object.fromEntries(
+      readdirSync(FIXDIR).sort().map((f) => [f, sha256Of(readFileSync(resolve(FIXDIR, f)))]),
+    ),
+  };
+}
+
+/** 与 repoFingerprint 的起点比对，红就说明某条判据往仓库里写了东西 */
+function assertRepoUntouched(before, who) {
+  const now = repoFingerprint();
+  assert.deepEqual(now.fixtures, before.fixtures, `${who} 动过仓库里的快照`);
+  assert.equal(now.artifact, before.artifact, `${who} 动过仓库里的产物`);
+}
 
 /** 把 SOURCES.json 里四条快照声明的 sha256/bytes 按磁盘现状重算。
  *  A7 必须先过这一道：不重封清单，生成器红在「快照哈希不符」，与被测的形状闸门无关，等于没测。
@@ -218,6 +267,29 @@ function findRow(data, code) {
 }
 
 /**
+ * 生成器源码里那三个上游 URL 的形状，A10/A11 的重定向共用这一个模式。
+ * 带 g 标志：既要数命中，也要一次换干净。
+ */
+const UPSTREAM_URL = /https:\/\/raw\.githubusercontent\.com[^'\s]+/g;
+
+/**
+ * 造一个 mutateGenerator：把副本里的上游 URL 全换成 repl 给的目标。
+ * 必须数命中条数。`String.replace` 匹配不到时静默返回原串，重定向就成了"没发生也没人知道"，
+ * 而 A10/A11 声称验的是"重定向之后的抓取行为"。实测把生成器里的域名换成
+ * raw.github.example.com（重定向归零）之后只有 A11 红，A10 整条照旧全绿：它"抓不到所以不许
+ * 改文件"那一格变成靠 DNS 解析失败蒙对的，与重定向有没有生效再无关系。
+ * @param {(url:string)=>string} repl 逐个 URL 的替换目标
+ * @returns {(src:string)=>string} 交给 makeTmpRepo 的生成器改写函数
+ */
+function rewriteUpstreamUrls(repl) {
+  return (src) => {
+    const hits = src.match(UPSTREAM_URL) ?? [];
+    assert.equal(hits.length, 3, `副本源码里的上游 URL 命中 ${hits.length} 处，这两条判据假设的是 3 处`);
+    return src.replace(UPSTREAM_URL, repl);
+  };
+}
+
+/**
  * 把四份快照 + 生成器复制进一个临时仓库根。生成器用 import.meta.url 推 ROOT，
  * 所以产物只会落在 tmp 里，仓库的 region-data.js 一个字节都不碰。
  * @param {{withArtifact?:boolean, mutateGenerator?:(s:string)=>string}} [opts]
@@ -226,12 +298,14 @@ function findRow(data, code) {
  *   这样这条判据在联网与断网两台机器上跑出的结果完全一样。
  */
 function makeTmpRepo({ withArtifact = false, mutateGenerator = (s) => s } = {}) {
+  // 先算改写结果再建目录：rewriteUpstreamUrls 会抛，那时候还没留下任何待清的 tmpdir
+  const genSrc = mutateGenerator(readFileSync(GENERATOR, 'utf8'));
   const tmp = mkdtempSync(join(tmpdir(), 'region-gate-'));
   const fixDir = resolve(tmp, 'scripts/fixtures/region-source');
   mkdirSync(fixDir, { recursive: true });
   for (const f of readdirSync(FIXDIR)) copyFileSync(resolve(FIXDIR, f), resolve(fixDir, f));
   const gen = resolve(tmp, 'scripts/build-region-data.mjs');
-  writeFileSync(gen, mutateGenerator(readFileSync(GENERATOR, 'utf8')));
+  writeFileSync(gen, genSrc);
   const artifact = resolve(tmp, 'dev/js/tools/region-data.js');
   // 输出目录一律先建好：生成器的写分支只管 writeFileSync，不建目录的话"没目录"会被误读成闸门红
   mkdirSync(dirname(artifact), { recursive: true });
@@ -246,7 +320,9 @@ function makeTmpRepo({ withArtifact = false, mutateGenerator = (s) => s } = {}) 
  *   用来测哈希闸门本身（A8）
  */
 function runGeneratorOn(corrupt = () => {}, { seal = true, withArtifact = false } = {}) {
+  const before = repoFingerprint();
   const repo = makeTmpRepo({ withArtifact });
+  let result;
   try {
     corrupt(repo.fixDir);
     if (seal) reSealAll(repo.fixDir);
@@ -258,7 +334,7 @@ function runGeneratorOn(corrupt = () => {}, { seal = true, withArtifact = false 
       code = typeof e.status === 'number' ? e.status : -1;
       text = `${e.stderr ?? ''}${e.stdout ?? ''}`;
     }
-    return {
+    result = {
       code,
       // 未捕获异常的输出前面是"文件:行号 + 源码行 + 栈"，只留 Error: 之后的正文，
       // 免得断言被 build-region-data.mjs 自身的行号漂移牵动
@@ -270,6 +346,8 @@ function runGeneratorOn(corrupt = () => {}, { seal = true, withArtifact = false 
   } finally {
     repo.cleanup();
   }
+  assertRepoUntouched(before, 'runGeneratorOn');
+  return result;
 }
 
 /** 在 tmpdir 里造一份"改过的产物"再 import region.js，看读侧那道载入自检拦不拦。
@@ -278,21 +356,25 @@ function runGeneratorOn(corrupt = () => {}, { seal = true, withArtifact = false 
  *  @param {(src:string)=>string} patchSrc 对产物整份源码的改动
  *  @returns {Promise<{loaded:boolean, err:string}>} loaded 为 true 说明自检漏了 */
 async function importRegionWithPatchedSource(patchSrc) {
+  const before = repoFingerprint();
   const tmp = mkdtempSync(join(tmpdir(), 'region-read-'));
   const dir = resolve(tmp, 'tools');
+  let result;
   try {
     mkdirSync(dir, { recursive: true });
     writeFileSync(resolve(dir, 'region-data.js'), patchSrc(readFileSync(ARTIFACT, 'utf8')));
     copyFileSync(resolve(ROOT, 'dev/js/tools/region.js'), resolve(dir, 'region.js'));
     try {
       await import(resolve(dir, 'region.js'));
-      return { loaded: true, err: '' };
+      result = { loaded: true, err: '' };
     } catch (e) {
-      return { loaded: false, err: String(e && e.message ? e.message : e) };
+      result = { loaded: false, err: String(e && e.message ? e.message : e) };
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
+  assertRepoUntouched(before, 'importRegionWithPatchedSource');
+  return result;
 }
 
 /** 只改产物里某张表（`export const NAME = '…'`）的原文，其余字节不动。
@@ -304,8 +386,8 @@ const patchTable = (exportName, mutate) => (src) => {
   return `${src.slice(0, m.index)}${m[1]}'${mutate(m[3])}';${src.slice(m.index + m[0].length)}`;
 };
 
-test('A7 生成器的输入闸门：六种坏形状各自独立被拒，且点名到码与闸门', () => {
-  // 六条各打一道不同的规则，不让它们互相顶包：
+test('A7 生成器的输入闸门：七种坏形状各自独立被拒，且点名到码与闸门', () => {
+  // 七条各打一道不同的规则，不让它们互相顶包：
   //   名称闸门（缺字段 / 空串 / null）、历史层码形闸门（5 位键，分隔符检查看不见它）、
   //   父子码前缀闸门（名字全对，只有分组依据坏了）、分隔符闸门（形状全对，只有名称里带了
   //   编码格式用的标点——去掉 assertNoDelimiters 那一次调用，只有这一条会红）。
@@ -317,6 +399,11 @@ test('A7 生成器的输入闸门：六种坏形状各自独立被拒，且点�
     ['历史层某条的值是 null', 'gb2260-2015.json', (d) => { d['110224'] = null; }, '110224', '历史层'],
     ['历史层出现 5 位键', 'gb2260-2015.json', (d) => { d['11022'] = d['110224']; delete d['110224']; }, '11022', '历史层'],
     ['市级行的父码对不上', 'cities.json', (d) => { findRow(d, '1101').provinceCode = '99'; }, '1101', '市级'],
+    // 这一条打的不是"父码不相等"，而是"父码短了一位还算不算相等"：'1' 是 '1101' 的合法前缀，
+    // 原本那道 startsWith 会放行，只有逐字等式拦得住。实测注入它之后旧闸门 exit 0、
+    // 12 条判据全绿，产物里 currentCityCodes('11') 是空数组（1101 挂到了 '1' 名下）。
+    ['市级行的父码只剩一位：前缀成立、位数不成立', 'cities.json',
+      (d) => { findRow(d, '1101').provinceCode = '1'; }, '1101', '父级码应逐字等于'],
     ['县级名里带全角逗号：形状全对，只有分隔符违规', 'areas.json',
       (d) => { findRow(d, '110108').name = '海淀区，北京'; }, '110108', '名称含分隔符'],
   ];
@@ -363,7 +450,7 @@ test('A9 读侧对产物自检：schema、条数、分隔符漂移，坏一处�
   assert.equal(clean.loaded, true, `正常产物反而加载不了：${clean.err}`);
 
   // 截断：在组边界切，字符串完整闭合、语法零告警。此前模块照样加载成功，
-  // 浏览器里就是 2,394 个县对着一份声明 2,978 条的元信息，全静默。
+  // 浏览器里就是 2,389 个县对着一份声明 2,978 条的元信息，全静默。
   const cut = await importRegionWithPatchedSource(
     patchTable('RAW_COUNTIES', (s) => s.slice(0, s.lastIndexOf('|', Math.floor(s.length * 0.8)))),
   );
@@ -405,7 +492,7 @@ test('A10 参数白名单：拼错的开关不得落到生成分支，--check �
   // 这样 --fetch 那条断言在联网与断网的机器上跑出同一个结果，不会变成随机红的判据。
   const repo = makeTmpRepo({
     withArtifact: true,
-    mutateGenerator: (s) => s.replace(/https:\/\/raw\.githubusercontent\.com[^'\s]+/g, 'http://127.0.0.1:1/x.json'),
+    mutateGenerator: rewriteUpstreamUrls(() => 'http://127.0.0.1:1/x.json'),
   });
   const spawn = (...args) => spawnSync(process.execPath, [repo.gen, ...args], { cwd: repo.tmp, encoding: 'utf8' });
   try {
@@ -481,9 +568,8 @@ test('A11 --fetch 抓回来的三种上游：一致才生成、变了只写快�
   const { port } = server.address();
   const repoBytes = readFileSync(ARTIFACT, 'utf8');
 
-  /** @type {(name:string)=>string} 把副本里的 URL 换成本地假上游，路径末段保持一致 */
-  const localUrls = (s) => s.replace(/https:\/\/raw\.githubusercontent\.com[^'\s]+/g,
-    (u) => `http://127.0.0.1:${port}/${u.split('/').pop()}`);
+  /** 把副本里的三个 URL 换成本地假上游，路径末段保持一致（命中条数由 helper 断言） */
+  const localUrls = rewriteUpstreamUrls((u) => `http://127.0.0.1:${port}/${u.split('/').pop()}`);
 
   /** 跑一次 --fetch。必须异步：父进程要当事件循环里的服务器，spawnSync 会把这条判据挂死 */
   const runFetch = async (repo) => {
@@ -563,12 +649,19 @@ test('A11 --fetch 抓回来的三种上游：一致才生成、变了只写快�
   assert.equal(readFileSync(ARTIFACT, 'utf8'), repoBytes, 'A11 动过仓库里的产物');
 });
 
-test('A12 读侧四个入口的入参口径一致，结构非法不得带出派生字段', () => {
-  // resolveRegion / isGeneratable / provinceName / cityName 共用 normalizeCode，所以
-  // "这算不算一个合法入参"在四个入口只能是同一个答案。此前四处各写各的 String()，实测两条
-  // 入口互相打脸：isGeneratable(110101) 为 true 而 resolveRegion(110101) 落 none，
-  // isGeneratable(' 110101 ') 为 false 而 resolveRegion(' 110101 ') 解出北京市东城区；
-  // resolveRegion(Object.create(null)) 则直接抛 TypeError，违反 §5.4 的"永不抛"。
+test('A12 读侧六个入口的入参口径一致，结构非法不得带出派生字段', () => {
+  // resolveRegion / isGeneratable / provinceName / cityName 共用 normalizeCode，
+  // currentCountyCodes / currentCityCodes 共用 normalizePrefix，两条归一只差一件事：
+  // 前缀入口里 '' 的含义是"不收窄、给全表"，所以非字符串只能归一成 null→空集，
+  // 归一成 '' 等于把一次类型错误放大成 2,978 条候选地址。除这一处之外，
+  // "这算不算一个合法入参"在六个入口只能是同一个答案。此前各处各写各的 String()，实测：
+  //   isGeneratable(110101) 为 true 而 resolveRegion(110101) 落 none；
+  //   isGeneratable(' 110101 ') 为 false 而 resolveRegion(' 110101 ') 解出北京市东城区；
+  //   currentCountyCodes(null) 返回 2,978 条（`null ?? ''` 落进"全表"那一支）；
+  //   currentCountyCodes(1101) 返回 16 条而 isGeneratable(1101, 'city') 为 false；
+  //   currentCountyCodes(Object.create(null)) 直接抛 TypeError。
+  // 本层"任何入参都不抛"是自己定的契约（§5.4 只规定"区划查不到时其余项照常判定"，
+  // 那是不能抛的理由，不是"永不抛"这句话的出处）。
   const KEYS = ['code', 'status', 'level', 'provinceCode', 'cityCode', 'countyCode',
     'province', 'city', 'county', 'fullName', 'note'];
   const DERIVED = ['province', 'city', 'county', 'fullName', 'provinceCode', 'cityCode', 'countyCode'];
@@ -579,7 +672,7 @@ test('A12 读侧四个入口的入参口径一致，结构非法不得带出派�
   for (const bad of REJECTED) {
     const label = labelOf(bad);
     const r = resolveRegion(bad);
-    assert.deepEqual(Object.keys(r), KEYS, `${label} 的返回形状不是 §5.4 那 11 个键`);
+    assert.deepEqual(Object.keys(r), KEYS, `${label} 的返回形状不是那 11 个键`);
     assert.equal(r.level, 'none', `${label} 应落到 none`);
     assert.equal(r.status, 'unknown', `${label} 应落 unknown，不得给任何建制结论`);
     // 被拒绝的输入旁边挂一个地名，正是这层设计要防的"看着像成功了"
@@ -598,12 +691,37 @@ test('A12 读侧四个入口的入参口径一致，结构非法不得带出派�
     }
   }
 
-  // 首尾空白是"同一入参"：四个入口必须一起接受
+  // 前缀型入口（收窄候选集，供随机生成用）：非字符串一律空集，一个都不许给全表。
+  // undefined 例外，它命中的是默认参数——语义是"没传"而不是"传了个坏值"。
+  const FULL_COUNTY = currentCountyCodes().length;
+  const FULL_CITY = currentCityCodes().length;
+  assert.equal(FULL_COUNTY, 2978, '县级全表条数变了，下面这道"空集 vs 全表"的判据就失去意义');
+  assert.equal(FULL_CITY, 342, '市级全表条数变了，同上');
+  for (const bad of REJECTED.filter((b) => typeof b !== 'string')) {
+    const label = labelOf(bad);
+    if (bad === undefined) {
+      assert.equal(currentCountyCodes(undefined).length, FULL_COUNTY, `${label} 该走默认参数拿全表`);
+      assert.equal(currentCityCodes(undefined).length, FULL_CITY, `${label} 该走默认参数拿全表`);
+      continue;
+    }
+    assert.deepEqual(currentCountyCodes(bad), [], `${label} 必须空集，给全表等于一次类型错误出货 2,978 条地址`);
+    assert.deepEqual(currentCityCodes(bad), [], `${label} 必须空集，不给收窄不许回落成全表`);
+  }
+
+  // 首尾空白是"同一入参"：六个入口必须一起接受
   for (const padded of [' 110101 ', '\t110101\n']) {
     assert.equal(resolveRegion(padded).level, 'county', JSON.stringify(padded));
     assert.equal(isGeneratable(padded, 'county'), true, JSON.stringify(padded));
     assert.equal(provinceName(padded), '北京市', JSON.stringify(padded));
     assert.equal(cityName(padded), '市辖区', JSON.stringify(padded));
+    assert.equal(currentCountyCodes(padded).length, 1, JSON.stringify(padded));
+    assert.equal(currentCityCodes(padded).length, currentCityCodes('11').length, JSON.stringify(padded));
+  }
+  // 前缀入口同样 trim：不 trim 的话 ' 1101 ' 会被当成 6 位前缀去 startsWith，静默空集
+  for (const [padded, bare] of [[' 1101 ', '1101'], ['\t11\t', '11']]) {
+    assert.equal(currentCountyCodes(padded).length, currentCountyCodes(bare).length,
+      `${JSON.stringify(padded)} 与不带空白的必须同一个答案`);
+    assert.ok(currentCountyCodes(bare).length > 0, `前缀 ${bare} 一个结果都没有，这条对照本身坏了`);
   }
   // 前缀查表的口径写死在这里，免得哪天被当成"入口漏了校验"顺手收紧掉：
   // 传长码取省名/市名是面板的正常用法，位数不等于建制结论
