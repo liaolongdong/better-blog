@@ -283,6 +283,34 @@
       "h2Emoji": [
         "🗂"
       ]
+    },
+    {
+      "date": "2026-09-25",
+      "job": "B",
+      "slug": "claude-agents-md-remote-gate",
+      "variant": "B5",
+      "titleTpl": "T3",
+      "emojiBudget": "single",
+      "h2Count": 7,
+      "words": 2285,
+      "tableMode": "wide",
+      "openingType": "issueTitle",
+      "endingType": "decision",
+      "outlookForm": "inline-paragraph",
+      "styleBlock": false,
+      "highlightBox": false,
+      "h2Titles": [
+        "2.1.277 的 release note 只写了前一半",
+        "🚭 读一个本地 markdown，为什么要先问服务器",
+        "三个时钟量出来的 4 小时 04 分 47 秒",
+        "176 条 bullet 里，找不到这次修复",
+        "google/ax 的第二天：读的人多了，装的人没多",
+        "1.1 MB、64 个文件，和一条 exec 的三个入参",
+        "那笔 pnpm 旧账：我原本要验顺序，结果验的是它在不在图里"
+      ],
+      "h2Emoji": [
+        "🚭"
+      ]
     }
   ],
   "titleTplHistory": [
@@ -296,7 +324,8 @@
     "T4",
     "T6",
     "T1",
-    "T5"
+    "T5",
+    "T3"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -337,6 +366,9 @@
       ],
       [
         "🗂"
+      ],
+      [
+        "🚭"
       ]
     ]
   },
@@ -483,7 +515,14 @@
     "32 个 a–p 字符：这道门只认形状，不认身份",
     "我没测的那一半：扩展没装进真浏览器",
     "17,076 行 skills 目录，和上期那句 16,599 行",
-    "🗂 十笔旧账：五笔结、两笔改撤、一笔结一半、两笔仍挂"
+    "🗂 十笔旧账：五笔结、两笔改撤、一笔结一半、两笔仍挂",
+    "2.1.277 的 release note 只写了前一半",
+    "🚭 读一个本地 markdown，为什么要先问服务器",
+    "三个时钟量出来的 4 小时 04 分 47 秒",
+    "176 条 bullet 里，找不到这次修复",
+    "google/ax 的第二天：读的人多了，装的人没多",
+    "1.1 MB、64 个文件，和一条 exec 的三个入参",
+    "那笔 pnpm 旧账：我原本要验顺序，结果验的是它在不在图里"
   ],
   "promiseQueue": [
     {
@@ -506,25 +545,19 @@
       "half_open": true
     },
     {
-      "text": "pnpm fixture 扩成 2 个 task（`ci:compile` + 被拼错依赖的 `ci:lint`）那笔做了一半，另一半栽在 `git init` exit=128；下期先解 exit=128 再验第六节我引用而没复现的执行顺序，验不出来就删那半段引用",
-      "registered": "2026-09-22",
-      "job": "B",
-      "slug": "claude-advisor-readme-row"
-    },
-    {
-      "text": "roadmap §2 那句 `MCP and skill materialization` 一旦出现 setup actor，或 `internal/workspace/` 里冒出读 `Spec.Mcp` 的第四处（同一条 grep：`grep -rn \"\\.Mcp\\b\" --include='*.go' . | grep -v '_test.go\\|\\.pb\\.go'`），回来把本篇第二节「零装配」改成「曾有」",
+      "text": "roadmap §2 那句 `MCP and skill materialization` 一旦出现 setup actor，或 `internal/workspace/` 里冒出读 `Spec.Mcp` 的第四处（同一条 grep：`grep -rn \"\\.Mcp\\b\" --include='*.go' . | grep -v '_test.go\\|\\.pb\\.go'`），回来把本篇第二节「零装配」改成「曾有」｜09-25 复查：`docs/roadmap.md:20` 那句 split 原样在，`internal/workspace/` 读 `Spec.Mcp` 仍只有 `planner.go:82` 一处，条件不成立，继续挂",
       "registered": "2026-09-24",
       "job": "B",
       "slug": "google-ax-workspace-materialization"
     },
     {
-      "text": "`examples/task.yaml:49` 那份 chalk 的 `git:` 声明若也被从示例里清掉，说明 #391 之后的「稳定面」又缩了一格，本篇第五节那条 todo 兑现",
+      "text": "`examples/task.yaml:49` 那份 chalk 的 `git:` 声明若也被从示例里清掉，说明 #391 之后的「稳定面」又缩了一格，本篇第五节那条 todo 兑现｜09-25 复查：HEAD `e70162a` 的 `examples/task.yaml:44-49` 那六行（含 chalk 的 `repo:`）原样在，条件不成立，继续挂",
       "registered": "2026-09-24",
       "job": "B",
       "slug": "google-ax-workspace-materialization"
     },
     {
-      "text": "`Spec.Mcp` 的第 4 个读取点：0 就是 0，下次用同一条 grep 复跑，出现就把本篇第三节整节改写",
+      "text": "`Spec.Mcp` 的第 4 个读取点：0 就是 0，下次用同一条 grep 复跑，出现就把本篇第三节整节改写｜09-25 复查：同一条 grep 从 4 行长到 8 行，读取点仍是 3 个（多出的 4 行全在 `runDescribe` 内），装配侧还是 0，条件不成立，继续挂",
       "registered": "2026-09-24",
       "job": "B",
       "slug": "google-ax-workspace-materialization"
@@ -558,6 +591,30 @@
       "registered": "2026-09-23",
       "job": "A",
       "slug": "browser-skill-context-bytes"
+    },
+    {
+      "text": "盯 memory 文档 400 行与 571 行那两句 `Before v2.1.281`：一旦被删或改写，官方口径就从「某些会话」挪到纯版本口径，本篇第一节要跟着改｜09-25 展望第 1 件",
+      "registered": "2026-09-25",
+      "job": "B",
+      "slug": "claude-agents-md-remote-gate"
+    },
+    {
+      "text": "重跑同一条对 `mods/agents-md` README 的 grep：09-25T14:16Z 量到 `tengu` 0 次、`flag` 0 次、`telemetry` 5 次；`flag` 字样一旦回到这份源码，说明开关换了实现而不是被拆，本篇第二节要重写｜09-25 展望第 2 件",
+      "registered": "2026-09-25",
+      "job": "B",
+      "slug": "claude-agents-md-remote-gate"
+    },
+    {
+      "text": "比 2.1.282 更新的 release body 若 `AGENTS.md` 命中仍为 0，就把「一次修复没在 release note 留下可 grep 的字，等同于没发生」写进我自己的核对清单当硬规则，并在正文第一节交代这条规则是哪天立的｜09-25 展望第 3 件",
+      "registered": "2026-09-25",
+      "job": "B",
+      "slug": "claude-agents-md-remote-gate"
+    },
+    {
+      "text": "真在自己的仓库开 `pipelines:` 时，配一条断言：把 `pnpm pipeline` stdout 里那句 `N tasks` 与 `tasks:` 声明的边数比一次，对不上就红（本期量到拼错 `dependsOn` 会让 2 tasks 变 1 tasks 而 exit 仍为 0）｜09-25 第六节末尾那个决定",
+      "registered": "2026-09-25",
+      "job": "B",
+      "slug": "claude-agents-md-remote-gate"
     }
   ],
   "starSnapshots": {
@@ -662,8 +719,8 @@
       "2026-09-23T10:34Z"
     ],
     "google/ax": [
-      9835,
-      "2026-09-24T14:31:12Z"
+      11149,
+      "2026-09-25T14:17:22Z"
     ],
     "Tencent/BrowserSkill": [
       6823,
