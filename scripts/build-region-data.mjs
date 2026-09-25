@@ -8,10 +8,19 @@
  *      所以"同一输入 → 同一字节"成立，--check 才有意义。
  *   3. 快照哈希与 SOURCES.json 不符就拒绝生成。数据被悄悄换过比数据旧更危险。
  *
- * 用法：
+ * 用法（只接受下面两个开关，拼错的参数一律报错退出，见 parseArgs）：
  *   node scripts/build-region-data.mjs            # 生成 / 覆盖
  *   node scripts/build-region-data.mjs --check    # 只比对，不一致退出码 1（测试用例 A4 用这条）
- *   node scripts/build-region-data.mjs --fetch    # 先刷新三份 modood 快照（需联网），再生成
+ *   node scripts/build-region-data.mjs --fetch    # 联网刷新三份 modood 快照：抓 → 校验 → 只写快照。
+ *                                                 # 与本地逐字节一致时接着生成产物；一旦改写过就不生成、
+ *                                                 # 退出码 1（此刻 SOURCES.json 哈希已落后，见上面第 3 条）
+ *
+ * 三条输入闸门口径（第 1 条由判据 A7 自证，第 2 条由 A10 自证，第 3 条由 A8 自证）：
+ *   1. 四份快照逐条过形状校验，历史层与现行三层走同一套规则：名称必须是"非空字符串"。
+ *      少了这道闸，缺字段的行会被 String() 成 `undefined` 编进产物，读侧解出「北京市undefined」。
+ *   2. --fetch 先把三份抓进内存并全部过第 1 条那道闸，才一次性落盘；任何一步失败都不改任何文件。
+ *   3. 换数据是两步动作，不是一步：--fetch 写快照 → 人工把新的 sha256/bytes/count 同步进
+ *      SOURCES.json → 再跑一次生成器。产物与清单必须同时换版，所以清单哈希不符时拒绝生成。
  *
  * 编码格式（与 dev/js/tools/region.js 的解析器一一对应，改一边必须改另一边）：
  *   RAW_PROVINCES    `码2,名`                     组间 | 分隔
@@ -30,9 +39,35 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FIXDIR = resolve(ROOT, 'scripts/fixtures/region-source');
 const OUT = resolve(ROOT, 'dev/js/tools/region-data.js');
-const ARGV = process.argv.slice(2);
-const AS_CHECK = ARGV.includes('--check');
-const AS_FETCH = ARGV.includes('--fetch');
+const USAGE = '用法：node scripts/build-region-data.mjs [--check | --fetch]';
+
+/**
+ * 参数白名单。此前用 `ARGV.includes(...)` 判定，任何未识别的参数（`--chek`、`--CHECK`、`--help`、
+ * `--dry-run`）都会静默落到"生成并可能覆盖"那一支且退出 0 —— CI 里一个手打的 `--chek`
+ * 就把确定性闸门换成了"重新生成然后宣布全绿"。
+ * @param {string[]} argv 去掉 node 与脚本名之后的参数
+ * @returns {{check:boolean, fetch:boolean}}
+ */
+function parseArgs(argv) {
+  for (const a of argv) {
+    if (a !== '--check' && a !== '--fetch') throw new Error(`未知参数：${a}\n${USAGE}`);
+  }
+  if (argv.includes('--check') && argv.includes('--fetch')) {
+    throw new Error(`--check 与 --fetch 互斥：前者承诺不动任何文件，后者要覆盖快照\n${USAGE}`);
+  }
+  return { check: argv.includes('--check'), fetch: argv.includes('--fetch') };
+}
+
+// 参数闸门在读写任何文件之前生效；用法错只打一行、不打堆栈——手打错一个字母的人
+// 要看的是用法行，不是 build-region-data.mjs:53 那一段。
+let flags;
+try {
+  flags = parseArgs(process.argv.slice(2));
+} catch (e) {
+  process.stderr.write(`${e.message}\n`);
+  process.exit(1);
+}
+const { check: AS_CHECK, fetch: AS_FETCH } = flags;
 
 const REMOTE = [
   ['provinces', 'https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/6fb5380de7e6c961869dcd1629df4adc088fa9bb/dist/provinces.json'],
@@ -44,11 +79,19 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const readRaw = (file) => readFileSync(resolve(FIXDIR, file));
 const readJson = (file) => JSON.parse(readRaw(file.endsWith('.json') ? file : `${file}.json`).toString('utf8'));
 
+/**
+ * 清单里「文件名 → 声明哈希」的四条。verifyManifest 与写进产物的 REGION_META.sha256 必须
+ * 出自同一份推导：这两处此前各写了一遍 `.concat([[历史层那一条]])`，任何一边被"简化"成
+ * `.concat([a, b])` 都会让历史层快照脱离哈希闸门，而产物里的 sha256 表也会少一项。
+ * @param {object} manifest SOURCES.json 解析结果
+ * @returns {Array<[string, string]>}
+ */
+const manifestPairs = (manifest) => manifest.files.map((f) => [f.file, f.sha256])
+  .concat([[manifest.historical.file, manifest.historical.sha256]]);
+
 /** 快照与 SOURCES.json 不符就拒绝出货 */
 function verifyManifest(manifest) {
-  const list = manifest.files.map((f) => [f.file, f.sha256])
-    .concat([[manifest.historical.file, manifest.historical.sha256]]);
-  for (const [file, want] of list) {
+  for (const [file, want] of manifestPairs(manifest)) {
     const got = sha256(readRaw(file));
     if (got !== want) {
       throw new Error(`快照哈希不符：${file}\n  期望 ${want}\n  实际 ${got}\n`
@@ -57,18 +100,48 @@ function verifyManifest(manifest) {
   }
 }
 
+/**
+ * 名称必须是"真正的非空字符串"。这是全生成器唯一的一道名称类型闸门，被 assertShape 与
+ * assertNoDelimiters 共用：少了它，`String(undefined)` 会得到 `'undefined'`，一路编进产物变成
+ * `02undefined`，读侧解出「北京市undefined」这种看着像地名的事实上不是的东西，
+ * 而 §A 原有六条判据一条都不会红（实测：删掉 areas.json 里 110102 的 name 并重算清单哈希）。
+ * @param {string} code 该行的区划码，只用于把报错指到具体行
+ * @param {unknown} name 待校验的名称
+ * @param {string} scope 层级名（省级 / 县级 / 历史层 / 快照），出现在报错里
+ */
+function assertNameString(code, name, scope) {
+  if (typeof name === 'string' && name !== '') return;
+  const got = name === '' ? '空字符串'
+    : name === undefined ? '字段缺失'
+      : name === null ? 'null'
+        : `类型 ${typeof name}`;
+  throw new Error(`${scope} ${code} 的名称不是非空字符串（${got}），拒绝生成`);
+}
+
 /** 名称里出现分隔符会让整张表错位解析，必须在生成时挡住 */
 function assertNoDelimiters(pairs) {
-  const bad = pairs.filter(([, name]) => /[|,\s，、；：]/.test(String(name)));
+  // 类型闸门必须在任何 String() 转换之前：先转再判，undefined 就成了合法字符串 "undefined"
+  for (const [code, name] of pairs) assertNameString(code, name, '快照');
+  const bad = pairs.filter(([, name]) => /[|,\s，、；：]/.test(name));
   if (bad.length) {
     throw new Error(`名称含分隔符，编码格式会崩：${bad.slice(0, 5).map(([c, n]) => `${c}:${n}`).join('  ')}`);
   }
 }
 
+/**
+ * 逐行形状校验。四道：行是对象、码形、name 是非空字符串、父码前缀，外加码唯一。
+ * name 这一道是后补的——此前只查 code，名称的类型问题一路漏到产物里。
+ * @param {Array<{code:string, name:unknown}>} rows 待校验行
+ * @param {number} len 码的位数
+ * @param {string} label 层级名，出现在报错里
+ * @param {string} [parentField] 父级码字段名，用于校验前缀关系
+ */
 function assertShape(rows, len, label, parentField) {
   for (const row of rows) {
+    if (!row || typeof row !== 'object') throw new Error(`${label} 存在非对象行：${JSON.stringify(row)}`);
     const code = String(row.code);
     if (!new RegExp(`^\\d{${len}}$`).test(code)) throw new Error(`${label} 码形不对：${code}`);
+    assertNameString(code, row.name, label);
     if (parentField && !code.startsWith(String(row[parentField]))) {
       throw new Error(`${label} ${code} 不以父级码 ${row[parentField]} 开头，分组编码会解错`);
     }
@@ -77,19 +150,46 @@ function assertShape(rows, len, label, parentField) {
   if (new Set(codes).size !== codes.length) throw new Error(`${label} 存在重复码`);
 }
 
+/**
+ * 四份快照的输入闸门，现行三层与历史层同一套规则。
+ * --fetch 拿到的候选内容也过这同一个函数，"能过校验"与"能进产物"因而不是两套判定。
+ * @param {{provinces:unknown, cities:unknown, areas:unknown, legacy:unknown}} data 四份数据：
+ *   三份 modood 表必须是数组，历史表必须是对象。缺这一道，限流页返回的 `{message:"..."}`
+ *   会让 assertShape 的 `for (const row of rows)` 抛一句和输入毫无关系的迭代器 TypeError。
+ */
+function assertInputShape({ provinces, cities, areas, legacy }) {
+  for (const [label, table] of [['省级', provinces], ['市级', cities], ['县级', areas]]) {
+    if (!Array.isArray(table)) throw new Error(`${label} 快照不是数组，拒绝生成`);
+  }
+  if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) {
+    throw new Error('历史层快照不是对象，拒绝生成');
+  }
+  // 历史层此前是 Object.entries() 裸消费的：`legacy['110224'] = null` 条数不变，
+  // 任何按条数的判据都看不见它，产物里却编进 `110224,null`，读侧解出 fullName「null」；
+  // 5 位键同样能过，然后由 region.js 按 00/0000 后缀猜层级。所以形状规则与现行三层同一条。
+  const legacyRows = Object.entries(legacy).map(([code, name]) => ({ code, name }));
+  // 顺序是"先形状、后分隔符"：assertShape 带层级名（县级 110102 …），报错能指到是哪张表的
+  // 哪一行；assertNoDelimiters 只拿到 (码, 名) 对，说不了层级。它内部那道类型闸门仍然保留，
+  // 这样任何调用方传进来的非字符串名字也不会先被 String() 洗成合法值。
+  // 两道各有独立的注入：去掉下面那次 assertNoDelimiters 调用，A7 只有第 6 条（名字里带全角
+  // 逗号、形状全对）会红；去掉 assertShape 里的父码前缀判断，红的只有第 5 条。
+  assertShape(provinces, 2, '省级');
+  assertShape(cities, 4, '市级', 'provinceCode');
+  assertShape(areas, 6, '县级', 'cityCode');
+  assertShape(legacyRows, 6, '历史层');
+  assertNoDelimiters(
+    [...provinces, ...cities, ...areas].map((x) => [x.code, x.name])
+      .concat(legacyRows.map((x) => [x.code, x.name])),
+  );
+}
+
 function build(manifest) {
   const provinces = readJson('provinces');
   const cities = readJson('cities');
   const areas = readJson('areas');
   const legacy = readJson('gb2260-2015.json');
 
-  assertNoDelimiters(
-    [...provinces, ...cities, ...areas].map((x) => [x.code, x.name])
-      .concat(Object.entries(legacy)),
-  );
-  assertShape(provinces, 2, '省级');
-  assertShape(cities, 4, '市级', 'provinceCode');
-  assertShape(areas, 6, '县级', 'cityCode');
+  assertInputShape({ provinces, cities, areas, legacy });
 
   const curCounty = new Set(areas.map((a) => a.code));
   const curCity = new Set(cities.map((c) => c.code));
@@ -135,9 +235,7 @@ function build(manifest) {
     },
     historicalLevels: historical.reduce((acc, [, , lv]) => { acc[lv] = (acc[lv] || 0) + 1; return acc; }, {}),
     legacyHitCurrent: hitLegacy,
-    sha256: Object.fromEntries(
-      manifest.files.map((f) => [f.file, f.sha256]).concat([[manifest.historical.file, manifest.historical.sha256]]),
-    ),
+    sha256: Object.fromEntries(manifestPairs(manifest)),
   };
 
   const q = (s) => {
@@ -175,38 +273,92 @@ export const RAW_HISTORICAL = ${q(rawHistorical)};
 
 const manifest = readJson('SOURCES.json');
 
-if (AS_FETCH) {
+/**
+ * --fetch 的抓取段：三份全部进内存 → JSON.parse → 过与离线生成同一套输入闸门，
+ * 只有全通过才一次性落盘。
+ *
+ * 旧实现是循环里边抓边 writeFileSync、verifyManifest 在循环之后才跑，于是「200 + HTML 的
+ * 限流页」会直接覆盖 git 跟踪的可复现输入，中途一次网络错误还会留下半新一半旧的一组输入。
+ * @returns {Promise<number>} 实际改写的快照份数（0 表示上游与快照逐字节一致）
+ */
+async function fetchSnapshots() {
+  const legacy = readJson(manifest.historical.file);
+  const staged = new Map();
   for (const [name, url] of REMOTE) {
-    const file = resolve(FIXDIR, `${name}.json`);
-    const before = readFileSync(file);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`抓取失败 ${name}: HTTP ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    process.stdout.write(`${name}: ${before.length}B → ${buf.length}B ${sha256(buf).slice(0, 12)}\n`);
-    if (!buf.equals(before)) {
-      writeFileSync(file, buf);
-      process.stdout.write('  已更新，记得同步 SOURCES.json 与设计文档 §2.2 的条数\n');
+    let buf;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      buf = Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      throw new Error(`抓取失败 ${name}：${e.message}\n  ${url}\n未修改任何文件。`);
+    }
+    let data;
+    try {
+      data = JSON.parse(buf.toString('utf8'));
+    } catch (e) {
+      // 限流页 / HTML 会以 200 回来，这一道就是把它挡在磁盘之外
+      throw new Error(`${name} 的响应不是合法 JSON（多半是限流页）：${e.message}\n`
+        + `  响应前 120 字节：${JSON.stringify(buf.subarray(0, 120).toString('utf8'))}\n未修改任何文件。`);
+    }
+    staged.set(name, { buf, data });
+  }
+  try {
+    assertInputShape({
+      provinces: staged.get('provinces').data,
+      cities: staged.get('cities').data,
+      areas: staged.get('areas').data,
+      legacy,
+    });
+  } catch (e) {
+    // 闸门与离线生成共用，所以这里只补一句"落盘还没发生"，不复述规则
+    throw new Error(`${e.message}\n  校验的是抓回来的新内容，磁盘上的快照一个字节都没改。`);
+  }
+  for (const [name] of REMOTE) {
+    const { buf } = staged.get(name);
+    const before = readRaw(`${name}.json`);
+    process.stdout.write(`${name}: ${before.length}B → ${buf.length}B ${sha256(buf).slice(0, 12)}`
+      + `${buf.equals(before) ? '（一致）' : '（有变化）'}\n`);
+  }
+  let changed = 0;
+  for (const [name, { buf }] of staged) {
+    if (!buf.equals(readRaw(`${name}.json`))) {
+      writeFileSync(resolve(FIXDIR, `${name}.json`), buf);
+      changed += 1;
     }
   }
+  return changed;
 }
 
-verifyManifest(manifest);
-const output = build(manifest);
-const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
+// --fetch 只要改写过快照，SOURCES.json 的哈希就落后了；此时生成产物等于拿旧清单给新数据背书。
+// 所以停在两步流程的第一步：先由人同步 SOURCES.json 与设计文档 §2.2 的条数，再重跑生成。
+const changedSnapshots = AS_FETCH ? await fetchSnapshots() : 0;
 
-if (AS_CHECK) {
-  if (current === output) {
-    process.stdout.write(`region-data.js 与快照一致（${(Buffer.byteLength(output) / 1024).toFixed(1)}KB）\n`);
-  } else {
-    process.stderr.write('region-data.js 与快照不一致（产物落后于 scripts/fixtures/region-source/）\n'
-      + `  产物 ${current === null ? '不存在' : `${Buffer.byteLength(current)}B`} / 期望 ${Buffer.byteLength(output)}B\n`);
-    process.exitCode = 1;
-  }
-} else if (current === output) {
-  process.stdout.write('region-data.js 已是最新，未改写\n');
+if (AS_FETCH && changedSnapshots > 0) {
+  process.stdout.write(`\n已改写 ${changedSnapshots} 份快照，region-data.js 未生成。\n`
+    + '下一步（这一步不能省，产物与清单必须同时换版）：\n'
+    + '  1. 把新的 sha256 / bytes / count 同步进 scripts/fixtures/region-source/SOURCES.json\n'
+    + '  2. 重跑 node scripts/build-region-data.mjs\n');
+  process.exitCode = 1;
 } else {
-  writeFileSync(OUT, output);
-  const { gzipSync } = await import('node:zlib');
-  const gz = gzipSync(Buffer.from(output)).length;
-  process.stdout.write(`已生成 dev/js/tools/region-data.js：${(Buffer.byteLength(output) / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
+  verifyManifest(manifest);
+  const output = build(manifest);
+  const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
+
+  if (AS_CHECK) {
+    if (current === output) {
+      process.stdout.write(`region-data.js 与快照一致（${(Buffer.byteLength(output) / 1024).toFixed(1)}KB）\n`);
+    } else {
+      process.stderr.write('region-data.js 与快照不一致（产物落后于 scripts/fixtures/region-source/）\n'
+        + `  产物 ${current === null ? '不存在' : `${Buffer.byteLength(current)}B`} / 期望 ${Buffer.byteLength(output)}B\n`);
+      process.exitCode = 1;
+    }
+  } else if (current === output) {
+    process.stdout.write('region-data.js 已是最新，未改写\n');
+  } else {
+    writeFileSync(OUT, output);
+    const { gzipSync } = await import('node:zlib');
+    const gz = gzipSync(Buffer.from(output)).length;
+    process.stdout.write(`已生成 dev/js/tools/region-data.js：${(Buffer.byteLength(output) / 1024).toFixed(1)}KB 原始 / ${(gz / 1024).toFixed(1)}KB gzip\n`);
+  }
 }
