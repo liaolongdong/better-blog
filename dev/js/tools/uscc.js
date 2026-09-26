@@ -8,6 +8,12 @@
  * 第 1、2 位的取值含义表没取到可核实来源，所以这里只校验字符合法性、只给字符与值、
  * 不输出任何名称（见 REFERENCE_NOTE）。内层校验值 10 的两种写法未核实口径，
  * 解析侧两种都放行、生成侧直接回避——三档处理见设计文档 §5.1 与本段计划 §5.1。
+ *
+ * 入参闸门与同级模块 `idcard.js` 同档（判据是 §C 的「C9 入参闸门与身份证模块同档」）：
+ * 整个 options 传 null / undefined 都等于没传；`count` 只把「没传」（undefined）当默认值；
+ * `rng` 先验是不是函数、再验每次取值是否落在 [0, 1)；`regionCode` / `provinceCode` 只接受
+ * **非空字符串**，空串、全空白、数值、null 一律抛并点名是哪个键。报错文案里的"收到什么"
+ * 一律带类型（`string nope` / `number 2` / `null`）。
  */
 import { resolveRegion, currentCityCodes } from './region.js';
 import { seededRandom } from './random.js';
@@ -151,8 +157,11 @@ export function parseUscc(raw) {
     : (!checkOk || orgOk === false) ? 'checkdigit' : 'valid';
 
   const caveats = [];
-  // 历史码与未收录码都要留话：前者 ok=true 但措辞不能省（§A 实测 63 条同码改名），
-  // 后者 ok=null。与 idcard.js 的 caveats 同一套判据
+  // 历史码与未收录码都要留话：前者 ok=true 但措辞不能省，后者 ok=null。
+  // "同码改名"这件事的账落在 scripts/build-id-fixture.mjs 的四成因统计
+  // （renamed / renamedByCounty / renamedByLegacyPrefix / renamedByPlaceholder）
+  // 与 region.js 文件头的历史层注释里，判据侧由 B7 的 EXPECT_POOLS 钉着那四个数——
+  // 所以这里不留一个别人复算不出来的裸数字。caveats 的这套判据与 idcard.js 同族。
   if (region.status === 'abolished' || region.status === 'uncoded') caveats.push(region.note);
   if (orgOk === null) caveats.push(`第 17 位为字母 ${orgChar}，未按组织机构代码校验位判定`);
   if (out.normalized) caveats.push('输入含小写字母，已按 31 字符集转大写后判定');
@@ -170,26 +179,102 @@ export function parseUscc(raw) {
   return out;
 }
 
-/** 按行解析：空行占一个行号、不静默压缩，与 parseIdCardList 同形 */
+/**
+ * 按行解析：空行占一个行号、不静默压缩（用户看到的行号必须和粘贴时一致）。
+ * 唯一的例外是"根本没粘贴"：null / undefined / 空串给 **0 行**，而不是凭空造一行 empty 结论
+ * ——面板按 rows.length 报"共 N 条"，一行都不该有的时候报 1 条就是错的。
+ * 这一格与 parseIdCardList 同形（旧注释写着"同形"、代码却给 1 行；§C 的
+ * 「C9 入参闸门与身份证模块同档」现在逐格比对两个批量入口的行号与原文）。
+ */
 export function parseUsccList(text) {
-  return String(text === null || text === undefined ? '' : text)
+  const s = String(text === null || text === undefined ? '' : text);
+  if (s === '') return [];
+  return s
     .split(/\r?\n/)
     .map((raw, i) => ({ no: i + 1, raw, result: parseUscc(raw) }));
 }
 
-/** 31 字符集内的单个字符，否则抛：第 1、2 位只校验合法性，不解释含义 */
+/**
+ * 报错文案里的"收到什么"——形状带上类型，`string nope` / `number 2` / `null`，
+ * 让「收到 5」这种读起来像"值 5 不合法"的文案不再出现（数值 5 与字符串 '5' 得分得开）。
+ * 绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ *
+ * 为什么这里要有第二份、而不是去 import idcard.js 的那一个：shapeOf 在 idcard.js 里是
+ * 文件私有的，而本站的同级工具模块互不 import（面板按模块取用，谁也不该因为另一个
+ * 工具的口径改动而被拖着回归）。"跨模块口径一致"与"同级模块互不 import"这两条只能选
+ * 前者靠判据兜：复制的这两份由 §C 的「C9 入参闸门与身份证模块同档」逐格对着 idcard.js
+ * 核，谁单独改口径另一边的格子当场红。
+ */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
+}
+
+/**
+ * 校验并包一层可注入随机源。`null` / `undefined` = 没传 → 时间种子；别的形状一律抛。
+ *
+ * 为什么连"取值"也要查（与 idcard.js 的 checkedRng 同一档）：整改前 `rng: () => 2` 不抛，
+ * `pool[Math.floor(2 * pool.length)]` 直接取到 undefined，一路摇成
+ * `generateUsccCodes({ rng: () => 2 })` 出的 `91undefined20202020202020202B`，
+ * 最后由自检那一关抛「内部不变量被破坏」——调用方的一次错被记成实现的 bug。
+ * 现在第一次取值就报，且点名 options.rng。
+ * @param {(() => number)|null|undefined} input 入参
+ * @returns {() => number} 每次取值都保证落在 [0, 1) 的包装函数
+ */
+function checkedRng(input) {
+  if (input === undefined || input === null) return seededRandom(Date.now());
+  if (typeof input !== 'function') {
+    throw new TypeError(`generateUsccCodes 的 options.rng 应为 () => number，收到 ${shapeOf(input)}`);
+  }
+  return () => {
+    const v = input();
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v >= 1) {
+      throw new TypeError(`generateUsccCodes 的 options.rng 每次应给出 [0, 1) 内的有限数，收到 ${shapeOf(v)}`);
+    }
+    return v;
+  };
+}
+
+/** 第 1、2 位的默认字符：最常见的那一档，本站不解释其含义（见 REFERENCE_NOTE） */
+const DEFAULT_REGISTRY = '9';
+const DEFAULT_CATEGORY = '1';
+
+/** 单字符 → 31 字符集内的字符，否则抛：第 1、2 位只校验合法性，不解释含义 */
 function singleChar(raw, what) {
-  const s = String(raw === null || raw === undefined ? '' : raw).trim().toUpperCase();
+  const s = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (s.length !== 1 || charValue(s) === null) {
-    throw new RangeError(`${what}应为 31 字符集内的单个字符，收到 ${String(raw)}`);
+    throw new RangeError(`${what}应为 31 字符集内的单个字符，收到 ${shapeOf(raw)}`);
   }
   return s;
 }
 
-/** 区划段候选：只能是现行码。指定 regionCode 时按 §5.4 拒绝历史码与未收录码 */
-function regionPool(options) {
-  if (options.regionCode !== undefined && options.regionCode !== null) {
-    const code = String(options.regionCode).trim().toUpperCase();
+/**
+ * 区划段候选：只能是现行码。指定 regionCode 时按 §5.4 拒绝历史码与未收录码。
+ *
+ * 两个键只接受**非空字符串**（与 idcard.js 的 prefixOf 同一档）：
+ *   - `regionCode: 110100`（数值）从前被 `String()` 收下、照常出货——一次类型错误洗成合法入参；
+ *   - `provinceCode: ''` 从前等于放开整张现行市级池（`currentCityCodes()` 那一串）——
+ *     "收窄到零候选"与"没收窄"是两种完全不同的用户意图，不许混为一谈；
+ *   - `null` 在这里跟 `undefined` 分家：undefined = 没传，null 一律抛。
+ * idcard 的三个键是一条优先级链、只看传了的那一个；这里两个键各管一档（整码与前缀），
+ * 所以**两个键都验**再谈优先级——只验第一个传了的键，等于给
+ * `{ regionCode: '110100', provinceCode: null }` 这类拼错的载荷留一条静默通道。
+ * @param {object} o 已通过 `options ?? {}` 归一的入参对象
+ * @returns {string[]} 六个数字组成的区划段候选池
+ */
+function regionPool(o) {
+  for (const key of ['regionCode', 'provinceCode']) {
+    const v = o[key];
+    if (v === undefined) continue;
+    if (typeof v !== 'string' || v.trim() === '') {
+      throw new TypeError(`generateUsccCodes 的 options.${key} 应为非空字符串（行政区划码），收到 ${shapeOf(v)}`);
+    }
+  }
+  if (o.regionCode !== undefined) {
+    const code = o.regionCode.trim().toUpperCase();
     const r = resolveRegion(code);
     if (r.status !== 'current') {
       const why = r.status === 'abolished' ? '历史码只许解、不许生成'
@@ -198,9 +283,9 @@ function regionPool(options) {
     }
     return [code];
   }
-  const cities = currentCityCodes(options.provinceCode ?? '');
+  const cities = currentCityCodes(o.provinceCode === undefined ? '' : o.provinceCode.trim());
   if (cities.length === 0) {
-    throw new RangeError(`省码 ${String(options.provinceCode)} 下没有现行市级区划`);
+    throw new RangeError(`省码 ${o.provinceCode.trim()} 下没有现行市级区划`);
   }
   return cities.map((c) => `${c}00`);
 }
@@ -223,21 +308,39 @@ function rollBody8(rng) {
  * 生成校验位成立的测试码。**区划段只能出自现行表**（§5.4：历史码只许解、不许生成）。
  * 每条生成后立刻用 parseUscc 自检，逐项只要不是 true 就抛——生成器与校验器互为对手。
  *
+ * 入参闸门与 `generateIdCards` 同档（逐格由 §C 的「C9 入参闸门与身份证模块同档」钉住）：
+ * 整个 `options` 传 `null` / `undefined` 等于没传；`count` 只把 `undefined` 当默认值，
+ * `null` / `'5'` / `1.5` / 越界一律 `RangeError`；`rng` 不是函数或取值越出 [0, 1) 抛
+ * `TypeError` 并点名 options.rng；`regionCode` / `provinceCode` 只接受非空字符串，
+ * 空串、全空白、数值、`null` 一律 `TypeError` 并点名是哪个键；`registry` / `category`
+ * 必须是 31 字符集内的单个字符（数值从前被 `String()` 洗成合法字符，这一格跟着 M-11 堵掉；
+ * 而它的 `null` / `undefined` 算"没传、用默认字符"——这与 idcard 的 `minAge ?? 18`、
+ * `sex ?? null` 同一档，只有 `count` 那一格拆掉了 `??`，因为它吞下去的是"出几条"）。
+ * 为什么 registry / category 这两格留 `RangeError` 而不是 `TypeError`：它把"是不是一个字符"
+ * 与"在不在字符集里"写成了一次判定，与 `count` 那一格同族——idcard.js 的 m-4 已经把这种
+ * "形状与取值混在一句"的分类法如实记过一笔，这里照同一档处理，不另立第三套口径。
+ *
  * @param {{provinceCode?:string, regionCode?:string, registry?:string, category?:string,
  *   count?:number, rng?:() => number}} [options] registry / category 是第 1、2 位字符，
- *   只校验是否在 31 字符集内，默认 '9' 与 '1'（最常见的那一档，本站不解释其含义）
+ *   只校验是否在 31 字符集内，默认 '9' 与 '1'（最常见的那一档，本站不解释其含义）。
+ *   整个对象传 `null` / `undefined` 等于没传
  * @returns {Array<{code:string, regionCode:string, regionName:string, registryChar:string,
  *   categoryChar:string, subject:string, orgCheckBit:string, checkBit:string, caveat:string}>}
  */
 export function generateUsccCodes(options = {}) {
-  const rng = typeof options.rng === 'function' ? options.rng : seededRandom(Date.now());
-  const count = options.count ?? 1;
+  const o = options ?? {};
+  const rng = checkedRng(o.rng);
+  // 只把「没传」当默认值：`?? 1` 会把 count: null 也吞成 1，等于一次类型错误静默出货一条码
+  // （idcard 的 B8 早把这个写法点名拆掉了，uscc 这一格从前照抄着踩同一个坑）
+  const count = o.count === undefined ? 1 : o.count;
   if (!Number.isInteger(count) || count < 1 || count > GENERATE_MAX) {
-    throw new RangeError(`数量应为 1..${GENERATE_MAX} 的整数，收到 ${String(count)}`);
+    throw new RangeError(`数量应为 1..${GENERATE_MAX} 的整数，收到 ${shapeOf(o.count)}`);
   }
-  const registry = singleChar(options.registry ?? '9', '登记管理部门代码（第 1 位）');
-  const category = singleChar(options.category ?? '1', '机构类别代码（第 2 位）');
-  const pool = regionPool(options);
+  const registry = singleChar(o.registry ?? DEFAULT_REGISTRY,
+    'generateUsccCodes 的 options.registry（登记管理部门代码，第 1 位）');
+  const category = singleChar(o.category ?? DEFAULT_CATEGORY,
+    'generateUsccCodes 的 options.category（机构类别代码，第 2 位）');
+  const pool = regionPool(o);
   const list = [];
   for (let i = 0; i < count; i += 1) {
     const regionCode = pool[Math.floor(rng() * pool.length)];

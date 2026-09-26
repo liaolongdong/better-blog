@@ -18,7 +18,8 @@
  *   §A 区划码表 —— 生成物结构与六档回落（§2.2 / §5.4）；A7–A11 另测生成侧的输入闸门
  *                （`assertShape` 那四道在内）与读侧载入自检有没有牙，A12 测六个读入口的入参口径是否还是同一套
  *   §B 身份证   —— 校验位、三态、解码、生成、与站内旧库对拍（§2.2 / §5.1）
- *   §C 统一代码 —— 31 字符集、两套权重、双校验位自洽（§2.2 / §5.1）
+ *   §C 统一代码 —— 31 字符集、两套权重、双校验位自洽（§2.2 / §5.1）；C9 另测入参闸门
+ *                与批量入口的空文本那一格是否和 §B 同档（两个模块逐格对照，不许分叉）
  *   §D 面板框架 —— ARIA、roving tabindex、hash、方向键（§6.3）
  *   §E 后续段追加：银行卡 / 手机号 / 摘要 / JSON / 互转 / TS 生成
  *
@@ -1689,7 +1690,12 @@ const REAL_SAMPLES = [
   { code: '91350100M000100Y43', source: 'GB 32100-2015 正文示例', verifiedOn: '2026-09-25' },
 ];
 
-/** 下面 13 条码全部是 2026-09-25 用独立脚本实算出来的（口径见 §5.0），不是手推 */
+/**
+ * 这 13 条不是手推的：每条的期望值都由 C3–C7 里的一句机器判据核着
+ * （口径见 §5.0：加权和、余数、末位字符都从 charValue / 两套权重现算）。
+ * 换句话说，这 13 个常量是判据的输入而不是判据的结论——谁改了字符集或权重，
+ * 引用到它们的那几条当场红。
+ */
 const NATIONAL = '91350100M000100Y43';    // 内层本体含字母的国标示例
 const R_ZERO = '913501000000001660';      // Σ mod 31 == 0 → 末位 '0'，且内层自洽（整码可判 valid）
 const R_X = '91350100000000004X';         // 校验值 29 → 'X'
@@ -1830,13 +1836,18 @@ test('C6 区划段复用 §A：未收录与历史码都不下"无效"，绝不�
   assert.equal(hist.info.region.status, 'abolished');
   assert.match(rowC(hist, 'region').detail, /历史码/);
   assert.match(hist.caveat, /未见于现行区划表/,
-    '措辞要诚实，不能断言"已撤销建制"——§A 实测有 63 条同码改名');
+    '措辞要诚实，不能断言"已撤销建制"——同码改名的账落在 scripts/build-id-fixture.mjs 的'
+    + '四成因统计与 region.js 文件头的历史层注释里，B7 的 EXPECT_POOLS 钉着那四个数');
 
   const none = parseUscc(REGION_NONE);
   assert.equal(none.state, 'malformed');
   assert.deepEqual(failedC(none), ['region']);
-  assert.equal(/未知/.test(JSON.stringify([uncoded, province, hist, none].map((r) => r.checks))), false,
-    '任何结论里都不许出现「未知地区」这类文案（站内旧库的反面教材）');
+  // 整条结果入串，不是只 stringify checks：旧写法只比 checks，于是把 caveat 改成
+  // 「未知主体类型」判据照旧绿（镜像复跑：# tests 35 / # pass 35 / # fail 0）。
+  // B6 同一族 stringify 的是 `fallback.info`（比 checks 宽一档），这里再宽一档收整条——
+  // checks、caveat、hasCaveat、info、region.note、repairedHint 一格都不许漏
+  assert.doesNotMatch(JSON.stringify([uncoded, province, hist, none]), /未知/,
+    '任何输出里都不许出现「未知地区」这类文案（站内旧库的反面教材）');
 });
 
 test('C7 内层第 17 位：数字不符才判错、字母不下结论、值 10 两种写法都放行', () => {
@@ -1873,6 +1884,24 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
     assert.equal(/^[0-9]$/.test(g.code[16]), true, '第 17 位不得落在未核实的"值 10 写法"分支');
     assert.equal(g.code[17], computeCheckChar(g.code.slice(0, 17)));
   }
+  // 「生成侧永不产出值 10」原先只靠上面那三行 a/b（各 5 条）加下面的 7 号 3 条、9 号 2 条守着，
+  // 而这 10 条的第 17 位实算落在 05386 / 530 / 77（构造：`generateUsccCodes({ count, rng: seededRandom(s) })`，
+  // s/count 三组 = 20260925/5、7/3、9/2）——一次都没触到避让那一格，所以那句断言等于没牙：
+  // 本轮在镜像上摘掉 rollBody8 里避让的那三行复跑过，那时 §C 八条全绿（# tests 35 / # pass 35 /
+  // # fail 0）。换成下面这段扫种子：同样那三行摘掉再跑，s = 1..8 各自在第
+  // 9 / 3 / 10 / 36 / 11 / 7 / 6 / 6 条抛「内部不变量被破坏」，第一条是
+  // `916403001913143610N`——内层校验值 10 被 `${org.value}` 写成两个字符，整码 19 位，
+  // 索引 16 是 '1'、索引 17 是 '0'，length 检查先炸。守卫在的时候这 8×50 条全部成立。
+  for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    const scanned = generateUsccCodes({ count: 50, rng: seededRandom(s) });
+    assert.equal(scanned.length, USCC_GENERATE_MAX, `种子 ${s} 应出满 ${USCC_GENERATE_MAX} 条`);
+    for (const g of scanned) {
+      assert.equal(/^[0-9]$/.test(g.code[16]), true,
+        `种子 ${s} 的 ${g.code} 第 17 位落进了未核实的"值 10 写法"分支`);
+      assert.deepEqual(parseUscc(g.code).checks.map((k) => k.ok), [true, true, true, true, true],
+        `种子 ${s} 的 ${g.code} 逐项不全是 true`);
+    }
+  }
   // 342 个现行市级码 + '00' 全都能当区划段（§A 已钉这一档按现行市级解）
   for (const c of currentCityCodes()) {
     assert.equal(resolveRegion(`${c}00`).status, 'current', `${c}00 应可用于生成`);
@@ -1891,14 +1920,209 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
   assert.match(USCC_USE_NOTE, /不得用于任何真实主体/);
   assert.match(REFERENCE_NOTE, /第 1、2 位/);
   const one = parseUscc(NATIONAL);
-  assert.deepEqual(Object.keys(one.info.registry).sort(), ['char', 'value'],
-    '第 1、2 位只给字符与值、不给名称：含义表没取到可核实来源（§5.1）');
+  // 两个键各钉一次：从前只管 registry，往 info.category 里塞一个 `name: '机关'` 判据照旧绿
+  for (const key of ['registry', 'category']) {
+    assert.deepEqual(Object.keys(one.info[key]).sort(), ['char', 'value'],
+      `info.${key} 只给字符与值、不给名称：含义表没取到可核实来源（§5.1）`);
+  }
   assert.equal(one.info.registry.char, '9');
   assert.equal(one.info.registry.value, 9);
+  assert.equal(one.info.category.char, '1');
+  assert.equal(one.info.category.value, 1);
   assert.equal(REAL_SAMPLES.length, 1, '本轮只坐实 1 条真实码，加样本时同步改设计文档 §11');
   for (const s of REAL_SAMPLES) {
     assert.equal(s.verifiedOn, '2026-09-25');
     assert.equal(parseUscc(s.code).state, 'valid');
   }
+});
+
+/**
+ * 同一格入参形状分别喂两个模块：idcardOpts 给 generateIdCards、usccOpts 给 generateUsccCodes，
+ * 各自只把结果拿回来（抛错记 err，安静出货记 rows）。
+ * rows 在 try 里就取好、绝不当着通过的那一轮去 stringify——B10 踩过这一条：把
+ * `JSON.stringify(generateXxx(options))` 写进 assert 的消息模板，坏入参会在**判据本来该绿**
+ * 的那一轮自己先抛穿。§B 那边有 genError，但它只喂 generateIdCards，而这条要的是两个模块
+ * 并排同档，所以自带一份对称的版本（idcard 侧多传 today，让流可复现）。
+ */
+const bothGates = (idcardOpts, usccOpts) => {
+  const grab = (run) => {
+    try {
+      return { err: null, rows: run() };
+    } catch (e) {
+      return { err: e, rows: null };
+    }
+  };
+  return {
+    generateIdCards: grab(() => generateIdCards({ count: 1, today: TODAY, rng: seededRandom(4242), ...idcardOpts })),
+    generateUsccCodes: grab(() => generateUsccCodes({ count: 1, rng: seededRandom(4242), ...usccOpts })),
+  };
+};
+
+/** 两模块并排断言：坏形状这一档必须同类、同点名、都不许把调用方的错记成"内部不变量" */
+const assertBothReject = (r, kind, want, why) => {
+  for (const [mod, got] of Object.entries(r)) {
+    if (!got.err) {
+      assert.fail(`${mod}：${why} —— 居然安静出货 ${JSON.stringify(got.rows)}`);
+    }
+    assert.equal(got.err.constructor.name, kind,
+      `${mod}：${why} 的异常类型应当是 ${kind} → ${got.err.constructor.name}: ${got.err.message}`);
+    assert.match(got.err.message, want, `${mod}：${why} 的报错文案 → ${got.err.message}`);
+    assert.doesNotMatch(got.err.message, /内部不变量/,
+      `${mod}：${why} —— 入参错误被记成实现有 bug → ${got.err.message}`);
+  }
+};
+
+test('C9 入参闸门与身份证模块同档：坏形状点名到键、空文本零行，两个模块一格都不许分叉', () => {
+  // 这一条把 uscc.js 落地后复核坐实的入参分叉逐格钉住。idcard.js 那批闸门各自被 B8 / B10 钉过
+  // （count 只认 undefined、rng 先验类型再验取值、区划键只认非空字符串、整个 options 传 null
+  // 等于没传、批量入口的空文本给 0 行），uscc.js 整改前同一批形状的行为——每条都在 HEAD 版
+  // uscc.js 上跑过，出的号能不能复算写在括号里：
+  //   `parseUsccList('')` / `parseUsccList(null)` 各给 **1 行**（idcard 给 0 行，而注释写着"同形"）；
+  //   `generateUsccCodes({ count: null })` 安静出货 1 条（`options.count ?? 1`，正是 B8 点名拆掉的写法）；
+  //   `generateUsccCodes(null)` 抛 `TypeError: Cannot read properties of null (reading 'rng')`；
+  //   `generateUsccCodes({ rng: 'nope' })` 静默回落**时间种子**出货 1 条（号随墙钟、复算不出，
+  //     当天摇到 91130100969112487K）；
+  //   `generateUsccCodes({ rng: () => 2 })` 摇出 `91undefined20202020202020202B`（这条是确定流：
+  //     池子索引 `Math.floor(2 * pool.length)` 越界取到 undefined、每个数字位都摇成 2），
+  //     再由自检那一关抛「内部不变量被破坏」——同一件事 idcard 的 I-6 治过；
+  //   `generateUsccCodes({ provinceCode: '' })` 放开整张现行市级池，当天出货
+  //     91620600124270547W（甘肃省武威市）；
+  //   `generateUsccCodes({ regionCode: 110100 })` 数值被 String() 收下、照常出货区划段 110100 的码。
+  // 两份 shapeOf / checkedRng 各自留在自己文件里是刻意的取舍（同级工具模块互不 import，
+  // 理由写在 uscc.js 的 shapeOf 注释），代价就是"跨模块口径一致"没有编译期保证——只能由这条钉。
+  const reject = [
+    [{ count: null }, 'RangeError', /数量应为 1\.\.\d+ 的整数，收到 null/,
+      'count 传 null：`?? 1` 把它吞成"默认一条"，一次类型错误静默出货'],
+    [{ count: 0 }, 'RangeError', /数量应为 1\.\.\d+ 的整数，收到 number 0/, '零条不是"没传"，不许静默补一条'],
+    [{ count: 1.5 }, 'RangeError', /收到 number 1\.5/, '非整数条数'],
+    [{ count: '5' }, 'RangeError', /收到 string 5/, '字符串条数（旧文案只写"收到 5"，看不出是串）'],
+    [{ rng: 'nope' }, 'TypeError', /options\.rng[^\n]*应为 \(\) => number[^\n]*收到 string nope/,
+      '非函数 rng 不许静默回落时间种子'],
+    [{ rng: () => 2 }, 'TypeError', /options\.rng[^\n]*每次应给出 \[0, 1\) 内的有限数[^\n]*收到 number 2/,
+      '取值越界第一次就报，不许摇到自检那一关才抛"内部不变量"'],
+    [{ provinceCode: '' }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 string/,
+      '空串收窄＝零候选，与"没收窄"是两种用户意图'],
+    [{ provinceCode: '   ' }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串/,
+      '全空白串同一条'],
+    [{ provinceCode: 11 }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 number 11/,
+      '数值省码不许被 String() 洗成合法前缀（M-11 同族）'],
+    [{ provinceCode: null }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 null/,
+      'null 省码不得等于放开整张现行表'],
+  ];
+  for (const [options, kind, want, why] of reject) {
+    // 两边各断一次同一个 kind —— 这本身就是"同档"断言：任何一边松口（或哪天改类型），这里红
+    assertBothReject(bothGates(options, options), kind, want, why);
+  }
+  assert.equal(USCC_GENERATE_MAX, GENERATE_MAX,
+    '两个模块的批量上限必须同值，否则上面那句「1..50」的对照文案就是假的（§11 风险表）');
+
+  // 用 uscc 独有的 regionCode 对 idcard 的 areaCode：键名不同、档位必须相同
+  const perKey = [
+    [{ areaCode: 110101 }, { regionCode: 110100 }, 'TypeError', /应为非空字符串[^\n]*收到 number/,
+      '数值区划码：uscc 从前 String() 收下照常出货'],
+    [{ areaCode: '' }, { regionCode: '' }, 'TypeError', /应为非空字符串/,
+      '空串区划码：与"没传"是两回事'],
+    [{ areaCode: '   ' }, { regionCode: '   ' }, 'TypeError', /应为非空字符串/, '全空白串同上'],
+    [{ areaCode: null }, { regionCode: null }, 'TypeError', /应为非空字符串[^\n]*收到 null/,
+      'null 区划码不得等于放开整张现行表'],
+  ];
+  for (const [idcardOpts, usccOpts, kind, want, why] of perKey) {
+    assertBothReject(bothGates(idcardOpts, usccOpts), kind, want, why);
+  }
+
+  // 正向对照：闸门不许把合法入参一起关掉。两边同形状、同条数，且各自出货自检得过
+  const accept = [
+    [{}, {}, 1, '什么都不传 = 一条（时间种子那一条流也要自洽）'],
+    [{ count: 3 }, { count: 3 }, 3, '条数在界内'],
+    [{ rng: null }, { rng: null }, 1, 'rng 传 null = 没传（B10 钉过的同一档）'],
+    [{ provinceCode: '35' }, { provinceCode: '35' }, 1, '非空字符串省码照常收窄'],
+  ];
+  for (const [idcardOpts, usccOpts, want, why] of accept) {
+    const r = bothGates(idcardOpts, usccOpts);
+    for (const [mod, got] of Object.entries(r)) {
+      if (got.err) assert.fail(`${mod}：${why} —— 不该抛 → ${got.err.constructor.name}: ${got.err.message}`);
+      assert.equal(got.rows.length, want, `${mod}：${why} 的条数`);
+    }
+    assert.ok(r.generateIdCards.rows.every((g) => parseIdCard(g.id18, { today: TODAY }).state === 'valid'),
+      `${why}：idcard 出货自检不过`);
+    assert.ok(r.generateUsccCodes.rows.every((g) => parseUscc(g.code).state === 'valid'),
+      `${why}：uscc 出货自检不过`);
+    assert.ok(r.generateUsccCodes.rows.every((g) => g.code.startsWith('91')),
+      `${why}：第 1、2 位的默认字符没落到 9 与 1`);
+  }
+
+  // 整个 options 传 null / undefined = 没传。整改前 `generateUsccCodes(null)` 抛的是
+  // `TypeError: Cannot read properties of null (reading 'rng')`——一个入参名字都不点，
+  // 把调用方传进来的 null 报成引擎崩溃（idcard 的 F4 早就治过同一格）
+  for (const noOptions of [null, undefined]) {
+    const ids = generateIdCards(noOptions);
+    assert.equal(ids.length, 1, `generateIdCards(${String(noOptions)}) 应出一条而不是抛`);
+    assert.equal(parseIdCard(ids[0].id18, { today: TODAY }).state, 'valid');
+    const codes = generateUsccCodes(noOptions);
+    assert.equal(codes.length, 1, `generateUsccCodes(${String(noOptions)}) 应出一条而不是抛`);
+    assert.equal(parseUscc(codes[0].code).state, 'valid', `generateUsccCodes(${String(noOptions)}) 出的码自检不过`);
+  }
+
+  // 省码合法但底下零候选：`省码 … 下没有现行市级区划` 这道抛从前零判据。镜像上摘掉它
+  // （锚点命中 1 处）跑 `generateUsccCodes({ count: 1, rng: seededRandom(4242), provinceCode: '99' })`
+  // 抛的是裸 `Error: 内部不变量被破坏：生成的 91undefined295622439Y 自检未通过
+  // （state=malformed,charset=false,length=false）`——空池子取回 undefined，又一次把调用方的
+  // 入参问题记成实现的 bug。所以下面那两句要的就是"必须是 RangeError 且点名省码 99"。
+  // idcard 的同一格并排：两边同档，文案各点各的名。
+  const emptyPool = bothGates({ provinceCode: '99' }, { provinceCode: '99' });
+  assertBothReject(emptyPool, 'RangeError', /99/, '省码 99 底下没有现行市级区划');
+  assert.match(emptyPool.generateUsccCodes.err.message, /省码 99 下没有现行市级区划/,
+    'uscc 这一格必须点名省码，而不是含糊一句"没有候选"');
+  assert.match(emptyPool.generateIdCards.err.message, /没有可生成的行政区划/, 'idcard 同一格的文案');
+
+  // 第 1、2 位这两格是 uscc 独有的（idcard 没有对等键），整改前只有 registry 被 C8 钉过一条 'Z'，
+  // category 这一格一次判据都没碰过；数值 9 与 0 从前被 String() 收成合法字符
+  const chars = [
+    [{ registry: 9 }, /options\.registry/, '数值 9 被 String() 洗成合法字符'],
+    [{ category: 0 }, /options\.category/, '数值 0 同上'],
+    [{ category: 'ZZ' }, /options\.category/, '两个字符不是单字符（C8 只钉过 registry）'],
+    [{ category: 'I' }, /options\.category/, '被剔除的字母 I'],
+    [{ registry: '   ' }, /options\.registry/, '全空白串不是单字符'],
+  ];
+  for (const [options, want, why] of chars) {
+    let err = null;
+    try {
+      generateUsccCodes({ count: 1, rng: seededRandom(4242), ...options });
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`generateUsccCodes：${why} —— 居然安静出货`);
+    assert.equal(err.constructor.name, 'RangeError', `generateUsccCodes：${why} 的异常类型`);
+    assert.match(err.message, want, `generateUsccCodes：${why} 没点名是哪个键 → ${err.message}`);
+    assert.match(err.message, /31 字符集内的单个字符/, `generateUsccCodes：${why} 的文案 → ${err.message}`);
+    assert.doesNotMatch(err.message, /内部不变量/, `generateUsccCodes：${why} —— 记成了实现有 bug`);
+  }
+  assert.equal(
+    generateUsccCodes({ count: 1, rng: seededRandom(4242), registry: null, category: null })[0].code.slice(0, 2),
+    '91', 'registry / category 传 null 等于没传（与 idcard 的 minAge ?? 18 同一档），默认字符仍是 9 与 1');
+
+  // 单条解析入口的 raw 形状：两边都不许抛，且同一形状必须给同一个 state
+  // （七个形状 2026-09-25 逐个实跑过：两个模块逐格同态。`String(raw)` 是唯一的洗白通道，
+  // 于是数组落到空串、对象落到 `[object Object]`、那条 17 位数字字面量落到
+  // `12345678901234568`（double 精度丢了一位）——两边都只按串判定，谁也不许自己崩）
+  const rawShapes = [
+    ['', 'empty'], [null, 'empty'], [undefined, 'empty'], ['  ', 'empty'], [[], 'empty'],
+    [{}, 'malformed'], [12345678901234567, 'malformed'],
+  ];
+  for (const [raw, want] of rawShapes) {
+    assert.equal(parseIdCard(raw).state, want, `parseIdCard(${String(raw)}) 应当是 ${want}`);
+    assert.equal(parseUscc(raw).state, want, `parseUscc(${String(raw)}) 应当是 ${want}`);
+  }
+
+  // 批量入口的空文本那一格：idcard 早就给 0 行，uscc 从前给 1 行却注释着"与 parseIdCardList 同形"
+  for (const text of ['', null, undefined, '\n', '\n\n', 'a\n\nb', `${NATIONAL}\n\n${R_ZERO}\r\nabc`]) {
+    const rows = parseUsccList(text);
+    const ids = parseIdCardList(text);
+    assert.deepEqual(rows.map((r) => ({ no: r.no, raw: r.raw })), ids.map((r) => ({ no: r.no, raw: r.raw })),
+      `同一份粘贴在两个批量入口的行数 / 行号 / 原文不一致：${JSON.stringify(text)}`);
+  }
+  assert.equal(parseUsccList('').length, 0, '空文本 = 根本没粘贴 = 0 行，不许凭空造一行 empty 结论');
+  assert.equal(parseUsccList(null).length, 0, 'null 同上');
+  assert.equal(parseUsccList('\n\n').length, 3, '例外只有空文本：空行照旧各占一行号');
 });
 
