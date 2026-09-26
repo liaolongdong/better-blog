@@ -4168,4 +4168,1443 @@ git status --porcelain | head
 Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
 按 Task 11 的收口节奏单独提。
 
-<!-- APPEND-6 -->
+## Task 6: `panel-dom.js` — 面板 DOM 绑定层（§6.3 的落地，全站唯一一处 ARIA 口径）
+
+**Files:**
+- Create: `dev/js/tools/panel-dom.js`
+- Modify: `scripts/toolkit-tests.mjs`（追加 §I，16 条 → 全量 126 条）
+
+这一格把段 1 那台纯状态机接到真节点上：`panel.js` 算属性表、`panel-dom.js` 写属性表，
+`toolIdcard.js`（Task 10）只管业务与渲染函数。设计文档 §6.3 那四条要求——真 ARIA、`#hash`
+双向同步与深链、面板内一块抛错只塌那一块、以及"JS 未执行时面板全部可见"——前四条里除了
+最后一条（那是构建期骨架 + CSS 的活，Task 7 / Task 9 判）都落在这里。七条口径先立住：
+
+1. **属性表只写不判，全站只允许一处 ARIA 口径。** `tabAttr(id)` / `panelAttr(id)` /
+   `tablistAttr()` 给什么就写什么：**不判断、不改名、不补默认值、不因为"骨架里好像已经有了"
+   就跳过**（W3 就是把"已存在就不覆写"塞回去，一处红四条）。要改 `role` / `aria-selected` /
+   `aria-controls` / `tabindex` / `hidden` 的形状，改 `panel.js` 与 §D，不许在这层加 `if`——
+   否则"改一处属性"变成"改两处、漏一处"，而漏掉那一处只在读屏里看得见。唯一的按值型例外是
+   `hidden`：真 DOM 上 `el.hidden = true` 与 `setAttribute('hidden','true')` 不等价（后者恒为真），
+   所以它按 `typeof value === 'boolean'` 分派，而不是按键名硬编码（W1 红十三条，是这层最狠的一刀）。
+2. **一次只显示一块，且缺节点那一块也算在内。** `panelAttr(id).hidden` 是可见性的唯一来源，
+   整页在任意一次 `sync()` 之后恰好一块可见。写这条判据（I2 / I15）时真挖出一个缺陷：如果
+   "缺 tab 的那一块"连面板节点都不记，就没有人再去覆写它的 `hidden`，于是**留下两块同时可见**
+   ——W23 专抓这一格。所以 tab 与 panel 两半各记各的，属性表照写，只是缺的那半没法操作。
+3. **焦点只跟键盘走。** `move()` 真的换了面板才 `focus()`，且 `focus()` 排在 `sync()` 之后
+   （tabindex 要先落到新那块，否则读屏报的是旧那一项）。点 tab 不抢（焦点本来就在被点的块上）、
+   `hashchange` 不抢（用户可能正在读页面别处，焦点被跳走是可访问性事故，W14 红一处）、带修饰键
+   的点击与中键**整个不接**（`<a href="#id">` 的开新标签语义就是深链的价值，W9 / W10 各红一处）。
+   按键路径上 `preventDefault()` 无条件先做（W11）——方向键与 `Home`/`End` 在浏览器里的默认动作
+   就是滚动，索引条拿到焦点时按上下会滚整页，这是这个组件最容易漏的一条键盘缺陷。
+4. **地址栏只在用户动手之后写，且三种情况各不写。** `toHash()` 返回空串（用户还没碰过）不写；
+   `location.hash` 已经是目标值不写（W16）；`unknownHash()` 为真不写（W15）——坏 hash 原样留在
+   地址栏上供人复制排查，只在页面里给一条提示，**绝不"帮你"退回第一块**（W30 红两处，那是把
+   用户给的地址悄悄改掉）。只用 `history.replaceState`，不 `push`，不留返回栈。另一条藏在
+   这里的键盘缺陷：只有一块面板的工作区里按方向键、或在第一块上按 `Home`，状态机已经把
+   `touched` 置真了，跟着 sync 就会把 `#第一块` 写进地址栏——用户什么也没换来却凭空多了一条
+   历史记录。所以 `moved.changed` 为假时整段不做第二件事（W12 红单块页面那条 I7）。
+5. **单块错误隔离，且错误文案只走 `textContent`。** 每块面板的渲染函数共用 `run()` 那一道
+   `try/catch`：抛错只 `markBroken` 那一块并把错误条插到那块面板顶部（W18 把它改成"一块抛错
+   就把每块都标坏"，四处红），修好了撤条归零（W19 / W20 / W21 分别红在"不清状态"、"条还挂着"、
+   "每次 sync 长一张新条"）。`message` 里可能带着用户粘贴的 `</script>` 或 `<img onerror=…>`，
+   这里**没有第二次转义的机会**，走 `innerHTML` 就等于把"渲染失败提示"变成第二个 XSS 出口——
+   W6 / W7 两刀由 I12 那条"恶意 message + 全节 `innerHTML` 审计"接住（I12 还断言建出来的节点
+   只有一个、`childNodes` 里只有文本）。
+6. **缺节点分两种，骨架缺陷不许被 `run()` 洗白。** 整页没有 tablist 容器＝没有索引，那不是
+   "一块塌"，`mount()` 当场抛 `RangeError` 点名是哪个 id（W28 把档位写成 `TypeError` 就红——
+   形状对而页面上找不到，与 `markBroken` 同档，不是调用方接错线）；只缺某一块的 tab 或 panel＝
+   那一块标坏（W22）、不跑它的渲染函数（W25），但 `run()` 对这块**永久报 `false`**（W24）：
+   骨架缺陷不可能靠再跑一次渲染函数修好，跑成功了反而会把"缺节点"这条真话从错误条上洗掉。
+   这种缺陷的真判据在构建期：Task 9 的收录面断言 `ids` 与页面里的 panel 节点一一对应。
+7. **前缀只从状态机取、本节不新增依赖。** 所有 id 都从 `tabAttr(id).id` / `panelAttr(id).id` /
+   `tablistAttr().id` 拿，W27 把 `tabAttr(id).id` 换成写死的 `tk-tab-${id}` 就会红在 I16——
+   §6.4 那两条黑名单前缀（`.tk-` / `.jt-`）对应的两套工作台换的只是构造参数，不换代码。
+   站内 devDeps 没有 jsdom / linkedom / cheerio（§0.5 实测），§I 用手写假 DOM，**不新增依赖**；
+   这层用到的 API 一共十四个（见 §I 文件头清单），假 DOM 只需要实现这十四个，
+   多出来的形状一律不在判据里出现——真 DOM 行为留给 Task 11 的 headless Chrome 实测。
+
+源码里 `import { keyAction } from './panel.js'` 是本节唯一一条 import。这与 §0.2 那条白屏实测
+不冲突：`panel.js` 与 `panel-dom.js` 都由 `toolkitCore.js`（Task 8）挂成 `window.Tk`，编到同一个
+入口产物里，页面入口 `toolIdcard.js` 仍然什么都不 import；Task 9 的 `import{` 计数判的是产物。
+
+- [ ] **Step 1: 先写 §I 的 16 条判据（此时 `panel-dom.js` 还不存在，必红）**
+
+追加到 `scripts/toolkit-tests.mjs` 末尾（§H 之后）。本节只新引 `panel-dom.js` 一个模块：
+`createPanelWorkspace`、`TOOLKIT`（§A 顶部那份 `[...new Set(ids)]` 清单）、`CODEC` 在 §D 顶层已经
+解构过了，**同名 `const` 再声明一次是 SyntaxError**——这是本节最容易踩的接线坑，所以解构那一句
+单独放在 §I 标记之前，并在注释里写明原因。假 DOM 与六个辅助（`iPage` / `iAttr` / `iOf` /
+`iVisible` / `iBanner` / `iEvts`）全部带 `i` 前缀，与 §B–§H 的顶层名字不重名。
+
+```js
+//（本节只新引 `panel-dom.js` 一个模块：`createPanelWorkspace` 与两份 id 清单
+//  `TOOLKIT` / `CODEC` 在 §D 顶层已经解构过了，同名 `const` 再声明一次是 SyntaxError；
+//  假 DOM 与六个 `i*` 前缀的辅助（`iPage` / `iAttr` / `iOf` / `iVisible` / `iBanner` / `iEvts`）
+//  全是本节新名字，与 §B–§H 的顶层名字不重名。）
+const { createPanelDom } = await import('../dev/js/tools/panel-dom.js');
+
+// ── §I 面板 DOM 绑定（手写假 DOM） ─────────────────────────────────────────
+
+/**
+ * 手写假 DOM。绑定层用到的读写口子一共十四个：document 两个（`getElementById` /
+ * `createElement`）、节点八个（`setAttribute` / `removeChild` / `insertBefore` / `firstChild` /
+ * `textContent` 写 / `hidden` / `focus` / `addEventListener`）、外面四个（`location.hash`、
+ * `history.state`、`history.replaceState`、`window.addEventListener('hashchange')`）。
+ * 判据自己还要读 `getAttribute` 与 `childNodes`，那是测试侧的观察口，绑定层一个都不碰。
+ * 站内没有 jsdom（§0.5 实测：devDeps 只有 autoprefixer / concurrently / postcss /
+ * postcss-px-to-viewport / sass / terser / vite），为一个绑定层加依赖要动 `package.json`
+ * 与锁文件，正撞 0.6 那条并发面。
+ *
+ * 三处刻意的"不像真 DOM"，每一处都是为了少一处假绿：
+ * 1. **没有 `innerHTML`**。绑定层若写了它，只会长出一个普通属性、一个子节点都不多——
+ *    I12 判的就是"错误条里没有长出元素"。真 DOM 反而会把标签解析出来，把这条判据洗白。
+ * 2. **`removeChild` 找不到节点就抛**。真 DOM 抛 `NotFoundError`；这里静默的话"撤条没撤干净"看不见。
+ * 3. **`replaceState` 会同步改 `location.hash`**，跟浏览器一致。不改的话 I4 那条
+ *    "重复点同一块不重复写地址栏"永远测不到（比对 `location.hash` 那一步恒假）。
+ */
+function iPage({
+  ids = TOOLKIT, prefix = 'tk', hash = '', dropTab = [], dropPanel = [], withTablist = true,
+} = {}) {
+  const nodes = new Map();
+  const focusLog = [];
+  const historyCalls = [];
+  let created = 0;
+
+  const mkText = (text) => ({ nodeType: 3, tagName: '#text', textContent: String(text) });
+
+  const mkEl = (tag, id = '', seed = {}) => {
+    const attrs = new Map();
+    const listeners = new Map();
+    const el = {
+      nodeType: 1, tagName: tag.toUpperCase(), id, attrs, childNodes: [], hidden: false,
+      get firstChild() { return el.childNodes.length ? el.childNodes[0] : null; },
+      get textContent() { return el.childNodes.map((n) => n.textContent).join(''); },
+      set textContent(v) { el.childNodes = v === '' ? [] : [mkText(v)]; },
+      getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
+      setAttribute: (k, v) => { attrs.set(k, String(v)); },
+      removeAttribute: (k) => { attrs.delete(k); },
+      appendChild: (n) => { el.childNodes.push(n); return n; },
+      insertBefore: (n, ref) => {
+        const i = ref ? el.childNodes.indexOf(ref) : -1;
+        if (i < 0) el.childNodes.push(n);
+        else el.childNodes.splice(i, 0, n);
+        return n;
+      },
+      removeChild: (n) => {
+        const i = el.childNodes.indexOf(n);
+        if (i < 0) throw new Error('removeChild：假 DOM 的这个父节点下没有它');
+        el.childNodes.splice(i, 1);
+        return n;
+      },
+      addEventListener: (type, fn) => {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(fn);
+      },
+      dispatch: (type, evt = {}) => {
+        for (const fn of listeners.get(type) || []) fn(evt);
+        return evt;
+      },
+      focus: () => { focusLog.push(el.id); },
+    };
+    for (const [k, v] of Object.entries(seed)) {
+      if (k === 'hidden') el.hidden = Boolean(v);
+      else attrs.set(k, String(v));
+    }
+    if (id !== '') nodes.set(id, el);
+    return el;
+  };
+
+  const doc = {
+    getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
+    createElement: (tag) => { created += 1; return mkEl(tag); },
+    createTextNode: mkText,
+  };
+  const location = { hash };
+  const history = {
+    state: null,
+    replaceState(state, title, url) {
+      historyCalls.push({ state, title, url });
+      location.hash = url;
+    },
+  };
+  const winListeners = new Map();
+  const win = {
+    addEventListener: (type, fn) => {
+      if (!winListeners.has(type)) winListeners.set(type, []);
+      winListeners.get(type).push(fn);
+    },
+    dispatch: (type) => { for (const fn of winListeners.get(type) || []) fn({}); },
+  };
+
+  const ws = createPanelWorkspace({ ids, prefix, hash });
+  if (withTablist) mkEl('nav', `${prefix}-tablist`, { class: 'tk-index' });
+  for (const id of ids) {
+    // 骨架里预置**错的** role / aria-selected：绑定层要是手抄而不是覆写，I1 当场红。
+    // `class` / `href` / `aria-live` 是骨架自己的东西，属性表里没有，必须原样留着（I1 一并判）。
+    if (!dropTab.includes(id)) {
+      mkEl('a', `${prefix}-tab-${id}`, {
+        class: 'tk-index__link', href: `#${id}`, role: 'link', 'aria-selected': 'maybe',
+      });
+    }
+    if (!dropPanel.includes(id)) {
+      mkEl('section', `${prefix}-panel-${id}`, { class: 'tk-panel', 'aria-live': 'polite' })
+        .appendChild(mkText(`body:${id}`));
+    }
+  }
+  const notice = mkEl('p', `${prefix}-notice`, { class: 'tk-notice', hidden: true });
+
+  return {
+    doc, ws, location, history, win, notice, focusLog, historyCalls, nodes,
+    tab: (id) => nodes.get(`${prefix}-tab-${id}`) ?? null,
+    panel: (id) => nodes.get(`${prefix}-panel-${id}`) ?? null,
+    created: () => created,
+  };
+}
+
+/** 节点上现在带着哪些键（用来判"绑定层没发明表外的键、也没删骨架的键"） */
+function iAttr(el) {
+  return Object.fromEntries([...el.attrs.entries()]);
+}
+/** 只读属性表里那几键的落值：`hidden` 走属性，其余走 `getAttribute` */
+function iOf(el, table) {
+  return Object.fromEntries(Object.keys(table).map((k) => [k, k === 'hidden' ? el.hidden : el.getAttribute(k)]));
+}
+/** 当前可见的面板 id（`hidden === false`；缺节点的那块算不可见） */
+function iVisible(page) {
+  return page.ws.ids().filter((id) => {
+    const el = page.panel(id);
+    return Boolean(el) && el.hidden === false;
+  });
+}
+/** 面板里的错误条（按类名认，不按位置认） */
+function iBanner(page, id) {
+  const el = page.panel(id);
+  if (!el) return null;
+  return el.childNodes.find((n) => n.nodeType === 1 && n.getAttribute('class') === 'tk-panel__error') ?? null;
+}
+const iEvts = {
+  click: (over = {}) => ({
+    button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...over,
+  }),
+  key: (key, over = {}) => ({
+    key, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...over,
+  }),
+};
+
+test('I1 属性表原样落地：骨架的错值被覆写，多余的键一个不动', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  const list = page.doc.getElementById('tk-tablist');
+  assert.deepEqual(iOf(list, page.ws.tablistAttr()), {
+    id: 'tk-tablist', role: 'tablist', 'aria-label': '工具面板', 'aria-orientation': 'vertical',
+  }, 'tablist 容器那一格也得由属性表给');
+  assert.equal(list.getAttribute('class'), 'tk-index', '骨架自己的 class 不许被抹掉');
+  for (const id of TOOLKIT) {
+    const table = page.ws.tabAttr(id);
+    assert.deepEqual(iOf(page.tab(id), table), table, `tab ${id} 的落值与属性表不一致`);
+    assert.equal(page.tab(id).getAttribute('role'), 'tab', '骨架里预置的 role="link" 必须被覆写');
+    assert.equal(page.tab(id).getAttribute('href'), `#${id}`, 'href 不在属性表里，它是禁 JS 时的深链保险');
+    const pTable = page.ws.panelAttr(id);
+    assert.deepEqual(iOf(page.panel(id), pTable), pTable, `panel ${id} 的落值`);
+    assert.equal(page.panel(id).getAttribute('aria-live'), 'polite', '骨架上的多余键不许被 removeAttribute');
+  }
+  assert.deepEqual(Object.keys(iAttr(page.tab('idcard'))).sort(),
+    ['aria-controls', 'aria-selected', 'class', 'href', 'id', 'role', 'tabindex'],
+    '节点上只有"表里那几键 + 骨架自带那几键"，绑定层不发明键');
+});
+
+test('I2 一次只显示一块：任意时刻恰好一个面板 hidden 为假', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['idcard']);
+  assert.equal(page.panel('idcard').getAttribute('role'), 'tabpanel', '隐藏的是可见性，不是把面板降级');
+  page.tab('mobile').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['mobile']);
+  assert.deepEqual(
+    TOOLKIT.map((id) => page.tab(id).getAttribute('aria-selected')).join(','),
+    'false,false,false,true,false');
+  assert.deepEqual(
+    TOOLKIT.map((id) => page.tab(id).getAttribute('tabindex')).join(','),
+    '-1,-1,-1,0,-1', 'roving tabindex 跟着可见那块走（§D 的互锁在 DOM 上成立）');
+});
+
+test('I3 深链进入即展开对应面板，一个 replaceState 都不发', () => {
+  const page = iPage({ hash: '#bankcard' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['bankcard']);
+  assert.deepEqual(page.historyCalls, [], '地址栏本来就对，不许再写一次');
+  assert.equal(page.ws.unknownHash(), false);
+  const plain = iPage();
+  createPanelDom({
+    workspace: plain.ws, document: plain.doc, location: plain.location,
+    history: plain.history, window: plain.win,
+  }).mount();
+  assert.deepEqual(plain.historyCalls, [], '无 hash 进入时不写 hash（§6.0 第三条的 DOM 侧）');
+  assert.deepEqual(iVisible(plain), ['idcard']);
+  // 地址栏以裸一个 `#` 结尾时（人从别处复制网址常带上），`location.hash` 是 '#' 而不是 ''：
+  // 这时状态机既没 touched 也没 unknown，只有"target 是空串就别写"这一格挡得住回写。
+  const bare = iPage({ hash: '#' });
+  createPanelDom({
+    workspace: bare.ws, document: bare.doc, location: bare.location,
+    history: bare.history, window: bare.win,
+  }).mount();
+  assert.deepEqual(bare.historyCalls, [], '一个裸 # 不去动它：把它"修"成没有 hash 属于多事');
+  assert.deepEqual(iVisible(bare), ['idcard']);
+  assert.equal(bare.ws.unknownHash(), false, '`#` 不算坏 hash，不该唠叨');
+});
+
+test('I4 点 tab：拦住锚点跳转、只换那一块、地址栏写一次', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  const evt = page.tab('uscc').dispatch('click', iEvts.click());
+  assert.equal(evt.defaultPrevented, true, '不 preventDefault 就会跳锚点（§6.3 那句"不触发滚动跳动"）');
+  assert.deepEqual(iVisible(page), ['uscc']);
+  assert.equal(page.location.hash, '#uscc');
+  assert.deepEqual(page.historyCalls, [{ state: null, title: '', url: '#uscc' }]);
+  page.tab('uscc').dispatch('click', iEvts.click());
+  assert.equal(page.historyCalls.length, 1, '点已经亮着的那块不该再写一遍地址栏');
+  assert.deepEqual(iVisible(page), ['uscc']);
+  assert.equal(page.notice.hidden, true);
+});
+
+test('I5 修饰键与中键的点击整个不接：深链的开新标签语义留着', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  for (const [why, over] of [
+    ['ctrlKey', { ctrlKey: true }], ['metaKey', { metaKey: true }],
+    ['shiftKey', { shiftKey: true }], ['altKey', { altKey: true }], ['中键', { button: 1 }],
+  ]) {
+    const evt = page.tab('random').dispatch('click', iEvts.click(over));
+    assert.equal(evt.defaultPrevented, false, `${why}：不许拦浏览器的默认动作`);
+    assert.deepEqual(iVisible(page), ['idcard'], `${why}：不许换面板`);
+  }
+  assert.deepEqual(page.historyCalls, [], '带修饰键与中键的点击都不写地址栏');
+});
+
+test('I6 方向键自动激活：首尾回绕、焦点跟随、滚动被拦住', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  const evts = [];
+  for (let i = 0; i < TOOLKIT.length; i += 1) {
+    evts.push(page.tab(page.ws.active()).dispatch('keydown', iEvts.key('ArrowDown')));
+  }
+  assert.deepEqual(
+    page.focusLog,
+    [...TOOLKIT.slice(1), 'idcard'].map((id) => `tk-tab-${id}`),
+    '每次换面板焦点都跟到新那块的 tab 上（自动激活）');
+  assert.equal(page.ws.active(), 'idcard', '五块面板按五次回到第一块');
+  assert.deepEqual(iVisible(page), ['idcard']);
+  for (const evt of evts) assert.equal(evt.defaultPrevented, true, '方向键的默认动作是滚整页');
+  assert.deepEqual(page.historyCalls.map((c) => c.url),
+    ['#uscc', '#bankcard', '#mobile', '#random', '#idcard'], '无 hash 进入后，第一次按键就开始写');
+});
+
+test('I7 Home/End 到位；只有一块面板时按方向键既不动作也不炸', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  page.tab('idcard').dispatch('keydown', iEvts.key('End'));
+  assert.equal(page.ws.active(), 'random');
+  assert.deepEqual(page.focusLog, ['tk-tab-random']);
+  page.tab('random').dispatch('keydown', iEvts.key('Home'));
+  assert.equal(page.ws.active(), 'idcard');
+  assert.deepEqual(iVisible(page), ['idcard']);
+  const solo = iPage({ ids: ['only'] });
+  const soloDom = createPanelDom({
+    workspace: solo.ws, document: solo.doc, location: solo.location,
+    history: solo.history, window: solo.win,
+  });
+  soloDom.mount();
+  solo.tab('only').dispatch('keydown', iEvts.key('ArrowRight'));
+  assert.deepEqual(iVisible(solo), ['only']);
+  assert.deepEqual(solo.focusLog, [], '没换面板就不抢焦点');
+  assert.deepEqual(solo.historyCalls, [], '只有一块：无 hash 进入仍然不写地址栏');
+});
+
+test('I8 无关按键与带修饰键的按键不动状态，也不顺手 preventDefault', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  for (const [why, over] of [
+    ['Shift+ArrowUp', { key: 'ArrowUp', shiftKey: true }],
+    ['Ctrl+Home', { key: 'Home', ctrlKey: true }],
+    ['Enter', { key: 'Enter' }], ['字母 a', { key: 'a' }], ['PageDown', { key: 'PageDown' }],
+  ]) {
+    const evt = page.tab('idcard').dispatch('keydown', iEvts.key(over.key, over));
+    assert.equal(evt.defaultPrevented, false, `${why}：不抢浏览器的默认动作`);
+    assert.equal(page.ws.active(), 'idcard', `${why}：不该换面板`);
+  }
+  assert.deepEqual(page.focusLog, []);
+  assert.deepEqual(page.historyCalls, []);
+});
+
+test('I9 外部改地址栏：面板跟着换，但焦点不跳、地址栏不回写', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  page.location.hash = '#mobile';
+  page.win.dispatch('hashchange');
+  assert.deepEqual(iVisible(page), ['mobile']);
+  assert.deepEqual(page.focusLog, [], 'hashchange 抢焦点＝把用户正在读的位置跳走');
+  assert.deepEqual(page.historyCalls, [], '地址栏已经是它了，回写一次就是自己再触发一轮');
+  assert.equal(page.tab('mobile').getAttribute('aria-selected'), 'true');
+  assert.equal(page.tab('mobile').getAttribute('tabindex'), '0');
+});
+
+test('I10 坏 hash：不切成空白、不改地址栏，只给一条提示，随后自己收回去', () => {
+  const page = iPage({ hash: '#mobile' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['mobile']);
+  page.location.hash = '#nope';
+  page.win.dispatch('hashchange');
+  assert.deepEqual(iVisible(page), ['mobile'], '全部 hidden 与"退回第一块"都是把深链用户扔下不管');
+  assert.equal(page.notice.hidden, false, '坏 hash 要给一条看得见的说法');
+  assert.match(page.notice.textContent, /#nope/);
+  assert.deepEqual(page.historyCalls, [], '地址栏保持原样，坏 hash 留着给人复制排查');
+  page.tab('random').dispatch('click', iEvts.click());
+  assert.equal(page.notice.hidden, true, '用户自己动手之后不再唠叨那条坏 hash');
+  assert.deepEqual(page.historyCalls.map((c) => c.url), ['#random'], '动手之后地址栏归位');
+  assert.deepEqual(iVisible(page), ['random']);
+});
+
+test('I11 渲染抛错只塌那一块：其余四块可点可键盘，塌那块的面板还在', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: {
+      idcard: (el) => el.appendChild(page.doc.createTextNode('ok:idcard')),
+      uscc: () => { throw new Error('号段表读不出来'); },
+      bankcard: (el) => el.appendChild(page.doc.createTextNode('ok:bankcard')),
+      mobile: (el) => el.appendChild(page.doc.createTextNode('ok:mobile')),
+      random: (el) => el.appendChild(page.doc.createTextNode('ok:random')),
+    },
+  });
+  const report = dom.mount();
+  assert.deepEqual(report.mounted, TOOLKIT, '五块都升级了，uscc 塌的是内容不是面板');
+  assert.deepEqual(report.missing, []);
+  assert.deepEqual(report.rendered, ['idcard', 'bankcard', 'mobile', 'random']);
+  assert.deepEqual(report.broken, ['uscc'], '错误记在 uscc 那一格上');
+  const banner = iBanner(page, 'uscc');
+  assert.ok(banner, '塌了的面板顶部要有就地错误条');
+  assert.match(banner.textContent, /号段表读不出来/);
+  assert.match(banner.textContent, /其余面板不受影响/);
+  assert.equal(banner.tagName, 'P');
+  assert.equal(banner.getAttribute('role'), 'alert');
+  assert.equal(page.panel('uscc').firstChild, banner, '错误条排在原有内容前面');
+  assert.match(page.panel('uscc').textContent, /body:uscc/, '骨架内容不许被连带清掉');
+  assert.match(page.panel('idcard').textContent, /ok:idcard/);
+  assert.equal(iBanner(page, 'idcard'), null);
+  page.tab('bankcard').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['bankcard'], '塌一块不影响换面板');
+  page.tab('bankcard').dispatch('keydown', iEvts.key('ArrowDown'));
+  assert.equal(page.ws.active(), 'mobile', '键盘也照旧：bankcard 的下一块是 mobile');
+  assert.deepEqual(iVisible(page), ['mobile']);
+});
+
+test('I12 错误条与提示行只写文本：message 里的标签不会长成元素', () => {
+  const hostile = '<img src=x onerror=alert(1)>';
+  const page = iPage({ hash: `#${hostile}` });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+    renderers: { idcard: () => { throw new Error(`坏输入：${hostile}`); } },
+  });
+  dom.mount();
+  assert.equal(page.created(), 1, '整页只允许多出一个错误条节点：message 与 hash 都不许被解析成标签');
+  const banner = iBanner(page, 'idcard');
+  assert.deepEqual(banner.childNodes.map((n) => n.nodeType), [3], '错误条里只有一个文本子节点');
+  assert.equal(banner.innerHTML, undefined, '绑定层不许走 innerHTML');
+  assert.match(banner.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.equal(page.notice.childNodes.length, 1);
+  assert.match(page.notice.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.equal(page.notice.hidden, false);
+  assert.deepEqual(iVisible(page), ['idcard'], '坏 hash 依旧不切空白');
+});
+
+test('I13 run() 二次修好：撤掉错误条、状态归零、不留残节点；不认识的 id 抛', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: { uscc: () => { throw new Error('第一次炸'); } },
+  });
+  dom.mount();
+  const before = page.panel('uscc').childNodes.length;
+  assert.ok(iBanner(page, 'uscc'));
+  assert.equal(dom.run('uscc', (el) => el.appendChild(page.doc.createTextNode('补好了'))), true);
+  assert.equal(iBanner(page, 'uscc'), null, '修好了还挂着错误条，等于骗人');
+  assert.deepEqual(page.ws.brokenIds(), []);
+  assert.equal(page.panel('uscc').childNodes.length, before, '撤一条、追加一条，总数不变＝没有残节点');
+  assert.match(page.panel('uscc').textContent, /补好了/);
+  assert.equal(dom.run('uscc', () => { throw new Error('又炸'); }), false);
+  assert.deepEqual(page.ws.brokenIds(), ['uscc']);
+  assert.match(iBanner(page, 'uscc').textContent, /又炸/, '二次失败要覆写文案，不能留着上一句');
+  assert.equal(page.panel('uscc').childNodes.filter((n) => n.nodeType === 1).length, 1, '错误条还是那一张，没长第二张');
+  assert.throws(() => dom.run('nope', () => {}), RangeError, '装配层写错面板名要当场炸');
+  assert.throws(() => dom.run('uscc', '不是函数'), TypeError);
+});
+
+test('I14 幂等：sync 连跑三次属性表与错误条都不变，mount 只许跑一次', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+    renderers: { mobile: () => { throw new Error('幂等样本'); } },
+  });
+  dom.mount();
+  const snap = () => JSON.stringify({
+    attrs: TOOLKIT.map((id) => [iAttr(page.tab(id)), iAttr(page.panel(id))]),
+    kids: TOOLKIT.map((id) => page.panel(id).childNodes.map((n) => n.nodeType)),
+    hidden: TOOLKIT.map((id) => [page.tab(id).hidden, page.panel(id).hidden]),
+    notice: [page.notice.hidden, page.notice.textContent],
+    created: page.created(),
+    writes: page.historyCalls.length,
+  });
+  const first = snap();
+  dom.sync();
+  dom.sync();
+  dom.sync();
+  assert.equal(snap(), first, 'sync 幂等：多跑一次既不长节点、不改属性、也不写地址栏');
+  assert.equal(page.panel('mobile').childNodes.filter((n) => n.nodeType === 1).length, 1, '错误条一张，不是三张');
+  assert.throws(() => dom.mount(), RangeError, '重复 mount 会把渲染函数再跑一遍，那种双份内容比当场炸难查');
+  assert.deepEqual(page.ws.brokenIds(), ['mobile']);
+});
+
+test('I15 缺节点分两种：没有索引条当场抛，缺一块只标坏那一块', () => {
+  const noList = iPage({ withTablist: false });
+  assert.equal(noList.doc.getElementById('tk-tablist'), null, '假 DOM 自证：这一页就是没有索引条');
+  assert.equal(noList.panel('idcard') !== null, true, '五块面板都在，缺的只有容器');
+  const noListDom = createPanelDom({
+    workspace: noList.ws, document: noList.doc, location: noList.location,
+    history: noList.history, window: noList.win,
+  });
+  assert.throws(() => noListDom.mount(), (err) => {
+    assert.equal(err.constructor.name, 'RangeError', '形状对而页面上没有那个节点，是 RangeError 那一档');
+    assert.match(err.message, /tk-tablist/, '要点名是哪个节点找不到');
+    return true;
+  });
+  const page = iPage({ dropTab: ['uscc'], dropPanel: ['bankcard'] });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: { uscc: () => { throw new Error('不该被调用'); }, idcard: () => {} },
+  });
+  const report = dom.mount();
+  assert.deepEqual(report.missing, ['uscc', 'bankcard']);
+  assert.deepEqual(report.mounted, ['idcard', 'mobile', 'random']);
+  assert.deepEqual(report.rendered, ['idcard']);
+  assert.deepEqual(page.ws.brokenIds(), ['uscc', 'bankcard']);
+  assert.match(page.ws.brokenOf('uscc'), /tk-tab-uscc.*tab 节点/);
+  assert.match(page.ws.brokenOf('bankcard'), /tk-panel-bankcard.*panel 节点/);
+  assert.deepEqual(iVisible(page), ['idcard'], '缺 tab 的那块面板仍然参与互锁：一次还是只显示一块');
+  const degraded = iBanner(page, 'uscc');
+  assert.ok(degraded, '骨架缺陷也要在那块面板上说出来，不是只记在状态里');
+  assert.match(degraded.textContent, /tk-tab-uscc/);
+  assert.equal(iBanner(page, 'bankcard'), null, '连面板节点都没有，错误条无处可插（也不许凭空造一块）');
+  assert.equal(page.created(), 1, '整页只长出那一张错误条');
+  assert.equal(dom.run('uscc', () => { throw new Error('骨架没修好之前不该被调用'); }), false);
+  assert.equal(dom.run('bankcard', () => { throw new Error('同上'); }), false);
+  assert.match(page.ws.brokenOf('uscc'), /tab 节点/, 'run() 报 false 时不许把"缺节点"这条真话洗成"好了"');
+  page.tab('idcard').dispatch('keydown', iEvts.key('ArrowDown'));
+  assert.equal(page.ws.active(), 'uscc', '状态机只管 ids，不认"缺不缺节点"');
+  assert.deepEqual(iVisible(page), ['uscc'], 'uscc 只是没有 tab，面板还在，切过去看得见那句降级提示');
+  assert.deepEqual(page.focusLog, [], '那块没有 tab 节点，焦点无处可去（不抛）');
+  page.tab('mobile').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['mobile'], '缺 panel 的那块点过去看不到东西，但整页不崩');
+});
+
+test('I16 换的是构造参数不是代码：.jt- 那套工作台共用同一份绑定', () => {
+  const page = iPage({ ids: CODEC, prefix: 'jt', hash: '#digest' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['digest']);
+  assert.equal(page.doc.getElementById('jt-tablist').getAttribute('role'), 'tablist');
+  assert.equal(page.nodes.has('tk-tablist'), false, '换了前缀就不该再长出 tk- 的节点');
+  assert.deepEqual(iOf(page.tab('digest'), page.ws.tabAttr('digest')), page.ws.tabAttr('digest'));
+  assert.equal(page.tab('digest').getAttribute('id'), 'jt-tab-digest');
+  assert.equal(page.tab('base64').getAttribute('aria-controls'), 'jt-panel-base64');
+  page.tab('url').dispatch('click', iEvts.click());
+  assert.deepEqual(page.historyCalls.map((c) => c.url), ['#url'], 'hash 也走同一套，只是 id 换了名字');
+});
+```
+
+- [ ] **Step 2: 跑红，确认红的形状**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^not ok|Cannot find module|^# (tests|pass|fail)'; echo "exit=${PIPESTATUS[0]}"
+```
+
+Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/panel-dom.js'`，`# tests 111`、`# pass 110`
+（§A–§H 那批照绿）、`# fail 1`、`exit=` 非 0。红的形状与 §E / §F / §G / §H 当时一致：**整文件挂**，
+不是 16 条各挂一次——§I 的 `const { createPanelDom } = await import(…)` 在文件顶层，抛在解析期，
+测试计数只多出一个"文件级子测试"。这一档要认下来：往顶层加 `await import` 的那一类判据，
+**红的形状天生就是"一条红的 + N 条没跑"**，所以 Step 2 只核对 `# tests` 与 `# fail` 两个数，
+不许把"16 条一条都没红"读成"判据没写进去"。
+
+- [ ] **Step 3: 写 `dev/js/tools/panel-dom.js`**
+
+```js
+/**
+ * `createPanelWorkspace` 的 DOM 绑定层：把状态机算好的四张属性表原样写进节点，把点击 / 按键 /
+ * hashchange 三类事件原样喂回去，另外负责"一块塌了不塌整页"。
+ *
+ * 这一层存在的唯一理由就是段 1 计划 §6.0 写下的那句分工：**页面里只允许有一处 ARIA 口径**。
+ * `panel.js` 已经把 `role` / `aria-selected` / `aria-controls` / `tabindex` / `hidden` 算成属性表，
+ * 装配层若再手抄一遍，"改一处属性"就变成"改两处、漏一处"，而漏掉的那一处只在读屏里看得见。
+ * 所以这里对属性表只做两件事：按表里的 `id` 找节点、逐键写值——**不判断、不改名、不补默认值、
+ * 不因为"页面里好像已经有了"就跳过**。要改 ARIA 形状，改 `panel.js` 与 §D，别在这里加 `if`。
+ *
+ * 五条口径先立住，§I 的判据逐条对着它们咬：
+ *
+ * 1. **一次只显示一块**：`panelAttr(id).hidden` 是可见性的唯一来源，这层不加"滚动到了就展开"
+ *    那类旁路，也不管 CSS 怎么写。整页在任意一次 `sync()` 之后恰好一块可见。
+ * 2. **焦点只跟键盘走**：`move()` 真的换了面板才 `focus()`。点 tab 不抢（焦点本来就在被点的
+ *    那块上），`hashchange` 不抢（用户可能正在读页面上别的位置，被焦点跳走是可访问性事故），
+ *    带修饰键的点击与中键**整个不接**（`<a href="#id">` 的开新标签语义就是深链的价值）。
+ * 3. **地址栏只在用户动手之后写**：`toHash()` 返回空串时一个 `replaceState` 都不发；
+ *    `unknownHash()` 为真时也不写——状态机宁可让地址栏与页面短暂不一致（段 1 §6.0 第三条），
+ *    这层跟着它一起不写，只在页面里给一条提示，坏 hash 原样留在地址栏上供人复制排查。
+ * 4. **单块错误隔离**：每块面板的渲染函数走同一道 `run()`，抛错只标坏那一块（`markBroken`）
+ *    并把错误条插到那块面板的顶部，其余四块照常可点可用。错误条与提示行一律写 `textContent`：
+ *    `message` 里可能带着用户粘贴的 `</script>` 或 `<img onerror=…>`，这里**没有第二次转义的
+ *    机会**，走 `innerHTML` 就等于把"渲染失败提示"变成第二个 XSS 出口。
+ * 5. **缺节点分两种**：整页没有 tablist 容器＝没有索引，那不是"一块塌"，`mount()` 当场抛
+ *    `RangeError`（形状对而页面上找不到，与 `markBroken` 同档）；只缺某一块的 tab 或 panel＝
+ *    那一块标坏、不跑它的渲染函数，但**属性表照写**（缺 tab 的那块面板仍参与可见性互锁，
+ *    缺 panel 的那块 tab 仍能被点与被键盘走到，只是切过去看不到东西）。索引与键盘照旧能用。
+ *    这种骨架缺陷的真判据在构建期：Task 9 的收录面断言 `ids` 与页面里的 panel 节点一一对应。
+ *
+ * 前缀不在这里出现第二次：所有 `id` 都从 `tabAttr(id).id` / `panelAttr(id).id` /
+ * `tablistAttr().id` 取，所以 `.jt-` 那套工作台（§6.4 两条黑名单前缀）换的只是构造参数。
+ *
+ * @param {object} options 构造参数，缺哪一个都会当场抛（装配层写错不该降成一条看起来像用户
+ *   行为的结论，与 `panel.js` / `idcard.js` / `uscc.js` 同档：形状不对是 `TypeError`，
+ *   形状对而值不能用是 `RangeError`，两句都点名是哪一个键）
+ * @param {object} options.workspace `createPanelWorkspace()` 的返回值，必须齐那十四个方法
+ * @param {object} options.document 提供 `getElementById` / `createElement`，浏览器里就是 `document`
+ * @param {object} options.location 提供字符串 `hash`
+ * @param {object} options.history 提供 `replaceState`
+ * @param {object} options.window 只在它上面听 `hashchange`
+ * @param {object} [options.renderers] `id → (panelElement) => void`，构建期骨架之外要补的内容；
+ *   键必须落在 `workspace.ids()` 里，多余的键是装配层写错了面板名，抛 `RangeError`
+ * @param {object} [options.notice] 坏 hash 提示行的节点，不传就只记状态、页面上不多说话
+ * @returns {{mount: () => {mounted: string[], missing: string[], rendered: string[], broken: string[]},
+ *   sync: () => void, run: (id: string, fn: (el: object) => void) => boolean}}
+ */
+import { keyAction } from './panel.js';
+
+/** 错误条的类名是 `toolkit.scss`（Task 7）的钩子；这里只给形状，颜色与字号一律不在 JS 里 */
+const ERROR_CLASS = 'tk-panel__error';
+const BANNER_BEFORE = '这一块面板没能渲染出来：';
+const BANNER_AFTER = '。其余面板不受影响。';
+
+/** `workspace` 必须齐的方法。少一个就不是"这一版还没做"，而是装配层接错了线，直接抛。 */
+const WORKSPACE_API = [
+  'ids', 'active', 'unknownHash', 'tablistAttr', 'tabAttr', 'panelAttr',
+  'select', 'move', 'applyHash', 'toHash', 'markBroken', 'brokenOf', 'brokenIds', 'clearBroken',
+];
+
+export function createPanelDom({
+  workspace, document, location, history, window: win, renderers = {}, notice = null,
+} = {}) {
+  if (!workspace || typeof workspace !== 'object') {
+    throw new TypeError(`createPanelDom：options.workspace 应为 createPanelWorkspace() 的返回值，收到 ${shapeOf(workspace)}`);
+  }
+  for (const name of WORKSPACE_API) {
+    if (typeof workspace[name] !== 'function') {
+      throw new TypeError(`createPanelDom：options.workspace 缺方法 ${name}()，绑定层不接受自己算 ARIA`);
+    }
+  }
+  if (!document || typeof document.getElementById !== 'function' || typeof document.createElement !== 'function') {
+    throw new TypeError('createPanelDom：options.document 要有 getElementById 与 createElement，绑定层不用 querySelector');
+  }
+  if (!location || typeof location.hash !== 'string') {
+    throw new TypeError(`createPanelDom：options.location.hash 应为字符串，收到 ${shapeOf(location && location.hash)}`);
+  }
+  if (!history || typeof history.replaceState !== 'function') {
+    throw new TypeError('createPanelDom：options.history 要有 replaceState，写地址栏只用它（不 push，不留返回栈）');
+  }
+  if (!win || typeof win.addEventListener !== 'function') {
+    throw new TypeError('createPanelDom：options.window 要能 addEventListener(\'hashchange\')');
+  }
+  if (typeof renderers !== 'object' || renderers === null || Array.isArray(renderers)) {
+    throw new TypeError(`createPanelDom：options.renderers 应为 { 面板 id: 渲染函数 }，收到 ${shapeOf(renderers)}`);
+  }
+  const ids = workspace.ids();
+  for (const [key, fn] of Object.entries(renderers)) {
+    if (!ids.includes(key)) {
+      throw new RangeError(`createPanelDom：renderers.${key} 不在 ids 里（${ids.join(', ')}），这块面板的渲染函数没人调用`);
+    }
+    if (typeof fn !== 'function') {
+      throw new TypeError(`createPanelDom：renderers.${key} 应为函数，收到 ${shapeOf(fn)}`);
+    }
+  }
+  if (notice !== null && (typeof notice !== 'object' || typeof notice.setAttribute !== 'function')) {
+    throw new TypeError(`createPanelDom：options.notice 应为节点或 null，收到 ${shapeOf(notice)}`);
+  }
+
+  const tabNode = new Map();
+  const panelNode = new Map();
+  const bannerNode = new Map();
+  /** 骨架不完整（缺 tab 或缺 panel）的那几块：不跑渲染函数，也不许被 `run()` 洗成"好了" */
+  const incomplete = new Set();
+  let mounted = false;
+
+  /**
+   * 逐键原样写。只有 `hidden` 走属性而不是 `setAttribute`——它是 `panelAttr` 里唯一的布尔值，
+   * 真 DOM 上 `el.hidden = true` 与 `setAttribute('hidden','true')` 并不等价（后者恒为真），
+   * 所以这一格必须按值型分派，而不是按键名硬编码。节点为 `null` 时直接返回：缺哪一块由
+   * `mount()` 记进状态，不该在这里变成一句 `Cannot read properties of null`。
+   */
+  const writeAttrs = (el, attrs) => {
+    if (!el) return;
+    for (const [key, value] of Object.entries(attrs)) {
+      if (typeof value === 'boolean') el.hidden = value;
+      else el.setAttribute(key, String(value));
+    }
+  };
+
+  const bannerText = (message) => `${BANNER_BEFORE}${message}${BANNER_AFTER}`;
+
+  /** 错误条只在"坏 ↔ 好"翻转时增删，文案每次都覆写（`run()` 二次失败可能换了原因） */
+  const paintBanner = (id) => {
+    const message = workspace.brokenOf(id);
+    const panel = panelNode.get(id);
+    const existing = bannerNode.get(id);
+    if (message === '') {
+      if (existing) {
+        if (panel) panel.removeChild(existing);
+        bannerNode.delete(id);
+      }
+      return;
+    }
+    if (!panel) return;
+    if (existing) {
+      existing.textContent = bannerText(message);
+      return;
+    }
+    const node = document.createElement('p');
+    node.setAttribute('class', ERROR_CLASS);
+    node.setAttribute('role', 'alert');
+    node.textContent = bannerText(message);
+    panel.insertBefore(node, panel.firstChild);
+    bannerNode.set(id, node);
+  };
+
+  /** 坏 hash 的提示：地址栏里是什么就说什么，不解释、不百分号解码（那是浏览器显示的那一串） */
+  const paintNotice = () => {
+    if (!notice) return;
+    if (!workspace.unknownHash()) {
+      notice.hidden = true;
+      return;
+    }
+    notice.hidden = false;
+    notice.textContent = `地址栏里的 ${location.hash} 不是本页的某一块面板，已保持当前面板。`;
+  };
+
+  /** 口径 3：两种"不写"各自独立成立，写的时候保留既有 state，别让页面丢掉 scrollRestoration 之类 */
+  const paintHash = () => {
+    if (workspace.unknownHash()) return;
+    const target = workspace.toHash();
+    if (target === '' || location.hash === target) return;
+    history.replaceState(history.state ?? null, '', target);
+  };
+
+  const sync = () => {
+    for (const id of ids) {
+      writeAttrs(tabNode.get(id), workspace.tabAttr(id));
+      writeAttrs(panelNode.get(id), workspace.panelAttr(id));
+      paintBanner(id);
+    }
+    paintNotice();
+    paintHash();
+  };
+
+  const onClick = (id) => (evt) => {
+    if (evt && (evt.ctrlKey || evt.metaKey || evt.altKey || evt.shiftKey)) return;
+    if (evt && typeof evt.button === 'number' && evt.button !== 0) return;
+    if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+    if (!workspace.select(id)) return;
+    sync();
+  };
+
+  /**
+   * 自动激活（段 1 §6.0 第一条）：移动焦点即换面板，`keyAction` 已经把所有带修饰键的组合
+   * 挡在门外。`preventDefault()` 无条件先做——方向键与 `Home`/`End` 在浏览器里的默认动作就是
+   * 滚动，索引条拿到焦点时按上下会滚整页，那是这个组件最容易漏的一条键盘缺陷。
+   * `changed` 为假时**整段不做第二件事**：只有一块面板的工作区里按方向键、或者在第一块上按
+   * `Home`，状态机已经把 `touched` 置真了，跟着 sync 就会把 `#第一块` 写进地址栏——用户什么
+   * 都没换来，却凭空多了一条历史记录。焦点同理：没换面板就不抢焦点。
+   * `focus()` 排在 `sync()` 之后：tabindex 要先落到新那块上，否则读屏报出的还是旧的那一项。
+   */
+  const onKey = (id) => (evt) => {
+    const action = keyAction(evt);
+    if (action === '') return;
+    if (typeof evt.preventDefault === 'function') evt.preventDefault();
+    const moved = workspace.move(action);
+    if (!moved.changed) return;
+    sync();
+    const next = tabNode.get(moved.active);
+    if (next && typeof next.focus === 'function') next.focus();
+  };
+
+  /** 跑一块面板的渲染函数，不改状态；`run()` 与 `mount()` 共用这一处 try/catch */
+  const apply = (id, fn) => {
+    const panel = panelNode.get(id); // 两处调用点都被 `incomplete` 那道闸门挡过，这一格必在
+    try {
+      fn(panel);
+      workspace.clearBroken(id);
+      return true;
+    } catch (err) {
+      workspace.markBroken(id, messageOf(err));
+      return false;
+    }
+  };
+
+  return {
+    /**
+     * 挂载一次。返回四个 id 清单：`mounted` 是两块节点齐、已升级成 tab 的那几块；
+     * `missing` 是骨架缺节点的；`rendered` 是渲染函数跑成功的；`broken` 就是
+     * `workspace.brokenIds()`，把"缺节点"与"渲染抛错"合在一起说。
+     * 重复调用抛 `RangeError`：`run()` 会把每块面板的内容再追加一遍，那种"看着像双份内容"的
+     * 缺陷比当场炸难查得多。
+     */
+    mount() {
+      if (mounted) throw new RangeError('createPanelDom：mount() 已经跑过，重复挂载会把每块面板的渲染函数再跑一遍');
+      const listAttrs = workspace.tablistAttr();
+      const list = document.getElementById(listAttrs.id);
+      if (!list) {
+        throw new RangeError(`createPanelDom：页面里没有 id="${listAttrs.id}" 的节点，没有索引条就不算一块工作区`);
+      }
+      writeAttrs(list, listAttrs);
+      const missing = [];
+      for (const id of ids) {
+        const tabId = workspace.tabAttr(id).id;
+        const panelId = workspace.panelAttr(id).id;
+        const tab = document.getElementById(tabId);
+        const panel = document.getElementById(panelId);
+        if (!tab || !panel) {
+          const absent = [];
+          if (!tab) absent.push(`id="${tabId}" 的 tab 节点`);
+          if (!panel) absent.push(`id="${panelId}" 的 panel 节点`);
+          missing.push(id);
+          incomplete.add(id);
+          workspace.markBroken(id, `页面骨架里缺 ${absent.join(' 与 ')}，这块面板不完整`);
+        }
+        // 两半各记各的：缺 tab 的那一块，面板仍然参与"一次只显示一块"的互锁（口径 5），
+        // 不记进去就会留下一块永远没人覆写 `hidden` 的面板——那是这层能造出的第二种双显故障。
+        if (tab) {
+          tabNode.set(id, tab);
+          tab.addEventListener('click', onClick(id));
+          tab.addEventListener('keydown', onKey(id));
+        }
+        if (panel) panelNode.set(id, panel);
+      }
+      win.addEventListener('hashchange', () => {
+        workspace.applyHash(location.hash);
+        sync();
+      });
+      workspace.applyHash(location.hash);
+      const rendered = [];
+      for (const id of ids) {
+        const fn = renderers[id];
+        if (typeof fn !== 'function') continue;
+        // 骨架不完整的面板不跑渲染函数：没有 tab 就切不到它，凭空渲染一份内容只是把缺陷藏起来。
+        if (incomplete.has(id)) continue;
+        if (apply(id, fn)) rendered.push(id);
+      }
+      sync();
+      mounted = true;
+      return {
+        mounted: ids.filter((id) => !incomplete.has(id)),
+        missing,
+        rendered,
+        broken: workspace.brokenIds(),
+      };
+    },
+    sync,
+    /**
+     * 装配层在表单回调里复用同一道闸门：成功就把那块面板的错误条撤掉，抛错就只塌这一块。
+     * 返回值是"这一块现在好不好"，不是"函数有没有抛"。两种情况不跑函数、直接报 `false`：
+     * 面板节点缺失（跑也没地方放内容），以及 `mount()` 记下的骨架不完整那块（那是构建期缺陷，
+     * 不可能靠再跑一次渲染函数修好，跑成功了反而会把"缺节点"这条真话从错误条上洗掉）。
+     */
+    run(id, fn) {
+      if (!mounted) throw new RangeError('createPanelDom.run：先 mount() 再 run()，节点还没找过');
+      if (!ids.includes(id)) {
+        throw new RangeError(`createPanelDom.run：面板 id ${shapeOf(id)} 不在 ids 里`);
+      }
+      if (typeof fn !== 'function') {
+        throw new TypeError(`createPanelDom.run(${id})：fn 应为函数，收到 ${shapeOf(fn)}`);
+      }
+      if (incomplete.has(id)) return false;
+      const ok = apply(id, fn);
+      sync();
+      return ok && workspace.brokenOf(id) === '';
+    },
+  };
+}
+
+/**
+ * 抛出来的东西形状千奇百怪（`throw 'x'`、`throw {message: 42}`），但页面上只能有一行可读的
+ * 句子：优先取 `message`，取不到就 `String()` 一次；空 `message` 退回名字，因为
+ * `new Error()` 的 `message` 是空串，什么都不显示比显示一句没头没尾的话更糟。
+ */
+function messageOf(err) {
+  if (err && typeof err.message === 'string' && err.message !== '') return err.message;
+  return String(err);
+}
+
+/**
+ * 报错文案里的"收到什么"——与 `idcard.js` / `uscc.js` / `panel.js` 那三份同一口径的第四份，
+ * 同样不跨模块 import：这一层不许因为另一个工具的报错文案改动被拖着回归。
+ */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `Array(${v.length})`;
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
+}
+```
+
+- [ ] **Step 4: 跑绿**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (tests|pass|fail)'; echo "exit=${PIPESTATUS[0]}"
+node --check dev/js/tools/panel-dom.js
+wc -l dev/js/tools/panel-dom.js
+```
+
+Expected：`# tests 126`、`# pass 126`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15 + 15 + 15 + 16），
+`node --check` 退出 0，`wc -l` 见 Step 6 的 322 行。
+
+- [ ] **Step 5: 自证这 16 条有牙（三十一处变异，逐处记下红了谁）**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+mkdir -p /tmp/t6mut && cp dev/js/tools/panel-dom.js /tmp/t6mut/panel-dom.orig.js
+cat > /tmp/t6mut/mut.mjs <<'EOF'
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
+const P = 'dev/js/tools/panel-dom.js';
+const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+const orig = fs.readFileSync(P, 'utf8');
+/** 未变异先跑一次：拿它的 `# tests` 总数当尺子，好把"脚手架其实没跑到测试"和"这处不可达"分开 */
+function run() {
+  let out = '';
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
+  return {
+    total: Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1),
+    reds: [...out.matchAll(/^not ok \d+ - (I\d+)/gm)].map((x) => x[1]),
+  };
+}
+const base = run();
+if (base.total < 0 || base.reds.length > 0) {
+  throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.join(' ')}），先让全量跑绿再谈牙齿`);
+}
+console.log(`基线 # tests ${base.total} 全绿`);
+
+const MUTS = [
+  ["W1 hidden 走 setAttribute（真 DOM 上恒为真）",
+    "      if (typeof value === 'boolean') el.hidden = value;\n      else el.setAttribute(key, String(value));",
+    "      el.setAttribute(key, String(value));"],
+  ["W2 节点为空就抛，不静默跳过",
+    "  const writeAttrs = (el, attrs) => {\n    if (!el) return;",
+    "  const writeAttrs = (el, attrs) => {\n    if (!el) throw new Error('没有这个节点');"],
+  ["W3 骨架已有同名属性就不覆写（＝手抄口径回来了）",
+    "      else el.setAttribute(key, String(value));",
+    "      else if (!el.attrs || !el.attrs.has(key)) el.setAttribute(key, String(value));"],
+  ["W4 aria-controls 那一格当作冗余省掉",
+    "      else el.setAttribute(key, String(value));",
+    "      else if (key !== 'aria-controls') el.setAttribute(key, String(value));"],
+  ["W5 错误条不标 role=\"alert\"",
+    "    node.setAttribute('role', 'alert');\n",
+    ""],
+  ["W6 错误条走 innerHTML 拼消息",
+    "    node.textContent = bannerText(message);",
+    "    node.innerHTML = bannerText(message);"],
+  ["W7 提示行走 innerHTML",
+    "    notice.textContent = `地址栏里的 ${location.hash} 不是本页的某一块面板，已保持当前面板。`;",
+    "    notice.innerHTML = `地址栏里的 ${location.hash} 不是本页的某一块面板，已保持当前面板。`;"],
+  ["W8 点击不拦锚点默认动作",
+    "    if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();\n    if (!workspace.select(id)) return;",
+    "    if (!workspace.select(id)) return;"],
+  ["W9 带修饰键的点击也接（深链开新标签没了）",
+    "    if (evt && (evt.ctrlKey || evt.metaKey || evt.altKey || evt.shiftKey)) return;\n",
+    ""],
+  ["W10 中键点击也接",
+    "    if (evt && typeof evt.button === 'number' && evt.button !== 0) return;\n",
+    ""],
+  ["W11 按键不拦滚动默认动作",
+    "    if (typeof evt.preventDefault === 'function') evt.preventDefault();\n",
+    ""],
+  ["W12 没换面板也照样 sync（单块页面凭空写 hash）",
+    "    if (!moved.changed) return;\n",
+    ""],
+  ["W13 换面板后不跟焦点",
+    "    if (next && typeof next.focus === 'function') next.focus();",
+    "    void next;"],
+  ["W14 hashchange 也抢焦点",
+    "        workspace.applyHash(location.hash);\n        sync();",
+    "        workspace.applyHash(location.hash);\n        sync();\n        const cur = tabNode.get(workspace.active());\n        if (cur) cur.focus();"],
+  ["W15 坏 hash 也回写地址栏",
+    "    if (workspace.unknownHash()) return;\n    const target",
+    "    const target"],
+  ["W16 地址栏已正确时仍然回写",
+    "    if (target === '' || location.hash === target) return;",
+    "    if (target === '') return;"],
+  ["W17 无 hash 进入也写第一块",
+    "    if (target === '' || location.hash === target) return;",
+    "    if (location.hash === target) return;"],
+  ["W18 一块抛错就把每块都标坏",
+    "      workspace.markBroken(id, messageOf(err));",
+    "      for (const other of ids) workspace.markBroken(other, messageOf(err));"],
+  ["W19 修好了也不清状态",
+    "      workspace.clearBroken(id);\n",
+    ""],
+  ["W20 修好了错误条还挂着",
+    "        if (panel) panel.removeChild(existing);\n",
+    ""],
+  ["W21 每次 sync 都长一张错误条",
+    "      existing.textContent = bannerText(message);\n      return;",
+    "      existing.textContent = bannerText(message);"],
+  ["W22 缺节点不标坏，静默继续",
+    "          workspace.markBroken(id, `页面骨架里缺 ${absent.join(' 与 ')}，这块面板不完整`);\n",
+    ""],
+  ["W23 缺 tab 的那块连面板都不记（双显故障）",
+    "        if (panel) panelNode.set(id, panel);",
+    "        if (panel && tab) panelNode.set(id, panel);"],
+  ["W24 run() 允许把骨架缺陷洗成\"好了\"",
+    "      if (incomplete.has(id)) return false;\n",
+    ""],
+  ["W25 mount 照跑骨架不完整的渲染函数",
+    "        if (incomplete.has(id)) continue;\n",
+    ""],
+  ["W26 mount 可以重复跑",
+    "      if (mounted) throw new RangeError('createPanelDom：mount() 已经跑过，重复挂载会把每块面板的渲染函数再跑一遍');\n",
+    ""],
+  ["W27 找节点时把前缀写死成 tk-",
+    "        const tabId = workspace.tabAttr(id).id;",
+    "        const tabId = `tk-tab-${id}`;"],
+  ["W28 缺 tablist 的异常档位写错",
+    "        throw new RangeError(`createPanelDom：页面里没有 id=\"${listAttrs.id}\" 的节点",
+    "        throw new TypeError(`createPanelDom：页面里没有 id=\"${listAttrs.id}\" 的节点"],
+  ["W29 好 hash 回来时提示行不收",
+    "    if (!workspace.unknownHash()) {\n      notice.hidden = true;\n      return;\n    }",
+    "    if (!workspace.unknownHash()) return;"],
+  ["W30 坏 hash 时退回第一块",
+    "        workspace.applyHash(location.hash);\n        sync();",
+    "        if (!workspace.applyHash(location.hash)) workspace.select(ids[0]);\n        sync();"],
+  ["W31 无关按键也拦默认动作（吞掉 PageDown / Enter）",
+    "    if (action === '') return;\n",
+    "    if (action === '') { if (typeof evt.preventDefault === 'function') evt.preventDefault(); return; }\n"],
+];
+
+for (const [name, a, b] of MUTS) {
+  if (!orig.includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
+  fs.writeFileSync(P, orig.replace(a, b));
+  const r = run();
+  if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
+  console.log(`${name} → ${r.reds.length ? r.reds.join(' ') : '全绿（不可达，见计划说明）'}`);
+}
+fs.writeFileSync(P, orig);
+if (fs.readFileSync(P, 'utf8') !== orig) throw new Error('还原失败');
+console.log('已还原');
+EOF
+cd /Users/liaolongdong/code/liaolongdong.github.io && node /tmp/t6mut/mut.mjs
+```
+
+2026-09-26 在镜像上实跑（`# tests 126` 全绿起步，三十一刀逐刀记录，**三十一处全部有红的判据**、
+无一处"全绿即不可达"、无一处"锚点没命中"，跑完 `md5` 与跑前逐字相同；I1–I16 每条至少被点名一次）。
+表里"红了谁"那一列是日志原文，不是手抄的：
+
+| 变异 | 红了谁 | 说明 |
+| --- | --- | --- |
+| `W1 hidden 走 setAttribute（真 DOM 上恒为真）` | **I1 I2 I3 I4 I5 I6 I7 I9 I10 I11 I12 I15 I16 红** | `hidden` 用 `setAttribute` 写下去，真 DOM 上恒为真、假 DOM 上也只多一个字符串属性、`el.hidden` 永远停在 `false`，于是"一次只显示一块"整条口径没了。除三格外全红：I8 只断言按键不吞默认动作、I13 只断言错误条与 `run()` 的返回值、I14 只断言"多跑一次前后是否相同"（`hidden` 没人写就恒为 `false`，照样相同）——这一刀红得最宽，正是"按值型分派"那条口径的代价清单 |
+| `W2 节点为空就抛，不静默跳过` | **I15 红** | 节点为 `null` 就抛：缺件那一块本来就没有节点，抛出来把"骨架缺件"变成运行时崩溃，而口径 5 要的是记进状态、属性表照写、整页继续能用 |
+| `W3 骨架已有同名属性就不覆写（＝手抄口径回来了）` | **I1 I2 I9 I16 红** | "骨架里已经有同名属性就不覆写"＝手抄 ARIA 口径回来了：I1 的骨架故意把 `role` 写错，不覆写就留着一个错的；I2 / I9 / I16 从可见性、外部改地址栏、换前缀三个方向各撞一次 |
+| `W4 aria-controls 那一格当作冗余省掉` | **I1 I16 红** | 省掉 `aria-controls`：tab 与 panel 的配对关系没了，读屏报得出"选中的标签"但说不出它控制哪块面板；I1 的键集合精确断言与 I16 的换前缀各钉一处 |
+| `W5 错误条不标 role="alert"` | **I11 红** | 错误条不标 `role="alert"`：读屏里它退化成一块面板的普通段落，用户根本听不到"这块塌了" |
+| `W6 错误条走 innerHTML 拼消息` | **I11 I12 I13 I15 红** | 错误条走 `innerHTML`：假 DOM 不解析标签，赋值只长出一个普通属性、一个子节点都不多，于是"错误条文案"在假 DOM 里读不出来——四处红全落在读文案的格子上。I12 是全节 `innerHTML` 审计加一条恶意 `message`，真 DOM 反而会解析标签把这条判据洗白，所以宁可让它红在"节点没长出来" |
+| `W7 提示行走 innerHTML` | **I10 I12 红** | 提示行走 `innerHTML`：坏 hash 提示里拼的是 `location.hash`，那是用户在地址栏里敲进去的一串，这里就是第二个 XSS 出口 |
+| `W8 点击不拦锚点默认动作` | **I4 红** | 点击不拦锚点默认动作：`<a href="#id">` 自己会跳锚点并写一条历史记录，和 `replaceState` 打架——深链进来滚到索引条、点一下多两条历史，两个都是 §6.3 明令要避免的 |
+| `W9 带修饰键的点击也接（深链开新标签没了）` | **I5 红** | 带修饰键的点击也接：Ctrl / Cmd 点击的开新标签语义就是深链的价值，接了就等于把 §6.3 那条"深链能分享"废掉一半 |
+| `W10 中键点击也接` | **I5 红** | 中键也接：`button !== 0` 是中键（新开标签），必须整个不接，`preventDefault()` 也不能做 |
+| `W11 按键不拦滚动默认动作` | **I6 红** | 按键不拦默认动作：方向键与 `Home`/`End` 在浏览器里的默认动作就是滚动，索引条拿到焦点时按上下会滚整页——这个组件最容易漏的一条键盘缺陷 |
+| `W12 没换面板也照样 sync（单块页面凭空写 hash）` | **I7 红** | `changed` 为假也照样 sync：只有一块面板的页面按方向键、或在第一块上按 `Home`，状态机把 `touched` 置真了，跟着就把 `#第一块` 写进地址栏——用户什么也没换来，凭空多一条历史 |
+| `W13 换面板后不跟焦点` | **I6 I7 红** | 换面板后不跟焦点：键盘用户按完方向键焦点还留在旧那项上，接下来一下"下"又回到旧位置，整条索引条不能用；I6 与 I7（`Home`/`End`）各断一次 `focusLog` |
+| `W14 hashchange 也抢焦点` | **I9 红** | `hashchange` 也抢焦点：外部改地址栏时用户可能正在读页面别处，焦点被跳走是可访问性事故 |
+| `W15 坏 hash 也回写地址栏` | **I10 红** | 坏 hash 也回写地址栏：把用户粘进来的那串抹掉，就再也没法复制出来排查；口径 3 要的是"原样留着 + 页面里说一句" |
+| `W16 地址栏已正确时仍然回写` | **I3 I4 I9 I10 I16 红** | 地址栏已经正确还回写：`historyCalls` 那几条精确次数断言全红（I3 I4 I9 I10 I16），真实浏览器里表现为每次 `sync()` 都刷一条历史 |
+| `W17 无 hash 进入也写第一块` | **I3 红** | 无 hash 进入也写第一块：口径 3 的"用户没动手之前一个字都不写"。裸 `#` 那一档（`toHash()` 返回空串）就是专为这刀补的——第一版这里是个等效变异，I3 全绿 |
+| `W18 一块抛错就把每块都标坏` | **I11 I12 I13 I14 红** | 一块抛错就把每块都标坏：§6.3 那句"一块塌不整页崩"整条没了，隔离性、错误条、`run()` 归零、幂等四处同时红 |
+| `W19 修好了也不清状态` | **I13 红** | 修好了不清状态：`run()` 的返回值是"这一块现在好不好"，不是"函数有没有抛"，`brokenOf` 没归零就永远报坏 |
+| `W20 修好了错误条还挂着` | **I13 红** | 修好了错误条还挂着：面板里留着一句"这块没能渲染出来"，而它已经渲染出来了——页面对用户说谎 |
+| `W21 每次 sync 都长一张错误条` | **I14 红** | 每次 sync 都长一张新错误条：`existing` 分支忘了 `return`，同一句话叠 N 条，读屏连播 N 遍 |
+| `W22 缺节点不标坏，静默继续` | **I15 红** | 缺节点不标坏：骨架缺件静默继续，`broken` 清单里看不见，装配层拿不到"这块不完整"这条真话 |
+| `W23 缺 tab 的那块连面板都不记（双显故障）` | **I15 红** | 缺 tab 的那块连面板都不记：没有人再覆写它的 `hidden`，于是留下**两块同时可见**——写 I15 时真挖出来的缺陷，这层能造出的第二种双显故障 |
+| `W24 run() 允许把骨架缺陷洗成"好了"` | **I15 红** | `run()` 允许把骨架缺陷洗成"好了"：不可能靠再跑一次渲染函数修好构建期缺件，跑成功了反而把"缺节点"从错误条上抹掉 |
+| `W25 mount 照跑骨架不完整的渲染函数` | **I15 红** | `mount()` 照跑骨架不完整的渲染函数：没有 tab 就切不到它，凭空渲染一份内容只是把缺陷藏进 `rendered` 清单 |
+| `W26 mount 可以重复跑` | **I14 红** | `mount()` 可以重复跑：每块面板的渲染函数再跑一遍，页面出现双份结果表——那种"看着像内容重复"的缺陷比当场炸难查得多 |
+| `W27 找节点时把前缀写死成 tk-` | **I16 红** | 找节点时把前缀写死成 `tk-`：§6.4 那两条黑名单前缀（`.tk-` / `.jt-`）对应的两套工作台就变成两套代码，I16 专门用 `.jt-` 跑一整轮 |
+| `W28 缺 tablist 的异常档位写错` | **I15 红** | 缺 tablist 抛 `TypeError`：档位写错＝装配层读不懂。形状不对才是 `TypeError`；形状对而页面上找不到是 `RangeError`，与 `markBroken` 同档 |
+| `W29 好 hash 回来时提示行不收` | **I10 红** | 好 hash 回来时提示行不收：坏 hash 修好之后页面还挂着"这不是本页的某一块面板"，提示行自己成了第二个缺陷 |
+| `W30 坏 hash 时退回第一块` | **I10 红** | 坏 hash 时退回第一块：状态机宁可让地址栏与页面短暂不一致，这层跟着它一起不写，更不能把用户给的地址悄悄改掉 |
+| `W31 无关按键也拦默认动作（吞掉 PageDown / Enter）` | **I8 红** | 无关按键也拦默认动作：`PageDown` / `Enter` / 字母键被吞，索引条拿到焦点时页面滚不动、回车进不了表单——I8 防的就是"顺手加一条 catch-all `preventDefault`"，第一版 30 刀里没有一刀能从现有源码变出这个方向，所以补了它 |
+
+三处从这轮才定下来的口径，都值得单独记一句：
+
+**"按值型分派"不是洁癖。** W1 是这轮红得最宽的一刀（十三条）。`hidden` 是四张属性表里唯一的布尔值，
+把它跟别的键一起 `setAttribute(key, String(value))`，真 DOM 上 `hidden="false"` 依旧等于隐藏——
+页面会**同时显示两块面板**，而任何只比对属性表内容的判据都看不出来。所以 `writeAttrs` 里那一格
+按 `typeof value === 'boolean'` 分派，I2 与 I15 判的是"任意一次 `sync()` 之后恰好一块可见"这个
+不变量，而不是某个属性值写对了没有。
+
+**等效变异真的会出现，而且是靠补样本消掉的。** W17（"无 hash 进入也写第一块"）第一版跑完全绿：
+假页面的 `location.hash` 初始是空串，`toHash()` 在用户没动手时也返回空串，于是
+`location.hash === target` 先成立，`target === ''` 那半句根本没被执行到。补了一档**裸 `#`**
+（`location.hash === '#'` → `parseHash` 给 `{id: null, unknown: false}` → `toHash()` 仍返回空串，
+但此时 `location.hash !== target`）之后，W17 才红在 I3。这一条写在这儿，是为了让下一轮读到
+"三十一处全部有红"时知道它不是天生如此。
+
+**没被任何一刀点名的判据要当场处理，不能拖到收口。** 第一轮 30 刀跑完，I8（无关按键不吞默认动作）
+一条都没红过——它防的方向（在 `onKey` 里加一条 catch-all `preventDefault`）在现有源码里没有可以
+反过去的语句。补了 W31（`if (action === '') return;` → 先 `preventDefault()` 再 return）之后 I8
+才归到"有人守"那一档。凡是"某条判据没被任何一刀点过"，要么补一刀，要么在计划里明说为什么不补——
+把"没人红过"读成"这条多余"是这类自证最容易犯的错。
+
+另外两处是**写判据时真挖出来的缺陷**，不是给已经写好的代码配说明书：I2 与 I15 都断言"恰好一块可见"
+这个不变量，而 I15 逼出了"缺 tab 的那块连面板节点都不记 → 留下一块没人覆写 `hidden` 的面板 →
+双显"这条真实故障（W23 红在 I15，因为假页面里只有"缺一块"的骨架才会走到那格）；I7 逼出了
+"单块页面按方向键、`move()` 的 `changed` 为假却照样 sync → 地址栏凭空多出 `#第一块`"（W12 只红 I7，
+因为单块页面是这一格唯一的真向量）。这两条都在实现里改成了"整段不做第二件事"，理由写进了
+`onKey` 的文档注释。
+
+- [ ] **Step 6: 记一次耗时与体积（Task 10 的性能口径要用）**
+
+整段脚本原样进 `bash`：冷启动七次，然后 `cat > /tmp/t6bench.mjs` 落一份"§I 那套假 DOM 的裁剪版"
+再连跑三轮。裁剪版必须落盘而不是塞进 `node -e`，因为它要同时供 `mount` / `sync` / `run` 三条路径
+与三档自检用；脚本里的 `ROOT` 是绝对路径，所以它在哪个目录下跑都行。
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+for i in 1 2 3 4 5 6 7; do node --input-type=module -e "
+const R = '/Users/liaolongdong/code/liaolongdong.github.io';
+const t0 = performance.now(); await import(\`\${R}/dev/js/tools/panel-dom.js\`);
+console.log('import panel-dom.js', (performance.now() - t0).toFixed(2) + 'ms');
+"; done
+cat > /tmp/t6bench.mjs <<'BENCH'
+/* Task 6 Step 6 的耗时口径：绑定层自己那一档。这里的假 DOM 是 §I 那套的裁剪版（只留
+   mount / sync / run 会走到的格子），报的数都是"同一批循环里只 Map.get 的基线"减掉之后的
+   净值——因为这一段量的不是假 DOM 有多快，而是绑定层每次交互多花多少。
+   事件用 `fire(type, evt)` 派发：这份裁剪版把监听存进 `Map`，未注册的类型一 `fire` 就抛，
+   所以"跑完了"就等于 click / keydown 两类监听真的注册着，而不是绕过了绑定层直接调闭包。 */
+const ROOT = '/Users/liaolongdong/code/liaolongdong.github.io';
+const { createPanelWorkspace } = await import(`${ROOT}/dev/js/tools/panel.js`);
+const { createPanelDom } = await import(`${ROOT}/dev/js/tools/panel-dom.js`);
+
+const IDS = ['idcard', 'uscc', 'bankcard', 'mobile', 'random'];
+const ROUNDS = 7;
+
+function makePage({ withNotice = true } = {}) {
+  const nodes = new Map();
+  const mkText = (t) => ({ nodeType: 3, textContent: String(t) });
+  const mkEl = (tag, id = '', seed = {}) => {
+    const attrs = new Map();
+    const listeners = new Map();
+    const el = {
+      nodeType: 1, tagName: tag, id, attrs, childNodes: [], hidden: false,
+      get firstChild() { return el.childNodes.length ? el.childNodes[0] : null; },
+      get textContent() { return el.childNodes.map((n) => n.textContent).join(''); },
+      set textContent(v) { el.childNodes = v === '' ? [] : [mkText(v)]; },
+      getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
+      setAttribute: (k, v) => { attrs.set(k, String(v)); },
+      removeAttribute: (k) => { attrs.delete(k); },
+      appendChild: (n) => { el.childNodes.push(n); return n; },
+      insertBefore: (n, ref) => {
+        const i = ref ? el.childNodes.indexOf(ref) : -1;
+        if (i < 0) el.childNodes.push(n);
+        else el.childNodes.splice(i, 0, n);
+        return n;
+      },
+      removeChild: (n) => { const i = el.childNodes.indexOf(n); if (i >= 0) el.childNodes.splice(i, 1); return n; },
+      addEventListener: (type, fn) => { listeners.set(`${type}`, fn); },
+      fire: (type, evt) => listeners.get(type)(evt),
+      focus: () => {},
+    };
+    for (const [k, v] of Object.entries(seed)) {
+      if (k === 'hidden') el.hidden = v;
+      else attrs.set(k, String(v));
+    }
+    if (id) nodes.set(id, el);
+    return el;
+  };
+  const doc = {
+    getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
+    createElement: (tag) => mkEl(tag),
+    createTextNode: mkText,
+  };
+  const location = { hash: '' };
+  const hashWrites = { n: 0 };
+  const history = { state: null, replaceState(s, t, url) { hashWrites.n += 1; location.hash = url; } };
+  const win = { addEventListener: () => {} };
+  const ws = createPanelWorkspace({ ids: IDS });
+  mkEl('nav', 'tk-tablist', { class: 'tk-index' });
+  for (const id of IDS) {
+    mkEl('a', `tk-tab-${id}`, { class: 'tk-index__link', href: `#${id}` });
+    mkEl('section', `tk-panel-${id}`, { class: 'tk-panel' }).appendChild(mkText(`body:${id}`));
+  }
+  const notice = withNotice ? mkEl('p', 'tk-notice', { hidden: true }) : null;
+  return { doc, ws, location, history, win, notice, nodes, hashWrites };
+}
+
+const clickEvt = () => ({
+  button: 0, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, preventDefault() {},
+});
+const keyEvt = (key) => ({
+  key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, preventDefault() {},
+});
+const modKeyEvt = () => ({
+  key: 'ArrowUp', ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, preventDefault() {},
+});
+
+/** 基线：同样次数、同样遍历五块 + Map.get 的空调用，用来从每一档里减掉循环与查表本身的开销。
+    `hrtime.bigint()` 差值是纳秒，除以 1e3 才是微秒——单位写错过一次，整张表就全小一千倍。 */
+function baseline(iters) {
+  const map = new Map(IDS.map((id) => [id, {}]));
+  const times = [];
+  for (let r = 0; r < ROUNDS; r += 1) {
+    const t0 = process.hrtime.bigint();
+    for (let i = 0; i < iters; i += 1) for (const id of IDS) map.get(id);
+    times.push(Number(process.hrtime.bigint() - t0) / 1e3 / iters);
+  }
+  times.sort((a, b) => a - b);
+  return times[Math.floor(times.length / 2)];
+}
+
+function bench(name, iters, body) {
+  const base = baseline(iters);
+  const times = [];
+  for (let r = 0; r < ROUNDS; r += 1) {
+    const t0 = process.hrtime.bigint();
+    for (let i = 0; i < iters; i += 1) body(i);
+    times.push(Number(process.hrtime.bigint() - t0) / 1e3 / iters);
+  }
+  times.sort((a, b) => a - b);
+  const med = times[Math.floor(times.length / 2)];
+  console.log(`${name.padEnd(30, ' ')} 中位 ${(med - base).toFixed(2)} µs 原始 ${med.toFixed(2)} 基线 ${base.toFixed(2)} 区间 ${Math.min(...times).toFixed(2)}–${Math.max(...times).toFixed(2)}（七轮）`);
+}
+
+/* 1) mount：每档都重建一份页面，含节点查表、监听注册、属性表首轮落地。
+   先丢掉 100 轮预热——mount 每轮都要新建整棵假 DOM，头几轮全是解释执行与内联缓存冷启动，
+   直接混进样本会把"最慢一次"撑到毫秒级，那测量的是 JIT 而不是绑定层。 */
+for (let r = 0; r < 100; r += 1) {
+  const warm = makePage();
+  createPanelDom({
+    workspace: warm.ws, document: warm.doc, location: warm.location,
+    history: warm.history, window: warm.win, notice: warm.notice,
+    renderers: { idcard: (el) => el.appendChild(warm.doc.createTextNode('结果')) },
+  }).mount();
+}
+const mountTimes = [];
+for (let r = 0; r < 200; r += 1) {
+  const page = makePage();
+  const t0 = process.hrtime.bigint();
+  createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+    renderers: { idcard: (el) => el.appendChild(page.doc.createTextNode('结果')) },
+  }).mount();
+  mountTimes.push(Number(process.hrtime.bigint() - t0) / 1e3);
+}
+mountTimes.sort((a, b) => a - b);
+const pct = (p) => mountTimes[Math.min(mountTimes.length - 1, Math.floor(mountTimes.length * p))];
+console.log(`mount(5 块 + 1 个渲染函数)：中位 ${pct(0.5).toFixed(1)} µs，p10 ${pct(0.1).toFixed(1)} µs，p90 ${pct(0.9).toFixed(1)} µs，最慢 ${mountTimes[mountTimes.length - 1].toFixed(1)} µs（200 轮、预热 100 轮后；含 createPanelDom 的构造校验）`);
+
+/* 稳态样本：mount 一次后各档共用 */
+const P = makePage();
+const dom = createPanelDom({
+  workspace: P.ws, document: P.doc, location: P.location,
+  history: P.history, window: P.win, notice: P.notice,
+  renderers: { idcard: (el) => el.appendChild(P.doc.createTextNode('结果')) },
+});
+dom.mount();
+const tabOf = (id) => P.nodes.get(`tk-tab-${id}`);
+
+bench('sync()（五块，稳态）', 20000, () => dom.sync());
+bench('点一次 tab（click → sync → 写地址栏）', 10000, (i) => {
+  tabOf(IDS[i % IDS.length]).fire('click', clickEvt());
+});
+bench('一次按键（keydown → move → sync → focus）', 10000, (i) => {
+  tabOf(IDS[i % IDS.length]).fire('keydown', keyEvt(i % 2 ? 'ArrowDown' : 'ArrowUp'));
+});
+bench('一次被忽略的按键（Ctrl+ArrowUp）', 20000, () => {
+  tabOf('idcard').fire('keydown', modKeyEvt());
+});
+bench('run() 成功一次', 10000, () => dom.run('uscc', (el) => el.getAttribute('class')));
+dom.run('uscc', () => { throw new Error('基准里的抛错样本'); });
+bench('run() 抛错一次', 10000, () => dom.run('uscc', () => { throw new Error('基准里的抛错样本'); }));
+dom.run('uscc', () => {});
+const writesBeforeBad = P.hashWrites.n;
+bench('坏 hash 一次（applyHash + notice + sync）', 10000, () => {
+  P.location.hash = '#nope';
+  P.ws.applyHash(P.location.hash);
+  dom.sync();
+});
+const badHashWrites = P.hashWrites.n - writesBeforeBad;
+P.location.hash = '';
+P.ws.applyHash('');
+dom.sync();
+
+/* 200 轮「坏 ↔ 好」：错误条增删的摊销（每轮两次 run，各含一次 sync） */
+const tBad = process.hrtime.bigint();
+for (let i = 0; i < 200; i += 1) {
+  dom.run('mobile', () => { throw new Error('增删样本'); });
+  dom.run('mobile', () => {});
+}
+console.log(`错误条建+撤 200 对：平均 ${(Number(process.hrtime.bigint() - tBad) / 1e3 / 400).toFixed(2)} µs/次（含整轮 sync）`);
+/* 三档自检：证明上面那些数不是空转出来的。裁剪版假 DOM 里"未注册的事件类型"一调就抛，
+   所以 `fire` 能跑完就等于 click / keydown 两类监听真的注册上了。 */
+let wired = 'OK：三类监听都注册着（未注册的事件类型一 fire 就抛）';
+try {
+  tabOf('idcard').fire('nope', {});
+  wired = '自检无效：未注册的事件类型没有抛，上面的 click/keydown 档可能全是空转';
+} catch { /* 预期：没有这个类型的监听 */ }
+const visibleAfter = IDS.filter((id) => P.nodes.get(`tk-panel-${id}`).hidden === false);
+console.log('自检：', wired);
+console.log('自检：跑完所有档位之后，可见面板仍是恰好一块 →', JSON.stringify(visibleAfter));
+console.log('自检：坏 hash 那 10000 轮里地址栏被写的次数 →', badHashWrites,
+  badHashWrites === 0 ? '（口径 3 成立：unknownHash 时一格都不写）' : '（口径 3 破了，坏 hash 正在回写地址栏）');
+console.log('自检：全场 replaceState 总次数 →', P.hashWrites.n, '，最后一次落在 →', JSON.stringify(P.location.hash));
+BENCH
+for r in 1 2 3; do node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON /tmp/t6bench.mjs; done
+uptime
+wc -l dev/js/tools/panel-dom.js
+wc -c dev/js/tools/panel-dom.js
+gzip -6 -c dev/js/tools/panel-dom.js | wc -c
+awk '/^[[:space:]]*(\*|\/\/|\/\*)/{c++; b+=length($0)+1} END{print "注释行 " c " / 注释字节 " b}' dev/js/tools/panel-dom.js
+grep -cE '^[[:space:]]*export' dev/js/tools/panel-dom.js
+```
+
+2026-09-26 本机 Node 22 实测（跑在 `/tmp/pfx` 镜像上，脚本与上面那份只差 `ROOT` 一行）。
+冷启动：`import panel-dom.js` **七个进程各一次**，中位 **4.01ms**、区间 **3.90–4.41ms**。
+这一格的 import 时里必然带着 `panel.js`（它是这层唯一一条 import），同机同口径单测 `panel.js`
+是 **2.75ms**（2.63–3.25），差出来的 **≈1.3ms** 才是 `panel-dom.js` 自己；真页面上这两个文件
+编在同一个 `toolkitCore.min.js` 里，所以这两个数都只是 Node 侧参考，不进浏览器那条账。
+
+稳态：每档七轮取中位、整段再跑三遍，下表给**三轮各自的中位**与三轮读数。报的数是"同一批循环里
+只做 `Map.get` 的基线"减掉之后的净值——这一段要量的是绑定层每次交互多花多少，不是假 DOM 有多快：
+
+| 档位 | 中位 | 三轮读数 |
+| --- | --- | --- |
+| `mount()`（五块 + 1 个渲染函数，整页重建） | 28.0µs | 27.9 / 28.0 / 28.6（p10 19.8–20.5，p90 32.6–46.4） |
+| `sync()`（五块全量，稳态） | 5.98µs | 5.98 / 6.03 / 5.98 |
+| 点一次 tab（click → sync → 写地址栏） | 6.33µs | 6.13 / 6.33 / 6.80 |
+| 一次按键（keydown → move → sync → focus） | 6.34µs | 6.33 / 6.34 / 6.49 |
+| 一次被忽略的按键（Ctrl+ArrowUp） | 0.03µs | 0.02 / 0.03 / 0.03 |
+| `run()` 成功一次（含整轮 sync） | 6.08µs | 6.05 / 6.08 / 6.25 |
+| `run()` 抛错一次（含标坏 + 错误条） | 16.17µs | 15.88 / 16.17 / 16.44 |
+| 坏 hash 一次（applyHash + notice + sync） | 6.71µs | 6.70 / 6.71 / 7.10 |
+| 错误条建 + 撤摊销（200 对 = 400 次，各含整轮 sync） | 14.89µs/次 | 13.87 / 14.89 / 15.02 |
+
+`run()` 抛错比成功贵 ≈10µs，这 10µs 不都算在绑定层头上：同一台机器另测三档，纯
+`new Error('基准里的抛错样本')` + 抛 + 接是 **3.62–3.75µs**，再多读一次 `String(err)` 是
+**4.96–5.03µs**，只 `try/catch` 不抛是 **0.01µs**。也就是说 `try/catch` 本身在测量下限，
+样本里那 4–5µs 是基准自己构造 `Error` 的代价（真实页面里 `messageOf` 也要读一次 `message`），
+剩下的落在 `markBroken` 与错误条文案覆写这条路径上。
+
+**这批数只能判量级，不能拿来设阈值**：三轮跑的时候本机 load average 是 6.09 / 9.47 / 9.88
+（23:10 采样），`mount` 那一档三轮的"最慢一次"分别是 87.3µs / 1344.9µs / 1140.9µs，尾部读数是
+GC 与抢核，不是绑定层——所以 `mount` 报的是 p10 / 中位 / p90 而不是"区间"。能站住的结论只有三条：
+一次交互落在绑定层上的常数是 **6µs 档**，比 Task 5 实测的视图渲染一次（`parseBlock` 66.7µs）小一个
+数量级，因此"每次输入都把五块面板重刷一轮"不需要防抖或分片；被忽略的修饰键组合是 **0.03µs**，
+说明它压根没进 DOM 那一圈；Step 4 那条全量命令的 `# duration_ms` 本机三轮 **4.14–5.31s**，
+同样随桌面负载漂，**不要**用它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
+真页面上的首屏与交互端到端时间由 Task 11 的 headless Chrome 量，性能预算真正看的是 gzip 字节。
+
+Expected：`node --check` 退出 0；`wc -c` **16,955 字节**、`gzip -6` **7,007 字节**
+（`gzip -9` 7,005，两档只差 2 字节，这层没什么可再压的）；文件 **322 行**（`wc -l`），其中注释
+**94 行 / 8,573 字节**（行占 29%、字节占 51%——比 `view.js` 的 38% 高一档，这层的大头不是"怎么干"
+而是"为什么不那么干"，五条口径各占一段）；导出 **1 个**（`createPanelDom`），模块顶层私有 **6 个**
+（`ERROR_CLASS`、`BANNER_BEFORE`、`BANNER_AFTER`、`WORKSPACE_API`、`messageOf`、`shapeOf`），
+文件级 import **1 条**（`keyAction`）。产物口径（terser 之后）到 Task 9 的收录面一起量。
+§I 判据块 **530 行 / 27,296 字节 / 16 条**，追加后 `scripts/toolkit-tests.mjs` 共
+**4,297 行 / 279,929 字节**（`wc -l` / `wc -c` 口径；段 1 收口时那份是 2,554 行 / 179,197 字节）。
+
+- [ ] **Step 7: 提交**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+git status --porcelain
+git add dev/js/tools/panel-dom.js scripts/toolkit-tests.mjs
+git commit -m "$(cat <<'EOF'
+feat(tools): 面板 DOM 绑定层 panel-dom.js——属性表只写不判 + 单块错误隔离
+
+全站只允许一处 ARIA 口径：tabAttr / panelAttr / tablistAttr 给什么就写什么，不判断、
+不改名、不补默认值。唯一的按值型分派是 hidden——setAttribute('hidden','false') 在真 DOM
+上照样是隐藏，W1 一刀红十三条，那才是"一次只显示一块"的真实含义。
+
+焦点只跟键盘走：点击与 hashchange 都不抢焦点，带修饰键与中键整个不接——深链开新标签就是
+深链的价值。地址栏只在用户动手之后写，坏 hash 原样留着、只在页面里说一句，绝不"帮你"退回
+第一块（W15 / W30）；changed 为假时整段不做第二件事，免得凭空多一条历史记录。
+
+一块塌不整页崩：错误条与提示行只写 textContent，message 里那句 </script> 没有第二次转义
+的机会，W6 / W7 由 I12 的全节 innerHTML 审计接住。骨架缺件分两档，缺 tab 的那块面板仍参与
+可见性互锁，run() 不许把"缺节点"洗成"好了"。
+
+§I 的 16 条用手写假 DOM：站内没有 jsdom，不为一个绑定层加依赖、动 package.json 与锁文件。
+三十一刀全部有红——W17 与 I8 第一版都是等效的，补了裸 # 样本与 W31 才有牙。
+EOF
+)"
+git status --porcelain | head
+```
+
+Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
+按 Task 11 的收口节奏单独提。
+
+<!-- APPEND-7 -->
