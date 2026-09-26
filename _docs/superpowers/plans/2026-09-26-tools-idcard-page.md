@@ -3028,4 +3028,1144 @@ git status --porcelain | head
 Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
 按 Task 11 的收口节奏单独提。
 
-<!-- APPEND-5 -->
+## Task 5: `view.js` — 结果对象 → HTML（视图层，零 import）
+
+**Files:**
+- Create: `dev/js/tools/view.js`
+- Modify: `scripts/toolkit-tests.mjs`（追加 §H，15 条）
+
+这一格是设计文档 §6.2 里唯一"只吃结果对象、不碰数据模块"的一层。六条口径先立住，否则实现里
+每一处"顺手 import 一下"都会变成 Task 9 收录面上的红字：
+
+1. **零 import 是体积红线，不是风格偏好。** `view.js` 会被 `toolkitCore.js` 挂成 `window.Tk`
+   给三页共用（§0.2 那条实测：两个页面入口各自 `import` 同一模块时，vite 把 `import{` 原样留在
+   IIFE 包裹的产物里，`vite build` 退出 0 而页面白屏——所以跨页只能走 `window.Tk`）。这里只要写
+   一行 `import { resolveRegion } from './region.js'`，`region-data.js`（单文件 **100,020 字节**）
+   或某张码表就跟着进了跨页共享层，而 `toolkitCore.min.js` 是 JSON 页也要加载的，§7 那条
+   "证件页 JS + CSS gzip ≤ 60KB"当场顶破。**所以结果对象由装配层递进来、口径文案由参数传进来**，
+   视图一侧不持有任何数据模块。H7 直接读源文本扫 `import`（静态、动态、`export … from` 三种写法）
+   必须为零，V28 往文件头补一条 `import` 就红。
+2. **转义只有 `esc` 一个出口。** 装配层拿到的是 HTML 串、走 `innerHTML`，视图少转一次就是页面被
+   截断——用户粘贴的内容完全可能是 `</script><script>…`（§7 那条深样本对五格都成立，因为五格都把
+   原样输入放进 `input` / `value`）。`esc` 收 `& < > " '` 五个字符、必须带 `/g`、只收字符串与有限数；
+   `null` / `undefined` 不在这里兜——"这一格可以是空"由列定义显式声明（`cell`），否则真缺字段也
+   看不出来。H1 用一条多字符样本同时判五档，H8 判口径行也走这里，H15 拿标签白名单审计整个结果区。
+3. **三态是 UI 的三态，不是模块的 `state`。** §5.4 要"有效 / 校验位不符 / 结构非法"三者可区分，
+   而五个模块的 `state` 加起来是**六档**：`empty` `malformed` `checkdigit` `luhn` `unlisted` `valid`。
+   `checkdigit`（身份证与信用代码，模 11 / 模 31）与 `luhn`（银行卡，模 10）算法不同、对用户的结论
+   是同一句，映射成同一档；`unlisted`（行别前缀、号段查不到）既不是有效也不是无效，它就是 §5.4
+   那句"查不到不下无效结论"在 UI 上的形状，所以自成一档而不是塞进 `malformed`。映射只写在
+   `STATE_META` 一处，徽章与外层 `tk-result--{tone}` 共用它；**未知的 `state` 一律抛**——哪天银行卡
+   要出 `expired`，页面必须当场炸给装配层，而不是把没定论的号显示成绿的。
+4. **列数一致是构造保证的，不是靠人记得数 `<td>`。** 表头与表体在同一段代码里由同一份列定义算出
+   （`table()` 是十二张表的唯一构造点：读侧四张明细 + 生成侧八张）。`pickPath` 取不到中间任何一段
+   就抛"内部不变量"，`fmt` 返回 `null` 才渲染成 `—`——"这一格是空"与"这格没定义"是两件事。
+   `checks[i].ok === null` 是"不判定"，不是"不通过"（§5.4），所以判定表那一列有三档措辞，`CHECK_UNKNOWN`
+   单独一格。
+5. **口径文案归数据模块，视图不改写。** `caveat` / `note` / `id15Note` / 手机号那句 `normalized`
+   全部原样透传（只转义），视图自己只造结构性句子（表头、"共 N 条"、"未收录"这一类）。H8 拿模块
+   常量逐字比对钉住这条分界。同一句话如果在逐项判定表里已经出现过（身份证区划未收录时
+   `checks.region.detail` 与 `caveat` 是同一句），就不再重复一遍——那是去重，不是改写（H9）。
+   `notes` 由装配层作为参数递进来（H8 最后一条：没传就不出，视图不许自己去 import）。
+6. **不碰 DOM、不写样式。** H7 除了 `import` 还扫 `document` / `window` / `innerHTML` /
+   `querySelector` / `createElement` / `Node` 六个词；H15 的白名单只放 `div p span table thead tbody
+   tr th td` 九种标签，禁 `on*=`、`style=`、`src|href|action=`。颜色与尺寸是 `toolkit.scss`
+   （Task 7）的活，§6.4 只允许语义令牌；结果区的外层容器与 `aria-live` 由构建期骨架给，视图只交内容。
+
+- [ ] **Step 1: 先写 §H 的 15 条判据（此时 `view.js` 还不存在，必红）**
+
+追加到 `scripts/toolkit-tests.mjs` 末尾（§G 之后）。**这一节只新引 `view.js` 一个模块**：其余要用的
+读侧 / 生成侧函数与口径常量都在 §B、§C、§E、§F、§G 顶层解构过了，同名 `const` 再声明一次是
+SyntaxError（`node --check` 在拼装阶段就会红，跑不到测试）。14 个名字全是新面孔，六个辅助带 `h`
+前缀（`hHead` / `hBody` / `hLabels` / `hTagAudit` / `hText` / `hBanks`），与 §G 的 `dupes` / `gNames`
+一族不重名。`readFileSync` 文件头就有，本节只有 H7 用它读源文本。
+
+```js
+// ── §H 视图层 ──────────────────────────────────────────────────────────────
+//（本节只新引 `view.js` 一个模块：`parseIdCard` / `parseUscc` / `parseBankCard` / `parseMobile`、
+//  八个 `generate*`、以及 `USE_NOTE` / `REFERENCE_NOTE` / `BANK_CAVEAT` / `MOBILE_CAVEAT` / `NAME_NOTE`
+//  已在 §B、§C、§E、§F、§G 的顶层解构过，同名 `const` 再声明一次是 SyntaxError；`readFileSync`
+//  文件头就有（只有 H7 读源文本用它）。view.js 这 14 个名字全是新面孔，六个 `h*` 前缀的辅助
+//  （`hHead` / `hBody` / `hLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
+const { BATCH_KINDS, EMPTY_CELL, READ_KINDS, STATE_META, batchBlock, checksTable, detailTable, echoLines, esc, listTable, noteLines, parseBlock, stateBadge, suggestLine
+} = await import('../dev/js/tools/view.js');
+
+
+
+/** 表头的列数（只认 `<thead>` 里那一行，别把表体的 `<tr>` 数进来） */
+function hHead(html) {
+  const m = html.match(/<thead><tr>([\s\S]*?)<\/tr><\/thead>/);
+  return m ? (m[1].match(/<th\b/g) || []).length : 0;
+}
+/** 表体每一行的格数 */
+function hBody(html) {
+  const m = html.match(/<tbody>([\s\S]*?)<\/tbody>/);
+  if (!m) return [];
+  return (m[1].match(/<tr>[\s\S]*?<\/tr>/g) || []).map((row) => (row.match(/<td\b/g) || []).length);
+}
+/**
+ * 只审计"真的标签"：转义过的内容里 `&lt;img …&gt;` 是文本，不会在这里露面；
+ * 一旦视图少转一次，这里就会长出一个带 `on*=` 的标签或一个白名单外的标签。
+ */
+function hTagAudit(html) {
+  const bad = [];
+  for (const tag of html.match(/<\/?[a-zA-Z][^>]*>/g) || []) {
+    const name = (tag.match(/^<\/?([a-zA-Z][a-zA-Z0-9]*)/) || [])[1];
+    if (!['div', 'p', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td'].includes((name || '').toLowerCase())) {
+      bad.push(`标签 ${name}`);
+    }
+    if (/\son[a-z]+\s*=/i.test(tag) || /\sstyle\s*=/i.test(tag) || /\s(src|href|action)\s*=/i.test(tag)) {
+      bad.push(`属性 ${tag.slice(0, 20)}`);
+    }
+  }
+  return bad;
+}
+/** 表头文字（判"这一列在不在、叫什么名"用它，改类名不会误红） */
+function hLabels(html) {
+  const m = html.match(/<thead><tr>([\s\S]*?)<\/tr><\/thead>/);
+  return m ? [...m[1].matchAll(/<th\b[^>]*>([^<]*)<\/th>/g)].map((x) => x[1]) : [];
+}
+/** 剥掉标签只看文字（判"这一句在不在"时不必连类名一起抄，改样式不会误红） */
+const hText = (html) => html.replace(/<[^>]*>/g, '');
+const hBanks = (seed) => generateBankCards({ count: 20, rng: seededRandom(seed) });
+
+test('H1 esc 是本文件唯一的转义出口：五个字符各转一次，非文本一律抛', () => {
+  assert.equal(esc('&'), '&amp;');
+  assert.equal(esc('<'), '&lt;');
+  assert.equal(esc('>'), '&gt;');
+  assert.equal(esc('"'), '&quot;');
+  assert.equal(esc("'"), '&#39;');
+  assert.equal(esc('a&amp;b'), 'a&amp;amp;b', '已转义过的串再走一次也必须被继续转义（不做二次识别）');
+  assert.equal(esc(0), '0', '数字要能直接出货，否则"0 岁""0 位"会变成空');
+  assert.equal(esc(19), '19');
+  assert.equal(esc('北京市东城区'), '北京市东城区');
+  assert.equal(esc('<a href="x">A&B\'</a>'),
+    '&lt;a href=&quot;x&quot;&gt;A&amp;B&#39;&lt;/a&gt;',
+    '五个特殊字符同时出现时必须每个都转——把 /g 去掉就只有第一个被换掉');
+  for (const bad of [null, undefined, {}, [], true, NaN, Infinity]) {
+    assert.throws(() => esc(bad), TypeError, `esc(${JSON.stringify(bad)}) 竟然没抛`);
+  }
+});
+
+test('H2 六档 state → 三态 + 两档中性：类名与文案逐格钉住，未知状态抛', () => {
+  assert.deepEqual(Object.keys(STATE_META).sort(),
+    ['checkdigit', 'empty', 'luhn', 'malformed', 'unlisted', 'valid'].sort());
+  const want = {
+    valid: ['有效', 'ok'], checkdigit: ['校验位不符', 'warn'], luhn: ['校验位不符', 'warn'],
+    unlisted: ['表内未收录', 'unknown'], malformed: ['结构非法', 'bad'], empty: ['等待输入', 'idle'],
+  };
+  for (const [state, [label, tone]] of Object.entries(want)) {
+    const html = stateBadge(state);
+    assert.equal(html, `<span class="tk-state tk-state--${tone}">${label}</span>`, `${state} 的徽章形状不对`);
+  }
+  assert.equal(stateBadge('checkdigit'), stateBadge('luhn'), '模 11 与 Luhn 对用户是同一句结论，必须同字同档');
+  assert.ok(!stateBadge('unlisted').includes('bad'), '查不到不得渲染成"不通过"（§5.4 那句不下无效结论）');
+  assert.ok(!stateBadge('unlisted').includes('ok'), '查不到也不许渲染成绿的');
+  for (const bad of ['expired', '', 'OK', 'VALID', null, 0, {}]) {
+    assert.throws(() => stateBadge(bad), TypeError, `未知状态 ${JSON.stringify(bad)} 竟然没抛`);
+  }
+});
+
+test('H3 五个读侧真实向量：外层类名跟着 state 走，未知状态从 parseBlock 也炸', () => {
+  const cases = [
+    ['idcard', parseIdCard('110101199003070011'), 'ok'],
+    ['idcard', parseIdCard('110101199003070015'), 'warn'],
+    ['idcard', parseIdCard('123'), 'bad'],
+    ['uscc', parseUscc('91350100M000100Y43'), 'ok'],
+    ['uscc', parseUscc('91350100M000100Y42'), 'warn'],
+    ['bank', parseBankCard('6222-0219-9003-0700-15'), 'ok'],
+    ['bank', parseBankCard('4900000000000003'), 'unknown'],
+    ['mobile', parseMobile('13800138000'), 'ok'],
+    ['mobile', parseMobile('14000000000'), 'unknown'],
+    ['mobile', parseMobile('12800138000'), 'bad'],
+  ];
+  for (const [kind, result, tone] of cases) {
+    const html = parseBlock(kind, result);
+    assert.ok(html.startsWith(`<div class="tk-result tk-result--${tone}">`),
+      `${kind}/${result.state} 的外层类名不是 ${tone}：${html.slice(0, 60)}`);
+    assert.doesNotMatch(html, /undefined|null(?![a-z])/g, '渲染结果里漏出了内部值');
+  }
+  const stray = parseIdCard('110101199003070011');
+  stray.state = 'expired';
+  assert.throws(() => parseBlock('idcard', stray), TypeError, '未知状态从 parseBlock 走竟然不抛');
+});
+
+test('H4 列数一致：十二张表里每一行的格数都等于表头格数', () => {
+  /** 列名是 UI 契约：静默少一列＝少一项信息，用户看不出来，只能由判据看住 */
+  const WANT_LABELS = {
+    idcard: ['号码', '区划', '出生日期', '年龄', '性别'],
+    uscc: ['代码', '区划', '主体标识', '校验位'],
+    bank: ['卡号', '发卡行', '卡种', '登记位数'],
+    mobile: ['号码', '号段', '运营商'],
+    name: ['姓名', '姓', '名', '名字数'],
+    address: ['地址', '区划码'],
+    email: ['邮箱', '域'],
+    profile: ['姓名', '地址', '邮箱'],
+  };
+  const WANT_DETAIL = {
+    idcard: ['区划', '出生日期', '年龄', '性别', '顺序码', '校验位', '校验算式', '18 位写法', '15 位写法', '区划数据截止'],
+    uscc: ['区划', '登记管理部门码', '机构类别码', '主体标识', '组织机构代码', '组织机构代码校验位', '校验位', '校验算式'],
+    bank: ['位数', '命中前缀', '发卡行', '卡种', '表内登记位数', 'Luhn', 'Luhn 算式', '行别来源'],
+    mobile: ['位数', '号段', '运营商', '展示格式', '号段来源'],
+  };
+  assert.deepEqual(Object.keys(WANT_LABELS), BATCH_KINDS.slice(), '列契约的 kind 集合没跟 BATCH_KINDS 同步');
+  assert.deepEqual(Object.keys(WANT_DETAIL), READ_KINDS.slice(), '明细契约的 kind 集合没跟 READ_KINDS 同步');
+  const rng = seededRandom(11);
+  const batches = {
+    idcard: generateIdCards({ count: 12, rng }),
+    uscc: generateUsccCodes({ count: 12, rng }),
+    bank: hBanks(12),
+    mobile: generateMobiles({ count: 12, rng }),
+    name: generateNames({ count: 12, rng }),
+    address: generateAddresses({ count: 12, rng }),
+    email: generateEmails({ count: 12, rng }),
+    profile: generateProfiles({ count: 12, rng }),
+  };
+  for (const [kind, rows] of Object.entries(batches)) {
+    const html = listTable(kind, rows);
+    const cols = hHead(html);
+    const body = hBody(html);
+    assert.ok(cols >= 2, `${kind} 的列数少到不能承载信息`);
+    assert.deepEqual(hLabels(html), WANT_LABELS[kind], `${kind} 的生成表列名与契约不一致`);
+    assert.equal(body.length, rows.length, `${kind} 的表格行数与结果条数不一致`);
+    assert.deepEqual(body, new Array(rows.length).fill(cols), `${kind} 出现了 ${[...new Set(body)].join('/')} 格混排`);
+    assert.ok(batchBlock(kind, rows, []).startsWith(`<div class="tk-batch tk-batch--${kind}">`),
+      `${kind} 的生成块没带 kind 类名，样式没法按档区分`);
+  }
+  const reads = {
+    idcard: parseIdCard('110101199003070011'),
+    uscc: parseUscc('91350100M000100Y43'),
+    bank: parseBankCard('6222-0219-9003-0700-15'),
+    mobile: parseMobile('13800138000'),
+  };
+  for (const [kind, result] of Object.entries(reads)) {
+    const html = detailTable(kind, result);
+    assert.ok(hHead(html) >= 5, `${kind} 的明细表列太少，摊不开解码量`);
+    assert.deepEqual(hLabels(html), WANT_DETAIL[kind], `${kind} 的明细表列名与契约不一致`);
+    assert.deepEqual(hBody(html), [hHead(html)], `${kind} 的明细表行列不匹配`);
+    const c = checksTable(result.checks);
+    assert.equal(hHead(c), 3, `${kind} 的判定表不是三列`);
+    assert.deepEqual(hLabels(c), ['判定项', '结论', '依据'], `${kind} 的判定表三列名字变了`);
+    assert.deepEqual(hBody(c), new Array(result.checks.length).fill(3), `${kind} 的判定表行列不匹配`);
+  }
+  const zero = listTable('idcard', [{ id18: '110101202601010011', region: '北京市市辖区', birth: '2026-01-01', age: 0, sex: '男' }]);
+  assert.ok(zero.includes('>0<'), '0 岁被显示成了空（cell 一旦用 falsy 判断就会这样）');
+  assert.ok(!zero.includes(EMPTY_CELL), '这一条五格都有值，不该出现空值形状');
+});
+
+test('H5 不判定那一档只有三种真实形状，一律不给"不通过"', () => {
+  const uncoded = parseIdCard('610199199003070011');
+  assert.equal(uncoded.checks.find((c) => c.key === 'region').ok, null, '前提变了：区划这行不再是 null 档');
+  assert.ok(checksTable(uncoded.checks).includes('>未收录<'), '区划未收录没走"未收录"这一格');
+  const fifteen = parseIdCard('110101900307001');
+  assert.equal(fifteen.state, 'valid');
+  assert.equal(fifteen.checks.find((c) => c.key === 'checkBit').ok, null);
+  assert.equal(STATE_META[fifteen.state].tone, 'ok', '15 位无校验位却把整块降了档');
+  const short = parseBankCard('6222 0219 9003 0700 11');
+  assert.equal(short.checks.find((c) => c.key === 'bin').ok, null, '前提变了：登记位数不吻合那格不再是 null');
+  const badSegment = parseMobile('12800138000');
+  assert.equal(badSegment.checks.find((c) => c.key === 'carrier').ok, null);
+  const html = checksTable(badSegment.checks);
+  assert.deepEqual(hBody(html), new Array(badSegment.checks.length).fill(3));
+  assert.ok(!html.includes('不通过</td><td>号段不成立'), '运营商"不判定"被渲染成了"不通过"');
+  const allOk = checksTable(parseIdCard('110101199003070011').checks);
+  assert.ok(hText(allOk).includes('通过'), '全判据通过时一行"通过"都没有');
+  assert.ok(!hText(allOk).includes('不通过'), '全通过的向量里冒出了"不通过"（三态映射的 true/false 被换了）');
+  for (const checks of [[{ key: 'x', label: 'a', ok: 'yes', detail: 'b' }], [{ key: 'x', label: 'a', ok: true }], 'nope', null]) {
+    assert.throws(() => checksTable(checks), TypeError, `判据表居然收下了 ${JSON.stringify(checks)}`);
+  }
+});
+
+test('H6 kind 与列定义一一对应：读侧与生成侧不能互相串门，未知 kind 抛', () => {
+  assert.deepEqual(READ_KINDS, ['idcard', 'uscc', 'bank', 'mobile']);
+  assert.deepEqual(BATCH_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile']);
+  for (const kind of READ_KINDS) {
+    const r = kind === 'idcard' ? parseIdCard('110101199003070011')
+      : kind === 'uscc' ? parseUscc('91350100M000100Y43')
+        : kind === 'bank' ? parseBankCard('6222-0219-9003-0700-15')
+          : parseMobile('13800138000');
+    assert.ok(detailTable(kind, r).includes('<table'), `${kind} 的明细表没出货`);
+  }
+  for (const kind of ['name', 'address', 'email', 'profile']) {
+    assert.throws(() => detailTable(kind, { info: {} }), TypeError, `生成侧的 ${kind} 居然能走读侧明细表`);
+  }
+  for (const bad of ['json', '', 'IdCard', null, 0]) {
+    assert.throws(() => listTable(bad, []), TypeError, `listTable 居然收下了 kind=${JSON.stringify(bad)}`);
+    assert.throws(() => detailTable(bad, { info: {} }), TypeError, `detailTable 居然收下了 kind=${JSON.stringify(bad)}`);
+  }
+});
+
+test('H7 view.js 零 import、不碰 DOM：跨页共享层的体积红线由判据守着', () => {
+  const src = readFileSync(new URL('../dev/js/tools/view.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(code, /^\s*import[\s({]/m, 'view.js 里出现了 import——它会被 toolkitCore 拖进三页共用层');
+  assert.doesNotMatch(code, /\bimport\s*\(/, 'view.js 里出现了动态 import');
+  assert.doesNotMatch(code, /\bexport\s.*\bfrom\b/, 'view.js 里出现了 re-export（同样是一条 import 边）');
+  for (const domWord of ['document', 'window', 'innerHTML', 'querySelector', 'createElement', 'Node']) {
+    assert.ok(!code.includes(domWord), `view.js 里出现了 ${domWord}`);
+  }
+  assert.doesNotMatch(code, /style\s*=\s*"/, 'view.js 里写了内联样式（颜色与尺寸归 toolkit.scss）');
+  assert.doesNotMatch(code, /#[0-9a-fA-F]{3,6}\b/, 'view.js 里写了颜色字面量（§6.4 只允许语义令牌）');
+});
+
+test('H8 口径行原样透传：模块给的句子一字不动，视图不自己另写一套', () => {
+  const bank = batchBlock('bank', hBanks(21), [USE_NOTE, BANK_CAVEAT]);
+  for (const note of [USE_NOTE, BANK_CAVEAT]) {
+    assert.ok(bank.includes(`<p class="tk-note">${note}</p>`), `口径句被改写了：${note.slice(0, 20)}`);
+  }
+  assert.ok(bank.indexOf(USE_NOTE) < bank.indexOf(BANK_CAVEAT), 'notes 的顺序要照调用方给的顺序出');
+  const mobileHtml = parseBlock('mobile', parseMobile('13800138000'));
+  assert.ok(mobileHtml.includes(esc(MOBILE_CAVEAT)), '手机号的硬/软结论那句话没落地');
+  assert.ok(mobileHtml.includes('运营商按三位号段判定'), '携号转网与发号口径的限定语没落地');
+  assert.deepEqual(noteLines(['', null, undefined, '有一句']), ['<p class="tk-note">有一句</p>']);
+  assert.deepEqual(noteLines(['含 <b>标签</b> 与 & 的口径句']),
+    ['<p class="tk-note">含 &lt;b&gt;标签&lt;/b&gt; 与 &amp; 的口径句</p>'],
+    '口径句也得走同一个转义出口：notes 由装配层递进来，对视图就不是可信输入');
+  assert.throws(() => noteLines('不是数组'), TypeError);
+  const usccHtml = parseBlock('uscc', parseUscc('91350100M000100Y43'), [REFERENCE_NOTE]);
+  assert.ok(usccHtml.includes(esc(REFERENCE_NOTE)), '信用代码"第 1、2 位不给名称"的缺口说明没落地');
+  assert.throws(() => parseBlock('uscc', parseUscc('91350100M000100Y43'), '不是数组'), TypeError);
+  assert.ok(!parseBlock('uscc', parseUscc('91350100M000100Y43')).includes(REFERENCE_NOTE),
+    '没传 notes 时视图不许自己去 import 那句——那是装配层的活');
+});
+
+test('H9 判定表已经说过的话不再重复一遍：同一句只落地一次', () => {
+  const html = parseBlock('idcard', parseIdCard('610199199003070011'));
+  const sentence = '区划码未收录（可能是已撤销建制、经济功能区，或晚于区划数据截止日的调整）';
+  assert.equal(html.includes(sentence), true, '这句话根本没落地');
+  assert.equal(html.split(sentence).length - 1, 1, `「${sentence.slice(0, 12)}…」重复出现了 ${html.split(sentence).length - 1} 次`);
+  const withNote = parseBlock('idcard', parseIdCard('110101900307001'));
+  assert.ok(withNote.includes('15 位为第一代号码，无校验位'), 'id15Note 那句没落地（它不在判定表里，不该被去重掉）');
+  const bank = parseBlock('bank', parseBankCard('4900000000000003'));
+  assert.equal(bank.split('前缀未收录').length - 1, 1, '银行卡未收录那句在表外又说了一遍');
+  assert.ok(bank.includes(BANK_CAVEAT), '未收录时那句参考口径也得在');
+});
+
+test('H10 明细表把解码量摊开：区划带命中级别，算式带 Σ 与模数；结构不成立时不摆空表', () => {
+  const idHtml = detailTable('idcard', parseIdCard('110101199003070011'));
+  assert.ok(idHtml.includes('110101 · 北京市东城区（县级 · 现行）'), idHtml.match(/<tr>.*?区划.*?<\/tr>/)?.[0]);
+  assert.ok(idHtml.includes('36 岁'));
+  assert.ok(idHtml.includes('Σ 154 · mod 11 = 0 · 对照表 10X98765432'));
+  assert.ok(idHtml.includes('号码末位 1，算得 1'));
+  assert.ok(idHtml.includes('2022-10-31'), '区划数据截止日没落地');
+  const city = detailTable('uscc', parseUscc('91350100M000100Y43'));
+  assert.ok(city.includes('350100 · 福建省福州市（市级 · 现行）'), '市级命中被写成了县级');
+  const history = detailTable('idcard', parseIdCard('371299199003070011'));
+  assert.ok(history.includes('（市级 · 历史）'), '历史码的命中级别没落地');
+  for (const bad of ['123', '']) {
+    const r = parseIdCard(bad);
+    assert.equal(r.info, null, '前提变了：这一档 info 不再是 null');
+    assert.equal(detailTable('idcard', r), '', '结构不成立还要摆明细表，等于把一排破折号说成"解出来了"');
+  }
+});
+
+test('H11 回显分清"原样输入"与"参与判定的是哪一串"，四种归一各有说法', () => {
+  const bank = echoLines(parseBankCard('6222-0219-9003-0700-15')).join('');
+  assert.ok(bank.includes('6222-0219-9003-0700-15') && bank.includes('622202199003070015'), '分隔符归一没显示');
+  assert.ok(bank.startsWith('<p class="tk-echo">原样输入'), bank);
+  const plain = echoLines(parseIdCard('110101199003070011')).join('');
+  assert.ok(plain.includes('判定对象'), '输入与判定串相同时还写"原样输入 …，参与判定的是…"');
+  const inner = parseIdCard('110101 19900307001 1');
+  assert.equal(inner.state, 'malformed', '前提变了：身份证内部空格不再是原样判');
+  assert.ok(echoLines(inner).join('').includes('去掉中间的分隔符后是 <span class="tk-mono">110101199003070011</span>'));
+  const lowered = echoLines(parseUscc('91350100m000100y43')).join('');
+  assert.ok(lowered.includes('字母按大写解释'));
+  const plus = echoLines(parseMobile('+86 13800138000')).join('');
+  assert.ok(plus.includes('去掉了国际前缀 +86'), '手机号自己给的那句归一说明没落地');
+});
+
+test('H12 同前缀多行命中时另起一张前缀表，五列且标出位数是否吻合', () => {
+  const amb = parseBankCard('622307920707762365');
+  assert.equal(amb.ambiguous, true, '前提变了：这个号不再多义');
+  assert.equal(amb.matches.length, 2);
+  const html = parseBlock('bank', amb);
+  const tableHtml = (html.match(/<table class="tk-table tk-matches">[\s\S]*?<\/table>/) || [])[0];
+  assert.ok(tableHtml, '多义时没出前缀表');
+  assert.equal(hHead(tableHtml), 5, '前缀表表头不是 5 列');
+  assert.deepEqual(hBody(tableHtml), [5, 5], '前缀表行格数与表头不一致');
+  assert.ok(tableHtml.includes('中国工商银行') && tableHtml.includes('九江银行'));
+  assert.equal((tableHtml.match(/>是</g) || []).length, 1, '位数吻合应当只有一条"是"');
+  assert.equal((tableHtml.match(/>否</g) || []).length, 1);
+  const single = parseBlock('bank', parseBankCard('6222-0219-9003-0700-15'));
+  assert.ok(!single.includes('tk-matches'), '单义号码不该摆前缀表');
+});
+
+test('H13 建议行只在真有建议时出现，且点名"只改校验位"', () => {
+  const wrong = parseIdCard('110101199003070015');
+  assert.equal(wrong.suggestedId18, '110101199003070011');
+  const html = parseBlock('idcard', wrong);
+  assert.ok(html.includes('只改校验位就能自洽：<span class="tk-mono">110101199003070011</span>'), html.slice(-260));
+  assert.equal(suggestLine('idcard', parseIdCard('110101199003070011')), '', '校验位本来就对还给建议');
+  assert.equal(suggestLine('uscc', parseUscc('91350100M000100Y42')), '', '信用代码没有 suggested 键，视图不许自己拼一个');
+  assert.ok(!parseBlock('mobile', parseMobile('12800138000')).includes('只改校验位'), '手机号没有校验位，不该出现建议');
+  assert.equal(suggestLine('bank', parseBankCard('9000000000000001')), '', '位数不吻合那档不该给"只改校验位"的号');
+});
+
+test('H14 空输入与零结果各有明确说法，不摆空表', () => {
+  const idle = parseBlock('idcard', parseIdCard(''));
+  assert.ok(idle.startsWith('<div class="tk-result tk-result--idle">'), idle.slice(0, 60));
+  assert.ok(idle.includes('还没有可判定的内容。'));
+  assert.ok(!idle.includes('<table'), '空输入摆了表格，读屏会念出一串空的判定项');
+  const emptyBatch = batchBlock('name', [], [NAME_NOTE]);
+  assert.ok(emptyBatch.includes('<p class="tk-count">共 0 条</p>'));
+  assert.ok(emptyBatch.includes('这次没有产出任何结果。'));
+  assert.ok(!emptyBatch.includes('<table'));
+  assert.ok(emptyBatch.includes(NAME_NOTE), '零结果时口径行也得照给');
+  const full = batchBlock('name', generateNames({ count: 7, rng: seededRandom(31) }), [NAME_NOTE]);
+  assert.ok(full.includes('<p class="tk-count">共 7 条</p>'));
+  assert.equal(full.split('<tr>').length - 1, 8, '七条结果应当是表头 + 7 行');
+  assert.throws(() => listTable('name', '不是数组'), TypeError);
+  assert.throws(() => batchBlock('name', [], '不是数组'), TypeError);
+});
+
+test('H15 深样本：把 HTML 与脚本片段塞进输入、行别名与地址，落地只剩文本', () => {
+  const evil = '</script><img src=x onerror=alert(1)>';
+  const html = parseBlock('idcard', parseIdCard(evil));
+  assert.deepEqual(hTagAudit(html), [], '产物里长出了白名单外的标签或危险属性');
+  assert.equal((html.match(/<script/g) || []).length, 0, '产物里出现了 <script');
+  assert.ok(html.includes('&lt;/script&gt;'), '该转义的串反而没转义');
+  assert.ok(html.includes('alert(1)'), '转义之后文本内容还得在（只转义不吞字）');
+  const rows = [{
+    formatted: evil, bankName: 'A&B「」', cardTypeName: '<b>借记卡</b>', panLength: 19,
+  }];
+  const listHtml = listTable('bank', rows);
+  assert.ok(listHtml.includes('A&amp;B'), '发卡行里的 & 没转义');
+  assert.ok(!listHtml.includes('<b>借记卡</b>'), '卡种被当成了标签');
+  const deep = generateProfiles({ count: 3, rng: seededRandom(41) });
+  deep[0].address.text = evil;
+  const profileHtml = batchBlock('profile', deep, []);
+  assert.equal((profileHtml.match(/<script|<img/g) || []).length, 0, '嵌套路径上的值没走同一条转义');
+  assert.ok(profileHtml.includes('&lt;/script&gt;'));
+  assert.throws(() => listTable('profile', [{ name: { name: '甲' }, address: {}, email: { email: 'a@b' } }]),
+    /缺「text」/, '嵌套字段少了却静默显示成空');
+  assert.equal(listTable('mobile', [{ formatted: '138 0013 8000', segment: '138', carrier: null }])
+    .includes(EMPTY_CELL), true, '运营商为空时应出空值形状');
+});
+```
+
+- [ ] **Step 2: 跑红，确认红的形状**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^not ok|Cannot find module|^# (tests|pass|fail)'; echo "exit=${PIPESTATUS[0]}"
+```
+
+Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/view.js'`，`# tests 96`、`# pass 95`
+（§A–§G 那批照绿）、`# fail 1`、`exit=` 非 0。红的形状与 §E / §F / §G 当时一致：**整文件挂**，
+不是 15 条各挂一次——顶层 `await import` 抛在文件级。
+
+- [ ] **Step 3: 写 `dev/js/tools/view.js`**
+
+```js
+/**
+ * 视图层（设计文档 §6.2）：把五格数据模块的**结果对象**渲染成 HTML 字符串。
+ *
+ * **纯函数、不碰 DOM、零 import**。三条都不是风格偏好：
+ * - 不碰 DOM 才跑得进 Node 判据（§8.1），真 DOM 只在 §I 的手写假 DOM 与 Task 10 的 headless Chrome 各测一次；
+ * - 零 import 是段 2 计划 0.2 那条实测的直接后果：这一格会被 `toolkitCore.js` 挂成 `window.Tk`
+ *   供三页共用，多一条 `import` 就把 `region-data.js`（单文件 100,020 字节）或某张码表拽进
+ *   跨页共享层，§7 那条"证件页 JS+CSS gzip ≤ 60KB"立刻顶破，而 `toolkitCore.min.js` 是 JSON 页
+ *   也要加载的。所以**结果对象由装配层递进来**，视图一侧不持有任何数据模块。§H 有一条判据
+ *   专门扫源文本数 `import` 的条数（必须为 0），往这里加一行 import 就会红。
+ * - 转义只在这一处（`esc`）：装配层拿到的是串，走 `innerHTML`，视图少转一次就是页面被截断。
+ *   设计文档 §7 那条深样本"含 `</script>` 的字符串值"在这里同样成立——五格都把原样输入放进
+ *   `input` / `value`，用户粘贴的内容完全可能是 `</script><script>…`。
+ *
+ * **三态是 UI 的三态，不是模块的 `state`。** §5.4 要"有效 / 校验位不符 / 结构非法"三者可区分，
+ * 而五个模块的 `state` 加起来是六档：`empty` `malformed` `checkdigit` `luhn` `unlisted` `valid`。
+ * `checkdigit`（身份证、信用代码，模 11 / 模 31）与 `luhn`（银行卡）同为"校验位不符"——
+ * 算法不同、对用户而言的结论是同一句；`unlisted`（行别前缀、号段查不到）既不是有效也不是无效，
+ * 它就是 §5.4 那句"查不到不下无效结论"在 UI 上的形状，所以自成一档而不是塞进 `malformed`。
+ * 映射只写在 `STATE_META` 一处，**未知的 `state` 一律抛**：新增一档必须同时在这里补一档，
+ * 不能让"视图没见过"静默退化成"按有效渲染"。
+ *
+ * **口径文案归数据模块，视图不改写。** `caveat` / `note` / `id15Note` / 手机号那句 `normalized`
+ * 全部原样透传（只转义），视图自己只造结构性句子（表头、"共 N 条"、"未收录"这一类）。
+ * H8 拿模块常量逐字比对钉住这条分界。同一句话如果在逐项判定表里已经出现过，就不再重复一遍
+ * （身份证未收录区划时 `checks.region.detail` 与 `caveat` 是同一句），这是去重不是改写。
+ *
+ * 与 `idcard.js` / `uscc.js` / `bankcard.js` / `phone.js` / `random-data.js` 同一套约定：
+ * 入参形状不对就 `TypeError`，内部不变量被破坏就 `Error`，文案里的"收到什么"走本文件自己的
+ * `shapeOf`（与各模块那份逐字同形但各自私有——跨文件共享它就要开 import 边，见上）。
+ */
+
+/** 读侧四种、生成侧八种；列定义与明细定义都按这套键取，多一格少一格都会在 §H 红 */
+export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile'];
+export const BATCH_KINDS = ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile'];
+
+/** 空值的显示形状。`null` 与"这一格没定义"是两件事，后者在 `table()` 里直接抛 */
+export const EMPTY_CELL = '—';
+
+/**
+ * 六档 `state` → UI 三态 + 两档中性。`tone` 决定类名后缀（`tk-state--ok`）与外层
+ * `tk-result--{tone}`，所以样式只需要认这五个词，不需要认六个模块状态。
+ */
+export const STATE_META = {
+  valid: { label: '有效', tone: 'ok' },
+  checkdigit: { label: '校验位不符', tone: 'warn' },
+  luhn: { label: '校验位不符', tone: 'warn' },
+  unlisted: { label: '表内未收录', tone: 'unknown' },
+  malformed: { label: '结构非法', tone: 'bad' },
+  empty: { label: '等待输入', tone: 'idle' },
+};
+
+/** `resolveRegion` 能给出的四种状态与四种级别，视图负责翻成 §5.4 那套措辞 */
+const REGION_STATUS_CN = { current: '现行', abolished: '历史', uncoded: '未收录', unknown: '未收录' };
+const REGION_LEVEL_CN = { county: '县级', city: '市级', province: '省级', none: '未命中' };
+
+/** 逐项判定表里 `ok` 的三种取值——`null` 是"不判定"，不是"不通过" */
+const CHECK_VERDICT = { true: '通过', false: '不通过' };
+const CHECK_UNKNOWN = '未收录';
+
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+/** 报错文案里的"收到什么"，与各模块那份同形（各自私有，见文件头） */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `Array(${v.length})`;
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
+}
+
+/**
+ * 唯一的转义出口。只收字符串与数字——`null` / `undefined` 在这里抛，
+ * "这一格可以是空"必须由列定义显式声明，不能靠 `esc` 兜住，否则真缺字段也看不出来。
+ * @param {string|number} value
+ */
+export function esc(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError(`view 的 esc 只收有限数，收到 ${shapeOf(value)}`);
+    return String(value);
+  }
+  if (typeof value !== 'string') {
+    throw new TypeError(`view 的 esc 只收字符串或数字，收到 ${shapeOf(value)}`);
+  }
+  return value.replace(/[&<>"']/g, (c) => ESC_MAP[c]);
+}
+
+/** 单元格：`null` / `undefined` / 空串 → `EMPTY_CELL`，其余交给 `esc` */
+function cell(value) {
+  if (value === null || value === undefined || value === '') return EMPTY_CELL;
+  return esc(value);
+}
+
+/** 取点号路径（`name.given`）；中间任何一段不存在就是数据形状变了，抛而不是显示 `—` */
+function pickPath(row, path, who) {
+  let cur = row;
+  for (const seg of path.split('.')) {
+    if (cur === null || typeof cur !== 'object' || !(seg in cur)) {
+      throw new Error(`内部不变量：${who} 的列「${path}」在数据里取不到（缺「${seg}」这一格）`);
+    }
+    cur = cur[seg];
+  }
+  return cur;
+}
+
+/**
+ * 一张表的唯一构造点：表头与每一行的格数由同一段代码算出，"列数一致"是构造保证的，
+ * 不是靠人记得数 `<td>`。`fmt` 用来拼跨字段的可读串，`path` 是纯取字段。
+ * @param {string} who 报错与类名里用的名字
+ * @param {{label:string,path?:string,fmt?:(row:object)=>(string|number|null),mono?:boolean}[]} columns
+ * @param {object[]} rows
+ */
+function table(who, columns, rows) {
+  const head = columns.map((c) => `<th scope="col"${c.mono ? ' class="tk-mono"' : ''}>${esc(c.label)}</th>`);
+  const body = rows.map((row, i) => {
+    const tds = columns.map((c) => {
+      let v;
+      if (c.fmt) v = c.fmt(row);
+      else v = pickPath(row, c.path, `${who} 第 ${i + 1} 行`);
+      if (v !== null && v !== undefined && typeof v !== 'string' && typeof v !== 'number') {
+        throw new TypeError(`内部不变量：${who} 第 ${i + 1} 行的「${c.path || c.label}」算出来是 ${shapeOf(v)}，不是文本`);
+      }
+      return `<td${c.mono ? ' class="tk-mono"' : ''}>${cell(v)}</td>`;
+    });
+    return `<tr>${tds.join('')}</tr>`;
+  });
+  return `<table class="tk-table ${who}"><thead><tr>${head.join('')}</tr></thead>`
+    + `<tbody>${body.join('')}</tbody></table>`;
+}
+
+/**
+ * `state` → `STATE_META` 那一格，取不到就抛。徽章与外层 `tk-result--{tone}` 共用它，
+ * 所以"未知状态"在两块地方只会有一处判定，不会一处抛、一处按 `undefined` 渲染。
+ * @param {string} state
+ */
+function stateMetaOf(state) {
+  if (typeof state !== 'string' || !Object.prototype.hasOwnProperty.call(STATE_META, state)) {
+    throw new TypeError(`view 收到未知的状态「${shapeOf(state)}」，STATE_META 里没有这一档`);
+  }
+  return STATE_META[state];
+}
+
+/**
+ * 三态徽章。`state` 不在 `STATE_META` 里就抛——这条判据的全部意义在于：
+ * 哪天模块新增一档（比如银行卡将来要出 `expired`），页面必须当场炸给装配层，而不是把
+ * 一个没定论的号显示成绿的。
+ * @param {string} state
+ */
+export function stateBadge(state) {
+  const { label, tone } = stateMetaOf(state);
+  return `<span class="tk-state tk-state--${tone}">${esc(label)}</span>`;
+}
+
+/**
+ * 逐项判定表（§5.4 的"让用户看得见为什么不行"）。三列固定：判定项 / 结论 / 依据。
+ * `checks` 为空数组是合法输入（`state === 'empty'`、或结构在头两行就崩了），给一句明说没有的话，
+ * 而不是摆一张空表——空表在屏幕读起来像"全都通过了"。
+ * @param {{key:string,label:string,ok:boolean|null,detail:string}[]} checks
+ */
+export function checksTable(checks) {
+  if (!Array.isArray(checks)) {
+    throw new TypeError(`view 的 checksTable 应为判据数组，收到 ${shapeOf(checks)}`);
+  }
+  if (checks.length === 0) return '<p class="tk-hint">还没有可判定的内容。</p>';
+  return table('tk-checks', [
+    { label: '判定项', path: 'label' },
+    { label: '结论', fmt: (c) => (c.ok === null ? CHECK_UNKNOWN : CHECK_VERDICT[String(c.ok)]) },
+    { label: '依据', path: 'detail' },
+  ], checks.map((c, i) => {
+    if (c === null || typeof c !== 'object' || typeof c.label !== 'string'
+      || typeof c.detail !== 'string'
+      || (c.ok !== true && c.ok !== false && c.ok !== null)) {
+      throw new TypeError(`内部不变量：第 ${i + 1} 条判据形状不对（需要 label/detail 字符串与 true|false|null 的 ok），收到 ${shapeOf(c)}`);
+    }
+    return c;
+  }));
+}
+
+/**
+ * 输入回显：把"用户粘贴的"与"模块拿去判的"分开显示。
+ * 五格对分隔符的口径不一样（银行卡 / 手机号内部的分隔符会被吃掉后继续判，身份证与信用代码
+ * 不会——它把原样串留着判、另给一句 `repairedHint`），装配层不需要记这些差别，视图照字段出货。
+ * @param {object} result 任一读侧结果对象
+ * @returns {string[]} 零到三条 `<p>`，没有可说时就给空数组
+ */
+export function echoLines(result) {
+  const r = result ?? {};
+  const out = [];
+  const judged = typeof r.digits === 'string' ? r.digits : r.value;
+  if (typeof r.input === 'string' && r.input !== '') {
+    if (typeof judged === 'string' && judged !== r.input) {
+      out.push(`<p class="tk-echo">原样输入 <span class="tk-mono">${esc(r.input)}</span>，参与判定的是 <span class="tk-mono">${esc(judged)}</span>。</p>`);
+    } else if (typeof judged === 'string') {
+      out.push(`<p class="tk-echo">判定对象 <span class="tk-mono">${esc(judged)}</span>。</p>`);
+    } else {
+      out.push(`<p class="tk-echo">原样输入 <span class="tk-mono">${esc(r.input)}</span>。</p>`);
+    }
+  }
+  if (typeof r.repairedHint === 'string' && r.repairedHint !== '') {
+    out.push(`<p class="tk-hint">去掉中间的分隔符后是 <span class="tk-mono">${esc(r.repairedHint)}</span>，那一串才是合法长度。</p>`);
+  }
+  if (r.normalized === true) {
+    out.push('<p class="tk-hint">字母按大写解释。</p>');
+  } else if (typeof r.normalized === 'string' && r.normalized !== '') {
+    out.push(`<p class="tk-hint">${esc(r.normalized)}。</p>`);
+  }
+  return out;
+}
+
+/** 区划那两格的可读写法：全称 + §5.4 要求的命中级别 */
+function regionRow(region, who) {
+  if (region === null || typeof region !== 'object') return null;
+  const level = REGION_LEVEL_CN[region.level];
+  const status = REGION_STATUS_CN[region.status];
+  if (!level || !status) {
+    throw new Error(`内部不变量：${who} 拿到未知的区划命中口径（level=${shapeOf(region.level)} status=${shapeOf(region.status)}）`);
+  }
+  return `${region.fullName}（${level} · ${status}）`;
+}
+
+/**
+ * 读侧明细表的列定义。每格都是"从结果对象里取哪两样拼成一句人话"，
+ * 取不到就返回 `null`（渲染成 `—`），但**字段本身缺失**会抛——见 `pickPath` 与 `fmt` 的分工。
+ * 键与 `READ_KINDS` 一一对应，多一个少一个 H6 就红。
+ */
+const DETAIL_SPEC = {
+  idcard: [
+    { label: '区划', fmt: (r) => (r.info.areaCode ? `${r.info.areaCode} · ${regionRow(r.info.region, '身份证')}` : null) },
+    { label: '出生日期', fmt: (r) => r.info.birth },
+    { label: '年龄', fmt: (r) => (r.info.ageYears === null ? null : `${r.info.ageYears} 岁`) },
+    { label: '性别', fmt: (r) => r.info.sex },
+    { label: '顺序码', fmt: (r) => r.info.seq },
+    { label: '校验位', fmt: (r) => (r.info.checkBit ? `号码末位 ${r.info.checkBit}，算得 ${r.info.expectedCheckBit}` : null) },
+    { label: '校验算式', fmt: (r) => (r.info.checkWork ? `Σ ${r.info.checkWork.sum} · mod 11 = ${r.info.checkWork.mod} · 对照表 ${r.info.checkWork.table}` : null) },
+    { label: '18 位写法', fmt: (r) => r.id18, mono: true },
+    { label: '15 位写法', fmt: (r) => r.id15, mono: true },
+    { label: '区划数据截止', fmt: (r) => r.info.datasetVersion },
+  ],
+  uscc: [
+    { label: '区划', fmt: (r) => (r.info.regionCode ? `${r.info.regionCode} · ${regionRow(r.info.region, '统一社会信用代码')}` : null) },
+    { label: '登记管理部门码', fmt: (r) => r.info.registry.char, mono: true },
+    { label: '机构类别码', fmt: (r) => r.info.category.char, mono: true },
+    { label: '主体标识', fmt: (r) => r.info.subject, mono: true },
+    { label: '组织机构代码', fmt: (r) => r.info.body8, mono: true },
+    { label: '组织机构代码校验位', fmt: (r) => `号码第 9 位 ${r.info.orgChar}，算得 ${r.info.orgChecksum.value}（Σ ${r.info.orgChecksum.sum} · mod 11 = ${r.info.orgChecksum.remainder}）` },
+    { label: '校验位', fmt: (r) => `号码末位 ${r.info.checkBit}，算得 ${r.info.expectedCheckBit}` },
+    { label: '校验算式', fmt: (r) => `Σ ${r.info.checksum.sum} · mod 31 = ${r.info.checksum.remainder}` },
+  ],
+  bank: [
+    { label: '位数', fmt: (r) => r.info.length },
+    { label: '命中前缀', fmt: (r) => (r.info.bin ? `${r.info.bin}（${r.info.binLength} 位）` : null), mono: true },
+    { label: '发卡行', fmt: (r) => (r.info.primary ? `${r.info.primary.bankName}（${r.info.primary.bankCode}）` : null) },
+    { label: '卡种', fmt: (r) => (r.info.primary ? r.info.primary.cardTypeName : null) },
+    { label: '表内登记位数', fmt: (r) => (r.info.primary ? r.info.primary.panLength : null) },
+    { label: 'Luhn', fmt: (r) => (r.info.luhnGiven ? `号码末位 ${r.info.luhnGiven}，算得 ${r.info.luhnExpected}` : null) },
+    { label: 'Luhn 算式', fmt: (r) => (r.info.luhnWork ? `Σ ${r.info.luhnWork.sum} · mod 10 = ${r.info.luhnWork.mod} → 校验位应为 ${r.info.luhnWork.expected}` : null) },
+    { label: '行别来源', fmt: (r) => r.info.source },
+  ],
+  mobile: [
+    { label: '位数', fmt: (r) => r.info.length },
+    { label: '号段', fmt: (r) => r.info.segment, mono: true },
+    { label: '运营商', fmt: (r) => r.info.carrier },
+    { label: '展示格式', fmt: (r) => r.info.formatted, mono: true },
+    { label: '号段来源', fmt: (r) => r.info.source },
+  ],
+};
+
+/** 同前缀多行命中时另起的那张表（`matches.length > 1`） */
+const MATCH_COLUMNS = [
+  { label: '前缀', path: 'bin', mono: true },
+  { label: '发卡行', path: 'bankName' },
+  { label: '卡种', path: 'cardTypeName' },
+  { label: '登记位数', path: 'panLength' },
+  { label: '与本号位数吻合', fmt: (m) => (m.lengthMatches ? '是' : '否') },
+];
+
+/**
+ * 解码明细表。`info` 为 `null`（结构在头几行就不成立）时不出表——
+ * 那时没有任何算术量可信，出表就等于把一堆 `—` 摆成"解出来了但都是空"。
+ * @param {string} kind `READ_KINDS` 之一
+ * @param {object} result 该格的读侧结果
+ */
+export function detailTable(kind, result) {
+  const columns = DETAIL_SPEC[kind];
+  if (!columns) throw new TypeError(`view 的 detailTable 收到未知的 kind「${shapeOf(kind)}」，可读的值只有 ${READ_KINDS.join(' / ')}`);
+  const r = result ?? {};
+  if (r.info === null || r.info === undefined) return '';
+  return table('tk-detail', columns, [r]);
+}
+
+/** 结构不成立 / 未收录时的"还能怎么办"那一行：`suggested*` 与 `expectedCheckBit` 走同一出口 */
+const SUGGEST_KEY = { idcard: 'suggestedId18', bank: 'suggestedCard' };
+
+export function suggestLine(kind, result) {
+  const key = SUGGEST_KEY[kind];
+  const v = key && result ? result[key] : '';
+  if (!v) return '';
+  return `<p class="tk-hint">只改校验位就能自洽：<span class="tk-mono">${esc(v)}</span>（随机合成，别当真实号码用）。</p>`;
+}
+
+/** 生成结果表的列定义，键与 `BATCH_KINDS` 一一对应 */
+const COLUMNS = {
+  idcard: [
+    { label: '号码', path: 'id18', mono: true },
+    { label: '区划', path: 'region' },
+    { label: '出生日期', path: 'birth' },
+    { label: '年龄', path: 'age' },
+    { label: '性别', path: 'sex' },
+  ],
+  uscc: [
+    { label: '代码', path: 'code', mono: true },
+    { label: '区划', path: 'regionName' },
+    { label: '主体标识', path: 'subject', mono: true },
+    { label: '校验位', path: 'checkBit', mono: true },
+  ],
+  bank: [
+    { label: '卡号', path: 'formatted', mono: true },
+    { label: '发卡行', path: 'bankName' },
+    { label: '卡种', path: 'cardTypeName' },
+    { label: '登记位数', path: 'panLength' },
+  ],
+  mobile: [
+    { label: '号码', path: 'formatted', mono: true },
+    { label: '号段', path: 'segment', mono: true },
+    { label: '运营商', path: 'carrier' },
+  ],
+  name: [
+    { label: '姓名', path: 'name' },
+    { label: '姓', path: 'surname' },
+    { label: '名', path: 'given' },
+    { label: '名字数', path: 'givenLength' },
+  ],
+  address: [
+    { label: '地址', path: 'text' },
+    { label: '区划码', path: 'areaCode', mono: true },
+  ],
+  email: [
+    { label: '邮箱', path: 'email', mono: true },
+    { label: '域', path: 'domain', mono: true },
+  ],
+  profile: [
+    { label: '姓名', path: 'name.name' },
+    { label: '地址', path: 'address.text' },
+    { label: '邮箱', path: 'email.email', mono: true },
+  ],
+};
+
+/**
+ * 一批生成结果的表格。
+ * @param {string} kind `BATCH_KINDS` 之一
+ * @param {object[]} rows
+ */
+export function listTable(kind, rows) {
+  const columns = COLUMNS[kind];
+  if (!columns) {
+    throw new TypeError(`view 的 listTable 收到未知的 kind「${shapeOf(kind)}」，可渲染的值只有 ${BATCH_KINDS.join(' / ')}`);
+  }
+  if (!Array.isArray(rows)) throw new TypeError(`view 的 listTable 应为结果数组，收到 ${shapeOf(rows)}`);
+  if (rows.length === 0) return '<p class="tk-hint">这次没有产出任何结果。</p>';
+  return table(`tk-list tk-list--${kind}`, columns, rows);
+}
+
+/**
+ * 口径行：模块给的句子原样落地（转义后），一条一个 `<p>`。
+ * 空串与 `null` 跳过，所以装配层可以直接把 `result.caveat` / `NOTE` 常量整包丢进来。
+ * @param {(string|null|undefined)[]} texts
+ */
+export function noteLines(texts) {
+  if (!Array.isArray(texts)) throw new TypeError(`view 的 noteLines 应为字符串数组，收到 ${shapeOf(texts)}`);
+  return texts
+    .filter((t) => typeof t === 'string' && t !== '')
+    .map((t) => `<p class="tk-note">${esc(t)}</p>`);
+}
+
+/**
+ * 一块读侧结果：徽章 + 回显 + 逐项判定表 + 明细表 +（银行卡多行命中时）前缀表 + 建议 + 口径行。
+ * 顺序在这里定死，装配层不再挑——五块面板长得一样是要求，不是巧合。
+ * 结果区的外层容器与 `aria-live` 由构建期骨架给（Task 7），视图只交内容，不碰属性。
+ * @param {string} kind `READ_KINDS` 之一
+ * @param {object} result
+ * @param {(string|null|undefined)[]} notes 装配层递进来的模块常量（如信用代码那句"第 1、2 位不给名称"）——
+ *   视图不 import 它们，但结果区的话术完整性由这一格补齐
+ */
+export function parseBlock(kind, result, notes = []) {
+  if (!Array.isArray(notes)) throw new TypeError(`view 的 parseBlock 的 notes 应为数组，收到 ${shapeOf(notes)}`);
+  const r = result ?? {};
+  const parts = [`<p class="tk-verdict">${stateBadge(r.state)}</p>`];
+  parts.push(...echoLines(r));
+  parts.push(checksTable(r.checks === undefined ? [] : r.checks));
+  parts.push(detailTable(kind, r));
+  if (kind === 'bank' && Array.isArray(r.matches) && r.matches.length > 1) {
+    parts.push(table('tk-matches', MATCH_COLUMNS, r.matches));
+  }
+  parts.push(suggestLine(kind, r));
+  const own = [r.id15Note, r.caveat, r.note].filter((t) => typeof t === 'string' && t !== '');
+  const texts = [...own, ...notes.filter((t) => typeof t === 'string' && t !== '')];
+  // 身份证未收录区划时 `caveat` 与 `checks.region.detail` 是同一句，判定表已经说过就不再重复
+  const shown = (r.checks || []).map((c) => c.detail);
+  parts.push(...noteLines(texts.filter((t) => !shown.includes(t))));
+  return `<div class="tk-result tk-result--${stateMetaOf(r.state).tone}">${parts.filter((x) => x !== '').join('')}</div>`;
+}
+
+/**
+ * 一块生成结果：条数 + 表格 + 口径行。
+ * @param {string} kind `BATCH_KINDS` 之一
+ * @param {object[]} rows
+ * @param {(string|null|undefined)[]} notes 模块给的口径常量，由装配层传进来（视图不 import 它们）
+ */
+export function batchBlock(kind, rows, notes = []) {
+  if (!Array.isArray(notes)) throw new TypeError(`view 的 batchBlock 的 notes 应为数组，收到 ${shapeOf(notes)}`);
+  const n = Array.isArray(rows) ? rows.length : 0;
+  const parts = [`<p class="tk-count">共 ${n} 条</p>`, listTable(kind, rows), ...noteLines(notes)];
+  return `<div class="tk-batch tk-batch--${kind}">${parts.join('')}</div>`;
+}
+```
+
+- [ ] **Step 4: 跑绿**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (tests|pass|fail)'; echo "exit=${PIPESTATUS[0]}"
+node --check dev/js/tools/view.js
+wc -l dev/js/tools/view.js
+```
+
+Expected：`# tests 110`、`# pass 110`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15 + 15 + 15），`wc -l` 414 行左右。
+
+- [ ] **Step 5: 自证这 15 条有牙（二十九处变异，逐处记下红了谁）**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+mkdir -p /tmp/t5mut && cp dev/js/tools/view.js /tmp/t5mut/view.orig.js
+cat > /tmp/t5mut/mut.mjs <<'EOF'
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
+const P = 'dev/js/tools/view.js';
+const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+const orig = fs.readFileSync(P, 'utf8');
+/** 未变异先跑一次：拿它的 `# tests` 总数当尺子，好把"脚手架其实没跑到测试"和"这处不可达"分开 */
+function run() {
+  let out = '';
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
+  return {
+    total: Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1),
+    reds: [...out.matchAll(/^not ok \d+ - (H\d+)/gm)].map((x) => x[1]),
+  };
+}
+const base = run();
+if (base.total < 0 || base.reds.length > 0) {
+  throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.join(' ')}），先让全量跑绿再谈牙齿`);
+}
+console.log(`基线 # tests ${base.total} 全绿`);
+const MUTS = [
+  ['V1 ESC_MAP 里 & 那一档没了',
+    "const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' };",
+    "const ESC_MAP = { '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' };"],
+  ['V2 转义字符类里漏掉单引号',
+    '  return value.replace(/[&<>"\']/g, (c) => ESC_MAP[c]);',
+    '  return value.replace(/[&<>"]/g, (c) => ESC_MAP[c]);'],
+  ['V3 去掉 /g，一串里只转第一个',
+    '  return value.replace(/[&<>"\']/g, (c) => ESC_MAP[c]);',
+    '  return value.replace(/[&<>"\']/, (c) => ESC_MAP[c]);'],
+  ['V4 转义总开关关掉（原样返回）',
+    '  return value.replace(/[&<>"\']/g, (c) => ESC_MAP[c]);',
+    '  return value;'],
+  ['V5 把 luhn 当成有效档',
+    "  luhn: { label: '校验位不符', tone: 'warn' },",
+    "  luhn: { label: '有效', tone: 'ok' },"],
+  ['V6 把"查不到"渲染成不通过',
+    "  unlisted: { label: '表内未收录', tone: 'unknown' },",
+    "  unlisted: { label: '表内未收录', tone: 'bad' },"],
+  ['V7 未知状态回退成"等待输入"而不是抛',
+    '    throw new TypeError(`view 收到未知的状态「${shapeOf(state)}」，STATE_META 里没有这一档`);',
+    '    return STATE_META.empty;'],
+  ['V8 判据的 null 档并进"不通过"',
+    "    { label: '结论', fmt: (c) => (c.ok === null ? CHECK_UNKNOWN : CHECK_VERDICT[String(c.ok)]) },",
+    "    { label: '结论', fmt: (c) => CHECK_VERDICT[String(c.ok)] },"],
+  ['V9 判据的通过与不通过互换',
+    "const CHECK_VERDICT = { true: '通过', false: '不通过' };",
+    "const CHECK_VERDICT = { true: '不通过', false: '通过' };"],
+  ['V10 没有判据时出空串而不是明说一句',
+    `  if (checks.length === 0) return '<p class="tk-hint">还没有可判定的内容。</p>';`,
+    "  if (checks.length === 0) return '';"],
+  ['V11 零结果时出空串而不是明说一句',
+    `  if (rows.length === 0) return '<p class="tk-hint">这次没有产出任何结果。</p>';`,
+    "  if (rows.length === 0) return '';"],
+  ['V12 生成表悄悄少一列（年龄）',
+    "    { label: '年龄', path: 'age' },",
+    ''],
+  ['V13 明细表把"号段来源"改名"来源"',
+    "    { label: '号段来源', fmt: (r) => r.info.source },",
+    "    { label: '来源', fmt: (r) => r.info.source },"],
+  ['V14 生成表取一个不存在的字段',
+    "    { label: '卡号', path: 'formatted', mono: true },",
+    "    { label: '卡号', path: 'pan', mono: true },"],
+  ['V15 空值判定改成 falsy（0 也没了）',
+    "  if (value === null || value === undefined || value === '') return EMPTY_CELL;",
+    '  if (!value) return EMPTY_CELL;'],
+  ['V16 区划不标命中级别与现行/历史',
+    '  return `${region.fullName}（${level} · ${status}）`;',
+    '  return region.fullName;'],
+  ['V17 历史码当成现行码显示',
+    "const REGION_STATUS_CN = { current: '现行', abolished: '历史', uncoded: '未收录', unknown: '未收录' };",
+    "const REGION_STATUS_CN = { current: '现行', abolished: '现行', uncoded: '未收录', unknown: '未收录' };"],
+  ['V18 结构不成立时也摆明细表',
+    '  if (r.info === null || r.info === undefined) return \'\';',
+    '  if (r.info === undefined) return \'\';'],
+  ['V19 输入与判定串相同时也要写"原样输入"',
+    "    } else if (typeof judged === 'string') {",
+    '    } else if (false) {'],
+  ['V20 视图自己给信用代码拼一条建议',
+    "  const v = key && result ? result[key] : '';",
+    "  const v = result ? (result[key] || result.expectedCheckBit || '') : '';"],
+  ['V21 结果区外层类名写死成 ok',
+    '<div class="tk-result tk-result--${stateMetaOf(r.state).tone}">',
+    '<div class="tk-result tk-result--ok">'],
+  ['V22 判定表说过的话在口径区再说一遍',
+    '  parts.push(...noteLines(texts.filter((t) => !shown.includes(t))));',
+    '  parts.push(...noteLines(texts));'],
+  ['V23 口径行不走转义出口',
+    '    .map((t) => `<p class="tk-note">${esc(t)}</p>`);',
+    '    .map((t) => `<p class="tk-note">${t}</p>`);'],
+  ['V24 口径行不再筛掉空值（null 直接进 esc）',
+    "    .filter((t) => typeof t === 'string' && t !== '')",
+    '    .filter((t) => t !== undefined)'],
+  ['V25 两行命中的前缀不出多义表',
+    '  if (kind === \'bank\' && Array.isArray(r.matches) && r.matches.length > 1) {',
+    '  if (kind === \'bank\' && Array.isArray(r.matches) && r.matches.length > 9) {'],
+  ['V26 listTable 遇到未知 kind 退化成身份证表',
+    '  const columns = COLUMNS[kind];',
+    '  const columns = COLUMNS[kind] || COLUMNS.idcard;'],
+  ['V27 detailTable 遇到未知 kind 退化成身份证表',
+    '  const columns = DETAIL_SPEC[kind];',
+    '  const columns = DETAIL_SPEC[kind] || DETAIL_SPEC.idcard;'],
+  ['V28 文件头多出一条 import（跨页共享层红线）',
+    "export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile'];",
+    "import { seededRandom } from './random.js';\n\nexport const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile'];"],
+  ['V29 等宽列改用内联样式',
+    "      return `<td${c.mono ? ' class=\"tk-mono\"' : ''}>${cell(v)}</td>`;",
+    "      return `<td${c.mono ? ' style=\"font-family:monospace\"' : ''}>${cell(v)}</td>`;"],
+];
+
+for (const [name, a, b] of MUTS) {
+  if (!orig.includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
+  fs.writeFileSync(P, orig.replace(a, b));
+  const r = run();
+  if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
+  console.log(`${name} → ${r.reds.length ? r.reds.join(' ') : '全绿（不可达，见计划说明）'}`);
+}
+fs.writeFileSync(P, orig);
+if (fs.readFileSync(P, 'utf8') !== orig) throw new Error('还原失败');
+console.log('已还原');
+EOF
+cd /Users/liaolongdong/code/liaolongdong.github.io && node /tmp/t5mut/mut.mjs
+```
+
+2026-09-26 在镜像上实跑（`# tests 110` 全绿起步，二十九刀逐刀记录，**二十九处全部有红的判据**、
+无一处"全绿即不可达"；H1–H15 每条至少被点名一次）：
+
+| 变异 | 红了谁 | 说明 |
+| --- | --- | --- |
+| `V1 ESC_MAP 里 & 那一档没了` | **H1 H8 H15 红** | `&` 不转，`a&b` 与实体引用混在一起；H15 的标签审计也看见 |
+| `V2 转义字符类里漏掉单引号` | **只 H1 红** | 只漏单引号，H1 那串多字符样本独占 |
+| `V3 去掉 /g，一串里只转第一个` | **H1 H8 H15 红** | `/g` 摘掉只转第一个，单字符样本量不出来——H1 那句"五个字符同时出现"就是为它写的 |
+| `V4 转义总开关关掉（原样返回）` | **H1 H8 H15 红** | 转义总开关：三处红是三条独立路径（徽章外、口径行、整区审计） |
+| `V5 把 luhn 当成有效档` | **只 H2 红** | `luhn` 显示成"有效"：把没定论的卡号说成绿的，§5.4 最坏的一种 |
+| `V6 把"查不到"渲染成不通过` | **H2 H3 红** | `unlisted` 的 `tone`：H2 点类名、H3 点外层容器 |
+| `V7 未知状态回退成"等待输入"而不是抛` | **H2 H3 红** | 未知状态回退 = 静默按"等待输入"渲染；H2 的 `throws` 与 H3 的真向量各钉一次 |
+| `V8 判据的 null 档并进"不通过"` | **只 H5 红** | `ok === null` 并进"不通过"：把"不判定"说成"判不过"，正是 §5.4 禁止的那种越界 |
+| `V9 判据的通过与不通过互换` | **只 H5 红** | 通过 / 不通过互换：满对的样本与含 `null` 档的样本各判一次才稳 |
+| `V10 没有判据时出空串而不是明说一句` | **只 H14 红** | 没有判据时出空串：空表读起来像"全都通过了" |
+| `V11 零结果时出空串而不是明说一句` | **只 H14 红** | 零结果时出空串：同上，生成侧那一格 |
+| `V12 生成表悄悄少一列（年龄）` | **只 H4 红** | 生成表少一列：H4 拿 `hHead`/`hBody` 比格数，不看内容 |
+| `V13 明细表把"号段来源"改名"来源"` | **只 H4 红** | 表头改名："号段来源"是本页与 §6.4 的措辞约定，H4 的 `WANT_LABELS` 逐字比对 |
+| `V14 生成表取一个不存在的字段` | **H4 H8 H15 红** | 取一个不存在的字段：`pickPath` 抛，H4 与 H8 各红一处，H15 看到整块塌掉 |
+| `V15 空值判定改成 falsy（0 也没了）` | **只 H4 红** | 空值判定写成 falsy：`age: 0` 变 `—`，H4 那条零值样本专抓它 |
+| `V16 区划不标命中级别与现行/历史` | **只 H10 红** | 区划不标级别与现行/历史：§5.4 要"命中到哪一层"可见 |
+| `V17 历史码当成现行码显示` | **只 H10 红** | 历史码写成现行：莱芜那类撤销建制的码，只有 H10 的真向量能抓 |
+| `V18 结构不成立时也摆明细表` | **H3 H10 H14 H15 红** | `info === null` 也摆明细表：把一排破折号说成"解出来了" |
+| `V19 输入与判定串相同时也要写"原样输入"` | **只 H11 红** | 输入与判定串相同时仍写"原样输入 …，参与判定的是…"：H11 三种归一各有说法 |
+| `V20 视图自己给信用代码拼一条建议` | **只 H13 红** | 视图自己给信用代码拼建议：`SUGGEST_KEY` 里没有 `uscc`，H13 那句"没有建议时整行不出"红 |
+| `V21 结果区外层类名写死成 ok` | **H3 H14 红** | 外层类名写死 `ok`：徽章对了容器错了，读屏与样式两套口径分叉 |
+| `V22 判定表说过的话在口径区再说一遍` | **只 H9 红** | 判定表说过的话在口径区再说一遍：H9 数的是同一句落地次数 |
+| `V23 口径行不走转义出口` | **只 H8 红** | 口径行不走 `esc`：转义只有一个出口这条约束的真实含义 |
+| `V24 口径行不再筛掉空值（null 直接进 esc）` | **只 H8 红** | 口径行不筛空：`null` 直接进 `esc` 就抛，装配层没法整包丢进来 |
+| `V25 两行命中的前缀不出多义表` | **只 H12 红** | 两行命中不出多义表：H12 用真向量（`6222` 与 `4900` 两类命中）盯住这一格 |
+| `V26 listTable 遇到未知 kind 退化成身份证表` | **只 H6 红** | 未知 `kind` 退化成身份证表：生成侧串门到读侧的列定义 |
+| `V27 detailTable 遇到未知 kind 退化成身份证表` | **只 H6 红** | 同 V26 的另一半：读侧 `detailTable` |
+| `V28 文件头多出一条 import（跨页共享层红线）` | **只 H7 红** | 文件头多一条 import：H7 扫源文本，跨页共享层体积红线 |
+| `V29 等宽列改用内联样式` | **只 H7 红** | 内联样式：颜色与尺寸归 `toolkit.scss`（Task 7），§6.4 只允许语义令牌 |
+
+三条从这轮才看出来的口径：**转义那一族必须用多字符样本才量得准**（V1 / V2 / V3 分别只红在
+`&`、单引号、"只转第一个"上，单字符样本三档全绿）；**"未知状态要抛"这一条同时被 H2 的
+`throws` 与 H3 的真向量钉住**（V7 两处都红，只写 `throws` 那一半的话，容器类名会悄悄变成 `idle`）；
+**V18 一处红四条**（H3 H10 H14 H15）——"结构不成立时不摆空表"横跨三态、明细表、空输入说法和
+标签审计四个口径，这条约束真有人在守。
+
+- [ ] **Step 6: 记一次耗时与体积（Task 10 的性能口径要用）**
+
+整段脚本原样进 `bash`，只改第一行的 `cd`：
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+for i in 1 2 3 4 5 6 7; do node --input-type=module -e "
+const t0 = performance.now(); await import('./dev/js/tools/view.js');
+console.log('import view.js', (performance.now() - t0).toFixed(2) + 'ms');
+"; done
+node --input-type=module -e "
+const v = await import('./dev/js/tools/view.js');
+const { parseIdCard, generateIdCards } = await import('./dev/js/tools/idcard.js');
+const { parseUscc } = await import('./dev/js/tools/uscc.js');
+const { parseBankCard } = await import('./dev/js/tools/bankcard.js');
+const { parseMobile } = await import('./dev/js/tools/phone.js');
+const { generateNames, generateProfiles } = await import('./dev/js/tools/random-data.js');
+const bench = (fn, n) => {
+  for (let k = 0; k < 500; k += 1) fn(k);                  // 预热 500 次，不然量到的是 JIT 爬坡
+  const s = performance.now();
+  for (let k = 0; k < n; k += 1) fn(k);
+  return ((performance.now() - s) / n * 1000).toFixed(2) + 'µs/次';
+};
+const okId = parseIdCard('110101199003070011');            // 现行县码、校验位相符：满表，建议行不出
+const unlistedId = parseIdCard('610199199003070011');      // 区划未收录 + 校验位不符：走「判定表说过的不重复」那条去重路径
+const bank = parseBankCard('622307920707762365');          // 同前缀两行命中（工行 / 九江银行）：多出一张前缀表
+const uscc = parseUscc('91350100M000100Y43');
+const mobile = parseMobile('13800138000');
+const ids20 = generateIdCards({ count: 20 });
+const prof20 = generateProfiles({ count: 20 });
+const names50 = generateNames({ count: 50 });
+const escSample = ('<span class=x>北京市东城区测试&专用号码</span>').repeat(2) + '0123456789'.repeat(5);
+console.log('esc 样本', escSample.length, '字符 /', (escSample.match(/[<>&]/g) || []).length, '个特殊字符');
+console.log('parseBlock 身份证（有效，10 列明细）    ', bench(() => v.parseBlock('idcard', okId, []), 4000));
+console.log('parseBlock 身份证（区划未收录，走去重）  ', bench(() => v.parseBlock('idcard', unlistedId, []), 4000));
+console.log('parseBlock 银行卡（两行命中，多一张表）  ', bench(() => v.parseBlock('bank', bank, []), 4000));
+console.log('parseBlock 信用代码（8 列明细）          ', bench(() => v.parseBlock('uscc', uscc, []), 4000));
+console.log('parseBlock 手机号（5 列明细）            ', bench(() => v.parseBlock('mobile', mobile, []), 4000));
+console.log('batchBlock 身份证 20 条                  ', bench(() => v.batchBlock('idcard', ids20, []), 3000));
+console.log('batchBlock 三元组 20 组（跨三层取值）    ', bench(() => v.batchBlock('profile', prof20, []), 2000));
+console.log('listTable 姓名 50 条                     ', bench(() => v.listTable('name', names50), 2000));
+console.log('esc ' + escSample.length + ' 字符                        ', bench(() => v.esc(escSample), 20000));
+let g0 = performance.now();
+for (let i = 0; i < 50; i += 1) v.batchBlock('idcard', generateIdCards({ count: 50 }), []);
+console.log('满批一轮：生成 50 条 + 渲染 =', ((performance.now() - g0) / 50).toFixed(2) + 'ms/批');
+"
+wc -c dev/js/tools/view.js
+gzip -6 -c dev/js/tools/view.js | wc -c
+```
+
+2026-09-26 本机 Node 22 实测。冷启动：`import view.js` **七个进程各一次 × 六轮 = 42 次**，
+中位 **8.35ms**、区间 **6.31–52.54ms**。这个数与 §G 那 38–49ms 的**性质不同**：`view.js` 零 import
+（H7 判的就是这一条），进程时里没有跟着它解析任何数据模块，`region-data.js` 那 100,020 字节
+一分钱不收——这一格对跨页共享层的**体积**贡献只有下面那 8,198 字节 gzip。
+
+稳态口径：每档先跑 500 次预热再取均值，六轮各一次，下表给**中位数 / 全距**：
+
+| 档位 | 中位 | 全距 |
+| --- | --- | --- |
+| `parseBlock` 身份证（有效，10 列明细） | 66.7µs | 59.6–113.7 |
+| `parseBlock` 身份证（区划未收录，走去重路径） | 63.1µs | 52.7–80.1 |
+| `parseBlock` 银行卡（同前缀两行命中，多一张前缀表） | 66.9µs | 48.6–108.3 |
+| `parseBlock` 信用代码（8 列明细） | 58.5µs | 45.5–71.5 |
+| `parseBlock` 手机号（5 列明细） | 46.2µs | 38.9–157.6 |
+| `batchBlock` 身份证 20 条 | 135.4µs | 112.5–193.0 |
+| `batchBlock` 三元组 20 组（跨三层取值） | 99.5µs | 70.5–104.5 |
+| `listTable` 姓名 50 条 | 234.4µs | 204.0–337.9 |
+| `esc` 118 字符含 10 个特殊字符 | 3.08µs | 2.27–3.69 |
+| 满批一轮：生成 50 条 + 渲染 | 2.67ms | 1.73–4.33 |
+
+**这批数只能判量级，不能拿来设阈值**：六轮跑在本机 load average 9–27 的桌面环境里（Qoder 自己
++ 微信 + Spotlight 在抢 CPU），尾部读数被抢核拉高；同一脚本在空闲时段测得 `parseBlock` 只有
+一半上下（起草阶段在镜像上跑的等价脚本、同样预热 500 次，测得 parseBlock 13–21µs 一档）。能站住的结论就两条：单块面板的渲染在 **0.05–0.14ms** 档，比一次输入到重绘的 16ms
+帧预算小两个数量级；"生成 50 条 + 渲染"整轮 **≤ 4.4ms**，页面侧不需要为视图渲染做防抖或分片。
+Task 10 的 headless Chrome 量的是首屏与交互的端到端时间，这些 µs 不进那条账——性能预算真正看的是
+gzip 字节。另：Step 4 那条全量命令的 `# duration_ms` 在本机测得 **3.8–11.2s**，同样随桌面负载
+漂一个量级，**不要**用它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
+
+Expected：`wc -c` **21,837 字节**、`gzip -6` **8,198 字节**；文件 **414 行**（`wc -l`），
+其中注释 **119 行 / 8,307 字节**（行占 29%、字节占 38%——比 `random-data.js` 的 45% 低一档，
+这一格的大头是列定义而不是"为什么这么判"）；导出 **14 个**（`READ_KINDS`、`BATCH_KINDS`、
+`EMPTY_CELL`、`STATE_META`、`esc`、`stateBadge`、`checksTable`、`echoLines`、`detailTable`、
+`suggestLine`、`listTable`、`noteLines`、`parseBlock`、`batchBlock`），私有函数 **16 个**
+（`shapeOf`、`cell`、`pickPath`、`table`、`stateMetaOf`、`regionRow`、`suggestLine` 之类，
+其中 `table` 是十二张表的唯一构造点）。产物口径（terser 之后）同样到 Task 9 的收录面一起量。
+
+- [ ] **Step 7: 提交**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+git status --porcelain
+git add dev/js/tools/view.js scripts/toolkit-tests.mjs
+git commit -m "$(cat <<'EOF'
+feat(tools): 视图层 view.js——六档状态到三态徽章的一次映射
+
+零 import 是体积红线：这一格挂进 window.Tk 给三页共用，多一条 import 就把
+region-data.js（100,020 字节）拽进跨页共享层，§7 的 60KB 页面预算当场破。
+H7 扫源文本数 import 必须为 0，V28 补一条就红。
+转义只有 esc 一个出口，深样本 </script> 由 H15 的标签白名单审计整个结果区；
+null 不在 esc 里兜，"这一格可以是空"由列定义显式声明。
+checkdigit 与 luhn 同为"校验位不符"，unlisted 自成一档——查不到不下无效结论；
+未知 state 一律抛，不让"视图没见过"静默退化成"按有效渲染"。
+十二张表共用同一个 table() 构造点，列数一致是构造保证；口径文案原样透传、
+判定表已经说过的不再重复一遍。
+EOF
+)"
+git status --porcelain | head
+```
+
+Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
+按 Task 11 的收口节奏单独提。
+
+<!-- APPEND-6 -->
