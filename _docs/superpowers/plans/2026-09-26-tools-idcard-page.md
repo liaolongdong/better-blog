@@ -135,7 +135,7 @@ assets/js/probeA.min.js   0.07 kB
 
 - 银行卡：行别与卡号长度**照 bcbc 快照给出**，面板与模块各写一行"参考、不承诺全量、新发卡与调整不在表内"，来源与快照日写进模块头与 `assets/data/LICENSES.md`。**不做卡组织猜测**——`bank/name.csv` 里没有 VISA/MASTERCARD 这类行（实测 grep 只命中 `NJCB,南京银行`），bcbc 给的就是"发卡行"这一层，不必也不该再包一层没有据的东西。
 - 手机号：**格式判定是硬结论**（`^1[3-9]\d{9}$`），**运营商是软参考**（模块头点名"单一来源、发号口径、携号转网后不代表当前运营商、不做归属地"）。§F 因此只断**自洽**（56 段互不重叠、全为三位、全在 `1[3-9]` 内、生成侧产出的号必被自己的校验判有效、每段至少生成过一次），**不断外部正确性**；这个缺口在测试文件注释与 §F1 的用例名里各写一次。
-- 两条都**不许**在页面文案里写成"查询/识别结果"式的权威口吻；面板的措辞在 Task 7 里逐句钉。
+- 两条都**不许**在页面文案里写成"查询/识别结果"式的权威口吻；面板的措辞在 Task 8 的骨架与 `_data/onlineTools.yml` 里逐句钉。
 
 ### 0.5 站点接入点（2026-09-26 逐个 `sed`/`grep` 实读，行号会漂所以同时给锚点）
 
@@ -143,7 +143,7 @@ assets/js/probeA.min.js   0.07 kB
 - `_includes/headAssets.html` 92 行：preload 字体 → `normalize.min.css` → iconfont CSS → `{%- if page.layout == 'post' %}` 三条文章专用 CSS → `index.min.css` → `iconFont/iconfont.css` → `jquery.min.js`（**必须最后**）。文件头注释写明"清单只能留在 headAssets 里按 layout 收口"的理由。**本段一行都不改它**：新页的 CSS 走页面自带 `<link>`，与 `weblab.html` 同法，改动面最小。
 - `_includes/header.html`（161 行）下拉块在 `19-53`，`{% for item in site.nav %}` + `{% if page.url == item.url or (item.url != '/' and page.url contains item.url) %}` 判 `is_current`，`{% if item.dropdown == 'tools' %}` 里 `{% for tool in site.data.tools %}` 拼 `/tools.html#<slug>`，末尾一条 `.nav-sub-more`。**这就是 §4.3 那个缺陷的位置**：`/tools/idcard.html` 里 `page.url contains '/tools.html'` 为假。
 - `_config.yml`：`nav:` 现在 **8 项**（实测数 `- key:`），`version: '2.1.0'`，`exclude` 里已有 `dev` / `scripts` / `"assets/**/*.md"`。
-- `tools.html`（102 行）整页是 `_data/tools.yml` 的一个循环，`{% endfor %}` 在 99、`</main>` 在 100 →「在线工具」小节插在两者之间；`tools.html:19` 用 `site.data.tools.size` 说"几款产品"，加了小节**不动**它（那句话说的是插件产品，Task 8 里给它补一行限定语）。
+- `tools.html`（102 行）整页是 `_data/tools.yml` 的一个循环，`{% endfor %}` 在 99、`</main>` 在 100 →「在线工具」小节插在两者之间；`tools.html:19` 用 `site.data.tools.size` 说"几款产品"，加了小节**不动**它（那句话说的是插件产品，Task 9 里给它补一行限定语）。
 - `index-all.html`：`{%- assign page_count = site.nav.size | plus: 3 -%}`（那 3 是 index-all/feed/llms），新加一节就把 `plus: 3` → `plus: 6`。
 - `sitemap.xml`：`{% for item in site.nav %}{% if item.url != '/' %}` 那段之后、`site.posts` 循环之前是指名地址的位置（现有唯一破例是 `/index-all.html`，weekly/0.6）。设计文档 §4.4 要新页 `monthly` / `0.7`。
 - `llms.txt`：`## 站点页面` 段 `site.nav` 循环之后是那三条点名 bullet；`base` 已在 25 行 `assign`。**18-23 行有硬排版坑**：Liquid 开标签带 `-` 会吃掉后面的换行，新加的三条 bullet 只能单侧带减号。
@@ -514,8 +514,9 @@ check exit=0
 
 **这个体积压在预算上是有张力的，必须写明白**：设计文档 §7 给证件页 JS+CSS 的预算是 gzip ≤ 60KB，
 而本页要同时挂 `region-data.js`（实测 34.8KB gz）+ 这张（9.9KB）+ `carrier-data.js`（0.9KB）
-= **45.6KB 数据**，留给页面 JS 与 CSS 只剩 ~14KB。所以 Task 10 必须真量一次页面产物的
-gzip 总数（`dist/assets/js/toolIdcard.min.js` + 页面 CSS），三种结果分别处理：
+= **45.6KB 数据**，留给页面 JS 与 CSS 只剩 ~14KB。所以 Task 7 的 Step 6 必须真量一次页面产物的
+gzip 总数（`assets/js/toolIdcard.min.js` + `assets/js/toolkitCore.min.js`，`toolkit.min.css` 那一件到
+Task 8 才存在、在那一格补量），三种结果分别处理：
 ① 在 60KB 内 → 把实测数按 §7 的写法回填设计文档；② 超了 → **停下来报 BLOCKED**，
 把分解表（region / bank / carrier / 其余 JS / CSS）交回来由人重新决定预算或砍覆盖，
 **不许静默放宽 §7 的数，也不许悄悄删 BIN 表条目凑数**；③ 逼近（55–60KB）→ 允许把
@@ -3070,7 +3071,7 @@ Expected：提交只含这两条路径；剩下仍是对方那批未提交项。
 6. **不碰 DOM、不写样式。** H7 除了 `import` 还扫 `document` / `window` / `innerHTML` /
    `querySelector` / `createElement` / `Node` 六个词；H15 的白名单只放 `div p span table thead tbody
    tr th td` 九种标签，禁 `on*=`、`style=`、`src|href|action=`。颜色与尺寸是 `toolkit.scss`
-   （Task 7）的活，§6.4 只允许语义令牌；结果区的外层容器与 `aria-live` 由构建期骨架给，视图只交内容。
+   （Task 8）的活，§6.4 只允许语义令牌；结果区的外层容器与 `aria-live` 由构建期骨架给，视图只交内容。
 
 - [ ] **Step 1: 先写 §H 的 15 条判据（此时 `view.js` 还不存在，必红）**
 
@@ -3835,7 +3836,7 @@ export function noteLines(texts) {
 /**
  * 一块读侧结果：徽章 + 回显 + 逐项判定表 + 明细表 +（银行卡多行命中时）前缀表 + 建议 + 口径行。
  * 顺序在这里定死，装配层不再挑——五块面板长得一样是要求，不是巧合。
- * 结果区的外层容器与 `aria-live` 由构建期骨架给（Task 7），视图只交内容，不碰属性。
+ * 结果区的外层容器与 `aria-live` 由构建期骨架给（Task 8），视图只交内容，不碰属性。
  * @param {string} kind `READ_KINDS` 之一
  * @param {object} result
  * @param {(string|null|undefined)[]} notes 装配层递进来的模块常量（如信用代码那句"第 1、2 位不给名称"）——
@@ -4048,7 +4049,7 @@ cd /Users/liaolongdong/code/liaolongdong.github.io && node /tmp/t5mut/mut.mjs
 | `V26 listTable 遇到未知 kind 退化成身份证表` | **只 H6 红** | 未知 `kind` 退化成身份证表：生成侧串门到读侧的列定义 |
 | `V27 detailTable 遇到未知 kind 退化成身份证表` | **只 H6 红** | 同 V26 的另一半：读侧 `detailTable` |
 | `V28 文件头多出一条 import（跨页共享层红线）` | **只 H7 红** | 文件头多一条 import：H7 扫源文本，跨页共享层体积红线 |
-| `V29 等宽列改用内联样式` | **只 H7 红** | 内联样式：颜色与尺寸归 `toolkit.scss`（Task 7），§6.4 只允许语义令牌 |
+| `V29 等宽列改用内联样式` | **只 H7 红** | 内联样式：颜色与尺寸归 `toolkit.scss`（Task 8），§6.4 只允许语义令牌 |
 
 三条从这轮才看出来的口径：**转义那一族必须用多字符样本才量得准**（V1 / V2 / V3 分别只红在
 `&`、单引号、"只转第一个"上，单字符样本三档全绿）；**"未知状态要抛"这一条同时被 H2 的
@@ -4175,9 +4176,9 @@ Expected：提交只含这两条路径；剩下仍是对方那批未提交项。
 - Modify: `scripts/toolkit-tests.mjs`（追加 §I，16 条 → 全量 126 条）
 
 这一格把段 1 那台纯状态机接到真节点上：`panel.js` 算属性表、`panel-dom.js` 写属性表，
-`toolIdcard.js`（Task 10）只管业务与渲染函数。设计文档 §6.3 那四条要求——真 ARIA、`#hash`
+`toolIdcard.js`（Task 7）只管业务与渲染函数。设计文档 §6.3 那四条要求——真 ARIA、`#hash`
 双向同步与深链、面板内一块抛错只塌那一块、以及"JS 未执行时面板全部可见"——前四条里除了
-最后一条（那是构建期骨架 + CSS 的活，Task 7 / Task 9 判）都落在这里。七条口径先立住：
+最后一条（那是构建期骨架 + CSS 的活，Task 8 / Task 9 判）都落在这里。七条口径先立住：
 
 1. **属性表只写不判，全站只允许一处 ARIA 口径。** `tabAttr(id)` / `panelAttr(id)` /
    `tablistAttr()` 给什么就写什么：**不判断、不改名、不补默认值、不因为"骨架里好像已经有了"
@@ -4221,7 +4222,7 @@ Expected：提交只含这两条路径；剩下仍是对方那批未提交项。
    §6.4 那两条黑名单前缀（`.tk-` / `.jt-`）对应的两套工作台换的只是构造参数，不换代码。
    站内 devDeps 没有 jsdom / linkedom / cheerio（§0.5 实测），§I 用手写假 DOM，**不新增依赖**；
    这层用到的 API 一共十四个（见 §I 文件头清单），假 DOM 只需要实现这十四个，
-   多出来的形状一律不在判据里出现——真 DOM 行为留给 Task 11 的 headless Chrome 实测。
+   多出来的形状一律不在判据里出现——真 DOM 行为留给 Task 10 的 headless Chrome 实测。
 
 源码里 `import { keyAction } from './panel.js'` 是本节唯一一条 import。这与 §0.2 那条白屏实测
 不冲突：`panel.js` 与 `panel-dom.js` 都由 `toolkitCore.js`（Task 8）挂成 `window.Tk`，编到同一个
@@ -4835,7 +4836,7 @@ Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
  */
 import { keyAction } from './panel.js';
 
-/** 错误条的类名是 `toolkit.scss`（Task 7）的钩子；这里只给形状，颜色与字号一律不在 JS 里 */
+/** 错误条的类名是 `toolkit.scss`（Task 8）的钩子；这里只给形状，颜色与字号一律不在 JS 里 */
 const ERROR_CLASS = 'tk-panel__error';
 const BANNER_BEFORE = '这一块面板没能渲染出来：';
 const BANNER_AFTER = '。其余面板不受影响。';
@@ -5565,7 +5566,7 @@ GC 与抢核，不是绑定层——所以 `mount` 报的是 p10 / 中位 / p90 
 数量级，因此"每次输入都把五块面板重刷一轮"不需要防抖或分片；被忽略的修饰键组合是 **0.03µs**，
 说明它压根没进 DOM 那一圈；Step 4 那条全量命令的 `# duration_ms` 本机三轮 **4.14–5.31s**，
 同样随桌面负载漂，**不要**用它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
-真页面上的首屏与交互端到端时间由 Task 11 的 headless Chrome 量，性能预算真正看的是 gzip 字节。
+真页面上的首屏与交互端到端时间由 Task 10 的 headless Chrome 量，性能预算真正看的是 gzip 字节。
 
 Expected：`node --check` 退出 0；`wc -c` **16,955 字节**、`gzip -6` **7,007 字节**
 （`gzip -9` 7,005，两档只差 2 字节，这层没什么可再压的）；文件 **322 行**（`wc -l`），其中注释
@@ -5607,4 +5608,3338 @@ git status --porcelain | head
 Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
 按 Task 11 的收口节奏单独提。
 
-<!-- APPEND-7 -->
+## Task 7: 证件页装配层与两个入口（`workbench.js` + `toolkitCore.js` + `toolIdcard.js`，§J 十六条）
+
+**Files:**
+- Create: `dev/js/toolkitCore.js`（跨页共用层入口 → `window.Tk`）
+- Create: `dev/js/tools/workbench.js`（本页装配层：spec → 模块入参 → 结果 HTML）
+- Create: `dev/js/toolIdcard.js`（页面入口：读骨架那四格数据，接线）
+- Modify: `scripts/toolkit-tests.mjs`（追加 §J 十六条 → 全量 142 条）
+- 本格**不**创建 `tools-idcard.html` / `dev/sass/toolkit.scss` / `_data/onlineTools.yml`，也不碰
+  `postcss.config.js`——那四件是 Task 8 的活。分界线的根据是"谁判它"：这一格的三件全部由 §J 在
+  Node 里判（假 DOM 就够），骨架与样式只能由构建产物判（`import{` 计数之外的那几条要读到磁盘上的
+  HTML 与 CSS）。两格各自一次提交，红的时候能一眼说出是哪一格红的。
+
+这一格落的还是"看不见"的一层：三条 `<script>` 里前两条已经能构建出产物，但站里还没有任何页面
+引用它们，用户看见的还是段 1 那张空档。从这里起才有"这一页怎么跑起来"的代码；`toolkitCore.js`
+与 `toolkit.scss` 在段 3 / 段 4 直接复用，`workbench.js` 的 `WORKBENCH_SPEC` 换成编码工具箱那一套
+就是 codec 页的装配层。所以这一格的口径，一半是"这一页怎么做"，另一半是"三页共用的东西长什么样"。
+
+**九条口径，先立住再动手**（每条后面括号里是咬它的判据与变异）：
+
+1. **跨页共用的只有 `window.Tk` 那三只，业务模块不下沉。**（J12 / Y1 Y2 Y3）
+   段 1 在镜像里实测过：`dev/js/` 下两个入口同时 `import` 同一模块，Rollup 把它提成共享 chunk，
+   而 `vite.config.js` 的 `iife-wrap` 把 ESM 的 `import` 声明包进函数体，产物里留下
+   `import{c as o}from"./panel.min.js"`——经典 `<script>` 当场 SyntaxError，**整页白屏而构建 exit=0**。
+   所以共用的东西必须经一道"挂全局"的中转：`toolkitCore.js` 只挂 `createPanelWorkspace` /
+   `createPanelDom` / `view` 三个名字，不加版本号、不加解析函数、不"顺手暴露"。页面入口拿不到的
+   能力就是不存在，将来要扩面是显式改动。六本业务模块只有证件页要，走 `workbench.js` 直接
+   `import` 内联进 `toolIdcard.min.js`，不下到这一层。
+2. **入口不许有顶层 `export`。**（J14 源码红线 / Y3）
+   同一条坑的另一种写法：`iifeWrapPlugin` 把 chunk 包成 `(function(){…})();` 且不补 `'use strict'`，
+   顶层 `export` 在函数体里是语法错误。`toolkitCore.js` 与 `toolIdcard.js` 各判一条"不许匹配
+   `/^export /m`"，而 `workbench.js` 反过来判"必须还能被 import"——两档一起写，才不是一句空话。
+3. **空值不写键。**（J1 J2 / X1 X2 X3）
+   `valueOf` 把空串统一折成 `null`，`buildOptions` 按 `null` 决定"这一格不写进模块入参"。
+   写进去反而糟：`idcard.js` 对 `sex: null` 与"没有 `sex` 这个键"的处理是同一条回落链，
+   但 `uscc.js` 的 `registry: ''` 会被字符集闸门拒掉——装配层替用户把空串递进模块，等于把
+   "我没填"翻译成"我填了个空"。
+4. **两类失败分档，一档都不许静默。**（J3 J8 / X7 X8 X45）
+   `FieldError` 是"这一栏的输入不能用"：消息进结果区的提示行，复制按钮禁用，面板不进 broken 名单，
+   错误条也不出现。其余异常（模块的范围错、spec 与骨架对不上的 `RangeError`）原样抛给
+   `runGuarded`，由绑定层标坏**这一块**——一块塌不整页崩，另外四块照旧能生成。两档的边界靠
+   `err.isField === true` 判，不靠 `instanceof`：入口与装配层在产物里是两个闭包作用域，
+   `instanceof` 跨不过去（段 1 计划的 §0 已经钉过这条）。
+5. **骨架是 spec 的影子，不是反过来。**（J9 J10 / X33 X34 X35 X36 X37）
+   控件 id 全部走 `fieldId` / `buttonId` / `copyId` / `outId` / `whenId` 五个派生函数，
+   找节点只许 `getElementById`，不许 `querySelector`、不许读 `data-tk-*`。`controlIds(prefix)`
+   把"这个前缀下应该存在的全部控件 id"导出成一份清单，Task 9 拿它对账磁盘上的 HTML：
+   spec 说应有而页面没有 → 装配层第一次点就抛；页面有而 spec 没说 → 那是个没人接的格子。
+   换前缀（`.tk-` → `.jt-`）必须是整套换，行为一位都不改——J10 用 `jt` 前缀把整轮判据重跑一遍。
+6. **HTML 出口只有一处，动态文本一律过 `esc`。**（J14 / X28 X29 X30 X31 X32）
+   `paint()` 是全层唯一的 `innerHTML` 赋值。提示行也过 `esc`，因为 `countOf` 那句消息会把用户
+   填的那一格原样带进句子里——粘贴框回显与数量格那两格是这一层仅有的两个 XSS 出口。
+   `view.esc` 来自 `window.Tk`，不在这里重抄一份。
+7. **显隐只走 `hidden` 布尔属性。**（J4 / X43 X57）
+   段 1 在 `panel-dom.js` 立的口径（可见性的唯一来源是那一个属性）在这里同样成立：两处都能改
+   显隐就等于两处能互相覆盖。受开关控制的是 HTML 里那一段 `<p data-tk-when>`，不是三个
+   `<select>`——隐藏那一段才叫"这一类用不上"，逐个隐藏会留下一个空标签。
+8. **整栏通用的那几句口径，栏尾说一次；逐行的结论留在行里。**（J15 / X23 X24 X25 X26 X27）
+   `bankcard.js` 的 `caveat` 恒为 `BANK_CAVEAT`、`phone.js` 同档带 `note`，`view.parseBlock`
+   会照字段收走——粘 50 行就是 50 段同一句话。这里按**常量全等**把它们摘出来、排在逐行结果之后
+   说一次。全等而不是"看着像"：身份证与信用代码的 `caveat` 随号码而变（撤销区划、小写转大写），
+   那两句必须留在各自那一行里，摘错了就是把结论从号码旁边搬走。
+9. **复制三级兜底，任何一级都不许抛到页面外面。**（J7 / X48–X55）
+   `navigator.clipboard` → 临时 `<textarea>` + `execCommand('copy')` → 一句"请手动选中"。
+   同步抛错与异步拒绝走同一条路（`writeText` 在权限策略拒绝时可能直接抛、不返回 Promise），
+   临时框在 `finally` 里摘——`select()` 或 `execCommand` 抛错时也要摘，留在页面上就是一个能被
+   Tab 走到的隐形输入框。这两格是 Task 7 写判据时才从代码里挖出来的真缺陷：口径先写在了
+   `workbench.js` 的文件头注释里，实现漏了，判据一补就红。
+
+- [ ] **Step 1a: 先给 §I 那台假 DOM 补上 §J 要用的五张口子（纯插入，18 行）**
+
+§J 接的是真装配层，于是它要比 §I 多读五样东西：控件的 `value` 与 `disabled`、临时
+`<textarea>` 的 `select()`、`document.body`（挂临时节点用）与 `document.execCommand`（第二级兜底
+的返回值），外加三个观察口 `mk` / `selLog` / `commandLog` 与一份 `made` 清单。这五张口子开在
+§I 那台 `iPage` 工厂上，**不再长第二套假 DOM**——两套并排的话，"两节看到的是同一种 DOM"这句
+话就没人判了。§I 那 16 判一条都不读这些新口子（`value` / `disabled` 是表单控件的事，绑定层只碰
+属性表与 `hidden`），所以这一步的形状是**改了文件、用例数一个没动**。
+
+写成脚本而不是照行号手改，原因和 Step 5 的变异脚本一样：§I 落地以后行号会跟着每次追加漂，
+锚点却在全文件里唯一。七处锚点、只插不改，命中 0 次或 2 次以上当场抛，"已经补过了"也当场抛
+（重跑这一步不该把文件插成两份）。
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+mkdir -p /tmp/pfx/t7
+cat > /tmp/pfx/t7/patch-ipage.mjs <<'EOF'
+/* 给 §I 的假 DOM 补上 §J 要用的那几张口子：七处**纯插入**，一行都不改写、一行都不删。
+   为什么写成脚本而不是让人照着行号手改：§I 那 sixteen 判的正文在计划里就有一整块，
+   执行时磁盘上的行号会跟着 Task 2–6 的追加一路漂；锚点在全文件里唯一（本脚本逐条断言），
+   所以这一步要么精确落地、要么当场抛，不存在"改到隔壁那一节去"的中间态。
+   插入的每张口子都不在 §I 的读取面上（见第 2 条注释），所以补完 §I 必须照绿——
+   这一步红了只有一种解释：插入没落地或插错了位置，先修脚本再说往下走。 */
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+
+const F = 'scripts/toolkit-tests.mjs';
+/** 内容取 md5：绝不走 shell——这段文本里满是反引号与 `$`，一旦拼进命令行就是命令替换 */
+const md5 = (t) => createHash('md5').update(t).digest('hex').slice(0, 12);
+
+/** [锚点行（原文，全文件必须唯一）, 紧接其后要插入的行] */
+const INS = [
+  [' *    "重复点同一块不重复写地址栏"永远测不到（比对 `location.hash` 那一步恒假）。', [
+    ' *',
+    ' * **§J 借的是这一个工厂**，所以它多开五张读写口子（`value` / `disabled` / `select()` /',
+    ' * `document.body` / `document.execCommand`）与三个观察口（`mk` / `selLog` / `commandLog`）。',
+    ' * 上面三条"不像真 DOM"一条没撤，本节十六判也没有一条读这些新口子——`value` 与 `disabled`',
+    ' * 是表单控件的事，绑定层只碰属性表与 `hidden`；两节共用一份工厂，是为了不让假 DOM 长第二套。',
+  ]],
+  ['  const mkText = (text) => ({ nodeType: 3, tagName: \'#text\', textContent: String(text) });', [
+    '  /** §J 的复制兜底与下拉填充要这三张口子；§I 的十六判一条都不读它们（见 §J 开头第 0 条） */',
+    '  const selLog = [];',
+    '  const commandLog = [];',
+    '  const made = [];',
+  ]],
+  ['      nodeType: 1, tagName: tag.toUpperCase(), id, attrs, childNodes: [], hidden: false,', [
+    "      value: '', disabled: false,",
+  ]],
+  ['      focus: () => { focusLog.push(el.id); },', [
+    '      /** 临时 `<textarea>` 那条兜底路径要 `select()`；记下来供 §J 判"用完有没有摘掉" */',
+    '      select: () => { selLog.push(el); },',
+  ]],
+  ["    if (id !== '') nodes.set(id, el);", [
+    '    made.push(el);',
+  ]],
+  ['    createTextNode: mkText,', [
+    '    /** §J 的 `legacyCopy` 要往 `body` 上挂临时节点，`execCommand` 的返回值由夹具说了算 */',
+    "    body: mkEl('body'),",
+    '    copyOk: true,',
+    '    execCommand: (name) => { commandLog.push(name); return doc.copyOk === true; },',
+  ]],
+  ['    doc, ws, location, history, win, notice, focusLog, historyCalls, nodes,', [
+    '    mk: mkEl, selLog, commandLog, made,',
+  ]],
+];
+
+const before = fs.readFileSync(F, 'utf8');
+let text = before;
+for (const [anchor, lines] of INS) {
+  const hits = text.split(anchor).length - 1;
+  if (hits !== 1) throw new Error(`锚点命中 ${hits} 次（要正好 1）：${anchor.slice(0, 48)}…`);
+  const add = anchor + '\n' + lines.join('\n');
+  if (text.includes(add)) throw new Error(`已经补过了，不重复插：${anchor.slice(0, 48)}…`);
+  text = text.replace(anchor, add);
+}
+fs.writeFileSync(F, text);
+const added = text.split('\n').length - before.split('\n').length;
+console.log(`插入 ${added} 行（要 18）｜md5 ${md5(before)} → ${md5(text)}`);
+if (added !== 18) throw new Error('插入行数和预期不符，先核对锚点清单');
+EOF
+node /tmp/pfx/t7/patch-ipage.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/j1a.log 2>&1; echo "exit=$?"
+grep -E '^# (tests|pass|fail)|^not ok' /tmp/j1a.log
+```
+
+Expected：`插入 18 行（要 18）｜md5 …→…`（两个 md5 必然不同，行数是脚本自己断言的）、`exit=0`、
+`# tests 126`、`# pass 126`、`# fail 0`。**用例数一条都不许多**——这一步只加夹具的读写口子，
+不加判据；红了或者数字变了，唯一可能就是插入落错了位置，先修锚点再往下走。
+`md5` 在 Node 里用 `createHash` 算，不是 `execSync('md5 -s ' + 文件内容)`：那段文本里满是反引号与
+`$`，拼进命令行会被 shell 当命令替换执行（2026-09-27 写这一步时真踩过，屏幕刷出五十多行
+`command not found` 而脚本照样退 0——这是"脚手架静默说谎"的第 10 种形状）。
+
+这一步与 §J 的账在计划定稿时已经对过一遍：把本计划 Task 6 里 §I 那一块（524 行）单独落到沙箱、
+跑上面这份补丁，出来的 542 行与 §J 实跑时那份镜像的 §I 段**逐行相同**；所以 Step 1b 贴进去的
+判据块，读到的假 DOM 与产生这些证据的假 DOM 是同一份。
+
+- [ ] **Step 1b: 追加 §J 的 16 条判据（此时 `workbench.js` 还不存在，必红）**
+
+追加到 `scripts/toolkit-tests.mjs` 末尾。四条夹具口径写在节头注释里，其中第三条与第四条是这一节
+与前面各节最不一样的地方：**节点清单来自 `controlIds(prefix)` 与 `WORKBENCH_SPEC` 本身**，测试里
+不重抄一份 id 清单（重抄的那份会跟着 spec 一起错，Task 9 拿 spec 对账骨架也就失去了第三者）；
+代价是 spec 与骨架同时漏一格时本节不红——那是 Task 9 的活，它比的是磁盘上的 HTML。
+
+假 DOM 复用 §I 那一份（`iPage`，Step 1a 刚给它补了五张口子），本节只加 `jPage` / `jMount` 两个
+包装：结果区走的是 `out.innerHTML = 字符串`，假 DOM 上它只长成一个普通属性、不解析标签，所以判据
+读的是**那一串文本**——这正好也是真页面唯一吃进 HTML 的地方。`drop` 那一档要翻译成 `iPage` 认得的
+`dropTab` / `dropPanel`（`jPage` 负责这层翻译，第一版直接把 `tk-out-*-gen` 这类派生 id 原样递给
+`iPage`，`missing` 数出来是空数组，判据当场假绿）。
+
+用例名是这一节唯一的锚，**位置不按编号排**：`J7`（复制三级兜底）排在整节最后，因为它是 Step 5
+补牙时才补上的那一档 `(i)`——Step 5 的六十六刀用 `^not ok \d+ - J\d+` 认"红了谁"，靠的就是用例名
+而不是行序，挪位置不改变任何一刀的读法。
+
+```js
+// ── §J 证件页装配层与入口（`tools/workbench.js` / `toolkitCore.js` / `toolIdcard.js`） ──
+//
+// 本节把 `workbench.js` 开头那五条口径逐条咬一遍，并且是**接真的三方**咬：绑定层用
+// `panel-dom.js` 本尊、结果 HTML 用 `view.js` 本尊、六本业务模块与 `region.js` 也都是本尊。
+// mock 掉任何一样，§B–§H 那十九节判据就从"这一层没错"变成"这一层没测"。
+//
+// 四条夹具口径：
+//
+// 0. **假 DOM 复用 §I 那一份**（多开的五张读写口子见 `iPage` 的注释头）。结果区走的是
+//    `out.innerHTML = 字符串`——假 DOM 上它只长成一个普通属性、不解析标签，所以本节读的是
+//    **那一串文本**。这正好也是真页面唯一吃进 HTML 的地方，J13 就数它的赋值次数。
+// 1. **每一判都从"按真的按钮 / 派发真的事件"起步**，只有要问 `runGuarded` 走没走时才看返回值。
+//    装配层的价值全在接线上，绕开接线等于没测。
+// 2. **随机源钉住**（`seededRandom`），于是"共 5 条""前缀 110101"不是运气。
+// 3. **夹具的节点清单来自 `controlIds(prefix)` 与 `WORKBENCH_SPEC` 本身**，不在测试里重抄
+//    一份 id 清单——重抄的那份会跟着 spec 一起错，Task 9 拿 spec 对账骨架也就失去了第三者。
+//    代价是：spec 与骨架同时漏一格时本节不红，那是 Task 9 的活（它比的是磁盘上的 HTML）。
+const J_VIEW = await import('../dev/js/tools/view.js');
+const {
+  createWorkbench, WORKBENCH_SPEC, PANEL_IDS, MAX_READ_LINES, controlIds,
+  fieldId, buttonId, copyId, outId, whenId,
+} = await import('../dev/js/tools/workbench.js');
+
+/** §J 的默认随机种子：钉住"这一页第一次画什么"，让条数与前缀这类断言可复算 */
+const J_SEED = 20260927;
+/** 骨架里主按钮与复制按钮的文案。装配层只负责"改口之后改回原文"，句子本身是夹具替身 */
+const J_MAIN_LABEL = { gen: '生成', read: '判定' };
+const J_COPY_LABEL = {
+  'idcard:gen': '复制这批号码', 'idcard:read': '复制判定有效的号码',
+  'uscc:gen': '复制这批代码', 'uscc:read': '复制判定有效的代码',
+  'bankcard:gen': '复制这批卡号', 'bankcard:read': '复制判定有效的卡号',
+  'mobile:gen': '复制这批号码', 'mobile:read': '复制判定有效的号码',
+  'random:gen': '复制这批结果',
+};
+
+/** spec 的 `type` → 骨架用的标签；缺省那一档全是 `<select>`（静态的也好、待填充的也好） */
+const jTag = (type) => (type === 'area' ? 'textarea' : type === 'number' || type === 'date' ? 'input' : 'select');
+
+/** 字符串在另一串里出现几次（`split` 计数，不用正则：句子里满是正则元字符） */
+const jCount = (hay, needle) => hay.split(needle).length - 1;
+
+/**
+ * 造一页"骨架"：§I 的索引条 + 五块面板 + 提示行，再按 spec 长出 30 个控件、9 条主按钮、
+ * 9 条复制按钮、9 个结果区与 4 个受开关控制的字段组。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀
+ * @param {string} [o.hash] 进页面时地址栏里的 hash
+ * @param {Record<string, string|number>} [o.seed] `'panel:control' → 初值`；`count` 缺省 `'5'`
+ * @param {string[]} [o.drop] **不**要长的 id（造"骨架缺一格"那一类缺陷）
+ * @returns {object} §I 的那份 page，外加 `ctl` / `btn` / `html` / `set` / `change` 等观察口
+ */
+function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
+  // `tk-tab-*` / `tk-panel-*` 这两类骨架节点由 §I 的 `iPage` 长出，摘掉它们的活也在那儿；
+  // 本节只把 id 翻译成它的两张清单，其余 id 才归下面的 spec 循环管。
+  const slugOf = (id, word) => {
+    const at = `${prefix}-${word}-`;
+    if (!id.startsWith(at)) return null;
+    const slug = id.slice(at.length);
+    return PANEL_IDS.includes(slug) && id === `${at}${slug}` ? slug : null;
+  };
+  const dropTab = drop.map((id) => slugOf(id, 'tab')).filter((s) => s !== null);
+  const dropPanel = drop.map((id) => slugOf(id, 'panel')).filter((s) => s !== null);
+  const page = iPage({ ids: PANEL_IDS, prefix, hash, dropTab, dropPanel });
+  const gone = new Set(drop);
+  const mk = page.mk;
+  const doc = page.doc;
+
+  for (const [panel, cfg] of Object.entries(WORKBENCH_SPEC)) {
+    for (const side of ['gen', 'read']) {
+      const cfgSide = cfg.sides[side];
+      if (!cfgSide) continue;
+      for (const c of cfgSide.controls) {
+        const id = fieldId(prefix, panel, c.id);
+        if (gone.has(id)) continue;
+        const el = mk(jTag(c.type), id);
+        // 骨架里每条 select 都自带一句占位项（"不限省份"之类）；`#random-kind` 是唯一
+        // 没有空占位的那一条，它的第一项 `name` 就是浏览器的默认选中值。
+        // 占位项的"值"走**属性**——`firstValueOf()` 与 `fill()` 读的都是属性，真 DOM 同一条路。
+        if (jTag(c.type) === 'select') {
+          const ph = mk('option');
+          ph.setAttribute('value', c.id === 'kind' ? 'name' : '');
+          ph.textContent = '占位';
+          el.appendChild(ph);
+        }
+        const key = `${panel}:${c.id}`;
+        if (seed[key] !== undefined) el.value = String(seed[key]);
+        else if (c.id === 'count') el.value = '5';
+      }
+      const bid = buttonId(prefix, panel, side);
+      if (!gone.has(bid)) mk('button', bid).textContent = J_MAIN_LABEL[side];
+      const cid = copyId(prefix, panel, side);
+      if (!gone.has(cid)) {
+        const cb = mk('button', cid);
+        cb.textContent = J_COPY_LABEL[`${panel}:${side}`];
+        cb.disabled = true;                      // 骨架写死 disabled：第一次画完之前没东西可复制
+      }
+      const oid = outId(prefix, panel, side);
+      if (!gone.has(oid)) mk('div', oid);
+    }
+  }
+  for (const id of controlIds(prefix).when) if (!gone.has(id)) mk('p', id);
+
+  const at = (id) => doc.getElementById(id);
+  return Object.assign(page, {
+    prefix,
+    ctl: (panel, control) => at(fieldId(prefix, panel, control)),
+    btn: (panel, side) => at(buttonId(prefix, panel, side)),
+    copy: (panel, side) => at(copyId(prefix, panel, side)),
+    outNode: (panel, side) => at(outId(prefix, panel, side)),
+    whenNode: (panel, key) => at(whenId(prefix, panel, key)),
+    /** 结果区里那一串 HTML；节点被 `drop` 掉时给空串，判据照样跑得动（那一判要的就是"没画"） */
+    html: (panel, side) => String(at(outId(prefix, panel, side))?.innerHTML ?? ''),
+    set: (panel, control, v) => { const el = at(fieldId(prefix, panel, control)); el.value = String(v); return el; },
+    change: (panel, control) => at(fieldId(prefix, panel, control)).dispatch('change', {}),
+    click: (panel, side) => at(buttonId(prefix, panel, side)).dispatch('click', {}),
+    clickCopy: (panel, side) => at(copyId(prefix, panel, side)).dispatch('click', {}),
+    keyOn: (panel, control, evt) => at(fieldId(prefix, panel, control)).dispatch('keydown', evt),
+  });
+}
+
+/**
+ * 装配层 + 绑定层 + 挂载，一路接成页面上那个样子。
+ *
+ * 两种"填格子"要分开，因为它们在页面上根本不是同一时刻的事：
+ * - `seed`：**骨架自带的初值**（只有 `count` 那条 `value="5"` 属于这里）。它在挂载之前就在
+ *   DOM 上，会参与挂载期的第一次生成。
+ * - `pick`：**用户改的选择**。挂载时每条 select 都被 `refill()` 重建过一遍并 reset 成
+ *   `''`（真页面也是这样：省格刚填上 31 条选项，默认落在占位那条），所以任何"我选了北京"
+ *   的事实只能在挂载之后写下，并且要跟着派发 `change`——级联与开关全挂在 `change` 上，
+ *   不派发就等于用户在 DOM 里偷偷改了值。
+ *
+ * @param {object} o 透给 `jPage` 的选项，外加 `clipboard` / `rng` / `pick`
+ * @returns {object} `{ page, wb, dom, report, timers, guarded, flush }`
+ */
+function jMount(o = {}) {
+  const prefix = o.prefix ?? 'tk';
+  const page = jPage({ prefix, hash: o.hash, seed: o.seed, drop: o.drop });
+  const timers = [];
+  /** `runGuarded` 的调用记录：口径 2 说"挂载期一次都不许走它"，这一格就是它的观察口 */
+  const guarded = [];
+  const host = { dom: null };
+  const wb = createWorkbench({
+    document: page.doc,
+    Tk: { view: J_VIEW },
+    prefix,
+    today: TODAY,
+    ...(o.rng === null ? {} : { rng: o.rng ?? seededRandom(J_SEED) }),
+    navigator: o.clipboard ? { clipboard: o.clipboard } : undefined,
+    later: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    runGuarded: (id, fn) => { guarded.push(id); return host.dom.run(id, fn); },
+  });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location, history: page.history,
+    window: page.win, renderers: wb.renderers, notice: page.notice,
+  });
+  host.dom = dom;
+  const report = dom.mount();
+  for (const [who, v] of Object.entries(o.pick ?? {})) {
+    const [panel, control] = who.split(':');
+    page.set(panel, control, v);
+    page.change(panel, control);
+  }
+  const flush = () => {
+    const due = timers.splice(0, timers.length);
+    for (const t of due) t.fn();
+    return due;
+  };
+  return { page, wb, dom, report, timers, guarded, flush, prefix };
+}
+
+/** 一条有效号码：把 17 位本体交给 §B 的 `mk()` 补校验位，本节不另算一遍模 11 */
+const jIds = (bodies) => bodies.map((b) => mk(b));
+/** 复制按钮当前那句文案（`textContent` 走的是子节点，与真 DOM 同一张脸） */
+const jLabel = (page, panel, side) => page.copy(panel, side).textContent;
+/**
+ * 排空微任务：`navigator.clipboard.writeText` 那一级的成败是异步的，而 `later` 被夹具
+ * 换成了"只记账不执行"，所以 `await` 这一发只等 Promise 链落地，不等那 1600 ms。
+ * 用的是全局 `setTimeout`，不是注入给装配层的那只——后者一执行就会把按钮文案改回去。
+ * @returns {Promise<void>} 微任务队列清空
+ */
+const jSettle = () => new Promise((r) => { setTimeout(r, 0); });
+
+test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落到号码上', () => {
+  // 左半边：一格不填（只有骨架自带的 count=5）在挂载期跑完五块面板。
+  // 这一格是**行为**证据不是读数证据：六本模块收到空串各抛各的（`sex:''` 抛 RangeError、
+  // `areaCode:''`/`domain:''`/`givenLength:''` 抛 TypeError），空串只要递下去一块就进 broken 名单。
+  const bare = jMount();
+  assert.deepEqual(bare.report.broken, [], '有一格把空串递下去了：五块面板应当在挂载期全部画好');
+  assert.deepEqual(bare.report.rendered, PANEL_IDS);
+  assert.deepEqual(bare.report.missing, [], '夹具自证：五块面板的 tab 与 panel 节点都在');
+  for (const panel of PANEL_IDS) {
+    assert.match(bare.page.html(panel, 'gen'), /<p class="tk-count">共 5 条<\/p>/, `${panel}：挂载期没画出 5 条`);
+  }
+  // 空着的 registry / category 让模块走它自己的默认**字符**（不是随机）：这是"不写键"唯一
+  // 能被看出来的方式——写成 `''` 早就抛了，写成随机又和默认字符对不上。
+  const codes = bare.wb.copyTextOf('uscc', 'gen').split('\n');
+  assert.equal(codes.length, 5);
+  for (const c of codes) {
+    assert.equal(c.length, 18, `${c}：不是 18 位`);
+    assert.equal(c[0], '9', '登记管理部门代码没选，模块的默认字符应当是 9');
+    assert.equal(c[1], '1', '机构类别代码没选，模块的默认字符应当是 1');
+  }
+  // 空着的位数 → 行别登记位数，卡号长度落在 13–19 且每一条都过 Luhn
+  for (const n of bare.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+    assert.equal(n.length >= PAN_MIN && n.length <= PAN_MAX, true, `${n}：位数越界`);
+    assert.equal(parseBankCard(n).state, 'valid', `${n}：空位数生成的卡号不自洽`);
+  }
+  // 空着的号段 / 运营商 → 11 位且首位形状合法；空着的字数 → 名字 2 或 3 字
+  for (const n of bare.wb.copyTextOf('mobile', 'gen').split('\n')) {
+    assert.match(n, /^1[3-9]\d{9}$/, `${n}：号段形状不对`);
+  }
+  for (const nm of bare.wb.copyTextOf('random', 'gen').split('\n')) {
+    assert.match(nm, /^[一-鿿]{2,3}$/, `${nm}：不限字数时名字长度不对`);
+  }
+  // 右半边：同样的格子填上值，值必须真的改号码——不然"不写键"和"写了键"就分不出来。
+  // 走 `pick`（挂载后改 + 派发 change）而不是 `seed`：省格与字符集格在挂载期被 `refill()`
+  // 重建过，构造时写下的值会被 reset 成空，页面上"用户选的"从来都发生在挂载之后。
+  const set = jMount({
+    pick: {
+      'idcard:sex': 'male', 'idcard:province': '11', 'uscc:registry': 'A', 'uscc:category': '2',
+      'bankcard:length': 16, 'mobile:segment': '138', 'random:givelen': '2',
+    },
+  });
+  assert.deepEqual(set.report.broken, []);
+  for (const panel of PANEL_IDS) set.page.click(panel, 'gen');
+  for (const id of set.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(Number(id.slice(16, 17)) % 2, 1, `${id}：选了男却出了女`);
+    assert.equal(id.slice(0, 2), '11', `${id}：选了北京市却没落在 11`);
+  }
+  for (const c of set.wb.copyTextOf('uscc', 'gen').split('\n')) {
+    assert.equal(c[0], 'A', `${c}：第 1 位不是选中的 A`);
+    assert.equal(c[1], '2', `${c}：第 2 位不是选中的 2`);
+  }
+  for (const n of set.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+    assert.equal(n.length, 16, `${n}：指定了 16 位却画成 ${n.length} 位`);
+  }
+  for (const n of set.wb.copyTextOf('mobile', 'gen').split('\n')) {
+    assert.equal(n.slice(0, 3), '138', `${n}：指定了 138 段`);
+  }
+  for (const nm of set.wb.copyTextOf('random', 'gen').split('\n')) {
+    assert.equal(nm.length, 3, `${nm}：名字字数选了 2 个字`);
+  }
+});
+
+test('J2 区划级联：占位项留住、禁用跟着上游走、优先级是县 > 市 > 省', () => {
+  const m = jMount();
+  const prov = m.page.ctl('idcard', 'province');
+  const city = m.page.ctl('idcard', 'city');
+  const county = m.page.ctl('idcard', 'county');
+  assert.equal(prov.childNodes.length, 1 + provinceCodes().length, '省格：占位项 + 31 条');
+  assert.equal(prov.childNodes[0].getAttribute('value'), '', '骨架那条占位项必须还在第一位');
+  assert.equal(city.disabled, true, '省没选，市格要禁用，不是留一格空白让人猜');
+  assert.equal(county.disabled, true);
+  assert.equal(city.childNodes.length, 1, '禁用状态下市格里只该有占位那一条');
+  const cityPh = city.firstChild;
+  const countyPh = county.firstChild;
+
+  m.page.set('idcard', 'province', '11');
+  m.page.change('idcard', 'province');
+  assert.equal(currentCityCodes('11').length, 1, '夹具自证：北京市下面只有"市辖区"一个市');
+  assert.equal(city.disabled, false);
+  assert.equal(city.childNodes.length, 2);
+  assert.equal(city.childNodes[1].getAttribute('value'), '1101');
+  assert.equal(city.childNodes[1].textContent, cityName('1101'));
+  assert.equal(city.firstChild, cityPh, 'fill 要把骨架那条占位项留住，不是重新造一条');
+  // 省下恰好一个市 → 县格不等用户选市就先行放开（4 个直辖市都是这个形状）
+  assert.equal(county.disabled, false);
+  assert.equal(county.childNodes.length, 1 + currentCountyCodes('1101').length);
+  assert.equal(county.firstChild, countyPh);
+
+  // 优先级：三级都选上，号码只认县
+  m.page.set('idcard', 'city', '1101');
+  m.page.change('idcard', 'city');
+  m.page.set('idcard', 'county', '110101');
+  m.page.click('idcard', 'gen');
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(0, 6), '110101', `${id}：县都选了，前六位却不是它`);
+  }
+  // 清掉县 → 只认市；再清掉市 → 只认省。三级各留一条口径，谁在上面听谁的
+  m.page.set('idcard', 'county', '');
+  m.page.click('idcard', 'gen');
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(0, 4), '1101', `${id}：没有县时应退到市`);
+  }
+  m.page.set('idcard', 'city', '');
+  m.page.change('idcard', 'city');
+  m.page.click('idcard', 'gen');
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(0, 2), '11', `${id}：市也空了，应退到省`);
+    assert.equal(resolveRegion(id.slice(0, 6)).provinceCode, '11', `${id}：退到省之后跑出省去了`);
+  }
+  // 省改选到"下面不止一个市"的省，县格必须重新禁用（它无从选起）
+  m.page.set('idcard', 'province', '32');
+  m.page.change('idcard', 'province');
+  assert.equal(city.disabled, false);
+  assert.equal(city.childNodes.length, 1 + currentCityCodes('32').length);
+  assert.equal(county.disabled, true, '江苏省 13 个市，没选市之前县格不该亮着');
+  assert.equal(county.childNodes.length, 1, '上游断了，县格要退回只剩占位项');
+  assert.equal(county.firstChild, countyPh, '退回时占位项还是原来那一条');
+});
+
+test('J3 口径 3 的两条路：缺日期是提示行不是坏面板，超范围的日期才交给模块标坏', () => {
+  const m = jMount();
+  const when = m.page.whenNode('idcard', 'birth');
+  assert.equal(when.hidden, true, '年龄段停在占位那一条时，出生日期那一格不该先露出来');
+  assert.equal(m.guarded.length, 0, '口径 2：挂载期一次都不许走 runGuarded');
+
+  // 开关：选到 custom 才现身，退回去又藏起来（藏走的是 `hidden` 属性，不是 class / style）
+  m.page.set('idcard', 'ageband', 'custom');
+  m.page.change('idcard', 'ageband');
+  assert.equal(when.hidden, false);
+  assert.equal(when.getAttribute('class'), null, '显隐不许写进 class，也不许留 style 痕迹');
+  assert.equal(when.attrs.has('style'), false);
+
+  // 第一条路：选了 custom 却没填日期 → FieldError → 结果区一句提示，面板不进 broken
+  m.page.click('idcard', 'gen');
+  const hinted = m.page.html('idcard', 'gen');
+  assert.match(hinted, /^<p class="tk-hint">/, '提示行要单独占结果区，不该还挂着半张表');
+  assert.match(hinted, /指定出生日期/);
+  assert.equal(hinted.includes('tk-count'), false, '一行都没生成就别报"共 N 条"');
+  assert.deepEqual(m.page.ws.brokenIds(), [], '把"你少填了个日期"说成"这块面板坏了"是口径 3 禁止的');
+  assert.equal(iBanner(m.page, 'idcard'), null);
+  assert.equal(m.wb.copyTextOf('idcard', 'gen'), '', '提示行没有可复制的东西');
+  assert.equal(m.page.copy('idcard', 'gen').disabled, true);
+  assert.deepEqual(m.guarded, ['idcard'], '这一按走的是 createPanelDom().run 那一道闸门');
+
+  // 修好：填上日期再按一次，提示行整段换掉、复制按钮活过来
+  m.page.set('idcard', 'birth', '1990-05-06');
+  m.page.click('idcard', 'gen');
+  const ok = m.page.html('idcard', 'gen');
+  assert.equal(ok.includes('tk-hint'), false, '提示行留在原地，人会以为还是没填');
+  assert.match(ok, /共 5 条/);
+  assert.equal(m.page.copy('idcard', 'gen').disabled, false);
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(6, 14), '19900506', `${id}：指定的出生日期没落到号码上`);
+  }
+
+  // 年龄段那一档：换了档，日期格要重新藏回去，号码的年龄跟着落进区间
+  m.page.set('idcard', 'ageband', '18-30');
+  m.page.change('idcard', 'ageband');
+  assert.equal(when.hidden, true, '从 custom 换回年龄段，日期格必须再藏起来');
+  m.page.click('idcard', 'gen');
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    const age = parseIdCard(id, { today: TODAY }).info.ageYears;
+    assert.equal(age >= 18 && age <= 30, true, `${id}：${age} 岁不在 18–30 里`);
+  }
+
+  // 第二条路：日期形状合法但超出模块的范围——那是模块的话，由它说，并且只塌这一块
+  m.page.set('idcard', 'ageband', 'custom');
+  m.page.change('idcard', 'ageband');
+  m.page.set('idcard', 'birth', '2099-01-01');
+  m.page.click('idcard', 'gen');
+  assert.deepEqual(m.page.ws.brokenIds(), ['idcard'], '模块抛出来的一律原样交出去，且只塌这一块');
+  assert.match(m.page.ws.brokenOf('idcard'), /2099-01-01/);
+  assert.match(m.page.ws.brokenOf('idcard'), /不得晚于今天/);
+  const banner = iBanner(m.page, 'idcard');
+  assert.ok(banner);
+  assert.match(banner.textContent, /其余面板不受影响/);
+  assert.match(m.page.html('idcard', 'gen'), /共 5 条/, '标坏之前画好的那一张表不许被拖没');
+  // 自我修复：改回合法日期再按一次，错误条撤掉、状态归零
+  m.page.set('idcard', 'birth', '1990-05-06');
+  m.page.click('idcard', 'gen');
+  assert.deepEqual(m.page.ws.brokenIds(), []);
+  assert.equal(iBanner(m.page, 'idcard'), null);
+});
+
+test('J4 #random 四档 kind：该现身的现身、该带上的键带上，非法值只塌这一块', () => {
+  const m = jMount();
+  const shown = () => ['givelen', 'addr', 'domain']
+    .map((k) => `${k}=${m.page.whenNode('random', k).hidden ? 'hidden' : 'shown'}`).join(' ');
+  // kind 一格在骨架里没有空占位项，浏览器默认选中 `name` → 假 DOM 里读作 ''，
+  // 装配层退到 `firstValueOf()`：这一格正是那个退路存在的理由。
+  assert.equal(m.page.ctl('random', 'kind').value, '');
+  assert.equal(shown(), 'givelen=shown addr=hidden domain=hidden', '默认档是「姓名」');
+  assert.match(m.page.html('random', 'gen'), /tk-batch--name/);
+
+  for (const [kind, want, marker] of [
+    ['address', 'givelen=hidden addr=shown domain=hidden', /tk-batch--address/],
+    ['email', 'givelen=hidden addr=hidden domain=shown', /tk-batch--email/],
+    ['profile', 'givelen=shown addr=shown domain=shown', /tk-batch--profile/],
+    ['name', 'givelen=shown addr=hidden domain=hidden', /tk-batch--name/],
+  ]) {
+    m.page.set('random', 'kind', kind);
+    m.page.change('random', 'kind');
+    assert.equal(shown(), want, `kind=${kind} 那一档的显隐不对`);
+    m.page.click('random', 'gen');
+    assert.match(m.page.html('random', 'gen'), marker, `kind=${kind} 画出来的不是这一档`);
+    assert.equal(m.page.ws.brokenOf('random'), '');
+  }
+
+  // 用不上的格子不许偷偷带上：地址档选的区划，切到邮箱档之后不能跟着走
+  m.page.set('random', 'kind', 'address');
+  m.page.change('random', 'kind');
+  m.page.set('random', 'province', '32');
+  m.page.change('random', 'province');
+  m.page.click('random', 'gen');
+  for (const line of m.wb.copyTextOf('random', 'gen').split('\n')) {
+    assert.equal(line.slice(0, 2), '江苏', `${line}：江苏省的地址前缀不对`);
+  }
+  m.page.set('random', 'kind', 'email');
+  m.page.change('random', 'kind');
+  m.page.click('random', 'gen');
+  const mails = m.wb.copyTextOf('random', 'gen').split('\n');
+  assert.equal(mails.length, 5);
+  for (const e of mails) {
+    assert.match(e, /^[A-Za-z0-9._-]+@example\.(com|net|org)$/, `${e}：邮箱形状不对`);
+  }
+  // 三格同时生效：profile 那一档要把字数、区划、域名三个键一起带上，少一个都是"看着对、其实漏"
+  m.page.set('random', 'kind', 'profile');
+  m.page.change('random', 'kind');
+  m.page.set('random', 'givelen', '2');
+  m.page.set('random', 'domain', 'example.org');
+  m.page.click('random', 'gen');
+  const rows = m.wb.copyTextOf('random', 'gen').split('\n');
+  assert.equal(rows.length, 5);
+  for (const line of rows) {
+    const [nm, addr, mail] = line.split('\t');
+    assert.equal(line.split('\t').length, 3, `${line}：一组资料不是一条姓名/地址/邮箱`);
+    assert.equal(nm.length, 3, `${nm}：名字字数 2 没进 profile`);
+    assert.equal(addr.slice(0, 2), '江苏', `${addr}：区划没进 profile`);
+    assert.equal(mail.endsWith('@example.org'), true, `${mail}：域名没进 profile`);
+  }
+
+  // 非法 kind：RangeError 原样交出去，只塌这一块，其余四块的内容一张都没掉
+  m.page.set('random', 'kind', 'nope');
+  m.page.change('random', 'kind');
+  m.page.click('random', 'gen');
+  assert.deepEqual(m.page.ws.brokenIds(), ['random']);
+  assert.match(m.page.ws.brokenOf('random'), /kind 格取到「nope」/);
+  assert.match(m.page.ws.brokenOf('random'), /只认 name \/ address \/ email \/ profile/);
+  for (const panel of PANEL_IDS.filter((p) => p !== 'random')) {
+    assert.match(m.page.html(panel, 'gen'), /共 5 条/, `${panel} 不该被 #random 拖下水`);
+  }
+  m.page.set('random', 'kind', 'name');
+  m.page.click('random', 'gen');
+  assert.deepEqual(m.page.ws.brokenIds(), [], '改回合法值就该自愈');
+  assert.equal(iBanner(m.page, 'random'), null);
+});
+
+test('J5 读侧：原始行号、空行只占号不占位、50 行上限、空框给提示', () => {
+  const good = mk('11010119900307001');
+  const hist = mk('11010319900307001');                 // 崇文区：有效，但带一句动态 caveat
+  const bad = good[17] === '9' ? `${good.slice(0, 17)}8` : `${good.slice(0, 17)}9`;
+  assert.notEqual(bad, good, '夹具自证：这一条只改了校验位');
+  const m = jMount();
+  // 挂载期那一格是提示，不是空着
+  assert.match(m.page.html('idcard', 'read'), /<p class="tk-hint">把号码粘进来/);
+  assert.equal(m.page.copy('idcard', 'read').disabled, true);
+  m.page.click('idcard', 'read');
+  assert.match(m.page.html('idcard', 'read'), /粘贴框里还没有号码/);
+
+  m.page.set('idcard', 'read', ['', good, '   ', hist, bad].join('\n'));
+  m.page.click('idcard', 'read');
+  const h = m.page.html('idcard', 'read');
+  assert.equal(jCount(h, '<section class="tk-line">'), 3, '三条不空的行 = 三个结果块');
+  assert.match(h, /第 2 行/, '行号要用原始行号：第 2 行就是第 2 行');
+  assert.match(h, /第 4 行/);
+  assert.match(h, /第 5 行/);
+  assert.equal(h.includes('第 1 行'), false, '全空行不进表格');
+  assert.equal(h.includes('第 3 行'), false, '只有一串空格的行也不进表格，但号还是要占');
+  assert.equal(h.includes('第 6 行'), false, '粘贴框只有 5 行，别凭空多出一块');
+  // 复制只交判定有效的那几条，顺序跟粘贴一致
+  assert.equal(m.wb.copyTextOf('idcard', 'read'), [good, hist].join('\n'));
+  assert.equal(m.page.copy('idcard', 'read').disabled, false);
+  // 原样回显：连号都别给我改
+  assert.match(h, new RegExp(`<span class="tk-line__raw">${hist}</span>`));
+  // 1900–1999 出生的那一行同时给 15 位写法（骨架那句 help 文案说的就是这一格）
+  assert.match(h, /15 位写法/);
+  assert.equal(h.includes(`${hist.slice(0, 6)}${hist.slice(8, 14)}${hist.slice(14, 17)}`), true,
+    '15 位写法 = 6 位区划 + 6 位年月日（去年世纪）+ 3 位顺序码');
+
+  // Windows 粘贴带来的 \\r\\n 要归一，不许留下半个 \\r 把回显撑坏
+  m.page.set('idcard', 'read', `${good}\r\n${bad}\r`);
+  m.page.click('idcard', 'read');
+  const cr = m.page.html('idcard', 'read');
+  assert.equal(jCount(cr, '<section class="tk-line">'), 2);
+  assert.equal(cr.includes('\r'), false, '行尾的回车没被吃掉');
+  assert.match(cr, /第 2 行/);
+
+  // 上限：粘 60 行只判前 50 行，多出来的行数在提示里报数，不进表格
+  const pool = generateIdCards({ count: 50, today: TODAY, rng: seededRandom(J_SEED + 1) })
+    .map((r) => r.id18);
+  m.page.set('idcard', 'read', Array.from({ length: 60 }, (_, i) => pool[i % pool.length]).join('\n'));
+  m.page.click('idcard', 'read');
+  const big = m.page.html('idcard', 'read');
+  assert.equal(jCount(big, '<section class="tk-line">'), MAX_READ_LINES, `只该判前 ${MAX_READ_LINES} 行`);
+  assert.match(big, new RegExp(`这次粘进来 60 行，只判定前 ${MAX_READ_LINES} 行`));
+  assert.equal(m.wb.copyTextOf('idcard', 'read').split('\n').length, MAX_READ_LINES);
+  // 恰好 50 行时那句上限提示不许出现
+  m.page.set('idcard', 'read', pool.join('\n'));
+  m.page.click('idcard', 'read');
+  assert.equal(m.page.html('idcard', 'read').includes('这次粘进来'), false, '没超上限就别报数');
+  assert.equal(jCount(m.page.html('idcard', 'read'), '<section class="tk-line">'), 50);
+});
+
+test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五组、字符集只标默认那一个', () => {
+  const m = jMount();
+  const { page } = m;
+  /**
+   * 一条 `<select>` 填完之后的形状。分组与裸选项分开数：`fillGrouped` 里
+   * `label === ''` 那一组必须直接长出 `<option>`，所以它会算进 `bare` 而不是 `groups`。
+   * @param {string} panel 面板
+   * @param {string} control 控件
+   * @returns {object} `{ el, head, bare, groups, sizes, values, labels }`
+   */
+  const shape = (panel, control) => {
+    const el = page.ctl(panel, control);
+    const boxes = el.childNodes.filter((n) => n.tagName === 'OPTGROUP');
+    const flat = [
+      ...el.childNodes.filter((n) => n.tagName === 'OPTION'),
+      ...boxes.flatMap((b) => b.childNodes),
+    ];
+    return {
+      el,
+      head: el.firstChild,
+      bare: el.childNodes.length - boxes.length,
+      groups: boxes.map((b) => b.getAttribute('label')),
+      sizes: boxes.map((b) => b.childNodes.length),
+      values: flat.map((o) => o.getAttribute('value')),
+      labels: flat.map((o) => o.textContent),
+    };
+  };
+
+  // ① 发卡行：常用那 20 行是裸选项（包进组会让读屏先念一句"选项 空"），其余 240 行才分组
+  const bank = shape('bankcard', 'bank');
+  assert.equal(bank.head.tagName, 'OPTION', '骨架那条占位项必须是第一个子节点');
+  assert.equal(bank.head.getAttribute('value'), '', '占位项没有值，选中它等于没选');
+  assert.equal(bank.bare, 1 + TOP_BANKS.length, '占位项 + 常用行那 20 条都不该被包进 <optgroup>');
+  assert.deepEqual(bank.groups, ['其余行别（按行别码）']);
+  assert.deepEqual(bank.sizes, [BANK_OPTIONS.length - TOP_BANKS.length]);
+  assert.deepEqual(bank.labels.slice(1, 1 + TOP_BANKS.length),
+    TOP_BANKS.map((b) => `${b.name}（${b.binCount} 条 BIN）`), '常用行要把 BIN 条数写在脸上');
+  assert.equal(new Set(bank.values.slice(1)).size, BANK_OPTIONS.length, '260 个行别码不该有重复或遗漏');
+
+  // ② 卡种四条、邮箱域三条、运营商五条：顺序跟着模块那张表走，测试不替它重排
+  const ctype = shape('bankcard', 'type');
+  assert.deepEqual(ctype.values, ['', ...Object.keys(CARD_TYPES)]);
+  assert.deepEqual(ctype.labels.slice(1), Object.values(CARD_TYPES));
+  const domain = shape('random', 'domain');
+  assert.deepEqual(domain.values, ['', ...EMAIL_DOMAINS], '邮箱域这一格没有第二条路');
+  const carrier = shape('mobile', 'carrier');
+  assert.deepEqual(carrier.groups, [], '运营商这一格不该有 <optgroup>：五条并列');
+  assert.deepEqual(carrier.labels.slice(1), CARRIERS.map((c) => `${c.carrier}（${c.count} 个号段）`),
+    '括号里那个数就是 §F0 钉住的号段数，让用户先看见池子有多大');
+
+  // ③ 号段按运营商分五组，五组的成员数与 `CARRIERS` 的 count 逐格对上，一段都不落
+  const seg = shape('mobile', 'segment');
+  assert.deepEqual(seg.groups, CARRIERS.map((c) => c.carrier));
+  assert.deepEqual(seg.sizes, CARRIERS.map((c) => c.count));
+  assert.deepEqual([...seg.values.slice(1)].sort(), [...SEGMENTS].sort(), '56 段一段都不能少');
+  assert.equal(seg.bare, 1, '号段格除了占位项，其余必须都在组里');
+
+  // ④ 统一社会信用代码那两格：31 个字符挨条填上，「（默认）」只许出现在默认那个字符上
+  for (const [control, dflt] of [['registry', '9'], ['category', '1']]) {
+    const cs = shape('uscc', control);
+    assert.deepEqual(cs.values, ['', ...USCC_CHARSET], '字符集表里没有的第二条路');
+    const marked = cs.labels.filter((l) => l.includes('（默认）'));
+    assert.deepEqual(marked, [`${dflt}（默认）`],
+      `${control}：默认那一格要标出来，别的格子不能跟着标`);
+  }
+
+  // ⑤ spec 里没打标记的格子，装配层一条都不动：省份之外的文案是骨架自己的
+  assert.equal(page.ctl('idcard', 'sex').childNodes.length, 1, 'sex 没有 options / cascade 标记，不该被重建');
+  assert.equal(page.ctl('idcard', 'ageband').childNodes.length, 1);
+
+  // ⑥ 同一格反复填充不叠加：清不干净旧选项就会越点越长，最后一份列表没人认识
+  const city = page.ctl('idcard', 'city');
+  const cityPh = city.firstChild;
+  page.set('idcard', 'province', '32');
+  page.change('idcard', 'province');
+  const once = city.childNodes.length;
+  page.change('idcard', 'province');
+  page.change('idcard', 'province');
+  assert.equal(city.childNodes.length, once, '换省三次之后市格还是那 13 条');
+  assert.equal(city.firstChild, cityPh, '三次重建之后留在第一位的仍是骨架那条占位项');
+});
+
+test('J8 一块塌下去别块照旧：跨面板隔离，与数量格那两句话', () => {
+  const m = jMount();
+  const { page } = m;
+  // 登记管理部门码填成字符集外的 `!`：模块抛 RangeError，闸门只塌这一块
+  page.set('uscc', 'registry', '!');
+  page.change('uscc', 'registry');
+  page.click('uscc', 'gen');
+  assert.deepEqual(page.ws.brokenIds(), ['uscc'], '只该有 uscc 这一块进 broken 名单');
+  assert.match(page.ws.brokenOf('uscc'), /登记管理部门代码/);
+  assert.match(page.ws.brokenOf('uscc'), /31 字符集内的单个字符/);
+  assert.match(iBanner(page, 'uscc').textContent, /其余面板不受影响/);
+  for (const id of PANEL_IDS) {
+    if (id === 'uscc') continue;
+    assert.equal(iBanner(page, id), null, `${id} 跟着隔壁一起塌了`);
+  }
+  // 别块该照旧生成：四块各点一次，一张表都不许少
+  for (const id of ['idcard', 'bankcard', 'mobile', 'random']) {
+    assert.equal(m.wb.run(id, 'gen'), true, `${id} 被隔壁的失败拖坏了`);
+    assert.match(page.html(id, 'gen'), /共 5 条/);
+  }
+  // 塌掉那一块也不是绝症：改回合法字符再按一次，错误条自己撤
+  page.set('uscc', 'registry', 'A');
+  page.change('uscc', 'registry');
+  page.click('uscc', 'gen');
+  assert.deepEqual(page.ws.brokenIds(), []);
+  assert.equal(iBanner(page, 'uscc'), null);
+  for (const c of m.wb.copyTextOf('uscc', 'gen').split('\n')) {
+    assert.equal(c[0], 'A', `${c}：改回去的登记管理部门码没落到代码上`);
+  }
+
+  // 数量格的两句话：空、和不是 1–50 的整数。都是提示行，一块面板都不许因此标坏
+  for (const [raw, line] of [
+    ['', `^<p class="tk-hint">数量这一格是空的，填 1–${GENERATE_MAX} 之间的整数`],
+    ['999', `^<p class="tk-hint">数量应为 1–${GENERATE_MAX} 的整数，现在这格是「999」`],
+    ['0', `^<p class="tk-hint">数量应为 1–${GENERATE_MAX} 的整数，现在这格是「0」`],
+    ['2.5', `^<p class="tk-hint">数量应为 1–${GENERATE_MAX} 的整数，现在这格是「2.5」`],
+  ]) {
+    page.set('idcard', 'count', raw);
+    page.click('idcard', 'gen');
+    const h = page.html('idcard', 'gen');
+    assert.match(h, new RegExp(line), `「${raw}」这一档的文案对不上`);
+    assert.equal(h.includes('tk-count'), false, `「${raw}」一条都没生成，别报"共 N 条"`);
+    assert.deepEqual(page.ws.brokenIds(), [], `「${raw}」是用户填错了，不是这块面板坏了`);
+    assert.equal(page.copy('idcard', 'gen').disabled, true);
+  }
+  page.set('idcard', 'count', '3');
+  page.click('idcard', 'gen');
+  assert.match(page.html('idcard', 'gen'), /共 3 条/);
+
+  // 位数那一格同一档：越界要说清是哪一格、范围是多少，不许静默当成"没填"（那一档等于
+  // 把用户明确填的 20 变成"按行别登记位数随机"，屏幕上还一切正常）。走的是 `intOf` 同一条路。
+  for (const [raw, line] of [
+    ['20', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「20」`],
+    ['12', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「12」`],
+    ['13.5', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「13.5」`],
+  ]) {
+    page.set('bankcard', 'length', raw);
+    page.click('bankcard', 'gen');
+    const h = page.html('bankcard', 'gen');
+    assert.match(h, new RegExp(`^<p class="tk-hint">${line}。`), `位数「${raw}」这一档的文案对不上`);
+    assert.equal(h.includes('tk-count'), false, `位数「${raw}」一条都没生成，别报"共 N 条"`);
+    assert.deepEqual(page.ws.brokenIds(), [], `位数「${raw}」是用户填错了，不是这块面板坏了`);
+    assert.equal(page.copy('bankcard', 'gen').disabled, true);
+  }
+  // 清空即回到"按行别登记位数"：这句话管的是越界，不是"填了就不许改回去"
+  page.set('bankcard', 'length', '');
+  page.click('bankcard', 'gen');
+  assert.match(page.html('bankcard', 'gen'), /共 5 条/, '清掉位数之后这块面板该照常出表');
+});
+
+test('J9 派生 id 的五种形状与那份清单的自洽（骨架与 Task 9 的账都靠它）', () => {
+  // 形状逐条钉死：`tools-idcard.html`（仓库根，permalink 才是 `/tools/idcard.html`）里的
+  // id 必须长成这五个样子之一
+  assert.equal(fieldId('tk', 'idcard', 'birth'), 'tk-in-idcard-birth');
+  assert.equal(buttonId('tk', 'idcard', 'gen'), 'tk-btn-idcard-gen');
+  assert.equal(copyId('tk', 'uscc', 'read'), 'tk-copy-uscc-read');
+  assert.equal(outId('tk', 'mobile', 'gen'), 'tk-out-mobile-gen');
+  assert.equal(whenId('tk', 'random', 'addr'), 'tk-when-random-addr');
+
+  const c = controlIds('tk');
+  assert.deepEqual(PANEL_IDS, Object.keys(WORKBENCH_SPEC), '面板清单与 spec 的键不是同一份');
+  assert.deepEqual(PANEL_IDS, ['idcard', 'uscc', 'bankcard', 'mobile', 'random'],
+    '面板顺序就是索引条顺序，改了要连带改骨架与 yml');
+
+  // 五份清单合起来不许有重复 id：真 DOM 里同名两个节点，`getElementById` 只认第一个
+  const all = [...c.in, ...c.btn, ...c.copy, ...c.out, ...c.when];
+  assert.equal(new Set(all).size, all.length, '派生 id 撞车了');
+  assert.equal(all.every((id) => id.startsWith('tk-')), true, '每条 id 都得带前缀');
+  // 按钮 / 复制 / 结果区三张一一对应：`random` 没有判定侧，所以是 5 + 4 = 9 而不是 10
+  assert.deepEqual([c.btn.length, c.copy.length, c.out.length], [9, 9, 9]);
+  const withRead = PANEL_IDS.filter((id) => WORKBENCH_SPEC[id].sides.read !== null);
+  assert.equal(c.btn.length, PANEL_IDS.length + withRead.length);
+  assert.deepEqual(c.when, [
+    'tk-when-idcard-birth', 'tk-when-random-givelen', 'tk-when-random-addr', 'tk-when-random-domain',
+  ], '受开关控制的字段组只有这四格');
+  // 读侧上限与生成侧上限同档（口径 4 的那句话），且四块面板各有且只有一条粘贴框
+  assert.equal(MAX_READ_LINES, GENERATE_MAX, '读侧与生成侧不该各长一个上限');
+  assert.equal(withRead.length, 4);
+  assert.equal(c.in.filter((id) => /-read$/.test(id)).length, 4);
+
+  // 夹具自证（口径 3 的代价清单）：清单里每一条 id 在骨架上都得有节点
+  const page = jPage();
+  for (const id of all) assert.ok(page.doc.getElementById(id), `清单说有 ${id}，骨架上却没有`);
+});
+
+test('J10 换前缀是整套换：行为一位不改，旧前缀一个节点都不留', () => {
+  const jt = jMount({ prefix: 'jt' });
+  assert.deepEqual(jt.report.broken, [], '换了前缀就不该有面板挂不上');
+  assert.deepEqual(jt.report.missing, []);
+  // 清单跟着换：`controlIds('jt')` 的每一条都在骨架上，且逐条等于 tk 那套换个前缀
+  const a = controlIds('jt');
+  const b = controlIds('tk');
+  for (const group of Object.keys(a)) {
+    assert.deepEqual(a[group], b[group].map((id) => `jt-${id.slice(3)}`), `${group} 这一份没跟着换`);
+    for (const id of a[group]) assert.ok(jt.page.doc.getElementById(id), `缺 ${id}`);
+  }
+  // 旧前缀不残留：节点表里一条 `tk-` 开头的 id 都不许有（面板框架与装配层共用同一只前缀）
+  assert.deepEqual([...jt.page.nodes.keys()].filter((id) => id.startsWith('tk-')), []);
+  // 前缀只是地址，不是行为输入：同一颗随机源下两套前缀生出的号码必须一模一样
+  const tk = jMount({ prefix: 'tk' });
+  for (const id of PANEL_IDS) {
+    assert.equal(jt.wb.copyTextOf(id, 'gen'), tk.wb.copyTextOf(id, 'gen'), `${id} 换了前缀就换了内容`);
+  }
+  jt.page.click('bankcard', 'read');
+  assert.match(jt.page.html('bankcard', 'read'), /<p class="tk-hint">粘贴框里还没有号码/,
+    '提示行的类名是样式钩子，不跟着前缀换（`toolkit.scss` 只有一份）');
+});
+
+test('J11 事件接线：Enter 接在数字与日期上，判定走组合键，裸 Enter 还是换行', () => {
+  const m = jMount();
+  const { page } = m;
+  let pd = 0;
+  const ev = (key, extra = {}) => ({ key, preventDefault: () => { pd += 1; }, ...extra });
+
+  // ① 数量格里的裸 Enter = 按一次生成按钮：走的是同一条闸门、同一个回调
+  page.set('idcard', 'count', '2');
+  const before = m.guarded.length;
+  page.keyOn('idcard', 'count', ev('Enter'));
+  assert.equal(m.guarded.length, before + 1, '一次按键只该走一次闸门，监听器不许叠加');
+  assert.equal(m.guarded[m.guarded.length - 1], 'idcard');
+  assert.match(page.html('idcard', 'gen'), /共 2 条/, 'Enter 之后画的就是刚改的那个数量');
+  assert.equal(pd, 1, '默认行为（提交表单 / 换行）要被挡住');
+
+  // ② 带任何修饰键的 Enter 都不算"我要生成"
+  for (const mod of ['shiftKey', 'ctrlKey', 'altKey', 'metaKey']) {
+    const n = m.guarded.length;
+    page.keyOn('idcard', 'count', ev('Enter', { [mod]: true }));
+    assert.equal(m.guarded.length, n, `${mod} + Enter 不该触发生成`);
+  }
+  assert.equal(pd, 1, '不触发就不该顺手 preventDefault');
+  // 别的键也不算
+  const n1 = m.guarded.length;
+  page.keyOn('idcard', 'count', ev('a'));
+  assert.equal(m.guarded.length, n1);
+
+  // ③ 日期格同档：填完日期直接回车就该出结果
+  page.set('idcard', 'ageband', 'custom');
+  page.change('idcard', 'ageband');
+  page.set('idcard', 'birth', '1990-05-06');
+  page.keyOn('idcard', 'birth', ev('Enter'));
+  assert.match(page.html('idcard', 'gen'), /共 2 条/);
+  for (const id of m.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(6, 14), '19900506', '日期格里按回车，日期得真的落进号码');
+  }
+  // ④ 下拉里的 Enter 没有"提交"语义：焦点停在省格回车，不许变成"点了一次生成"
+  const n2 = m.guarded.length;
+  const pdBefore = pd;
+  page.keyOn('idcard', 'province', ev('Enter'));
+  page.keyOn('random', 'kind', ev('Enter'));
+  assert.equal(m.guarded.length, n2, '级联下拉里回车就是回车');
+  assert.equal(pd, pdBefore, '不触发的按键不该顺手把默认行为挡掉');
+
+  // ⑤ 粘贴框：Ctrl / ⌘ + Enter 判定，裸 Enter 留给换行
+  page.set('idcard', 'read', mk('11010119900307001'));
+  const n3 = m.guarded.length;
+  page.keyOn('idcard', 'read', ev('Enter'));
+  assert.equal(m.guarded.length, n3, '裸 Enter 在多行框里必须是换行');
+  assert.equal(pd, pdBefore, '多行框里的裸回车要留给换行，挡它就是缺陷');
+  page.keyOn('idcard', 'read', ev('Enter', { ctrlKey: true }));
+  assert.equal(m.guarded.length, n3 + 1);
+  assert.equal(m.guarded[m.guarded.length - 1], 'idcard');
+  // 挡住了默认动作才算这一次按键"是命令不是换行"：不 preventDefault，多行框里会同时
+  // 插入一个换行符（用户每按一次判定，输入内容就多一行空白）
+  assert.equal(pd, pdBefore + 1, 'Ctrl + Enter 触发了判定，就得把默认动作（换行）挡掉');
+  assert.match(page.html('idcard', 'read'), /第 1 行/);
+  page.keyOn('idcard', 'read', ev('Enter', { metaKey: true }));
+  assert.equal(m.guarded.length, n3 + 2, 'macOS 的 ⌘ + Enter 同档');
+  assert.equal(pd, pdBefore + 2, '⌘ + Enter 同一条路，也别漏 preventDefault');
+
+  // ⑥ `change` 上挂的是级联 + 开关那两件事；uscc 没有县格，重建下游时对不存在的格子静默
+  assert.doesNotThrow(() => { page.set('uscc', 'province', '32'); page.change('uscc', 'province'); });
+  assert.equal(page.ctl('uscc', 'city').childNodes.length, 1 + currentCityCodes('32').length);
+  assert.equal(page.ctl('uscc', 'county'), null, '夹具自证：uscc 的 spec 里本来就没有县格');
+  // ⑦ 主按钮与复制按钮各就各位：点判定按钮走的是与 Enter 同一条路
+  const n4 = m.guarded.length;
+  page.click('uscc', 'gen');
+  assert.equal(m.guarded.length, n4 + 1);
+  assert.equal(m.guarded[m.guarded.length - 1], 'uscc');
+  assert.equal(page.ctl('random', 'domain').disabled, false, '没打标记的格子不该被级联禁用');
+});
+
+test('J12 toolkitCore 只把框架层那三只挂成 `window.Tk`，业务模块不下沉', async () => {
+  const mod = { ns: null };
+  globalThis.window = {};
+  try {
+    mod.ns = await import('../dev/js/toolkitCore.js?j12');
+    const tk = globalThis.window.Tk;
+    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'view'],
+      '口径 1：只挂这三个名字，不顺手暴露别的');
+    assert.equal(tk.createPanelWorkspace, createPanelWorkspace, '挂的必须是 §D 判过的那一只');
+    assert.equal(tk.createPanelDom, createPanelDom, '挂的必须是 §I 判过的那一只');
+    assert.equal(tk.view.batchBlock, J_VIEW.batchBlock, 'view 必须是 §H 判过的那一份');
+    assert.equal(typeof tk.view.parseBlock, 'function');
+    assert.equal('parseIdCard' in tk, false, '口径 3：业务模块走 workbench 内联，不下到共用层');
+    assert.equal('generateUsccCodes' in tk, false);
+    assert.equal(tk.version, undefined, '不加版本号：将来扩面是显式改动');
+    // 顶层不 export：产物被 `(function(){…})();` 包住，函数体里的 export 是语法错误
+    assert.deepEqual(Object.keys(mod.ns), [], 'toolkitCore 一条 export 都不许有');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test('J13 骨架缺一格：缺结果区与缺 tab 标坏这一块，缺复制按钮不该牵连内容', () => {
+  // ① 缺结果区：这块面板没法交付内容，标坏，且只标坏这一块
+  const a = jMount({ drop: ['tk-out-uscc-gen'] });
+  assert.deepEqual(a.report.broken, ['uscc']);
+  assert.deepEqual(a.report.missing, [], 'tab 与 panel 两半都在，不算骨架不完整');
+  assert.deepEqual(a.report.rendered, PANEL_IDS.filter((id) => id !== 'uscc'));
+  assert.equal(a.page.html('uscc', 'gen'), '', '没有地方放内容，就不该凭空生成一份');
+  assert.match(a.page.ws.brokenOf('uscc'), /tk-out-uscc-gen/);
+  assert.match(iBanner(a.page, 'uscc').textContent, /其余面板不受影响/);
+  for (const id of PANEL_IDS) {
+    if (id === 'uscc') continue;
+    assert.match(a.page.html(id, 'gen'), /共 5 条/, `${id} 被隔壁缺的一格拖坏了`);
+  }
+  // 一崩崩的是**一块面板**而不是一栏：一块面板只有一个渲染函数，先画生成侧，
+  // 所以生成侧画不出来时判定侧那句提示也跟着没画。反过来缺判定侧的结果区，
+  // 生成侧那张表已经画上——塌的范围就是渲染函数的执行顺序，本节把它如实钉下来。
+  assert.equal(a.page.html('uscc', 'read'), '', '渲染函数在生成侧就抛了，判定侧没轮到画');
+  const a2 = jMount({ drop: ['tk-out-uscc-read'] });
+  assert.deepEqual(a2.report.broken, ['uscc']);
+  assert.match(a2.page.html('uscc', 'gen'), /共 5 条/, '抛错之前画好的生成侧不许被拖没');
+  assert.equal(a2.page.html('uscc', 'read'), '');
+  assert.match(a2.page.ws.brokenOf('uscc'), /tk-out-uscc-read/);
+
+  // ② 缺 tab：这一块切不到，渲染函数干脆不跑（凭空画一份只是把缺陷藏起来）
+  const b = jMount({ drop: ['tk-tab-idcard'] });
+  assert.deepEqual(b.report.missing, ['idcard']);
+  assert.deepEqual(b.report.broken, ['idcard']);
+  assert.deepEqual(b.report.rendered, PANEL_IDS.filter((id) => id !== 'idcard'));
+  assert.equal(b.page.html('idcard', 'gen'), '');
+  assert.equal(b.page.copy('idcard', 'gen').disabled, true, '没渲染过，复制按钮该停在骨架的禁用态');
+  // 它仍然是"当前那一块"（hash 空 → 第一块），只是没有内容可看——错误条就是用户唯一看得见的说明。
+  assert.deepEqual(iVisible(b.page), ['idcard']);
+  assert.match(iBanner(b.page, 'idcard').textContent, /tk-tab-idcard/);
+  // 互锁对它照样生效：切走之后它的 `hidden` 被人覆写了，不会留下一块永远显示的面板
+  b.page.tab('mobile').dispatch('click', {});
+  assert.deepEqual(iVisible(b.page), ['mobile'], '缺 tab 那块还赖在可见位上');
+  for (const id of ['uscc', 'bankcard', 'random']) {
+    assert.match(b.page.html(id, 'gen'), /共 5 条/);
+  }
+
+  // ③ 缺复制按钮：内容照样能看，不该因此把面板判坏（`syncCopy` 找不到按钮就静默返回）
+  const c = jMount({ drop: ['tk-copy-idcard-gen'] });
+  assert.deepEqual(c.report.broken, [], '复制按钮缺失不影响这一块的交付');
+  assert.equal(c.page.copy('idcard', 'gen'), null);
+  assert.match(c.page.html('idcard', 'gen'), /共 5 条/);
+  assert.doesNotThrow(() => c.page.click('idcard', 'gen'), '再点一次生成也不该因为没按钮而抛');
+  assert.equal(c.wb.copyTextOf('idcard', 'gen').split('\n').length, 5, '复制文本照旧备着，别人接上去就能用');
+
+  // ④ 开关的目标段没了（骨架漏写一格 `tk-when-*`）：少一段显隐，不该把整块面板送进 broken
+  const d = jMount({ drop: ['tk-when-idcard-birth'] });
+  assert.deepEqual(d.report.broken, [], '缺的是包着日期格的那段 <p>，不是交付内容的地方');
+  assert.equal(d.page.whenNode('idcard', 'birth'), null, '夹具自证：这一格本来就没建');
+  assert.doesNotThrow(() => {
+    d.page.set('idcard', 'ageband', 'custom');
+    d.page.change('idcard', 'ageband');
+  }, 'applySwitch 撞上缺节点就抛，用户切档时这块面板当场进 broken 名单');
+  // 日期格还在，值照样进号码：显隐少一段 ≠ 这一格不能填
+  d.page.set('idcard', 'birth', '1990-05-06');
+  d.page.click('idcard', 'gen');
+  assert.match(d.page.html('idcard', 'gen'), /共 5 条/);
+  for (const id of d.wb.copyTextOf('idcard', 'gen').split('\n')) {
+    assert.equal(id.slice(6, 14), '19900506', '缺一段显隐容器，不该牵连生成');
+  }
+  assert.deepEqual(d.page.ws.brokenIds(), [], '按过一次生成也不该因此标坏');
+  // 别块的开关照旧生效：`#random-kind` 换档，三段该现的现、该藏的藏
+  d.page.set('random', 'kind', 'address');
+  d.page.change('random', 'kind');
+  assert.equal(d.page.whenNode('random', 'addr').hidden, false);
+  assert.equal(d.page.whenNode('random', 'givelen').hidden, true);
+  assert.equal(d.page.whenNode('random', 'domain').hidden, true);
+});
+
+test('J14 动态文本一律过 `esc`，源码里那三条红线一条都不许断', () => {
+  const m = jMount();
+  const { page } = m;
+  // ① 粘贴框把原样字符回显出来：那里头可能是任何文本，不许被当成 HTML 解析
+  const evil = '<img src=x onerror=alert(1)>';
+  page.set('idcard', 'read', [evil, mk('11010119900307001')].join('\n'));
+  page.click('idcard', 'read');
+  const h = page.html('idcard', 'read');
+  assert.equal(h.includes('<img'), false, '原样回显漏了转义，粘进来的一行就能挂脚本');
+  assert.equal(h.includes('&lt;img src=x onerror=alert(1)&gt;'), true, '要转义，但也要看得见原样');
+  assert.match(h, /第 1 行/);
+
+  // ② 提示行会把用户填的那一格原样带进句子里，那一句同样只许是文本
+  page.set('idcard', 'count', '<script>alert(1)</script>');
+  page.click('idcard', 'gen');
+  const hint = page.html('idcard', 'gen');
+  assert.equal(hint.includes('<script'), false, 'FieldError 的 message 拼进结果区前必须过 esc');
+  assert.match(hint, /^<p class="tk-hint">数量应为 1–\d+ 的整数，现在这格是「&lt;script&gt;alert\(1\)&lt;\/script&gt;」。/);
+
+  // ③ 三条源码红线：这一层的 HTML 出口只有一处，找节点只按派生 id，跨页共用的三本不许 import
+  const src = read('dev/js/tools/workbench.js');
+  assert.equal(jCount(src, '.innerHTML ='), 1, 'innerHTML 只许出现在 paint() 一处');
+  assert.equal(src.includes('querySelector('), false, '控件一律按派生 id 找：querySelector 会绕过前缀与 spec 这套账');
+  for (const shared of ['./panel.js', './panel-dom.js', './view.js']) {
+    assert.equal(src.includes(`from '${shared}'`), false,
+      `workbench.js 不许 import ${shared}：两个入口 reach 同一模块就成共享 chunk，产物当场变废文件`);
+  }
+  // 两个入口文件都不许有顶层 export：它们各自是独立产物，却被同一个 IIFE 包法包住
+  for (const f of ['dev/js/toolkitCore.js', 'dev/js/toolIdcard.js']) {
+    assert.equal(/^export /m.test(read(f)), false, `${f} 是入口，顶层 export 在产物里是语法错误`);
+  }
+  // 产物里真不许有 `import{`：判据在 Task 9 对账构建产物，这里先钉住"入口只有这两个"
+  assert.equal(/^export /m.test(src), true, 'workbench.js 不是入口：它必须还能被入口 import');
+});
+
+test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留在行里', () => {
+  const m = jMount();
+  const { page } = m;
+  const last = (h) => h.lastIndexOf('</section>');
+
+  // ① 银行卡：常量 caveat 摘到栏尾一次，五十行也不该五十遍
+  const cards = generateBankCards({ count: 3, rng: seededRandom(J_SEED + 2) }).map((r) => r.number);
+  page.set('bankcard', 'read', [...cards, '1234'].join('\n'));
+  page.click('bankcard', 'read');
+  let h = page.html('bankcard', 'read');
+  assert.equal(jCount(h, BANK_CAVEAT), 1, '同一句话每行说一遍，等于没说');
+  assert.ok(last(h) < h.indexOf(BANK_CAVEAT), '整栏口径要排在逐行结果之后');
+  assert.equal(jCount(h, '<section class="tk-line">'), 4);
+
+  // ② 手机号：caveat 与 note 两条各一次，且都在最后一行之后
+  const nums = generateMobiles({ count: 2, rng: seededRandom(J_SEED + 3) }).map((r) => r.number);
+  page.set('mobile', 'read', [...nums, '10000000000'].join('\n'));
+  page.click('mobile', 'read');
+  h = page.html('mobile', 'read');
+  assert.equal(jCount(h, MOBILE_CAVEAT), 1);
+  assert.equal(jCount(h, CARRIER_NOTE), 1);
+  assert.ok(last(h) < h.indexOf(MOBILE_CAVEAT));
+  assert.ok(last(h) < h.indexOf(CARRIER_NOTE));
+
+  // ③ 身份证的 caveat 随号码而变，摘错了就是把结论从号码旁边搬走：它必须留在自己那一行里
+  const good = mk('11010119900307001');
+  const hist = mk('11010319900307001');
+  page.set('idcard', 'read', [good, hist].join('\n'));
+  page.click('idcard', 'read');
+  h = page.html('idcard', 'read');
+  const dyn = '该区划未见于现行区划表';
+  assert.equal(jCount(h, dyn), 1, '动态 caveat 只该出现在它那一行');
+  assert.ok(h.indexOf(dyn) < last(h), '动态 caveat 留在行内，不许被提到栏尾');
+  assert.ok(h.indexOf(dyn) > h.indexOf('第 2 行'), '而且要贴着它所属的那一行，不是贴到第 1 行去');
+  assert.equal(h.includes(USE_NOTE), false, '身份证读侧不补整栏句：它的 caveat 随号码而变，没有可上墙的那一句');
+
+  // ④ 信用代码：转大写那句是动态的留在行内，`REFERENCE_NOTE` 是整栏的排在栏尾
+  const code = generateUsccCodes({ count: 1, rng: seededRandom(J_SEED + 4) })[0].code;
+  page.set('uscc', 'read', [code.toLowerCase(), 'x'].join('\n'));
+  page.click('uscc', 'read');
+  h = page.html('uscc', 'read');
+  assert.equal(jCount(h, '已按 31 字符集转大写后判定'), 1);
+  assert.ok(h.indexOf('已按 31 字符集转大写后判定') < last(h), '这句是关于第 1 行的，不能上墙');
+  assert.equal(jCount(h, REFERENCE_NOTE), 1);
+  assert.ok(last(h) < h.indexOf(REFERENCE_NOTE));
+
+  // ⑤ 生成侧：每栏的口径行各一次，不因为表里有五行就重复五遍
+  const gen = {
+    idcard: [USE_NOTE], uscc: [USCC_USE_NOTE], bankcard: [BANK_CAVEAT],
+    mobile: [MOBILE_CAVEAT, CARRIER_NOTE], random: [RANDOM_CAVEAT, NAME_NOTE],
+  };
+  for (const [panel, notes] of Object.entries(gen)) {
+    const g = page.html(panel, 'gen');
+    for (const note of notes) assert.equal(jCount(g, note), 1, `${panel} 生成侧的口径句重复了`);
+  }
+});
+
+test('J16 入口只读骨架那四格数据；启动失败不装死，成功路径把两条 <script> 接起来', async () => {
+  /**
+   * 入口文件在 import 的那一刻就 `start(document, window)`，所以每一档都得：
+   * 先把 `globalThis.document` / `globalThis.window` 摆好，再换一个 **查询串** 去 import
+   * （同一 URL 只执行一次），最后把两个全局摘干净。`toolkitCore.js` 与入口用同一个查询串，
+   * 于是真核心把 `Tk` 挂到我给的 window 上，入口再从我给的 document 里找节点。
+   */
+  const run = async (tag, page, fn) => {
+    globalThis.document = page.doc;
+    globalThis.window = Object.assign({}, page.win, {
+      location: page.location, history: page.history, navigator: {},
+    });
+    try {
+      return await fn(tag);
+    } finally {
+      delete globalThis.document;
+      delete globalThis.window;
+    }
+  };
+  const withCore = (tag) => import(`../dev/js/toolkitCore.js?j16-${tag}`);
+
+  // ── 成功：两条 script 的先后接对了，页面就是它该有的样子 ──
+  {
+    const page = jPage();
+    page.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(', '), 'data-tk-prefix': 'tk',
+      'data-tk-label': '证件与常用信息', 'data-tk-notice': 'tk-notice',
+    });
+    await run('ok', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      for (const id of PANEL_IDS) {
+        assert.equal(page.tab(id).getAttribute('role'), 'tab', `${id} 没被升级成 tab`);
+      }
+      assert.match(page.html('idcard', 'gen'), /共 5 条/, '骨架的 count=5 该在挂载期就画上');
+      assert.equal(page.copy('idcard', 'gen').disabled, false);
+      assert.equal(page.notice.hidden, true, '启动成功就别留提示行');
+      // 口径 2 的晚绑：按钮回调拿到的是 `createPanelDom().run` 而不是那只占位函数
+      page.set('idcard', 'count', '2');
+      page.btn('idcard', 'gen').dispatch('click', {});
+      assert.match(page.html('idcard', 'gen'), /共 2 条/, '按了没反应＝占位函数还在位上');
+      // hashchange 接在 window 上：地址栏换面板，入口这一层负责把两边接起来
+      page.location.hash = '#mobile';
+      page.win.dispatch('hashchange', {});
+      assert.deepEqual(iVisible(page), ['mobile']);
+      assert.equal(page.tab('mobile').getAttribute('aria-selected'), 'true');
+    });
+  }
+
+  // ── 失败一档：容器都没有（脚本被挪进 <head> 就是这个形状）──
+  {
+    const page = jPage();
+    await run('nocontainer', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolIdcard.js?j16-${tag}`), /tk-workspace/);
+      assert.equal(page.notice.hidden, false, '启动失败必须留下一句能抄下来问人的话');
+      assert.match(page.notice.textContent, /这一页的交互层没能启动/);
+      assert.match(page.notice.textContent, /tk-workspace/);
+      assert.match(page.notice.textContent, /正文仍然读得到/);
+    });
+  }
+
+  // ── 失败二档：容器在，`data-tk-ids` 是空的（yml 漏了 slug）──
+  {
+    const page = jPage();
+    page.mk('div', 'tk-workspace', { 'data-tk-ids': ' , ', 'data-tk-prefix': 'tk' });
+    await run('emptyids', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolIdcard.js?j16-${tag}`), /data-tk-ids/);
+      assert.match(page.notice.textContent, /onlineTools\.yml/);
+    });
+  }
+
+  // ── 失败三档：`window.Tk` 没挂上来（core 404 或排在入口之后）──
+  {
+    const page = jPage();
+    page.mk('div', 'tk-workspace', { 'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'tk' });
+    await run('notk', page, async (tag) => {
+      await assert.rejects(() => import(`../dev/js/toolIdcard.js?j16-${tag}`), /window\.Tk/);
+      assert.match(page.notice.textContent, /toolkitCore\.min\.js/);
+      // 这一档最像"禁了脚本"：正文与骨架节点一个不少，只是没人接线
+      assert.equal(page.tab('idcard').getAttribute('role'), 'link', '框架层没跑，骨架的 role 原样留着');
+      assert.equal(page.html('idcard', 'gen'), '');
+    });
+  }
+
+  // ── 换前缀：骨架写 `data-tk-prefix: zx`，行为那副面孔就得整套跟着换（容器 id 仍归本页自己）──
+  //     这一档盯的是"页面地址"与"行为前缀"分家这件事（口径 1）：写死 `tk` 的入口在证件页
+  //     看起来一切正常，拿到 JSON 页（`jt`）就是一整页找不到节点。
+  {
+    const page = jPage({ prefix: 'zx' });
+    page.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'zx', 'data-tk-notice': 'zx-notice',
+    });
+    await run('zx', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      for (const id of PANEL_IDS) {
+        assert.equal(page.tab(id).getAttribute('role'), 'tab',
+          `${id} 没被升级成 tab：绑定层找的是 tk-tab-*，骨架写的是 zx-tab-*`);
+      }
+      assert.match(page.html('idcard', 'gen'), /共 5 条/, 'zx 前缀下找不到结果区，等于什么都没画');
+      assert.equal(page.copy('idcard', 'gen').disabled, false);
+      page.set('idcard', 'count', '2');
+      page.btn('idcard', 'gen').dispatch('click', {});
+      assert.match(page.html('idcard', 'gen'), /共 2 条/);
+      assert.equal(page.notice.hidden, true, '这一档是成功路径，不该留提示行');
+    });
+  }
+
+  // ── 容器在，但它读不到属性：要报"哪一格、往哪儿查"，不能把裸 TypeError 丢出去 ──
+  //     `start()` 的兜底写的就是这一格，所以这一档同时判"失败的那句话仍然落在页面上"。
+  {
+    const page = jPage();
+    const box = page.mk('div', 'tk-workspace', { 'data-tk-ids': PANEL_IDS.join(',') });
+    delete box.getAttribute;
+    await run('noattr', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolIdcard.js?j16-${tag}`), /tk-workspace/,
+        'TypeError 里既没有容器 id 也没有排查方向，抄下来问不到人');
+      assert.match(page.notice.textContent, /两条 <script>/,
+        '这一档最像"脚本顺序错了"，那句话就得指向脚本顺序');
+    });
+  }
+});
+
+test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → 一句"请手动选中"', async () => {
+  /**
+   * 兜底造出来的那些临时框：骨架里 4 条粘贴框是 `<textarea>` 但没有 `readonly`，
+   * `legacyCopy` 那一条有——用属性把它们分开数，不靠"造了几个节点"猜。
+   * @param {object} page 夹具
+   * @returns {object[]} 临时框清单
+   */
+  const boxes = (page) => page.made.filter((e) => e.tagName === 'TEXTAREA'
+    && e.getAttribute('readonly') === 'readonly');
+
+  // ── (a) 首选 `navigator.clipboard`：不碰 execCommand，也不往 body 上挂东西 ──
+  {
+    const writes = [];
+    const m = jMount({ clipboard: { writeText: (t) => { writes.push(t); return Promise.resolve(); } } });
+    m.page.clickCopy('idcard', 'gen');
+    await jSettle();
+    assert.deepEqual(writes, [m.wb.copyTextOf('idcard', 'gen')], '复制的内容是这一栏那份纯文本，不是 HTML');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '已复制');
+    assert.equal(m.timers.length, 1, '改口要能改回来，就得留下一条恢复用的定时器');
+    assert.equal(m.timers[0].ms, 1600);
+    assert.deepEqual(m.page.commandLog, [], '这一级根本不需要 execCommand');
+    assert.equal(m.page.doc.body.childNodes.length, 0, '走剪贴板就不该在页面上长出临时输入框');
+    m.flush();
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制这批号码', '改回的是骨架里那句原文案');
+  }
+
+  // ── (b) 剪贴板被拒 → 退到临时 textarea + execCommand，用完立刻摘掉 ──
+  {
+    const writes = [];
+    const m = jMount({ clipboard: { writeText: (t) => { writes.push(t); return Promise.reject(new Error('NotAllowedError')); } } });
+    m.page.clickCopy('uscc', 'gen');
+    await jSettle();
+    assert.equal(writes.length, 1, '先试过剪贴板，退路才是 execCommand');
+    assert.deepEqual(m.page.commandLog, ['copy']);
+    assert.equal(m.page.selLog.length, 1, '复制之前要把临时框选中');
+    assert.equal(m.page.selLog[0].value, m.wb.copyTextOf('uscc', 'gen'));
+    assert.equal(m.page.selLog[0].tagName, 'TEXTAREA');
+    assert.equal(boxes(m.page).length, 1, '兜底只该造一条临时框');
+    assert.equal(boxes(m.page)[0], m.page.selLog[0], '选中、复制、摘掉的是同一条临时框');
+    assert.equal(m.page.doc.body.childNodes.length, 0, '用完必须从 body 上摘掉：留在页里就是一个能被 Tab 走到的隐形输入框');
+    assert.equal(jLabel(m.page, 'uscc', 'gen'), '已复制', '兜底成功了就别报失败');
+  }
+
+  // ── (c) 没有 clipboard（http 页面）→ 直接走兜底 ──
+  {
+    const m = jMount();
+    m.page.clickCopy('bankcard', 'gen');
+    assert.deepEqual(m.page.commandLog, ['copy'], '没有 navigator.clipboard 时不该什么都不做');
+    assert.equal(jLabel(m.page, 'bankcard', 'gen'), '已复制');
+  }
+
+  // ── (d) 兜底也说"不行"：一句失败文案，恢复时长比成功那句长 ──
+  {
+    const m = jMount();
+    m.page.doc.copyOk = false;
+    m.page.clickCopy('mobile', 'gen');
+    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制失败，请手动选中');
+    assert.equal(m.timers[0].ms, 2600, '失败那句要给人时间读完');
+    assert.equal(m.timers[0].ms > 1600, true);
+    m.flush();
+    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制这批号码');
+    assert.equal(m.page.doc.body.childNodes.length, 0, '连失败都不许留下临时框');
+  }
+
+  // ── (e) 兜底自己抛错（`execCommand` 在个别浏览器里会抛）：不塌页面，也不留节点 ──
+  {
+    const m = jMount();
+    m.page.doc.execCommand = () => { throw new Error('boom'); };
+    assert.doesNotThrow(() => m.page.clickCopy('idcard', 'gen'),
+      '任何一级抛到页面外面，用户看到的就是"按了没反应"');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制失败，请手动选中');
+    assert.equal(m.page.doc.body.childNodes.length, 0, '抛错那条路也要摘掉临时框');
+    assert.equal(boxes(m.page).length, 1);
+  }
+
+  // ── (f) `writeText` 同步抛错与异步拒绝同一条路 ──
+  {
+    const m = jMount({ clipboard: { writeText: () => { throw new Error('SecurityError'); } } });
+    assert.doesNotThrow(() => m.page.clickCopy('random', 'gen'));
+    await jSettle();
+    assert.deepEqual(m.page.commandLog, ['copy'], '同步抛错也要退到 execCommand');
+    assert.equal(jLabel(m.page, 'random', 'gen'), '已复制');
+  }
+
+  // ── (g) 没内容就别动剪贴板：可用与否由那份纯文本说话，不由 disabled 猜 ──
+  {
+    const writes = [];
+    const m = jMount({ clipboard: { writeText: (t) => { writes.push(t); return Promise.resolve(); } } });
+    assert.equal(m.page.copy('idcard', 'read').disabled, true, '判定栏还没内容，按钮是禁用的');
+    m.page.clickCopy('idcard', 'read');
+    await jSettle();
+    assert.deepEqual(writes, [], '空文本一次都不该写');
+    assert.deepEqual(m.page.commandLog, []);
+    assert.equal(m.timers.length, 0, '什么都没复制，就别改口');
+    assert.equal(jLabel(m.page, 'idcard', 'read'), '复制判定有效的号码');
+    // 粘进去判一次，这一栏的复制件只装判定有效的那几条
+    const good = mk('11010119900307001');
+    const bad = good[17] === '9' ? `${good.slice(0, 17)}8` : `${good.slice(0, 17)}9`;
+    m.page.set('idcard', 'read', [good, bad].join('\n'));
+    m.page.click('idcard', 'read');
+    assert.equal(m.page.copy('idcard', 'read').disabled, false);
+    m.page.clickCopy('idcard', 'read');
+    await jSettle();
+    assert.deepEqual(writes, [good], '判定无效的那一条不该跟着被复制走');
+  }
+
+  // ── (h) 改口期间再按一次：原文案取自挂载时记下的那份，不是当前那句"已复制" ──
+  {
+    const m = jMount();
+    m.page.clickCopy('idcard', 'gen');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '已复制');
+    m.page.clickCopy('idcard', 'gen');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '已复制');
+    assert.equal(m.timers.length, 2, '两次点击各留一条恢复用的定时器');
+    m.flush();
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制这批号码',
+      '把"已复制"当成原文案存下来，按钮就会永远停在改口状态');
+  }
+
+  // ── (i) 连 `execCommand` 都没有（个别环境把 document 裁过）：这一级算失败，不许当成功 ──
+  {
+    const m = jMount();
+    m.page.doc.execCommand = undefined;
+    m.page.clickCopy('uscc', 'gen');
+    assert.deepEqual(m.page.commandLog, [], '没有 `execCommand` 就不该假装调用过它');
+    assert.equal(m.page.selLog.length, 1, '临时框照样选中：这一级的失败要留一条能被手动 Ctrl+C 的框');
+    assert.equal(boxes(m.page).length, 1);
+    assert.equal(m.page.doc.body.childNodes.length, 0, '这一级也要在 finally 里摘掉临时框');
+    assert.equal(jLabel(m.page, 'uscc', 'gen'), '复制失败，请手动选中',
+      '没复制上却说"已复制"，用户粘出来才发现是空的——这是这一节最不该有的结果');
+    assert.equal(m.timers[0].ms, 2600, '走的是失败那一句的恢复时长');
+    m.flush();
+    assert.equal(jLabel(m.page, 'uscc', 'gen'), '复制这批代码');
+  }
+});
+```
+
+- [ ] **Step 2: 跑红，确认红的形状**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^not ok|Cannot find module|^# (tests|pass|fail)'; echo "exit=${PIPESTATUS[0]}"
+```
+
+Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/workbench.js'`，`# tests 127`、`# pass 126`
+（§A–§I 那批照绿）、`# fail 1`、`exit=` 非 0。形状与 §I 当时相同：**整文件挂**，不是 16 条各挂一次
+——§J 的 `await import('../dev/js/tools/workbench.js')` 在文件顶层，抛在解析期。Step 2 只核对
+`# tests` 与 `# fail` 两个数。
+
+- [ ] **Step 3: 写这一格的三个文件**
+
+顺序是"共用层 → 装配层 → 入口"：前一个的导出名就是后一个的入参名，倒过来写会先把 `window.Tk`
+的挂面写成猜的。骨架 HTML、`dev/sass/toolkit.scss`、`_data/onlineTools.yml` 与 `postcss.config.js`
+那两条黑名单都在 Task 8——顺序也是照着这个排的：骨架要写的 `data-tk-*` 四格，取值口径全在
+这三个文件里。
+
+**3a `dev/js/toolkitCore.js`** —— 全站唯一一处把跨页共用的东西挂成全局。三条约束写在文件头：
+只挂那三个名字、本文件不 `export`、只挂跨页共用的（业务模块不下这一层）。
+
+```js
+/**
+ * 工具箱三页共用的框架层：把「面板互锁状态机 + 它的 DOM 绑定层 + 结果视图」挂成 `window.Tk`。
+ *
+ * 为什么要有这么一层，而不是让页面入口各自 `import`：2026-09-26 在镜像里实测过，`dev/js/` 下
+ * 两个入口同时 `import` 同一个模块时，Rollup 会把它提成共享 chunk，而 `vite.config.js` 的
+ * `iife-wrap` 又把 ESM 的 `import` 声明包进函数体——产物里留下 `import{c as o}from"./panel.min.js"`
+ * 这种句子，经典 `<script>` 里当场 SyntaxError，**整页白屏而构建 exit=0**。三页都用到
+ * `panel.js` / `panel-dom.js` / `view.js`，所以这一层从段 2 就立起来，不留到段 3 返工。
+ * 站内同族先例：`dev/libJs/tools.js` 出 `window.tools.formatDate`（`_layouts/default.html` 全站引），
+ * `editorial.min.js` 是主题的唯一真值源 `window.EditorialTheme`。
+ *
+ * 三条约束：
+ * 1. **只挂这三个名字**，不加版本号、不加解析函数、不加"顺手暴露"的东西。页面入口拿不到的能力
+ *    就是不存在，将来要扩面是显式改动。
+ * 2. **本文件不 `export`**：产物是被 `(function(){…})();` 包起来的经典脚本，顶层 `export`
+ *    在函数体里是语法错误（同上一条那个坑的另一种写法）。
+ * 3. **只挂跨页共用的**：`idcard.js` / `uscc.js` 那六本业务模块只有证件页要，走
+ *    `tools/workbench.js` 直接 `import` 内联进 `toolIdcard.min.js`，不下到这一层。
+ *    判据在 Task 9：构建后 `assets/js/*.min.js` 里 `import{` 的命中数必须为 0。
+ */
+import { createPanelWorkspace } from './tools/panel.js';
+import { createPanelDom } from './tools/panel-dom.js';
+import * as view from './tools/view.js';
+
+window.Tk = { createPanelWorkspace, createPanelDom, view };
+```
+
+**3b `dev/js/tools/workbench.js`** —— 本页（以及段 3 / 段 4 那两页的同类）装配层。文件头那五条
+口径与上面九条同源，这里补三条只有看代码才分得清的：
+
+- `env` 三样必填（`document` / `Tk.view` / `runGuarded`），缺一样在构造期就 `TypeError`，
+  不留到第一次点击。`runGuarded` 必须是 `createPanelDom().run` 那只：按钮回调不许自己
+  `try/catch` 出第二套错误口径。
+- `later(fn, ms)` 可由 `env` 注入，默认 `setTimeout`。§J 用它数定时器、验恢复时长，
+  真页面上就是 `setTimeout`——这一格不为测试引入任何"只有测试看得见"的分支。
+- `rng` / `today` 用 `!== undefined` 判存在，不判真假：`rng = 0` 与 `today = ''` 都是调用方
+  明确给出的值，装配层无权替模块把它折回默认。
+
+```js
+/**
+ * 证件页的装配层：把 `tools-idcard.html` 里那些静态表单接到六本业务模块上，结果交给
+ * `view`（`window.Tk.view`）渲染。
+ *
+ * 这一层存在的理由是段 1 计划 §6.0 那句分工的自然延伸：**表单与控件的对应关系只允许有一处**。
+ * 页面里有 9 个栏位、35 个控件、18 个按钮与结果区，如果"哪个 id 属于哪一栏"同时写在 HTML 的
+ * `id=` 与 JS 的字符串里，那就是两处口径——改一处漏一处，而漏掉那一处只在页面上"点了没反应"。
+ * 所以这里用 `WORKBENCH_SPEC` 把五块面板的控件、级联、下拉数据源、开关目标全部声明出来，
+ * 所有 id 由 `fieldId()` / `buttonId()` / `copyId()` / `outId()` 派生；HTML 里的
+ * `data-tk-cascade` / `data-tk-options` / `data-tk-switch` / `data-tk-when` 是**写给人和
+ * 样式看的标记**，运行时不读它们，它们与 spec 是否一致由 Task 9 在构建产物上对账。
+ *
+ * 五条口径，§J 的判据逐条对着咬：
+ *
+ * 1. **空选项整键缺席**。这是实测出来的，不是猜的：六本模块对"用户没选"的写法各不相同——
+ *    `generateIdCards` 收到 `sex: ''` 抛 `RangeError`、收到 `areaCode: ''` 抛 `TypeError`；
+ *    `generateEmails` 收到 `domain: ''` 抛 `TypeError`；`generateNames` 收到 `givenLength: ''`
+ *    抛 `TypeError`；`generateBankCards` 收到 `length: ''` 抛 `TypeError`（2026-09-26 逐键实测，
+ *    命令在段 2 计划 Task 7 §0）。所以装配层**不许把空串当"不限"传下去**，一律不写那个键，
+ *    让模块按自己的默认值走。`generateUsccCodes` 的 `registry` / `category` 更特殊：不传是
+ *    `'9'` / `'1'` 这两个**固定字符**而不是随机，页面上那格文案照这个事实写。
+ * 2 **两栏对称但 kind 不同名**。面板名 `bankcard` / `mobile` 与 `view` 的 `kind`
+ *   （`bank` / `mobile`）不是一回事，映射写在 spec 里而不是靠字符串猜。
+ * 3. **两类失败分两条路**。用户填的东西不能用 → `FieldError` → 结果区里一句提示，
+ *    面板不算坏；模块自己抛的（收窄到零候选、内部不变量） → 原样往上抛，交给
+ *    `createPanelDom.run()` 标坏那一块。把第一条也标坏，等于把"你少填了个日期"说成
+ *    "这块面板坏了"，而错误条那句"其余面板不受影响"在这种情况下是废话。
+ * 4. **行号由装配层给**。`parseIdCardList` / `parseUsccList` 保留空行并把它算进 `no`，
+ *    `parseBankCardList` 跳过空行、`line` 是原样行号，`parseMobile` 干脆没有 List 版
+ *    （段 2 计划 Task 3 记的缺口）。四本各说各话，页面不能跟着各长四个样：装配层自己按
+ *    "丢掉全空行、保留原始行号、上限 `MAX_READ_LINES` 行"切一遍，四块面板共用同一段渲染。
+ *    四个 List 函数仍在 §B/§C/§E 的判据里，这一层不用它们不等于它们没被测过。
+ * 5. **动态文本只走 `view`**。`view` 里每个函数都过 `esc()`；这一层自己产出的文本（行号、
+ *    回显、提示句）同样只经 `view.esc`，不拼裸 HTML。`innerHTML` 只出现在 `paint()` 一处。
+ *
+ * 与 `panel.js` / `panel-dom.js` / `view.js` 的分工：那三个是跨页共用的，走 `window.Tk` 进来
+ * （见 `dev/js/toolkitCore.js` 开头那段实测），**本文件不许 `import` 它们**——一旦 import，
+ * 证件页与后面的编码工具箱页就有两个入口 reach 同一模块，产物立刻变成带 `import{` 的废文件。
+ * 这条红线由 §J14 用源码文本守住。
+ *
+ * 本文件也不是入口：`dev/js/toolIdcard.js` 才在 `dev/js/` 第一层，它 `import` 本文件，
+ * 于是业务模块全部内联进 `toolIdcard.min.js`（只有一个入口 reach 它们，不会成 chunk）。
+ */
+import { parseIdCard, generateIdCards, USE_NOTE as ID_CARD_NOTE, GENERATE_MAX } from './idcard.js';
+import { parseUscc, generateUsccCodes, USE_NOTE as USCC_NOTE, REFERENCE_NOTE, USCC_CHARSET } from './uscc.js';
+import {
+  parseBankCard, generateBankCards, BANK_CAVEAT, CARD_TYPES, TOP_BANKS, BANK_OPTIONS,
+  PAN_MIN, PAN_MAX,
+} from './bankcard.js';
+import { parseMobile, generateMobiles, MOBILE_CAVEAT, CARRIER_NOTE, CARRIERS, SEGMENTS } from './phone.js';
+import {
+  generateNames, generateAddresses, generateEmails, generateProfiles,
+  RANDOM_CAVEAT, NAME_NOTE, ADDRESS_NOTE, EMAIL_NOTE, EMAIL_DOMAINS,
+} from './random-data.js';
+import {
+  provinceCodes, provinceName, currentCityCodes, cityName, currentCountyCodes, resolveRegion,
+} from './region.js';
+
+// ── 常量与派生 id ────────────────────────────────────────────────────────────
+
+/**
+ * 一次判定最多读多少行。生成侧的上限是各模块的 `GENERATE_MAX`（50），读侧给同一档，
+ * 理由是"一张 50 行的表已经是这块屏幕的极限"，而不是"再多就慢"——四本解析函数都是纯算式，
+ * 60 行也照样算得完，但结果区会长成没人能读的一堵墙。超出的行数不进表格，只在提示里报数。
+ */
+export const MAX_READ_LINES = 50;
+
+/** 复制按钮改口"已复制"之后多久恢复原文案（毫秒）；只这一处用到时长，不抽 token */
+const COPY_RESET_MS = 1600;
+/** 复制失败后的提示停留时长，比成功的那句长一点：那句要被人读到才会去手动选中文本 */
+const COPY_FAIL_MS = 2600;
+
+/** 结果区里"这一栏还没有内容 / 这一栏的输入不能用"那一行的类名（`toolkit.scss` 的钩子） */
+const HINT_CLASS = 'tk-hint';
+
+/**
+ * 控件的值 → 面板的 `<control>` 段 id：`<prefix>-in-<panel>-<control>`。
+ * 与 `tools-idcard.html` 里逐字符对应，§J10 断言换前缀时整套跟着换、不残留旧前缀。
+ * @param {string} prefix 前缀（证件页 `tk`，JSON 页 `jt`）
+ * @param {string} panel 面板 slug
+ * @param {string} control 控件 slug
+ * @returns {string} 元素 id
+ */
+export function fieldId(prefix, panel, control) {
+  return `${prefix}-in-${panel}-${control}`;
+}
+
+/**
+ * 主按钮 id：`<prefix>-btn-<panel>-<side>`，`side` 是 `gen` / `read`。
+ * @param {string} prefix 前缀
+ * @param {string} panel 面板 slug
+ * @param {string} side 栏位
+ * @returns {string} 元素 id
+ */
+export function buttonId(prefix, panel, side) {
+  return `${prefix}-btn-${panel}-${side}`;
+}
+
+/**
+ * 复制按钮 id：`<prefix>-copy-<panel>-<side>`。
+ * @param {string} prefix 前缀
+ * @param {string} panel 面板 slug
+ * @param {string} side 栏位
+ * @returns {string} 元素 id
+ */
+export function copyId(prefix, panel, side) {
+  return `${prefix}-copy-${panel}-${side}`;
+}
+
+/**
+ * 结果区 id：`<prefix>-out-<panel>-<side>`，外层容器与 `aria-live` 由构建期骨架给。
+ * @param {string} prefix 前缀
+ * @param {string} panel 面板 slug
+ * @param {string} side 栏位
+ * @returns {string} 元素 id
+ */
+export function outId(prefix, panel, side) {
+  return `${prefix}-out-${panel}-${side}`;
+}
+
+/**
+ * 受开关控制的字段组 id：`<prefix>-when-<panel>-<key>`。
+ * 注意单位不是控件而是 HTML 里那一段 `<p data-tk-when>`——区划三级包在同一个 `<p>` 里，
+ * 隐藏那一段才叫"这一类用不上"，逐个隐藏三个 `<select>` 会留下一个空标签。
+ * @param {string} prefix 前缀
+ * @param {string} panel 面板 slug
+ * @param {string} key 开关目标 key
+ * @returns {string} 元素 id
+ */
+export function whenId(prefix, panel, key) {
+  return `${prefix}-when-${panel}-${key}`;
+}
+
+// ── WORKBENCH_SPEC：五块面板的唯一形状 ───────────────────────────────────────
+
+/**
+ * 面板 → 两栏的控件、级联、开关与 kind 映射。
+ *
+ * `controls[]` 的每一项：
+ *   - `id` 控件 slug，逐字符对应 HTML 里的 `<control>`；
+ *   - `type` `'text'`（默认，取 `value` 去空白）/ `'number'` / `'area'`（粘贴框，整段文本）；
+ *   - `options` / `cascade` / `charsets` / `switch` 是给 Task 9 对账用的标记，
+ *     运行时由下面那几个 `fill*` 函数按 spec 里同名的键执行，**不去读 DOM 上的 `data-tk-*`**。
+ *
+ * `sides.gen` / `sides.read` 里：`kind` 是 `view` 的那套 kind；`read` 为 `null` 表示这一栏
+ * 不存在（`#random` 没有可校验的输入）。`switch` 描述"哪个控件的值决定哪些字段组显隐"。
+ *
+ * @type {Record<string, object>}
+ */
+export const WORKBENCH_SPEC = {
+  idcard: {
+    sides: {
+      gen: {
+        kind: 'idcard',
+        controls: [
+          { id: 'province', cascade: 'province' },
+          { id: 'city', cascade: 'city' },
+          { id: 'county', cascade: 'county' },
+          { id: 'sex' },
+          { id: 'ageband', switch: 'ageband' },
+          { id: 'birth', type: 'date' },
+          { id: 'count', type: 'number' },
+        ],
+        switch: { control: 'ageband', targets: [{ key: 'birth', when: ['custom'] }] },
+      },
+      read: { kind: 'idcard', controls: [{ id: 'read', type: 'area' }] },
+    },
+  },
+  uscc: {
+    sides: {
+      gen: {
+        kind: 'uscc',
+        controls: [
+          { id: 'registry', charsets: 'uscc' },
+          { id: 'category', charsets: 'uscc' },
+          { id: 'province', cascade: 'province' },
+          { id: 'city', cascade: 'city' },
+          { id: 'count', type: 'number' },
+        ],
+      },
+      read: { kind: 'uscc', controls: [{ id: 'read', type: 'area' }] },
+    },
+  },
+  bankcard: {
+    sides: {
+      gen: {
+        kind: 'bank',
+        controls: [
+          { id: 'bank', options: 'banks' },
+          { id: 'type', options: 'cardtypes' },
+          { id: 'length', type: 'number' },
+          { id: 'count', type: 'number' },
+        ],
+      },
+      read: { kind: 'bank', controls: [{ id: 'read', type: 'area' }] },
+    },
+  },
+  mobile: {
+    sides: {
+      gen: {
+        kind: 'mobile',
+        controls: [
+          { id: 'carrier', options: 'carriers' },
+          { id: 'segment', options: 'segments' },
+          { id: 'count', type: 'number' },
+        ],
+      },
+      read: { kind: 'mobile', controls: [{ id: 'read', type: 'area' }] },
+    },
+  },
+  random: {
+    sides: {
+      gen: {
+        kind: 'name',
+        kindFrom: 'kind',
+        kindMap: { name: 'name', address: 'address', email: 'email', profile: 'profile' },
+        controls: [
+          { id: 'kind', switch: 'kind' },
+          { id: 'count', type: 'number' },
+          { id: 'givelen' },
+          { id: 'province', cascade: 'province' },
+          { id: 'city', cascade: 'city' },
+          { id: 'county', cascade: 'county' },
+          { id: 'domain', options: 'domains' },
+        ],
+        switch: {
+          control: 'kind',
+          targets: [
+            { key: 'givelen', when: ['name', 'profile'] },
+            { key: 'addr', when: ['address', 'profile'] },
+            { key: 'domain', when: ['email', 'profile'] },
+          ],
+        },
+      },
+      read: null,
+    },
+  },
+};
+
+/** 面板顺序就是 `data-tk-ids` 与索引条的顺序；导出给 §J 与入口用，别再各写一份清单 */
+export const PANEL_IDS = Object.keys(WORKBENCH_SPEC);
+
+/**
+ * 一栏里每行"复制出来长什么样"。生成侧交主字段，一行一条；`profile` 三条用制表符连着，
+ * 粘进表格软件正好是三列。读侧只交判定为有效的 `value`（见 `READ_COPY`）。
+ */
+const GEN_COPY = {
+  idcard: (r) => r.id18,
+  uscc: (r) => r.code,
+  bank: (r) => r.number,
+  mobile: (r) => r.number,
+  name: (r) => r.name,
+  address: (r) => r.text,
+  email: (r) => r.email,
+  profile: (r) => `${r.name.name}\t${r.address.text}\t${r.email.email}`,
+};
+
+/**
+ * 口径行：模块常量原样交给 `view.batchBlock` / `view.parseBlock` 落地（§H 的 H8 判"一字不动"）。
+ *
+ * 读侧刻意只给 `uscc` 补一句：另外三本的 `caveat` / `note` 本来就挂在结果对象上，
+ * `parseBlock` 会自己收走（`bank` 的 `caveat` 恒为 `BANK_CAVEAT`、`mobile` 的两条恒在），
+ * 装配层再塞一遍就是同一句话在同一栏里出现两次。
+ */
+const GEN_NOTES = {
+  idcard: [ID_CARD_NOTE],
+  uscc: [USCC_NOTE],
+  bank: [BANK_CAVEAT],
+  mobile: [MOBILE_CAVEAT, CARRIER_NOTE],
+  name: [RANDOM_CAVEAT, NAME_NOTE],
+  address: [RANDOM_CAVEAT, ADDRESS_NOTE],
+  email: [RANDOM_CAVEAT, EMAIL_NOTE],
+  profile: [RANDOM_CAVEAT, NAME_NOTE, ADDRESS_NOTE, EMAIL_NOTE],
+};
+const READ_NOTES = { idcard: [], uscc: [REFERENCE_NOTE], bank: [], mobile: [] };
+
+/**
+ * 整栏通用的那几句口径：`bankcard.js:159` 的 `caveat: BANK_CAVEAT` 恒有值，`phone.js:125`
+ * 同档带 `note: CARRIER_NOTE`（两本的 `base()` 都把常量写进每一次解析结果），
+ * `view.parseBlock` 又会照字段收走——于是粘 50 行就是 50 段同一句话。
+ * 这里按**常量全等**把它们从逐行结果里摘掉、在栏尾说一次：全等而不是"看着像"，
+ * 因为身份证与信用代码的 `caveat` 是随号码变的（撤销区划、第 17 位是字母、小写转大写），
+ * 那两句必须留在各自那一行里，摘错了就是把结论从号码旁边搬走。
+ */
+const BATCH_NOTES = {
+  bank: [{ field: 'caveat', text: BANK_CAVEAT }],
+  mobile: [{ field: 'caveat', text: MOBILE_CAVEAT }, { field: 'note', text: CARRIER_NOTE }],
+};
+
+/** 读侧每本用哪个解析函数——四本里只有 `phone.js` 没有 List 版，所以这里全用单个版（口径 4） */
+const READ_PARSE = {
+  idcard: parseIdCard,
+  uscc: parseUscc,
+  bank: parseBankCard,
+  mobile: parseMobile,
+};
+
+// ── FieldError：用户填的东西不能用 ──────────────────────────────────────────
+
+/**
+ * "这一栏的输入不能用"这一类失败。它不是面板坏了：消息进结果区的提示行，面板不进 broken 名单，
+ * `createPanelDom` 的错误条也就不会出现（口径 3）。
+ * @extends Error
+ */
+export class FieldError extends Error {
+  /**
+   * @param {string} message 直接给用户看的一句话，点名是哪个格子
+   */
+  constructor(message) {
+    super(message);
+    this.name = 'FieldError';
+    /** 判别用的标记，不靠 `name` 字符串比对（压缩器不会动这里，但标记比名字结实） */
+    this.isField = true;
+  }
+}
+
+// ── createWorkbench ─────────────────────────────────────────────────────────
+
+/**
+ * 造一个证件页的装配器。
+ *
+ * @param {object} env 依赖注入。全给出去是为了 §J 能在 Node 里跑真接线：
+ *   六本业务模块与 `region` 是直接 `import` 的（只有一个入口 reach 它们，不会成共享 chunk），
+ *   框架层与宿主环境从 `env` 进来。
+ * @param {object} env.document 只需 `getElementById` / `createElement`（与 `panel-dom` 同一档，
+ *   这一层也不碰 `querySelector`：控件一律按派生 id 找，找不到就是骨架构造错了）
+ * @param {object} env.Tk `window.Tk`，必须齐 `view`
+ * @param {(panel: string, fn: () => void) => boolean} env.runGuarded 通常是
+ *   `createPanelDom().run`；挂载期不走它（那时 `mounted` 还是 false），只挂在按钮上
+ * @param {object} [env.navigator] 只为 `clipboard`，没有就走 `execCommand` 兜底
+ * @param {(fn: () => void, ms: number) => number} [env.later] `setTimeout` 的别名，测试里换成同步执行
+ * @param {string} [env.prefix] 前缀，默认 `tk`
+ * @param {() => number} [env.rng] 传给各生成器的随机源；不传就用模块自己的 `Date.now()` 种子
+ * @param {string} [env.today] `YYYY-MM-DD`，透传给 `generateIdCards`；不传按本地今天
+ * @returns {{renderers: Record<string, (el: object) => void>,
+ *   run: (panel: string, side: string) => boolean,
+ *   copyTextOf: (panel: string, side: string) => string}}
+ */
+export function createWorkbench(env = {}) {
+  const e = env ?? {};
+  if (!e.document || typeof e.document.getElementById !== 'function'
+    || typeof e.document.createElement !== 'function') {
+    throw new TypeError('createWorkbench：env.document 要有 getElementById 与 createElement');
+  }
+  if (!e.Tk || !e.Tk.view || typeof e.Tk.view.batchBlock !== 'function') {
+    throw new TypeError('createWorkbench：env.Tk.view 应是 window.Tk 里那份 view（跨页共用层走 toolkitCore，不许 import）');
+  }
+  if (typeof e.runGuarded !== 'function') {
+    throw new TypeError('createWorkbench：env.runGuarded 应是 createPanelDom().run，按钮回调不许自己 try/catch 出第二套错误口径');
+  }
+  const doc = e.document;
+  const view = e.Tk.view;
+  const runGuarded = e.runGuarded;
+  const prefix = typeof e.prefix === 'string' && e.prefix !== '' ? e.prefix : 'tk';
+  const rng = e.rng === undefined ? undefined : e.rng;
+  const today = e.today;
+  const later = typeof e.later === 'function' ? e.later : (fn, ms) => setTimeout(fn, ms);
+  const clipboard = e.navigator && e.navigator.clipboard ? e.navigator.clipboard : null;
+
+  /** `panel:side → 这一栏当前能复制的纯文本`；渲染时写，复制按钮读它，不从 HTML 反解 */
+  const copies = new Map();
+  const key = (panel, side) => `${panel}:${side}`;
+  const node = (id) => doc.getElementById(id);
+
+  /** 取控件值：去首尾空白，空值一律 `null`（口径 1：调用方按 `null` 决定"不写这个键"） */
+  const valueOf = (panel, control) => {
+    const el = node(fieldId(prefix, panel, control));
+    if (!el) throw new RangeError(`页面里没有 id="${fieldId(prefix, panel, control)}" 的控件，spec 与骨架对不上`);
+    const raw = typeof el.value === 'string' ? el.value : '';
+    const v = raw.trim();
+    return v === '' ? null : v;
+  };
+
+  /** 粘贴框：整段文本，只去行尾 `\r`（Windows 粘进来的），不 trim——空行由调用侧统一处理 */
+  const areaOf = (panel, control) => {
+    const el = node(fieldId(prefix, panel, control));
+    if (!el) throw new RangeError(`页面里没有 id="${fieldId(prefix, panel, control)}" 的粘贴框`);
+    return String(typeof el.value === 'string' ? el.value : '').replace(/\r\n?/g, '\n');
+  };
+
+  /** 数量格：1..GENERATE_MAX 的整数；空与非整数都算"这一栏的输入不能用"（口径 3） */
+  const countOf = (panel) => {
+    const raw = valueOf(panel, 'count');
+    if (raw === null) {
+      throw new FieldError('数量这一格是空的，填 1–' + GENERATE_MAX + ' 之间的整数。');
+    }
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1 || n > GENERATE_MAX) {
+      throw new FieldError(`数量应为 1–${GENERATE_MAX} 的整数，现在这格是「${raw}」。`);
+    }
+    return n;
+  };
+
+  /** 整数格（位数）：范围由调用方给，越界说清是哪一格 */
+  const intOf = (panel, control, min, max, label) => {
+    const raw = valueOf(panel, control);
+    if (raw === null) return null;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < min || n > max) {
+      throw new FieldError(`${label}应为 ${min}–${max} 的整数，现在这格是「${raw}」。`);
+    }
+    return n;
+  };
+
+  /** 必填格（选了这个才必须有那个）：空就是 FieldError */
+  const required = (raw, message) => {
+    if (raw === null || raw === '') throw new FieldError(message);
+    return raw;
+  };
+
+  /** 区划三级 → 模块的那三个键，优先级与 `idcard.js` 的 `prefixOf` 一致：县 > 市 > 省 */
+  const regionKeys = (panel) => {
+    const o = {};
+    const county = valueOf(panel, 'county');
+    const city = valueOf(panel, 'city');
+    const prov = valueOf(panel, 'province');
+    if (county) o.areaCode = county;
+    else if (city) o.cityCode = city;
+    else if (prov) o.provinceCode = prov;
+    return o;
+  };
+
+  // ── 下拉填充 ────────────────────────────────────────────────────────────
+
+  /** 造一个 `<option>`：`value` 走属性、文字走 `textContent`，没有第三条路 */
+  const makeOption = (it) => {
+    const opt = doc.createElement('option');
+    opt.setAttribute('value', String(it.value));
+    opt.textContent = String(it.label);
+    return opt;
+  };
+
+  /**
+   * 换掉一个 `<select>` 的选项，**保留 HTML 里那一条占位 `<option>`**。
+   * 占位句（"不限省份""不填（取默认字符 9）"）是页面文案，spec 里不重抄一份；
+   * 所以这里把第一个子节点摘出来存着、清空、再放回去。`removeChild` 的返回值真 DOM 与
+   * §J 的假 DOM 都得给，这是它对绑定层提出的唯一额外要求。
+   * @param {object} el select 节点
+   * @param {object[]} items `[{ value, label }]`
+   * @param {boolean} [disabled] 上一级没选时整格禁用
+   */
+  const fill = (el, items, disabled = false) => {
+    if (!el) return;
+    const held = el.firstChild && String(el.firstChild.tagName || '') === 'OPTION'
+      ? el.removeChild(el.firstChild) : null;
+    while (el.firstChild) el.removeChild(el.firstChild);
+    if (held) el.appendChild(held);
+    for (const it of items) el.appendChild(makeOption(it));
+    el.value = '';
+    el.disabled = disabled;
+  };
+
+  /**
+   * 分组填充（行别与号段那两格）：`groups` 是 `[{ label, items }]`，`label` 空串表示这一组
+   * 不包 `<optgroup>`（混着放会让占位项后面先出现一坨没标题的裸 `<option>`，读屏会念成
+   * "选项 空"）。清空只做一次，所以先算完整清单再动节点。
+   * @param {object} el select 节点
+   * @param {{label: string, items: {value: string, label: string}[]}[]} groups 分组清单
+   */
+  const fillGrouped = (el, groups) => {
+    if (!el) return;
+    const held = el.firstChild && String(el.firstChild.tagName || '') === 'OPTION'
+      ? el.removeChild(el.firstChild) : null;
+    while (el.firstChild) el.removeChild(el.firstChild);
+    if (held) el.appendChild(held);
+    for (const g of groups) {
+      if (g.label === '') {
+        for (const it of g.items) el.appendChild(makeOption(it));
+        continue;
+      }
+      const box = doc.createElement('optgroup');
+      box.setAttribute('label', g.label);
+      for (const it of g.items) box.appendChild(makeOption(it));
+      el.appendChild(box);
+    }
+    el.value = '';
+    el.disabled = false;
+  };
+
+  /** 区划三级的取数：省 31 条；市按省取；县按市取，但直辖市那 4 个只有一个"市辖区"，允许省下直接选县 */
+  const cityOptions = (prov) => currentCityCodes(prov).map((c) => ({ value: c, label: cityName(c) }));
+  const countyOptions = (city4) => currentCountyCodes(city4)
+    .map((c) => ({ value: c, label: resolveRegion(c).county || resolveRegion(c).fullName }));
+
+  /**
+   * 按 spec 重建一格的选项，并把级联的下游一起接上。
+   * @param {string} panel 面板
+   * @param {string} control 控件
+   */
+  const refill = (panel, control) => {
+    const el = node(fieldId(prefix, panel, control));
+    if (!el) return;
+    const level = cascadeLevelOf(panel, control);
+    if (level === 'province') {
+      fill(el, provinceCodes().map((c) => ({ value: c, label: provinceName(c) })));
+      return;
+    }
+    if (level === 'city') {
+      const prov = valueOf(panel, 'province');
+      fill(el, prov ? cityOptions(prov) : [], !prov);
+      return;
+    }
+    if (level === 'county') {
+      const city = valueOf(panel, 'city');
+      const prov = valueOf(panel, 'province');
+      // 只选到省时：仅当该省下恰好一个市（4 个直辖市的"市辖区"）才放开县格，否则它无从选起
+      const single = prov && cityOptions(prov).length === 1 ? cityOptions(prov)[0].value : null;
+      const base = city || single;
+      fill(el, base ? countyOptions(base) : [], !base);
+      return;
+    }
+    const source = optionsSourceOf(panel, control);
+    if (source === 'banks') {
+      const top = new Set(TOP_BANKS.map((b) => b.code));
+      fillGrouped(el, [
+        { label: '', items: TOP_BANKS.map((b) => ({ value: b.code, label: `${b.name}（${b.binCount} 条 BIN）` })) },
+        {
+          label: '其余行别（按行别码）',
+          items: BANK_OPTIONS.filter((b) => !top.has(b.code)).map((b) => ({ value: b.code, label: b.name })),
+        },
+      ]);
+      return;
+    }
+    if (source === 'cardtypes') {
+      fill(el, Object.entries(CARD_TYPES).map(([code, name]) => ({ value: code, label: name })));
+      return;
+    }
+    if (source === 'carriers') {
+      fill(el, CARRIERS.map((c) => ({ value: c.carrier, label: `${c.carrier}（${c.count} 个号段）` })));
+      return;
+    }
+    if (source === 'segments') {
+      // 号段按运营商分组，但 `phone.js` 没有导出"运营商 → 号段"这张派生表（它只出
+      // `CARRIERS`（含 count）与平铺的 `SEGMENTS`）。这里不为了一个下拉框去加一条导出：
+      // 直接拿读侧的 `parseMobile` 把 56 个段各问一次归属，分组的口径就等于判定行的口径。
+      // §F8 已经把"逐段都能判 valid、且运营商与表一致"钉住了，所以这一格不是没据的取巧。
+      fillGrouped(el, CARRIERS.map((c) => ({
+        label: c.carrier,
+        items: SEGMENTS.filter((s) => carrierOfSegment(s) === c.carrier).map((s) => ({ value: s, label: s })),
+      })));
+      return;
+    }
+    if (source === 'domains') {
+      fill(el, EMAIL_DOMAINS.map((d) => ({ value: d, label: d })));
+      return;
+    }
+    if (charsetOf(panel, control) === 'uscc') {
+      const dflt = control === 'registry' ? '9' : '1';
+      fill(el, [...USCC_CHARSET].map((ch) => ({
+        value: ch,
+        label: ch === dflt ? `${ch}（默认）` : ch,
+      })));
+    }
+  };
+
+  // spec 侧的三张查询表：一格是级联第几级 / 静态下拉数据源 / 字符集，全从 spec 读
+
+  const markerOf = (panel, side, control, field) => {
+    const cfg = WORKBENCH_SPEC[panel].sides[side];
+    const c = cfg && cfg.controls.find((x) => x.id === control);
+    return c ? c[field] : undefined;
+  };
+  const cascadeLevelOf = (panel, control) => markerOf(panel, 'gen', control, 'cascade')
+    || markerOf(panel, 'read', control, 'cascade');
+  const optionsSourceOf = (panel, control) => markerOf(panel, 'gen', control, 'options')
+    || markerOf(panel, 'read', control, 'options');
+  const charsetOf = (panel, control) => markerOf(panel, 'gen', control, 'charsets')
+    || markerOf(panel, 'read', control, 'charsets');
+
+  // ── 开关：哪个控件决定哪几段显隐 ─────────────────────────────────────────
+
+  /**
+   * 应用一次显隐。隐藏走 `hidden` 布尔属性，不写 `style`：段 1 在 `panel-dom` 立的口径
+   * （可见性的唯一来源是那一个属性）在这里同样成立，两处都能改显隐就等于两处能互相覆盖。
+   * @param {string} panel 面板
+   */
+  const applySwitch = (panel) => {
+    const cfg = WORKBENCH_SPEC[panel].sides.gen;
+    if (!cfg.switch) return;
+    const value = valueOf(panel, cfg.switch.control) ?? firstValueOf(panel, cfg.switch.control);
+    for (const target of cfg.switch.targets) {
+      const el = node(whenId(prefix, panel, target.key));
+      if (!el) continue;
+      el.hidden = !target.when.includes(value ?? '');
+    }
+  };
+
+  /** 有些 `<select>` 的默认项本来就带值（`#random-kind` 的第一条是 `name`），空值时要用它 */
+  const firstValueOf = (panel, control) => {
+    const el = node(fieldId(prefix, panel, control));
+    const first = el && el.firstChild;
+    return first && typeof first.getAttribute === 'function' ? first.getAttribute('value') : null;
+  };
+
+  // ── 生成侧：spec → 模块入参 ──────────────────────────────────────────────
+
+  /**
+   * 一格的值 → 该面板生成函数的 options。**空值一律不写键**（口径 1）。
+   * @param {string} panel 面板
+   * @param {string} kind 这一栏用的 `view` kind
+   * @returns {object} 直接喂给模块的入参
+   */
+  const buildOptions = (panel, kind) => {
+    const o = { count: countOf(panel) };
+    if (rng !== undefined) o.rng = rng;
+    if (today !== undefined) o.today = today;
+    if (panel === 'idcard') {
+      Object.assign(o, regionKeys(panel));
+      const sex = valueOf(panel, 'sex');
+      if (sex) o.sex = sex;
+      const band = valueOf(panel, 'ageband');
+      if (band === 'custom') {
+        o.birthDate = required(valueOf(panel, 'birth'),
+          '选了「指定出生日期」，就得把出生日期那一格填上。');
+      } else if (band) {
+        const [min, max] = band.split('-');
+        o.minAge = Number(min);
+        o.maxAge = Number(max);
+      }
+      return o;
+    }
+    if (panel === 'uscc') {
+      // `provinceCode` 实为"任意 ≤4 位前缀"（uscc.js 的 regionPool 注释），所以市码可以直接用
+      const city = valueOf(panel, 'city');
+      const prov = valueOf(panel, 'province');
+      if (city) o.provinceCode = city;
+      else if (prov) o.provinceCode = prov;
+      const registry = valueOf(panel, 'registry');
+      if (registry) o.registry = registry;
+      const category = valueOf(panel, 'category');
+      if (category) o.category = category;
+      return o;
+    }
+    if (panel === 'bankcard') {
+      const bank = valueOf(panel, 'bank');
+      if (bank) o.bankCode = bank;
+      const type = valueOf(panel, 'type');
+      if (type) o.cardType = type;
+      const len = intOf(panel, 'length', PAN_MIN, PAN_MAX, '位数');
+      if (len !== null) o.length = len;
+      return o;
+    }
+    if (panel === 'mobile') {
+      const carrier = valueOf(panel, 'carrier');
+      if (carrier) o.carrier = carrier;
+      const segment = valueOf(panel, 'segment');
+      if (segment) o.segment = segment;
+      return o;
+    }
+    // #random：四级 kind 共用同一批格子，用不上的格子由开关藏掉，但值还留在 DOM 里，
+    // 所以这里必须按 kind 取该取的键——把 address 的区划带进 email 那一档，
+    // 模块不会报（它只看 domain），页面上却会出现"选了南京、邮箱域随机"的莫名结果。
+    Object.assign(o, { name: nameOptions, address: addressOptions, email: emailOptions, profile: profileOptions }[kind](panel));
+    return o;
+  };
+  const nameOptions = (panel) => {
+    const o = {};
+    const gl = valueOf(panel, 'givelen');
+    if (gl) o.givenLength = Number(gl);
+    return o;
+  };
+  const addressOptions = (panel) => regionKeys(panel);
+  const emailOptions = (panel) => {
+    const o = {};
+    const domain = valueOf(panel, 'domain');
+    if (domain) o.domain = domain;
+    return o;
+  };
+  const profileOptions = (panel) => ({ ...nameOptions(panel), ...addressOptions(panel), ...emailOptions(panel) });
+
+  /** kind → 生成函数 */
+  const GENERATORS = {
+    idcard: generateIdCards,
+    uscc: generateUsccCodes,
+    bank: generateBankCards,
+    mobile: generateMobiles,
+    name: generateNames,
+    address: generateAddresses,
+    email: generateEmails,
+    profile: generateProfiles,
+  };
+
+  /** 这一栏这一次用哪个 kind：`#random` 由 `kind` 格决定，其余面板 spec 里写死 */
+  const kindOf = (panel) => {
+    const cfg = WORKBENCH_SPEC[panel].sides.gen;
+    if (!cfg.kindFrom) return cfg.kind;
+    const raw = valueOf(panel, cfg.kindFrom) ?? firstValueOf(panel, cfg.kindFrom);
+    const kind = cfg.kindMap[raw];
+    if (!kind) {
+      throw new RangeError(`#random 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);
+    }
+    return kind;
+  };
+
+  // ── 渲染 ────────────────────────────────────────────────────────────────
+
+  /** 唯一的 `innerHTML` 出口：提示行也过 `esc`，因为消息里会带上用户填的那一格原样 */
+  const paint = (panel, side, html) => {
+    const out = node(outId(prefix, panel, side));
+    if (!out) throw new RangeError(`页面里没有 id="${outId(prefix, panel, side)}" 的结果区`);
+    out.innerHTML = html;
+    return out;
+  };
+
+  /** 提示行（空栏、输入不能用、超出上限）——不算内容，所以复制按钮跟着禁用 */
+  const hint = (panel, side, message) => {
+    paint(panel, side, `<p class="${HINT_CLASS}">${view.esc(message)}</p>`);
+    copies.set(key(panel, side), '');
+    syncCopy(panel, side);
+  };
+
+  /** 复制按钮的可用性只由"这一栏有没有可复制的文本"决定，不靠样式类猜 */
+  const syncCopy = (panel, side) => {
+    const btn = node(copyId(prefix, panel, side));
+    if (!btn) return;
+    btn.disabled = (copies.get(key(panel, side)) || '') === '';
+  };
+
+  /**
+   * 生成一栏：表格 + 条数 + 口径行，全部由 `view.batchBlock` 出。
+   * @param {string} panel 面板
+   * @returns {boolean} 有没有真的画上（缺结果区时 `paint` 已抛，这里只反映成功）
+   */
+  const renderGen = (panel) => {
+    const kind = kindOf(panel);
+    const rows = GENERATORS[kind](buildOptions(panel, kind));
+    paint(panel, 'gen', view.batchBlock(kind, rows, GEN_NOTES[kind]));
+    copies.set(key(panel, 'gen'), rows.map(GEN_COPY[kind]).join('\n'));
+    syncCopy(panel, 'gen');
+    return true;
+  };
+
+  /**
+   * 判定一栏：逐行一个结果块。行号用**原始行号**（口径 4），超出 `MAX_READ_LINES` 的行不进
+   * 表格、只在提示里报数，免得一块 500 行的表把结果区撑成读不完的墙。
+   * @param {string} panel 面板
+   * @returns {boolean} 同上
+   */
+  const renderRead = (panel) => {
+    const cfg = WORKBENCH_SPEC[panel].sides.read;
+    const kind = cfg.kind;
+    const lines = areaOf(panel, cfg.controls[0].id).split('\n');
+    const kept = [];
+    lines.forEach((raw, i) => {
+      if (raw.trim() !== '') kept.push({ no: i + 1, raw });
+    });
+    if (kept.length === 0) {
+      hint(panel, 'read', '粘贴框里还没有号码：一条一行粘进来就行。');
+      return true;
+    }
+    const shown = kept.slice(0, MAX_READ_LINES);
+    const parts = [];
+    const valid = [];
+    /** 摘出来的整栏通用句，栏尾一次说完 */
+    const hoisted = [];
+    const specs = BATCH_NOTES[kind];
+    for (const row of shown) {
+      let result = READ_PARSE[kind](row.raw);
+      if (specs) {
+        const hits = specs.filter((s) => result[s.field] === s.text);
+        if (hits.length > 0) {
+          const clean = { ...result };
+          for (const s of hits) {
+            if (!hoisted.includes(s.text)) hoisted.push(s.text);
+            clean[s.field] = '';
+          }
+          result = clean;
+        }
+      }
+      if (result.state === 'valid' && typeof result.value === 'string' && result.value !== '') {
+        valid.push(result.value);
+      }
+      parts.push('<section class="tk-line">'
+        + `<p class="tk-line__head">第 ${view.esc(String(row.no))} 行 · `
+        + `<span class="tk-line__raw">${view.esc(row.raw)}</span></p>`
+        + view.parseBlock(kind, result, []) + '</section>');
+    }
+    if (kept.length > shown.length) {
+      parts.push(`<p class="${HINT_CLASS}">`
+        + `这次粘进来 ${view.esc(String(kept.length))} 行，只判定前 ${MAX_READ_LINES} 行——`
+        + `剩下的请分几次判。</p>`);
+    }
+    // 整栏通用的口径排在逐行结果之后：粘进来的人第一眼要看到的是自己那几行的结论
+    paint(panel, 'read', `<div class="tk-lines">${parts.join('')}</div>`
+      + view.noteLines([...hoisted, ...READ_NOTES[kind]]).join(''));
+    copies.set(key(panel, 'read'), valid.join('\n'));
+    syncCopy(panel, 'read');
+    return true;
+  };
+
+  /** 一栏的渲染分派；`renderNow` 抛出去的东西由调用侧决定是提示还是标坏（口径 3） */
+  const renderNow = (panel, side) => {
+    if (side === 'gen') return renderGen(panel);
+    if (WORKBENCH_SPEC[panel].sides.read === null) {
+      throw new RangeError(`${panel} 这一栏没有判定侧，spec 里是 null`);
+    }
+    return renderRead(panel);
+  };
+
+  // ── 复制 ────────────────────────────────────────────────────────────────
+
+  /** 按钮文案的临时改口：失败与成功走同一处，恢复时长不同（成功那句不需要读） */
+  const flash = (btn, text, ms, original) => {
+    btn.textContent = text;
+    later(() => { btn.textContent = original; }, ms);
+  };
+
+  /**
+   * 复制一栏。三级兜底：`navigator.clipboard` → 临时 `<textarea>` + `execCommand` →
+   * 一句"请手动选中"。任何一级都不许抛到页面外面：剪贴板被权限策略拒绝是浏览器的正常行为，
+   * 用户按了没反应才是缺陷。
+   * @param {string} panel 面板
+   * @param {string} side 栏位
+   */
+  const doCopy = (panel, side) => {
+    const btn = node(copyId(prefix, panel, side));
+    const text = copies.get(key(panel, side)) || '';
+    if (!btn || text === '') return;
+    const original = COPY_LABEL.get(copyId(prefix, panel, side)) || btn.textContent;
+    const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中', ok ? COPY_RESET_MS : COPY_FAIL_MS, original);
+    if (clipboard && typeof clipboard.writeText === 'function') {
+      let p = null;
+      // 同步抛错与异步拒绝是同一条路：`writeText` 在权限策略拒绝时可能直接抛（不返回
+      // Promise），那正是上面那句话点名的场景，不能让它从按钮回调里跑出去。
+      try {
+        p = Promise.resolve(clipboard.writeText(text));
+      } catch {
+        p = null;
+      }
+      if (p !== null) {
+        p.then(() => done(true), () => done(legacyCopy(doc, text)));
+        return;
+      }
+    }
+    done(legacyCopy(doc, text));
+  };
+
+  // ── 事件接线 ─────────────────────────────────────────────────────────────
+
+  /** 记下每条复制按钮的原文案，改口之后要能改回去（HTML 里那句是唯一的原文来源） */
+  const COPY_LABEL = new Map();
+
+  /** 每块面板的渲染函数：填下拉、接开关与级联、接按钮，然后先画一次生成侧 */
+  const renderers = {};
+  for (const panel of PANEL_IDS) {
+    renderers[panel] = () => {
+      const cfg = WORKBENCH_SPEC[panel].sides.gen;
+      for (const c of cfg.controls) {
+        const el = node(fieldId(prefix, panel, c.id));
+        if (!el) continue;
+        // Enter 只接在数字与日期格上：级联下拉里 Enter 没有"提交"语义，硬接会把用户的键盘
+        // 焦点变成生成器触发器；多行粘贴框里的 Enter 必须是换行，它走 `onAreaKey` 那条组合键。
+        if (c.type === 'number' || c.type === 'date') {
+          el.addEventListener('keydown', onFieldKey(panel));
+        }
+        if (c.cascade || c.options || c.charsets) {
+          refill(panel, c.id);
+          el.addEventListener('change', () => {
+            refreshCascade(panel, c.id);
+            applySwitch(panel);
+          });
+        } else if (c.switch) {
+          el.addEventListener('change', () => applySwitch(panel));
+        }
+      }
+      applySwitch(panel);
+      const genBtn = node(buttonId(prefix, panel, 'gen'));
+      if (genBtn) genBtn.addEventListener('click', () => runGuardedRun(panel, 'gen'));
+      const readCfg = WORKBENCH_SPEC[panel].sides.read;
+      if (readCfg) {
+        readCfg.controls.forEach((c) => {
+          const el = node(fieldId(prefix, panel, c.id));
+          if (el) el.addEventListener('keydown', onAreaKey(panel));
+        });
+        const readBtn = node(buttonId(prefix, panel, 'read'));
+        if (readBtn) readBtn.addEventListener('click', () => runGuardedRun(panel, 'read'));
+      }
+      ['gen', 'read'].forEach((side) => {
+        const id = copyId(prefix, panel, side);
+        const btn = node(id);
+        if (!btn) return;
+        // 键用派生 id 而不是 `btn.id`：真 DOM 上两者相等，假 DOM 里 `.id` 是个普通属性，
+        // 一旦哪份夹具没把它设上，`set(undefined, …)` 会静默存进另一格，`flash` 就取不回原文案。
+        COPY_LABEL.set(id, btn.textContent);
+        btn.addEventListener('click', () => doCopy(panel, side));
+      });
+      renderGen(panel);
+      if (readCfg) hint(panel, 'read', '把号码粘进来，一条一行；判定全在浏览器里算，不发请求。');
+    };
+  }
+
+  /** 级联：动了哪一格，就把它的下游重建一次（上游为空时下游退成禁用 + 只剩占位项） */
+  const refreshCascade = (panel, control) => {
+    const level = cascadeLevelOf(panel, control);
+    if (level === 'province') {
+      refill(panel, 'city');
+      refill(panel, 'county');
+    } else if (level === 'city') {
+      refill(panel, 'county');
+    }
+  };
+
+  /** 粘贴框里 Ctrl / ⌘ + Enter 判定；裸 Enter 仍然是换行（口径：多行框吞掉换行是缺陷） */
+  const onAreaKey = (panel) => (evt) => {
+    if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;
+    if (typeof evt.preventDefault === 'function') evt.preventDefault();
+    runGuardedRun(panel, 'read');
+  };
+
+  /** 数字与日期格里的 Enter → 生成这一栏 */
+  const onFieldKey = (panel) => (evt) => {
+    if (!evt || evt.key !== 'Enter' || evt.shiftKey || evt.ctrlKey || evt.metaKey || evt.altKey) return;
+    if (typeof evt.preventDefault === 'function') evt.preventDefault();
+    runGuardedRun(panel, 'gen');
+  };
+
+  /**
+   * 走一遍 `runGuarded`（真页面上就是 `createPanelDom.run`）：`FieldError` 在这一层就地转成
+   * 提示行，其余异常原样抛出去，由那一层标坏这一块。
+   * @param {string} panel 面板
+   * @param {string} side 栏位
+   */
+  const runGuardedRun = (panel, side) => runGuarded(panel, () => {
+    try {
+      renderNow(panel, side);
+    } catch (err) {
+      if (!err || err.isField !== true) throw err;
+      hint(panel, side, err.message);
+    }
+  });
+
+  return {
+    renderers,
+    /**
+     * 挂载完成后由测试或别处触发一栏：走的是与按钮完全同一条路（含 `runGuarded`）。
+     * @param {string} panel 面板
+     * @param {string} side 栏位
+     * @returns {boolean} 这一块现在好不好——`runGuarded` 的返回值原样交出去，不替它乐观
+     */
+    run: (panel, side) => runGuardedRun(panel, side),
+    /**
+     * 这一栏当前能复制的文本（复制按钮读的就是它）。
+     * @param {string} panel 面板
+     * @param {string} side 栏位
+     * @returns {string} 纯文本，没有则空串
+     */
+    copyTextOf: (panel, side) => copies.get(key(panel, side)) || '',
+  };
+}
+
+/**
+ * 三位号段归谁：把段补成 11 位交给读侧的 `parseMobile` 问一遍。
+ * 不在 `phone.js` 里另开一张"运营商 → 号段"导出，是为了让下拉分组与判定行用同一张嘴说话
+ * （§F8 已经把"逐段 valid 且运营商与表一致"钉住了，这里等于复用那条已被判过的路径）。
+ * @param {string} segment 三位号段
+ * @returns {string} 运营商名，判不到时是空串
+ */
+function carrierOfSegment(segment) {
+  const padded = `${segment}00000000`.slice(0, 11);
+  return parseMobile(padded).carrier;
+}
+
+/**
+ * `navigator.clipboard` 不可用时的兜底：临时 textarea + `execCommand('copy')`。
+ * 只在 http 或用户未授予剪贴板权限时走到这里，用完立刻摘掉节点——留在 DOM 里就是
+ * 一个能被 Tab 走到的隐形输入框。
+ * @param {object} doc 提供 `createElement` / `body.appendChild` / `body.removeChild`
+ * @param {string} text 要复制的文本
+ * @returns {boolean} 有没有真的复制上
+ */
+function legacyCopy(doc, text) {
+  let ta = null;
+  try {
+    const box = doc.createElement('textarea');
+    box.setAttribute('readonly', 'readonly');
+    box.value = text;
+    doc.body.appendChild(box);
+    // 只有真挂上去的那一个才需要摘：`appendChild` 自己抛时 `ta` 仍是 null，
+    // 那句 `removeChild` 就会抛出函数外，把"这一级失败"变成"这一级抛错"。
+    ta = box;
+    box.select();
+    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : false;
+  } catch {
+    return false;
+  } finally {
+    // 摘节点写在 `finally`：`select()` 与 `execCommand` 抛错时也要摘——留在页面上
+    // 就是一个能被 Tab 走到的隐形输入框，而这一级的口径是"不许抛到页面外面"。
+    if (ta) doc.body.removeChild(ta);
+  }
+}
+
+/**
+ * 这个前缀下应该存在的全部控件 id，Task 9 拿它对账构建产物里的 HTML：
+ * spec 说应有而页面没有 → 装配层第一次点就抛；页面有而 spec 没说 → 那是个没人接的格子。
+ * 两个方向都红，才算这份 spec 是骨架的真值而不是它的影子。
+ * @param {string} prefix 前缀
+ * @param {string[]} [panels] 面板清单，默认 `PANEL_IDS`
+ * @returns {{in: string[], btn: string[], copy: string[], out: string[], when: string[]}}
+ */
+export function controlIds(prefix, panels = PANEL_IDS) {
+  const got = { in: [], btn: [], copy: [], out: [], when: [] };
+  for (const panel of panels) {
+    const sides = WORKBENCH_SPEC[panel].sides;
+    for (const side of ['gen', 'read']) {
+      const cfg = sides[side];
+      if (!cfg) continue;
+      got.btn.push(buttonId(prefix, panel, side));
+      got.copy.push(copyId(prefix, panel, side));
+      got.out.push(outId(prefix, panel, side));
+      for (const c of cfg.controls) got.in.push(fieldId(prefix, panel, c.id));
+    }
+    const sw = sides.gen.switch;
+    if (sw) for (const t of sw.targets) got.when.push(whenId(prefix, panel, t.key));
+  }
+  return got;
+}
+```
+
+**3c `dev/js/toolIdcard.js`** —— 页面入口。四条口径写在文件头，其中最容易被误改的是第一条：
+**前缀有两副面孔**。`CONTAINER_ID` / `NOTICE_ID` 里那个 `tk` 是本页自己的地址（JSON 页那份用 `jt`），
+而行为里用的前缀从骨架的 `data-tk-prefix` 读，一路传给 `createPanelWorkspace` 与 `createWorkbench`。
+第二条"`runGuarded` 晚绑"是这格唯一一处循环依赖的解法：`createWorkbench` 构造时就要收
+`runGuarded`，而能当它的那只（`createPanelDom().run`）要等 workbench 交出 renderers 之后才存在，
+所以递过去的是一个箭头，它在**调用时**才去 `guard.run` 上取。
+
+```js
+/**
+ * 证件页入口：只读骨架里那四格 `data-tk-*`，把框架（`window.Tk`）与本页装配层接起来。
+ *
+ * 这个文件刻意薄到只剩三件事——找容器、读配置、按顺序接线——业务一条都不写，写进
+ * `workbench.js` 的 spec 与 `view.js` 的渲染函数里才有判据可咬。理由与 §6.0 那条分工同源：
+ * 入口是唯一知道"这一页有哪些面板、前缀是什么"的地方，而这些事实已经由
+ * `_data/onlineTools.yml` 在构建期写进 HTML 了，这里再抄一遍就多一处口径。
+ *
+ * 四条口径：
+ *
+ * 1. **前缀有两副面孔，各归各管**。`CONTAINER_ID` / `NOTICE_ID` 里那个 `tk` 是**本页自己的
+ *    地址**（这一份入口只服务证件页，JSON 页那份用 `jt`，Task 9 用 yml 的 `prefix` 跟它们对账）；
+ *    而行为里用的前缀从 `data-tk-prefix` 读，一路传给 `createPanelWorkspace` 与
+ *    `createWorkbench`，控件 id 才跟着 §J 的 spec 换得动。
+ * 2. **`runGuarded` 晚绑**。`createWorkbench` 在构造时就把 `env.runGuarded` 收进闭包常量，
+ *    而能当它的那只 (`createPanelDom().run`) 要等 workbench 交出 renderers 之后才存在——
+ *    循环。所以递过去的是一个箭头，它在**调用时**才去 `guard.run` 上取：占位函数永远不可能
+ *    被真的调到，因为按钮回调只在 `mount()` 之后才挂得上。
+ * 3. **启动失败不装死**。抛出之前尽力把那句话写进 `#tk-notice`（只走 `textContent`），
+ *    因为脚本 404 或被人挪到 `<head>` 这类事故，页面看起来跟"禁了脚本"一模一样——正文全在、
+ *    按钮按不出东西。给一句能抄下来问人的话，比只在控制台红一次强。容器本身找不到时没地方写，
+ *    那就只剩控制台，这也是这一条只写"尽力"的原因。
+ * 4. **两条 `<script>` 的先后是硬前提**。`toolkitCore.min.js` 挂 `window.Tk`，入口在它之后；
+ *    顺序反了 `Tk` 就是 undefined，所以那一步单独判、单独报（见 `boot` 里那句 `window.Tk`）。
+ *
+ * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
+ * 而它不补 `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。启动方式与
+ * `webLab.js` 同档——脚本排在正文之后，解析到这一行时面板节点已经存在，不接 `DOMContentLoaded`。
+ */
+import { createWorkbench } from './tools/workbench.js';
+
+/** 容器 id：`tools-idcard.html` 里 `id="{{ tk.prefix }}-workspace"` 在 `prefix: tk` 下的落值 */
+const CONTAINER_ID = 'tk-workspace';
+/** 提示行 id：同上，`panel-dom` 的坏 hash 提示与本页的启动失败提示共用这一格 */
+const NOTICE_ID = 'tk-notice';
+
+/** 骨架上那四格数据的属性名（前缀 `tk` 同上，是本页的地址，不是行为里的前缀） */
+const ATTR = {
+  ids: 'data-tk-ids',
+  prefix: 'data-tk-prefix',
+  label: 'data-tk-label',
+  notice: 'data-tk-notice',
+};
+
+/**
+ * 取提示行节点：容器在就读 `data-tk-notice`，容器不在或那一格空着就回落到 `NOTICE_ID`。
+ * 两条路径都要过"它得像个节点"这一关，因为写它的是失败兜底，不能自己再抛一次。
+ * @param {object} doc 只提供 `getElementById`
+ * @param {object|null} box 容器节点，可能不存在
+ * @returns {object|null} 节点或 `null`
+ */
+function noticeNode(doc, box) {
+  const fromAttr = box && typeof box.getAttribute === 'function'
+    ? String(box.getAttribute(ATTR.notice) || '').trim() : '';
+  const id = fromAttr !== '' ? fromAttr : NOTICE_ID;
+  const el = id ? doc.getElementById(id) : null;
+  return el && typeof el.setAttribute === 'function' ? el : null;
+}
+
+/**
+ * `data-tk-ids` → 面板清单。逗号分隔、允许空格、丢掉空项；顺序就是索引条的顺序。
+ * @param {string} raw 属性原文
+ * @returns {string[]} 至少一项，空数组由调用侧判成错误
+ */
+function parseIds(raw) {
+  return String(raw || '').split(',').map((s) => s.trim()).filter((s) => s !== '');
+}
+
+/**
+ * 装配一遍。抛出去的东西由 `start` 负责先写进页面、再原样抛回控制台。
+ * @param {object} doc 真 `document`
+ * @param {object} win 真 `window`（要 `location` / `history` / `navigator`）
+ * @param {object} tk `window.Tk`
+ * @returns {object} `createPanelDom().mount()` 的那四个清单
+ */
+function boot(doc, win, tk) {
+  const box = doc.getElementById(CONTAINER_ID);
+  if (!box || typeof box.getAttribute !== 'function') {
+    throw new RangeError(
+      `页面里没有 id="${CONTAINER_ID}" 的容器（或它读不到属性）：两条 <script> 必须排在正文之后，见 tools-idcard.html 末尾那段注释`);
+  }
+  const ids = parseIds(box.getAttribute(ATTR.ids));
+  if (ids.length === 0) {
+    throw new RangeError(
+      `容器 ${CONTAINER_ID} 的 ${ATTR.ids} 是空的，索引条与面板对不上，_data/onlineTools.yml 的 panels 是不是漏了 slug？`);
+  }
+  const prefix = String(box.getAttribute(ATTR.prefix) || '').trim() || 'tk';
+  const label = String(box.getAttribute(ATTR.label) || '').trim();
+  const notice = noticeNode(doc, box);
+  if (!tk || typeof tk.createPanelWorkspace !== 'function'
+    || typeof tk.createPanelDom !== 'function' || !tk.view) {
+    throw new RangeError(
+      'window.Tk 没挂上来：toolkitCore.min.js 要么 404，要么排在本入口之后，顺序见 tools-idcard.html 末尾');
+  }
+
+  const workspace = tk.createPanelWorkspace({
+    ids,
+    prefix,
+    hash: win.location.hash,
+    label: label === '' ? undefined : label,
+  });
+  /** 口径 2 的那个占位：谁真调到它，就是有人在 `mount()` 之前按了按钮 */
+  const guard = {
+    run: () => {
+      throw new RangeError('装配层还没接上 createPanelDom().run，按钮回调跑早了');
+    },
+  };
+  const wb = createWorkbench({
+    document: doc,
+    Tk: tk,
+    prefix,
+    runGuarded: (id, fn) => guard.run(id, fn),
+    navigator: win.navigator,
+  });
+  const dom = tk.createPanelDom({
+    workspace,
+    document: doc,
+    location: win.location,
+    history: win.history,
+    window: win,
+    renderers: wb.renderers,
+    notice,
+  });
+  guard.run = dom.run;
+  return dom.mount();
+}
+
+/**
+ * 启动一次，并把失败写进页面上那句话。
+ * @param {object} doc 真 `document`
+ * @param {object} win 真 `window`
+ * @returns {object|undefined} 成功时是 `mount()` 的四个清单，失败时 `undefined`（但仍会抛）
+ */
+function start(doc, win) {
+  try {
+    return boot(doc, win, win.Tk);
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    const el = noticeNode(doc, doc.getElementById(CONTAINER_ID));
+    if (el) {
+      el.hidden = false;
+      el.textContent = `这一页的交互层没能启动：${message}。正文仍然读得到，只是按钮与下拉不会有反应。`;
+    }
+    throw err;
+  }
+}
+
+start(document, window);
+```
+
+- [ ] **Step 4: 跑绿**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/j4.log 2>&1; echo "exit=$?"
+grep -E '^# (tests|pass|fail|duration_ms)|^not ok' /tmp/j4.log
+```
+
+Expected：`exit=0`、`# tests 142`、`# pass 142`、`# fail 0`。用例数从 126 到 142 只多 §J 那 16 条，
+**一条都不许多**：Step 5 的六十六刀靠 `^not ok \d+ - J\d+` 锚定红的是哪一节，用例名重复或凭空多一条
+都会让某一刀的"红了谁"读成假象。同一批新判据是**补在已有用例里**的（J7 加 (i) 档、J8 加位数那一格、
+J11 加 `preventDefault` 的两个增量、J13 加④、J16 加换前缀与"容器读不到属性"两档），所以 142 这个数
+从头到尾没动过——这是刻意的，见 Step 5 台账末尾那七条"补牙"记录（X10 / X40 / X50 / X55 / X57 / Z5 / Z6，
+对应上面那五处判据增量）。`# duration_ms` 本机 12–15s，
+随桌面负载漂，**不要**拿它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
+
+- [ ] **Step 5: 自证这 16 条有牙（六十六处变异，逐处记下红了谁）**
+
+三个文件一起改（`workbench.js` / `toolkitCore.js` / `toolIdcard.js`），每刀跑全量、
+只认 `^not ok \d+ - J\d+` 那一种红；`# tests` 与基线不等就判"这一档不算证据"——
+这个护栏不是形式主义：Task 6 就因为变异脚手架静默不干活（`sed` 退 0 而变异根本没落地）
+差点把"判据有效"读成假结论。所以这里不用 `sed`，用 `String.replace` 前后各断言一次：
+锚点不在就当场报"锚点没命中，先修脚本再说牙齿"，不给你一次"全绿"的机会。
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+mkdir -p /tmp/t7mut
+cat > /tmp/t7mut/mut-j.mjs <<'EOF'
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
+
+const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+const FILES = ['dev/js/tools/workbench.js', 'dev/js/toolkitCore.js', 'dev/js/toolIdcard.js'];
+const orig = {};
+for (const f of FILES) orig[f] = fs.readFileSync(f, 'utf8');
+const md5 = () => FILES.map((f) => {
+  try { return execSync(`md5 -q ${f}`, { encoding: 'utf8' }).trim(); } catch { return '?'; }
+}).join(' ');
+console.log('跑前三文件 md5:', md5());
+
+function run() {
+  let out = '';
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
+  const total = Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1);
+  const reds = [...out.matchAll(/^not ok \d+ - ([A-Z]+\d+)/gm)].map((x) => x[1]);
+  return { total, js: reds.filter((r) => r.startsWith('J')), other: reds.filter((r) => !r.startsWith('J')) };
+}
+
+const base = run();
+if (base.total < 0 || base.js.length || base.other.length) {
+  throw new Error(`基线就不对（# tests ${base.total}、红 ${[...base.js, ...base.other].join(' ')}）`);
+}
+console.log(`基线 # tests ${base.total} 全绿`);
+
+const W = 'dev/js/tools/workbench.js';
+const C = 'dev/js/toolkitCore.js';
+const E = 'dev/js/toolIdcard.js';
+
+const MUTS = [
+  // ── J1 口径 1：空值不写键 ──
+  ["X1 valueOf 空串也照样交出去（口径 1 的\"不写键\"没了）", W,
+    "    const v = raw.trim();\n    return v === '' ? null : v;",
+    "    return raw.trim();"],
+  ["X2 sex 无条件写键", W,
+    "      const sex = valueOf(panel, 'sex');\n      if (sex) o.sex = sex;",
+    "      o.sex = valueOf(panel, 'sex');"],
+  ["X3 区划优先级里把县那一档挤掉", W,
+    "    if (county) o.areaCode = county;\n    else if (city) o.cityCode = city;",
+    "    if (city) o.cityCode = city;"],
+  // ── J2 级联 ──
+  ["X4 fill 不保留 HTML 里的占位项", W,
+    "    const held = el.firstChild && String(el.firstChild.tagName || '') === 'OPTION'\n      ? el.removeChild(el.firstChild) : null;\n    while (el.firstChild) el.removeChild(el.firstChild);\n    if (held) el.appendChild(held);\n    for (const it of items) el.appendChild(makeOption(it));",
+    "    while (el.firstChild) el.removeChild(el.firstChild);\n    for (const it of items) el.appendChild(makeOption(it));"],
+  ["X5 上游为空时市格照填、永不禁用", W,
+    "      fill(el, prov ? cityOptions(prov) : [], !prov);",
+    "      fill(el, cityOptions('11'), false);"],
+  ["X6 直辖市\"省下直接选县\"那条例外取消", W,
+    "      const single = prov && cityOptions(prov).length === 1 ? cityOptions(prov)[0].value : null;",
+    "      const single = null;"],
+  // ── J3 口径 3 的两条路 ──
+  ["X7 缺日期从提示行升级成标坏", W,
+    "    if (raw === null || raw === '') throw new FieldError(message);",
+    "    if (raw === null || raw === '') throw new RangeError(message);"],
+  ["X8 数量越界从提示行升级成标坏", W,
+    "      throw new FieldError(`数量应为 1–${GENERATE_MAX} 的整数，现在这格是「${raw}」。`);",
+    "      throw new RangeError(`数量应为 1–${GENERATE_MAX} 的整数，现在这格是「${raw}」。`);"],
+  ["X9 数量为空时提示行不再报范围", W,
+    "      throw new FieldError('数量这一格是空的，填 1–' + GENERATE_MAX + ' 之间的整数。');",
+    "      throw new FieldError('数量这一格是空的。');"],
+  ["X10 位数越界静默当没填", W,
+    "    if (!Number.isInteger(n) || n < min || n > max) {\n      throw new FieldError(`${label}应为 ${min}–${max} 的整数，现在这格是「${raw}」。`);\n    }\n    return n;",
+    "    return Number.isInteger(n) && n >= min && n <= max ? n : null;"],
+  // ── J6 下拉按 spec 填充 ──
+  ["X11 常用行别那一组也包进 optgroup", W,
+    "        { label: '', items: TOP_BANKS.map((b) => ({ value: b.code, label: `${b.name}（${b.binCount} 条 BIN）` })) },",
+    "        { label: '常用行别', items: TOP_BANKS.map((b) => ({ value: b.code, label: `${b.name}（${b.binCount} 条 BIN）` })) },"],
+  ["X12 行别标签丢掉 BIN 条数", W,
+    "        { label: '', items: TOP_BANKS.map((b) => ({ value: b.code, label: `${b.name}（${b.binCount} 条 BIN）` })) },",
+    "        { label: '', items: TOP_BANKS.map((b) => ({ value: b.code, label: b.name })) },"],
+  ["X13 字符集每一格都标\"默认\"", W,
+    "        label: ch === dflt ? `${ch}（默认）` : ch,",
+    "        label: `${ch}（默认）`,"],
+  ["X14 运营商标签丢掉号段数", W,
+    "      fill(el, CARRIERS.map((c) => ({ value: c.carrier, label: `${c.carrier}（${c.count} 个号段）` })));",
+    "      fill(el, CARRIERS.map((c) => ({ value: c.carrier, label: c.carrier })));"],
+  ["X15 号段分组不查归属（每组都塞同一批）", W,
+    "        items: SEGMENTS.filter((s) => carrierOfSegment(s) === c.carrier).map((s) => ({ value: s, label: s })),",
+    "        items: SEGMENTS.slice(0, 5).map((s) => ({ value: s, label: s })),"],
+  // ── J4 #random 四档 kind ──
+  ["X16 kind 格空值不再回落第一项", W,
+    "    const raw = valueOf(panel, cfg.kindFrom) ?? firstValueOf(panel, cfg.kindFrom);",
+    "    const raw = valueOf(panel, cfg.kindFrom);"],
+  ["X17 非法 kind 塌成提示行而不是标坏", W,
+    "      throw new RangeError(`#random 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);",
+    "      throw new FieldError(`#random 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);"],
+  ["X18 四档 kind 共用 name 那一套键", W,
+    "    Object.assign(o, { name: nameOptions, address: addressOptions, email: emailOptions, profile: profileOptions }[kind](panel));",
+    "    Object.assign(o, nameOptions(panel));"],
+  // ── J5 读侧 ──
+  ["X19 行号改成顺序号（空行不再占号）", W,
+    "      if (raw.trim() !== '') kept.push({ no: i + 1, raw });",
+    "      if (raw.trim() !== '') kept.push({ no: kept.length + 1, raw });"],
+  ["X20 空行既占号又占位", W,
+    "      if (raw.trim() !== '') kept.push({ no: i + 1, raw });",
+    "      kept.push({ no: i + 1, raw });"],
+  ["X21 超出上限照样全画", W,
+    "    const shown = kept.slice(0, MAX_READ_LINES);",
+    "    const shown = kept;"],
+  ["X22 粘贴框不再吞 \\r", W,
+    "    return String(typeof el.value === 'string' ? el.value : '').replace(/\\r\\n?/g, '\\n');",
+    "    return String(typeof el.value === 'string' ? el.value : '');"],
+  // ── J15 整栏口径 ──
+  ["X23 整栏口径排到逐行结果之前", W,
+    "    paint(panel, 'read', `<div class=\"tk-lines\">${parts.join('')}</div>`\n      + view.noteLines([...hoisted, ...READ_NOTES[kind]]).join(''));",
+    "    paint(panel, 'read', view.noteLines([...hoisted, ...READ_NOTES[kind]]).join('')\n      + `<div class=\"tk-lines\">${parts.join('')}</div>`);"],
+  ["X24 整栏通用句压根不摘（每行一遍）", W,
+    "    const specs = BATCH_NOTES[kind];",
+    "    const specs = undefined;"],
+  ["X25 摘了但不去重", W,
+    "            if (!hoisted.includes(s.text)) hoisted.push(s.text);",
+    "            hoisted.push(s.text);"],
+  ["X26 生成侧口径行清空", W,
+    "    paint(panel, 'gen', view.batchBlock(kind, rows, GEN_NOTES[kind]));",
+    "    paint(panel, 'gen', view.batchBlock(kind, rows, []));"],
+  ["X27 读侧那条常量口径（REFERENCE_NOTE）不再补", W,
+    "      + view.noteLines([...hoisted, ...READ_NOTES[kind]]).join(''));",
+    "      + view.noteLines([...hoisted]).join(''));"],
+  // ── J14 转义与源码红线 ──
+  ["X28 提示行不过 esc", W,
+    "    paint(panel, side, `<p class=\"${HINT_CLASS}\">${view.esc(message)}</p>`);",
+    "    paint(panel, side, `<p class=\"${HINT_CLASS}\">${message}</p>`);"],
+  ["X29 原样回显不过 esc", W,
+    "        + `<span class=\"tk-line__raw\">${view.esc(row.raw)}</span></p>`",
+    "        + `<span class=\"tk-line__raw\">${row.raw}</span></p>`"],
+  ["X30 按钮改口走 innerHTML（第二处 HTML 出口）", W,
+    "    btn.textContent = text;\n    later(() => { btn.textContent = original; }, ms);",
+    "    btn.innerHTML = text;\n    later(() => { btn.innerHTML = original; }, ms);"],
+  ["X31 找节点改走 querySelector", W,
+    "  const node = (id) => doc.getElementById(id);",
+    "  const node = (id) => (doc.querySelector ? doc.querySelector('#' + id) : doc.getElementById(id));"],
+  ["X32 workbench 里 import 共享模块（共享 chunk 那条坑回来了）", W,
+    "export const MAX_READ_LINES = 50;",
+    "import { createPanelWorkspace } from './panel.js';\n\nexport const MAX_READ_LINES = 50;"],
+  // ── J9 派生 id 与清单 ──
+  ["X33 控件 id 形状换序", W,
+    "  return `${prefix}-in-${panel}-${control}`;",
+    "  return `${prefix}-${panel}-in-${control}`;"],
+  ["X34 结果区 id 形状换序", W,
+    "  return `${prefix}-out-${panel}-${side}`;",
+    "  return `${prefix}-${panel}-out-${side}`;"],
+  ["X35 controlIds 不再导出 when 那一组", W,
+    "    if (sw) for (const t of sw.targets) got.when.push(whenId(prefix, panel, t.key));",
+    "    if (sw) for (const t of sw.targets) void t;"],
+  ["X36 MAX_READ_LINES 与 GENERATE_MAX 脱钩", W,
+    "export const MAX_READ_LINES = 50;",
+    "export const MAX_READ_LINES = 40;"],
+  // ── J10 换前缀 ──
+  ["X37 fieldId 把前缀写死成 tk", W,
+    "  return `${prefix}-in-${panel}-${control}`;",
+    "  return `tk-in-${panel}-${control}`;"],
+  // ── J11 事件接线 ──
+  ["X38 Enter 不接日期格", W,
+    "        if (c.type === 'number' || c.type === 'date') {",
+    "        if (c.type === 'number') {"],
+  ["X39 裸 Enter 也触发判定（吞掉换行）", W,
+    "    if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;",
+    "    if (!evt || evt.key !== 'Enter') return;"],
+  ["X40 组合键 Enter 不拦默认动作", W,
+    "    if (typeof evt.preventDefault === 'function') evt.preventDefault();\n    runGuardedRun(panel, 'read');",
+    "    runGuardedRun(panel, 'read');"],
+  ["X41 数字格 Enter 带修饰键也接", W,
+    "    if (!evt || evt.key !== 'Enter' || evt.shiftKey || evt.ctrlKey || evt.metaKey || evt.altKey) return;",
+    "    if (!evt || evt.key !== 'Enter') return;"],
+  ["X42 级联控件不接 change（下游不再重建）", W,
+    "        if (c.cascade || c.options || c.charsets) {",
+    "        if (c.options || c.charsets) {"],
+  ["X43 开关控件不接 change", W,
+    "        } else if (c.switch) {\n          el.addEventListener('change', () => applySwitch(panel));\n        }",
+    "        }"],
+  // ── J8 隔离与 runGuarded ──
+  ["X44 按钮绕开 runGuarded", W,
+    "      if (genBtn) genBtn.addEventListener('click', () => runGuardedRun(panel, 'gen'));",
+    "      if (genBtn) genBtn.addEventListener('click', () => renderNow(panel, 'gen'));"  ],
+  ["X45 非 FieldError 也咽进提示行（一块塌了没人知道）", W,
+    "      if (!err || err.isField !== true) throw err;",
+    "      if (!err) throw err;"],
+  ["X46 提示行不清空可复制文本", W,
+    "    copies.set(key(panel, side), '');\n    syncCopy(panel, side);",
+    "    syncCopy(panel, side);"],
+  ["X47 没有可复制文本时按钮照样可用", W,
+    "    btn.disabled = (copies.get(key(panel, side)) || '') === '';",
+    "    btn.disabled = false;"],
+  // ── J7 复制三级兜底 ──
+  ["X48 空文本也走一遍复制", W,
+    "    if (!btn || text === '') return;",
+    "    if (!btn) return;"],
+  ["X49 原文案写死成\"复制\"", W,
+    "    const original = COPY_LABEL.get(copyId(prefix, panel, side)) || btn.textContent;",
+    "    const original = '复制';"],
+  ["X50 失败与成功用同一个恢复时长", W,
+    "    const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中', ok ? COPY_RESET_MS : COPY_FAIL_MS, original);",
+    "    const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中', COPY_RESET_MS, original);"],
+  ["X51 clipboard 拒绝时不回退第二级", W,
+    "        p.then(() => done(true), () => done(legacyCopy(doc, text)));",
+    "        p.then(() => done(true), () => done(false));"],
+  ["X52 writeText 同步抛错不再兜底", W,
+    "      try {\n        p = Promise.resolve(clipboard.writeText(text));\n      } catch {\n        p = null;\n      }",
+    "      p = Promise.resolve(clipboard.writeText(text));"],
+  ["X53 临时框用完不摘", W,
+    "    if (ta) doc.body.removeChild(ta);\n",
+    ""],
+  ["X54 临时框不标 readonly", W,
+    "    box.setAttribute('readonly', 'readonly');\n",
+    ""],
+  ["X55 execCommand 不存在时当成功", W,
+    "    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : false;",
+    "    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : true;"],
+  // ── J13 骨架缺一格 ──
+  ["X56 缺结果区不再抛（悄悄什么都不画）", W,
+    "    const out = node(outId(prefix, panel, side));\n    if (!out) throw new RangeError(`页面里没有 id=\"${outId(prefix, panel, side)}\" 的结果区`);",
+    "    const out = node(outId(prefix, panel, side));\n    if (!out) return out;"],
+  ["X57 开关目标缺节点就抛（一块缺件牵连整栏）", W,
+    "      const el = node(whenId(prefix, panel, target.key));\n      if (!el) continue;",
+    "      const el = node(whenId(prefix, panel, target.key));"],
+  // ── J12 toolkitCore 的挂面 ──
+  ["Y1 toolkitCore 少挂 view", C,
+    "window.Tk = { createPanelWorkspace, createPanelDom, view };",
+    "window.Tk = { createPanelWorkspace, createPanelDom };"  ],
+  ["Y2 toolkitCore 顺手多挂一只", C,
+    "window.Tk = { createPanelWorkspace, createPanelDom, view };",
+    "window.Tk = { createPanelWorkspace, createPanelDom, view, createWorkbench: null };"  ],
+  ["Y3 toolkitCore 里出现顶层 export", C,
+    "window.Tk = { createPanelWorkspace, createPanelDom, view };",
+    "export const TK_VERSION = 'tk1';\nwindow.Tk = { createPanelWorkspace, createPanelDom, view };"  ],
+  // ── J16 入口 ──
+  ["Z1 晚绑的 guard.run 不接上（按钮回调跑进占位函数）", E,
+    "  guard.run = dom.run;\n",
+    ""],
+  ["Z2 启动失败不写提示行（装死）", E,
+    "      el.hidden = false;\n",
+    ""],
+  ["Z3 启动失败只往页面写一句，不再抛回控制台", E,
+    "    throw err;\n  }\n}\n\nstart(document, window);",
+    "  }\n}\n\nstart(document, window);"],
+  ["Z4 data-tk-ids 里的空项不丢", E,
+    "  return String(raw || '').split(',').map((s) => s.trim()).filter((s) => s !== '');",
+    "  return String(raw || '').split(',').map((s) => s.trim());"],
+  ["Z5 行为前缀不读骨架，写死 tk", E,
+    "  const prefix = String(box.getAttribute(ATTR.prefix) || '').trim() || 'tk';",
+    "  const prefix = 'tk';"],
+  ["Z6 容器读不到属性时不判（TypeError 从入口跑出去）", E,
+    "  if (!box || typeof box.getAttribute !== 'function') {",
+    "  if (!box) {"],
+];
+
+for (const [name, file, a, b] of MUTS) {
+  if (!orig[file].includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
+  fs.writeFileSync(file, orig[file].replace(a, b));
+  const r = run();
+  fs.writeFileSync(file, orig[file]);
+  if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
+  const other = r.other.length ? `｜非 J 红：${r.other.join(' ')}` : '';
+  console.log(`${name}\n    → ${r.js.length ? r.js.join(' ') : '全绿（不可达）'}${other}`);
+}
+for (const f of FILES) {
+  if (fs.readFileSync(f, 'utf8') !== orig[f]) throw new Error(`还原失败：${f}`);
+}
+console.log('三文件已还原，跑后 md5:', md5());
+
+EOF
+node --check /tmp/t7mut/mut-j.mjs && echo "harness 语法 ok"
+cd /Users/liaolongdong/code/liaolongdong.github.io
+node /tmp/t7mut/mut-j.mjs > /tmp/t7mut/journal.log 2>&1; echo "exit=$?"
+head -2 /tmp/t7mut/journal.log
+grep -c '^[XYZ][0-9] ' /tmp/t7mut/journal.log
+grep '^!!' /tmp/t7mut/journal.log
+grep '全绿' /tmp/t7mut/journal.log
+tail -1 /tmp/t7mut/journal.log
+```
+
+五条命令各管一件事，顺序不能并：`node --check` 只保证脚本本身能跑（Task 6 那回 `sed` 静默不干活，
+脚本"跑成功"了而变异一次都没落地）；`exit=` 是这一轮的全局判定；`head -2` 读的是"跑前三文件 md5"
+与"基线 `# tests 142` 全绿"——基线不绿就没有"牙齿"这回事，harness 会在那一行之前抛出去；
+`grep -c '^[XYZ][0-9] '` 要等于 **66**（少一刀就是有一档被 `continue` 掉了）；`grep '^!!'` 要
+**无输出**（有输出＝锚点没命中或那一档只跑到别的用例数）；`grep '全绿'` 只许出现 **X2 那一行**；
+`tail -1` 要逐字回显"三文件已还原，跑后 md5:" 加那三个基线 md5。
+
+台账表**不由手抄**，由日志生成：
+
+```bash
+cat > /tmp/pfx/t7/make-ledger.mjs <<'EOF'
+import fs from 'node:fs';
+
+const J = fs.readFileSync('/tmp/t7mut/journal.log', 'utf8').split('\n');
+const rows = [];
+let cur = null;
+for (const line of J) {
+  if (/^[XYZ]\d+ /.test(line)) {
+    cur = { name: line.trim(), reds: null };
+    rows.push(cur);
+  } else if (/^    → /.test(line) && cur) {
+    cur.reds = line.slice(6).trim();
+  }
+}
+if (rows.some((r) => r.reds === null)) throw new Error('有档位没有结果行');
+
+// 与 harness 里声明的 MUTS 条数对账：缺一刀就不出表，免得把"没跑"读成"没红"
+const src = fs.readFileSync('/tmp/t7mut/mut-j.mjs', 'utf8');
+const declared = [...src.matchAll(/^\s*\["([XYZ]\d+) /gm)].map((m) => m[1]);
+const ran = rows.map((r) => r.name.split(' ')[0]);
+const missing = declared.filter((d) => !ran.includes(d));
+const extra = ran.filter((r) => !declared.includes(r));
+if (missing.length || extra.length) {
+  throw new Error(`台账与脚本对不上：声明 ${declared.length}、实跑 ${ran.length}；缺 ${missing} 多 ${extra}`);
+}
+
+const out = [`<!-- 由 make-ledger.mjs 从 journal.log 生成；实跑 ${rows.length} 刀，前两列是日志原文 -->`];
+for (const r of rows) {
+  const id = r.name.split(' ')[0];
+  const desc = r.name.slice(id.length + 1);
+  const reds = r.reds.startsWith('全绿') ? '**全绿（等效，见下）**' : `**${r.reds} 红**`;
+  out.push(`| \`${id} ${desc}\` | ${reds} |  |`);
+}
+const counts = {};
+for (const r of rows) for (const j of r.reds.match(/J\d+/g) || []) counts[j] = (counts[j] || 0) + 1;
+const byNum = Object.entries(counts).sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1)));
+out.push(`<!-- 点名次数 ${byNum.map(([k, v]) => `${k}:${v}`).join(' ')}；最少的一条被点名 ${Math.min(...byNum.map((x) => x[1]))} 次；全绿 ${rows.filter((r) => r.reds.startsWith('全绿')).length} 刀 -->`);
+fs.writeFileSync('/tmp/pfx/t7/ledger-rows.md', out.join('\n') + '\n');
+console.log(`写出 ${rows.length} 行 → /tmp/pfx/t7/ledger-rows.md（声明 ${declared.length} 条）`);
+EOF
+node /tmp/pfx/t7/make-ledger.mjs
+```
+
+`make-ledger.mjs` 只填前两列，第三列"说明"是这一格唯一要人写的东西。**它不许凭记忆写**：
+每一行照着 `workbench.js` 里那一处被反改的语句，说清"这样改会把什么变成什么样"，以及
+为什么红的是那几条而不是别的。下面是 2026-09-27 在 `/tmp/t7` 镜像上实跑（基线
+`# tests 142` 全绿、66 刀逐刀记录、无一处"锚点没命中"、无一处"只跑到"、跑完三文件 md5 与跑前
+逐字相同）生成的那张表，末尾三列里 J1–J16 每条至少被点名 2 次（最少的是 J1 与 J12，各 2 次与 3 次）。
+
+| 变异 | 红了谁 | 说明 |
+| --- | --- | --- |
+| `X1 valueOf 空串也照样交出去（口径 1 的"不写键"没了）` | **J1 J3 J4 J8 J10 J13 J15 J7 红** | `valueOf` 不把空串折成 `null`，空串一路递到六本模块手里各抛各的（`length:''` 与 `givenLength:''` 当场 `TypeError`），挂载期 `bankcard` 与 `random` 双双进 broken；红到 J15 是因为那块塌了以后生成侧一句口径都没落地（日志里 `0 !== 1`），J7 红在按钮被禁用以后三级兜底根本没跑 |
+| `X2 sex 无条件写键` | **全绿（等效，见下）** | **等效**：`idcard.js:524` 收到的第一行就是 `const sex = o.sex ?? null`，"键缺失"与"键为 `null`"在消费侧是同一个值，页面上造不出可观测差别。这一族唯一可观测的是"把空串递下去"，那一档由 X1 负责、红八条 |
+| `X3 区划优先级里把县那一档挤掉` | **J2 红** | 只红 J2：三级取码的优先序（县 > 市 > 省）是级联那一格的落点，选了县却只传市码，别处不读这个键 |
+| `X4 fill 不保留 HTML 里的占位项` | **J2 J6 J11 红** | `fill` 把骨架里的占位项一起冲掉：J2 数省格条数（`31 !== 32`）、J6 比 registry 的取值清单（少了空串那格）、J11 数一次 change 之后的重建条数（`13 !== 14`），三处各读一样东西 |
+| `X5 上游为空时市格照填、永不禁用` | **J2 J11 红** | 上游为空照样填下游、且永不禁用："没选省就锁市"那一条整个没了 |
+| `X6 直辖市"省下直接选县"那条例外取消` | **J2 红** | 只红 J2：直辖市下辖"市辖区"唯一一条时自动跳过市格那一档——取消它，县格就在等一个永远不会发生的 change |
+| `X7 缺日期从提示行升级成标坏` | **J3 红** | 缺日期从 `FieldError` 升级成 `RangeError`：J3 的断言原文就是"把'你少填了个日期'说成'这块面板坏了'是口径 3 禁止的" |
+| `X8 数量越界从提示行升级成标坏` | **J8 J14 红** | 同一族的另一格（数量越界）：J8 那句是"「999」这一档的文案对不上"——标坏以后没有 `tk-hint` 那一行；J14 的正则读的是提示行整段 HTML 形状，升级成标坏以后它匹配不上 |
+| `X9 数量为空时提示行不再报范围` | **J8 红** | 空数量的提示行不再报范围：只有 J8 读那一句文案 |
+| `X10 位数越界静默当没填` | **J8 红** | `intOf` 越界改回 `null`（静默当没填）：提示行那一格整个没了，`tk-count` 反倒画出来——20 位被当成"没填"，用户拿到一批 13–19 位的卡号却不知道自己要过什么。补牙那档，红在 J8 |
+| `X11 常用行别那一组也包进 optgroup` | **J6 红** | 常用行别那一组也包进 `optgroup`：第一组按 spec 不该有 label，J6 比的是 option 结构不是文案 |
+| `X12 行别标签丢掉 BIN 条数` | **J6 红** | 行别标签丢掉 BIN 条数：下拉里那句"（N 条 BIN）"是 §5.4 要求"查得到多少条"可见的东西 |
+| `X13 字符集每一格都标"默认"` | **J6 红** | 字符集每一格都标"（默认）"：只有真默认那一格配得上这个词，标完之后整条下拉没有信息 |
+| `X14 运营商标签丢掉号段数` | **J6 红** | 运营商标签丢号段数：X12 的另一本表，同一族口径 |
+| `X15 号段分组不查归属（每组都塞同一批）` | **J6 红** | 号段分组不查归属：每个运营商下面都塞同一批五个号段，"按运营商筛号段"这一格变成装饰 |
+| `X16 kind 格空值不再回落第一项` | **J1 J3 J4 J8 J10 J13 J15 J7 红** | 与 X1 红得一模一样，因为 `kind()` 那一格上空串与 `null` 落进同一个查表失败：X1 让 `??` 不触发、这一刀让兜底整个不在，剩下的路是同一条（`random` 进 broken） |
+| `X17 非法 kind 塌成提示行而不是标坏` | **J4 红** | 非法 kind 改抛 `FieldError`：从"只塌这一块"变成"这一块假装没事、只说一句"，spec 里的取值域不再有人守 |
+| `X18 四档 kind 共用 name 那一套键` | **J4 红** | 四档 kind 共用 `nameOptions`：切到地址档，出来的还是姓名 |
+| `X19 行号改成顺序号（空行不再占号）` | **J5 红** | 行号改成顺序号：空行不再占号，"第 3 行"对不上用户眼前的第三行 |
+| `X20 空行既占号又占位` | **J5 J10 红** | 空行既占号又占位：J5 红在"粘贴框里还没有号码"那一句再也出不来（空行现在占了一格）；J10 红在同一句上——它断言"提示行的类名是样式钩子，不跟着前缀换"，而提示行整段没画 |
+| `X21 超出上限照样全画` | **J5 红** | 超出上限照样全画：`slice(0, MAX_READ_LINES)` 摘掉，粘贴 200 行就画 200 行 |
+| `X22 粘贴框不再吞 \r` | **J5 红** | 粘贴框不再吞 `\r`：Windows 粘贴每行尾巴挂一个 `\r`，结构合法的号被判成不成立 |
+| `X23 整栏口径排到逐行结果之前` | **J15 红** | 整栏口径排到逐行结果之前：§5.4 的顺序是"先答案后解释"，翻过来第一屏全是口径 |
+| `X24 整栏通用句压根不摘（每行一遍）` | **J15 红** | 整栏通用句压根不摘（每行一遍）：五行的"前六位是区划"被念五遍 |
+| `X25 摘了但不去重` | **J15 红** | 摘了但不去重：同一句话从五块面板各摘一次，栏尾还是五遍 |
+| `X26 生成侧口径行清空` | **J15 红** | 生成侧口径行清空：`batchBlock` 第三参给 `[]`，整栏一句口径不剩 |
+| `X27 读侧那条常量口径（REFERENCE_NOTE）不再补` | **J15 红** | 读侧那条常量口径不再补：`REFERENCE_NOTE` 那一句（本页所有判定引用的规范口径）没了 |
+| `X28 提示行不过 esc` | **J14 红** | 提示行不过 `esc`：那一句会把用户填的那一格原样拼进 HTML |
+| `X29 原样回显不过 esc` | **J14 红** | 原样回显不过 `esc`：粘贴框里的任何一行都能变成标签 |
+| `X30 按钮改口走 innerHTML（第二处 HTML 出口）` | **J14 J7 红** | 按钮改口走 `innerHTML`：J14 的全节审计数到 3 处 `.innerHTML =`（红线是 1 处）；J7 红在假 DOM 不解析标签、文案读不回"已复制" |
+| `X31 找节点改走 querySelector` | **J14 红** | 找节点改走 `querySelector`：派生 id 那套账被绕过，前缀与 spec 两本账从此各说各话 |
+| `X32 workbench 里 import 共享模块（共享 chunk 那条坑回来了）` | **J14 红** | `workbench.js` 里 import `./panel.js`：两个入口 reach 同一模块就成共享 chunk，IIFE 产物里留 `import{`、线上白屏——J14 扫的是源文本 |
+| `X33 控件 id 形状换序` | **J9 红** | 控件 id 形状换序（`tk-panel-in-ctl`）：骨架、绑定层、装配层三处对不上，只有 J9 逐字比对 id 形状 |
+| `X34 结果区 id 形状换序` | **J9 J13 红** | 结果区 id 形状换序：J9 读到 `tk-mobile-out-gen`；J13 那一档专测"缺结果区要标坏"，换序以后它按新形状找到了节点，`broken` 从 `['uscc']` 变成 `[]` |
+| `X35 controlIds 不再导出 when 那一组` | **J3 J4 J9 J13 红** | `controlIds` 不再导出 `when` 那一组：J9 的清单断言直接空掉（`[]` vs 那四格）；J3 / J4 / J13 三处的红形状不一样，是 `TypeError: Cannot read properties of null (reading 'hidden')`——判据拿 `ids.when` 里的 id 去找显隐格，清单空了就取到 `null`。这种红是"取不到清单"而不是断言失败，读日志时要认得 |
+| `X36 MAX_READ_LINES 与 GENERATE_MAX 脱钩` | **J5 J9 红** | `MAX_READ_LINES` 与 `GENERATE_MAX` 脱钩（50→40）：J5 的"没超上限就别报数"在 41–50 行那一档变红，J9 那句"读侧与生成侧不该各长一个上限"数到 `40 !== 50` |
+| `X37 fieldId 把前缀写死成 tk` | **J10 红** | `fieldId` 把前缀写死成 `tk`：换前缀那一轮一个控件都找不到 |
+| `X38 Enter 不接日期格` | **J11 红** | Enter 不接日期格：日期格与数字格同权，回车就该触发判定 |
+| `X39 裸 Enter 也触发判定（吞掉换行）` | **J11 红** | 裸 Enter 也触发判定：粘贴框里回车换行没了——那是这一格最主要的输入动作 |
+| `X40 组合键 Enter 不拦默认动作` | **J11 红** | 组合键 Enter 不拦默认动作：Ctrl / ⌘ + Enter 在 textarea 里既触发判定又插一个换行——补牙那档，红在 J11 的 `preventDefault` 增量计数 |
+| `X41 数字格 Enter 带修饰键也接` | **J11 红** | 数字格 Enter 带修饰键也接：X39 的反方向，`Shift+Enter` 在数字格里不该被当提交 |
+| `X42 级联控件不接 change（下游不再重建）` | **J2 J11 红** | 级联控件不接 `change`：省格变了市格不重建（J2 数条数 `1 !== 32`，J11 数重建次数 `1 !== 14`） |
+| `X43 开关控件不接 change` | **J3 J4 J13 红** | 开关控件不接 `change`：显隐只在挂载期算一次。J3（年龄区间→生日格）、J4（四档 kind 互切）、J13（缺 when 节点那一档）各撞一次 |
+| `X44 按钮绕开 runGuarded` | **J3 J4 J8 J11 J14 红** | 按钮绕开 `runGuarded`：抛错直接冲出点击回调。五条红的原文各不相同，正好是这条路径的五个下游——J3「选了「指定出生日期」，就得把出生日期那一格填上。」、J4「kind 格取到「nope」」、J8 模块原文 `RangeError`、J11 计数 `4 !== 5`、J14 那句未经 `esc` 的 `<script>alert(1)</script>` 出现在提示行里（`runGuarded` 才是转义那道闸，绕开它 XSS 出口就回来了） |
+| `X45 非 FieldError 也咽进提示行（一块塌了没人知道）` | **J3 J4 J8 红** | 非 `FieldError` 也咽进提示行：`broken` 从 `['idcard']` / `['random']` / `['uscc']` 变成 `[]`——真缺陷被说成"你少填了一格"，隔离那一条口径同时失去名单 |
+| `X46 提示行不清空可复制文本` | **J3 J8 红** | 提示行不清空可复制文本：J3 的原文是复制文本仍留着上一批那五条号码（`'430473197905253013\n' + …`），J8 红在按钮 `disabled` 仍为 `false`——页面上说的是"这格填错了"，剪贴板里给的是旧数据 |
+| `X47 没有可复制文本时按钮照样可用` | **J3 J5 J8 J7 红** | 没有可复制文本时按钮照样可用：J3 / J5 / J8 三处同形状（`false !== true`，读的就是 `disabled`），J7 那句原文是"判定栏还没内容，按钮是禁用的" |
+| `X48 空文本也走一遍复制` | **J7 红** | 空文本也走一遍复制：J7 的原文是 `writeText` 的调用记录多了 `''` 一项——"空文本一次都不该写"，写了就是把用户的剪贴板清一次，而按钮还会闪一句"已复制" |
+| `X49 原文案写死成"复制"` | **J7 红** | 原文案写死成"复制"：骨架上那三个字是"复制这批号码"，恢复时把按钮改短了 |
+| `X50 失败与成功用同一个恢复时长` | **J7 红** | 失败与成功用同一个恢复时长：失败句要停得更久（2600 vs 1600 ms），补牙那档读的是注入计时器的 `ms` |
+| `X51 clipboard 拒绝时不回退第二级` | **J7 红** | clipboard 被拒不回退第二级：权限被拒时用户点了没有任何反应 |
+| `X52 writeText 同步抛错不再兜底` | **J7 红** | `writeText` 同步抛错不再兜底：非安全上下文里 `clipboard` 存在而 `writeText` 当场抛，这一档兜的是那句抛 |
+| `X53 临时框用完不摘` | **J7 红** | 临时框用完不摘：每复制一次 `body` 里长一个 `textarea` |
+| `X54 临时框不标 readonly` | **J7 红** | 临时框不标 `readonly`：选中即触发输入法候选框，焦点从按钮上走掉 |
+| `X55 execCommand 不存在时当成功` | **J7 红** | `execCommand` 不存在时当成功：老浏览器里没有 `execCommand` 却报"已复制"，号码哪儿也没去——补牙那档，红在 J7 |
+| `X56 缺结果区不再抛（悄悄什么都不画）` | **J13 红** | 缺结果区不再抛：`paint` 静默返回，那一栏什么都画不出来也没人标坏 |
+| `X57 开关目标缺节点就抛（一块缺件牵连整栏）` | **J13 红** | 开关目标缺节点就抛：一块 `when` 缺件牵连整栏（`if (!el) continue;` 那一格）——补牙那档，红在 J13 |
+| `Y1 toolkitCore 少挂 view` | **J12 J16 红** | `window.Tk` 少挂 `view`：J12 数挂面清单（少一项）；J16 红的是入口自己那句自检——"window.Tk 没挂上来：toolkitCore.min.js 要么 404，要么排在本入口之后" |
+| `Y2 toolkitCore 顺手多挂一只` | **J12 红** | 顺手多挂一只：挂面就那三个名字，多一个是下一格再也改不动的债 |
+| `Y3 toolkitCore 里出现顶层 export` | **J12 J14 红** | `toolkitCore.js` 里出现顶层 `export`：`iifeWrapPlugin` 不补 `'use strict'` 也不做 code-splitting，入口里的顶层 `export` 在产物里是语法错误——J14 那条源码红线专抓它 |
+| `Z1 晚绑的 guard.run 不接上（按钮回调跑进占位函数）` | **J16 红** | 晚绑的 `guard.run` 不接上：按钮回调一直跑在挂载前的占位函数上，点什么都没反应 |
+| `Z2 启动失败不写提示行（装死）` | **J16 红** | 启动失败不写提示行：整页白屏装死，`hidden` 那一句没跑 |
+| `Z3 启动失败只往页面写一句，不再抛回控制台` | **J16 红** | 启动失败只往页面写一句、不抛回控制台：排查的人只剩一句"出错了"，栈没了 |
+| `Z4 data-tk-ids 里的空项不丢` | **J16 红** | `data-tk-ids` 里的空项不丢：`idcard,,uscc` 会造出一块 `tk-panel-` 假面板 |
+| `Z5 行为前缀不读骨架，写死 tk` | **J16 红** | 行为前缀不读骨架、写死 `tk`：骨架写 `zx` 而行为仍按 `tk`，控件全找不到——补牙那档，红在 J16 的换前缀两档 |
+| `Z6 容器读不到属性时不判（TypeError 从入口跑出去）` | **J16 红** | 容器读不到属性时不判：`getAttribute` 不是函数时 `TypeError` 从入口跑出去，连"页面骨架不对"那句都写不出来——补牙那档，红在 J16 |
+
+- [ ] **Step 6: 记一次产物体积（§7 的预算要在这一格判，不许拖到收口）**
+
+这一格是段 2 里第一个"产物已经存在"的时刻，所以三条产物口径在这儿一次立起来：`import{` 必须为 0
+（共享 chunk 那条事故的红线）、预算按 **gzip** 算（不是 brotli）、四本数据的边际成本要能被复算。
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+npx vite build > /tmp/t7build.log 2>&1; echo "build exit=$?"
+grep -o 'import{' assets/js/*.min.js | wc -l
+ls -l assets/js/toolIdcard.min.js assets/js/toolkitCore.min.js
+for f in assets/js/toolIdcard.min.js assets/js/toolkitCore.min.js; do
+  printf '%-34s raw=%-8s gz=%s\n' "$f" "$(wc -c < $f | tr -d ' ')" "$(gzip -9 -c $f | wc -c | tr -d ' ')"
+done
+```
+
+Expected：`build exit=0`；`import{` 命中数 **0**（这一条挂了就是白屏，构建 exit=0 也救不了）；
+两件产物 **raw 202,324 / gz 70,991**（`toolIdcard.min.js` 184,221 / 64,408，
+`toolkitCore.min.js` 18,103 / 6,583）。`toolkit.min.css` 这一件在 Task 8 才存在，本格不计。
+
+**为什么预算按 gzip 算**：2026-09-26 实测线上 `/better-blog/` 的响应头是
+`Content-Encoding: gzip` + `Vary: Accept-Encoding`，同一份 2,216 B 的产物线上回 942 B——
+GitHub Pages 不发 brotli。同机同产物按 brotli-11 量是 56,610 B，看着"达标"，线上不走这一档。
+
+四本数据的边际成本用**清空数据 → 重建 → 量**来测，不靠读源文件字节猜（源文件 100 KB 的区划表
+进了产物只剩 34 KB gzip，差 3 倍，猜不得）。脚本在下面，跑在 `/tmp/t7` 镜像上——
+`dev/js/tools/region-data.js`、`dev/js/tools/bank-bin-data.js`、`dev/js/tools/carrier-data.js`
+在真仓库的禁改清单里，只有镜像可以动，且每档量完立刻还原、跑完与真仓库比 md5。
+
+```bash
+mkdir -p /tmp/pfx/t7 && cat > /tmp/pfx/t7/measure-gzip.py <<'PYEOF'
+#!/usr/bin/env python3
+"""量证件页三件产物里"四本数据"各自的 gzip 边际成本——只在 /tmp/t7 镜像里改数据文件。
+
+口径写在三处，改了要一起改：
+  · gzip 一律 `gzip -9 -c`（GitHub Pages 只发 gzip、不发 brotli，09-26 实测过线上
+    `Content-Encoding: gzip`，所以 brotli 那本账不参与判定，这里干脆不量）。
+  · 每一档跑完 `npx vite build` 立刻断言 exit=0：09-26 栽过一次——脚本中途死掉，
+    磁盘上留着上一轮的产物，读到的尺寸是假的。
+  · 三个数据文件（region-data.js / bank-bin-data.js / carrier-data.js）在真仓库里是
+    禁改清单，这里全部按"读原文 → 改镜像 → 还原 → 与真仓库比 md5"走，最后一档必须
+    重建满数据并断言它的 gzip 与第一档逐字节相同，否则这份表连"现场已复原"都没证据。
+"""
+import re, subprocess, hashlib, json, os, sys
+
+M = '/tmp/t7'
+REAL = '/Users/liaolongdong/code/liaolongdong.github.io'
+ART = ['assets/js/toolIdcard.min.js', 'assets/js/toolkitCore.min.js', 'assets/css/toolkit.min.css']
+DATA = ['dev/js/tools/region-data.js', 'dev/js/tools/bank-bin-data.js', 'dev/js/tools/carrier-data.js']
+
+
+def md5(root, p):
+    return hashlib.md5(open(os.path.join(root, p), 'rb').read()).hexdigest()
+
+
+def sizes():
+    per, tot = {}, 0
+    for a in ART:
+        b = open(os.path.join(M, a), 'rb').read()
+        gz = len(subprocess.run(['gzip', '-9', '-c'], input=b, capture_output=True).stdout)
+        per[a] = (len(b), gz)
+        tot += gz
+    return per, tot
+
+
+def build(tag):
+    p = subprocess.run(['npx', 'vite', 'build'], cwd=M, capture_output=True, text=True)
+    if p.returncode != 0:
+        print(f'!! {tag} build exit={p.returncode}\n{p.stdout[-1200:]}\n{p.stderr[-600:]}')
+        sys.exit(1)
+    per, tot = sizes()
+    raw = sum(per[a][0] for a in ART)
+    print(f'{tag:20s} gz={tot:>7,} raw={raw:>8,}  ' + '  '.join(f'{os.path.basename(a)}={per[a][0]:,}/{per[a][1]:,}' for a in ART))
+    return per, tot
+
+
+orig = {d: open(os.path.join(M, d), encoding='utf8').read() for d in DATA}
+# region-data.js 在真仓库里（段 1 交付、禁改清单上）→ 与真仓库比 md5；
+# 另两张码表是段 2 才产生的文件，真仓库里还没有 → 只与本轮读到的原文比
+real = {d: (md5(REAL, d) if os.path.exists(os.path.join(REAL, d)) else md5(M, d)) for d in DATA}
+
+
+def put(d, text):
+    open(os.path.join(M, d), 'w', encoding='utf8').write(text)
+
+
+def restore(d):
+    put(d, orig[d])
+    assert md5(M, d) == real[d], f'{d} 还原后与真仓库不一致'
+
+
+R = ['RAW_PROVINCES', 'RAW_CITIES', 'RAW_COUNTIES', 'RAW_HISTORICAL']
+
+
+def blank_region(src, names):
+    out, n = src, 0
+    for nm in names:
+        out, k = re.subn(rf"(export const {nm} = )'(.*?)(';)", r'\1\3', out, flags=re.S)
+        n += k
+    assert n == len(names), f'区划字段锚点命中 {n}/{len(names)}'
+    return out
+
+
+def blank_region(src, names):
+    """把指定的 RAW_* 换成**空串字面量**。注意：`\\1\\3` 这种回写会把开引号一起丢掉，
+    产物变成 `= ';` 的语法错误——构建当场 exit 1，读到的是上一轮的旧产物（09-26 栽过一次）。"""
+    out, n = src, 0
+    for nm in names:
+        out, k = re.subn(rf"(export const {nm} = )'(.*?)(';)", r"\1'';", out, flags=re.S)
+        n += k
+    assert n == len(names), f'区划字段锚点命中 {n}/{len(names)}'
+    return out
+
+
+try:
+    full_per, full = build('full')
+
+    # 1) 四本区划原始串全空 → 区划这一本的边际
+    put('dev/js/tools/region-data.js', blank_region(orig['dev/js/tools/region-data.js'], R))
+    _, no_region = build('no-region')
+    restore('dev/js/tools/region-data.js')
+
+    # 2) 只空历史层 → 历史那一段的边际（撤销建制的旧码，覆盖 1980s–2000s 的老证号）
+    put('dev/js/tools/region-data.js', blank_region(orig['dev/js/tools/region-data.js'], ['RAW_HISTORICAL']))
+    _, no_hist = build('no-historical')
+    restore('dev/js/tools/region-data.js')
+
+    # 3) BIN 表清空（BANKS 是行名册、BIN_ROWS 是区间表，两串同源，一起去掉才是"这张表的成本"）
+    sB, k1 = re.subn(r"export const BANKS = \[.*?\n\];", "export const BANKS = [];",
+                     orig['dev/js/tools/bank-bin-data.js'], flags=re.S)
+    sB, k2 = re.subn(r"(export const BIN_ROWS = )'(.*?)(';)", r"\1'';", sB, flags=re.S)
+    assert k1 == 1 and k2 == 1, (k1, k2)
+    put('dev/js/tools/bank-bin-data.js', sB)
+    _, no_bank = build('no-bankbin')
+    restore('dev/js/tools/bank-bin-data.js')
+
+    # 4) 运营商号段表清空
+    sC, k3 = re.subn(r"export const CARRIER_SEGMENTS = \[.*?\n\];", "export const CARRIER_SEGMENTS = [];",
+                     orig['dev/js/tools/carrier-data.js'], flags=re.S)
+    assert k3 == 1, k3
+    put('dev/js/tools/carrier-data.js', sC)
+    _, no_car = build('no-carrier')
+    restore('dev/js/tools/carrier-data.js')
+
+    # 5) 三本数据一起清空 → "四本之外"直接量，不靠可加性折算
+    put('dev/js/tools/region-data.js', blank_region(orig['dev/js/tools/region-data.js'], R))
+    put('dev/js/tools/bank-bin-data.js', sB)
+    put('dev/js/tools/carrier-data.js', sC)
+    _, no_data = build('no-data')
+finally:
+    for d in DATA:
+        restore(d)
+
+# 6) 现场复原，重建满数据那一版并逐字节比
+_, after = build('full-after-restore')
+assert after == full, f'最终产物与首轮满数据不一致：{after} != {full}'
+
+print(json.dumps({
+    '满数据_gz': full,
+    '区划边际': full - no_region,
+    '其中历史层': full - no_hist,
+    '去历史层后': no_hist,
+    'BIN表边际': full - no_bank,
+    '号段表边际': full - no_car,
+    '三本合计': full - no_data,
+    '四本之外_直接量': no_data,
+    '边际相加': (full - no_region) + (full - no_bank) + (full - no_car),
+    'per件': {os.path.basename(a): full_per[a] for a in ART},
+    '预算_60KiB': 61440,
+    '超': full - 61440,
+    '去历史层余量': 61440 - no_hist,
+}, ensure_ascii=False, indent=1))
+PYEOF
+cp /tmp/pfx/t7/measure-gzip.py /tmp/pfx/t7/measure-gzip.run.py
+cd /tmp/t7 && python3 /tmp/pfx/t7/measure-gzip.run.py
+```
+
+2026-09-27 镜像实跑（七次 `npx vite build` 全部 exit=0，跑完三件数据文件 md5 与真仓库逐字相同，
+末档 `full-after-restore` 与首档 `full` 的 gzip **逐字节相同**才敢出表）。表里那一列是脚本打的
+**三件合计**（镜像里 `dev/sass/toolkit.scss` 已经存在，所以 CSS 那一件 2,110 B 在数里；真仓库的
+Task 7 只有两件，所以第一段命令量到的是 70,991 = 73,101 − 2,110）：
+
+| 档 | 三件合计的 gz | 相对满数据 |
+| --- | --- | --- |
+| 满数据 | 73,101 | — |
+| 四本区划串全空 | 38,788 | **区划 −34,313** |
+| 只空历史层 | 60,881 | **历史层 −12,220** |
+| 清空 BIN 表 | 61,871 | **BIN −11,230** |
+| 清空号段表 | 72,914 | **号段 −187** |
+| 三本一起空 | 27,230 | **数据合计 −45,871** |
+
+三个数论值得留在这儿：
+
+1. **边际近似可加**：34,313 + 11,230 + 187 = 45,730，与"三本一起空"直接量的 45,871 差 **141 B**
+   （0.3%）。差得这么小是因为这四本表是各自独立的高熵串；如果哪一天这个差变成几千字节，
+   说明有代码被连带摇掉了，这张表就要重读一遍。
+2. **号段表 1,239 字节源文件只值 187 B gzip**，区划表 100,020 字节源文件值 34,313 B——
+   预算的敌人只有区划那一本，别在码表上抠字节。
+3. **历史层那一档值 12,220 B**：去掉它，三件合计是 **60,881 B** gzip（两件 JS 是 58,771 B，
+   加 CSS 2,110 B），距 §7 那条 61,440 B（60 KiB）只剩 **559 B** 余量。
+
+**判据落在预算上就是超了，本格不许自行改预算。** §7 写的是证件页 JS + CSS ≤ 60KB：
+本格两件 JS 已经 70,991 B，加 CSS 2,110 B 是 **73,101 B，超 11,661 B（19%）**。
+按 Task 1 立的 BLOCKED 协议停下来交回去，三个处置：
+
+- **(a) 把 §7 这一条按实测改写成 ≤ 76KB**（推荐）。559 B 余量的判据会被压缩器抖动抖翻——
+  换 Node 小版本、terser 升一行都会红，那正是 §7 自己写过的失效模式。改口径保住的是
+  "0 网络请求"与区划全周期覆盖两件实打实的价值。
+- **(b) 把历史层拆成第二支延迟注入的 script**：60,881 B 卡进预算，代价是"本页 0 网络请求"那句
+  文案要改、撤销区划的首判要等一支脚本，且多一次请求。
+- **(c) 砍掉历史区划解析**：产品损失——1980s–2000s 的老证号解不出出生地，那是本页相对同类
+  工具的主要差异点。
+
+选 (a) 的话，落点是 `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md` §7 那一行
+与 `_docs/superpowers/plans/2026-09-25-online-tools-foundation.md` 里引用它的地方，
+两处一起改，改完把本格的数字回写进 spec；选 (b) 则 Task 8 的骨架多一条 script 标签、
+`toolIdcard.js` 的入口自检要改成"两支都在或都不在"，本格与 Task 8 都得返工。
+
+- [ ] **Step 7: 提交**
+
+```bash
+cd /Users/liaolongdong/code/liaolongdong.github.io
+git status --porcelain
+git log --oneline -3
+git add dev/js/toolkitCore.js dev/js/tools/workbench.js dev/js/toolIdcard.js scripts/toolkit-tests.mjs
+git diff --cached --stat
+git commit -m "$(cat <<'EOF'
+feat(tools): 证件页装配层 workbench.js + 两个入口——§J 十六条与七道补牙
+
+装配层只干四件事：把 spec 里的字段表变成派生 id、把控件按 spec 填上、把一次点击
+包进 runGuarded、把 view 产出的 HTML 写进那一格结果区。ARIA 一律不判（Task 6 的
+panel-dom 是唯一一处口径），转义一律不走第二次（innerHTML 全文件只出现在 paint()），
+跨页共用的东西一律不 import——两个入口 reach 同一模块就会成共享 chunk，IIFE 产物里
+留下 import{ 就是白屏，J14 那条源码红线与 Step 6 的 grep 各钉一头。
+
+空值不写键：六本模块收到空串各抛各的，"没选"必须真的是没选（X1 一刀红八条，
+X16 从 kind 那一格再撞一次）。FieldError 走提示行、别的一律标坏：越界与没填是两件事，
+把前者说成后者是本页最像故障的那种错。复制走三级兜底，最后一级是一句"请手动选中"——
+execCommand 不存在时不许当成功（X55），失败提示要比成功停得更久（X50）。
+
+§J 十六条全部补在已有用例里，用例数从 126 到 142 只多这 16 条、一条不许多：六十六刀
+靠 `^not ok \d+ - J\d+` 锚定红了谁，多一条重名的用例就会把某一刀的证据读成假象。
+65 刀有红、X2 是构造上的等效（消费侧 `o.sex ?? null` 让"缺键"与"键为 null"是同一个值），
+曾不可达的七刀（X10 / X40 / X50 / X55 / X57 / Z5 / Z6）各补了一档真实形状，补成的判据增量是五处。
+
+产物口径：两件 JS 的 gzip 70,991 B，四本数据合计 45,871 B（区划 34,313、BIN 11,230、号段 187）；
+算上 Task 8 的 CSS 2,110 B 是 73,101 B，§7 的 60KB 预算在这里判为超 11,661 B，按 BLOCKED 协议
+交回三个处置。
+EOF
+)"
+git status --porcelain | head
+```
+
+Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行），提交完 `git status` 里剩下的
+仍是对方会话那批未提交项（`.gitignore` 此刻正 STAGED 在共享索引里——**别裸 `git commit`**，
+会把别人暂存的东西吞进这一发；要提就照上面先 `git diff --cached --stat` 看清是谁的）。
+`_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
+
+<!-- APPEND-8 -->
