@@ -336,6 +336,33 @@
       "h2Emoji": [],
       "subtopicMode": "single-callback",
       "promisesClosed": 1
+    },
+    {
+      "date": "2026-09-26",
+      "job": "A",
+      "slug": "json-render-silent-strip",
+      "variant": "A1",
+      "titleTpl": "T2",
+      "emojiBudget": "sparse",
+      "h2Count": 4,
+      "chars": 3724,
+      "tableMode": "irregular",
+      "openingType": "number",
+      "endingType": "openQuestion",
+      "outlookForm": "todo-list",
+      "styleBlock": false,
+      "highlightBox": true,
+      "h2Titles": [
+        "它把界面摊平成一张表",
+        "校验那一刀切在了哪层",
+        "✂️ 谁该拦这一下？没人",
+        "表单交给它，别的场景不交"
+      ],
+      "h2Emoji": [
+        "✂️"
+      ],
+      "subtopicMode": "single-callback",
+      "promisesClosed": 1
     }
   ],
   "titleTplHistory": [
@@ -351,7 +378,8 @@
     "T1",
     "T5",
     "T3",
-    "T8"
+    "T8",
+    "T2"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -395,6 +423,9 @@
       ],
       [
         "🚭"
+      ],
+      [
+        "✂️"
       ]
     ]
   },
@@ -552,18 +583,22 @@
     "墙没拆，只是换了个数",
     "API 那个数没有标记位",
     "拆成两段才知道差多少",
-    "「我量不到的三处」"
+    "「我量不到的三处」",
+    "它把界面摊平成一张表",
+    "校验那一刀切在了哪层",
+    "✂️ 谁该拦这一下？没人",
+    "表单交给它，别的场景不交"
   ],
   "promiseQueue": [
     {
-      "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）｜09-26 本期选题无关，未复查，继续挂",
+      "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）｜09-26 job A 复查：`releases/latest` 仍是 v0.79.0（清单 M-01），条件不成立，继续挂",
       "registered": "2026-09-21",
       "job": "A",
       "slug": "one-worktree-per-agent",
       "carried": 1
     },
     {
-      "text": "atlas 若 README 里那行 `<!-- #todo homebrew tap -->` 变成真的 `brew install atlas`，就拿它和 worktrunk 在同一个假仓库上对一次 checkpoint 与工作树磁盘成本｜09-26 本期选题无关，未复查，继续挂",
+      "text": "atlas 若 README 里那行 `<!-- #todo homebrew tap -->` 变成真的 `brew install atlas`，就拿它和 worktrunk 在同一个假仓库上对一次 checkpoint 与工作树磁盘成本｜09-26 job A 复查：那条 TODO 仍在第 52 行（清单 M-01），条件不成立，继续挂",
       "registered": "2026-09-21",
       "job": "A",
       "slug": "one-worktree-per-agent",
@@ -606,21 +641,14 @@
       "carried": 1
     },
     {
-      "text": "`allowed_extension_ids` 哪天从 `crates/bsk-cli/src/daemon/ws.rs:39` 的注释变成 `DaemonConfig` 的真实字段（配 `ws.rs:41-44` 那句「同机侧载现在能过」被删），就回来改写安全那一节；它一直是注释，那一节就照形状口径写｜09-26 本期选题无关，未复查，继续挂",
+      "text": "`allowed_extension_ids` 哪天从 `crates/bsk-cli/src/daemon/ws.rs:39` 的注释变成 `DaemonConfig` 的真实字段（配 `ws.rs:41-44` 那句「同机侧载现在能过」被删），就回来改写安全那一节；它一直是注释，那一节就照形状口径写｜09-26 job A 复查：`ws.rs` 里那句仍是唯一命中、仍未变成 `DaemonConfig` 字段（清单 M-01），继续挂",
       "registered": "2026-09-23",
       "job": "A",
       "slug": "browser-skill-context-bytes",
       "carried": 1
     },
     {
-      "text": "PR #275 一旦进 main，开头那段 `error: unexpected argument '--no-wait' found` 压成一句，并把「我要的 flag 还在 PR 里」这个小标题作废｜09-26 本期选题无关，未复查，继续挂",
-      "registered": "2026-09-23",
-      "job": "A",
-      "slug": "browser-skill-context-bytes",
-      "carried": 1
-    },
-    {
-      "text": "chrome-devtools-mcp 升到 1.9.0 之后重跑同一条 `tools/list` stdio 探测，看 25,766 是否继续涨、`name`+`description` 层（1.8.0 是 4,037 B）是否继续缩｜09-26 本期选题无关，未复查，继续挂",
+      "text": "PR #275 一旦进 main，开头那段 `error: unexpected argument '--no-wait' found` 压成一句，并把「我要的 flag 还在 PR 里」这个小标题作废｜09-26 job A 复查：`GET repos/Tencent/BrowserSkill/pulls/275` 仍 `state: open`、`merged: false`（清单 U-09，16:12:20Z 复跑）——注意 09-23 那笔没写仓库，本期清单 U-08 曾把这条误记成 json-render 的 PR（实测 404），已勘误；未进 main，继续挂",
       "registered": "2026-09-23",
       "job": "A",
       "slug": "browser-skill-context-bytes",
@@ -687,6 +715,27 @@
       "registered": "2026-09-26",
       "job": "B",
       "slug": "github-actions-2500-cap",
+      "carried": 0
+    },
+    {
+      "text": "`packages/react/src/schema.ts` 那份 zod 一旦给元素加上 `on`、或给 spec 顶层加上 `state`（哪怕只进类型声明不进 schema），本篇第二节「zod 那一份 schema 里没有 `on`」就要重写；复现口径：同一段带 `on`/`state` 的 spec 过 `catalog.validate()`，看 `result.data` 里两处还在不在、`success` 是不是仍为 true（09-26 基线 v0.21.0 @ c2600d7：`on`、顶层 `state` 均被剥，`success: true`）",
+      "registered": "2026-09-26",
+      "job": "A",
+      "slug": "json-render-silent-strip",
+      "carried": 0
+    },
+    {
+      "text": "#222 一旦关闭或合掉（09-26 仍 open，`rohanajayjain` 2026-03-16 开，2 条回复，其中「已给 `buildZodType` 加 `.passthrough()`」那条在 v0.21.0 上实测未生效），且 README 的 Quick Start 第 3 步不再只给裸 `<Renderer spec registry/>`，本篇第四节「两种写法行为不同」那句要跟着改",
+      "registered": "2026-09-26",
+      "job": "A",
+      "slug": "json-render-silent-strip",
+      "carried": 0
+    },
+    {
+      "text": "json-render 若发新的小版本（>0.21.0）且同一段 spec 过 `catalog.validate()` 仍静默剥 `on`/顶层 `state`，就按本篇末段那句「我就不在它身上投时间了」执行：把它撤出我的候选池，并在下期正文一句话公开撤掉上面两笔跟踪承诺，不再顺延",
+      "registered": "2026-09-26",
+      "job": "A",
+      "slug": "json-render-silent-strip",
       "carried": 0
     }
   ],
@@ -796,8 +845,12 @@
       "2026-09-25T14:17:22Z"
     ],
     "Tencent/BrowserSkill": [
-      6823,
-      "2026-09-23T10:40:32Z"
+      7319,
+      "2026-09-26T14:12Z"
+    ],
+    "vercel-labs/json-render": [
+      18303,
+      "2026-09-26T14:51:37Z"
     ]
   },
   "aborted": [],
