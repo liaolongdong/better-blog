@@ -1672,3 +1672,233 @@ test('B15 年份 1..9999：出生年补齐四位再比下界，"今天"两头越
   assert.equal(parseIdCard('110101190001010014', { today: TODAY }).state, 'valid');
   assert.equal(parseIdCard('11010118991231001X', { today: TODAY }).state, 'malformed');
 });
+// ── §C 统一社会信用代码 ─────────────────────────────────────────────────────
+
+const { parseUscc, parseUsccList, generateUsccCodes, computeCheckChar,
+  computeOrgCheckValue, charValue, USCC_CHARSET, USCC_WEIGHTS, ORG_WEIGHTS,
+  FORBIDDEN_CHARS, GENERATE_MAX: USCC_GENERATE_MAX, USE_NOTE: USCC_USE_NOTE,
+  REFERENCE_NOTE } = await import('../dev/js/tools/uscc.js');
+
+/**
+ * 可公开核实的真实码清单。设计文档 §11 原本要求"≥5 条"，本轮只坐实 1 条
+ * （GB 32100-2015 正文示例）；凭记忆写的 4 条候选有 3 条末位不通，故不收录。
+ * 这条判据的唯一用途：以后往里加样本时必须连带核实来源与日期，
+ * 而不是让"≥5 条真实码"这句话悄悄变成既成事实。
+ */
+const REAL_SAMPLES = [
+  { code: '91350100M000100Y43', source: 'GB 32100-2015 正文示例', verifiedOn: '2026-09-25' },
+];
+
+/** 下面 13 条码全部是 2026-09-25 用独立脚本实算出来的（口径见 §5.0），不是手推 */
+const NATIONAL = '91350100M000100Y43';    // 内层本体含字母的国标示例
+const R_ZERO = '913501000000001660';      // Σ mod 31 == 0 → 末位 '0'，且内层自洽（整码可判 valid）
+const R_X = '91350100000000004X';         // 校验值 29 → 'X'
+const R_Y = '91350100000000014Y';         // 校验值 30 → 'Y'
+const ORG_TEN_X = '9135010000000006XH';   // 内层值 10，第 17 位写作 'X'
+const ORG_TEN_A = '9135010000000006AN';   // 内层值 10，第 17 位写作 'A'（末位随之改变）
+const ORG_OK = '91350100000000019E';      // 内层值 9，第 17 位 '9'
+const ORG_LETTER = '9135010000000001YF';  // 内层值 9，第 17 位 'Y' → 不下结论
+const ORG_BAD = '913501000000000152';     // 内层值 9，第 17 位 '5' → 不符
+const REGION_UNCODED = '91440524000000019E';
+const REGION_PROVINCE = '91110000000000019B';
+const REGION_HIST = '91110103000000019U';
+const REGION_NONE = '91990101000000019M';
+const failedC = (r) => r.checks.filter((k) => k.ok === false).map((k) => k.key);
+const uncertainC = (r) => r.checks.filter((k) => k.ok === null).map((k) => k.key);
+const rowC = (r, key) => r.checks.find((k) => k.key === key);
+
+test('C1 31 字符集：长度、剔除的五个字母、值即下标、非法输入返回 null 不抛', () => {
+  assert.equal(USCC_CHARSET.length, 31);
+  assert.equal(new Set(USCC_CHARSET).size, 31, '字符集里有重复字符');
+  assert.deepEqual(FORBIDDEN_CHARS, ['I', 'O', 'S', 'Z', 'V']);
+  for (const ch of FORBIDDEN_CHARS) {
+    assert.equal(USCC_CHARSET.includes(ch), false, `${ch} 不得出现在字符集里`);
+  }
+  assert.equal(charValue('0'), 0);
+  assert.equal(charValue('9'), 9);
+  assert.equal(charValue('A'), 10);
+  assert.equal(charValue('Y'), 30);
+  assert.equal(charValue('I'), null, '被剔除的字母必须是 null');
+  assert.equal(charValue('i'), null, '小写不属于代码字符集，不做隐式大写');
+  assert.equal(charValue(''), null);
+  assert.equal(charValue('01'), null);
+  assert.equal(charValue(null), null);
+  assert.equal(charValue(9), null, '数字入参也走 null：调用方负责先转字符串');
+});
+
+test('C2 两套权重：与幂算式互验，不靠手抄', () => {
+  assert.deepEqual(USCC_WEIGHTS, [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28]);
+  assert.equal(USCC_WEIGHTS.length, 17);
+  for (let i = 0; i < 17; i += 1) {
+    assert.equal(USCC_WEIGHTS[i], 3 ** i % 31, `第 ${i + 1} 位权重应为 3^${i} mod 31`);
+  }
+  assert.deepEqual(ORG_WEIGHTS, [3, 7, 9, 10, 5, 8, 4, 2]);
+  for (let i = 0; i < 8; i += 1) {
+    assert.equal(ORG_WEIGHTS[i], 2 ** (8 - i) % 11, `内层第 ${i + 1} 位权重应为 2^(8-${i}) mod 11`);
+  }
+});
+
+test('C3 国标示例：双校验位自洽，且不变式 Σ(1..18) ≡ 0 (mod 31)', () => {
+  const r = parseUscc(NATIONAL);
+  assert.equal(r.state, 'valid');
+  assert.deepEqual(failedC(r), []);
+  assert.deepEqual(uncertainC(r), []);
+  assert.equal(r.caveat, '');
+  assert.deepEqual(r.checks.map((k) => k.key),
+    ['charset', 'length', 'region', 'orgCheck', 'checkBit']);
+  assert.equal(r.info.region.fullName, '福建省福州市', '350100 按现行市级解（A5 已钉这一档）');
+  assert.equal(r.info.body8, 'M000100Y');
+  assert.deepEqual(r.info.orgChecksum, { sum: 128, remainder: 7, value: 4 });
+  assert.deepEqual(r.info.checksum, { sum: 1640, remainder: 28, value: 3 });
+  assert.equal(r.info.expectedCheckBit, '3');
+  assert.equal(r.info.checkBit, '3');
+  // 不变式：把末位一起加权必须整除 31。这条独立于上面所有中间量
+  const total = r.code.split('')
+    .reduce((t, ch, i) => t + charValue(ch) * (i < 17 ? USCC_WEIGHTS[i] : 1), 0);
+  assert.equal(total % 31, 0);
+});
+
+test('C4 末位计算：余数为 0 取 0、值 29/30 取字母、结构非法返回 null 不抛', () => {
+  assert.equal(computeCheckChar(R_ZERO.slice(0, 17)), '0', 'Σ mod 31 == 0 → 末位是字符 0');
+  assert.equal(computeCheckChar(R_X.slice(0, 17)), 'X');
+  assert.equal(computeCheckChar(R_Y.slice(0, 17)), 'Y');
+  assert.equal(computeCheckChar(NATIONAL.slice(0, 17)), '3');
+  // 第 17 位按 31 字符集取值参与外层加权：同一条内层本体，写 X 与写 A 会得到不同末位
+  assert.equal(computeCheckChar(ORG_TEN_X.slice(0, 17)), 'H');
+  assert.equal(computeCheckChar(ORG_TEN_A.slice(0, 17)), 'N');
+  assert.equal(computeCheckChar(R_ZERO.slice(0, 16)), null, '16 位要 null 而不是抛');
+  assert.equal(computeCheckChar('9135010I000000024'), null, '含被剔除字母要 null');
+  assert.equal(computeCheckChar(null), null);
+  assert.equal(computeCheckChar(''), null);
+  assert.deepEqual(computeOrgCheckValue('00000006'), { sum: 12, remainder: 1, value: 10 });
+  assert.deepEqual(computeOrgCheckValue('M000100Y'), { sum: 128, remainder: 7, value: 4 });
+  assert.equal(computeOrgCheckValue('0000006'), null, '7 位本体要 null');
+  assert.equal(computeOrgCheckValue('0000000i'), null);
+});
+
+test('C5 三态、大小写归一、批量：只有 false 拖垮结论，null 只进 caveat', () => {
+  assert.deepEqual({ s: parseUscc('').state, c: parseUscc('').checks.length }, { s: 'empty', c: 0 });
+  assert.deepEqual({ s: parseUscc(null).state, c: parseUscc(null).checks.length }, { s: 'empty', c: 0 });
+
+  const lower = parseUscc('91350100m000100y43');
+  assert.equal(lower.state, 'valid');
+  assert.equal(lower.code, NATIONAL, '按字符集转大写后判定');
+  assert.equal(lower.normalized, true);
+  assert.match(lower.caveat, /转大写/);
+  assert.equal(parseUscc(` ${NATIONAL} `).normalized, false, '只有首尾空白不算归一');
+
+  const short = parseUscc(NATIONAL.slice(0, 17));
+  assert.equal(short.state, 'malformed');
+  assert.deepEqual(failedC(short), ['length']);
+  const badChar = parseUscc('9135010O000000019E');
+  assert.equal(badChar.state, 'malformed');
+  assert.deepEqual(failedC(badChar), ['charset'], 'O 是被剔除字母，判字符集不符而不是给个"未知"');
+  assert.match(rowC(badChar, 'charset').detail, /含非法字符 O/);
+
+  const spaced = parseUscc('9135 0100M000100Y 43');
+  assert.equal(spaced.state, 'malformed');
+  assert.deepEqual(failedC(spaced), ['charset']);
+  assert.equal(spaced.repairedHint, NATIONAL, '去掉内部空格后就是合法码，提示要有');
+
+  const wrong = parseUscc('91350100M000100Y44');
+  assert.equal(wrong.state, 'checkdigit');
+  assert.deepEqual(failedC(wrong), ['checkBit']);
+  assert.equal(rowC(wrong, 'checkBit').detail, '期望 3，实际 4');
+
+  const list = parseUsccList(`${NATIONAL}\n\n${R_ZERO}\r\nabc`);
+  assert.deepEqual(list.map((x) => x.no), [1, 2, 3, 4], '空行必须占一行号，不能悄悄压缩');
+  assert.deepEqual(list.map((x) => x.result.state), ['valid', 'empty', 'valid', 'malformed']);
+  assert.deepEqual(list.map((x) => x.raw), [NATIONAL, '', R_ZERO, 'abc']);
+});
+
+test('C6 区划段复用 §A：未收录与历史码都不下"无效"，绝不产出「未知」', () => {
+  const uncoded = parseUscc(REGION_UNCODED);
+  assert.equal(uncoded.state, 'valid', '区划未收录不否决整码');
+  assert.deepEqual(uncertainC(uncoded), ['region']);
+  assert.equal(uncoded.info.region.fullName, '广东省汕头市');
+  assert.match(uncoded.caveat, /未收录/);
+
+  const province = parseUscc(REGION_PROVINCE);
+  assert.equal(province.state, 'valid');
+  assert.equal(province.info.region.level, 'province');
+  assert.equal(province.info.region.fullName, '北京市');
+  assert.deepEqual(uncertainC(province), [], '省级码 + 0000 是现行码，不该留"不下结论"');
+  assert.equal(province.caveat, '');
+
+  const hist = parseUscc(REGION_HIST);
+  assert.equal(hist.state, 'valid');
+  assert.equal(hist.info.region.status, 'abolished');
+  assert.match(rowC(hist, 'region').detail, /历史码/);
+  assert.match(hist.caveat, /未见于现行区划表/,
+    '措辞要诚实，不能断言"已撤销建制"——§A 实测有 63 条同码改名');
+
+  const none = parseUscc(REGION_NONE);
+  assert.equal(none.state, 'malformed');
+  assert.deepEqual(failedC(none), ['region']);
+  assert.equal(/未知/.test(JSON.stringify([uncoded, province, hist, none].map((r) => r.checks))), false,
+    '任何结论里都不许出现「未知地区」这类文案（站内旧库的反面教材）');
+});
+
+test('C7 内层第 17 位：数字不符才判错、字母不下结论、值 10 两种写法都放行', () => {
+  assert.equal(rowC(parseUscc(ORG_OK), 'orgCheck').ok, true);
+  const letter = parseUscc(ORG_LETTER);
+  assert.equal(rowC(letter, 'orgCheck').ok, null);
+  assert.equal(letter.state, 'valid', '字母落在"不下结论"档，不拖垮整体');
+  assert.match(letter.caveat, /第 17 位/);
+  const bad = parseUscc(ORG_BAD);
+  assert.equal(rowC(bad, 'orgCheck').ok, false);
+  assert.equal(bad.state, 'checkdigit');
+  assert.deepEqual(failedC(bad), ['orgCheck'], '内层不符的判定不能被末位抢走');
+  for (const code of [ORG_TEN_X, ORG_TEN_A]) {
+    const r = parseUscc(code);
+    assert.equal(rowC(r, 'orgCheck').ok, true, `${code} 的内层值 10 应当放行`);
+    assert.equal(r.state, 'valid');
+    assert.equal(r.info.orgChecksum.value, 10);
+    assert.match(rowC(r, 'orgCheck').detail, /X 或 A/, '措辞要说明这是两种口径都认');
+  }
+});
+
+test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
+  const a = generateUsccCodes({ count: 5, rng: seededRandom(20260925) });
+  const b = generateUsccCodes({ count: 5, rng: seededRandom(20260925) });
+  assert.deepEqual(a.map((x) => x.code), b.map((x) => x.code), '同种子必须同输出');
+  for (const g of a) {
+    assert.equal(g.code.length, 18);
+    const self = parseUscc(g.code);
+    assert.equal(self.state, 'valid');
+    assert.deepEqual(self.checks.map((k) => k.ok), [true, true, true, true, true],
+      '每条生成后逐项都必须是 true——生成器是校验器的对手');
+    assert.equal(self.caveat, '');
+    assert.equal(resolveRegion(g.regionCode).status, 'current', '区划段只能出自现行表（§5.4）');
+    assert.equal(/^[0-9]$/.test(g.code[16]), true, '第 17 位不得落在未核实的"值 10 写法"分支');
+    assert.equal(g.code[17], computeCheckChar(g.code.slice(0, 17)));
+  }
+  // 342 个现行市级码 + '00' 全都能当区划段（§A 已钉这一档按现行市级解）
+  for (const c of currentCityCodes()) {
+    assert.equal(resolveRegion(`${c}00`).status, 'current', `${c}00 应可用于生成`);
+  }
+  assert.ok(generateUsccCodes({ count: 3, provinceCode: '35', rng: seededRandom(7) })
+    .every((g) => g.regionCode.startsWith('35')));
+  assert.ok(generateUsccCodes({ count: 2, regionCode: '110100', rng: seededRandom(9) })
+    .every((g) => g.regionCode === '110100'));
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: '110103' }), /历史码只许解、不许生成/);
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: 'abc' }), /不是现行码/);
+  assert.throws(() => generateUsccCodes({ count: USCC_GENERATE_MAX + 1 }), /1\.\./);
+  assert.throws(() => generateUsccCodes({ count: 1, registry: 'Z' }), /31 字符集/);
+
+  // 合规与口径文案由模块出，页面直接取用，别在页面里另抄一版
+  assert.equal(USCC_GENERATE_MAX, 50);
+  assert.match(USCC_USE_NOTE, /不得用于任何真实主体/);
+  assert.match(REFERENCE_NOTE, /第 1、2 位/);
+  const one = parseUscc(NATIONAL);
+  assert.deepEqual(Object.keys(one.info.registry).sort(), ['char', 'value'],
+    '第 1、2 位只给字符与值、不给名称：含义表没取到可核实来源（§5.1）');
+  assert.equal(one.info.registry.char, '9');
+  assert.equal(one.info.registry.value, 9);
+  assert.equal(REAL_SAMPLES.length, 1, '本轮只坐实 1 条真实码，加样本时同步改设计文档 §11');
+  for (const s of REAL_SAMPLES) {
+    assert.equal(s.verifiedOn, '2026-09-25');
+    assert.equal(parseUscc(s.code).state, 'valid');
+  }
+});
+
