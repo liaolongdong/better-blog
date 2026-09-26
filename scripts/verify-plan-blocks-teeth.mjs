@@ -63,11 +63,29 @@ const check = (id, pass, detail) => {
   console.log(`${pass ? '✓' : '✗'} ${id} — ${detail}`);
 };
 
+/**
+ * 仓库工作树的脏文件集合（`git status --porcelain` 全量，不过滤）。
+ * 实验开始前拍一张、收口后再拍一张，**两集合必须相等**——这比维护一份"哪些文件本来就该脏"
+ * 的白名单可靠：白名单要么每轮跟着实现改（Task 2 落地时它就把刚提交的判据文件报成意外脏），
+ * 要么悄悄放过实验留下的污染。
+ */
+const dirtySet = () => new Set(
+  execFileSync('git', ['status', '--porcelain'], { cwd: REPO, encoding: 'utf8' })
+    .split('\n').filter(Boolean).map((l) => l.slice(3).trim()),
+);
+
+const dirtyBefore = dirtySet();
+
 mirror();
 const base = run();
+// 基线判的是"副本活着且自洽"：退出码 0、汇总行里报的镜像数**与逐条 `OK ` 行的条数相等**。
+// 这里故意不写死"16 个"那种数字——镜像数每落地一节就变一次，写死的后果是每做一次任务
+// 都要来改一次断言，而改断言的人手里正拿着一个可能已经瞎掉的守卫。
+const okLines = (base.out.match(/^OK /gm) || []).length;
+const summaryCount = Number((/其中 (\d+) 个是已落地镜像/.exec(base.out) || [])[1] ?? -1);
 check('基线（副本必须先绿，否则后面全是假证据）',
-  base.code === 0 && /✓ 全部已落地镜像/.test(base.out) && /16 个是已落地镜像/.test(base.out),
-  `exit=${base.code}，镜像行 ${/其中 (\d+) 个是已落地镜像/.exec(base.out)?.[1] ?? '?'} 个`);
+  base.code === 0 && /✓ 全部已落地镜像/.test(base.out) && okLines > 0 && okLines === summaryCount,
+  `exit=${base.code}，OK 行 ${okLines} 条 ↔ 汇总 ${summaryCount} 个`);
 if (base.code !== 0) {
   console.log(base.out);
   process.exit(1);
@@ -196,14 +214,13 @@ check('收口自证：副本回到全绿且工作树未被这些实验碰过',
   green.code === 0,
   `副本 exit=${green.code}`);
 
-const dirty = execFileSync('git', ['status', '--porcelain', '--', SCRIPT, PLAN1, PLAN2, 'scripts/toolkit-tests.mjs', 'dev/js/tools/uscc.js'],
-  { cwd: REPO, encoding: 'utf8' });
-const expectDirty = new Set([SCRIPT, PLAN1, PLAN2]);
-const unexpected = dirty.split('\n').filter(Boolean)
-  .map((l) => l.slice(3).trim())
-  .filter((f) => !expectDirty.has(f) && f !== 'scripts/fixtures/bankbin/SOURCES.json' && f !== 'scripts/fixtures/carrier/SOURCES.json');
-check('收口自证：实验只留下本轮该留的改动（判据文件与数据夹具回到原样）',
-  unexpected.length === 0, unexpected.length ? `意外脏文件：${unexpected.join(' / ')}` : 'toolkit-tests.mjs 与 uscc.js 一字未动');
+const dirtyAfter = dirtySet();
+const added = [...dirtyAfter].filter((f) => !dirtyBefore.has(f));
+const removed = [...dirtyBefore].filter((f) => !dirtyAfter.has(f));
+check('收口自证：实验前后工作树的脏文件集合一模一样（判据文件与被借用的镜像文件回到原样）',
+  added.length === 0 && removed.length === 0,
+  added.length || removed.length ? `新增脏：${added.join(' / ') || '无'}；消失：${removed.join(' / ') || '无'}`
+    : `${dirtyAfter.size} 个脏项前后一致（含另一路会话的那批，一律未被触碰）`);
 
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} 通过${failed.length ? `，失败：${failed.map((f) => f.id).join(' / ')}` : ''}`);

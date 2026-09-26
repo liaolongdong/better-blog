@@ -1435,7 +1435,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 wc -l dev/js/tools/bankcard.js
 ```
 
-Expected：`# tests 65`、`# pass 65`、`# fail 0`、`exit=0`（41 + 4 + 20），`wc -l` 353 行左右。
+Expected：`# tests 65`、`# pass 65`、`# fail 0`、`exit=0`（45 + 20，45 = §A–§D 的 41 条 + §E0/§F0 的 4 条），`wc -l` 实测 352 行。
 
 - [ ] **Step 5: 自证这 20 条有牙（七处变异，逐处记下红了谁）**
 
@@ -1523,10 +1523,13 @@ const t0 = performance.now(); await import('$m');
 console.log('$m', (performance.now() - t0).toFixed(1) + 'ms');"; done
 ```
 
-Expected（2026-09-26 本机 Node 22 三次复跑的区间）：`bank-bin-data.js` **约 15ms**（大头是那条
-28,266 字符的 `BIN_ROWS` 巨串本身），`bankcard.js` **约 50ms**（含把 1,709 行拆成对象 ≈4ms、
-按 BIN 分桶 ≈16ms）。这是**首屏一次性**成本：页面入口 `import` 它，就付这一次。查表本身很快
-（200 次 `parseBankCard` ≈7ms）。Task 10 若量到 `toolIdcard.min.js` 的 parse+run 明显超出这个量级，
+Expected（2026-09-27 落地后同一台机器两组各 5 次复跑：本会话 11.4–14.2ms / 23.0–26.2ms，
+实现者那组 5.0–6.4ms / 16.5–18.6ms）：`bank-bin-data.js` **十几毫秒量级**（大头是那条
+28,266 字符的 `BIN_ROWS` 巨串本身），`bankcard.js` **二十几毫秒**（含把 1,709 行拆成对象、
+按 BIN 分桶）。**这两组数差到 2–3 倍是正常的**：同一台机器、同一个命令、冷/热页缓存不同而已，
+所以这一格记的是**量级**不是基线——Task 10 判的是"有没有冒出百毫秒级或秒级"，别拿这几个数当阈值。
+这是**首屏一次性**成本：页面入口 `import` 它，就付这一次。查表本身很快（200 次 `parseBankCard`
+实测 8.4ms，预热后 8ms 左右）。Task 10 若量到 `toolIdcard.min.js` 的 parse+run 明显超出这个量级，
 先查是不是共享 chunk 把两份数据都塞进来了，再考虑把建表挪到首次用到时（那要连带
 `BANK_OPTIONS` 的下拉填充一起改，属于计划外改动，先报再做）。
 
