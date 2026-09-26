@@ -8,9 +8,14 @@
 桌面那档它是普通块级元素，`.author-name` / `.bio` 全是后代选择器，多一层不影响样式。
 文章页末尾那张（_layouts/post.html 的 `.author-detail`）内容同源但外壳不同
 （`.post-footer-item` 自带边框与内边距），没并进来，改这里不会波及它。
+
+头像这层原来带 `rtlr-delay500`：translateX(200%) + rotateZ(720deg)、1000ms、再延迟 500ms。
+动效批 III 摘掉了它——入场签名全站只留「自下升起 + 淡入」一个方向（见 motion-plan.json
+的 entrance_pattern），一颗 70px 的头像转两圈属于另一套人格；它延迟 500ms 之后才开始，
+单这一颗就吃掉 1.5s，比它所在那一整栏的入场还长。头像现在跟着所在栏一起落位。
 {%- endcomment -%}
 <section class="author-card">
-    <div class="avatar rtlr-delay500">
+    <div class="avatar">
         <img src="{{ site.avatar | prepend: site.baseurl }}" alt="">
     </div>
     <div class="author-text">

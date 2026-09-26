@@ -20,7 +20,12 @@
     height: $g-header-h;
     padding: 16px 0;
     background-color: transparent;
-    transition: all .6s;
+    // 动效批 III：`all .6s` 换成显式三条。今天真正生效的其实是 editorial.scss :103
+    // 那条同特异度的覆盖（transform / background-color / box-shadow，且 editorial 排在
+    // common 之后必赢），这一条只在「哪天那条被挪走」时兜底 —— 那就更要写对：
+    // 顶栏是 fixed 的整屏宽条，all 里一旦混进 height / padding-top 这类，
+    // 每次 .headerUp / .headerDown 切换都会连着把布局过渡 600ms。
+    transition: transform .6s var(--ease-out), background-color .6s var(--ease-out), box-shadow .6s var(--ease-out);
     z-index: 1000;
 
     .g-logo {
@@ -31,7 +36,9 @@
         // 这里原来挂的是主题自带的 assets/icons/logo.svg，已删；标识由 editorial.scss
         // 的文字缩写 + 刊名负责，原因写在那一处。
         opacity: .8;
-        transition: all .2s;
+        // 同上：这一盒只有 opacity 会变（editorial 现在把它压成 1，所以这条今天不动），
+        // all 留着只是给将来给标识加悬停的人埋的雷。
+        transition: opacity var(--dur-2) var(--ease-out);
 
         &:hover {
             opacity: 1;
@@ -229,25 +236,16 @@
         }
     }
 
-    .article-item:nth-child(1) {
-        animation: downToUpFade .5s 0s linear both;
-    }
-
-    .article-item:nth-child(2) {
-        animation: downToUpFade .5s .5s linear both;
-    }
-
-    .article-item:nth-child(3) {
-        animation: downToUpFade .3s .8s linear both;
-    }
-
-    .article-item:nth-child(4) {
-        animation: downToUpFade .3s 1s linear both;
-    }
-
-    .article-item:nth-child(5) {
-        animation: downToUpFade .3s 1.2s linear both;
-    }
+    // 这里原有 .article-item:nth-child(1…5) 五条 `animation: downToUpFade …both`，
+    // 是动效批 III 删掉的，两条理由：
+    // ① 它和 editorial.js 的滚动揭示抢同一批元素。揭示用的 `.reveal` 只加在
+    //    「首屏之下」的卡片上，而这条阶梯只管「前 5 个」——于是同一列卡片里
+    //    第 1–5 走阶梯、第 6 条往后走揭示，两套入场同时在一条列表上跑。
+    // ② 带 `both` 填充的动画优先级高于 transition，跑完后 100% 帧的
+    //    `transform: none` 会一直钉在元素上：前 5 张卡的揭示位移被静默吃掉，
+    //    而 `.reveal` 的 `opacity: 0` 又被动画的终态盖住，读起来是「淡入没生效」。
+    // 现在首屏与滚动区都交给同一套揭示（editorial.js initReveal + §7.8 `.reveal`），
+    // 节奏由 --stagger 控制，reduce 由 JS 那道 prefersReducedMotion 闸门整块跳过。
 }
 
 .author-card {
@@ -255,13 +253,18 @@
 
     // 相同动画属性逐帧动画会覆盖transition过渡动画设置的属性
     .avatar {
-        transition: all 500ms;
-        // transform: rotateZ(0) !important;
+        // 动效批 III：这里原来是 `transition: all 500ms`，配的悬停是
+        // `:hover { width: 140px; height: 100px }`。两条毛病，都是实测出来的：
+        // ① all 里真正在动的就是 width/height —— 头像是这张卡的第一块，它一涨就把
+        //    下面的名字、简介、六个社交图标整排往下推 30px，悬停一次重排一次；
+        // ② 70×70 的圆在 140×100 下 `border-radius: 50%` 变成椭圆，读起来不像头像。
+        // 换成 scale：「凑近看」的意图留着，盒子尺寸不动、不再回流，形状也还是圆。
+        // 时长从 500ms 收到 --dur-2（200ms）—— 悬停反馈在动效规范里是 120~180ms 那一档，
+        // 500ms 是入场级的体量，按在悬停上会显得黏。
+        transition: scale var(--dur-2) var(--ease-out);
 
         &:hover {
-            width: 140px;
-            height: 100px;
-            // transform: rotateZ(360deg) !important;
+            scale: 1.08;
         }
     }
 }
@@ -310,9 +313,10 @@
             padding-bottom: 0;
         }
 
-        .tag {
-            margin-bottom: 8px;
-        }
+        // 这里原来是一条 .tag { margin-bottom: 8px }。它有两个毛病：
+        // 一是挂在最后一行下面，和 section 自己的 padding-bottom 叠成 28px 收尾空白；
+        // 二是行距 8px 与 tagStyle 自带的 margin-right: 2px 不成一套，横竖间距对不上。
+        // 间距移到 .tags-card 容器的 flex gap（见 editorial.scss §2），最后一行不再有多余底边距。
     }
 }
 
@@ -384,7 +388,11 @@
         border-right: 1px solid #E7EAF1;
         box-sizing: border-box;
         opacity: .8;
-        transition: .2s;
+        // 动效批 III：隐式 all 收成显式两条。这一格悬停只改 opacity 与底色
+        // （上面 `transition: .2s` 不带属性名，等于给 padding/border/radius 全部排了队），
+        // 时长与曲线对齐 <a> 那一档：--dur-2 = 200ms 与原值相同，曲线换成 --ease-out。
+        transition: opacity var(--dur-2) var(--ease-out),
+            background-color var(--dur-2) var(--ease-out);
 
         &:first-child {
             padding-top: 14px;
@@ -418,7 +426,10 @@
         padding: 0 8px;
         overflow: auto;
         box-shadow: 0 1px 3px rgba(0, 37, 55, .06);
-        animation: downToUpFade .3s ease 1.5s both;
+        // 这里原有 `animation: downToUpFade .3s ease 1.5s both`，删掉的原因是它从来没跑过：
+        // editorial.scss 的 .pagination .page-links 写着 `animation: none`（同权重、后引入，
+        // 一律赢），1.5s 的延迟也早就越过任何能看见它的时刻。两条一起删，
+        // 免得留下一对「一条负责动、一条负责不许动」的互相抵消。
     }
 
     // 这一层只留布局：颜色和底色删掉了，因为它们从来没有生效过 ——
@@ -637,7 +648,15 @@
     }
 
     img {
-        transition: .3s;
+        // 动效批 III：`transition: .3s`（隐式 all）→ 只留 filter。这不是删死代码，
+        // 那一身 all 里真正在跑的只有一件事：换肤。`.night-mode .markdown-body img`
+        // 把正文图压暗到 brightness(.6)，切换日夜间时这个 filter 值变了，旧写法给它
+        // 补了 300ms 的渐变——保留，只是不再顺带给别的属性排队。
+        // 全站没有一条 `img:hover`（`.markdown-body img.is-zoomable` 只写 cursor，
+        // 灯箱 `.lightbox img` 是另一颗元素），尺寸那条也不该进来：<img> 的 width/height
+        // 由 _plugins/image_dims.rb 在构建期写成属性（消 CLS），不是样式。
+        // 时长与曲线维持原值（.3s 缺省 ease），改的只有属性名。
+        transition: filter .3s;
     }
 
     ul,
@@ -694,7 +713,11 @@
     flex: 1;
     height: 260px;
     padding: 0;
-    top: 0;
+    // 动效批 III：这一张卡原来是 `top: 0` + hover `top: -5px`，过渡写在 top 上。
+    // 相对定位的 top 不触发布局回流（它在布局之后才偏移），但它每帧都要重画整张卡
+    // 和卡里的封面图；换成 translate 之后这一步交给合成层，只有阴影那侧还在画。
+    // 位移量、时长、方向都不变——窄屏那档在 layouts.scss 里取消抬起，也一起改这里。
+    translate: 0 0;
     // 这张卡在 no-cover 时就是最终底色（有封面时 <img> 会铺满它，改这里不影响那种）。
     // 原来写死 #AAB4CA：白字 22px/700 在上面只有 2.08，正文下方那行 15px、opacity .8
     // 的摘要折成 1.82 —— 全站 70 篇里 35 篇没配封面，也就是半站文章的「上一篇/下一篇」
@@ -704,14 +727,14 @@
     border-radius: 3px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(109, 127, 144, .5);
-    transition: box-shadow .4s ease, top .3s ease;
+    transition: box-shadow var(--dur-4) var(--ease-out), translate var(--dur-2) var(--ease-out);
 
     &:first-child {
         margin-right: 10px;
     }
 
     &:hover {
-        top: -5px;
+        translate: 0 -5px;
         box-shadow: 0 8px 20px rgba(52, 61, 70, .3);
     }
 
@@ -759,7 +782,12 @@
         // 和夜间那档 .6 同族——半站有封面的文章本来就该和夜间读到同一块板。
         background-color: rgba(0, 0, 0, .62);
         z-index: 1;
-        transition: .3s linear;
+        // 动效批 III：`.3s`（隐式 all）→ 只留 opacity。这一层唯一会变的就是透明度：
+        // 夜间模式 .night-mode .post-header .filter { opacity: .6 } 换肤时补它，
+        // 底色 rgba 两边同值、宽高由父盒撑满不动。linear 留着不改——300ms 的
+        // 灰度渐变是换肤这一下的整体节奏，不是位移动效，Premium 那条
+        // 「ease-out tail」管的是有方向的动作，这里两头都该一样快。
+        transition: opacity .3s linear;
     }
 
     img {
@@ -838,11 +866,15 @@
     }
 
     .avatar {
-        &:hover {
-            transform: rotateZ(360deg);
-            transition: 500ms ease-in;
-        }
-
+        // 这里原来是一条 `.night-mode .avatar:hover { transform: rotateZ(360deg);
+        // transition: 500ms ease-in }`，删掉而不是并进白天那条，三个理由：
+        // ① rotateZ(360deg) 是「转满一圈」，起帧与终帧同一姿态，白天模式下同款那行
+        //    本来就被主题作者注释掉了（见上面 .author-card 那段原来的注释），
+        //    只有夜间还在转，昼夜两种模式对同一个动作读到两件事；
+        // ② transition 写在 :hover 里面，鼠标进入时生效、离开时这条规则已经不在
+        //    计算样式里，退出用的是 all 500ms 那档之外的默认值 —— 进出不对称；
+        // ③ ease-in 是退场曲线，用在「进入」上方向反了（动效规范：入场用减速那一族）。
+        // 现在的悬停位移统一由白天那条 scale 负责，夜间继承得到同一个动作。
         img {
             -webkit-filter: brightness(.6);
         }

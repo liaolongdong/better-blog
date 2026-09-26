@@ -22,6 +22,19 @@
         font-size: 18px;
         padding: 5px 25px;
         text-decoration: none;
+
+        /* 动效批 III 收口：这颗按钮从 `<a>`（无 href、无 tabindex）换成了真的
+           `<button type="button">`——一个纯开关本来就该是 button，读屏才会念出
+           「按下/展开」，键盘 Tab 才进得来（旧写法实测 tabindex=null href=null，
+           键盘和读屏用户根本打不开这两张码）。换成 button 要补这三条 UA 重置：
+           border（默认是 2px outset 的立体框）、font-family 与 line-height
+           （button 不继承 body 的字体栈与行高，不补后两条这颗胶囊会短一截、字也换一套）。
+           焦点环不在这里写：editorial.scss:21 那条全站 focus-visible 会接管。
+           这一层是 HTML 内联样式表，注释只能走 CSS 那一种写法——写成双斜杠的话，
+           解析器会一路吞到下一个分号，吞掉的正是下面这句 border。 */
+        border: 0;
+        font-family: inherit;
+        line-height: inherit;
     }
   
     .rewardButton:hover {
@@ -35,6 +48,34 @@
   
     .QR {
         padding-top: 20px;
+    }
+
+    /* 动效批 III：展开这两张码原先交给 jQuery 的 slideToggle()——它逐帧改 height，
+       每帧都要重排整条正文，而且完全不看 prefers-reduced-motion（系统里开了减弱动效，
+       这里照样滑 400ms）。换成一次「升起 + 淡入」：块的高度一次性到位，
+       只有 opacity 与 translate 在合成层上跑。
+       为什么把动画写在基础态而不是挂类：display:none 的元素不产生动画，
+       取消 hidden 的那一刻这条 animation 从头开始 —— 于是「每次展开都播一次」
+       不需要 JS 补一次类切换，也不需要 void offsetWidth 那种强制重排来重启。
+       --dur-3 / --rise / --ease-out 都来自 tokens.scss 的 :root，这一层内联样式读得到；
+       和全站其它入场同一座标（升起距离 .5em、320ms、同一族减速曲线）。
+       reduce 档整块不进：那条路径下码是直接出现的，没有位移也没有淡入。 */
+    @media (prefers-reduced-motion: no-preference) {
+        .QR {
+            animation: qrReveal var(--dur-3) var(--ease-out) both;
+        }
+    }
+
+    @keyframes qrReveal {
+        from {
+            opacity: 0;
+            translate: 0 var(--rise);
+        }
+
+        to {
+            opacity: 1;
+            translate: 0 0;
+        }
     }
   
     .QR a {
@@ -50,9 +91,9 @@
   </style>
 
 <div class="reward">
-    <a class="rewardButton" title="请{{ site.author }}喝杯咖啡？">赞 赏</a>
+    <button type="button" class="rewardButton" title="请{{ site.author }}喝杯咖啡？" aria-expanded="false" aria-controls="reward-qr">赞 赏</button>
 
-    <div class="QR" style="display: none;">
+    <div class="QR" id="reward-qr" hidden>
         {% if site.reward.reward_comment %}
         <div>
             <span style="font-size: 18px;">{{ site.reward.reward_comment }}</span>
@@ -77,8 +118,25 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
-        $("a.rewardButton").click(function () {
-            $("div.QR").slideToggle()
+        // 只改可见状态，动画全在 CSS 里（上面 .QR 那条 animation）。
+        // 原来这里是一句 $("div.QR").slideToggle()： jQuery 每帧量一次 height 再写回去，
+        // 展开那 400ms 里整条正文跟着重排，减弱动效的访客也照滑不误。
+        // 用 hidden 属性而不是内联 display：内联 style 一旦 jQuery 写过就直接压在
+        // 样式表上，而 [hidden] 走 UA 那条 display:none，和 .QR 的动画互不遮挡。
+        var qr = $("div.QR")[0];
+        if (!qr) {
+            return;
+        }
+        // 选择器从 `a.rewardButton` 改成 `.rewardButton`：这颗现在是 button（见上面那条注释），
+        // 按标签名绑会让它静默变成一颗按了没反应的按钮——正好是最不该坏的那种坏法。
+        $(".rewardButton").click(function () {
+            var open = qr.hasAttribute('hidden');
+            if (open) {
+                qr.removeAttribute('hidden');
+            } else {
+                qr.setAttribute('hidden', '');
+            }
+            $(this).attr('aria-expanded', open ? 'true' : 'false');
         });
     });
 </script>

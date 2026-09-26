@@ -23,7 +23,7 @@
     //   跳进来的 tools→about（点站内链接）：类挂上，且此刻 document.activeViewTransition
     //     就是那个正在跑的转场对象，刊头 7 个子元素（6 行 + 期号线）getAnimations() 全空；
     //   地址栏直接进 about：类不挂，同样这 7 个子元素上 8 条入场照常跑
-    //     （6×mastRise 0.76s + mastWipe 0.76s + ruleGrow 0.56s）。
+    //     （6×riseIn 0.76s + mastWipe 0.76s + ruleGrow 0.56s）。
     //     注意 typeof document.activeViewTransition 恒为 'object'（它是 null），
     //     判据只能是这个类在不在，不能是 typeof。
     if (document.activeViewTransition) {
@@ -1129,11 +1129,20 @@
      * ------------------------------------------------------------------ */
 
     /**
-     * 首屏以下的行块淡入。
+     * 列表与分区的入场揭示（首屏与滚动区同一套）。
      *
-     * 只处理「进页面时已经在折叠线以下」的元素：首屏内容一起淡入只会让人觉得
-     * 加载慢。未揭示态由 body.js-reveal 限定，所以脚本没跑、或浏览器不支持
-     * IntersectionObserver 时列表原样可见，不会留下一屏空白卡。
+     * 动效批 III 之前这里只处理「进页面时已经在折叠线以下」的元素，首屏那几张
+     * 由 common.scss 的 .article-item:nth-child(1…5) 阶梯管——两套并存的结果是
+     * 一条列表里第 1–5 张走阶梯、第 6 张往后走揭示，而且阶梯带 both 填充，
+     * 跑完把 transform: none 永久钉在前 5 张上。那条阶梯已经删了，
+     * 「首屏不淡入才不显慢」这个前提跟着一起作废：
+     *   · 首屏上面那五行刊头本来就是载入即在升起（§M11，--dur-5 + --stagger 步进），
+     *     信息流跟着落下来读作「一页纸翻过来」，而不是加载慢；
+     *   · 真正让人觉得慢的是被删掉的那套——位移 200%、linear 曲线、延迟排到 1.2s；
+     *   · 揭示本身现在只有 --dur-3（320ms）+ --rise（0.5em），同一批最多排到 5 × 步进。
+     * 未揭示态仍由 body.js-reveal 限定：脚本没跑、或浏览器不支持 IntersectionObserver
+     * 时列表原样可见，绝不会留下一屏空白卡。reduce 档从函数第一行就整块跳过，
+     * 类不会挂上，也就不存在「先藏一帧再瞬现」的闪动。
      *
      * 名单（动效批 II · M18 扩过一次）。挑的是「行」而不是「块」，两条理由：
      *   · 整块淡入等于没有淡入——一个 900px 高的 section 进视口时已经在屏幕上了；
@@ -1144,7 +1153,8 @@
      *     「截图不再跟着滚动停住」，看起来像别人的改动引入的回归。
      * 404 页不用单列：它复用的是 .cat-row，已经在名单里。
      * 首页信息流外的右栏（名片、标签、工具清单）不在名单里：那是常驻栏，
-     * 每次滚动都淡一遍会把「刷新感」变成「闪烁感」。
+     * 每次滚动都淡一遍会把「刷新感」变成「闪烁感」。它的入场是 CSS 一次性带入
+     * 的（editorial.scss §2 那条 riseIn），与这里互不相干。
      *
      * 关于页的 .tl-row 也**不能**列进来，这是读代码读出来的而不是试出来的：
      * 年表已经有自己的一套揭示（about.js 往 .p-about 上加 .tl-in、往行上加 is-in，
@@ -1153,6 +1163,13 @@
      * .p-about.tl-in .tl-row 说了算，translateY(.9em) 却由本文件这条说了算——
      * 得到的是一个「卡片按 A 的节奏淡入、同时按 B 的位移升起」的杂交体，
      * 两边各自都不成立。年表保持交给 about.js。
+     *
+     * .g-footer section 是批 III 补的（页脚原先是全站唯一零动效的一块）。它正好是
+     * 「祖先那条规矩」的反面案例，值得在这里记一次：fixed 定位的四个悬浮控件
+     * 在 _includes/footer.html 里 include 进来，而那句 include 写在 <footer> **之前**，
+     * 所以它们是 .g-footer 的兄弟而不是子孙——transform 在这五段上不会改写它们的
+     * 包含块。哪天有人把 include 挪进 <footer> 里面，那四颗就会跟着页脚一起位移，
+     * 症状是「右下角的按钮钉不住窗口」。
      */
     var REVEAL_SELECTOR = [
         '.article-list .article-item',
@@ -1161,37 +1178,116 @@
         '.demo-row',
         '.tool-head',
         '.tool-copy',
-        '.tool-posts'
+        '.tool-posts',
+        '.g-footer section'
     ].join(', ');
 
     function initReveal() {
         if (!('IntersectionObserver' in window) || prefersReducedMotion()) return;
 
         var nodes = document.querySelectorAll(REVEAL_SELECTOR);
-        var below = [];
-        for (var i = 0; i < nodes.length; i++) {
-            if (nodes[i].getBoundingClientRect().top > window.innerHeight) below.push(nodes[i]);
-        }
-        if (!below.length) return;
+        if (!nodes.length) return;
+
+        // 错峰步进取自 tokens.scss 的 --stagger，不在这儿写字面毫秒：
+        // CSS 那一侧（§M6 面板、§M11 刊头、helper 的名片图标）用的就是同一个令牌，
+        // 这里再写一个数，同一屏上就会同时存在两种节奏（原来是 CSS 28/40ms、JS 60ms）。
+        // 读不到样式表时退回 40，不让延迟变成 NaNms（那会让整条 transition-delay 失效）。
+        var step = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stagger'));
+        if (!(step > 0)) step = 40;
 
         document.body.classList.add('js-reveal');
+
+        // 还没揭示的一份清单，专门给下面的 flushTail 用。留这份清单的代价是
+        // 一个可在揭示完后自己摘掉的监听，换来的是「文档末尾不会藏东西」——
+        // 见 flushTail 上头那段，两个数字是 1440×813 实测出来的。
+        var pending = [].slice.call(nodes);
+
+        // 揭示一批：延迟按「这一批里第几个」排，不管它们来自 io 还是 flushTail。
+        function reveal(list) {
+            for (var k = 0; k < list.length; k++) {
+                var el = list[k];
+                // 按「同一批里第几个」排延迟：按全局序号排会让靠后滚动到的行等得越来越久。
+                // 夹在同一批第 6 个，和 §M6 那条 min(var(--i), 6) 同一个口径。
+                el.style.transitionDelay = Math.min(k, 5) * step + 'ms';
+                el.classList.add('is-in');
+                io.unobserve(el);
+                var at = pending.indexOf(el);
+                if (at >= 0) pending.splice(at, 1);
+            }
+        }
+
         var io = new IntersectionObserver(function (entries) {
             var batch = [];
             for (var j = 0; j < entries.length; j++) {
                 if (entries[j].isIntersecting) batch.push(entries[j].target);
             }
-            for (var k = 0; k < batch.length; k++) {
-                // 按「同一批里第几个」排延迟：按全局序号排会让靠后滚动到的行等得越来越久。
-                batch[k].style.transitionDelay = Math.min(k, 5) * 60 + 'ms';
-                batch[k].classList.add('is-in');
-                io.unobserve(batch[k]);
-            }
+            reveal(batch);
         }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
 
-        for (var m = 0; m < below.length; m++) {
-            below[m].classList.add('reveal');
-            io.observe(below[m]);
+        for (var m = 0; m < nodes.length; m++) {
+            nodes[m].classList.add('reveal');
+            io.observe(nodes[m]);
         }
+
+        /*
+         * 尾部兜底：滚到文档末尾时，把还没揭示的一次放出来。
+         *
+         * rootMargin 那条 -8% 把触发线抬到视口 92% 高，行才能「从屏幕下沿再往上
+         * 一点」开始升起。代价是文档最后那 8% 成了一潭死水：里面的行永远升不到
+         * 线以上，io 因此永远不会回调。这不是理论推导——1440×813 下触发线在 748，
+         * 页脚五段滚到底后顶边分别是 693/713/733/760/780，后两段停在
+         * opacity:0 + translateY(7px)，怎么滚都不动（vis 检查看得到，读屏看不到，
+         * 因为 opacity 不移除元素出无障碍树，但访客那一屏就是少了两栏链接）。
+         * 同理可伤到任何短页的最后一块（示例页 .demo-row、工具页 .tool-posts），
+         * 以及超过一屏高的行（threshold .05 要求它有 5% 面积先进线）。
+         *
+         * 判据用「离文档底还剩多少」而不是「这一行能不能升过线」：后者要按每个元素
+         * 算文档坐标，而图片、懒加载、字体替换都在改高度，算一次就错一次；前者只看
+         * 滚动位置，且阈值和根边距是同一个 8%，两边永远同口径。
+         *
+         * 监听是临时的：清单空了（或兜底已经放过一次）就自己摘掉，不给页面留一个
+         * 每帧读 scrollHeight 的常驻 scroll 处理器。passive + rAF 门，理由见 §性能。
+         */
+        function flushTail() {
+            if (!pending.length) {
+                stopTailWatch();
+                return;
+            }
+            var doc = document.documentElement;
+            var toBottom = doc.scrollHeight - (window.pageYOffset + window.innerHeight);
+            if (toBottom > window.innerHeight * 0.08) return;
+            var rest = pending.slice();
+            pending.length = 0;
+            reveal(rest);
+            stopTailWatch();
+        }
+
+        var watching = false;
+        var queued = 0;
+        function onTailScroll() {
+            if (queued) return;
+            queued = window.requestAnimationFrame(function () {
+                queued = 0;
+                flushTail();
+            });
+        }
+        function startTailWatch() {
+            if (watching) return;
+            watching = true;
+            window.addEventListener('scroll', onTailScroll, { passive: true });
+            window.addEventListener('resize', onTailScroll, { passive: true });
+        }
+        function stopTailWatch() {
+            if (!watching) return;
+            watching = false;
+            window.removeEventListener('scroll', onTailScroll);
+            window.removeEventListener('resize', onTailScroll);
+        }
+
+        // 立刻查一次：整页不需要滚动的情况（内容比一屏矮）也是同一潭死水，
+        // 那种页面上 toBottom 恒为 0，等第一次 scroll 事件等于永远不等。
+        flushTail();
+        if (pending.length) startTailWatch();
     }
 
     /**

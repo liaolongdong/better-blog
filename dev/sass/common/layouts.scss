@@ -121,7 +121,10 @@
         }
 
         &:hover {
-            top: 0;
+            // 与 common.scss 那条抬起对应：那边从 `top: -5px` 换成了 `translate: 0 -5px`，
+            // 这里跟着改成取消 translate，留 `top: 0` 已经管不到位移了。
+            // 触屏没有真正的 hover，不取消的话卡片会一直停在抬起位。
+            translate: 0 0;
             box-shadow: none;
         }
 

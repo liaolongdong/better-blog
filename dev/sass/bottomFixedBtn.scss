@@ -39,6 +39,12 @@
         border-radius: 4px;
         background: #FFFFFF;
         box-shadow: 0 1px 3px rgba(26, 26, 26, 0.1);
+        // 悬停档（下面那组 :hover/:focus-visible 把底色换成 #D3D3D3）从前是硬翻。
+        // 全站别的悬停都走 200ms，是因为 base.scss 那句 `a { transition: .2s }`——
+        // 而这四颗是 <button>（键盘可达性那轮从 <div> 改的，见 bottomFixedBtn.html 的注释），
+        // 那句 a 的选择器根本传不到它们身上，于是它们成了全站唯一一处「变色不过渡」的悬停。
+        // 曲线和时长照 §M13/§M3 的口径取 --dur-2 + --ease-out，不写字面量。
+        transition: background-color var(--dur-2) var(--ease-out);
     }
 
     // 上边距只给下面三颗：四颗都带 margin-top 的话，最上面那颗也白吃 5px，
@@ -59,7 +65,10 @@
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
-        transition: opacity .3s ease, visibility .3s;
+        // 这一条是同特异度后写的，会把上面那组里的 background-color 顶掉
+        // （transition 是简写，一行只有一份），所以那一份要在这里补回来。
+        // 不合并的话症状很具体：右下角四颗里只有最上面那颗悬停是硬翻。
+        transition: opacity .3s ease, visibility .3s, background-color var(--dur-2) var(--ease-out);
     }
 
     .back-to-top.is-shown {
@@ -101,6 +110,12 @@
         outline-offset: 2px;
     }
 
+    // 百分比 ↔ 箭头是 display 互换，动效批 III 看过、决定不动（记在这里，免得下一批
+    // 又当成「零动效区」重新补一遍）：这两颗要交叉淡入就必须叠在同一个格里，
+    // 而它们一退出文档流，第三颗 .b-tool-tip 的静态落点就跟着变——那三处
+    // top:-40px / -45px / -76px 与 left:-80px / -112px 全是从「提示排在百分比后面」
+    // 量出来的，改布局就得重测三颗气泡。用一次硬切换换三颗气泡重排，不值。
+    // 何况 hover 时读到的本来就不是「消失」而是「变成箭头」，语义由 display 承载最干净。
     .back-to-top:hover .percent-section,
     .back-to-top:focus-visible .percent-section {
         display: none;

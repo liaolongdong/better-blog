@@ -478,6 +478,21 @@ body {
     }
 }
 
+// 右栏整栏的入场。这一条原来挂在 markup 上（index.html 的 `.rtlf-delay0`：
+// translateX(100%) 从右飞入、500ms ease、both 填充），动效批 III 把那个类摘了、
+// 在这里换成全站签名的那一次升起：方向对上刊头与揭示，距离是 0.5em 而不是「一栏宽」，
+// 顺带消掉 _includes/searchCard.html 旧注释里写的那个隐患——同样的横向位移挂在
+// 通栏元素上，那 500ms 里整条会横向溢出视口（所以当时只敢给桌面那一份加）。
+// fill 用 backwards 而不是 both：both 会把 100% 帧的 `translate: 0 0` 永久钉在这一层，
+// 而 translate 不为 none 的元素会成为其后 fixed 定位的包含块——右栏将来放任何
+// 视口级浮层，都会跟着这一栏走。
+@media (prefers-reduced-motion: no-preference) {
+    .g-sidebar {
+        animation: riseIn var(--dur-4) var(--ease-emph) backwards;
+        animation-delay: calc(var(--stagger) * 2);
+    }
+}
+
 .card-title {
     margin-bottom: 14px;
     font-family: $font-meta;
@@ -486,6 +501,28 @@ body {
     letter-spacing: 1.6px;
     text-transform: uppercase;
     color: var(--ink-3);
+}
+
+// 右栏那颗「标签」卡：胶囊排布交给容器的 flex gap，不再靠每颗自己带 margin。
+// 原先 .tag 身上叠着两条来源（tagStyle 的 margin-right: 2px + common.scss 曾有
+// 的 margin-bottom: 8px），结果是横 2 / 竖 8 不成一套，且最后一行下面白送 8px，
+// 和 section 的 padding-bottom 拼成 28px 的收尾空白。
+// 现在行距 6（原 8，跟着这次收紧的一档）、列距 4（原来是不一致的 2），
+// 标题那一行用 flex: 1 0 100% 独占，它的 14px 下边距拆成「8 + gap 6」，
+// 视觉上与改动前等高 —— 只有胶囊之间和卡片收尾变紧，标题位置不动。
+.tags-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+
+    .card-title {
+        flex: 1 0 100%;
+        margin-bottom: 8px;
+    }
+
+    .tag {
+        margin: 0;
+    }
 }
 
 // 名片两处 include（右栏 `.g-sidebar`、窄屏信息流之前的 `.home-intro`）共用这一套排版，
@@ -1037,7 +1074,9 @@ body {
         border: 1px solid var(--rule);
         border-radius: 999px;
         box-shadow: var(--shadow-1);
-        animation: none;
+        // 这里原有 `animation: none`，为的是压住 common.scss 那条 `.page-links` 的
+        // downToUpFade。源头已删（那条 1.5s 延迟的动画本来也没人看见），
+        // 这条抵消跟着一起删——两条留一条就是「谁也不知道该改哪条」的开始。
     }
 
     .page-link {
@@ -1471,6 +1510,9 @@ body.has-toc .post-rail {
 
 .related-item {
     border-bottom: 1px solid var(--rule);
+    // 报行语言（§M3 / §M12）的第一条：整行的分隔线在 hover 时加深一档。
+    // 过渡写在这一层而不是 .related-link 上，因为边框归这一层画。
+    transition: border-color var(--dur-2) var(--ease-out);
 
     &:last-child {
         border-bottom: none;
@@ -1488,6 +1530,12 @@ body.has-toc .post-rail {
         font-size: 17px;
         line-height: 26px;
         color: var(--ink);
+        // 批 III 补的过渡，补的是一个「看得见的原因」：下面 :hover 那条改的是
+        // .related-name 的颜色，而它是个 <span>——base.scss 那句 `a { transition: .2s }`
+        // 只落在 <a> 自己身上，传不到子元素，也不继承。于是这一行从前是全站唯一一个
+        // 「颜色硬翻」的悬停：鼠标一进来字就换色，没有中间那 200ms。
+        // 取值照 §M12 那三条（--dur-2 / --ease-out / .18em），不另起一套。
+        transition: color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
     }
 
     .related-info {
@@ -1499,6 +1547,7 @@ body.has-toc .post-rail {
         font-size: 11.5px;
         letter-spacing: .4px;
         color: var(--ink-3);
+        transition: color var(--dur-2) var(--ease-out);
     }
 
     .related-tag {
@@ -1508,8 +1557,20 @@ body.has-toc .post-rail {
         border-radius: 999px;
     }
 
+    &:hover {
+        border-bottom-color: var(--rule-2);
+    }
+
     &:hover .related-name {
         color: var(--signal-ink);
+        // 标题横移 .18em：与首页报行、分类行、示例行同一份量。
+        translate: .18em 0;
+    }
+
+    // 日期与那颗标签跟着从 --ink-3 提到 --ink-2：右边跟着左边一起应，
+    // 否则动的只有标题，整行读起来像「标题自己跳了一下」。
+    &:hover .related-info {
+        color: var(--ink-2);
     }
 }
 
@@ -1799,16 +1860,25 @@ body.has-toc .post-rail {
 
 /*** 7. 分类归档页 ***/
 
+// 标签带（chip 行 + 它上下两段留白）实测原先在 1440 宽下占 150px，其中 chip 本身
+// 只有 24.9px 高：上面空 71px、下面空 79px，比值 2.85× / 3.17×。
+// 那 150px 是四处叠出来的，不是某一处写大了 —— 所以四处各收一档，
+// 而不是只砍 .cat-index 的 padding-bottom（那一处砍到底也还剩 116px）。
+// 单颗胶囊的 padding: 4px 11px 是干净的（13px 字 + 上下各 4px + 1px 边框 = 24.9px 药丸），
+// 「太空」全部来自容器与相邻区块，不动它。
 .archive-content {
-    padding: 40px 0 88px;
+    padding: 32px 0 88px;
 }
 
 .cat-index {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding-bottom: 34px;
-    margin-bottom: 10px;
+    // 34 → 20：这条带下面紧跟着就是 border-bottom，34px 的让位读起来像
+    // 「这里空了一整块」，而不像「分组线之前的一点呼吸」。
+    padding-bottom: 20px;
+    // 原本这里还有一条 margin-bottom: 10px，与下面 .cat-section 的 padding-top
+    // 是同一件事写两遍（且 margin 会穿透 border 挪到线的另一侧），删掉。
     border-bottom: 1px solid var(--rule);
 }
 
@@ -1839,7 +1909,7 @@ body.has-toc .post-rail {
 }
 
 .cat-section {
-    padding: 34px 0 4px;
+    padding: 28px 0 4px;
     scroll-margin-top: 88px;
 
     &:last-child {
@@ -2710,10 +2780,17 @@ body.toc-open {
 // 两处的优先级相同，后写的那条会赢，前一条就成了「看着还在、其实不生效」的死样式。
 // 原来 .5s ease + cubic-bezier(.22,.61,.36,1) 两个字面量、且 opacity 与 transform
 // 各走一条曲线，收尾读起来是「色先到位、位置还在爬」——配对元素应当同曲线同时长。
+//
+// 动效批 III 又改了两处，都是让它对上入场签名而不是另起一套：
+// · 时长 --dur-4（560ms）→ --dur-3（320ms）。信息流是「反复出现」的那类（每滚一屏
+//   就来一批），批 II 自己定的第 4 条前提就是反复出现的动效留在 --dur-2/3。
+// · 位移 .9em → var(--rise)。这是全站最大的一次升起，比刊头那一次还远一倍多，
+//   而它移动的是一颗 300px 高的封面卡——距离越大，越读得出「弹进来」而不是「落上来」。
+// 曲线两笔都走 --ease-out，与 riseIn / §M6 / §M11 同一条。
 body.js-reveal .reveal {
     opacity: 0;
-    transform: translateY(.9em);
-    transition: opacity var(--dur-4) var(--ease-out), transform var(--dur-4) var(--ease-out);
+    transform: translateY(var(--rise));
+    transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
 }
 
 body.js-reveal .reveal.is-in {
@@ -4587,7 +4664,10 @@ dialog.shelf[open] {
 // ———— M6 · 面板逐项错峰入场 ————
 // 整体淡入改成「涌出」：每一行按 --i 排延迟。
 // 延迟上限写死在第 6 项，之后的行共用同一个延迟 —— 不设上限的话一列 20 条结果
-// 要排到 360ms 才出最后一行，慢的不是动效而是面板本身。
+// 最后一行要排到 19 × 40 = 760ms 才出，慢的不是动效而是面板本身。
+// 步进原来是 28ms 的字面量，和 --stagger（40ms）差 12ms 却没人记得为什么；
+// 动效批 III 收进 --stagger，夹到第 6 项后最晚 240ms 起、440ms 收尾，
+// 仍在这批的编排上限（500ms）之内。
 //
 // 三条动画一律挂在 .is-fresh 这个开关下面，而不是无条件写在行本身上：
 // ⌘K 的结果每敲一个字就重绘一次，书架换标签页、目录抽屉开合同理。若 CSS 无条件生效，
@@ -4597,28 +4677,14 @@ dialog.shelf[open] {
 .shelf.is-fresh .shelf-row,
 .post-rail.is-fresh .toc-item {
     // --i 由 JS 在渲染每一行时写进行内样式（三处渲染点各一行）。
-    // 上限用 min() 夹在第 6 项：一列 20 条结果若照序号排下去，最后一行要等
-    // 560ms 才出现，慢的不是动效而是面板本身。
     // 不写成第二条 :nth-child(n+7) 覆盖是因为那样得把三个选择器再抄一遍，
     // 抄本迟早和上面那条走散 —— 这里一个 min() 就说完了。
     // fill 用 backwards 而不是 both：both 会把 100% 帧的 translate 一直钉在行上，
     // 而动画的优先级高于普通声明，行（或其内部链接）之后的 hover 位移就被静默吃掉；
     // backwards 只管「延迟期间先按 from 藏着」，跑完即交还给样式表，
     // 因此 .is-fresh 即使没被摘干净也不会留下副作用。
-    animation: itemRise var(--dur-2) var(--ease-out) backwards;
-    animation-delay: calc(min(var(--i, 0), 6) * 28ms);
-}
-
-@keyframes itemRise {
-    from {
-        opacity: 0;
-        translate: 0 .35em;
-    }
-
-    to {
-        opacity: 1;
-        translate: 0 0;
-    }
+    animation: riseIn var(--dur-2) var(--ease-out) backwards;
+    animation-delay: calc(min(var(--i, 0), 6) * var(--stagger));
 }
 
 // ———— M7 · 进度条末端的剩余时长气泡 ————
@@ -4773,8 +4839,9 @@ dialog.shelf[open] {
 //      分别「顺手调一下时长」。
 
 // ———— M11 · 刊头分行入场 ————
-// 全站八张刊头（首页 / 工具页 / 分类 / 标签 / 合集 / 示例 / 关于 / 404）共用
-// .g-masthead .masthead-inner 这一层，所以这里一条 > * 就覆盖完，不必逐页加类：
+// 刊头这行 h1 由十份模板各写一份：首页（index.html）+ 九张二级页（工具箱 / 分类 / 标签 /
+// 合集 / 编辑器 / 示例 / 全站索引 / 关于 / 404）。十份都共用 .g-masthead .masthead-inner
+// 这一层，所以这里一条 > * 就覆盖完，不必逐页加类：
 // _layouts/post.html 的刊头用的是 .g-container（没有 masthead-inner），
 // 文章页因此不参与这条——标题每天被自己读几十遍，且它的首屏是正文，不适合入场。
 //
@@ -4782,7 +4849,7 @@ dialog.shelf[open] {
 // 「每敲一个字重绘一次」的问题，也就没有 §M6 那套 .is-fresh 开关的必要。
 @media (prefers-reduced-motion: no-preference) {
     .g-masthead .masthead-inner > * {
-        animation: mastRise var(--dur-5) var(--ease-emph) both;
+        animation: riseIn var(--dur-5) var(--ease-emph) both;
     }
 
     // 第 1 行（kicker）不延迟；往后每行多等一个 --stagger。
@@ -4799,6 +4866,43 @@ dialog.shelf[open] {
         animation-name: mastWipe;
     }
 
+    // 逐词遮罩（动效批 III）。首页那行（home-title: Better’s study fairyland）整行一次
+    // 揭开时其实是两行字一起从底边长出来——窄屏折行后更明显：inset(0 0 100% 0) 量的是 h1
+    // 这个块盒的底边，第一行要等到最后一行揭开完才看得见。改成一个词一次擦入，
+    // 每个 .mw 以自己的内容盒为参照，折行不再互相压住。
+    //
+    // .mw 由 index.html 在构建期决定要不要产出（词数 > 1 才产，见那里的注释），
+    // 所以这里不需要 :has()，也不需要 JS：标记和样式永远同步，
+    // 也就不存在「脚本晚到 200ms、整行擦入先跑了一截再被抢走」这种竞态。
+    // 九张二级页的 h1 是各页写死的、没有这段循环，于是一律走上面那条整行路径，
+    // 渲染树与改前逐字节一致。其中关于那页的标题也是多 Token（「关于我 · Better（廖小新）」
+    // 按空格切是 3 段），它同样会折行、也同样吃整行揭开这一种——要逐词得在那份模板里
+    // 复制一段循环，这一批不动它——但「多词标题只有首页一处」这句话不成立，别照着它下判断。
+    //
+    // 关键帧复用 mastWipe，不新造第二条：clip-path 全用百分比、位移用 --rise，
+    // 逐词只是把同一次揭开按词分给几个盒子，不是另一种运动。
+    .g-masthead .masthead-inner > .masthead-title.is-masked {
+        animation: none;
+    }
+
+    .masthead-title.is-masked .mw {
+        display: inline-block;
+        animation: mastWipe var(--dur-5) var(--ease-emph) both;
+    }
+
+    // 打底的那 2 拍（80ms）＝ 标题作为 masthead-inner 第 3 个子元素的既有位置，
+    // 掐掉 h1 自己的动画之后要把这一格还给第一个词，否则整行会比上下两行早起步。
+    // 之后每个词多等一拍 --stagger，第 5 个词起封在 6 拍——和 §M6 的 min(--i, 6)
+    // 同一个口径：没有上限，一句 12 个词的标题会排到 0.5s 才出最后一个词。
+    // 封顶写成 min() 而不是 if()：dart-sass 已弃用后者，本站它是唯一一条警告。
+    @for $i from 1 through 6 {
+        $step: min(6, $i + 1);
+
+        .masthead-title.is-masked .mw:nth-child(#{$i}) {
+            animation-delay: calc(var(--stagger) * #{$step});
+        }
+    }
+
     // 期号那条 56px 细线从左边长出来：它压在 kicker 同一行的右侧，
     // 单独走一次比跟着整行升起更像「刊物盖章」的动作。
     .g-masthead .issue-rule {
@@ -4809,13 +4913,18 @@ dialog.shelf[open] {
 }
 
 // clip-path 的 inset 全用百分比，关键帧里没有 px（前提 3）。
-// from 用 inset(0 0 100% 0)＝底边内缩满高＝整块裁掉；translate 那 .45em 是
-// 让文字在揭开的同时往上走一点点，否则纯裁切看着像遮罩在动而不是行在落。
+// from 用 inset(0 0 100% 0)＝底边内缩满高＝整块裁掉。位移仍然要留一点：纯裁切
+// 看着像遮罩在动，而不是这一行在落。这一段取 --rise，和上面 riseIn 同一座标——
+// 擦入只是「同一次升起」多盖了一层遮罩，不是另一种运动，距离必须一致，
+// 否则标题会比它上下两行走得更远。（原来是 .45em 对 .5em 两个几乎相等
+// 又互不相干的字面量，看不出差别也改不到一起。）
+// 批 III 起它有两个消费者：h1 自己（九张二级页刊头，全是写死的整行）和 .mw（首页那三个词）。
+// 同一个参照系、同一个 --rise，所以两条路径交接时不会有「换了个动作」的感觉。
 @keyframes mastWipe {
     from {
         opacity: 0;
         clip-path: inset(0 0 100% 0);
-        translate: 0 .45em;
+        translate: 0 var(--rise);
     }
 
     to {
@@ -4825,17 +4934,8 @@ dialog.shelf[open] {
     }
 }
 
-@keyframes mastRise {
-    from {
-        opacity: 0;
-        translate: 0 .5em;
-    }
-
-    to {
-        opacity: 1;
-        translate: 0 0;
-    }
-}
+// mastRise 已并入 animate.scss 的 riseIn（动效批 III）：
+// 那一版的关键帧与 §M6 的 itemRise 只差 .15em 的升起距离，两者都收成了 --rise。
 
 @keyframes ruleGrow {
     from {
@@ -5273,7 +5373,7 @@ dialog.shelf[open] {
 }
 
 // M11 与 M22 抢的是同一块版面：跨页跳转时新文档的第一帧就是它的快照，而刊头入场
-// 恰好也是从那一刻起算（实测：tools.html 上四条 mastRise/mastWipe 的 startTime
+// 恰好也是从那一刻起算（实测：tools.html 上四条 riseIn/mastWipe 的 startTime
 // 都是 1311ms，正是文档时间轴上首次渲染的那一点），于是过渡期间顶部那块是
 // 「已经升了一半」而不是「完整的新页」——不算坏，但两件事在抢同一批像素。
 //
@@ -5284,9 +5384,72 @@ dialog.shelf[open] {
 // 永不开，整块是死规则。判据改由 editorial.js §17 用 `document.activeViewTransition`
 // （同一个浏览器里 typeof 为 object，实测可用）挂 .is-vt-entry 提供。
 // 直接打开／刷新（没有转场）时不加这个类，刊头照常入场。
+//
+// 右栏那一栏（§2 的 riseIn）跟着一起压：它和刊头是同一次载入里的两笔入场，
+// 冲突的性质一模一样（新文档的第一帧就被抓走当快照）。只压刊头会留下
+// 「顶部已经落位、右栏还在升」的半张页。
+//
+// .mw 是批 III 补的一格：首页标题改成逐词擦入之后，压住 h1 并不等于压住它的子元素
+// （animation 不继承，那三个词各自有一份 mastWipe）。少了这一行，跨页跳转落在
+// 首页时会看到「标题三个词在转场动画里自己擦了一遍」。
 .is-vt-entry .masthead-inner>*,
-.is-vt-entry .issue-rule {
+.is-vt-entry .masthead-title .mw,
+.is-vt-entry .issue-rule,
+.is-vt-entry .g-sidebar {
     animation: none;
+}
+
+// ———— M23 · 页脚：擦入下划线（入场在 §7.8 / editorial.js 名单里）————
+// 页脚是全站唯一每页都渲染的一块（_includes/footer.html 被十来个模板 include），
+// 也是这批开始前唯一「既没有入场也没有悬停语言」的版面：五段 14px 的文字一次砸出来，
+// 里面八个链接和「© 2021 - 2026」「Powered by」「·」这些非链接文字**同色**
+// （上面 §2 把 section 与 section a 一起染成 --ink-3），指针变成手型之前没有任何
+// 东西说明哪里能点。缺的不是装饰，是一句回信。
+//
+// 两件事分开补，都不新造机制：
+// ① 入场走 §7.8 那条滚动揭示，这里一行样式都不写——名单在 editorial.js 的
+//    REVEAL_SELECTOR 里多了一行 .g-footer section。不用再写一条 riseIn，因为页脚
+//    在折叠线以下，而这套的隐藏态由 body.js-reveal 限定：脚本没跑／无 IO 时原样可见，
+//    爬虫与禁用脚本的访客读到的仍是完整页脚（footer.html 那段 noscript 就是为他们写的）。
+// ② 悬停下划线照 §M13 的写法（::after + scaleX，transform-origin 在左），改三个数：
+//    · height 1px —— 导航那根是 2px，因为它要压进 .nav-link 自带的 2px 透明下边框里
+//      跟「当前页」那条线重合；页脚没有任何边框要对齐，14px 文字底下一条 2px 会读成色带。
+//    · bottom -1px —— inline 元素的绝对定位包含块是它自己的内容框（约 1.14em 高，
+//      不是 20px 的 line-height），写 0 会咬住 g/y 的降部。
+//    · left/right 0 —— 导航要缩进 12px 是因为那是它自己的左右 padding；
+//      链接盒的宽度就是文字宽度，线只该铺在字下面。
+//    颜色取 --signal-ink（7.24:1）而不是 --signal：它挨着的是 --ink-3 的灰字，
+//    亮蓝在这种小字号上会先于文字跳出来，Premium 档要的是「指到哪、哪条线亮起」。
+//    门控与 §M13 同一句 (hover:hover) and (pointer:fine)：触屏没有 hover 宿主，
+//    而 :focus 在手指抬起后不会自己消失，scaleX(0) 的下划线会留在屏幕上——
+//    那是新增的脏状态，不是动效。
+//    没带 §M13 的 (min-width:696px)：那道闸挡的是「顶栏收成抽屉后 .nav-link 变了盒模型」，
+//    页脚的五段在窄屏只换段不换词。这里有个真实的前提，值得记下来：
+//    inline 盒一旦断成两行，::after 只会落在第一段下面，那是 §M13 明确要防的错位。
+//    页脚最长的链接是「CC BY-NC-SA 4.0」，14px 下约 100px，390px 屏上不会自身断行。
+//    ——这一条按字号估算得来，390 / 959 / 1179 / 1440 四档的实测留给批 IV 的核验。
+@media (hover: hover) and (pointer: fine) {
+    .g-footer section a {
+        position: relative;
+    }
+
+    .g-footer section a::after {
+        position: absolute;
+        right: 0;
+        bottom: -1px;
+        left: 0;
+        height: 1px;
+        content: '';
+        background-color: var(--signal-ink);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform var(--dur-2) var(--ease-out);
+    }
+
+    .g-footer section a:hover::after,
+    .g-footer section a:focus-visible::after {
+        transform: scaleX(1);
+    }
 }
 
 // ———— 这一批自己的动效偏好兜底 ————

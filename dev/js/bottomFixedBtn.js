@@ -9,7 +9,7 @@ $(document).ready(function () {
 
     // 监听窗口滚动事情
     function syncScrollPercent () {
-        var scrollValue = $(window).scrollTop();
+        var scrollValue = window.pageYOffset;
         // 分母为 0（页面滚不动 / 刚进页面布局未稳）时按 0 算，
         // 否则 Infinity 会被下面的上限夹成 100，一进来就显示「已读完」
         var scrollable = utils.getContentVisibilityHeight();
@@ -32,7 +32,25 @@ $(document).ready(function () {
 
     // resize 也要重算：分母里有 window.innerHeight，窗口变矮后可滚距离变小，
     // 不重算就会一直停在旧比例上（只有滚一下才更新）。
-    $(window).on('scroll resize', syncScrollPercent);
+    // 原来这两件事是一句 $(window).on('scroll resize', syncScrollPercent)：
+    // jQuery 的绑定传不进 { passive: true }，浏览器就得等这个处理器跑完才敢继续滚，
+    // 而它开头两行全是读版面（scrollTop，加上分母那句 scrollHeight/clientHeight），
+    // 紧接着又写三处 DOM —— 每次滚动事件一轮「读—写—读」的强制布局。
+    // 现在：passive 让滚动不被阻塞，rAF 闸门把一帧内的多次事件并成一次计算
+    // （惯性滚动下原来一帧能进这个函数好几次，百分比数字就跳着写）。
+    // 与 index.js 顶栏那处的闸门同一写法；resize 不是可取消事件，passive 对它没有意义，
+    // 所以只给 scroll 那一行加。
+    var ticking = false;
+    function onViewportChange () {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(function () {
+            ticking = false;
+            syncScrollPercent();
+        });
+    }
+    window.addEventListener('scroll', onViewportChange, { passive: true });
+    window.addEventListener('resize', onViewportChange);
     syncScrollPercent();
 
     // 点击返回顶部

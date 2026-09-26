@@ -23,7 +23,13 @@
     bottom: 30px;
     display: none;
     // 「探出来 / 沉下去」的位移过渡。放在容器上，因为 is-tucked 改的就是容器的 translate。
-    transition: translate var(--dur-4) var(--ease-back);
+    // 动效批 III 收口：曲线从 --ease-back 换成 --ease-out。理由是人格一致性——
+    // Premium 那一档的约束是「0% 过冲」，而旧写法让这块面板在探出来时冲过头再回落，
+    // 是全站唯一一处会「冲过头」的位移。--ease-back 现在只留给 scale 的按压缩放
+    // （那一族是触觉反馈，过冲是它的语义），不再出现在任何 translate 上。
+    // 没选 --ease-emph：它专给 dur-4 以上的一次性长入场，而这颗是每次翻页都会重复的交互；
+    // 也没选 --ease-in-out：令牌表上写着「面板开合」，可全站 0 个消费者，跟着它走等于自成一派。
+    transition: translate var(--dur-4) var(--ease-out);
 
     // ———— 收放（开关由 cat.js 挂）————
     // 视口够宽、不是 about 页 → is-on；用户手动收起过 → 再加 is-tucked。
@@ -282,7 +288,16 @@
         width: 15px;
         background-color: #2e2e2e;
         margin-left: 18px;
-        transition: all 1s;
+        // 动效批 III：`transition: all 1s` → 显式两条。瞳孔放大靠的就是 width，
+        // 这条不能改属性（换成 scale 会把 15×50 的椭圆横着糊到眼白上，那是另一种动物），
+        // 但 all 可以收：本文件对这一格只写 width 与 margin-left 两件事
+        // （见下面 .mao:hover .yanquan>div:first-child），all 只是把它们以外的
+        // border-radius / background-color 也一并排了队。
+        // 1s 不动——这是那只猫的 gag 节奏，不是交互反馈；改成 --dur-* 那一档
+        // 会让瞳孔抽得比眨眼（maoBlink 7.5s）还快，整只猫就变成抽搐了。
+        // 曲线从省略号（= ease）换成 --ease-out，与全站落点一致。
+        transition: width 1s var(--ease-out),
+            margin-left 1s var(--ease-out);
         /*transition-property: width;
          transition-duration: 2s;*/
     }

@@ -64,7 +64,17 @@ $post-content-w: 720px;
     background-color: #FAFAFA;
     cursor: pointer;
     margin-right: 2px;
-    transition: .2s;
+    // 动效批 III：原来是 `transition: .2s`（隐式 all）。这个 mixin 铺在
+    // `.article-item .post-meta .post-tag` 与 `.tags-card .tag` 两处，前者特异度 (0,3,1)
+    // 高于 editorial §M22 那条 (0,2,0)，所以文章行里的标签今天吃的是这条 all。
+    // 清单与 §M22 那一行同一张（color / background-color / border-color / scale），
+    // 免得同一个药丸在两套清单里各过渡一半：右栏的标签有弹性、文章行的没有。
+    // 悬停真正会变的只有 color 与 background-color（实测 1447 次链接悬停变化里没有布局属性），
+    // border-color 列进来是因为夜间那条 `.night-mode` 覆盖给它换了色值。
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        border-color var(--dur-2) var(--ease-out),
+        scale var(--dur-1) var(--ease-out);
 
     &:last-child {
         margin-right: 0;
@@ -138,28 +148,21 @@ $post-content-w: 720px;
             @include snsIcon;
         }
 
-        li:nth-child(1) {
-            animation: fadeIn 300ms ease-in 1000ms both;
-        }
-
-        li:nth-child(2) {
-            animation: fadeIn 300ms ease-in 1300ms both;
-        }
-
-        li:nth-child(3) {
-            animation: fadeIn 300ms ease-in 1600ms both;
-        }
-
-        li:nth-child(4) {
-            animation: fadeIn 300ms ease-in 1900ms both;
-        }
-
-        li:nth-child(5) {
-            animation: fadeIn 300ms ease-in 2100ms both;
-        }
-
-        li:nth-child(6) {
-            animation: fadeIn 300ms ease-in 2400ms both;
+        // 动效批 III：这里原有六条 li:nth-child(1…6)，各配一个 1000 / 1300 / 1600 /
+        // 1900 / 2100 / 2400ms 的延迟。三个毛病叠在一起：
+        // ① 整组预算 2700ms，是全站最大的一个错峰（编排上限是 500ms）；
+        // ② 带 both 填充，于是页面打开后的前 1000ms 这一排图标是**空的**——
+        //    0% 帧的 opacity: 0 被钉在元素上等延迟过去；
+        // ③ ease-in 是「退场曲线」，入场该用减速那一族。
+        // 现在一条 --stagger 步进：0/40/80/120/160/200ms 起、--dur-2 收尾 = 400ms，
+        // 与 §M6 面板那一套同一步进、同一条入场关键帧（animate.scss 的 riseIn）。
+        // fill 换 backwards：图标这排后面还有 hover 变色和夜间态覆盖，
+        // both 会把 100% 帧一直钉在元素上，将来给它们加淡出会被静默吃掉。
+        @for $i from 1 through 6 {
+            li:nth-child(#{$i}) {
+                animation: riseIn var(--dur-2) var(--ease-out) backwards;
+                animation-delay: calc(var(--stagger) * #{$i - 1});
+            }
         }
     }
 }
@@ -169,7 +172,11 @@ $post-content-w: 720px;
         // 原来是写死的 #B8BDC3：对白底只有 1.9:1，五个真链接排在一起看着像一组禁用图标。
         // 提到 --ink-3（对白底 4.5:1，与导航文字同档），夜间态由令牌自己翻，不必再补一份覆盖。
         color: var(--ink-3);
-        transition: .2s;
+        // 动效批 III：隐式 all → 只留 color，这是等价改写而不是取舍——本 mixin 里
+        // 悬停会变的属性只有颜色：&:hover 写 color: var(--ink)，往下 16 颗品牌名
+        // （weibo/zhihu/twitter/…/vk 各一条 :hover）合计也正好 16 条声明，全是 color。
+        // 200ms 与原值同，曲线对齐 <a> 那一档的 --ease-out。
+        transition: color var(--dur-2) var(--ease-out);
 
         &:hover {
             color: var(--ink);

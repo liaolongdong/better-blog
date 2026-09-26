@@ -6,6 +6,13 @@ $(document).ready(function(){
      */
     $('#menu-toggle').on('click', function(e) {
         var duration = 200;
+        // jQuery 的逐帧动画不吃 base.scss 那份 reduce 兜底（那句 !important 只压得住
+        // CSS 的 animation/transition 时长，管不到 jQuery 一帧一帧写 height），
+        // 所以减弱动效的档位要在这里自己判：时长置 0 = 同一个终点，只是不滑。
+        // 与 bottomFixedBtn.js 里「返回顶部」那处的判法一致。
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            duration = 0;
+        }
         // slideToggle 之后立刻读 :visible 并不可靠（jQuery 在动画收尾才改 display），
         // 所以在切换前先取反当前可见态作为目标状态。
         var willOpen = !nav.is(':visible');
@@ -39,7 +46,7 @@ $(document).ready(function(){
             headerHeight = header.outerHeight();
         }
 
-        $(document).scroll(function() {
+        function syncHeader() {
             // 断点判断放在每次滚动里，而不是加载时求值一次：后者让平板转屏、
             // 桌面拖窗口跨过 695px 之后与页面永久失配（窄屏进来的页面从此没有
             // 自动隐藏，宽屏进来的则在窄屏下继续藏）。窗口宽度读取不触发布局。
@@ -48,7 +55,7 @@ $(document).ready(function(){
                 return;
             }
 
-            var scrollTop = $(document).scrollTop();
+            var scrollTop = window.pageYOffset;
             var goingDown = scrollTop > scFlag;
             scFlag = scrollTop;
 
@@ -65,7 +72,24 @@ $(document).ready(function(){
             // 阈值是三倍顶栏高（实测 195px），不是「三屏」。
             header.toggleClass('headerUp', goingDown);
             header.toggleClass('headerDown', !goingDown);
-        });
+        }
+
+        // 原来绑的是 $(document).scroll(fn)：jQuery 的 .on() 传不进 { passive: true }，
+        // 浏览器因此要等这一帧的处理器跑完才敢继续滚，而处理器里既读 scrollTop
+        // 又写三个类，等于每次滚动都排一次「读—写—读」的强制样式计算。
+        // 换成原生监听 + passive（滚动不被阻塞）再加一道 rAF 闸门（一帧内多次
+        // scroll 事件合成一次计算：惯性滚动下原来一帧能进这个函数好几次）。
+        // 与 editorial.js 里那几处 scroll 兜底的写法同一个闸门，passive 口径也一致。
+        var ticking = false;
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(function () {
+                ticking = false;
+                syncHeader();
+            });
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
 
         // 高度会变的两件事：转屏（.g-header 在 ≤695 下是 56px）与 webfont 落地
         // （.logo-word 换一次度量）。阈值和 translateY(-100%) 都按它算，取旧值会错位。

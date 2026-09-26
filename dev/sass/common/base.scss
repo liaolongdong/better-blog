@@ -73,7 +73,26 @@ a {
     color: $color-f-primary;
     text-decoration: none;
     cursor: pointer;
-    transition: .2s;
+    // 动效批 III：这句原来是 `transition: .2s`——隐式 all，任何属性一变就带 200ms 过渡。
+    // 收窄成显式清单要付出的代价是「漏掉一条就会让某个悬停变成瞬切」，所以清单不靠猜：
+    // 把全站带 :hover 的规则原样改写成一个同名类（:hover → .hp）注入回页面，逐颗 <a>
+    // 挂上再摘下，读 getAnimations() 报出的 transitionProperty 与时长，六类页面各跑一遍
+    // （首页 / 文章 / 关于 / 分类 / 工具 / 标签，合计 1447 次真实变化）。出现的属性
+    // 只有五种：color、background-color、border-*-color、box-shadow、scale，
+    // **布局属性 0 个**——也就是说今天没有任何链接靠 all 去过渡 width/padding。
+    // 时长一律 --dur-2（=200ms，与原值同），曲线换 --ease-out：真正会动的只有颜色类，
+    // 颜色过渡的缓动看不出来；而带位移的那批（名片年份 chip 的 scale、标签的边框）
+    // 各自写了 --dur-1，本来就不吃这条。
+    // opacity / transform / translate / scale 这四条目前没有链接在用，列进来是给以后的
+    // 悬停留位置，不改变现在任何一帧；被排除在外的是会引起回流的那一类。
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        border-color var(--dur-2) var(--ease-out),
+        box-shadow var(--dur-2) var(--ease-out),
+        opacity var(--dur-2) var(--ease-out),
+        transform var(--dur-2) var(--ease-out),
+        translate var(--dur-2) var(--ease-out),
+        scale var(--dur-2) var(--ease-out);
 }
 
 ::selection {
@@ -91,26 +110,33 @@ a {
 /*** 减少动态效果：全站兜底 ***/
 
 // 这一块的由来：reduce 适配原先只写在 editorial.scss（§9 与 §13 两处）和 about.scss
-// 的时间线里，是按组件补的；而动画声明散在 animate.scss、common.scss
-// （`.article-item` / `.read-next-item` 的错峰入场）、cat.scss、bottomFixedBtn.scss、
-// weblab.scss、helper.scss，以及上面那句 `a { transition: .2s }`——
+// 的时间线里，是按组件补的；而动画声明散在 animate.scss、common.scss、cat.scss、
+// bottomFixedBtn.scss、weblab.scss、helper.scss，以及上面那句全站 `<a>` 的悬停过渡——
 // 逐个组件补永远会漏掉下一个，每加一个动效就重新欠一次债（分析报告 P0-13）。
 //
 // 为什么是 .01ms 而不是各家惯例的 animation: none：
-// ① none 只管动画，管不到过渡——上面那句 `a { transition: .2s }`、悬浮位移、抽屉的
-//    transform 全在 transition 那一侧；要等价就得逐条写 transition: none，
-//    而那等于回到"每个组件再补一遍"。
+// ① none 只管动画，管不到过渡——`<a>` 的悬停变色、悬浮位移、抽屉的 transform
+//    全在 transition 那一侧（所以下面 transition-duration 也要写，光压 animation 不够）；
+//    要等价就得逐条写 transition: none，而那等于回到"每个组件再补一遍"。
 // ② .01ms 保留"动画会跑完"这件事：带 both / forwards 填充的规则终态照旧落在元素上，
 //    animationend 也仍然触发，不依赖"基础样式恰好就是终态"这个前提
 //    （实测：当前全站 0 个规则块同时写了 opacity:0 与 animation，所以今天用 none
 //    也不会把谁藏起来——②买的是以后有人这么写时的保险，不是现在的路径）。
 // iteration-count: 1 是防止无限循环的装饰动效（走马灯、呼吸点）在 .01ms 下空转。
-// animation-delay 归零是顺带补的：错峰入场靠的全是 delay（common.scss 给
-// .article-item:nth-child(3/4/5) 排到 .8s / 1s / 1.2s），而这些动画带 both 填充，
-// 按 CSS Animations 的填充规则，延迟期内元素停在**首帧**——downToUpFade 的 0% 是
-// opacity:0 + translateY(200%)。只压时长不动 delay，reduce 档就会"先空 1.2 秒再出现"，
-// 比不降级更糟。这一条是照规则兜的，没能在真机里把那个窗口抓住：本机首页的动画起点
-// 早于 load（外链 CSS 是阻塞的），load 后 120ms 采样时延迟期已经过去、读到的是 opacity:1。
+// animation-delay 归零是顺带补的，理由和当初一样，只是数字换了：错峰入场全靠 delay 排，
+// 而带 both 填充的动画在延迟期内停在**首帧**（riseIn 的 0% 是 opacity:0 + 起位），
+// 只压时长不动 delay，reduce 档就会"先空一段再出现"，比不降级更糟。
+// 现在排得最晚的一笔是 §M6 面板的 min(--i,6) × --stagger = 240ms（刊头逐词遮罩按
+// 同一个 6 拍口径封顶），名片图标那排按构造是 0…200ms（helper.scss 的 --stagger ×0-5，
+// 实测里被 §M6 盖过去）；动效批 III 之前这个数曾经是 1.2s（common.scss 那条
+// .article-item:nth-child(3/4/5) 阶梯，与 downToUpFade 一起删了）。
+// 这两个数已在真机里抓过（2026-09-26，headless Chrome 153 / 1440×900 / index.html）：
+// reduce 档 animation-delay 全为 0s、animation-duration 计算值 1e-05s，首屏在
+// DCL+30/110/260/520/800/1500ms 六个采样点上 opacity<0.99 的只剩 .nav-git-btn 那记
+// 静态的 0.70 —— 没有入场留下的空窗，兜底这一档按预期吃掉了延迟。
+// 对照档 no-preference 下最晚的一格实测是 0.16s（刊头 masthead-inner 只有 5 个子元素，
+// 第 6 格那 200ms 没有消费者；240ms 那档在文章页的 §M6 面板上），
+// 首屏 DCL+111ms 时 14/149 颗仍在升起，DCL+880ms 全部落位。
 // 注：不写 transition-delay。它不参与"停在起始帧"这件事，而悬浮提示类依赖它防抖，
 // 归零会让提示框在鼠标扫过时集体闪现——那是给 reduce 用户新增的问题。
 //

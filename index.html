@@ -20,7 +20,31 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
             <span class="issue-rule"></span>
             <span class="issue-no">Vol. {{ site.posts.size }}</span>
         </p>
+        {%- comment -%}
+        刊头标题的逐词遮罩（动效批 III）。样式在 editorial.scss §M11，理由写在那儿。
+        为什么分词放在构建期：h1 那条整行擦入从第一帧就在跑，脚本最早也要到
+        DOMContentLoaded 才进得来，中间这几百毫秒会变成「整行先擦掉半截、再被逐词接管」——
+        和 M22 那条 .is-vt-entry 同一个量级的竞态，只是对手换成了自己的脚本。
+        放在模板里，标记与样式永远同步，禁用脚本的访客与爬虫读到的还是同一个 h1。
+        词与词之间那一个空格必须由输出标签给（上面那对双引号里就是一个空格）。
+        这不是讲究：2026-09-26 用同一版 Liquid 试过四种写法，「在两个标签之间手写
+        一个空格」的那两种（unless 版与 if/else 版）渲染结果都是 a 贴 b 贴 c——
+        纯空白的文本节点被解析器吃掉了，标题会变成「Better’sstudyfairyland」，
+        三个 inline-block 直接粘在一起。这既是要修的排版缺陷，也让 h1 的文本内容
+        和 home-title 不再逐字相等；带引号那种输出出来才是一整个 U+0020。
+
+        只按空格分词，词数不超过 1 就整块退回原来那一行。这一档不是洁癖：中文标题按空格切
+        只会得到一个 Token，退回那一行就是「整行擦入」，不会变成「一个字一帧」的抖动；而词数
+        为 1 时逐词与整行本来就是同一个动作（editorial.scss §M11 那条 is-masked 已经把 h1
+        自己的动画关掉，产出 .mw 并不会让两份 mastWipe 叠起来），多包一层 span 只是白改渲染树。
+        二级页那九张的 h1 是各页写死的、不进这段循环，所以这里怎么改都不影响它们。
+        {%- endcomment -%}
+        {%- assign homeWords = page.home-title | split: ' ' -%}
+        {%- if homeWords.size > 1 %}
+        <h1 class="masthead-title is-masked">{% for w in homeWords %}{% unless forloop.first %}{{ " " }}{% endunless %}<span class="mw">{{ w }}</span>{% endfor %}</h1>
+        {%- else %}
         <h1 class="masthead-title">{{ page.home-title }}</h1>
+        {%- endif %}
         <p class="masthead-lede">{{ page.description }}</p>
         <ul class="masthead-stats">
             <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
@@ -154,7 +178,9 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
     </div>
 
     <aside class="g-sidebar-wrapper">
-        <div class="g-sidebar rtlf-delay0">
+        {% comment %} 这一层原来带 rtlf-delay0（translateX(100%) 从右飞入）。动效批 III 摘掉：
+            入场全站只留「自下升起 + 淡入」一个方向，右栏的入场改由 editorial.scss §2 统一带入。 {% endcomment %}
+        <div class="g-sidebar">
             {% include authorCard.html %}
 
             <section class="tools-card">

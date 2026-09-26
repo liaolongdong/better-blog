@@ -1,68 +1,37 @@
 // 逐帧动画相关样式
-
-// 从右往左旋转动画
-@keyframes rightToLeftRotate {
-    0% {
-        opacity: 0;
-        transform: translateX(200%) rotateZ(720deg);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
-.rtlr-delay500 {
-    animation:  rightToLeftRotate 1000ms ease-in 500ms both;
-}
-
-// 逐渐显示
-@keyframes fadeIn {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
-}
-
-// 从下往上渐入。
 //
-// 只留关键帧，不留 .dtuf-delay0：关键帧的消费者在**别的文件**——common.scss:229-245
-// 与 :417（首页文章列表、read-next 的错峰入场直接写 `animation: downToUpFade …`），
-// 把它当死代码删掉会静默杀掉那 6 处动画。而 .dtuf-delay0 / .utdf-delay0 两个类
-// 全站 0 引用（模板、JS、正文、_data 都查过），连带只有它们一处消费的
-// upToDownFade 一起删了。
-@keyframes downToUpFade {
-    0% {
+// 动效批 III 从这一层删掉了三组「老主题的方向」，都是先删消费者、再删关键帧：
+// · rightToLeftRotate + .rtlr-delay500（translateX(200%) 同时转 720°，头像那颗）
+// · rightToLeftFade + .rtlf-delay0 / .rtlf-delay500（translateX(100%) 从右飞入）
+// · downToUpFade（translateY(200%)，首页文章列表与分页那 6 处）
+// 理由有两条，第二条更要紧：200% / 100% 这种按自身尺寸算的位移，挂在通栏元素上
+// 会在动画那几百毫秒里把内容推出视口（searchCard.html 的旧注释就是为它写的补丁），
+// 而入场方向全站已经收成「自下升起 + 淡入」一种，距离交给 --rise（见 tokens.scss）。
+// 唯一还留着的横向位移是下面的 rightToLeftLetter，它只走 --travel-l，不外溢。
+// 注：_posts/2018-03-26-work-summarize.md 里还印着 rightToLeftRotate 的代码片段，
+// 那是文章正文引用的历史截图，不是消费者，别跟着删。
+//
+// fadeIn 也一起删了：批 III 之前它只有 helper.scss 那一处消费者（名片图标那排六条
+// nth-child），改成 riseIn 之后就归零了。全站再没有第二条「只淡不放」的入场。
+
+// 入场签名（动效批 III）。全站「把一块内容带进来」只有这一个动作：
+// 自下 --rise 升起 + 淡入，方向与距离由 tokens.scss 那一层给，本文件不再写字面 em。
+// 以前这一件事有三份抄本——mastRise 的 .5em、itemRise 的 .35em、downToUpFade 的 200%，
+// 三者的 to 帧还不完全一样（有的写了 opacity:1，有的只写 transform: none），
+// 改一处不动另两处不会报错，只会让刊头和面板的升起悄悄不同高。
+// 现在刊头（§M11）、面板（§M6）、滚动揭示（§7.8）、名片图标那一排都指向这一条。
+// 距离用 em 而不是 px：@keyframes 的帧名是 0%/to，postcss 的黑名单按选择器文本匹配
+// 够不到它，写 px 就会被换成 vw（详见本文件顶部与 tokens.scss:83 那两段）。
+@keyframes riseIn {
+    from {
         opacity: 0;
-        transform: translateY(200%);
+        translate: 0 var(--rise);
     }
 
-    100% {
-        transform: none;
+    to {
+        opacity: 1;
+        translate: 0 0;
     }
-}
-
-// 从右往左渐入
-@keyframes rightToLeftFade {
-    0% {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-
-    100% {
-        transform: none;
-    }
-}
-
-.rtlf-delay0 {
-    animation: rightToLeftFade 500ms ease 0ms both;
-}
-
-.rtlf-delay500 {
-    animation: rightToLeftFade 500ms ease 500ms both;
 }
 
 // 从右往左渐出
@@ -87,6 +56,12 @@
 // 两边都取 --wave-tile：关键帧里的 px 会被像素转视口换成 vw（黑名单按选择器文本
 // 匹配，够不到 0%/to），而消费方的 background-size 在 .post- 黑名单里保持 px，
 // 于是一座视口宽 375 的屏上只走 10px、1440 的屏上走 38.4px，只有 750 恰好对上。
+//
+// 消费方那句 `1s infinite linear` 里的 linear 是刻意的，不是漏改：这是首尾相接的循环
+// （100% 落点正好是一块 tile 的宽度，接回 0%），两头一旦加减速，接缝处就看得出「快一下慢一下」；
+// 全站那条「空间位移禁用 linear」管的是有始有终的动作，循环平移不属于它。
+// 减弱动效那一档不用在这里另写：base.scss 的兜底带 animation-iteration-count: 1，
+// 跑完一帧就停在 0% 的那块位置，不会再滚（实测 reduce 档下计算值 animation-duration=1e-05s）。
 @keyframes waveMove {
     0% {
         background-position: 0 100%;
