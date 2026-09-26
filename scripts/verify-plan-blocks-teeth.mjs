@@ -38,7 +38,7 @@ function mirror() {
     'scripts/toolkit-tests.mjs', 'scripts/build-prefix-data.mjs', 'scripts/build-region-data.mjs',
     'scripts/build-id-fixture.mjs',
     'dev/js/tools/region.js', 'dev/js/tools/random.js', 'dev/js/tools/idcard.js',
-    'dev/js/tools/uscc.js', 'dev/js/tools/panel.js',
+    'dev/js/tools/uscc.js', 'dev/js/tools/panel.js', 'dev/js/tools/bankcard.js',
   ];
   for (const f of files) {
     const dst = path.join(MIR, f);
@@ -66,7 +66,7 @@ const check = (id, pass, detail) => {
 mirror();
 const base = run();
 check('基线（副本必须先绿，否则后面全是假证据）',
-  base.code === 0 && /✓ 全部已落地镜像/.test(base.out) && /14 个是已落地镜像/.test(base.out),
+  base.code === 0 && /✓ 全部已落地镜像/.test(base.out) && /16 个是已落地镜像/.test(base.out),
   `exit=${base.code}，镜像行 ${/其中 (\d+) 个是已落地镜像/.exec(base.out)?.[1] ?? '?'} 个`);
 if (base.code !== 0) {
   console.log(base.out);

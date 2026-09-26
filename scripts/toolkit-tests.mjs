@@ -2616,3 +2616,273 @@ test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
   }
   assert.equal(total, 56);
 });
+
+// ── §E 银行卡 ──────────────────────────────────────────────────────────────
+const { BANK_CAVEAT, BANK_OPTIONS, BIN_SOURCE, CARD_TYPES,
+  GENERATE_MAX: BANK_GENERATE_MAX, PAN_MAX, PAN_MIN, TOP_BANKS,
+  formatCardGroup, generateBankCards, lookupBin, luhnCheckDigit, luhnValid, luhnWork,
+  parseBankCard, parseBankCardList } = await import('../dev/js/tools/bankcard.js');
+
+const ck = (r) => Object.fromEntries(r.checks.map((c) => [c.key, c.ok]));
+/** 本体 → 补好校验位的整串 */
+const pan = (body) => body + luhnCheckDigit(body);
+
+test('E1 Luhn 官方向量与逐位算式', () => {
+  assert.equal(luhnValid('4242424242424242'), true);
+  assert.equal(luhnValid('4242424242424241'), false);
+  const w = luhnWork('7992739871');
+  assert.equal(w.sum, 67);
+  assert.equal(w.mod, 7);
+  assert.equal(w.expected, '3');
+  assert.equal(luhnCheckDigit('7992739871'), '3');
+  assert.equal(luhnValid('79927398713'), true, '11 位：Luhn 成立但位数不在 13–19，由 E6 单独管');
+});
+
+test('E2 逐位算式的每一步都能手算对上', () => {
+  const w = luhnWork('424242424242424');
+  assert.equal(w.steps.length, 15);
+  assert.deepEqual(w.steps.slice(0, 3), [
+    { d: 4, pos: 15, double: true, value: 8 },
+    { d: 2, pos: 14, double: false, value: 2 },
+    { d: 4, pos: 13, double: true, value: 8 },
+  ]);
+  assert.deepEqual(w.steps.at(-1), { d: 4, pos: 1, double: true, value: 8 }, '本体最右位必须翻倍');
+  for (const s of w.steps) {
+    const doubled = s.d * 2;
+    assert.equal(s.value, s.double ? (doubled > 9 ? doubled - 9 : doubled) : s.d, `第 ${s.pos} 位`);
+  }
+  assert.equal(w.sum % 10, w.mod);
+  assert.equal(w.expected, String((10 - w.mod) % 10));
+  assert.equal(w.sum, w.steps.reduce((n, s) => n + s.value, 0));
+});
+
+test('E3 本体不合规时算式返回 null，不抛', () => {
+  for (const bad of ['', '12a45', null, undefined, 4242, ['4242']]) {
+    assert.equal(luhnWork(bad), null, `收到 ${JSON.stringify(bad)}`);
+  }
+  assert.equal(luhnCheckDigit('12a45'), null);
+  assert.equal(luhnValid('7'), false, '单字符没有"本体"可言，一律算不成立而不是抛');
+});
+
+test('E4 五态各命中一次，且硬结论优先于软参考', () => {
+  assert.equal(parseBankCard('').state, 'empty');
+  assert.equal(parseBankCard('622588013763447x').state, 'malformed');
+  assert.equal(parseBankCard('9999999999999999').state, 'luhn');
+  assert.equal(parseBankCard('4242424242424242').state, 'unlisted');
+  assert.equal(parseBankCard('6212601500012345').state, 'valid');
+  // 999999 恰好是华夏银行在表内的 BIN，所以它落 luhn 而不是 unlisted：
+  // Luhn 不过这条**硬**结论必须排在"表外"这条**软**参考之前。
+  assert.equal(ck(parseBankCard('9999999999999999')).bin, true, '校验位不对也照样报行别');
+  assert.equal(parseBankCard('9999999999999995').state, 'valid');
+});
+
+test('E5 各状态转换处 checks 的行数与三态分布', () => {
+  assert.deepEqual(parseBankCard('').checks, [], '空输入不摆四行表，面板按 state 显示引导文案');
+  const short = parseBankCard('111111111113');
+  assert.deepEqual(ck(short), { charset: true, length: false });
+  assert.equal(short.info, null, '位数这一关就出局的，不给 info');
+  assert.equal(ck(parseBankCard('622588013763447x')).charset, false);
+  assert.deepEqual(ck(parseBankCard('622588013763447x')), { charset: false, length: true },
+    '字符不过时只走两行，不给后面的 Luhn 与行别');
+  assert.deepEqual(ck(parseBankCard('6212601500012345')),
+    { charset: true, length: true, luhn: true, bin: true });
+});
+
+test('E6 位数闸门按 13–19 两侧各切一刀', () => {
+  assert.equal(PAN_MIN, 13);
+  assert.equal(PAN_MAX, 19);
+  assert.equal(parseBankCard(pan('1'.repeat(11))).digits.length, 12);
+  assert.equal(parseBankCard(pan('1'.repeat(11))).state, 'malformed', '12 位在门外');
+  assert.equal(parseBankCard(pan('1'.repeat(12))).state, 'unlisted', '13 位进门');
+  assert.equal(parseBankCard(pan('1'.repeat(18))).state, 'unlisted', '19 位仍在门内');
+  assert.equal(parseBankCard(pan('1'.repeat(19))).digits.length, 20);
+  assert.equal(parseBankCard(pan('1'.repeat(19))).state, 'malformed', '20 位出界');
+});
+
+test('E7 分组分隔符不算错，六种写法同一结论', () => {
+  const want = parseBankCard('6212601500012345');
+  for (const form of ['6212 6015 0001 2345', '6212-6015-0001-2345',
+    '6212\u30006015\u30000001\u30002345', '6212\u00A06015\u00A00001\u00A02345',
+    '6212\t6015\t0001\t2345', '  6212601500012345  ']) {
+    const r = parseBankCard(form);
+    assert.equal(r.state, want.state, form);
+    assert.equal(r.digits, '6212601500012345', form);
+    assert.equal(r.checks[0].ok, true, form);
+  }
+  assert.equal(parseBankCard('-').state, 'malformed', '整串只有分隔符：去掉之后 0 位，位数那一行红');
+  assert.equal(parseBankCard('-').digits, '');
+  const bad = parseBankCard('6212 6015 0001 234a');
+  assert.equal(bad.state, 'malformed');
+  assert.match(bad.checks[0].detail, /「a」（去掉分组空格与连字符后的第 16 位）/);
+});
+
+test('E8 最长前缀：95588 赢过 9558，试过的档位按降序留痕', () => {
+  const r = parseBankCard('9558891712345678908');
+  assert.equal(r.state, 'valid');
+  assert.equal(r.info.bin, '95588');
+  assert.equal(r.info.binLength, 5);
+  assert.deepEqual(r.info.triedLengths, [10, 9, 8, 7, 6, 5]);
+  assert.equal(lookupBin('9558891712345678908').bin, '95588', '表里 9558 与 95588 同属 ICBC，取最长');
+  assert.equal(lookupBin('9896123456789012').bin, '9896', '四位 BIN 要在试完 10–5 之后仍被命中');
+  assert.deepEqual(lookupBin('9896123456789012').tried, [10, 9, 8, 7, 6, 5, 4]);
+  assert.equal(lookupBin('4242424242424242'), null);
+});
+
+test('E9 前缀不得吃掉整串：至少留一位给账号体', () => {
+  assert.equal(lookupBin('103'), null, '三位串不许拿三位 BIN 命中（103 确实在表里，是 ABC）');
+  assert.equal(lookupBin('1034').bin, '103', '四位串就可以；3 是表内最短的一档');
+  assert.equal(lookupBin('95588').bin, '9558', '五位串拿不到 95588（它自己就等于串长），退到 9558');
+  assert.equal(lookupBin('1'.repeat(13)), null, '谁的延伸都没命中，就是 null');
+  assert.deepEqual(parseBankCard(pan('1'.repeat(12))).info.triedLengths,
+    [10, 9, 8, 7, 6, 5, 4, 3], '13 位串从 10 试到 3；13 本身不落进候选（前缀必须给账号体留一位）');
+});
+
+test('E10 并列登记：主结论按位数挑，文案点名另一条', () => {
+  const as16 = parseBankCard('6212601500012345');
+  assert.equal(as16.ambiguous, true);
+  assert.equal(as16.matches.length, 2);
+  assert.equal(as16.info.primary.bankCode, 'SPABANK');
+  assert.equal(as16.info.primary.cardType, 'CC');
+  assert.equal(as16.checks[3].ok, true);
+  assert.match(as16.checks[3].detail, /^平安银行（SPABANK）· 贷记卡 · 表内登记 16 位/);
+  assert.match(as16.checks[3].detail, /另有 1 条并列登记（CSRCB\/借记卡\/19 位）/);
+  const as19 = parseBankCard(pan('621260150001234567'.padEnd(18, '8')));
+  assert.equal(as19.digits.length, 19);
+  assert.equal(as19.state, 'valid');
+  assert.equal(as19.info.primary.bankCode, 'CSRCB', '19 位串必须挑中登记 19 位的那条，而不是字典序第一条');
+  assert.match(as19.checks[3].detail, /^常熟农商银行（CSRCB）· 借记卡 · 表内登记 19 位/);
+  assert.deepEqual(as19.matches.map((m) => m.lengthMatches), [false, true]);
+});
+
+test('E11 登记位数不一致只记 null，不拖垮结论', () => {
+  const off = parseBankCard('621260150001234567');
+  assert.equal(off.digits.length, 18);
+  assert.equal(off.state, 'valid', 'Luhn 过、前缀在表内但两条登记都对不上 18 位——只降 bin 行');
+  assert.equal(off.checks[3].ok, null);
+  assert.match(off.checks[3].detail, /此号 18 位（登记可能有缺漏，不据此判无效）/);
+  assert.equal(parseBankCard('621260150001234').state, 'luhn', '15 位那条同时栽在 Luhn，硬的排在前面');
+  assert.equal(ck(parseBankCard('621260150001234')).bin, null);
+});
+
+test('E12 未收录前缀：null 而不是 false，caveat 每条都在', () => {
+  const r = parseBankCard('4242424242424242');
+  assert.equal(ck(r).bin, null);
+  assert.deepEqual(r.matches, []);
+  assert.equal(r.ambiguous, false);
+  assert.equal(r.info.bin, '');
+  assert.equal(r.info.binLength, null);
+  assert.deepEqual(r.info.triedLengths, [10, 9, 8, 7, 6, 5, 4, 3]);
+  assert.match(r.checks[3].detail, /^前缀未收录（最长试到 10 位），不据此判无效$/);
+  assert.equal(r.hasCaveat, true);
+  assert.match(r.caveat, /不承诺全量/);
+  assert.match(r.caveat, /查不到不等于号码无效/);
+  assert.equal(r.info.source, BIN_SOURCE);
+  assert.match(BIN_SOURCE, /^hexindai\/bcbc @ de63182（快照 2026-09-26）$/);
+});
+
+test('E13 建议形态只在 Luhn 那一档给', () => {
+  const bad = parseBankCard('6212601500012340');
+  assert.equal(bad.state, 'luhn');
+  assert.equal(bad.info.luhnGiven, '0');
+  assert.equal(bad.suggestedCard, '6212601500012345');
+  assert.equal(parseBankCard(bad.suggestedCard).state, 'valid');
+  assert.equal(parseBankCard('622588013763447x').suggestedCard, '', '结构非法不给建议号');
+  assert.equal(parseBankCard('4242424242424242').suggestedCard, '', '本来就成立的更不给');
+});
+
+test('E14 入参形状：null / undefined / 数值都按字符串走，不抛', () => {
+  for (const v of [null, undefined, 0, false, {}]) {
+    assert.equal(parseBankCard(v).state === 'empty' || parseBankCard(v).state === 'malformed', true,
+      `${JSON.stringify(v)} 必须安静地走两行表而不是抛`);
+  }
+  assert.equal(parseBankCard(null).state, 'empty');
+  assert.equal(parseBankCard(undefined).state, 'empty');
+  assert.equal(parseBankCard(621260150001234).state, 'luhn', '15 位数值：位数在区间内，只剩 Luhn');
+  const r = parseBankCard(1234567890123456789);
+  assert.equal(r.digits, '1234567890123456800', '19 位数值超出 2^53，进函数前末位就已经被舍掉');
+  assert.equal(r.state, 'luhn', '舍出来的串仍按 19 位判：报的是"末位与算式不符"，不是"位数非法"');
+  assert.equal(r.info.luhnGiven, '0');
+});
+
+test('E15 生成侧：任意收窄都自洽，产出的号必被自己判 valid', () => {
+  for (const opts of [{}, { count: 5 }, { bankCode: 'ICBC' }, { cardType: 'CC' },
+    { bin: '95588', length: 19 }, { length: 15 }, { bankCode: 'CMB', cardType: 'DC' }]) {
+    const list = generateBankCards(opts);
+    assert.equal(list.length, opts.count ?? 1, JSON.stringify(opts));
+    for (const item of list) {
+      assert.equal(item.number.length, item.panLength);
+      assert.equal(item.number.startsWith(item.bin), true);
+      assert.equal(item.formatted, formatCardGroup(item.number));
+      assert.equal(item.caveat, BANK_CAVEAT);
+      const back = parseBankCard(item.number);
+      assert.equal(back.state, 'valid', `${item.number} 自检为 ${back.state}`);
+      assert.equal(back.info.primary.bankCode, item.bankCode);
+      assert.equal(back.info.primary.cardType, item.cardType);
+      assert.equal(back.info.bin, item.bin);
+    }
+  }
+  assert.equal(BANK_GENERATE_MAX, 50);
+});
+
+test('E16 固定 rng 可复现，取值口径与身份证侧同档', () => {
+  const rngSeed = () => { let s = 7; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; };
+  const a = generateBankCards({ count: 8, rng: rngSeed() }).map((x) => x.number);
+  const b = generateBankCards({ count: 8, rng: rngSeed() }).map((x) => x.number);
+  assert.deepEqual(a, b);
+  assert.ok(new Set(a).size > 1, '同一个种子连出 8 条全等，说明随机体没参与');
+  assert.throws(() => generateBankCards({ rng: () => 2 }), /options\.rng 每次应给出 \[0, 1\)/);
+  assert.throws(() => generateBankCards({ rng: 'x' }), TypeError);
+  assert.equal(generateBankCards({ count: 1, rng: null }).length, 1, 'null = 没传，与 generateIdCards 同档');
+});
+
+test('E17 生成侧闸门点名到具体键', () => {
+  assert.throws(() => generateBankCards({ count: 0 }), RangeError);
+  assert.throws(() => generateBankCards({ count: BANK_GENERATE_MAX + 1 }), /options\.count 应为 1\.\.50/);
+  assert.throws(() => generateBankCards({ count: '5' }), RangeError);
+  assert.throws(() => generateBankCards({ bankCode: 'NOPE' }), /不在表内 260 个行别码里/);
+  assert.throws(() => generateBankCards({ bankCode: 622588 }), TypeError);
+  assert.throws(() => generateBankCards({ bankCode: '   ' }), TypeError);
+  assert.throws(() => generateBankCards({ cardType: 'X' }), /只能是 DC \/ CC \/ PC \/ SCC/);
+  assert.throws(() => generateBankCards({ bin: '62a' }), /options\.bin 只能含数字/);
+  assert.throws(() => generateBankCards({ length: 12 }), /options\.length 应为 13\.\.19/);
+  assert.throws(() => generateBankCards({ length: 20 }), RangeError);
+  assert.throws(() => generateBankCards({ length: 16.5 }), TypeError);
+  assert.throws(() => generateBankCards({ bankCode: 'ICBC', cardType: 'PC' }),
+    /表内没有符合条件的 BIN（bankCode=ICBC cardType=PC）/);
+  assert.equal(generateBankCards(null).length, 1, '整个 options 传 null 等于没传');
+});
+
+test('E18 行别下拉与表自洽', () => {
+  assert.equal(BANK_OPTIONS.length, BANKS.length);
+  assert.equal(BANK_OPTIONS.length, 260);
+  assert.equal(BANK_OPTIONS.reduce((n, b) => n + b.binCount, 0), BIN_ROWS.split(';').length);
+  const codes = BANK_OPTIONS.map((b) => b.code);
+  assert.deepEqual(codes, [...codes].sort(), '下拉顺序按行别码升序，不依赖 locale 折叠');
+  assert.ok(BANK_OPTIONS.every((b) => b.binCount > 0 && b.name !== ''));
+  assert.equal(TOP_BANKS.length, 20);
+  assert.equal(TOP_BANKS[0].code, 'ICBC', '表内 BIN 最多的 90 条必须排在第一位');
+  assert.ok(TOP_BANKS[0].binCount >= TOP_BANKS.at(-1).binCount);
+  const tie = TOP_BANKS.filter((b) => b.binCount === TOP_BANKS.at(-1).binCount).map((b) => b.code);
+  assert.deepEqual(tie, [...tie].sort(), '并列必须按行别码升序收口，否则顺序随引擎');
+});
+
+test('E19 文案边界：只说"参考"，不冒充权威也不越界', () => {
+  assert.equal(Object.keys(CARD_TYPES).join(','), 'DC,CC,PC,SCC');
+  const types = new Set(BIN_ROWS.split(';').map((r) => r.split(' ')[2]));
+  assert.deepEqual([...types].sort(), Object.keys(CARD_TYPES).sort(),
+    '快照里出现了 CARD_TYPES 之外的卡种类，码表与文案要一起补');
+  assert.doesNotMatch(BANK_CAVEAT, /VISA|MASTERCARD|银联|JCB|卡组织/);
+  assert.doesNotMatch(BIN_SOURCE, /银联|官方/);
+  for (const n of ['6212601500012345', '4242424242424242', '9999999999999999']) {
+    assert.equal(parseBankCard(n).caveat, BANK_CAVEAT, `${n}：每条结果自带同一句 caveat，面板不必再拼`);
+  }
+});
+
+test('E20 批量入口：跳空行、行号是原行号', () => {
+  const rows = parseBankCardList('6212601500012345\n\n4242424242424242\n乱码\n');
+  assert.deepEqual(rows.map((r) => r.line), [1, 3, 4]);
+  assert.deepEqual(rows.map((r) => r.result.state), ['valid', 'unlisted', 'malformed']);
+  assert.equal(rows[0].raw, '6212601500012345');
+  assert.deepEqual(parseBankCardList(''), []);
+  assert.deepEqual(parseBankCardList(null), []);
+});
