@@ -69,7 +69,10 @@ function makeDay(y, m, d) {
 }
 
 /**
- * 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ * 报错文案里的"收到什么"。口径只到"这句文案自己"为止：**这里**绝不 String() 一个
+ * Symbol / 无原型对象（那会自己先抛），但不代表入口不 String()——两个解析入口与两个批量入口
+ * 对无原型对象抛 `TypeError: Cannot convert object to primitive value`，uscc.js 同形，
+ * 由 §C 的 C9 钉住"两边同档"（2026-09-26 实测四格逐格同抛）。
  * `Invalid Date` 必须被点出来（m-4）：它此前报成 `Date`，于是那句
  * 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」自己跟自己打架——照字面读，调用方会以为
  * 是"形状没问题、判定挂了"，而真正传进来的是一个解不开的 Date。

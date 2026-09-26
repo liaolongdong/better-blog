@@ -42,6 +42,7 @@ const FILE_TARGETS = [
   'dev/js/tools/random.js',
   'dev/js/tools/idcard.js',
   'dev/js/tools/uscc.js',
+  'dev/js/tools/panel.js',
 ];
 
 /** 分段镜像：`scripts/toolkit-tests.mjs` 按 §B/§C/… 标记切段，每段各有一个块 */

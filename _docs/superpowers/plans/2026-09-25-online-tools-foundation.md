@@ -271,7 +271,8 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  *   §A 区划码表 —— 生成物结构与六档回落（§2.2 / §5.4）；A7–A11 另测生成侧的输入闸门
  *                （`assertShape` 那四道在内）与读侧载入自检有没有牙，A12 测六个读入口的入参口径是否还是同一套
  *   §B 身份证   —— 校验位、三态、解码、生成、与站内旧库对拍（§2.2 / §5.1）
- *   §C 统一代码 —— 31 字符集、两套权重、双校验位自洽（§2.2 / §5.1）
+ *   §C 统一代码 —— 31 字符集、两套权重、双校验位自洽（§2.2 / §5.1）；C9 另测入参闸门
+ *                与批量入口的空文本那一格是否和 §B 同档（两个模块逐格对照，不许分叉）
  *   §D 面板框架 —— ARIA、roving tabindex、hash、方向键（§6.3）
  *   §E 后续段追加：银行卡 / 手机号 / 摘要 / JSON / 互转 / TS 生成
  *
@@ -286,8 +287,14 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  *
  * 本文件刻意保持"平铺 test()"、不用 describe/suite：Task 8 的变异判据按行首 `^not ok <用例名>` 锚定，
  * 而 suite 形状下失败用例的 not ok 行是缩进的（实测 `    not ok 2 - A2`），行首锚定只会看到 §A/§B 这种
- * 组名，点名不到具体该红的判据。代价是明写的：某段模块缺失时整文件不可跑（顶层 await import 决定），
- * 红阶段的隔离性由"报错文案点名是哪个模块"来保证。
+ * 组名，点名不到具体该红的判据。
+ *
+ * "某段模块还没落地"这一档的红**不长成上面那种形状**，2026-09-26 在 /tmp 镜像里把
+ * `dev/js/tools/panel.js` 移走复跑实测：红的是**文件级**那一行 `not ok 1 - scripts/toolkit-tests.mjs`
+ * （`# tests 37 / # pass 36 / # fail 1`），排在缺失那次 `await import()` **之前**注册的 36 条照跑照绿。
+ * 也就是说红阶段看不到 `not ok D1 …` 这样的行——Task 8 若要判"模块还没实现所以该红"，
+ * 只能锚文件名加报错正文里的模块路径（`ERR_MODULE_NOT_FOUND: Cannot find module '…/panel.js'`），
+ * 按 `^not ok <用例名>` 去点名会点名不到，那不是判据没牙，是锚错了层。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -1103,7 +1110,6 @@ test('A12 读侧六个入口的入参口径一致，结构非法不得带出派�
     if (resolveRegion(c).level === 'county') assert.equal(isGeneratable(c, 'county'), true, c);
   }
 });
-
 ```
 
 > `A6` 里 `shiXiaQu.length === 16` 是唯一一个写死的条数，它被末尾那段"逐市对账"覆盖（`1101` 也在 `currentCityCodes()` 里），对账用的是 `Map` 预聚合成 O(n)，不是每市 filter 一遍。这是"抽查项必须逐条从源数据读出后再写进判据"那条教训的落地方式：抽查给锚点，全表给覆盖。
@@ -3360,7 +3366,10 @@ function makeDay(y, m, d) {
 }
 
 /**
- * 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ * 报错文案里的"收到什么"。口径只到"这句文案自己"为止：**这里**绝不 String() 一个
+ * Symbol / 无原型对象（那会自己先抛），但不代表入口不 String()——两个解析入口与两个批量入口
+ * 对无原型对象抛 `TypeError: Cannot convert object to primitive value`，uscc.js 同形，
+ * 由 §C 的 C9 钉住"两边同档"（2026-09-26 实测四格逐格同抛）。
  * `Invalid Date` 必须被点出来（m-4）：它此前报成 `Date`，于是那句
  * 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」自己跟自己打架——照字面读，调用方会以为
  * 是"形状没问题、判定挂了"，而真正传进来的是一个解不开的 Date。
@@ -4167,7 +4176,12 @@ const REAL_SAMPLES = [
   { code: '91350100M000100Y43', source: 'GB 32100-2015 正文示例', verifiedOn: '2026-09-25' },
 ];
 
-/** 下面 13 条码全部是 2026-09-25 用独立脚本实算出来的（口径见 §5.0），不是手推 */
+/**
+ * 这 13 条不是手推的：每条的期望值都由 C3–C7 里的一句机器判据核着
+ * （口径见 §5.0：加权和、余数、末位字符都从 charValue / 两套权重现算）。
+ * 换句话说，这 13 个常量是判据的输入而不是判据的结论——谁改了字符集或权重，
+ * 引用到它们的那几条当场红。
+ */
 const NATIONAL = '91350100M000100Y43';    // 内层本体含字母的国标示例
 const R_ZERO = '913501000000001660';      // Σ mod 31 == 0 → 末位 '0'，且内层自洽（整码可判 valid）
 const R_X = '91350100000000004X';         // 校验值 29 → 'X'
@@ -4192,6 +4206,13 @@ test('C1 31 字符集：长度、剔除的五个字母、值即下标、非法�
   for (const ch of FORBIDDEN_CHARS) {
     assert.equal(USCC_CHARSET.includes(ch), false, `${ch} 不得出现在字符集里`);
   }
+  // 整张表由规则反推，而不是"用到的那几个字符刚好没被改"。上面四句只钉了长度、唯一性、
+  // 五个剔除项和 `0 9 A Y` 四个下标点，而 §C 的 13 条常量只用到 `0-9 A M X Y`：本轮把下标 28
+  // 的 `W` **原地**换成 `-`（长度仍 31、仍唯一、仍不含这五个字母），九条全绿（2026-09-26 实测）。
+  // 这一句把顺序也一起钉住——`charValue` 拿 `indexOf` 当值用，"值即下标"依赖的就是这个顺序。
+  assert.equal(USCC_CHARSET,
+    [...'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'].filter((c) => !FORBIDDEN_CHARS.includes(c)).join(''),
+    '字符集必须逐字符等于「0-9 与大写 A-Z 去掉 FORBIDDEN_CHARS」');
   assert.equal(charValue('0'), 0);
   assert.equal(charValue('9'), 9);
   assert.equal(charValue('A'), 10);
@@ -4283,6 +4304,24 @@ test('C5 三态、大小写归一、批量：只有 false 拖垮结论，null �
   assert.deepEqual(failedC(wrong), ['checkBit']);
   assert.equal(rowC(wrong, 'checkBit').detail, '期望 3，实际 4');
 
+  // 结构档 malformed 递给用户什么：与 idcard 的 B12 同族——算术量在这条路上没有可信输入，
+  // 一格都不许出货。本轮在镜像上把早退分支改成
+  // `out.code = compact; out.info = {…}; out.caveat = '未知主体类型'; out.hasCaveat = true`
+  // 复跑，§C 九条**全绿**（2026-09-26 实测）：C6 那句 doesNotMatch 的输入集是四条区划样本，
+  // 全是能走满五档的码，charset/length 这一档一条都没喂进去过——「未知」照样从这条通道进得来。
+  for (const r of [short, badChar, spaced]) {
+    assert.equal(r.code, '', `${r.input}：结构非法不许把洗过的串当"就是这条码"递出去`);
+    assert.equal(r.info, null, `${r.input}：结构非法不许出 info`);
+    assert.equal(r.caveat, '', `${r.input}：结构非法不许出解释性文案`);
+    assert.equal(r.hasCaveat, false, `${r.input}：hasCaveat 必须跟着 caveat 一起为假`);
+  }
+  assert.equal(short.repairedHint, '', '17 位不是"去掉内部空格就能修好"，不许给假提示');
+  assert.equal(badChar.repairedHint, '', '含被剔除字母，去空格也修不好，不许给假提示');
+  assert.equal(spaced.repairedHint, NATIONAL, '唯一该给提示的一档：去内部空格后就是合法码');
+  // 「未知」禁令覆盖到早退这一档（C6 那句只管走满五档的码）
+  assert.doesNotMatch(JSON.stringify([short, badChar, spaced, lower, wrong]), /未知/,
+    '结构档与 checkdigit 档的任何输出里都不许出现「未知」这类文案');
+
   const list = parseUsccList(`${NATIONAL}\n\n${R_ZERO}\r\nabc`);
   assert.deepEqual(list.map((x) => x.no), [1, 2, 3, 4], '空行必须占一行号，不能悄悄压缩');
   assert.deepEqual(list.map((x) => x.result.state), ['valid', 'empty', 'valid', 'malformed']);
@@ -4308,13 +4347,35 @@ test('C6 区划段复用 §A：未收录与历史码都不下"无效"，绝不�
   assert.equal(hist.info.region.status, 'abolished');
   assert.match(rowC(hist, 'region').detail, /历史码/);
   assert.match(hist.caveat, /未见于现行区划表/,
-    '措辞要诚实，不能断言"已撤销建制"——§A 实测有 63 条同码改名');
+    '措辞要诚实，不能断言"已撤销建制"——同码改名的账落在 scripts/build-id-fixture.mjs 的'
+    + '四成因统计与 region.js 文件头的历史层注释里，B7 的 EXPECT_POOLS 钉着那四个数');
 
   const none = parseUscc(REGION_NONE);
   assert.equal(none.state, 'malformed');
   assert.deepEqual(failedC(none), ['region']);
-  assert.equal(/未知/.test(JSON.stringify([uncoded, province, hist, none].map((r) => r.checks))), false,
-    '任何结论里都不许出现「未知地区」这类文案（站内旧库的反面教材）');
+  // 区划档 malformed 与结构档**故意不同**（口径写在 parseUscc 的 JSDoc 里）：前 17 位的算术
+  // 都成立，所以 code 与纯算术量照旧给——用户靠 `expectedCheckBit` 才能看出"是区划段写错了、
+  // 不是末位错了"。解释性字段必须为空，页面只许在 valid / checkdigit 下渲染区划名与主体类型。
+  assert.equal(none.code, REGION_NONE, '区划档保留 code：这条码的字符集与长度都是对的');
+  assert.equal(none.info.expectedCheckBit, 'M', '区划档保留纯算术量（与结构档的 info:null 分档）');
+  assert.equal(none.info.region.fullName, '', '区划档的解释性字段必须是空串，不能是任何地名');
+  // 「算术量在场」与「解释性四格为空」是两件事，上一版只钉了 `expectedCheckBit` 一格。
+  // before 版实测（2026-09-26，把本轮新加的三句逐句摘掉复跑）：往 `info.region.province`
+  // 填一个**真地名**（'北京市'）41 条全绿；只把**区划档**那一档的 `info.checksum` 摘成
+  // `null` 也 41 条全绿。两句各补一颗牙之后，同一针分别只红 C6。
+  // 另有一针是填「未知」，整改前后都红 C5 + C6——下面那句全 `JSON.stringify` 的「未知」
+  // 扫描早就拦着那个措辞了，所以这一格的牙不在"未知"这两个字，而在"填任何地名都不行"。
+  assert.ok(Number.isFinite(none.info.checksum.sum), '区划档必须保留 `checksum.sum` 这类纯算术量');
+  for (const k of ['province', 'city', 'county']) {
+    assert.equal(none.info.region[k], '', `区划档的 ${k} 必须是空串，不许填任何地名`);
+  }
+  assert.equal(none.caveat, '', '区划落不到只由 checks 那一行说，不重复写进 caveat');
+  // 整条结果入串，不是只 stringify checks：旧写法只比 checks，于是把 caveat 改成
+  // 「未知主体类型」判据照旧绿（镜像复跑：# tests 35 / # pass 35 / # fail 0）。
+  // B6 同一族 stringify 的是 `fallback.info`（比 checks 宽一档），这里再宽一档收整条——
+  // checks、caveat、hasCaveat、info、region.note、repairedHint 一格都不许漏
+  assert.doesNotMatch(JSON.stringify([uncoded, province, hist, none]), /未知/,
+    '任何输出里都不许出现「未知地区」这类文案（站内旧库的反面教材）');
 });
 
 test('C7 内层第 17 位：数字不符才判错、字母不下结论、值 10 两种写法都放行', () => {
@@ -4340,6 +4401,18 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
   const a = generateUsccCodes({ count: 5, rng: seededRandom(20260925) });
   const b = generateUsccCodes({ count: 5, rng: seededRandom(20260925) });
   assert.deepEqual(a.map((x) => x.code), b.map((x) => x.code), '同种子必须同输出');
+  // 生成侧的字段集是面板的直接契约。下面那句 `Object.keys(one.info[key])` 只钉了**解析侧**，
+  // 而计划 §5.1 的原话是"防止后来人凭记忆补一张表进去"——面板渲染的恰恰是生成侧这一份：
+  // 本轮在 `list.push({…})` 里加 `registryName: '工商', categoryName: '企业'`，§C 九条全绿
+  // （2026-09-26 实测）。这一句把九个键按名字钉死：多一个、少一个、改名，当场红。
+  // 钉的是**每一条**而不是只有 `a[0]`：复核实测（同日）只核头一条时，"第 2 条起多塞一键"
+  // 那种变异全绿——而面板是按行渲染的，键集逐行漂移正是它要防的形状。
+  const GEN_KEYS = ['categoryChar', 'caveat', 'checkBit', 'code', 'orgCheckBit', 'regionCode',
+    'regionName', 'registryChar', 'subject'];
+  for (const [i, g] of a.entries()) {
+    assert.deepEqual(Object.keys(g).sort(), GEN_KEYS,
+      `生成侧第 ${i + 1} 条的键集就是面板契约，要改必须连 §5.1 的口径与这段注释一起改`);
+  }
   for (const g of a) {
     assert.equal(g.code.length, 18);
     const self = parseUscc(g.code);
@@ -4351,7 +4424,28 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
     assert.equal(/^[0-9]$/.test(g.code[16]), true, '第 17 位不得落在未核实的"值 10 写法"分支');
     assert.equal(g.code[17], computeCheckChar(g.code.slice(0, 17)));
   }
-  // 342 个现行市级码 + '00' 全都能当区划段（§A 已钉这一档按现行市级解）
+  // 「生成侧永不产出值 10」原先只靠上面那三行 a/b（各 5 条）加下面的 7 号 3 条、9 号 2 条守着，
+  // 而这 10 条的第 17 位实算落在 05386 / 530 / 77（构造：`generateUsccCodes({ count, rng: seededRandom(s) })`，
+  // s/count 三组 = 20260925/5、7/3、9/2）——一次都没触到避让那一格，所以那句断言等于没牙：
+  // 本轮在镜像上摘掉 rollBody8 里避让的那三行复跑过，那时 §C 八条全绿（# tests 35 / # pass 35 /
+  // # fail 0）。换成下面这段扫种子：同样那三行摘掉再跑，s = 1..8 各自在第
+  // 9 / 3 / 10 / 36 / 11 / 7 / 6 / 6 条抛「内部不变量被破坏」，第一条是
+  // `916403001913143610N`——内层校验值 10 被 `${org.value}` 写成两个字符，整码 19 位，
+  // 索引 16 是 '1'、索引 17 是 '0'，length 检查先炸。守卫在的时候这 8×50 条全部成立。
+  for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    const scanned = generateUsccCodes({ count: 50, rng: seededRandom(s) });
+    assert.equal(scanned.length, USCC_GENERATE_MAX, `种子 ${s} 应出满 ${USCC_GENERATE_MAX} 条`);
+    for (const g of scanned) {
+      assert.equal(/^[0-9]$/.test(g.code[16]), true,
+        `种子 ${s} 的 ${g.code} 第 17 位落进了未核实的"值 10 写法"分支`);
+      assert.deepEqual(parseUscc(g.code).checks.map((k) => k.ok), [true, true, true, true, true],
+        `种子 ${s} 的 ${g.code} 逐项不全是 true`);
+    }
+  }
+  // 342 个现行市级码 + '00' 全都能当区划段（那个 342 由 A1 写死的 `REGION_META.counts.cities`
+  // 与 A2 的 `currentCityCodes().length === REGION_META.counts.cities` 钉住，2026-09-26 实读
+  // 两边都是 342；这里不重复计数，只核**每一档**都能按现行市级解——市级表若退化成空，
+  // 这一圈会空转，但那时 A2 已经先红了）
   for (const c of currentCityCodes()) {
     assert.equal(resolveRegion(`${c}00`).status, 'current', `${c}00 应可用于生成`);
   }
@@ -4359,25 +4453,326 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
     .every((g) => g.regionCode.startsWith('35')));
   assert.ok(generateUsccCodes({ count: 2, regionCode: '110100', rng: seededRandom(9) })
     .every((g) => g.regionCode === '110100'));
-  assert.throws(() => generateUsccCodes({ count: 1, regionCode: '110103' }), /历史码只许解、不许生成/);
-  assert.throws(() => generateUsccCodes({ count: 1, regionCode: 'abc' }), /不是现行码/);
-  assert.throws(() => generateUsccCodes({ count: USCC_GENERATE_MAX + 1 }), /1\.\./);
-  assert.throws(() => generateUsccCodes({ count: 1, registry: 'Z' }), /31 字符集/);
+  // 四条一律用 `{ name, message }` 的对象式：第二参数给构造子、第三参数给正则时，
+  // 那个正则会被当成**失败信息**而不是匹配器（2026-09-26 实测：类型不符会红、文案不符照旧绿），
+  // 于是"钉文案"那句是假的。对象式两项都核（探针四格：类型不符 FAIL / 文案不符 FAIL / 全对 PASS）。
+  // 对照 idcard 的 B8 只写了 `assert.throws(…, RangeError)`，C9 全程用 `err.constructor.name`，
+  // regionCode 这一条路径的异常类型从前零判据：把 `regionPool` 那句改成 TypeError，§C 全绿。
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: '110103' }),
+    { name: 'RangeError', message: /历史码只许解、不许生成/ },
+    '历史码只许解、不许生成');
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: 'abc' }),
+    { name: 'RangeError', message: /不是现行码/ }, '形状就不对的区划段');
+  // `regionPool` 的 `why` 四支文案，从前只有 abolished 与"非 6 位数字"两支被钉着：
+  // 2026-09-26 把 uncoded 与 unknown-6 位这两支各换成 `XYZ` 复跑，41/41 照旧全绿（零判据）。
+  // 下面两句钉的是探针跑出来的实测原样，不是凭记忆写的：
+  //   440524 → `区划段 440524 不是现行码（未收录码不能用于生成）：区划码未收录（可能是…）`
+  //   999999 → `区划段 999999 不是现行码（省 / 市 / 县三级都落不到）：省级代码不存在`
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: '440524' }),
+    { name: 'RangeError', message: /未收录码不能用于生成/ }, 'uncoded 档点名"未收录"这档成因');
+  assert.throws(() => generateUsccCodes({ count: 1, regionCode: '999999' }),
+    { name: 'RangeError', message: /省 \/ 市 \/ 县三级都落不到/ },
+    '6 位数字、形状对，但三级都落不到——这一档才许说"三级都落不到"');
+  // note 自己就带一层括号（「区划码未收录（可能是…）」「现行区划表（截止 …）」），
+  // 外层再套一层 `（${note}）` 就是 2026-09-26 实测到的「（区划码未收录（…））」双层括号。
+  // 四档一律核：括号不许嵌套，且开头必须回显用户写的那个区划段。
+  for (const rc of ['110103', '440524', '999999', 'abc', '1101']) {
+    let nested = null;
+    try {
+      generateUsccCodes({ count: 1, regionCode: rc });
+    } catch (e) {
+      nested = e;
+    }
+    assert.ok(nested, `regionCode ${rc} 居然安静出货`);
+    assert.doesNotMatch(nested.message, /（[^（）]*（/, `${rc} 的文案出现嵌套括号 → ${nested.message}`);
+    assert.ok(nested.message.startsWith(`区划段 ${rc} 不是现行码`),
+      `${rc} 的文案没以回显入参开头 → ${nested.message}`);
+  }
+  assert.throws(() => generateUsccCodes({ count: USCC_GENERATE_MAX + 1 }),
+    { name: 'RangeError', message: /1\.\./ }, '条数越界');
+  assert.throws(() => generateUsccCodes({ count: 1, registry: 'Z' }),
+    { name: 'RangeError', message: /31 字符集/ }, '第 1 位不在字符集内');
+  // 形状不对那一档的文案必须**只说形状**：`resolveRegion` 的 `status:'unknown'` 同时装着
+  // "根本不是 6 位数字"与"6 位但表里没有"两种结论，从前这里对 'abc' 也断言
+  // 「省 / 市 / 县三级都落不到」——一句假话（2026-09-26 实测旧文案为
+  // `区划段 ABC 不是现行码（行政区划码应为 6 位数字字符串）；省 / 市 / 县三级都落不到`）。
+  // 回显同样要紧：用户写的是 `abc`，不许被 `toUpperCase()` 洗成 `ABC` 再报给他。
+  const shapeErr = (() => {
+    try {
+      generateUsccCodes({ count: 1, regionCode: 'abc' });
+      return null;
+    } catch (e) {
+      return e;
+    }
+  })();
+  assert.ok(shapeErr, 'regionCode 形状不对时居然安静出货');
+  assert.match(shapeErr.message, /区划段应为 6 位数字/, `形状档要点明是形状 → ${shapeErr.message}`);
+  assert.doesNotMatch(shapeErr.message, /三级都落不到/, `非 6 位数字不许被说成"三级都试过" → ${shapeErr.message}`);
+  assert.ok(shapeErr.message.includes('abc'), `回显要用用户写的那个形状 → ${shapeErr.message}`);
 
   // 合规与口径文案由模块出，页面直接取用，别在页面里另抄一版
   assert.equal(USCC_GENERATE_MAX, 50);
   assert.match(USCC_USE_NOTE, /不得用于任何真实主体/);
   assert.match(REFERENCE_NOTE, /第 1、2 位/);
   const one = parseUscc(NATIONAL);
-  assert.deepEqual(Object.keys(one.info.registry).sort(), ['char', 'value'],
-    '第 1、2 位只给字符与值、不给名称：含义表没取到可核实来源（§5.1）');
+  // 两个键各钉一次：从前只管 registry，往 info.category 里塞一个 `name: '机关'` 判据照旧绿
+  for (const key of ['registry', 'category']) {
+    assert.deepEqual(Object.keys(one.info[key]).sort(), ['char', 'value'],
+      `info.${key} 只给字符与值、不给名称：含义表没取到可核实来源（§5.1）`);
+  }
   assert.equal(one.info.registry.char, '9');
   assert.equal(one.info.registry.value, 9);
+  assert.equal(one.info.category.char, '1');
+  assert.equal(one.info.category.value, 1);
   assert.equal(REAL_SAMPLES.length, 1, '本轮只坐实 1 条真实码，加样本时同步改设计文档 §11');
   for (const s of REAL_SAMPLES) {
     assert.equal(s.verifiedOn, '2026-09-25');
     assert.equal(parseUscc(s.code).state, 'valid');
   }
+});
+
+/**
+ * 同一格入参形状分别喂两个模块：idcardOpts 给 generateIdCards、usccOpts 给 generateUsccCodes，
+ * 各自只把结果拿回来（抛错记 err，安静出货记 rows）。
+ * rows 在 try 里就取好、绝不当着通过的那一轮去 stringify——B10 踩过这一条：把
+ * `JSON.stringify(generateXxx(options))` 写进 assert 的消息模板，坏入参会在**判据本来该绿**
+ * 的那一轮自己先抛穿。§B 那边有 genError，但它只喂 generateIdCards，而这条要的是两个模块
+ * 并排同档，所以自带一份对称的版本（idcard 侧多传 today，让流可复现）。
+ */
+const bothGates = (idcardOpts, usccOpts) => {
+  const grab = (run) => {
+    try {
+      return { err: null, rows: run() };
+    } catch (e) {
+      return { err: e, rows: null };
+    }
+  };
+  return {
+    generateIdCards: grab(() => generateIdCards({ count: 1, today: TODAY, rng: seededRandom(4242), ...idcardOpts })),
+    generateUsccCodes: grab(() => generateUsccCodes({ count: 1, rng: seededRandom(4242), ...usccOpts })),
+  };
+};
+
+/** 两模块并排断言：坏形状这一档必须同类、同点名、都不许把调用方的错记成"内部不变量" */
+const assertBothReject = (r, kind, want, why) => {
+  for (const [mod, got] of Object.entries(r)) {
+    if (!got.err) {
+      assert.fail(`${mod}：${why} —— 居然安静出货 ${JSON.stringify(got.rows)}`);
+    }
+    assert.equal(got.err.constructor.name, kind,
+      `${mod}：${why} 的异常类型应当是 ${kind} → ${got.err.constructor.name}: ${got.err.message}`);
+    assert.match(got.err.message, want, `${mod}：${why} 的报错文案 → ${got.err.message}`);
+    assert.doesNotMatch(got.err.message, /内部不变量/,
+      `${mod}：${why} —— 入参错误被记成实现有 bug → ${got.err.message}`);
+  }
+};
+
+test('C9 入参闸门与身份证模块同档：坏形状点名到键、空文本零行，两个模块一格都不许分叉', () => {
+  // 这一条把 uscc.js 落地后复核坐实的入参分叉逐格钉住。idcard.js 那批闸门各自被 B8 / B10 钉过
+  // （count 只认 undefined、rng 先验类型再验取值、区划键只认非空字符串、整个 options 传 null
+  // 等于没传、批量入口的空文本给 0 行），uscc.js 整改前同一批形状的行为——每条都在整改前
+  // 那一版（`83675ca`，本模块首次落地那次提交；`22d7147` 才把它们治掉）上跑过，
+  // 出的号能不能复算写在括号里：
+  //   `parseUsccList('')` / `parseUsccList(null)` 各给 **1 行**（idcard 给 0 行，而注释写着"同形"）；
+  //   `generateUsccCodes({ count: null })` 安静出货 1 条（`options.count ?? 1`，正是 B8 点名拆掉的写法）；
+  //   `generateUsccCodes(null)` 抛 `TypeError: Cannot read properties of null (reading 'rng')`；
+  //   `generateUsccCodes({ rng: 'nope' })` 静默回落**时间种子**出货 1 条（号随墙钟、复算不出，
+  //     当天摇到 91130100969112487K）；
+  //   `generateUsccCodes({ rng: () => 2 })` 摇出 `91undefined20202020202020202B`（这条是确定流：
+  //     池子索引 `Math.floor(2 * pool.length)` 越界取到 undefined、每个数字位都摇成 2），
+  //     再由自检那一关抛「内部不变量被破坏」——同一件事 idcard 的 I-6 治过；
+  //   `generateUsccCodes({ provinceCode: '' })` 放开整张现行市级池，当天出货
+  //     91620600124270547W（甘肃省武威市）；
+  //   `generateUsccCodes({ regionCode: 110100 })` 数值被 String() 收下、照常出货区划段 110100 的码。
+  // 两份 shapeOf / checkedRng 各自留在自己文件里是刻意的取舍（同级工具模块互不 import，
+  // 理由写在 uscc.js 的 shapeOf 注释），代价就是"跨模块口径一致"没有编译期保证——只能由这条钉。
+  const reject = [
+    [{ count: null }, 'RangeError', /数量应为 1\.\.\d+ 的整数，收到 null/,
+      'count 传 null：`?? 1` 把它吞成"默认一条"，一次类型错误静默出货'],
+    [{ count: 0 }, 'RangeError', /数量应为 1\.\.\d+ 的整数，收到 number 0/, '零条不是"没传"，不许静默补一条'],
+    [{ count: 1.5 }, 'RangeError', /收到 number 1\.5/, '非整数条数'],
+    [{ count: '5' }, 'RangeError', /收到 string 5/, '字符串条数（旧文案只写"收到 5"，看不出是串）'],
+    [{ rng: 'nope' }, 'TypeError', /options\.rng[^\n]*应为 \(\) => number[^\n]*收到 string nope/,
+      '非函数 rng 不许静默回落时间种子'],
+    [{ rng: () => 2 }, 'TypeError', /options\.rng[^\n]*每次应给出 \[0, 1\) 内的有限数[^\n]*收到 number 2/,
+      '取值越界第一次就报，不许摇到自检那一关才抛"内部不变量"'],
+    [{ provinceCode: '' }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 string/,
+      '空串收窄＝零候选，与"没收窄"是两种用户意图'],
+    [{ provinceCode: '   ' }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串/,
+      '全空白串同一条'],
+    [{ provinceCode: 11 }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 number 11/,
+      '数值省码不许被 String() 洗成合法前缀（M-11 同族）'],
+    [{ provinceCode: null }, 'TypeError', /options\.provinceCode[^\n]*应为非空字符串[^\n]*收到 null/,
+      'null 省码不得等于放开整张现行表'],
+  ];
+  for (const [options, kind, want, why] of reject) {
+    // 两边各断一次同一个 kind —— 这本身就是"同档"断言：任何一边松口（或哪天改类型），这里红
+    assertBothReject(bothGates(options, options), kind, want, why);
+  }
+  assert.equal(USCC_GENERATE_MAX, GENERATE_MAX,
+    '两个模块的批量上限必须同值，否则上面那句「1..50」的对照文案就是假的（§11 风险表）');
+
+  // 用 uscc 独有的 regionCode 对 idcard 的 areaCode：键名不同、档位必须相同
+  const perKey = [
+    [{ areaCode: 110101 }, { regionCode: 110100 }, 'TypeError', /应为非空字符串[^\n]*收到 number/,
+      '数值区划码：uscc 从前 String() 收下照常出货'],
+    [{ areaCode: '' }, { regionCode: '' }, 'TypeError', /应为非空字符串/,
+      '空串区划码：与"没传"是两回事'],
+    [{ areaCode: '   ' }, { regionCode: '   ' }, 'TypeError', /应为非空字符串/, '全空白串同上'],
+    [{ areaCode: null }, { regionCode: null }, 'TypeError', /应为非空字符串[^\n]*收到 null/,
+      'null 区划码不得等于放开整张现行表'],
+  ];
+  for (const [idcardOpts, usccOpts, kind, want, why] of perKey) {
+    assertBothReject(bothGates(idcardOpts, usccOpts), kind, want, why);
+  }
+
+  // 正向对照：闸门不许把合法入参一起关掉。两边同形状、同条数，且各自出货自检得过。
+  // 文案只说这一圈真正断言的东西（条数 + 自检 + 默认字符）——`bothGates` 恒注入确定种子，
+  // 所以"时间种子那一档"不在这一圈里（由下面的 noOptions 循环与 B8/C8 的时间种子用例钉），
+  // "收窄到 35 省"也不在这一圈里（由 C8 那句 every(regionCode.startsWith('35')) 钉）。
+  const accept = [
+    [{}, {}, 1, '什么都不传 = 一条，且确定流自洽'],
+    [{ count: 3 }, { count: 3 }, 3, '条数在界内'],
+    [{ rng: null }, { rng: null }, 1, 'rng 传 null = 没传（B10 钉过的同一档）'],
+    [{ provinceCode: '35' }, { provinceCode: '35' }, 1, '非空字符串省码不被闸门误拒（收窄由 C8 钉）'],
+  ];
+  for (const [idcardOpts, usccOpts, want, why] of accept) {
+    const r = bothGates(idcardOpts, usccOpts);
+    for (const [mod, got] of Object.entries(r)) {
+      if (got.err) assert.fail(`${mod}：${why} —— 不该抛 → ${got.err.constructor.name}: ${got.err.message}`);
+      assert.equal(got.rows.length, want, `${mod}：${why} 的条数`);
+    }
+    assert.ok(r.generateIdCards.rows.every((g) => parseIdCard(g.id18, { today: TODAY }).state === 'valid'),
+      `${why}：idcard 出货自检不过`);
+    assert.ok(r.generateUsccCodes.rows.every((g) => parseUscc(g.code).state === 'valid'),
+      `${why}：uscc 出货自检不过`);
+    assert.ok(r.generateUsccCodes.rows.every((g) => g.code.startsWith('91')),
+      `${why}：第 1、2 位的默认字符没落到 9 与 1`);
+  }
+
+  // 整个 options 传 null / undefined = 没传。整改前 `generateUsccCodes(null)` 抛的是
+  // `TypeError: Cannot read properties of null (reading 'rng')`——一个入参名字都不点，
+  // 把调用方传进来的 null 报成引擎崩溃（idcard 的 F4 早就治过同一格）
+  for (const noOptions of [null, undefined]) {
+    const ids = generateIdCards(noOptions);
+    assert.equal(ids.length, 1, `generateIdCards(${String(noOptions)}) 应出一条而不是抛`);
+    assert.equal(parseIdCard(ids[0].id18, { today: TODAY }).state, 'valid');
+    const codes = generateUsccCodes(noOptions);
+    assert.equal(codes.length, 1, `generateUsccCodes(${String(noOptions)}) 应出一条而不是抛`);
+    assert.equal(parseUscc(codes[0].code).state, 'valid', `generateUsccCodes(${String(noOptions)}) 出的码自检不过`);
+  }
+
+  // 省码合法但底下零候选：`省码 … 下没有现行市级区划` 这道抛从前零判据。镜像上摘掉它
+  // （锚点命中 1 处）跑 `generateUsccCodes({ count: 1, rng: seededRandom(4242), provinceCode: '99' })`
+  // 抛的是裸 `Error: 内部不变量被破坏：生成的 91undefined295622439Y 自检未通过
+  // （state=malformed,charset=false,length=false）`——空池子取回 undefined，又一次把调用方的
+  // 入参问题记成实现的 bug。所以下面那两句要的就是"必须是 RangeError 且点名省码 99"。
+  // idcard 的同一格并排：两边同档，文案各点各的名。
+  const emptyPool = bothGates({ provinceCode: '99' }, { provinceCode: '99' });
+  assertBothReject(emptyPool, 'RangeError', /99/, '省码 99 底下没有现行市级区划');
+  assert.match(emptyPool.generateUsccCodes.err.message, /省码 99 下没有现行市级区划/,
+    'uscc 这一格必须点名省码，而不是含糊一句"没有候选"');
+  // 尾句「（区划数据截止 …）」从前零判据：2026-09-26 把它摘掉复跑，C9 只 match 前半串、照旧全绿。
+  // 这一句是用户能不能把"省码 99 查不到"读成"数据过时"的关键，且日期必须由 `REGION_META` 来——
+  // 所以两句一起钉：既有截止日这一档，又是 `datasetVersion` 那个值本身。
+  assert.match(emptyPool.generateUsccCodes.err.message, /区划数据截止 \d{4}-\d{2}-\d{2}）$/,
+    `空池文案必须带数据截止日尾句 → ${emptyPool.generateUsccCodes.err.message}`);
+  assert.ok(emptyPool.generateUsccCodes.err.message
+    .includes(`区划数据截止 ${REGION_META.datasetVersion}`),
+    `尾句的日期必须取 REGION_META.datasetVersion（实测 ${REGION_META.datasetVersion}）`
+    + ` → ${emptyPool.generateUsccCodes.err.message}`);
+  assert.match(emptyPool.generateIdCards.err.message, /没有可生成的行政区划/, 'idcard 同一格的文案');
+
+  // 第 1、2 位这两格是 uscc 独有的（idcard 没有对等键），整改前只有 registry 被 C8 钉过一条 'Z'，
+  // category 这一格一次判据都没碰过；数值 9 与 0 从前被 String() 收成合法字符
+  const chars = [
+    [{ registry: 9 }, /options\.registry/, '数值 9 被 String() 洗成合法字符'],
+    [{ category: 0 }, /options\.category/, '数值 0 同上'],
+    [{ category: 'ZZ' }, /options\.category/, '两个字符不是单字符（C8 只钉过 registry）'],
+    [{ category: 'I' }, /options\.category/, '被剔除的字母 I'],
+    [{ registry: '   ' }, /options\.registry/, '全空白串不是单字符'],
+  ];
+  for (const [options, want, why] of chars) {
+    let err = null;
+    // 出货的行走完 try 再 stringify（`assertBothReject` 同一档：坏入参那一轮本来该红，
+    // 不该因为消息模板里 stringify 而抛穿；绿的那一轮才拿 rows 去拼失败信息）
+    let rows = null;
+    try {
+      rows = generateUsccCodes({ count: 1, rng: seededRandom(4242), ...options });
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`generateUsccCodes：${why} —— 居然安静出货 ${JSON.stringify(rows)}`);
+    assert.equal(err.constructor.name, 'RangeError', `generateUsccCodes：${why} 的异常类型`);
+    assert.match(err.message, want, `generateUsccCodes：${why} 没点名是哪个键 → ${err.message}`);
+    assert.match(err.message, /31 字符集内的单个字符/, `generateUsccCodes：${why} 的文案 → ${err.message}`);
+    assert.doesNotMatch(err.message, /内部不变量/, `generateUsccCodes：${why} —— 记成了实现有 bug`);
+  }
+  assert.equal(
+    generateUsccCodes({ count: 1, rng: seededRandom(4242), registry: null, category: null })[0].code.slice(0, 2),
+    '91', 'registry / category 传 null 等于没传（与 idcard 的 minAge ?? 18 同一档），默认字符仍是 9 与 1');
+
+  // 单条解析入口的 raw 形状：两边都不许抛，且同一形状必须给同一个 state
+  // （七个形状 2026-09-25 逐个实跑过：两个模块逐格同态。`String(raw)` 是唯一的洗白通道，
+  // 于是数组落到空串、对象落到 `[object Object]`、那条 17 位数字字面量落到
+  // `12345678901234568`（double 精度丢了一位）——两边都只按串判定，谁也不许自己崩）
+  const rawShapes = [
+    ['', 'empty'], [null, 'empty'], [undefined, 'empty'], ['  ', 'empty'], [[], 'empty'],
+    [{}, 'malformed'], [12345678901234567, 'malformed'],
+  ];
+  for (const [raw, want] of rawShapes) {
+    assert.equal(parseIdCard(raw).state, want, `parseIdCard(${String(raw)}) 应当是 ${want}`);
+    assert.equal(parseUscc(raw).state, want, `parseUscc(${String(raw)}) 应当是 ${want}`);
+  }
+
+  // 表外那一格：**单元素数组**的 `String()` 就是那条码本身，于是它落的不是"空串/对象串"
+  // 那一档。2026-09-26 实测 `parseUscc(['91350100M000100Y43'])` 是 valid、把生成的 id18 包进
+  // 数组喂 `parseIdCard` 也是 valid，与各自的裸串输入逐格同态（`value` 都归一到同一条）。
+  // 这一格只能表外单独钉：两个模块的合法码不同形（18 位纯数字 vs 含字母的 31 字符集码），
+  // 一条数组不可能同时是两边的合法码，塞进上面那张"两边同态"表会让那一行变成假对照。
+  // 它是 `@param` JSDoc 那句"归一之后照样可能是一条合法码"的唯一牙齿。
+  const idWrapped = generateIdCards({ count: 1, rng: seededRandom(4242) })[0].id18;
+  for (const [label, fn, code] of [['idcard', parseIdCard, idWrapped], ['uscc', parseUscc, NATIONAL]]) {
+    const bare = fn(code);
+    const wrapped = fn([code]);
+    assert.equal(bare.state, 'valid', `${label} 的样本裸串应当是 valid（这一格的前置）`);
+    assert.equal(wrapped.state, bare.state,
+      `${label}：单元素数组归一成那条码本身，不许降成 malformed → ${wrapped.state}`);
+    assert.equal(wrapped.value, bare.value,
+      `${label}：单元素数组与裸串必须归一到同一条 → ${wrapped.value}`);
+    assert.equal(fn(['x']).state, 'malformed', `${label}：['x'] 落到 "x" 仍按 malformed 判`);
+    // 两元素那一格才是"只 String() 一次、不递归拆包"的牙齿：将来谁给入口加了
+    // `Array.isArray(raw) ? raw[0] : …` 的"贴心拆包"，上面三格照旧全绿（`[code]` 与
+    // `[code,'x']` 的 `raw[0]` 完全同形），只有这一格会红。
+    assert.equal(fn([code, 'x']).state, 'malformed',
+      `${label}：两元素数组落到 "${code},x"，不许被拆包成首元素再判 valid`);
+  }
+
+  // 无原型对象这一格（`Object.create(null)`）：上面那张表里没有它，因为 `String(naked)` 自己就抛。
+  // `shapeOf` 的注释从前写着"绝不 String() 一个 Symbol / 无原型对象"，读起来像整个模块都不 String()
+  // 它——实际入口是在 `String(raw)` 那一行抛的。2026-09-26 实测：四个字符串入口逐格同抛
+  // `TypeError: Cannot convert object to primitive value`，`resolveRegion` 不抛（它先做类型判断），
+  // 两个 generate 把它当普通对象收下、照常出一条。
+  // 本站口径是**不吞**：这类入参只能是装配层写错，抛出来比静默降成 empty / malformed 好定位，
+  // 而且静默给结论会让"面板报了一条 empty"看起来像用户真的粘了空。所以这一圈钉的是"两边同档"，
+  // 不是钉这句原生文案（将来真要收类型闸门，两个模块必须一起收、这里一起改）。
+  const naked = Object.create(null);
+  for (const [label, fn] of [['parseIdCard', parseIdCard], ['parseUscc', parseUscc],
+    ['parseIdCardList', parseIdCardList], ['parseUsccList', parseUsccList]]) {
+    assert.throws(() => fn(naked), { name: 'TypeError' },
+      `${label}：无原型对象在两个模块里必须同抛 TypeError，谁也不许自己静默洗成一条结论`);
+  }
+
+  // 批量入口的空文本那一格：idcard 早就给 0 行，uscc 从前给 1 行却注释着"与 parseIdCardList 同形"
+  for (const text of ['', null, undefined, '\n', '\n\n', 'a\n\nb', `${NATIONAL}\n\n${R_ZERO}\r\nabc`]) {
+    const rows = parseUsccList(text);
+    const ids = parseIdCardList(text);
+    assert.deepEqual(rows.map((r) => ({ no: r.no, raw: r.raw })), ids.map((r) => ({ no: r.no, raw: r.raw })),
+      `同一份粘贴在两个批量入口的行数 / 行号 / 原文不一致：${JSON.stringify(text)}`);
+  }
+  assert.equal(parseUsccList('').length, 0, '空文本 = 根本没粘贴 = 0 行，不许凭空造一行 empty 结论');
+  assert.equal(parseUsccList(null).length, 0, 'null 同上');
+  assert.equal(parseUsccList('\n\n').length, 3, '例外只有空文本：空行照旧各占一行号');
 });
 ```
 
@@ -4393,7 +4788,9 @@ test('C8 生成侧自洽 + 未验证缺口显式登记', () => {
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected: `exit` 非 0，报 `Cannot find module '…/dev/js/tools/uscc.js'`——`await import()` 在文件加载期就抛，§A 的 12 条与 §B 的 9 条一起不跑。这是预期的红：模块不存在，不是判据写松了。
+Expected: `exit=1`，红的是**文件级**那一行 `not ok 1 - scripts/toolkit-tests.mjs`，报错正文里有 `ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/uscc.js'`，计数是 `# tests 28 / # pass 27 / # fail 1`。
+
+**这一句在第十三轮之前写的是"§A 的 12 条与 §B 的 9 条一起不跑"，两处都是假的**（§5.2 的 d-1 行）：`await import()` 在 §C 的开头抛，排在它之前注册的 §A 12 条与 §B 15 条**照跑照绿**（27 条全过），"一起不跑"不成立；而 §B 早就是 15 条，不是 9 条。实测口径：`git archive 83675ca` 的镜像上把 `dev/js/tools/uscc.js` 移走复跑，就是上面那三行。这也正是判据文件头那段"模块还没落地这一档的红不长成 `not ok <用例名>`"的同一个形状——要锚就锚文件名与模块路径，别按用例名点名。
 
 - [ ] **Step 3: 提交红灯**
 
@@ -4415,19 +4812,30 @@ git commit -m "test(tools): 统一社会信用代码判据先行，模块待实�
  * 第 1、2 位的取值含义表没取到可核实来源，所以这里只校验字符合法性、只给字符与值、
  * 不输出任何名称（见 REFERENCE_NOTE）。内层校验值 10 的两种写法未核实口径，
  * 解析侧两种都放行、生成侧直接回避——三档处理见设计文档 §5.1 与本段计划 §5.1。
+ *
+ * 入参闸门与同级模块 `idcard.js` 同档（判据是 §C 的「C9 入参闸门与身份证模块同档」）：
+ * 整个 options 传 null / undefined 都等于没传；`count` 只把「没传」（undefined）当默认值；
+ * `rng` 先验是不是函数、再验每次取值是否落在 [0, 1)；`regionCode` / `provinceCode` 只接受
+ * **非空字符串**，空串、全空白、数值、null 一律抛并点名是哪个键。报错文案里的"收到什么"
+ * 一律带类型（`string nope` / `number 2` / `null`）。
  */
-import { resolveRegion, currentCityCodes } from './region.js';
+import { resolveRegion, currentCityCodes, REGION_META } from './region.js';
 import { seededRandom } from './random.js';
 
 /** 字符集，下标即该字符参与加权时的值；剔除了 I O S Z V，共 31 个 */
 export const USCC_CHARSET = '0123456789ABCDEFGHJKLMNPQRTUWXY';
-/** 被剔除的五个字母。单独导出是为了让判据能反向核对字符集长度 */
+/**
+ * 被剔除的五个字母。单独导出是为了让判据能**从规则反推整张字符集**——C1 用
+ * `[...'0-9A-Z' 去掉这五个].join('')` 与 `USCC_CHARSET` 逐字符对，连顺序一起钉。
+ * 从前它只被当作"长度 31 的反向核对"用，于是把下标 28 的 `W` 原地换成 `-`
+ * （长度仍 31、仍唯一、仍不含这五个）时 §C 九条全绿（2026-09-26 实测）。
+ */
 export const FORBIDDEN_CHARS = ['I', 'O', 'S', 'Z', 'V'];
-/** 前 17 位加权因子 = 3^(i-1) mod 31 */
+/** 前 17 位加权因子：数组下标 i **从 0 起**，值 = 3^i mod 31（国标按位序 1 起写作 3^(i-1)） */
 export const USCC_WEIGHTS = [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28];
-/** 内层组织机构代码校验位权重（GB 11714）= 2^(8-i) mod 11 */
+/** 内层组织机构代码校验位权重（GB 11714）：数组下标 i **从 0 起**，值 = 2^(8-i) mod 11 */
 export const ORG_WEIGHTS = [3, 7, 9, 10, 5, 8, 4, 2];
-/** §11 风险表：不提供"批量导出上千条" */
+/** §11 风险表原文：不提供"批量导出 1 万条"这类功能（数量上限 50） */
 export const GENERATE_MAX = 50;
 /** §5.5 合规文案。页面直接取用这一份，别在页面里另抄一版 */
 export const USE_NOTE = '随机合成的统一社会信用代码，只在算术上自洽；与真实登记主体重合的概率可忽略，不得用于任何真实主体的查询、申报或对账。';
@@ -4488,7 +4896,31 @@ export function computeCheckChar(body17) {
  * 每行 `ok` 是三态：true / false / null（null = 这一项不下结论，例如区划未收录、
  * 第 17 位是字母）。**只有 false 才拖垮整体结论**，与身份证模块同口径（设计文档 §5.4）。
  *
- * @param {string|number|null} raw 用户输入
+ * `malformed` 有**两档**，递给用户的东西不一样，页面必须按档处理：
+ *   - **结构档**（字符集或长度不符，走下面 `!charsetOk || !lengthOk` 的早退）：
+ *     `code` 是空串、`info` 是 `null`、`caveat` 空、`hasCaveat` 是 false，只有 checks
+ *     和可能存在的 `repairedHint`。算术量在这条路径上没有可信输入，一个都不许出货。
+ *   - **区划档**（前 17 位字符集、长度、双校验位都成立，只有区划段落不到）：
+ *     `code` 与 `info` 照旧给。这里留下的 `info.expectedCheckBit` 与 `info.checksum`
+ *     （后者是 `{sum, remainder, value}` 三格对象）是**纯算术量**，展示它们对用户定位
+ *     "区划段写错了、不是末位错了"有用，所以本站选择保留；但 `info.region` 的
+ *     `fullName`、`province`、`city`、`county` 四格一律是空串。
+ *   → 因而页面**只许在 `state` 为 `valid` / `checkdigit` 时渲染区划名称、登记管理
+ *     部门、机构类别这类解释性字段**；这条门是页面装配层（段 2）的义务，本模块只保证
+ *     结构档出货为零、区划档的解释性字段为空。判据：C5 钉结构档四格全空；
+ *     C6 钉区划档"算术量在场 + 解释性四格全空串 + 整条输出不含「未知」"。
+ *
+ * @param {string|number|null|undefined} raw 用户输入。串以外的形状只经 `String()` 归一一次，
+ *   而**归一之后照样可能是一条合法码**，别以为传了非串就必然被拒：
+ *   `parseUscc(['91350100M000100Y43'])` 是 `valid`（单元素数组的串就是那条码本身），
+ *   `parseUscc([])` 是 `empty`（空数组的串是空串），`parseUscc({})` 是 `malformed`
+ *   （串是 `[object Object]`）。三格 2026-09-26 逐格实测，三格都由 C9 钉着：`[]` 与 `{}`
+ *   两格本来就在 `rawShapes` 表里（与 `parseIdCard` 同表同态），单元素数组那一格只能表外
+ *   单独钉——两个模块各自的合法码不同形，一条数组不可能同时是两边的合法码。
+ *   **18 位码一律传字符串**：数值字面量在调用方手里就已经丢精度，
+ *   `parseUscc(913501000000001660)` 收到的实际是 `913501000000001700`（double 只在 2^53 内
+ *   精确；实测变的是**第 16、17 两位**，`66` → `70`，末位碰巧没变）——这不是本模块能补救的，
+ *   所以别把号码写成数值。
  * @returns {{input:string, value:string, code:string, normalized:boolean,
  *   state:'empty'|'malformed'|'checkdigit'|'valid', checks:Array, info:object|null,
  *   caveat:string, hasCaveat:boolean, repairedHint:string}}
@@ -4520,6 +4952,8 @@ export function parseUscc(raw) {
   // 2) 长度
   const lengthOk = compact.length === 18;
   push('length', '长度', lengthOk, `${compact.length} 位${lengthOk ? '' : '（应为 18 位）'}`);
+  // 结构档早退：`out` 到这里只有 input / value / normalized / state / checks 五格是非默认值，
+  // code 保持 ''、info 保持 null、caveat 保持空——这是上面 JSDoc 立的口径，由 C5 逐格钉住
   if (!charsetOk || !lengthOk) {
     out.state = 'malformed';
     return out;
@@ -4558,8 +4992,11 @@ export function parseUscc(raw) {
     : (!checkOk || orgOk === false) ? 'checkdigit' : 'valid';
 
   const caveats = [];
-  // 历史码与未收录码都要留话：前者 ok=true 但措辞不能省（§A 实测 63 条同码改名），
-  // 后者 ok=null。与 idcard.js 的 caveats 同一套判据
+  // 历史码与未收录码都要留话：前者 ok=true 但措辞不能省，后者 ok=null。
+  // "同码改名"这件事的账落在 scripts/build-id-fixture.mjs 的四成因统计
+  // （renamed / renamedByCounty / renamedByLegacyPrefix / renamedByPlaceholder）
+  // 与 region.js 文件头的历史层注释里，判据侧由 B7 的 EXPECT_POOLS 钉着那四个数——
+  // 所以这里不留一个别人复算不出来的裸数字。caveats 的这套判据与 idcard.js 同族。
   if (region.status === 'abolished' || region.status === 'uncoded') caveats.push(region.note);
   if (orgOk === null) caveats.push(`第 17 位为字母 ${orgChar}，未按组织机构代码校验位判定`);
   if (out.normalized) caveats.push('输入含小写字母，已按 31 字符集转大写后判定');
@@ -4577,37 +5014,139 @@ export function parseUscc(raw) {
   return out;
 }
 
-/** 按行解析：空行占一个行号、不静默压缩，与 parseIdCardList 同形 */
+/**
+ * 按行解析：空行占一个行号、不静默压缩（用户看到的行号必须和粘贴时一致）。
+ * 唯一的例外是"根本没粘贴"：null / undefined / 空串给 **0 行**，而不是凭空造一行 empty 结论
+ * ——面板按 rows.length 报"共 N 条"，一行都不该有的时候报 1 条就是错的。
+ * 这一格与 parseIdCardList 同形（旧注释写着"同形"、代码却给 1 行；§C 的
+ * 「C9 入参闸门与身份证模块同档」现在逐格比对两个批量入口的行号与原文）。
+ * @param {string|null|undefined} text 粘贴进来的多行文本；非串先 `String()` 一次，
+ *   无原型对象会在那一行抛 `TypeError`（与两个解析入口同一档，两边都不吞）
+ * @returns {Array<{no:number, raw:string, result:object}>} 每行一条，`no` 是 1 起的行号，
+ *   `raw` 是**未去掉行内空白**的原文（用户看到的必须是他粘贴的那一行）
+ */
 export function parseUsccList(text) {
-  return String(text === null || text === undefined ? '' : text)
+  const s = String(text === null || text === undefined ? '' : text);
+  if (s === '') return [];
+  return s
     .split(/\r?\n/)
     .map((raw, i) => ({ no: i + 1, raw, result: parseUscc(raw) }));
 }
 
-/** 31 字符集内的单个字符，否则抛：第 1、2 位只校验合法性，不解释含义 */
+/**
+ * 报错文案里的"收到什么"——形状带上类型，`string nope` / `number 2` / `null`，
+ * 让「收到 5」这种读起来像"值 5 不合法"的文案不再出现（数值 5 与字符串 '5' 得分得开）。
+ * 口径只到"这句文案自己"为止：**这里**绝不 String() 一个 Symbol / 无原型对象（那会自己先抛），
+ * 但不代表入口不 String()——两个解析入口与两个批量入口对无原型对象抛
+ * `TypeError: Cannot convert object to primitive value`，idcard.js 同形，由 C9 钉住"两边同档"。
+ *
+ * 为什么这里要有第二份、而不是去 import idcard.js 的那一个：shapeOf 在 idcard.js 里是
+ * 文件私有的，而本站的同级工具模块互不 import（面板按模块取用，谁也不该因为另一个
+ * 工具的口径改动而被拖着回归）。"跨模块口径一致"与"同级模块互不 import"这两条只能选
+ * 前者靠判据兜：复制的这两份由 §C 的「C9 入参闸门与身份证模块同档」逐格对着 idcard.js
+ * 核，谁单独改口径另一边的格子当场红。
+ */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
+}
+
+/**
+ * 校验并包一层可注入随机源。`null` / `undefined` = 没传 → 时间种子；别的形状一律抛。
+ *
+ * 为什么连"取值"也要查（与 idcard.js 的 checkedRng 同一档）：整改前 `rng: () => 2` 不抛，
+ * `pool[Math.floor(2 * pool.length)]` 直接取到 undefined，一路摇成
+ * `generateUsccCodes({ rng: () => 2 })` 出的 `91undefined20202020202020202B`，
+ * 最后由自检那一关抛「内部不变量被破坏」——调用方的一次错被记成实现的 bug。
+ * 现在第一次取值就报，且点名 options.rng。
+ * @param {(() => number)|null|undefined} input 入参
+ * @returns {() => number} 每次取值都保证落在 [0, 1) 的包装函数
+ */
+function checkedRng(input) {
+  if (input === undefined || input === null) return seededRandom(Date.now());
+  if (typeof input !== 'function') {
+    throw new TypeError(`generateUsccCodes 的 options.rng 应为 () => number，收到 ${shapeOf(input)}`);
+  }
+  return () => {
+    const v = input();
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v >= 1) {
+      throw new TypeError(`generateUsccCodes 的 options.rng 每次应给出 [0, 1) 内的有限数，收到 ${shapeOf(v)}`);
+    }
+    return v;
+  };
+}
+
+/** 第 1、2 位的默认字符：最常见的那一档，本站不解释其含义（见 REFERENCE_NOTE） */
+const DEFAULT_REGISTRY = '9';
+const DEFAULT_CATEGORY = '1';
+
+/** 单字符 → 31 字符集内的字符，否则抛：第 1、2 位只校验合法性，不解释含义 */
 function singleChar(raw, what) {
-  const s = String(raw === null || raw === undefined ? '' : raw).trim().toUpperCase();
+  const s = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (s.length !== 1 || charValue(s) === null) {
-    throw new RangeError(`${what}应为 31 字符集内的单个字符，收到 ${String(raw)}`);
+    throw new RangeError(`${what}应为 31 字符集内的单个字符，收到 ${shapeOf(raw)}`);
   }
   return s;
 }
 
-/** 区划段候选：只能是现行码。指定 regionCode 时按 §5.4 拒绝历史码与未收录码 */
-function regionPool(options) {
-  if (options.regionCode !== undefined && options.regionCode !== null) {
-    const code = String(options.regionCode).trim().toUpperCase();
+/**
+ * 区划段候选：只能是现行码。指定 regionCode 时按 §5.4 拒绝历史码与未收录码。
+ *
+ * 两个键只接受**非空字符串**（与 idcard.js 的 prefixOf 同一档）：
+ *   - `regionCode: 110100`（数值）从前被 `String()` 收下、照常出货——一次类型错误洗成合法入参；
+ *   - `provinceCode: ''` 从前等于放开整张现行市级池（`currentCityCodes()` 那一串）——
+ *     "收窄到零候选"与"没收窄"是两种完全不同的用户意图，不许混为一谈；
+ *   - `null` 在这里跟 `undefined` 分家：undefined = 没传，null 一律抛。
+ * idcard 的三个键是一条优先级链、只看传了的那一个；这里两个键各管一档（整码与前缀），
+ * 所以**两个键都验**再谈优先级——只验第一个传了的键，等于给
+ * `{ regionCode: '110100', provinceCode: null }` 这类拼错的载荷留一条静默通道。
+ * @param {object} o 已通过 `options ?? {}` 归一的入参对象
+ * @returns {string[]} 区划段候选池：显式给了 `regionCode` 就是那一个六位码（现行表的
+ *   **任意一级**都收——实测 `110000` 这类省级码能生成，市/县同样）；没给时是
+ *   `currentCityCodes(前缀)` 那 342 个现行市级码各自补 `00`。
+ *   `provinceCode` 实为"任意 ≤4 位前缀"（4 位市码也收），文案里沿用的"省码"与
+ *   idcard.js 的 `prefixOf` 同档，不改行为、只在这里点一句。
+ */
+function regionPool(o) {
+  for (const key of ['regionCode', 'provinceCode']) {
+    const v = o[key];
+    if (v === undefined) continue;
+    if (typeof v !== 'string' || v.trim() === '') {
+      throw new TypeError(`generateUsccCodes 的 options.${key} 应为非空字符串（行政区划码），收到 ${shapeOf(v)}`);
+    }
+  }
+  if (o.regionCode !== undefined) {
+    const raw = o.regionCode.trim();
+    const code = raw.toUpperCase();
     const r = resolveRegion(code);
     if (r.status !== 'current') {
-      const why = r.status === 'abolished' ? '历史码只许解、不许生成'
-        : r.status === 'uncoded' ? '未收录码不能用于生成' : '省 / 市 / 县三级都落不到';
-      throw new RangeError(`区划段 ${code} 不是现行码（${r.note || why}）；${why}`);
+      // `resolveRegion` 的 `status:'unknown'` 同时装着两种结论：根本不是 6 位数字、
+      // 以及 6 位数字但表里没有。从前这里一律说「省 / 市 / 县三级都落不到」，于是
+      // `regionCode:'abc'` 得到的是「（行政区划码应为 6 位数字字符串）；省 / 市 / 县三级
+      // 都落不到」——前半句说形状、后半句断言"三级都试过没有"，对 'abc' 是假话（2026-09-26 实测）。
+      // 形状这一档必须先单独判，且回显用 trim 后的原样：区划段本来只会是数字，
+      // 把用户写的 `abc` 洗成 `ABC` 再报给他，等于让他去找一个自己没打过的串。
+      const shaped = /^\d{6}$/.test(code);
+      const why = !shaped ? '区划段应为 6 位数字'
+        : r.status === 'abolished' ? '历史码只许解、不许生成'
+          : r.status === 'uncoded' ? '未收录码不能用于生成' : '省 / 市 / 县三级都落不到';
+      // 形状不对时 note 与 why 是同一件事的两种说法，只留 why；形状对而落不到时
+      // note 带着数据截止日与成因，必须留。但 note 自己就带一层括号（实读：「该区划未见于
+      // 现行区划表（截止 …）」「区划码未收录（可能是已撤销建制、经济功能区，或晚于 …）」），
+      // 再套一层 `（${note}）` 就是 2026-09-26 实测到的「（区划码未收录（…））」双层括号。
+      // 外层改用「：」引出，括号只留 note 自己那一层。
+      throw new RangeError(`区划段 ${raw} 不是现行码（${why}）${shaped && r.note ? `：${r.note}` : ''}`);
     }
     return [code];
   }
-  const cities = currentCityCodes(options.provinceCode ?? '');
+  const cities = currentCityCodes(o.provinceCode === undefined ? '' : o.provinceCode.trim());
   if (cities.length === 0) {
-    throw new RangeError(`省码 ${String(options.provinceCode)} 下没有现行市级区划`);
+    // 带上数据截止日，与 idcard.js 的同一格同句式（那一句写「区划数据截止 …」）：
+    // 用户看到"省码 99 底下没有"时，需要知道这是按哪一版表得出的
+    throw new RangeError(`省码 ${o.provinceCode.trim()} 下没有现行市级区划（区划数据截止 ${REGION_META.datasetVersion}）`);
   }
   return cities.map((c) => `${c}00`);
 }
@@ -4630,21 +5169,47 @@ function rollBody8(rng) {
  * 生成校验位成立的测试码。**区划段只能出自现行表**（§5.4：历史码只许解、不许生成）。
  * 每条生成后立刻用 parseUscc 自检，逐项只要不是 true 就抛——生成器与校验器互为对手。
  *
+ * 入参闸门与 `generateIdCards` 同档（逐格由 §C 的「C9 入参闸门与身份证模块同档」钉住）：
+ * 整个 `options` 传 `null` / `undefined` 等于没传；`count` 只把 `undefined` 当默认值，
+ * `null` / `'5'` / `1.5` / 越界一律 `RangeError`；`rng` 不是函数或取值越出 [0, 1) 抛
+ * `TypeError` 并点名 options.rng；`regionCode` / `provinceCode` 只接受非空字符串，
+ * 空串、全空白、数值、`null` 一律 `TypeError` 并点名是哪个键；`registry` / `category`
+ * 必须是 31 字符集内的单个字符（数值从前被 `String()` 洗成合法字符，这一格跟着 M-11 堵掉；
+ * 而它的 `null` / `undefined` 算"没传、用默认字符"——这与 idcard 的 `minAge ?? 18`、
+ * `sex ?? null` 同一档，只有 `count` 那一格拆掉了 `??`，因为它吞下去的是"出几条"）。
+ * 为什么 registry / category 这两格留 `RangeError` 而不是 `TypeError`：它把"是不是一个字符"
+ * 与"在不在字符集里"写成了一次判定，与 `count` 那一格同族——idcard.js 的 m-4 已经把这种
+ * "形状与取值混在一句"的分类法如实记过一笔，这里照同一档处理，不另立第三套口径。
+ *
  * @param {{provinceCode?:string, regionCode?:string, registry?:string, category?:string,
  *   count?:number, rng?:() => number}} [options] registry / category 是第 1、2 位字符，
- *   只校验是否在 31 字符集内，默认 '9' 与 '1'（最常见的那一档，本站不解释其含义）
+ *   只校验是否在 31 字符集内，默认 '9' 与 '1'（最常见的那一档，本站不解释其含义）。
+ *   整个对象传 `null` / `undefined` 等于没传
  * @returns {Array<{code:string, regionCode:string, regionName:string, registryChar:string,
  *   categoryChar:string, subject:string, orgCheckBit:string, checkBit:string, caveat:string}>}
+ *   **这九个键就是面板要渲染的全部**：登记管理部门与机构类别只给字符（`registryChar` /
+ *   `categoryChar`），不给名称——含义表没取到可核实来源（§5.1），后来人若凭记忆往这里加
+ *   `registryName` 一类，C8 那句键集 deepEqual 会当场红。
+ * @throws {RangeError} `count` 不是 1..50 的整数；`registry` / `category` 不是 31 字符集内的
+ *   单个字符；`regionCode` 不是现行码（历史码 / 未收录码 / 形状就不对）；前缀底下零候选。
+ * @throws {TypeError} `regionCode` / `provinceCode` 不是非空字符串（含空串、全空白、数值、
+ *   null）；`rng` 不是函数，或某次取值不在 [0, 1) 内。
+ *   两档都由调用方的入参决定，绝不会以「内部不变量」的形式出现——那一句只留给真正的实现自洽问题。
  */
 export function generateUsccCodes(options = {}) {
-  const rng = typeof options.rng === 'function' ? options.rng : seededRandom(Date.now());
-  const count = options.count ?? 1;
+  const o = options ?? {};
+  const rng = checkedRng(o.rng);
+  // 只把「没传」当默认值：`?? 1` 会把 count: null 也吞成 1，等于一次类型错误静默出货一条码
+  // （idcard 的 B8 早把这个写法点名拆掉了，uscc 这一格从前照抄着踩同一个坑）
+  const count = o.count === undefined ? 1 : o.count;
   if (!Number.isInteger(count) || count < 1 || count > GENERATE_MAX) {
-    throw new RangeError(`数量应为 1..${GENERATE_MAX} 的整数，收到 ${String(count)}`);
+    throw new RangeError(`数量应为 1..${GENERATE_MAX} 的整数，收到 ${shapeOf(o.count)}`);
   }
-  const registry = singleChar(options.registry ?? '9', '登记管理部门代码（第 1 位）');
-  const category = singleChar(options.category ?? '1', '机构类别代码（第 2 位）');
-  const pool = regionPool(options);
+  const registry = singleChar(o.registry ?? DEFAULT_REGISTRY,
+    'generateUsccCodes 的 options.registry（登记管理部门代码，第 1 位）');
+  const category = singleChar(o.category ?? DEFAULT_CATEGORY,
+    'generateUsccCodes 的 options.category（机构类别代码，第 2 位）');
+  const pool = regionPool(o);
   const list = [];
   for (let i = 0; i < count; i += 1) {
     const regionCode = pool[Math.floor(rng() * pool.length)];
@@ -4679,7 +5244,9 @@ export function generateUsccCodes(options = {}) {
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected: `# pass 29`、`# fail 0`、`exit=0`（§A 12 条 + §B 9 条 + §C 8 条）。
+Expected: `# pass 35`、`# fail 0`、`exit=0`（§A 12 条 + §B 15 条 + §C 8 条 = 35）。
+
+计划原稿这一行写的是 `# pass 29`（§A 12 + §B 9 + §C 8），第十三轮按 `git archive 83675ca` 的镜像复算作废：§B 从 9 条长成 15 条是 Task 4 的三轮复核留下的（B10–B15），那句抄的是 Task 4 开工前的旧数（§5.2 的 d-1 行同一处病根）。
 
 若 C8 的"逐项目标全 true"或"342 个市级码 + 00"变红，不要放宽断言：前者说明 `rollBody8` 或 `regionPool` 落进了没预料的分支，把抛出的那条码打出来看它哪一项不是 true；后者说明 §A 的 6 位「市级码 + 00」那一档被改序或删掉了，那是 §C 的地基，回 Task 3 修。
 
@@ -4689,6 +5256,101 @@ Expected: `# pass 29`、`# fail 0`、`exit=0`（§A 12 条 + §B 9 条 + §C 8 �
 git add dev/js/tools/uscc.js scripts/toolkit-tests.mjs
 git commit -m "feat(tools): 统一社会信用代码双校验位判定与测试码生成"
 ```
+
+### 5.2 第十二轮与第十三轮复核整改回填：九条 §C 判据里当时有四条"看着在断言"
+
+Task 5 落地（`83675ca`）之后过了两轮复核，这一节把两轮一起补上，但**两轮的证据等级不同，写在各自行里**：
+
+- **第十二轮 = Task 5 的首次代码质量复核，整改落在 `22d7147`，当时没有回填进计划**（下面表 A 是本轮从 `git show 22d7147` 的 diff 反推出来的补记，凡 diff 里找不到依据的说法一律不写；这正是 §4.11 末尾立过的那条流程账的第三次兑现——复核清单不当场落盘，下一轮就只能从产物反推）。
+- **第十三轮 = 对第十二轮那批整改的验证性复核**，整改在工作区（本轮回填），表 B / 表 C 的每一行都有本轮当场跑过的变异针为证。
+
+**表 A｜第十二轮（补记，依据 `22d7147` 的 diff）**
+
+| # | 病灶（diff 里可读到"整改前"的样子） | 整改 | 落点 |
+|---|---|---|---|
+| r12-① | `generateUsccCodes(null)` 直接抛；`options` 整体传 `null` / `undefined` 应当等于"没传"，与 `idcard.js` 同档 | `checkedRng` / `shapeOf` / 四个键的闸门全部按 `idcard.js` 的口径重写，报错带类型（`string nope` / `number 2` / `null`），让「收到 5」这种读起来像"值 5 不合法"的文案不再出现 | 新判据 **C9**：同一批形状逐格对着 `idcard.js` 跑，两边不同分叉即红 |
+| r12-② | `regionCode: 110101`（数值）被 `String()` 收下照常出货；`provinceCode` 同 | 两个键只收**非空字符串**，空串 / 全空白 / 数值 / `null` 一律 `TypeError` 并点名是哪个键 | C9 的 `rawShapes` 表 |
+| r12-③ | `rng: () => 2` 不抛，`pool[Math.floor(2 * pool.length)]` 取到 `undefined`，摇出 `91undefined…` 这种码，最后由自检抛「内部不变量被破坏」——**调用方的一次错被记成实现的 bug** | `checkedRng` 先验是不是函数、再验每次取值落在 `[0, 1)`，第一次取值就报且点名 `options.rng` | C9 |
+| r12-④ | 第 1、2 位（登记管理部门 / 机构类别）两格里 `category` **一次判据都没碰过**，往 `info.category` 里塞 `name: '机关'` 判据照旧绿；数值 `9` 与 `0` 从前被 `String()` 收成合法字符 | 两键各钉一次（`one.info.category.char` / `.value`），非法字符与数值形状都拒 | C8 + C9 |
+| r12-⑤ | `rollBody8` 的"避让 `v === 10`"那一格从未被触到（三组种子 = 20260925/5、7/3、9/2），所以那句断言等于没牙 | 逐种子扫满 `GENERATE_MAX` 条并断言第 17 位是个位数字 | C8 |
+| r12-⑥ | `省码 … 下没有现行市级区划` 那道抛从前**零判据**；批量入口 `parseUsccList('')` 从前给 1 行、注释却写着"与 `parseIdCardList` 同形" | 前者补一条抛出的判据，后者改成 0 行（`null` / `undefined` / 空串 = 根本没粘贴），`\n\n` 照旧 3 行 | C8 + C9 |
+
+这一轮 §C 从 8 条长成 9 条（基线 35 → 36），`git show --numstat 22d7147` 给的是 `uscc.js` **+123 / −20**、判据文件 **+231 / −7**。
+
+**表 B｜第十三轮的 5 项 Important**（每条都有"把被保护的实现改坏 → 判据必须红"的变异针为证；针在 `/tmp` 镜像上跑，基线先自证 `# tests 41 / # pass 41 / # fail 0`）
+
+| # | 级别 | 病灶（复跑出来的真行为） | 整改 | 牙齿 |
+|---|---|---|---|---|
+| n1 | Important | C8 没钉**生成侧条目的键集**：面板要渲染的九格全靠后来人读注释，往产物里多塞一个 `registryName: ''`（§5.1 明写"含义表没取到可核实来源，所以只给字符不给名称"）判据照旧绿 | C8 里加一句 `assert.deepEqual(Object.keys(a[0]).sort(), [九键])`，`@returns` 同步写明"这九个键就是面板要渲染的全部" | 在生成侧那条 push 里插一格 `registryName: ''` ⇒ **只红 C8** |
+| n2 | Important | C1 只核"长度 31 / 不含那五个字母 / 值即下标"，`FORBIDDEN_CHARS` 没有被反向用过：把 `USCC_CHARSET` 下标 28 的 `W` **原地换成 `-`**（长度仍 31、仍唯一、仍不含 I O S Z V）时 §C 九条全绿——那张表是本站全部 USCC 判据的地基 | C1 改成从规则反推整张字符集并连顺序一起钉：`assert.equal(USCC_CHARSET, [...'0-9A-Z'].filter(c => !FORBIDDEN_CHARS.includes(c)).join(''))`；`FORBIDDEN_CHARS` 的注释写明它存在的理由就是这一句 | 同一个 `W`→`-` 变异 ⇒ **只红 C1**（整改前九条全绿） |
+| n3 | Important | `parseUscc` 的 `malformed` 其实有**两档**（结构档 vs 区划档），而这条分档只活在代码里：JSDoc 没写、判据也没钉，页面装配层（段 2）照哪一档渲染都可能 | JSDoc 立口径（结构档 `code:''` / `info:null` / `caveat:''` / `hasCaveat:false` 四格全空；区划档保留 `expectedCheckBit` 这类**纯算术量**但 `region.fullName` 是空串 ⇒ 页面只许在 `state` 为 `valid` / `checkdigit` 时渲染解释性字段），早退那一格加注释 | 把结构档早退的 `code: ''` 改成回显 `compact` ⇒ **只红 C5**；C6 另钉区划档不产出任何「未知」 |
+| n4 | Important | C8 里四道 `assert.throws(fn, RangeError, /正则/)` **一根牙都没有**：`node:assert` 的第三个参数是失败时的说明文字，不参与匹配，把正则放第三位等于写了一句永远成立的断言外加一段没人读的文案 | 四处换成对象形 `{ name: 'RangeError', message: /…/ }`（`name` 与 `message` 都真参与判定） | 探针：三参形对着完全不相关的正则**退 0**，对象形对不相关的 `message` 抛 `AssertionError`。变异：把 `regionPool` 抛出的 `RangeError` 就地换成 `TypeError`（第十二轮之前 §C 全绿，因为三参只核了"会抛"）⇒ **只红 C8** |
+| n5 | Important | `regionPool` 的 `status !== 'current'` 那一支把两件事说成一件：`resolveRegion('abc')` 的 `status` 是 `unknown`，与"6 位数字但表里没有"同一档，于是用户写 `regionCode:'abc'` 得到的是「（行政区划码应为 6 位数字字符串）；**省 / 市 / 县三级都落不到**」——后半句对 `'abc'` 是假话；同时 `${code}` 把用户写的 `abc` 洗成 `ABC` 再回显 | 形状那一档先单独判（`const shaped = /^\d{6}$/.test(code)`），`why` 链头一节是「区划段应为 6 位数字」；回显改用 trim 后的原样 `raw`；形状不对时 `note` 与 `why` 是同一件事、只留 `why` | 两针分开跑：`shaped = true`（形状档不可达）⇒ **只红 C8**；`${raw}`→`${code}` ⇒ **只红 C8**（C8 新增三句：`/区划段应为 6 位数字/`、`doesNotMatch(/三级都落不到/)`、`message.includes('abc')`） |
+| n6 | Important（挂在 10 号 Minor 的牙上） | C9 新增的 `naked` 那一格要钉的是"两个模块对无原型对象同抛"，它自己有没有牙？ | 见下表 10 号行 | 只让 `uscc.js` 吞掉它（`String(raw)` 包一层 `try { … } catch { text = '' }`）⇒ **只红 C9**，即一边分叉必被点名 |
+
+**表 B 的七针在本轮最终文本上重跑过**（`git archive` 之外的当前工作区，`/tmp` 镜像，基线先自证 `# tests 41 / # pass 41 / # fail 0`、`exit=0`；每个变异先校验锚点命中数 = 1，命中数不是 1 就 ABORT 而不是继续跑）：n1 / n4 / n5a / n5b 各只红 C8，n2 只红 C1，n3 只红 C5，n6 只红 C9，七针全部是 `# tests 41 / # pass 40 / # fail 1`、`exit=1`，跑完逐针恢复。n5b 那一针第一次跑时锚点命中 0——原因是镜像里那份 `uscc.js` 还带着上一针（n4）的改动，**"sed 退 0 但其实没动手"在锚点计数这一关被拦下**，与 §4.11 末尾那条流程账同一类。
+
+**表 C｜第十三轮的 Minor**（都到注释与文案档，一条不改行为）
+
+| # | 内容 | 处置 |
+|---|---|---|
+| 6 | C8 那句"342 个市级码"的注释像在做计数，其实 `regionPool` 那条循环不数数 | 注释改指 A1 的 `counts.cities` 与 A2，写明"这里不复数" |
+| 7 | C9 的注释写着"每条都在 HEAD 版上跑过"，而整改后 HEAD 已经换过一次 | 换成可复算的锚：「整改前那一版（`83675ca`，本模块首次落地那次提交；`22d7147` 才把它们治掉）」 |
+| 8 | C9 的 `accept` 表标题写得比它实际断言的东西大 | 收成"这一张表钉的是这四格拒绝/放行的方向"，并在段首点明 `bothGates` 注入的是固定种子 |
+| 9 | `chars` 那圈断言红了看不出是哪一颗字符炸的 | 收集 `rows` 并把 `JSON.stringify(rows)` 塞进失败信息 |
+| 10 | 两份 `shapeOf` 的注释都写着"绝不 String() 一个无原型对象"，读起来像"入口也不会抛"，而真实行为是**四个入口都抛** `TypeError: Cannot convert object to primitive value` | **两头一起动**：`uscc.js` 与 `idcard.js` 的注释都补"口径只到这句文案自己为止，不代表入口不 String()"，并在 C9 新增 `naked` 那一格把四格的同抛钉住（`{ name: 'TypeError' }`）。**不改任何一边的行为**：让入口吞掉无原型对象要动 `idcard.js` 已批准的闸门基线，换来的是零用户可见差异 |
+| 11 | `parseUscc(913501000000001660)`：18 位码写成数值字面量，**在被看见之前**末两位就已经掉了 | JSDoc 加一段"18 位码一律传字符串"，`@param` 写成 `string \| number \| null \| undefined` |
+| 12 | `GENERATE_MAX` 的注释写"不提供批量导出上千条"，§11 风险表原文是 1 万条 | 注释回填原文数字与"上限 50"的对应关系 |
+| 14 | `regionPool` 的 `@returns` 只写"六个数字组成的区划段候选池"，对显式 `regionCode` 那一支什么都没说（实测 `110000` 这类省级码能生成），`provinceCode` 的"省码"措辞实为"任意 ≤4 位前缀" | 两条都写进 `@returns`；措辞沿用不改行为，与 `idcard.js` 的 `prefixOf` 同档 |
+| 15 | 两套权重的注释都写 `3^(i-1)` / `2^(8-i)`，而数组下标从 0 起，照着注释写循环会错一位 | 两条都补"数组下标 i 从 0 起"，国标按位序 1 起的写法在括号里保留 |
+
+**本轮另有三条不采纳 / 不落地，理由写在原地**：
+
+- `内部不变量` 那一句两个模块措辞不同（`uscc.js`：「内部不变量被破坏：… state=…, key=false」；`idcard.js`：「内部不变量：生成的 X 自检为 {state}（{why}）」）。评审建议统一，**不改**：C8 与 C9 的注释里逐字引着 `内部不变量被破坏` 当"整改前调用方的错被记成实现 bug"的历史证据，统一措辞会让那几处引用指向一句代码里不存在的话。
+- 其余几条只到"注释再顺一点"档的建议，本轮没有逐条落地。**这里刻意不复述它们的编号与内容**：第十二轮的教训就是"没当场落盘的清单，两轮之后只能从 diff 反推，反推不出来的部分等于没发生过"，而这一批整改的原始清单只活在会话里——凭记忆复述会往台账里掺进复算不出来的句子，比不写更糟。
+- `parseUsccList` / `parseIdCardList` 的 `raw` 是否要顺手去掉行内空白：不改，判据与注释都写明"`raw` 必须是用户粘贴的那一行原文"。
+
+**d-1｜本轮作废的两处计划正文数字**：Task 5 Step 2 的 Expected 原写「§A 的 12 条与 §B 的 9 条一起不跑」、Step 5 的 Expected 原写「`# pass 29`（§A 12 + §B 9 + §C 8）」——同一个病根（§B 在 Task 4 的三轮复核里从 9 条长成 15 条，这两句抄的是 Task 4 开工前的旧数），且 Step 2 那句连"模块没落地时前面的用例跑不跑"都反了。`git archive 83675ca` 的镜像复算：绿的时候 `# tests 35 / # pass 35 / # fail 0`；把 `dev/js/tools/uscc.js` 移走之后红的是**文件级**那一行，`# tests 28 / # pass 27 / # fail 1`（§A 12 + §B 15 照跑照绿），`exit=1`。两处正文已按实测改写，与判据文件头那段"这一档的红不长成 `not ok <用例名>`"是同一条口径。
+
+**收口实测**：`wc -l dev/js/tools/uscc.js dev/js/tools/idcard.js scripts/toolkit-tests.mjs` = **420 / 587 / 2,368**；`node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` = `# tests 41 / # pass 41 / # fail 0`、`exit=0`；`node scripts/verify-plan-blocks.mjs` 退 0（11 个镜像块全部与磁盘逐字节相同、未落地 0 节）。**基线仍是 41 条**：本轮没新增 `test()`，全部断言加在 C1 / C5 / C6 / C8 / C9 这五条已有判据内部——同一条守卫的契约不拆家，与 §4.13 / §4.14 那两轮同一做法。`region.js`、`region-data.js`、`build-region-data.mjs`、`build-id-fixture.mjs` 与 `scripts/fixtures/` 一个字未动。
+
+### 5.3 第十四轮：复评开的 6 项 Minor——四条是"注释替实现许了愿"，两条是"判据只核了第一行"
+
+第十三轮那批整改落地后另起一次复核（不掺进表 B / 表 C，也不覆盖它们的数）。本轮**没有 Critical、没有 Important，只有 6 条 Minor**，逐条先复跑坐实再补牙。级别低不代表性质不同：表 D 的 p1 / p2 与表 B 的 n4 是同一类病（判据看着在断言、其实没断言），p3 / p4 是新的一类——**JSDoc 替实现许了愿，而愿望没有对应格子**。
+
+**表 D｜第十四轮的 6 项 Minor**（牙齿列的每一格都在 `/tmp` 镜像上真跑过，见下面的九针段）
+
+| # | 病灶（复跑出来的真行为） | 整改 | 牙齿 |
+|---|---|---|---|
+| p1 | `regionPool` 的 `why` 四支文案只钉了两支：把 `'未收录码不能用于生成'` 与 `'省 / 市 / 县三级都落不到'` 各就地换成 `XYZ` 复跑，`# tests 41 / # pass 41`，41 条照旧全绿——第十三轮只给 abolished 与"非 6 位数字"两支补了句子 | C8 各补一句 `{ name: 'RangeError', message: /未收录码不能用于生成/ }` 与 `/省 \/ 市 \/ 县三级都落不到/`，两句的正则是探针打出来的实测原样而不是凭记忆写的 | K2 / K3 两针各**只红 C8**，K2 的失败信息实测是「uncoded 档点名"未收录"这档成因」＋ actual `区划段 440524 不是现行码（XYZ）：区划码未收录（…）` |
+| p2 | n5 补的那句回显修好了，但外层仍把带括号的 `note` 再套一层 `（…）`：`regionCode:'440524'` 实测得到「（区划码未收录（可能是…））」**双层括号**，`110103` 同样 | 抛出的模板外层改用「：」引出（``（${why}）${shaped && r.note ? `：${r.note}` : ''}` ``），括号只留 `note` 自己那一层；C8 另加一圈五档（`110103 / 440524 / 999999 / abc / 1101`）共用的形状判据：`doesNotMatch(/（[^（）]*（/)` ＋ `startsWith('区划段 ' + rc + ' 不是现行码')` | K4（把 `：${r.note}` 换回 `（${r.note}）`）**只红 C8**，失败信息逐字复现旧形状：「110103 的文案出现嵌套括号 → 区划段 110103 不是现行码（历史码只许解、不许生成）（该区划未见于现行区划表（截止 2022-10-31）…）」 |
+| p3 | C8 的键集判据只核 `a[0]`：把生成侧改成"第 2 条起多塞一个键"（`if (i > 0) list[i].extraKey = 1`），41 条全绿——面板拿的是整批行，契约却只钉了第一行 | 改成 `for (const [i, g] of a.entries())` 逐行 `deepEqual(Object.keys(g).sort(), GEN_KEYS)`，失败信息带上第几条 | K1 **只红 C8**，actual 里那格 `'extraKey'` 明明白白标在 `'orgCheckBit'` 前面，信息写「生成侧第 2 条的键集就是面板契约」 |
+| p4 | 第十二轮补的那道空池抛，尾句「（区划数据截止 …）」零判据：把它整段摘掉复跑仍 41 全绿，因为 C9 只 `match` 了前半串「省码 99 下没有现行市级区划」 | C9 补两句：`/区划数据截止 \d{4}-\d{2}-\d{2}）$/`（尾句存在且在最末）＋ `message.includes('区划数据截止 ' + REGION_META.datasetVersion)`（那个日期必须是 `REGION_META` 里那一个，不是硬编码的字符串） | K5 **只红 C9**，失败信息「空池文案必须带数据截止日尾句 → 省码 99 下没有现行市级区划」 |
+| p5 | `parseUscc` 的 JSDoc 写着区划档保留 `info.checksum`、且 `region` 的 `province / city / county` 是空串——两句在当时**都没有格子**（针见下面的表 E：填真地名 `'北京市'`、或只摘**区划档那一档**的 `checksum`，before 版 41 条全绿） | JSDoc 那一条重写准（`checksum` 是 `{sum, remainder, value}` 三格对象、解释性四格一律空串），C6 补三句：`Number.isFinite(none.info.checksum.sum)`（算术量不许被"区划档只留区划"这类顺手清理扫走）＋ `province / city / county` 逐格 `=== ''` | K6b / K7b 各**只红 C6**；K6c（填「未知」）整改前后都红 C5 + C6——那颗牙本来就在，是 §2.2 那条全 `JSON.stringify` 的「未知」扫描；"整块抹 `checksum`"则红 C3 + C6，C3 早就钉着国标示例的算术 |
+| p6 | `@param` 的 JSDoc 里两句是**假的**：「数组与 `{}` 落到串再判 malformed」（单元素数组的串就是那条码本身，`parseUscc(['91350100M000100Y43'])` 实测 `valid`）与「末两位丢了一位」（实测变的是**第 16、17 两位** `66` → `70`，第 18 位碰巧没变） | 两句按实测改写，并在 C9 的 `rawShapes` 表**外**补一圈：`[裸串]` 与 `[包一层数组]` 必须同 `state` 同 `value`、`['x']` 仍 `malformed`、`[code, 'x']` 仍 `malformed`；`idcard` 半边同圈并跑 | K8 / K9（各给一边的入口加"贴心拆包" `Array.isArray(raw) ? String(raw[0]) : String(raw)`）**只红 C9**，信息「uscc：两元素数组落到 "91350100M000100Y43,x"，不许被拆包成首元素再判 valid」＋ actual `valid`。这一格是整个整改里唯一区分得开"拆包"的形状：`[code]` 与 `[code,'x']` 的 `raw[0]` 完全同形，前三格在变异下照旧绿 |
+
+**九针的跑法与 before / after 双版自证**（K1…K9，镜像 `/tmp/t5x`，绝不碰工作树）。这一轮把前十几轮只做一半的事做全了：**不只证明新句子有牙，还证明"整改前真的没牙"**——做法是把本轮新加的六块判据按行区间逐块摘掉、重建出 before 版判据集（`scripts/toolkit-tests.before.mjs`，重建结果 **2,368 行**，与表 B 收口实测记录的第十三轮行数**逐字对上**，这是"重建没有多摘或少摘"的自证），同一批针在两个版本上各打一遍：
+
+| 针 | 变异 | before 版（第十三轮那一套判据） | after 版（本轮） |
+|---|---|---|---|
+| K1 第 2 条起多一键 | `if (i > 0) list[i].extraKey = 1` | **全绿** 41/41 | 只红 C8（actual 里 `'extraKey'` 排在 `'orgCheckBit'` 前） |
+| K2 uncoded 文案 | `'未收录码不能用于生成'` → `'XYZ'` | **全绿** 41/41 | 只红 C8 |
+| K3 三级落不到文案 | 该 `why` 分支 → `'XYZ'` | **全绿** 41/41 | 只红 C8 |
+| K4 双层括号回归 | `：${r.note}` → `（${r.note}）` | **全绿** 41/41 | 只红 C8 |
+| K5 摘掉截止日尾句 | 空池那句去掉「（区划数据截止 …）」 | **全绿** 41/41 | 只红 C9 |
+| K6b province 填真地名 | `region: { ...region, province: '北京市' }` | **全绿** 41/41 | 只红 C6 |
+| K6c province 填「未知」 | 同上、值换成 `'未知'` | 红 C5 + C6（**整改前就有牙**：那句全 `JSON.stringify` 的「未知」扫描拦着这个措辞） | 红 C5 + C6 |
+| K7b 只摘区划档的 checksum | `checksum: regionOk === false ? null : {…}` | **全绿** 41/41 | 只红 C6 |
+| K8 uscc 入口拆包 | `Array.isArray(raw) ? String(raw[0] ?? '') : String(raw)` | **全绿** 41/41 | 只红 C9（红的是 `[code,'x']` 那一格） |
+| K9 idcard 入口拆包 | 同上、只改 `idcard.js` | **全绿** 41/41 | 只红 C9 |
+
+**表 E 顺手把表 D 的 p5 那一行钉准了**（写台账的规矩是"错了就改，不改更糟"）：p5 原本按复评的口径写成"把 `info.checksum` 整块抹成 `null` 时九条全绿"，本轮亲测不成立——**整块**抹掉会撞在 C3 已有的国标示例算术判据上（红 C3 + C6）；真正的零判据是**只摘区划档那一档**（K7b）。同理 `province` 那一格：填「未知」在整改前后都红（被 §2.2 那条「未知」全串扫描拦着），填**真地名**才是整改前零判据、本轮补上的那颗牙。判据文件里那三行注释与表 D 的 p5 行都已改成实测形状。**这就是"复评给的编号与结论也要自己复跑一遍"的又一次兑现**：本轮十条针里有两条，病灶是真的、但复评给的那条具体主张是假的。
+
+每针先校验**锚点命中数 = 1**（命中 0 = "replace 静默没动手"，命中 >1 = 锚点不够精确，两种一律记 ANCHOR-FAIL 而不是继续跑），二十次跑（10 针 × 2 版）**无一针 ANCHOR-FAIL**；镜像基线先自证 `# tests 41 / # pass 41 / # fail 0`，跑前再做一记 liveness 探针（把镜像 `region.js` 的 `export function resolveRegion` 改名 ⇒ 镜像套件 `# pass 10 / # fail 2`，证明改的这份文件真的是套件加载的那一份）。跑完逐针恢复，工作树侧以 `grep` 自证无变异残留（唯一命中 `XYZ` 的一行是 C1 里那张 `[...'0-9A-Z']` 字母表，本来就是原样），`git status` 自证 `region.js` / `region-data.js` / 两个生成器 / `scripts/fixtures/` / `demo/idCardDemo/` 全部干净。
+
+**第十四轮的口径补一句**：单元素数组那一格**不能**塞进 C9 那张 `rawShapes` 同态表——两个模块的合法码不同形（18 位纯数字 vs 含字母的 31 字符集码），一条数组不可能同时是两边的合法码，硬塞进去那一行就成了假对照。idcard 那一格只能拿 `generateIdCards` 现生成的 `id18` 包一层来喂，uscc 那一格用 `NATIONAL`。
+
+**收口实测（第十四轮）**：`wc -l dev/js/tools/uscc.js dev/js/tools/idcard.js scripts/toolkit-tests.mjs` = **430 / 587 / 2,439**（表 B 的 420 / 587 / 2,368 是第十三轮收口时的数，本轮 uscc.js +10、判据文件 +71，两处都留档不覆盖）；`# tests 41 / # pass 41 / # fail 0`、`exit=0`；`grep -c "^test(" scripts/toolkit-tests.mjs` = **41**（基线不变，本轮断言全部加在 C6 / C8 / C9 内部）；`node scripts/verify-plan-blocks.mjs` 退 0（11 块镜像全等、未落地 0 节，`--fix` 本轮共重写 3 次镜像：`uscc.js` 一次、§C 两次）。
 
 ---
 
@@ -4868,7 +5530,7 @@ test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected: `exit` 非 0，报 `Cannot find module '…/dev/js/tools/panel.js'`（同样是 `await import()` 在加载期抛，§A/§B/§C 一起不跑）。
+Expected: `exit` 非 0，报错正文里有 `Cannot find module '…/dev/js/tools/panel.js'`。**这一档的红不长成 `not ok D1 …`**，2026-09-26 在 /tmp 镜像里实测（把 `panel.js` 移走复跑）：红的是**文件级**那一行 `not ok 1 - scripts/toolkit-tests.mjs`，形状是 `# tests 37 / # pass 36 / # fail 1` —— 排在缺失那次 `await import()` **之前**注册的 36 条照跑照绿，"§A/§B/§C 一起不跑"是计划原稿的误判（该实测结论已回填进 `scripts/toolkit-tests.mjs` 文件头）。所以这一步的验收只认两样：退出码非 0 + 报错正文点名 `panel.js`。
 
 - [ ] **Step 3: 提交红灯**
 
@@ -5032,7 +5694,9 @@ export function keyAction(evt) {
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected: `# pass 34`、`# fail 0`、`exit=0`（§A 12 条 + §B 9 条 + §C 8 条 + §D 5 条）。
+Expected: `# pass 41`、`# fail 0`、`exit=0`（§A 12 条 + §B 15 条 + §C 9 条 + §D 5 条 = 41；
+计划原稿写的 `# pass 34`（§B 9 + §C 8）作废——Task 4 的复核轮把 §B 从 9 条补到 15 条、
+Task 5 的落地与整改把 §C 从 8 条补到 9 条。复算口径：`grep -c "^test(" scripts/toolkit-tests.mjs`）。
 
 `D2`/`D3` 里数 `tabindex==='0'` 个数那条如果变红，先确认是不是把 `'0'` 写成了 `0`：`setDataset`/`setAttribute` 对数字无所谓，但 `Object.keys` 断言与 DOM 属性表比对时 `'0' !== 0`，这类错在浏览器里表现成"tab 键完全没反应"，比红更难查。
 
@@ -5199,7 +5863,9 @@ git commit -m "docs(tools): 区划数据与 IDValidator 的许可归属记录，
 
 ## Task 8: 自证——判据有牙、产物零重叠（第一段收口）
 
-**Files:** 无新增。这一节只做两件事：证明前面 28 条绿不是自说自话，证明本段没有碰到线上产物。
+**Files:** 无新增。这一节只做两件事：证明前面 41 条绿不是自说自话，证明本段没有碰到线上产物。
+（计划原稿这里写的是"28 条"，那是 Task 4/5/6 都还没落地时的估数；现值由
+`grep -c "^test(" scripts/toolkit-tests.mjs` 复算 = 41，与上面几处 `# pass` 同源。）
 
 ### 8.0 为什么收口任务不给功能
 
@@ -5249,7 +5915,15 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 mv /tmp/seg1/idcard.orig dev/js/tools/idcard.js && mv /tmp/seg1/uscc.orig dev/js/tools/uscc.js
 ```
 
-Expected（M4）：**B6 与 C6 同时红**，红的都是那句措辞断言（`未见于现行区划表`）。这条是本轮写计划时真踩到过的：先只给 `uncoded` 留话、觉得 `abolished` 反正 `ok=true` 不必解释，判据当场把它抓住——63 条同码改名的事实决定了历史层不能断言"已撤销建制"。
+Expected（M4）：**B6 与 C6 同时红**，红的都是那句措辞断言（`未见于现行区划表`）。这条是本轮写计划时真踩到过的：先只给 `uncoded` 留话、觉得 `abolished` 反正 `ok=true` 不必解释，判据当场把它抓住。
+
+措辞为什么只能说「未见于现行区划表」而不能说「已撤销建制」——口径的权威出处是 `dev/js/tools/region.js` 文件头 `historicalNote` 上面那段注释，这里只把它复述一遍（计划原稿那句"63 条同码改名的事实决定了历史层不能断言已撤销建制"是**记错了对象**：那 63 条属于 1,934 这一档，按县级命中、`status` 是 `current`，**根本不在历史层里**；region.js 的头注释还专门记了"早期版本拿它们当历史层样本，是错的"）：
+
+- 历史层是集合差：见于 2015 口径表、未见于现行表，共 **1,229 条**（县级 1,159 + 市级 70，见 `REGION_META.historicalLevels`）。
+- 集合差里混着四种成因，`region.js` 头注释给了逐条实读的代表样本：真撤销（110103 崇文区，2010 并入西城）、随父级一起改名（320801 淮阴市市辖区，现行 3208 就是淮安市）、旧表的市/县口径（110200 北京市县、500300 重庆市(市)）、旧表的统计口径（460037 海南省西沙群岛）。
+- 这四种**没有一份逐条统计**，所以"通常是撤销建制"这句话编不出来 → 尾句只能写"可能是撤销建制、改码或改名"，而本站产物也没有"码 → 被哪个码取代"那一层关系（§5.4 原本要求的"（现行码：xxx，若有）"正因为此被改掉了）。
+
+三个分母（1,934 / 2,236 / 1,229）在 region.js 头注释里被点名"各不相同、别混用"，B7 的 `EXPECT_POOLS` 那六个数讲的是**另一件事**（与站内旧库对拍时同码同名/异名的取样池分布），别拿它当这句话的出处。
 
 ```bash
 # M5 把"只接受字符串"的两处闸门一起摘掉：resolveRegion 开头的类型早退 + normalizeCode 里的类型判断。
@@ -5269,7 +5943,7 @@ Expected（M5）：`not ok 5 - A5 六档回落链每一档的结论…` 与 `not
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs; echo "exit=$?"
 ```
 
-Expected：`# pass 34`、`# fail 0`、`exit=0`。变异自证用 `cp` 备份 + `mv` 还原而不是 `git checkout --`：这段文件全部已提交，但本仓库常有第二个会话同时在 `main` 上改东西，`checkout` 会把它未提交的改动一起吃掉。还原后必须复跑而不是假定干净——`sed -i ''` 匹配不到内容时是静默成功的，M2/M3 若没变红，先确认 `grep` 的那一行还在（`grep -c "23456789X01" dev/js/tools/idcard.js` 之类），别改判据。
+Expected：`# pass 41`、`# fail 0`、`exit=0`。变异自证用 `cp` 备份 + `mv` 还原而不是 `git checkout --`：这段文件全部已提交，但本仓库常有第二个会话同时在 `main` 上改东西，`checkout` 会把它未提交的改动一起吃掉。还原后必须复跑而不是假定干净——`sed -i ''` 匹配不到内容时是静默成功的，M2/M3 若没变红，先确认 `grep` 的那一行还在（`grep -c "23456789X01" dev/js/tools/idcard.js` 之类），别改判据。
 
 - [ ] **Step 2: 零重叠之一——Vite 产物逐字节一致**
 
@@ -5328,7 +6002,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 
 五条全中才算完：
 
-1. `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` → `# pass 34`、`# fail 0`、`exit=0`。
+1. `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` → `# pass 41`（§A 12 / §B 15 / §C 9 / §D 5）、`# fail 0`、`exit=0`。
 2. Task 8 Step 1 五条变异各自让预期那几条判据变红，且还原后复绿。
 3. `pnpm build` 后 `assets/**/*.min.*` 的 29 条哈希与开工基线逐字节一致。
 4. `bundle exec jekyll build` 产物里按路径关键字归因为零命中。
@@ -5468,3 +6142,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **第九轮是第八轮整改的复核（5 Important + 9 Minor，逐条记在 §4.12，三张变异表接在 §4.11 末尾）**。真缺陷里最重的一条是 Critical 族：出生年下界对**年 10..999 整段失效**——`makeDay` 不给年份补零，而那道下界是字典序比较，`'50-06-01' > '1900-01-01'`；`utc` 那一维又走 `Date.UTC`，JS 把 0..99 折成 1900..1999，同一个号错两遍。根因两处一起修（`pad4` + `utcDay`），界统一挪进 `todayOf`（顺带结掉"报错点到别人入参头上"的 m-1），新增 **B15**，§B 从 14 条长成 15 条、基线从 26 条变成 27 条。四道零牙闸门各补了判据：15 位那一支的 `ship`、`prefixOf` 的空串 / 全空白、`todayOf` 与 `checkedRng` 的两条 `null` 分支、`shapeOf` 的 `Invalid Date`，并且每一道都跑了"病灶留着 + 新判据摘掉 → 全绿"的反向对照。**F5 是一句假事实**（生成器注释与 §4.11 的 I-7 行各一份副本）：「那 19 条重叠前缀没有一条同时在 2015 旧表里」——实测有 3 条在（`441900` / `442000` / `620201`），结论仍然成立但成立的原因换成 `620201` 那一条；同一趟复算量出 `PLACEHOLDER_CITY` 少「县」一个字，`pools` 就从 1776/156/62/93/1 变成 1764/168/62/105/1。两处"无牙"照实记：`body17` 那行（M-f1d）在可达输入上与现状不可区分，不为它造判据；`randomBirthDay` 那个投机形参（m-3）删掉，不可达分支不配判据。产物字节一字未动（夹具 248,934B / `16971baa…`、区划 `a7e26d54…`），两个 `--check` 都退 0，收口 `# tests 27 / # pass 27 / # fail 0`、`exit=0`，`wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = 1,630 / 540 / 25 / 328。**收口时另清三处 `:行号` 引用**（判据注释里的 `:129` / `:403` / `:210`，都是本轮新增注释里写下的）换成函数名与语句原文，与第六轮 ② 同一条口径；判据文件因此比 §4.12 初次回填时多两行。落地过程**第二次**撞上同一事故：整改子智能体又断在 150 回合上限，这次断在 F7 与 Item 8 之间，留下的自述是"Item 8 green"而计划里 `build-id-fixture.mjs` 那块其实差 4 行没重灌——所以那 15 行病灶的红名单是我自己在 `/tmp/vf` 镜像上逐行重跑复算的（另加第八轮的 M-i4、反向对照 C-f1a / C-f2 三针），不是转述它的报告。**收口后又自己复跑两处**：① 三针（M-f1a + M-f1b + M-f1c）一起摘回整改前，F1 那四个号的 `valid` / `"50-06-01"` / 1976 / 1026 / 1930 与两条 `TypeError` 逐字复现；② 只摘 `utcDay` 那一针（M-f1b）下生成侧"安静出货"的那条号——原先记的 `652928193001024461` 是**没钉种子的一次采样**（`rng` 缺省走 `seededRandom(Date.now())`，重跑必换号），已换成 `seededRandom(3)` 下可复算的 `510131190104034564`（生日 `1901-04-03`、`age` 为 `null`），并把 `utcDay(50, 6, 1) = -60576249600000` / `Date.UTC(50, 5, 1) = -618105600000` / `BIRTH_FLOOR_UTC = -2208988800000` 三个时间戳一起写进 §4.12。
 - **第十轮是第九轮那批整改的复核（1 项 Important + 5 条 Minor，逐条记在 §4.13，两张小表接在 §4.11 末尾）**。审的尺子与第九轮同一把，抓到的是**界只管了一头**：`todayOf` 那道下界拦住了"太早"，公元 10000 年那一头却开着——`toDay` 的字符串正则只收四位年，`Date` 形状走 `getFullYear()` 不受宽度约束，于是同一天用串传被拒、用 Date 传被接受；`pad4` 只补不截，五位 `today.iso` 回头喂不进自检那句 `parseIdCard(id18, { today: today.iso })`，崩在自检、报的却是「parseIdCard 的 options.today」，也就是**第九轮刚宣布结掉的 m-1 那一类甩锅在另一头复活**（G1）。修法是在下界旁边加一道 `YEAR_CEILING = 9999`，两个入口共用、各点各的名；判据接在 B15 里而不是新写第 28 条（同一条守卫的契约不拆家），代价是 B15 那一条判据变长、标题改写，于是台账里凡引用那条标题或"只 B15"的五行（M-f1a / M-f1b / M-f1c / C-f1a / C-f1c）都在最终文本上重跑过，结果与第九轮逐字相同。**基线仍 27 条**、`# pass 27 / # fail 0`、`exit=0`，`wc -l` = **1,663 / 565 / 25 / 328**，夹具 248,934B / `16971baa…` 与区划 `a7e26d54…` 一字未动，两个 `--check` 都退 0。五条 Minor 里三条是文档自己不对数（§4.12 的"三处 `throw` → `die()` / 两个空行"实为 4 与 1；m-8 行那句"另外三道闸门早就是一行 stderr + 退 1"是假话；头部那句"F1–F6 六项加 8 条 Minor"两头都不对、且 m-7 那行初次回填时漏了），两条是只欠文档的既有口径（`Date` 形状在下界那一格随时区分叉、数值 `raw` 超 2^53 时末位在被看见之前就掉了）——都按"改文档不改行为"结清，理由写在各自行里。G1 的牙齿：M-g1（摘掉上界那三行 → 只 B15 红）与 C-g1（病灶留着 + 删掉 B15 里新写的 31 行 → 27 条全绿）。
 - **第十一轮是第十轮那处整改（G1）自己的验证性复核（2 项 Important + 2 条 Minor + 3 处文档对不上数，逐条记在 §4.14，六行变异表接在 §4.11 末尾）**。抓到的是**修好一处、旁边留了一处**：① 那道新加的 `YEAR_CEILING` 只长在 `todayOf` 里，而 `generateIdCards` 的 `birthDate` 不走 `todayOf`——实跑 `birthDate = new Date(10000, 0, 1)` 抛的是「options.birthDate（10000-01-01）**不得早于** 1900-01-01」，年 20000 抛"不得晚于今天"，**越的是上界、理由指着下界**，与 m-1 / G1 同一类"报错指错地方"（k-2）；② 第十轮为 G1 新写的那段判据里两条 `Date` 用 `new Date(0)` + `setUTCFullYear` 造，那是 UTC 零点而 `toDay` 取本地读数 ⇒ **负偏移时区里代码一字未变异，B15 就是红的**（实测 `TZ=America/Los_Angeles` 在镜像上 `# pass 26 / # fail 1`），而正偏移时区一律看不出来（k-1）。修法：那一刀抽成 `checkYearSpan(day, what)` 给三条入参路径共用（`today` 两侧 + `birthDate`），B15 里为 `birthDate` 那一格补四条断言（含"不许说不得早于"）；两条 `Date` 换成本地分量构造，行为一字不改——它是 n-4 早已写下的既有口径，本轮欠的是判据。牙齿：M-k1 / M-k1b / M-k1c 三针各只红 B15（`# pass 26 / # fail 1`）、C-k1（病灶留着 + 删掉 B15 里那 42 行 → 27 条全绿）、**M-k2 是本轮最有牙的一针**：只把判据那两行退回第十轮的构造、实现不动，`TZ=Asia/Shanghai` 全绿而 `TZ=America/Los_Angeles` 只 B15 红。当前文本在五个时区（Los_Angeles / Shanghai / Apia / Kiritimati / Sao_Paulo）逐条 `# pass 27 / # fail 0`。复核那条"该把 `YEAR_CEILING` 也 export 好与 `BIRTH_FLOOR` 对称"的建议**不采纳**：界在判据里写死是故意的，常量挪了判据该红而不是跟着改（k-4）。三处文档账（d-1/d-2/d-3）都是"数字复算不出来"那一类：B15 的"60 → 94 行"是两轮中途的数（本轮按锚点量到 104 行，计数从表格行里撤掉换成 `sed` 复算式）、第十轮那句"整改前解析侧给 `checkdigit`"按判据真正用的号复算是 `valid` + 周岁 8009（`checkdigit` 得换 `…07001X`，而那个号没写在句子里）、§4.13 那句"夹具的 `today` 全在 2026 与 1900 之间"没有对象（去重只有 `2026-09-25` 一个值，1900 那头讲的是生日年）。另有一条流程账：第一次那批变异跑里 A7 / A8 / A9 / B14 混进红名单，是 `/tmp` 所在卷只剩 69Mi 时子进程写不下临时文件的噪声，锚点命中数那道闸拦不住它——清掉本轮自己的六个旧镜像后单独重跑才回到"只 B15"，**往后每轮开工前先量磁盘**。收口实测：`wc -l` = **1,674 / 584 / 25 / 328**、`# tests 27 / # pass 27 / # fail 0`、`exit=0`、两个 `--check` 都退 0、夹具与区划产物一字未动、计划内嵌七块与磁盘逐字节全等；**基线仍 27 条**（`birthDate` 那一格接进 B15 已有的段落，没新开第 28 条）。
+
+- **第十二轮是 Task 5（`83675ca`）的代码质量复核，整改落在 `22d7147`——但当时没有回填进计划，这一条是第十三轮从 `git show 22d7147` 的 diff 反推出来的补记**（能反推多少写多少，反推不出的不写；逐条见 §5.2 表 A）。抓住的六件事都在同一处：`uscc.js` 是照着 `idcard.js` 之外的一套口径写的，而 §C 的三条判据"看着在断言、其实没在断言"。入参闸门整体对齐同档模块（`options` 传 `null` = 没传、`regionCode` / `provinceCode` 只收非空字符串、`rng` 连每次取值都要验——从前 `rng: () => 2` 摇出 `91undefined…` 这种 19 位码，最后由自检抛「内部不变量被破坏」，**调用方的一次错被记成实现的 bug**）、报错文案带类型（`string nope` / `number 2` / `null`，让「收到 5」不再长得像"值 5 不合法"）、`parseUsccList('')` 从 1 行改 0 行（注释从前写着"与 `parseIdCardList` 同形"而代码不同形）、`info.category` 那一格一次判据都没碰过、`rollBody8` 的"避让 `v === 10`"分支三组种子从未触到、`省码 … 下没有现行市级区划` 那道抛零判据。§C 从 8 条长成 9 条（新增 **C9 跨模块逐格对照**），基线 35 → 36，`git show --numstat 22d7147` = `uscc.js` +123 / −20、判据文件 +231 / −7。**这一轮本身的教训是流程性的**：整改的原始清单没当场落盘，两轮之后只能从 diff 反推，反推不出的部分等于没发生过——所以第十三轮的清单当场写进 §5.2。
+- **第十三轮是对第十二轮那批整改的验证性复核（5 项 Important + 10 条 Minor 落地、3 条不采纳，逐条见 §5.2 表 B / 表 C，两处计划正文数字作废记在 d-1）**。复核方式与第十一轮同一把尺子：**每条 Important 自己复跑坐实，再用一记最小变异证明补上的判据真有牙**。抓到的一类是"判据钉住了事实、却没钉住契约"：① C8 没钉生成侧的九格键集（往产物塞 `registryName: ''` 判据照旧绿，而 §5.1 明写这两格只给字符不给名称）；② C1 只核长度与"不含 I O S Z V"，把字符集下标 28 的 `W` **原地换成 `-`**（长度仍 31）时 §C 九条全绿——那张 31 字符表是 §C 全部判据的地基；③ `parseUscc` 的 `malformed` 有两档（结构档四格全空 / 区划档保留纯算术量但 `region.fullName` 为空），这条分档只活在代码里，段 2 照哪档渲染都可能。另一类是**判据自己谎报强度**：④ C8 那四道 `assert.throws(fn, RangeError, /正则/)` 一根牙都没有——`node:assert` 的**第三个参数是失败说明文字、不参与匹配**（探针实测：三参形对着毫不相关的正则退 0；对象形 `{ name, message }` 两项都真判定），于是"钉文案"那句是假的，四处换成对象形；⑤ `regionPool` 的 `status !== 'current'` 那一支把"根本不是 6 位数字"与"6 位但表里没有"说成一件，用户写 `regionCode:'abc'` 得到「… ；**省 / 市 / 县三级都落不到**」——后半句对 `'abc'` 是假话，同时 `${code}` 把 `abc` 洗成 `ABC` 再回显。修法：形状那一档先单独判、回显用 trim 后原样、C8 补三句（`/区划段应为 6 位数字/` + `doesNotMatch(/三级都落不到/)` + `message.includes('abc')`）。十条 Minor 全在注释与文案档（一条不改行为），其中 10 号是"两份 `shapeOf` 的注释读起来像入口也不 String()"——两头注释一起收窄、并在 C9 加 `naked` 那一格钉住四个入口同抛 `TypeError: Cannot convert object to primitive value`（四格实测同文案），**不改 `idcard.js` 已批准的闸门基线**；`内部不变量` 那句两模块措辞不同的一条**不采纳**，因为 C8 / C9 的注释逐字引着旧措辞当整改前的历史证据，统一会让引用指向一句不存在的话。七针（n1 / n2 / n3 / n4 / n5a / n5b / n6）在最终文本上重跑：分别只红 C8 / C1 / C5 / C8 / C8 / C8 / C9，每针 `# tests 41 / # pass 40 / # fail 1`、`exit=1`；n5b 第一次锚点命中 0，是镜像里还留着上一针的改动，被命中数那道闸拦下（§4.11 那条流程账第四次兑现）。收口实测：`wc -l dev/js/tools/uscc.js dev/js/tools/idcard.js dev/js/tools/panel.js scripts/toolkit-tests.mjs` = **420 / 587 / 138 / 2,368**、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`node scripts/verify-plan-blocks.mjs` 退 0（11 块镜像全等、未落地 0 节）、`grep -c "^test("` = 41；**基线仍 41 条**，本轮断言全部加在 C1 / C5 / C6 / C8 / C9 内部。`region.js`、`region-data.js`、两个生成器与 `scripts/fixtures/` 一字未动。
+- **第十四轮是对第十三轮那批整改的再复核（6 项 Minor，零 Critical / Important，逐条见 §5.3 表 D）**。本轮新的一类病灶是**注释替实现许了愿**：`@param` 写着「数组与 `{}` 落到串再判 malformed」，而 `parseUscc(['91350100M000100Y43'])` 实测是 `valid`（单元素数组的串就是那条码本身）；同一句还写着「末两位丢了一位」，实测变的是第 16、17 两位（`66` → `70`），第 18 位碰巧没变。另一类是表 B 的 n4 / n5 那两类"补了一格、旁边那一格仍零判据"的余数：`why` 四支文案只钉了两支（另两支就地换成 `XYZ` 仍 41/41 全绿）、`note` 外层仍套 `（…）` 造成「（区划码未收录（…））」双层括号、键集判据只核 `a[0]`（"第 2 条起多一键"全绿）、空池文案的「区划数据截止」尾句全摘不掉、JSDoc 声称区划档保留 `info.checksum` 且 `province/city/county` 为空串而两句都没有格子。九针（K1…K9）本轮**在 before / after 两个版本上各打一遍**（§5.3 表 E）：before 版是把本轮新加的六块判据按行区间逐块摘掉重建出来的，重建结果 2,368 行与第十三轮收口记录的行数逐字对上——这是"重建没多摘没少摘"的自证；同一批针在 before 版上除 K6c 外**全部 41/41 全绿**（病灶为真），在 after 版上 K1…K4 只红 C8、K5 / K8 / K9 只红 C9、K6b / K7b 只红 C6、K6c 红 C5 + C6（牙齿为真）。二十次跑无一针 ANCHOR-FAIL，跑前镜像基线自证 41/41、并先做一记 liveness 探针（改镜像 `region.js` 的导出名 ⇒ 镜像套件红），跑后逐针恢复、工作树 `grep` 自证无残留。整改里最要紧的一颗新牙是 C9 的 `[code, 'x']` 那一格：`[code]` 与 `[code,'x']` 在"入口贴心拆包"这种变异下 `raw[0]` 完全同形，前三格照旧绿，只有这一格分得开。收口实测：`wc -l` = **430 / 587 / 2,436**（uscc.js / idcard.js / 判据文件）、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = 41、`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 本轮重写 2 块镜像）。**基线仍 41 条**，断言全部加在 C6 / C8 / C9 内部，`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/` 与 `demo/idCardDemo/` 一字未动。

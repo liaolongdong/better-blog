@@ -15,18 +15,23 @@
  * **非空字符串**，空串、全空白、数值、null 一律抛并点名是哪个键。报错文案里的"收到什么"
  * 一律带类型（`string nope` / `number 2` / `null`）。
  */
-import { resolveRegion, currentCityCodes } from './region.js';
+import { resolveRegion, currentCityCodes, REGION_META } from './region.js';
 import { seededRandom } from './random.js';
 
 /** 字符集，下标即该字符参与加权时的值；剔除了 I O S Z V，共 31 个 */
 export const USCC_CHARSET = '0123456789ABCDEFGHJKLMNPQRTUWXY';
-/** 被剔除的五个字母。单独导出是为了让判据能反向核对字符集长度 */
+/**
+ * 被剔除的五个字母。单独导出是为了让判据能**从规则反推整张字符集**——C1 用
+ * `[...'0-9A-Z' 去掉这五个].join('')` 与 `USCC_CHARSET` 逐字符对，连顺序一起钉。
+ * 从前它只被当作"长度 31 的反向核对"用，于是把下标 28 的 `W` 原地换成 `-`
+ * （长度仍 31、仍唯一、仍不含这五个）时 §C 九条全绿（2026-09-26 实测）。
+ */
 export const FORBIDDEN_CHARS = ['I', 'O', 'S', 'Z', 'V'];
-/** 前 17 位加权因子 = 3^(i-1) mod 31 */
+/** 前 17 位加权因子：数组下标 i **从 0 起**，值 = 3^i mod 31（国标按位序 1 起写作 3^(i-1)） */
 export const USCC_WEIGHTS = [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28];
-/** 内层组织机构代码校验位权重（GB 11714）= 2^(8-i) mod 11 */
+/** 内层组织机构代码校验位权重（GB 11714）：数组下标 i **从 0 起**，值 = 2^(8-i) mod 11 */
 export const ORG_WEIGHTS = [3, 7, 9, 10, 5, 8, 4, 2];
-/** §11 风险表：不提供"批量导出上千条" */
+/** §11 风险表原文：不提供"批量导出 1 万条"这类功能（数量上限 50） */
 export const GENERATE_MAX = 50;
 /** §5.5 合规文案。页面直接取用这一份，别在页面里另抄一版 */
 export const USE_NOTE = '随机合成的统一社会信用代码，只在算术上自洽；与真实登记主体重合的概率可忽略，不得用于任何真实主体的查询、申报或对账。';
@@ -87,7 +92,31 @@ export function computeCheckChar(body17) {
  * 每行 `ok` 是三态：true / false / null（null = 这一项不下结论，例如区划未收录、
  * 第 17 位是字母）。**只有 false 才拖垮整体结论**，与身份证模块同口径（设计文档 §5.4）。
  *
- * @param {string|number|null} raw 用户输入
+ * `malformed` 有**两档**，递给用户的东西不一样，页面必须按档处理：
+ *   - **结构档**（字符集或长度不符，走下面 `!charsetOk || !lengthOk` 的早退）：
+ *     `code` 是空串、`info` 是 `null`、`caveat` 空、`hasCaveat` 是 false，只有 checks
+ *     和可能存在的 `repairedHint`。算术量在这条路径上没有可信输入，一个都不许出货。
+ *   - **区划档**（前 17 位字符集、长度、双校验位都成立，只有区划段落不到）：
+ *     `code` 与 `info` 照旧给。这里留下的 `info.expectedCheckBit` 与 `info.checksum`
+ *     （后者是 `{sum, remainder, value}` 三格对象）是**纯算术量**，展示它们对用户定位
+ *     "区划段写错了、不是末位错了"有用，所以本站选择保留；但 `info.region` 的
+ *     `fullName`、`province`、`city`、`county` 四格一律是空串。
+ *   → 因而页面**只许在 `state` 为 `valid` / `checkdigit` 时渲染区划名称、登记管理
+ *     部门、机构类别这类解释性字段**；这条门是页面装配层（段 2）的义务，本模块只保证
+ *     结构档出货为零、区划档的解释性字段为空。判据：C5 钉结构档四格全空；
+ *     C6 钉区划档"算术量在场 + 解释性四格全空串 + 整条输出不含「未知」"。
+ *
+ * @param {string|number|null|undefined} raw 用户输入。串以外的形状只经 `String()` 归一一次，
+ *   而**归一之后照样可能是一条合法码**，别以为传了非串就必然被拒：
+ *   `parseUscc(['91350100M000100Y43'])` 是 `valid`（单元素数组的串就是那条码本身），
+ *   `parseUscc([])` 是 `empty`（空数组的串是空串），`parseUscc({})` 是 `malformed`
+ *   （串是 `[object Object]`）。三格 2026-09-26 逐格实测，三格都由 C9 钉着：`[]` 与 `{}`
+ *   两格本来就在 `rawShapes` 表里（与 `parseIdCard` 同表同态），单元素数组那一格只能表外
+ *   单独钉——两个模块各自的合法码不同形，一条数组不可能同时是两边的合法码。
+ *   **18 位码一律传字符串**：数值字面量在调用方手里就已经丢精度，
+ *   `parseUscc(913501000000001660)` 收到的实际是 `913501000000001700`（double 只在 2^53 内
+ *   精确；实测变的是**第 16、17 两位**，`66` → `70`，末位碰巧没变）——这不是本模块能补救的，
+ *   所以别把号码写成数值。
  * @returns {{input:string, value:string, code:string, normalized:boolean,
  *   state:'empty'|'malformed'|'checkdigit'|'valid', checks:Array, info:object|null,
  *   caveat:string, hasCaveat:boolean, repairedHint:string}}
@@ -119,6 +148,8 @@ export function parseUscc(raw) {
   // 2) 长度
   const lengthOk = compact.length === 18;
   push('length', '长度', lengthOk, `${compact.length} 位${lengthOk ? '' : '（应为 18 位）'}`);
+  // 结构档早退：`out` 到这里只有 input / value / normalized / state / checks 五格是非默认值，
+  // code 保持 ''、info 保持 null、caveat 保持空——这是上面 JSDoc 立的口径，由 C5 逐格钉住
   if (!charsetOk || !lengthOk) {
     out.state = 'malformed';
     return out;
@@ -185,6 +216,10 @@ export function parseUscc(raw) {
  * ——面板按 rows.length 报"共 N 条"，一行都不该有的时候报 1 条就是错的。
  * 这一格与 parseIdCardList 同形（旧注释写着"同形"、代码却给 1 行；§C 的
  * 「C9 入参闸门与身份证模块同档」现在逐格比对两个批量入口的行号与原文）。
+ * @param {string|null|undefined} text 粘贴进来的多行文本；非串先 `String()` 一次，
+ *   无原型对象会在那一行抛 `TypeError`（与两个解析入口同一档，两边都不吞）
+ * @returns {Array<{no:number, raw:string, result:object}>} 每行一条，`no` 是 1 起的行号，
+ *   `raw` 是**未去掉行内空白**的原文（用户看到的必须是他粘贴的那一行）
  */
 export function parseUsccList(text) {
   const s = String(text === null || text === undefined ? '' : text);
@@ -197,7 +232,9 @@ export function parseUsccList(text) {
 /**
  * 报错文案里的"收到什么"——形状带上类型，`string nope` / `number 2` / `null`，
  * 让「收到 5」这种读起来像"值 5 不合法"的文案不再出现（数值 5 与字符串 '5' 得分得开）。
- * 绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ * 口径只到"这句文案自己"为止：**这里**绝不 String() 一个 Symbol / 无原型对象（那会自己先抛），
+ * 但不代表入口不 String()——两个解析入口与两个批量入口对无原型对象抛
+ * `TypeError: Cannot convert object to primitive value`，idcard.js 同形，由 C9 钉住"两边同档"。
  *
  * 为什么这里要有第二份、而不是去 import idcard.js 的那一个：shapeOf 在 idcard.js 里是
  * 文件私有的，而本站的同级工具模块互不 import（面板按模块取用，谁也不该因为另一个
@@ -263,7 +300,11 @@ function singleChar(raw, what) {
  * 所以**两个键都验**再谈优先级——只验第一个传了的键，等于给
  * `{ regionCode: '110100', provinceCode: null }` 这类拼错的载荷留一条静默通道。
  * @param {object} o 已通过 `options ?? {}` 归一的入参对象
- * @returns {string[]} 六个数字组成的区划段候选池
+ * @returns {string[]} 区划段候选池：显式给了 `regionCode` 就是那一个六位码（现行表的
+ *   **任意一级**都收——实测 `110000` 这类省级码能生成，市/县同样）；没给时是
+ *   `currentCityCodes(前缀)` 那 342 个现行市级码各自补 `00`。
+ *   `provinceCode` 实为"任意 ≤4 位前缀"（4 位市码也收），文案里沿用的"省码"与
+ *   idcard.js 的 `prefixOf` 同档，不改行为、只在这里点一句。
  */
 function regionPool(o) {
   for (const key of ['regionCode', 'provinceCode']) {
@@ -274,18 +315,34 @@ function regionPool(o) {
     }
   }
   if (o.regionCode !== undefined) {
-    const code = o.regionCode.trim().toUpperCase();
+    const raw = o.regionCode.trim();
+    const code = raw.toUpperCase();
     const r = resolveRegion(code);
     if (r.status !== 'current') {
-      const why = r.status === 'abolished' ? '历史码只许解、不许生成'
-        : r.status === 'uncoded' ? '未收录码不能用于生成' : '省 / 市 / 县三级都落不到';
-      throw new RangeError(`区划段 ${code} 不是现行码（${r.note || why}）；${why}`);
+      // `resolveRegion` 的 `status:'unknown'` 同时装着两种结论：根本不是 6 位数字、
+      // 以及 6 位数字但表里没有。从前这里一律说「省 / 市 / 县三级都落不到」，于是
+      // `regionCode:'abc'` 得到的是「（行政区划码应为 6 位数字字符串）；省 / 市 / 县三级
+      // 都落不到」——前半句说形状、后半句断言"三级都试过没有"，对 'abc' 是假话（2026-09-26 实测）。
+      // 形状这一档必须先单独判，且回显用 trim 后的原样：区划段本来只会是数字，
+      // 把用户写的 `abc` 洗成 `ABC` 再报给他，等于让他去找一个自己没打过的串。
+      const shaped = /^\d{6}$/.test(code);
+      const why = !shaped ? '区划段应为 6 位数字'
+        : r.status === 'abolished' ? '历史码只许解、不许生成'
+          : r.status === 'uncoded' ? '未收录码不能用于生成' : '省 / 市 / 县三级都落不到';
+      // 形状不对时 note 与 why 是同一件事的两种说法，只留 why；形状对而落不到时
+      // note 带着数据截止日与成因，必须留。但 note 自己就带一层括号（实读：「该区划未见于
+      // 现行区划表（截止 …）」「区划码未收录（可能是已撤销建制、经济功能区，或晚于 …）」），
+      // 再套一层 `（${note}）` 就是 2026-09-26 实测到的「（区划码未收录（…））」双层括号。
+      // 外层改用「：」引出，括号只留 note 自己那一层。
+      throw new RangeError(`区划段 ${raw} 不是现行码（${why}）${shaped && r.note ? `：${r.note}` : ''}`);
     }
     return [code];
   }
   const cities = currentCityCodes(o.provinceCode === undefined ? '' : o.provinceCode.trim());
   if (cities.length === 0) {
-    throw new RangeError(`省码 ${o.provinceCode.trim()} 下没有现行市级区划`);
+    // 带上数据截止日，与 idcard.js 的同一格同句式（那一句写「区划数据截止 …」）：
+    // 用户看到"省码 99 底下没有"时，需要知道这是按哪一版表得出的
+    throw new RangeError(`省码 ${o.provinceCode.trim()} 下没有现行市级区划（区划数据截止 ${REGION_META.datasetVersion}）`);
   }
   return cities.map((c) => `${c}00`);
 }
@@ -326,6 +383,14 @@ function rollBody8(rng) {
  *   整个对象传 `null` / `undefined` 等于没传
  * @returns {Array<{code:string, regionCode:string, regionName:string, registryChar:string,
  *   categoryChar:string, subject:string, orgCheckBit:string, checkBit:string, caveat:string}>}
+ *   **这九个键就是面板要渲染的全部**：登记管理部门与机构类别只给字符（`registryChar` /
+ *   `categoryChar`），不给名称——含义表没取到可核实来源（§5.1），后来人若凭记忆往这里加
+ *   `registryName` 一类，C8 那句键集 deepEqual 会当场红。
+ * @throws {RangeError} `count` 不是 1..50 的整数；`registry` / `category` 不是 31 字符集内的
+ *   单个字符；`regionCode` 不是现行码（历史码 / 未收录码 / 形状就不对）；前缀底下零候选。
+ * @throws {TypeError} `regionCode` / `provinceCode` 不是非空字符串（含空串、全空白、数值、
+ *   null）；`rng` 不是函数，或某次取值不在 [0, 1) 内。
+ *   两档都由调用方的入参决定，绝不会以「内部不变量」的形式出现——那一句只留给真正的实现自洽问题。
  */
 export function generateUsccCodes(options = {}) {
   const o = options ?? {};
