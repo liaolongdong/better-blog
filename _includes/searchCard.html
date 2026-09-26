@@ -1,0 +1,12 @@
+{%- comment -%}
+站内搜索的触发条，首页两处渲染：右栏那份带 rtlf-delay500（delay=true），
+窄屏信息流之前那份不带——那个入场关键帧是 translateX(100%) 从右飞入，挂在
+通栏元素上会让这 500ms 里整条横向溢出视口。两处各自在哪个断点可见，由
+editorial.scss 的 .home-intro / .g-sidebar-wrapper 那组 ≤959 规则决定。
+{%- endcomment -%}
+<div class="search-card{% if include.delay %} rtlf-delay500{% endif %}">
+    <button type="button" class="search-trigger" data-search-open>
+        <span class="search-text">搜索文章…</span>
+        <kbd class="search-kbd">⌘K</kbd>
+    </button>
+</div>

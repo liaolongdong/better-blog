@@ -36,13 +36,22 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
 
 <main class="g-container home-content" id="main">
     {%- comment -%}
-    窄屏（≤959）的自我介绍，站在信息流之前；桌面这一块整个 display:none，
-    那张名片还在右栏。放前面是因为手机上「这个博客是谁写的」原先要划完一整页文章卡
+    窄屏（≤959）的自我介绍 + 搜索条，站在信息流之前；桌面这一块整个 display:none，
+    那两样还在右栏。放前面是因为手机上「这个博客是谁写的」原先要划完一整页文章卡
     才能看到，而它决定了读者要不要继续往下划。桌面不给它位置：右栏本来就常驻，
     重复一份只会把刊头和数据条挤走。样式与取舍见 editorial.scss 的 .home-intro。
     {%- endcomment -%}
     <div class="home-intro">
         {% include authorCard.html %}
+        {%- comment -%}
+        搜索条跟着名片一起搬到信息流之前：手机上「找某一篇」比「这个博客是谁写的」更接近
+        下一步动作，而它原先住在右栏末尾，要划完一整页文章卡才够得着（实测 390 落在
+        5518px 处）。与上面名片同法：同一个 include 两处渲染、按断点各藏一处，≤959 只有
+        这一份可达（实测 390 DOM 里两个 data-search-open、可见的那个只有它）。
+        {%- endcomment -%}
+        {% if site.search %}
+        {% include searchCard.html %}
+        {% endif %}
     </div>
 
     <div class="article-list">
@@ -180,12 +189,7 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
         </div>
 
         {% if site.search %}
-        <div class="search-card rtlf-delay500">
-            <button type="button" class="search-trigger" data-search-open>
-                <span class="search-text">搜索文章…</span>
-                <kbd class="search-kbd">⌘K</kbd>
-            </button>
-        </div>
+        {% include searchCard.html delay=true %}
         {% endif %}
 
     </aside>

@@ -568,6 +568,14 @@ body {
         flex: 1 0 100%;
         margin-top: 4px;
     }
+
+    // 介绍条里的搜索框：外面已经有一层卡，这里只留描边、把投影摘掉，否则是「卡里
+    // 再套一张带影的卡」。上边距 12px 而不是 .search-card 的 16px——它贴着的是同一张
+    // 卡里的内容，不是右栏那种独立模块之间的间距。
+    .search-card {
+        margin-top: 12px;
+        box-shadow: none;
+    }
 }
 
 .tools-card {
@@ -659,6 +667,12 @@ body {
     gap: 10px;
     width: 100%;
     padding: 12px 14px;
+    // 必须显式写：base.scss 的归零名单只有 audio/video/iframe/main/header/footer，没有
+    // button，而这条一直只声明了 background-color:transparent。于是按钮的 UA 默认
+    // 边框（实测 computed = 2px outset #000）一直露着——外框那 1px var(--rule) 是
+    // .search-card 画的，跟它无关。搜索条搬到信息流之前后这是首屏最大的一个块，
+    // 那圈黑框从「角落里的瑕疵」变成了第一眼问题，顺手摘掉。
+    border: 0;
     font-family: inherit;
     font-size: 14px;
     color: var(--ink-3);
@@ -3493,7 +3507,13 @@ body.cmdk-open {
 @media screen and (max-width: 1179px) {
     .g-container {
         width: auto;
-        padding: 0 20px;
+        // 左右必须写成长边距：这一档的 .g-container 常常和页面自己的纵向留白挂在同一个
+        // 元素上（.archive-content 的 40px 0 88px、.tools-content 的 44px 0 80px、
+        // .notfound-content 的 46px 0 92px），而它在本文件里排在它们后面，`padding`
+        // 简写会把上下一起清零。实测 390 下合集页首颗胶囊顶边＝刊头底边，间隙 0，
+        // 桌面 1440 同一处是 40px。横向的 20px 保险一个字没动。
+        padding-right: 20px;
+        padding-left: 20px;
     }
 
     // 头图外层自己也钉在 1140 + 居中：容器放开成通栏后它若不动，图就比正文两侧各窄
@@ -3531,9 +3551,27 @@ body.cmdk-open {
         margin: 0 auto;
     }
 
-    .g-sidebar,
-    .search-card {
+    .g-sidebar {
         display: block;
+    }
+
+    // 窄屏的搜索入口只留一个：信息流之前那份（.home-intro 里）出现，右栏那份摘掉。
+    // layouts.scss 在 ≤960 有一条裸 `.search-card{display:none}`，所以「出现」这条必须
+    // 带 .home-intro 前缀才压得住它（0,2,0 对 0,1,0）；下面那条把右栏那份按自己的断点
+    // 钉死，不去依赖另一个文件的 960 阈值。display:none 同时把它移出 Tab 序列。
+    .home-intro .search-card {
+        display: block;
+    }
+
+    .g-sidebar-wrapper .search-card {
+        display: none;
+    }
+
+    // 键帽提示在窄屏不占这一格：这一档的访客多数没有实体键盘，⌘K 本身仍然可用，只是
+    // 不再画出来（顶栏那颗同法，见本文件 ≤695 那档的 .nav-search-key）。摘掉键帽后
+    // 按钮实测整条 44px 高（390 宽、border 归零之后），命中不受影响。
+    .search-kbd {
+        display: none;
     }
 
     .g-sidebar {
