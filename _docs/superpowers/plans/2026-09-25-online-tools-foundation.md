@@ -6165,7 +6165,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 mv /tmp/seg1/uscc.orig dev/js/tools/uscc.js
 ```
 
-Expected（M1）：`not ok` 里必有 **C4**（"末位计算：余数为 0 取 0"）；C8 可能出现——生成 20 条时抽到余数 0 的概率约 48%，它红是运气不是判据，别把 C8 当 M1 的验收。**不以 B8 那类"生成后自检"为守卫**：生成器与校验器共用同一张表时，表错了自检照样全过，能守住表的只有跨实现的对拍（M2 就是来看这一点的）。
+Expected（M1）：`not ok` 里必有 **C4**（"末位计算：余数为 0 取 0"）与 **C5**（它那条批量用例第 3 行就是 `R_ZERO`，正是余数 0 那一档，末位一越界那条码就从 `valid` 掉成 `checkdigit`）；C8 可能出现——生成 20 条时抽到余数 0 的概率约 48%，它红是运气不是判据，别把 C8 当 M1 的验收。2026-09-26 收口实测三条一起红（`# pass 38`、`# fail 3`），逐条见 §8.1。**不以 B8 那类"生成后自检"为守卫**：生成器与校验器共用同一张表时，表错了自检照样全过，能守住表的只有跨实现的对拍（M2 就是来看这一点的）。
 
 ```bash
 # M2 校验位表整个抄反
@@ -6215,7 +6215,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 mv /tmp/seg1/region.orig dev/js/tools/region.js
 ```
 
-Expected（M5）：`not ok 5 - A5 六档回落链每一档的结论…` 与 `not ok 12 - A12 读侧六个入口的入参口径一致…` 同时红，`# pass 10`、`# fail 2`（实测 2026-09-25 逐字如此；还原后 `region.js` 的 sha256 回到 `267a8f50…`，与变异前 `diff` 逐字节为空）。这条是 Task 3 落地时补的，形状后来变过一次：计划原稿的 `resolveRegion` 用 `String(code ?? '')`、A5 要求裸数值 `110101` 落 `level:'none'`，两者直接冲突，于是先加了一道 `typeof code !== 'string' ||` 前置门；质量复核又把这道门挪进 `normalizeCode` 让四个入口共用（否则 `isGeneratable(110101)` 为 true 而 `resolveRegion(110101)` 落 none，两条入口互相打脸），M5 的靶子随之一分为二。用 `node -e` 而不是 `sed` 下手，是因为这些文本里有 `||`、引号与 `\n`，`sed` 的转义一旦写错就是**静默不匹配**（`sed -i ''` 匹配不到时退出码仍是 0），而这里先数了匹配次数、不等于 1 就抛错。
+Expected（M5）：`not ok 5 - A5 六档回落链每一档的结论…` 与 `not ok 12 - A12 读侧六个入口的入参口径一致…` 同时红，`# fail 2`。**`# pass` 那一格这里不写死**——原稿的 `# pass 10` 是 2026-09-25 只有 §A 那 12 条时的数（10 + 2 = 12），今天 41 条 Suite 跑出来是 `# pass 39`（39 + 2 = 41），同一条判据、不同分母。还原自证同理不抄哈希值：`region.js` 的 sha256 自那次以后又随 6573e23、4492e48 变过两次，收口时（HEAD `f23b3ae`）是 `0e9c96d8…`，复算口径 `shasum -a 256 dev/js/tools/region.js` 与前 8 位 `| cut -c1-8`——把会变的东西抄进文档当判据，就是给自己造下一个 `267a8f50`。这条是 Task 3 落地时补的，形状后来变过一次：计划原稿的 `resolveRegion` 用 `String(code ?? '')`、A5 要求裸数值 `110101` 落 `level:'none'`，两者直接冲突，于是先加了一道 `typeof code !== 'string' ||` 前置门；质量复核又把这道门挪进 `normalizeCode` 让四个入口共用（否则 `isGeneratable(110101)` 为 true 而 `resolveRegion(110101)` 落 none，两条入口互相打脸），M5 的靶子随之一分为二。用 `node -e` 而不是 `sed` 下手，是因为这些文本里有 `||`、引号与 `\n`，`sed` 的转义一旦写错就是**静默不匹配**（`sed -i ''` 匹配不到时退出码仍是 0），而这里先数了匹配次数、不等于 1 就抛错。
 
 五条都还原后，复跑测试命令：
 
@@ -6237,6 +6237,8 @@ diff /tmp/seg1/assets-sha-before.txt /tmp/seg1/assets-sha-after.txt && echo "产
 Expected：`build exit=0`、`产物逐字节一致`、29 行哈希一字不差。这条证的是 Task 1 Step 1 里那句"子目录不成入口"：`dev/js/tools/*.js` 五个模块没有被任何既有入口 import，所以 Vite 既不会为它们生成新产物，也不会改动别人的。
 
 若 `diff` 非空：先按哈希行里的文件名去 `git log --oneline $(cat /tmp/seg1/head-before.txt)..HEAD -- dev/` 查是不是别人在这期间改了源码；查不到就是本段越界（比如不小心动了 `dev/js/index.js` 或 `vite.config.js`），立刻回退那一处。**不要**用"重新生成基线"消差：基线是开工时的快照，重造一份就等于没有基准。
+
+**基线文件真丢了怎么办**（2026-09-26 收口时就是这档，实测与归因见 §8.1 Step 2）：别退回"未实测"，改成同 commit 的有/无 A/B——`git archive HEAD` 拉两棵，一棵原样、一棵再删本段那 19 个路径（`dev/js/tools/`、`scripts/{build-region-data,build-id-fixture,toolkit-tests,verify-plan-blocks}.mjs`、`scripts/fixtures/`、`assets/data/LICENSES.md`、`_docs/`），各自软链仓库的 `node_modules`，两边同跑 `pnpm build` 再比 `assets/**/*.min.*` 的哈希清单。这个口径比"与开工基线一致"更强：前者测的是"这段时间没人动构建输入"（在本仓库随时会红且红了与本段无关），后者测的是本段真正要主张的那句归因。上面那段"按文件名去 `git log -- dev/` 查别人"的动作文档照做，正好用来给基线侧差异逐格归因。
 
 - [ ] **Step 3: 零重叠之二——Jekyll 产物里不出现本段任何文件**
 
@@ -6276,6 +6278,66 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 
 本任务正常情况下不产生提交（Step 1 全部还原，Step 2–4 只读产物）。若 `git status` 里有遗留，说明某步没还原干净，逐条查清再动手：`_site`、`assets/*.min.*`、`/tmp` 之外的任何改动都不该由这个任务留下。
 
+### 8.1 第十六轮：第一段收口实测——开工基线丢了，于是把判据换强了一档
+
+跑这一步时 `/tmp/seg1` 里 Task 1 留下的三份基线（`head-before.txt`、`assets-sha-before.txt`、`site-before`）已经不在了。计划在这一节留的恢复口径是"重开 worktree 跑一次 Task 1 Step 1，或者承认基准丢失、写成未实测"。**两条都没走**，走了第三条：同一个 commit 上做有/无本段文件的 A/B。理由是这条判据真正要证的是"本段文件对产物零影响"，这是一个**归因**命题，而跨时间基线证的是"这段时间没人动过构建输入"——后者这仓库根本做不到（下面 Step 2 有实测证据）。
+
+#### Step 1 变异自证：五条全按预期变红，还原后复绿
+
+跑在镜像 `/tmp/t5x` 里（仓库那份一个字未动），harness `/tmp/t8_mut.mjs`，输出 `/tmp/t8_mut.out`。每条变异下手前校验锚点命中数 `== 1`、下手后校验"文件内容确实变了"且"锚点已消失"，跑完从仓库回写还原并逐文件比对镜像与仓库一致；开局先跑一次基线（`# pass 41 / # fail 0`）证明靶子是活的。
+
+| 变异 | 改了什么 | 红的判据（实测） | `# pass / # fail` |
+| --- | --- | --- | --- |
+| M1 | `uscc.js` 末位少一步模 | C4、**C5**、C8 | 38 / 3 |
+| M2 | `idcard.js` 校验位表整个抄反 | B1、B2、B3、B4、B5、B7、B9、B10、B12、B15 | 31 / 10 |
+| M3 | `panel.js` 的 `tabindex` 写成数字 | D1、D2 | 39 / 2 |
+| M4 | 两个模块各把 `abolished \|\| uncoded` 简化成 `uncoded` | B6、C6 | 39 / 2 |
+| M5 | `region.js` 两处类型闸门一起摘 | A5、A12 | 39 / 2 |
+
+跑完五条再跑一次基线：`# pass 41 / # fail 0`，且五个被改文件与仓库逐字节相同。
+
+**M1 这一条要改计划正文**：Step 1 的 Expected 只列了"C4 必有、C8 可能出现（48% 运气）"，实测红的是 C4 + **C5** + C8。C5 不是运气——它那条批量用例 `parseUsccList(\`${NATIONAL}\n\n${R_ZERO}\r\nabc\`)` 的第 3 行就是 `R_ZERO`，也就是 §3 修订记录里"换成余数 0 那一档、且内层自洽"的那个样本；M1 让末位算成 31、越出 0–30，那条码从 `valid` 掉成 `checkdigit`，断言 `[valid, empty, valid, malformed]` 当场红在第 3 格。**一张表里同一个分支被两条判据看着，是好事**；写漏 C5 才是问题——下一个跑 M1 的人看见多出来的红，第一反应会是"变异溢到别处了"，然后去查不该查的地方。C8 那一条仍按原口径：它红是 20 条样本抽到余数 0 的运气，不算 M1 的验收。
+
+M5 的两个删改落在同一个文件，harness 里必须**链式落到一次写入**（先攒 `Map`、再统一写盘）。第十五轮就是栽在这：两次 `writeFileSync` 各写一次，后一次覆盖前一次，变异只剩一半、A5 静默复绿，看起来"通过"而实际什么都没测。这次两条锚点都校验了"消失"，红的正是 A5 + A12 那一对。
+
+#### Step 2 零重叠之一：Vite 产物——29 条哈希两侧一字不差
+
+两棵树都来自 `git archive`（只含已跟踪文件，无未提交改动），各自软链仓库的 `node_modules`：`head` 是 HEAD 原样，`notools` 再删掉本段那 19 个路径（`dev/js/tools/`、`scripts/` 四个脚本与 `fixtures/`、`assets/data/LICENSES.md`、`_docs/`）。
+
+- `pnpm build` 两侧都 `exit=0`；`assets/**/*.min.*` 两侧都是 **29** 个文件，`shasum -a 256` 逐行 `diff` 为空。
+- 扩到 `assets/` + `demo/` 全集再比一次：497 vs 496 个文件，唯一差异是 `assets/data/LICENSES.md` 只在 `head` 一侧——它是本段新增的**源文件**（Step 3 证明它不进站点），不是构建产物。这一步顺手排除了"删了本段文件会让构建少产出点什么"的反向可能。
+
+**跨时间基线在这个仓库里不成立**，这一条是实测出来的：另外拉一棵 `git archive 4ae6300`（本段第一条 commit 之前）重跑构建，`assets/**/*.min.*` 从 29 变成 **30** 个——**9 个同名文件哈希不同 + 1 个只在基线侧**（`assets/js/noframework.waypoints.min.js`）。归因逐条查到源：那"多出来"的一格是 `cd249d1 fix(about)` 删了 `dev/libJs/noframework.waypoints.min.js`（`git log --name-status --diff-filter=D` 实证）；九格内容差异分别落在 `dev/sass`（`cd249d1` + `6048c95` + `288d2bf`）、`dev/js/about.js`、`dev/js/cat.js`、`dev/js/editorial.js`（`381080d` 也在其列）、`dev/libJs/cursor-effects.js` 与 `dev/libJs/dandelionAnimate.js`（`6048c95`）——**四条 commit 没有一条带 `(tools)`**，本段那 19 个路径一个都不在它们的 `--name-only` 里。也就是说"与开工基线逐字节一致"这句话在这个仓库里随时会红，且红了与本段无关——所以完成定义第 3 条按 A/B 判，不按跨时间基线判。
+
+顺带一个段 2 要避开的坑：`assets/js/tools.min.js`（349 B，`window.tools = {formatDate}`）**早就存在**，来源是 `dev/libJs/tools.js`，与本段的 `dev/js/tools/` 目录只是重名。`getDevJsEntries()` 与 `getDevLibJsEntries()` 都往 `assets/js/` 写 `{name}.min.js`，所以段 2 千万别在 `dev/js/` 下放一个 `tools.js` 入口——那会和这个库产物撞同一个输出名，后写的覆盖前写的，而两侧都 `exit=0`。
+
+#### Step 3 零重叠之二：Jekyll 产物——路径集合相同、932/933 逐字节相同
+
+`bundle exec jekyll build` 两侧都 `exit=0`（`--destination` 指到 `/tmp/seg1/site-{head,notools}`，没碰仓库 `_site`）：
+
+- 文件数 933 vs 933，`find | sort` 路径清单 `diff` 为空 → 本段没往站点里加任何一个文件，也没让哪个文件消失。
+- 逐文件 `shasum -a 256`：**932 个相同**，唯一不同的是 `feed.xml`，`diff` 出来只有一行——`<updated>` 从 `18:21:05` 到 `18:20:15`，两次构建相差 50 秒的 `site.time`。这条要说清楚，否则下一个看到"有文件不同"的人会以为漏了东西。
+- 计划原判据那条关键字 `grep` 打在 `site-added.txt`（空集）上，exit 1 通过；**空集上的零命中本身没有牙**，所以同一条模式打在完整清单上自证：命中 4 条既有路径（`…/react-developer-tools.png`、`…/vue-devtools.png`、`…/06-sidepanel-fill.png`、`…/ios_device_motion.png`），模式不是写坏了才什么都抓不到。
+- 再加一层内容级：`createPanelWorkspace` / `toolkit-tests` / `region-data` / `id-validator-checkbit` / `normalizeCode` / `checkDigit` / `LICENSES.md` 七个标识符在 `site-head` 全树 `grep -rl` 命中文件数**逐个为 0**。`ls site-head/assets/data/` 报 `No such file or directory`，Task 7 Step 3 那条"归属记录不进 `_site`"由此换了个路径再证一次。
+
+#### Step 4 零重叠之三：提交边界干净
+
+`4ae6300..HEAD` 共 39 条 commit（`git rev-list --count` 复算），其中 **28 条**碰过本段那 19 个路径（`_docs/superpowers/` 下的计划与规格、`dev/js/tools/`、`scripts/` 四个脚本、`scripts/fixtures/`、`assets/data/LICENSES.md`），subject 全部带 `(tools)` 作用域；把"含本段文件"的判定限制在**非** `(tools)` 提交上，命中 **0** 条。这条判据的牙是同一个循环去掉作用域豁免后仍然数到 28——不是模式没匹配上。
+
+`git status --porcelain` 收口时 9 行，逐行核对全是并行会话的：`.gitignore`、`_config.yml`、`_data/og_images.yml`、`_drafts/WRITING_PROTOCOL.md`、`_drafts/persona.md`、`package.json`、未跟踪的 `.baoyu-skills/baoyu-post-to-wechat/`、`scripts/lib/`、`scripts/wechat-draft.mjs`。本段那 19 个路径一个不在列 → Step 5 无遗留，本任务不产生代码提交，仓库侧唯一改动就是这份计划。
+
+#### 第一段完成定义：五条逐条对账
+
+1. `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` → `# tests 41` / `# pass 41` / `# fail 0` / `exit=0`（`grep -c "^test("` 复算同为 41）。
+2. 五条变异各自让预期判据变红、还原后复绿：见上表 + `RESTORED exit=0 pass=41 fail=0`。
+3. 本段文件对 Vite 产物零影响（A/B 口径，29 条哈希一字不差）；跨时间基线已由实测否证。
+4. Jekyll 产物路径集合相同、关键字零命中且有牙自证、七个标识符内容级零命中。
+5. 提交边界干净：28 条 `(tools)` 之外零命中。
+
+`node scripts/verify-plan-blocks.mjs` 在收口时 `exit=0`（11 个已落地镜像与磁盘逐字节全等，未落地 0 节），`panel.js` 228 行、`scripts/toolkit-tests.mjs` 2,554 行、§D 2298–2554 共 98 条 `assert.`、镜像 257 行。
+
+**这一段对站点用户是零可见变化**，交付的是四样别人要依赖的东西：两张区划码表、两套校验算法、一份 1,000 条对拍夹具、一个面板状态机，加上"许可已复核"这件事本身。段 2–4 才动页面、样式与导航，段 5 才删 `demo/idCardDemo/` 与 bump 版本号。
+
 ---
 
 ## 第一段的完成定义
@@ -6284,9 +6346,11 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 
 1. `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` → `# pass 41`（§A 12 / §B 15 / §C 9 / §D 5）、`# fail 0`、`exit=0`。
 2. Task 8 Step 1 五条变异各自让预期那几条判据变红，且还原后复绿。
-3. `pnpm build` 后 `assets/**/*.min.*` 的 29 条哈希与开工基线逐字节一致。
+3. `pnpm build` 后 `assets/**/*.min.*` 的 29 条哈希与开工基线逐字节一致。（2026-09-26 收口时基线文件已丢，这一条改成"同一个 commit 上有/无本段文件"的 A/B 来判，并且实测否证了跨时间基线在这个仓库里可行——三条理由见 §8.1 Step 2。）
 4. `bundle exec jekyll build` 产物里按路径关键字归因为零命中。
 5. `git log` 上本段的提交边界干净：没有本段文件出现在别人的 commit 里。
+
+五条的逐条实测值与自证方式见 §8.1 末小节；那一份是收口时对账用的，本节正文里凡是与它冲突的写法都以 §8.1 为准。
 
 **这一段做完，站点上看不到任何变化**——没有新页面、没有新产物、没有配置改动。它交付的是四样别人要依赖的东西：两张区划码表、两套校验算法、一份对拍夹具、一个面板状态机，加上"许可已复核"这件事本身。页面、样式、导航与 JSON 工作台全在段 2–4，`demo/idCardDemo/` 的删除与版本号在段 5。
 
@@ -6303,7 +6367,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **范围**：`tools-idcard.html`（或按设计文档 §6.2 的命名）+ `dev/js/toolIdcard.js` 装配层（把 `panel.js` 的属性表写进 DOM、接 `hashchange`/`keydown`、`history.replaceState`）+ `#idcard`/`#uscc` 两块面板 + `#bankcard`/`#mobile`/`#random` 三块（含 Luhn 与运营商前缀表、随机姓名/地址/邮箱）+ `dev/sass/tools-idcard.scss` 与主题接色 + `postcss.config.js` 的 `selectorBlackList` 加 `.tk-`/`.jt-` + 三处入口（header 下拉、`tools.html` 小节、`index-all.html`）+ 收录面（`sitemap.xml`、`llms.txt`、`USAGE.md` 计数）。
 - **依赖本段的哪一样**：`panel.js` 的 `tablistAttr/tabAttr/panelAttr/toHash/keyAction` 是装配层唯一的属性来源（容器那一格也在模块里算，页面不许自己手抄 `role="tablist"` 与 `aria-label`）；`idcard.js`/`uscc.js` 的 `USE_NOTE`、`REFERENCE_NOTE`、`caveat` 是页面文案唯一来源——页面里再写一份"仅供参考"就是违约。
 - **验收**：设计文档 §8.2 第 1、3、5、6 条全绿（`.is-current` 抽查现有页面逐字节一致那条不能跳）；`node --test` 加上 §8.1 里银行卡/手机号那两组判据；`datasetVersion: '2022-10-31'` 在页面上可见（§2.2 第 ① 条）。
-- **已知会踩的坑**：`px-to-viewport` 的 `mediaQuery: true` 意味着只抽查一条规则不够，必须按 §8.2 第 5 条在**产物 CSS** 里查 `vw` 残留；导航高亮判据动的是全站共享的 `header.html`，改完要抽查而不是只测新页。
+- **已知会踩的坑**：`px-to-viewport` 的 `mediaQuery: true` 意味着只抽查一条规则不够，必须按 §8.2 第 5 条在**产物 CSS** 里查 `vw` 残留；导航高亮判据动的是全站共享的 `header.html`，改完要抽查而不是只测新页。另有一条入口命名红线（§8.1 Step 2 实测到的）：`assets/js/tools.min.js` 已被 `dev/libJs/tools.js`（`window.tools.formatDate`，349 B）占着，而 `getDevJsEntries()` 与 `getDevLibJsEntries()` 都往 `assets/js/` 写 `{name}.min.js` 且两侧构建都 `exit=0` —— 段 2 的装配层入口别叫 `dev/js/tools.js`，`toolIdcard.js` 这一类带页面前缀的命名才安全。
 
 ### 段 3：编码工具箱页
 
@@ -6427,3 +6491,4 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **第十三轮是对第十二轮那批整改的验证性复核（5 项 Important + 10 条 Minor 落地、3 条不采纳，逐条见 §5.2 表 B / 表 C，两处计划正文数字作废记在 d-1）**。复核方式与第十一轮同一把尺子：**每条 Important 自己复跑坐实，再用一记最小变异证明补上的判据真有牙**。抓到的一类是"判据钉住了事实、却没钉住契约"：① C8 没钉生成侧的九格键集（往产物塞 `registryName: ''` 判据照旧绿，而 §5.1 明写这两格只给字符不给名称）；② C1 只核长度与"不含 I O S Z V"，把字符集下标 28 的 `W` **原地换成 `-`**（长度仍 31）时 §C 九条全绿——那张 31 字符表是 §C 全部判据的地基；③ `parseUscc` 的 `malformed` 有两档（结构档四格全空 / 区划档保留纯算术量但 `region.fullName` 为空），这条分档只活在代码里，段 2 照哪档渲染都可能。另一类是**判据自己谎报强度**：④ C8 那四道 `assert.throws(fn, RangeError, /正则/)` 一根牙都没有——`node:assert` 的**第三个参数是失败说明文字、不参与匹配**（探针实测：三参形对着毫不相关的正则退 0；对象形 `{ name, message }` 两项都真判定），于是"钉文案"那句是假的，四处换成对象形；⑤ `regionPool` 的 `status !== 'current'` 那一支把"根本不是 6 位数字"与"6 位但表里没有"说成一件，用户写 `regionCode:'abc'` 得到「… ；**省 / 市 / 县三级都落不到**」——后半句对 `'abc'` 是假话，同时 `${code}` 把 `abc` 洗成 `ABC` 再回显。修法：形状那一档先单独判、回显用 trim 后原样、C8 补三句（`/区划段应为 6 位数字/` + `doesNotMatch(/三级都落不到/)` + `message.includes('abc')`）。十条 Minor 全在注释与文案档（一条不改行为），其中 10 号是"两份 `shapeOf` 的注释读起来像入口也不 String()"——两头注释一起收窄、并在 C9 加 `naked` 那一格钉住四个入口同抛 `TypeError: Cannot convert object to primitive value`（四格实测同文案），**不改 `idcard.js` 已批准的闸门基线**；`内部不变量` 那句两模块措辞不同的一条**不采纳**，因为 C8 / C9 的注释逐字引着旧措辞当整改前的历史证据，统一会让引用指向一句不存在的话。七针（n1 / n2 / n3 / n4 / n5a / n5b / n6）在最终文本上重跑：分别只红 C8 / C1 / C5 / C8 / C8 / C8 / C9，每针 `# tests 41 / # pass 40 / # fail 1`、`exit=1`；n5b 第一次锚点命中 0，是镜像里还留着上一针的改动，被命中数那道闸拦下（§4.11 那条流程账第四次兑现）。收口实测：`wc -l dev/js/tools/uscc.js dev/js/tools/idcard.js dev/js/tools/panel.js scripts/toolkit-tests.mjs` = **420 / 587 / 138 / 2,368**、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`node scripts/verify-plan-blocks.mjs` 退 0（11 块镜像全等、未落地 0 节）、`grep -c "^test("` = 41；**基线仍 41 条**，本轮断言全部加在 C1 / C5 / C6 / C8 / C9 内部。`region.js`、`region-data.js`、两个生成器与 `scripts/fixtures/` 一字未动。
 - **第十四轮是对第十三轮那批整改的再复核（6 项 Minor，零 Critical / Important，逐条见 §5.3 表 D）**。本轮新的一类病灶是**注释替实现许了愿**：`@param` 写着「数组与 `{}` 落到串再判 malformed」，而 `parseUscc(['91350100M000100Y43'])` 实测是 `valid`（单元素数组的串就是那条码本身）；同一句还写着「末两位丢了一位」，实测变的是第 16、17 两位（`66` → `70`），第 18 位碰巧没变。另一类是表 B 的 n4 / n5 那两类"补了一格、旁边那一格仍零判据"的余数：`why` 四支文案只钉了两支（另两支就地换成 `XYZ` 仍 41/41 全绿）、`note` 外层仍套 `（…）` 造成「（区划码未收录（…））」双层括号、键集判据只核 `a[0]`（"第 2 条起多一键"全绿）、空池文案的「区划数据截止」尾句全摘不掉、JSDoc 声称区划档保留 `info.checksum` 且 `province/city/county` 为空串而两句都没有格子。九针（K1…K9）本轮**在 before / after 两个版本上各打一遍**（§5.3 表 E）：before 版是把本轮新加的六块判据按行区间逐块摘掉重建出来的，重建结果 2,368 行与第十三轮收口记录的行数逐字对上——这是"重建没多摘没少摘"的自证；同一批针在 before 版上除 K6c 外**全部 41/41 全绿**（病灶为真），在 after 版上 K1…K4 只红 C8、K5 / K8 / K9 只红 C9、K6b / K7b 只红 C6、K6c 红 C5 + C6（牙齿为真）。二十次跑无一针 ANCHOR-FAIL，跑前镜像基线自证 41/41、并先做一记 liveness 探针（改镜像 `region.js` 的导出名 ⇒ 镜像套件红），跑后逐针恢复、工作树 `grep` 自证无残留。整改里最要紧的一颗新牙是 C9 的 `[code, 'x']` 那一格：`[code]` 与 `[code,'x']` 在"入口贴心拆包"这种变异下 `raw[0]` 完全同形，前三格照旧绿，只有这一格分得开。收口实测：`wc -l` = **430 / 587 / 2,436**（uscc.js / idcard.js / 判据文件）、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = 41、`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 本轮重写 2 块镜像）。**基线仍 41 条**，断言全部加在 C6 / C8 / C9 内部，`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/` 与 `demo/idCardDemo/` 一字未动。
 - **第十五轮是 Task 6（`43407bc` 落地、此后无人回看）的第一次代码质量复核（5 项发现全部落地，逐条见 §6.1 表 A）**。病灶集中在两处：**容器那一格没人算**（`tablistAttr` / `aria-orientation` 在旧码里 `grep -c` 均为 0，而模块契约写的是"装配层只写模块算出来的属性表"——容器不留在这里，段 2 就得手抄 `role` 与 `aria-label`，同一节点两套口径），以及**五道入参闸门全是裸 `Error`、四格压根没闸门**（旧码 `TypeError` / `RangeError` 各 0 次，`orientation` 出现 0 次、`prefix` 只出现在拼 id；旧 §D 的 `assert.throws` 只有 3 格且全部只核文案）。第三条与 §5.3 同族：`select` 的注释替实现许了愿——写着"点击已选中的 tab 是 `true` 且 `changed=false`"，而 `select` 返回的是布尔、`changed` 这一格根本不存在。牙齿自证分两半：**after 版 14 针**（L0 liveness + K1…K13）锚点命中数全 =1、无一针空转、无一针零判据，红点落位与表 A 逐格对上（K1–K4 只红 D1、K5–K10 只红 D5、K11–K13 只红 D4），K9 与 K10 各红一次证明"读写同档"是两颗牙不是一颗；**before 版四针**打在旧码 + 旧判据（基线自证 41/41）上，B-K11 / B-K12 **全绿＝零判据**（本轮 D4 那两圈就是为它们补的），B-K9 / B-K5 红但只核文案。本轮**没有做全量 before/after**：整改前的 §D 与整改后的 `panel.js` 不能共存（那三格正则对新文案必红，这是事实而不是修辞），所以对照只在有锚点的四针上做，其余按结构陈述（旧码压根没有那个导出 / 那道闸门）。收口实测：`wc -l` = **228 / 2,554**（`panel.js` / 判据文件）、`panel.js` 138 → 228、§D 判据 72 → 98 条 `assert.`（+26）、§D 镜像 142 → 257 行、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = **41（基线不变，本轮零新增 `test()`，格子全加在 D1 / D4 / D5 内部）**、`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 重写 2 块镜像）。本轮另记一条**判据自曝**：`ctorGates` 第一版写成元组表，"字符串不是数组"那一格误写成 `['idcard']`（合法的单元素数组），靠循环里那句 `if (!err) assert.fail(…)` 当场暴露——换成旧的 `assert.throws(fn, /re/)` 也会红，但红的原因会被读成"实现没抛"，人去改实现而不是改表。工作树侧 `md5` 三方全等（工作树 / keep / 镜像）+ 三个变异标记零命中自证无残留；`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/`、`demo/idCardDemo/` 与 `assets/data/LICENSES.md` 一字未动。
+- **第十六轮是 Task 8（第一段收口）：五条变异全按预期变红、三项零重叠自证全中，逐条实测见 §8.1**。本轮不产生代码提交，仓库侧唯一改动是这份计划。**开工基线丢了**（`/tmp/seg1` 的 `head-before.txt` / `assets-sha-before.txt` / `site-before` 三份都不在），计划留的两条退路（重开 worktree 跑 Task 1 Step 1、或写成"未实测"）都没走，改走第三条：**同一个 commit 上有/无本段文件的 A/B**——本段要证的是归因（"我的文件对产物零影响"），跨时间基线证的是"这段时间没人动过构建输入"，后者在本仓库已被实测否证：另拉一棵 `git archive 4ae6300` 重跑构建得 **30** 个 `*.min.*`（九格同名内容不同 + 一格只在基线侧），这十格全部归因到并行会话的 `cd249d1` / `6048c95` / `288d2bf` / `381080d`——逐格查到 `dev/sass`、`dev/js`、`dev/libJs` 的源，没有一条带 `(tools)`（明细见 §8.1 Step 2）。A/B 侧：`pnpm build` 两棵都 `exit=0`、29 条哈希 `diff` 为空，扩到 `assets/` + `demo/` 全集 497 vs 496、唯一差异是本段那个源文件 `assets/data/LICENSES.md`；`bundle exec jekyll build` 两棵都 `exit=0`、**933 vs 933 路径清单相同**、932 个文件逐字节相同，唯一不同的是 `feed.xml` 的 `<updated>`（两次构建相差 50 秒的 `site.time`，已 `diff` 定位到那一行而不是含糊成"仅时间戳"）。判据的牙照旧自证：空集上的关键字零命中不算数，同一条模式打在完整清单上命中 **4** 条既有路径；另加七个标识符的内容级 `grep -rl` **逐个 0 命中**。提交边界：`4ae6300..HEAD` 39 条里 **28** 条碰过本段 19 个路径、subject 全带 `(tools)`，非 `(tools)` 提交命中 **0** 条（同一循环去掉豁免仍数到 28，证明不是模式没匹配）。变异侧 harness 换到 `/tmp/t8_mut.mjs`：M1 → C4 + **C5** + C8（38/3）、M2 → 十条 B 系（31/10）、M3 → D1 + D2、M4 → B6 + C6、M5 → A5 + A12（各 39/2），跑前镜像基线 41/41、跑后 `RESTORED` 41/41 且五个被改文件与仓库逐字节相同。**两处计划正文按实测改正**：① M1 的 Expected 漏了 C5——`R_ZERO` 就在那条批量用例第 3 行，末位一越界 `valid` 变 `checkdigit`，不写出来下一个人会把多出来的红当成"变异溢出"；② M5 那句写死的 `# pass 10` 与 `region.js` 哈希 `267a8f50…` 都作废（前者是只有 §A 12 条时的分母，后者自那以后随 `6573e23`、`4492e48` 变了两次，现值 `0e9c96d8…`，文档改留复算命令）。同一批改正顺手把 `assets/js/tools.min.js` 这个**重名坑**记进 §8.1：它来自 `dev/libJs/tools.js`（`window.tools.formatDate`），与本段 `dev/js/tools/` 只是同名，而两侧构建器都往 `assets/js/` 写 `{name}.min.js` 且都 `exit=0` —— 段 2 不许在 `dev/js/` 下放 `tools.js` 入口。收口实测：`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`node scripts/verify-plan-blocks.mjs` 退 0（11 块镜像全等、未落地 0 节）、`git status --porcelain` 9 行逐行核对全是并行会话的文件。**至此第一段五条完成定义全中**，`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/`、`demo/idCardDemo/` 与 `assets/data/LICENSES.md` 一字未动。
