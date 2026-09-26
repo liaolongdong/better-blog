@@ -716,7 +716,12 @@
     // 动效批 III：这一张卡原来是 `top: 0` + hover `top: -5px`，过渡写在 top 上。
     // 相对定位的 top 不触发布局回流（它在布局之后才偏移），但它每帧都要重画整张卡
     // 和卡里的封面图；换成 translate 之后这一步交给合成层，只有阴影那侧还在画。
-    // 位移量、时长、方向都不变——窄屏那档在 layouts.scss 里取消抬起，也一起改这里。
+    // 位移的距离与方向没动（还是抬起 5px），两条时长各自往下靠到令牌的那一档：
+    // 阴影 .4s → --dur-3（320ms）、抬起 .3s → --dur-2（200ms）。
+    // 阴影比卡片多出一截尾巴，「抬起」与「影子铺开」就不是同时收尾的那一下，读作跟随；
+    // 但没敢用 --dur-4（560ms）——那条时长比抬起的两倍还长，鼠标移开时卡片已经落回去、
+    // 阴影还在往身上收，整页显出拖泥带水。
+    // 窄屏那档在 layouts.scss 里取消抬起，跟着改的也是 translate。
     translate: 0 0;
     // 这张卡在 no-cover 时就是最终底色（有封面时 <img> 会铺满它，改这里不影响那种）。
     // 原来写死 #AAB4CA：白字 22px/700 在上面只有 2.08，正文下方那行 15px、opacity .8
@@ -727,7 +732,7 @@
     border-radius: 3px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(109, 127, 144, .5);
-    transition: box-shadow var(--dur-4) var(--ease-out), translate var(--dur-2) var(--ease-out);
+    transition: box-shadow var(--dur-3) var(--ease-out), translate var(--dur-2) var(--ease-out);
 
     &:first-child {
         margin-right: 10px;

@@ -136,8 +136,10 @@
     }
 
     // 视线跟着指针走：cat.js 只把 -1~1 归一化后的 --mx/--my 写在容器上，幅度在这里定。
-    // 动 .yanjing（两只眼一起平移）而不是动瞳孔：瞳孔那条规则带着既有的
-    // `transition: all 1s`（hover 时瞳孔放大靠的就是它），在这儿补 transition 会连它一起改掉。
+    // 动 .yanjing（两只眼一起平移）而不是动瞳孔：瞳孔那一格（.yanquan>div:first-child）
+    // 自己带着 `width / margin-left 1s` 的过渡，hover 时瞳孔放大靠的就是它；
+    // 若把平移写在它身上，就得在那条规则里补 transition，而简写会整条换掉
+    // transition-property —— 1s 的猫节奏会跟着没了。写在父级则两者各过各的。
     .yanjing {
         translate: calc(var(--mx, 0) * 5px) calc(var(--my, 0) * 3px);
         transition: translate var(--dur-2) var(--ease-out);

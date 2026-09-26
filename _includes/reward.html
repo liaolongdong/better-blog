@@ -35,6 +35,12 @@
         border: 0;
         font-family: inherit;
         line-height: inherit;
+        /* 这颗改成 button 之后要补的一条：它当 `<a>` 的时候，悬停变色吃的是
+           base.scss 那句全站 `a { transition: … background-color var(--dur-2) … }`；
+           选择器是 a，button 匹配不上，于是 #d93025 → #b3261e 这一档从 200ms 过渡
+           退成了瞬切——功能没坏，只是「按下去更实」的那点反馈没了。这里显式补回来，
+           时长与曲线和全站同一座标（令牌在 :root，内联样式表读得到）。 */
+        transition: background-color var(--dur-2) var(--ease-out);
     }
   
     .rewardButton:hover {

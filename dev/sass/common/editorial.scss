@@ -527,7 +527,9 @@ body {
 
 // 名片两处 include（右栏 `.g-sidebar`、窄屏信息流之前的 `.home-intro`）共用这一套排版，
 // 少了 `.home-intro` 那一条，手机上这张卡会退回 common.scss 的老主题样式：
-// 名字不是展示字体、头像 hover 还会被 common.scss:261 那条 140×100 的椭圆拉伸复活。
+// 名字不是展示字体，字号也回到 @include authorCard 里那档 16px。
+// 头像的 hover 不归这里管，见下面块尾那段——全站只留 common.scss 里
+// `.author-card .avatar` 那一条 scale。
 .g-sidebar .author-card,
 .home-intro .author-card {
     padding: 0;
@@ -543,19 +545,13 @@ body {
         line-height: 22px;
     }
 
-    .avatar img {
-        transition: transform .5s cubic-bezier(.2, .8, .2, 1);
-    }
-
-    // 原有 hover 把头像拉成 140x100 的椭圆，观感像 bug 多于彩蛋
-    .avatar:hover {
-        width: 70px;
-        height: 70px;
-
-        img {
-            transform: scale(1.08);
-        }
-    }
+    // 这里原来有两条，批 III 一并删掉，因为剩下的那一份动效在 common.scss：
+    // ① `.avatar:hover { width:70px; height:70px }` —— 它是「hover 拉成 140×100 椭圆」
+    //    那套旧改动的残留：mixin 里 `.avatar` 本来就是 70×70，重写一遍等于没写；
+    // ② 同一块里的 `img { transform: scale(1.08) }` 与 `.avatar img { transition: transform
+    //    .5s cubic-bezier(.2,.8,.2,1) }` —— 它作用在 img 上，而 common.scss 那条 scale:1.08
+    //    作用在 .avatar 上，两者相乘是 1.08×1.08≈1.17，而且一条走 .5s、一条走 --dur-2
+    //    （200ms），同一个「凑近」动作读起来是两层错位。删掉后缩放只有一层、只有一个时钟。
 }
 
 // 窄屏的自我介绍条：信息流之前的那张横排版名片（markup 见 _includes/authorCard.html，
@@ -5402,7 +5398,7 @@ dialog.shelf[open] {
 // ———— M23 · 页脚：擦入下划线（入场在 §7.8 / editorial.js 名单里）————
 // 页脚是全站唯一每页都渲染的一块（_includes/footer.html 被十来个模板 include），
 // 也是这批开始前唯一「既没有入场也没有悬停语言」的版面：五段 14px 的文字一次砸出来，
-// 里面八个链接和「© 2021 - 2026」「Powered by」「·」这些非链接文字**同色**
+// 里面十个链接和「© 2018 - 2026」「Powered by」「·」这些非链接文字**同色**
 // （上面 §2 把 section 与 section a 一起染成 --ink-3），指针变成手型之前没有任何
 // 东西说明哪里能点。缺的不是装饰，是一句回信。
 //

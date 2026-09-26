@@ -81,10 +81,14 @@ a {
     // 只有五种：color、background-color、border-*-color、box-shadow、scale，
     // **布局属性 0 个**——也就是说今天没有任何链接靠 all 去过渡 width/padding。
     // 时长一律 --dur-2（=200ms，与原值同），曲线换 --ease-out：真正会动的只有颜色类，
-    // 颜色过渡的缓动看不出来；而带位移的那批（名片年份 chip 的 scale、标签的边框）
-    // 各自写了 --dur-1，本来就不吃这条。
-    // opacity / transform / translate / scale 这四条目前没有链接在用，列进来是给以后的
-    // 悬停留位置，不改变现在任何一帧；被排除在外的是会引起回流的那一类。
+    // 颜色过渡的缓动看不出来。清单里的 opacity / transform / translate 这三条目前没有
+    // 链接在用，列进来是给以后的悬停留位置，不改变现在任何一帧；被排除在外的是会引起
+    // 回流的那一类（width / height / padding / margin / top / left —— 实测一个都没在用）。
+    // 上面数出的那五种里，scale 和边框变色在这条规则之外还有更具体的写家：标签药丸
+    // （helper.scss 的 tagStyle 与 editorial.scss 的 .tags-card .tag / .feed-topic / .cat-chip）
+    // 和关于页那颗 .tl-chip 各自写全了四段过渡，颜色类仍取 --dur-2、scale 单独压到
+    // --dur-1（120ms）配 --ease-back —— 简写会整条换掉 transition-property，
+    // 所以这三族链接吃的从来不是下面这条，弹性也没被这里的 200ms 拖慢。
     transition: color var(--dur-2) var(--ease-out),
         background-color var(--dur-2) var(--ease-out),
         border-color var(--dur-2) var(--ease-out),
