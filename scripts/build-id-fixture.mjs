@@ -41,15 +41,24 @@ function parseArgs(argv) {
   return { check: argv.includes('--check') };
 }
 
+/**
+ * "这是操作者的失误，不是引擎崩溃"这一类事的统一报法（m-8）：一行 stderr、退 1、**不打堆栈**，
+ * 且调用点一律在写盘之前。参数闸门先做成这个样子（I-8），总数与池子那三道此前还是裸 `throw`，
+ * 同一类错误两种报法——改配额的人被一整段栈淹没，看一眼就知道该改哪里的是前者、不是后者。
+ * @param {string} msg 一行就说清的错
+ */
+function die(msg) {
+  process.stderr.write(`${msg}\n`);
+  process.exit(1);
+}
+
 // 闸门在读写任何文件之前生效；用法错只打一行到 stderr、不打堆栈，且**一个字节都不写**。
 let AS_CHECK;
 try {
   AS_CHECK = parseArgs(process.argv.slice(2)).check;
 } catch (e) {
-  process.stderr.write(`${e.message}\n`);
-  process.exit(1);
+  die(e.message);
 }
-
 
 /** 分组配额，合计 1000；改配额要同步改 §B 的 B7 */
 const GROUPS = {
@@ -99,10 +108,24 @@ const both = [...currentCounty].filter((c) => legacyCounty.has(c)).sort();
  * `tail.startsWith(middle)` 那一刀（I-7）必须与读侧 `region.js` 的 `joinNames` 同规则：
  * 两边算的不是同一个字符串，"同名池"筛出来的样本就会在 B7 那句
  * `r.info.region.fullName === c.oracleAddr` 上按重叠前缀那一批（实读 19 条：15 条县名以市名
- * 打头的功能区 + 4 条省市县同名，如 441900 东莞市）逐条误红。本轮实测：加与不加，
- * `sameName` 都是 1,776 条、成员一模一样（那 19 条**没有一条同时在 2015 旧表里**，
- * 全是 2022 口径新增），所以这一刀不改变任何一条样本的归属——它堵的是"两份实现算的
- * 不是同一个字符串"这件事本身，而不是一批当下恰好为空的误红。别因为它今天测不出差别就删掉。
+ * 打头的功能区 + 4 条省市县同名，如 441900 东莞市）逐条误红。
+ *
+ * 本轮把那一刀写成开关、两个方向各跑一遍 `both`（1,932 条），实测：
+ *   both 1,932 · sameName 带刀 1,776 · 不带刀 1,776 · 成员完全一致
+ *   （坑：`PLACEHOLDER_CITY` 里必须有「县」。少它两个方向都是 1,764、成员仍一字不差，
+ *    掉出去的正好是 12 条重庆市辖县——市名那一格就叫「县」，不当它是占位段就会把
+ *    `500229` 拼成「重庆市县城口县」。这 12 条不是"让那一刀显得有用"，而是凭空多进
+ *    `renamed` 档：镜像实跑同一份快照、只删「县」一个字，`pools` 从
+ *    1776/156/62/93/1 变成 1764/168/62/105/1（涨的 12 条全落在 `renamedByLegacyPrefix`））
+ * 19 条重叠前缀里落在 both 池中的只有 `620201` 一条：`441900`（旧=广东省东莞市）与
+ * `442000`（旧=广东省中山市）确实是 2015 旧表里的码，但它们是**市级码**，被
+ * `legacyCounty` 那句 `!k.endsWith('00')` 挡在 both 之外——上一版把这句写成"那 19 条没有一条
+ * 同时在 2015 旧表里"，是假的（整改前实测 3 条在旧表里：441900 / 442000 / 620201）。
+ * 结论仍然成立，但成立的原因是 620201 这一条：不带刀 want=「甘肃省嘉峪关市嘉峪关市」、
+ * 带刀 want=「甘肃省嘉峪关市」，而旧串是「甘肃省嘉峪关市市辖区」——两种口径都不相等 ⇒
+ * 两种口径都落进 renamed。所以这一刀不改变任何一条样本的归属，它堵的是"两份实现算的
+ * 不是同一个字符串"这件事本身，而不是一批当下恰好为空的误红。别因为它今天测不出差别就删掉：
+ * 441900 / 442000 只要哪天以县级形的码进 both 池（旧表里它们就挂在市级码下），这一刀立刻挪两条。
  *
  * 本判据筛出 1,776 条；与读侧 `resolveRegion().fullName` 的分叉数在两个方向上都是 0
  * （B7 逐条核过 agree18 的相等、renamed 的不等，双向都钉着）。
@@ -139,9 +162,9 @@ const ONLY_CURRENT = [...currentCounty]
   .filter((c) => !legacyCounty.has(c) && currentCity.has(c.slice(0, 4)))
   .sort();
 
-if (BOTH.length < GROUPS.agree18) throw new Error(`同码同名池只有 ${BOTH.length} 条，取不够 agree18 配额`);
-if (RENAMED.length < GROUPS.renamed) throw new Error(`同码改名池只有 ${RENAMED.length} 条，不足 ${GROUPS.renamed}`);
-if (ONLY_CURRENT.length < GROUPS.name_current_only) throw new Error(`仅现行有的池只有 ${ONLY_CURRENT.length} 条`);
+if (BOTH.length < GROUPS.agree18) die(`同码同名池只有 ${BOTH.length} 条，取不够 agree18 配额 ${GROUPS.agree18}`);
+if (RENAMED.length < GROUPS.renamed) die(`同码改名池只有 ${RENAMED.length} 条，不足 ${GROUPS.renamed}`);
+if (ONLY_CURRENT.length < GROUPS.name_current_only) die(`仅现行有的池只有 ${ONLY_CURRENT.length} 条，不足 ${GROUPS.name_current_only}`);
 
 const pick = (arr) => arr[Math.floor(rng() * arr.length)];
 const pad = (n) => String(n).padStart(2, '0');
@@ -254,7 +277,7 @@ for (let i = 0; i < GROUPS.feb29_nonleap; i += 1) {
 }
 
 const total = Object.values(cases).reduce((n, list) => n + list.length, 0);
-if (total !== 1000) throw new Error(`夹具总数 ${total} != 1000`);
+if (total !== 1000) die(`夹具总数 ${total} != 1000`);
 
 const doc = {
   schema: 1,

@@ -1074,6 +1074,17 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
   assert.equal(quotaTotal, 1000, '判据这一侧写死的七组配额合计不再是 1000，先想清楚再改');
   assert.deepEqual(FX.groupCounts, EXPECT_QUOTA, '生成器的分组配额与计划规定值不符');
   assert.deepEqual(FX.pools, EXPECT_POOLS, '取样池大小与快照实读值不符（换了快照要同步这里）');
+  // F7-6：生成器注释里那句「`pools` 里的三个数之和要等于 RENAMED.length」（在 `sameNameAsLegacy`
+  // 的 JSDoc 末尾）与 §4.11 的 I-7 行都写着"三个成因之和 == RENAMED.length，B7 钉着"，
+  // 而 B7 此前只做一次 deepEqual 六个常数，一次都没算过和——那句话不是事实。现在钉上：
+  // 上面那道 deepEqual 已经逐个数比过，所以这一行咬的是"改了三分中的某一个、忘了改 renamed"
+  // 那一种未来编辑（deepEqual 那一条会红，但红的是"数字不符"而不是"这句话不成立"，
+  // 后者只有这一行说得出）。两条各比一侧，判据侧与夹具侧都要自洽。
+  const causeSum = EXPECT_POOLS.renamedByCounty + EXPECT_POOLS.renamedByLegacyPrefix + EXPECT_POOLS.renamedByPlaceholder;
+  assert.equal(causeSum, EXPECT_POOLS.renamed,
+    `renamed 的三类成因之和 ${causeSum} 与判据侧写死的 renamed ${EXPECT_POOLS.renamed} 不符——那句"之和等于池子"的话就假了`);
+  const fxSum = FX.pools.renamedByCounty + FX.pools.renamedByLegacyPrefix + FX.pools.renamedByPlaceholder;
+  assert.equal(fxSum, FX.pools.renamed, `夹具自报的三类成因之和 ${fxSum} 不等于自报的 renamed ${FX.pools.renamed}`);
   assert.equal(FX.total, quotaTotal);
   assert.deepEqual(Object.keys(FX.cases).sort(), Object.keys(EXPECT_QUOTA).sort(), '夹具的组名集合变了');
   for (const [g, n] of Object.entries(EXPECT_QUOTA)) {
@@ -1093,41 +1104,44 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
     assert.equal(new Set(FX.cases[g].map((c) => c.id)).size, n, `${g} 组内有重复号码`);
   }
 
+  // m-6：这一组循环跑 1,000 条，报错文案里没有 `c.id` 的那几条，红了只知道"某一条不一致"、
+  // 不知道是哪一条（agree18 第 400 条红，报的只有 `'男' !== '女'`）。全部补上 c.id。
   for (const c of FX.cases.agree18) {
-    assert.equal(c.oracleValid, true);
+    assert.equal(c.oracleValid, true, `agree18 ${c.id} 旧库判了无效，这组不成立`);
     const r = p(c);
     assert.equal(r.state, 'valid', `agree18 ${c.id} 判成 ${r.state}`);
     assert.equal(r.info.region.fullName, c.oracleAddr, `${c.id} 地址名与旧库不一致`);
-    assert.equal(r.info.birth, c.oracleBirth);
-    assert.equal(r.info.sex, c.oracleSex);
+    assert.equal(r.info.birth, c.oracleBirth, `agree18 ${c.id} 出生日期与旧库不一致`);
+    assert.equal(r.info.sex, c.oracleSex, `agree18 ${c.id} 性别与旧库不一致`);
   }
   for (const c of FX.cases.agree15) {
     const r = p(c);
     assert.equal(r.state, 'valid', `agree15 ${c.id} 判成 ${r.state}`);
-    assert.equal(r.info.region.fullName, c.oracleAddr);
-    assert.equal(r.id18.slice(0, 17), `${c.id.slice(0, 6)}19${c.id.slice(6, 12)}${c.id.slice(-3)}`);
+    assert.equal(r.info.region.fullName, c.oracleAddr, `agree15 ${c.id} 地址名与旧库不一致`);
+    assert.equal(r.id18.slice(0, 17), `${c.id.slice(0, 6)}19${c.id.slice(6, 12)}${c.id.slice(-3)}`,
+      `agree15 ${c.id} 的 18 位等价写法本体不对`);
   }
 
   // 我们更新（一）：旧库在"仅现行表有"的码上回落到市级并吐「未知地区」
   for (const c of FX.cases.name_current_only) {
-    assert.match(c.oracleAddr, /未知地区/, '夹具里旧库结论应带「未知地区」，否则这组不成立');
+    assert.match(c.oracleAddr, /未知地区/, `name_current_only ${c.id} 夹具里旧库结论应带「未知地区」，否则这组不成立`);
     const r = p(c);
-    assert.equal(r.state, 'valid');
-    assert.equal(r.info.region.status, 'current');
+    assert.equal(r.state, 'valid', `name_current_only ${c.id} 判成 ${r.state}`);
+    assert.equal(r.info.region.status, 'current', `name_current_only ${c.id} 不是现行县级码`);
     assert.equal(r.info.region.county, c.currentName, `${c.id} 没解出现行县级名`);
-    assert.doesNotMatch(r.info.region.fullName, /未知/);
+    assert.doesNotMatch(r.info.region.fullName, /未知/, `name_current_only ${c.id} 解出了「未知」`);
   }
   // 我们更新（二）：同码异名，旧库给 2015 年前后的旧名。156 条按成因分三类（实读，见 `FX.pools`）：
   // 62 条县名自己改过、93 条县名没变而旧表那一段市名/省名是旧口径、1 条（620201 嘉峪关市）
   // 旧表在市级码下挂的是「市辖区」占位条——三类都是"我们给现行名、旧库给旧串"，方向同一个，
   // 但第三类不是改名，别把它记进"县名改过"那一档（上一版就是这么记错的）。
   for (const c of FX.cases.renamed) {
-    assert.equal(c.oracleValid, true);
-    assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`));
+    assert.equal(c.oracleValid, true, `renamed ${c.id} 旧库判了无效，这组不成立`);
+    assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`), `renamed ${c.id} 旧名与新名一字不差`);
     const r = p(c);
-    assert.equal(r.state, 'valid');
+    assert.equal(r.state, 'valid', `renamed ${c.id} 判成 ${r.state}`);
     assert.equal(r.info.region.county, c.currentName, `${c.id} 应当给现行名`);
-    assert.equal(r.info.region.fullName.endsWith(c.currentName), true);
+    assert.equal(r.info.region.fullName.endsWith(c.currentName), true, `renamed ${c.id} 全名末段不是现行县级名`);
     assert.notEqual(r.info.region.fullName, c.oracleAddr, `${c.areaCode} 新旧同名，不该进这组`);
   }
 
@@ -1209,9 +1223,13 @@ const genError = (options) => {
 };
 
 test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随机源任何整数都是一条独立流', () => {
-  // I-6：`birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，
-  // 抛出来的是 `RangeError: 内部不变量：生成的 451022199902309415 自检为 malformed`——
-  // 调用方的一次类型错误被记成"实现有 bug"。现在报错必须点名 options.birthDate。
+  // I-6：`birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，抛出来的是
+  // `Error: 内部不变量：生成的 420581199902302791 自检为 malformed（出生日期：1999 年 2 月没有
+  // 30 日（该月最多 28 天））`——调用方的一次类型错误被记成"实现有 bug"。现在报错必须点名
+  // options.birthDate。那句里的号连着构造抄（m-5）：镜像上把 `toDay` 的日历校验摘回只查格式
+  // 那一行，跑 `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242),
+  // birthDate: '1999-02-30' })`；抛的是裸 `Error`，不是 `RangeError`（上一版把类型记错过一次，
+  // 还举了另一条 `451022199902309415`——那条走的是时间种子，谁也复现不出来）。
   const gate = [
     [{ birthDate: '1999-02-30' }, /options\.birthDate/, '格式对、日历不存在的出生日期'],
     [{ birthDate: '1999-13-01' }, /options\.birthDate/, '月份 13 的出生日期'],
@@ -1225,6 +1243,22 @@ test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随�
     [{ areaCode: 110101 }, /options\.areaCode/, 'M-11：数值区划码被 String() 洗成合法前缀'],
     [{ provinceCode: 11 }, /options\.provinceCode/, 'M-11：数值省码同上，且 region.js 刚堵掉过这一族'],
     [{ cityCode: null }, /options\.cityCode/, 'M-11：null 此前等于"不收窄"，静默出货全表地址'],
+    // F3：`prefixOf` 那句"空串 / 全空白也抛"此前只有 JSDoc 与 §4.11 的 M-11 行在承诺，
+    // 而这三个键注入过的是 110101 / 11 / null——一次 ''、一次 '   ' 都没有。本轮在镜像上实测：
+    // 摘掉 `|| v.trim() === ''` 之后 27 条判据一条不红，而
+    // `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), areaCode: '   ' })`
+    // 安静出货 `420581197709189310`（湖北省宜昌市宜都市）——地址取自整张 2,978 条现行表，
+    // `''` 与三个键各自的空白串一并如此（同一条流，所以四条出货一模一样）。
+    // 闸门在循环里是**逐键**的，所以三个键各钉两条（空串 / 全空白），一条都不许只靠"另一个键红过"。
+    [{ areaCode: '' }, /options\.areaCode/, 'F3：空串收窄＝"候选为零"，与"没收窄"是两种用户意图'],
+    [{ areaCode: '   ' }, /options\.areaCode/, 'F3：全空白串同一条，此前只被 v.trim() 那一支守着'],
+    [{ cityCode: '' }, /options\.cityCode/, 'F3：空串那一支对 cityCode 同样必须成立'],
+    [{ cityCode: '\t ' }, /options\.cityCode/, 'F3：全空白对 cityCode 同样必须成立'],
+    [{ provinceCode: '' }, /options\.provinceCode/, 'F3：空串对省码同样必须成立'],
+    [{ provinceCode: '   ' }, /options\.provinceCode/, 'F3：全空白对省码同样必须成立'],
+    // m-4：`shapeOf` 把 Invalid Date 报成 `Date`，报错于是自己跟自己打架——
+    // 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」。修的是文案那一侧（实现的选择保留）。
+    [{ today: new Date('nope') }, /Invalid Date/, 'Invalid Date 必须被点出来，不许只说"收到 Date"'],
     [{ minAge: 18.5 }, /options\.minAge/, '非整数周岁下界'],
     [{ maxAge: '60' }, /options\.maxAge/, '字符串周岁上界'],
   ];
@@ -1246,6 +1280,23 @@ test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随�
   assert.equal(parseIdCard('110101199003073503', { today: new Date(2026, 8, 25) }).info.ageYears, 36);
   // M-14：`parseIdCard(x, null)` 此前抛 "Cannot read properties of null"，而 opts 是可选参数。
   assert.equal(parseIdCard('110101199003073503', null).state, 'valid', 'opts 传 null 等于没传，不该抛');
+  // F4：M-14 只修了那一半。`generateIdCards(null)` 抛的是
+  // `TypeError: Cannot read properties of null (reading 'areaCode')`——一个入参名字都不点，
+  // 把调用方传进来的 null 报成引擎崩溃；而 `generateIdCards` 开头那句 `const o = options ?? {}`
+  // 说明作者本来就预期 null，JSDoc 也写着"入参口径与 parseIdCard 一致"。两个入口现在都得守这一条。
+  assert.equal(generateIdCards(undefined).length, 1, 'options 传 undefined 等于没传，默认一条');
+  const nullOptions = generateIdCards(null);
+  assert.equal(nullOptions.length, 1, 'options 传 null 等于没传，默认一条');
+  assert.match(nullOptions[0].id18, /^\d{17}[0-9X]$/, 'null 入参也要出货一个形态完整的号');
+  assert.equal(parseIdCard(nullOptions[0].id18).state, 'valid', '两个入口都不传 today 时必须自洽');
+  // m-2：`todayOf` 与 `checkedRng` 各有一条"null 算没传"的分支，此前零判据——把 null 改成
+  // 抛 TypeError，26 条判据一条都不红（实测）。两条各钉一次，注释里那半句"面板发的就是 null"
+  // 也才有东西撑着：它是段 2 的**计划**，不是今天的调用方（`dev/js/toolIdcard.js` 还没写）。
+  assert.equal(parseIdCard('110101199003073503', { today: null }).state, 'valid',
+    'today 传 null 等于没传：按墙钟判，不许抛');
+  const nullDefaults = generateIdCards({ count: 1, today: null, rng: null });
+  assert.equal(nullDefaults.length, 1, 'today / rng 传 null 等于没传，不许抛');
+  assert.equal(parseIdCard(nullDefaults[0].id18).state, 'valid', '时间种子那条流也要出货自洽');
   assert.throws(() => parseIdCard('110101199003073503', { today: '昨天' }), /options\.today/, 'M-12');
   assert.throws(() => parseIdCardList('110101199003073503', { today: '昨天' }), /options\.today/,
     '批量入口与单条入口必须同一个报错口径');
@@ -1340,8 +1391,17 @@ test('B12 区划 unknown 判结构非法；结构非法不出货解释性结论'
   const RAW = ['areaCode', 'birthRaw', 'seq', 'body17'];
   const FORM = ['id18', 'id15', 'id15Note', 'suggestedId18'];
   // 走到解码之后才被判死的：info 在，但解释性结论（sex）与四个形态字段必须空
+  //
+  // F2：`parseIdCard` 末尾那两条 `ship` 分支（18 位一条、15 位一条），15 位这一条此前**一次
+  // 都没被结构非法的输入走过**：下面这个名单当时只有五条 18 位的，而 B3 的 `11010190030700A`
+  // 在字符集那一关就 return 了、走不到这里。整改前把 15 位那一支改成无条件 `} else {`，
+  // 当时的 26 条判据一条不红。本轮在镜像上自己复跑了两组：摘闸门 → 27 条里只 B12 红；
+  // 补上判据之前同样的针子 → 一条不红。出货差别也是本轮实跑的（today 一律 '2026-09-25'）：
+  //   990101900307001（省码 99 不在表）   现状 id18=""  id15=""
+  //   110101900230001（1990-02-30 不存在） 现状 id18=""  id15=""
+  //   摘掉闸门：前者 id18="990101199003070015" id15="990101900307001"；后者 id18="110101199002300014" id15="110101900230001"
   for (const id of ['990101199003070015', '000000199003070015', '110101290001010012',
-    '110101199902290018', '11010118991231001X']) {
+    '110101199902290018', '11010118991231001X', '990101900307001', '110101900230001']) {
     const r = parseIdCard(id, { today: TODAY });
     assert.equal(r.state, 'malformed', `${id} 这一版应当还是 malformed，判据才测得到出货口径`);
     if (!r.info) assert.fail(`${id} 结构非法到连 info 都不给——sex/形态字段那一条就无从判起，见 B12 后半段的分档`);
@@ -1408,8 +1468,14 @@ test('B13 2 月 29 逐年前后各扫一遍：闰年成立、非闰只由出生�
 const ID_GEN = resolve(HERE, 'build-id-fixture.mjs');
 const ID_FIXTURE = resolve(ROOT, 'scripts/fixtures/id-validator-checkbit-1000.json');
 
-/** 把生成器、四份区划快照、旧库两份 lib 与当前夹具搬进一个临时仓库根。 */
-function makeIdTmpRepo() {
+/**
+ * 把生成器、四份区划快照、旧库两份 lib 与当前夹具搬进一个临时仓库根。
+ * @param {{mutateGenerator?:(s:string)=>string}} [opts] mutateGenerator 改写副本里的生成器源码
+ *   （B14 用它把配额改成"合计 995"，量那道"总数闸门"的报法）。仓库里那份一个字节都不碰。
+ */
+function makeIdTmpRepo({ mutateGenerator = (s) => s } = {}) {
+  // 先改写再建目录：mutateGenerator 里的锚点计数会抛，那时候还没留下任何待清的 tmpdir
+  const genSrc = mutateGenerator(readFileSync(ID_GEN, 'utf8'));
   const tmp = mkdtempSync(join(tmpdir(), 'id-fixture-'));
   const fixtureDir = resolve(tmp, 'scripts/fixtures');
   const regionDir = resolve(fixtureDir, 'region-source');
@@ -1421,7 +1487,7 @@ function makeIdTmpRepo() {
     copyFileSync(resolve(ROOT, 'demo/idCardDemo/lib', f), resolve(libDir, f));
   }
   copyFileSync(ID_FIXTURE, resolve(fixtureDir, 'id-validator-checkbit-1000.json'));
-  copyFileSync(ID_GEN, resolve(tmp, 'scripts/build-id-fixture.mjs'));
+  writeFileSync(resolve(tmp, 'scripts/build-id-fixture.mjs'), genSrc);
   return {
     tmp,
     gen: resolve(tmp, 'scripts/build-id-fixture.mjs'),
@@ -1471,7 +1537,138 @@ test('B14 夹具生成器的参数闸门：拼错的开关不得落到覆盖夹�
   } finally {
     repo.cleanup();
   }
+  // m-8：`夹具总数 != 1000` 这一道此前是裸 `throw`，打一整段堆栈到 stderr，而同一个脚本刚把
+  // "参数打错"那一类做成一行 stderr + 退 1。同一类事（操作者的失误，不是引擎崩溃）必须同一种
+  // 报法。判据形状照上面那六格：非零退出 + 一行说清是多少 + 不打堆栈 + 一个字节都不写。
+  // 触发方式：把副本里的 agree18 配额从 670 改成 665（合计 995），锚点命中数必须先数过。
+  const broken = makeIdTmpRepo({
+    mutateGenerator: (s) => {
+      const hits = s.split('agree18: 670').length - 1;
+      assert.equal(hits, 1, `变异锚点 "agree18: 670" 在生成器里命中 ${hits} 处，不等于 1 —— 静默不匹配的变异本身就是一条缺陷`);
+      return s.replace('agree18: 670', 'agree18: 665');
+    },
+  });
+  try {
+    const q = spawnSync(process.execPath, [broken.gen], { cwd: broken.tmp, encoding: 'utf8' });
+    assert.notEqual(q.status, 0, '配额塌成 995 而生成器退 0，这道闸门等于没有');
+    assert.match(q.stderr, /夹具总数 995 != 1000/, `必须说清算到的是多少条：${q.stderr}`);
+    assert.doesNotMatch(q.stderr, /^\s+at /m, `操作者的失误不该打整段堆栈：${q.stderr}`);
+    assert.equal(q.stdout, '', `总数不对还照样打出生成摘要：${q.stdout}`);
+    assert.equal(readFileSync(broken.fixture, 'utf8'), repoBytes, '夹具总数这一道红的时候把坏产物写进了盘');
+  } finally {
+    broken.cleanup();
+  }
   assert.equal(readFileSync(ID_FIXTURE, 'utf8'), repoBytes, '整条 B14 动过仓库里的夹具');
   assert.deepEqual(Object.fromEntries(readdirSync(FIXDIR).sort()
     .map((f) => [f, sha256Of(readFileSync(resolve(FIXDIR, f)))])), regionBefore, 'B14 动过仓库里的区划快照');
+});
+
+/**
+ * B15 是第九轮（5 Important + 9 Minor）里 F1 那条 Critical 级缺陷的判据。
+ * 判据先写、先跑红，再改实现——整改前它红的就是下面这整条。
+ * 第十轮复跑又往同一条里接了 G1：那道界只管"太早"，公元 10000 年那一头此前是开的。
+ */
+test('B15 年份 1..9999：出生年补齐四位再比下界，"今天"两头越界谁传谁被点名', () => {
+  // F1：整改前 `makeDay` 写的是 `iso: `${y}-${pad2(m)}-${pad2(d)}``，年份不补零，而
+  // `parseIdCard` 里 `b.day.iso < BIRTH_FLOOR` 那一句拿这个串做**字典序**比较 ⇒ `'50-06-01' > '1900-01-01'`，
+  // 10..999 年整段绕过下界；
+  // 而 `utc` 走 `Date.UTC(y, …)`，JS 把 0..99 折成 1900..1999，于是同一个号算出来的周岁
+  // 又错一次。整改前在同一份代码上实跑（today 一律 '2026-09-25'）：
+  //   110101005006010016 → state=valid  birth="50-06-01"   age=1976
+  //   110101099912310010 → state=valid  birth="999-12-31"  age=1026
+  //   110101000101010011 → malformed    birth="1-01-01"    （年 1 恰好被字典序抓住，纯属巧合）
+  // 夹具的 birth_before_1900 组取的是 1880–1899，四位数，所以 1,000 条对拍一次都没碰到这个洞。
+  const cases = [
+    ['110101005006010016', '0050-06-01'],  // 年 50：补零与 Date.UTC 折算两处病灶同时咬
+    ['110101099912310010', '0999-12-31'],  // 年 999：只咬补零那一条
+    ['110101000101010011', '0001-01-01'],
+    ['110101009602290016', '0096-02-29'],  // 年 96 按闰律是真闰年：日期成立，只越下界
+  ];
+  for (const [id, want] of cases) {
+    const r = parseIdCard(id, { today: TODAY });
+    assert.equal(r.state, 'malformed', `${id} 的出生年在 1..999，必须被本站下界拦住（整改前判 ${r.state}）`);
+    assert.deepEqual(failedKeys(r), ['birth'], `${id} 只能由出生日期这一行否决：${r.checks.filter((k) => k.ok === false).map((k) => k.key).join()}`);
+    assert.equal(rowOf(r, 'checkBit').ok, true, `${id} 的校验位算术不许被连累`);
+    assert.match(rowOf(r, 'birth').detail, /1900-01-01/, `${id} 必须点名下界是哪一道：${rowOf(r, 'birth').detail}`);
+    // 解出来的日期照给（B5 同一条口径），但必须是**四位**年份——面板拿它回显，'999-12-31' 这种
+    // 少一位的串会让人以为是数据里掉了字
+    assert.equal(r.info.birth, want, `${id} 的日期回显必须是四位年份`);
+    assert.equal(r.info.ageYears, null, `${id} 越出下界不给周岁（整改前给的是 1976 / 1026）`);
+    assert.equal(r.info.sex, '', `${id} 结构非法不出货解释性结论（B12 同一条契约）`);
+  }
+  // 生成侧的入参同族：整改前 `today: '0050-06-01'` 一路放过，最后死在自检那一步的
+  // `parseIdCard(id18, { today: today.iso })` 上，报的是「**parseIdCard** 的 options.today
+  // 应为 YYYY-MM-DD 字符串或 Date，收到 "50-06-01"」——不补零的 `today.iso` 回头喂不进自己的正则，
+  // 而调用方按提示去查 parseIdCard 什么也查不到（m-1 与 F1 同一病灶）。
+  const todayErr = genError({ today: '0050-06-01' });
+  assert.ok(todayErr, 'today 早于本站下界时居然安静出货');
+  assert.match(todayErr.message, /generateIdCards 的 options\.today/, `必须点名是 generateIdCards 这条入参：${todayErr.message}`);
+  assert.doesNotMatch(todayErr.message, /parseIdCard/, `报错不许甩锅给另一个入口：${todayErr.message}`);
+  assert.match(todayErr.message, /1900-01-01/, `必须点名是哪道界：${todayErr.message}`);
+  assert.doesNotMatch(todayErr.message, /内部不变量/, `入参错误不许记成实现有 bug：${todayErr.message}`);
+  // 两个入口同一条界、各点各的名（M-14 那条"口径一致"的延伸）
+  assert.throws(() => parseIdCard('110101199003070011', { today: '0050-06-01' }),
+    /parseIdCard 的 options\.today/, '解析侧的 today 早于下界必须点名自己');
+  const birthErr = genError({ birthDate: '0050-06-01' });
+  assert.ok(birthErr, 'birthDate 早于下界时居然安静出货');
+  assert.match(birthErr.message, /options\.birthDate/, birthErr.message);
+  assert.match(birthErr.message, /1900-01-01/, birthErr.message);
+
+  // G1：界只管"太早"，**太晚那一侧此前是开的**。`toDay` 的字符串正则只收四位年，而 `Date`
+  // 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年用串传被拒、用 Date 传被接受；
+  // `pad4` 又只补不截，`today.iso` 成了五位，回头喂不进自检那句
+  // `parseIdCard(id18, { today: today.iso })`。整改前的实跑（today = 公元 10000-01-01 那一天的
+  // `Date`，上界那三行摘掉之后在同一份代码上跑）：解析侧照给结论
+  // （`110101199003070011` → `state = 'valid'`、周岁 8009），生成侧抛
+  // `TypeError: parseIdCard 的 options.today 应为 YYYY-MM-DD 字符串或 Date，收到 "10000-01-01"`
+  // ——m-1 那一类甩锅在另一头复活。
+  // 这两个 Date 一律用**本地分量**构造（与 B10 那句 `new Date(2026, 8, 25)` 同一口径）：
+  // `toDay` 取的是 `getFullYear()`，`new Date(0)` 上再 `setUTCFullYear(10000, 0, 1)` 是 UTC
+  // 零点，负偏移时区里本地读到的是 9999-12-31 —— 判据就会在没被变异的代码上红
+  // （n-4 记的那条下界时区分叉，同一病灶的另一头）。9999 与 '10000-01-01' 在这里写死、
+  // 不从模块导入 `YEAR_CEILING`：界要是哪天挪了，写死的判据该红，跟着常量改的判据不会。
+  const y10k = new Date(10000, 0, 1);
+  const farErr = genError({ today: y10k });
+  assert.ok(farErr, 'today 的年宽过四位时居然安静出货');
+  assert.ok(farErr instanceof RangeError, `年越界是"本站不接这个值"，不是形状错：${farErr.name}`);
+  assert.match(farErr.message, /generateIdCards 的 options\.today/, farErr.message);
+  assert.doesNotMatch(farErr.message, /parseIdCard/, `报错不许甩锅给另一个入口：${farErr.message}`);
+  assert.match(farErr.message, /10000-01-01/, `要说得出越界的是哪一天：${farErr.message}`);
+  assert.throws(() => parseIdCard('110101199003070011', { today: y10k }),
+    (e) => e instanceof RangeError && /parseIdCard 的 options\.today/.test(e.message),
+    '解析侧对同一个 Date 必须同判且点名自己（整改前它给结论）');
+  // 两种入参形状对同一天可以错在不同档（串连形状都不成立 → `TypeError`；Date 形状合法、值越界
+  // → `RangeError`），但**不许一个拒一个放**——那是 §5.4 回落链之外多出来的第二条口径
+  assert.throws(() => parseIdCard('110101199003070011', { today: '10000-01-01' }), TypeError,
+    '五位年份的串在形状那一关就该出局');
+  assert.ok(genError({ today: '10000-01-01' }) instanceof TypeError, '生成侧的串侧同判 TypeError');
+  // 同一条上界必须也压在 `birthDate` 上：那里此前没有这一刀，五位年份被 `iso < BIRTH_FLOOR`
+  // 的字典序"顺手"拦下，报的是「不得早于 1900-01-01」——越的是上界、理由指着下界
+  const bdErr = genError({ birthDate: y10k });
+  assert.ok(bdErr instanceof RangeError, `birthDate 的年宽过四位时必须拒，且是 RangeError：${bdErr && bdErr.name}`);
+  assert.match(bdErr.message, /options\.birthDate/, `必须点名是 birthDate 这条入参：${bdErr.message}`);
+  assert.match(bdErr.message, /四位年份口径/, `要说清越的是哪道界：${bdErr.message}`);
+  assert.doesNotMatch(bdErr.message, /不得早于/, `不许把上界越界报成下界：${bdErr.message}`);
+  // 上界不许咬到界内：9999-12-31 是四位年格的最后一格，两入口都得照常工作
+  const y9999 = new Date(9999, 11, 31);
+  assert.equal(parseIdCard('110101199003070011', { today: y9999 }).state, 'valid',
+    '9999-12-31 是四位年格的最后一格，越出界就是误伤（解析侧不设年龄上限，周岁 8009 照解）');
+  const far9999 = generateIdCards({ count: 1, today: y9999, minAge: 18, maxAge: 60, rng: seededRandom(7) });
+  assert.match(far9999[0].birth, /^\d{4}-\d{2}-\d{2}$/, `出货的生日必须是四位年：${far9999[0].birth}`);
+  assert.equal(parseIdCard(far9999[0].id18, { today: y9999 }).state, 'valid', '自检回喂必须走得通');
+
+  // 正向对照：这一刀不许退化成"四位以下的年份一律拒"，界内的一格都不许误伤
+  const old18 = generateIdCards({ count: 4, today: '1950-01-01', minAge: 0, maxAge: 50, rng: seededRandom(11) });
+  assert.equal(old18.length, 4);
+  for (const g of old18) {
+    assert.ok(g.birth >= BIRTH_FLOOR && g.birth <= '1950-01-01', `today=1950-01-01 却生成了 ${g.birth}`);
+    assert.ok(Number.isInteger(g.age) && g.age >= 0 && g.age <= 50,
+      `today=1950-01-01 的 [0,50] 窗口里给出周岁 ${g.age}（生日 ${g.birth}）`);
+    assert.equal(parseIdCard(g.id18, { today: '1950-01-01' }).state, 'valid', `${g.id18} 自检不过`);
+  }
+  const onFloor = generateIdCards({ count: 1, today: TODAY, birthDate: '1900-01-01' });
+  assert.equal(onFloor[0].birth, '1900-01-01', `${BIRTH_FLOOR} 这一格本来就在界内`);
+  assert.equal(onFloor[0].age, 126, 'born 1900-01-01 / today 2026-09-25 → 126 周岁');
+  assert.equal(parseIdCard('110101190001010014', { today: TODAY }).state, 'valid');
+  assert.equal(parseIdCard('11010118991231001X', { today: TODAY }).state, 'malformed');
 });

@@ -22,10 +22,36 @@ export const USE_NOTE = '随机合成，与真实号码重合的概率可忽略�
 const DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const MS_DAY = 86400000;
 const pad2 = (n) => String(n).padStart(2, '0');
+/** 年份补齐四位：`'999-12-31'` 与 `'1900-01-01'` 做字典序比较会赢，见 `makeDay` */
+const pad4 = (n) => String(n).padStart(4, '0');
+/**
+ * 只补不截 ⇒ 年 ≥10000 会生成五位 `iso`，而 `toDay` 的字符串正则 `^(\d{4})-…` 再也吃不进它。
+ * 上界取 9999，与那条正则同宽——那一刀写在 `checkYearSpan`，`todayOf`（两个入口的 `today`）
+ * 与 `generateIdCards` 的 `birthDate` 三条入参路径共用（G1）。
+ */
+const YEAR_CEILING = 9999;
+
+/**
+ * 整日时间戳，**不吃 `Date.UTC` 那条 0..99 → 1900..1999 的折算**。
+ *
+ * `Date.UTC(50, 5, 1)` 给的是 1950 年 6 月 1 日：一个"年 50"的生日会在 utc 这一维上被
+ * 悄悄挪走一整千年，而 iso 那一维又因为不补零而躲过下界（F1 的两处病灶，一个是 JS 的
+ * 历史包袱、一个是我们自己写的）。`Date.prototype.setUTCFullYear(year, month, date)`
+ * 收的是真实年份、一次钉住年月日三个字段，基准取 epoch（时分秒与毫秒本来就是 0）。
+ * 100 年及以上两种写法逐毫秒相同，只有 0..99 这一段分叉。
+ * @param {number} y 四位年份（可以是 1..999）
+ * @param {number} m 月 1..12
+ * @param {number} d 日 1..31
+ * @returns {number} UTC 整日时间戳
+ */
+function utcDay(y, m, d) {
+  return new Date(0).setUTCFullYear(y, m - 1, d);
+}
+
 /** 下界的整日基准，给生成侧按天取窗口用（与 BIRTH_FLOOR 同源，不另写一个 1900） */
 const BIRTH_FLOOR_UTC = (() => {
   const [y, m, d] = BIRTH_FLOOR.split('-').map(Number);
-  return Date.UTC(y, m - 1, d);
+  return utcDay(y, m, d);
 })();
 
 export function isLeapYear(y) {
@@ -37,15 +63,20 @@ export function daysInMonth(year, month) {
   return month === 2 && isLeapYear(year) ? 29 : DAYS[month - 1];
 }
 
-/** { y, m, d, iso, utc }：年份一律四位，utc 只做整日比较 */
+/** { y, m, d, iso, utc }：iso 的年份一律四位（F1），utc 走 `utcDay` 而不是 `Date.UTC` */
 function makeDay(y, m, d) {
-  return { y, m, d, iso: `${y}-${pad2(m)}-${pad2(d)}`, utc: Date.UTC(y, m - 1, d) };
+  return { y, m, d, iso: `${pad4(y)}-${pad2(m)}-${pad2(d)}`, utc: utcDay(y, m, d) };
 }
 
-/** 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。 */
+/**
+ * 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ * `Invalid Date` 必须被点出来（m-4）：它此前报成 `Date`，于是那句
+ * 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」自己跟自己打架——照字面读，调用方会以为
+ * 是"形状没问题、判定挂了"，而真正传进来的是一个解不开的 Date。
+ */
 function shapeOf(v) {
   if (v === null) return 'null';
-  if (v instanceof Date) return 'Date';
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';
   const t = typeof v;
   if (t === 'object' || t === 'symbol') return t;
   return `${t} ${String(v)}`;
@@ -60,12 +91,21 @@ function wallClock() {
  * 归一"某一天"。**只有两种形状被接受**：`YYYY-MM-DD` 字符串（且必须是真实存在的日历日期）
  * 与 `Date`（取本地分量，与 makeDay 的 utc 同基准）。别的形状一律抛 `TypeError` 并点名是哪条入参。
  *
+ * "取本地分量"在**下界那一格**有一条随时区的分叉，照实记在这里：`new Date('1900-01-01T00:00:00Z')`
+ * 在东八区解成 1900-01-01（界内、放行），在美西时区解成前一天 1899-12-31（越界、抛
+ * `RangeError`），而串 `'1900-01-01'` 两种时区都放行。实测：`TZ=Asia/Shanghai` 与
+ * `TZ=America/Los_Angeles` 各跑一次 `parseIdCard('110101190001010014', { today: … })`。
+ * 不改这个口径——本站按本地日历取日，`Date` 入参本来就是"用户机器上的那一天"。
+ *
  * 为什么从"静默回落墙钟"改成抛（`what` 就是为这句报错存在的）：
  *   1. `today: '昨天'` 此前静默按今天的墙钟判，而"注入 today"是 §B 全部年龄判据可复现的前提——
  *      实测 `parseIdCard('110101199003073503', { today: '昨天' })` 与不传 today 的输出逐字相同。
  *   2. `birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，抛出来的是
- *      `RangeError: 内部不变量：生成的 420581199902302791 自检为 malformed`——调用方的输入
+ *      `Error: 内部不变量：生成的 420581199902302791 自检为 malformed`——调用方的输入
  *      错误被记成实现有 bug。现在入参阶段就报，且不说"内部不变量"。
+ *      那句里的号不是示意：整改前的代码（把 `toDay` 的日历校验摘回只查格式那一行）跑
+ *      `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), birthDate: '1999-02-30' })`
+ *      复算得到，抛的是裸 `Error` 而不是 `RangeError`（见本文件末尾那句 `throw new Error`）。
  * @param {string|Date} input 入参
  * @param {string} what 报错里点名的入参，如 `generateIdCards 的 options.birthDate`
  */
@@ -86,16 +126,56 @@ function toDay(input, what) {
 }
 
 /**
- * 可选的"今天"。`undefined` 与 `null` 都算"没传"→ 墙钟——段 2 的面板在用户没指定日期时
- * 发的就是 null，这一条与 `options.count === undefined` 那道"只把没传当默认值"同族；
- * 而**传了值**（哪怕是 `'昨天'`）就必须解得开，解不开要报，不许静默按今天的墙钟判。
- * @param {string|Date|null|undefined} input 入参
+ * 上界那一刀（G1）：`today` 与 `birthDate` 两条入参路径共用，各点各的 `what`。
+ * 两界不是一维——上界管的是**年份的宽度**（五位 `iso` 喂不进 `toDay` 自己的四位正则），所以比
+ * `day.y`；下界管的是那一天取不到界内生日，所以比 `day.utc`。它俩不可能同时越，先后无所谓，
+ * 但这一刀必须先于任何拿 `iso` 做的字典序比较，否则五位年会被告知"太早"而不是"太宽"。
+ * @param {{y:number, iso:string}} day `toDay` 或 `wallClock` 的产物
  * @param {string} what 报错里点名的入参
+ * @throws {RangeError} 年份宽过 {@link YEAR_CEILING}
  */
-function todayOf(input, what) {
-  return input === undefined || input === null ? wallClock() : toDay(input, what);
+function checkYearSpan(day, what) {
+  if (day.y > YEAR_CEILING) {
+    throw new RangeError(`${what}（${day.iso}）的年份超出本站的四位年份口径（上限 ${YEAR_CEILING}）`);
+  }
 }
 
+/**
+ * 可选的"今天"。`undefined` 与 `null` 都算"没传"→ 墙钟，这一条与
+ * `options.count === undefined` 那道"只把没传当默认值"同族（B10 各钉了一次，`today: null`
+ * 与 `rng: null` 都不许抛）；而**传了值**（哪怕是 `'昨天'`）就必须解得开，解不开要报，
+ * 不许静默按今天的墙钟判。
+ *
+ * 那两个"没传"的分支今天没有任何真实调用方压着——`dev/js/toolIdcard.js` 还没写，
+ * 「面板在用户没指定日期时发的就是 null」是**段 2 的计划**，不是既成事实；把它当契约钉住，
+ * 段 2 落地时就不必再决定一次。
+ *
+ * 最后一道界：`today` 本身不得早于本站出生日期下界。`'0050-06-01'` 形状与日历都成立，
+ * 但它之上取不到任何一个界内生日——解得出 1..999 的出生年、生成侧摇不出号，
+ * 而 `generateIdCards` 的自检那一关会把这一下报成「**parseIdCard** 的 options.today 非法」
+ * （F1 与 m-1 是同一个病灶：`makeDay` 不补零，`today.iso` 回头喂不进自己的正则）。
+ * 界放在这里、两个入口共用，报错各点各的 `what`。
+ *
+ * 上面那道界只管"太早"，**太晚的那一侧此前是开的**（G1）：`toDay` 的字符串正则只收四位年，
+ * 而 `Date` 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年这一天用串传进来被拒、用
+ * `Date` 传进来被接受，而 `pad4` 只补不截，`today.iso` 成了五位，回头喂不进
+ * `generateIdCards` 自检里那句 `parseIdCard(id18, { today: today.iso })`——崩在自检、
+ * 报的却是「**parseIdCard** 的 options.today」（m-1 那一类甩锅在这里复活）。
+ * 上界这句写在 `checkYearSpan` 里，`parseIdCard` 与 `generateIdCards` 的 `today`、
+ * 外加 `generateIdCards` 的 `birthDate`，三条入参路径共用它。
+ * @param {string|Date|null|undefined} input 入参
+ * @param {string} what 报错里点名的入参
+ * @throws {TypeError} 形状不是 `YYYY-MM-DD` 字符串也不是 `Date`，或那一格日历不成立
+ * @throws {RangeError} 解出来的那一天早于 `BIRTH_FLOOR`，或年份宽过 {@link YEAR_CEILING}
+ */
+function todayOf(input, what) {
+  const day = input === undefined || input === null ? wallClock() : toDay(input, what);
+  checkYearSpan(day, what);
+  if (day.utc < BIRTH_FLOOR_UTC) {
+    throw new RangeError(`${what}（${day.iso}）早于本站出生日期下界 ${BIRTH_FLOOR}，那之上取不到任何界内的生日`);
+  }
+  return day;
+}
 
 function ageInYears(birth, today) {
   let age = today.y - birth.y;
@@ -145,10 +225,16 @@ function decodeBirth(birthRaw, lengthType) {
  * 区划 / 生日否决的，`info` 与逐项表照给，只把 `sex` 与四个形态字段收空。
  * `checkdigit` 态**不**收紧，两态的分工见下面 out.state 那一段的注释。
  *
- * @param {string|number} raw 用户输入
+ * @param {string|number} raw 用户输入，由 `String(raw)` 归一。数值只在 2^53 之内安全，而
+ *   18 位号普遍超出：`110101199003073503` 这个字面量进到函数手里已经是
+ *   `110101199003073500`（`String(…)` 实测），于是判成 `checkdigit` 而不是 `valid`——
+ *   末位在"被看见"之前就掉了。这条不属于本模块能修的范围（调用方递过来的就已经是舍过的值），
+ *   所以口径写成"18 位一律传字符串"；判据里目前也没有数值入参这一格（B3 那条 17 位是串）。
  * @param {{today?: string|Date}} [opts] 注入"今天"，让年龄与上限判据可复现；
- *   `opts` 与 `opts.today` 传 null 都等于没传，`today` 传别的形状则抛 `TypeError`
- * @throws {TypeError} `opts.today` 既不是 `YYYY-MM-DD` 字符串也不是 `Date`
+ *   `opts` 与 `opts.today` 传 null 都等于没传，`today` 传别的形状则抛 `TypeError`，
+ *   形状对但那一天早于 {@link BIRTH_FLOOR}、或年份宽过 {@link YEAR_CEILING} 则抛 `RangeError`
+ * @throws {TypeError} `opts.today` 既不是 `YYYY-MM-DD` 字符串也不是 `Date`（含 `Invalid Date`）
+ * @throws {RangeError} `opts.today` 早于本站出生日期下界，或年份宽过四位
  */
 export function parseIdCard(raw, opts = {}) {
   const today = todayOf((opts ?? {}).today, 'parseIdCard 的 options.today');
@@ -203,7 +289,9 @@ export function parseIdCard(raw, opts = {}) {
   push('region', '行政区划', regionOk, regionOk === null ? region.note
     : (regionOk ? `${region.fullName}${region.status === 'abolished' ? '（历史码）' : ''}` : region.note || `${areaCode} 无法解析`));
 
-  // 4) 出生日期：真实日历 + 上下界
+  // 4) 出生日期：真实日历 + 上下界。**字典序比较只在两侧都是四位年份时成立**——
+  //    左边的四位性由 `makeDay` 保证（F1：年 50 从前写作 '50-06-01'，比 '1900-01-01' 大），
+  //    右边是常量 BIRTH_FLOOR。上下界各用一维：下界比 iso，上界比 utc（同一天两侧同基准）。
   const b = decodeBirth(birthRaw, out.lengthType);
   let birthOk = true;
   let birthWhy = '';
@@ -326,8 +414,10 @@ function pickSeq(rng, want) {
  * @returns {{y:number,m:number,d:number,iso:string,utc:number}|null}
  */
 function randomBirthDay(rng, minAge, maxAge, today) {
-  const at = (y, clampMonth = today.m) => Date.UTC(y, clampMonth - 1,
-    Math.min(today.d, daysInMonth(y, clampMonth)));
+  // 只有一个调用方、只传一个参数，所以 `at` 只收一个参数：从前那个 `clampMonth = today.m`
+  // 的默认值形参没有任何调用点碰过它（把函数体里的 `clampMonth` 硬写成 `today.m`，判据一条不红），
+  // 留着等于让人以为"存在按月收窄的另一种口径"（m-3）。
+  const at = (y) => utcDay(y, today.m, Math.min(today.d, daysInMonth(y, today.m)));
   const hi = at(today.y - minAge);
   const lo = Math.max(at(today.y - maxAge - 1) + MS_DAY, BIRTH_FLOOR_UTC);
   if (lo > hi) return null;
@@ -338,6 +428,7 @@ function randomBirthDay(rng, minAge, maxAge, today) {
 
 /**
  * 校验并包一层可注入随机源。`null` / `undefined` = 没传 → 时间种子；别的形状一律抛。
+ * 那一条"没传"的分支由 B10 钉着（`rng: null` 必须出货而不是抛）——与 `todayOf` 同族。
  *
  * 为什么连"取值"也要查（I-6 同族）：`rng: () => 2` 此前不抛，`pool[Math.floor(2 * len)]`
  * 直接取到 `undefined`，一路摇成 `undefined192225011999null` 那样的字符串，最后由自检
@@ -366,8 +457,13 @@ function checkedRng(input) {
  * M-11：旧写法 `String(options.areaCode ?? options.cityCode ?? options.provinceCode)`
  * 有两处洗白——数值 `110101` 被 String() 成全码、`cityCode: null` 被当成"没传"而静默
  * 放开整张现行表（2,978 条地址）。region.js 的 `normalizePrefix` 刚为同一族收过口：
- * 非字符串 → null → 空集。生成侧比它更进一步：干脆抛，因为这唯一的调用方就是段 2 的面板。
- * 空串与全空白串同样抛（"收窄到空"与"没收窄"是两种完全不同的用户意图，不许混）。
+ * 非字符串 → null → 空集。生成侧比它更进一步：干脆抛，因为这唯一的调用方就是段 2 的面板
+ * （**段 2 的计划**，`dev/js/toolIdcard.js` 还没写，所以这一族口径只能由判据先钉住）。
+ * 空串与全空白串同样抛（"收窄到空"与"没收窄"是两种完全不同的用户意图，不许混）——
+ * 整改前这一支只有下面这句 JSDoc 与 §4.11 的 M-11 行在承诺，判据一次都没注入过 `''`：
+ * 把 `|| v.trim() === ''` 摘掉，当时的 26 条判据一条不红（本轮在镜像上复跑过），
+ * 而 `areaCode: '   '` 会安静地从整张 2,978 条现行表里出货。B10 现在三个键各钉空串与
+ * 全空白两条，摘掉那一半句红的是 B10（同一批镜像上复测，27 条里只它红）。
  * @param {{areaCode?:unknown, cityCode?:unknown, provinceCode?:unknown}} o 入参对象
  * @returns {string} 去空白后的前缀
  */
@@ -387,17 +483,31 @@ function prefixOf(o) {
  * 生成校验位成立的测试号。**地址只能出自现行区划表**（§5.4：历史码只许解、不许生成）。
  * 每条生成后立刻用 parseIdCard 自检，判不得 valid 就抛——生成器与校验器互为对手。
  *
- * 入参口径与 `parseIdCard` 一致（B10 钉住这一条）：`today` 与 `birthDate` 接受
- * `YYYY-MM-DD` 字符串或 `Date`，`null` / `undefined` 都算"没传"；`areaCode` / `cityCode` /
+ * 入参口径与 `parseIdCard` 一致（B10 钉住这一条，两个入口各钉一次）：整个 `options` 与 `opts`
+ * 传 `null` 都等于没传（F4 之前只有 `parseIdCard` 那一半成立，`generateIdCards(null)` 抛的是
+ * `TypeError: Cannot read properties of null (reading 'areaCode')`，一个入参名字都不点）；
+ * `today` 与 `birthDate` 接受 `YYYY-MM-DD` 字符串或 `Date`，`null` / `undefined` 都算"没传"；
+ * `areaCode` / `cityCode` /
  * `provinceCode` 只接受**非空字符串**，`null` 与数值在这里一律抛——把它们当成"没传"等于
  * 把一次类型错误放大成"从 2,978 条地址里出货"，那道 `String(options.areaCode ?? …)`
  * 正是 region.js 的 `normalizePrefix` 刚堵掉的洗白路径。
  *
  * @param {{areaCode?:string, cityCode?:string, provinceCode?:string, birthDate?:string|Date,
  *   minAge?:number, maxAge?:number, sex?:'male'|'female'|null, count?:number,
- *   today?:string|Date, rng?:() => number}} [options]
- * @throws {RangeError} 数量 / 性别 / 年龄区间 / 区划前缀无候选 / 日期越界等业务规则不成立
- * @throws {TypeError} 任一入参的形状或类型不对（不是"传了个坏值"，是"根本不该这么传"）
+ *   today?:string|Date, rng?:() => number}} [options] 整个对象传 `null` / `undefined` 等于没传
+ * @throws {TypeError} 这一档问的是"根本不该这么传"：`today` / `birthDate` 的形状与日历不成立、
+ *   `rng` 不是函数或取值越出 [0,1)、三个区划码键不是非空字符串、`minAge` / `maxAge` 不是整数
+ * @throws {RangeError} 这一档问的是"这么传可以，但这个值本站不接"：`count` 不在 1..50 的整数里
+ *   （**包括 `null` 与 `'5'` 这类非数值形状**——这一道是 `!Number.isInteger(count) || 越界`
+ *   合成一句写的，B8 钉的就是这个口径）、`sex` 不在 male / female / null 里、年龄区间不成
+ *   立或与下界无交集、`birthDate` / `today` 越出 {@link BIRTH_FLOOR} 或宽过
+ *   {@link YEAR_CEILING}、区划前缀零候选
+ *
+ * 为什么是文档跟着代码改、不是反过来（m-4）：`sex: 123` 与 `count: true` 走 `RangeError`
+ * 而 `minAge: 18.5` 走 `TypeError`，确实是两种分类法混在一处。但 `count` 那一句把
+ * "是不是整数"和"在不在 1..50"写成了一次判定，拆开它 = 改 B8 钉住的异常类型；面板（段 2）
+ * 还没写，可判据已经在仓库里，而这一轮的纪律是"报错**点名哪条入参**"——两档的文案都点名了，
+ * 类型分歧只是给人读的一条小刺。所以这里把实情写清楚，不动行为。
  */
 export function generateIdCards(options = {}) {
   const o = options ?? {};
@@ -423,6 +533,9 @@ export function generateIdCards(options = {}) {
   let fixedBirth = null;
   if (o.birthDate !== undefined && o.birthDate !== null) {
     fixedBirth = toDay(o.birthDate, 'generateIdCards 的 options.birthDate');
+    // 这一刀先于下面那句字典序比较：`'10000-01-01' < '1900-01-01'` 在字典序里是真，
+    // 于是五位年份会被报成"不得早于 1900-01-01"——越的是上界，理由却指着下界（G1 的姊妹格）。
+    checkYearSpan(fixedBirth, 'generateIdCards 的 options.birthDate');
     if (fixedBirth.iso < BIRTH_FLOOR) {
       throw new RangeError(`generateIdCards 的 options.birthDate（${fixedBirth.iso}）不得早于 ${BIRTH_FLOOR}`);
     }
@@ -435,7 +548,10 @@ export function generateIdCards(options = {}) {
       + `收到 [${shapeOf(o.minAge)}, ${shapeOf(o.maxAge)}]`);
   }
 
-  const prefix = prefixOf(options);
+  // F4：吃 `o` 而不是 raw `options`——上面那句 `const o = options ?? {}` 已经表明作者预期
+  // options 可以是 null，而 `prefixOf(options)` 会把这一下变成
+  // `TypeError: Cannot read properties of null (reading 'areaCode')`。
+  const prefix = prefixOf(o);
   const pool = currentCountyCodes(prefix);
   if (pool.length === 0) {
     throw new RangeError(`没有可生成的行政区划（前缀「${prefix || '空'}」，区划数据截止 ${REGION_META.datasetVersion}）`);
@@ -449,7 +565,8 @@ export function generateIdCards(options = {}) {
       throw new RangeError(`周岁区间 [${minAge}, ${maxAge}] 在 ${today.iso} 这天与本站下界 ${BIRTH_FLOOR} 之间取不到任何生日`);
     }
     const seq = pickSeq(rng, sex);
-    const body17 = `${areaCode}${birth.y}${pad2(birth.m)}${pad2(birth.d)}${seq}`;
+    // 生日那 8 位只从 `birth.iso` 派生（F1：从前写 `${birth.y}`，年 50 会摇出一条 19 位的串）
+    const body17 = `${areaCode}${birth.iso.replace(/-/g, '')}${seq}`;
     const checkBit = computeCheckDigit(body17);
     const id18 = body17 + checkBit;
     const self = parseIdCard(id18, { today: today.iso });

@@ -2107,15 +2107,24 @@ function parseArgs(argv) {
   return { check: argv.includes('--check') };
 }
 
+/**
+ * "这是操作者的失误，不是引擎崩溃"这一类事的统一报法（m-8）：一行 stderr、退 1、**不打堆栈**，
+ * 且调用点一律在写盘之前。参数闸门先做成这个样子（I-8），总数与池子那三道此前还是裸 `throw`，
+ * 同一类错误两种报法——改配额的人被一整段栈淹没，看一眼就知道该改哪里的是前者、不是后者。
+ * @param {string} msg 一行就说清的错
+ */
+function die(msg) {
+  process.stderr.write(`${msg}\n`);
+  process.exit(1);
+}
+
 // 闸门在读写任何文件之前生效；用法错只打一行到 stderr、不打堆栈，且**一个字节都不写**。
 let AS_CHECK;
 try {
   AS_CHECK = parseArgs(process.argv.slice(2)).check;
 } catch (e) {
-  process.stderr.write(`${e.message}\n`);
-  process.exit(1);
+  die(e.message);
 }
-
 
 /** 分组配额，合计 1000；改配额要同步改 §B 的 B7 */
 const GROUPS = {
@@ -2165,10 +2174,24 @@ const both = [...currentCounty].filter((c) => legacyCounty.has(c)).sort();
  * `tail.startsWith(middle)` 那一刀（I-7）必须与读侧 `region.js` 的 `joinNames` 同规则：
  * 两边算的不是同一个字符串，"同名池"筛出来的样本就会在 B7 那句
  * `r.info.region.fullName === c.oracleAddr` 上按重叠前缀那一批（实读 19 条：15 条县名以市名
- * 打头的功能区 + 4 条省市县同名，如 441900 东莞市）逐条误红。本轮实测：加与不加，
- * `sameName` 都是 1,776 条、成员一模一样（那 19 条**没有一条同时在 2015 旧表里**，
- * 全是 2022 口径新增），所以这一刀不改变任何一条样本的归属——它堵的是"两份实现算的
- * 不是同一个字符串"这件事本身，而不是一批当下恰好为空的误红。别因为它今天测不出差别就删掉。
+ * 打头的功能区 + 4 条省市县同名，如 441900 东莞市）逐条误红。
+ *
+ * 本轮把那一刀写成开关、两个方向各跑一遍 `both`（1,932 条），实测：
+ *   both 1,932 · sameName 带刀 1,776 · 不带刀 1,776 · 成员完全一致
+ *   （坑：`PLACEHOLDER_CITY` 里必须有「县」。少它两个方向都是 1,764、成员仍一字不差，
+ *    掉出去的正好是 12 条重庆市辖县——市名那一格就叫「县」，不当它是占位段就会把
+ *    `500229` 拼成「重庆市县城口县」。这 12 条不是"让那一刀显得有用"，而是凭空多进
+ *    `renamed` 档：镜像实跑同一份快照、只删「县」一个字，`pools` 从
+ *    1776/156/62/93/1 变成 1764/168/62/105/1（涨的 12 条全落在 `renamedByLegacyPrefix`））
+ * 19 条重叠前缀里落在 both 池中的只有 `620201` 一条：`441900`（旧=广东省东莞市）与
+ * `442000`（旧=广东省中山市）确实是 2015 旧表里的码，但它们是**市级码**，被
+ * `legacyCounty` 那句 `!k.endsWith('00')` 挡在 both 之外——上一版把这句写成"那 19 条没有一条
+ * 同时在 2015 旧表里"，是假的（整改前实测 3 条在旧表里：441900 / 442000 / 620201）。
+ * 结论仍然成立，但成立的原因是 620201 这一条：不带刀 want=「甘肃省嘉峪关市嘉峪关市」、
+ * 带刀 want=「甘肃省嘉峪关市」，而旧串是「甘肃省嘉峪关市市辖区」——两种口径都不相等 ⇒
+ * 两种口径都落进 renamed。所以这一刀不改变任何一条样本的归属，它堵的是"两份实现算的
+ * 不是同一个字符串"这件事本身，而不是一批当下恰好为空的误红。别因为它今天测不出差别就删掉：
+ * 441900 / 442000 只要哪天以县级形的码进 both 池（旧表里它们就挂在市级码下），这一刀立刻挪两条。
  *
  * 本判据筛出 1,776 条；与读侧 `resolveRegion().fullName` 的分叉数在两个方向上都是 0
  * （B7 逐条核过 agree18 的相等、renamed 的不等，双向都钉着）。
@@ -2205,9 +2228,9 @@ const ONLY_CURRENT = [...currentCounty]
   .filter((c) => !legacyCounty.has(c) && currentCity.has(c.slice(0, 4)))
   .sort();
 
-if (BOTH.length < GROUPS.agree18) throw new Error(`同码同名池只有 ${BOTH.length} 条，取不够 agree18 配额`);
-if (RENAMED.length < GROUPS.renamed) throw new Error(`同码改名池只有 ${RENAMED.length} 条，不足 ${GROUPS.renamed}`);
-if (ONLY_CURRENT.length < GROUPS.name_current_only) throw new Error(`仅现行有的池只有 ${ONLY_CURRENT.length} 条`);
+if (BOTH.length < GROUPS.agree18) die(`同码同名池只有 ${BOTH.length} 条，取不够 agree18 配额 ${GROUPS.agree18}`);
+if (RENAMED.length < GROUPS.renamed) die(`同码改名池只有 ${RENAMED.length} 条，不足 ${GROUPS.renamed}`);
+if (ONLY_CURRENT.length < GROUPS.name_current_only) die(`仅现行有的池只有 ${ONLY_CURRENT.length} 条，不足 ${GROUPS.name_current_only}`);
 
 const pick = (arr) => arr[Math.floor(rng() * arr.length)];
 const pad = (n) => String(n).padStart(2, '0');
@@ -2320,7 +2343,7 @@ for (let i = 0; i < GROUPS.feb29_nonleap; i += 1) {
 }
 
 const total = Object.values(cases).reduce((n, list) => n + list.length, 0);
-if (total !== 1000) throw new Error(`夹具总数 ${total} != 1000`);
+if (total !== 1000) die(`夹具总数 ${total} != 1000`);
 
 const doc = {
   schema: 1,
@@ -2614,6 +2637,17 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
   assert.equal(quotaTotal, 1000, '判据这一侧写死的七组配额合计不再是 1000，先想清楚再改');
   assert.deepEqual(FX.groupCounts, EXPECT_QUOTA, '生成器的分组配额与计划规定值不符');
   assert.deepEqual(FX.pools, EXPECT_POOLS, '取样池大小与快照实读值不符（换了快照要同步这里）');
+  // F7-6：生成器注释里那句「`pools` 里的三个数之和要等于 RENAMED.length」（在 `sameNameAsLegacy`
+  // 的 JSDoc 末尾）与 §4.11 的 I-7 行都写着"三个成因之和 == RENAMED.length，B7 钉着"，
+  // 而 B7 此前只做一次 deepEqual 六个常数，一次都没算过和——那句话不是事实。现在钉上：
+  // 上面那道 deepEqual 已经逐个数比过，所以这一行咬的是"改了三分中的某一个、忘了改 renamed"
+  // 那一种未来编辑（deepEqual 那一条会红，但红的是"数字不符"而不是"这句话不成立"，
+  // 后者只有这一行说得出）。两条各比一侧，判据侧与夹具侧都要自洽。
+  const causeSum = EXPECT_POOLS.renamedByCounty + EXPECT_POOLS.renamedByLegacyPrefix + EXPECT_POOLS.renamedByPlaceholder;
+  assert.equal(causeSum, EXPECT_POOLS.renamed,
+    `renamed 的三类成因之和 ${causeSum} 与判据侧写死的 renamed ${EXPECT_POOLS.renamed} 不符——那句"之和等于池子"的话就假了`);
+  const fxSum = FX.pools.renamedByCounty + FX.pools.renamedByLegacyPrefix + FX.pools.renamedByPlaceholder;
+  assert.equal(fxSum, FX.pools.renamed, `夹具自报的三类成因之和 ${fxSum} 不等于自报的 renamed ${FX.pools.renamed}`);
   assert.equal(FX.total, quotaTotal);
   assert.deepEqual(Object.keys(FX.cases).sort(), Object.keys(EXPECT_QUOTA).sort(), '夹具的组名集合变了');
   for (const [g, n] of Object.entries(EXPECT_QUOTA)) {
@@ -2633,41 +2667,44 @@ test('B7 与站内旧库对拍：同结论组守住，分歧组方向守住', ()
     assert.equal(new Set(FX.cases[g].map((c) => c.id)).size, n, `${g} 组内有重复号码`);
   }
 
+  // m-6：这一组循环跑 1,000 条，报错文案里没有 `c.id` 的那几条，红了只知道"某一条不一致"、
+  // 不知道是哪一条（agree18 第 400 条红，报的只有 `'男' !== '女'`）。全部补上 c.id。
   for (const c of FX.cases.agree18) {
-    assert.equal(c.oracleValid, true);
+    assert.equal(c.oracleValid, true, `agree18 ${c.id} 旧库判了无效，这组不成立`);
     const r = p(c);
     assert.equal(r.state, 'valid', `agree18 ${c.id} 判成 ${r.state}`);
     assert.equal(r.info.region.fullName, c.oracleAddr, `${c.id} 地址名与旧库不一致`);
-    assert.equal(r.info.birth, c.oracleBirth);
-    assert.equal(r.info.sex, c.oracleSex);
+    assert.equal(r.info.birth, c.oracleBirth, `agree18 ${c.id} 出生日期与旧库不一致`);
+    assert.equal(r.info.sex, c.oracleSex, `agree18 ${c.id} 性别与旧库不一致`);
   }
   for (const c of FX.cases.agree15) {
     const r = p(c);
     assert.equal(r.state, 'valid', `agree15 ${c.id} 判成 ${r.state}`);
-    assert.equal(r.info.region.fullName, c.oracleAddr);
-    assert.equal(r.id18.slice(0, 17), `${c.id.slice(0, 6)}19${c.id.slice(6, 12)}${c.id.slice(-3)}`);
+    assert.equal(r.info.region.fullName, c.oracleAddr, `agree15 ${c.id} 地址名与旧库不一致`);
+    assert.equal(r.id18.slice(0, 17), `${c.id.slice(0, 6)}19${c.id.slice(6, 12)}${c.id.slice(-3)}`,
+      `agree15 ${c.id} 的 18 位等价写法本体不对`);
   }
 
   // 我们更新（一）：旧库在"仅现行表有"的码上回落到市级并吐「未知地区」
   for (const c of FX.cases.name_current_only) {
-    assert.match(c.oracleAddr, /未知地区/, '夹具里旧库结论应带「未知地区」，否则这组不成立');
+    assert.match(c.oracleAddr, /未知地区/, `name_current_only ${c.id} 夹具里旧库结论应带「未知地区」，否则这组不成立`);
     const r = p(c);
-    assert.equal(r.state, 'valid');
-    assert.equal(r.info.region.status, 'current');
+    assert.equal(r.state, 'valid', `name_current_only ${c.id} 判成 ${r.state}`);
+    assert.equal(r.info.region.status, 'current', `name_current_only ${c.id} 不是现行县级码`);
     assert.equal(r.info.region.county, c.currentName, `${c.id} 没解出现行县级名`);
-    assert.doesNotMatch(r.info.region.fullName, /未知/);
+    assert.doesNotMatch(r.info.region.fullName, /未知/, `name_current_only ${c.id} 解出了「未知」`);
   }
   // 我们更新（二）：同码异名，旧库给 2015 年前后的旧名。156 条按成因分三类（实读，见 `FX.pools`）：
   // 62 条县名自己改过、93 条县名没变而旧表那一段市名/省名是旧口径、1 条（620201 嘉峪关市）
   // 旧表在市级码下挂的是「市辖区」占位条——三类都是"我们给现行名、旧库给旧串"，方向同一个，
   // 但第三类不是改名，别把它记进"县名改过"那一档（上一版就是这么记错的）。
   for (const c of FX.cases.renamed) {
-    assert.equal(c.oracleValid, true);
-    assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`));
+    assert.equal(c.oracleValid, true, `renamed ${c.id} 旧库判了无效，这组不成立`);
+    assert.doesNotMatch(c.legacyName, new RegExp(`^${c.currentName}$`), `renamed ${c.id} 旧名与新名一字不差`);
     const r = p(c);
-    assert.equal(r.state, 'valid');
+    assert.equal(r.state, 'valid', `renamed ${c.id} 判成 ${r.state}`);
     assert.equal(r.info.region.county, c.currentName, `${c.id} 应当给现行名`);
-    assert.equal(r.info.region.fullName.endsWith(c.currentName), true);
+    assert.equal(r.info.region.fullName.endsWith(c.currentName), true, `renamed ${c.id} 全名末段不是现行县级名`);
     assert.notEqual(r.info.region.fullName, c.oracleAddr, `${c.areaCode} 新旧同名，不该进这组`);
   }
 
@@ -2749,9 +2786,13 @@ const genError = (options) => {
 };
 
 test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随机源任何整数都是一条独立流', () => {
-  // I-6：`birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，
-  // 抛出来的是 `RangeError: 内部不变量：生成的 451022199902309415 自检为 malformed`——
-  // 调用方的一次类型错误被记成"实现有 bug"。现在报错必须点名 options.birthDate。
+  // I-6：`birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，抛出来的是
+  // `Error: 内部不变量：生成的 420581199902302791 自检为 malformed（出生日期：1999 年 2 月没有
+  // 30 日（该月最多 28 天））`——调用方的一次类型错误被记成"实现有 bug"。现在报错必须点名
+  // options.birthDate。那句里的号连着构造抄（m-5）：镜像上把 `toDay` 的日历校验摘回只查格式
+  // 那一行，跑 `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242),
+  // birthDate: '1999-02-30' })`；抛的是裸 `Error`，不是 `RangeError`（上一版把类型记错过一次，
+  // 还举了另一条 `451022199902309415`——那条走的是时间种子，谁也复现不出来）。
   const gate = [
     [{ birthDate: '1999-02-30' }, /options\.birthDate/, '格式对、日历不存在的出生日期'],
     [{ birthDate: '1999-13-01' }, /options\.birthDate/, '月份 13 的出生日期'],
@@ -2765,6 +2806,22 @@ test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随�
     [{ areaCode: 110101 }, /options\.areaCode/, 'M-11：数值区划码被 String() 洗成合法前缀'],
     [{ provinceCode: 11 }, /options\.provinceCode/, 'M-11：数值省码同上，且 region.js 刚堵掉过这一族'],
     [{ cityCode: null }, /options\.cityCode/, 'M-11：null 此前等于"不收窄"，静默出货全表地址'],
+    // F3：`prefixOf` 那句"空串 / 全空白也抛"此前只有 JSDoc 与 §4.11 的 M-11 行在承诺，
+    // 而这三个键注入过的是 110101 / 11 / null——一次 ''、一次 '   ' 都没有。本轮在镜像上实测：
+    // 摘掉 `|| v.trim() === ''` 之后 27 条判据一条不红，而
+    // `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), areaCode: '   ' })`
+    // 安静出货 `420581197709189310`（湖北省宜昌市宜都市）——地址取自整张 2,978 条现行表，
+    // `''` 与三个键各自的空白串一并如此（同一条流，所以四条出货一模一样）。
+    // 闸门在循环里是**逐键**的，所以三个键各钉两条（空串 / 全空白），一条都不许只靠"另一个键红过"。
+    [{ areaCode: '' }, /options\.areaCode/, 'F3：空串收窄＝"候选为零"，与"没收窄"是两种用户意图'],
+    [{ areaCode: '   ' }, /options\.areaCode/, 'F3：全空白串同一条，此前只被 v.trim() 那一支守着'],
+    [{ cityCode: '' }, /options\.cityCode/, 'F3：空串那一支对 cityCode 同样必须成立'],
+    [{ cityCode: '\t ' }, /options\.cityCode/, 'F3：全空白对 cityCode 同样必须成立'],
+    [{ provinceCode: '' }, /options\.provinceCode/, 'F3：空串对省码同样必须成立'],
+    [{ provinceCode: '   ' }, /options\.provinceCode/, 'F3：全空白对省码同样必须成立'],
+    // m-4：`shapeOf` 把 Invalid Date 报成 `Date`，报错于是自己跟自己打架——
+    // 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」。修的是文案那一侧（实现的选择保留）。
+    [{ today: new Date('nope') }, /Invalid Date/, 'Invalid Date 必须被点出来，不许只说"收到 Date"'],
     [{ minAge: 18.5 }, /options\.minAge/, '非整数周岁下界'],
     [{ maxAge: '60' }, /options\.maxAge/, '字符串周岁上界'],
   ];
@@ -2786,6 +2843,23 @@ test('B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随�
   assert.equal(parseIdCard('110101199003073503', { today: new Date(2026, 8, 25) }).info.ageYears, 36);
   // M-14：`parseIdCard(x, null)` 此前抛 "Cannot read properties of null"，而 opts 是可选参数。
   assert.equal(parseIdCard('110101199003073503', null).state, 'valid', 'opts 传 null 等于没传，不该抛');
+  // F4：M-14 只修了那一半。`generateIdCards(null)` 抛的是
+  // `TypeError: Cannot read properties of null (reading 'areaCode')`——一个入参名字都不点，
+  // 把调用方传进来的 null 报成引擎崩溃；而 `generateIdCards` 开头那句 `const o = options ?? {}`
+  // 说明作者本来就预期 null，JSDoc 也写着"入参口径与 parseIdCard 一致"。两个入口现在都得守这一条。
+  assert.equal(generateIdCards(undefined).length, 1, 'options 传 undefined 等于没传，默认一条');
+  const nullOptions = generateIdCards(null);
+  assert.equal(nullOptions.length, 1, 'options 传 null 等于没传，默认一条');
+  assert.match(nullOptions[0].id18, /^\d{17}[0-9X]$/, 'null 入参也要出货一个形态完整的号');
+  assert.equal(parseIdCard(nullOptions[0].id18).state, 'valid', '两个入口都不传 today 时必须自洽');
+  // m-2：`todayOf` 与 `checkedRng` 各有一条"null 算没传"的分支，此前零判据——把 null 改成
+  // 抛 TypeError，26 条判据一条都不红（实测）。两条各钉一次，注释里那半句"面板发的就是 null"
+  // 也才有东西撑着：它是段 2 的**计划**，不是今天的调用方（`dev/js/toolIdcard.js` 还没写）。
+  assert.equal(parseIdCard('110101199003073503', { today: null }).state, 'valid',
+    'today 传 null 等于没传：按墙钟判，不许抛');
+  const nullDefaults = generateIdCards({ count: 1, today: null, rng: null });
+  assert.equal(nullDefaults.length, 1, 'today / rng 传 null 等于没传，不许抛');
+  assert.equal(parseIdCard(nullDefaults[0].id18).state, 'valid', '时间种子那条流也要出货自洽');
   assert.throws(() => parseIdCard('110101199003073503', { today: '昨天' }), /options\.today/, 'M-12');
   assert.throws(() => parseIdCardList('110101199003073503', { today: '昨天' }), /options\.today/,
     '批量入口与单条入口必须同一个报错口径');
@@ -2880,8 +2954,17 @@ test('B12 区划 unknown 判结构非法；结构非法不出货解释性结论'
   const RAW = ['areaCode', 'birthRaw', 'seq', 'body17'];
   const FORM = ['id18', 'id15', 'id15Note', 'suggestedId18'];
   // 走到解码之后才被判死的：info 在，但解释性结论（sex）与四个形态字段必须空
+  //
+  // F2：`parseIdCard` 末尾那两条 `ship` 分支（18 位一条、15 位一条），15 位这一条此前**一次
+  // 都没被结构非法的输入走过**：下面这个名单当时只有五条 18 位的，而 B3 的 `11010190030700A`
+  // 在字符集那一关就 return 了、走不到这里。整改前把 15 位那一支改成无条件 `} else {`，
+  // 当时的 26 条判据一条不红。本轮在镜像上自己复跑了两组：摘闸门 → 27 条里只 B12 红；
+  // 补上判据之前同样的针子 → 一条不红。出货差别也是本轮实跑的（today 一律 '2026-09-25'）：
+  //   990101900307001（省码 99 不在表）   现状 id18=""  id15=""
+  //   110101900230001（1990-02-30 不存在） 现状 id18=""  id15=""
+  //   摘掉闸门：前者 id18="990101199003070015" id15="990101900307001"；后者 id18="110101199002300014" id15="110101900230001"
   for (const id of ['990101199003070015', '000000199003070015', '110101290001010012',
-    '110101199902290018', '11010118991231001X']) {
+    '110101199902290018', '11010118991231001X', '990101900307001', '110101900230001']) {
     const r = parseIdCard(id, { today: TODAY });
     assert.equal(r.state, 'malformed', `${id} 这一版应当还是 malformed，判据才测得到出货口径`);
     if (!r.info) assert.fail(`${id} 结构非法到连 info 都不给——sex/形态字段那一条就无从判起，见 B12 后半段的分档`);
@@ -2948,8 +3031,14 @@ test('B13 2 月 29 逐年前后各扫一遍：闰年成立、非闰只由出生�
 const ID_GEN = resolve(HERE, 'build-id-fixture.mjs');
 const ID_FIXTURE = resolve(ROOT, 'scripts/fixtures/id-validator-checkbit-1000.json');
 
-/** 把生成器、四份区划快照、旧库两份 lib 与当前夹具搬进一个临时仓库根。 */
-function makeIdTmpRepo() {
+/**
+ * 把生成器、四份区划快照、旧库两份 lib 与当前夹具搬进一个临时仓库根。
+ * @param {{mutateGenerator?:(s:string)=>string}} [opts] mutateGenerator 改写副本里的生成器源码
+ *   （B14 用它把配额改成"合计 995"，量那道"总数闸门"的报法）。仓库里那份一个字节都不碰。
+ */
+function makeIdTmpRepo({ mutateGenerator = (s) => s } = {}) {
+  // 先改写再建目录：mutateGenerator 里的锚点计数会抛，那时候还没留下任何待清的 tmpdir
+  const genSrc = mutateGenerator(readFileSync(ID_GEN, 'utf8'));
   const tmp = mkdtempSync(join(tmpdir(), 'id-fixture-'));
   const fixtureDir = resolve(tmp, 'scripts/fixtures');
   const regionDir = resolve(fixtureDir, 'region-source');
@@ -2961,7 +3050,7 @@ function makeIdTmpRepo() {
     copyFileSync(resolve(ROOT, 'demo/idCardDemo/lib', f), resolve(libDir, f));
   }
   copyFileSync(ID_FIXTURE, resolve(fixtureDir, 'id-validator-checkbit-1000.json'));
-  copyFileSync(ID_GEN, resolve(tmp, 'scripts/build-id-fixture.mjs'));
+  writeFileSync(resolve(tmp, 'scripts/build-id-fixture.mjs'), genSrc);
   return {
     tmp,
     gen: resolve(tmp, 'scripts/build-id-fixture.mjs'),
@@ -3011,9 +3100,140 @@ test('B14 夹具生成器的参数闸门：拼错的开关不得落到覆盖夹�
   } finally {
     repo.cleanup();
   }
+  // m-8：`夹具总数 != 1000` 这一道此前是裸 `throw`，打一整段堆栈到 stderr，而同一个脚本刚把
+  // "参数打错"那一类做成一行 stderr + 退 1。同一类事（操作者的失误，不是引擎崩溃）必须同一种
+  // 报法。判据形状照上面那六格：非零退出 + 一行说清是多少 + 不打堆栈 + 一个字节都不写。
+  // 触发方式：把副本里的 agree18 配额从 670 改成 665（合计 995），锚点命中数必须先数过。
+  const broken = makeIdTmpRepo({
+    mutateGenerator: (s) => {
+      const hits = s.split('agree18: 670').length - 1;
+      assert.equal(hits, 1, `变异锚点 "agree18: 670" 在生成器里命中 ${hits} 处，不等于 1 —— 静默不匹配的变异本身就是一条缺陷`);
+      return s.replace('agree18: 670', 'agree18: 665');
+    },
+  });
+  try {
+    const q = spawnSync(process.execPath, [broken.gen], { cwd: broken.tmp, encoding: 'utf8' });
+    assert.notEqual(q.status, 0, '配额塌成 995 而生成器退 0，这道闸门等于没有');
+    assert.match(q.stderr, /夹具总数 995 != 1000/, `必须说清算到的是多少条：${q.stderr}`);
+    assert.doesNotMatch(q.stderr, /^\s+at /m, `操作者的失误不该打整段堆栈：${q.stderr}`);
+    assert.equal(q.stdout, '', `总数不对还照样打出生成摘要：${q.stdout}`);
+    assert.equal(readFileSync(broken.fixture, 'utf8'), repoBytes, '夹具总数这一道红的时候把坏产物写进了盘');
+  } finally {
+    broken.cleanup();
+  }
   assert.equal(readFileSync(ID_FIXTURE, 'utf8'), repoBytes, '整条 B14 动过仓库里的夹具');
   assert.deepEqual(Object.fromEntries(readdirSync(FIXDIR).sort()
     .map((f) => [f, sha256Of(readFileSync(resolve(FIXDIR, f)))])), regionBefore, 'B14 动过仓库里的区划快照');
+});
+
+/**
+ * B15 是第九轮（5 Important + 9 Minor）里 F1 那条 Critical 级缺陷的判据。
+ * 判据先写、先跑红，再改实现——整改前它红的就是下面这整条。
+ * 第十轮复跑又往同一条里接了 G1：那道界只管"太早"，公元 10000 年那一头此前是开的。
+ */
+test('B15 年份 1..9999：出生年补齐四位再比下界，"今天"两头越界谁传谁被点名', () => {
+  // F1：整改前 `makeDay` 写的是 `iso: `${y}-${pad2(m)}-${pad2(d)}``，年份不补零，而
+  // `parseIdCard` 里 `b.day.iso < BIRTH_FLOOR` 那一句拿这个串做**字典序**比较 ⇒ `'50-06-01' > '1900-01-01'`，
+  // 10..999 年整段绕过下界；
+  // 而 `utc` 走 `Date.UTC(y, …)`，JS 把 0..99 折成 1900..1999，于是同一个号算出来的周岁
+  // 又错一次。整改前在同一份代码上实跑（today 一律 '2026-09-25'）：
+  //   110101005006010016 → state=valid  birth="50-06-01"   age=1976
+  //   110101099912310010 → state=valid  birth="999-12-31"  age=1026
+  //   110101000101010011 → malformed    birth="1-01-01"    （年 1 恰好被字典序抓住，纯属巧合）
+  // 夹具的 birth_before_1900 组取的是 1880–1899，四位数，所以 1,000 条对拍一次都没碰到这个洞。
+  const cases = [
+    ['110101005006010016', '0050-06-01'],  // 年 50：补零与 Date.UTC 折算两处病灶同时咬
+    ['110101099912310010', '0999-12-31'],  // 年 999：只咬补零那一条
+    ['110101000101010011', '0001-01-01'],
+    ['110101009602290016', '0096-02-29'],  // 年 96 按闰律是真闰年：日期成立，只越下界
+  ];
+  for (const [id, want] of cases) {
+    const r = parseIdCard(id, { today: TODAY });
+    assert.equal(r.state, 'malformed', `${id} 的出生年在 1..999，必须被本站下界拦住（整改前判 ${r.state}）`);
+    assert.deepEqual(failedKeys(r), ['birth'], `${id} 只能由出生日期这一行否决：${r.checks.filter((k) => k.ok === false).map((k) => k.key).join()}`);
+    assert.equal(rowOf(r, 'checkBit').ok, true, `${id} 的校验位算术不许被连累`);
+    assert.match(rowOf(r, 'birth').detail, /1900-01-01/, `${id} 必须点名下界是哪一道：${rowOf(r, 'birth').detail}`);
+    // 解出来的日期照给（B5 同一条口径），但必须是**四位**年份——面板拿它回显，'999-12-31' 这种
+    // 少一位的串会让人以为是数据里掉了字
+    assert.equal(r.info.birth, want, `${id} 的日期回显必须是四位年份`);
+    assert.equal(r.info.ageYears, null, `${id} 越出下界不给周岁（整改前给的是 1976 / 1026）`);
+    assert.equal(r.info.sex, '', `${id} 结构非法不出货解释性结论（B12 同一条契约）`);
+  }
+  // 生成侧的入参同族：整改前 `today: '0050-06-01'` 一路放过，最后死在自检那一步的
+  // `parseIdCard(id18, { today: today.iso })` 上，报的是「**parseIdCard** 的 options.today
+  // 应为 YYYY-MM-DD 字符串或 Date，收到 "50-06-01"」——不补零的 `today.iso` 回头喂不进自己的正则，
+  // 而调用方按提示去查 parseIdCard 什么也查不到（m-1 与 F1 同一病灶）。
+  const todayErr = genError({ today: '0050-06-01' });
+  assert.ok(todayErr, 'today 早于本站下界时居然安静出货');
+  assert.match(todayErr.message, /generateIdCards 的 options\.today/, `必须点名是 generateIdCards 这条入参：${todayErr.message}`);
+  assert.doesNotMatch(todayErr.message, /parseIdCard/, `报错不许甩锅给另一个入口：${todayErr.message}`);
+  assert.match(todayErr.message, /1900-01-01/, `必须点名是哪道界：${todayErr.message}`);
+  assert.doesNotMatch(todayErr.message, /内部不变量/, `入参错误不许记成实现有 bug：${todayErr.message}`);
+  // 两个入口同一条界、各点各的名（M-14 那条"口径一致"的延伸）
+  assert.throws(() => parseIdCard('110101199003070011', { today: '0050-06-01' }),
+    /parseIdCard 的 options\.today/, '解析侧的 today 早于下界必须点名自己');
+  const birthErr = genError({ birthDate: '0050-06-01' });
+  assert.ok(birthErr, 'birthDate 早于下界时居然安静出货');
+  assert.match(birthErr.message, /options\.birthDate/, birthErr.message);
+  assert.match(birthErr.message, /1900-01-01/, birthErr.message);
+
+  // G1：界只管"太早"，**太晚那一侧此前是开的**。`toDay` 的字符串正则只收四位年，而 `Date`
+  // 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年用串传被拒、用 Date 传被接受；
+  // `pad4` 又只补不截，`today.iso` 成了五位，回头喂不进自检那句
+  // `parseIdCard(id18, { today: today.iso })`。整改前的实跑（today = 公元 10000-01-01 那一天的
+  // `Date`，上界那三行摘掉之后在同一份代码上跑）：解析侧照给结论
+  // （`110101199003070011` → `state = 'valid'`、周岁 8009），生成侧抛
+  // `TypeError: parseIdCard 的 options.today 应为 YYYY-MM-DD 字符串或 Date，收到 "10000-01-01"`
+  // ——m-1 那一类甩锅在另一头复活。
+  // 这两个 Date 一律用**本地分量**构造（与 B10 那句 `new Date(2026, 8, 25)` 同一口径）：
+  // `toDay` 取的是 `getFullYear()`，`new Date(0)` 上再 `setUTCFullYear(10000, 0, 1)` 是 UTC
+  // 零点，负偏移时区里本地读到的是 9999-12-31 —— 判据就会在没被变异的代码上红
+  // （n-4 记的那条下界时区分叉，同一病灶的另一头）。9999 与 '10000-01-01' 在这里写死、
+  // 不从模块导入 `YEAR_CEILING`：界要是哪天挪了，写死的判据该红，跟着常量改的判据不会。
+  const y10k = new Date(10000, 0, 1);
+  const farErr = genError({ today: y10k });
+  assert.ok(farErr, 'today 的年宽过四位时居然安静出货');
+  assert.ok(farErr instanceof RangeError, `年越界是"本站不接这个值"，不是形状错：${farErr.name}`);
+  assert.match(farErr.message, /generateIdCards 的 options\.today/, farErr.message);
+  assert.doesNotMatch(farErr.message, /parseIdCard/, `报错不许甩锅给另一个入口：${farErr.message}`);
+  assert.match(farErr.message, /10000-01-01/, `要说得出越界的是哪一天：${farErr.message}`);
+  assert.throws(() => parseIdCard('110101199003070011', { today: y10k }),
+    (e) => e instanceof RangeError && /parseIdCard 的 options\.today/.test(e.message),
+    '解析侧对同一个 Date 必须同判且点名自己（整改前它给结论）');
+  // 两种入参形状对同一天可以错在不同档（串连形状都不成立 → `TypeError`；Date 形状合法、值越界
+  // → `RangeError`），但**不许一个拒一个放**——那是 §5.4 回落链之外多出来的第二条口径
+  assert.throws(() => parseIdCard('110101199003070011', { today: '10000-01-01' }), TypeError,
+    '五位年份的串在形状那一关就该出局');
+  assert.ok(genError({ today: '10000-01-01' }) instanceof TypeError, '生成侧的串侧同判 TypeError');
+  // 同一条上界必须也压在 `birthDate` 上：那里此前没有这一刀，五位年份被 `iso < BIRTH_FLOOR`
+  // 的字典序"顺手"拦下，报的是「不得早于 1900-01-01」——越的是上界、理由指着下界
+  const bdErr = genError({ birthDate: y10k });
+  assert.ok(bdErr instanceof RangeError, `birthDate 的年宽过四位时必须拒，且是 RangeError：${bdErr && bdErr.name}`);
+  assert.match(bdErr.message, /options\.birthDate/, `必须点名是 birthDate 这条入参：${bdErr.message}`);
+  assert.match(bdErr.message, /四位年份口径/, `要说清越的是哪道界：${bdErr.message}`);
+  assert.doesNotMatch(bdErr.message, /不得早于/, `不许把上界越界报成下界：${bdErr.message}`);
+  // 上界不许咬到界内：9999-12-31 是四位年格的最后一格，两入口都得照常工作
+  const y9999 = new Date(9999, 11, 31);
+  assert.equal(parseIdCard('110101199003070011', { today: y9999 }).state, 'valid',
+    '9999-12-31 是四位年格的最后一格，越出界就是误伤（解析侧不设年龄上限，周岁 8009 照解）');
+  const far9999 = generateIdCards({ count: 1, today: y9999, minAge: 18, maxAge: 60, rng: seededRandom(7) });
+  assert.match(far9999[0].birth, /^\d{4}-\d{2}-\d{2}$/, `出货的生日必须是四位年：${far9999[0].birth}`);
+  assert.equal(parseIdCard(far9999[0].id18, { today: y9999 }).state, 'valid', '自检回喂必须走得通');
+
+  // 正向对照：这一刀不许退化成"四位以下的年份一律拒"，界内的一格都不许误伤
+  const old18 = generateIdCards({ count: 4, today: '1950-01-01', minAge: 0, maxAge: 50, rng: seededRandom(11) });
+  assert.equal(old18.length, 4);
+  for (const g of old18) {
+    assert.ok(g.birth >= BIRTH_FLOOR && g.birth <= '1950-01-01', `today=1950-01-01 却生成了 ${g.birth}`);
+    assert.ok(Number.isInteger(g.age) && g.age >= 0 && g.age <= 50,
+      `today=1950-01-01 的 [0,50] 窗口里给出周岁 ${g.age}（生日 ${g.birth}）`);
+    assert.equal(parseIdCard(g.id18, { today: '1950-01-01' }).state, 'valid', `${g.id18} 自检不过`);
+  }
+  const onFloor = generateIdCards({ count: 1, today: TODAY, birthDate: '1900-01-01' });
+  assert.equal(onFloor[0].birth, '1900-01-01', `${BIRTH_FLOOR} 这一格本来就在界内`);
+  assert.equal(onFloor[0].age, 126, 'born 1900-01-01 / today 2026-09-25 → 126 周岁');
+  assert.equal(parseIdCard('110101190001010014', { today: TODAY }).state, 'valid');
+  assert.equal(parseIdCard('11010118991231001X', { today: TODAY }).state, 'malformed');
 });
 ```
 
@@ -3093,10 +3313,36 @@ export const USE_NOTE = '随机合成，与真实号码重合的概率可忽略�
 const DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const MS_DAY = 86400000;
 const pad2 = (n) => String(n).padStart(2, '0');
+/** 年份补齐四位：`'999-12-31'` 与 `'1900-01-01'` 做字典序比较会赢，见 `makeDay` */
+const pad4 = (n) => String(n).padStart(4, '0');
+/**
+ * 只补不截 ⇒ 年 ≥10000 会生成五位 `iso`，而 `toDay` 的字符串正则 `^(\d{4})-…` 再也吃不进它。
+ * 上界取 9999，与那条正则同宽——那一刀写在 `checkYearSpan`，`todayOf`（两个入口的 `today`）
+ * 与 `generateIdCards` 的 `birthDate` 三条入参路径共用（G1）。
+ */
+const YEAR_CEILING = 9999;
+
+/**
+ * 整日时间戳，**不吃 `Date.UTC` 那条 0..99 → 1900..1999 的折算**。
+ *
+ * `Date.UTC(50, 5, 1)` 给的是 1950 年 6 月 1 日：一个"年 50"的生日会在 utc 这一维上被
+ * 悄悄挪走一整千年，而 iso 那一维又因为不补零而躲过下界（F1 的两处病灶，一个是 JS 的
+ * 历史包袱、一个是我们自己写的）。`Date.prototype.setUTCFullYear(year, month, date)`
+ * 收的是真实年份、一次钉住年月日三个字段，基准取 epoch（时分秒与毫秒本来就是 0）。
+ * 100 年及以上两种写法逐毫秒相同，只有 0..99 这一段分叉。
+ * @param {number} y 四位年份（可以是 1..999）
+ * @param {number} m 月 1..12
+ * @param {number} d 日 1..31
+ * @returns {number} UTC 整日时间戳
+ */
+function utcDay(y, m, d) {
+  return new Date(0).setUTCFullYear(y, m - 1, d);
+}
+
 /** 下界的整日基准，给生成侧按天取窗口用（与 BIRTH_FLOOR 同源，不另写一个 1900） */
 const BIRTH_FLOOR_UTC = (() => {
   const [y, m, d] = BIRTH_FLOOR.split('-').map(Number);
-  return Date.UTC(y, m - 1, d);
+  return utcDay(y, m, d);
 })();
 
 export function isLeapYear(y) {
@@ -3108,15 +3354,20 @@ export function daysInMonth(year, month) {
   return month === 2 && isLeapYear(year) ? 29 : DAYS[month - 1];
 }
 
-/** { y, m, d, iso, utc }：年份一律四位，utc 只做整日比较 */
+/** { y, m, d, iso, utc }：iso 的年份一律四位（F1），utc 走 `utcDay` 而不是 `Date.UTC` */
 function makeDay(y, m, d) {
-  return { y, m, d, iso: `${y}-${pad2(m)}-${pad2(d)}`, utc: Date.UTC(y, m - 1, d) };
+  return { y, m, d, iso: `${pad4(y)}-${pad2(m)}-${pad2(d)}`, utc: utcDay(y, m, d) };
 }
 
-/** 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。 */
+/**
+ * 报错文案里的"收到什么"。绝不 String() 一个 Symbol / 无原型对象（那会自己先抛）。
+ * `Invalid Date` 必须被点出来（m-4）：它此前报成 `Date`，于是那句
+ * 「应为 YYYY-MM-DD 字符串或 Date，收到 Date」自己跟自己打架——照字面读，调用方会以为
+ * 是"形状没问题、判定挂了"，而真正传进来的是一个解不开的 Date。
+ */
 function shapeOf(v) {
   if (v === null) return 'null';
-  if (v instanceof Date) return 'Date';
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';
   const t = typeof v;
   if (t === 'object' || t === 'symbol') return t;
   return `${t} ${String(v)}`;
@@ -3131,12 +3382,21 @@ function wallClock() {
  * 归一"某一天"。**只有两种形状被接受**：`YYYY-MM-DD` 字符串（且必须是真实存在的日历日期）
  * 与 `Date`（取本地分量，与 makeDay 的 utc 同基准）。别的形状一律抛 `TypeError` 并点名是哪条入参。
  *
+ * "取本地分量"在**下界那一格**有一条随时区的分叉，照实记在这里：`new Date('1900-01-01T00:00:00Z')`
+ * 在东八区解成 1900-01-01（界内、放行），在美西时区解成前一天 1899-12-31（越界、抛
+ * `RangeError`），而串 `'1900-01-01'` 两种时区都放行。实测：`TZ=Asia/Shanghai` 与
+ * `TZ=America/Los_Angeles` 各跑一次 `parseIdCard('110101190001010014', { today: … })`。
+ * 不改这个口径——本站按本地日历取日，`Date` 入参本来就是"用户机器上的那一天"。
+ *
  * 为什么从"静默回落墙钟"改成抛（`what` 就是为这句报错存在的）：
  *   1. `today: '昨天'` 此前静默按今天的墙钟判，而"注入 today"是 §B 全部年龄判据可复现的前提——
  *      实测 `parseIdCard('110101199003073503', { today: '昨天' })` 与不传 today 的输出逐字相同。
  *   2. `birthDate: '1999-02-30'` 此前只查格式不查日历，一路摇到自检那一关，抛出来的是
- *      `RangeError: 内部不变量：生成的 420581199902302791 自检为 malformed`——调用方的输入
+ *      `Error: 内部不变量：生成的 420581199902302791 自检为 malformed`——调用方的输入
  *      错误被记成实现有 bug。现在入参阶段就报，且不说"内部不变量"。
+ *      那句里的号不是示意：整改前的代码（把 `toDay` 的日历校验摘回只查格式那一行）跑
+ *      `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), birthDate: '1999-02-30' })`
+ *      复算得到，抛的是裸 `Error` 而不是 `RangeError`（见本文件末尾那句 `throw new Error`）。
  * @param {string|Date} input 入参
  * @param {string} what 报错里点名的入参，如 `generateIdCards 的 options.birthDate`
  */
@@ -3157,16 +3417,56 @@ function toDay(input, what) {
 }
 
 /**
- * 可选的"今天"。`undefined` 与 `null` 都算"没传"→ 墙钟——段 2 的面板在用户没指定日期时
- * 发的就是 null，这一条与 `options.count === undefined` 那道"只把没传当默认值"同族；
- * 而**传了值**（哪怕是 `'昨天'`）就必须解得开，解不开要报，不许静默按今天的墙钟判。
- * @param {string|Date|null|undefined} input 入参
+ * 上界那一刀（G1）：`today` 与 `birthDate` 两条入参路径共用，各点各的 `what`。
+ * 两界不是一维——上界管的是**年份的宽度**（五位 `iso` 喂不进 `toDay` 自己的四位正则），所以比
+ * `day.y`；下界管的是那一天取不到界内生日，所以比 `day.utc`。它俩不可能同时越，先后无所谓，
+ * 但这一刀必须先于任何拿 `iso` 做的字典序比较，否则五位年会被告知"太早"而不是"太宽"。
+ * @param {{y:number, iso:string}} day `toDay` 或 `wallClock` 的产物
  * @param {string} what 报错里点名的入参
+ * @throws {RangeError} 年份宽过 {@link YEAR_CEILING}
  */
-function todayOf(input, what) {
-  return input === undefined || input === null ? wallClock() : toDay(input, what);
+function checkYearSpan(day, what) {
+  if (day.y > YEAR_CEILING) {
+    throw new RangeError(`${what}（${day.iso}）的年份超出本站的四位年份口径（上限 ${YEAR_CEILING}）`);
+  }
 }
 
+/**
+ * 可选的"今天"。`undefined` 与 `null` 都算"没传"→ 墙钟，这一条与
+ * `options.count === undefined` 那道"只把没传当默认值"同族（B10 各钉了一次，`today: null`
+ * 与 `rng: null` 都不许抛）；而**传了值**（哪怕是 `'昨天'`）就必须解得开，解不开要报，
+ * 不许静默按今天的墙钟判。
+ *
+ * 那两个"没传"的分支今天没有任何真实调用方压着——`dev/js/toolIdcard.js` 还没写，
+ * 「面板在用户没指定日期时发的就是 null」是**段 2 的计划**，不是既成事实；把它当契约钉住，
+ * 段 2 落地时就不必再决定一次。
+ *
+ * 最后一道界：`today` 本身不得早于本站出生日期下界。`'0050-06-01'` 形状与日历都成立，
+ * 但它之上取不到任何一个界内生日——解得出 1..999 的出生年、生成侧摇不出号，
+ * 而 `generateIdCards` 的自检那一关会把这一下报成「**parseIdCard** 的 options.today 非法」
+ * （F1 与 m-1 是同一个病灶：`makeDay` 不补零，`today.iso` 回头喂不进自己的正则）。
+ * 界放在这里、两个入口共用，报错各点各的 `what`。
+ *
+ * 上面那道界只管"太早"，**太晚的那一侧此前是开的**（G1）：`toDay` 的字符串正则只收四位年，
+ * 而 `Date` 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年这一天用串传进来被拒、用
+ * `Date` 传进来被接受，而 `pad4` 只补不截，`today.iso` 成了五位，回头喂不进
+ * `generateIdCards` 自检里那句 `parseIdCard(id18, { today: today.iso })`——崩在自检、
+ * 报的却是「**parseIdCard** 的 options.today」（m-1 那一类甩锅在这里复活）。
+ * 上界这句写在 `checkYearSpan` 里，`parseIdCard` 与 `generateIdCards` 的 `today`、
+ * 外加 `generateIdCards` 的 `birthDate`，三条入参路径共用它。
+ * @param {string|Date|null|undefined} input 入参
+ * @param {string} what 报错里点名的入参
+ * @throws {TypeError} 形状不是 `YYYY-MM-DD` 字符串也不是 `Date`，或那一格日历不成立
+ * @throws {RangeError} 解出来的那一天早于 `BIRTH_FLOOR`，或年份宽过 {@link YEAR_CEILING}
+ */
+function todayOf(input, what) {
+  const day = input === undefined || input === null ? wallClock() : toDay(input, what);
+  checkYearSpan(day, what);
+  if (day.utc < BIRTH_FLOOR_UTC) {
+    throw new RangeError(`${what}（${day.iso}）早于本站出生日期下界 ${BIRTH_FLOOR}，那之上取不到任何界内的生日`);
+  }
+  return day;
+}
 
 function ageInYears(birth, today) {
   let age = today.y - birth.y;
@@ -3216,10 +3516,16 @@ function decodeBirth(birthRaw, lengthType) {
  * 区划 / 生日否决的，`info` 与逐项表照给，只把 `sex` 与四个形态字段收空。
  * `checkdigit` 态**不**收紧，两态的分工见下面 out.state 那一段的注释。
  *
- * @param {string|number} raw 用户输入
+ * @param {string|number} raw 用户输入，由 `String(raw)` 归一。数值只在 2^53 之内安全，而
+ *   18 位号普遍超出：`110101199003073503` 这个字面量进到函数手里已经是
+ *   `110101199003073500`（`String(…)` 实测），于是判成 `checkdigit` 而不是 `valid`——
+ *   末位在"被看见"之前就掉了。这条不属于本模块能修的范围（调用方递过来的就已经是舍过的值），
+ *   所以口径写成"18 位一律传字符串"；判据里目前也没有数值入参这一格（B3 那条 17 位是串）。
  * @param {{today?: string|Date}} [opts] 注入"今天"，让年龄与上限判据可复现；
- *   `opts` 与 `opts.today` 传 null 都等于没传，`today` 传别的形状则抛 `TypeError`
- * @throws {TypeError} `opts.today` 既不是 `YYYY-MM-DD` 字符串也不是 `Date`
+ *   `opts` 与 `opts.today` 传 null 都等于没传，`today` 传别的形状则抛 `TypeError`，
+ *   形状对但那一天早于 {@link BIRTH_FLOOR}、或年份宽过 {@link YEAR_CEILING} 则抛 `RangeError`
+ * @throws {TypeError} `opts.today` 既不是 `YYYY-MM-DD` 字符串也不是 `Date`（含 `Invalid Date`）
+ * @throws {RangeError} `opts.today` 早于本站出生日期下界，或年份宽过四位
  */
 export function parseIdCard(raw, opts = {}) {
   const today = todayOf((opts ?? {}).today, 'parseIdCard 的 options.today');
@@ -3274,7 +3580,9 @@ export function parseIdCard(raw, opts = {}) {
   push('region', '行政区划', regionOk, regionOk === null ? region.note
     : (regionOk ? `${region.fullName}${region.status === 'abolished' ? '（历史码）' : ''}` : region.note || `${areaCode} 无法解析`));
 
-  // 4) 出生日期：真实日历 + 上下界
+  // 4) 出生日期：真实日历 + 上下界。**字典序比较只在两侧都是四位年份时成立**——
+  //    左边的四位性由 `makeDay` 保证（F1：年 50 从前写作 '50-06-01'，比 '1900-01-01' 大），
+  //    右边是常量 BIRTH_FLOOR。上下界各用一维：下界比 iso，上界比 utc（同一天两侧同基准）。
   const b = decodeBirth(birthRaw, out.lengthType);
   let birthOk = true;
   let birthWhy = '';
@@ -3397,8 +3705,10 @@ function pickSeq(rng, want) {
  * @returns {{y:number,m:number,d:number,iso:string,utc:number}|null}
  */
 function randomBirthDay(rng, minAge, maxAge, today) {
-  const at = (y, clampMonth = today.m) => Date.UTC(y, clampMonth - 1,
-    Math.min(today.d, daysInMonth(y, clampMonth)));
+  // 只有一个调用方、只传一个参数，所以 `at` 只收一个参数：从前那个 `clampMonth = today.m`
+  // 的默认值形参没有任何调用点碰过它（把函数体里的 `clampMonth` 硬写成 `today.m`，判据一条不红），
+  // 留着等于让人以为"存在按月收窄的另一种口径"（m-3）。
+  const at = (y) => utcDay(y, today.m, Math.min(today.d, daysInMonth(y, today.m)));
   const hi = at(today.y - minAge);
   const lo = Math.max(at(today.y - maxAge - 1) + MS_DAY, BIRTH_FLOOR_UTC);
   if (lo > hi) return null;
@@ -3409,6 +3719,7 @@ function randomBirthDay(rng, minAge, maxAge, today) {
 
 /**
  * 校验并包一层可注入随机源。`null` / `undefined` = 没传 → 时间种子；别的形状一律抛。
+ * 那一条"没传"的分支由 B10 钉着（`rng: null` 必须出货而不是抛）——与 `todayOf` 同族。
  *
  * 为什么连"取值"也要查（I-6 同族）：`rng: () => 2` 此前不抛，`pool[Math.floor(2 * len)]`
  * 直接取到 `undefined`，一路摇成 `undefined192225011999null` 那样的字符串，最后由自检
@@ -3437,8 +3748,13 @@ function checkedRng(input) {
  * M-11：旧写法 `String(options.areaCode ?? options.cityCode ?? options.provinceCode)`
  * 有两处洗白——数值 `110101` 被 String() 成全码、`cityCode: null` 被当成"没传"而静默
  * 放开整张现行表（2,978 条地址）。region.js 的 `normalizePrefix` 刚为同一族收过口：
- * 非字符串 → null → 空集。生成侧比它更进一步：干脆抛，因为这唯一的调用方就是段 2 的面板。
- * 空串与全空白串同样抛（"收窄到空"与"没收窄"是两种完全不同的用户意图，不许混）。
+ * 非字符串 → null → 空集。生成侧比它更进一步：干脆抛，因为这唯一的调用方就是段 2 的面板
+ * （**段 2 的计划**，`dev/js/toolIdcard.js` 还没写，所以这一族口径只能由判据先钉住）。
+ * 空串与全空白串同样抛（"收窄到空"与"没收窄"是两种完全不同的用户意图，不许混）——
+ * 整改前这一支只有下面这句 JSDoc 与 §4.11 的 M-11 行在承诺，判据一次都没注入过 `''`：
+ * 把 `|| v.trim() === ''` 摘掉，当时的 26 条判据一条不红（本轮在镜像上复跑过），
+ * 而 `areaCode: '   '` 会安静地从整张 2,978 条现行表里出货。B10 现在三个键各钉空串与
+ * 全空白两条，摘掉那一半句红的是 B10（同一批镜像上复测，27 条里只它红）。
  * @param {{areaCode?:unknown, cityCode?:unknown, provinceCode?:unknown}} o 入参对象
  * @returns {string} 去空白后的前缀
  */
@@ -3458,17 +3774,31 @@ function prefixOf(o) {
  * 生成校验位成立的测试号。**地址只能出自现行区划表**（§5.4：历史码只许解、不许生成）。
  * 每条生成后立刻用 parseIdCard 自检，判不得 valid 就抛——生成器与校验器互为对手。
  *
- * 入参口径与 `parseIdCard` 一致（B10 钉住这一条）：`today` 与 `birthDate` 接受
- * `YYYY-MM-DD` 字符串或 `Date`，`null` / `undefined` 都算"没传"；`areaCode` / `cityCode` /
+ * 入参口径与 `parseIdCard` 一致（B10 钉住这一条，两个入口各钉一次）：整个 `options` 与 `opts`
+ * 传 `null` 都等于没传（F4 之前只有 `parseIdCard` 那一半成立，`generateIdCards(null)` 抛的是
+ * `TypeError: Cannot read properties of null (reading 'areaCode')`，一个入参名字都不点）；
+ * `today` 与 `birthDate` 接受 `YYYY-MM-DD` 字符串或 `Date`，`null` / `undefined` 都算"没传"；
+ * `areaCode` / `cityCode` /
  * `provinceCode` 只接受**非空字符串**，`null` 与数值在这里一律抛——把它们当成"没传"等于
  * 把一次类型错误放大成"从 2,978 条地址里出货"，那道 `String(options.areaCode ?? …)`
  * 正是 region.js 的 `normalizePrefix` 刚堵掉的洗白路径。
  *
  * @param {{areaCode?:string, cityCode?:string, provinceCode?:string, birthDate?:string|Date,
  *   minAge?:number, maxAge?:number, sex?:'male'|'female'|null, count?:number,
- *   today?:string|Date, rng?:() => number}} [options]
- * @throws {RangeError} 数量 / 性别 / 年龄区间 / 区划前缀无候选 / 日期越界等业务规则不成立
- * @throws {TypeError} 任一入参的形状或类型不对（不是"传了个坏值"，是"根本不该这么传"）
+ *   today?:string|Date, rng?:() => number}} [options] 整个对象传 `null` / `undefined` 等于没传
+ * @throws {TypeError} 这一档问的是"根本不该这么传"：`today` / `birthDate` 的形状与日历不成立、
+ *   `rng` 不是函数或取值越出 [0,1)、三个区划码键不是非空字符串、`minAge` / `maxAge` 不是整数
+ * @throws {RangeError} 这一档问的是"这么传可以，但这个值本站不接"：`count` 不在 1..50 的整数里
+ *   （**包括 `null` 与 `'5'` 这类非数值形状**——这一道是 `!Number.isInteger(count) || 越界`
+ *   合成一句写的，B8 钉的就是这个口径）、`sex` 不在 male / female / null 里、年龄区间不成
+ *   立或与下界无交集、`birthDate` / `today` 越出 {@link BIRTH_FLOOR} 或宽过
+ *   {@link YEAR_CEILING}、区划前缀零候选
+ *
+ * 为什么是文档跟着代码改、不是反过来（m-4）：`sex: 123` 与 `count: true` 走 `RangeError`
+ * 而 `minAge: 18.5` 走 `TypeError`，确实是两种分类法混在一处。但 `count` 那一句把
+ * "是不是整数"和"在不在 1..50"写成了一次判定，拆开它 = 改 B8 钉住的异常类型；面板（段 2）
+ * 还没写，可判据已经在仓库里，而这一轮的纪律是"报错**点名哪条入参**"——两档的文案都点名了，
+ * 类型分歧只是给人读的一条小刺。所以这里把实情写清楚，不动行为。
  */
 export function generateIdCards(options = {}) {
   const o = options ?? {};
@@ -3494,6 +3824,9 @@ export function generateIdCards(options = {}) {
   let fixedBirth = null;
   if (o.birthDate !== undefined && o.birthDate !== null) {
     fixedBirth = toDay(o.birthDate, 'generateIdCards 的 options.birthDate');
+    // 这一刀先于下面那句字典序比较：`'10000-01-01' < '1900-01-01'` 在字典序里是真，
+    // 于是五位年份会被报成"不得早于 1900-01-01"——越的是上界，理由却指着下界（G1 的姊妹格）。
+    checkYearSpan(fixedBirth, 'generateIdCards 的 options.birthDate');
     if (fixedBirth.iso < BIRTH_FLOOR) {
       throw new RangeError(`generateIdCards 的 options.birthDate（${fixedBirth.iso}）不得早于 ${BIRTH_FLOOR}`);
     }
@@ -3506,7 +3839,10 @@ export function generateIdCards(options = {}) {
       + `收到 [${shapeOf(o.minAge)}, ${shapeOf(o.maxAge)}]`);
   }
 
-  const prefix = prefixOf(options);
+  // F4：吃 `o` 而不是 raw `options`——上面那句 `const o = options ?? {}` 已经表明作者预期
+  // options 可以是 null，而 `prefixOf(options)` 会把这一下变成
+  // `TypeError: Cannot read properties of null (reading 'areaCode')`。
+  const prefix = prefixOf(o);
   const pool = currentCountyCodes(prefix);
   if (pool.length === 0) {
     throw new RangeError(`没有可生成的行政区划（前缀「${prefix || '空'}」，区划数据截止 ${REGION_META.datasetVersion}）`);
@@ -3520,7 +3856,8 @@ export function generateIdCards(options = {}) {
       throw new RangeError(`周岁区间 [${minAge}, ${maxAge}] 在 ${today.iso} 这天与本站下界 ${BIRTH_FLOOR} 之间取不到任何生日`);
     }
     const seq = pickSeq(rng, sex);
-    const body17 = `${areaCode}${birth.y}${pad2(birth.m)}${pad2(birth.d)}${seq}`;
+    // 生日那 8 位只从 `birth.iso` 派生（F1：从前写 `${birth.y}`，年 50 会摇出一条 19 位的串）
+    const body17 = `${areaCode}${birth.iso.replace(/-/g, '')}${seq}`;
     const checkBit = computeCheckDigit(body17);
     const id18 = body17 + checkBit;
     const self = parseIdCard(id18, { today: today.iso });
@@ -3571,22 +3908,30 @@ git commit -m "feat(tools): 身份证三态判定、解码与测试号生成，�
 
 | # | 位置 | 计划原文 | 实测与处置 |
 |---|---|---|---|
-| 1 | 4.0 同名池 | 按"县名相同"筛，1,871 条 | 那样筛出的 1,869 条里有 93 条两边全名必然不等（旧表市名/省名是旧口径），agree18 会误红。改成三段名各自与快照一致的口径，1,776 条；`renamed` 组随之 156 条并拆两个成因字段记录。判据一条没放宽 |
+| 1 | 4.0 同名池 | 按"县名相同"筛，1,871 条 | 那样筛出的 1,869 条里有 93 条两边全名必然不等（旧表市名/省名是旧口径），agree18 会误红。改成三段名各自与快照一致的口径，1,776 条；`renamed` 组随之 156 条并拆**三个**成因字段记录（`renamedByCounty` 62 / `renamedByLegacyPrefix` 93 / `renamedByPlaceholder` 1）——**第八轮的 I-7 之前这里只写"两个成因字段"，第三个（`renamedByPlaceholder`）是那轮补的**，三成因的复算口径见 §4.11 的 I-7 行。判据一条没放宽 |
 | 2 | B1 已知校验位表 | `'11010119900307001': '3'` | 该本体算出来是 **1**：旧库对 `…011` 返回 true、对 `…013` 返回 false。'3' 是抄了上一行 `…350` 那一档的期望值 |
 | 3 | B3 小写 x 用例 | `'11010119900307350x'` 应判 valid | 那串的本体末位该是 3，填 x 只能落进 `checkdigit`，测不到"小写也接受"。换成 `11010119900307002x`（本体算得 X，旧库对它也返回 true） |
 | 4 | B4 三处期望值 | `id18 = '110101199003070013'` 等 | 跟着 #2 改成 `…011`（含 `suggestedId18` 与反例输入） |
-| 5 | B7 取样覆盖判据 | 两组 `uniq.size >= 250` | agree15 只抽 100 条，250 个不同号码数学上取不到，实跑必红。改成按组比对 `uniq >= n/2`，并且七组全查（原写法只查两组）；本轮实测七组 uniq/n 都是 1.000，池子塌掉时这条照样红 |
+| 5 | B7 取样覆盖判据 | 两组 `uniq.size >= 250` | agree15 只抽 100 条，250 个不同号码数学上取不到，实跑必红。改成按组比对 `uniq >= n/2`，并且七组全查（原写法只查两组）。**上一版在这格末尾写的"本轮实测七组 uniq/n 都是 1.000，池子塌掉时这条照样红"是一句没做过的事**：第九轮在 /tmp 镜像上量了才看清，塌池之下**整串号码**那一维根本不塌（生日与顺序码每条独立摇）。构造：`scripts/build-id-fixture.mjs` 里 `const pick = (arr) => arr[Math.floor(rng() * arr.length)];` 换成 `arr[0]` → 重跑 `node scripts/build-id-fixture.mjs` → 按组数 `new Set(cases[g].map(c=>c.id)).size` 与 `new Set(cases[g].map(c=>c.id.slice(0,6))).size`。实测七组「整串去重 / 区划码去重」：塌池 = **670/1、100/1、100/1、50/1、30/1、30/1、20/1**（`uniq >= n/2` 那一半全绿），健康夹具 = 670/**557**、100/**97**、100/**94**、50/**41**、30/30、30/30、20/20。所以真正有覆盖力的是 C-2 新加的**按区划码那一维**去重那一行（台账 M-b / M-c2c 两行），"塌池照样红"这句话只对那一行成立 |
 | 6 | idcard.js 顺序码 | `const seq = compact.slice(-3)` | **计划代码的真缺陷**：18 位串上它把校验位一起吃进顺序码（`…3503` 解成 503），性别、`000 未分配`、15 位等价写法三处口径同时错位。Step 7 首跑 B2/B4/B6/B7/B8 五条一起红（`'男' !== '女'` / `true !== null`），改成按 `lengthType` 取本体第 15–17 位后 21 条全绿 |
 | 7 | `parseIdCardList` | 空输入走 `split` 得到 1 行 | B9 要求 `parseIdCardList(null)` 长度为 0：`''.split(/\r?\n/)` 给 `['']` 一条。改成 null / undefined / 空串直接 `[]`，"粘贴了空行"仍占一条 |
 | 8 | `generateIdCards` 的 count | `options.count ?? 1` | B8 要求 `count: null` 抛 RangeError，`??` 把 null 当成"没传"静默出 1 条号码。改成只把 `undefined` 当没传 |
 
 上一版留在这里的那句"没改、但下一轮要盯着"（B8 的 `/[1-9]\d{2}/` 只在 seed 20260925 那 5 条上碰巧不假红），第八轮真的盯出问题了：C-1 改了随机流消耗顺序之后它**当场误伤一条合法顺序码 `055`**（复算：`node --input-type=module -e "import {generateIdCards} from './dev/js/tools/idcard.js'; import {seededRandom} from './dev/js/tools/random.js'; console.log(generateIdCards({count:5,today:'2026-09-25',rng:seededRandom(20260925),provinceCode:'11'}).map(x=>x.id18).join('\n'))"` → 第 4 条 `110115199008220558`，旧口径 4/5 命中；把 B8 那一行换回 `/[1-9]\d{2}/` 实测 `# pass 25 / # fail 1`、只红 B8）。那句不变量本来是"三位数字且不为 000"（`pickSeq` 取 1..999 已在实现里保证），"首位非零"从来不是它——只是此前没被抽到而已。已改成 `/^\d{3}$/ && seq !== '000'`（§4.11 的 C-1 行记着这条连带）。
 
-Step 7 的最终形状（回填，第八轮整改后复算）：`# tests 26 / # pass 26 / # fail 0`、`exit=0`（§A 12 条 + §B 14 条）；夹具 **248,934 字节、`sha256 16971baaa8726ed1…`**，`--check` 退 0。整改前那一版是 248,803B / `c1657987e987f50a…`，两版逐字段比过：**1,000 条样本一个字节都没变**，差异全在 `pools`（`renamedByCounty` 63→62、新增 `renamedByPlaceholder: 1`，见 §4.11 的 I-7）。`dev/js/tools/region-data.js` 仍是 `a7e26d543e55e9c0…`，`build-region-data.mjs --check` 退 0；行数 `wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = 1,477 / 467 / 25 / 305。
+第八轮收口时的形状（这一格记的是第八轮那一次，第九轮的见 §4.12）：`# tests 26 / # pass 26 / # fail 0`、`exit=0`（§A 12 条 + §B 14 条）；夹具 **248,934 字节、`sha256 16971baaa8726ed1…`**，`--check` 退 0。整改前那一版（提交 `427fff2`）是 248,803B / `c1657987e987f50a…`。
+
+**"两版只差 `pools`"这句话当时是三处写重的，其中两处不准，现在都按实测改口**（复算式：`git show 427fff2:scripts/fixtures/id-validator-checkbit-1000.json > /tmp/fx-old.json`，再对两份 JSON 逐顶层键做 `JSON.stringify` 比较）：
+
+- **1,000 条样本 `cases` 逐字节相同**——这半句是真的，三处都写对了。
+- 不同的顶层键是 **`oracle` 与 `pools` 两个**，不是一个。`pools`：`renamedByCounty` 63→62、新增 `renamedByPlaceholder: 1`（见 §4.11 的 I-7）；`oracle.knownWeaknesses` 第 4 条（下标 3）也从「地址名取自 2015 年前后的 GB2260：同码改名的 63 条会给旧名」改写成「同码异名的 156 条会给旧名（其中 62 条县名自己改过、1 条（620201）旧表挂的是「…市辖区」占位条）」——同一件事的第二份记录，当时漏在了"只有 pools"这句话外面。其余四个 `knownWeaknesses` 条目与 `oracle` 的别的键逐字未变。
+- 提交信息（`1b567b5`）里那句「夹具 1,000 条样本一字未动，只有 pools 的成因拆成三档」也带同一个偏差。已进历史的提交不改（本仓库的纪律：不改写已存在的 commit），纠正记在这里与 §3 的修订记录里。
+
+`dev/js/tools/region-data.js` 仍是 `a7e26d543e55e9c0…`，`build-region-data.mjs --check` 退 0；当时的行数 `wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = 1,477 / 467 / 25 / 305。
 
 ### 4.11 第八轮质量复核整改轮回填：3 Critical + 7 Important + 4 Minor
 
-第七轮是规格复核，八条偏离全记在 §4.10；第八轮是代码质量复核，开出 14 条。整改由一个子智能体落地（新增 B10–B14 五条判据，§B 从 9 条长成 14 条，夹具重新生成一次），**下面每一条的红名单与字节数是我自己在 `git archive HEAD` 之后覆盖工作区五文件的 /tmp 镜像上复跑过的**，不是转述它的报告——它上一轮跑到 150 回合上限就断了，断在"重灌计划正文"之前。基线（镜像未变异）：`# tests 26 / # pass 26 / # fail 0`。
+第七轮是规格复核，八条偏离全记在 §4.10；第八轮是代码质量复核，开出 14 条。整改由一个子智能体落地（新增 B10–B14 五条判据，§B 从 9 条长成 14 条，夹具重新生成一次），**下面每一条的红名单与字节数是我自己在 `git archive HEAD` 之后覆盖工作区五文件的 /tmp 镜像上复跑过的**，不是转述它的报告——它上一轮跑到 150 回合上限就断了，断在"重灌计划正文"之前。基线（镜像未变异，第八轮当时）：`# tests 26 / # pass 26 / # fail 0`。第九轮在这张台账后面另接了三张表：**病灶 → 红名单 15 行**（F1 的三处靶子加 M-f1d 那行无牙防御、F2–F4 与 m-2/m-4/m-8 的靶子，加本轮复跑的 I-10 / M-14 / I-5 / B7 求和四行）、**反向对照 8 行**（病灶留着、只把这一轮新加的判据摘掉 → 全绿，用来证明"新那一行是唯一咬得住的那一口"）、**C-2 覆盖力四行复跑**（M-b / M-c2c / M-c2d / M-c2e）。基线也从 26 条变成 27 条（新增 B15），所以这一轮复跑的老行都重新量过一遍，写的是第九轮的数。
 
 | # | 级别 | 病灶（整改前的真行为） | 整改与判据 | 本轮实测 |
 |---|---|---|---|---|
@@ -3594,9 +3939,9 @@ Step 7 的最终形状（回填，第八轮整改后复算）：`# tests 26 / # 
 | C-2 | Critical | B7 的取样覆盖力按**整串号码**去重（`uniq.size >= 250` 那两行），而每组内部的多样性只来自区划码（生日与顺序码每条独立摇，整串去重数几乎恒等于 n/n）：把生成器改成 `pick = (arr) => arr[0]`（1,000 条共用一个区划码）判据一条都不红 | 覆盖力改按区划码那一维去重、七组全查、门槛"≥ 组内条数一半"；整串号码那一维换成另一条判法——**组内不许有重复号码**（实读七组都 n/n，所以钉"相等"） | 见台账 M-b / M-c2c 两行 |
 | C-3 | Critical | B7 那三条自证断言读的是夹具**自报**的 `groupCounts`（`total === 1000`、"自报配额合计 == total"、"自报配额 == 自数组长度"）——两个数出自同一个文件，等于让夹具自己确认自己 | 期望值写死在判据这一侧：`EXPECT_QUOTA`（§4.1 规定值）与 `EXPECT_POOLS`（四份哈希钉死的快照的函数），与 A1/A2 钉 `REGION_META.counts` 同一形状。换快照 = 池子变 = 这里红，是设计意图 | 见台账 M-c3i / M-c3ii / M-c3iii 三行 |
 | I-4 | Important | `regionOk` 的 `false` 那一支零判据：把 `unknown` 一路归成 `null` 之后当时 21 条判据一条不红，而 `990101199003070015` 被判成 `valid` | B12 钉三档各归一处（现行/历史 = true、父级可解的未收录 = null、省码根本不在表里 = false），且结构非法不出货解释性结论 | 台账 M-i4 |
-| I-5 | Important | 结构非法的号码照旧出货派生字段（`sex`、四个"规范形态/建议形态"），Task 3 刚在区划侧修过同族缺陷 | `idcard.js` 头注释把契约写成两级：`sex` 与四个形态字段一律空串；长度/字符集那一关出局的连 `info` 都不给（`null`）。判据逐字段核 | 我给的字段清单（复核者报的那两个名字没复现，改按实测量出来的名单钉） |
+| I-5 | Important | 结构非法的号码照旧出货派生字段（`sex`、四个"规范形态/建议形态"），Task 3 刚在区划侧修过同族缺陷 | `idcard.js` 头注释把契约写成两级：`sex` 与四个形态字段一律空串；长度/字符集那一关出局的连 `info` 都不给（`null`）。判据逐字段核 | 我给的字段清单（复核者报的那两个名字没复现，改按实测量出来的名单钉）。第九轮补上"两个 `ship` 分支各被钉一次"：18 位那一半见台账 M-i5（里层 `if (ship)` 改成 `if (true)` → 只 B12 红），15 位那一半见 M-f2 |
 | I-6 | Important | `rng: () => 2` 不抛：`pool[Math.floor(2 * len)]` 取到 `undefined`，一路摇成 `undefined192225011999null` 那样的串，最后由自检那一关抛"内部不变量"——把调用方的错误记成实现的 bug | `checkedRng` 第一次取值就抛，且点名 `options.rng`（B10 的一档） | 台账 M-i6 |
-| I-7 | Important | 计划把 156 条同码异名记成"两种成因"，且把 `620201` 记错档；实际三类。另：同名池的筛法与读侧 `joinNames` 不是同一个字符串 | 成因拆三档入 `pools`（`renamedByCounty` 62 / `renamedByLegacyPrefix` 93 / `renamedByPlaceholder` 1，三者之和由 B7 钉 == `RENAMED.length`）；`sameNameAsLegacy` 补上与读侧同一条前缀剥离 | 复算：`both` 1,932 → `sameName` 1,776、`renamed` 156 = 62+93+1，双向分叉 0（agree18 全等、renamed 全不等）。**加与不加那一刀 `sameName` 都是 1,776 条、成员一字不差**（那 19 条重叠前缀没有一条同时在 2015 旧表里），它堵的是"两份实现算的不是同一个字符串"这件事本身 |
+| I-7 | Important | 计划把 156 条同码异名记成"两种成因"，且把 `620201` 记错档；实际三类。另：同名池的筛法与读侧 `joinNames` 不是同一个字符串。第九轮又从这里揪出**两句假话**：① "那 19 条重叠前缀没有一条同时在 2015 旧表里"（实测 3 条在：`441900` / `442000` / `620201`）；② "三者之和由 B7 钉 == `RENAMED.length`"——第八轮的 B7 只做一次 `deepEqual` 比六个常数，一次都没算过和 | 成因拆三档入 `pools`（`renamedByCounty` 62 / `renamedByLegacyPrefix` 93 / `renamedByPlaceholder` 1）；`sameNameAsLegacy` 补上与读侧同一条前缀剥离；**第九轮把那句"由 B7 钉"变成事实**：B7 加两条求和断言（判据侧 `EXPECT_POOLS` 三个成因之和 == 判据侧 `renamed`；夹具自报三个成因之和 == 夹具自报 `renamed`），①那两句按下面的实测改口 | 复算：`both` 1,932 → `sameName` 1,776、`renamed` 156 = 62+93+1，双向分叉 0（agree18 全等、renamed 全不等）。**那一刀（`tail.startsWith(middle)` 剥前缀）加与不加，`sameName` 都是 1,776 条、成员一字不差**——但成立的原因不是"19 条重叠前缀都不在旧表"，而是：19 条里在旧表的三条中，`441900` / `442000` 是市级码、被 `legacyCounty` 那句 `!k.endsWith('00')` 挡在 both 池外（真让它们进池，带刀 same=true / 不带刀 same=false，这一刀立刻挪两条），只剩 `620201` 在池内、而它两种口径都不等（旧串「甘肃省嘉峪关市市辖区」，带刀 want=「甘肃省嘉峪关市」、不带刀 want=「甘肃省嘉峪关市嘉峪关市」）⇒ 两种口径都落进 renamed。所以这一刀今天不改变任何样本归属，它堵的是"两份实现算的不是同一个字符串"这件事本身。另一处实测坑：`PLACEHOLDER_CITY` 里必须有「县」，少了它两个方向都变成 1,764（掉出去的是 12 条重庆市辖县，市名那一格就叫「县」），且这 12 条会凭空多进 `renamed` 的 `renamedByLegacyPrefix` 档（镜像实跑 `pools` 1776/156/62/93/1 → 1764/168/62/105/1）。求和断言的牙齿见台账 M-f76 |
 | I-8 | Important | `node scripts/build-id-fixture.mjs --nope` 退 **0** 并且直接落进 `writeFileSync` ——手打错一个字母就把只读比对换成覆盖仓库产物。`build-region-data.mjs` 早有白名单（A10 钉着），而这个生成器此前一次都没被任何判据跑过 | 参数白名单 + `USAGE`，错则退 1、一个字节都不写；判据 B14（顺带把"生成器幂等"与"不碰区划快照"一起钉） | `--nope` → `未知参数：--nope` + 用法行、exit 1 |
 | I-9 | Important | 注释写"9 条期望值全部来自旧库实跑"，其中第 9 条不是：省码 `99` 不在 GB2260，旧库对 11 个候选末位**全**不放行，`'5'` 出自标准算式 | 注释改口，并把可复算的那半句钉成断言：前 8 个 body 旧库恰好只放行记下的那一个末位，`990101…` 那格 11 个全不放行 | 实跑旧库逐条核过；旧库随段 5 删除后这一整块退场（`existsSync` 守着），长期守卫是 B7 吃的夹具——已记进段 5 待办 |
 | I-10 | Important | `random.js` 头注释写"mulberry32 在种子 0 下退化"——假话：`a` 先自增再被使用，种子 0 走的第一个状态就是 `0x6d2b79f5`，前八个输出互不相同。`(seed >>> 0) || 1` 真正做过的是让种子 0 与种子 1 成为**同一条流**，于是"换种子该换输出"那一半被悄悄废掉 | 去掉 `|| 1`；判据两条：种子 0 的八连输出无重复、且与种子 1 的流分得开 | 复算前八个输出 0.266429 / 0.000330 / 0.223272 / 0.146202 / 0.467328 / 0.545049 / 0.615251 / 0.648985 |
@@ -3605,22 +3950,168 @@ Step 7 的最终形状（回填，第八轮整改后复算）：`# tests 26 / # 
 | M-13 | Minor | 生成器里 `if (isLeap(y)) y -= 2` 永不可达：能被上一行 `-= 1` 摸到的 `y` 必是奇数，而闰年必为偶数 | 删。不可达分支不配判据，注释改成实话（"留着它的唯一效果是让人以为这里还需要第二道兜底"） | — |
 | M-14 | Minor | `parseIdCard(x, null)` 抛 `Cannot read properties of null`（`opts` 是可选参数）；`today` 收 `Date` 而 `birthDate` 拒 `Date`，两个入口口径分裂 | 两处统一（`opts ?? {}`；`toDay` 两入口共用） | B10 的两条对照断言 |
 
-**变异台账（第八轮新增八行，全部在 /tmp 镜像实跑；跑法见 Task 8 的 `node -e` 那一套，锚点命中数不等于 1 就抛错，不允许静默不匹配）**
+**变异台账（标号列是给交叉引用用的：`grep -n 'M-c2c' 本文件` 必须落到某一行上，否则"见台账 X"就是句空指针。第八轮那八行原先没标号，被 §4.11 的 C-2 / C-3 / I-4 / I-6 四行指着却搜不到——本轮补上。全部在 /tmp 镜像实跑；跑法见 Task 8 的 `node -e` 那一套，锚点命中数不等于 1 就抛错，不允许静默不匹配）**
 
-| 摘掉 / 注入的那一处 | 变红的判据 | 红在哪一句 |
+| 标号 | 摘掉 / 注入的那一处 | 变红的判据 | 红在哪一句 |
+|---|---|---|---|
+| M-c1 | `randomBirthDay` 函数体整块回退成整改前的七行（C-1 的靶） | 只 B11（`# pass 25 / # fail 1`） | 「生成的生日真的落在请求的周岁区间里：生日没过不许少算一岁」；同一靶子按 `s = 1..60` 各 50 条数越界，给 19 条（种子集不同会给 18/20/24/30，所以口径连着构造一起写死在判据注释里） |
+| M-b | 生成器 `pick = (arr) => arr[0]` + 重跑生成器出货（C-2 的病灶） | 只 B7（第八轮 `# pass 25 / # fail 1`；第九轮在 27 条基线上复跑 = `# pass 26 / # fail 1`） | `agree18 只取了 1/670 个不同区划码，取样池塌了，判据没有覆盖力` |
+| M-c2c | **反向对照**：同一病灶留着，只摘掉覆盖力那一行 | 无（第八轮 `# pass 26 / # fail 0`；第九轮复跑 `# tests 27 / # pass 27 / # fail 0`） | 两件事合起来说明：老判据没牙，而这一行是唯一咬得住的那一口 |
+| M-c3i | 配额 `feb29_nonleap: 20 → 0`、名额挪给 `birth_before_1900`（合计仍 1,000，生成器照常出货） | 只 B7 | 「生成器的分组配额与计划规定值不符」 |
+| M-c3ii | 配额 `agree18: 670 → 1`、`agree15: 100 → 769`（670 条 agree18 样本塌成 1 条） | 只 B7 | 同上——整改前那三条自证断言在这一针之下全绿 |
+| M-c3iii | 配额 `agree18: 670 → 665`（合计 995） | 生成器自己 | `夹具总数 995 != 1000`，退 1 且不写盘；判据侧 B14 的 `--check` 随之红。**这道防线有两层**：改配额的人在生成期被拦，产物被换的人在判据期被拦 |
+| M-i4 | `regionOk` 的 `false` 一支退回 `null`（I-4 的靶） | 只 B12 | 「区划 unknown 判结构非法；结构非法不出货解释性结论」 |
+| M-i6 | `checkedRng` 的取值闸门整块删（I-6 的靶） | 只 B10 | 「B10 入参闸门：坏类型与坏日历日期在入参阶段点名，随机源任何整数都是一条独立流」——**这一格原先引的是"随机源任何整数都是错"，那条判据的名字不是这个**（F7-5：用例名会被人抄进报告与注释，抄错一次就再也搜不到了） |
+
+**第九轮 · 病灶 → 红名单（15 行）**。镜像构造：`git archive HEAD | tar -x -C /tmp/mm-pristine` → 把工作区的 `dev/js/tools/idcard.js`、`dev/js/tools/random.js`、`scripts/build-id-fixture.mjs`、`scripts/toolkit-tests.mjs` 与 `scripts/fixtures/id-validator-checkbit-1000.json` 五个文件覆盖进去 → `cp -R` 出一份 `/tmp/mm` 当靶场。基线（未变异）`# tests 27 / # pass 27 / # fail 0`、`exit=0`。每一行都是**整串锚点命中数 == 1 才替换**（命中 0 处说明锚点被上一轮改动冲掉了，命中 2 处说明替换会连坐别处，两种都当场抛错而不是静默跳过）。红名单里的 `# pass 26 / # fail 1` 是 `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` 的原样输出。
+
+| 标号 | 摘掉 / 注入的那一处（锚点原文 → 替换文） | 变红的判据 | 这一针想说什么 |
+|---|---|---|---|
+| M-f1a | `makeDay` 里 `iso: \`${pad4(y)}-${pad2(m)}-${pad2(d)}\`` → `iso: \`${y}-${pad2(m)}-${pad2(d)}\`` | 只 B15 | 年份不补零，`'50-06-01' < '1900-01-01'` 在字典序里判"晚于下界"，出生年 10..999 全部漏网 |
+| M-f1b | `utcDay` 函数体 `return new Date(0).setUTCFullYear(y, m - 1, d);` → `return Date.UTC(y, m - 1, d);` | 只 B15 | 光补零不够：`Date.UTC` 自己把 0..99 折成 1900..1999，年 50 会算出 1950 的周岁 |
+| M-f1c | `todayOf` 里 `if (day.utc < BIRTH_FLOOR_UTC) { throw … }` 整块摘掉 | 只 B15 | "今天"这一侧不查界：`today: '0050-06-01'` 会安静出货，并把错记到 `parseIdCard 的 options.today` 头上（m-1 的成因就是这条界写在解析侧） |
+| M-f1d | `body17` 从 `${birth.iso.replace(/-/g, '')}` 退回 `${birth.y}${pad2(birth.m)}${pad2(birth.d)}` | **无红**（`# pass 27 / # fail 0`） | 本轮没牙的一行，照实记：出货的生日年被 `todayOf` / `decodeBirth` 的界夹在 1900 之上，`pad4` 在**可达**输入上是恒等操作，所以没有判据能把这两行写出差别。这一行是防御（"以后若放开下界，这里先炸"），不是被 B15 钉住的契约——B15 咬的是 M-f1a / M-f1b / M-f1c 那三处（第十轮起它多咬一针 M-g1，仍然与这一行无关） |
+| M-f2 | 15 位那一支 `} else if (ship) {` → `} else {` | 只 B12（第九轮复跑前该靶零判据：摘掉之后 26 条一条不红，见 F2 那段） | 18 位那一半有 B12 的第五条钉着，15 位这一半此前一次都没被结构非法的输入走过；本轮往名单里补了 `990101900307001`（省码不在表）与 `110101900230001`（1990-02-30 不存在） |
+| M-f3 | `prefixOf` 的 `if (typeof v !== 'string' || v.trim() === '') {` → 去掉 `|| v.trim() === ''` | 只 B10 | 空串与全空白收窄＝"候选为零"，与"没收窄"是两种用户意图；闸门在 `for (const key of …)` 里是**逐键**的，所以三档注入按 areaCode / cityCode / provinceCode 各钉两条 |
+| M-f4 | `generateIdCards` 里 `const prefix = prefixOf(o);` → `prefixOf(options)` | 只 B10 | `options` 是 `null` 时炸出 `TypeError: Cannot read properties of null (reading 'areaCode')`——一个入参名字都不点，且与 `parseIdCard` 那一半口径分裂（M-14 的同族） |
+| M-m2a | `todayOf` 的 `const day = input === undefined || input === null ? wallClock() : toDay(input, what);` → 去掉 `|| input === null` | 只 B10 | "传 null 等于没传"这条口径此前只有注释在承诺、零判据；本轮按 M-14 的既有口径钉下来，不是新发明 |
+| M-m2b | `checkedRng` 的 `if (input === undefined || input === null) return seededRandom(Date.now());` → 去掉 `|| input === null` | 只 B10 | 同上，另一半是 `rng: null` 也要走"时间种子"那条流 |
+| M-m4 | `shapeOf` 的 `if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';` → `return 'Date';` | 只 B10 | `new Date('nope')` 是 `instanceof Date` 为真的 Invalid Date，报文案只说"收到 Date"等于把人往错的方向推 |
+| M-m8 | 生成器 `if (total !== 1000) die(\`夹具总数 ${total} != 1000\`);` → 退回 `throw new Error(…)` | 只 B14 | 操作者拼错配额该看到一行 stderr + 退 1，不该看到一屏堆栈；B14 钉的是 `assert.doesNotMatch(q.stderr, /^\s+at /m)` |
+| M-f76 | 判据侧 `EXPECT_POOLS` 的 `renamedByCounty: 62` → `61` | 只 B7 | I-7 那句"三者之和由 B7 钉"从本轮起才是事实：`deepEqual` 那一行也会红，但它报的是"数字不符"，只有新加的求和断言说得出"这句话不成立" |
+| M-i10 | `seededRandom` 装回 `let a = (seed >>> 0) || 1;` | 只 B10 | 种子 0 与种子 1 成同一条流，"换种子该换输出"那一半被悄悄废掉（第九轮在 27 条基线上复跑第八轮那针） |
+| M-m14 | `parseIdCard` 里 `todayOf((opts ?? {}).today, …)` → `todayOf(opts.today, …)` | 只 B10 | `parseIdCard(x, null)` 抛 `Cannot read properties of null`——M-14 的病灶，第九轮复跑 |
+| M-i5 | 18 位那一半 `if (out.lengthType === 18) { if (ship) {` → 里层改成 `if (true) {` | 只 B12 | I-5 的 18 位那一半（15 位那一半是 M-f2）：结构非法不许出货 `id18` / `id15` / `suggestedId18` / `id15Note` |
+
+**第九轮 · 反向对照（8 行）**：把上面那一轮的病灶**留着**，再把这一轮新加的判据摘掉，跑同一套。这一张表才回答"新判据是不是唯一咬得住的那一口"——上一张表说"红了"，这一张说"没有它就全绿"。删法同样是整串锚点、命中数 == 1。
+
+| 标号 | 病灶（上一轮的哪一行） + 摘掉的判据 | 结果 |
 |---|---|---|
-| `randomBirthDay` 函数体整块回退成整改前的七行（C-1 的靶） | 只 B11（`# pass 25 / # fail 1`） | 「生成的生日真的落在请求的周岁区间里：生日没过不许少算一岁」；同一靶子按 `s = 1..60` 各 50 条数越界，给 19 条（种子集不同会给 18/20/24/30，所以口径连着构造一起写死在判据注释里） |
-| 生成器 `pick = (arr) => arr[0]` + 重跑生成器出货（C-2 的病灶） | 只 B7 | `agree18 只取了 1/670 个不同区划码，取样池塌了，判据没有覆盖力` |
-| **反向对照**：同一病灶留着，只摘掉覆盖力那一行 | 无（`# pass 26 / # fail 0`） | 两件事合起来说明：老判据没牙，而这一行是唯一咬得住的那一口 |
-| 配额 `feb29_nonleap: 20 → 0`、名额挪给 `birth_before_1900`（合计仍 1,000，生成器照常出货） | 只 B7 | 「生成器的分组配额与计划规定值不符」 |
-| 配额 `agree18: 670 → 1`、`agree15: 100 → 769`（670 条 agree18 样本塌成 1 条） | 只 B7 | 同上——整改前那三条自证断言在这一针之下全绿 |
-| 配额 `agree18: 670 → 665`（合计 995） | 生成器自己 | `夹具总数 995 != 1000`，退 1 且不写盘；判据侧 B14 的 `--check` 随之红。**这道防线有两层**：改配额的人在生成期被拦，产物被换的人在判据期被拦 |
-| `regionOk` 的 `false` 一支退回 `null`（I-4 的靶） | 只 B12 | 「区划 unknown 判结构非法；结构非法不出货解释性结论」 |
-| `checkedRng` 的取值闸门整块删（I-6 的靶） | 只 B10 | 「入参闸门：坏类型与坏日历日期在入参阶段点名，随机源任何整数都是错」 |
+| C-f1a | M-f1a + 删掉 B15 整条（从 `test('B15 年份 1..9999…` 那一条删到文件尾；那条现在多长、怎么量，见 §4.14 的复算式——第十轮这里写的"60 → 94 行"是中途数，最终文本上复算不出来） | `# tests 26 / # pass 26 / # fail 0`（第十轮在同一针上复跑，结果一字未变） |
+| C-f1c | M-f1c + 删掉 B15 整条（同上） | `# tests 26 / # pass 26 / # fail 0`（第十轮复跑，同上） |
+| C-f2 | M-f2 + B12 那份 malformed 名单退回整改前的五条 | `# tests 27 / # pass 27 / # fail 0` |
+| C-f3 | M-f3 + 删掉 B10 那六条新注入（三键 × 空串 / 全空白） | `# tests 27 / # pass 27 / # fail 0` |
+| C-f4 | M-f4 + 删掉 B10 里 `generateIdCards(undefined)` / `(null)` 那四条 | `# tests 27 / # pass 27 / # fail 0` |
+| C-m2 | M-m2a + M-m2b + 删掉 B10 里 `{today:null}` / `{today:null,rng:null}` 那三条 | `# tests 27 / # pass 27 / # fail 0` |
+| C-m4 | M-m4 + 删掉 B10 闸门表里 `{ today: new Date('nope') }` 那一行 | `# tests 27 / # pass 27 / # fail 0` |
+| C-m8 | M-m8 + 删掉 B14 里那行 `doesNotMatch(q.stderr, /^\s+at /m)` | `# tests 27 / # pass 27 / # fail 0` |
+
+**第九轮 · C-2 覆盖力那一行的四格体检**（病灶都是 M-b；数字是七组的「整串去重 / 区划码去重」，构造见 §4.10 第 5 行）：
+
+| 标号 | 夹具状态 + 摘掉哪一行 | 结果 |
+|---|---|---|
+| M-b | 塌池 + 现行判据 | 只 B7（`# pass 26 / # fail 1`），红的是区划码那一行 |
+| M-c2c | 塌池 + 摘掉区划码那一行 | 全绿 `# pass 27 / # fail 0` |
+| M-c2d | 塌池 + 摘掉"组内不许有重复号码"那一行 | 只 B7（区划码那一行还站着）⇒ 塌池之下咬的确实是区划码那一维，不是整串那一维 |
+| M-c2e | 健康夹具 + 摘掉区划码那一行 | 全绿 ⇒ 那一行不是恒真、也不是常驻红：它是**覆盖力下限**，健康夹具上七组是 557/670、97/100、94/100、41/50、30/30、30/30、20/20，余量一倍以上 |
+
+**第十轮 · 复跑第九轮的那批整改（病灶 1 行 + 反向对照 1 行）**。第十轮量的是"第九轮那批整改本身"，只新开一个病灶（G1），判据仍落在 B15 里——**不新增第 28 条，基线还是 27 条**，所以第九轮那 23 行里红名单写 `# pass 26 / # fail 1`（只 B15）或 `# tests 26 / # pass 26`（删掉 B15 整条）的行都不受实质影响；本轮把与 B15 直接相关的五行（M-f1a / M-f1b / M-f1c / C-f1a / C-f1c）在最终文本上重跑，结果与第九轮逐字相同（BASE = `# tests 27 / # pass 27 / # fail 0`）。镜像、整串锚点命中数 == 1、跑法与上面几张表同一条口径。
+
+| 标号 | 摘掉的那一处（锚点原文 → 替换文） | 变红的判据 | 这一针想说什么 |
+|---|---|---|---|
+| M-g1 | `todayOf` 里 `if (day.y > YEAR_CEILING) { throw … }` 整块摘掉（三行连其后的换行；第十一轮起这一刀长在 `checkYearSpan` 里，同一针换了锚点，见下面第十一轮那张表） | 只 B15（`# tests 27 / # pass 26 / # fail 1`） | 那道界只管"太早"，**太晚那一侧此前是开的**：`toDay` 的字符串正则 `^(\d{4})-…` 只收四位年，而 `Date` 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年用串传被拒、用 Date 传被接受；`pad4` 又只补不截，五位 `today.iso` 回头喂不进自检那句 `parseIdCard(id18, { today: today.iso })`，于是崩在自检、报的却是「**parseIdCard** 的 options.today」（m-1 那一类甩锅在另一头复活） |
+
+| 标号 | 病灶 + 摘掉的判据 | 结果 |
+|---|---|---|
+| C-g1 | M-g1 + 删掉 B15 里为这一针新写的那一段（从 `// G1：界只管"太早"` 那一行到 `自检回喂必须走得通` 那一行；第十轮删的是 31 行，第十一轮把 `birthDate` 那一格也接进同一段、于是这一段长成 41 行） | `# tests 27 / # pass 27 / # fail 0` |
 
 两条与本轮无关但被本轮撞见的账，一并结在这里：① §4.10 末尾那句"没改、但下一轮要盯着"（B8 的顺序码口径）已经改完了，理由与复算口径写在 §4.10 原位；② 设计文档 §2.2 与 §8.1 有两处对不上仓库的口径——把站内旧库叫成 `id-validator@1.3.0`（仓库内那份的版本只由 `IDValidator.js` 文件头说话，是 **v1.2.0**），以及"对拍 10 万条随机号"（跑完即失、段 5 之后连参照物都没有）。两处都改成了"照现在跑得出来的构造"：3,465 条给了一条 `Object.keys(…).length` 的复算式，对拍给的是固化 1,000 条 + 七组配额 + 判据侧写死常量那一套，标准（两个独立实现同结论）一个字没降。
 
 **整改批次自己的注释里也有两句"实测"复算不出来，是这一轮复核它时抓到的**（同一把尺子量自己）：C-1 那句"3,000 条里 20 条"没写种子起点，按 `s = 20260925..84` 跑是 18 条、按 `s = 1..60` 跑是 19 条，而它举的 `23082820081021721X` 在两个种子集里都不出现——那是条手搓的示意号（它本身成立：`parseIdCard` 判 `valid`、周岁 17）。现在 `idcard.js` 与 B11 两处注释都改成"构造 + 结果"连着写，并把那条号明标为手搓。**还有一类本轮没法复跑、只能转述的**：I-4 与 C-2/C-3 那些"整改之前几条判据一条都不红"的句子，它们的靶子在整改时已经被换掉（同一份判据回不到当时的形状），记的是整改当时在镜像上的观察。这类句子一律在句子里带了"整改前"三字，读的人按它去复跑会红得对不上——那是时态锚丢了，不是判据没牙。
+
+**第十一轮 · G1 那处整改自己的复跑（4 行病灶 + 1 行反向对照 + 判据自己的那一针）**。G1 修完之后照例再过一遍尺子，抓到两针（k-1 判据依赖运行时区、k-2 `birthDate` 那条路径没有上界那一刀），上面四针量的都是这两处新写的代码。基线形状与第十轮同一套：镜像整串锚点、命中数 == 1、`TZ=Asia/Shanghai` 跑，`# tests 27 / # pass 27 / # fail 0`、`exit=0`；同一份当前代码在 `TZ=America/Los_Angeles` 也全绿（k-1 修好的就是这一格），仓库级五时区电池（Los_Angeles / Shanghai / Apia / Kiritimati / Sao_Paulo）逐条 `# pass 27 / # fail 0`。
+
+| 标号 | 摘掉的那一处（锚点原文） | 变红的判据 | 这一针想说什么 |
+|---|---|---|---|
+| M-k1 | `todayOf` 里 `checkYearSpan(day, what);` 那一行 | 只 B15（`# tests 27 / # pass 26 / # fail 1`） | 上界对 `today` 那一侧有牙（与第十轮 M-g1 同一格，锚点因 k-2 换了位置） |
+| M-k1b | `generateIdCards` 里 `checkYearSpan(fixedBirth, 'generateIdCards 的 options.birthDate');` 那一行 | 只 B15（`# pass 26 / # fail 1`） | 同一条上界对 `birthDate` 也有牙，且这一格是本轮新写的那四条断言独自咬住的 |
+| M-k1c | 上面两行一起摘（= 第九轮 G1 未修的整貌） | 只 B15（`# pass 26 / # fail 1`） | 两处共用一个守卫，摘干净才是整改前；单独摘任一处都只红 B15 ⇒ 两格各被独立钉住 |
+| M-k2 | **只改判据、不改实现**：把 B15 里那两条 `new Date(10000, 0, 1)` / `new Date(9999, 11, 31)` 退回第十轮的 `new Date(0)` + `setUTCFullYear(…)` | `TZ=Asia/Shanghai` 全绿；`TZ=America/Los_Angeles` 只 B15 红（`# pass 26 / # fail 1`） | k-1 的承重证明：那一格在正偏移时区里看不出问题，判据把"跑得过"绑在运行时区上就是没牙 |
+
+| 标号 | 病灶 + 摘掉的判据 | 结果 |
+|---|---|---|
+| C-k1 | M-k1c + 删掉 B15 里为 G1 写的那一整段（从 `// G1：界只管"太早"` 那一行到 `自检回喂必须走得通` 那一行，第十一轮这一段 42 行） | `# tests 27 / # pass 27 / # fail 0` ⇒ 新写的这一段是那一处病灶唯一的判据 |
+
+复算式（B15 那条判据有多长，以及 §4.13 那句夹具口径）：
+
+```bash
+sed -n "/test('B15/,\$p" scripts/toolkit-tests.mjs | wc -l   # 104（B15 是文件里最后一条）
+node -e 'const f=require("./scripts/fixtures/id-validator-checkbit-1000.json");const a=Object.values(f.cases).flat();const t=[...new Set(a.map(x=>x.today))];const y=a.map(x=>+x.oracleBirth.slice(0,4)).sort((p,q)=>p-q);console.log(a.length+" 条 / today "+JSON.stringify(t)+" / 生日年 "+y[0]+".."+y[y.length-1])'
+# 1000 条 / today ["2026-09-25"] / 生日年 1881..2099
+```
+
+第九轮那三针 M-f1a / M-f1b / M-f1c 在第十一轮的最终文本上照原文重跑：三行都是 `# tests 27 / # pass 26 / # fail 1`、红名单只有 B15，与第九轮、第十轮逐字相同（`makeDay` 那一处在第十一轮一字未动）。
+
+两件环境的事记在这里，免得下次被同一块石头绊：① M-k1 / M-k1b 那两行是**重跑**的结果——第一次那批里它们的红名单还带着 A7 / A8 / A9 与 B14，那是本机 `/tmp` 所在卷那一刻只剩 69Mi、镜像里的子进程写临时文件写不下的噪声（同批里 M-k1c / C-k1 / M-k2 三行的结果与重跑逐字一致），清掉旧镜像后单独重跑那两针就是上面写的"只 B15"；② 换位置的只有第十轮 M-g1 那一行的锚点（上界那一刀从 `todayOf` 体内搬进 `checkYearSpan`，照原文去 `todayOf` 里已经找不到了，本轮的 M-k1 是它的等价替身）；M-f1a / M-f1b / M-f1c 三针的靶子照原文可跑，结果见上一段。
+
+### 4.12 第九轮复核整改轮回填：一条 Critical 族的年份归一、四道零牙闸门、一句假事实
+
+第八轮那个整改批次自己再过一遍尺子，开出 **5 项 Important（F1–F5）加 9 条 Minor（m-1…m-9）**。这句上一版写的是"F1–F6 六项加 8 条 Minor"，第十轮两头都对不上：F6 从来没有对应的行（那是"标号必须落到一行上"禁止的空指针，第十轮新开的病灶另起 G1 前缀，不占 F 系列），而少掉的第 8 条正是 m-7——它的行在初次回填时漏了，第十轮补回表格（第十轮的账记在 §4.13）。**基线从 26 条长成 27 条**（新增 B15），§B 从 14 条长成 15 条；`wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = **1,630 / 540 / 25 / 328**（判据那份从 1,628 涨到 1,630 是收口时把三处 `:行号` 引用换成名字锚多出的两行，记在 §3 末条）。收口形状：`# tests 27 / # pass 27 / # fail 0`、`exit=0`。
+
+**夹具一个字节都没动**——248,934B / `sha256 16971baaa8726ed1536e913d280e5734e160d6ae80768e2549103f2985244068`，两次独立运行逐字节相同，`--check` 退 0。原因是实的而不是"应该没变"：本轮对生成器只做了三类改动——`sameNameAsLegacy` 上面那段注释（F5 与「县」那两处措辞）、把**四**道"配额/池子不够"的裸 `throw new Error` 换成 `die()`（三道池子闸门 + `夹具总数` 那一道）、删掉**一**个多余空行（m-9 那句"各有一处"里的另一处在 `idcard.js`，不在本文件）。此前这里写的是"三处"与"两个空行"，是第十轮数出来的：`git diff 0d2cde2 -- scripts/build-id-fixture.mjs | grep -c '^-.*throw new Error'` = **4**、`… | grep -c '^-[[:space:]]*$'` = **1**（`0d2cde2` 是本轮开工时的 HEAD，整改前的生成器就在那儿）。文件里其余的 `throw new Error` 是"旧库结论不符"那一类（跑在正确路径上，不是操作者失误），一字未动。`die()` = 一行 stderr + `process.exit(1)`，只在**已经决定不写盘**的路上被调用；正确路径上的 `JSON.stringify` 入参一个字符都没碰。区划侧同理一字未动（`dev/js/tools/region-data.js` 仍是 `a7e26d543e55e9c0defe7b4b5e65666d03b6472ffe35af170f284a6c01ba5876`），`build-region-data.mjs --check` 退 0。
+
+本轮全部镜像构造与红名单见 §4.11 末尾那三张表（病灶 15 行 / 反向对照 8 行 / 覆盖力 4 行）；下面这列写的是"病灶当时的真行为"，都是本轮在镜像上量出来的，不是转述。
+
+| # | 级别 | 病灶（整改前的真行为） | 整改 | 判据 / 变异行 |
+|---|---|---|---|---|
+| F1 | Critical 族 | **同一个根因的两处**：`makeDay` 不补零年份，而 `parseIdCard` 里 `b.day.iso < BIRTH_FLOOR` 那道下界是**字典序**比较；`utcDay` 缺席时 `Date.UTC` 还会自己把 0..99 折成 1900..1999。构造：靶场镜像上把 M-f1a + M-f1b + M-f1c 三针一起摘回整改前，再跑 `parseIdCard(id, { today: '2026-09-25' })`三处一起摘之后 →`110101005006010016` 判 **valid**、`info.birth = "50-06-01"`、`ageYears = 1976`、`sex = "男"`；`110101099912310010` valid / 周岁 **1026**；`110101009602290016` valid / **1930**；只有 `110101000101010011`（年 1）侥幸畸形——`'1-01-01'` 里第二个字符是连字符，比 `'1900-01-01'` 的 `'9'` 小。**结论：年 1..9 是撞上的，年 10..999 全漏**。同一针之下 `generateIdCards({ count: 1, today: '0050-06-01' })` 抛 `TypeError: parseIdCard 的 options.today 应为 YYYY-MM-DD 字符串或 Date，收到 "50-06-01"`——生成侧把自己的 `today.iso` 回喂给解析器（`generateIdCards` 循环里那句 `parseIdCard(id18, { today: today.iso })`），于是**调用方传的那条入参被记成另一条入参的名字**（这就是 m-1）。只摘 `pad4` 与只摘 `utcDay` 各不同：只摘 `utcDay` 时解析侧四号码照样全畸形（补零后的 iso 字典序没问题），生成侧**不抛**：`generateIdCards({ count: 1, today: '0050-06-01', rng: seededRandom(3) })` 出货 `510131190104034564`（生日 `1901-04-03`、`sex` 女、`checkBit` 4、`age` **null**），拿它再走 `parseIdCard(id18, { today: '0050-06-01' })` 判 **valid**。`age` 是 null，因为周岁按 `today.y - birth.y` 算 ＝ 50 − 1901 为负；下界拦不住，因为 `utcDay(50, 6, 1)` 该给 `-60576249600000`（0050-06-01）而 `Date.UTC(50, 5, 1)` 给 `-618105600000`（1950-06-01），`BIRTH_FLOOR_UTC` 两种写法都是 `-2208988800000`（1900-01-01），一比就成了「晚于下界」。**种子得写进构造才有可复算的号**：同一条去掉 `rng` 连跑两次得 `440104190902212348` / `542526190102122075`（默认种子 `Date.now()`） | 根因两处一起修：`pad4`（iso 年份一律四位）+ `utcDay = (y,m,d) => new Date(0).setUTCFullYear(y, m - 1, d)`（不吃 `Date.UTC` 那条折算），`BIRTH_FLOOR_UTC` 也走 `utcDay`；`todayOf` 拿到界之后统一查一次下界，**谁传的 `today` 谁被点名**（顺带结掉 m-1） | B15（新）：四个号各钉 `malformed`、只有 `birth` 那一行是 false、`checkBit.ok` 仍 true、detail 含 `1900-01-01`、`info.birth` 是四位年、`ageYears` 为 null；正对照 `today:'1950-01-01' + minAge:0/maxAge:50` 照常出货、`birthDate:'1900-01-01'` 给 126 周岁。变异行 M-f1a / M-f1b / M-f1c 各钉一处，M-f1d 那行**照实记为无牙**（界内输入上 `pad4` 是恒等操作） |
+| F2 | Important | B12 的 malformed 名单只有五条 18 位的，`parseIdCard` 末尾 15 位那一支的 `ship` 闸门（`out.lengthType === 15` 那条 `else if (ship)`）**一次都没被结构非法的输入走过**：改成无条件 `} else {`，26 条判据一条不红。出货差别是真的（镜像实跑，`today: '2026-09-25'`）：`990101900307001`（省码不在表）现状 `id18=""`、`id15=""`，摘闸门后 `id18="990101199003070015"`、`id15="990101900307001"`；`110101900230001`（1990-02-30 不存在）摘后 `id18="110101199002300014"` | 名单补这两条（五条 → 七条），两个 `ship` 分支各有输入走过 | B12；M-f2（只 B12 红）+ 对照组 C-f2（名单退回五条 → 27 条全绿） |
+| F3 | Important | `prefixOf` 那句 `|| v.trim() === ''` 零判据：摘掉之后 26 条一条不红，而 `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), areaCode: '   ' })` 安静出货 `420581197709189310`（湖北省宜昌市宜都市）——地址取自整张 2,978 条现行表。闸门在 `for (const key of […])` 里是**逐键**的，只注入一个键等于另外两个键没牙 | 判据侧按三键 × 空串 / 全空白各钉一条（六条），并在注释里写清"收窄到空"与"没收窄"是两种用户意图 | B10；M-f3 + C-f3 |
+| F4 | Important | `generateIdCards(null)` 抛 `TypeError: Cannot read properties of null (reading 'areaCode')`——不点任何入参名。根因是 `prefixOf(options)` 吃的是原始入参，而函数体第一行已经算好了 `const o = options ?? {}`；`parseIdCard` 那一半（M-14）早就统一了，这一半没有 | `prefixOf(o)`；口径写进 JSDoc：整个 `options` 与 `opts` 传 `null` 都等于没传 | B10 钉 `generateIdCards(undefined)` 与 `(null)` 各一条（后者还要出货形态完整的号、并与 `parseIdCard(id18)` 自洽）；M-f4 + C-f4 |
+| F5 | Important（事实错误） | `scripts/build-id-fixture.mjs` 与计划正文各有一句**假事实**：「那 19 条重叠前缀没有一条同时在 2015 旧表里」。本轮自己写脚本镜像 `sameNameAsLegacy` 两个方向各跑一遍（`/tmp/f5-verify.mjs` 那一套，只读三份快照 + `gb2260-2015.json`）：`both` 1,932 · `sameName` 带刀 1,776 · 不带刀 1,776 · 成员完全一致；19 条重叠前缀里**有 3 条在旧表任意一格**：`441900`、`442000`、`620201`；其中在 `both` 池里的只有 `620201` 一条（前两条是市级码，被 `!k.endsWith('00')` 挡在池外，真放它们进池则带刀 same / 不带刀 not-same——这一刀立刻挪两条）。另揪出一个坑：`PLACEHOLDER_CITY` 少「县」一个字，两个方向都从 1,776 掉到 1,764，掉的正是 12 条重庆市辖县（`500229`… 市名那一格就叫「县」），且这 12 条会凭空多进 `renamed` 的 `renamedByLegacyPrefix` 档（镜像跑生成器：`pools` 1776/156/62/93/1 → 1764/168/62/105/1） | 生成器注释与 §4.11 的 I-7 行都按上面的实测改口；结论没变（这一刀不改变当下任何样本归属），变的是**为什么**成立 | 无新判据（纯事实订正）；数字的复算式写在生成器注释与 I-7 行里 |
+| m-1 | Minor（与 F1 同根） | `generateIdCards({today:'0050-06-01'})` 的报错点名点到了 `parseIdCard 的 options.today` | 界挪进 `todayOf`，两条入口各拿自己的 `what` 点名 | B15 钉三处：`generateIdCards` 的 `options.today`、`parseIdCard` 的 `options.today`、`options.birthDate` 各点自己，且生成侧那句 `doesNotMatch(/parseIdCard/)` |
+| m-2 | Minor | `todayOf` 与 `checkedRng` 的 `null` 分支零判据，而 `todayOf` 的注释还举了一个**不存在的调用方**（段 2 的面板还没写） | 两条都按 M-14 既有的"传 null 等于没传"口径钉成判据；注释里那句改成明写的**段 2 计划**（不是既成事实）——两处口径一致：判据钉的是"面板发 null 时不许抛"，注释说的是"面板会发 null" | B10；M-m2a / M-m2b + 对照组 C-m2 |
+| m-3 | Minor | `randomBirthDay` 带一个投机性的 `clampMonth` 形参：全仓唯一调用方不传，也没有判据传 | 删。注释不写"留给以后"——真要时再加，git 里都在 | 无（删的是不可达代码，不可达分支不配判据） |
+| m-4 | Minor | 两头对不上：JSDoc 的 `@throws` 写 `TypeError`，而 `sex: 123` / `count: true` 实际走 `RangeError`；`shapeOf` 把 `new Date('nope')` 报成 `Date` | **只改该改的那一侧**：异常类型不动、文档改口并写清"哪条入参走哪一档 + 为什么"（`count` 那道是"是不是整数"与"在不在 1..50"合成一次判定，拆开它等于改 B8 钉住的类型；面板还没写而判据已在仓库里）。`shapeOf` 那一半是真 bug，改代码：`Date（Invalid Date）` | B10 的闸门表新增 `{ today: new Date('nope') }` → `/Invalid Date/`；M-m4 + C-m4 |
+| m-5 | Minor | `toDay` 的 JSDoc 第 2 条（讲 `birthDate: '1999-02-30'` 那一格）与判据里各有一句把整改前的症状写成 `RangeError: 内部不变量…`，实际那句是裸 `new Error`（`generateIdCards` 自检那一关的 `if (self.state !== 'valid')` 分支）；两处举的号还不一样（时间种子不同） | 类型改对（`Error`），号改成可复算的那条：整改前代码跑 `generateIdCards({ count: 1, today: '2026-09-25', rng: seededRandom(4242), birthDate: '1999-02-30' })` → `Error: 内部不变量：生成的 420581199902302791 自检为 malformed`。复核者举的 `350802200109026961` 本轮在这条流上不复现，按实测量出来的号替换并注明 | 判据 `doesNotMatch(/内部不变量/)` 两处（B10、B15），构造写在注释里 |
+| m-6 | Minor | B7 那四个千条循环里，四条失败消息不带 `c.id`：红了只知道"某一条不一致"，不知道哪一条 | 每条 message 都拼上 `${c.id}` | 判据自身的可读性，无新门 |
+| m-7 | Minor（全是文档/账本漂移，一条都不影响代码） | 七格：① §4.10 第 5 行仍写整串号码判据"池子塌掉时这条照样红"；② §4.10 第 1 行"拆两个成因字段"实际是三个；③ 计划正文、§3 与提交信息三处都说夹具差异"只有 `pools`"；④ 台账末行把 B10 的标题抄错（`…都是一条独立流` 写成 `…任何整数都是错`，按锚点 grep 会 0 命中）；⑤ C-2 / C-3 指的 `M-b` / `M-c2c` / `M-c3i-ii-iii` 在台账里没有行标签；⑥ 台账只覆盖第八轮 14 项里的 5 项；⑦ I-7 与那句"三者之和由 B7 钉"当时是假话 | 七格各自结清：① → §4.10 第 5 行按塌池实测改写；② → 三个成因字段；③ → §3 与计划正文改成"两个顶层键"（`1b567b5` 那条提交信息已进历史，见"刻意没做"第 4 条）；④ → 台账 M-i6 那格改引用例实名，并写明"用例名会被人抄进报告与注释"；⑤ → 覆盖力那张表补齐 M-c2c / M-c2d / M-c2e 三行标签；⑥ → 本轮把 I-10 / M-14 / I-5 / B7 求和四针一并接进台账；⑦ → B7 两条求和断言 + 台账 M-f76 | 无新增判据（这一条不碰代码）；每一格的落点都在 §4.10 / §4.11 / §3 原位可查 |
+| m-8 | Minor | 生成器 `夹具总数 != 1000` 那一道是裸 `throw`，一屏堆栈。**上一版这句后面写的"同文件另外三道闸门早就是一行 stderr + 退 1"是假的**（第十轮核 `git diff 0d2cde2 -- scripts/build-id-fixture.mjs` 抓到：那三道此前同样是裸 `throw`，四道一起换的）；当时唯一已经是一行 + 退 1 的只有参数闸门那一道（第八轮 I-8），`die()` 正是从它那段抽出来的 | 加 `die()`，四道"操作者失误"类的闸门与参数闸门同一口径 | B14 新增一段：改配额 → `status != 0`、stderr 含 `夹具总数 995 != 1000`、`doesNotMatch(/^\s+at /m)`、stdout 为空、夹具字节未动；M-m8 + C-m8 |
+| m-9 | Minor | `idcard.js` 与 `build-id-fixture.mjs` 各有一处多余空行（函数之间双空行，与全文件单空行口径不一致） | 删 | — |
+
+**这一轮刻意没做的事，连同理由**：
+
+1. **没有把 `count` / `sex` 的异常类型统一成 `TypeError`**（m-4 的另一条路）。理由与上面的构造同源：`count` 那一道 `!Number.isInteger(count) || count < 1 || count > GENERATE_MAX` 是一次判定，拆成两次就要改 B8 钉住的口径；而"报错点名哪条入参"这条真契约两档都已经满足。类型分歧降级为文档里写明的事实，不是悄悄留着。
+2. **没有为 `M-f1d`（`body17` 退回 `${birth.y}` 拼接）造判据**。它在可达输入上与现状不可区分——下界保证出货的生日年 ≥ 1900，`pad4` 是恒等操作。为它写判据要么写一条永不可红的判据（不是判据），要么伪造一条越界的输入（会把 B15 的口径搅浑）。所以留在台账上标"无牙"，并写明它是防御行。
+3. **没有动 `demo/idCardDemo/**`、`scripts/fixtures/region-source/**`、`dev/js/tools/region*.js`、`scripts/build-region-data.mjs`**（只读名单），也没有 `git add`：所有验证都在 `git archive HEAD` 出来的 /tmp 镜像上跑，仓库里只有工作区改动。
+4. **没有改写 `1b567b5` 那条提交信息**里"只有 pools"那半句（F7-3）——已进历史的提交不动，纠正落在 §4.10 与 §3。
+
+---
+
+### 4.13 第十轮复核整改轮回填：界只管了"太早"那一头，外加四句对不上数的文档
+
+第十轮审的是第九轮那批整改本身（复跑者自己再过一遍尺子）。开 **1 项 Important（G1）+ 5 条 Minor（n-1…n-5）**。**基线仍是 27 条**：G1 的判据接在 B15 里而不是新写第 28 条——同一条 `todayOf` 界、同一条"谁传谁被点名"的契约，拆成两条测试只会让一个守卫的口径分家；代价是 B15 那一条判据变长、标题从「B15 出生年 1..999…」改成「B15 年份 1..9999：出生年补齐四位再比下界，"今天"两头越界谁传谁被点名」，于是台账里凡是引用那条标题的行（C-f1a / C-f1c）与"只 B15"那三行（M-f1a / M-f1b / M-f1c）都在最终文本上重跑过，结果见 §4.11 末尾那两张第十轮的表。
+
+| # | 级别 | 病灶（整改前的真行为） | 整改 | 判据 / 变异行 |
+|---|---|---|---|---|
+| G1 | Important | 出生日期下界只管"太早"。`toDay` 的字符串正则 `^(\d{4})-(\d{2})-(\d{2})$` 只收四位年，而 `Date` 形状走 `getFullYear()` 不受宽度约束 ⇒ 公元 10000 年这一天**用串传被拒、用 Date 传被接受**；`pad4` 只补不截，于是 `today.iso` 成五位，回头喂不进自检那句 `parseIdCard(id18, { today: today.iso })`。整改前实测（`new Date(0)` 上 `setUTCFullYear(10000, 0, 1)`）：解析侧照给结论（`110101199003070011` → `state = 'valid'`、周岁 8009），生成侧抛 `TypeError: parseIdCard 的 options.today 应为 YYYY-MM-DD 字符串或 Date，收到 "10000-01-01"`——m-1 那一类甩锅在另一头复活。（这一格第十轮记的是 `checkdigit`，第十一轮复核按判据实际用的那个号复算成 `valid`——写结论时必须连着点名是哪一个号，见 §4.14 的 d-2。） | `todayOf` 里下界旁边加一道 `if (day.y > YEAR_CEILING)`（`YEAR_CEILING = 9999`，与那条正则同宽），两个入口共用、各点各的名；串侧与 Date 侧从此同判（差别只在档：形状错 `TypeError`、值越界 `RangeError`）。`parseIdCard` / `generateIdCards` 两处 `@throws {RangeError}` 同步写上新界。（这一刀在第十轮长在 `todayOf` 体内，第十一轮把它挪进 `checkYearSpan`——`generateIdCards` 的 `birthDate` 那条路径不走 `todayOf`，也要这一刀；于是 M-g1 那行的锚点换了地方，见 §4.11 末尾的第十一轮表与 §4.14 的 k-2。） | B15 尾部那 31 行；变异行 M-g1（摘掉那三行 → 只 B15，`# pass 26 / # fail 1`）+ 反向对照 C-g1（病灶留着 + 删掉那 31 行 → `# tests 27 / # pass 27 / # fail 0`）。正对照钉在界内那一格：`9999-12-31` 解析侧 `valid`（周岁 8009，解析不设年龄上限）、生成侧出货四位年生日且自检回喂走得通 |
+| n-1 | Minor（文档） | §4.12 的"夹具一个字节都没动"那段写「把三处 `throw new Error` 换成 `die()`、删掉两个多余空行」，两个数都是错的 | 按 `git diff 0d2cde2 -- scripts/build-id-fixture.mjs` 改成 **4** 道闸门与 **1** 个空行，并给出这两条 grep 复算式；另点明文件里其余 `throw new Error` 是"旧库结论不符"那一类、一字未动 | 无新增判据（不碰代码），复算式写在原位 |
+| n-2 | Minor（文档） | §4.12 的 m-8 行写"同文件另外三道闸门**早就**是一行 stderr + 退 1"——假话：那三道此前同样是裸 `throw`，四道是一起换的；`die()` 的 JSDoc 里写的才是实情，台账与它自己代码里的注释互相打脸 | m-8 行按实情改写，并把"当时只有参数闸门已经是一行 + 退 1（第八轮 I-8）"这一句补进去 | 同上 |
+| n-3 | Minor（文档） | 计数三口径打架且留悬空标号：§4.12 头部写"F1–F6 六项加 8 条 Minor"、表格实为 F1–F5 + m-1…m-6,m-8,m-9（**没有 m-7 这一行，也没有 F6 这一行**）、§3 与判据注释又写"5 Important + 9 Minor" | 头部改成"5 项 Important（F1–F5）+ 9 条 Minor（m-1…m-9）"并说明 F6 是空指针、第十轮的病灶另起 G1；**把 m-7 那行补回表格**（它的七格分别在 §4.10 第 5 行、三个成因字段、§3 的"两个顶层键"、台账 M-i6、覆盖力表的 M-c2c/d/e、台账四针复跑、B7 求和 + M-f76 处结清） | 同上。G1 之所以不叫 F6：F 系列已被第九轮占用，同名标号在两处会逼读者猜是哪一处 |
+| n-4 | Minor（只欠文档） | 新写的那道下界在 `Date` 形状上随时区翻脸：`new Date('1900-01-01T00:00:00Z')` 在东八区解成 1900-01-01（界内、放行），在美西时区解成前一天 1899-12-31（越界、抛 `RangeError`），而串 `'1900-01-01'` 两种时区都放行。**行为不改**：本站按本地日历取日，`Date` 入参本来就是"用户机器上的那一天"（判据文件头早就警告过这个基准） | 在 `toDay` 的 JSDoc 里把这条分叉连同实测时区写清，`§5` 契约一侧不必另立条目（它不是新行为，是本轮把界挪进 `todayOf` 之后才被人看见的旧口径） | 无新增判据。实测构造：`TZ=Asia/Shanghai` 与 `TZ=America/Los_Angeles` 各跑一次 `parseIdCard('110101190001010014', { today: … })`，三种 `today` 形状（串 / UTC 时刻的 Date / 本地分量的 Date）逐一给结论 |
+| n-5 | Minor（旧账，非本轮引入） | `parseIdCard` 的 `@param {string\|number} raw` 放行数值，而 18 位号普遍超出 2^53：字面量 `110101199003073503` 进到函数手里已经是 `110101199003073500`（`String(…)` 实测），于是判 `checkdigit` 而不是 `valid`——末位在"被看见"之前就掉了，本模块修不了 | `@param` 那段把实情与口径写清："18 位一律传字符串"，并注明判据里目前没有数值入参这一格（B3 那条 17 位是串）。不收 `number` 这一档是因为它在 15 位号与 `Number()` 过的旧调用上仍然有用，而收窄它属于改契约、要连着段 2 的调用方一起看 | 无新增判据：这一格的错发生在实参求值之前，函数内无论怎么写都测不到"调用方本意的那个数" |
+
+产物与门禁在第十轮之后的实测（这四个行数钉的是第十轮那一刻的文本，第十一轮又往同两处文件里加了东西，最新的那一组在 §4.14 末尾）：`wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = **1,663 / 565 / 25 / 328**，`node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` = `# tests 27 / # pass 27 / # fail 0`、`exit=0`，两个 `--check` 都退 0，夹具 248,934B / `16971baa…` 与区划产物 `a7e26d54…` 一字未动（G1 只影响 `today` 越出四位那一侧，而夹具那 1,000 条对同一天的 `today` 去重只剩一个 `2026-09-25`、`oracleBirth` 的年跨 1881..2099，两头都在界内；复算式写在 §4.11 末尾第十一轮那一段）。
+
+---
+
+### 4.14 第十一轮复核整改轮回填：那道新加的界只管了 `today`，而判据把"跑得绿"押在运行时区上
+
+这一轮是第十轮那处整改（G1）的**验证性复核**——按流程，复核提出的问题解决完必须再复核一次。复核开 2 项 Important + 2 条 Minor，另点了 3 处文档数字复算不出来。**两条 Important 都在动手前先自己复跑坐实**（本仓库的纪律：复核的结论是待核的陈述，不是待办的清单），两条都坐实了：
+
+| # | 级别 | 病灶（复跑出来的真行为） | 整改 | 判据 / 变异行 |
+|---|---|---|---|---|
+| k-1 | Important | 第十轮为 G1 新写的那段判据里，两条 `Date` 是 `new Date(0)` 上 `setUTCFullYear(10000, 0, 1)` 造的——那是 **UTC 零点**，而 `toDay` 取的是 `getFullYear()` 这类本地读数。负偏移时区里本地读到的是前一天 9999-12-31 ⇒ 上界放行 ⇒ **一行判据都没变异、`TZ=America/Los_Angeles` 跑就是 B15 红**（实测镜像上 `# pass 26 / # fail 1`，红的就是那条，报的是"today 的年宽过四位时居然安静出货"）。同一格在正偏移时区看不出问题，所以它躲过了第十轮那三套时区都一致的运气 | 两条 `Date` 一律换成**本地分量**构造：`new Date(10000, 0, 1)` / `new Date(9999, 11, 31)`（与 B10 那句 `new Date(2026, 8, 25)` 同一条口径），并在原位写明为什么。**行为一个字不改**：本站按本地日历取日，这是 n-4 早就写下的既有口径，本轮欠的是判据 | M-k2（只把判据那两行退回 UTC 零点构造、实现不动 ⇒ `TZ=Asia/Shanghai` 全绿、`TZ=America/Los_Angeles` 只 B15 红）；当前文本在 Los_Angeles / Shanghai / Apia / Kiritimati / Sao_Paulo 五个时区逐条 `# pass 27 / # fail 0`、`exit=0` |
+| k-2 | Important | 新加的 `YEAR_CEILING` 那一刀只长在 `todayOf` 里，而 `generateIdCards` 的 `birthDate` **不走** `todayOf`：它只过 `toDay` + 一道拿 `iso` 做的字典序比较。实跑 `birthDate = new Date(10000, 0, 1)` 抛的是 `RangeError: generateIdCards 的 options.birthDate（10000-01-01）不得早于 1900-01-01`——年 20000 抛的是"不得晚于今天"。**越的是上界，理由指着下界**，而这正是 m-1 / G1 那一类"报错指错地方"；同一段 `@throws {RangeError}` 已经替 `birthDate` 承诺了新界，注释跑得比代码快 | 那一刀抽成 `checkYearSpan(day, what)`，三条入参路径共用：`parseIdCard` 的 `today`、`generateIdCards` 的 `today`（经 `todayOf`）、`generateIdCards` 的 `birthDate`（就地一行，**必须先于**任何拿 `iso` 做的字典序比较）。`@throws` 那句从此名副其实。上下界各用一维的理由一并写进函数文档（k-3） | B15 的 G1 段里新写四条：`birthDate` 那一年越界必须是 `RangeError`、必须点名 `options.birthDate`、必须说得出"四位年份口径"、**不许**说"不得早于"；变异行 M-k1b（只摘 `birthDate` 那一行 → 只 B15） |
+| k-3 | Minor | 上界比 `day.y`、下界比 `day.utc`，两维不同却并排写在一处，读的人要么以为可以合并、要么以为其中一个是笔误 | `checkYearSpan` 的文档里一句写清：上界管的是**年份的宽度**（五位 `iso` 喂不进 `toDay` 自己的四位正则），下界管的是那一天取不到界内生日 | 无新增判据（不碰行为） |
+| k-4 | Minor（**不采纳**） | 复核建议：`BIRTH_FLOOR` 已 `export` 而 `YEAR_CEILING` 没有，判据只能把 9999 与 `'10000-01-01'` 写成字面量，"两界对称性缺一档" | **反向**：界在判据里写死是故意的——常量哪天挪了，写死的判据该红，跟着 `import` 走的判据会静默跟着改。`BIRTH_FLOOR` 被测试导入的用处只有报错文案与生日区间断言，不是拿它当"界的定义"。这一条理由就写在那两行构造旁边 | 同上（判据原位那两句注释） |
+| d-1 | Minor（文档） | §4.11 的 C-f1a / C-f1c 两行与 §4.13、§3 各处写着"B15 从 60 行长成 94 行"，两个数都是各轮**中途**的数，在任何一份最终文本上都复算不出来（本轮按锚点量到的是 104 行） | 表格行里的计数一律撤掉，只留内容锚点（"`test('B15 年份 1..9999…` 那一条删到文件尾"），另给一条 `sed` 复算式（见 §4.11 末）；§4.13 的"31 行"改成"第十轮删的是 31 行、第十一轮接进 `birthDate` 那一格后是 42 行" | 无（不碰代码） |
+| d-2 | Minor（文档） | 第十轮 G1 那行与 B15 原位注释都写"整改前解析侧照给结论（`state = 'checkdigit'`）"。按判据真正用的那个号 `110101199003070011` 在摘掉上界的镜像上复算，得的是 `state = 'valid'`、周岁 8009；`checkdigit` 只有换成 `11010119900307001X` 才成立，而那个号从没写在句子里 | 两处都改成"结论连着号一起写"，并在原位标出这是第十一轮复算出来的更正 | 无（同一份镜像上复跑，构造与结论同段） |
+| d-3 | Minor（文档） | §4.13 末那句"1,000 条夹具的 `today` 全在 2026 与 1900 之间"没有对象：夹具每条 case 都带一个 `today`，去重之后只有 `2026-09-25` 一个值，"1900 那头"讲的是 `oracleBirth` 的年 | 换成实测 + 复算式：`1000 条 / today ["2026-09-25"] / 生日年 1881..2099`（命令见 §4.11 末），"两头都在界内"这个结论本身不变 | 无；夹具哈希与字节数另测（下一段） |
+
+**收口时顺带撞见的一条流程教训**：第一次那批变异跑（§4.11 末尾记的 ①）里有三行的红名单带着 A7 / A8 / A9 与 B14——不是判据变了，是本机 `/tmp` 所在卷只剩 69Mi、镜像里那些起子进程的判据写临时文件写不下。锚点命中数那道闸拦不住这种噪声，因为它坏的不是被摘的那一行。**清掉本轮自己留下的旧镜像（六个 `/tmp` 镜像共约 585 MB）之后单独重跑，红名单才回到"只 B15"**。往后每轮开工前先量一次磁盘，别再拿"红了就是那针有效"当结论。
+
+产物与门禁在第十一轮之后的实测：`wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = **1,674 / 584 / 25 / 328**，`node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` = `# tests 27 / # pass 27 / # fail 0`、`exit=0`，两个 `--check` 都退 0，夹具 248,934B / `16971baa…` 与区划产物 `a7e26d54…` 一字未动，计划里那七块内嵌代码与磁盘逐字节全等（`node /tmp/verify-blocks.mjs` 退 0）。基线仍是 27 条：本轮没新增判据条目，只是把 `birthDate` 那一格接进 B15 已有的那一段。
 
 ---
 
@@ -4565,7 +5056,7 @@ git commit -m "feat(tools): 面板框架纯状态机（ARIA Tabs / roving tabind
 
 设计文档 §6.5 说这份文件按 `assets/fonts/LICENSES.md` 的既有做法写，本轮实测发现两件事必须在计划里落字，否则执行时会照抄一个错的口径：
 
-1. **`_config.yml:254` 已有 `- "assets/**/*.md"`**，`assets/fonts/LICENSES.md` 因此**并不进 `_site`**，也不会公开在 `/better-blog/assets/fonts/LICENSES.md`。归属记录留在仓库、不留在线上，是本站既定口径；新文件落在同一个 glob 下，**不需要改任何配置**，Step 2 只做实测确认。
+1. **`_config.yml` 的 `exclude:` 列表里已有 `- "assets/**/*.md"` 这一行**（实测 `grep -n 'assets/\*\*/\*\.md' _config.yml`，第十一时为 276 行；这里不写行号——那个文件正被另一个会话改，第十一轮量到它从 254 漂到了 276），`assets/fonts/LICENSES.md` 因此**并不进 `_site`**，也不会公开在 `/better-blog/assets/fonts/LICENSES.md`。归属记录留在仓库、不留在线上，是本站既定口径；新文件落在同一个 glob 下，**不需要改任何配置**，Step 2 只做实测确认。
 2. **站内 IDValidator 副本的许可通知是不完整的**：`demo/idCardDemo/lib/IDValidator.js` 文件头只有 `Released under the MIT license` 一行，**没有版权行**；同目录的 `GB2260.js` 连文件头都没有。上游 `mc-zone/IDValidator` 的许可文件是 `MIT-LICENSE`（GitHub API 实测 `license.spdx_id = "NOASSERTION"`——它用的是 2014 年老式写法，GitHub 认不出来，但正文首行就是 `Copyright (c) 2014 mc-zone`）。MIT 的义务就是把版权行与许可原文保留在分发物里，所以**完整通知必须逐字抄进本文件**——段 5 删掉 `demo/idCardDemo/` 之后，仓库里只有这一处能满足它。相应地，Task 1 `SOURCES.json` 里 `licenseTextAt` 指的那一行只算"上游自称 MIT"，不是许可文本本身。
 
 WTFPL 一侧本轮二次复核过：`api.github.com/repos/modood/Administrative-divisions-of-China/license` 返回 `path=LICENSE`、`spdx_id=WTFPL`，正文就是 "DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE Version 2" 那三段。它没有任何附加条件，署名纯靠善意——但数据本体（区划码与名称）是国家统计局公布的政府公开信息，modood 整理的是格式，这一层区别也要写清楚，否则读的人以为区划代码是某个 GitHub 仓库的创作。
@@ -4679,7 +5170,7 @@ ls /tmp/site-task7/assets/data 2>&1
 
 Expected: `build exit=0`；`find` **无任何输出**（全站 `.md` 都排在 `assets/**/*.md` 与根级 `CHANGELOG.md`／`LICENSE` 等条目之外，这同时是 `assets/fonts/LICENSES.md` 走同一条规则的实证）；`ls` 报 `No such file or directory`。
 
-`find` 若输出任何一行，先看是不是本文件被写上了 YAML front matter——带 front matter 的 `.md` 会被 Jekyll 当页面渲染成 `.html` 并公开，`_config.yml:248-254` 那条注释记录的就是这个坑的历史（修之前线上有 44 个英文配图笔记）。**不要靠给这一个文件另加 `exclude` 条目来收口**，`assets/**/*.md` 已经覆盖，另加一条只会让人以为该目录下的 `.md` 默认会上线。
+`find` 若输出任何一行，先看是不是本文件被写上了 YAML front matter——带 front matter 的 `.md` 会被 Jekyll 当页面渲染成 `.html` 并公开，`_config.yml` 里紧挨 `- "assets/**/*.md"` 上方那段注释（"文章配图的工作笔记……正是拉低全站质量评分的那类低价值页"）记录的就是这个坑的历史（修之前线上有 44 个英文配图笔记）。**不要靠给这一个文件另加 `exclude` 条目来收口**，`assets/**/*.md` 已经覆盖，另加一条只会让人以为该目录下的 `.md` 默认会上线。
 
 - [ ] **Step 4: 核对指针方向一致**
 
@@ -4972,5 +5463,8 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
   ② **Minor：注释里引用别的文件的位置，用行号等于埋一颗定时炸弹**——`toolkit-tests.mjs` 的 A3 注释里有一句写着"生成器那道按层级查现行的判据 `build-region-data.mjs:204-217`"，而第五轮在同一个文件里插了 `assertParentsExist`，那段区间现在装的是引用完整性那道闸门，判据本体已经移到 `build()` 里的 `curCounty`/`curCity`/`curProv`。改成按名字锚（函数名 + 变量名），复算的人照名字 grep 就行，不必担心位移。同类还有生成器自己注释里那句 `build-region-data.mjs:53`（`parseArgs` 插了参数白名单之后也漂了），一起换成 `parseArgs`。三份代码文件里的行号引用现在为 0。`SOURCES.json` 里指向 `demo/idCardDemo/lib/*.js:2` / `:6` 的两处**不动**：那是站内旧副本的原文摘录、归属证据，段 5 删 demo 时要连着 `historical.extractedFromSha256` 一起处理，不在本轮范围（清单本身不被自己核 sha256，所以改它不会立刻炸出判据——正因为这样更不能顺手改）。
   ③ **Minor：描述旧行为的句子丢了时态锚，读的人会以为它在说今天**。A5 那段"把 `joinNames` 的中段改成不做前缀剥离，12 条判据一条都不红"在整改前为真，整改之后恰好相反——复跑：摘掉剥离那一行 → `# pass 11 / # fail 1`，只红 A5。补"整改前"三字，并把今天的红名单一并写上。
   三条都只动注释与文档，产物字节一字未动（`a7e26d54…`），收口 `# pass 12 / # fail 0`、`--check` 退出 0；行数变成 431 / 389 / 851（`wc -l scripts/build-region-data.mjs dev/js/tools/region.js scripts/toolkit-tests.mjs`）。复核者另记一条**未处理观察**：`currentCityCodes('4')` 返回空集而 `currentCountyCodes('4')` 返回数百条，1 位前缀在两个入口的收窄强度不一致——它不违反"只收窄不放宽"的承诺，本轮也没有为它立主张，所以不改，留到 Task 8 一并钉口径。
-- **第七轮是 Task 4 的规格复核（八条偏离记在 §4.10），第八轮是它的代码质量复核（3 Critical + 7 Important + 4 Minor，逐条与变异台账记在 §4.11）**。§B 从 9 条长成 14 条（新增 B10–B14），夹具重新生成一次：1,000 条样本一字未动，变的只有 `pools`（`renamedByCounty` 63→62、新增 `renamedByPlaceholder: 1`），字节数 248,803 → 248,934、sha `c1657987…` → `16971baa…`。区划产物一字未动（`a7e26d54…`），`build-region-data.mjs --check` 与 `build-id-fixture.mjs --check` 都退 0，收口 `# tests 26 / # pass 26 / # fail 0`。
+- **第七轮是 Task 4 的规格复核（八条偏离记在 §4.10），第八轮是它的代码质量复核（3 Critical + 7 Important + 4 Minor，逐条与变异台账记在 §4.11）**。§B 从 9 条长成 14 条（新增 B10–B14），夹具重新生成一次：1,000 条 `cases` 逐字节相同，变的有**两个顶层键**（第九轮按 `git diff 427fff2 HEAD` 逐键复算，见 §4.10 末尾那两条）——`pools`（`renamedByCounty` 63→62、新增 `renamedByPlaceholder: 1`）与 `oracle.knownWeaknesses[3]` 的措辞；此前这里与提交信息都写成"变的只有 `pools`"，是同一处偏差的两个副本。字节数 248,803 → 248,934、sha `c1657987…` → `16971baa…`。区划产物一字未动（`a7e26d54…`），`build-region-data.mjs --check` 与 `build-id-fixture.mjs --check` 都退 0，收口 `# tests 26 / # pass 26 / # fail 0`。
 - **第八轮整改的落地过程本身出了两次事故，都记在这里省得下一个人以为"复核通过 = 有人核过"**：① 整改子智能体跑到 150 回合上限断在半路，留下全套未提交的改动 + 计划里三处指向 §4.11 的引用而 §4.11 还没写；② 它写在注释里的两句"实测"复算不出来（C-1 的"3,000 条里 20 条"没给种子起点、举的那条号其实不是生成结果），本轮按同一把尺子改成了"构造 + 结果"连着写。这两条都不是新发现的实现缺陷，而是**整改批次自己的证据缺陷**——台账 §4.11 末尾把"本轮复跑的"与"只能转述的"分成两类写清楚，就是这个用意。
+- **第九轮是第八轮整改的复核（5 Important + 9 Minor，逐条记在 §4.12，三张变异表接在 §4.11 末尾）**。真缺陷里最重的一条是 Critical 族：出生年下界对**年 10..999 整段失效**——`makeDay` 不给年份补零，而那道下界是字典序比较，`'50-06-01' > '1900-01-01'`；`utc` 那一维又走 `Date.UTC`，JS 把 0..99 折成 1900..1999，同一个号错两遍。根因两处一起修（`pad4` + `utcDay`），界统一挪进 `todayOf`（顺带结掉"报错点到别人入参头上"的 m-1），新增 **B15**，§B 从 14 条长成 15 条、基线从 26 条变成 27 条。四道零牙闸门各补了判据：15 位那一支的 `ship`、`prefixOf` 的空串 / 全空白、`todayOf` 与 `checkedRng` 的两条 `null` 分支、`shapeOf` 的 `Invalid Date`，并且每一道都跑了"病灶留着 + 新判据摘掉 → 全绿"的反向对照。**F5 是一句假事实**（生成器注释与 §4.11 的 I-7 行各一份副本）：「那 19 条重叠前缀没有一条同时在 2015 旧表里」——实测有 3 条在（`441900` / `442000` / `620201`），结论仍然成立但成立的原因换成 `620201` 那一条；同一趟复算量出 `PLACEHOLDER_CITY` 少「县」一个字，`pools` 就从 1776/156/62/93/1 变成 1764/168/62/105/1。两处"无牙"照实记：`body17` 那行（M-f1d）在可达输入上与现状不可区分，不为它造判据；`randomBirthDay` 那个投机形参（m-3）删掉，不可达分支不配判据。产物字节一字未动（夹具 248,934B / `16971baa…`、区划 `a7e26d54…`），两个 `--check` 都退 0，收口 `# tests 27 / # pass 27 / # fail 0`、`exit=0`，`wc -l scripts/toolkit-tests.mjs dev/js/tools/idcard.js dev/js/tools/random.js scripts/build-id-fixture.mjs` = 1,630 / 540 / 25 / 328。**收口时另清三处 `:行号` 引用**（判据注释里的 `:129` / `:403` / `:210`，都是本轮新增注释里写下的）换成函数名与语句原文，与第六轮 ② 同一条口径；判据文件因此比 §4.12 初次回填时多两行。落地过程**第二次**撞上同一事故：整改子智能体又断在 150 回合上限，这次断在 F7 与 Item 8 之间，留下的自述是"Item 8 green"而计划里 `build-id-fixture.mjs` 那块其实差 4 行没重灌——所以那 15 行病灶的红名单是我自己在 `/tmp/vf` 镜像上逐行重跑复算的（另加第八轮的 M-i4、反向对照 C-f1a / C-f2 三针），不是转述它的报告。**收口后又自己复跑两处**：① 三针（M-f1a + M-f1b + M-f1c）一起摘回整改前，F1 那四个号的 `valid` / `"50-06-01"` / 1976 / 1026 / 1930 与两条 `TypeError` 逐字复现；② 只摘 `utcDay` 那一针（M-f1b）下生成侧"安静出货"的那条号——原先记的 `652928193001024461` 是**没钉种子的一次采样**（`rng` 缺省走 `seededRandom(Date.now())`，重跑必换号），已换成 `seededRandom(3)` 下可复算的 `510131190104034564`（生日 `1901-04-03`、`age` 为 `null`），并把 `utcDay(50, 6, 1) = -60576249600000` / `Date.UTC(50, 5, 1) = -618105600000` / `BIRTH_FLOOR_UTC = -2208988800000` 三个时间戳一起写进 §4.12。
+- **第十轮是第九轮那批整改的复核（1 项 Important + 5 条 Minor，逐条记在 §4.13，两张小表接在 §4.11 末尾）**。审的尺子与第九轮同一把，抓到的是**界只管了一头**：`todayOf` 那道下界拦住了"太早"，公元 10000 年那一头却开着——`toDay` 的字符串正则只收四位年，`Date` 形状走 `getFullYear()` 不受宽度约束，于是同一天用串传被拒、用 Date 传被接受；`pad4` 只补不截，五位 `today.iso` 回头喂不进自检那句 `parseIdCard(id18, { today: today.iso })`，崩在自检、报的却是「parseIdCard 的 options.today」，也就是**第九轮刚宣布结掉的 m-1 那一类甩锅在另一头复活**（G1）。修法是在下界旁边加一道 `YEAR_CEILING = 9999`，两个入口共用、各点各的名；判据接在 B15 里而不是新写第 28 条（同一条守卫的契约不拆家），代价是 B15 那一条判据变长、标题改写，于是台账里凡引用那条标题或"只 B15"的五行（M-f1a / M-f1b / M-f1c / C-f1a / C-f1c）都在最终文本上重跑过，结果与第九轮逐字相同。**基线仍 27 条**、`# pass 27 / # fail 0`、`exit=0`，`wc -l` = **1,663 / 565 / 25 / 328**，夹具 248,934B / `16971baa…` 与区划 `a7e26d54…` 一字未动，两个 `--check` 都退 0。五条 Minor 里三条是文档自己不对数（§4.12 的"三处 `throw` → `die()` / 两个空行"实为 4 与 1；m-8 行那句"另外三道闸门早就是一行 stderr + 退 1"是假话；头部那句"F1–F6 六项加 8 条 Minor"两头都不对、且 m-7 那行初次回填时漏了），两条是只欠文档的既有口径（`Date` 形状在下界那一格随时区分叉、数值 `raw` 超 2^53 时末位在被看见之前就掉了）——都按"改文档不改行为"结清，理由写在各自行里。G1 的牙齿：M-g1（摘掉上界那三行 → 只 B15 红）与 C-g1（病灶留着 + 删掉 B15 里新写的 31 行 → 27 条全绿）。
+- **第十一轮是第十轮那处整改（G1）自己的验证性复核（2 项 Important + 2 条 Minor + 3 处文档对不上数，逐条记在 §4.14，六行变异表接在 §4.11 末尾）**。抓到的是**修好一处、旁边留了一处**：① 那道新加的 `YEAR_CEILING` 只长在 `todayOf` 里，而 `generateIdCards` 的 `birthDate` 不走 `todayOf`——实跑 `birthDate = new Date(10000, 0, 1)` 抛的是「options.birthDate（10000-01-01）**不得早于** 1900-01-01」，年 20000 抛"不得晚于今天"，**越的是上界、理由指着下界**，与 m-1 / G1 同一类"报错指错地方"（k-2）；② 第十轮为 G1 新写的那段判据里两条 `Date` 用 `new Date(0)` + `setUTCFullYear` 造，那是 UTC 零点而 `toDay` 取本地读数 ⇒ **负偏移时区里代码一字未变异，B15 就是红的**（实测 `TZ=America/Los_Angeles` 在镜像上 `# pass 26 / # fail 1`），而正偏移时区一律看不出来（k-1）。修法：那一刀抽成 `checkYearSpan(day, what)` 给三条入参路径共用（`today` 两侧 + `birthDate`），B15 里为 `birthDate` 那一格补四条断言（含"不许说不得早于"）；两条 `Date` 换成本地分量构造，行为一字不改——它是 n-4 早已写下的既有口径，本轮欠的是判据。牙齿：M-k1 / M-k1b / M-k1c 三针各只红 B15（`# pass 26 / # fail 1`）、C-k1（病灶留着 + 删掉 B15 里那 42 行 → 27 条全绿）、**M-k2 是本轮最有牙的一针**：只把判据那两行退回第十轮的构造、实现不动，`TZ=Asia/Shanghai` 全绿而 `TZ=America/Los_Angeles` 只 B15 红。当前文本在五个时区（Los_Angeles / Shanghai / Apia / Kiritimati / Sao_Paulo）逐条 `# pass 27 / # fail 0`。复核那条"该把 `YEAR_CEILING` 也 export 好与 `BIRTH_FLOOR` 对称"的建议**不采纳**：界在判据里写死是故意的，常量挪了判据该红而不是跟着改（k-4）。三处文档账（d-1/d-2/d-3）都是"数字复算不出来"那一类：B15 的"60 → 94 行"是两轮中途的数（本轮按锚点量到 104 行，计数从表格行里撤掉换成 `sed` 复算式）、第十轮那句"整改前解析侧给 `checkdigit`"按判据真正用的号复算是 `valid` + 周岁 8009（`checkdigit` 得换 `…07001X`，而那个号没写在句子里）、§4.13 那句"夹具的 `today` 全在 2026 与 1900 之间"没有对象（去重只有 `2026-09-25` 一个值，1900 那头讲的是生日年）。另有一条流程账：第一次那批变异跑里 A7 / A8 / A9 / B14 混进红名单，是 `/tmp` 所在卷只剩 69Mi 时子进程写不下临时文件的噪声，锚点命中数那道闸拦不住它——清掉本轮自己的六个旧镜像后单独重跑才回到"只 B15"，**往后每轮开工前先量磁盘**。收口实测：`wc -l` = **1,674 / 584 / 25 / 328**、`# tests 27 / # pass 27 / # fail 0`、`exit=0`、两个 `--check` 都退 0、夹具与区划产物一字未动、计划内嵌七块与磁盘逐字节全等；**基线仍 27 条**（`birthDate` 那一格接进 B15 已有的段落，没新开第 28 条）。
