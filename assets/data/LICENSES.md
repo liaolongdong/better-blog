@@ -18,14 +18,28 @@ WTFPL 的复核方式记在这里，因为它推翻了"记得是 MIT"这类口�
 `SOURCES.json` 里 `license` 因此写 `WTFPL`，`licenseEvidence` 则记原文哈希而非「HTTP 200」，
 因为一次成功的请求不是证据。WTFPL 无任何附加条件，署名纯按惯例。
 
-## 二、数据本体不是这两个仓库的创作
+## 二、行别与号段两张表（`/tools/idcard.html` 的银行卡与手机号面板）
+
+| 用途 | 来源 | 许可 | 取到的东西 |
+| --- | --- | --- | --- |
+| 银行卡 BIN → 发卡行 / 卡种类 / 卡号长度（`bank-bin-data.js`） | [hexindai/bcbc](https://github.com/hexindai/bcbc) 的 `data/bin.csv` + `data/name.csv`，pin 在 commit `de631827ffe8db2792d140f3476b02498fc1244f`（2025-02-05） | MIT | 1,709 条 BIN、260 个行别码；BIN 长 3–10 位，卡号长度只有 15–19 五种 |
+| 三位号段 → 运营商（`carrier-data.js`） | [LSG-PolarBear/impulse](https://github.com/LSG-PolarBear/impulse) 的 `impulse.py` 里 `OPERATORS` 字典，pin 在 commit `dcacca9bf28132ca6938eb2c162e9b222ae02a53`（2026-08-28） | Apache-2.0 | 5 家运营商 / 56 个三位号段 |
+
+两张都是**第三方整理的结果**，不是银联也不是工信部的发布物，所以面板上各带一行"仅供参考、
+不承诺全量"。号段这张只有**一个来源**：编号计划原文取不到（wikipedia 在本机恒超时、baike
+只返回反爬壳），可交叉核对的归属地仓库 `ls0f/phone`、`dannyhu926/phone_location`、`funNLP`
+**全部无 license**（等于保留所有权利），所以一张都不抄。这个缺口同时决定了
+`scripts/toolkit-tests.mjs` 的 §F 只断自洽性、不断外部正确性——细节在
+`scripts/fixtures/carrier/SOURCES.json` 的 `knownGap`。
+
+## 三、数据本体不是这两个仓库的创作
 
 三级区划的代码与名称来自国家统计局公布的**统计用区划和城乡划分代码**，属政府公开信息；
 modood 做的是采集与格式整理，其许可覆盖的是那份 JSON 的编排表达。同理，GB/T 2260 是推荐性
 国家标准，本站只使用其中的**代码与名称这一组事实**，不转录标准正文、不复述标准里的层级划分
 说明文字。这一层区别要写清楚，否则读起来像是某个 GitHub 仓库创作了区划代码。
 
-## 三、IDValidator 的 MIT 许可通知（逐字保留）
+## 四、IDValidator 的 MIT 许可通知（逐字保留）
 
 站内 `demo/idCardDemo/lib/IDValidator.js` 的文件头只有 `Released under the MIT license` 一行，
 没有版权行，而同目录的 `GB2260.js` 连文件头都没有——所以许可通知从上游
@@ -43,7 +57,7 @@ The MIT License (MIT)
 （身份证校验位是自行按 GB 11643-1999 口径实现的，对拍关系见 `scripts/fixtures/id-validator-checkbit-1000.json`
 的生成器注释）。旧 demo 目录移除后，本文件是仓库内保留该通知的唯一位置。
 
-## 四、查过但没有用的第三方实现
+## 五、查过但没有用的第三方实现
 
 - npm `uscc@1.2.0`：校验逻辑可用，但 `registry.npmjs.org/uscc/1.2.0` 的 `license` 字段实测为
   **GPL-3.0**。本站代码以 MIT 分发（见根目录 `LICENSE`），引入 GPL-3.0 前端代码会把随包分发的
@@ -51,7 +65,7 @@ The MIT License (MIT)
 - npm `id-validator`（mc-zone 同一作品）：其随包的 GB2260 表就是本文第一节的旧副本来源。
   算法部分本站自己实现，为的是与设计文档 §5.4 的三态判定契约同构，不接依赖。
 
-## 五、新增来源时的义务
+## 六、新增来源时的义务
 
 后续每加一份"别人整理出来、我们只是使用"的东西（数据表、字体、图标、第三方依赖），
 必须在本文第一节加行，并同步其机器可读清单（若该数据由脚本生成，则同步

@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "fetchedAt": "2026-09-26",
+  "dataset": {
+    "provider": "hexindai/bcbc",
+    "ref": "de631827ffe8db2792d140f3476b02498fc1244f",
+    "refNote": "钉死在不可变的 commit 上（master @ 2025-02-05T07:44:34Z）。抓两条 URL：jsdelivr 的 @<sha> 与 raw 的 /<sha>/，两边都写 commit 而不是 master，分支前进不影响复现。",
+    "license": "MIT",
+    "licenseEvidence": "仓库根 LICENSE 原文首段 MIT License、版权行 Copyright (c) 2018 - 2020 Runswen；GitHub API /repos/hexindai/bcbc 返回 license.spdx_id=MIT。",
+    "natureOfData": "第三方整理的银联卡 BIN 对照表（发卡行码、卡种类、该 BIN 登记的卡号长度），不是银联官方发布。"
+  },
+  "files": [
+    {
+      "file": "bin.csv",
+      "url": "https://cdn.jsdelivr.net/gh/hexindai/bcbc@de631827ffe8db2792d140f3476b02498fc1244f/data/bin.csv",
+      "kind": "bin",
+      "bytes": 31515,
+      "sha256": "9ebabf828af89e50c6fbfdcaac3cf6f46757d36003007a9458b5c04fc1140de6",
+      "count": 1709,
+      "header": "bin,bank,type,length"
+    },
+    {
+      "file": "name.csv",
+      "url": "https://cdn.jsdelivr.net/gh/hexindai/bcbc@de631827ffe8db2792d140f3476b02498fc1244f/data/name.csv",
+      "kind": "name",
+      "bytes": 6849,
+      "sha256": "1a77cec8dacac144179173917512500b63a7814005ad15d04cd722d11558b20f",
+      "count": 298,
+      "header": "bank,name"
+    }
+  ]
+}

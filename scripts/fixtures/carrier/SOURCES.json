@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "fetchedAt": "2026-09-26",
+  "dataset": {
+    "provider": "LSG-PolarBear/impulse",
+    "ref": "dcacca9bf28132ca6938eb2c162e9b222ae02a53",
+    "refNote": "master @ 2026-08-28T03:08:54Z。仓库只有一个 impulse.py + README + LICENSE，号段数据在 OPERATORS 字典里。",
+    "license": "Apache-2.0",
+    "licenseEvidence": "GitHub API /repos/LSG-PolarBear/impulse 返回 license.spdx_id=Apache-2.0，仓库根 LICENSE 为 Apache 2.0 正文。",
+    "natureOfData": "第三方整理的三位号段 → 运营商归属，用途是渗透测试字典生成。",
+    "knownGap": "工信部《电信网编号计划》原文与两份可交叉核对的公开整理稿都没能在这台机器上取到（wikipedia 恒超时、baike 返回反爬壳、libphonenumber 的 86_zh 是 482 字节二进制且粒度粗于三位段；归属地类仓库 ls0f/phone、dannyhu926/phone_location、funNLP 均无 license，等于保留所有权利，不可抄）。因此本表是唯一来源，读侧一律标『仅供参考』，判据 §F 只断自洽不断外部正确性。"
+  },
+  "files": [
+    {
+      "file": "impulse.py",
+      "url": "https://cdn.jsdelivr.net/gh/LSG-PolarBear/impulse@dcacca9bf28132ca6938eb2c162e9b222ae02a53/impulse.py",
+      "kind": "operators",
+      "bytes": 23548,
+      "sha256": "176254550e0aca653e86cde1f21409c7d76b41867fbf7d66df85054683ce1fe2",
+      "count": 56
+    }
+  ]
+}

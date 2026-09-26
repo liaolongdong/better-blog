@@ -2552,3 +2552,67 @@ test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
       `createPanelWorkspace：${why} —— 落到原生报错等于没闸门 → ${err.message}`);
   }
 });
+
+// ── §E0 银行卡码表数据形状（快照 → 生成物） ──────────────────────────────
+const { BANKS, BIN_ROWS } = await import('../dev/js/tools/bank-bin-data.js');
+test('E0-1 生成物与快照同步：--check 必须退 0', () => {
+  // 这条判据不看内容只看退出码：它防的是"改了快照忘了重跑生成器"这一整类漂移。
+  const r = spawnSync(process.execPath, ['scripts/build-prefix-data.mjs', '--check'],
+    { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(r.status, 0, `生成物落后于快照：\n${r.stdout}${r.stderr}`);
+});
+test('E0-2 BIN 表：形状、行别下标、并列登记按字典序且一条不丢', () => {
+  assert.equal(BANKS.length, 260, '行别码条数与快照实测不一致');
+  const rows = BIN_ROWS.split(';');
+  assert.equal(rows.length, 1709, '条目数少于快照行数——并列登记被去掉了');
+  assert.deepEqual([...rows].sort(), rows, '条目没有按文本排序，取哪一条不确定');
+  const counts = new Map();
+  for (const row of rows) {
+    const [bin, idx, type, len] = row.split(' ');
+    assert.match(bin, /^\d{3,10}$/);
+    counts.set(bin, (counts.get(bin) ?? 0) + 1);
+    assert.ok(Number.isInteger(+idx) && +idx >= 0 && +idx < BANKS.length, `${bin} 的行别下标越界`);
+    assert.ok(['DC', 'CC', 'PC', 'SCC'].includes(type), `${bin} 的卡种类 ${type} 不在已知的四种里`);
+    // 快照实测只有 15–19 五档（15:5、16:1005、17:52、18:89、19:558）。出现 14 或 20
+    // 就是上游加了新卡种，读侧的"长度不符"文案要人重看，所以这里钉死而不是给区间。
+    assert.ok([15, 16, 17, 18, 19].includes(+len), `${bin} 的卡号长度 ${len} 不在五档里`);
+  }
+  // 上游本来就有 12 个 BIN 挂着两条登记（快照实测 1,709 行 / 1,697 个不同 BIN）。
+  // 这一格把"读到几条并列"钉住，读侧据此决定要不要把候选都列出来（Task 2 的 E6）。
+  const dup = [...counts.entries()].filter(([, n]) => n > 1);
+  assert.equal(counts.size, 1697);
+  assert.equal(dup.length, 12, `并列登记的 BIN 个数变了：${dup.map(([b]) => b).join(' ')}`);
+  assert.ok(dup.every(([, n]) => n === 2), '出现了三条以上的并列登记，读侧的展示口径要重定');
+});
+
+test('E0-3 每一位数档都有代表，最长前缀不是只对着 6 位一种写', () => {
+  const byLen = new Map();
+  for (const row of BIN_ROWS.split(';')) {
+    const n = row.split(' ')[0].length;
+    byLen.set(n, (byLen.get(n) ?? 0) + 1);
+  }
+  // 快照实测：3 位 2 条、4 位 3 条、5 位 30 条、6 位 1,594 条、7 位 2 条、8 位 28 条、
+  // 9 位 48 条、10 位 2 条。少任何一档，说明读侧的分桶在生成器里就没被写全。
+  for (const [n, want] of [[3, 2], [4, 3], [5, 30], [6, 1594], [7, 2], [8, 28], [9, 48], [10, 2]]) {
+    assert.equal(byLen.get(n) ?? 0, want, `${n} 位 BIN 条数变了`);
+  }
+});
+
+// ── §F0 号段数据形状 ─────────────────────────────────────────────────────
+const { CARRIER_SEGMENTS } = await import('../dev/js/tools/carrier-data.js');
+test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
+  assert.equal(CARRIER_SEGMENTS.length, 5);
+  const owner = new Map();
+  let total = 0;
+  for (const [carrier, segsText] of CARRIER_SEGMENTS) {
+    const segs = segsText.split(' ');
+    assert.ok(segs.length > 0, `${carrier} 一个号段都没有`);
+    total += segs.length;
+    for (const s of segs) {
+      assert.match(s, /^1[3-9]\d$/, `${carrier} 的号段 ${s} 不是合法的三位移动段`);
+      assert.ok(!owner.has(s), `号段 ${s} 同时属于 ${owner.get(s)} 与 ${carrier}`);
+      owner.set(s, carrier);
+    }
+  }
+  assert.equal(total, 56);
+});
