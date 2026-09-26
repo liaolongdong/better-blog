@@ -311,6 +311,31 @@
       "h2Emoji": [
         "🚭"
       ]
+    },
+    {
+      "date": "2026-09-26",
+      "job": "B",
+      "slug": "github-actions-2500-cap",
+      "variant": "B1",
+      "titleTpl": "T8",
+      "emojiBudget": "none",
+      "h2Count": 4,
+      "chars": 2609,
+      "tableMode": "none",
+      "openingType": "number",
+      "endingType": "nextWeekHook",
+      "outlookForm": "h3",
+      "styleBlock": true,
+      "highlightBox": true,
+      "h2Titles": [
+        "墙没拆，只是换了个数",
+        "API 那个数没有标记位",
+        "拆成两段才知道差多少",
+        "「我量不到的三处」"
+      ],
+      "h2Emoji": [],
+      "subtopicMode": "single-callback",
+      "promisesClosed": 1
     }
   ],
   "titleTplHistory": [
@@ -325,7 +350,8 @@
     "T6",
     "T1",
     "T5",
-    "T3"
+    "T3",
+    "T8"
   ],
   "emojiLedger": {
     "lastSets": [
@@ -522,99 +548,146 @@
     "176 条 bullet 里，找不到这次修复",
     "google/ax 的第二天：读的人多了，装的人没多",
     "1.1 MB、64 个文件，和一条 exec 的三个入参",
-    "那笔 pnpm 旧账：我原本要验顺序，结果验的是它在不在图里"
+    "那笔 pnpm 旧账：我原本要验顺序，结果验的是它在不在图里",
+    "墙没拆，只是换了个数",
+    "API 那个数没有标记位",
+    "拆成两段才知道差多少",
+    "「我量不到的三处」"
   ],
   "promiseQueue": [
     {
-      "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）",
+      "text": "worktrunk 若在下一个 release 把 `require_minimum_git` 从「拒绝启动」改成「列出哪些子命令在 git 2.39 上还能用」，就在插件项目上真做一次 `wt step copy-ignored` 的 node_modules reflink，回来更新正文那句 2.1 倍（v0.77.0/0.78.0/0.79.0 发于 09-08、09-16、09-21，两跳隔 8 天和 5 天）｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-21",
       "job": "A",
-      "slug": "one-worktree-per-agent"
+      "slug": "one-worktree-per-agent",
+      "carried": 1
     },
     {
-      "text": "atlas 若 README 里那行 `<!-- #todo homebrew tap -->` 变成真的 `brew install atlas`，就拿它和 worktrunk 在同一个假仓库上对一次 checkpoint 与工作树磁盘成本",
+      "text": "atlas 若 README 里那行 `<!-- #todo homebrew tap -->` 变成真的 `brew install atlas`，就拿它和 worktrunk 在同一个假仓库上对一次 checkpoint 与工作树磁盘成本｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-21",
       "job": "A",
-      "slug": "one-worktree-per-agent"
+      "slug": "one-worktree-per-agent",
+      "carried": 1
     },
     {
-      "text": "拿本期量出的 planned 1,053 B / covered 2,276 B 每 unit 这两个字节数，回头量我自己那两份 wxt 扩展仓库的真实 ledger 形状（`src/` 入口面数 × 信任边界数），确认 5 MiB 这道门对我到不到得了｜09-23 半结：第一份已量（10 份 spec / 2,029 行 / 报告 543,871 B），第二份仍未动",
+      "text": "拿本期量出的 planned 1,053 B / covered 2,276 B 每 unit 这两个字节数，回头量我自己那两份 wxt 扩展仓库的真实 ledger 形状（`src/` 入口面数 × 信任边界数），确认 5 MiB 这道门对我到不到得了｜09-23 半结：第一份已量（10 份 spec / 2,029 行 / 报告 543,871 B），第二份仍未动｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-22",
       "job": "A",
       "slug": "security-audit-two-validators",
-      "half_open": true
+      "half_open": true,
+      "carried": 1
     },
     {
-      "text": "roadmap §2 那句 `MCP and skill materialization` 一旦出现 setup actor，或 `internal/workspace/` 里冒出读 `Spec.Mcp` 的第四处（同一条 grep：`grep -rn \"\\.Mcp\\b\" --include='*.go' . | grep -v '_test.go\\|\\.pb\\.go'`），回来把本篇第二节「零装配」改成「曾有」｜09-25 复查：`docs/roadmap.md:20` 那句 split 原样在，`internal/workspace/` 读 `Spec.Mcp` 仍只有 `planner.go:82` 一处，条件不成立，继续挂",
+      "text": "roadmap §2 那句 `MCP and skill materialization` 一旦出现 setup actor，或 `internal/workspace/` 里冒出读 `Spec.Mcp` 的第四处（同一条 grep：`grep -rn \"\\.Mcp\\b\" --include='*.go' . | grep -v '_test.go\\|\\.pb\\.go'`），回来把本篇第二节「零装配」改成「曾有」｜09-25 复查：`docs/roadmap.md:20` 那句 split 原样在，`internal/workspace/` 读 `Spec.Mcp` 仍只有 `planner.go:82` 一处，条件不成立，继续挂｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-24",
       "job": "B",
-      "slug": "google-ax-workspace-materialization"
+      "slug": "google-ax-workspace-materialization",
+      "carried": 2
     },
     {
-      "text": "`examples/task.yaml:49` 那份 chalk 的 `git:` 声明若也被从示例里清掉，说明 #391 之后的「稳定面」又缩了一格，本篇第五节那条 todo 兑现｜09-25 复查：HEAD `e70162a` 的 `examples/task.yaml:44-49` 那六行（含 chalk 的 `repo:`）原样在，条件不成立，继续挂",
+      "text": "`examples/task.yaml:49` 那份 chalk 的 `git:` 声明若也被从示例里清掉，说明 #391 之后的「稳定面」又缩了一格，本篇第五节那条 todo 兑现｜09-25 复查：HEAD `e70162a` 的 `examples/task.yaml:44-49` 那六行（含 chalk 的 `repo:`）原样在，条件不成立，继续挂｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-24",
       "job": "B",
-      "slug": "google-ax-workspace-materialization"
+      "slug": "google-ax-workspace-materialization",
+      "carried": 2
     },
     {
-      "text": "`Spec.Mcp` 的第 4 个读取点：0 就是 0，下次用同一条 grep 复跑，出现就把本篇第三节整节改写｜09-25 复查：同一条 grep 从 4 行长到 8 行，读取点仍是 3 个（多出的 4 行全在 `runDescribe` 内），装配侧还是 0，条件不成立，继续挂",
+      "text": "`Spec.Mcp` 的第 4 个读取点：0 就是 0，下次用同一条 grep 复跑，出现就把本篇第三节整节改写｜09-25 复查：同一条 grep 从 4 行长到 8 行，读取点仍是 3 个（多出的 4 行全在 `runDescribe` 内），装配侧还是 0，条件不成立，继续挂｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-24",
       "job": "B",
-      "slug": "google-ax-workspace-materialization"
+      "slug": "google-ax-workspace-materialization",
+      "carried": 2
     },
     {
-      "text": "把这份扩展装进一个不登录任何站点的新 profile，跑一次 `snapshot`，量它一次任务真吐给 agent 多少字节，与 `SKILL.md` 那 6,804 常驻比谁大（09-23 悬置疑问①②：本期没把扩展装进真浏览器，「一次任务吐多少字节」这个数没有）",
+      "text": "把这份扩展装进一个不登录任何站点的新 profile，跑一次 `snapshot`，量它一次任务真吐给 agent 多少字节，与 `SKILL.md` 那 6,804 常驻比谁大（09-23 悬置疑问①②：本期没把扩展装进真浏览器，「一次任务吐多少字节」这个数没有）｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-23",
       "job": "A",
-      "slug": "browser-skill-context-bytes"
+      "slug": "browser-skill-context-bytes",
+      "carried": 1
     },
     {
-      "text": "`allowed_extension_ids` 哪天从 `crates/bsk-cli/src/daemon/ws.rs:39` 的注释变成 `DaemonConfig` 的真实字段（配 `ws.rs:41-44` 那句「同机侧载现在能过」被删），就回来改写安全那一节；它一直是注释，那一节就照形状口径写",
+      "text": "`allowed_extension_ids` 哪天从 `crates/bsk-cli/src/daemon/ws.rs:39` 的注释变成 `DaemonConfig` 的真实字段（配 `ws.rs:41-44` 那句「同机侧载现在能过」被删），就回来改写安全那一节；它一直是注释，那一节就照形状口径写｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-23",
       "job": "A",
-      "slug": "browser-skill-context-bytes"
+      "slug": "browser-skill-context-bytes",
+      "carried": 1
     },
     {
-      "text": "PR #275 一旦进 main，开头那段 `error: unexpected argument '--no-wait' found` 压成一句，并把「我要的 flag 还在 PR 里」这个小标题作废",
+      "text": "PR #275 一旦进 main，开头那段 `error: unexpected argument '--no-wait' found` 压成一句，并把「我要的 flag 还在 PR 里」这个小标题作废｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-23",
       "job": "A",
-      "slug": "browser-skill-context-bytes"
+      "slug": "browser-skill-context-bytes",
+      "carried": 1
     },
     {
-      "text": "chrome-devtools-mcp 升到 1.9.0 之后重跑同一条 `tools/list` stdio 探测，看 25,766 是否继续涨、`name`+`description` 层（1.8.0 是 4,037 B）是否继续缩",
+      "text": "chrome-devtools-mcp 升到 1.9.0 之后重跑同一条 `tools/list` stdio 探测，看 25,766 是否继续涨、`name`+`description` 层（1.8.0 是 4,037 B）是否继续缩｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-23",
       "job": "A",
-      "slug": "browser-skill-context-bytes"
+      "slug": "browser-skill-context-bytes",
+      "carried": 1
     },
     {
-      "text": "第二份 wxt 扩展仓库的 ledger 形状（承接上期那半笔）：入口面数 × 信任边界数，与 10 份 spec / 2,029 行 / 543,871 B 那份并排，再判 5 MiB 那道门",
+      "text": "第二份 wxt 扩展仓库的 ledger 形状（承接上期那半笔）：入口面数 × 信任边界数，与 10 份 spec / 2,029 行 / 543,871 B 那份并排，再判 5 MiB 那道门｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-23",
       "job": "A",
-      "slug": "browser-skill-context-bytes"
+      "slug": "browser-skill-context-bytes",
+      "carried": 1
     },
     {
-      "text": "盯 memory 文档 400 行与 571 行那两句 `Before v2.1.281`：一旦被删或改写，官方口径就从「某些会话」挪到纯版本口径，本篇第一节要跟着改｜09-25 展望第 1 件",
+      "text": "盯 memory 文档 400 行与 571 行那两句 `Before v2.1.281`：一旦被删或改写，官方口径就从「某些会话」挪到纯版本口径，本篇第一节要跟着改｜09-25 展望第 1 件｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-25",
       "job": "B",
-      "slug": "claude-agents-md-remote-gate"
+      "slug": "claude-agents-md-remote-gate",
+      "carried": 1
     },
     {
-      "text": "重跑同一条对 `mods/agents-md` README 的 grep：09-25T14:16Z 量到 `tengu` 0 次、`flag` 0 次、`telemetry` 5 次；`flag` 字样一旦回到这份源码，说明开关换了实现而不是被拆，本篇第二节要重写｜09-25 展望第 2 件",
+      "text": "重跑同一条对 `mods/agents-md` README 的 grep：09-25T14:16Z 量到 `tengu` 0 次、`flag` 0 次、`telemetry` 5 次；`flag` 字样一旦回到这份源码，说明开关换了实现而不是被拆，本篇第二节要重写｜09-25 展望第 2 件｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-25",
       "job": "B",
-      "slug": "claude-agents-md-remote-gate"
+      "slug": "claude-agents-md-remote-gate",
+      "carried": 1
     },
     {
-      "text": "比 2.1.282 更新的 release body 若 `AGENTS.md` 命中仍为 0，就把「一次修复没在 release note 留下可 grep 的字，等同于没发生」写进我自己的核对清单当硬规则，并在正文第一节交代这条规则是哪天立的｜09-25 展望第 3 件",
+      "text": "真在自己的仓库开 `pipelines:` 时，配一条断言：把 `pnpm pipeline` stdout 里那句 `N tasks` 与 `tasks:` 声明的边数比一次，对不上就红（本期量到拼错 `dependsOn` 会让 2 tasks 变 1 tasks 而 exit 仍为 0）｜09-25 第六节末尾那个决定｜09-26 本期选题无关，未复查，继续挂",
       "registered": "2026-09-25",
       "job": "B",
-      "slug": "claude-agents-md-remote-gate"
+      "slug": "claude-agents-md-remote-gate",
+      "carried": 1
     },
     {
-      "text": "真在自己的仓库开 `pipelines:` 时，配一条断言：把 `pnpm pipeline` stdout 里那句 `N tasks` 与 `tasks:` 声明的边数比一次，对不上就红（本期量到拼错 `dependsOn` 会让 2 tasks 变 1 tasks 而 exit 仍为 0）｜09-25 第六节末尾那个决定",
-      "registered": "2026-09-25",
+      "text": "盯 docs.github.com 那页 `rest/actions/workflow-runs` 全文：14:32Z 那版 98,656 个字符里 `2,500`、`2500`、`pagination is limited` 均 0 次，但 `up to 1,000 results` 有原句；2500 这道计数口径一旦被写进参考页，本篇第一节「公告落到 changelog、没落到文档」那句要跟着改｜本期展望第 1 件",
+      "registered": "2026-09-26",
       "job": "B",
-      "slug": "claude-agents-md-remote-gate"
+      "slug": "github-actions-2500-cap",
+      "carried": 0
+    },
+    {
+      "text": "盯 changelog：09-25 那条公告正文里 `2,500` 出现 4 次、`2500` 0 次，且没有一句说明「响应里没有截断标记」；它哪天补这句（或新增一条讲 `is_truncated` 之类字段），本篇第二节「程序判断不了被截没截」就要重写｜本期展望第 2 件",
+      "registered": "2026-09-26",
+      "job": "B",
+      "slug": "github-actions-2500-cap",
+      "carried": 0
+    },
+    {
+      "text": "盯 cli/cli 的 issue：09-26T14:2xZ 那版 `state=all&since=2026-09-24` 返回 34 条，`2,500`/`2500`/`total_count`/`1,000 results`/`1000 results`/`workflow runs`/`actions/runs` 七个关键词命中全 0；第一条命中就是踩坑的人到了，本篇「社区侧我一条都没搜到」那句当天要换掉｜本期展望第 3 件",
+      "registered": "2026-09-26",
+      "job": "B",
+      "slug": "github-actions-2500-cap",
+      "carried": 0
+    },
+    {
+      "text": "盯 archive.org 哪天补上 2026-09-25 之前的这两页快照（公告页与 REST 参考页各一条）：本期两次请求都在 45 秒处超时、没落盘，公告前对照做不成；快照一到，「改之前不过滤也是 40000、过滤后报多少」这条能补成一手｜本期展望第 4 件",
+      "registered": "2026-09-26",
+      "job": "B",
+      "slug": "github-actions-2500-cap",
+      "carried": 0
+    },
+    {
+      "text": "拿带 token 的身份把这 31 条无 token 探测重跑一遍（本期 `X-RateLimit-Limit` 恒为 60）：如果认证态过滤后仍报 2500，锅就不在缓存那一层；如果报真值，本篇第三节要加一句「这只坑未认证调用方」｜正文末节那条承诺",
+      "registered": "2026-09-26",
+      "job": "B",
+      "slug": "github-actions-2500-cap",
+      "carried": 0
     }
   ],
   "starSnapshots": {
