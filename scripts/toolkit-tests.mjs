@@ -2126,3 +2126,145 @@ test('C9 入参闸门与身份证模块同档：坏形状点名到键、空文�
   assert.equal(parseUsccList('\n\n').length, 3, '例外只有空文本：空行照旧各占一行号');
 });
 
+// ── §D 面板框架纯状态机 ─────────────────────────────────────────────────────
+
+const { createPanelWorkspace, parseHash, keyAction } = await import('../dev/js/tools/panel.js');
+
+/** 设计文档 §5.1 / §5.2 的两页锚点，本段页面还不存在，先按文档里的名字测 */
+const TOOLKIT = ['idcard', 'uscc', 'bankcard', 'mobile', 'random'];
+const CODEC = ['timestamp', 'base64', 'url', 'digest', 'regex'];
+
+test('D1 属性表：ARIA 骨架齐，id 命名可预期', () => {
+  const ws = createPanelWorkspace({ ids: TOOLKIT });
+  assert.deepEqual(ws.ids(), TOOLKIT, '顺序就是文档顺序，DOM 层要照它渲染');
+  assert.equal(ws.active(), 'idcard', '无 hash 时选中第一个');
+  const first = ws.tabAttr('idcard');
+  assert.deepEqual({
+    id: first.id, role: first.role, sel: first['aria-selected'],
+    controls: first['aria-controls'], tab: first.tabindex,
+  }, {
+    id: 'tk-tab-idcard', role: 'tab', sel: 'true',
+    controls: 'tk-panel-idcard', tab: '0',
+  });
+  assert.equal(Object.keys(first).sort().join(','),
+    'aria-controls,aria-selected,id,role,tabindex');
+  const panel = ws.panelAttr('idcard');
+  assert.deepEqual({
+    id: panel.id, role: panel.role, labelled: panel['aria-labelledby'],
+    tab: panel.tabindex, hidden: panel.hidden,
+  }, {
+    id: 'tk-panel-idcard', role: 'tabpanel', labelled: 'tk-tab-idcard',
+    tab: '0', hidden: false,
+  });
+  // 页面里两块隐藏内容不是 tabpanel 该管的：本模块不产 role="region" 那套退化形态
+  assert.equal(Object.keys(panel).sort().join(','),
+    'aria-labelledby,hidden,id,role,tabindex');
+  assert.equal(ws.panelAttr('uscc').hidden, true, '未选中的面板必须 hidden');
+  // JSON 工作台换前缀时，tab 与 panel 两侧的配对必须一起换，否则 aria-labelledby 指空
+  const jt = createPanelWorkspace({ ids: ['format', 'convert'], prefix: 'jt' });
+  assert.deepEqual({
+    controls: jt.tabAttr('format')['aria-controls'],
+    labelled: jt.panelAttr('format')['aria-labelledby'],
+  }, { controls: 'jt-panel-format', labelled: 'jt-tab-format' });
+});
+
+test('D2 roving tabindex：整条 tablist 上只有一个是 0', () => {
+  const ws = createPanelWorkspace({ ids: TOOLKIT, hash: '#mobile' });
+  const tabs = TOOLKIT.map((id) => ws.tabAttr(id));
+  assert.deepEqual(tabs.filter((t) => t.tabindex === '0').map((t) => t.id), ['tk-tab-mobile'],
+    'tabindex=0 的数量不是 1，键盘用户就会掉进 tab 黑洞');
+  assert.equal(tabs.every((t) => t.tabindex === '0' || t.tabindex === '-1'), true,
+    'tabindex 只能是字符串 0 / -1，写成布尔或数字会让属性丢失');
+  assert.deepEqual(tabs.filter((t) => t['aria-selected'] === 'true').map((t) => t.id), ['tk-tab-mobile']);
+  ws.move('next');
+  assert.equal(ws.tabAttr('random').tabindex, '0', '切换后 roving 要跟着走');
+  assert.equal(ws.tabAttr('mobile').tabindex, '-1');
+  assert.equal(ws.tabAttr('random')['aria-selected'], 'true');
+  assert.equal(ws.tabAttr('mobile')['aria-selected'], 'false', 'aria-selected 与 tabindex 必须互锁');
+  assert.equal(ws.panelAttr('mobile').hidden, true, '自动激活：焦点走的同时面板就换');
+  assert.equal(ws.panelAttr('random').hidden, false);
+});
+
+test('D3 方向键与 Home/End：首尾回绕，非索引键不动状态', () => {
+  const ws = createPanelWorkspace({ ids: CODEC });
+  assert.equal(ws.active(), 'timestamp');
+  assert.deepEqual(ws.move('next'), { active: 'base64', changed: true });
+  assert.deepEqual(ws.move('prev'), { active: 'timestamp', changed: true });
+  assert.deepEqual(ws.move('prev'), { active: 'regex', changed: true }, '首位再 prev 回绕到末位');
+  assert.deepEqual(ws.move('last'), { active: 'regex', changed: false }, '已在末位，last 是空操作');
+  ws.move('first');
+  assert.equal(ws.active(), 'timestamp');
+  assert.deepEqual(ws.move('nonsense'), { active: 'timestamp', changed: false },
+    '不认识的动作文本必须是空操作而不是跳空白');
+  assert.equal(ws.active(), 'timestamp');
+  assert.deepEqual({ a: keyAction({ key: 'ArrowDown' }), b: keyAction({ key: 'ArrowUp' }),
+    c: keyAction({ key: 'Home' }), d: keyAction({ key: 'End' }),
+    e: keyAction({ key: 'ArrowRight' }), f: keyAction({ key: 'ArrowLeft' }) },
+  { a: 'next', b: 'prev', c: 'first', d: 'last', e: 'next', f: 'prev' });
+  assert.equal(keyAction({ key: 'ArrowDown', ctrlKey: true }), '', '带修饰键的上下键是系统快捷键，不抢');
+  assert.equal(keyAction({ key: 'ArrowUp', shiftKey: true }), '');
+  assert.equal(keyAction({ key: 'a' }), '');
+  assert.equal(keyAction({}), '');
+  assert.equal(keyAction(null), '');
+});
+
+test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', () => {
+  assert.deepEqual(parseHash('#uscc', TOOLKIT), { id: 'uscc', unknown: false });
+  assert.deepEqual(parseHash('uscc', TOOLKIT), { id: 'uscc', unknown: false }, '漏了 # 也要认');
+  assert.deepEqual(parseHash('#USCC', TOOLKIT), { id: 'uscc', unknown: false }, '大小写不敏感');
+  assert.deepEqual(parseHash('  #uscc  ', TOOLKIT), { id: 'uscc', unknown: false });
+  assert.deepEqual(parseHash('', TOOLKIT), { id: null, unknown: false }, '无 hash 不是异常');
+  assert.deepEqual(parseHash('#', TOOLKIT), { id: null, unknown: false });
+  assert.deepEqual(parseHash(null, TOOLKIT), { id: null, unknown: false });
+  assert.deepEqual(parseHash('#nope', TOOLKIT), { id: null, unknown: true });
+  assert.deepEqual(parseHash('#idcard/../x', TOOLKIT), { id: null, unknown: true },
+    '奇奇怪怪的 hash 只能当不认识，不能进 id');
+  const ws = createPanelWorkspace({ ids: TOOLKIT, hash: '#bankcard' });
+  assert.equal(ws.active(), 'bankcard');
+  assert.equal(ws.unknownHash(), false);
+  assert.equal(ws.toHash(), '#bankcard', '写回页面的 hash 由模块给，DOM 层不自己拼');
+  assert.equal(ws.select('nope'), false);
+  assert.equal(ws.active(), 'bankcard', '未知 id 不得把面板切成空白');
+  assert.equal(ws.applyHash('#random'), true);
+  assert.equal(ws.active(), 'random');
+  assert.equal(ws.applyHash('#nope'), false, 'applyHash 把 unknown 变成返回值，DOM 层据此提示');
+  assert.equal(ws.unknownHash(), true);
+  assert.equal(ws.active(), 'random');
+  assert.equal(ws.applyHash(''), false, 'hash 被清空时不动当前面板');
+  assert.equal(ws.active(), 'random');
+  // 首次进入且 URL 里没有 #：选中第一块，但不产生 hash、不改历史
+  const bare = createPanelWorkspace({ ids: TOOLKIT });
+  assert.equal(bare.active(), 'idcard');
+  assert.equal(bare.toHash(), '', '没有用户动作就不该往地址栏写东西');
+  bare.select('uscc');
+  assert.equal(bare.toHash(), '#uscc', '点过之后才开始写 hash');
+  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).unknownHash(), true,
+    '开局就是坏 hash 也要留得下线索');
+  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).active(), 'idcard',
+    '坏 hash 回落到第一块，不是空白');
+});
+
+test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
+  const ws = createPanelWorkspace({ ids: TOOLKIT });
+  assert.equal(ws.brokenOf('idcard'), '');
+  ws.markBroken('uscc', '区划数据未就绪');
+  assert.equal(ws.brokenOf('uscc'), '区划数据未就绪');
+  assert.equal(ws.brokenOf('idcard'), '', '别的面板不得被连坐');
+  assert.equal(ws.tabAttr('uscc')['aria-selected'], 'false', '坏掉的面板照样能选中，用户才看得见错误条');
+  assert.equal(ws.panelAttr('uscc').hidden, true, '未选中时照样 hidden：错误条在面板里，不该飘在页面上');
+  ws.select('uscc');
+  assert.equal(ws.active(), 'uscc');
+  assert.equal(ws.panelAttr('uscc').hidden, false);
+  ws.markBroken('uscc', '换了个原因');
+  assert.equal(ws.brokenOf('uscc'), '换了个原因', '重复标记是覆盖而不是叠加，否则错误条会越长越长');
+  assert.deepEqual(ws.brokenIds(), ['uscc']);
+  ws.clearBroken('uscc');
+  assert.equal(ws.brokenOf('uscc'), '');
+  assert.deepEqual(ws.brokenIds(), []);
+  ws.markBroken('random', 'x');
+  ws.markBroken('idcard', 'y');
+  assert.deepEqual(ws.brokenIds(), ['idcard', 'random'], '按面板顺序报，DOM 层据此渲染汇总条');
+  assert.throws(() => ws.markBroken('nope', 'x'), /未知面板/);
+  assert.throws(() => createPanelWorkspace({ ids: [] }), /至少一个面板/);
+  assert.throws(() => createPanelWorkspace({ ids: ['a', 'a'] }), /重复/);
+});
