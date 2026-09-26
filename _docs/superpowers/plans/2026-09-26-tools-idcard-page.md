@@ -5615,10 +5615,13 @@ Expected：提交只含这两条路径；剩下仍是对方那批未提交项。
 - Create: `dev/js/tools/workbench.js`（本页装配层：spec → 模块入参 → 结果 HTML）
 - Create: `dev/js/toolIdcard.js`（页面入口：读骨架那四格数据，接线）
 - Modify: `scripts/toolkit-tests.mjs`（追加 §J 十六条 → 全量 142 条）
-- 本格**不**创建 `tools-idcard.html` / `dev/sass/toolkit.scss` / `_data/onlineTools.yml`，也不碰
-  `postcss.config.js`——那四件是 Task 8 的活。分界线的根据是"谁判它"：这一格的三件全部由 §J 在
-  Node 里判（假 DOM 就够），骨架与样式只能由构建产物判（`import{` 计数之外的那几条要读到磁盘上的
-  HTML 与 CSS）。两格各自一次提交，红的时候能一眼说出是哪一格红的。
+- 本格**不**创建 `tools-idcard.html` / `dev/sass/toolkit.scss` / `_data/onlineTools.yml` /
+  `assets/img/tools/idcard-tool.svg`，也不碰 `postcss.config.js`——那五件是 Task 8 的活（骨架那一格
+  从四件变五件：yml 的 `icon` 字段指向那个 svg，虽然第一个消费者要到 Task 9 的下拉才出现，但文件
+  必须和 yml 同批落地，否则 Step 1 那条 `icon在盘上=true` 当场红）。分界线的根据是"谁判它"：
+  这一格的三件全部由 §J 在 Node 里判（假 DOM 就够），骨架与样式只能由构建产物判（`import{` 计数的
+  那一条之外，还有要读到磁盘上的 HTML 与 CSS 的那几条）。两格各自一次提交，红的时候能一眼说出是
+  哪一格红的。
 
 这一格落的还是"看不见"的一层：三条 `<script>` 里前两条已经能构建出产物，但站里还没有任何页面
 引用它们，用户看见的还是段 1 那张空档。从这里起才有"这一页怎么跑起来"的代码；`toolkitCore.js`
@@ -8942,4 +8945,1915 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 会把别人暂存的东西吞进这一发；要提就照上面先 `git diff --cached --stat` 看清是谁的）。
 `_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
 
-<!-- APPEND-8 -->
+## Task 8: 证件页骨架与样式（构建期渲染，禁 JS 也读得到正文）
+
+**Files:**
+- Create: `_data/onlineTools.yml`（在线工具清单的单一数据源：slug / 标题 / 前缀 / 面板清单 / 收录状态）
+- Create: `assets/img/tools/idcard-tool.svg`（那份 yml 的 `icon:` 指向的图标，Task 9 的下拉是它第一个消费者）
+- Create: `tools-idcard.html`（仓库根的骨架，`permalink: /tools/idcard.html`）
+- Create: `dev/sass/toolkit.scss`（`.tk-` / `.jt-` 一套样式，只用语义令牌）
+- Modify: `postcss.config.js`（`selectorBlackList` 加 `.tk-`、`.jt-` 两条**字符串**）
+- 本格**不**新增测试判据：骨架与样式只能由构建产物判，那几条（面板齐不齐 / `.tk-` 有没有被换算成
+  vw / `import{` / 两条 script 的先后）全写在 Step 5 的脚本里，Task 9 把它们收进
+  `scripts/check-tools-surface.mjs` 变成可重跑的门禁。§J 那十六条判的是 JS 层，产物口径判的是
+  磁盘上的字节——两头的判据不许互相顶替，也不许有一头空着。
+
+这一格起，`/tools/idcard.html` 才真的存在于站上。三件事在这一格定死，每件都有"做反了会怎样"：
+
+1. **面板正文由 Liquid 在构建期渲染，不由 JS 造。**（§6.3）禁用脚本与爬虫读到的必须是同一份
+   正文，所以五块面板的 `<section id="tk-panel-*">`、每栏的 `<h3>`、说明文字全在 HTML 里；
+   JS 只做"把结果写进 `#tk-out-*`"与"把 `role` 覆写成 ARIA 该有的样子"。反过来做（JS 造骨架）
+   的后果是：`hidden` 属性还没人写，五块面板在禁 JS 时**同时可见**，那是一张谁也没测过的页面。
+   本页不靠 `js` 类名门控正文：显隐只由 `panel-dom.js` 运行期写的 `hidden` 决定，脚本不在时
+   `<main>` 区间里只有 `#tk-notice` 那一格带 `hidden`（Step 5 第 3 组判据现算）。
+2. **索引条与面板的 ARIA 一个都不写，结果区与表单分组的写死在骨架里。** `role="tablist"` /
+   每条 tab 的 `role` / `aria-selected` / `tabindex`、每块 panel 的 `role` / `aria-labelledby` /
+   `hidden` 这三张属性表全由 `panel-dom.js` 按 `panel.js` 算好的值覆写（Task 6 立的口径：全站
+   唯一一处 ARIA 口径），骨架里连"占位的错值"都不写。写第二遍就是第二处口径，改一处漏一处，
+   而漏掉的那一处只在读屏里看得见。§I / §J 的假 DOM 里反倒**必须**预置 `role="link"` /
+   `aria-selected="maybe"` 这种错值——那是抓"合并而不是覆写"的样本，判据读的是覆写之后的落值，
+   与真骨架什么都不写这两件事不冲突。
+   判据必须 **scoped**：整页 `grep role="tab"` 会命中 3 次，但那三次在 288–290 行、属于站点公共件
+   `_includes/header.html` 里书架对话框的三个分区按钮，与本页无关。所以 Step 5 数的是
+   `<nav class="tk-index">…</nav>` 那一段（必须 0）与五块 `<section class="tk-panel" …>` 的
+   起始标签（必须 0）。骨架自己写的只有两类运行时不改的东西：九处 `role="group"`（表单分组，
+   配 `aria-labelledby`）与九处 `role="region" aria-live="polite"`（结果区），九个 `#tk-out-*`
+   与九个复制按钮一一对应。
+   `href="#idcard"` 必须留在每条索引链接上，它是禁 JS 时唯一能跳到某一块面板的保险。
+3. **表单不用 `<form>`。** 没有后端可交，`form` 的隐式提交会把整页刷成
+   `?tk-in-idcard-count=5`，那是工具页最不像工具的故障。提交动作由 `toolIdcard.js` 监听按钮与
+   `Enter` 键（Task 7 口径 4），表格一律用 `div[role=group] + aria-labelledby`。
+
+再加四条这一格特有的：
+
+4. **前缀有两副面孔，yml 只说其中一副。** `_data/onlineTools.yml` 的 `prefix: tk` 是**行为前缀**
+   （控件 id 与 `.tk-` 类名的那副）；`toolIdcard.js` 里 `CONTAINER_ID` / `NOTICE_ID` 写死的
+   `tk-workspace` / `tk-notice` 是**本页自己的地址**，两副面孔在骨架的 `data-tk-prefix` 那格汇合，
+   由入口一次读走（J16 用 `zx` 前缀验的是"行为那副必须整套跟着骨架走"）。所以"前缀只许出现在
+   yml"那句是错的，仓库里字面量 `tk` 合法的出现点有三处：yml 的 `prefix` 字段、`toolIdcard.js`
+   那两个常量、骨架那四条 `data-tk-*` 属性名——`_data/onlineTools.yml` 的文件头按这个写。
+5. **`postcss.config.js` 的黑名单要写字符串，不是正则。** 语义差别是读插件源码定的、也用产物验过
+   （Step 4 两头都跑）：`postcss-px-to-viewport@1.1.1` 的 `blacklistedSelector`
+   （`node_modules/postcss-px-to-viewport/index.js:130`）对字符串走 `selector.indexOf(s)`
+   （子串命中任意位置），对正则走 `selector.match(re)`。本层大量规则的最左选择器是
+   `.tk-workspace .tk-col` 这种后代形式，`/^\.tk-/` 一条都盖不住；漏掉的后果与 `about.scss`
+   记过的同一种——同一块版面一半按 px 画、一半按 750 设计稿等比放大。
+6. **产物名逐字符跟随源文件名。** `dev/sass/toolkit.scss` → `assets/css/toolkit.min.css`，
+   `dev/js/toolkitCore.js` → `assets/js/toolkitCore.min.js`。Pages 在 Linux 上构建，写错一个
+   字母本地看不出来、线上一律 404，所以骨架里那三条引用原样抄着这条提醒。
+7. **量产物只有一条路径：先认清 vite 的 outDir 是仓库根的 `assets/`，不是 `_site/assets/`。**
+   `_site/` 那份是 `bundle exec jekyll build` 从 `assets/` 复制过去的副本。Step 5 的脚本第 0 组
+   判据就是断言两处 `toolkit.min.css` 同 md5——09-27 写这份计划时我先踩了这条：拿旧 `_site` 做
+   "去掉黑名单后 `.tk-` 仍是 0 条 vw"的"反证"，差点把一条有效的判据当成无效的写进计划。
+
+`demo/idCardDemo/` 还在（段 5 删），`_includes/header.html` 的「工具箱」下拉与 `/tools.html`
+小节、`sitemap.xml`、`llms.txt` 都在 Task 9——这一格交付的是一张**能直接输入 URL 打开**的页，
+收录面下一格接。
+
+- [ ] **Step 1: 建数据源与图标 —— `_data/onlineTools.yml` + `assets/img/tools/idcard-tool.svg`**
+
+先建数据源，因为骨架里那些 `{{ tk.h1 }}` / `{{ tk.panels[0].desc }}` 全从它取；反过来说，这份 yml
+是**这一页有哪些面板、叫什么、说明写什么**的唯一出处：骨架不写第二份，Task 9 的下拉与 `/tools.html`
+小节也不写第三份（文件头那句"同一份事实写第二遍，迟早只改一处"就是这条分工的理由）。
+
+两条口径容易写歪，逐字照抄时留意：
+
+- `prefix` 那一栏讲的是**前缀字面量在仓库里的三个合法出现点**（yml 的 `prefix` 字段 /
+  `toolIdcard.js` 的 `CONTAINER_ID`、`NOTICE_ID` / 骨架的 `data-tk-*` 属性名）。写"只许出现在 yml
+  与那条 data 属性上"是错的——那两处常量是这一页自己的地址，删不掉也不该删（`toolIdcard.js`
+  文件头条 1 讲的"两副面孔"就是这件事）。
+- `status` 那一栏讲的是**段 3 / 段 4 各自追加自己那一条**，不是"把剩下两条翻成 ready"——
+  现在这张表里只有 idcard 一条，另两条还没进表。
+
+**1a `_data/onlineTools.yml`**（76 行）：
+
+```yaml
+# 在线工具（站内计算的工具页）单一数据源 —— 设计文档 §4.2。
+# 三个消费点共用这一份，不各抄一遍：顶栏「工具箱」下拉里的「在线工具」分组、
+# /tools.html 的同名小节、index-all.html 的页面清单。理由与 _includes/headAssets.html
+# 文件头那条注释同源：同一份事实写第二遍，迟早只改一处。
+#
+# 为什么不并进 _data/tools.yml：那一张表里每条都带 store / screenshot / badges / post_tag
+# 这些只有浏览器插件才有的字段，在线工具一个都用不上；混表的结果是那一族字段在
+# 在线工具行上恒空，而消费点（下拉与产品页）已经按"必有 icon / screenshot"写了模板。
+#
+# 字段口径：
+#   slug     permalink 的名段（/tools/<slug>.html），同时是下拉与 tools.html 小节的锚点
+#   url      站内完整路径，**不带** site.baseurl，由消费点自己 prepend（同 tools.yml 的 icon 口径）
+#   h1       页面正文的大标题。`title` 是给检索用的口径（见下），两者不是一件事
+#   title    `<title>` / og:title / CollectionPage 的 name，按设计文档 §4.1 那三条检索口径写
+#   prefix   面板 DOM 的 id 前缀。页面骨架里的 <prefix>-tablist / -tab-<slug> / -panel-<slug>
+#            从这里取，`dev/js/toolIdcard.js` 交给 createPanelWorkspace 的也是那一个。
+#            字面量前缀在仓库里合法的出现点只有三处：这里的 `prefix` 字段、`toolIdcard.js`
+#            顶上的 CONTAINER_ID / NOTICE_ID 两个常量（那是本页自己的地址，与行为前缀是两副
+#            面孔，见该文件头条 1）、骨架那四条 `data-tk-*` 属性名。除此之外一律从 data 属性
+#            读——多写一处就是第二处口径，而两处不一致时红的是运行时，不是构建
+#   panels   面板清单，顺序 = 索引条顺序 = 禁用脚本时的文档顺序；`slug` 就是页内 #hash 锚点
+#     desc   面板正文说明（页内静态文案，禁用脚本也读得到）
+#   status   该页的实现状态：只有 ready 的那几条会被消费点画成链接。段 2 的清单里只有 idcard
+#            这一条，段 3 / 段 4 交付时各自**追加**自己那一条（不是来改这一条的 status）；
+#            planned 这一档现在没有条目在用，留着是因为"先进清单、后补正文"正是这条流水线
+#            最容易卡住人的地方——挡在数据层，不靠改模板
+- slug: idcard
+  url: /tools/idcard.html
+  name: 证件与机构代码工具
+  tagline: 身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据
+  title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+  h1: 证件与机构代码工具
+  icon: /assets/img/tools/idcard-tool.svg
+  status: ready
+  prefix: tk
+  desc: >-
+    五块面板都在浏览器本地算：粘贴号码做校验与逐段解析，或按区划、性别、年龄段随机合成测试数据。
+    行别与号段按内置的第三方快照给出，只作参考、不承诺全量。
+  panels:
+    - slug: idcard
+      name: 身份证
+      tagline: 18 位校验与解析、15 位第一代写法、按区划合成
+      desc: >-
+        粘一行或一个文件的多行号码，逐行给三态结论（有效 / 校验位不符 / 结构非法）、逐项判定表和全量解析：
+        省市区三级码与全名、出生日期与周岁、性别、顺序码、校验位的算式。
+        出生年在 1900–1999 内的 18 位号会同时给出等价的 15 位写法。
+        区划码查不到时不下"无效"结论，只说明它未见于现行区划表。
+    - slug: uscc
+      name: 统一社会信用代码
+      tagline: 18 位解析、字符集与两层校验位、按区划合成
+      desc: >-
+        校验第 1–17 位的字符集与两套权重算式，并把 18 位拆开：登记管理部门与机构类别（只给字符，
+        取值含义表没取到可核实来源，本站不猜名称）、行政区划、主体标识、内层组织机构代码校验位、
+        本层校验位。生成侧第 9–17 位用真实结构（8 位本体加 GB/T 11714 校验位）。
+        字符 I、O、S、Z、V 不属 31 字符集，出现即判结构非法。
+    - slug: bankcard
+      name: 银行卡
+      tagline: Luhn 校验与逐位算式、行别前缀参考、按行别合成
+      desc: >-
+        校验按 Luhn 与 13–19 位长度给结论，并列出逐位相加的算式；行别与登记位数查内置前缀表，
+        查不到只说"表内未收录"，不下"无效"结论。生成侧从表内的 BIN 出发，补随机体与 Luhn 校验位，
+        所以每一条都能被本页的校验判成有效。
+    - slug: mobile
+      name: 手机号
+      tagline: 11 位格式判定、三位号段判运营商、按运营商合成
+      desc: >-
+        格式（11 位、1[3-9] 开头）是硬结论；运营商按三位号段判定，是发号口径的参考，
+        携号转网后不代表当前实际运营商。本站不做号码归属地：三位号段这一层判不到城市，
+        而能干净取到许可的公开来源也只有这一层。
+    - slug: random
+      name: 随机测试数据
+      tagline: 姓名 / 地址 / 邮箱，单类或一次一组
+      desc: >-
+        姓名由本站自造的常用姓氏与名字用字随机组合，地址由现行区划全名加通用街道词与门牌拼出，
+        邮箱一律落在 RFC 2606 的 example 保留域。三类都不指向任何真实个人或真实信箱，
+        只做开发与测试用途的占位数据。
+```
+
+**1b `assets/img/tools/idcard-tool.svg`**（11 行 / 762 字节）——`icon:` 字段指向它。走内联描边图形
+而不是图标字体，与 `_includes/header.html` 里下拉箭头同一条理由（断网时只剩方框）；全部
+`currentColor`，所以夜间与三档纸色温不需要第二份。Task 9 的下拉是它的第一个消费者，本格先落地，
+免得下一格顺手用 emoji 顶掉。
+
+```svg
+<!-- 顶栏「工具箱」下拉与 /tools.html 小节里「证件与机构代码工具」那一行的图标。
+     画成内联描边图形而不是图标字体：断网时只剩方框（同 _includes/header.html 里下拉箭头那条理由）。
+     全部走 currentColor，所以暗色与三档纸色温自动跟随，不需要第二份。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="证件与机构代码工具">
+    <rect x="2.5" y="5.5" width="19" height="13" rx="2"/>
+    <path d="M2.5 9.5h19"/>
+    <path d="M6 13.5h5M6 16h8"/>
+    <circle cx="16.5" cy="14.5" r="2"/>
+</svg>
+```
+
+跑一遍数据源自检（字段齐备、面板 slug 唯一、`url` 不带 baseurl、`icon` 指向的文件真在盘上）：
+
+```bash
+cat > /tmp/check-onlineTools.rb <<'RUBY'
+# 校验 _data/onlineTools.yml：字段齐备、slug 唯一、url 不带 baseurl、icon 文件真的在盘上。
+# 判据只读数据、不读产物——产物那一头是 Step 5 的活。
+require 'yaml'
+path = ARGV[0] || '_data/onlineTools.yml'
+d = YAML.load_file(path)
+need = %w[slug url name tagline title h1 icon desc prefix panels status]
+puts "entries=#{d.size}"
+d.each do |e|
+  miss = need.reject { |k| e.key?(k) }
+  slugs = e['panels'].map { |p| p['slug'] }
+  bad_panel = e['panels'].reject { |p| %w[slug name tagline desc].all? { |k| p[k] } }
+  puts "#{e['slug']}: status=#{e['status']} prefix=#{e['prefix']} panels=#{slugs.size} " \
+       "missing=#{miss.join(',').empty? ? 'none' : miss.join(',')} dup=#{slugs.size != slugs.uniq.size} " \
+       "坏面板=#{bad_panel.size} url=#{e['url']} 带baseurl=#{e['url'].start_with?('/better-blog')} " \
+       "icon在盘上=#{File.exist?(e['icon'].sub(%r{^/}, ''))}"
+end
+RUBY
+bundle exec ruby /tmp/check-onlineTools.rb
+```
+
+Expected（2026-09-27 镜像实跑，`exit=0`；那行 `RubyGems version` 警告是本站环境的固定噪音，
+与判据无关）：
+
+```
+entries=1
+idcard: status=ready prefix=tk panels=5 missing=none dup=false 坏面板=0 url=/tools/idcard.html 带baseurl=false icon在盘上=true
+```
+
+**这段必须写成 heredoc 落一个 `.rb` 文件，不能写成 `ruby -e '...'`**：`-e` 的脚本源码按 US-ASCII
+解，脚本里一旦有中文（上面那些 `坏面板=` / `带baseurl=` 的键名就是中文）会刷出几十行
+`invalid multibyte char (US-ASCII)`，看着像判据红了、其实是解析器根本没读到判据那一步。写进文件
+就没这问题（文件源码默认 UTF-8）。
+
+- [ ] **Step 2: 写页面骨架 `tools-idcard.html`（构建期渲染，四件事都在这张表里）**
+
+骨架是这一格唯一"用户看得见"的东西，四件事都在这里定：① 五块面板的正文由 Liquid 在构建期渲染
+出来（§6.3，禁用脚本与爬虫都读得到）；② 索引条与面板的 ARIA 一个都不写，`role` / `aria-selected`
+/ `tabindex` / `hidden` 全由 `panel-dom.js` 按属性表覆写；③ 面板清单、前缀、大标题从
+`_data/onlineTools.yml` 取（`where: 'slug', page.tool`），页内不写第二份；④ 三条引用（css 一条、
+js 两条）的先后与"产物名逐字符跟随源文件名"的提醒写在引用处。
+
+三处"看起来多余但删不得"的东西，注释里都写了理由，这里只挑明：
+
+- `<noscript>` 那一段与 `{%- if tk -%}…{%- else -%}` 的 else 分支：前者是禁 JS 时唯一告诉用户
+  "按钮不会有结果"的地方，后者是数据源缺条目时**宁可产出一张空正文页**也不让 `jekyll build` 红在
+  一个 Liquid 空值上——空正文会在 Step 5 的第 1 组判据里当场红（面板数不等于 5），而构建红在
+  CI 里只会留下一串没人看得懂的 Liquid 报错。
+- `#tk-notice` 那格的 `hidden`：整张骨架里**只有这一处**写 `hidden`。默认藏起来、由 `panel-dom`
+  在坏 hash 时覆写出来（段 1 §6.0 第三条：坏 hash 原样留在地址栏供人复制排查）。Step 5 拿这一条
+  当"禁 JS 时五块全展开"的硬证据：`<main>` 区间里 `hidden` 命中数必须是 1，且落点就是这一格。
+- 容器上那四条 `data-tk-*`，与散在控件上的 `data-tk-cascade` / `-options` / `-charsets` /
+  `-switch` / `-when`：入口只读容器那四格（Step 5 第 5 组判据把它们的值原样打出来），其余是给
+  装配层接线与 Task 9 对账用的标记。`id="tk-when-*"` 那四段是**装配层找它们唯一的路径**
+  （`workbench.js` 与 `panel-dom.js` 同档，只走 `getElementById`，不碰 `querySelector`），少了
+  `id` 是最难查的一种漏：显隐静默不生效，页面看起来只是"多了一格一直显示"。
+
+`tools-idcard.html`（486 行 / 32,566 字节）：
+
+```html
+---
+layout: default
+title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+seo_description: 粘贴身份证号、统一社会信用代码、银行卡号或手机号，本地逐位算给你看结论从哪来；也能按区划、性别、年龄段随机合成测试数据。全部在浏览器里算，不发任何请求。
+# 理由同 categories.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/idcard.html
+# tool 指向 _data/onlineTools.yml 里的那一条：面板清单、id 前缀、大标题都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: idcard
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/js/toolkitCore.js -> toolkitCore.min.js、dev/js/toolIdcard.js -> toolIdcard.min.js。
+     GitHub Pages 在 Linux 上构建，写错一个字母本地看不出来、线上一律 404，勿改。
+     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它（同 _layouts/aboutTemplate.html
+     里 jquery 必须最后那条的反向情形——这里前一条是后一条的依赖）。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+
+<section class="g-masthead tk-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">证件 · 机构代码 · 测试数据</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
+            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>本机</strong><span>随机合成</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段是设计文档 §5.5 那句"生成类面板固定一行提示"在**禁用脚本时也读得到**的那一份：
+    结果区里还会由装配层把各模块的口径常量原样再落一次（§H 的 H8 钉的是"一字不动"），
+    两处不冲突——这里说的是整页，结果区说的是这一批数据。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页所有号码、姓名、地址、邮箱都由浏览器随机合成，与真实个人或真实登记主体重合的概率可忽略；
+        仅供开发与测试用途，<strong>不得用于任何真实身份用途</strong>。
+        校验与解析只读你粘进来的内容，全部在本地算：不发请求、不写 localStorage、不上传剪贴板。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：下面五块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
+            但"生成"与"判定"这两类动作都要在浏览器里算，此时按下按钮不会有结果。
+        </p>
+    </noscript>
+    {%- comment -%}
+    地址栏里的 #hash 不是本页任何一块面板时，装配层只在这里说一句，**不动地址栏**
+    （段 1 计划 §6.0 第三条：坏 hash 原样留着供人复制排查）。默认 hidden，由 panel-dom 覆写。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    {%- comment -%}
+    键盘捷径只在这里说一次，不在 9 个栏位里各说一句：装配层（dev/js/tools/workbench.js）给
+    「生成」接 Enter（焦点在数量或日期格时），给「判定」接 Ctrl / ⌘ + Enter（焦点在粘贴框里）。
+    禁用脚本时这两句自然不成立——上面 `<noscript>` 那段已经说过"按钮不会有结果"，这里不再各挂一份。
+    {%- endcomment -%}
+    <p class="tk-kbd"><kbd>Enter</kbd> 生成 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 判定</p>
+
+    <div class="tk-workspace" id="{{ tk.prefix }}-workspace"
+         data-tk-ids="{% for p in tk.panels %}{{ p.slug }}{% unless forloop.last %},{% endunless %}{% endfor %}"
+         data-tk-prefix="{{ tk.prefix }}"
+         data-tk-label="{{ tk.h1 }}"
+         data-tk-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
+        这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
+        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        {%- endcomment -%}
+        <nav class="tk-index" id="{{ tk.prefix }}-tablist">
+            {%- for p in tk.panels -%}
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+                <span class="tk-index__name">{{ p.name }}</span>
+                <span class="tk-index__hint">{{ p.tagline }}</span>
+            </a>
+            {%- endfor -%}
+        </nav>
+
+        {%- comment -%}
+        下面五块面板的正文全部在构建期渲染（设计文档 §6.3：禁用脚本与爬虫都要读得到内容）。
+        每块都是「左：生成 / 右：校验解析」两栏，`#random` 没有可校验的输入，只有一栏。
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?tk-in-idcard-count=5，那是工具页最不像工具的故障。提交动作由 dev/js/toolIdcard.js
+        监听按钮与 Enter 键。
+        {%- endcomment -%}
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-idcard">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[0].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[0].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[0].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-gen">生成测试号码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
+                        <p class="tk-field tk-field--static">
+                            <label for="{{ tk.prefix }}-in-idcard-province">区划（只出现行码）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-idcard-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-idcard-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-idcard-county" data-tk-cascade="county">
+                                    <option value="">不限区县</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">三级都是收窄，不是必填：只选到省就在省内随机挑县。</span>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-idcard-sex">性别</label>
+                            <select id="{{ tk.prefix }}-in-idcard-sex">
+                                <option value="">不限</option>
+                                <option value="male">男</option>
+                                <option value="female">女</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-idcard-ageband">年龄段</label>
+                            <select id="{{ tk.prefix }}-in-idcard-ageband" data-tk-switch>
+                                <option value="">18–60 岁</option>
+                                <option value="18-30">18–30 岁</option>
+                                <option value="31-45">31–45 岁</option>
+                                <option value="46-60">46–60 岁</option>
+                                <option value="custom">指定出生日期</option>
+                            </select>
+                        </p>
+                        {%- comment -%}
+                        受开关控制的段落：`id` 是装配层找它的唯一路径（`workbench.js` 与 `panel-dom.js`
+                        同档，只走 `getElementById`，不碰 `querySelector`），`data-tk-when` 记的是
+                        "哪几个开关值会让它现身"，由 Task 9 拿 `WORKBENCH_SPEC` 的 switch targets 双向对账。
+                        少了 `id` 是最难查的一种漏：显隐静默不生效，页面看起来只是"多了一格一直显示"。
+                        {%- endcomment -%}
+                        <p class="tk-field" id="{{ tk.prefix }}-when-idcard-birth" data-tk-when="custom">
+                            <label for="{{ tk.prefix }}-in-idcard-birth">出生日期</label>
+                            <input id="{{ tk.prefix }}-in-idcard-birth" type="date" min="1900-01-01"
+                                   autocomplete="off" spellcheck="false">
+                            <span class="tk-help">下限 1900-01-01，上限是今天；出生年在 1900–1999 内会同时给出 15 位写法。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-idcard-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-idcard-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-idcard-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-idcard-gen" disabled>复制这批号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-idcard-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-idcard-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-read">校验与解析</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-idcard-read">号码（可一次粘多行，每行一条）</label>
+                            <textarea id="{{ tk.prefix }}-in-idcard-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="110101199003070015"></textarea>
+                            <span class="tk-help">15 位与 18 位都收；含空格或分隔符的原样保留，判定对象单独回显给你看。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-idcard-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-idcard-read" disabled>复制判定有效的号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-idcard-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-uscc">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[1].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[1].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[1].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-uscc-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-gen">生成合规代码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-uscc-registry">登记管理部门码（第 1 位）</label>
+                            <select id="{{ tk.prefix }}-in-uscc-registry" data-tk-charsets="uscc">
+                                <option value="">不填（取默认字符 9）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-uscc-category">机构类别码（第 2 位）</label>
+                            <select id="{{ tk.prefix }}-in-uscc-category" data-tk-charsets="uscc">
+                                <option value="">不填（取默认字符 1）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--static">
+                            <label for="{{ tk.prefix }}-in-uscc-province">行政区划（现行码，市级起）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-uscc-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-uscc-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">代码第 3–8 位是 6 位区划段，市本级取「市码 + 00」。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-uscc-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-uscc-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-uscc-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-uscc-gen" disabled>复制这批代码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-uscc-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-uscc-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-uscc-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-read">校验与逐段解析</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-uscc-read">代码（可一次粘多行）</label>
+                            <textarea id="{{ tk.prefix }}-in-uscc-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="91350100M000100Y43"></textarea>
+                            <span class="tk-help">小写字母会先归一成大写，原样输入与判定对象各回显一次。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-uscc-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-uscc-read" disabled>复制判定有效的代码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-uscc-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-uscc-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-bankcard">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[2].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[2].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[2].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-gen">生成测试卡号</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-bank">发卡行</label>
+                            <select id="{{ tk.prefix }}-in-bankcard-bank" data-tk-options="banks">
+                                <option value="">不限行别（表内全部 BIN 里随机）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-type">卡种</label>
+                            <select id="{{ tk.prefix }}-in-bankcard-type" data-tk-options="cardtypes">
+                                <option value="">不限</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-length">位数（13–19）</label>
+                            <input id="{{ tk.prefix }}-in-bankcard-length" type="number" min="13" max="19" step="1"
+                                   autocomplete="off" inputmode="numeric" placeholder="按行别登记位数">
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-bankcard-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-bankcard-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-bankcard-gen" disabled>复制这批卡号</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-read">校验（Luhn）</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-bankcard-read">卡号（可一次粘多行，空格与连字符会被去掉）</label>
+                            <textarea id="{{ tk.prefix }}-in-bankcard-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="6222 0219 9003 0700 15"></textarea>
+                            <span class="tk-help">行别与登记位数查的是内置前缀表，查不到只说"表内未收录"，不下"无效"结论。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-bankcard-read" disabled>复制判定有效的卡号</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-mobile">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[3].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[3].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[3].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-gen">生成测试号码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-mobile-carrier">运营商</label>
+                            <select id="{{ tk.prefix }}-in-mobile-carrier" data-tk-options="carriers">
+                                <option value="">随机</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-mobile-segment">号段（三位）</label>
+                            <select id="{{ tk.prefix }}-in-mobile-segment" data-tk-options="segments">
+                                <option value="">不限号段</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-mobile-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-mobile-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-mobile-gen" disabled>复制这批号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-read">校验与号段识别</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-mobile-read">号码（可一次粘多行）</label>
+                            <textarea id="{{ tk.prefix }}-in-mobile-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="13800138000"></textarea>
+                            <span class="tk-help">本站不做号码归属地：三位号段这一层判不到城市，而能干净取到许可的来源也只有这一层。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-mobile-read" disabled>复制判定有效的号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-random">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[4].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[4].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[4].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-random-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-random-gen">随机合成</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-random-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-random-kind">来什么</label>
+                            <select id="{{ tk.prefix }}-in-random-kind" data-tk-switch>
+                                <option value="name">姓名</option>
+                                <option value="address">地址</option>
+                                <option value="email">邮箱</option>
+                                <option value="profile">一次一组（姓名 + 地址 + 邮箱）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-random-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-random-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-random-givelen" data-tk-when="name profile">
+                            <label for="{{ tk.prefix }}-in-random-givelen">名字字数</label>
+                            <select id="{{ tk.prefix }}-in-random-givelen">
+                                <option value="">不限（1 或 2 个字）</option>
+                                <option value="1">1 个字</option>
+                                <option value="2">2 个字</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--static" id="{{ tk.prefix }}-when-random-addr" data-tk-when="address profile">
+                            <label for="{{ tk.prefix }}-in-random-province">地址区划（只出现行码）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-random-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-random-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-random-county" data-tk-cascade="county">
+                                    <option value="">不限区县</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">街道与门牌是通用词随机拼的，不指向真实门牌。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-random-domain" data-tk-when="email profile">
+                            <label for="{{ tk.prefix }}-in-random-domain">邮箱域</label>
+                            <select id="{{ tk.prefix }}-in-random-domain" data-tk-options="domains">
+                                <option value="">三个保留域随机</option>
+                            </select>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-random-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-random-gen" disabled>复制这批结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-random-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-random-gen"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的一面板框架/绑定层/视图挂成 window.Tk，页面入口只装配本页业务。
+两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后（同 weblab.html 那条
+口径——HTML 解析到这里时面板节点已经存在，装配层第一件事就是去找它们）。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolIdcard.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会在 Task 9 的收录面判据（三页正文非空、五块面板齐）里当场红。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}
+```
+
+- [ ] **Step 3: 写 `dev/sass/toolkit.scss`（三页共用的一层样式，五条口径写在文件头）**
+
+这一层是 `.tk-` / `.jt-` 两族类名的公共件：段 3 / 段 4 直接复用，所以文件头那五条口径是给三页
+看的，不是给这一页看的。挑三条要在这里判的：
+
+- **像素转视口的黑名单必须是字符串。** 文件头第一条把 `postcss-px-to-viewport/index.js:130` 那个
+  分支抄了出来（字符串走 `selector.indexOf`、正则走不锚定的 `match`），Step 4 正反两跑就是在
+  验这一条。**为什么"不排就是错的"要说清楚**：这一层是桌面密度的排版，`13px` 表单项被等比放大
+  到 1560 屏上是 27px，五块面板拉成三屏。代价是黑名单变宽——任何别的文件将来写了带 `.tk-` 子串
+  的选择器也会被一并放过，所以 Task 9 盯着产物里的 `.tk-` 规则数。
+- **样式不认识 JS 的运行状态，只认识 ARIA 与 `hidden`。** 选中态写成
+  `[aria-selected='true']`、"这一块塌了"写成 `.tk-panel__error`（那个类名由 `panel-dom` 给，是它
+  唯一的类名钩子）。这条与 Task 6 的"全站唯一一处 ARIA 口径"是一对：状态形状归 `panel.js`，
+  观感归这里，两边不串。
+- **三档状态色是本层新造的角色色**，白昼落 `:root`、夜间在 `body.night-mode` 重赋值，上收进
+  `tokens.scss` 是段 5 的事（那文件此刻有另一个会话在改，现在去碰它是抢同一支笔）。这两组
+  对比度是**判据不是装饰**，写进注释的数字必须能照着复算，所以这里就把复算命令给出来：
+
+```bash
+node -e '
+const hex = (h) => (h.length === 4 ? "#" + [...h.slice(1)].map((c) => c + c).join("") : h);
+const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+const L = (h) => 0.2126 * lin(parseInt(h.slice(1, 3), 16)) + 0.7152 * lin(parseInt(h.slice(3, 5), 16))
+  + 0.0722 * lin(parseInt(h.slice(5, 7), 16));
+const ratio = (a, b) => (Math.max(L(hex(a)), L(hex(b))) + 0.05) / (Math.min(L(hex(a)), L(hex(b))) + 0.05);
+const day = ["#136b3a", "#8a5a00", "#a31910"], night = ["#5bd08b", "#e3b341", "#ff7b6b"];
+console.log("白昼 vs #FFF :", day.map((h) => `${h} ${ratio(h, "#FFF").toFixed(2)}`).join("  "));
+console.log("夜间 vs #191C23:", night.map((h) => `${h} ${ratio(h, "#191C23").toFixed(2)}`).join("  "));
+console.log("AA(4.5) 通过：白昼", day.every((h) => ratio(h, "#FFF") >= 4.5), "夜间",
+  night.every((h) => ratio(h, "#191C23") >= 4.5));
+'
+```
+
+Expected（2026-09-27 现算，底色取自 `dev/sass/common/tokens.scss`：白昼 `--surface` `#FFF`、
+夜间 `--surface` `#191C23`）：
+
+```
+白昼 vs #FFF : #136b3a 6.58  #8a5a00 5.93  #a31910 7.77
+夜间 vs #191C23: #5bd08b 8.80  #e3b341 8.76  #ff7b6b 6.74
+AA(4.5) 通过：白昼 true 夜间 true
+```
+
+`hex()` 那一行不是防御性代码，是**这条命令的最小正确性前提**：`tokens.scss` 里白昼那格写的就是
+三个 `#FFF`，不展开成六位的话 `slice(5,7)` 取到空串、`parseInt` 给 `NaN`，六个比值全变 `NaN`，
+而 `NaN >= 4.5` 是 `false`——脚本会安静地报出"白昼 false"，看着像色值不达标，其实是解析器没读进
+底色。09-27 第一次跑就是这么红了一把，加 `hex()` 才拿到上面那三行。
+
+（那六个数就是文件头与 `:root` / `body.night-mode` 那两行注释里写的数。**先跑命令再抄进注释**——
+这一层最初抄的是 6.3 / 5.2 / 6.0 与 9.4 / 10.5 / 7.4，六个数没一个复算得出来，09-27 按现算值
+改掉了。）
+
+一处**本格没有实测**的东西，别当已验：`@media` 那两个断点（900 / 640）里的中间段 901–959，
+注释里明写了要 Task 10 专门量 920 / 940 两档才敢定。这一段是"只测两端、中间塌"那类漏法的典型
+落点，计划里不替它背书。
+
+`dev/sass/toolkit.scss`（648 行 / 19,240 字节）：
+
+```scss
+/*** 在线工具页（/tools/idcard.html 起，`/tools/codec.html`、`/tools/json.html` 共用这一层）***/
+//
+// 一、像素转视口：postcss.config.js 的黑名单里有 `.tk-` 与 `.jt-` 两条**字符串**。
+// 这里必须是字符串而不是 `/^\.tk-/` 那种正则——postcss-px-to-viewport 1.1.1 的
+// `blacklistedSelector`（node_modules/postcss-px-to-viewport/index.js:130）对字符串走
+// `selector.indexOf(regex) !== -1`（子串命中任意位置），对正则走 `selector.match(regex)`。
+// 本层大量规则的最左选择器是 `.tk-workspace .tk-col` 这类后代形式， anchored 正则一条都盖不住；
+// 漏掉一条的后果与 about.scss 记的同一种：同一块版面一半按 px 画、一半按 750 设计稿等比放大。
+// 代价是黑名单变宽：任何别的文件将来写了带 `.tk-` 子串的选择器也会被一并放过——这两串是本页
+// 专用的类名前缀，Task 9 的收录面判据盯着构建产物，不会让它悄悄长到别处。
+// `@keyframes` 依然是唯一罩不住的地方（关键帧块的「选择器」是 0%/100%），所以本层不写动画，
+// 真要位移就用 tokens.scss 的 `--travel-*`。
+//
+// 为什么非排除不可：这一层是**桌面密度**的工具排版——13px 表单字、12.5px 表格字、40px 结果行高，
+// 全按视口等比放大到 1560px 屏上会变成 27px 的表单项，五块面板拉成三屏。与 `.tool` / `.cmdk` /
+// `.reader-` 那几条同一个理由。
+//
+// 二、样式不认识 JS 的运行状态，只认识 ARIA 与 `hidden`。`panel-dom.js` 的契约是「只写
+// `panel.js` 算好的那张属性表，不加 class、不改名、不补默认值」（段 1 计划 §6.0），装配层
+// （`workbench.js`）的显隐也只落在 `hidden` 布尔属性上。所以选中态一律写成
+// `[aria-selected='true']`，「这一块塌了」写成 `.tk-panel__error`（那个类名由 panel-dom 给，
+// 是它唯一的类名钩子）。哪天要改观感，改这里；哪天要改状态形状，改 panel.js 与 §D，两边不串。
+//
+// 三、配色只走 tokens.scss 的语义变量，本层不写 `.night-mode` 分支——除了三档状态色。
+// tokens.scss 的墨阶/纸阶/signal 都是「角色」色，没有「这个校验没过」这一档，而有效 / 校验位不符 /
+// 结构非法必须一眼分得开（§5.4：让用户看得见为什么不行）。这三档按 tokens.scss 自己的办法落在
+// `:root` 并在 `body.night-mode` 重赋值（见 tokens.scss 文件头第 3 行那句「新组件不必再写第二份
+// 覆盖表」——它说的是墨阶纸阶这类已有角色，状态色是本页新造的角色，得自己把夜间值给全）。
+// 上收进 tokens.scss 是段 5 的事：那文件此刻有另一个会话在改（09-26 23:01 刚动过），
+// 现在去碰它是抢同一支笔。
+//
+// 四、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 about.scss 那条口径。
+//
+// 五、不写动画，因此本层没有自己的 `prefers-reduced-motion` 块：base.scss:147 那条全局兜底
+// 已经把所有 `transition-duration` 压成 .01ms，本层只有颜色过渡与 `:active` 那 1px 按压位移
+// （位移由用户按住触发、松手即回，不是装饰性入场）。about.scss / cat.scss 那种 reduce 块是为了
+// 撤掉滚动驱动的位移与装饰层，本层没有那种东西可撤。
+
+// 字族：数字与号码一律走 meta（等宽 + 表内对齐），标题走 display，正文交给继承。
+$tk-display: 'Newsreader', Georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', 'STSong', 'SimSun', serif;
+$tk-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+// 三档状态色的白昼值（对 `--surface` `#FFF` 按 WCAG 2.1 相对亮度比现算：绿 6.58、琥珀 5.93、
+// 红 7.77，13px 也过 AA 的 4.5；复算命令见段 2 计划 Task 8 Step 3 那段 node 片段）。
+:root {
+    --tk-ok: #136b3a;
+    --tk-warn: #8a5a00;
+    --tk-bad: #a31910;
+}
+
+body.night-mode {
+    // 夜间底是 `--surface` `#191C23`，同一批色名要提亮才够（对同一底现算：绿 8.80、琥珀 8.76、
+    // 红 6.74，三档都过 AA）。
+    --tk-ok: #5bd08b;
+    --tk-warn: #e3b341;
+    --tk-bad: #ff7b6b;
+}
+
+// ── 版心与整页提示 ────────────────────────────────────────────────────────
+
+.tk-content {
+    padding-bottom: 48px;
+}
+
+// 合规条与「脚本没执行」那一段：正文级字号，让它读起来像说明而不是装饰。
+.tk-compliance {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 2px 0 0 var(--rule-2);
+}
+
+.tk-compliance--noscript {
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--tk-warn);
+}
+
+// 坏 hash 提示（默认 `hidden`，由 panel-dom 覆写；启动失败也写这一格，见 toolIdcard.js 口径 3）。
+.tk-notice {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    background-color: var(--signal-soft);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+// 键盘捷径那一行。`<kbd>` 自己占一个视觉重量，别让它跟正文抢。
+.tk-kbd {
+    margin: 0 0 22px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.tk-kbd kbd {
+    padding: 1px 5px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border-radius: var(--radius-s);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+// ── 工作区：索引条 + 面板 ─────────────────────────────────────────────────
+
+// 176px 是按最长那条面板名定的：`__name` 落的是 yml 的 `name`，最长那条「统一社会信用代码」
+// 是八个全角字，14px 下正好 112px，加左右各 10px padding = 132px；剩下的余量给下面那行 12px 的
+// `__hint`（tagline）当折行宽度——156px 内容宽，够它每条断成两到三行而不是四行。再宽就把面板
+// 挤窄，再窄名字就断。
+.tk-workspace {
+    display: grid;
+    grid-template-columns: 176px minmax(0, 1fr);
+    gap: 24px 28px;
+    align-items: start;
+}
+
+.tk-index {
+    position: sticky;
+    top: 88px;
+    display: grid;
+    gap: 2px;
+    // 粘性条自己不能被面板压住
+    align-self: start;
+}
+
+.tk-index__link {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--ink-2);
+    text-decoration: none;
+    border-radius: var(--radius-m);
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        box-shadow var(--dur-2) var(--ease-out);
+}
+
+.tk-index__link:hover {
+    color: var(--ink);
+    background-color: var(--surface-2);
+}
+
+.tk-index__name {
+    color: inherit;
+}
+
+.tk-index__hint {
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+// 选中态来自 `panel.js` 写的 `aria-selected`，不是来自某个类名（文件头第二条）。
+.tk-index__link[aria-selected='true'] {
+    color: var(--signal-ink);
+    background-color: var(--signal-soft);
+    box-shadow: inset 2px 0 0 var(--tool-accent, var(--signal));
+}
+
+.tk-index__link[aria-selected='true'] .tk-index__hint {
+    color: inherit;
+}
+
+// ── 面板卡片 ──────────────────────────────────────────────────────────────
+
+// `scroll-margin-top: 88px` 是全站同一个数（editorial.scss 那三条），禁 JS 时索引条退成
+// 普通锚点链接，跳过去不能被顶栏盖住标题。
+.tk-panel {
+    box-sizing: border-box;
+    padding: 20px 22px 24px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+    scroll-margin-top: 88px;
+}
+
+.tk-panel__head {
+    margin-bottom: 16px;
+}
+
+.tk-panel__title {
+    margin: 0;
+    font-family: $tk-display;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--ink);
+}
+
+.tk-panel__tagline {
+    margin: 6px 0 0;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: .6px;
+    color: var(--ink-3);
+}
+
+.tk-panel__desc {
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-2);
+}
+
+// `panel-dom` 插在面板最前面的一条 `role="alert"`，文案里带着抛错原话（可能是用户粘进去的串），
+// 所以它写 `textContent`、这里也只认这一条类名。
+.tk-panel__error {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--tk-bad);
+}
+
+// ── 一屏两栏：左生成、右判定 ──────────────────────────────────────────────
+
+.tk-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    align-items: start;
+}
+
+.tk-cols--one {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.tk-col__title {
+    margin: 0 0 10px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: 1.2px;
+    color: var(--ink-3);
+}
+
+// ── 表单 ──────────────────────────────────────────────────────────────────
+
+// `div[role=group]` 而不是 `<form>`：没有后端可交，form 的隐式提交会把整页刷成
+// `?tk-in-idcard-count=5`（骨架里那段注释记的是同一件事）。
+.tk-form {
+    margin-bottom: 14px;
+}
+
+.tk-field {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 14px;
+}
+
+.tk-field > label {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink-2);
+}
+
+.tk-field input,
+.tk-field select,
+.tk-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-1) var(--ease-out),
+        box-shadow var(--dur-1) var(--ease-out);
+}
+
+.tk-field textarea {
+    font-family: $tk-meta;
+    font-size: 13px;
+    resize: vertical;
+}
+
+// 数字、日期与号码框里的内容是要对着看的，等宽更稳。
+.tk-field input[type='number'],
+.tk-field input[type='date'] {
+    font-family: $tk-meta;
+    font-variant-numeric: tabular-nums;
+}
+
+.tk-field input:hover,
+.tk-field select:hover,
+.tk-field textarea:hover {
+    border-color: var(--ink-4);
+}
+
+.tk-field select,
+.tk-field input,
+.tk-field textarea {
+    cursor: text;
+}
+
+.tk-field select {
+    cursor: default;
+}
+
+// 级联格子被 `workbench.js` 置 `disabled` 时的样子：不能只靠 opacity（灰字压到灰底上会掉对比）。
+.tk-field :is(input, select, textarea):disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+    background-color: var(--surface-2);
+    border-color: var(--rule);
+}
+
+.tk-field--static > label {
+    color: var(--ink-3);
+}
+
+.tk-field--count input {
+    max-width: 120px;
+}
+
+// 三级区划并排：窄一格就换行，不横向滚（手机上拖三条 select 比折成两行难受得多）。
+.tk-cascade {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tk-cascade select {
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.tk-help {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+}
+
+.tk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.tk-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--paper);
+    cursor: pointer;
+    background-color: var(--ink);
+    border: 0;
+    border-radius: var(--radius-m);
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        box-shadow var(--dur-2) var(--ease-out);
+}
+
+.tk-btn:hover {
+    color: var(--paper);
+    background-color: var(--ink-2);
+}
+
+.tk-btn:active {
+    transform: translateY(1px);
+}
+
+// `--paper` / `--ink` 是一对会随夜间整体翻转的角色色，所以主按钮在两套主题下都是「深底浅字」或
+// 「浅底深字」，对比度恒等；换成 `--signal` 打底就要在夜间反过来管文字色，那是第二份口径。
+.tk-btn--ghost {
+    color: var(--ink-2);
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+.tk-btn--ghost:hover {
+    color: var(--ink);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--ink-4);
+}
+
+.tk-btn:disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.tk-btn--ghost:disabled:hover {
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+// ── 结果区 ────────────────────────────────────────────────────────────────
+
+.tk-outwrap {
+    display: grid;
+    gap: 10px;
+    justify-items: start;
+}
+
+// 结果区自己横向滚动：号码、算式与 9 列明细不能被挤成竖排（那是这类表格最坏的读法）。
+.tk-out {
+    width: 100%;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+.tk-count {
+    margin: 0 0 8px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: .6px;
+    color: var(--ink-3);
+}
+
+.tk-hint {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+}
+
+.tk-note {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+.tk-echo {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.tk-mono {
+    font-family: $tk-meta;
+    font-variant-numeric: tabular-nums;
+}
+
+.tk-table {
+    width: 100%;
+    margin: 4px 0 10px;
+    font-size: 12.5px;
+    border-collapse: collapse;
+}
+
+.tk-table th,
+.tk-table td {
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule);
+}
+
+.tk-table thead th {
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+}
+
+.tk-table tbody tr:last-child > * {
+    border-bottom: 0;
+}
+
+// 明细表与前缀表是「宁可横向滚也不折行」的那两张（九列一行的明细，压窄只会读成竖排）；
+// 判定表与生成表相反——`tk-list--address` 那一列是整条地址，`min-width: max-content` 会把它
+// 顶成 400px 宽的一行，反而要滚。号码不换行靠的是下面那条 `white-space: nowrap`，只保号码本身。
+.tk-detail,
+.tk-matches {
+    min-width: max-content;
+}
+
+.tk-table .tk-mono {
+    white-space: nowrap;
+}
+
+.tk-checks td {
+    color: var(--ink-2);
+}
+
+.tk-verdict {
+    margin: 0 0 8px;
+}
+
+.tk-state {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.tk-state--ok {
+    color: var(--tk-ok);
+}
+
+.tk-state--warn {
+    color: var(--tk-warn);
+}
+
+.tk-state--bad {
+    color: var(--tk-bad);
+}
+
+// 未收录与等待输入都不是「结论」，用墨阶而不是状态色，避免读者把它们读成通过/失败。
+.tk-state--unknown {
+    color: var(--ink-2);
+}
+
+.tk-state--idle {
+    color: var(--ink-3);
+}
+
+.tk-result {
+    padding: 2px 0 2px 12px;
+    border-inline-start: 2px solid var(--rule-2);
+}
+
+.tk-result--ok {
+    border-inline-start-color: var(--tk-ok);
+}
+
+.tk-result--warn {
+    border-inline-start-color: var(--tk-warn);
+}
+
+.tk-result--bad {
+    border-inline-start-color: var(--tk-bad);
+}
+
+.tk-lines {
+    display: grid;
+    gap: 16px;
+}
+
+.tk-line {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.tk-line:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.tk-line__head {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.tk-line__raw {
+    font-family: $tk-meta;
+    font-size: 12.5px;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.tk-batch {
+    display: block;
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两个数是本层自己的口径，与 `$g-container-w`（960）不是一回事：960 是版心从固定宽
+// 转为 auto，900 是「176px 索引条 + 两栏面板」还挤得下的下沿。中间那段（901–959）版心已经收窄
+// 而索引条还在——**这一段本格没有实测**：Task 10 的断点清单要专门量 920 / 940 两档（"只测两端、
+// 中间塌"就是这一类漏法），量出来挤就把 900 这个数往上调，别照着注释以为已经量过。
+
+@media screen and (max-width: 900px) {
+    .tk-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    // 索引条退成横向 chip：粘着顶栏没有意义（一屏放不下面板又得躲开 chip 条），改成随页滚走。
+    .tk-index {
+        position: static;
+        grid-auto-flow: column;
+        gap: 8px;
+        padding-bottom: 4px;
+        overflow-x: auto;
+    }
+
+    .tk-index__link {
+        flex: none;
+        gap: 0;
+        padding: 6px 10px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    // 提示语在 chip 里就是噪音，且它撑宽了每一颗 chip（五条不等宽很难看）。
+    .tk-index__hint {
+        display: none;
+    }
+
+    .tk-index__link[aria-selected='true'] {
+        box-shadow: inset 0 0 0 1px var(--tool-accent, var(--signal));
+    }
+}
+
+@media screen and (max-width: 640px) {
+    .tk-panel {
+        padding: 16px 14px 18px;
+    }
+
+    // 生成与判定在窄屏上下排：判定栏的粘贴框需要整幅宽度，两栏并排时它只有 280px，粘一行号码
+    // 都看不见尾段。
+    .tk-cols {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    .tk-outwrap {
+        justify-items: stretch;
+    }
+
+    .tk-btn {
+        height: 38px;
+    }
+}
+```
+
+- [ ] **Step 4: `postcss.config.js` 加两条字符串——正反各跑一次构建，跑完还原并证明回到基线**
+
+改法是一处两件事：第 81 行 `':focus-visible'` 是当时数组的**最后一项**、原本不带逗号，追加元素之前
+得先把那枚逗号补上；然后在它之后追加 7 行（5 行理由注释 + 2 条字符串）。文件 87 行 → 94 行。
+漏掉逗号那一头不是风格问题——`['a' 'b']` 在 JS 里是语法错误，`vite build` 当场红，而且红在构建日志
+里、不红在任何判据上。为了这段改动可逐字节复现，下面给的是**整段替换第 81 行**的结果：第一行就是
+补了逗号的原行（`//` 仍停在第 28 列，所以逗号后面少一个空格），后 7 行是新增。
+
+```javascript
+        ':focus-visible',     // 裸伪类选择器同上，2px 描边不能被放大成 vw
+        // 在线工具三页（/tools/idcard.html 起）。这两串必须是**字符串**而不是 /^\.tk-/ 这种正则：
+        // postcss-px-to-viewport@1.1.1 的 blacklistedSelector 对字符串走 `selector.indexOf(s)`
+        // （任意位置子串命中），对正则走 `selector.match(re)`，而本层大量规则的最左选择器是
+        // `.tk-workspace .tk-col` 这类后代形式，anchored 正则一条都盖不住。
+        // 漏一条的后果与 /^\.mao_box/ 那条注释记的同一种：同一块版面一半按 px、一半按 750 设计稿放大。
+        '.tk-',               // 证件页 / 编码工具箱页（前缀 tk）
+        '.jt-'                // JSON 工作台（前缀 jt，§6.4 两条黑名单前缀的另一条）
+```
+
+**这一步的判据是"少写一条会怎样"，那只有把两条拿掉、重建一次才看得见。** 正反两跑，跑完必须
+还原并证明产物字节回到原样——不许只留一头的数（09-26 那回变体测量没逐档还原，读到的全是上一轮
+旧产物）。开工前先确认这支笔没人在用：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+test -z "$(git status --porcelain postcss.config.js)" \
+  || { echo 'postcss.config.js 已有未提交改动，先停下来分清是谁的（还原要用 git checkout）'; exit 1; }
+npx vite build >/tmp/t8-on.log 2>&1; echo "带两条 build exit=$?"
+md5 -q postcss.config.js assets/css/toolkit.min.css | tee /tmp/t8-baseline.md5
+node -e '
+const fs = require("fs");
+const css = fs.readFileSync("assets/css/toolkit.min.css", "utf8");
+const rules = css.split("}").map((s) => s.trim()).filter(Boolean);
+const tk = rules.filter((r) => r.includes(".tk-"));
+const bad = tk.filter((r) => /[-:][0-9.]+vw/.test(r));
+console.log(`[带两条] 规则 ${rules.length}｜.tk- ${tk.length}｜被换算 ${bad.length}｜产物 ${fs.statSync("assets/css/toolkit.min.css").size} B`);
+'
+```
+
+Expected（2026-09-27 镜像实跑）：`build exit=0`，
+`[带两条] 规则 88｜.tk- 86｜被换算 0｜产物 9321 B`。那 2 条不带 `.tk-` 的规则是 `:root` 与
+`body.night-mode`，也就是三档状态色的两半——**它们必须在**，少了任何一半就是夜间色失联。
+
+再把两条临时拿掉，跑同一份量程（锚点必须命中、必须两条都没剩下，否则这一档的数字不作数）：
+
+```bash
+node -e '
+const fs = require("fs"), p = "postcss.config.js";
+const t = fs.readFileSync(p, "utf8");
+const out = t.replace(/^[ \t]*\x27\.tk-\x27,.*\n/m, "").replace(/^[ \t]*\x27\.jt-\x27.*\n/m, "");
+if (out === t) { console.error("锚点未命中：两条字符串一条都没删掉"); process.exit(1); }
+if (/[\x27\x22]\.t[kj]-[\x27\x22]/.test(out)) { console.error("还留着一条，删干净再比"); process.exit(1); }
+fs.writeFileSync(p, out);
+console.log("已去掉两条，剩余行数", out.split("\n").length - 1);
+'
+npx vite build >/tmp/t8-off.log 2>&1; echo "去掉两条 build exit=$?"
+node -e '
+const fs = require("fs");
+const css = fs.readFileSync("assets/css/toolkit.min.css", "utf8");
+const rules = css.split("}").map((s) => s.trim()).filter(Boolean);
+const tk = rules.filter((r) => r.includes(".tk-"));
+const bad = tk.filter((r) => /[-:][0-9.]+vw/.test(r));
+console.log(`[去掉两条] 规则 ${rules.length}｜.tk- ${tk.length}｜被换算 ${bad.length}｜产物 ${fs.statSync("assets/css/toolkit.min.css").size} B｜整份 vw 出现 ${(css.match(/[0-9.]vw/g) || []).length} 次`);
+bad.slice(0, 3).forEach((r) => console.log("   ", r.slice(0, 86)));
+'
+```
+
+Expected（镜像实跑，两组之间只改了 postcss 配置这一件事）：
+
+```
+[去掉两条] 规则 88｜.tk- 86｜被换算 48｜产物 9716 B｜整份 vw 出现 106 次
+    .tk-content{padding-bottom:6.4vw
+    .tk-compliance{margin:0 0 2.13333vw;padding:1.6vw 1.86667vw;font-size:1.73333vw;line-height:1.7;c
+    .tk-notice{margin:0 0 1.6vw;padding:1.33333vw 1.6vw;font-size:1.73333vw;color:var(--ink);background
+```
+
+86 条 `.tk-` 规则里 48 条被换成 vw——这就是"漏一条黑名单"的具体形状：`13px` 的表单字变成
+`3.46667vw`，1560 屏上 27px。剩下 38 条没被换，是因为它们本来就没写 px（无单位行高、`50%`、
+`var(--…)`）。这条也是 Step 5 那条"整份 vw 次数 = 0"的判据为什么值得留着：**它不是恒真**，
+配置一退化就立刻有数。
+
+跑完还原，并证明回到基线字节：
+
+```bash
+git checkout -- postcss.config.js && git status --porcelain postcss.config.js && echo "已还原（上面无输出=干净）"
+npx vite build >/tmp/t8-restore.log 2>&1; echo "还原后 build exit=$?"
+md5 -q postcss.config.js assets/css/toolkit.min.css > /tmp/t8-after.md5
+diff /tmp/t8-baseline.md5 /tmp/t8-after.md5 && echo "✓ 配置与产物都回到基线字节"
+```
+
+Expected：`✓ 配置与产物都回到基线字节`。镜像里还原后的产物 md5 是 `5c6b51cfc738…`，与
+`bundle exec jekyll build` 复制进 `_site/assets/css/` 的那份逐字节相同——Step 5 的第 0 组判据
+就把这件事写成断言，防的是"读了旧副本还以为量的是本轮"。
+
+- [ ] **Step 5: 全量构建 + 产物核验（十组共五十四项，现算现打）**
+
+骨架与样式没有测试判据可跑（§J 判的是 JS 层，Node 里的假 DOM 读不到磁盘上的字节），这一格的
+"绿"就是这张产物核验表。先建一次完整站点，再跑核验脚本：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+npx vite build >/tmp/t8-vite.log 2>&1; echo "vite exit=$?"
+bundle exec jekyll build --quiet >/tmp/t8-jekyll.log 2>&1; echo "jekyll exit=$?"
+```
+
+Expected：两条 `exit=0`。jekyll 那行之前会刷一条 `Your RubyGems version (3.0.3.1) has a bug…`，
+是本机环境的固定噪音，不参与判定。
+
+```bash
+cat > /tmp/t8-verify-render.mjs <<'VERIFY_EOF'
+/**
+ * 证件页构建产物核验（Task 8 Step 5 的正文）。
+ *
+ * 判的全是"磁盘上的字节"，与 §J 那十六条（判 JS 层）互不顶替。三条纪律：
+ *  1. **一律 scoped**：整页 grep 会被站点公共件（书架 dialog 的 3 个 role="tab"、cmdk 的
+ *     role="listbox"）污染，所以每条判据先切出自己要看的区间再数。
+ *  2. **先自证读的是本轮产物**：vite 的 outDir 是仓库根的 `assets/`，`_site/assets/` 那份是
+ *     jekyll 复制出来的；只读 _site 会在 vite 没重跑时量到上一轮旧产物（09-27 栽过一次）。
+ *     故第一组判据断言两处同 md5。
+ *  3. 数值全部现算现打，不在脚本里写死——写死的数字下一轮就不成立了。
+ */
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+
+const md5 = (buf) => createHash('md5').update(buf).digest('hex');
+
+const read = (p) => { const b = readFileSync(p); return { text: b.toString('utf8'), bytes: b.length }; };
+const [HTMLF, CSSF, COREF, ENTRYF, SMTF] = [
+  process.argv[2] || '_site/tools/idcard.html', process.argv[3] || 'assets/css/toolkit.min.css',
+  process.argv[4] || 'assets/js/toolkitCore.min.js', process.argv[5] || 'assets/js/toolIdcard.min.js',
+  process.argv[6] || '_site/sitemap.xml',
+].map(read);
+const [HTML, CSS, CORE, ENTRY, SITEMAP] = [HTMLF, CSSF, COREF, ENTRYF, SMTF].map((f) => f.text);
+
+/** 切出 [从, 到) 之间的那一段；`to` 缺省到文件尾。找不到就抛——静默返回空串会判成"0 命中=过"。 */
+function slice(str, fromNeedle, toNeedle) {
+  const a = str.indexOf(fromNeedle);
+  if (a < 0) throw new Error(`找不到起点 ${fromNeedle}`);
+  if (!toNeedle) return str.slice(a);
+  const b = str.indexOf(toNeedle, a);
+  if (b < 0) throw new Error(`找不到终点 ${toNeedle}`);
+  return str.slice(a, b);
+}
+const hits = (s, re) => (s.match(re) || []).length;
+
+const out = {};
+
+/* ── 0. 读的是本轮产物：jekyll 那份 _site 与 vite 那份 assets 必须同 md5 ───── */
+out['0-产物同源'] = (() => {
+  try {
+    const a = md5(readFileSync('assets/css/toolkit.min.css'));
+    const b = md5(readFileSync('_site/assets/css/toolkit.min.css'));
+    return a === b ? `✓ toolkit.min.css 两处同 md5 ${a.slice(0, 12)}` : `✗ 不同 md5：vite ${a.slice(0, 12)} vs _site ${b.slice(0, 12)}（vite 没重跑或 _site 是旧的）`;
+  } catch (e) {
+    return `✗ 读不到 ${e.message.split(' ')[1] || '产物'}`;
+  }
+})();
+
+/* ── 1. 骨架结构：五块面板 / 索引条 / 正文齐 ─────────────────────────────── */
+out['1-面板齐'] = [...HTML.matchAll(/id="tk-panel-([a-z]+)"/g)].map((m) => m[1]).join(',');
+out['1-面板数'] = hits(HTML, /id="tk-panel-[a-z]+"/g);
+out['1-索引链接'] = hits(HTML, /class="tk-index__link"/g);
+out['1-锚点'] = [...HTML.matchAll(/class="tk-index__link"[^>]*href="#([a-z]+)"/g)].map((m) => m[1]).join(',');
+out['1-栏标题h3'] = hits(HTML, /<h3 class="tk-col__title"/g);
+out['1-面板标题h2'] = hits(HTML, /<h2 class="tk-panel__title"/g);
+out['1-面板说明p'] = hits(HTML, /<p class="tk-panel__desc"/g);
+out['1-结果区'] = hits(HTML, /id="tk-out-[a-z]+-(gen|read)"/g);
+out['1-HTML字节'] = HTMLF.bytes;
+
+/* ── 2. 构建期正文：yml 里那五条 desc 的开头字样必须真在 HTML 里 ──────────── */
+const descHeads = ['粘一行或一个文件的多行号码', '校验第 1–17 位的字符集', '校验按 Luhn 与 13–19 位',
+  '格式（11 位、1[3-9] 开头）', '姓名由本站自造的常用姓氏'];
+out['2-五条说明落进HTML'] = descHeads.map((s) => (HTML.includes(s) ? 'Y' : 'N')).join('');
+
+/* ── 3. ARIA（scoped）：骨架不写索引条/面板的 ARIA，运行时才覆写 ─────────── */
+const navSeg = slice(HTML, '<nav class="tk-index"', '</nav>');
+out['3-索引条里的ARIA'] = hits(navSeg, /\b(role|aria-[a-z]+|tabindex|hidden)[= ]/g);
+const panelTags = [...HTML.matchAll(/<section class="tk-panel[^"]*" id="tk-panel-[a-z]+"[^>]*>/g)]
+  .map((m) => m[0]).join('\n');
+out['3-面板起始标签里的role或hidden'] = hits(panelTags, /\b(role=|hidden=)/g);
+/* 骨架自己写的两类：表单分组与结果区，各 9 */
+out['3-role=group'] = hits(HTML, /role="group"/g);
+out['3-role=region'] = hits(HTML, /role="region"/g);
+out['3-region带aria-live'] = hits(HTML, /role="region" aria-live="polite"/g);
+out['3-整页role=tab'] = hits(HTML, /role="tab"/g);
+out['3-整页role=tablist'] = hits(HTML, /role="tablist"/g);
+out['3-tab命中所在行'] = [...HTML.split('\n').keys()].filter((i) => /role="tab"/.test(HTML.split('\n')[i])).map((i) => i + 1).join(',');
+/* 禁 JS 时五块全展开 = `<main>` 区间里除 `#tk-notice` 那格外没有任何 `hidden`：显隐只由
+   panel-dom 运行期写，脚本不在就没人写。这一条是 `<noscript>` 那段文案的唯一硬证据。 */
+const mainSeg = slice(HTML, '<main', '</main>');
+out['3-main区间hidden数'] = hits(mainSeg, /\bhidden\b/g);
+out['3-hidden落点'] = mainSeg.split('\n').filter((l) => /\bhidden\b/.test(l))
+  .map((s) => s.trim().slice(0, 60)).join(' | ') || '（无）';
+
+/* ── 4. 表单与按钮 ─────────────────────────────────────────────────────── */
+out['4-form标签'] = hits(HTML, /<form\b/g);
+out['4-提交按钮'] = hits(HTML, /id="tk-btn-[a-z]+-(gen|read)"/g);
+out['4-复制按钮'] = hits(HTML, /id="tk-copy-[a-z]+-(gen|read)"/g);
+out['4-复制按钮初始disabled'] = [...HTML.matchAll(/<button[^>]*id="tk-copy-[a-z]+-(gen|read)"[^>]*>/g)]
+  .filter((m) => /\bdisabled\b/.test(m[0])).length;
+
+/* ── 5. 前缀四格与 data-tk-*（行为靠它们接线） ───────────────────────────── */
+const box = slice(HTML, '<div class="tk-workspace"', '>');
+out['5-容器四格'] = ['ids', 'prefix', 'label', 'notice'].map((k) => {
+  const m = new RegExp(`data-tk-${k}="([^"]*)"`).exec(box);
+  return m ? `${k}=${m[1]}` : `${k}=✗`;
+}).join(' | ');
+out['5-cascade'] = hits(HTML, /data-tk-cascade="([a-z]+)"/g);
+out['5-cascade值'] = [...new Set([...HTML.matchAll(/data-tk-cascade="([a-z]+)"/g)].map((m) => m[1]))].join(',');
+out['5-options'] = hits(HTML, /data-tk-options="([a-z]+)"/g);
+out['5-options值'] = [...HTML.matchAll(/data-tk-options="([a-z]+)"/g)].map((m) => m[1]).join(',');
+out['5-charsets'] = hits(HTML, /data-tk-charsets="([a-z]+)"/g);
+out['5-switch'] = hits(HTML, /data-tk-switch\b/g);
+out['5-when段'] = [...HTML.matchAll(/id="tk-when-([a-z-]+)" data-tk-when="([^"]*)"/g)]
+  .map((m) => `${m[1]}⇒${m[2]}`).join(' , ');
+
+/* ── 6. 引用与顺序：css 一条、js 两条按序、canonical、无 defer/module ─────── */
+/* 只认 src/href 里的那一处：骨架第 306 行的注释把三个产物名都念了一遍，按 `indexOf(名字)`
+   定位会命中注释、把"排在正文之后"判成假红（09-27 实跑抓到）。 */
+const srcIdx = (name) => HTML.indexOf(`src="/better-blog/assets/js/${name}`);
+out['6-canonical'] = (/<link rel="canonical" href="([^"]+)">/g.exec(HTML) || ['✗ 缺 canonical'])[1];
+out['6-三处引用'] = HTML.split('\n').map((l, i) => [i + 1, l.trim()])
+  .filter(([, l]) => /["']\/better-blog\/assets\/(css|js)\/(toolkit|toolkitCore|toolIdcard|toolJson)[^"']*\.min\.(css|js)["']/.test(l))
+  .map(([n, l]) => `${n}:${l.slice(0, 78)}`).join('\n   ');
+out['6-core排在entry之前'] = srcIdx('toolkitCore') < srcIdx('toolIdcard') ? 'Y' : 'N';
+out['6-两条排在正文之后'] = [
+  srcIdx('toolIdcard') > HTML.lastIndexOf('</main>') ? 'Y' : 'N',
+  srcIdx('toolkitCore') > HTML.indexOf('id="tk-panel-random"') ? 'Y' : 'N',
+].join('');
+out['6-两条上无defer或module'] = [...HTML.matchAll(/<script[^>]*toolkit(?:Core|Idcard)\.min\.js[^>]*>/g)]
+  .filter((m) => /defer|async|type="module"/.test(m[0])).length;
+out['6-整页defer或module'] = hits(HTML, /<script[^>]*(defer|type="module")/g);
+out['6-baseurl展开'] = hits(HTML, /["'](\/better-blog\/assets\/)[^"']*toolkit[^"']*["']/g)
+  + hits(HTML, /["'](\/better-blog\/assets\/)[^"']*toolIdcard[^"']*["']/g);
+out['6-未展开的Liquid'] = hits(HTML, /\{\{|\{%/g);
+
+/* ── 7. 收录面：本格不该进 sitemap（Task 9 才接） ────────────────────────── */
+out['7-sitemap命中'] = hits(SITEMAP, /tools\/idcard/g);
+
+/* ── 8. CSS 产物：.tk- 规则不许被 px→vw 换算 ────────────────────────────── */
+const cssRules = CSS.split('}').map((s) => s.trim()).filter(Boolean);
+out['8-CSS字节'] = CSSF.bytes;
+out['8-.tk-规则'] = cssRules.filter((r) => r.includes('.tk-')).length;
+out['8-.tk-规则含vw'] = cssRules.filter((r) => r.includes('.tk-') && /[-:][0-9.]+vw/.test(r)).length;
+out['8-整份vw次数'] = hits(CSS, /[0-9.]vw/g);
+
+/* ── 9. JS 产物：共享 chunk 红线 + window.Tk 交接 + 顶层 export ───────────── */
+out['9-core字节'] = COREF.bytes;
+out['9-entry字节'] = ENTRYF.bytes;
+out['9-页面字节'] = HTMLF.bytes;
+out['9-import残留'] = hits(CORE, /\bimport[{( ]/g) + hits(ENTRY, /\bimport[{( ]/g);
+out['9-顶层export'] = hits(CORE, /^export /gm) + hits(ENTRY, /^export /gm);
+out['9-window.Tk'] = hits(CORE, /window\.Tk/g);
+out['9-entry读Tk'] = hits(ENTRY, /window\.Tk|globalThis\.Tk/g);
+out['9-IIFE包裹'] = [CORE, ENTRY].map((s) => (s.trimStart().startsWith('(function(') ? 'Y' : 'N')).join('');
+
+console.log(JSON.stringify(out, null, 1));
+VERIFY_EOF
+node /tmp/t8-verify-render.mjs
+```
+
+脚本干三条纪律性的事，读代码前先看完这三条：
+
+1. **判据一律 scoped。** 整页 `grep role="tab"` 命中 3 次，但那是 288–290 行、`_includes/header.html`
+   里书架对话框的三个分区按钮；本页的索引条与面板起始标签里必须一个 `role` 都没有。所以下面
+   第 3 组数的是 `<nav class="tk-index">…</nav>` 那一段与五块 `<section class="tk-panel" …>` 的
+   起始标签，整页那一列只作对照打出来。
+2. **先自证读的是本轮产物。** vite 的 `outDir` 是仓库根的 `assets/`，`_site/assets/` 是 jekyll
+   复制过去的副本。第 0 组判据断言两处 `toolkit.min.css` 同 md5——写这份计划时我先踩了这条，
+   拿旧 `_site` 做"去掉黑名单也不会换算"的"反证"，差点把一条有效判据写成无效的（Step 4 那组
+   48 条就是重跑之后才拿到的）。
+3. **`slice()` 找不到锚点直接抛，不返回空串。** 判据里"0 命中"是过，可如果那段根本没切出来，
+   "0 命中"就是一次假过。
+
+Expected（2026-09-27 镜像实跑，逐行照抄；`3-hidden落点` 那一行里的 `\"` 是 JSON 自己的转义）：
+
+```json
+{
+ "0-产物同源": "✓ toolkit.min.css 两处同 md5 5c6b51cfc738",
+ "1-面板齐": "idcard,uscc,bankcard,mobile,random",
+ "1-面板数": 5,
+ "1-索引链接": 5,
+ "1-锚点": "idcard,uscc,bankcard,mobile,random",
+ "1-栏标题h3": 9,
+ "1-面板标题h2": 5,
+ "1-面板说明p": 5,
+ "1-结果区": 9,
+ "1-HTML字节": 56542,
+ "2-五条说明落进HTML": "YYYYY",
+ "3-索引条里的ARIA": 0,
+ "3-面板起始标签里的role或hidden": 0,
+ "3-role=group": 9,
+ "3-role=region": 9,
+ "3-region带aria-live": 9,
+ "3-整页role=tab": 3,
+ "3-整页role=tablist": 1,
+ "3-tab命中所在行": "288,289,290",
+ "3-main区间hidden数": 1,
+ "3-hidden落点": "</noscript><p class=\"tk-notice\" id=\"tk-notice\" hidden></p><p",
+ "4-form标签": 0,
+ "4-提交按钮": 9,
+ "4-复制按钮": 9,
+ "4-复制按钮初始disabled": 9,
+ "5-容器四格": "ids=idcard,uscc,bankcard,mobile,random | prefix=tk | label=证件与机构代码工具 | notice=tk-notice",
+ "5-cascade": 8,
+ "5-cascade值": "province,city,county",
+ "5-options": 5,
+ "5-options值": "banks,cardtypes,carriers,segments,domains",
+ "5-charsets": 2,
+ "5-switch": 2,
+ "5-when段": "idcard-birth⇒custom , random-givelen⇒name profile , random-addr⇒address profile , random-domain⇒email profile",
+ "6-canonical": "https://liaolongdong.github.io/better-blog/tools/idcard.html",
+ "6-三处引用": "310:<link rel=\"stylesheet\" href=\"/better-blog/assets/css/toolkit.min.css\"><section\n   720:</main><script src=\"/better-blog/assets/js/toolkitCore.min.js\"></script>\n   721:<script src=\"/better-blog/assets/js/toolIdcard.min.js\"></script>",
+ "6-core排在entry之前": "Y",
+ "6-两条排在正文之后": "YY",
+ "6-两条上无defer或module": 0,
+ "6-整页defer或module": 1,
+ "6-baseurl展开": 3,
+ "6-未展开的Liquid": 0,
+ "7-sitemap命中": 0,
+ "8-CSS字节": 9321,
+ "8-.tk-规则": 86,
+ "8-.tk-规则含vw": 0,
+ "8-整份vw次数": 0,
+ "9-core字节": 18103,
+ "9-entry字节": 184221,
+ "9-页面字节": 56542,
+ "9-import残留": 0,
+ "9-顶层export": 0,
+ "9-window.Tk": 1,
+ "9-entry读Tk": 2,
+ "9-IIFE包裹": "YY"
+}
+```
+
+对着这张表要能一眼回答四个问题：**面板齐不齐**（第 1 组，五块、九栏、九个结果区、九个复制按钮
+且全部初始 `disabled`）、**禁 JS 读不读得到正文**（第 2 组那五条 `desc` 的开头字样原样在 HTML 里
++ 第 3 组 `hidden` 只有 `#tk-notice` 那一处）、**ARIA 是不是只有一处口径**（第 3 组前两项必须 0）、
+**接线读的锚点在不在**（第 5 组：容器四格、八处 `cascade`、五处 `options`、两处 `charsets`、
+两处 `switch`、四段 `when` 及其开关值）。第 6 组钉引用与顺序，第 7 组钉"本格还没进 sitemap"，
+第 8 / 9 组钉两份产物各自的形状。
+
+其中三处红过、留在这儿防复发：
+
+- `6-两条排在正文之后` 第一次跑出来是 `NN`。原因是骨架第 306 行的注释把三个产物名都念了一遍，
+  脚本用 `indexOf('toolkitCore.min.js')` 定位，命中的是注释而不是 `<script src>`。改成正文里
+  只认 `src="/better-blog/assets/js/<名字>` 之后才真判到位置。**任何按字符串定位的产物判据都要
+  先问一句：这串字在别处出现过没有。**
+- `9-core字节` 第一次量到 16,101（真值 18,103）。`readFileSync(p,'utf8')` 之后取 `.length` 是
+  **字符数**，这批产物里有中文串，一个汉字三个字节。所以脚本一开头就把 `bytes` 与 `text` 分开存。
+- `8-整份vw次数` 在 Step 4 的"去掉两条"那一档是 106、在基线是 0——这条判据有牙，但只在两个方向
+  都跑过之后才看得出它有牙。
+
+Step 4 与 Step 5 合起来是这一格的验证面。**Step 6 量体积，Step 7 才提交**——中间任何一步红，
+都不许"先提了再说"。
+
+- [ ] **Step 6: 记一次首屏体积（口径钉死：`gzip -9` 走 stdin，不走文件名参数）**
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+for f in assets/css/toolkit.min.css assets/js/toolkitCore.min.js assets/js/toolIdcard.min.js _site/tools/idcard.html; do
+  raw=$(wc -c < "$f" | tr -d ' '); gz=$(cat "$f" | gzip -9 | wc -c | tr -d ' ')
+  printf '%-34s raw=%-8s gz=%s\n' "$f" "$raw" "$gz"
+done
+```
+
+Expected（2026-09-27 镜像实跑）：
+
+```
+assets/css/toolkit.min.css         raw=9321     gz=2110
+assets/js/toolkitCore.min.js       raw=18103    gz=6583
+assets/js/toolIdcard.min.js        raw=184221   gz=64408
+_site/tools/idcard.html            raw=56542    gz=13332
+```
+
+**口径必须写成 `cat f | gzip -9`，不能写 `gzip -9 -c f`。** 后者会把文件名塞进 gzip header 的
+FNAME 字段，每件多 16–19 字节：镜像里同一批文件用 `-c f` 量出来是 2,126 / 6,602 / 64,426，
+差值正好是 `toolkit.min.css\0`(16) / `toolkitCore.min.js\0`(19) / `toolIdcard.min.js\0`(18)。
+看着像压缩器抖了，其实是计量方法换了。Task 7 Step 6 那张七档表用的是 stdin 口径（它的脚本
+`measure-gzip.py` 里就是 `subprocess.run(['gzip','-9','-c'], input=b)`），本格照同一口径，
+两边数字才许放在一起比。
+
+四条读数：
+
+1. **两件 JS 的合计没被本格撑大**：2,110 + 6,583 + 64,408 = **73,101 B**，与 Task 7 Step 6
+   满数据那一档逐字节相同。本格没动 JS，这条就是"没动"的证据——下一次谁往骨架里加了一条
+   `<script>`，这一行会第一个对不上。
+2. **§7 那条"证件页 JS + CSS ≤ 60KB"仍然超**：73,101 B 比 61,440 B 多 **11,661 B（19%）**。
+   本格不改预算、也不自己找补，处置已在 Task 7 Step 6 按 BLOCKED 协议交回（三个处置的取舍
+   写在那一格）。这一格只补一句实测事实：**超的部分几乎全在一支脚本里**，`toolIdcard.min.js`
+   一件就占 64,408 B，其中区划那本 34,313 B（Task 7 Step 6 的边际表）。
+3. **首屏关键路径是 15,442 B gzip**（`toolkit.min.css` 2,110 + 页面 HTML 13,332）——这是**禁 JS
+   也读得到整页正文**的成本，五块面板的说明文字全在那 13,332 B 里。剩下的 70,991 B（两件 JS）
+   才买"按得动按钮"。这个分层是 §6.3 那条"构建期渲染"的直接结果，也是处置 (b)（把历史层拆成
+   第二支延迟 script）将来能量化的起点。
+4. **`_site/tools/idcard.html` 的 56,542 B 是骨架 32,566 B 加站点公共件（`header.html` /
+   `footer.html` / `head.html` 那一圈）之后的字节数**，比骨架多出的 23,976 B 不是这一格引入的。
+   体积按 Pages 实际传输算：线上只发 gzip、不发 brotli（09-26 实测过 `Content-Encoding: gzip`），
+   所以本格与 §7 全部按 gzip 计，brotli 那本账不参与判定。
+
+- [ ] **Step 7: 全量门禁 + 按路径提交**
+
+提交前把这一格的四道门禁连着跑一遍，**不许只对改动文件跑**（Task 8 改的是页面与样式，但它住在
+一个有 JS 测试套件与两条构建链的仓库里）：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t8-tests.log 2>&1
+echo "测试 exit=$?"; grep -E '^# (tests|pass|fail)' /tmp/t8-tests.log
+pnpm build:site > /tmp/t8-build.log 2>&1; echo "build:site exit=$?"
+node /tmp/t8-verify-render.mjs > /tmp/t8-render.log 2>&1; echo "产物核验 exit=$?"
+grep -c '"3-索引条里的ARIA": 0\|"3-面板起始标签里的role或hidden": 0\|"4-form标签": 0' /tmp/t8-render.log
+```
+
+Expected（2026-09-27 镜像实跑）：`# tests 142 / # pass 142 / # fail 0`、`build:site exit=0`
+（约 31 秒；`pnpm build:site` = `vite build` + `vite build --config vite.demo.config.js` +
+`bundle exec jekyll build`，正是 CI 那一条链）、`产物核验 exit=0`、最后一条 `3`。
+镜像里那一趟全链之后，`_site/tools/idcard.html` 的 md5 仍是 `c7b6dfc8a354…`、
+`assets/css/toolkit.min.css` 仍是 `5c6b51cfc738…`，与 Step 4/5 的基线逐个相同——**注释级改动
+不进产物**这件事，到这儿才算证完。
+
+提交。这一格的产物（`assets/js/*.min.js`、`assets/css/*.min.css`、`_site/`）**全部在
+`.gitignore` 里**（`.gitignore:9-10`），Pages 由 CI 构建，所以暂存区只有源文件五条路径：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git add _data/onlineTools.yml assets/img/tools/idcard-tool.svg tools-idcard.html \
+        dev/sass/toolkit.scss postcss.config.js
+git diff --cached --stat
+git commit -m "$(cat <<'EOF'
+feat(tools): 证件页骨架与样式落地（/tools/idcard.html 首版，构建期渲染）
+
+- _data/onlineTools.yml：面板清单/前缀/收录状态的单一数据源，Task 9 的下拉与
+  /tools.html 小节共用；assets/img/tools/idcard-tool.svg 是它 icon 指向的图标
+- tools-idcard.html：五块面板的正文由 Liquid 在构建期渲染，禁用脚本与爬虫读到的
+  是同一份正文（§6.3）；索引条与面板的 ARIA 一个不写，全由 panel-dom.js 覆写
+- dev/sass/toolkit.scss：.tk-/.jt- 一套样式，状态色三档在白昼与夜间的对比度
+  现算为 6.58/5.93/7.77 与 8.80/8.76/6.74（AA 4.5 全过）
+- postcss.config.js：黑名单加 .tk- 与 .jt- 两条字符串（不是正则，最左选择器是
+  后代形式时 anchored 正则一条都盖不住）；去掉两条实测 86 条规则里 48 条被换成 vw
+EOF
+)"
+git log --oneline -1
+```
+
+**别裸 `git commit`**：索引是共享的，另一个会话可能正把 `.gitignore` 之类暂存着（Task 7 收口时
+就是这情况）。先 `git diff --cached --stat` 看清那五行是谁的，多出来的行先跟用户确认，不要顺手
+吞进这一发。
+
+本格交付清单：
+
+| 路径 | 行 / 字节 | 谁来判它 |
+| --- | --- | --- |
+| `_data/onlineTools.yml` | 76 / 5,683 | Step 1 的 `check-onlineTools.rb`；Step 5 第 1 组（五块面板、九栏） |
+| `assets/img/tools/idcard-tool.svg` | 11 / 762 | Step 1 那条 `icon在盘上=true`；Task 9 的下拉是第一个消费者 |
+| `tools-idcard.html` | 486 / 32,566 | Step 5 十组（0–9）全过；Step 6 的 56,542 B / 13,332 B gzip |
+| `dev/sass/toolkit.scss` | 648 / 19,240 | Step 3 的对比度复算；Step 4 正反两跑；Step 5 第 8 组 |
+| `postcss.config.js` | 94 / 4,537 | Step 4（48 条 ↔ 0 条那组对照） |
+
+下一格（Task 9，收录面与门禁脚本）拿这一格的这些东西去用，接口就三条：
+
+1. 三个消费点（`_includes/header.html` 的「工具箱」下拉新分组、`/tools.html` 小节、
+   `index-all.html`）读同一份 `site.data.onlineTools`，按 `status == 'ready'` 决定出不出链接；
+   `icon` 字段第一次被消费。
+2. `scripts/check-tools-surface.mjs` 把 Step 5 那十组现算现打的东西收成可重跑的门禁，另加三条
+   对账：`_data/onlineTools.yml` 的 `prefix` ↔ `toolIdcard.js` 的 `CONTAINER_ID`/`NOTICE_ID`；
+   `WORKBENCH_SPEC` 里 switch 的 targets ↔ 页面上四段 `data-tk-when`；三页的 `url` ↔
+   `permalink`（含 sitemap 收没收到）。
+3. Step 6 那笔超预算的账（73,101 B vs §7 的 61,440 B）还挂在用户那儿没拍板。**Task 9 之前先问
+   一句**：拍 (a) 就改 §7 那一行与两处引用、把实测数字回写 spec；拍 (b) 则这一格的骨架要多加
+   一条 `<script>`、`toolIdcard.js` 的入口自检改成"两支都在或都不在"，本格得返工。
+
+<!-- APPEND-9 -->
