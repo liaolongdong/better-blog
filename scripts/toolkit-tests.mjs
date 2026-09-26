@@ -2329,6 +2329,38 @@ test('D1 属性表：ARIA 骨架齐，id 命名可预期', () => {
   assert.equal(Object.keys(panel).sort().join(','),
     'aria-labelledby,hidden,id,role,tabindex');
   assert.equal(ws.panelAttr('uscc').hidden, true, '未选中的面板必须 hidden');
+  // tablist 容器那一格：§6.3 要求页面里有 `role="tablist"`，而本模块的契约是"装配层只写
+  // 模块算出来的属性表"。这一格从前不存在（`tabAttr` / `panelAttr` 之外没有第三个属性表），
+  // 段 2 只能自己手抄 `role` 与 `aria-label`——同一个节点上两套口径正是这个模块要消灭的。
+  const list = ws.tablistAttr();
+  assert.deepEqual(Object.keys(list).sort().join(','),
+    'aria-label,aria-orientation,id,role',
+    '容器属性表只该这四格：多一格就是装配层要猜怎么写');
+  assert.deepEqual(list, {
+    id: 'tk-tablist', role: 'tablist', 'aria-label': '工具面板', 'aria-orientation': 'vertical',
+  }, '默认前缀 / 默认 label / 默认走向（§6.3 的索引条是左侧粘性那一档）');
+  const wide = createPanelWorkspace({
+    ids: CODEC, prefix: 'jt', label: '编码工具', orientation: 'horizontal',
+  });
+  assert.deepEqual(wide.tablistAttr(), {
+    id: 'jt-tablist', role: 'tablist', 'aria-label': '编码工具', 'aria-orientation': 'horizontal',
+  }, '三个构造参数必须一起进容器属性表，`tabAttr` 那边已经吃了前缀');
+  assert.equal(wide.tabAttr('timestamp').id, 'jt-tab-timestamp', '同一前缀贯穿 tab 侧');
+  // 走向只接受两个值：写错的 `'vertical '` / `'Vertical'` 会被浏览器原样当无效值吞掉，
+  // 读屏照旧播报水平条——这种"看起来配了其实没配"的形状只能在构造时就炸。
+  for (const bad of ['Vertical', 'vertical ', 'both', 1, null]) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, orientation: bad }),
+      { name: 'RangeError', message: /options\.orientation/ },
+      `orientation 收到 ${String(bad)} 必须点名是哪一个键`);
+  }
+  // `prefix` / `label` 只有"形状或空"这一类错，所以四档共用一个异常类型；写成循环而不是
+  // 四行，是因为这两格从前一次判据都没碰过（旧 §D 的 3 格 throws 全在别处）。
+  for (const bad of [1, null, '', '   ']) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, prefix: bad }),
+      { name: 'TypeError', message: /options\.prefix/ }, `prefix 收到 ${String(bad)}`);
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, label: bad }),
+      { name: 'TypeError', message: /options\.label/ }, `label 收到 ${String(bad)}`);
+  }
   // JSON 工作台换前缀时，tab 与 panel 两侧的配对必须一起换，否则 aria-labelledby 指空
   const jt = createPanelWorkspace({ ids: ['format', 'convert'], prefix: 'jt' });
   assert.deepEqual({
@@ -2394,6 +2426,27 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(ws.toHash(), '#bankcard', '写回页面的 hash 由模块给，DOM 层不自己拼');
   assert.equal(ws.select('nope'), false);
   assert.equal(ws.active(), 'bankcard', '未知 id 不得把面板切成空白');
+  // §6.0 第四条口径：`select` 的返回值只回答"有没有这块面板"，不回答"换没换"。
+  // 点已经亮着的那块是合法操作，这里若报 false，装配层会对一次正常点击弹"没有这个面板"。
+  // 写的是严格相等，所以同一格顺带钉住"返回的是布尔 true，不是 `move` 那种 `{active,
+  // changed}` 对象"——装配层拿它只能做一件事（`false` 就什么也不写）。`changed` 判据在 D3。
+  assert.equal(ws.select('bankcard'), true, '点已选中的 tab 必须返回布尔 true');
+  assert.equal(ws.active(), 'bankcard', '再点一次不动状态，也不报错');
+  // 两条副作用与"换没换"无关：点的就是当前这块也照样置 `touched`、清 `unknown`。
+  // 装配层据此实现"坏 hash 提示 → 用户一动手就消失"，所以这两格必须钉在 select 上，
+  // 不许哪天优化成"没换就不动状态"。
+  const hinted = createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' });
+  assert.equal(hinted.unknownHash(), true, '开局坏 hash 要留得下线索');
+  assert.equal(hinted.active(), 'idcard', '坏 hash 回落到第一块，不是空白');
+  assert.equal(hinted.toHash(), '', '开局坏 hash 时不往地址栏写东西');
+  assert.equal(hinted.select('idcard'), true, '点的就是回落的那一块，仍然是合法点击');
+  assert.equal(hinted.unknownHash(), false, '用户动手后那条坏 hash 提示该消失');
+  assert.equal(hinted.toHash(), '#idcard', '同上：没有换面板，但从这一刻起该写 hash 了');
+  const cleared = createPanelWorkspace({ ids: TOOLKIT });
+  assert.equal(cleared.applyHash('#nope'), false);
+  assert.equal(cleared.unknownHash(), true);
+  cleared.select('idcard');
+  assert.equal(cleared.unknownHash(), false, 'applyHash 留下的 unknown 也由 select 清');
   assert.equal(ws.applyHash('#random'), true);
   assert.equal(ws.active(), 'random');
   assert.equal(ws.applyHash('#nope'), false, 'applyHash 把 unknown 变成返回值，DOM 层据此提示');
@@ -2407,10 +2460,16 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(bare.toHash(), '', '没有用户动作就不该往地址栏写东西');
   bare.select('uscc');
   assert.equal(bare.toHash(), '#uscc', '点过之后才开始写 hash');
-  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).unknownHash(), true,
-    '开局就是坏 hash 也要留得下线索');
-  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).active(), 'idcard',
-    '坏 hash 回落到第一块，不是空白');
+  // 构造期的 `hash` 闸门：非串是装配层写错，抛 `TypeError` 点名 options.hash。
+  // 与上面第 8 格（`parseHash(null, ids)` 安静返回"没有 hash"）**口径故意不同**：
+  // `parseHash` 是纯工具、也会被 `applyHash` 拿去吃实时 `location.hash`，那里抛等于把
+  // 一次浏览器事件变成未捕获异常；构造参数只有装配层会传，写错了要当场炸在接线处。
+  const hashGates = [['null', null], ['number 1', 1], ['Array(1)', ['uscc']],
+    ['object', { hash: 'uscc' }]];
+  for (const [label, bad] of hashGates) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, hash: bad }),
+      { name: 'TypeError', message: /options\.hash/ }, `hash 收到 ${label}`);
+  }
 });
 
 test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
@@ -2433,7 +2492,63 @@ test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
   ws.markBroken('random', 'x');
   ws.markBroken('idcard', 'y');
   assert.deepEqual(ws.brokenIds(), ['idcard', 'random'], '按面板顺序报，DOM 层据此渲染汇总条');
-  assert.throws(() => ws.markBroken('nope', 'x'), /未知面板/);
-  assert.throws(() => createPanelWorkspace({ ids: [] }), /至少一个面板/);
-  assert.throws(() => createPanelWorkspace({ ids: ['a', 'a'] }), /重复/);
+  // 不认识的面板 id：`markBroken` / `clearBroken` 同档抛 `RangeError`（形状对、值不能用），
+  // 且两句都回显那一个 id。整改前三格是裸 `Error` + 只有一句话，`clearBroken` 那一格
+  // 干脆静默"没这块、没事发生"——装配层把 `clearBroken('ucc')` 的笔误吞了，页面上那块
+  // 面板的错误条会一直挂着，而控制台一个字没有。
+  for (const [label, act] of [
+    ['markBroken', () => ws.markBroken('nope', 'x')],
+    ['clearBroken', () => ws.clearBroken('nope')],
+  ]) {
+    let err = null;
+    try {
+      act();
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`${label}：不认识的面板 id 必须抛，不许静默`);
+    assert.equal(err.constructor.name, 'RangeError', `${label}：异常类型（形状对而值不能用）`);
+    assert.match(err.message, /nope/, `${label}：要回显那一个 id → ${err.message}`);
+    assert.match(err.message, /不在 ids 里/, `${label}：要说是 ids 的事 → ${err.message}`);
+    assert.doesNotMatch(err.message, /undefined|\[object |TypeError/, `${label}：回显不许是类型噪声`);
+  }
+  // 构造期四道闸门：缺 ids / 非数组 / 空数组 / 逐项，两类异常各归其位。
+  // 空数组是 `RangeError`（形状是数组、值不能用），非数组是 `TypeError`——这一档从前混成
+  // 一句 `Error`，`config.map(...)` 漏 filter 与 `config` 忘了解构两类笔误报同一句话。
+  assert.throws(() => createPanelWorkspace({}), { name: 'TypeError', message: /options\.ids 必填/ },
+    '缺 ids 要点名 options.ids');
+  assert.throws(() => createPanelWorkspace(), { name: 'TypeError', message: /options\.ids 必填/ },
+    '整个参数不传也是同一句话，不许落到解构后面的某一行');
+  // 表写成对象行：本会话第一版写成 `[['idcard'], …]`，把"字符串不是数组"那一格误写成
+  // 一个合法的单元素数组，靠下面那句 `assert.fail`（"居然安静构造出来了"）当场暴露——
+  // 元组表在 ids 本身就是数组/字符串时读不出层次，正是这种格子会静默改测试口径。
+  const ctorGates = [
+    { ids: 'idcard', name: 'TypeError', msg: /应为非空字符串数组/, why: '字符串不是数组' },
+    { ids: null, name: 'TypeError', msg: /应为非空字符串数组/, why: 'null 不是数组' },
+    { ids: { id: 'a' }, name: 'TypeError', msg: /应为非空字符串数组/, why: '对象不是数组' },
+    { ids: [], name: 'RangeError', msg: /是空数组/, why: '空数组是值不能用而不是形状不对' },
+    { ids: ['a', 1], name: 'TypeError', msg: /options\.ids\[1\]/, why: '逐项错要报到下标' },
+    { ids: ['a', ''], name: 'TypeError', msg: /options\.ids\[1\]/, why: '空串那一格同上' },
+    {
+      ids: ['a', '   '], name: 'TypeError', msg: /options\.ids\[1\]/,
+      why: '全空白不是有效 id：装配层多半是 trim 漏了',
+    },
+    {
+      ids: ['a', 'b', 'a'], name: 'RangeError',
+      msg: /options\.ids\[2\] 与第 0 项重复（a）/, why: '重复报到第二次出现的下标',
+    },
+  ];
+  for (const { ids, name: wantName, msg: wantMsg, why } of ctorGates) {
+    let err = null;
+    try {
+      createPanelWorkspace({ ids });
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`createPanelWorkspace：${why} —— 居然安静构造出来了`);
+    assert.equal(err.constructor.name, wantName, `createPanelWorkspace：${why} 的异常类型`);
+    assert.match(err.message, wantMsg, `createPanelWorkspace：${why} 没点到那一格 → ${err.message}`);
+    assert.doesNotMatch(err.message, /Cannot read|is not iterable/,
+      `createPanelWorkspace：${why} —— 落到原生报错等于没闸门 → ${err.message}`);
+  }
 });

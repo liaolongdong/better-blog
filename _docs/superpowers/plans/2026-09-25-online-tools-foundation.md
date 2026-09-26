@@ -5410,6 +5410,38 @@ test('D1 属性表：ARIA 骨架齐，id 命名可预期', () => {
   assert.equal(Object.keys(panel).sort().join(','),
     'aria-labelledby,hidden,id,role,tabindex');
   assert.equal(ws.panelAttr('uscc').hidden, true, '未选中的面板必须 hidden');
+  // tablist 容器那一格：§6.3 要求页面里有 `role="tablist"`，而本模块的契约是"装配层只写
+  // 模块算出来的属性表"。这一格从前不存在（`tabAttr` / `panelAttr` 之外没有第三个属性表），
+  // 段 2 只能自己手抄 `role` 与 `aria-label`——同一个节点上两套口径正是这个模块要消灭的。
+  const list = ws.tablistAttr();
+  assert.deepEqual(Object.keys(list).sort().join(','),
+    'aria-label,aria-orientation,id,role',
+    '容器属性表只该这四格：多一格就是装配层要猜怎么写');
+  assert.deepEqual(list, {
+    id: 'tk-tablist', role: 'tablist', 'aria-label': '工具面板', 'aria-orientation': 'vertical',
+  }, '默认前缀 / 默认 label / 默认走向（§6.3 的索引条是左侧粘性那一档）');
+  const wide = createPanelWorkspace({
+    ids: CODEC, prefix: 'jt', label: '编码工具', orientation: 'horizontal',
+  });
+  assert.deepEqual(wide.tablistAttr(), {
+    id: 'jt-tablist', role: 'tablist', 'aria-label': '编码工具', 'aria-orientation': 'horizontal',
+  }, '三个构造参数必须一起进容器属性表，`tabAttr` 那边已经吃了前缀');
+  assert.equal(wide.tabAttr('timestamp').id, 'jt-tab-timestamp', '同一前缀贯穿 tab 侧');
+  // 走向只接受两个值：写错的 `'vertical '` / `'Vertical'` 会被浏览器原样当无效值吞掉，
+  // 读屏照旧播报水平条——这种"看起来配了其实没配"的形状只能在构造时就炸。
+  for (const bad of ['Vertical', 'vertical ', 'both', 1, null]) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, orientation: bad }),
+      { name: 'RangeError', message: /options\.orientation/ },
+      `orientation 收到 ${String(bad)} 必须点名是哪一个键`);
+  }
+  // `prefix` / `label` 只有"形状或空"这一类错，所以四档共用一个异常类型；写成循环而不是
+  // 四行，是因为这两格从前一次判据都没碰过（旧 §D 的 3 格 throws 全在别处）。
+  for (const bad of [1, null, '', '   ']) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, prefix: bad }),
+      { name: 'TypeError', message: /options\.prefix/ }, `prefix 收到 ${String(bad)}`);
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, label: bad }),
+      { name: 'TypeError', message: /options\.label/ }, `label 收到 ${String(bad)}`);
+  }
   // JSON 工作台换前缀时，tab 与 panel 两侧的配对必须一起换，否则 aria-labelledby 指空
   const jt = createPanelWorkspace({ ids: ['format', 'convert'], prefix: 'jt' });
   assert.deepEqual({
@@ -5475,6 +5507,27 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(ws.toHash(), '#bankcard', '写回页面的 hash 由模块给，DOM 层不自己拼');
   assert.equal(ws.select('nope'), false);
   assert.equal(ws.active(), 'bankcard', '未知 id 不得把面板切成空白');
+  // §6.0 第四条口径：`select` 的返回值只回答"有没有这块面板"，不回答"换没换"。
+  // 点已经亮着的那块是合法操作，这里若报 false，装配层会对一次正常点击弹"没有这个面板"。
+  // 写的是严格相等，所以同一格顺带钉住"返回的是布尔 true，不是 `move` 那种 `{active,
+  // changed}` 对象"——装配层拿它只能做一件事（`false` 就什么也不写）。`changed` 判据在 D3。
+  assert.equal(ws.select('bankcard'), true, '点已选中的 tab 必须返回布尔 true');
+  assert.equal(ws.active(), 'bankcard', '再点一次不动状态，也不报错');
+  // 两条副作用与"换没换"无关：点的就是当前这块也照样置 `touched`、清 `unknown`。
+  // 装配层据此实现"坏 hash 提示 → 用户一动手就消失"，所以这两格必须钉在 select 上，
+  // 不许哪天优化成"没换就不动状态"。
+  const hinted = createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' });
+  assert.equal(hinted.unknownHash(), true, '开局坏 hash 要留得下线索');
+  assert.equal(hinted.active(), 'idcard', '坏 hash 回落到第一块，不是空白');
+  assert.equal(hinted.toHash(), '', '开局坏 hash 时不往地址栏写东西');
+  assert.equal(hinted.select('idcard'), true, '点的就是回落的那一块，仍然是合法点击');
+  assert.equal(hinted.unknownHash(), false, '用户动手后那条坏 hash 提示该消失');
+  assert.equal(hinted.toHash(), '#idcard', '同上：没有换面板，但从这一刻起该写 hash 了');
+  const cleared = createPanelWorkspace({ ids: TOOLKIT });
+  assert.equal(cleared.applyHash('#nope'), false);
+  assert.equal(cleared.unknownHash(), true);
+  cleared.select('idcard');
+  assert.equal(cleared.unknownHash(), false, 'applyHash 留下的 unknown 也由 select 清');
   assert.equal(ws.applyHash('#random'), true);
   assert.equal(ws.active(), 'random');
   assert.equal(ws.applyHash('#nope'), false, 'applyHash 把 unknown 变成返回值，DOM 层据此提示');
@@ -5488,10 +5541,16 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(bare.toHash(), '', '没有用户动作就不该往地址栏写东西');
   bare.select('uscc');
   assert.equal(bare.toHash(), '#uscc', '点过之后才开始写 hash');
-  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).unknownHash(), true,
-    '开局就是坏 hash 也要留得下线索');
-  assert.equal(createPanelWorkspace({ ids: TOOLKIT, hash: '#nope' }).active(), 'idcard',
-    '坏 hash 回落到第一块，不是空白');
+  // 构造期的 `hash` 闸门：非串是装配层写错，抛 `TypeError` 点名 options.hash。
+  // 与上面第 8 格（`parseHash(null, ids)` 安静返回"没有 hash"）**口径故意不同**：
+  // `parseHash` 是纯工具、也会被 `applyHash` 拿去吃实时 `location.hash`，那里抛等于把
+  // 一次浏览器事件变成未捕获异常；构造参数只有装配层会传，写错了要当场炸在接线处。
+  const hashGates = [['null', null], ['number 1', 1], ['Array(1)', ['uscc']],
+    ['object', { hash: 'uscc' }]];
+  for (const [label, bad] of hashGates) {
+    assert.throws(() => createPanelWorkspace({ ids: TOOLKIT, hash: bad }),
+      { name: 'TypeError', message: /options\.hash/ }, `hash 收到 ${label}`);
+  }
 });
 
 test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
@@ -5514,9 +5573,65 @@ test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
   ws.markBroken('random', 'x');
   ws.markBroken('idcard', 'y');
   assert.deepEqual(ws.brokenIds(), ['idcard', 'random'], '按面板顺序报，DOM 层据此渲染汇总条');
-  assert.throws(() => ws.markBroken('nope', 'x'), /未知面板/);
-  assert.throws(() => createPanelWorkspace({ ids: [] }), /至少一个面板/);
-  assert.throws(() => createPanelWorkspace({ ids: ['a', 'a'] }), /重复/);
+  // 不认识的面板 id：`markBroken` / `clearBroken` 同档抛 `RangeError`（形状对、值不能用），
+  // 且两句都回显那一个 id。整改前三格是裸 `Error` + 只有一句话，`clearBroken` 那一格
+  // 干脆静默"没这块、没事发生"——装配层把 `clearBroken('ucc')` 的笔误吞了，页面上那块
+  // 面板的错误条会一直挂着，而控制台一个字没有。
+  for (const [label, act] of [
+    ['markBroken', () => ws.markBroken('nope', 'x')],
+    ['clearBroken', () => ws.clearBroken('nope')],
+  ]) {
+    let err = null;
+    try {
+      act();
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`${label}：不认识的面板 id 必须抛，不许静默`);
+    assert.equal(err.constructor.name, 'RangeError', `${label}：异常类型（形状对而值不能用）`);
+    assert.match(err.message, /nope/, `${label}：要回显那一个 id → ${err.message}`);
+    assert.match(err.message, /不在 ids 里/, `${label}：要说是 ids 的事 → ${err.message}`);
+    assert.doesNotMatch(err.message, /undefined|\[object |TypeError/, `${label}：回显不许是类型噪声`);
+  }
+  // 构造期四道闸门：缺 ids / 非数组 / 空数组 / 逐项，两类异常各归其位。
+  // 空数组是 `RangeError`（形状是数组、值不能用），非数组是 `TypeError`——这一档从前混成
+  // 一句 `Error`，`config.map(...)` 漏 filter 与 `config` 忘了解构两类笔误报同一句话。
+  assert.throws(() => createPanelWorkspace({}), { name: 'TypeError', message: /options\.ids 必填/ },
+    '缺 ids 要点名 options.ids');
+  assert.throws(() => createPanelWorkspace(), { name: 'TypeError', message: /options\.ids 必填/ },
+    '整个参数不传也是同一句话，不许落到解构后面的某一行');
+  // 表写成对象行：本会话第一版写成 `[['idcard'], …]`，把"字符串不是数组"那一格误写成
+  // 一个合法的单元素数组，靠下面那句 `assert.fail`（"居然安静构造出来了"）当场暴露——
+  // 元组表在 ids 本身就是数组/字符串时读不出层次，正是这种格子会静默改测试口径。
+  const ctorGates = [
+    { ids: 'idcard', name: 'TypeError', msg: /应为非空字符串数组/, why: '字符串不是数组' },
+    { ids: null, name: 'TypeError', msg: /应为非空字符串数组/, why: 'null 不是数组' },
+    { ids: { id: 'a' }, name: 'TypeError', msg: /应为非空字符串数组/, why: '对象不是数组' },
+    { ids: [], name: 'RangeError', msg: /是空数组/, why: '空数组是值不能用而不是形状不对' },
+    { ids: ['a', 1], name: 'TypeError', msg: /options\.ids\[1\]/, why: '逐项错要报到下标' },
+    { ids: ['a', ''], name: 'TypeError', msg: /options\.ids\[1\]/, why: '空串那一格同上' },
+    {
+      ids: ['a', '   '], name: 'TypeError', msg: /options\.ids\[1\]/,
+      why: '全空白不是有效 id：装配层多半是 trim 漏了',
+    },
+    {
+      ids: ['a', 'b', 'a'], name: 'RangeError',
+      msg: /options\.ids\[2\] 与第 0 项重复（a）/, why: '重复报到第二次出现的下标',
+    },
+  ];
+  for (const { ids, name: wantName, msg: wantMsg, why } of ctorGates) {
+    let err = null;
+    try {
+      createPanelWorkspace({ ids });
+    } catch (e) {
+      err = e;
+    }
+    if (!err) assert.fail(`createPanelWorkspace：${why} —— 居然安静构造出来了`);
+    assert.equal(err.constructor.name, wantName, `createPanelWorkspace：${why} 的异常类型`);
+    assert.match(err.message, wantMsg, `createPanelWorkspace：${why} 没点到那一格 → ${err.message}`);
+    assert.doesNotMatch(err.message, /Cannot read|is not iterable/,
+      `createPanelWorkspace：${why} —— 落到原生报错等于没闸门 → ${err.message}`);
+  }
 });
 ```
 
@@ -5546,25 +5661,64 @@ git commit -m "test(tools): 面板状态机判据先行，模块待实现"
  * 工具箱面板状态机：ARIA Tabs 属性表、roving tabindex、hash 双向解释、单块错误隔离。
  *
  * 纯状态，不碰 DOM，也不 import 任何兄弟模块：页面装配层（段 2）只做两件事——
- * 把 tabAttr/panelAttr 返回的属性表原样写进节点，把 hashchange/keydown 原样喂给
- * applyHash/move。口径与理由见实现计划 §6.0。
+ * 把 tablistAttr/tabAttr/panelAttr 返回的属性表原样写进节点，把 hashchange/keydown
+ * 原样喂给 applyHash/move。口径与理由见实现计划 §6.0。
+ *
+ * **入参错一律抛，且分两类**（与 `idcard.js` / `uscc.js` 同档：调用方写错装配代码要当场
+ * 炸，不能静默降成一条看起来像用户行为的结论）：形状不对是 `TypeError`，形状对而值不能用
+ * 是 `RangeError`，两句都点名是哪一个键、哪一项。为什么值得分：这段代码只在页面启动时
+ * 跑一次，`ids: [1,2,3]` 与 `ids: []` 都是装配层写错，但前者要去改 `map` 的取值、
+ * 后者要去改配置来源，报错把两件事混成一句「参数错误」等于让人重新试一遍。
+ *
+ * @param {object} [options] 构造参数
+ * @param {string[]} [options.ids] **必填**，非空字符串数组、不许重复；顺序就是 tablist 的顺序
+ * @param {string} [options.hash] 进入页面时 URL 里的 hash，认不出来回落到 `ids[0]`
+ * @param {string} [options.prefix] id 前缀，默认 `tk`（toolkit）；JSON 工作台用 `jt`
+ * @param {string} [options.label] tablist 的 `aria-label`，默认「工具面板」
+ * @param {'vertical'|'horizontal'} [options.orientation] tablist 的视觉走向，默认 `vertical`
+ *   （§6.3 的索引条是左侧粘性那一款；≤900px 折成横向 chip 条属 CSS，不改 DOM 顺序，
+ *   所以这里不跟断点走）。`keyAction` 两个方向都接，这一格只影响读屏播报。
+ * @returns {{ids:()=>string[], active:()=>string, unknownHash:()=>boolean,
+ *   tablistAttr:()=>object, tabAttr:(id:string)=>object, panelAttr:(id:string)=>object,
+ *   select:(id:string)=>boolean, move:(action:string)=>{active:string, changed:boolean},
+ *   applyHash:(raw:string)=>boolean, toHash:()=>string, markBroken:(id:string, message?:string)=>void,
+ *   brokenOf:(id:string)=>string, brokenIds:()=>string[], clearBroken:(id:string)=>void}}
  */
-
-/** 前缀默认 tk（toolkit 页）；JSON 工作台用 jt，避免类名是 .jt- 而 id 是 tk-tab-*。 */
-export function createPanelWorkspace({ ids, hash = '', prefix = 'tk' } = {}) {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    throw new Error('createPanelWorkspace：面板 id 列表为空，至少一个面板');
+export function createPanelWorkspace({
+  ids, hash = '', prefix = 'tk', label = '工具面板', orientation = 'vertical',
+} = {}) {
+  if (ids === undefined) throw new TypeError('createPanelWorkspace：options.ids 必填，收到 undefined');
+  if (!Array.isArray(ids)) {
+    throw new TypeError(`createPanelWorkspace：options.ids 应为非空字符串数组，收到 ${shapeOf(ids)}`);
   }
-  const seen = new Set();
-  for (const id of ids) {
-    if (typeof id !== 'string' || id === '') {
-      throw new Error('createPanelWorkspace：面板 id 必须是非空字符串');
+  if (ids.length === 0) throw new RangeError('createPanelWorkspace：options.ids 是空数组，至少要有一块面板');
+  const seen = new Map();
+  for (const [i, id] of ids.entries()) {
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new TypeError(`createPanelWorkspace：options.ids[${i}] 应为非空字符串，收到 ${shapeOf(id)}`);
     }
-    if (seen.has(id)) throw new Error(`createPanelWorkspace：面板 id 重复：${id}`);
-    seen.add(id);
+    if (seen.has(id)) {
+      throw new RangeError(
+        `createPanelWorkspace：options.ids[${i}] 与第 ${seen.get(id)} 项重复（${id}）`);
+    }
+    seen.set(id, i);
+  }
+  if (typeof prefix !== 'string' || prefix.trim() === '') {
+    throw new TypeError(`createPanelWorkspace：options.prefix 应为非空字符串，收到 ${shapeOf(prefix)}`);
+  }
+  if (typeof label !== 'string' || label.trim() === '') {
+    throw new TypeError(`createPanelWorkspace：options.label 应为非空字符串，收到 ${shapeOf(label)}`);
+  }
+  if (orientation !== 'vertical' && orientation !== 'horizontal') {
+    throw new RangeError(
+      `createPanelWorkspace：options.orientation 只能是 'vertical' 或 'horizontal'，收到 ${shapeOf(orientation)}`);
+  }
+  if (typeof hash !== 'string') {
+    throw new TypeError(`createPanelWorkspace：options.hash 应为字符串，收到 ${shapeOf(hash)}`);
   }
   const tabId = (id) => `${prefix}-tab-${id}`;
   const panelId = (id) => `${prefix}-panel-${id}`;
+  const tablistId = () => `${prefix}-tablist`;
   const MOVE = {
     next: (i, n) => (i + 1) % n,
     prev: (i, n) => (i - 1 + n) % n,
@@ -5585,12 +5739,29 @@ export function createPanelWorkspace({ ids, hash = '', prefix = 'tk' } = {}) {
     unknown = false;
     return { active, changed };
   };
-
   return {
     ids: () => ids.slice(),
     active: () => active,
     /** 最近一次 hash 是否不认识：DOM 层据此提示"没有这个面板"，状态机自己绝不清空白 */
     unknownHash: () => unknown,
+    /**
+     * tablist 容器那一条属性表。§6.3 要求页面里有 `role="tablist"`，而本模块的契约是
+     * "装配层只写模块算出来的属性表"——容器这一格若不留在这里，段 2 就得自己手抄一份
+     * `role` 与 `aria-label`，同一个节点上两套口径。键集固定四格（`id` / `role` /
+     * `aria-label` / `aria-orientation`），`hidden` 这类运行时状态不在这里（容器永远可见）。
+     * `aria-orientation` 只有两个合法值，构造时按闭集校验且**不做大小写折叠**：这一格是
+     * 原样写进 DOM 的属性值，折叠等于把 `'Vertical'` 悄悄洗成合法值、把装配层的笔误咽下去；
+     * 而 `keyAction` 压根不读这一格（左右上下都接），所以放开折叠换不来任何行为差异，
+     * 只会让"报错点名 orientation"这条判据失去牙。
+     */
+    tablistAttr() {
+      return {
+        id: tablistId(),
+        role: 'tablist',
+        'aria-label': label,
+        'aria-orientation': orientation,
+      };
+    },
     tabAttr(id) {
       const on = id === active;
       return {
@@ -5611,7 +5782,15 @@ export function createPanelWorkspace({ ids, hash = '', prefix = 'tk' } = {}) {
         hidden: !on,
       };
     },
-    /** 点 tab：返回 false 只代表"没有这块面板"，点击已选中的 tab 是 true 且 changed=false */
+    /**
+     * 点 tab。**这个返回值只回答"有没有这块面板"，不回答"换没换"**（计划 §6.0 第四条口径）：
+     * 点已经亮着的那块是合法操作，报 `false` 会让页面弹一条莫名其妙的"没有这个面板"。
+     * 换没换在 `move()` 的 `changed` 里；`select` 不返回这一格，因为 DOM 层拿它只做一件事
+     * （`false` 就什么也不写），多一个"换没换"只会诱使装配层拿它当"要不要写 hash"的依据
+     * ——那个判断的正确答案永远是"要"，见下面两条副作用。
+     * 副作用两条一并写明（都由 D4 钉着）：`touched` 置真（于是 `toHash()` 从不写变成写
+     * `#当前`），`unknown` 清假（用户自己动手之后不再提示那条坏 hash）。
+     */
     select(id) {
       if (!seen.has(id)) return false;
       settle(id);
@@ -5637,18 +5816,44 @@ export function createPanelWorkspace({ ids, hash = '', prefix = 'tk' } = {}) {
     toHash() {
       return touched ? `#${active}` : '';
     },
+    /**
+     * 记一块面板坏了。`id` 不在 `ids` 里是装配层写错，抛 `RangeError` 并点名那一个 id；
+     * `message` 允许空串（DOM 层可能只想标"这块塌了"、不带原因），非串一律 `String()` 一次。
+     */
     markBroken(id, message = '') {
-      if (!seen.has(id)) throw new Error(`未知面板 id：${id}`);
+      if (!seen.has(id)) {
+        throw new RangeError(`markBroken：面板 id ${shapeOf(id)} 不在 ids 里，拒绝记录错误`);
+      }
       broken.set(id, String(message));
     },
     brokenOf(id) {
       return broken.get(id) || '';
     },
     brokenIds: () => ids.filter((id) => broken.has(id)),
+    /** 与 `markBroken` 同档：不认识的面板 id 抛，不静默当"没这块、没事发生" */
     clearBroken(id) {
+      if (!seen.has(id)) {
+        throw new RangeError(`clearBroken：面板 id ${shapeOf(id)} 不在 ids 里，拒绝清除`);
+      }
       broken.delete(id);
     },
   };
+}
+
+/**
+ * 报错文案里的"收到什么"——与 `idcard.js` / `uscc.js` 里那两份同一口径（`string nope` /
+ * `number 3` / `null` / `object`），这里第三份、同样不跨模块 import：面板模块不许因为
+ * 另一个工具的口径改动被拖着回归，跨模块同档由 §D 的判据对着 `idcard.js` 的写法核。
+ * 与那两个模块同一档的边界：**这里绝不 `String()` 无原型对象或 Symbol**（那会自己先抛），
+ * 只给形状；真正的 `String()` 只在 `parseHash` / `markBroken` 那两处。
+ */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `Array(${v.length})`;
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? 'Date（Invalid Date）' : 'Date';
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
 }
 
 /** 只去前导 #、只做小写折叠，别的字符一律不解释——id 是白名单里的字符串或 null */
@@ -5687,6 +5892,7 @@ export function keyAction(evt) {
 1. `parseHash` 定义在 `createPanelWorkspace` 之后却能被构造器调用，靠的是函数声明提升。**别改成 `const parseHash = () => {}`**——那样构造一跑就 `Cannot access 'parseHash' before initialization`，而这条只在页面加载时炸，Node 判据里 `D1` 会直接红成一片，看不出原因。
 2. `touched` 只在 `settle()` 里置真，所以 `move('nonsense')`、`applyHash('#nope')`、`select('nope')` 三条失败路径都不写 hash：一次失败的跳转不该留下历史痕迹。构造时带合法 hash 也算 touched（`toHash()` 要能原样写回 `#bankcard`）。
 3. `ids: () => ids.slice()` 与 `brokenIds()` 的排序都返回新数组。段 2 的装配层会把 `ids()` 直接喂给渲染循环，交出内部引用的话，页面里一次 `sort()` 就能把状态机的回绕顺序改乱，而这种串扰在测试里复现不出来。
+4. `settle()` 的两条副作用（置 `touched`、清 `unknown`）**不看 `changed`**：点的就是当前那块面板也要置真。段 2 的"坏 hash 提示"靠 `unknownHash()` 驱动，如果这两格只在真换了的时候才动，用户点一下回落位就再也消不掉那条提示；而 `toHash()` 若继续返回 `''`，装配层会以为"还没有用户动作"，一次 replaceState 也不发。这一条在 D4 有专圈钉着（第十五轮补，见 §6.1 表 B-K12：整改前全绿）。
 
 - [ ] **Step 5: 跑测试，确认绿**
 
@@ -5706,6 +5912,80 @@ Task 5 的落地与整改把 §C 从 8 条补到 9 条。复算口径：`grep -c
 git add dev/js/tools/panel.js scripts/toolkit-tests.mjs
 git commit -m "feat(tools): 面板框架纯状态机（ARIA Tabs / roving tabindex / hash）"
 ```
+
+### 6.1 第十五轮：面板落地后的第一次复核——容器那一格没人算、五道闸门全是裸 `Error`
+
+Task 6 的码在 43407bc 落地、判据在 9d558ce 先行，之后连续三轮复核都打在 `idcard.js` /
+`uscc.js` 上，`panel.js` 一直没被回看。本轮把它重读一遍，五条发现，其中三条与 §5.3 同族：
+
+**表 A · 本轮发现与落点**
+
+| # | 发现 | 整改前的事实（可复算） | 本轮怎么改 | 判据落点 |
+| --- | --- | --- | --- | --- |
+| 1 | 容器那一格没人算 | `git show 43407bc:dev/js/tools/panel.js` 里 `grep -c tablistAttr` = **0**、`grep -c aria-orientation` = **0**：模块契约是"装配层只写模块算出来的属性表"，可 `role="tablist"` / `aria-label` / `aria-orientation` 三格不在任何一张表里，段 2 只能手抄 | 新增第四张表 `tablistAttr()`（键集固定四格），`label` / `orientation` 升为构造参数 | D1：键集 + 默认值 + `jt`/`编码工具`/`horizontal` 变体三圈 |
+| 2 | 五道入参闸门全是裸 `Error`，且四格压根没闸门 | 旧码 `grep -c TypeError` = **0**、`grep -c RangeError` = **0**；`orientation` 出现 0 次、`prefix` 出现 3 次且全在拼 id；旧 §D 只有 3 格 `assert.throws`（`awk '/── §D /,0' … \| grep -c "assert.throws"` = 3），全部只核文案 | 形状不对 `TypeError`、值不能用 `RangeError`，每句点名是哪一个键、第几项；`prefix` / `label` / `orientation` / `hash` 四格补闸门 | D5：`ctorGates` 八行 + `hashGates` 四行 + `markBroken`/`clearBroken` 两行循环；D1：prefix/label 四档圈、orientation 五档圈 |
+| 3 | 注释替实现许了愿（§5.3 第 1 类同族） | 旧 `select` 的注释写着"点击已选中的 tab 是 `true` 且 `changed=false`"——`select` 返回的是布尔，`changed` 这一格根本不存在 | 注释改成实测口径（返回值只回答"有没有这块面板"），并把两条副作用（置 `touched`、清 `unknown`）写进注释 | D4：`hinted` / `cleared` 两圈 |
+| 4 | 同一对读/写 API 两种口径 | `markBroken(未知 id)` 抛、`clearBroken(未知 id)` 静默删一个不存在的键；旧套件对前者有牙、对后者零格（旧码不抛，旧测试也不测） | 两句同档抛 `RangeError`，都回显那一个 id | D5 循环里的两行，B/after 双证见下 |
+| 5 | 异常文案换了，旧 §D 那三格正则必红 | 旧三格是 `/未知面板/`、`/至少一个面板/`、`/重复/`，新码写的是「不在 ids 里」「是空数组」「与第 0 项重复」 | 三格重写成 `{ name, message }` 形状，并第一次钉"回显要带那一个 id"与"回显不许是类型噪声" | D5 |
+
+**表 B · 牙齿自证（after 版 14 针，镜像 `/tmp/t5x`）**
+
+每针先校验锚点命中数 = 1，再自证"替换后文件与原文件不同、且锚点已消失"（防 §5.3 记过的
+第四种假牙：变异脚手架静默不干活）。结果：**14 针全部命中 1 处、无一针空转、无一针零判据**，
+每针只红一条 test()，红点落位与表 A 的判据落点逐格对上。
+
+| 针 | 变异 | 红在 | 第二遍抓到的 `error:` 原文（6 针细跑） |
+| --- | --- | --- | --- |
+| L0 | `tablistAttr` → `tablistAttrX`（liveness：证明改的这份就是套件加载的那份） | D1 | — |
+| K1 | 摘 `orientation` 闭集校验 | D1 | — |
+| K2 | 摘 `prefix` 非空串闸门 | D1 | — |
+| K3 | 摘 `label` 非空串闸门 | D1 | — |
+| K4 | `tablistAttr()` 少 `'aria-label'` 一格 | D1 | expected `aria-label,aria-orientation,id,role` / actual `aria-orientation,id,role` |
+| K5 | 摘 `ids.length === 0` 闸门 | D5 | — |
+| K6 | 摘 `Array.isArray(ids)` 闸门 | D5 | — |
+| K7 | 摘逐项类型闸门 | D5 | — |
+| K8 | 摘重复闸门 | D5 | — |
+| K9 | `markBroken` 未知 id 改静默 | D5 | `'markBroken：不认识的面板 id 必须抛，不许静默'` |
+| K10 | `clearBroken` 未知 id 改静默 | D5 | `'clearBroken：不认识的面板 id 必须抛，不许静默'` |
+| K11 | `select` 对已选中 id 报 `false` | D4 | expected `true` / actual `false` |
+| K12 | `settle` 改成"没换就不置 `touched`、不清 `unknown`" | D4 | expected `false` / actual `true`（`unknownHash()`） |
+| K13 | 摘 `hash` 类型闸门 | D4 | `'Missing expected exception (TypeError): hash 收到 null'` |
+
+K9 与 K10 各红一次，说明循环里那两行是**两颗**牙而不是一颗共享的牙——这是本轮唯一能真正把
+"读写同档"钉住的形式。
+
+**表 C · before 版对照（43407bc 的 `panel.js` + ac3d721 的 §D，基线自证 `# pass 41 / # fail 0`）**
+
+本轮不像第十四轮那样能做全量 before/after：整改前的 §D 与整改后的 `panel.js` 根本不能共存
+（那三格正则对着新文案必红），所以"旧判据有没有牙"只对有锚点的四针成立——把这四针打在
+**旧码 + 旧判据**上：
+
+| 针 | 旧套件反应 | 结论 |
+| --- | --- | --- |
+| B-K11（`select` 已选中报 false） | `# fail 0`，41/41 全绿 | 第四条口径从前**零判据**，本轮 D4 那圈就是为它补的 |
+| B-K12（`settle` 副作用条件化） | `# fail 0`，41/41 全绿 | 两条副作用从前**零判据** |
+| B-K9（`markBroken` 未知 id 静默） | 红 D5 | 从前**有牙但只核文案**：文案一换就哑（本轮换文案时它确实哑过一次） |
+| B-K5（空数组闸门摘掉、返回空对象） | 红 D5 | 同上 |
+
+**口径补一句**：`parseHash(null, ids)` 安静返回"没有 hash"，而 `createPanelWorkspace({ hash: null })`
+抛 `TypeError`——两处故意不同档。`parseHash` 是纯工具、也会被 `applyHash` 拿去吃实时
+`location.hash`，那里抛等于把一次浏览器事件变成未捕获异常；构造参数只有装配层会传，写错了
+要当场炸在接线处。这条非对称写在 D4 的注释里，段 2 若要把 `applyHash` 也收成严校，两处一起改。
+
+**本轮的脚手架自曝一次**：`ctorGates` 第一版写成元组表，"字符串不是数组"那一格误写成
+`['idcard']`——一个合法的**单元素数组**，于是该格安静构造成功。靠循环里那句
+`if (!err) assert.fail(… 居然安静构造出来了)` 当场暴露（若沿用旧的 `assert.throws(fn, /re/)`
+也会红，但红的原因是"没抛"，人会去改实现而不是改表）。表改成对象行，注释留这一条。
+
+**收口实测（第十五轮）**：`wc -l` = **228 / 2,554**（`panel.js` / 判据文件；`uscc.js` 430 与
+`idcard.js` 587 本轮一字未动）、`panel.js` 138 → 228 行、§D 判据 72 → 98 条 `assert.`（+26）、
+§D 镜像 142 → 257 行、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = **41**
+（**基线仍 41 条**：本轮一格新 `test()` 都不开，全部加在 D1 / D4 / D5 内部）、
+`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 重写 2 块镜像：§D 与 `panel.js`）。跑完逐针
+恢复，工作树侧 `md5` 三方全等（工作树 / `/tmp/t15keep` / 镜像），`grep` 自证无变异残留
+（`tablistAttrX`、`id === active) return false`、`if (!changed) return` 三个标记在工作树
+`dev/js` 与 `scripts/toolkit-tests.mjs` 内零命中）。`region.js`、`region-data.js`、两个生成器、
+`scripts/fixtures/` 与 `demo/idCardDemo/` 一字未动。
 
 ---
 
@@ -6021,7 +6301,7 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 ### 段 2：证件页收口
 
 - **范围**：`tools-idcard.html`（或按设计文档 §6.2 的命名）+ `dev/js/toolIdcard.js` 装配层（把 `panel.js` 的属性表写进 DOM、接 `hashchange`/`keydown`、`history.replaceState`）+ `#idcard`/`#uscc` 两块面板 + `#bankcard`/`#mobile`/`#random` 三块（含 Luhn 与运营商前缀表、随机姓名/地址/邮箱）+ `dev/sass/tools-idcard.scss` 与主题接色 + `postcss.config.js` 的 `selectorBlackList` 加 `.tk-`/`.jt-` + 三处入口（header 下拉、`tools.html` 小节、`index-all.html`）+ 收录面（`sitemap.xml`、`llms.txt`、`USAGE.md` 计数）。
-- **依赖本段的哪一样**：`panel.js` 的 `tabAttr/panelAttr/toHash/keyAction` 是装配层唯一的属性来源；`idcard.js`/`uscc.js` 的 `USE_NOTE`、`REFERENCE_NOTE`、`caveat` 是页面文案唯一来源——页面里再写一份"仅供参考"就是违约。
+- **依赖本段的哪一样**：`panel.js` 的 `tablistAttr/tabAttr/panelAttr/toHash/keyAction` 是装配层唯一的属性来源（容器那一格也在模块里算，页面不许自己手抄 `role="tablist"` 与 `aria-label`）；`idcard.js`/`uscc.js` 的 `USE_NOTE`、`REFERENCE_NOTE`、`caveat` 是页面文案唯一来源——页面里再写一份"仅供参考"就是违约。
 - **验收**：设计文档 §8.2 第 1、3、5、6 条全绿（`.is-current` 抽查现有页面逐字节一致那条不能跳）；`node --test` 加上 §8.1 里银行卡/手机号那两组判据；`datasetVersion: '2022-10-31'` 在页面上可见（§2.2 第 ① 条）。
 - **已知会踩的坑**：`px-to-viewport` 的 `mediaQuery: true` 意味着只抽查一条规则不够，必须按 §8.2 第 5 条在**产物 CSS** 里查 `vw` 残留；导航高亮判据动的是全站共享的 `header.html`，改完要抽查而不是只测新页。
 
@@ -6146,3 +6426,4 @@ Expected：`git log` 里本段那几条的 subject 全部带 `(tools)` 作用域
 - **第十二轮是 Task 5（`83675ca`）的代码质量复核，整改落在 `22d7147`——但当时没有回填进计划，这一条是第十三轮从 `git show 22d7147` 的 diff 反推出来的补记**（能反推多少写多少，反推不出的不写；逐条见 §5.2 表 A）。抓住的六件事都在同一处：`uscc.js` 是照着 `idcard.js` 之外的一套口径写的，而 §C 的三条判据"看着在断言、其实没在断言"。入参闸门整体对齐同档模块（`options` 传 `null` = 没传、`regionCode` / `provinceCode` 只收非空字符串、`rng` 连每次取值都要验——从前 `rng: () => 2` 摇出 `91undefined…` 这种 19 位码，最后由自检抛「内部不变量被破坏」，**调用方的一次错被记成实现的 bug**）、报错文案带类型（`string nope` / `number 2` / `null`，让「收到 5」不再长得像"值 5 不合法"）、`parseUsccList('')` 从 1 行改 0 行（注释从前写着"与 `parseIdCardList` 同形"而代码不同形）、`info.category` 那一格一次判据都没碰过、`rollBody8` 的"避让 `v === 10`"分支三组种子从未触到、`省码 … 下没有现行市级区划` 那道抛零判据。§C 从 8 条长成 9 条（新增 **C9 跨模块逐格对照**），基线 35 → 36，`git show --numstat 22d7147` = `uscc.js` +123 / −20、判据文件 +231 / −7。**这一轮本身的教训是流程性的**：整改的原始清单没当场落盘，两轮之后只能从 diff 反推，反推不出的部分等于没发生过——所以第十三轮的清单当场写进 §5.2。
 - **第十三轮是对第十二轮那批整改的验证性复核（5 项 Important + 10 条 Minor 落地、3 条不采纳，逐条见 §5.2 表 B / 表 C，两处计划正文数字作废记在 d-1）**。复核方式与第十一轮同一把尺子：**每条 Important 自己复跑坐实，再用一记最小变异证明补上的判据真有牙**。抓到的一类是"判据钉住了事实、却没钉住契约"：① C8 没钉生成侧的九格键集（往产物塞 `registryName: ''` 判据照旧绿，而 §5.1 明写这两格只给字符不给名称）；② C1 只核长度与"不含 I O S Z V"，把字符集下标 28 的 `W` **原地换成 `-`**（长度仍 31）时 §C 九条全绿——那张 31 字符表是 §C 全部判据的地基；③ `parseUscc` 的 `malformed` 有两档（结构档四格全空 / 区划档保留纯算术量但 `region.fullName` 为空），这条分档只活在代码里，段 2 照哪档渲染都可能。另一类是**判据自己谎报强度**：④ C8 那四道 `assert.throws(fn, RangeError, /正则/)` 一根牙都没有——`node:assert` 的**第三个参数是失败说明文字、不参与匹配**（探针实测：三参形对着毫不相关的正则退 0；对象形 `{ name, message }` 两项都真判定），于是"钉文案"那句是假的，四处换成对象形；⑤ `regionPool` 的 `status !== 'current'` 那一支把"根本不是 6 位数字"与"6 位但表里没有"说成一件，用户写 `regionCode:'abc'` 得到「… ；**省 / 市 / 县三级都落不到**」——后半句对 `'abc'` 是假话，同时 `${code}` 把 `abc` 洗成 `ABC` 再回显。修法：形状那一档先单独判、回显用 trim 后原样、C8 补三句（`/区划段应为 6 位数字/` + `doesNotMatch(/三级都落不到/)` + `message.includes('abc')`）。十条 Minor 全在注释与文案档（一条不改行为），其中 10 号是"两份 `shapeOf` 的注释读起来像入口也不 String()"——两头注释一起收窄、并在 C9 加 `naked` 那一格钉住四个入口同抛 `TypeError: Cannot convert object to primitive value`（四格实测同文案），**不改 `idcard.js` 已批准的闸门基线**；`内部不变量` 那句两模块措辞不同的一条**不采纳**，因为 C8 / C9 的注释逐字引着旧措辞当整改前的历史证据，统一会让引用指向一句不存在的话。七针（n1 / n2 / n3 / n4 / n5a / n5b / n6）在最终文本上重跑：分别只红 C8 / C1 / C5 / C8 / C8 / C8 / C9，每针 `# tests 41 / # pass 40 / # fail 1`、`exit=1`；n5b 第一次锚点命中 0，是镜像里还留着上一针的改动，被命中数那道闸拦下（§4.11 那条流程账第四次兑现）。收口实测：`wc -l dev/js/tools/uscc.js dev/js/tools/idcard.js dev/js/tools/panel.js scripts/toolkit-tests.mjs` = **420 / 587 / 138 / 2,368**、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`node scripts/verify-plan-blocks.mjs` 退 0（11 块镜像全等、未落地 0 节）、`grep -c "^test("` = 41；**基线仍 41 条**，本轮断言全部加在 C1 / C5 / C6 / C8 / C9 内部。`region.js`、`region-data.js`、两个生成器与 `scripts/fixtures/` 一字未动。
 - **第十四轮是对第十三轮那批整改的再复核（6 项 Minor，零 Critical / Important，逐条见 §5.3 表 D）**。本轮新的一类病灶是**注释替实现许了愿**：`@param` 写着「数组与 `{}` 落到串再判 malformed」，而 `parseUscc(['91350100M000100Y43'])` 实测是 `valid`（单元素数组的串就是那条码本身）；同一句还写着「末两位丢了一位」，实测变的是第 16、17 两位（`66` → `70`），第 18 位碰巧没变。另一类是表 B 的 n4 / n5 那两类"补了一格、旁边那一格仍零判据"的余数：`why` 四支文案只钉了两支（另两支就地换成 `XYZ` 仍 41/41 全绿）、`note` 外层仍套 `（…）` 造成「（区划码未收录（…））」双层括号、键集判据只核 `a[0]`（"第 2 条起多一键"全绿）、空池文案的「区划数据截止」尾句全摘不掉、JSDoc 声称区划档保留 `info.checksum` 且 `province/city/county` 为空串而两句都没有格子。九针（K1…K9）本轮**在 before / after 两个版本上各打一遍**（§5.3 表 E）：before 版是把本轮新加的六块判据按行区间逐块摘掉重建出来的，重建结果 2,368 行与第十三轮收口记录的行数逐字对上——这是"重建没多摘没少摘"的自证；同一批针在 before 版上除 K6c 外**全部 41/41 全绿**（病灶为真），在 after 版上 K1…K4 只红 C8、K5 / K8 / K9 只红 C9、K6b / K7b 只红 C6、K6c 红 C5 + C6（牙齿为真）。二十次跑无一针 ANCHOR-FAIL，跑前镜像基线自证 41/41、并先做一记 liveness 探针（改镜像 `region.js` 的导出名 ⇒ 镜像套件红），跑后逐针恢复、工作树 `grep` 自证无残留。整改里最要紧的一颗新牙是 C9 的 `[code, 'x']` 那一格：`[code]` 与 `[code,'x']` 在"入口贴心拆包"这种变异下 `raw[0]` 完全同形，前三格照旧绿，只有这一格分得开。收口实测：`wc -l` = **430 / 587 / 2,436**（uscc.js / idcard.js / 判据文件）、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = 41、`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 本轮重写 2 块镜像）。**基线仍 41 条**，断言全部加在 C6 / C8 / C9 内部，`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/` 与 `demo/idCardDemo/` 一字未动。
+- **第十五轮是 Task 6（`43407bc` 落地、此后无人回看）的第一次代码质量复核（5 项发现全部落地，逐条见 §6.1 表 A）**。病灶集中在两处：**容器那一格没人算**（`tablistAttr` / `aria-orientation` 在旧码里 `grep -c` 均为 0，而模块契约写的是"装配层只写模块算出来的属性表"——容器不留在这里，段 2 就得手抄 `role` 与 `aria-label`，同一节点两套口径），以及**五道入参闸门全是裸 `Error`、四格压根没闸门**（旧码 `TypeError` / `RangeError` 各 0 次，`orientation` 出现 0 次、`prefix` 只出现在拼 id；旧 §D 的 `assert.throws` 只有 3 格且全部只核文案）。第三条与 §5.3 同族：`select` 的注释替实现许了愿——写着"点击已选中的 tab 是 `true` 且 `changed=false`"，而 `select` 返回的是布尔、`changed` 这一格根本不存在。牙齿自证分两半：**after 版 14 针**（L0 liveness + K1…K13）锚点命中数全 =1、无一针空转、无一针零判据，红点落位与表 A 逐格对上（K1–K4 只红 D1、K5–K10 只红 D5、K11–K13 只红 D4），K9 与 K10 各红一次证明"读写同档"是两颗牙不是一颗；**before 版四针**打在旧码 + 旧判据（基线自证 41/41）上，B-K11 / B-K12 **全绿＝零判据**（本轮 D4 那两圈就是为它们补的），B-K9 / B-K5 红但只核文案。本轮**没有做全量 before/after**：整改前的 §D 与整改后的 `panel.js` 不能共存（那三格正则对新文案必红，这是事实而不是修辞），所以对照只在有锚点的四针上做，其余按结构陈述（旧码压根没有那个导出 / 那道闸门）。收口实测：`wc -l` = **228 / 2,554**（`panel.js` / 判据文件）、`panel.js` 138 → 228、§D 判据 72 → 98 条 `assert.`（+26）、§D 镜像 142 → 257 行、`# tests 41 / # pass 41 / # fail 0`、`exit=0`、`grep -c "^test("` = **41（基线不变，本轮零新增 `test()`，格子全加在 D1 / D4 / D5 内部）**、`node scripts/verify-plan-blocks.mjs` 退 0（`--fix` 重写 2 块镜像）。本轮另记一条**判据自曝**：`ctorGates` 第一版写成元组表，"字符串不是数组"那一格误写成 `['idcard']`（合法的单元素数组），靠循环里那句 `if (!err) assert.fail(…)` 当场暴露——换成旧的 `assert.throws(fn, /re/)` 也会红，但红的原因会被读成"实现没抛"，人去改实现而不是改表。工作树侧 `md5` 三方全等（工作树 / keep / 镜像）+ 三个变异标记零命中自证无残留；`region.js`、`region-data.js`、两个生成器、`scripts/fixtures/`、`demo/idCardDemo/` 与 `assets/data/LICENSES.md` 一字未动。
