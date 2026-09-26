@@ -225,3 +225,57 @@
         opacity: .7;
     }
 }
+// ———— M15 · 日蚀期间图标落位（动效批 II）————
+// 切主题时这组浮层里唯一「变了个东西」的就是那对日月图标，而它原本是 jQuery
+// .hide()/.show() 的一次瞬时互换（bottomFixedBtn.js 的 syncNmIcon）——
+// 页面整体从点击处日蚀式铺开，唯独发出指令的那颗按钮「啪」地换脸，
+// 最强的那条因果链反而最没有回信。这里补一段从侧后方摆进来、略微缩小的落位。
+//
+// 这几层写法都是量出来的，不是装饰性的：
+//   · 判据用 .vt-eclipse 而不是给 syncNmIcon 加类：那个类由 editorial.js 的
+//     withEclipse() 与 startViewTransition 同时挂上、转场收尾摘掉，
+//     本文件不必知道主题逻辑，也不必新增跨文件的约定。
+//   · 动的是图标那一层，而不是整颗 .switch-daytime-mode：按钮转起来会把它那枚
+//     top:-45px 的提示气泡一起带歪（气泡是按钮的子元素，父级的 rotate 没法在
+//     子级「抵消回去」），而切主题恰恰是气泡最可能正显示着的那一刻。
+//   · 动的是 .iconfont::before，不是 .iconfont 这颗 span。两点都是量出来的：
+//     字形由 assets/iconFont/iconfont.css 的 `.icon-xxx:before{content:"\e…"}` 画，
+//     span 自己一个文本节点都没有；而 rotate/scale 对「非替换的内联盒」是空操作——
+//     亮色那枚太阳被 121 行的 display:none 藏过，syncNmIcon 用 jQuery .show() 放它时
+//     只能按标签名回填一个内联 style="display: inline"，CSS 里再想改它也压不过内联值，
+//     但 jQuery 摸不到伪元素。实测旧写法：span 的 rotate 计算值从 -140deg 走到 -0.37deg，
+//     而它的 getBoundingClientRect 一像素不动，观众只看得到那 460ms 的淡入。
+//     改到 ::before 上，两种显示方式下它都是真正有盒子、真正可变换的那一层。
+//   · display: inline-block 是给伪元素补的可变换性，写在 no-preference 之外：
+//     它是版面事实、不是动效，三种偏好态（默认 / reduce / 无 JS）必须共用同一套排版，
+//     只在 no-preference 里写会让 reduce 用户的图标盒与旁人差一档基线。
+//   · 只有一枚图标在动：隐藏的那枚是 display:none，拿不到动画；显示出来的那枚
+//     在同一个 tick 里从零开始摆到位，所以不必担心两枚各转各的。
+//   · 关键帧里不出现 px（rotate/scale/opacity 全是无单位或角度值）。这条选择器
+//     以 .vt-eclipse 开头，命不中黑名单里 /^\.bottom-fixed-btn/ 那条锚定式规则，
+//     写了 px 会被换成 vw。
+// 包在 no-preference 里：这是「先藏后显」之外的纯装饰运动，reduce 档连规则都不该有；
+// base.scss 那份全站 .01ms 兜底在这里同样成立，两条一起构成双保险。
+.switch-daytime-mode .iconfont::before {
+    display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .vt-eclipse .switch-daytime-mode .iconfont::before {
+        animation: glyphLand var(--dur-eclipse) var(--ease-out);
+    }
+}
+
+@keyframes glyphLand {
+    from {
+        rotate: -140deg;
+        scale: .55;
+        opacity: .35;
+    }
+
+    to {
+        rotate: 0deg;
+        scale: 1;
+        opacity: 1;
+    }
+}

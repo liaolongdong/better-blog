@@ -2692,10 +2692,14 @@ body.toc-open {
 // C2 卡片滚动揭示。初始的「未揭示」态挂在 body.js-reveal 上，
 // 这个类由 editorial.js 亲自打上：脚本没跑或浏览器不支持 IntersectionObserver 时，
 // 列表原样可见，绝不会留下一屏空白卡片。
+// 动效批 II · M18 就地改的是这一条而不是在后面补一条同选择器规则：
+// 两处的优先级相同，后写的那条会赢，前一条就成了「看着还在、其实不生效」的死样式。
+// 原来 .5s ease + cubic-bezier(.22,.61,.36,1) 两个字面量、且 opacity 与 transform
+// 各走一条曲线，收尾读起来是「色先到位、位置还在爬」——配对元素应当同曲线同时长。
 body.js-reveal .reveal {
     opacity: 0;
-    transform: translateY(1em);
-    transition: opacity .5s ease, transform .5s cubic-bezier(.22, .61, .36, 1);
+    transform: translateY(.9em);
+    transition: opacity var(--dur-4) var(--ease-out), transform var(--dur-4) var(--ease-out);
 }
 
 body.js-reveal .reveal.is-in {
@@ -3493,10 +3497,28 @@ body.cmdk-open {
     }
 
     // 头图外层自己也钉在 1140 + 居中：容器放开成通栏后它若不动，图就比正文两侧各窄
-    // 20px（实测 1179 下正文内容 20–1159、图 40–1140）。它的内边距是 0，留白由里面
-    // 那层 .g-container 承担，所以这里只需要把宽度一起放开。
+    // 20px（实测 1179 下正文内容 20–1159、图 40–1140）。
+    //
+    // 这 20px 的留白原先由「里面那层 .g-container 的 padding」承担，现在挪到外层自己
+    // 的 margin 上——不是重构洁癖，是 M19 的视差把它顶出来了：overflow 裁的是外层
+    // 的 padding box（含那 20px padding），而图的布局盒被 padding 缩在里面，
+    // 两个盒子于是横向错开 20px。实测 1179 下 scale:1.12 让图糊到 0–1179 通栏、
+    // 再被窗口边缘切掉，圆角与投影也跟着错开一整档（改前不缩放时这两件都不成立，
+    // 所以旧写法一直是对的）。留白一旦挂在外层，figure 的盒与 img 的盒重新重合，
+    // ≥1180 那一档本来就是重合的，两档从此同一套几何。
+    //
+    // 这一档的中段（1100px 真浏览器）复量过一遍：figure 的裁切盒与内层内容盒同为 20–1080，
+    // document.scrollWidth 与 clientWidth 相等（横向零溢出），视差照样跟着滚动跑
+    // （进度 0.199→0.663），也就是说改成 clip 之后这一档没有把动画一起关掉。
     .post-hero {
         width: auto;
+        margin-right: 20px;
+        margin-left: 20px;
+    }
+
+    .post-hero .g-container {
+        padding-right: 0;
+        padding-left: 0;
     }
 }
 
@@ -4341,9 +4363,12 @@ dialog.shelf[open] {
     }
 
     // 新快照盖在旧快照之上，靠 clip-path 从点击处扩散出来 —— 这就是「日蚀」的方向。
+    // 时长与曲线取自令牌而不是这里的 .46s / cubic-bezier(.22,.61,.36,1)：
+    // 取值一字未改（--dur-eclipse: 460ms、--ease-out 就是这条曲线），改的只是
+    // 让 bottomFixedBtn.scss 的图标落位（M15）能引用同一个数——两半必须同时收住。
     .vt-eclipse::view-transition-new(root) {
         z-index: 1;
-        animation: eclipseReveal .46s cubic-bezier(.22, .61, .36, 1) both;
+        animation: eclipseReveal var(--dur-eclipse) var(--ease-out) both;
     }
 }
 
@@ -4693,3 +4718,559 @@ dialog.shelf[open] {
         translate: -50% 0;
     }
 }
+
+/*** 11. 动效增强批 II（M11 · M12 · M13 · M14 · M18 · M19 · M21 · M22） ***/
+// 沿用 §10 开头那三条前提（只动合成器属性 / 取 tokens 的 --dur-* 与 --ease-* /
+// @keyframes 里不写 px），这批再补三条：
+//   4. 「一次性入场」与「反复出现的交互」分开计时。刊头、工具页分区这类每个访客一场
+//      只看一次的用 --dur-5 与 --ease-emph；hover、按压、揭示一律留在 --dur-2/3，
+//      不给反复出现的动效加时长——那笔钱每天要付几百遍。
+//   5. 需要「先藏后显」的入场一律关在 @media (prefers-reduced-motion: no-preference)
+//      里面，而不是先无条件开、再在 reduce 块里压。base.scss 那份 .01ms 兜底确实
+//      能把带 both 的动画直接送到终态，但「压得住」和「不存在」是两回事：
+//      藏过一帧的文本在 reduce 档仍会闪一下，而这里从一开始就不写，就没有这笔债。
+//      （§10 那批是 hover 终态位移，必须靠 reduce 块压，两者情形不同，不必对齐写法。）
+//   6. 跨页 View Transition 与载入入场抢的是同一块版面，判据在 §M22 末尾那条
+//      .is-vt-entry（由 editorial.js 挂）—— 冲突的解法写在那两处，不要在这里
+//      分别「顺手调一下时长」。
+
+// ———— M11 · 刊头分行入场 ————
+// 全站八张刊头（首页 / 工具页 / 分类 / 标签 / 合集 / 示例 / 关于 / 404）共用
+// .g-masthead .masthead-inner 这一层，所以这里一条 > * 就覆盖完，不必逐页加类：
+// _layouts/post.html 的刊头用的是 .g-container（没有 masthead-inner），
+// 文章页因此不参与这条——标题每天被自己读几十遍，且它的首屏是正文，不适合入场。
+//
+// 错峰用 nth-child 而不是 --i：刊头这几行是模板里写死的静态结构，不存在
+// 「每敲一个字重绘一次」的问题，也就没有 §M6 那套 .is-fresh 开关的必要。
+@media (prefers-reduced-motion: no-preference) {
+    .g-masthead .masthead-inner > * {
+        animation: mastRise var(--dur-5) var(--ease-emph) both;
+    }
+
+    // 第 1 行（kicker）不延迟；往后每行多等一个 --stagger。
+    // 只排到第 6 子元素：刊头最多 5~6 行，多出来的选择器没有消费者。
+    @for $i from 2 through 6 {
+        .g-masthead .masthead-inner > :nth-child(#{$i}) {
+            animation-delay: calc(var(--stagger) * #{$i - 1});
+        }
+    }
+
+    // 标题单独走擦入：四行里只有它是展示字号（54px），升起在这个体量上会显得笨，
+    // 由下往上揭开则读起来像「排版落纸」，和这套纸墨语言对得上。
+    .g-masthead .masthead-inner > .masthead-title {
+        animation-name: mastWipe;
+    }
+
+    // 期号那条 56px 细线从左边长出来：它压在 kicker 同一行的右侧，
+    // 单独走一次比跟着整行升起更像「刊物盖章」的动作。
+    .g-masthead .issue-rule {
+        transform-origin: left center;
+        animation: ruleGrow var(--dur-4) var(--ease-out) both;
+        animation-delay: var(--stagger);
+    }
+}
+
+// clip-path 的 inset 全用百分比，关键帧里没有 px（前提 3）。
+// from 用 inset(0 0 100% 0)＝底边内缩满高＝整块裁掉；translate 那 .45em 是
+// 让文字在揭开的同时往上走一点点，否则纯裁切看着像遮罩在动而不是行在落。
+@keyframes mastWipe {
+    from {
+        opacity: 0;
+        clip-path: inset(0 0 100% 0);
+        translate: 0 .45em;
+    }
+
+    to {
+        opacity: 1;
+        clip-path: inset(0 0 0 0);
+        translate: 0 0;
+    }
+}
+
+@keyframes mastRise {
+    from {
+        opacity: 0;
+        translate: 0 .5em;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+@keyframes ruleGrow {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+// ———— M12 · 报排行语言补齐到空白页 ————
+// §M3 那套「行线加深 + 标题横移 + 图微缩放」当时只铺了 .article-item / .cat-row /
+// .series-row / .shelf-row 四种。示例页（.demo-row）、编辑精选（.feed-pick）、
+// 侧栏工具清单、标签药丸全在语言外面——首页有手感、二级页像没做完。
+// 这里逐条对齐 §M3 的取值（--dur-2 / --ease-out / .18em），不另起一套数。
+// （404 那颗不在这一族：它是 .cta，M21 那侧已经有完整过渡，别再给它挂第二条。）
+.demo-link,
+.feed-pick-title,
+.tools-list a {
+    transition: color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+}
+
+// 工具页那一列是上面这条唯一的例外，而且是靠权重赢走的：§侧栏给
+// `.tools-card .tools-list a` 写了 `transition: background-color .2s`（0,2,1），
+// 高过上面那条的 (0,1,1)，而 transition 简写会整条替换 transition-property——
+// 结果那一列只过渡背景色，hover 的 .18em 横移是硬跳的（首页/示例页同族却平滑）。
+// 这里以同权重、且在源序之后补一条把三段过渡合回去；background-color 的 .2s
+// 原样保留，那是存量的手感，不为了对齐令牌去动它。
+.tools-card .tools-list a {
+    transition: background-color .2s, color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+}
+
+.demo-row,
+.feed-pick-link,
+.tools-list>li {
+    transition: border-color var(--dur-2) var(--ease-out);
+}
+
+.demo-row:hover .demo-link,
+.feed-pick-link:hover .feed-pick-title,
+.tools-list>li:hover a {
+    translate: .18em 0;
+}
+
+// 精选那两列网格里的 ::before 序号是这一条线上唯一的「可动装饰」：
+// 标题横移时序号留在原地，行读起来才有「往右滑过」的方向感。
+.feed-pick-link:hover {
+    border-bottom-color: var(--rule-2);
+}
+
+.tools-list>li:hover {
+    border-color: var(--rule-2);
+}
+
+// 标签药丸：§M3 明确不给报行加投影抬升，但药丸本来就是「块」，
+// 用 scale 一档即可，位移和阴影都不加——它们在右栏那种密排里会互相顶。
+// .cat-chip（分类页顶部那排索引）同属这一族：它已有变色与描边过渡，只差这点弹性。
+.tags-card .tag,
+.feed-topic,
+.cat-chip {
+    transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), scale var(--dur-1) var(--ease-back);
+}
+
+// .tl-chip 只出现在下面这条、不出现在上面那条，是故意的：
+// 关于页那颗年份胶囊在 about.scss 的 .tl-chip 块里已经写了一模一样的四段过渡，
+// 且编译出来是 .p-about .tl-chip（0,2,0）——这里再写一条裸 .tl-chip（0,1,0）
+// 永远赢不了它，是一条看着安心、实际从不生效的重复声明。它缺的只是终态那一下弹性。
+.tags-card .tag:hover,
+.feed-topic:hover,
+.cat-chip:hover,
+.tl-chip:hover {
+    scale: 1.06;
+}
+
+// 工具页截图：§M3 给首页封面的 1.03 微缩放在这里同样成立，且这张是 380px 宽的产品图，
+// 比封面更需要「能点／值得看」的暗示。不加 overflow:hidden——图自带圆角，
+// 放大 2% 之后角还是它的角，而外层一旦裁切就会顺手把 box-shadow 一起裁掉。
+.tool-media img {
+    transition: scale var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out);
+}
+
+.tool-section:hover .tool-media img {
+    scale: 1.02;
+    box-shadow: var(--shadow-3);
+}
+
+// 图标盒跟着分区 hover 轻轻抬一下：它和标题在同一行，标题入场已有（M18），
+// hover 时只有右半边截图动、左半边不动会读成「图坏了」。幅度 .04，不到一眼看出来的线。
+.tool-icon {
+    transition: scale var(--dur-2) var(--ease-back);
+}
+
+.tool-head:hover .tool-icon {
+    scale: 1.04;
+}
+
+// ———— M13 · 导航擦入下划线 ————
+// 当前页那条线一直是 border-bottom-color（§1 里 .nav-link 带 2px 透明下边框，
+// .is-current 把它染成墨色）——静态的，没问题，它本来就不该动。
+// 缺的是 hover：鼠标划过一排导航时，八个入口没有一个预先答复「这里可以按」。
+// 补一根从左擦进来的 ::after，颜色用 --signal（全站唯一的饱和色，§3 刊头顶部那条线同源）。
+//
+// 三个数不是随手定的，全部对着 §1 那条既有横线量：
+//   · left/right 取 12px ＝ .nav-link 自己的左右 padding，线只铺在文字下面；
+//   · height 取 2px ＝ 那条 border-bottom 的厚度；
+//   · bottom 取 -2px 而不是 0 —— 绝对定位的子元素以「内边距盒」为包含块，
+//     写 0 会把这根线摆在透明边框的**上方**，与当前页那根 2px 墨线并成上下两条，
+//     读起来像边框叠影；-2px 才是压进边框那一条带里，两线重合。
+// 门控用 (min-width: 696px)：≤695 顶栏收成抽屉（同文件 §9 那条 max-width:695px），
+// 那时 .nav-link 是 display:block + padding:11px 2px + 无边框，
+// 这套按 12px/−2px 量出来的落点会掉到下一条目的头顶上。
+// (hover:hover) and (pointer:fine) 与 --dur-* 走的是同一条「真有指针」前提。
+@media (hover: hover) and (pointer: fine) and (min-width: 696px) {
+    .nav-link {
+        position: relative;
+    }
+
+    .nav-link::after {
+        position: absolute;
+        right: 12px;
+        bottom: -2px;
+        left: 12px;
+        height: 2px;
+        content: '';
+        background-color: var(--signal);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform var(--dur-2) var(--ease-out);
+    }
+
+    .nav-item:hover>.nav-link::after,
+    .nav-link:focus-visible::after {
+        transform: scaleX(1);
+    }
+}
+
+// 工具箱下拉：整块淡入读成「弹出」，改成四行依次落位。
+// 三层门控缺一不可：
+//   · (hover:hover) and (pointer:fine)——窄屏那段（§9 里 .nav-sub{position:static;
+//     opacity:1}）把下拉平铺展开、没有 hover 宿主，若在这里无条件写 opacity:0，
+//     手机上这三款工具与「全部工具」那一行会永久隐形。
+//   · (min-width:696px)——上一条挡的是「手指」，挡不住「把桌面窗口拖到 695 以下」：
+//     那种时候 pointer 依然是 fine，抽屉已展开、hover 宿主已消失，
+//     这三行会永远停在 opacity:0。两个条件各管一半，缺一不可。
+//   · no-preference——这条靠 opacity 承载，reduce 档不该有「依次出现」这件事。
+//     也正因为整块在 no-preference 里，那三档延迟在 reduce 档根本不存在，
+//     不需要再到 reduce 块里归零一次（base.scss 那份兜底故意不动 transition-delay，
+//     见它末尾那条注释——它归零会让悬浮提示在鼠标扫过时集体闪现）。
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) and (min-width: 696px) {
+    .nav-sub>li {
+        opacity: 0;
+        translate: 0 .35em;
+        transition: opacity var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+    }
+
+    .nav-item:hover>.nav-sub>li,
+    .nav-item:focus-within>.nav-sub>li {
+        opacity: 1;
+        translate: 0 0;
+    }
+
+    // 步长取 --stagger 的一半：下拉只有四行，且它是「随开随看」的即时面板，
+    // 用满 40ms 时最后一行要等 120ms，读起来就不是错落而是迟半拍。
+    .nav-sub>li:nth-child(2) {
+        transition-delay: calc(var(--stagger) * .5);
+    }
+
+    .nav-sub>li:nth-child(3) {
+        transition-delay: var(--stagger);
+    }
+
+    .nav-sub>li:nth-child(4) {
+        transition-delay: calc(var(--stagger) * 1.5);
+    }
+}
+
+// ———— M14 · 焦点环生长（原清单 M5）————
+// 键盘按下 Tab 时焦点框「长」到落位，而不是硬出现在 2px 处。
+// 用 animation 而不是 transition：transition 需要两侧状态不同，而能拿到
+// :focus-visible 的元素必然同时是 :focus，写 :focus-visible + :focus-visible:focus
+// 两条只会让后一条永远赢，最后既没有生长也没有过渡，是一条静默失效的规则。
+// 幅度只从 4px 收到既有的 2px（2px 的距离）：焦点框必须在任何一帧都完整可见，
+// 从 0 长出来那种幅度会让这条规则本身变成无障碍问题。
+// 两个数一律取自 tokens.scss，不在这儿写字面 px：@keyframes 的帧名是 0%/to，
+// postcss 那份按选择器文本匹配的黑名单（:focus-visible 就在里面）够不到关键帧内部，
+// 实测产物里 `outline-offset: 4px` 会被换成 .53333vw，1440 屏上偏到 7.7px。
+//
+// 选择器按「可聚焦元素类型 + :focus-visible」列一遍，而不是裸写 :focus-visible，
+// 是因为这条用的是 animation 简写，它会整条接管命中元素身上的动画；而关键帧的终点
+// 写死成 --ring-tight (2px)，只对「焦点环就停在 2px」的那批元素成立。
+// 唯一的例外是灯箱：`.lightbox:focus-visible`（2673 行）把焦点环停在 4px，
+// showModal() 又一定让它处于 focus-visible，于是裸写时观众看到的是
+// 4px→2px 长完再弹回 4px。逐类挂 :focus-visible 既排除了 <dialog>
+// （它本就不在可 Tab 的名单上），也让这条的作用域和它的名字一样窄。
+@media (prefers-reduced-motion: no-preference) {
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    summary:focus-visible,
+    [tabindex]:focus-visible {
+        animation: ringGrow var(--dur-1) var(--ease-out);
+    }
+}
+
+@keyframes ringGrow {
+    from {
+        outline-offset: var(--ring-loose);
+    }
+
+    to {
+        outline-offset: var(--ring-tight);
+    }
+}
+
+// ———— M18 · 滚动揭示的覆盖面与节奏 ————
+// 曲线与时长的收口在 §7.8 那条 `body.js-reveal .reveal` 原地完成（理由见那儿），
+// 这里只补 M18 的第二半：覆盖面。见 editorial.js §9 REVEAL_SELECTOR 那张表——
+// 示例页的 .demo-row、工具页的 .tool-head/.tool-copy/.tool-posts 原先都不在名单里，
+// 首页有手感、二级页「整块砸进来」的观感就是这么来的。
+// 未揭示态仍由 body.js-reveal 限定（① 脚本没跑＝原样可见，② 无 IO 同样落终态），
+// 这一点没改，改了就是把 no-JS 与爬虫的正文藏起来。
+//
+// 关于页不在这里补：年表那套揭示归 about.js + about.scss（类名同样是 is-in，
+// 但带 --tl-delay 错峰、卡片升起与圆点「后盖章」三层），两处共管同一批行会杂交。
+// 这一页缺的从来不是入场，是 hover 语言——所以它走下面的 M12（.tl-chip 药丸）。
+//
+// 刊头那条 M11 入场与 C4 的 count-up 之间不补任何过渡：那四格数字没有变色状态，
+// 给 .masthead-stats strong 写一条 `transition: color` 是一条永远不生效的死样式。
+// 两者的错开关系已经由「入场动画跑在 --dur-5 上、count-up 在 DOMContentLoaded
+// 立刻起算」自然形成，不需要再造一个第三层。
+
+// ———— M19 · 文章头图的受控视差（原清单 M10）————
+// 用 CSS 滚动驱动动画而不是 rAF：这条动画的进度就是滚动位置本身，
+// 不需要新增监听、不需要节流、天然跟随反向滚动，且 Chromium 在 transform
+// 上可以把它跑在合成器线程。@supports 是硬闸——Safari 与 Firefox 目前
+// 整块不生效，页面回到改前的静态头图，而不是拿到一个半吊子的错位。
+//
+// 代价实测前后量了四遍，前三遍都不算数，作废的理由正是下面那两行 overflow：
+// 头两遍（本机 headless 连滚 170 帧；真浏览器 150 帧 × 开关交替三轮）跑在「只写 hidden」的
+// 产物上，ViewTimeline 绑到 figure 自己身上、进度恒定，视差从头到尾没动过 —— 于是「开」与
+// 「关」两组量的是同一张静态头图。那遍六组 p95 全落在 17.8~18.7ms、超 20ms 的帧 0 个，
+// 干净得可疑；headless 那遍还多出一个「关掉反而抖、max 83ms」，那是 style.animation='none'
+// 自己的重排，不是视差。第三遍跑在 clip 修好之后，但那轮脚本没在同一份返回值里自证进度
+// 随滚动变化，按同一把尺子也不作数。
+//
+// 第四遍（2026-09-26，Chrome 153 / macOS / ANGLE Metal · Intel Iris Plus 655 / dpr 2 /
+// 视口 1440×658 / 头图布局高 470px）把「动画确实在跑」写进同一次采样再谈成本：
+// 时间轴 source=HTML，y=0 / 450 / 900 三点进度 0.199 / 0.617 / 1.000，translate
+// −3.009% / +1.165% / +5.000%，逐点等于 −5% + 10% × 进度（线性，行程就是关键帧那 10%）；
+// 对照组写 inline animation-name:none 后同一批点位的 translate 全为 none，且 rect 不变
+// （scale:1.12 是静态声明，掐掉动画不影响盒子）。滚动改成 0↔900px 锯齿 30px/帧，
+// 每遍 149 个间隔，开/关交替三轮：
+// 开 16.7 / 16.6 / 16.6ms 中位（p95 19.1 / 18.0 / 18.6，max 20.4 / 19.2 / 19.5），
+// 关 16.6 / 16.6 / 16.6ms 中位（p95 18.1 / 18.8 / 18.6，max 18.9 / 20.0 / 21.6）；
+// 六遍超 1.5×中位一律 0 个，超 20ms 共 2 个且两组各摊 1 个（开的第一遍 20.4、关的第三遍 21.6），
+// LoAF 按臂切分每臂 0 条、总 0 条。两组分布重叠 ⇒ 这台机器上量不出成本，不回滚。
+// 口径限制仍在：rAF 间隔是「每一帧真正呈现前」的节拍，合成器掉帧会把它拉长，所以它反映总帧率
+// 却分不开「主线程卡的」和「合成线程卡的」，那一格靠 LoAF 补；而这一台是 2019 年的核显笔记本，
+// 不是低端安卓机——安卓与 iOS Safari 仍没人量过。
+@supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+        // 视差要在框内动，所以裁切必须存在；圆角与投影一并从 img 抬到 figure，
+        // 否则 overflow 会把 img 的 box-shadow 裁掉半圈（改前那圈 --shadow-2 就没了）。
+        // 这三条全在 @supports 里面：不支持的浏览器连 overflow 都不加，
+        // 渲染树与改前逐像素一致。
+        //
+        // 两行 overflow 是有意的：`animation-timeline: view()` 绑的是元素**最近的滚动容器**，
+        // 而 overflow:hidden 会造出一个滚动容器——2026-09-26 在 Chrome 153 上实测，
+        // 只写 hidden 时 ViewTimeline.source 就是这个 figure 自己，进度恒定 0.5，
+        // 整条视差从头到尾一动不动（构建不报错、字符串都在，肉眼只会看到「一张静态头图」）。
+        // overflow:clip 裁切但不造滚动容器，时间轴于是落到根滚动器上；
+        // 前面那行 hidden 留给不认 clip 的浏览器当裁切兜底（那时视差本来也不跑）。
+        .post-hero {
+            overflow: hidden;
+            overflow: clip;
+            border-radius: var(--radius-l);
+            box-shadow: var(--shadow-2);
+        }
+
+        // 同一根链上还有第二层滚动容器：头图在 <header class="g-masthead post-masthead"> 里，
+        // 而 §3 的 .g-masthead 自带 overflow:hidden。只放开 figure 时时间轴仍然冻结，
+        // 两层一起改 clip 才量到 source=HTML、进度随滚动 0.199→1。
+        // 用 :has() 把范围收在「真的嵌了头图的那张刊头」：其余七张刊头的渲染树一个字不变，
+        // 不认 :has() 的浏览器整条规则丢弃，退回来的就是改前的样子。
+        // 顺带确认过这里不会碰粘性定位：.post-rail 与 .tool-media 是全站仅有的两个
+        // position:sticky，都落在 </header> 之后，不是这层的子孙。
+        .post-masthead:has(.post-hero) {
+            overflow: hidden;
+            overflow: clip;
+        }
+
+        .post-hero img {
+            // 1.12 的余量是给位移留的，行程按「布局盒」而不是「缩放后的盒」算：
+            // translate 的百分比参照自身布局高 H，图放大后每侧只多出 (1.12-1)/2 = 6%H，
+            // 所以 ±6% 恰好等于可用余量——实测极值处图边比裁切框差 -0.02px，是贴着零的。
+            // 留 1% 的活口改成 ±5%：实测 420px 高的头图走到两个极值，紧的一侧仍盖住
+            // 4.2px（=1%H），松的一侧 46.2px，舍入与 max-height:420px 的裁切差都吃不掉。
+            scale: 1.12;
+            transform-origin: center;
+            animation: heroParallax linear both;
+            animation-timeline: view();
+            // cover 0%＝图顶进视口底；cover 100%＝图底出视口顶。整段行程线性映射，
+            // 位移量与滚动距离成正比，这正是「视差」该有的手感。
+            animation-range: cover;
+        }
+    }
+}
+
+@keyframes heroParallax {
+    from {
+        translate: 0 -5%;
+    }
+
+    to {
+        translate: 0 5%;
+    }
+}
+
+// ———— M21 · 主按钮的磁吸与光泽（CSS 侧）————
+// 位移与光斑位置由 JS 逐帧写在元素自己的 --mx/--my 上（只有运行期才知道指针在哪），
+// 这里负责三件事：声明这两个变量的落点、给一个跟手的节奏、把整套限定在
+// 「真有指针设备 + 没要求减少动态」这两条前提之内。
+// 变量写在元素自己身上而不是 :root：CSS 自定义属性是可继承的，
+// 挂在 :root 上每次指针移动都要重算整棵树的样式。
+@supports (translate: 1em 0) {
+    @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+        .cta[data-magnet] {
+            position: relative;
+            overflow: hidden;
+            translate: calc(var(--mx, 0) * 1px) calc(var(--my, 0) * 1px);
+            // transform 这一段是必需的，不是凑数：§cta 那颗按钮本来写着
+            // `transition: … transform .2s`（1669 行），而这条简写会把
+            // transition-property 整条换掉——少了这一段，:active 的
+            // translateY(1px) 按下就硬跳，磁吸跟手、按下却没回信。
+            // 与 translate 同取 --dur-1：这两个位移共用同一批像素，按「成对的元素用同一套节奏」并档。
+            transition: translate var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out), color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+        }
+
+        // 光泽跟着指针走。radial-gradient 的位置是绘制、不是布局，
+        // 且这个伪元素 pointer-events:none，不会把 hover 判定抢走。
+        .cta[data-magnet]::before {
+            position: absolute;
+            inset: 0;
+            content: '';
+            pointer-events: none;
+            opacity: 0;
+            background-image: radial-gradient(6rem circle at var(--px, 50%) var(--py, 50%), rgba(255, 255, 255, .22), transparent 60%);
+            transition: opacity var(--dur-2) var(--ease-out);
+        }
+
+        .cta[data-magnet]:hover::before {
+            opacity: 1;
+        }
+    }
+}
+
+// ———— M22 · 跨页转场的定制（原清单里没人排，因为默认那层已经在工作）————
+// tokens.scss 里的 @view-transition 让浏览器给一次站内跳转做了个 root 交叉淡化，
+// 但只有 root 这一组：顶栏已有 view-transition-name（§1），刊头没有，
+// 于是首页→工具页这种「同一块刊头换了内容」的跳转被当成整屏换掉，
+// 最大的那块版面闪了一下。给它一个名字，浏览器就会把它认作新旧两页共有的一块，
+// 只按盒子的位置与尺寸做过渡（文字在里面交叉淡化）。
+//
+// 只命名 .masthead-inner 而不是 .g-masthead：后者是整块底色 + 蒲公英画布，
+// 连底色一起 morph 会让页面顶部那条 2px 信号线在过渡期间出现重影。
+@media (prefers-reduced-motion: no-preference) {
+    .g-masthead .masthead-inner {
+        view-transition-name: page-masthead;
+    }
+
+    // root 那一组默认是「新旧等速交叉淡化」，在纸面上读起来像闪。
+    // 拆成旧的快退、新的慢进并带一点升起：新页「放下来」，而不是「亮起来」。
+    ::view-transition-old(root) {
+        animation: vtRootOut var(--dur-1) var(--ease-out) both;
+    }
+
+    ::view-transition-new(root) {
+        animation: vtRootIn var(--dur-3) var(--ease-out) both;
+    }
+
+    // 刊头这一组不能跟着升起——它是被 morph 的那一块，
+    // 再叠一层位移会读成两层内容互相穿过。只留一次干净的交叉。
+    ::view-transition-old(page-masthead) {
+        animation: vtFadeOut var(--dur-2) var(--ease-out) both;
+    }
+
+    ::view-transition-new(page-masthead) {
+        animation: vtFadeIn var(--dur-3) var(--ease-out) both;
+    }
+}
+
+@keyframes vtRootOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes vtRootIn {
+    from {
+        opacity: 0;
+        translate: 0 .6em;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+@keyframes vtFadeOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes vtFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+// M11 与 M22 抢的是同一块版面：跨页跳转时新文档的第一帧就是它的快照，而刊头入场
+// 恰好也是从那一刻起算（实测：tools.html 上四条 mastRise/mastWipe 的 startTime
+// 都是 1311ms，正是文档时间轴上首次渲染的那一点），于是过渡期间顶部那块是
+// 「已经升了一半」而不是「完整的新页」——不算坏，但两件事在抢同一批像素。
+//
+// 原先这里写的是 `@supports selector(:view-transition) { html:view-transition … }`，
+// 2026-09-26 在 Chrome 153 上实测作废：`CSS.supports('selector(:view-transition)')`
+// 返回 false，`document.querySelector('html:view-transition')` 直接抛
+// SyntaxError「not a valid selector」。也就是说这个闸门在唯一支持跨页转场的浏览器里
+// 永不开，整块是死规则。判据改由 editorial.js §17 用 `document.activeViewTransition`
+// （同一个浏览器里 typeof 为 object，实测可用）挂 .is-vt-entry 提供。
+// 直接打开／刷新（没有转场）时不加这个类，刊头照常入场。
+.is-vt-entry .masthead-inner>*,
+.is-vt-entry .issue-rule {
+    animation: none;
+}
+
+// ———— 这一批自己的动效偏好兜底 ————
+// 这批里凡是需要「先藏后显」的（M11 刊头入场、M13 的下拉错峰、M14 焦点环、
+// M19 视差、M21 磁吸）整块写在 no-preference 里面，reduce 档连规则都不存在，
+// 不必再压一遍——尤其是 M19：它的 scale:1.12 是给 ±5% 行程留的余量，
+// 若只是压掉 animation 而留着 scale，reduce 用户会得到一张永久放大 12% 的头图。
+//
+// 还有一条只在 reduce 档才成立的理由：那两层 overflow 也写在 no-preference 里，
+// 所以 reduce 用户拿到的是改前那份 overflow——它是否变成滚动容器都无所谓，
+// 因为这条时间轴压根不存在。
+//
+// 剩下只有一类压不住，必须显式处理，理由与 §10 末尾那段同源：
+//   · hover 的终态位移（translate .18em）不靠 duration 生效，base.scss 那份 .01ms
+//     只把「过渡多长」掐掉，掐不掉「停在哪」。
+// hover 的 scale（截图微缩放、药丸、图标盒）按 §M3 已有的口径保留：.01ms 之下
+// 它是单帧的状态变化而非运动，与变色同类，减掉反而让 reduce 用户少一个可点性回信。
+@media (prefers-reduced-motion: reduce) {
+    .demo-row:hover .demo-link,
+    .feed-pick-link:hover .feed-pick-title,
+    .tools-list>li:hover a {
+        translate: none;
+    }
+}
+

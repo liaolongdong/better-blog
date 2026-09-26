@@ -76,7 +76,7 @@
         // 误点一下「嗖」地缩下去，使用者只会觉得是猫自己跑的。
         opacity: 0;
         pointer-events: none;
-        transition: opacity var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+        transition: opacity var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out), scale var(--dur-1) var(--ease-back);
 
         &::before {
             content: "−";
@@ -87,6 +87,15 @@
             pointer-events: auto;
             outline: 2px solid var(--signal);
             outline-offset: 2px;
+        }
+
+        // 按压回弹（§M4 那批控件的同一档语言）。它是这颗扣子唯一的手感回信：
+        // 平时 opacity:0，hover 才现身，没有 :hover 之外的任何状态变化，
+        // 按下去「嗖」地缩走之前整颗按钮像一张贴图。
+        // 幅度取 .9 而不是 §M4 那批的 .97 —— 那颗扣子只有 24px，.97 折下去是
+        // 0.7px，压在渲染的取整误差里，等于写了一条看不见的规则。
+        &:active {
+            scale: .9;
         }
     }
 

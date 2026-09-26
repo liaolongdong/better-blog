@@ -667,6 +667,11 @@ PY
   它在不在，决定的是「全站动效都尊重系统偏好」还是「只有当初单独补过的那几个组件生效」——
   后者正是这一批修之前的状态（`animate.scss`、`common.scss`、`cat.scss`、`bottomFixedBtn.scss`、
   `weblab.scss`、`helper.scss` 各自为政）。所以新加动效不用再补 reduce，但这段不能被动效重构顺手删掉。
+  不过「压得住」和「不存在」是两回事：靠 `.01ms` 兜底只能保住终态，**先藏后显**那类
+  （入场、错峰、视差、磁吸）仍要整块写进 `@media (prefers-reduced-motion: no-preference)`，
+  否则藏过的那一帧在 reduce 档还是闪一下；而 `transition-delay` 是那份兜底**故意**不碰的一项
+  （它归零会让悬浮提示在鼠标扫过时集体闪现），错峰延迟只能各自收。
+  这两条都有产物级判据，见下面《动效专项回归》。
 - **`font-display:swap`**：走外网的只有 `socialshare` 一个字族，所以
   `dev/libCss/share.min.css` 必须带它。`assets/fonts/` 那三份自托管 webfont
   （Newsreader + IBM Plex Mono 400/500）是同源请求，`dev/sass/common/tokens.scss`
@@ -681,3 +686,131 @@ PY
   `dev/sass/cat.scss` 收在 `.mao_box` 一层内（缘由写在文件头）——把猫改回平铺、或者删掉
   那一条黑名单，都是静默回膨胀。所以查两件事：`.mao_box .mao` 的 width 仍是 `200px`，
   且 `cat.min.css` 里 `vw` 计数为 0（半 px 半 vw 的猫会直接画变形）。
+
+### 动效专项回归
+
+上面那六条管的是「样式在不在」。动效批（`CHANGELOG` 2.1.0 与之后的批 II）另有四类
+失效同样不报错——规则在、写得也对，但在真浏览器上**永远不生效**，只能按下面这个口径查
+（第 5 类只能开浏览器量，静态查不到，见本节末尾那条）：
+
+```bash
+python3 - <<'PY'
+import pathlib, re
+root = pathlib.Path('/tmp/seo-check')          # 或 bundle exec jekyll build --destination 出来的站根
+cssd = root / 'assets/css'
+allc = {p.name: p.read_text(encoding='utf-8') for p in sorted(cssd.glob('*.min.css'))}
+index = allc['index.min.css']
+KW = re.compile(r'^@(media|supports|layer|container)\b\s*')
+
+# 按块解析，条件链一路带到底。@media 之外必须认 @supports：只找 `@media(...){` 的旧写法
+# 会整段跳过「包在 @supports 里、没包在任何 @media 里」的规则——那是假绿，不是没命中。
+def blocks(css):
+    out = []
+    def walk(src, chain):
+        i = 0
+        while i < len(src):
+            m = re.compile(r'([^{]*)\{').search(src, i)
+            if not m: break
+            head = re.sub(r'\s+', ' ', m.group(1).strip()).lstrip('}').strip()
+            d, j = 1, m.end()
+            while j < len(src) and d:
+                d += (src[j] == '{') - (src[j] == '}'); j += 1
+            body = src[m.end():j-1]; kw = KW.match(head)
+            if kw: walk(body, chain + [re.sub(r'\s+', '', head[kw.end():])])
+            elif head.startswith('@keyframes'): out.append((chain, head, body, True))
+            else: out.append((chain, head, body, False))
+            i = j
+    walk(css, [])
+    return out
+
+parsed = {f: blocks(css) for f, css in allc.items()}
+
+# A. @keyframes 里不许出现 px / vw 字面量。postcss 那份黑名单按「选择器文本」匹配，
+#    而关键帧的帧选择器是 0% / to，任何一条黑名单都够不到帧内部——写了 4px 就被换成
+#    .53333vw，1440 屏上偏到 7.7px、390 屏上只剩 1px，同一枚焦点环在两种视口下不是一个东西。
+kf = [(f, h) for f, bl in parsed.items() for c, h, b, k in bl
+      if k and re.search(r'[-:,\s]\s*-?[\d.]+(px|vw)\b', b)]
+print('A 关键帧里的 px/vw:', len(kf), kf[:3], '| 关键帧块',
+      sum(1 for f, bl in parsed.items() for c, h, b, k in bl if k))      # 预期 0（当前 37 块 / 9 份 CSS）
+
+# B. 「先藏后显」与纯装饰的动效必须整块关在 no-preference 里，而不是靠 base.scss 那份
+#    .01ms 兜底压——压得住和不存在是两回事，藏过一帧的文本在 reduce 档仍会闪一下。
+#    needle 之外还带一个「选择器必须长这样」的约束：`--mx` 这个名字猫眼（cat.min.css 的
+#    .yanjing）也在用，而它的 reduce 闸门在 JS 侧（cat.js 在 reduce 下不挂监听，CSS 侧另有
+#    .yanjing{transition:none} 兜底），只按属性文本匹配会把这条本来合规的规则误判成漏。
+NEED = [('animation:mastRise', None, 'M11 刊头入场'),
+        ('animation:ringGrow', None, 'M14 焦点环'),
+        ('scale:1.12', None, 'M19 视差余量'),
+        ('transition-delay:calc(var(--stagger)', None, 'M13 下拉错峰'),
+        ('translate:calc(var(--mx', '[data-magnet]', 'M21 磁吸'),
+        ('animation:glyphLand', None, 'M15 图标落位')]
+for needle, sel, label in NEED:
+    hits = [(f, ' > '.join(c)) for f, bl in parsed.items() for c, h, b, k in bl
+            if needle in b and (sel is None or sel in h)]
+    loose = [x for x in hits if 'prefers-reduced-motion:no-preference' not in x[1]]
+    print('B', label, '缺规则' if not hits else ('漏在 no-preference 外 ' + str(loose[:2]) if loose else 'OK'),
+          '| 命中', len(hits))
+# 预期：六行全是 OK。M19 那行如果变成「漏」，reduce 用户就拿着一张永久放大 12% 的头图
+
+# C. 判据两头都要在：CSS 认这个类、JS 挂这个类。少一边 ＝ 动效一半在工作。
+#    第一个判据必须按「整名」匹配——`'.is-vt-entry' in index` 这种子串查法，在类名被改成
+#    .is-vt-entryx 时仍然为真，而「CSS 改了名、JS 还在挂老名」正是这条要抓的那一种。
+js = (root / 'assets/js/editorial.min.js').read_text(encoding='utf-8')
+print('C 跨页转场让位:', bool(re.search(r'\.is-vt-entry(?![\w-])', index)), 'activeViewTransition' in js,
+      '死闸门回流:', any('selector(:view-transition)' in c for c in allc.values()))   # 预期 True True False
+
+# D. 跨文件的令牌依赖：bottomFixedBtn.min.css 用 var() 却不声明，靠同页 index.min.css 的 :root。
+#    哪天浮层样式被单独下发，时长在计算值阶段失效，glyphLand 静默不跑，构建一个字都不报。
+used = set(re.findall(r'var\((--[\w-]+)\)', allc['bottomFixedBtn.min.css']))
+declared = set(re.findall(r'(--[\w-]+):', re.search(r':root\{([^}]*)\}', index).group(1)))
+orphan = [str(p.relative_to(root)) for p in root.rglob('*.html')
+          if 'bottomFixedBtn.min.css' in p.read_text(encoding='utf-8', errors='ignore')
+          and 'index.min.css' not in p.read_text(encoding='utf-8', errors='ignore')]
+print('D 浮层缺的令牌:', sorted(used - declared), '| 挂浮层却没挂 index 的页:', len(orphan))  # 预期 [] 与 0
+
+# E. 版面事实不许被关进偏好查询：日蚀图标那层 .iconfont:before{display:inline-block} 是给
+#    伪元素补「可变换」的，三态（默认 / reduce / 无 JS）共用同一套排版。它一旦被写进
+#    no-preference，reduce 与无 JS 两格的图标盒就少一档基线，glyphLand 落位的前提也没了。
+#    这条查的是反方向：它必须待在所有条件块之外（chain 为空）。
+und = [(f, h) for f, bl in parsed.items() for c, h, b, k in bl
+       if ':before' in h and 'iconfont' in h and not c and 'inline-block' in b]
+print('E 无条件 display:', len(und), und[:1])                            # 预期 ≥1
+PY
+```
+
+- **为什么不写成「跑一遍看看有没有动画」**：这四类失效在肉眼层面全都表现为「什么都没发生」，
+  而在产物层面全都表现为「字符串明明在」。只有按**块**解析（这条规则被哪个 `@media`／
+  `@supports` 管着）才分得开「写了」和「会被执行」。
+- **这份门禁自己有没有牙**：往影子副本里注入七种「静默失效」
+  ——关键帧塞一个 `4px`、把 M19 那段的 `@media(no-preference)` 换成 `(min-width:1px)`、
+  把 `.cta[data-magnet]` 改名、把 `.is-vt-entry` 换成 `.is-vt-entryx`、把 JS 里的
+  `activeViewTransition` 改名、从 `index.html` 摘掉 `index.min.css`、把 E 那条 `display`
+  挪进 `no-preference`——2026-09-26 全部七处逐条变红才算它有效。
+  副本必须用 `cp -R` 而不是 `cp -al`：硬链接副本 `write_text` 落的是同一个 inode，
+  改「副本」等于改产物本身（这一轮产物就是这样被改脏过一次，靠比对 md5 才发现，
+  重新 build 之后才恢复）。所以注入前后各读一次 md5，注入完还要看两份的 inode 不同。
+  这一轮**改判据本身**也改出来两处假绿，都值得记住：C 原来用子串查类名（改名成超集时永远绿），
+  B 的 M21 原来只按属性文本认（撞上猫眼的 `--mx` 时永远红，而红错了方向下次就没人信它）。
+  一份只会绿的脚本等于没有脚本，这一族的前例见上面第 3 条 JSON-LD 那段注释。
+- **第五类只能量，静态查不到**：`animation-timeline: view()` 绑的是元素**最近的滚动容器**，
+  而 `overflow: hidden` 就会造出一个滚动容器。祖先里漏一层没换成 `clip`，时间轴就挂在那层
+  自己身上、进度恒定不动——规则、关键帧、`@supports` 全在产物里，肉眼看到的是一张静态头图。
+  2026-09-26 批 II 就是这么把 M19 交付出去的：`overflow:hidden` 写在 `.post-hero` 上，
+  而祖先 `.g-masthead`（editorial.scss §3）本来也带着一条，两层一起把它冻住。
+  量法（真浏览器，一次 `evaluate_script`）：按 `p = (V-(T-y))/(V+H)` 取 0/0.25/0.5/0.75/1
+  五个滚动位，读 `getComputedStyle(img).translate` 必须从 `-5%` 单调走到 `+5%`；
+  再读 `img` 与 `.post-hero` 的 `getBoundingClientRect()`，两端的覆盖量
+  （`fig.top-img.top` 与 `img.bottom-fig.bottom`）必须都 ≥0——实测极值处紧的一侧剩 4.2px
+  （420px 高的 1%），松的一侧 46.2px。
+- **另一类几何错位在中间断点**：裁切盒走的是 padding box，图的内缩却挂在内层
+  `.g-container` 的 padding 上，两者在 ≤1179 那档差着 20px，`scale:1.12` 一放大就糊到窗口
+  边缘、圆角与投影跟着错开一整档。桌面视口截图看不见它（1440 下两个盒子本来就重合），
+  所以断点核验要按 500 / 960 / 1179 各量一次 `fig` 与 `img` 的布局盒是否重合。
+- **三态核验不在这里做**：`reduce` 与无 JS 的终态只能开真浏览器量（`emulate` 那类工具
+  没有 reduced-motion 这一档），口径是每页 × 有 JS / reduce / 无 JS 三格全过：
+  reduce 下 `getAnimations()` 里不许有 >0.0002s 的入场、刊头不许有行藏在 opacity<1、
+  头图不许留着 `scale:1.12`、`overflow` 要回到 `visible`；无 JS 下 `body` 不许带
+  `js-reveal`、画布一个像素都不该自己画、揭示名单里的元素一律可见。
+  2026-09-26 批 II 收口时按 7 页 × 3 态量过一轮，21 格全绿；同日评审修复后又按
+  5 页（首页 / 工具 / 文章 / 404 / 关于）× 3 态重跑一轮，判据同上。
+

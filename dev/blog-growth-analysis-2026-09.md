@@ -178,18 +178,70 @@ AI 引用份额最高的是对比文（≈33%）、权威指南（≈15%）、�
 
 全部走 `transform` / `opacity`，全部挂到已有 reduce 分支，全部复用 `tokens.scss` 现有变量（注意：该文件**没有** easing/duration/z-index token，23 个自定义属性里只有色板、半径、`--measure`、`--rs` —— 动效值现在是硬编码贝塞尔。建议顺手补一组 `--ease-*` / `--dur-*`，否则第 25 个动效会继续散落成字面量）。
 
+> 括号里那句写于本批开工前，2026-09-26 起不再成立：`tokens.scss` 现在有
+> `--dur-1..5`（120/200/320/560/760ms）、`--ease-out` / `--ease-in-out` / `--ease-back` / `--ease-emph`、
+> `--stagger: 40ms`、`--dur-eclipse: 460ms`、`--travel-s/m/l/xl`、`--ring-loose: 4px` / `--ring-tight: 2px`。
+> 新增这组的理由不是「统一魔法数字」，是 postcss 的 px→vw 黑名单按选择器文本匹配、
+> 而 `@keyframes` 的帧选择器只有 `0%` / `to`，够不到帧内部——焦点环那两个数写在关键帧里
+> 就会被换成 `.53333vw`，1440 屏上偏到 7.7px。产物级实测：全站 37 个关键帧块、9 份 CSS，
+> 帧内 px/vw 字面量 0 处。
+
 | # | 动效 | 现状（实测） | 做法 | 为什么值得 |
 | --- | --- | --- | --- | --- |
 | M1 | **灯箱 FLIP 飞出** | 现在只有 `opacity + scale(.985)`（`editorial.scss:2469`），没有从缩略图位置过渡 ✅ | 记录缩略图 rect，用 `transform-origin` + `translate/scale` 从原位置放大，关闭反向 | 成本最低、感知最强的一处"哇"；纯 transform，且是全站唯一"图 → 大图"的空间连续性缺口 |
 | M2 | **图片 blur-up + 比例占位** | 无 LQIP、无 `aspect-ratio`（grep 0 命中）✅ | 6 字节内联 blur 占位 + `aspect-ratio` 盒 + `loading=lazy`；与 P0-5 同一次改动 | 同时解决 CLS 和"图片突然撑开页面"，动效与性能一次付清 |
 | M3 | **卡片 hover 抬升 + 封面微缩放** | `.article-item`/`.cat-row`/`.series-row`/`.post-hero img` hover 只有颜色变化 ✅（grep `scale(` 只命中头像/灯箱/⌘K） | `translateY(-2px)` + `--shadow-1→2` + 封面 `scale(1.03)`（`overflow:hidden` 内），一次只动一层 | 首页信息流是浏览时长主战场，可点性感知不足 |
 | M4 | **按压反馈** | 全站 `:active` 只出现在 2 处（`.cta`、`.icon-menu`）✅ | 给 `.wrap-up-btn`/`.reader-opt`/`.quote-btn`/`.shelf-tab`/`.code-copy`/`.nav-search-btn`/`.toc-fab`/`.nav-link` 统一 `scale(.97)` | 一条规则覆盖 8 类控件，交互确定性提升明显 |
-| M5 | **focus-visible 过渡** | 只有静态 `outline`，无过渡 ✅ | `outline-offset` 由 3→1 的 120ms 过渡（键盘态才动） | 无障碍观感，且不影响鼠标用户 |
+| M5 | **focus-visible 过渡** | 只有静态 `outline`，无过渡 ✅ | `outline-offset` 由 3→1 的 120ms 过渡（键盘态才动）**实落修正**：3→1 那两头都不对，收到 4px→2px、且必须是 `animation` 而非 `transition`（能拿到 `:focus-visible` 的元素必然同时是 `:focus`，两条 transition 规则里后一条恒赢）——见 §5.1 M14 | 无障碍观感，且不影响鼠标用户 |
 | M6 | **面板逐项错峰入场** | ⌘K 结果、书架行、TOC 抽屉开合都是整体淡入，关闭走 `hidden` ✅ | 复用现有错峰思路（IO reveal 用 `min(k,5)*60ms`），给结果行 `--stagger` 变量；关闭也走 VT | 让"最常被操作的两个面板"手感从"弹出"变成"涌出" |
 | M7 | **进度条末端倒计时** | 进度条只有 `scaleX` ✅；但每分钟时长数据 §14/§15 已经算得出 | 条末端跟一个小气泡"还剩约 3 分钟"，随滚动倒数 | 已有数据的可视化复用；读完率会动 |
 | M8 | **主题图标与日食联动** | 日食扩散已有 ✅，但图标本身换图是瞬时 | 图标 `rotate` + 形变参与同一 VT | 已有动画的收尾，一致性 |
 | M9 | **合集进度轨的完成脉冲** | `seriesFillIn`（`scaleX` 0→1）已有 ✅ | 到 100% 时一次性光扫 + 轻微弹跳（配合 F8 成就） | 把已有装饰变成正反馈 |
 | M10 | **滚动视差（受控）** | 无滚动视差、无 paint 动画 ✅ | 只给 `.post-hero` 与刊头装饰层做 `translate3d` 视差，`will-change` 显式声明并只在 hero 存在期间保留 | 全站 0 处 `will-change`，说明是有意为之 —— 所以这条排最后，且必须实测掉帧阈值 |
+
+### 5.1 落地记录（动效批 II · 2026-09-26）
+
+M1–M9 的编号在 2.1.0 里已经用掉一部分，续号时三条改了名，这里对一次账，避免以后照着
+旧编号找代码找不到：**M5 → M14**（焦点环）、**M8 → M15**（主题图标与日蚀联动）、
+**M10 → M19**（受控视差）。这批新加的：**M11 刊头分行入场**、**M12 报排行语言补齐**、
+**M13 导航擦入下划线 + 下拉错峰**、**M18 揭示覆盖面**、**M21 主按钮磁吸**、
+**M22 跨页转场定制**。M2（图片 blur-up + `aspect-ratio` 占位）至今没做——`dev/sass/**/*.scss`
+里 `aspect-ratio` 仍是 0 命中；M16 / M17 / M20 三个号从没被实现过，是空号，别去找。
+
+每条的取值理由写在代码注释里，这里只记「量到的数」和「量不出来的一句话」：
+
+| 项 | 实测到的数 | 在哪 |
+| --- | --- | --- |
+| M11 | 刊头 4–6 行依次入场（实量：首页 5 行、关于 6 行、示例 4 行、404 4 行、文章页 0 行不参与）：时长 760ms（`--dur-5`），逐行延迟 40ms 一档，末行 200ms ⇒ 最后一行 960ms 收；标题走 `clip-path` 擦入，期号线 `scaleX` 生长 | `editorial.scss §11 M11` |
+| M12 | 示例页 / 精选 / 侧栏工具清单 / 标签药丸 / 关于页年份胶囊补齐 hover 语言，取值逐条对齐 §M3（`--dur-2` / `--ease-out` / `.18em` / `scale 1.06`） | `editorial.scss §11 M12` |
+| M13 | 下拉四行错峰步长取 `--stagger` 的一半（20ms），最后一行 60ms；三层门控 `(hover+fine) and (min-width:696px) and no-preference` 缺一不可 | `editorial.scss §11 M13` |
+| M14 | 焦点环只从 4px 收到 2px（2px 行程）——从 0 长出来会让这条规则本身变成无障碍问题。真浏览器里键盘按 Tab（第一站落在 `.skip-link`），逐帧采样 `outline-offset`：0ms `4px` → 37ms `2.5px` → 92ms `2px` 之后不再变，19 帧里出现过的值只有 `4px / 3px / 2.5px / 2px`，`animationName/Duration` 全程 `ringGrow / 0.12s`（即 `--dur-1`）；打开灯箱后 `<dialog>` 自己处于 focus-visible，跑的却是 `lightboxFade`、offset 恒为 4px，`ringGrow` **0 条** —— 那个「长完再弹回 4px」的杂交就是这么排除的 | `editorial.scss §11 M14` |
+| M15 | 图标落位挂在 `.vt-eclipse` 上（editorial.js 已有该类），不给 `syncNmIcon` 新增跨文件约定；时长与日蚀同源 `--dur-eclipse: 460ms` | `bottomFixedBtn.scss` |
+| M19 | **前三遍作废，作废的理由就是这条动画的坑**：头两遍（headless 连滚 170 帧、真浏览器 150 帧 × 开关交替三轮）跑在「overflow 只写 `hidden`」的产物上，`view()` 于是绑到 figure 自己身上、进度恒定，视差从头到尾没动过 ⇒ 开与关两组量的是同一张静态头图（那遍六组 p95 全落在 17.8~18.7ms、超 20ms 的帧 0 个，干净得可疑；headless 那遍还多出「关掉反而抖、max 83ms」，那是 `animation-name:none` 自己的重排）。第三遍跑在改成 `clip` 之后，但那轮脚本没在同一份返回值里自证进度随滚动变化，按同一把尺子也不引用。**第四遍把「动画确实在跑」写进同一次采样**（真浏览器 Chrome 153 / ANGLE Metal · Intel Iris Plus 655 / dpr 2 / 视口 1440×658 / 头图布局高 470px）：`ViewTimeline.source` = `HTML`，y=0 / 450 / 900 三点进度 0.199 / 0.617 / 1.000，`translate` −3.009% / +1.165% / +5.000%，逐点等于 `−5% + 10% × 进度`（线性，行程就是关键帧那 10%）；对照组写 inline `animation-name:none` 后同一批点位的 translate 全为 `none`、且 rect 不变（`offRectStable` true，`scale:1.12` 是静态声明）。滚动 0↔900px 锯齿 30px/帧、每遍 149 个间隔、开/关交替三轮：开 16.7 / 16.6 / 16.6ms 中位（p95 19.1 / 18.0 / 18.6，max 20.4 / 19.2 / 19.5），关 16.6 / 16.6 / 16.6ms 中位（p95 18.1 / 18.8 / 18.6，max 18.9 / 20.0 / 21.6）；六遍超 1.5×中位一律 0 个，超 20ms 共 2 个且两组各摊 1 个（开的第一遍 20.4、关的第三遍 21.6），LoAF 按臂切分每臂 0 条、总 0 条 ⇒ 两组分布重叠，**量不出成本，不回滚**。同一份产物在 1100px 那档中段复量：裁切盒与内容盒同为 20–1080、`scrollWidth` 零溢出、进度仍随滚动走（0.199→0.663） | `editorial.scss §11 M19` |
+| M21 | 功能在真浏览器（Chrome 153 / ANGLE Metal · Intel Iris Plus 655 / dpr 2）里量到：指针停在按钮右下时 `translate: 4.5px -2.23px`（必须等 220ms 让那条 `--dur-1` 过渡落定再读，过渡中读到的 `0px` 是假的），高光确实挂在伪元素上——`getComputedStyle(btn,'::before')` 给出 `radial-gradient(96px at 60% 27.7% …)`，在宿主元素上读是 `none`；指针移出后 `translate: 0px`。成本分成两层：事件层 0.0034ms/事件，挂与摘 `data-magnet` 都一样（handler 只写两个坐标再 `schedule()`，动手的是 rAF 里那一次 `apply()`）；帧层 `apply()` = 一次 `getBoundingClientRect` + 四次 `setProperty`，≤0.178ms = 16.7ms 预算的 1.1%，这还是高估（循环本身强制同步样式重算）。150 帧、每帧一次 pointermove 的 A/B：开 16.6ms / 摘 16.7ms 中位，掉帧 0，LoAF 0。**早前 headless 那对 0.101 / 0.007 是「每帧」不是「每事件」**——CDP 真输入路径会把这一帧的活折进事件里计，口径写错过一次；同一轮掉帧计数 3（开）比 14（关）还少，方向反了，不归因、不引用 | `editorial.js §16` |
+| 蒲公英扰动 | 同一份随机序列只换指针，A/B 量画布位置：停着不动 30 帧峰值 14.6px、撤走 1.6s 后连续 60 帧 <1px；1350px/s 扫过峰值 6.3px / 1.1s；2200px/s 峰值 2.4px / 0.7s。读下来是「静止才有形，路过只起皱」 | `dandelionAnimate.js` |
+| 点击粒子着色 | 日间在不可点落点点一次，簇内 232 像素、通道均值 rgb(56,125,254)、**三通道同值的「随机灰」像素 0 个**（旧实现是 `randomColor()` 出的灰）；切夜间后换到 1221px 外另一点再点（该处点击前簇内 0 像素，排掉日间残留），191 像素、均值 rgb(136,184,254)，与日间逐通道差 80/59/0 —— `--signal` 缓存确实随主题重读 | `cursor-effects.js` |
+| 猫视线 | 1440×900 三段：指针 1400,60 → `--mx` 0.9444 / `--my` −0.8667，`.yanjing` 平移 4.72px / −2.6px（与 `cat.scss` 那句 `calc(var(--mx)*5px) calc(var(--my)*3px)` 对得上）；指针进 `.mao_box`（实测落位 30,696→230,870）→ 归 0；撤到 1200,860 → 3.33px / 2.73px 恢复跟随。reduce 档整块不挂：来回移动两次后 `--mx` 仍是空串、平移 0px | `cat.js` 视线跟随段 |
+| 首页装饰层合帧 | 真浏览器里在 `/better-blog/index.html`（dpr 2 / 视口 1440×658 / 文档高 5870 / 画布两张、蒲公英位图 2880×784、`.mao_box` 在页、`a.cta` 磁吸宿主 **0 个**）四段各 300 帧：① 不滚不动（装饰层自转）16.7ms 中位 / p95 18.4 / max 18.7；② 0↔1200px 锯齿滚 30px/帧 16.7 / 18.1 / 18.6；③ 每帧一次指针水平扫 16.7 / 18.5 / 19.4；④ 单向滚到页底 40px/帧 16.7 / 18.5 / **max 21.0，超 20ms 的帧 1 个**。四段全 59.9fps、超 1.5×中位 0 个，LoAF 在四个段边界上都是 0 条。③ 这一段量的是蒲公英 + 猫视线，不含磁吸（首页没磁吸按钮，那一项单测见上一行） | `dandelionAnimate.js` + `cat.js` |
+| M22 判据 | 原写的 `@supports selector(:view-transition)` 在 Chrome 153 上实测作废：`CSS.supports(...)` 为 false、`querySelector('html:view-transition')` 抛 SyntaxError，闸门永不开 ⇒ 改成 `document.activeViewTransition` 挂 `.is-vt-entry`。两条路在 headless 与真浏览器里各验过一遍（2026-09-26 / Chrome 153）：点站内链接跳进来的 tools→about——类挂上、此刻 `document.activeViewTransition` 就是那个在跑的转场对象、刊头 7 个子元素（6 行 + 期号线）`getAnimations()` 全空；地址栏直接进 about——类不挂，同样这 7 个子元素上 8 条入场照常跑（6×`mastRise` 0.76s + `mastWipe` 0.76s + `ruleGrow` 0.56s）。判据只能是「这个类在不在」，不能是 `typeof document.activeViewTransition`——它是 `null`，而 `typeof null` 恒为 `'object'` | `editorial.js §17` + `editorial.scss §11 M22 末` |
+
+**还没量到的那一格要说清**：M19 / M21 / 装饰层合帧 / M22 这四组都有真浏览器数据了
+（2026-09-26 当天晚些时候浏览器通道活了，用的是渲染进程走硬件加速的那台：ANGLE Metal ·
+Intel Iris Plus 655 / dpr 2）。口径限制仍在两处：一是 rAF 间隔能反映总帧率，但分不开
+「主线程卡的」和「合成线程卡的」——这一格靠 Long Animation Frames API 补了一层，上面每一段
+LoAF 都是 0 条，说明主线程侧确实没长出过 50ms 量级的帧；二是这台机器是 2019 年的核显笔记本，
+**不是低端安卓机**，安卓上的掉帧率仍然没人量过，iOS Safari 同样没有数据。Safari / Firefox 拿到的
+是「闸门不开」那一支：`@supports (animation-timeline: view())` 整块挡掉头图视差（回到改前的
+静态头图，而不是半个错位），磁吸与猫视线再叠一层 `(hover:hover) and (pointer:fine) and
+no-preference`，跨页转场那支则由 `document.activeViewTransition` 自己判——这一条我**只验了
+闸门的两支行为，没有真在 Safari 上跑过**。兜住风险的仍是这两道降级，不是「量过了没问题」。
+
+三态核验（有 JS / reduce / 无 JS）按 7 页 × 3 态跑了一轮，21 格全绿（这一轮在本机 headless
+Chrome 里跑——reduce 档要靠 `Emulation.setEmulatedMedia` 注入，真浏览器那台没有这档通道；媒体查询
+匹不匹配与 GPU 无关，所以这一格的口径限制是「同一份产物换个渲染后端没重跑」）：reduce 下
+`getAnimations()` 里没有 >0.0002s 的入场、头图不留 `scale:1.12` 且 `overflow` 回到 `visible`、
+画布仍画一帧静图；无 JS 下 `body` 不带 `js-reveal`、画布 0 像素、揭示名单里的元素全可见。
+
 
 ---
 
@@ -230,7 +282,12 @@ P0-12 CSS 拆分、P0-16 `cdn.staticfile.org` 自托管。
 按"改动小 / 复用多"的顺序排：编辑器联动和修订记录很轻，全文搜索中等，PWA 最重放最后。
 
 **第 4 步 · 动效批（先 P0-13 补 reduce，再 M1→M9）**
-M10 视差单独评估，需要真机掉帧测量再决定。
+M10 视差单独评估，需要真机掉帧测量再决定。（这句在本期兑现：真浏览器开关 A/B 已量，数在 §5.1。）
+进度（2026-09-26）：P0-13 与 M1/M3/M4/M6/M7/M9 在 2.1.0 里已发；批 II 又落了
+M11–M15、M18、M19、M21、M22（编号对照与实测数据见 §5.1），M10 即 M19 已按
+「量不出成本就不回滚」的口径收口。剩 M2 一项没做，它和 CLS 那笔账绑在 P0-5 上，
+单独动没有意义。这一批全部只在 `main`，没进 CHANGELOG——按 USAGE「版本号与 tag 约定」
+里那句「写它的时机是推到 master 之后」，条目等发版那一次提交一起落。
 
 ---
 

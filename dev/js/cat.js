@@ -73,6 +73,12 @@
         halfH = document.documentElement.clientHeight / 2;
         box.classList.toggle('is-on', shown);
         box.classList.toggle('is-tucked', shown && tucked);
+        // 猫不在了，「手还放在它身上」这个状态就没有意义：收起 / 窄屏 / about 页
+        // 这几种情况下盒子要么 pointer-events:none 要么整个不显，指针移开时不保证
+        // 还收得到 pointerleave（样式改了命中测试，边界事件要等下一次指针真正动才补发）。
+        // 不在这里复位的话，再放出猫来 mousemove 会一直命中 onCat 分支，
+        // 视线永久居中，直到指针重新进出它一次才恢复。
+        if (!shown || tucked) onCat = false;
         // 这里原先还往 body 上写一个 has-mao：左下角同一块地方钉着续读浮条 .resume，
         // 让位的那条规则要读它。浮条改成横向居中之后那条规则删了，这个标记也就没有读者
         // （全站 grep 只剩这一处写入）——判定收回来只喂 is-on / is-tucked 和下面的视线跟随。
@@ -108,27 +114,62 @@
     // 减弱动效下整个不挂：没有过渡的跟随会变成眼球抽搐。
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         var queued = false;
+        // 两份数：lastX/lastY 是「已经写进 --mx/--my 的那一份」，nextX/nextY 是
+        // 「最新想要的那一份」。分成两份是因为 rAF 只有一个在路上的名额——
+        // 只用一份时，去重判定会在还没落笔之前就把目标值覆盖掉：指针刚进入猫身
+        // 要写 (0,0)，可上一帧那个 (0.94,-0.87) 还排着队，于是这一句被丢掉、
+        // lastX 却已经被改成 0，之后每次 look(0,0) 都被判定「没变化」而跳过，
+        // 眼珠就永久钉在那个极值上——正是要避免的「像画坏了」那一幕。
         var lastX = 0;
         var lastY = 0;
+        var nextX = 0;
+        var nextY = 0;
+        // 手已经放到猫身上了。这一段由 .mao_box 自己的 enter/leave 维护，
+        // 不靠 mousemove 现量盒子（那等于每动一次强制一次布局计算）。
+        var onCat = false;
 
-        document.addEventListener('mousemove', function (e) {
-            if (!shown || tucked) return;
-            // 半屏尺寸用 paint() 里缓存的那份：在这里现读 clientWidth/clientHeight，
-            // 等于鼠标每动一次就强制重算一次布局。
-            var mx = clamp(e.clientX / halfW - 1);
-            var my = clamp(e.clientY / halfH - 1);
-            // 0.02 ≈ 半个视口的位移，肉眼分辨不出，不值得为它写一次样式。
-            if (Math.abs(mx - lastX) < 0.02 && Math.abs(my - lastY) < 0.02) return;
-            lastX = mx;
-            lastY = my;
+        /**
+         * 要一次视线值；变化不到半个视口就跳过。
+         * @param {number} mx -1~1
+         * @param {number} my -1~1
+         */
+        function look(mx, my) {
+            var same = Math.abs(mx - lastX) < 0.02 && Math.abs(my - lastY) < 0.02;
+            // 与已写入的一致、且没有待落笔的那一帧 —— 什么都不用做
+            if (same && !queued) return;
+            nextX = mx;
+            nextY = my;
+            // 有一帧在路上了：它落笔时读的就是上面这份 next，不再另开一帧
             if (queued) return;
             queued = true;
             window.requestAnimationFrame(function () {
                 queued = false;
-                box.style.setProperty('--mx', String(mx));
-                box.style.setProperty('--my', String(my));
+                lastX = nextX;
+                lastY = nextY;
+                box.style.setProperty('--mx', String(lastX));
+                box.style.setProperty('--my', String(lastY));
             });
+        }
+
+        document.addEventListener('mousemove', function (e) {
+            if (!shown || tucked) return;
+            // 手在猫身上时「往指针方向看」是不成立的：指针就在它头顶那一片里，
+            // 归一化值会顶到 ±1 附近，两颗眼珠斜到底、定在那儿不动，读起来像画坏了。
+            // 这时把视线收回正中——「你摸到我了我才看向你」，比死盯屏幕一角像活物。
+            if (onCat) { look(0, 0); return; }
+            // 半屏尺寸用 paint() 里缓存的那份：在这里现读 clientWidth/clientHeight，
+            // 等于鼠标每动一次就强制重算一次布局。
+            look(clamp(e.clientX / halfW - 1), clamp(e.clientY / halfH - 1));
         }, { passive: true });
+
+        // pointerenter/leave 而不是 mouseover/out：前者不冒泡，从猫的一层子元素
+        // 走到另一层不会先「离开」再「进入」，onCat 不会抖。
+        box.addEventListener('pointerenter', function () {
+            if (!shown || tucked) return;
+            onCat = true;
+            look(0, 0);
+        }, { passive: true });
+        box.addEventListener('pointerleave', function () { onCat = false; }, { passive: true });
     }
 
     /** @param {number} v @returns {number} 夹到 -1~1 */

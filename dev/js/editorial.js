@@ -10,6 +10,26 @@
 
     var BASE_URL = window.SITE_BASEURL || '';
 
+    // ———— 17. 跨页转场给刊头入场让位（判据；样式在 editorial.scss §M22 末尾）————
+    // tokens.scss 的 @view-transition 让浏览器给一次站内跳转做交叉淡化，而新文档的
+    // 第一帧同时就是「转场抓走的快照」和「它自己那场入场的第 0 帧」，两件事抢同一批
+    // 像素。这个判定只能放在 JS 里：原先写的是 `html:view-transition` 那个伪类，
+    // 2026-09-26 在 Chrome 153 实测连解析都不过（querySelector 直接抛 SyntaxError，
+    // CSS.supports('selector(:view-transition)') 为 false），整条规则会被丢掉，
+    // 等于一个永不开启的闸门。document.activeViewTransition 在同一个浏览器里是
+    // 现成的（typeof 为 object），语义也正好是「这一刻有转场在跑」。
+    // 写在模块求值的最前面而不是 boot() 里：晚一帧，入场的第 0 帧就已经画出去了。
+    // 两条路各测过两遍（headless 一遍、真浏览器一遍，2026-09-26 / Chrome 153）：
+    //   跳进来的 tools→about（点站内链接）：类挂上，且此刻 document.activeViewTransition
+    //     就是那个正在跑的转场对象，刊头 7 个子元素（6 行 + 期号线）getAnimations() 全空；
+    //   地址栏直接进 about：类不挂，同样这 7 个子元素上 8 条入场照常跑
+    //     （6×mastRise 0.76s + mastWipe 0.76s + ruleGrow 0.56s）。
+    //     注意 typeof document.activeViewTransition 恒为 'object'（它是 null），
+    //     判据只能是这个类在不在，不能是 typeof。
+    if (document.activeViewTransition) {
+        document.documentElement.classList.add('is-vt-entry');
+    }
+
     // search.json 的共享缓存，见 getCorpus()
     var corpusCache = null;
     var corpusLoading = null;
@@ -19,7 +39,23 @@
      * @returns {boolean}
      */
     function prefersReducedMotion() {
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        return mqMatches('(prefers-reduced-motion: reduce)');
+    }
+
+    /**
+     * 这条媒体查询当前是否成立；matchMedia 缺失（老 WebView）时按「不成立」处理。
+     *
+     * 默认不成立而不是成立，是给装饰性动效用的保守向：量不出来就当没有，
+     * 宁可少一段动画，也不要给触屏或未实现该 API 的设备硬塞指针相关的位移。
+     *
+     * 名字写成 mqMatches 而不是更短的 mq：本文件里有三处函数内局部变量就叫 mq
+     * （§0 的暗色、§2 的 1239、§10 的 695），全局 helper 与它们同名会形成遮蔽，
+     * 读代码时「这行用的是哪一个」要靠肉眼定位，是纯粹的负担。
+     * @param {string} q 媒体查询串
+     * @returns {boolean}
+     */
+    function mqMatches(q) {
+        return !!(window.matchMedia && window.matchMedia(q).matches);
     }
 
     /**
@@ -1098,11 +1134,40 @@
      * 只处理「进页面时已经在折叠线以下」的元素：首屏内容一起淡入只会让人觉得
      * 加载慢。未揭示态由 body.js-reveal 限定，所以脚本没跑、或浏览器不支持
      * IntersectionObserver 时列表原样可见，不会留下一屏空白卡。
+     *
+     * 名单（动效批 II · M18 扩过一次）。挑的是「行」而不是「块」，两条理由：
+     *   · 整块淡入等于没有淡入——一个 900px 高的 section 进视口时已经在屏幕上了；
+     *   · 不能选到 sticky 元素的祖先。工具页 .tool-media 是 position:sticky，
+     *     而 unshifted transform 会把元素变成其后代的包含块，所以
+     *     .tool-section / .tool-body 这两个祖先一律不写，只写它的三个兄弟
+     *     （.tool-head / .tool-copy / .tool-posts）。这条如果写错，症状是
+     *     「截图不再跟着滚动停住」，看起来像别人的改动引入的回归。
+     * 404 页不用单列：它复用的是 .cat-row，已经在名单里。
+     * 首页信息流外的右栏（名片、标签、工具清单）不在名单里：那是常驻栏，
+     * 每次滚动都淡一遍会把「刷新感」变成「闪烁感」。
+     *
+     * 关于页的 .tl-row 也**不能**列进来，这是读代码读出来的而不是试出来的：
+     * 年表已经有自己的一套揭示（about.js 往 .p-about 上加 .tl-in、往行上加 is-in，
+     * about.scss 里配套 --tl-delay 错峰 + 卡片升起 + 圆点晚 80ms「后盖章」），
+     * 而那套用的类名恰好也叫 is-in。两处一起管同一批元素时，opacity 由权重更高的
+     * .p-about.tl-in .tl-row 说了算，translateY(.9em) 却由本文件这条说了算——
+     * 得到的是一个「卡片按 A 的节奏淡入、同时按 B 的位移升起」的杂交体，
+     * 两边各自都不成立。年表保持交给 about.js。
      */
+    var REVEAL_SELECTOR = [
+        '.article-list .article-item',
+        '.cat-row',
+        '.series-row',
+        '.demo-row',
+        '.tool-head',
+        '.tool-copy',
+        '.tool-posts'
+    ].join(', ');
+
     function initReveal() {
         if (!('IntersectionObserver' in window) || prefersReducedMotion()) return;
 
-        var nodes = document.querySelectorAll('.article-list .article-item, .cat-row, .series-row');
+        var nodes = document.querySelectorAll(REVEAL_SELECTOR);
         var below = [];
         for (var i = 0; i < nodes.length; i++) {
             if (nodes[i].getBoundingClientRect().top > window.innerHeight) below.push(nodes[i]);
@@ -2557,6 +2622,129 @@
         }
     }
 
+    /* ------------------------------------------------------------------
+     * 16. 主按钮磁吸与光泽（动效批 II · M21 的 JS 侧）
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 让 .cta 在主按钮上「吸」向指针一点点，并让高光跟着指针在按钮里走。
+     *
+     * 分工：CSS 只管形状与节奏（editorial.scss §11 M21），这里只负责把
+     * 「指针现在在哪」换算成 --mx/--my/--px/--py 四个数写在元素自己身上。
+     * 位移的跟手感由 CSS 那条 --dur-1 过渡给出，不在 JS 里做插值——
+     * 每帧改一次 style 已经够便宜，再套一层缓动就是两套时钟互相追。
+     *
+     * 三个都不显然的点：
+     * 1. data-magnet 由这里加、不写进模板。CSS 的全部规则挂在
+     *    .cta[data-magnet] 上，所以「脚本没跑」与「这不是指针设备」
+     *    两种情况下按钮连属性都没有，退回的是原样，不是一个停在偏移位的按钮。
+     *    顺带也避开了改 tools.html —— 那页同期有另一条工作线在动。
+     * 2. 监听挂在 document 上而不是逐个按钮上：全站就 5~7 个 .cta，但它们的
+     *    宿主是模板循环出来的，将来加一个按钮不必回来改这里。
+     * 3. pointermove 的第一句是 `if (!el) return`。这条监听在页面 99% 的时间里
+     *    只做一次判空，真正的换算只在指针停在一颗按钮上的那些帧里发生，
+     *    且每帧最多一次 getBoundingClientRect（pending 闸）。
+     */
+    function initMagneticCta() {
+        // 与 CSS 侧同一组前提，两边各判一次：样式那边决定「规则存不存在」，
+        // 这里决定「要不要挂监听」。少一边都会得到「动效一半在工作」。
+        if (prefersReducedMotion() || !mqMatches('(hover: hover) and (pointer: fine)')) return;
+        if (!window.requestAnimationFrame) return;
+
+        var hosts = document.querySelectorAll('a.cta');
+        if (!hosts.length) return;
+        // 只挑 a：.cta-muted（「商店上架中」那颗）本身是 span，不是一次动作，
+        // 给它磁吸等于给一块说明文字发出「按我」的信号。
+        // 消费者核对过（浏览器里 querySelectorAll('a.cta').length 实量，不是数模板行）：
+        // tools.html 8 颗、404.html 3 颗、首页 0 颗——首页没有主按钮，这条动效就不会
+        // 在流量最大的那一页上挂监听。tools 页还有第 9 个 .cta 是 span.cta-muted，
+        // 选择器 a.cta 天然不含它。
+        for (var i = 0; i < hosts.length; i++) hosts[i].setAttribute('data-magnet', '');
+
+        var PULL = .25;   // 位移 ＝ 指针偏离中心的距离 × 这个系数
+        var MAX = 6;      // 封顶 6px：再大按钮就会开始「躲」指针，读成 Bug 而不是手感
+        // 成本分两层量，别把它们混成一句「零点几毫秒每事件」。
+        // —— handler 层（真浏览器 2026-09-26：Chrome 153 / macOS / Intel Iris Plus 655 /
+        //    dpr 2 / 1440×658，tools 页那颗 180×40 主按钮）：同步灌 2000 个 pointermove，
+        //    挂磁吸与摘掉 data-magnet 都是 0.0034ms/事件——量不出差别是结构决定的，
+        //    handler 只写 cx/cy 再 schedule()，动手的是 rAF 里那一次 apply()。
+        // —— 每帧层：apply() 的工作量（一次 getBoundingClientRect + 四个 setProperty）
+        //    实测 ≤0.178ms，即 16.7ms 预算的 1.1%。这个数是上界：循环里紧跟着下一次的
+        //    rect 读，会把上一帧写的样式重算强制同步化；真实节流下每帧只跑一次 apply，
+        //    且 rAF 之前浏览器本来就要算一轮。对照跑法（每帧派发一次 pointermove，150 帧）：
+        //    开磁吸中位 16.6ms、摘掉 16.7ms，两遍超 1.5×中位的帧都是 0 个、LoAF 0 条。
+        // —— headless 那一遍（同一天早些，1440×900）报的 0.101ms/事件、底噪 0.007ms，
+        //    派发走 CDP 真输入路径，一次事件连带把当帧的 apply 与样式重算一起算进去了，
+        //    所以那 0.094 该读成「每帧」而不是「每事件」——量级与上面的 0.178 吻合。
+        //    同一次里的掉帧计数 3（开）对 14（关）方向反了，归因不出，不引用。
+
+        var el = null;    // 当前被吸住的那颗（null ＝ 指针不在任何按钮上）
+        var pending = null;
+        var cx = 0;
+        var cy = 0;
+
+        function limit(v) {
+            return v < -MAX ? -MAX : (v > MAX ? MAX : v);
+        }
+
+        function apply() {
+            pending = null;
+            if (!el) return;
+            var r = el.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            var st = el.style;
+            st.setProperty('--mx', limit((cx - r.left - r.width / 2) * PULL).toFixed(2));
+            st.setProperty('--my', limit((cy - r.top - r.height / 2) * PULL).toFixed(2));
+            // 光斑用百分比而不是 px：按钮尺寸随断点变，百分比让 CSS 那边不必知道盒子多大。
+            st.setProperty('--px', ((cx - r.left) / r.width * 100).toFixed(1) + '%');
+            st.setProperty('--py', ((cy - r.top) / r.height * 100).toFixed(1) + '%');
+        }
+
+        function schedule() {
+            if (pending === null) pending = window.requestAnimationFrame(apply);
+        }
+
+        function release() {
+            if (!el) return;
+            // 归零交给 CSS 那条 --dur-1 过渡：这里只改目标值，不接管运动过程。
+            el.style.setProperty('--mx', '0');
+            el.style.setProperty('--my', '0');
+            el = null;
+        }
+
+        document.addEventListener('pointerover', function (e) {
+            var hit = e.target && e.target.closest ? e.target.closest('a.cta[data-magnet]') : null;
+            if (!hit || hit === el) return;
+            if (el) release();
+            el = hit;
+            cx = e.clientX;
+            cy = e.clientY;
+            schedule();
+        }, { passive: true });
+
+        document.addEventListener('pointermove', function (e) {
+            if (!el) return;
+            cx = e.clientX;
+            cy = e.clientY;
+            schedule();
+        }, { passive: true });
+
+        document.addEventListener('pointerout', function (e) {
+            if (!el) return;
+            var to = e.relatedTarget;
+            // 从按钮的 <a> 走到里面的 <span> 不算离开：closest 判的是同一个宿主。
+            if (to && to.closest && to.closest('a.cta[data-magnet]') === el) return;
+            release();
+        }, { passive: true });
+
+        // 键盘走 Tab 时指针可能正停在另一颗按钮上，焦点一动就把旧的那颗放开，
+        // 否则会留下一颗停在 6px 偏移位、没人再管它的按钮。
+        // 键盘走焦即收手（点一下也会走焦）：释放之后要等指针**离开再进来**才重新吸住，
+        // 这是要的后果而不是漏判——磁吸是「指针找按钮」的手感，键盘已经在操作时
+        // 让按钮继续追着光标跑，等于给键盘动作配上指针反馈（§「别给键盘动作加动效」）。
+        document.addEventListener('focusin', release, { passive: true });
+    }
+
     function boot() {
         initTheme();
         initToc();
@@ -2577,6 +2765,7 @@
         initQuoteCard();
         initShelf();
         initWrapUp();
+        initMagneticCta();
     }
 
     if (document.readyState === 'loading') {
