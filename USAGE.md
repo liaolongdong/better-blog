@@ -644,7 +644,9 @@ css = (root / 'assets/css/index.min.css').read_text(encoding='utf-8')
 share = (root / 'assets/css/share.min.css').read_text(encoding='utf-8')
 cat = (root / 'assets/css/cat.min.css').read_text(encoding='utf-8')
 print('死样式类回流:', bool(re.search(r'(utdf|dtuf)-delay0', css)),        # 预期 False
-      '| downToUpFade 关键帧:', '@keyframes downToUpFade' in css,          # 预期 True
+      '| 旧入场关键帧回流:', bool(re.search(                                # 预期 False
+          r'@keyframes (downToUpFade|upToDownFade|rightToLeftFade|rightToLeftRotate|fadeIn)\b', css)),
+      '| 入场签名在位:', '@keyframes riseIn' in css,                        # 预期 True
       '| reduce 全站兜底:', 'animation-duration:.01ms!important' in css,   # 预期 True
       '| socialshare font-display:', 'font-display:swap' in share,         # 预期 True
       '| 猫按 px 落地:', bool(re.search(r'\.mao_box \.mao\{[^}]*width:200px', cat)),  # 预期 True
@@ -658,11 +660,25 @@ PY
   `vite-dist/` 里那份旧 CSS 还带着这两个类（旧 `@vitejs/plugin-legacy` 的输出残留，
   已被 `_config.yml` 排除、不进产物，并且已从 git 索引里摘掉）——本机 `grep -r` 仍会命中
   那份磁盘副本，`git grep` 和全新克隆不会；上面查的那份产物才是真下发的。
-- **`downToUpFade` 关键帧**：在 `animate.scss` 里查不到任何 `.类名` 用它，看着就是死代码——
-  但 `dev/sass/common/common.scss:229-245` 与 `:417` 是直接写 `animation: downToUpFade …` 的
-  （首页文章列表、read-next 的错峰入场）。删掉它，那 6 处动画**静默消失**，
-  构建不报错、HTML 也看不出端倪。这条和上一条是一对：留关键帧、删延迟类。
-  跨文件查消费者再动手，别只 grep 类名。
+- **入场只剩一条签名**：动效批 III 把 `animate.scss` 那层延迟工具类清光了，只留
+  `.rfll-delay300`（四个消费者全在 `_includes/bottomFixedBtn.html` 的 `.b-tool-tip` 上，
+  就是那排圆钮的悬停提示条；刊头逐词遮罩不吃它，那套由 `editorial.scss` 的
+  `:nth-child` 循环按 `--stagger` 排、6 拍封顶）；
+  `downToUpFade` / `upToDownFade` / `rightToLeftFade` /
+  `rightToLeftRotate` / `fadeIn` 五条关键帧跟着退场，入场统一走 `@keyframes riseIn`
+  （自下 `--rise` 升起 + opacity，Premium 那档 0% 过冲）。上面这些名字回流只有一种来路：
+  又有人照着旧笔记抄一遍。
+- **`riseIn` 沿用同一条陷阱，判据得跟着它走**：这条关键帧在 `animate.scss` 里同样查不到任何
+  `.类名` 用它——消费方全是直接写 `animation: riseIn …`（`dev/sass/common/editorial.scss`
+  三处 + `dev/sass/common/helper.scss` 一处），另加 `body.js-reveal .reveal` 那条滚动揭示路径。
+  上一批的教训正是这么来的：`downToUpFade` 一度被当作死代码，只因
+  `common.scss` 里有两处直接写着它才活下来。这一批删它，走的是「先把那两处迁到 `riseIn`，
+  再删关键帧」，不是「grep 类名没命中就删」。顺序反过来就是 6 处动画静默消失——构建不报错、
+  HTML 也看不出端倪。跨文件查消费者再动手，别只 grep 类名。
+- **`qrReveal` 不在 CSS 产物里**：赞赏二维码那条入场（`_includes/reward.html` 的内联 `<style>`）
+  只随文章页 HTML 下发，按 `assets/css/index.min.css` 去 grep 会假红。它整块包在
+  `@media (prefers-reduced-motion: no-preference)` 里，靠 `hidden` + `aria-expanded` 控制显隐，
+  不再走 jQuery `slideToggle()`——那一档兜底压不住 jQuery 的逐帧动画。
 - **reduce 全站兜底**：`dev/sass/common/base.scss` 末尾那段 `@media (prefers-reduced-motion)`。
   它在不在，决定的是「全站动效都尊重系统偏好」还是「只有当初单独补过的那几个组件生效」——
   后者正是这一批修之前的状态（`animate.scss`、`common.scss`、`cat.scss`、`bottomFixedBtn.scss`、
@@ -689,9 +705,10 @@ PY
 
 ### 动效专项回归
 
-上面那六条管的是「样式在不在」。动效批（`CHANGELOG` 2.1.0 与之后的批 II）另有四类
-失效同样不报错——规则在、写得也对，但在真浏览器上**永远不生效**，只能按下面这个口径查
-（第 5 类只能开浏览器量，静态查不到，见本节末尾那条）：
+上面那七条管的是「样式在不在」。动效批（`CHANGELOG` 2.1.0 与之后的批 II、批 III）另有五类
+问题同样不报错：前四类是「规则在、写得也对，但在真浏览器上**永远不生效**」，第五类（F 那
+一行）不沉默——动效照跑，只是**曲线配到了不该配的属性上**，肉眼只觉「这一下有点弹」，看不出
+它违反了本站人格。五类都能静态查，口径在下面（还有一类只能开浏览器量，见本节末尾那条）：
 
 ```bash
 python3 - <<'PY'
@@ -731,14 +748,19 @@ parsed = {f: blocks(css) for f, css in allc.items()}
 kf = [(f, h) for f, bl in parsed.items() for c, h, b, k in bl
       if k and re.search(r'[-:,\s]\s*-?[\d.]+(px|vw)\b', b)]
 print('A 关键帧里的 px/vw:', len(kf), kf[:3], '| 关键帧块',
-      sum(1 for f, bl in parsed.items() for c, h, b, k in bl if k))      # 预期 0（当前 37 块 / 9 份 CSS）
+      sum(1 for f, bl in parsed.items() for c, h, b, k in bl if k))      # 预期 0（当前 32 块 / 9 份 CSS，2026-09-26 量）
 
 # B. 「先藏后显」与纯装饰的动效必须整块关在 no-preference 里，而不是靠 base.scss 那份
 #    .01ms 兜底压——压得住和不存在是两回事，藏过一帧的文本在 reduce 档仍会闪一下。
 #    needle 之外还带一个「选择器必须长这样」的约束：`--mx` 这个名字猫眼（cat.min.css 的
 #    .yanjing）也在用，而它的 reduce 闸门在 JS 侧（cat.js 在 reduce 下不挂监听，CSS 侧另有
 #    .yanjing{transition:none} 兜底），只按属性文本匹配会把这条本来合规的规则误判成漏。
-NEED = [('animation:mastRise', None, 'M11 刊头入场'),
+#    M11 那一格在动效批 III 换了写法：mastRise 并入 animate.scss 的 riseIn，于是 needle
+#    从 `animation:mastRise` 变成 `animation:riseIn` + 选择器约束 `.g-masthead .masthead-inner`。
+#    约束不能省——riseIn 在产物里有 9 处消费，其中 `.sns-links li:nth-child(n)`（名片图标）
+#    与 `.cmdk-panel.is-fresh .cmdk-item`（命令面板）是无条件规则，只按属性文本认会把
+#    这两排本来靠 `backwards` + 兜底归零合规的规则判成「漏在 no-preference 外」。
+NEED = [('animation:riseIn', '.g-masthead .masthead-inner', 'M11 刊头入场'),
         ('animation:ringGrow', None, 'M14 焦点环'),
         ('scale:1.12', None, 'M19 视差余量'),
         ('transition-delay:calc(var(--stagger)', None, 'M13 下拉错峰'),
@@ -775,10 +797,134 @@ print('D 浮层缺的令牌:', sorted(used - declared), '| 挂浮层却没挂 in
 und = [(f, h) for f, bl in parsed.items() for c, h, b, k in bl
        if ':before' in h and 'iconfont' in h and not c and 'inline-block' in b]
 print('E 无条件 display:', len(und), und[:1])                            # 预期 ≥1
+
+# F. 过冲曲线只许落在 scale / rotate 上——Premium 人格那条「入场与位移 0% 过冲」的硬约束。
+#    --ease-back = cubic-bezier(.34, 1.56, .64, 1)，第二个控制点 y=1.56 > 1：套在位移上就是
+#    「冲过头再回弹」，套在按压缩放上才是它本来的用途（触觉反馈）。令牌边界写在
+#    dev/sass/common/tokens.scss 的 --ease-back 注释里，这里查的是产物有没有人越界。
+#    三种写法都要认：简写 transition 的逐层配对、长写法里 transition-property 与
+#    transition-timing-function 的按位配对、animation 则要回到 @keyframes 里看动的是哪个属性。
+SPATIAL = ('translate', 'top', 'left', 'right', 'bottom', 'inset', 'margin', 'padding',
+           'width', 'height', 'position', 'scroll')
+REVIEW = ('transform', 'all')          # 光看属性名分不出位移还是缩放，出现即单独列出
+
+
+def is_overshoot(val):
+    if 'ease-back' in val:
+        return True
+    for nums in re.findall(r'cubic-bezier\(([^)]*)\)', val):
+        try:
+            y1, y2 = [float(x) for x in nums.split(',')[1:3]]
+        except (IndexError, ValueError):
+            continue
+        if not (0 <= y1 <= 1) or not (0 <= y2 <= 1):
+            return True
+    return False
+
+
+def csplit(v):                         # 按顶层逗号分层：cubic-bezier(.34, 1.56, .64, 1) 内部的逗号
+    out, buf, d = [], '', 0            # 不许把一层劈成四段——劈开就再也认不出这是越界曲线了
+    for ch in v:
+        d += (ch == '(') - (ch == ')')
+        if ch == ',' and d == 0:
+            out.append(buf); buf = ''
+        else:
+            buf += ch
+    out.append(buf)
+    return [x.strip() for x in out if x.strip()]
+
+
+DROP = ('ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear', 'step-start', 'step-end',
+        'both', 'forwards', 'backwards', 'infinite', 'alternate', 'none', 'normal',
+        'running', 'paused', 'reverse')
+
+
+def strip_funcs(layer):                # 先把 var()/cubic-bezier() 整段换成等长空格，别把 --dur-3 当成属性名
+    return re.sub(r'var\([^)]*\)|cubic-bezier\([^)]*\)', lambda m: ' ' * len(m.group(0)), layer)
+
+
+def timing_in(layer):
+    for m in re.finditer(r'var\(--[\w-]+\)|cubic-bezier\([^)]*\)', layer):
+        if is_overshoot(m.group(0)):
+            return m.group(0)
+    return ''
+
+
+def first_ident(layer):                # 去掉时长与缓动后剩下的第一个标识符 = 属性名／关键帧名
+    rest = re.sub(r'[-+]?\d*\.?\d+(?:m?s)?|,', ' ', strip_funcs(layer))
+    for t in rest.split():
+        if t not in DROP and not t.startswith('-'):
+            return t
+    return ''
+
+
+kfbody = {}
+for f, bl in parsed.items():
+    for c, h, b, k in bl:
+        if k:
+            kfbody[re.sub(r'^@(?:-\w+-)?keyframes\s+', '', h)] = b
+
+
+def spatial_in_kf(name):               # 帧选择器是 0%/to，取不到「类名」，只能按嵌套块收属性
+    props = set()
+    for m in re.finditer(r'\{([^{}]*)\}', kfbody.get(name, '')):
+        for d in m.group(1).split(';'):
+            p = re.sub(r'^-(?:webkit|moz|o|ms)-', '', d.split(':')[0].strip())
+            if p:
+                props.add(p)
+    return sorted(p for p in props if p.startswith(SPATIAL) or p in REVIEW)
+
+
+def why(p):
+    if p in kfbody:
+        return spatial_in_kf(p)
+    if p.startswith(SPATIAL):
+        return ['位移类 ' + p]
+    if p in REVIEW:
+        return ['需人工判断 ' + p]
+    return []
+
+
+viol = []
+for f, bl in parsed.items():
+    for c, h, b, k in bl:
+        if k:
+            continue
+        # autoprefixer 的 -webkit- 副本按「同名同值」去重、只查一遍。去重后要查的是**留下的那一条**：
+        # 早期版本写成「带前缀的直接跳过」，而前缀副本排在前面、去重后留下的正是它，于是所有简写
+        # 声明一起消失，F 恒为 0（假绿）。这类「脚本自己不干活」的坑见本节末尾那条。
+        uniq, decls = set(), []
+        for d in b.split(';'):
+            if ':' not in d:
+                continue
+            p, v = d.split(':', 1)
+            name = re.sub(r'^-(?:webkit|moz|o|ms)-', '', p.strip().lower())
+            if (name, v.strip()) in uniq:
+                continue
+            uniq.add((name, v.strip()))
+            decls.append((name, v.strip()))
+        plist = []
+        for name, v in decls:
+            if name in ('transition-property', 'animation-name'):
+                plist = [re.sub(r'^-(?:webkit|moz|o|ms)-', '', x) for x in csplit(v)]
+            if name in ('transition-timing-function', 'animation-timing-function'):
+                for p, t in zip(plist, csplit(v)):
+                    if is_overshoot(t) and why(p):
+                        viol.append((f, ' > '.join(c + [h]), '%s 落在 %s' % (t, '/'.join(why(p)))))
+            if name in ('transition', 'animation'):
+                for layer in csplit(v):
+                    t = timing_in(layer)
+                    if t:
+                        q = why(first_ident(layer))
+                        if q:
+                            viol.append((f, ' > '.join(c + [h]), '%s 落在 %s' % (t, '/'.join(q))))
+print('F 过冲越界:', len(viol), viol[:4])   # 预期 0（2026-09-26 量：去重后全站 7 处 --ease-back，
+                                            # 6 处 transition 落在 scale、1 处 animation 落在 trackPop 的
+                                            # scale；裸 grep 会数到 14，因为 autoprefixer 每处都留一份副本）
 PY
 ```
 
-- **为什么不写成「跑一遍看看有没有动画」**：这四类失效在肉眼层面全都表现为「什么都没发生」，
+- **为什么不写成「跑一遍看看有没有动画」**：前四类失效在肉眼层面全都表现为「什么都没发生」，
   而在产物层面全都表现为「字符串明明在」。只有按**块**解析（这条规则被哪个 `@media`／
   `@supports` 管着）才分得开「写了」和「会被执行」。
 - **这份门禁自己有没有牙**：往影子副本里注入七种「静默失效」
@@ -792,7 +938,16 @@ PY
   这一轮**改判据本身**也改出来两处假绿，都值得记住：C 原来用子串查类名（改名成超集时永远绿），
   B 的 M21 原来只按属性文本认（撞上猫眼的 `--mx` 时永远红，而红错了方向下次就没人信它）。
   一份只会绿的脚本等于没有脚本，这一族的前例见上面第 3 条 JSON-LD 那段注释。
-- **第五类只能量，静态查不到**：`animation-timeline: view()` 绑的是元素**最近的滚动容器**，
+- **F 这一行按同一套规矩验牙**：批 III 给它注入了五种越界（简写 `transition:top … --ease-back`、
+  长写法 `transition-property:translate` 配 `--ease-back`、往 `trackPop` 的帧里塞 `translate`、
+  内联 `cubic-bezier(.34,1.56,.64,1)` 落在 `translate` 上、同一条曲线写成多层简写的**第二层**），
+  外加两格对照（`scale` 上必须不红、`-webkit-` 与标准两副本必须只数一遍）——2026-09-26 五红两正。
+  第一格红就抓出了 F 自己的两处假绿：① 按前缀跳过声明 + 同名同值去重，留下的恰是被跳过的那条，
+  所有简写声明一起没被查；② `strip_funcs` 只补空格、把两个 `var()` 之间的属性名一并抹掉，
+  `first_ident` 恒为空。两处都表现为「F = 0、构建全绿」，只有注入才照得出来。
+  多层简写那格还顺带定了 `csplit` 的写法：按**顶层**逗号分层，因为 `cubic-bezier(.34, 1.56, .64, 1)`
+  内部的逗号会把一层劈成四段，劈开就再也认不出这是一条越界曲线。
+- **还有一类只能量，静态查不到**：`animation-timeline: view()` 绑的是元素**最近的滚动容器**，
   而 `overflow: hidden` 就会造出一个滚动容器。祖先里漏一层没换成 `clip`，时间轴就挂在那层
   自己身上、进度恒定不动——规则、关键帧、`@supports` 全在产物里，肉眼看到的是一张静态头图。
   2026-09-26 批 II 就是这么把 M19 交付出去的：`overflow:hidden` 写在 `.post-hero` 上，
