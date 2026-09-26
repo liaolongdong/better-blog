@@ -17,6 +17,7 @@
       "bytes": 31515,
       "sha256": "9ebabf828af89e50c6fbfdcaac3cf6f46757d36003007a9458b5c04fc1140de6",
       "count": 1709,
+      "countNote": "count 一律 = 去掉表头后的**非空**数据行数。bin.csv 无空行（`wc -l` 与 `awk 'END{print NR}'` 都是 1710，减表头 1 行 = 1709），两种口径同值；1709 行覆盖 1697 个不同 BIN，其中 12 个 BIN 各占 2 行（同一 BIN 登记了两种卡种，见产物 `BIN_META.ambiguousBins`）。",
       "header": "bin,bank,type,length"
     },
     {
@@ -25,7 +26,8 @@
       "kind": "name",
       "bytes": 6849,
       "sha256": "1a77cec8dacac144179173917512500b63a7814005ad15d04cd722d11558b20f",
-      "count": 298,
+      "count": 275,
+      "countNote": "count = 去掉表头后的**非空**行数。name.csv 共 300 行（awk NR 口径；末行无换行符，`wc -l` 读作 299），表头 1 行 + 上游留下的空行 24 行，非空数据行 275 个，即 275 个行别码带中文名。本仓 BIN 表只引用其中 260 个（产物 `BANKS` 键数实测 260），另 15 个码有名无人用；§E0 判据与生成器都按这 260 个收。",
       "header": "bank,name"
     }
   ]

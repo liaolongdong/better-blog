@@ -62,7 +62,12 @@ resolveRegion('999999') → status:'unknown',  level:'none',  note:'省级代码
 1. `scripts/fixtures/region-source/` 与 `dev/js/tools/region-data.js` 是哈希钉死的只读输入，任何实验只在 `/tmp` 副本上做。
 2. **绝不在 `dev/js/` 下放一个叫 `tools.js` 的入口**——`assets/js/tools.min.js` 已被 `dev/libJs/tools.js` 占着，两个 builder 都往同名产物写且都 `exit=0`，后写覆盖前写。
 3. 产物名逐字符跟随源文件名（大小写原样）：`toolIdcard.js` → `toolIdcard.min.js`，`toolkit.scss` → `toolkit.min.css`。macOS 本地看不出写错的一个字母，Linux 上的 Pages 一律 404。
-4. 改 `dev/js/tools/{panel,idcard,uscc,region,random}.js` 或 `scripts/toolkit-tests.mjs` 的分节，会让 `node scripts/verify-plan-blocks.mjs` 退 1（它把这些文件的全文镜像在段 1 计划里）。本段**只在 §H/§I 需要时改 `panel.js` 以外的东西**；真需要动镜像文件时，改完立刻 `--fix` 同步并在提交信息里写明。
+4. 改 `dev/js/tools/{panel,idcard,uscc,region,random}.js` 或 `scripts/toolkit-tests.mjs` 的分节，会让 `node scripts/verify-plan-blocks.mjs` 退 1。它把这些文件的全文镜像在**两份计划**里（2026-09-27 改的：`PLANS` 从一份变两份，分节标记正则从 `§([B-Z]) ` 放宽成 `§([B-Z]\d*) `，这样本计划的 §E0/§F0 与 §E–§J 才分得开；同一块内容在两份计划里都能全等命中时照旧按 `✗ 歧义` 拒绝猜）。同一轮还给这个脚本加了三道闸，后面向 `--fix` 求助的人要知道它们的存在：
+   - **反查漏声明**：计划里若有一块 js 与磁盘某个整文件逐字节全等、但它不在 `FILE_TARGETS` 里 → `✗ 漏网镜像` 退 1。`build-prefix-data.mjs` 那 164 行就是这么被发现的（它贴在计划里却没人核过），清单从此不会静默烂掉。
+   - **`--fix` 不再能删规格**：磁盘那一段整段是计划块的前缀（= 这一节被新标记截短了）→ 分段目标一律拒绝落笔；磁盘出现**带缩进**的 `// ── §X` 标记行 → 整轮 `--fix` 不落笔并点名那一行。旧行为在副本上实测会抹掉一截镜像（§E0 缩两格）或把 615 行的规格截成 101 行（§C 体内插标记）。
+   - **标记行自己漂了也认得回来**：按节名兜底定位（`byName`），失败信息会写明"按节名定位：标记行自己漂了，公共前缀 0 行"，`--fix` 照旧能同步那一节。
+
+   这三条各有注入实验，跑 `node scripts/verify-plan-blocks-teeth.mjs`（它把仓库拷一份到 `/tmp/vpb2` 上动手，工作树一个字都不碰，末尾自证这一点）——14 项全过。本段**只在 §H/§I 需要时改 `panel.js` 以外的东西**；真需要动镜像文件时，改完立刻 `--fix` 同步并在提交信息里写明。
 
 ### 0.2 实测：跨入口共享模块会产出**语法错误**的产物，而且构建照样 `exit=0`
 
@@ -185,6 +190,8 @@ scripts/check-tools-surface.mjs      §8.2 的产物与收录面判据（本段�
 
 **修改**：`scripts/toolkit-tests.mjs`（追加 §E–§I）、`scripts/verify-plan-blocks.mjs`（认第二份计划）、`postcss.config.js`、`_includes/header.html`、`tools.html`、`index-all.html`、`sitemap.xml`、`llms.txt`、`USAGE.md`、`README.md`、`CHANGELOG.md`、`assets/data/LICENSES.md`、本计划自身（Task 10/11 回填实测）。
 
+> **执行期已落地的四处**（2026-09-27，随 Task 1）：`scripts/verify-plan-blocks.mjs` 现在认两份计划、分节标记放宽到 `§([B-Z]\d*) `，并补了三道守卫（反查 `FILE_TARGETS` 漏项、`--fix` 在"切分变了"的形状下拒绝落笔、标记行自己漂了按节名兜底定位——见 §0.1 红线 4）；新增 `scripts/verify-plan-blocks-teeth.mjs`，那三道守卫每道都有注入实验，14 项自证；`scripts/toolkit-tests.mjs` 追加了 §E0 与 §F0 两节数据形状判据；`assets/data/LICENSES.md` 新增了 §二（并把 §三–§五 顺延成 §四–§六，§六 的"往第一节加行"改成"为新来源新起一节"，因为插入 §二 之后那句话已经不指向对的东西）。其余文件仍按各任务的时点改。
+
 **删除**：无（`demo/idCardDemo/` 按设计文档 §10 留到段 5）。
 
 ---
@@ -273,6 +280,7 @@ Expected 三个哈希（与 2026-09-26 取证时逐字相同；对不上就说�
       "bytes": 31515,
       "sha256": "9ebabf828af89e50c6fbfdcaac3cf6f46757d36003007a9458b5c04fc1140de6",
       "count": 1709,
+      "countNote": "count 一律 = 去掉表头后的**非空**数据行数。bin.csv 无空行（`wc -l` 与 `awk 'END{print NR}'` 都是 1710，减表头 1 行 = 1709），两种口径同值；1709 行覆盖 1697 个不同 BIN，其中 12 个 BIN 各占 2 行（同一 BIN 登记了两种卡种，见产物 `BIN_META.ambiguousBins`）。",
       "header": "bin,bank,type,length"
     },
     {
@@ -281,7 +289,8 @@ Expected 三个哈希（与 2026-09-26 取证时逐字相同；对不上就说�
       "kind": "name",
       "bytes": 6849,
       "sha256": "1a77cec8dacac144179173917512500b63a7814005ad15d04cd722d11558b20f",
-      "count": 298,
+      "count": 275,
+      "countNote": "count = 去掉表头后的**非空**行数。name.csv 共 300 行（awk NR 口径；末行无换行符，`wc -l` 读作 299），表头 1 行 + 上游留下的空行 24 行，非空数据行 275 个，即 275 个行别码带中文名。本仓 BIN 表只引用其中 260 个（产物 `BANKS` 键数实测 260），另 15 个码有名无人用；§E0 判据与生成器都按这 260 个收。",
       "header": "bank,name"
     }
   ]
@@ -310,7 +319,8 @@ Expected 三个哈希（与 2026-09-26 取证时逐字相同；对不上就说�
       "kind": "operators",
       "bytes": 23548,
       "sha256": "176254550e0aca653e86cde1f21409c7d76b41867fbf7d66df85054683ce1fe2",
-      "count": 56
+      "count": 56,
+      "countNote": "count = 展开后的三位号段个数（5 家运营商、56 段、彼此不重叠），不是 `OPERATORS` 字典的键数。产物与 §F0 判据同径。"
     }
   ]
 }
@@ -508,9 +518,16 @@ carrier-data.js：5 家运营商 / 56 个三位号段
 check exit=0
 ```
 
-体积：`bank-bin-data.js` 38,459B（gzip -6 = 10,697B、-9 = 10,693B）；`carrier-data.js` 1,239B（gz9 936B）。
+体积（2026-09-27 按仓库现状重测，口径一律 `cat <文件> | gzip -N -c | wc -c`，不带 FNAME；
+`gzip -9 -c <文件>` 那种写法把**文件名的 basename** 写进头部，同一份文件多出「basename 长度 + 1」
+字节——实测 `bank-bin-data.js` 10,616 → 10,633（+17）、`carrier-data.js` 887 → 903（+16）。
+另一把常见的错尺子是 `node:zlib.gzipSync(…, level 9)`：它对同一份 carrier 给 936B，比 CLI
+还大 49B。别拿这两种数去和 spec §7 的预算对账）：`bank-bin-data.js` **38,475B**
+（gzip -6 = 10,617B、-9 = 10,616B）；`carrier-data.js` **1,239B**（gz9 **887B**）。
 用仓库里的 terser 过一遍（`node_modules/.bin/terser … --compress --mangle --module`）是
-36,494B / gz9 **9,865B**——注释剥掉只省 1.2KB，因为大头是 `BIN_ROWS` 那 28,266 字符的分号串。
+**36,494B / gz9 9,828B**——比源小 1,981B（gz 少 788B），省的是文件头注释与缩进，
+`BIN_ROWS` 那 28,266 字符的分号串一个字节都动不了；这 1,981B 也正是 Task 7 那支入口
+`toolIdcard.min.js` 里看不到的部分，terser 剥注释，所以产物 gzip 与源文件注释长短无关。
 
 **这个体积压在预算上是有张力的，必须写明白**：设计文档 §7 给证件页 JS+CSS 的预算是 gzip ≤ 60KB，
 而本页要同时挂 `region-data.js`（实测 34.8KB gz）+ 这张（9.9KB）+ `carrier-data.js`（0.9KB）
@@ -556,10 +573,16 @@ Task 8 才存在、在那一格补量），三种结果分别处理：
 
 - [ ] **Step 6: 数据形状判据 §E0 / §F0（先写判据，跑红，再看它凭什么该绿）**
 
-追加到 `scripts/toolkit-tests.mjs` 末尾。分节标记必须长成 `// ── §E 银行卡 …` 这个形状（`verify-plan-blocks.mjs` 的 `SEG_MARK` 按它切分）。
+追加到 `scripts/toolkit-tests.mjs` 末尾。分节标记必须长成 `// ── §E0 银行卡 …` 这个形状
+（`verify-plan-blocks.mjs` 的 `SEG_MARK` 按它切分；2026-09-27 把那条正则从 `§([B-Z]) `
+放宽成 `§([B-Z]\d*) `，否则 §E0/§F0 不被认成节，会被整段吞进 §D 的尾巴——§D 假红、
+§E0/§F0 假绿，两种错形状一起发生）。下面这块是**磁盘最终形状**，含每节自己的那行
+`await import`，所以它与 `toolkit-tests.mjs` 的对应那一节逐字节全等；"先红后绿"由 Step 7
+那一记临时摘掉 import 的探针来示范，不靠把载荷写成半成品。
 
 ```js
 // ── §E0 银行卡码表数据形状（快照 → 生成物） ──────────────────────────────
+const { BANKS, BIN_ROWS } = await import('../dev/js/tools/bank-bin-data.js');
 test('E0-1 生成物与快照同步：--check 必须退 0', () => {
   // 这条判据不看内容只看退出码：它防的是"改了快照忘了重跑生成器"这一整类漂移。
   const r = spawnSync(process.execPath, ['scripts/build-prefix-data.mjs', '--check'],
@@ -604,6 +627,7 @@ test('E0-3 每一位数档都有代表，最长前缀不是只对着 6 位一种
 });
 
 // ── §F0 号段数据形状 ─────────────────────────────────────────────────────
+const { CARRIER_SEGMENTS } = await import('../dev/js/tools/carrier-data.js');
 test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
   assert.equal(CARRIER_SEGMENTS.length, 5);
   const owner = new Map();
@@ -622,31 +646,37 @@ test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
 });
 ```
 
-跑红（模块还不存在，`import` 直接失败是预期的红）：
+跑完 Step 6 直接就是绿的——Step 4 已经把两张产物生成在磁盘上了，"模块还不存在"那一档
+文件级红在本任务**不可达**（它是段 1 的形状，也是本计划 Task 2/3/4/5 的形状：那四个模块
+此刻真的还没有）。本任务的"先红"换成一记探针：把两行 `await import` 临时摘掉再跑，
+红必须落在**新写的这三条**上。2026-09-27 实测（在 `/tmp` 全量副本上做，仓库工作树一行不动）：
 
 ```bash
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^not ok|^# (pass|fail)' | head; echo "exit=${PIPESTATUS[0]}"
+# 副本里删掉 §E0/§F0 那两行 import（行号会随追加浮动，按内容删）
+sed -i '' "/await import('..\/dev\/js\/tools\/bank-bin-data.js')/d;/await import('..\/dev\/js\/tools\/carrier-data.js')/d" scripts/toolkit-tests.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t1red.log 2>&1; echo "exit=$?"
+grep -E "^not ok|^# (tests|pass|fail)" /tmp/t1red.log
+grep -E "^  error: " /tmp/t1red.log
 ```
 
-Expected：`Cannot find module .../dev/js/tools/bank-bin-data.js` 一类的文件级红行，`exit=` 非 0。**注意 `# pass` 掉到 0 也算这条判据在红**，别只看有没有 `not ok`。
+Expected：`exit=1`、`# tests 45 / # pass 42 / # fail 3`，三条 `not ok` 点名
+**E0-2 / E0-3 / F0-1**，报错正文是 `BANKS is not defined`、`BIN_ROWS is not defined`、
+`CARRIER_SEGMENTS is not defined`。E0-1 不红是**对的**：它只看生成器 `--check` 的退出码，
+一行都不碰那两个符号。跑前先证明副本没坏（未删 import 时 45/45 全绿），否则这条探针
+量的是一份跑不起来的文件。**别把这三红当成"判据有效"的证据**——判据有没有牙是 Step 8 的事。
 
-- [ ] **Step 7: 补两行 `await import`，跑绿**
+- [ ] **Step 7: 跑绿并交代那两行 `await import` 的口径**
 
-**不要**往文件头那批 `import` 里加东西——段 1 的口径是**每节自己 `await import`**（§B 在
-`toolkit-tests.mjs:864`、§C 在 `:1684`、§D 在 `:2300` 各一句），文件头注释里写明了理由：
-"模块还没落地"这一档的红长成**文件级** `not ok 1 - scripts/toolkit-tests.mjs`
-（`ERR_MODULE_NOT_FOUND`），按 `await import` 才留得住这个形状。在 Step 6 那两节标记
-**紧下方**各补一句：
-
-```js
-const { BANKS, BIN_ROWS } = await import('../dev/js/tools/bank-bin-data.js');
-```
-```js
-const { CARRIER_SEGMENTS } = await import('../dev/js/tools/carrier-data.js');
-```
+**不要**往文件头那批 `import` 里加东西——段 1 的口径是**每节自己 `await import`**：§B 那一节
+在标记紧下方引 `idcard.js` / `random.js`（磁盘 §B = 861–1681 一节内），§C 引 `uscc.js`
+（§C = 1682–2297 内），§D 引 `panel.js`（`:2300`）。文件头注释里写明了理由："模块还没落地"
+这一档的红长成**文件级** `not ok 1 - scripts/toolkit-tests.mjs`（`ERR_MODULE_NOT_FOUND`），
+按 `await import` 才留得住这个形状。Step 6 那块载荷里那两行就是照这个口径写的，位置在
+每节标记的**紧下方**——所以那块也就是磁盘的最终形状（`verify-plan-blocks.mjs` 逐字节核它）。
 
 `spawnSync` 与 `ROOT` 都已在文件里（`spawnSync` 由 §A 从 `node:child_process` 引过，
-`ROOT` 是第 60 行那个常量），**不要再引一遍**。三个 §E0 与一个 §F0 现在应全绿，全量：
+`ROOT` 是第 60 行那个常量），**不要再引一遍**。摘掉 import 的探针跑完要把副本丢掉、
+**别拿副本回写仓库**，然后按仓库现状跑全量：
 
 ```bash
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (tests|pass|fail)|^exit='; echo "exit=${PIPESTATUS[0]}"
@@ -684,10 +714,15 @@ dev/js/tools/carrier-data.js`），别急着判"判据有效"。
 嵌在 shell 单引号里要写 `'\''`，本机 zsh 曾因一个未配对的双引号**静默不执行**整条复合命令
 （2026-09-26 实测，探针文件根本没建出来）——判据自证的脚本不能被引号咬。
 
-- [ ] **Step 9: 提交**
+- [ ] **Step 9: 提交前先过两道门禁，再提交**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
+# 门禁一：判据全绿（45 条 = §A–§D 的 41 条 + §E0/§F0 的 4 条）
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t1.final.log 2>&1
+echo "test exit=$?"; grep -E '^# (tests|pass|fail)' /tmp/t1.final.log
+# 门禁二：计划镜像与磁盘逐字节全等（本任务改了 verify-plan-blocks.mjs 与两份载荷，必须现证）
+node scripts/verify-plan-blocks.mjs; echo "blocks exit=$?"
 git status --porcelain   # 先确认对方那 7 项没被顺手带上
 git add scripts/fixtures/bankbin scripts/fixtures/carrier scripts/build-prefix-data.mjs \
         dev/js/tools/bank-bin-data.js dev/js/tools/carrier-data.js \
@@ -703,7 +738,25 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这 7 条路径；末尾 `git status` 剩下的行仍是对方那批（`.gitignore`、`_config.yml`、`_data/og_images.yml`、`_drafts/*`、`package.json`、`dev/sass/common/tokens.scss` 与三个未跟踪项）。
+Expected：`test exit=0` 且 `# fail 0`；`blocks exit=0`（若这里退 1，先按红线 4 跑 `--fix`
+再回来，不许带着红提交）。提交只含这 7 条路径——判据用 `git show --stat HEAD` 现证，
+**不要照抄任何一份"对方那批"的文件名单**：另一路会话每轮都在改不同的文件（`.gitignore`、
+`_config.yml`、`_data/og_images.yml`、`_drafts/*`、`package.json` 是常驻的，其余会变），
+名单一抄就过期。规则只有一条：`git add` 按文件名点名，末尾 `git status` 剩下的必须是
+**这一提交里没有的别人的活儿**。
+
+> **执行期修正（2026-09-27，Task 1 复核后补）**：实际落地比上面这条多两个文件——
+> `scripts/verify-plan-blocks.mjs`（认第二份计划 + `§([B-Z]\d*) `）和本计划自身，
+> 它们跟着复核整改单独成一提交，`47dace6` 仍只含那 7 条路径。复核还改掉三处
+> 计划里的数字：§E0/§F0 的"变红形状"换成现场摘掉两行 `await import` 实测出的
+> `E0-2 / E0-3 / F0-1` 三条（原先写的是猜的）；两张数据表的体积改成现场重测值——
+> `bank-bin-data.js` 38,475 B（`cat f | gzip -N -c` 10,617 B、`-9` 10,616 B）、
+> `carrier-data.js` 1,239 B（`-6`/`-9` 两档都 887 B），旧稿那两个数各有各的错尺子——
+> 38,459 是 `/tmp` 镜像里那版少一行注释的产物（镜像文件现在还在，`wc -c` 可查），
+> 936 是 `node:zlib.gzipSync(..., level 9)` 对同一份 1,239 B 文件给出的数（现测可复现），
+> CLI stdin 口径是 887 B；
+> `count` 的口径按输入形状分家（JSON 数组算长度、CSV 算去表头后的非空行，`name.csv`
+> 的 275 由此而来，`awk NR=300` 里含 24 个上游空行与 1 行表头）。
 
 ---
 

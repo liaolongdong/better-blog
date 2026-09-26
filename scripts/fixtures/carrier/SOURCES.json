@@ -17,7 +17,8 @@
       "kind": "operators",
       "bytes": 23548,
       "sha256": "176254550e0aca653e86cde1f21409c7d76b41867fbf7d66df85054683ce1fe2",
-      "count": 56
+      "count": 56,
+      "countNote": "count = 展开后的三位号段个数（5 家运营商、56 段、彼此不重叠），不是 `OPERATORS` 字典的键数。产物与 §F0 判据同径。"
     }
   ]
 }
