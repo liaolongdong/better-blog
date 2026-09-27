@@ -3321,7 +3321,7 @@ const gNames = (seed) => generateNames({ count: 30, rng: seededRandom(seed) });
 const gAddr = seed => generateAddresses({ count: 30, rng: seededRandom(seed) });
 const gMails = seed => generateEmails({ count: 30, rng: seededRandom(seed) });
 
-test('G1 词表自洽：三张表各自无重复、形状合法、规模不缩水', () => {
+test('G1 词表自洽：五张字表各自无重复、形状合法、规模不缩水', () => {
   for (const [who, arr] of [['SURNAMES', SURNAMES], ['GIVEN_CHARS', GIVEN_CHARS],
     ['STREET_WORDS', STREET_WORDS], ['STREET_SUFFIXES', STREET_SUFFIXES], ['EMAIL_WORDS', EMAIL_WORDS]]) {
     assert.deepEqual(dupes(arr), [], `${who} 表内有重复`);
@@ -3399,9 +3399,13 @@ test('G5 批内不重复：正常随机源不撞重，恒定源必须当场抛�
   }
 });
 
-test('G6 count 闸门：1..50 之外一律 RangeError，上限与身份证同一档', () => {
+test('G6 count 闸门：1..50 之外一律 RangeError，上限与身份证 / 银行卡 / 手机号同一档', () => {
   assert.equal(RAND_GENERATE_MAX, 50);
   assert.equal(RAND_GENERATE_MAX, GENERATE_MAX, '随机数据与身份证的条数上限不同档');
+  // 四个生成器共用 1..50 这一档，是靠**这四个常量相等**钉住的，不是靠注释里那句"同一档"。
+  // 只比身份证一格的话，银行卡或手机号哪天改成 20，这边的主张就只剩字面好看了。
+  assert.equal(RAND_GENERATE_MAX, BANK_GENERATE_MAX, '随机数据与银行卡的条数上限不同档');
+  assert.equal(RAND_GENERATE_MAX, MOBILE_GENERATE_MAX, '随机数据与手机号的条数上限不同档');
   for (const bad of [0, -1, 51, 100, '5', 1.5, NaN, null, true]) {
     for (const [who, fn] of [['generateNames', generateNames], ['generateEmails', generateEmails],
       ['generateAddresses', generateAddresses], ['generateProfiles', generateProfiles]]) {
@@ -3415,7 +3419,7 @@ test('G6 count 闸门：1..50 之外一律 RangeError，上限与身份证同一
   assert.equal(generateNames(undefined).length, 1);
 });
 
-test('G7 rng 闸门：非函数抛、越界的取值抛，两句话各点一次名', () => {
+test('G7 rng 闸门：非函数抛、越界的取值抛、null 当没传，两句话各点一次名', () => {
   for (const bad of ['nope', 1, {}, []]) {
     assert.throws(() => generateNames({ rng: bad }),
       (e) => e instanceof TypeError && /options\.rng 应为 \(\) => number/.test(e.message));
@@ -3424,6 +3428,12 @@ test('G7 rng 闸门：非函数抛、越界的取值抛，两句话各点一次�
     assert.throws(() => generateNames({ rng: () => bad }),
       (e) => e instanceof TypeError && /每次应给出 \[0, 1\) 内的有限数/.test(e.message),
       `rng 返回 ${String(bad)} 没被拦`);
+  }
+  // `rng: null` 走的是"没传"那一支（时间播种），不在这两道闸里：把它当坏值抛，就和
+  // `generateIdCards` / `generateBankCards` 的 null 语义不一致；把它当函数，就是漏了守卫。
+  for (const [who, fn] of [['generateNames', generateNames], ['generateEmails', generateEmails],
+    ['generateAddresses', generateAddresses], ['generateProfiles', generateProfiles]]) {
+    assert.equal(fn({ count: 3, rng: null }).length, 3, `${who} 的 rng:null 没按"没传"处理`);
   }
 });
 
@@ -3516,6 +3526,15 @@ test('G11 邮箱形状与保留域：每条过自家正则，domain 只认那三
       `domain ${JSON.stringify(bad)} 没被拦`);
   }
   assert.ok(gMails(17).some((i) => i.local.includes('.')), '两段式词根一次都没出现过');
+  // 前导零这一条直接断两次：一次断自家正则收得下，一次断生成器真会给出来。
+  // 报错文案里那笔"数字尾巴 10²+10³+10⁴ = 11100 格"的账全靠第一句成立——哪天尾巴改成
+  // `[1-9]\d{1,3}`，空间就缩回 9990，而组合空间的口径只在"凑不满"那句报错里露面，没人会发现。
+  assert.ok(EMAIL_RE.test('harvest0054@example.com'),
+    '前导零尾巴被自家正则判死，11100 的空间算式随之作废');
+  const tails = [7, 11, 13, 17, 19, 23, 29, 31].flatMap((s) => gMails(s).map((i) => i.local));
+  assert.equal(tails.length, 240);
+  assert.ok(tails.some((t) => t.match(/\d+$/)[0].startsWith('0')),
+    '240 条尾巴里没有一条前导零：逐位取 0..9 不该这么偏（实测占一成）');
 });
 
 test('G12 generateProfiles：三类同批、形状与单类逐字段一致、且不挂身份证号', () => {
