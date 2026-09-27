@@ -1,6 +1,6 @@
 /**
  * 证件页的装配层：把 `tools-idcard.html` 里那些静态表单接到六本业务模块上，结果交给
- * `view`（`window.Tk.view`）渲染。
+ * `view`（`window.Tk.view`）渲染，复制那一栏的纯文本交给 `ui`（`window.Tk.ui`）兜底。
  *
  * 这一层存在的理由是段 1 计划 §6.0 那句分工的自然延伸：**表单与控件的对应关系只允许有一处**。
  * 页面里有 9 个栏位、35 个控件、18 个按钮与结果区，如果"哪个 id 属于哪一栏"同时写在 HTML 的
@@ -33,10 +33,10 @@
  * 5. **动态文本只走 `view`**。`view` 里每个函数都过 `esc()`；这一层自己产出的文本（行号、
  *    回显、提示句）同样只经 `view.esc`，不拼裸 HTML。`innerHTML` 只出现在 `paint()` 一处。
  *
- * 与 `panel.js` / `panel-dom.js` / `view.js` 的分工：那三个是跨页共用的，走 `window.Tk` 进来
- * （见 `dev/js/toolkitCore.js` 开头那段实测），**本文件不许 `import` 它们**——一旦 import，
+ * 与 `panel.js` / `panel-dom.js` / `view.js` / `ui.js` 的分工：那四个是跨页共用的，走 `window.Tk`
+ * 进来（见 `dev/js/toolkitCore.js` 开头那段实测），**本文件不许 `import` 它们**——一旦 import，
  * 证件页与后面的编码工具箱页就有两个入口 reach 同一模块，产物立刻变成带 `import{` 的废文件。
- * 这条红线由 §J14 用源码文本守住。
+ * 这条红线由 §J14 用源码文本守住；`ui.js` 那一本自己还得零 import，才挂得上共用层（§O2）。
  *
  * 本文件也不是入口：`dev/js/toolIdcard.js` 才在 `dev/js/` 第一层，它 `import` 本文件，
  * 于是业务模块全部内联进 `toolIdcard.min.js`（只有一个入口 reach 它们，不会成 chunk）。
@@ -64,11 +64,6 @@ import {
  * 60 行也照样算得完，但结果区会长成没人能读的一堵墙。超出的行数不进表格，只在提示里报数。
  */
 export const MAX_READ_LINES = 50;
-
-/** 复制按钮改口"已复制"之后多久恢复原文案（毫秒）；只这一处用到时长，不抽 token */
-const COPY_RESET_MS = 1600;
-/** 复制失败后的提示停留时长，比成功的那句长一点：那句要被人读到才会去手动选中文本 */
-const COPY_FAIL_MS = 2600;
 
 /** 结果区里"这一栏还没有内容 / 这一栏的输入不能用"那一行的类名（`toolkit.scss` 的钩子） */
 const HINT_CLASS = 'tk-hint';
@@ -324,7 +319,7 @@ export class FieldError extends Error {
  *   框架层与宿主环境从 `env` 进来。
  * @param {object} env.document 只需 `getElementById` / `createElement`（与 `panel-dom` 同一档，
  *   这一层也不碰 `querySelector`：控件一律按派生 id 找，找不到就是骨架构造错了）
- * @param {object} env.Tk `window.Tk`，必须齐 `view`
+ * @param {object} env.Tk `window.Tk`，必须齐 `view`（结果视图）与 `ui.copyInto`（复制兜底）
  * @param {(panel: string, fn: () => void) => boolean} env.runGuarded 通常是
  *   `createPanelDom().run`；挂载期不走它（那时 `mounted` 还是 false），只挂在按钮上
  * @param {object} [env.navigator] 只为 `clipboard`，没有就走 `execCommand` 兜底
@@ -345,11 +340,17 @@ export function createWorkbench(env = {}) {
   if (!e.Tk || !e.Tk.view || typeof e.Tk.view.batchBlock !== 'function') {
     throw new TypeError('createWorkbench：env.Tk.view 应是 window.Tk 里那份 view（跨页共用层走 toolkitCore，不许 import）');
   }
+  // 复制这一件三页共用的事长在 `Tk.ui`（§O）。闸门排在 `view` 之后、构造之前：缺它的后果不是
+  // 页面塌，是"用户第一次点复制按钮没反应"——那要等到交互才暴露，构造期点名才有意义。
+  if (!e.Tk.ui || typeof e.Tk.ui.copyInto !== 'function') {
+    throw new TypeError('createWorkbench：env.Tk.ui.copyInto 应是 window.Tk 里那份 ui（跨页共用层走 toolkitCore，不许 import）');
+  }
   if (typeof e.runGuarded !== 'function') {
     throw new TypeError('createWorkbench：env.runGuarded 应是 createPanelDom().run，按钮回调不许自己 try/catch 出第二套错误口径');
   }
   const doc = e.document;
   const view = e.Tk.view;
+  const ui = e.Tk.ui;
   const runGuarded = e.runGuarded;
   const prefix = typeof e.prefix === 'string' && e.prefix !== '' ? e.prefix : 'tk';
   const rng = e.rng === undefined ? undefined : e.rng;
@@ -799,16 +800,10 @@ export function createWorkbench(env = {}) {
 
   // ── 复制 ────────────────────────────────────────────────────────────────
 
-  /** 按钮文案的临时改口：失败与成功走同一处，恢复时长不同（成功那句不需要读） */
-  const flash = (btn, text, ms, original) => {
-    btn.textContent = text;
-    later(() => { btn.textContent = original; }, ms);
-  };
-
   /**
-   * 复制一栏。三级兜底：`navigator.clipboard` → 临时 `<textarea>` + `execCommand` →
-   * 一句"请手动选中"。任何一级都不许抛到页面外面：剪贴板被权限策略拒绝是浏览器的正常行为，
-   * 用户按了没反应才是缺陷。
+   * 复制一栏。三级兜底、两条时长与那两句文案都在 `Tk.ui.copyInto` 里（三页共用，见
+   * `dev/js/tools/ui.js`）；这一层只负责三件事：找到那条按钮、取这一栏当前的纯文本、
+   * 把挂载时记下的原文案交回去——`COPY_LABEL` 是页面骨架的事，不是"复制"这件事的一部分。
    * @param {string} panel 面板
    * @param {string} side 栏位
    */
@@ -817,22 +812,7 @@ export function createWorkbench(env = {}) {
     const text = copies.get(key(panel, side)) || '';
     if (!btn || text === '') return;
     const original = COPY_LABEL.get(copyId(prefix, panel, side)) || btn.textContent;
-    const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中', ok ? COPY_RESET_MS : COPY_FAIL_MS, original);
-    if (clipboard && typeof clipboard.writeText === 'function') {
-      let p = null;
-      // 同步抛错与异步拒绝是同一条路：`writeText` 在权限策略拒绝时可能直接抛（不返回
-      // Promise），那正是上面那句话点名的场景，不能让它从按钮回调里跑出去。
-      try {
-        p = Promise.resolve(clipboard.writeText(text));
-      } catch {
-        p = null;
-      }
-      if (p !== null) {
-        p.then(() => done(true), () => done(legacyCopy(doc, text)));
-        return;
-      }
-    }
-    done(legacyCopy(doc, text));
+    ui.copyInto({ btn, text, original, clipboard, doc, later });
   };
 
   // ── 事件接线 ─────────────────────────────────────────────────────────────
@@ -880,7 +860,7 @@ export function createWorkbench(env = {}) {
         const btn = node(id);
         if (!btn) return;
         // 键用派生 id 而不是 `btn.id`：真 DOM 上两者相等，假 DOM 里 `.id` 是个普通属性，
-        // 一旦哪份夹具没把它设上，`set(undefined, …)` 会静默存进另一格，`flash` 就取不回原文案。
+        // 一旦哪份夹具没把它设上，`set(undefined, …)` 会静默存进另一格，`Tk.ui.flash` 就取不回原文案。
         COPY_LABEL.set(id, btn.textContent);
         btn.addEventListener('click', () => doCopy(panel, side));
       });
@@ -958,35 +938,6 @@ export function createWorkbench(env = {}) {
 function carrierOfSegment(segment) {
   const padded = `${segment}00000000`.slice(0, 11);
   return parseMobile(padded).carrier;
-}
-
-/**
- * `navigator.clipboard` 不可用时的兜底：临时 textarea + `execCommand('copy')`。
- * 只在 http 或用户未授予剪贴板权限时走到这里，用完立刻摘掉节点——留在 DOM 里就是
- * 一个能被 Tab 走到的隐形输入框。
- * @param {object} doc 提供 `createElement` / `body.appendChild` / `body.removeChild`
- * @param {string} text 要复制的文本
- * @returns {boolean} 有没有真的复制上
- */
-function legacyCopy(doc, text) {
-  let ta = null;
-  try {
-    const box = doc.createElement('textarea');
-    box.setAttribute('readonly', 'readonly');
-    box.value = text;
-    doc.body.appendChild(box);
-    // 只有真挂上去的那一个才需要摘：`appendChild` 自己抛时 `ta` 仍是 null，
-    // 那句 `removeChild` 就会抛出函数外，把"这一级失败"变成"这一级抛错"。
-    ta = box;
-    box.select();
-    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : false;
-  } catch {
-    return false;
-  } finally {
-    // 摘节点写在 `finally`：`select()` 与 `execCommand` 抛错时也要摘——留在页面上
-    // 就是一个能被 Tab 走到的隐形输入框，而这一级的口径是"不许抛到页面外面"。
-    if (ta) doc.body.removeChild(ta);
-  }
 }
 
 /**
