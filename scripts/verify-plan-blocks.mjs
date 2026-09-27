@@ -84,6 +84,9 @@ const FILE_TARGETS = [
   'dev/js/toolkitCore.js',
   'dev/js/tools/workbench.js',
   'dev/js/toolIdcard.js',
+  // 段 3 Task 2：`codec.js` 落盘即登记（登记的方向是"有镜像才登记"，早一天贴进来
+  // 门禁二就早一天红，所以这张表始终跟着磁盘走，不跟着计划走）。
+  'dev/js/tools/codec.js',
   // Task 9 的收录面门禁：它自己也是"计划里贴全文"的规格文件，所以照样进清单。
   // 反查那道只会抓"磁盘有镜像却没声明"，抓不到"清单漏了一项"——后者要等有人把镜像
   // 贴进计划才暴露，所以这一格由 `verify-plan-blocks-teeth.mjs` 的一条变异来兜。

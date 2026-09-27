@@ -10,7 +10,9 @@
  *   G4 真漂移仍可同步：整文件镜像中间改一个字符 → `--fix` 照旧落笔、复跑退 0
  *   G5 判据文件缺席：`toolkit-tests.mjs` 不见了 → 明确报错退 1，而不是 ENOENT 崩
  *   G6 块池为空：所有计划都是空文件 → 逐条 `✗` 但不 TypeError
- *   G12 `PLANS` 少一份（段 3 被摘）→ 该份名下两块镜像全部 `✗`——第三份条目是承重的
+ *   G12 `PLANS` 少一份（段 3 被摘）→ 该份名下**所有**镜像全部 `✗`——第三份条目是承重的
+ *       （目标清单从基线输出里现读，不手抄：段 3 每落地一格都要跟着改硬编码断言的话，
+ *        忘改的那一格照样绿、只是不再覆盖新来的那块）
  *   G7 分节标记行自己漂了：按节名兜底定位，`--fix` 不再空转
  *   G8 非 js 整文件镜像（`.yml`）漂移：报 ✗、`--fix` 写回 —— 这一档在语言集合放宽之前
  *      根本不进门禁（Task 9 现场靠它抓出三处静默漂移），所以放宽必须连带一刀证据
@@ -348,19 +350,29 @@ if (base.code !== 0) {
     `exit=${r.code}，TypeError=${/TypeError/.test(r.err)}，恢复后 ${(run().code === 0) ? '副本复绿' : '副本未复绿'}`);
 }
 
-/* ── G12：`PLANS` 少一份（段 3 被摘掉）→ 那一份里的镜像必须喊出来 ── */
+/* ── G12：`PLANS` 少一份（段 3 被摘掉）→ 那一份名下的镜像必须**全部**喊出来 ── */
 {
   const orig = read(SCRIPT);
+  // 段 3 名下有哪些镜像，从**基线输出**里现读（所有 `…：计划[段3] …` 的 OK 行），不手抄清单。
+  // 为什么不能写死 `time.js` + `§K`：段 3 每落地一格（Task 2 的 `codec.js` 与 `§L`、Task 3 的
+  // `digest.js` 与 `§M`…）都要回来给这条断言加一项，忘加的那一格是**静默**的——断言照样绿，
+  // 只是它不再覆盖新来的那块，而"第三份条目是承重的"这句话恰好就对新的那说不成立了。
+  const base = run();
+  const want = [...base.out.matchAll(/^OK (.+?)：计划\[段3\]/gm)].map((m) => m[1]);
   const shorter = orig.replace(/ {2}\{ rel: '_docs\/superpowers\/plans\/2026-09-27-tools-codec-page\.md', tag: '段3' \},\n/, '');
   check('G12 变异落地（副本里的 PLANS 只剩两份）', shorter !== orig, `替换命中 ${shorter !== orig}`);
+  check('G12 基线里段 3 名下确实有镜像（清单不是空集）', want.length >= 2,
+    `读到 ${want.length} 条：${want.join(' / ') || '（空集——这条断言会假绿）'}`);
   put(SCRIPT, shorter);
   const r = run();
   put(SCRIPT, orig);
-  // 段 3 一摘，它名下两块镜像（time.js 整文件 + §K 分节）在"剩下的计划"里找不到全等块。
-  // 这一刀证明第三份条目是**承重**的：不认它，段 3 的镜像等于静默不核。
-  check('G12 PLANS 少一份 → 该份名下两块镜像全部 ✗ + 退 1',
-    r.code === 1 && /✗ dev\/js\/tools\/time\.js/.test(r.out) && /§K/.test(r.out),
-    `exit=${r.code}，time.js 点名=${/✗ dev\/js\/tools\/time\.js/.test(r.out)}，§K 点名=${/§K/.test(r.out)}`);
+  // 段 3 一摘，它名下每块镜像（整文件与分节都算）在"剩下的计划"里都找不到全等块。
+  // ✗ 行的前缀与 OK 行一致，按「：」切下标面逐个对，不做正则拼接（路径里的 `.` 与 `/` 会咬人）。
+  const flagged = new Set(r.out.split('\n').filter((l) => l.startsWith('✗ ')).map((l) => l.slice(2).split('：')[0]));
+  const missing = want.filter((t) => !flagged.has(t));
+  check(`G12 PLANS 少一份 → 该份名下 ${want.length} 块镜像全部 ✗ + 退 1`,
+    r.code === 1 && missing.length === 0,
+    `exit=${r.code}，未点名=${missing.join(', ') || '无'}`);
 }
 
 const green = run();

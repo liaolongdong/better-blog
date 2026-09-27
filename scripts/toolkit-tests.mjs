@@ -6185,3 +6185,413 @@ test('K18 零重叠：dev/js/tools/ 不成 vite 入口', () => {
     assert.deepEqual(hits, [], '构建产物里出现了 time.js 的导出名');
   }
 });
+
+
+// ── §L Base64（UTF-8）与 URL 编解码（tools/codec.js，段 3 Task 2）──────────────
+// 编码侧拿 Node 的 Buffer 当外部判据源对拍（不把自己的输出当标准）；解码侧把
+// 两档口径（strict / 宽容）的边界逐格咬住。刻意不测浏览器 atob 的怪癖：本站不用它。
+const { MAX_INPUT_BYTES, BASE64_CAVEAT, URL_CAVEAT, byteLen, encodeBase64, decodeBase64,
+  encodeDataUri, decodeDataUri, encodeUrlComponent, encodeUrl, decodeUrlComponent,
+  urlPair, splitQuery } = await import('../dev/js/tools/codec.js');
+
+/** 剥注释扫源码：块注释与行注释里的字样都不算命中（与 §K 的 kCode 同一形状） */
+const lCode = () => read('dev/js/tools/codec.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 对拍源：字符串 ↔ Node 的标准 base64 */
+const b64Of = (s) => Buffer.from(s, 'utf8').toString('base64');
+/** 尾块三档余数 + UTF-8 多字节 + 控制字符 + emoji + 代理对 + 空串 */
+const L_SAMPLES = ['', 'a', 'ab', 'abc', 'abcd', 'abcde', 'hello world',
+  '\u4e2d\u6587', '\uD83D\uDE00', '\uD83D', '\uDE00',
+  '\u0000\u007F\u00FF', 'a=b&c', '  ', '\n\t'];
+test('L1 编码与 Node 的 base64 逐字符对拍，空串是一等公民', () => {
+  for (const s of L_SAMPLES) {
+    const r = encodeBase64(s);
+    if (r.reason !== null) continue;   // 落单代理项那两条由 L3 专门判
+    assert.equal(r.out, b64Of(s), JSON.stringify(s));
+    assert.equal(r.bytes, Buffer.byteLength(s, 'utf8'), JSON.stringify(s));
+  }
+  const e = encodeBase64('');
+  assert.equal(e.ok, true); assert.equal(e.out, ''); assert.equal(e.bytes, 0);
+  assert.equal(decodeBase64('').out, '');
+});
+test('L2 编→解往返逐样本原样回来（含 emoji、控制字符、BMP 之外的字符）', () => {
+  for (const s of L_SAMPLES) {
+    const enc = encodeBase64(s);
+    if (!enc.ok) continue;
+    const back = decodeBase64(enc.out);
+    assert.equal(back.ok, true, JSON.stringify(s));
+    assert.equal(back.out, s, `往返丢了字符：${JSON.stringify(s)}`);
+  }
+});
+test('L3 落单代理项点名拒绝，不许静默变成替换字符', () => {
+  for (const [s, at] of [['\uD83D', 1], ['a\uD83Db', 2], ['\uDE00', 1], ['ab\uDE00c', 3]]) {
+    const r = encodeBase64(s);
+    assert.equal(r.ok, false, JSON.stringify(s));
+    assert.equal(r.out, '', '拒绝就不能给半截产物');
+    assert.match(r.reason, /落单代理项/);
+    assert.match(r.reason, new RegExp(`第 ${at} 位`), `${JSON.stringify(s)} → ${r.reason}`);
+    assert.equal(s[at - 1].charCodeAt(0) >= 0xD800, true, '锚点自己得对得上');
+  }
+  assert.equal(encodeBase64('\uD83D\uDE00').ok, true, '成对的代理项是合法字符，不能一起拒了');
+  assert.equal(decodeBase64(b64Of('\uD83D\uDE00')).out, '\uD83D\uDE00');
+});
+test('L4 strict 档：空白、非 4 倍数、padding 不配余数，三格各自拒绝', () => {
+  const cases = [['YQ== ', '空白'], ['YWJj\n', '空白'], ['YQ=', 'padding'], ['YWJ', '长度']];
+  for (const [s, kind] of cases) {
+    const r = decodeBase64(s, { strict: true });
+    assert.equal(r.ok, false, `${JSON.stringify(s)}（${kind}）`);
+    assert.equal(r.strict, true, 'strict 要回显真正生效的那一档');
+    assert.match(r.reason, new RegExp(kind), `${JSON.stringify(s)} → ${r.reason}`);
+  }
+  assert.equal(decodeBase64('YWJj', { strict: true }).ok, true, '无 padding 的 4 倍数是合法的');
+  assert.equal(decodeBase64('YQ==', { strict: true }).out, 'a');
+  assert.equal(decodeBase64('YWI=', { strict: true }).out, 'ab');
+  // 尾部那几个填充比特（'YR' 与 'YQ' 都解出 'a'）**两档都不校验**：这一档必须写死，否则哪天有人
+  // "顺手"补一道 RFC 4648 的非规范检查，L1 的往返样本会莫名其妙少一条还看不出为什么
+  assert.equal(decodeBase64('YR==', { strict: true }).out, 'a', 'strict 也不管尾部比：Node 的解码器同样忽略');
+  assert.equal(decodeBase64('YR==').out, 'a');
+});
+test('L5 宽容档：剥掉的空白与 padding 一律计数报告，缺的 padding 也报', () => {
+  const ws = decodeBase64('YW\tJj\r\n');
+  assert.equal(ws.ok, true); assert.equal(ws.out, 'abc');
+  assert.equal(ws.strict, false, '默认档就是宽容档，回显要如实');
+  assert.equal(ws.whitespaceDropped, 3, ws.whitespaceDropped);
+  const pad = decodeBase64('YQ==');
+  assert.equal(pad.out, 'a'); assert.equal(pad.paddingDropped, 2);
+  assert.equal(pad.paddingImplied, 0);
+  const bare = decodeBase64('YQ');
+  assert.equal(bare.out, 'a'); assert.equal(bare.paddingDropped, 0);
+  assert.equal(bare.paddingImplied, 2, '不静默补：补了几位必须写在报告里');
+  const over = decodeBase64('YQ====');
+  assert.equal(over.ok, false, '多出来的等号在字母表之外，不是"看着像 padding"');
+  assert.match(over.reason, /第 5 位/);
+});
+test('L6 字母表外的字符两档都拒，并点名第几位是哪个字符', () => {
+  for (const s of ['YQ*@', 'é', 'Y Q*=', '_-8']) {
+    const tol = decodeBase64(s);
+    const str = decodeBase64(s, { strict: true });
+    assert.equal(tol.ok, false, JSON.stringify(s));
+    assert.equal(str.ok, false, JSON.stringify(s));
+    assert.match(tol.reason, /不在 Base64 字母表/);
+    assert.equal(tol.out, '');
+  }
+  const r = decodeBase64('YWJ*');
+  assert.match(r.reason, /第 4 位字符「\*」/, r.reason);
+  assert.equal(r.badAt, 4);
+  // 单字符余数（%4===1）在结构上不可能，两档都拒
+  for (const s of ['Y', 'YWJjA']) {
+    assert.equal(decodeBase64(s).ok, false, s);
+    assert.match(decodeBase64(s).reason, /长度不合法|不是 4 的倍数/, s);
+    assert.equal(decodeBase64(s, { strict: true }).ok, false, s);
+  }
+});
+test('L7 解出来的字节不是合法 UTF-8 时报字节位，不吐替换字符', () => {
+  const bad = Buffer.from([0xff]).toString('base64');          // '/w=='
+  const cut = Buffer.from([0xe4, 0xb8]).toString('base64');    // 半个「中」
+  for (const [s, at] of [[bad, 1], [cut, 1]]) {
+    const r = decodeBase64(s);
+    assert.equal(r.ok, false, s);
+    assert.equal(r.out, '', '不许把非法序列洗成 U+FFFD 交给用户');
+    assert.match(r.reason, /不是合法 UTF-8/, r.reason);
+    assert.match(r.reason, new RegExp(`第 ${at} 字节`), `${s} → ${r.reason}`);
+  }
+  assert.equal(decodeBase64(Buffer.from([0x41]).toString('base64')).out, 'A');
+});
+test('L8 MAX_INPUT_BYTES 闸门：四入口同档拒绝，点名实测与上限，绝不截断', () => {
+  assert.equal(MAX_INPUT_BYTES, 1048576, '§7 表里"文本类工具 1MB"那一行就是 MiB 这一档');
+  const big = 'a'.repeat(MAX_INPUT_BYTES);
+  assert.equal(encodeBase64(big).ok, true, '正好到上限是允许的（闸门是"超过"）');
+  assert.equal(encodeBase64(big).bytes, MAX_INPUT_BYTES);
+  const over = encodeBase64(big + 'a');
+  assert.equal(over.ok, false);
+  assert.equal(over.out, '', '拒绝就是拒绝，不许给截断后的半截 base64');
+  assert.match(over.reason, /1048577 字节/, over.reason);
+  assert.match(over.reason, /1048576 字节上限/, over.reason);
+  assert.equal(encodeUrl(big + 'a').ok, false);
+  assert.equal(encodeUrlComponent(big + 'a').ok, false);
+  assert.equal(decodeUrlComponent('%'.repeat(MAX_INPUT_BYTES + 1)).ok, false);
+  assert.match(decodeBase64(b64Of(big + 'a')).reason, /上限/, '解码侧的闸门按解出的字节数算');
+  assert.equal(byteLen('中'), 3); assert.equal(byteLen('中文'), 6); assert.equal(byteLen('\uD83D\uDE00'), 4);
+  assert.equal(byteLen('a'), 1); assert.equal(byteLen(''), 0);
+  assert.equal(byteLen(big), MAX_INPUT_BYTES, 'byteLen 与闸门必须是同一把尺子，否则"1MB"有两种算法');
+});
+test('L9 data URI 往返：mime、charset、base64 标志各归其位', () => {
+  const e = encodeDataUri('中');
+  assert.equal(e.ok, true);
+  assert.equal(e.out, 'data:text/plain;charset=utf-8;base64,' + b64Of('中'));
+  const d = decodeDataUri(e.out);
+  assert.equal(d.ok, true); assert.equal(d.data, '中');
+  assert.equal(d.mime, 'text/plain'); assert.equal(d.charset, 'utf-8');
+  assert.equal(d.isBase64, true); assert.equal(d.percentHits, 0);
+  const gbk = decodeDataUri('data:text/html;charset=gbk;base64,PGI+');
+  assert.equal(gbk.ok, false, '声明了非 UTF-8 的 charset：不许假装按 UTF-8 解出"能看"的东西');
+  assert.match(gbk.reason, /charset/, gbk.reason); assert.equal(gbk.data, '');
+  const up = decodeDataUri('data:text/html;charset=UTF-8;base64,PGI+');
+  assert.equal(up.ok, true); assert.equal(up.charset, 'utf-8', 'charset 归一小写再回显');
+  assert.equal(up.charsetDefaulted, false, '写了 charset 就不能说成是补的');
+  assert.equal(up.data, '<b>');
+  const bareMime = decodeDataUri('data:,abc');
+  assert.equal(bareMime.charsetDefaulted, true, '没写 charset 要说明是补的');
+  assert.equal(bareMime.mimeDefaulted, true, '没写 mime 同样是补的，两个"补"都得说出来');
+  assert.equal(bareMime.mime, 'text/plain'); assert.equal(bareMime.data, 'abc');
+});
+test('L10 data URI 的载荷里带换行照吃，百分号序列按次数报', () => {
+  const wrapped = 'data:text/plain;charset=utf-8;base64,' + b64Of('中文').replace(/(.{4})/g, '$1\r\n');
+  const w = decodeDataUri(wrapped);
+  assert.equal(w.ok, true, '§5.2 点名要支持"带换行的 data URI 场景"');
+  assert.equal(w.data, '中文');
+  assert.equal(w.whitespaceDropped, 4, '剥了几处空白要报得出（两组 \\r\\n 共 4 个字符）');
+  const pct = decodeDataUri('data:image/svg+xml,%3Csvg%20id%3D%22a%22%3E');
+  assert.equal(pct.isBase64, false);
+  assert.equal(pct.data, '<svg id="a">');
+  assert.equal(pct.percentHits, 6, '%3C/%20/%3D/%22/%22/%3E 六个，逐个计数不是一句"含百分号"');
+  assert.equal(pct.charsetDefaulted, true, '非 base64 那档同样补 charset，但只在报告里说');
+});
+test('L10b 不是 data URI / 空载荷：两侧同档拒绝并说清楚缺哪一段', () => {
+  for (const [s, why] of [['http://a/b', /^不是 data URI/], ['dat', /^不是 data URI/],
+    ['data:', /^缺/], ['data:text/plain;base64', /^缺/], ['data:text/plain;base64,', /^载荷/]]) {
+    const r = decodeDataUri(s);
+    assert.equal(r.ok, false, s);
+    assert.match(r.reason, why, `${s} → ${r.reason}`);
+    assert.equal(r.data, '');
+  }
+  const e = encodeDataUri('a', 'text plain');
+  assert.equal(e.ok, false); assert.match(e.reason, /mime 形状/);
+  // 编码侧同一档：空载荷不给"看起来成功其实没内容"的一串
+  const empty = encodeDataUri('');
+  assert.equal(empty.ok, false, 'encodeDataUri("") 必须与 decodeDataUri("data:…;base64,") 同档拒绝');
+  assert.match(empty.reason, /载荷为空/, empty.reason); assert.equal(empty.out, '');
+  for (const v of [null, undefined]) assert.equal(encodeDataUri(v).ok, false, String(v));
+});
+test('L11 URL 两档口径：18 个保留字符逐字符对拍原生函数，差异集合恰好 11 个', () => {
+  const RESERVED = ":/?#[]@!$&'()*+,;=";
+  assert.equal(RESERVED.length, 18, 'RFC 3986 的保留字符就是 18 个；表变了本条要连口径句一起重写');
+  const diff = [];
+  for (const ch of RESERVED) {
+    const u = encodeUrl(ch); const c = encodeUrlComponent(ch);
+    assert.equal(u.ok, true, ch); assert.equal(c.ok, true, ch);
+    assert.equal(u.out, encodeURI(ch), `encodeURI(${ch})`);
+    assert.equal(c.out, encodeURIComponent(ch), `encodeURIComponent(${ch})`);
+    if (u.out !== c.out) diff.push(ch);
+  }
+  // 差异集合钉死：面板上"两档不一样"这件事靠的就是这 11 个字符，谁也不许悄悄改口径
+  assert.equal(diff.join(''), ':/?#@$&+,;=', `两档差异集合变了：${JSON.stringify(diff.join(''))}`);
+  for (const s of [' ', '中', '\uD83D\uDE00', 'a b/c?d=e&f', '%', '+', '~', '-', '.', '_']) {
+    const u = encodeUrl(s); const c = encodeUrlComponent(s);
+    assert.equal(u.out, encodeURI(s), JSON.stringify(s));
+    assert.equal(c.out, encodeURIComponent(s), JSON.stringify(s));
+    assert.equal(u.bytes, Buffer.byteLength(s, 'utf8'), JSON.stringify(s));
+    assert.equal(c.bytes, u.bytes, '两档的 bytes 都是**入参**的字节数，不是输出的');
+  }
+  assert.equal(encodeUrlComponent('a b').out, 'a%20b', '空格是 %20，不是 +（那是 form 编码的口径）');
+  assert.equal(encodeUrl('%').out, '%25', '百分号自己必须被编码，否则解码侧无从分辨');
+  assert.equal(encodeUrlComponent('').out, ''); assert.equal(encodeUrlComponent('').ok, true);
+});
+test('L12 解码侧：非法序列一律 ok:false 并点名位置，绝不把 URIError 抛穿到面板', () => {
+  for (const [s, at] of [['%', 1], ['%zz', 1], ['a%4', 2], ['%2G', 1], ['%E4%B8%zz', 7]]) {
+    const r = decodeUrlComponent(s);
+    assert.equal(r.ok, false, s); assert.equal(r.out, '', s);
+    assert.match(r.reason, /百分号/, `${s} → ${r.reason}`);
+    assert.match(r.reason, new RegExp(`第 ${at} 位`), `${s} → ${r.reason}`);
+  }
+  for (const [s, at] of [['%E4%B8', 1], ['%FF', 1], ['%ED%A0%80', 1], ['a%E4%B8', 2]]) {
+    const r = decodeUrlComponent(s);
+    assert.equal(r.ok, false, s); assert.equal(r.out, '', s);
+    assert.match(r.reason, /不是合法 UTF-8/, `${s} → ${r.reason}`);
+    assert.match(r.reason, new RegExp(`第 ${at} 字节`), `${s} → ${r.reason}`);
+  }
+  assert.equal(decodeUrlComponent('a+b').out, 'a+b', '「+」在 form 编码里是空格，本站不猜、原样留着（口径句里有这句）');
+  assert.equal(decodeUrlComponent('a%20b').out, 'a b');
+  assert.doesNotMatch(decodeUrlComponent('%zz').reason, /字节/, '两类位置口径不许混：语法错只说「位」');
+  assert.doesNotMatch(decodeUrlComponent('%FF').reason, /第 \d+ 位/, '字节错只说「字节」，不给人一个假的字符位');
+  for (const s of ['', ' ', '中', '\uD83D\uDE00', 'a+b', '&=?#/', '%25', '0123456789']) {
+    assert.equal(decodeUrlComponent(encodeUrlComponent(s).out).out, s, JSON.stringify(s));
+    assert.equal(decodeUrlComponent(encodeUrl(s).out).out, s, JSON.stringify(s));
+  }
+  for (const [s, at] of [['\uD83D', 1], ['a\uDE00b', 2]]) {
+    for (const [who, fn] of [['encodeUrl', encodeUrl], ['encodeUrlComponent', encodeUrlComponent]]) {
+      const r = fn(s);
+      assert.equal(r.ok, false, `${who} ${JSON.stringify(s)}`);
+      assert.equal(r.out, '', `${who}：拒绝就不给半截产物`);
+      assert.match(r.reason, /落单代理项/, `${who} → ${r.reason}`);
+      assert.match(r.reason, new RegExp(`第 ${at} 位`), `${who} → ${r.reason}`);
+    }
+  }
+});
+test('L13 urlPair：两档编码 + 两档解码四格并列，闸门同生同死、解码单独失败不牵连编码', () => {
+  const p = urlPair('a b/c?d=e&f&g=中');
+  assert.equal(p.ok, true); assert.equal(p.reason, null);
+  assert.equal(p.encodeURI, encodeURI('a b/c?d=e&f&g=中'));
+  assert.equal(p.encodeURIComponent, encodeURIComponent('a b/c?d=e&f&g=中'));
+  assert.notEqual(p.encodeURI, p.encodeURIComponent, '这串样本必须让两档分开，否则本条测不到差异');
+  assert.equal(p.bytes, Buffer.byteLength('a b/c?d=e&f&g=中', 'utf8'));
+  assert.deepEqual(p.decodeTries.map((x) => x.field), ['decodeURI', 'decodeURIComponent']);
+  assert.equal(p.decodeTries.length, 2, '解码侧就两档，多一少一都说明面板的表变了形');
+  const enc = urlPair('%3A%2F');
+  assert.equal(enc.decodeTries[0].out, decodeURI('%3A%2F'));
+  assert.equal(enc.decodeTries[1].out, decodeURIComponent('%3A%2F'));
+  assert.notEqual(enc.decodeTries[0].out, enc.decodeTries[1].out, 'decodeURI 不动保留字符，两档必须分开摆');
+  for (const x of enc.decodeTries) assert.equal(x.ok, true, x.field);
+  const over = urlPair('a'.repeat(MAX_INPUT_BYTES + 1));
+  assert.equal(over.ok, false); assert.match(over.reason, /上限/, over.reason);
+  assert.equal(over.encodeURI, ''); assert.equal(over.encodeURIComponent, '');
+  for (const x of over.decodeTries) {
+    assert.equal(x.ok, false, `${x.field}：闸门越界时四格一起停，不许只停编码那两格`);
+    assert.equal(x.out, ''); assert.equal(x.reason, over.reason, '同一个理由，面板才不会写出两种解释');
+  }
+  const half = urlPair('%zz');
+  assert.equal(half.ok, true, '编码侧做得成，解码档失败是个案、不能把整格判死');
+  assert.equal(half.encodeURI, '%25zz');
+  for (const x of half.decodeTries) { assert.equal(x.ok, false, x.field); assert.match(x.reason, /百分号/); }
+  const empty = urlPair('');
+  assert.equal(empty.ok, true); assert.equal(empty.encodeURI, ''); assert.equal(empty.encodeURIComponent, '');
+  for (const x of empty.decodeTries) { assert.equal(x.ok, true, x.field); assert.equal(x.out, ''); }
+});
+test('L14 splitQuery：只按 & 切、键值只在第一个 = 处切一次、空段丢弃不编号', () => {
+  const rows = splitQuery('a=1&&b=2&noequals&=v&k=a=b');
+  assert.deepEqual(rows.map((r) => r.raw), ['a=1', 'b=2', 'noequals', '=v', 'k=a=b'],
+    JSON.stringify(rows.map((r) => r.raw)));
+  assert.deepEqual(rows.map((r) => r.hasEquals), [true, true, false, true, true]);
+  assert.deepEqual(rows.map((r) => [r.key, r.value]),
+    [['a', '1'], ['b', '2'], ['noequals', ''], ['', 'v'], ['k', 'a=b']]);
+  for (const r of rows) { assert.equal(r.keyOk, true, r.raw); assert.equal(r.valueOk, true, r.raw); assert.equal(r.reason, null); }
+  assert.equal(splitQuery('a=1&a=2').length, 2, '重复键各自成行：这里不是解析器，不去重');
+  assert.equal(splitQuery('a=1;b=2').length, 1, '「;」不作分隔符（口径句里点名，L17 对账）');
+  assert.equal(splitQuery('a=1;b=2')[0].value, '1;b=2');
+  assert.equal(splitQuery('&&').length, 0, '空段一律丢弃：不给人一行"看起来有内容其实是壳"的行');
+  assert.deepEqual(splitQuery('a=1& &b=2').map((r) => r.raw), ['a=1', ' ', 'b=2'],
+    '只含空白的段是用户的真实输入，本模块不替人丢');
+  assert.equal(splitQuery('').length, 0); assert.equal(splitQuery(null).length, 0);
+});
+test('L14b splitQuery 的解码档：解不开就留着原文并标哪一档，单项越界单独拒', () => {
+  const bad = splitQuery('%zz=%E4%B8&ok=1');
+  assert.equal(bad.length, 2);
+  const [first] = bad;
+  assert.equal(first.keyOk, false); assert.equal(first.key, '%zz', '解不开时 key 位放原文，不许变空');
+  assert.equal(first.valueOk, false); assert.equal(first.value, '%E4%B8');
+  assert.match(first.reason, /^键：/, first.reason); assert.match(first.reason, /值：/, first.reason);
+  assert.match(first.reason, /百分号/, first.reason); assert.match(first.reason, /UTF-8/, first.reason);
+  assert.equal(bad[1].reason, null, '同一串里解得开的那行不能被邻居连坐');
+  assert.equal(splitQuery('%20=1')[0].key, ' ', '解得开就解码：键「%20」的真实值是空格');
+  assert.equal(splitQuery('q=a+b')[0].value, 'a+b', '与 L12 同一口径：+ 不是空格');
+  const long = splitQuery(`k=${'x'.repeat(MAX_INPUT_BYTES + 1)}`);
+  assert.equal(long.length, 1); assert.equal(long[0].valueOk, false); assert.match(long[0].reason, /上限/);
+  assert.equal(long[0].value.length, MAX_INPUT_BYTES + 1, '越界那一项保留原文：长度一位都不许少');
+});
+test('L15 入参口径与兄弟模块同档：文本归一不抛、options 抛 TypeError', () => {
+  const DATA_URI_EMPTY = 'data:text/plain;charset=utf-8;base64,';
+  for (const v of [null, undefined]) {
+    assert.equal(encodeBase64(v).out, '', kLabel(v)); assert.equal(encodeBase64(v).ok, true, kLabel(v));
+    assert.equal(decodeBase64(v).out, '', kLabel(v));
+    assert.equal(encodeUrl(v).out, ''); assert.equal(encodeUrlComponent(v).out, '');
+    assert.equal(decodeUrlComponent(v).out, ''); assert.equal(splitQuery(v).length, 0);
+    assert.equal(urlPair(v).bytes, 0, kLabel(v));
+    assert.equal(encodeDataUri(v).ok, false, '归一成空串之后就是"空载荷"，照 L10b 那一档拒绝');
+    assert.match(encodeDataUri(v).reason, /载荷为空/, kLabel(v));
+    assert.equal(decodeDataUri(v).ok, false, 'data URI 那一位为空就是"不是 data URI"，照 L10b 拒绝');
+  }
+  // 文本档里非字符串照样归一（`parseIdCard(123)` 同一档）：数字、布尔、Symbol、Date 都不许抛
+  assert.equal(encodeBase64(123).out, b64Of('123')); assert.equal(encodeBase64(true).out, b64Of('true'));
+  assert.equal(encodeUrlComponent(Symbol('s')).out, encodeURIComponent('Symbol(s)'));
+  assert.equal(decodeBase64(Symbol('x')).ok, false, '"Symbol(x)" 含字母表外的字符，归一之后照 L6 那一档拒');
+  assert.match(decodeBase64(Symbol('x')).reason, /不在 Base64 字母表/);
+  // 唯一的例外还是无原型对象：`String()` 自己抛，本站不兜（§C 末尾与 K12 同一档）
+  const noProto = Object.create(null);
+  for (const [who, call] of [['encodeBase64', (x) => encodeBase64(x)], ['decodeBase64', (x) => decodeBase64(x)],
+    ['encodeUrlComponent', (x) => encodeUrlComponent(x)], ['decodeUrlComponent', (x) => decodeUrlComponent(x)],
+    ['urlPair', (x) => urlPair(x)], ['splitQuery', (x) => splitQuery(x)],
+    ['encodeDataUri', (x) => encodeDataUri(x)], ['decodeDataUri', (x) => decodeDataUri(x)]]) {
+    assert.throws(() => call(noProto), { name: 'TypeError' }, `${who}：无原型对象必须同抛，不许静默洗成结论`);
+  }
+  // options 档：`decodeBase64` 唯一的键是 strict，值只收布尔；拼错键名必须响
+  assert.throws(() => decodeBase64('YQ==', { strict: 'yes' }), (e) => {
+    assert.equal(e.name, 'TypeError');
+    assert.match(e.message, /^decodeBase64 的 options\.strict 应为布尔，收到 /);
+    return true;
+  });
+  assert.throws(() => decodeBase64('YQ==', { strictz: true }),
+    { name: 'TypeError', message: /未知 options 键/ }, '拼错的键静默当默认＝用户的 strict 白开了');
+  assert.throws(() => decodeBase64('YQ==', 'strict'), { name: 'TypeError', message: /options 应为对象/ });
+  for (const o of [undefined, null, {}]) assert.doesNotThrow(() => decodeBase64('YQ==', o), JSON.stringify(o));
+  assert.equal(decodeBase64('YQ==', { strict: undefined }).strict, false, '键在值缺席＝走默认档，不是抛');
+  // mime 那一位是文本档：缺席补默认，给了但形状不对就拒（都不是抛）
+  assert.equal(encodeDataUri('a', undefined).out, DATA_URI_EMPTY + 'YQ==');
+  assert.equal(encodeDataUri('a', null).out, DATA_URI_EMPTY + 'YQ==', '缺席位（null 与 undefined）在归一**之前**判，补默认 mime');
+  assert.equal(encodeDataUri('a', '').ok, false, '空串是"给了但没用"，与缺席不同档：必须说清 mime 形状');
+  assert.match(encodeDataUri('a', '').reason, /mime 形状/);
+  // 报错尾巴统一是「收到 <shapeOf(值)>」那一段（K12 的三档类比，口径分叉在这里红）
+  const grab = (fn, who) => { try { fn(); } catch (e) { return [who, e.message]; } return [who, '']; };
+  const tails = [grab(() => decodeBase64('YQ==', { strict: 'yes' }), 'decodeBase64'),
+    grab(() => fromEpoch(1000.5, 0), 'fromEpoch'), grab(() => generateUsccCodes({ rng: 'nope' }), 'generateUsccCodes')];
+  assert.notEqual(tails[0][1], '', 'codec 这一格要是没抛，下面那条 /收到/ 就只是在测兄弟模块');
+  for (const [who, msg] of tails) {
+    assert.match(msg, /收到 (null|undefined|number|string|boolean|bigint|object|function|symbol|Date|Array\(\d+\))/,
+      `${who}：${msg}`);
+  }
+});
+test('L16 扫源：零 import、不碰 DOM、不读环境、不用 Buffer/atob/btoa/TextEncoder', () => {
+  const src = lCode();
+  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['require(', /\brequire\s*\(/], ['document', /\bdocument\b/], ['window', /\bwindow\b/],
+    ['localStorage', /\blocalStorage\b/], ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/],
+    ['Buffer', /\bBuffer\b/], ['atob', /\batob\s*\(/], ['btoa', /\bbtoa\s*\(/],
+    ['TextEncoder', /\bTextEncoder\b/], ['TextDecoder', /\bTextDecoder\b/],
+    ['Date.now', /Date\.now/], ['new Date(', /new Date\(/], ['Math.random', /Math\.random/],
+    ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['crypto', /\bcrypto\b/],
+    ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
+  for (const [name, re] of banned) assert.equal(re.test(src), false, `codec.js 的代码里出现了 ${name}`);
+  assert.equal(banned.length, 21, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  // 三件事必须有牙：闸门常量导出、UTF-8 与 base64 都是自己实现的、位置信息是自己算的
+  assert.match(src, /export const MAX_INPUT_BYTES/, '闸门常量必须导出，面板与 §7 的账才对得上');
+  assert.equal(/String\.fromCharCode/.test(src), false, '拼字符串走自己那套 UTF-8，不用 fromCharCode 绕');
+  assert.match(src, /0xD800/, '代理区这一档必须在代码里判（L3 的拒绝全靠它，只在注释里提等于没实现）');
+  assert.ok((src.match(/BASE64_ALPHABET/g) || []).length >= 2, '字母表要"定义 + 使用"两处都在');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/codec.js')), false,
+    'codec.js 被挪到 dev/js/ 顶层会变成 vite 入口、进产物（§6.1 零重叠，同 K18）');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/codec.js')), true, '文件不在它该在的位置时，上面那条是空转的');
+  const siteJs = resolve(ROOT, '_site/assets/js');
+  if (existsSync(siteJs)) {
+    const hits = readdirSync(siteJs).filter((f) => f.endsWith('.js')
+      && readFileSync(resolve(siteJs, f), 'utf8').includes('splitQuery'));
+    assert.deepEqual(hits, [], '构建产物里出现了 codec.js 的导出名');
+  }
+});
+test('L17 两句口径文案与实现互相对账：文案承诺的做到，做到的也写进文案', () => {
+  const b64rows = [
+    [/按 UTF-8 字节/, encodeBase64('\u4e2d\u6587').out === '5Lit5paH'],
+    [/剥掉空白/, decodeBase64('YW Jj').out === 'abc' && decodeBase64('YW Jj').whitespaceDropped === 1],
+    [/缺的尾部 padding 补齐并注明/, decodeBase64('YQ').paddingImplied === 2],
+    [/字母表外/, decodeBase64('YWJ*').ok === false && /字母表/.test(decodeBase64('YWJ*').reason)],
+    [/长度不合法/, decodeBase64('Y').ok === false && /长度/.test(decodeBase64('Y').reason)],
+    [/不是合法 UTF-8/, decodeBase64('/w==').ok === false],
+    [/1 MiB\uff081048576 字节\uff09/, MAX_INPUT_BYTES === 1048576],
+    [/整体拒绝、不截断/, encodeBase64('a'.repeat(MAX_INPUT_BYTES + 1)).out === ''],
+  ];
+  const urlRows = [
+    [/encodeURI 与 encodeURIComponent 两档/, urlPair('a/b').encodeURI === 'a/b'
+      && urlPair('a/b').encodeURIComponent === 'a%2Fb'],
+    [/「\+」不当作空格/, decodeUrlComponent('a+b').out === 'a+b'],
+    [/只按「&」切分/, splitQuery('a=1&b=2').length === 2],
+    [/「;」不切/, splitQuery('a=1;b=2').length === 1],
+    [/第一个「=」处切一次/, splitQuery('k=a=b')[0].value === 'a=b'],
+    [/保留原文并标注/, splitQuery('%zz=1')[0].key === '%zz' && splitQuery('%zz=1')[0].keyOk === false],
+  ];
+  for (const [table, text] of [[b64rows, BASE64_CAVEAT], [urlRows, URL_CAVEAT]]) {
+    for (const [claim, holds] of table) {
+      assert.equal(claim.test(text), holds,
+        `文案与实现分叉：${claim}（文案里有=${claim.test(text)}，实现做得到=${holds}）`);
+    }
+    assert.ok(text.length > 80 && text.length <= 240, `口径句长度不在档内（实际 ${text.length} 字）：${text}`);
+  }
+  assert.equal(b64rows.length, 8, 'Base64 那张对账表自己要有条数：漏一行等于那一档的承诺没人核');
+  assert.equal(urlRows.length, 6, 'URL 那张对账表同上');
+  assert.notEqual(BASE64_CAVEAT, URL_CAVEAT, '两句一模一样等于面板上那两格没有各自的口径');
+});
+test('L18 导出面：13 个名字一个不多一个不少，面板绑定按这张表', async () => {
+  const wanted = ['BASE64_CAVEAT', 'MAX_INPUT_BYTES', 'URL_CAVEAT', 'byteLen', 'decodeBase64',
+    'decodeDataUri', 'decodeUrlComponent', 'encodeBase64', 'encodeDataUri', 'encodeUrl',
+    'encodeUrlComponent', 'splitQuery', 'urlPair'];
+  const got = Object.keys(await import('../dev/js/tools/codec.js')).sort();
+  assert.deepEqual(got, wanted, `导出面变了：多=${JSON.stringify(got.filter((k) => !wanted.includes(k)))} 少=${JSON.stringify(wanted.filter((k) => !got.includes(k)))}`);
+  assert.equal(got.length, 13, '清单自己要有条数；新增一个入口就得同时补判据与面板，这张表是那道门');
+});
