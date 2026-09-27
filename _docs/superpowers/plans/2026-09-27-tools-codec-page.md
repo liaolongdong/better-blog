@@ -3725,8 +3725,10 @@ A 轮末尾那行 `副本与工作树逐字节一致=false` 则是另一回事�
 
 两件事一起做，少任何一件门禁二都会以"看不懂的形状"红（机制见 §0.6）：`FILE_TARGETS` 加
 `'dev/js/tools/regex.js',`（在 `digest.js` 那行之后，注释按"跟着磁盘走"那一条写），计划本格末尾贴两块
-```js 全文镜像（`regex.js` 整文件 + `§N` 整节）。§N 一落地，`§M` 的镜像区间已在 Step 2 之前
-就改成"到 `// ── §N` 之前"了（Task 3 对 §L 做过同一件事），这一轮不用回头补。
+```js 全文镜像（`regex.js` 整文件 + `§N` 整节）。`§M` 那格的小标题这次不用动——它写的已经是
+"从 `// ── §M` 到 `// ── §N` 之前"，与磁盘 §M 的实际区间 6601–7068 一致，门禁二对这一条报 OK
+（改口的时序不抄进这格：Task 3 落地时 §N 还不存在，那一轮写的是"到文件末尾"，本轮改回"到 §N 之前"
+才与磁盘对得上——留一句"何时改的"等于再埋一条对不上的数）。
 
 ```bash
 node scripts/verify-plan-blocks.mjs > /tmp/seg3t4/gate2-beforefix.log 2>&1; echo "exit=$?"; tail -12 /tmp/seg3t4/gate2-beforefix.log
@@ -3750,7 +3752,7 @@ node scripts/verify-plan-blocks-teeth.mjs
 门禁一 `# tests 222 / pass 222 / fail 0`（`/tmp/seg3t4/gate1-run6.log`）。门禁三跑在提交之后，
 和 Step 5 一起记。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add dev/js/tools/regex.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
@@ -3767,7 +3769,18 @@ git commit -m "feat(tools): 段 3 Task 4 正则模块 regex.js——四道闸门
 与本格的实现是同一件事，分开提就给仓库留一段"文档承诺着实现里没有的闸门"的历史）。
 下一笔 `docs(plans)` 回填本格的 `实跑`（哈希、`--stat` 行数、三门禁复跑），与段 2 各 Task 同形状。
 
-实跑：见紧随其后的 `docs(plans)` 一笔。
+实跑：`24b7fae`，`5 files changed, 2399 insertions(+), 14 deletions(-)`——`regex.js` 581 行是新增
+（`create mode 100644`），§N 判据 458 行，计划 +1365（两块镜像 1039 行 + 本格正文），
+门禁二清单 +3 行（含"登记比另外三本晚一步"那句注释），spec ±6 行。
+暂存集按路径核过：`git diff --cached --stat` 恰好这五条，另一路会话的脏项一个都没进来。
+提交后复跑三道：门禁一 `# tests 222 / pass 222 / fail 0`（`/tmp/seg3t4/gate1-postcommit.log`）、
+门禁二 `exit=0`（41 镜像、733020B、`未落地 0 节`）、门禁三 **21/21**
+（`脏项 14 个前后一致，diff 指纹 81996c7f84f6cb6d`）。提交后 `git status` 剩这 14 项
+（`_config.yml` / `about.html` / `dev/js/about.js` / `dev/sass/about.scss` / `package.json` /
+`_data/og_images.yml` / `dev/libJs/cursor-effects.js` / 两处 `.baoyu-skills/**` /
+未跟踪的 `scripts/lib/`、`scripts/article-check.mjs`、`scripts/wechat-draft.mjs`、
+`scripts/fixtures/article-check/`、`.baoyu-skills/baoyu-post-to-wechat/`），
+全属另一路会话，本格五个路径一字不剩。**全程不 push**（段 3 自约束）。
 
 ---
 
