@@ -1904,7 +1904,12 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这两条路径；`git status` 剩下仍是对方那批未提交项。**不要**碰
+Expected：**这条落地提交的真实路径数是四条，不是这里写的两条**（`46b0042`：`bankcard.js`、
+`toolkit-tests.mjs`、`verify-plan-blocks.mjs` 的 `FILE_TARGETS` 一行、`verify-plan-blocks-teeth.mjs`
+的副本清单一行）。后两条是落地时才暴露的连带项：整文件镜像不登记进 `FILE_TARGETS`，门禁二的
+反查那一档直接退 1；而 `verify-plan-blocks-teeth.mjs` 当时还手抄了一份镜像清单，少抄一项会让副本
+树里"磁盘上没有这个文件"、整轮自证退 1（这一处到 Task 3 才根治，见下一格）。
+`git status` 剩下仍是对方那批未提交项。**不要**碰
 `dev/js/tools/region*.js`、`idcard.js`、`uscc.js`、`panel.js`（红线 1 与 4）。
 
 ## Task 3: `phone.js` — 手机号格式、三位号段判运营商、生成侧
@@ -2656,7 +2661,11 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
+Expected：**真实落地是四条路径**（`c79373e`：`phone.js`、`toolkit-tests.mjs`、
+`verify-plan-blocks.mjs` 的 `FILE_TARGETS` 一行、`verify-plan-blocks-teeth.mjs` 24 行）。第四条不是
+顺手改的：上一格暴露的"自证器手抄了一份镜像清单"在这一格根治——改成从校验器源码里解析
+`FILE_TARGETS`，读不出来就抛（少拷一项会假绿），此后落地整文件模块只改校验器那一处。
+剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
 按 Task 11 的收口节奏单独提，别混进这一条。
 
 ## Task 4: `random-data.js` — 随机姓名 / 地址 / 邮箱与"一次一组"
@@ -3555,14 +3564,17 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
-按 Task 11 的收口节奏单独提。
+Expected：**真实落地是三条路径**（`bbb78ad`：`random-data.js`、`toolkit-tests.mjs`、
+`verify-plan-blocks.mjs` 的 `FILE_TARGETS` 一行）。第三条是门禁自己的规则而不是可选动作——
+整文件镜像不登记，反查那一档报 `✗ 漏网镜像` 并退 1。剩下仍是对方那批未提交项。
+`_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
 
 ## Task 5: `view.js` — 结果对象 → HTML（视图层，零 import）
 
 **Files:**
 - Create: `dev/js/tools/view.js`
 - Modify: `scripts/toolkit-tests.mjs`（追加 §H，15 条）
+- Modify: `scripts/verify-plan-blocks.mjs`（`FILE_TARGETS` 加一行；不登记会被反查那一档退 1）
 
 这一格是设计文档 §6.2 里唯一"只吃结果对象、不碰数据模块"的一层。六条口径先立住，否则实现里
 每一处"顺手 import 一下"都会变成 Task 9 收录面上的红字：
@@ -4545,8 +4557,33 @@ EOF
 cd /Users/liaolongdong/code/liaolongdong.github.io && node /tmp/t5mut/mut.mjs
 ```
 
-2026-09-26 在镜像上实跑（`# tests 110` 全绿起步，二十九刀逐刀记录，**二十九处全部有红的判据**、
-无一处"全绿即不可达"；H1–H15 每条至少被点名一次）：
+**落地实跑（2026-09-27，`# tests 114` 全绿起步，二十九刀逐刀记录）**：29/29 全部有红、
+无一处"全绿即不可达"、无一处 `!!`（锚点没命中）、无一处"只跑到 N 条"（脚手架不算数）；
+每刀的红名单与下表**逐格相同**，H1–H15 每条至少被点名一次。另有一条自校验成立：
+**每刀"红名单长度 = 114 − `# pass`"逐格为真**（二十九格零不一致），也就是没有出现
+"红了两条但其实挂了三条"那类计数错位。起草阶段在镜像上预跑的那一份与这一轮一致，
+所以下表不必改。
+
+台账跑法在落地时改了三处，都是脚手架自己会说谎的地方，记下来给后面的格子用：
+
+1. **不在工作树上动刀**。上一格（§G）那二十刀是在 `cpSync` 出来的副本树里跑的，这一格照做：
+   变异脚本里的 `P` 指向 `/tmp/t5mut2/tree/dev/js/tools/view.js`，仓库那份一个字都不写。
+   实验后除了比对还原，还要用 `git status --porcelain` 的脏指纹（路径 + 内容 diff + 未跟踪清单）
+   自证工作树没被碰过——这一轮脏项 20 个前后一致。
+2. **两趟台账不能共用一个 scratch 目录与一份日志**。第一趟（`/tmp/t5mut`，11:53）就是这个坑：
+   两趟同时在写同一份副本树，刀名是这一趟的、跑测时文件里却是那一趟的变异，结果**逐格错位**——
+   那份日志里 V7 记成"→ H1"、V23 记成"→ H3 H10 H14 H15"（本表要的是 H2 H3 与 H8），单看每一行都像
+   证据，横着一比全不可信；末尾两行 `还原后 pass 113、红 H12` 与 `副本与工作树逐字节一致=false`
+   更是直接说明还原时被另一趟写坏了。这一趟的归因整批作废。处置：杀掉遗留进程、确认工作树逐字节未变、换 `/tmp/t5mut2` 独占重跑
+   （12:06 那份才是本表用的台账，29 刀红名单与下表逐格相同）。
+   同一条日志里还有另一件事要分清：那次"工作树指纹前后差 6 行"是**另一路会话在改 `about.html` /
+   `about.js` / `about.scss`**，与本任务的落地面零交集，不是实验溢出——脏指纹这一档报差异时，
+   必须先按路径判"是不是自己那三条"，否则会把邻居的改动误读成自己的事故。
+3. **二十九刀之前先跑两刀冒烟**。第一版台账有两处自身缺陷，`node --check` 一个都抓不到：
+   把 `rows.push([` 全局改成 `pushRow([` 时把辅助函数自己的函数体也改了（无限递归、测试整段挂死），
+   这一处是台账里"写完读回来比对"那一档报出来的；改完签名之后 `pushRow = (n, v)` 对不上单数组调用点
+   （每行输出 `→ undefined`），这一处是**两刀冒烟**（`MUTS.length = 2`，即 V1 与 V2）打出来的——
+   红名单一个三条、一个一条，两档都正常报红才算脚手架可用。修完这两处才放二十九刀。
 
 | 变异 | 红了谁 | 说明 |
 | --- | --- | --- |
@@ -4592,6 +4629,7 @@ cd /Users/liaolongdong/code/liaolongdong.github.io && node /tmp/t5mut/mut.mjs
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
+echo "loadavg $(sysctl -n vm.loadavg)"     # ← 落地时补的一行：负载不留读数，下面的数就没法解释
 for i in 1 2 3 4 5 6 7; do node --input-type=module -e "
 const t0 = performance.now(); await import('./dev/js/tools/view.js');
 console.log('import view.js', (performance.now() - t0).toFixed(2) + 'ms');
@@ -4632,52 +4670,73 @@ let g0 = performance.now();
 for (let i = 0; i < 50; i += 1) v.batchBlock('idcard', generateIdCards({ count: 50 }), []);
 console.log('满批一轮：生成 50 条 + 渲染 =', ((performance.now() - g0) / 50).toFixed(2) + 'ms/批');
 "
+echo "loadavg2 $(sysctl -n vm.loadavg)"
 wc -c dev/js/tools/view.js
-gzip -6 -c dev/js/tools/view.js | wc -c
+cat dev/js/tools/view.js | gzip -9 -c | wc -c     # 口径一：全站统一的判据口径（无文件头里的原名）
+cat dev/js/tools/view.js | gzip -6 -c | wc -c     # 口径二：只换压缩级别，比口径一多 11 字节
+gzip -6 -c dev/js/tools/view.js | wc -c           # 口径三：起草时用的那条，同级别下再多 8 字节
 ```
 
-2026-09-26 本机 Node 22 实测。冷启动：`import view.js` **七个进程各一次 × 六轮 = 42 次**，
-中位 **8.35ms**、区间 **6.31–52.54ms**。这个数与 §G 那 38–49ms 的**性质不同**：`view.js` 零 import
-（H7 判的就是这一条），进程时里没有跟着它解析任何数据模块，`region-data.js` 那 100,020 字节
-一分钱不收——这一格对跨页共享层的**体积**贡献只有下面那 8,198 字节 gzip。
+落地实跑 **2026-09-27**，本机 Node v22.19.0。同一份脚本连跑两拨、每拨六轮（冷启动 42 次 +
+每档六个稳态读数），两拨之间隔了十几分钟：
 
-稳态口径：每档先跑 500 次预热再取均值，六轮各一次，下表给**中位数 / 全距**：
+- **A 拨**跑的时候没留负载读数——脚本里那两行 `sysctl -n vm.loadavg` 是 B 拨才补上的。
+- **B 拨**的一分钟 load average 全程 **10.00–10.79**（同时刻采的五分钟 **14.04–14.65**、
+  十五分钟 **28.42–29.32**），机器一直在忙。
 
-| 档位 | 中位 | 全距 |
-| --- | --- | --- |
-| `parseBlock` 身份证（有效，10 列明细） | 66.7µs | 59.6–113.7 |
-| `parseBlock` 身份证（区划未收录，走去重路径） | 63.1µs | 52.7–80.1 |
-| `parseBlock` 银行卡（同前缀两行命中，多一张前缀表） | 66.9µs | 48.6–108.3 |
-| `parseBlock` 信用代码（8 列明细） | 58.5µs | 45.5–71.5 |
-| `parseBlock` 手机号（5 列明细） | 46.2µs | 38.9–157.6 |
-| `batchBlock` 身份证 20 条 | 135.4µs | 112.5–193.0 |
-| `batchBlock` 三元组 20 组（跨三层取值） | 99.5µs | 70.5–104.5 |
-| `listTable` 姓名 50 条 | 234.4µs | 204.0–337.9 |
-| `esc` 118 字符含 10 个特殊字符 | 3.08µs | 2.27–3.69 |
-| 满批一轮：生成 50 条 + 渲染 | 2.67ms | 1.73–4.33 |
+稳态口径：每档先跑 500 次预热再取均值。下表给两拨各自的中位、以及两拨合在一起（n=12）的
+中位与全距：
 
-**这批数只能判量级，不能拿来设阈值**：六轮跑在本机 load average 9–27 的桌面环境里（Qoder 自己
-+ 微信 + Spotlight 在抢 CPU），尾部读数被抢核拉高；同一脚本在空闲时段测得 `parseBlock` 只有
-一半上下（起草阶段在镜像上跑的等价脚本、同样预热 500 次，测得 parseBlock 13–21µs 一档）。能站住的结论就两条：单块面板的渲染在 **0.05–0.14ms** 档，比一次输入到重绘的 16ms
-帧预算小两个数量级；"生成 50 条 + 渲染"整轮 **≤ 4.4ms**，页面侧不需要为视图渲染做防抖或分片。
-Task 10 的 headless Chrome 量的是首屏与交互的端到端时间，这些 µs 不进那条账——性能预算真正看的是
-gzip 字节。另：Step 4 那条全量命令的 `# duration_ms` 在本机测得 **3.8–11.2s**，同样随桌面负载
-漂一个量级，**不要**用它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
+| 档位 | A 中位 | B 中位 | 合并中位 | 合并全距 |
+| --- | --- | --- | --- | --- |
+| `parseBlock` 身份证（有效，10 列明细） | 62.8µs | 106.9µs | 78.0µs | 59.9–205.2 |
+| `parseBlock` 身份证（区划未收录，走去重路径） | 55.9µs | 92.8µs | 69.3µs | 51.3–100.5 |
+| `parseBlock` 银行卡（同前缀两行命中，多一张前缀表） | 64.0µs | 107.8µs | 75.6µs | 56.4–122.1 |
+| `parseBlock` 信用代码（8 列明细） | 51.2µs | 84.1µs | 60.3µs | 48.0–92.6 |
+| `parseBlock` 手机号（5 列明细） | 41.4µs | 73.9µs | 54.2µs | 37.3–89.2 |
+| `batchBlock` 身份证 20 条 | 121.9µs | 208.8µs | 147.6µs | 109.2–305.1 |
+| `batchBlock` 三元组 20 组（跨三层取值） | 90.7µs | 162.1µs | 142.1µs | 83.2–283.1 |
+| `listTable` 姓名 50 条 | 255.6µs | 478.9µs | 290.2µs | 206.5–657.8 |
+| `esc` 118 字符含 10 个特殊字符 | 3.2µs | 5.0µs | 4.1µs | 2.7–6.9 |
+| 满批一轮：生成 50 条 + 渲染 | 2.02ms | 3.46ms | 2.48ms | 1.84–4.33 |
 
-Expected：`wc -c` **21,837 字节**、`gzip -6` **8,198 字节**；文件 **414 行**（`wc -l`），
-其中注释 **119 行 / 8,307 字节**（行占 29%、字节占 38%——比 `random-data.js` 的 45% 低一档，
-这一格的大头是列定义而不是"为什么这么判"）；导出 **14 个**（`READ_KINDS`、`BATCH_KINDS`、
-`EMPTY_CELL`、`STATE_META`、`esc`、`stateBadge`、`checksTable`、`echoLines`、`detailTable`、
-`suggestLine`、`listTable`、`noteLines`、`parseBlock`、`batchBlock`），私有函数 **16 个**
-（`shapeOf`、`cell`、`pickPath`、`table`、`stateMetaOf`、`regionRow`、`suggestLine` 之类，
-其中 `table` 是十二张表的唯一构造点）。产物口径（terser 之后）同样到 Task 9 的收录面一起量。
+**同一份脚本、同一个文件，两拨的中位差到 1.7 倍**（`parseBlock` 身份证 62.8 → 106.9，冷启动
+9.20 → 15.09ms）——这批数只能判量级，不能拿来设阈值，这就是把它写成"两拨 + 合并"而不是一批
+数的原因。冷启动：七个进程各一次 × 六轮 × 两拨 = **84 次**，合并中位 **11.86ms**、全距
+**6.77–39.47ms**。这个数与 §G 那 38–49ms 的**性质不同**：`view.js` 零 import（H7 判的就是这一条），
+进程时里没有跟着它解析任何数据模块，`region-data.js` 那 100,020 字节一分钱不收——这一格对跨页
+共享层的**体积**贡献只有下面那 8,178 字节 gzip（口径一）。
+
+三批数放在一起看：起草阶段（2026-09-26）在镜像上跑等价脚本、同样预热 500 次，记的是冷启动中位
+8.35ms（6.31–52.54）、`parseBlock` 46.2–66.9µs、满批一轮 2.67ms（1.73–4.33），当时桌面负载 9–27。
+三批落在同一个量级上，批次之间最大差 1.7 倍。**能站住的结论只有两条**：单块面板的渲染在
+**0.04–0.15ms** 档（`parseBlock` 五档合并中位 54–78µs、`batchBlock` 两档 142–148µs），比"一次输入
+到重绘"的 16ms 帧预算小两个数量级；"生成 50 条 + 渲染"整轮三批最坏 **4.33ms**，页面侧不需要为视图
+渲染做防抖或分片。Task 10 的 headless Chrome 量的是首屏与交互的端到端时间，这些 µs 不进那条账——
+性能预算真正看的是 gzip 字节。另：Step 4 那条全量命令的 `# duration_ms` 起草时测得 **3.8–11.2s**、
+落地这轮 **14.2s**，同样随桌面负载漂一个量级，**不要**用它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
+
+Expected：`wc -c` **21,837 字节**；gzip 按上面三条口径分别是 **8,178 / 8,189 / 8,197**
+（差值是压缩级别与 gzip 头里的原名，与内容无关）。起草时那条 `gzip -6 -c 文件` 写的 **8,198**
+比今天同口径实测的 8,197 多 1 字节，**未归因**（同机同 gzip 单次重跑没法把这 1 字节拆开），
+判据只认口径一那一个数。文件 **414 行**（`wc -l`），其中注释 **119 行 / 8,307 字节**（行占 29%、
+字节占 38%——比 `random-data.js` 的 45% 低一档，这一格的大头是列定义而不是"为什么这么判"）；
+导出 **14 个**（`READ_KINDS`、`BATCH_KINDS`、`EMPTY_CELL`、`STATE_META`、`esc`、`stateBadge`、
+`checksTable`、`echoLines`、`detailTable`、`suggestLine`、`listTable`、`noteLines`、`parseBlock`、
+`batchBlock`）；顶层私有名 **15 个**——函数 **6 个**（`shapeOf`、`cell`、`pickPath`、`table`、
+`stateMetaOf`、`regionRow`，其中 `table` 是十二张表的唯一构造点）加大写数据常量 **9 个**
+（`REGION_STATUS_CN`、`REGION_LEVEL_CN`、`CHECK_VERDICT`、`CHECK_UNKNOWN`、`ESC_MAP`、`DETAIL_SPEC`、
+`MATCH_COLUMNS`、`SUGGEST_KEY`、`COLUMNS`）。起草时那句"私有函数 16 个（`shapeOf`、`cell`、
+`pickPath`、`table`、`stateMetaOf`、`regionRow`、`suggestLine` 之类）"两处不对：把函数与数据常量
+混在一起数，且 `suggestLine` 是导出项而不是私有名——按上面的 census 重立，别拿 16 当基线。
+产物口径（terser 之后）同样到 Task 9 的收录面一起量。
 
 - [ ] **Step 7: 提交**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
 git status --porcelain
-git add dev/js/tools/view.js scripts/toolkit-tests.mjs
+git add dev/js/tools/view.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs
 git commit -m "$(cat <<'EOF'
 feat(tools): 视图层 view.js——六档状态到三态徽章的一次映射
 
@@ -4695,14 +4754,22 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
-按 Task 11 的收口节奏单独提。
+Expected：**真实落地 `528ccdf` 是三条路径**（`view.js` 414 行新增、`toolkit-tests.mjs` +361 行、
+`verify-plan-blocks.mjs` 的 `FILE_TARGETS` 一行）；上面那段 `git add` 起草时只有前两条，落地时补成
+三条——第三条同上两格
+的理由：不登记就被门禁二的反查退 1。另外上面那份预备好的提交信息里有一句"§7 的 60KB 页面预算当场破"
+——**落地时不能照抄**，§7 的预算 2026-09-27 已改判为 gzip ≤ 76KB（回填见 Task 2 Step 6 末那段
+blockquote，拍板理由在 Task 7 Step 6 末），提交信息按新口径写、并点明源文件 JSDoc 里那句
+"≤ 60KB"是旧口径、留给 Task 11。
+剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
 
 ## Task 6: `panel-dom.js` — 面板 DOM 绑定层（§6.3 的落地，全站唯一一处 ARIA 口径）
 
 **Files:**
 - Create: `dev/js/tools/panel-dom.js`
-- Modify: `scripts/toolkit-tests.mjs`（追加 §I，16 条 → 全量 126 条）
+- Modify: `scripts/verify-plan-blocks.mjs`（`FILE_TARGETS` 加一行，同 Task 5）
+- Modify: `scripts/toolkit-tests.mjs`（追加 §I，16 条 → 全量 130 条；§H 落地后基线是 114，
+  这一格起草时写的 126 是旧基线，见上面"基线再涨到 69"那段）
 
 这一格把段 1 那台纯状态机接到真节点上：`panel.js` 算属性表、`panel-dom.js` 写属性表，
 `toolIdcard.js`（Task 7）只管业务与渲染函数。设计文档 §6.3 那四条要求——真 ARIA、`#hash`
@@ -6134,7 +6201,10 @@ EOF
 git status --porcelain | head
 ```
 
-Expected：提交只含这两条路径；剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
+Expected：**这一格同样不止两条路径**——`panel-dom.js` 是整文件镜像，落地时必须同批把它登记进
+`verify-plan-blocks.mjs` 的 `FILE_TARGETS`（前三格各踩过一次：Task 2 与 Task 3 是四条，Task 4 起
+自证器已改成从校验器源码解析清单，只改一处就够，所以这一格预期是三条）。
+剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划
 按 Task 11 的收口节奏单独提。
 
 ## Task 7: 证件页装配层与两个入口（`workbench.js` + `toolkitCore.js` + `toolIdcard.js`，§J 十六条）
