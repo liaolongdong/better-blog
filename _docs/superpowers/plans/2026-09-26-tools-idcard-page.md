@@ -13318,6 +13318,80 @@ A/B 是两条独立路径数出同一个 91。
 3. 图标那一族的昼夜对比度由门禁「图标」八组现算，Task 10 的三档纸色温采样只核**页面**
    前景色，不必重算图标。
 
-<!-- APPEND-10 -->
+## Task 10: 浏览器侧核验（真 Chrome + CDP，十三项判据）
+
+**Files:**
+- Create: `scripts/verify-idcard-browser.mjs`（261 行 / 17,840B，零依赖：Node 22 的全局 `WebSocket` + `node:http` 静态服务）
+- 读：`_site/`（Task 9 Step 12 那次 `pnpm build:site` 的产物，不改）
+
+**为什么这一格必须真开浏览器**：Task 8 的 54 项与 Task 9 的五组判据全是**静态读产物**，
+它们判得出"标记在不在、属性对不对"，判不出三件事——断点换挡的实际列数、纸色温三档到底
+落没落进底色、键盘能不能走进下拉。`dev/sass/toolkit.scss:593-595` 那段注释把话挑明了：
+901–959 那一段"**这一段本格没有实测**：Task 10 的断点清单要专门量 920 / 940 两档"。
+
+- [x] **Step 1: 起本地服务与浏览器**
+
+`_site` 是用 `baseurl: /better-blog` 建的，所以脚本里的 `node:http` 服务必须把仓库根
+`_site/` 挂在 `/better-blog` 下，否则样式与 JS 全 404、量到的是裸页（本机踩过的快照口径）。
+另外两档环境处理：
+
+```bash
+lsof -ti tcp:8791 tcp:9333 2>/dev/null | xargs -r kill      # 清遗留端口，别让上一轮的 Chrome 应答
+node scripts/verify-idcard-browser.mjs                      # 自己起 Chrome：--headless --remote-debugging-port=9333
+```
+
+Chrome 的 `--user-data-dir` 走 `fs.mkdtempSync(os.tmpdir())`，每次一份，避免与另一路会话的
+调试实例互抢；`--host-resolver-rules=MAP at.alicdn.com 127.0.0.1` 让那条**外链字体 CSS**
+立刻失败（`cdn.staticfile.org` 那类外链在 headless 里能卡到 `document.body` 为 null）。
+
+- [x] **Step 2: 十三项判据与现场读数（2026-09-27 实跑 `13/13`、`exit=0`）**
+
+| # | 判据 | 现场 |
+| --- | --- | --- |
+| 1a | 十档视口（360/640/641/880/900/901/920/940/1280/1920）无横向溢出 | 每档 `scrollWidth == clientWidth`，无一档 >1px |
+| 1b | 工作区两栏 ↔ 单栏**恰好**落在 900 | ≤900 全 1 栏、≥901 全 2 栏（901/920/940 三档是注释点名要量的） |
+| 1c | 生成/判定两栏 ↔ 单栏恰好落在 640 | ≤640 为 1、641 起为 2 |
+| 1d | 索引条 ≤900 退成 `static` chip、`.tk-index__hint` 在 chip 档隐藏 | 五档 `static`+藏、五档非 static+现 |
+| 1e | 901–959 那一段面板宽度与 chip 右沿都在视口内 | 901 面板 657、920 面板 676、940 面板 696；chip 最右 196 < 视口 |
+| 2a | 昼/夜 × 三档纸色温 = 6 组，正文对面板底色对比度全过 4.5 | 白昼 5.11/5.11/5.27，夜间 6.02/6.02/6.02 |
+| 2b | 纸色温**白昼三档三个不同值、夜间恒为一个值** | `rgb(250,249,246)` / `(247,248,250)` / `(239,244,237)`；夜间三档全 `rgb(18,20,26)` |
+| 2c | `night-mode` 类只在 night 档出现 | 六组一致 |
+| 2d | 面板底色跟不跟纸色温（**只报不判**） | 面板走 `--surface`，不吃 `--paper`；仅 sage 白昼那一格 250,252,248 与另两档不同 |
+| 3a | 从文档头 Tab，**能走进下拉子项**（`:focus-within` 打开） | 第 5–9 跳是五颗 `.nav-sub-link`（含本格新加的「证件与机构代码工具」），第 10 跳才到「分类」 |
+| 3b | `.tk-btn` 焦点环不是 `outline:none` | `solid 2px rgb(110,168,254)`，`:focus-visible` 为 true |
+| 4a | 摘掉全部 `<script>` 的同一份产物：五块面板、五颗索引、正文 ≥ 开 JS 版 90% | 面板 5、索引 5、控件 26、禁 JS 1,753 字 / 开 JS 1,212 字（144.6%）、脚本 0 |
+| 5a | 首屏阻塞集现量（`renderBlockingStatus`） | HTML 57,768B + 阻塞集 **222,121B**；本页三件全是 non-blocking |
+
+- [x] **Step 3: 三条 finding（两条是核验口径自己的坑，一条是文档口径名不副实）**
+
+1. **3a 第一次是红的，红在测量本身**：`.nav-sub` 那条
+   `transition: opacity .18s ease, transform .18s ease, visibility .18s`（`editorial.scss:268`）
+   让**焦点刚落下那一帧**读到的 computed 是 `visibility: hidden` —— CSS 的 `visibility` 在
+   progress≈0 时仍取起点值。于是子项被判定为不可聚焦，Tab 从「工具箱」直接跳到「分类」。
+   每一跳之后等 240ms 再读，链子就正常了。**这是"计算样式要等过渡落定再采样"的第四种形状**
+   （前三档：换肤读色、改 class 后读 computed、量焦点环要 Tab）。判据本身没被放宽：
+   等的是墙钟，不是把断言改成"或可见或隐藏"。
+2. **2b 的判据从"三档都要不同"改成"白昼三个不同、夜间恒一个"**：`tokens.scss:136-145` 写的是
+   `html[data-rs-paper="cool"]:not(.night-mode)`，夜间单一 `--paper: #12141A`（`:163`）——
+   纸色温**按设计只在白昼生效**。而默认档 `warm` 不写属性（`themeBootstrap.html` 明写"只写
+   非默认值"），所以那一格 `data-rs-paper=""` 是对的，断言按这个口径写。
+   旧断言"六组各三个不同值"把设计当成了缺陷。
+3. **§7 那条"首屏关键路径 ≤16KB"名不副实（交 Task 11 对账）**：15,546B 量的是
+   **本页自身增量的两件**（`toolkit.min.css` + 构建期渲染的页面 HTML），而浏览器真正首屏要等的
+   阻塞集实测 **222,121B**（`index.min.css` 125,955 + `jquery.min.js` 87,833 + normalize 2,516 +
+   iconfont 4,124 + 三件推送脚本，全站基线，证件页一分不多）。更要紧的是
+   `toolkit.min.css` 在产物里落在 `<body>` 第 332 行，Chrome 报 **non-blocking**——
+   它连那 15,546B 里的"阻塞"那一半都不算。**不把它搬进 `<head>`**（搬进去是给首屏添阻塞字节），
+   改的是 §7 那一行的**名字与计量说明**。
+
+- [x] **Step 4: 提交**
+
+`scripts/verify-idcard-browser.mjs` 是本格唯一新增文件；它不进 `FILE_TARGETS`（不在计划里贴全文，
+按路径与判据表引用），但 `pnpm build:site` 之后要能重跑，所以留 `--site` 之外的零参数形态。
+
+**2026-09-27 落地实跑**：`node scripts/verify-idcard-browser.mjs` → `exit=0`、`13/13 通过`；
+两道镜像门禁（`verify-plan-blocks` / `-teeth`）复跑仍 `exit=0`（33 条镜像全等、`18/18`）。
+
+<!-- APPEND-11 -->
 
 
