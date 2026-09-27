@@ -5,7 +5,7 @@
  * - 不碰 DOM 才跑得进 Node 判据（§8.1），真 DOM 只在 §I 的手写假 DOM 与 Task 10 的 headless Chrome 各测一次；
  * - 零 import 是段 2 计划 0.2 那条实测的直接后果：这一格会被 `toolkitCore.js` 挂成 `window.Tk`
  *   供三页共用，多一条 `import` 就把 `region-data.js`（单文件 100,020 字节）或某张码表拽进
- *   跨页共享层，§7 那条"证件页 JS+CSS gzip ≤ 60KB"立刻顶破，而 `toolkitCore.min.js` 是 JSON 页
+ *   跨页共享层，§7 那条证件页 JS+CSS 预算当场顶破，而 `toolkitCore.min.js` 是 JSON 页
  *   也要加载的。所以**结果对象由装配层递进来**，视图一侧不持有任何数据模块。§H 有一条判据
  *   专门扫源文本数 `import` 的条数（必须为 0），往这里加一行 import 就会红。
  * - 转义只在这一处（`esc`）：装配层拿到的是串，走 `innerHTML`，视图少转一次就是页面被截断。

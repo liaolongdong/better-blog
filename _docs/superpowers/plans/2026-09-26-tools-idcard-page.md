@@ -554,7 +554,9 @@ check exit=0
 `BIN_ROWS` 那 28,266 字符的分号串一个字节都动不了；这 1,981B 也正是 Task 7 那支入口
 `toolIdcard.min.js` 里看不到的部分，terser 剥注释，所以产物 gzip 与源文件注释长短无关。
 
-**这个体积压在预算上是有张力的，必须写明白**：设计文档 §7 给证件页 JS+CSS 的预算是 gzip ≤ 60KB，
+**这个体积压在预算上是有张力的，必须写明白**：设计文档 §7 给证件页 JS+CSS 的预算**当时**是 gzip ≤ 60KB
+（这一整段按 60KB 立判据；2026-09-27 已按实测算钉为 76KB，现值只认 spec §7，见 Task 7 Step 6 末的
+拍板记录与文末 Task 11），
 而本页要同时挂 `region-data.js`（实测 34.8KB gz）+ 这张（9.9KB）+ `carrier-data.js`（0.9KB）
 = **45.6KB 数据**，留给页面 JS 与 CSS 只剩 ~14KB。所以 Task 7 的 Step 6 必须真量一次页面产物的
 gzip 总数（`assets/js/toolIdcard.min.js` + `assets/js/toolkitCore.min.js`，`toolkit.min.css` 那一件到
@@ -3672,8 +3674,8 @@ Expected：**真实落地是三条路径**（`bbb78ad`：`random-data.js`、`too
    给三页共用（§0.2 那条实测：两个页面入口各自 `import` 同一模块时，vite 把 `import{` 原样留在
    IIFE 包裹的产物里，`vite build` 退出 0 而页面白屏——所以跨页只能走 `window.Tk`）。这里只要写
    一行 `import { resolveRegion } from './region.js'`，`region-data.js`（单文件 **100,020 字节**）
-   或某张码表就跟着进了跨页共享层，而 `toolkitCore.min.js` 是 JSON 页也要加载的，§7 那条
-   "证件页 JS + CSS gzip ≤ 60KB"当场顶破。**所以结果对象由装配层递进来、口径文案由参数传进来**，
+   或某张码表就跟着进了跨页共享层，而 `toolkitCore.min.js` 是 JSON 页也要加载的，§7 那条证件页
+   JS+CSS 预算当场顶破。**所以结果对象由装配层递进来、口径文案由参数传进来**，
    视图一侧不持有任何数据模块。H7 直接读源文本扫 `import`（静态、动态、`export … from` 三种写法）
    必须为零，V28 往文件头补一条 `import` 就红。
 2. **转义只有 `esc` 一个出口。** 装配层拿到的是 HTML 串、走 `innerHTML`，视图少转一次就是页面被
@@ -4096,7 +4098,7 @@ Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
  * - 不碰 DOM 才跑得进 Node 判据（§8.1），真 DOM 只在 §I 的手写假 DOM 与 Task 10 的 headless Chrome 各测一次；
  * - 零 import 是段 2 计划 0.2 那条实测的直接后果：这一格会被 `toolkitCore.js` 挂成 `window.Tk`
  *   供三页共用，多一条 `import` 就把 `region-data.js`（单文件 100,020 字节）或某张码表拽进
- *   跨页共享层，§7 那条"证件页 JS+CSS gzip ≤ 60KB"立刻顶破，而 `toolkitCore.min.js` 是 JSON 页
+ *   跨页共享层，§7 那条证件页 JS+CSS 预算当场顶破，而 `toolkitCore.min.js` 是 JSON 页
  *   也要加载的。所以**结果对象由装配层递进来**，视图一侧不持有任何数据模块。§H 有一条判据
  *   专门扫源文本数 `import` 的条数（必须为 0），往这里加一行 import 就会红。
  * - 转义只在这一处（`esc`）：装配层拿到的是串，走 `innerHTML`，视图少转一次就是页面被截断。
@@ -4850,7 +4852,9 @@ Expected：**真实落地 `528ccdf` 是三条路径**（`view.js` 414 行新增�
 的理由：不登记就被门禁二的反查退 1。另外上面那份预备好的提交信息里有一句"§7 的 60KB 页面预算当场破"
 ——**落地时不能照抄**，§7 的预算 2026-09-27 已改判为 gzip ≤ 76KB（回填见 Task 2 Step 6 末那段
 blockquote，拍板理由在 Task 7 Step 6 末），提交信息按新口径写、并点明源文件 JSDoc 里那句
-"≤ 60KB"是旧口径、留给 Task 11。
+"≤ 60KB"是旧口径、留给 Task 11。**（Task 11 已于 2026-09-27 执行：JSDoc、本格正文、计划镜像
+三处一起改成不带数的"§7 那条证件页 JS+CSS 预算当场顶破"；上面那段起草的 commit message 里
+的 60KB 属历史草稿，按本注已就地更正过，不再回填。）**
 剩下仍是对方那批未提交项。`_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
 
 ## Task 6: `panel-dom.js` — 面板 DOM 绑定层（§6.3 的落地，全站唯一一处 ARIA 口径）
@@ -9742,9 +9746,10 @@ Task 7 只有两件，所以第一段命令量到的是 70,991 = 73,101 − 2,11
 2. **号段表 1,239 字节源文件只值 187 B gzip**，区划表 100,020 字节源文件值 34,313 B——
    预算的敌人只有区划那一本，别在码表上抠字节。
 3. **历史层那一档值 12,220 B**：去掉它，三件合计是 **60,881 B** gzip（两件 JS 是 58,771 B，
-   加 CSS 2,110 B），距 §7 那条 61,440 B（60 KiB）只剩 **559 B** 余量。
+   加 CSS 2,110 B），距 §7 **当时**那条 61,440 B（60 KiB）只剩 **559 B** 余量。
 
-**判据落在预算上就是超了，本格不许自行改预算。** §7 写的是证件页 JS + CSS ≤ 60KB：
+**判据落在预算上就是超了，本格不许自行改预算。** §7 **当时**写的是证件页 JS + CSS ≤ 60KB
+（现值 76KB，就在本格末的拍板记录里）：
 本格两件 JS 已经 70,991 B，加 CSS 2,110 B 是 **73,101 B，超 11,661 B（19%）**。
 按 Task 1 立的 BLOCKED 协议停下来交回去，三个处置：
 
@@ -9778,6 +9783,13 @@ Task 7 只有两件，所以第一段命令量到的是 70,991 = 73,101 − 2,11
 > `toolkitCore.min.js`，两件 JS 合计上到十万 B 量级）。**实现期不要动 JSDoc 那一处**：
 > 改了要连 `/tmp/t7` 镜像里的 `dev/js/tools/view.js` 一起改，否则"计划载荷 == 镜像落盘"
 > 这条一致性断在 Task 5 与 Task 8 之间。两处一起改写成不带数的说法，留给 Task 11 收口那一格。
+>
+> **（Task 11 已把三处改成不带数，并顺手作废上面那条镜像约束，2026-09-27）**：证件页的代码此刻
+> 已在真仓库里（`528ccdf` 起），`/tmp/t7` 那份镜像不再是任何一格的权威落点——门禁二比的是
+> **计划块 ↔ 仓库文件**（`dev/js/tools/view.js` 在 `FILE_TARGETS` 第 76 行那一项），所以改 JSDoc
+> 的正当姿势是"改磁盘 → `node scripts/verify-plan-blocks.mjs --fix` 把镜像同步过去"，
+> 而不是"两处手抄 + 再维护一份 /tmp 副本"。这一发实测过：`--fix` 只重写那一个块、
+> 行数 13,457 → 13,457 不变，`git diff --stat` 是那一个文件 1 增 1 删。
 
 **2026-09-27 落地实跑（跑在自建镜像 `/tmp/t7mk`，没在真仓库 build）**：上面那两条命令写的是
 "cd 到仓库跑 `npx vite build`"，形状没错，但此刻对方会话的 `pnpm dev`（`vite build --watch`，12:31 起）
@@ -11844,6 +11856,9 @@ FNAME 字段，每件多 16–19 字节：同一批文件用 `-c f` 量出来是
    才买"按得动按钮"。这个分层是 §6.3 那条"构建期渲染"的直接结果；拍板 (a) 时它已从"处置 (b) 的
    量化起点"升成 §7 表里独立的一条闸门（**≤16KB = 16,384 B**，余 942 B），Task 10 按这条判，
    谁往 `<head>` 塞公共件或把 `<script>` 挪到正文之前，红的是这一条而不是总量那一条。
+   **（Task 11 对账：这个"余 942 B"是本格写计划时的当时值，跟着 15,442 那档镜像数走。同格
+   Step 6 落地实跑是 15,447 B / 余 937 B，Task 9 收录面之后是 15,546 B / 余 838 B——三个数都是
+   同一口径 `cat f | gzip -9` 下的真量，只是量在三个不同的产物上；当前值只认 spec §7。）**
 4. **`_site/tools/idcard.html` 的 56,542 B 是骨架 32,566 B 加站点公共件（`header.html` /
    `footer.html` / `head.html` 那一圈）之后的字节数**，比骨架多出的 23,976 B 不是这一格引入的。
    体积按 Pages 实际传输算：线上只发 gzip、不发 brotli（09-26 实测过 `Content-Encoding: gzip`），
@@ -11943,6 +11958,10 @@ git log --oneline -1
    （实测 15,447 B），Task 10 量首屏时按这一条判。骨架**不用返工**——(b) 被否，那一支延迟
    `<script>` 不加。理由与否决项写在 Task 7 Step 6 末的拍板记录，本格的读数四条不受影响。
    收口（Task 11）时记得把 §5.1 与 §11 里跟体积有关的句子对到 §7 的新口径上。
+   **（Task 11 实到之后更正这一句的落点：§11 通读下来并没有跟体积有关的句子，它那张风险表的
+   第一行讲的是 px→vw 黑名单，不是字节数；§5.1 也没有体积句，那一格里真正过期的是**能力**口径
+   ——手机号那行写着"3–7 位前缀表"，实现只做到三位且不做归属地。两处都已按实现回写，
+   §8.3 同时补了一张"每一条落在哪一格"的对账表。全文见文末 Task 11。）**
 
 **2026-09-27 落地实跑（Step 7：`8fc3078`，五条路径 1,229 行）**：五道门禁连着跑，全部现跑现打——
 
@@ -13386,7 +13405,10 @@ Chrome 的 `--user-data-dir` 走 `fs.mkdtempSync(os.tmpdir())`，每次一份，
    iconfont 4,124 + 三件推送脚本，全站基线，证件页一分不多）。更要紧的是
    `toolkit.min.css` 在产物里落在 `<body>` 第 332 行，Chrome 报 **non-blocking**——
    它连那 15,546B 里的"阻塞"那一半都不算。**不把它搬进 `<head>`**（搬进去是给首屏添阻塞字节），
-   改的是 §7 那一行的**名字与计量说明**。
+   改的是 §7 那一行的**名字与计量说明**。**（Task 11 已执行：§7 表格那一行现名
+   「证件页自身增量的首屏成本」，行内同时写明"不是浏览器首屏要等的阻塞集——那一集实测 222,121B
+   未 gzip、是全站基线"，并加了 §7 第三段专讲这件事；本计划里"首屏关键路径"这五个字在
+   Task 7 / Task 8 / Task 9 三处的历史记录中原样保留，它们记的是当时的命名，见文末 Task 11。）**
 
 4. **上一版的 `13/13` 里有一格是测别人的**（代码评审自查抓到，属"脚手架静默说谎"的第 11 种形状）：
    调试端口写死 `9333`，而那一轮跑之前，`9333` 已被更早一次 headless Chrome 占着
@@ -13451,6 +13473,201 @@ root 下无 `.prettierrc`、无 husky），`scripts/` 里连 `og-images.mjs` 这
 prettier-clean，所以这一格沿用了本系列脚本的单引号风格，没有为它单独 `--write`（那会把整文件
 重排成双引号，583 行噪音）。
 
-<!-- APPEND-11 -->
+## Task 11: 对账收口（把段 2 攒下的口径差扫最后一遍）
+
+**Files:**
+- Modify: `dev/js/tools/view.js`（文件头 JSDoc 第 8 行，**只有注释**，见 Step 2 的三方 md5）
+- Modify: `_docs/superpowers/plans/2026-09-26-tools-idcard-page.md`（本文件，九处内联更正 + 一处镜像同步 + 本节）
+- Modify: `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md`（§5.1 的 `#mobile` 行、§7 的"输入硬上限"行、§8.3 新增一张对账表）
+- 不改：任何功能代码、任何判据、任何预算数字
+
+**"九处内联更正"的落点清单**（改后锚点是可 grep 的原句；本节自己也引了这些句子，所以每条命中 ≥ 2 处
+属正常——判"是否落在正文"用 `grep -n` 看行号是否在本节（`## Task 11` 起）之前）：
+
+| # | 落在哪一格 | 改的是什么 | 改后锚点 |
+| --- | --- | --- | --- |
+| 1 | Task 2 Step 6 前的体积张力段 | 「预算**当时**是 gzip ≤ 60KB」+ 现值只认 §7 | `这一整段按 60KB 立判据` |
+| 2 | Task 5 正文"零 import 是体积红线" | 60KB → 不带数 | `§7 那条证件页` + `预算当场顶破` |
+| 3 | Task 5 Step 7 落地注 | 括注本轮已执行 | `Task 11 已于 2026-09-27 执行` |
+| 4 | Task 7 Step 6 余量那一句 | 61,440 B 标为当时值 | `距 §7 **当时**那条 61,440 B` |
+| 5 | Task 7 Step 6 判据那一句 | ≤60KB 标为当时值 + 指回现值 | `（现值 76KB，就在本格末的拍板记录里）` |
+| 6 | Task 7 Step 6 末 blockquote | 作废 `/tmp/t7` 镜像约束 + `--fix` 实证 | `Task 11 已把三处改成不带数` |
+| 7 | Task 8 读数 3 | 「余 942 B」是当时值 + 三次实测序列 | `Task 11 对账：这个"余 942 B"` |
+| 8 | Task 9 记录 | 更正"§11 有体积句"这条落点 | `Task 11 实到之后更正这一句的落点` |
+| 9 | Task 10 发现 3 | 首屏那行改名已执行 + 历史记录原样保留 | `Task 11 已执行：§7 表格那一行现名` |
+
+另有一处**镜像同步**（`view.js` 整文件镜像里的同一行 JSDoc），由门禁二的 `--fix` 整块重写、不手抄，
+不计进上面九处。
+
+**为什么还要这一格**：段 2 的十一格是"边写边改口径"长出来的——预算在 Task 7 被拍板改判（60KB → 76KB
++ 新立 16KB）、首屏那一行在 Task 10 被改名（"首屏关键路径" → "证件页自身增量的首屏成本"）、
+§5.1 那句"3–7 位前缀表"从设计期起就没打算照做（红线 3 不许去找无许可的归属地源）。
+于是计划正文里同时躺着**三种年代的数**和**两条已经作废的约束**。这一格不动一行实现，
+只把"这句话现在还成立吗"逐条答完，让段 3 的接手人不必自己考古。
+
+- [x] **Step 1: 三处过期的"≤ 60KB"改成不带数的说法**
+
+三处是一对，必须同一次改完——前两处是同一份文本的两副本（磁盘 ↔ 计划镜像），第三处是同一个论证
+在计划正文里的复述。**位置一律给锚点不给行号**：本轮自己的增删会让行号往后漂（下表落盘时读到的
+4099 / 3676，此刻已是 4101 / 3678），而 `--fix` 打印的是它当时看到的那一行，属于现场读数、不承诺复现：
+
+| 处 | 位置（锚点） | 改前 | 改后 |
+| --- | --- | --- | --- |
+| 1 | `dev/js/tools/view.js` JSDoc 第 8 行，`跨页共享层，§7 那条` 起句 | `§7 那条"证件页 JS+CSS gzip ≤ 60KB"立刻顶破` | `§7 那条证件页 JS+CSS 预算当场顶破` |
+| 2 | 本计划里 `view.js` 整文件镜像块的同一段（落盘时第 4099 行） | 同上 | 同上（由 `--fix` 同步，不手抄） |
+| 3 | 本计划 Task 5 正文"零 import 是体积红线"那一条（落盘时第 3676 行） | `§7 那条\n"证件页 JS + CSS gzip ≤ 60KB"当场顶破` | `§7 那条证件页\nJS+CSS 预算当场顶破` |
+
+**为什么不写成 76KB**：这两句讲的不是预算值本身，是"多一条 `import` 就把区划那本拽进跨页共享层"
+这条红线。把 76KB 钉进 JSDoc，下一次改判预算时它又变成第三处过期引用——而它已经在段 2 里过期过一次了
+（Task 5 落地时就发现草稿 commit message 里那句 60KB 不能照抄，见那一格 Step 7 末尾以
+`"≤ 60KB"是旧口径、留给 Task 11` 起头的那段注）。
+不带数的写法在 60KB、76KB、以及将来任何值下都成立，且仍然可核：`H7` 扫源文本数 `import` 必须为 0，
+`V28` 往文件头补一条 `import` 就红。
+
+改法用的是门禁二自带的 `--fix`，不是手抄：
+
+```bash
+node scripts/verify-plan-blocks.mjs          # 先让它报出唯一那一条 ✗
+node scripts/verify-plan-blocks.mjs --fix    # 只重写那一个块
+node scripts/verify-plan-blocks.mjs; echo "exit=$?"
+```
+
+现场读数（这一发同时也是 `--fix` 这个模式的一次实测）：第一跑精确点出
+`计划[段2] 第 4099 行 / 磁盘第 8 行`，两条引文并排打出来；`--fix` 报
+`重写 1 块，13457 → 13457 行`（这个行数是脚本里的 `p.lines.length`，即整份文件 `split('\n')` 的段数，
+**比 `wc -l` 多 1**：那一跑时磁盘是 13,456 行 ↔ 报 13,457，与 HEAD 版同数
+（复算 `git show HEAD:_docs/superpowers/plans/2026-09-26-tools-idcard-page.md | wc -l`），
+可见这一刀落在本节那 200 来行写进文件之前；口径出处是 `scripts/verify-plan-blocks.mjs` 里
+读文件那一行的 `split('\n')`（第 288 行）与打印这一句的 `${p.lines.length} → ${out.length} 行`（第 502 行），
+复算 `sed -n '288p;502p' scripts/verify-plan-blocks.mjs`），
+`git diff --stat` 是该文件 **1 增 1 删**——正文其余部分没被碰；
+第三跑 `exit=0`、`33 条镜像逐字节全等`、`未落地 0 节`。
+Task 5 落地那格原先立的约束（"实现期不要动 JSDoc 那一处，改了要连 `/tmp/t7` 镜像一起改"）
+随代码进仓库（`528ccdf`）就已经作废，作废的理由就地写在 Task 7 Step 6 末那段 blockquote 下面：
+门禁二比的是**计划块 ↔ 仓库文件**（`view.js` 在 `FILE_TARGETS` 里），正当姿势就是"改磁盘 → `--fix` 同步镜像"，
+第三份 `/tmp` 副本从来不该是判据的一部分。
+
+- [x] **Step 2: "注释级改动不进产物"用三方 md5 证，而不是用理由说**
+
+这一格动了 `dev/js/` 里的源文件，所以"不重跑 `pnpm build:site`"这件事不能只靠嘴说（Task 10 那格
+留的是理由，这一格换成证据）。也不在真仓库跑构建：`vite.config.js` 的 `outDir` 是仓库根 `assets/`，
+而 `_site` 一旦重建就会把对方会话 dirty 的 `_config.yml`（关于页时间轴，注释明写"不要提交、不要上线"）
+烤进去——同一条理由见 Task 10 Step 4。所以走 Task 7 Step 6 用过的隔离镜像树，做**一次 A/B**：
+同一份拷贝树，只差 `view.js` 那一个文件（A = 改后、B = `git show HEAD:` 的那份）。
+
+```bash
+rm -rf /tmp/t11a /tmp/t11b
+for d in t11a t11b; do mkdir -p /tmp/$d
+  cp -R dev package.json vite.config.js postcss.config.js /tmp/$d/
+  ln -s <仓库>/node_modules /tmp/$d/node_modules; done
+git show HEAD:dev/js/tools/view.js > /tmp/t11b/dev/js/tools/view.js
+for d in t11a t11b; do (cd /tmp/$d && npx vite build > build.log 2>&1; echo "$d exit=$?"); done
+md5 -q /tmp/t11a/assets/js/*.min.js /tmp/t11b/assets/js/*.min.js assets/js/*.min.js
+```
+
+| 产物 | 镜像 A（改后） | 镜像 B（HEAD） | 真仓库现有产物 |
+| --- | --- | --- | --- |
+| `toolkitCore.min.js` | `c7da771083fa…` | `c7da771083fa…` | `c7da771083fa…` |
+| `toolIdcard.min.js` | `c0da44ee0e75…` | `c0da44ee0e75…` | `c0da44ee0e75…` |
+| `toolkit.min.css` | `5c6b51cfc738…` | `5c6b51cfc738…` | `5c6b51cfc738…` |
+
+两次 `npx vite build` 都 `exit=0`；三件产物**三方一字不差**，且 `diff` 过的那一行是两份 `view.js`
+之间唯一的差别。这条链的三段各管一件事：A↔B 相同 = 我这一行注释不进产物；A/B↔真仓库相同 = 镜像树
+与真仓库同源（不是拿一份不同的树自证），所以 `_site/tools/idcard.html` 的 `564b3d6a9885…` 仍然对应
+现在这份代码——Jekyll 侧的输入一个字节没改。
+
+- [x] **Step 3: 预算按今天的产物重算，而不是照抄上一格**
+
+口径钉在 `cat f | gzip -9 | wc -c`（§7 开头那条，与 `zlib.gzipSync` 不同口径、跨口径比较视同没量）：
+
+```
+toolkit.min.css      raw=9,321    gz=2,110
+toolkitCore.min.js   raw=18,103   gz=6,583
+toolIdcard.min.js    raw=184,825  gz=64,666      三件合计 73,359 → 对 77,824 余 4,465（5.7%）
+_site/tools/idcard.html  gz=13,436               首屏 2,110 + 13,436 = 15,546 → 对 16,384 余 838（5.1%）
+```
+
+四个数与 §7 里 Task 9 那一段**一字不差**。这一格没有搬动任何字节，包括那个 18,103 B 的
+`toolkitCore.min.js`——Step 2 的 md5 与这一步的字节数是同一件事的两种量法，互相核对。
+
+- [x] **Step 4: §5.1 与 §8.3 的回写（一处能力口径、一张落点表）**
+
+**§5.1 的 `#mobile` 行**：设计期写"3–7 位前缀表"，实现只到三位。这一格把它按实现改齐，
+并留下"为什么只做到三位"的那半句：11 位 + `1[3-9]` 是硬结论、运营商按**三位号段**判（内置 56 段，
+`dev/js/tools/carrier-data.js` 现数即得；断"56 段互不重叠"的是 §F0 的 `F0-1`，
+`scripts/toolkit-tests.mjs:2630`——**不是 §F**，§F 的 F1–F15 只断 `phone.js` 这一层，
+F8 取 `CARRIER_SEGMENTS.find(...)` 的首个匹配，重复也不会红，这点在 `toolkit-tests.mjs:3069` 的
+节头注释里明写着）、第三方单一来源、发号口径、
+不承诺全量、携号转网后不代表当前实际运营商；生成侧上限 50；面板原样显示 `CARRIER_NOTE` 那句
+"本站不做号码归属地"。那句解释**在产物里是构建期渲染的**（`grep -c '本站不做号码归属地'
+_site/tools/idcard.html` = 2），禁 JS 也读得到。同时写明红线：不许为了补归属地去找无许可的源。
+
+**§8.3** 新增一张"每一条落在哪一格"的表，逐条指名，因为这一节是设计期写给"三页"的，
+段 2 只交付了证件页，含糊不得。三条实测口径与本文不同，都按实测改：视口档位表换成了
+Task 10 的十档（360/640/641/880/900/901/920/940/1280/1920，段 3/4 沿用这份）；纸色温六组是
+"白昼三档三个值 + 夜间三档同一个值"而不是六组各三个值；禁 JS 那一档**不用**
+`ScriptExecutionDisabled`（那个开关连 `Runtime` 一起停），改测"摘掉全部 `<script>` 的同源副本"。
+
+三条**真实缺口**也写进去了，不粉饰：
+
+1. 方向键切面板与 `Enter` 触发复制，浏览器侧没核过——逻辑侧有三层兜着：`panel.js:212` 的
+   `keyAction`（判据在 §D，不在 §E）、§I 的手写假 DOM、§J 的 `J11`，但那是"逻辑对"
+   不是"键盘真能走"。段 3 起用 `Input.dispatchKeyEvent` 真按一遍。
+2. `Runtime.exceptionThrown` 与 `console.error` 必须为 0 这一条，从设计期到现在**仓库里没有任何
+   一处监听它**：`grep -rln 'exceptionThrown\|consoleAPICalled' scripts/ dev/` 为空。
+   段 3 起要在浏览器核验脚本里挂 `Runtime.enable` + 这两个事件。
+3. `Esc` 这条**我第一版写反了**，写成"页面上没有 Esc 的实现、建议从 §8.3 撤下"。复核时在
+   `dev/js/editorial.js` 里数出**五处** `Escape` 处理（`grep -n "'Escape'" dev/js/editorial.js`
+   复算：`initTocDrawer` 389、`initPalette` 757 即 ⌘K 面板、`initReaderPrefs` 1549、
+   `initLinkPreview` 1726、`initQuoteCard` 2040），而 `#cmdk` 的 markup 由 `_includes/header.html`
+   给、本页产物里命中 1 次——**这一页确实带着能用 Esc 关掉的模态**。所以这条不是空想，
+   要分层看：工具层（`dev/js/tools/` 加两个入口）零 `Escape` 处理是**设计如此**，面板式工作区
+   没有该按 Esc 关掉的东西，不该为它新加交互；公共层那五处是全站每一页都带的现成交互，
+   证件页也带着，**风险在"新页会不会把它挡掉"**（`z-index` / `overflow` / 事件冒泡都能挡）。
+   段 3 起的判据形状因此是"打开 ⌘K → 按 Esc → 断 `#cmdk` 回到 `hidden`"这一条回归，
+   而不是给工具层造一个 Esc 交互。
+
+第四条算口径更正而不是缺口：§7 表里"输入硬上限 | 文本类工具 1MB"那一行，**证件页的落地形状是
+50 行、不是 1MB**（`workbench.js:66` 的 `MAX_READ_LINES = 50` 加五张模块各自的
+`GENERATE_MAX = 50`；整个 `dev/js/tools/` 里没有任何字节闸门）。§7 那一行与 §8.3 的表都已按这个
+事实改写，段 3 / 段 4 若要真按字节拒，得自己立闸门与判据，别以为这一行已经管着三页。
+
+顺带更正本计划 Task 9 记录里那句"收口（Task 11）时记得把 §5.1 与 §11 里跟体积有关的句子对到
+§7 的新口径上"的落点：通读 §11 之后确认那张风险表**没有**跟字节数有关的句子（第一行讲的是
+px→vw 黑名单）；§5.1 也没有体积句，那一格真正过期的是**能力**口径——手机号那行的"3–7 位前缀表"。
+
+- [x] **Step 5: 六道门禁台账（⑥ 单独跑在最后）**
+
+| 门禁 | 现场 | 说明 |
+| --- | --- | --- |
+| ① `--test scripts/toolkit-tests.mjs` | `exit=0`、`# tests 146 / pass 146 / fail 0` | 146 与上一格同数；Step 2 已证产物未变，这一跑是防"注释改动顺手动了逻辑" |
+| ② `verify-plan-blocks.mjs` | `exit=0`、33 条镜像全等、`未落地 0 节` | Step 1 那一发先红后绿，是这一格自带的牙 |
+| ③ `verify-plan-blocks-teeth.mjs` | `exit=0`、`18/18`，实验前后脏指纹逐项一致 | 收口后整链复跑 |
+| ④ `pnpm build:site` | **不重跑**，换成 Step 2 的三方 md5 + Step 3 的字节重算 | 重建会把对方 dirty 的 `_config.yml` 烤进 `_site`，反而让下一轮量到不对应任何 commit 的产物 |
+| ⑤ `check-tools-surface.mjs` | `exit=0`、5 组判据全绿、导航族核到 91 页 | 读 `_site`，未重建故与上一格同源 |
+| ⑥ `check-tools-surface-teeth.mjs` | `exit=0`、`19/19` | 就地改仓库源文件，单独跑在最后；三个变异源逐字节还原 |
+| ⑦ A/B 镜像构建 | 两次 `exit=0`、三件 md5 三方相同 | 见 Step 2 |
+
+Task 10 那一格留下的六道门禁链条，本格里 ①②③⑤⑥ 实跑、④ 用更强的证据替代（不是"省一次构建"，
+是"跑一次构建会污染测量现场"）。
+
+- [x] **Step 6: 提交**
+
+三条路径，pathspec 形式（`git add` 之后 `git diff --cached --stat` 必须恰为 3 files，防对方
+`deploy-github.sh` 里那句 `git add .` 落进来）：
+
+```bash
+git add dev/js/tools/view.js \
+  _docs/superpowers/plans/2026-09-26-tools-idcard-page.md \
+  _docs/superpowers/specs/2026-09-25-blog-online-tools-design.md
+git diff --cached --stat          # 期望：3 files changed
+git commit -m "docs(tools): 段 2 Task 11 对账收口——三处过期 60KB 改不带数、§5.1/§7/§8.3 口径回写" -- <同一批三条>
+```
+
+**段 2 到此收口。** 交回段 3（编码工具箱页）的三件事，都是这一格数出来的、不是凭印象：
+① 浏览器核验脚本要挂 `Runtime.enable` 与 `exceptionThrown` / `consoleAPICalled` 两个监听；
+② 视口档位沿用 Task 10 那份十档清单；
+③ 首屏那一格只剩 838 B 余量，段 3 复用同一套头家族**不会**再涨（那一族全站只此一份），
+但任何往公共件里加东西的想法都要先重量这一格。
 
 
