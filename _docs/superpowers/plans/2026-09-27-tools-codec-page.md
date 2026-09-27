@@ -1877,7 +1877,7 @@ export function splitQuery(text) {
 }
 ```
 
-#### `scripts/toolkit-tests.mjs` §L（整节，从 `// ── §L` 到文件末尾）
+#### `scripts/toolkit-tests.mjs` §L（整节，从 `// ── §L` 到 §M 之前）
 
 ```js
 // ── §L Base64（UTF-8）与 URL 编解码（tools/codec.js，段 3 Task 2）──────────────
@@ -2292,15 +2292,1006 @@ test('L18 导出面：13 个名字一个不多一个不少，面板绑定按这�
 
 ## Task 3: `digest.js` — MD5 自实现 + `crypto.subtle` 包装（§M）
 
-**Files:** Create `dev/js/tools/digest.js`；同上三处 Modify。
+**Files:**
+- Create: `dev/js/tools/digest.js`（磁盘 352 行）
+- Modify: `scripts/toolkit-tests.mjs`（末尾追加 `// ── §M …` 一节，18 条 `test()`，磁盘 6599–7004）
+- Modify: `scripts/verify-plan-blocks.mjs`（`FILE_TARGETS` 加一行 `'dev/js/tools/digest.js',`）
+- Modify: 本计划（契约回填 + 判据清单 + 两块落地镜像 + §L 小标题那句"到文件末尾"改口）
+- 不动：`scripts/verify-plan-blocks-teeth.mjs`（G12 在 Task 2 已改成"从基线现读段 3 名下全部镜像"，
+  本段落地的 `digest.js` 与 `§M` 两块**自动**进核范围，实测基线读到 6 条）
 
-要点：仓库里**没有**任何浏览器侧 MD5/SHA 实现（`crypto.subtle` 全仓零命中于 `dev/`，只有 node 端脚本用
-`crypto`），所以 MD5 自实现、SHA-1/256/384/512 走 `crypto.subtle`；`ArrayBuffer` 通道与字符串通道分开
-（文件走前者，不许 `String.fromCharCode` 拼二进制）；非安全上下文（本地 `file://`、http）要有
-**明确降级文案**而不是静默空白，判据仿 `editorial.js:483` 与 `workbench.js:358/821/971` 那套三级兜底；
-MD5 用 RFC 1321 官方测试向量全套（`""`/`a`/`abc`/`message digest`/…），SHA 侧在 node 里用
-`node:crypto` 现场对拍（测试环境有 subtle，浏览器实现走同一份 `TextEncoder`）；
-输入上限与 Task 2 的闸门对齐并写明是"字节"还是"字符"。
+### 对外契约（落地后回填，2026-09-28）
+
+起草版这一格只有六句要点，没有签名表。落地后是 **10 个导出**（M15 把这张表钉成判据），
+五处是实现期坐实的事实：
+
+1. **两道闸门两个数，都是字节**。文本通道 `MAX_TEXT_BYTES = 1048576`（1 MiB，与 `codec.js` 的
+   `MAX_INPUT_BYTES` 同值同口径，M9 拿两本模块的 `byteLen` 逐样本核"不分叉"）；字节通道
+   `MAX_BYTES = 5242880`（5 MiB，文件那一路单独一档）。起草版那句"写明是字节还是字符"的答案是
+   **两档都按字节**，但两道闸门不许互相借光（M10 反过来核了一条：文本越界不能因为
+   "字节通道更宽"就放行）。
+2. **五个算法同一条异步路径**，连自己实现的 MD5 也返回 Promise。因为 `subtle.digest` 本来就是
+   Promise，只让四档异步、一档同步的话面板要写两套读法。连带定死一条：**校验错误一律以 rejection
+   送出**（`digest`/`digestAll` 是 `async`，控制入参的 `TypeError` 天然变成 rejected promise），
+   判据侧一律 `assert.rejects`——它**不吃同步抛**，形状写错当场红（M7、M12 各钉一处）。
+3. 每格结果六键恒定 `{ok, algo, hex, bytes, via, reason}`，`via ∈ self | subtle | unavailable`。
+   起草版没有 `via` 这一位，而它正是"这格是没算、还是算不成"的区分位：闸门拦下时 `via` 照该走的
+   路回显（`viaOf`），面板才说得出"MD5 已经出结果了，SHA 四档是环境不支持"。
+4. **降级走 `{subtle}` 注入档**，三档同归"取不到"（`resolveSubtle`：显式 `null`／`globalThis.crypto`
+   里没有／给了对象但 `digest` 不可调）。这是测试环境里唯一能演那条路的方式——Node 22 的
+   `crypto.subtle` 一直在、删不掉；页面侧（`file://`、`http://192.168.x.x`）的实测**欠给 Task 8**，
+   M13 的注释里写着这一格欠了什么。
+5. 导出 `byteLen` / `isBytes` / `normalizeAlgo` 三个读侧函数（起草版只提了入口）。`normalizeAlgo`
+   必须导出：算法名归一这件事只有面板与判据共用同一个函数才谈得上"不跟着漂"。
+
+```text
+export const MAX_TEXT_BYTES = 1048576;   // 文本通道闸门（字节）＝ codec.js 的 MAX_INPUT_BYTES
+export const MAX_BYTES = 5242880;        // 字节通道闸门（字节）：超过才拒，正好在数上放行
+export const ALGORITHMS = Object.freeze(['md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512']);
+export const HEX_LEN = Object.freeze({ md5: 32, 'sha-1': 40, 'sha-256': 64, 'sha-384': 96, 'sha-512': 128 });
+export const DIGEST_CAVEAT = '…';        // 面板原样显示（80–240 字，与实现双向对账由 M17 守着）
+export function byteLen(text) → number                    // 与 codec.js 各带一份，M9 逐样本核同长
+export function isBytes(v) → boolean                      // ArrayBuffer 与任意 ArrayBufferView
+export function normalizeAlgo(v) → 'md5'|'sha-1'|…|null   // 认不出给 null，不猜
+export async function digest(algo, input, options?) → { ok, algo, hex, bytes, via, reason }
+export async function digestAll(input, options?) → { ok, reason, bytes, rows: [×5] }
+```
+
+实现侧三条硬规矩写在文件头，整套 §M 围着它们转：
+
+1. **MD5 自己实现，不借快捷方式**。实测 Node 22 的 `crypto.subtle` 根本不认 MD5
+   （`NotSupportedError: Unrecognized algorithm name`），`crypto-js` 在 §2.2 选型表里就是"不引"。
+   所以四个初值与 64 项 K 表全部硬编码，K 表**不许**用 `Math.sin` 现算——IEEE-754 的 `sin`
+   不保证跨引擎逐位一致，某台设备上算错一项就是"同一串两个摘要"。M16 既数 K 表满 64 项、
+   又点名 `Math.sin` 必须不在代码里。判据拿 `node:crypto` 的 `createHash` 当**外部对拍源**
+   （M1–M3、M18），不把自己的输出当标准。
+2. **两条通道两道闸门，文件那一路不进字符串**。字节档走 `toView`（`ArrayBuffer` 或视图，
+   **按视图自己的 `byteOffset`/`byteLength` 读**，M5 用一个"前头多两个 0 的尾段视图"演这件事）；
+   文本档走自实现的 UTF-8 编码器，先过 `loneSurrogateAt`。越界一律整体拒绝、`hex` 为空串，
+   理由里点名实测字节数。
+3. **算不成就说清是哪一格算不成**。`digest`/`digestAll` 永不 reject：`subtle` 同步抛、异步拒、
+   缺席，三种坏形状统统收进 `{ok:false, reason}`，底层报错文本带出来（面板才说得出为什么），
+   同一批里 MD5 那一格照样出结果（M13、M14）。
+
+### 判据清单（§M，落地后回填）
+
+**18 条 `test()`**（M1–M18），外加一份 **18 刀变异台账**（Step 3，`/tmp/seg3t3/mut.mjs`，
+跑完即弃、不进套件）。§M 对套件总数的贡献是 18，全量 `# tests` 从 184 变成 **202**。
+
+| 编号 | 咬什么 |
+| --- | --- |
+| M1 | MD5 对 RFC 1321 §A.5 的**七条**官方向量逐字符相等（清单自带 `length === 7`），每条同时反向自证"Node 的 MD5 也是这个值"——对拍源自己站不住时这里先红 |
+| M2 | MD5 与 `createHash('md5')` 逐样本对拍（18 条样本），`via` 必须是 `self`，同一份字节的文本档与字节档同结果；再拿 **0–255 全字节值域**跑一遍（单字节值域里藏得住索引与位移的错，两条样本抓不到） |
+| M3 | 分组与补位边界 20 档（`0/1/54/55/56/57/62/63/64/65/71/118/119/120/127/128/129/191/192/320`）全部与 Node 对拍：55→56 是"长度字段挤进下一个分组"的坎，63→64 是"整块不带补位"的坎，127→128→129 是两块变三块的坎 |
+| M4 | 五档输出形状：小写十六进制、长度按 `HEX_LEN` 表、`algo` 回显归一后的规范名、`reason` 为 `null`；SHA-1 与 SHA-256 各钉一条 RFC 3174 / FIPS 180 的 `'abc'` 官方向量，防止"对拍源跟着实现一起漂" |
+| M5 | 文本 / `Uint8Array` / `ArrayBuffer` 三形状同结果、字节数同口径；**带 `byteOffset` 的 `subarray` 视图**必须按自己的起点读，并配一条"整块 ≠ 尾段"的反向哨兵（偏移被吞时这条才响） |
+| M6 | 空输入是一等公民：五档空串都出**官方值**（硬写五条常量，`sha-512` 那条自己先断 128 位），不是拒绝；空 `Uint8Array` 与空字符串同档 |
+| M7 | 算法名归一：`sha256`/`SHA-256`/`' Sha_256 '`/`MD5` 等九个写法归一，且 `digest` 的归一与 `normalizeAlgo` 不许分叉；十种认不出的形状 `normalizeAlgo` 安静给 `null`，而 `digest` 必须 `TypeError`（`rejects`）并带「收到 <shape>」；`'sha-256x'` 单独钉"不许静默回落 md5" |
+| M8 | 入参两档与兄弟模块同档：`123`/`true`/`Symbol`/`NaN`/`[1,2]`/`Date` 归一不抛（逐条与 Node 对拍归一后的串），`null`/`undefined` 归一成空串走 M6 那一档；无原型对象在 `digest` 与 `digestAll` 两处同抛；`isBytes` 认 `Uint8Array`/`ArrayBuffer`/`Buffer`（Node 的 `Buffer` 是 `Uint8Array` 子类，浏览器侧同一条路）而不认字符串与数值 |
+| M9 | 文本闸门按**字节**：`=== 1048576`、与 `codec.js` 的 `MAX_INPUT_BYTES` 同值（§7 那句"文本类工具 1MB"只有一份口径）、`byteLen` 四值 + **与 `codec.js` 的 `byteLen` 逐样本核同长**；正好 1 MiB 放行、+1 整体拒绝且 `hex` 为空、理由点名实测字节并 `doesNotMatch(/第 \d+ 位/)`；`'中'.repeat(349526)`（1048578 字节）必须拒——按字符判的实现就在这条红 |
+| M10 | 字节闸门单独一档：`=== 5242880` 且 `> MAX_TEXT_BYTES`（否则"文件走 ArrayBuffer"没有意义）；正好放行、+1 拒绝且 `hex` 空、理由含"字节"；文本越界不许借字节档的光；MD5 也吃字节闸门（越界与否与算法无关） |
+| M11 | 落单代理项两档（md5 与 sha-256）都拒并给**字符位**（三种各一格的样本位 1/2/3）、`hex` 为空；成对代理项放行且 `bytes===4`、与 Node 同结果；**越界优先于代理项**（两道都中时先报闸门，否则给出"第 1048577 位"的假位置） |
+| M12 | `options` 档：`{subtlez}` 与字符串 options 与 `{subtle:1}` 三种都 `TypeError`（尾巴「收到 number」）；`undefined`/`null`/`{}` 三种默认档都走真 `subtle` 且与 Node 同结果；**注入的假 `subtle` 恰好被调一次**、第一个参数是 `'SHA-256'`（大写带横杠）、第二个参数是 `Uint8Array` 本体且字节与 `'abc'` 的 UTF-8 一致；MD5 档 `calls.length === 0`；`digest()` 返回值有 `.then`（五档同一条异步路径） |
+| M13 | 降级：`{subtle:null}` 时 SHA 档 `ok:false`、`via:'unavailable'`、理由含"安全上下文"**且点出 MD5 不受影响**、`bytes` 照报；MD5 同档照样出正确值；另外三档 SHA 各自也拒；`subtle.digest` **同步抛**与**异步拒**两种坏形状都不许送出模块（底层报错文本必须带出来）；`{subtle:{}}`（有对象没可调函数）同归"取不到" |
+| M14 | `digestAll`：`rows` 行序＝`ALGORITHMS`（漂一格面板错一行）、`rows[0]` 键集与 `digest` 逐键相同（面板只写一套读法）、`bytes` 只算一次五格同数、每格 hex 与 Node 对拍；闸门失败时**五格同一句理由**（`row.reason === all.reason`，代理项那一格也核）；只有 SHA 降级时顶层 `ok:false` 而 `reason:null`、MD5 那格 `ok:true`、不成的一共四格 |
+| M15 | 导出面 10 个名字按字典序逐一比对，清单自带 `length === 10`；`ALGORITHMS` 顺序与内容写死；`HEX_LEN` 键集与 `ALGORITHMS` 同集（少一档就有一行面板没尺子）；两张共享表 `Object.isFrozen` 为真（段 2 的共享表只读口径） |
+| M16 | 剥注释扫源 **23 条违禁**（清单自带条数断言）：`import`/`export from`/`require(`/`node:crypto`/`createHash`/DOM 四件/`fetch(`/`FileReader`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟三件/`Math.random`/`Intl`/`toLocale`/`unescape`/`eval`；**正向**断言 `0x67452301`、`0x10325476` 必须在、K 表区间正则读到的常数**恰好 64 项**、`Math.sin` 必须不在、取 `subtle` 走 `globalThis` 而 `window.crypto` 必须不在；零重叠两条 + 位置哨兵（`dev/js/digest.js` 不存在、`dev/js/tools/digest.js` 必须在，否则前一条是空转的）；`_site/assets/js` 若有产物则搜不到 `digestAll` |
+| M17 | 口径文案与实现**双向**对账（8 行，表自带条数）：`MD5 由本站自己实现`↔`via==='self'`、`走浏览器`↔`via==='subtle'`、`取不到时给明确提示`↔`via==='unavailable'`、`文本按 UTF-8 字节`↔`bytes===3`、两句 MiB↔两个闸门常量、`整体拒绝、不截断`↔越界那格 `hex===''`、`文件走字节、不进字符串`↔两通道同结果；长度 80–240 字；与 `BASE64_CAVEAT`/`URL_CAVEAT`/`TIME_CAVEAT` 三句都不许相同 |
+| M18 | 跨块大输入：1 MiB 的 `0xAA` 字节档（16384 个分组）与 Node 逐字符等；5 MiB 的 `sha-256`；`'中'.repeat(100000)` 的 `sha-512`（UTF-8 编码器在长多字节串上必须与 Node 同字节） |
+
+### Steps
+
+> 每一格都带**实跑结果**。起草版这格没有签名表、也没预期判据条数，所以本段的"期望 vs 实测"
+> 集中在两件事上：**异步形状**与**两道闸门**——两处都在写判据之前先坐实，没有事中改口。
+
+- [x] **Step 1: 写 §M 十八判据（此时 `digest.js` 不存在，必红）**
+
+```bash
+node --check scripts/toolkit-tests.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/seg3t3_red.log 2>&1; echo "exit=$?"
+grep -E "^# (tests|pass|fail)|^not ok|ERR_MODULE" /tmp/seg3t3_red.log
+```
+实跑：`exit=1`、`# tests 185 / pass 184 / fail 1`，红的是**一条文件级**
+`not ok 1 - scripts/toolkit-tests.mjs`，原因在尾部 `# Error:` 里：
+`ERR_MODULE_NOT_FOUND: Cannot find module '.../dev/js/tools/digest.js'`——与 Task 2 的 §L
+完全同形状（`await import` 在已登记完前序 184 条之后才崩，runner 报"测试结束后有资源产生了
+异步活动"），所以"fail 恰为 §M 条数"的期望同样不成立，判据看的是这个 + §A–§L 的 184 条一条不红。
+
+写这一格时踩到三处**判据自己**的错，全在跑绿之前改掉：
+
+| 现场 | 症状 | 修法 |
+| --- | --- | --- |
+| §M 解构 `byteLen` | `SyntaxError: Identifier 'byteLen' has already been declared`（§L 已从 `codec.js` 解构过同名） | 改名别名 `byteLen: dByteLen`，并**补一条跨模块核对**：M9 里 `dByteLen(s) === byteLen(s)` 逐样本跑 18 条（同级模块互不 import 的代价，两把尺子必须同长；只核硬编码值的话代理对算成 2 也不会红） |
+| M6 的 `sha-512` 空值 | 凭记忆硬写的向量位数不对 | node 现跑取回真值，拆两段拼接，并加 `assert.equal(empty['sha-512'].length, 128, '硬编码向量自己得先是 128 位')` 自证；原先"sha-512 特殊处理"的歪逻辑删掉 |
+| M8 引用了后声明的 `const` | 顶层 `await` 会让测试回调与声明交错执行，形状不稳 | 内联字面量、删 helper |
+| M13 的坏 `subtle` | 三元自嵌套难读且容易接错参数 | 换成 `badSubtle` 对象 + `Object.entries` 循环 |
+| M15 标题 | 写"9 个名字"而清单实为 10 项 | 标题改 10（条数由 `length === 10` 兜，标题只是不骗读的人） |
+
+- [x] **Step 2: 写 `dev/js/tools/digest.js`，直到 §M 全绿**
+
+写实现**之前**先坐实的三条环境事实（都是本模块的形状前提，不是收尾补的）：
+
+1. `crypto.subtle` **不认 MD5**：Node 22 实测 `NotSupportedError`。所以规矩 1 的"自己实现"不是
+   偏好，是唯一可行路径；M12 里 `md5` 档 `calls.length === 0` 把这件事钉住。
+2. Node 22 有 `globalThis.crypto.subtle`，SHA-1/256/384/512 与 `node:crypto` 同结果
+   → 默认档在测试环境里就是**真** WebCrypto，M12 的默认档三条因此不是自欺。
+3. `assert.rejects` **不吃同步抛** → 五个算法全部异步、校验错误全部以 rejection 送出。
+
+```bash
+node --check dev/js/tools/digest.js
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/seg3t3_run.log 2>&1; echo "exit=$?"
+grep -E "^# (tests|pass|fail)" /tmp/seg3t3_run.log
+```
+实跑：`exit=0`、`# tests 202 / pass 202 / fail 0`（**首跑即绿**，没有事中改判据期望值）。
+
+- [x] **Step 3: 自证 §M 有牙（18 刀变异台账）**
+
+```bash
+node --check /tmp/seg3t3/mut.mjs
+cd /tmp/seg3t3 && DRY=1 node mut.mjs          # 先预检：基线必须全绿、十八处锚点各命中 1 处
+node mut.mjs > /tmp/seg3t3/ledger.log 2>&1; echo "exit=$?"
+```
+形状照段 3 Task 2 的 `/tmp/seg3t2/mut.mjs`：**真复制**到 `/tmp/seg3t3/tree`（不用 `cp -al`），
+变异一律落在副本里，本仓工作树一个字都不碰；脚手架四道自检照抄（红名单正则含
+`[a-z]?` 尾巴、基线必须零红、每刀核 `# tests` 未变、结尾核副本与工作树逐字节与脏指纹）。
+
+台账自己也踩了两处**脚手架的错**（不是判据的错，但都会把"没牙"演成"有牙"，必须写下来）：
+
+1. **拷贝清单少一个文件** → 副本树里 §M 一条没跑，红的却是 `K18 零重叠`，
+   `ENOENT … /tree/vite.config.js`。这是**基线就不对**，脚手架自检正确地拒跑；清单补上
+   `vite.config.js` 之后基线才 202 全绿。（与段 3 Task 2"少 `demo/` 会红 B14"同一类，
+   清单要按**判据实际读什么**凑，不是按"看起来相关的目录"凑。）
+2. **D17 首版**写的是 `export const MD5 = md5;`，而模块里那本叫 `md5Digest`——引用未定义名让
+   **整个模块加载失败**，`# tests` 从 202 掉到 185，被脚手架的"这一刀不算证据"当场作废。
+   改成 `export const HEX_DIGITS_EXTRA = HEX_DIGITS;`（合法、只多一个导出）才咬到 M15。
+   这一条值得记住：**变异刀必须只改语义、不改可加载性**，否则量的又是"文件坏了"。
+
+台账结果（`/tmp/seg3t3/ledger.log`，基线 `# tests 202 / pass 202`）：
+
+| 刀 | 改坏什么 | 红了谁 | 归因 |
+| --- | --- | --- | --- |
+| D1 | K 表首项改一位（`0xd76aa478`→`…479`） | M1 M2 M3 M4 M6 M8 M11 M13 M14 M16 M18 | 目标 M1–M3 ✅；M16 同红是设计内联动（K 表区间正则的起点没了 → 读不到 64 项），M4/M6/M8/M11/M13/M14/M18 是"每一处断言都吃 MD5 输出"的必然 |
+| D2 | 移位表首轮 `7`→`8` | 同上少 M16 | 同上（S 表不在 M16 的条数核里） |
+| D3 | 分组读成**大端** | 同 D2 | 同上 |
+| D4 | 结果写成**大端**（只改 `a` 那一格） | 同 D2 | 同上 |
+| D5 | 补位的长度字段按**字节数**写、不乘 8 | M1 M2 M3 M4 M8 M11 M13 M14 M18（**不含 M6**） | 目标 M3 ✅；M6 空输入不红是**正确**的——`len===0` 时乘八与不乘八同值，这正是空向量单列一条的价值 |
+| D6 | 补位总长少算一个分组 | 14 条（M5 M7 M12 M17 也进） | 多出的四条是"md5 在多数长度上直接抛"的连带：M17 的三行、M5 的三形状都用 `md5`，M7 归一后照样要算 |
+| D7 | 文本闸门按**字符**判 | M5 M9 M11 M14 M17 | 目标 M9 ✅；另四条全部吃 `bytes` 口径（M17 那行正是"文本按 UTF-8 字节"） |
+| D8 | 字节闸门"超过"改成"到"（边界让一格） | M10 M18 | 目标 M10 ✅；M18 用正好 5 MiB 的输入，边界让一格它就红——这条是 M18 存在的理由 |
+| D9 | 越界改成**截断继续算** | M10 | 单红恰目标（M18 全用"正好在数上"，不沾越界） |
+| D10 | 落单代理项闸门摘掉 | M11 M14 | 目标 M11 ✅；M14 是 `digestAll('\uD83D')` 那格同句的理由断言 |
+| D11 | 认不出的算法名静默回落 md5 | M7 | 单红，"最坏的一种看着有结果"有独立牙齿 |
+| D12 | 未知 `options` 键静默当默认 | M12 | 单红 |
+| D13 | 取不到 subtle 时静默出空串（无理由） | M13 | 单红（`/安全上下文/` 那条断言） |
+| D14 | subtle 缺席时**连 MD5 一起停** | M13 M14 | 目标 M13 ✅；M14 的"降级批里 MD5 那格必须还成"同红 |
+| D15 | subtle 抛错不再收进结果（摘掉 `catch`） | M13 | 单红：`digest` 永不 reject 这条契约的牙齿在这一格 |
+| D16 | 视图吞掉 `byteOffset`（整块从头读） | M5 | 单红，含那条"整块 ≠ 尾段"的反向哨兵 |
+| D17 | 导出面偷偷多长一个名字 | M15 | 单红 |
+| D18 | 十六进制出**大写** | M1 M2 M3 M4 M6 M8 M11 M12 M13 M14 M18 | 目标 M4 ✅（`hex === hex.toLowerCase()`），余下是与 D1 同构的"处处吃 MD5/SHA 输出" |
+
+**18/18 有牙、0 刀全绿、0 刀被脚手架自检作废**（改完 D17 后重跑整轮，前 16 刀的红名单与首跑
+逐字相同）；9 刀单红恰命中目标，另外 9 刀的多红逐条可归因（M16 的 K 表条数、M17 的八行对账、
+M14 的五格同句是同一不变量的另一处断言，D5/D8/D9 三条**故意**各有免疫样本，免疫本身就是证据），
+**没有一刀红到不相干的用例上**。跑完：还原后 `# tests 202 / pass 202 / 红 无`、
+`副本与工作树逐字节一致=true`、脏项 `15 → 15`、`清单变化=false`、`内容变过 0 个`
+——工作树没被这些实验碰过。
+
+- [x] **Step 4: 登记镜像**
+
+两件事一起做，少任何一件门禁二都会以"看不懂的形状"红（机制见 §0.6）：`FILE_TARGETS` 加
+`'dev/js/tools/digest.js',`、计划本格末尾贴两块 ```js 全文镜像（`digest.js` 整文件 + `§M` 整节）。
+`§M` 一落地，**顺带把 §L 的镜像区间从"到文件末尾"改成"到 §M 之前"**（Task 2 对 §K 做过同一件事）。
+
+```bash
+node scripts/verify-plan-blocks.mjs > /tmp/seg3t3_g2.log 2>&1; echo "exit=$?"; tail -4 /tmp/seg3t3_g2.log
+node scripts/verify-plan-blocks.mjs --fix
+node scripts/verify-plan-blocks-teeth.mjs
+```
+贴种子块时先只写磁盘内容的前若干行，由 `--fix` 整块换成磁盘全文（定位靠"最长公共前缀唯一"
+与"按节名兜底"两条，Task 2 现场验过）；换完再跑一次确认 `exit=0`。
+
+实跑：`--fix` 两块都落笔（`digest.js` 那格种子 8 行 ← 磁盘 352 行；`§M` 那格种子 7 行 ← 磁盘 406 行），
+计划 **2608 → 3351 行**；同一轮退出码仍是 1（fix 那轮按定义"改了就该红"，让人复跑确认）。
+修后复跑 `exit=0`、两条各报自己的区间（`digest.js` ↔ 计划 352 行、
+`scripts/toolkit-tests.mjs §M（磁盘 6599–7004）` ↔ 计划 406 行，逐字节全等；
+**计划侧那对行号不抄**——本节每改一行它就往后挪，抄进台账等于埋一条对不上的数）；
+镜像 **37 → 39**、合计 642373B → **679100B**、`计划 js 块 36 个（段1 11、段2 19、段3 6）`、
+`未落地 0 节`。
+
+门禁一复跑 `# tests 202 / pass 202 / fail 0`。门禁三**首跑 20/21**，唯一那条 ✗ 是收口自证的
+脏指纹：`新增脏：dev/libJs/cursor-effects.js`——实验进行中另一路会话改了那个文件（mtime 01:25，
+本轮四个路径无一涉及）。这一条正是它该抓的东西：**守卫把第三方改动如实报成红，而不是把
+"实验前后不一样"糊过去**；原地复跑（其余会话此刻没动盘）`21/21`、
+`脏项 18 个前后一致，diff 指纹 d09582e118570c07（含另一路会话的那批，一律未被触碰）`。
+G12 那三条这次读到 **6 条**镜像（`time.js` / `codec.js` / `digest.js` / `§K` / `§L` / `§M`），
+Task 3 落地确实一行没动它——这正是 Task 2 把 G12 改成"从基线现读"要买的东西。
+
+- [x] **Step 5: 提交**
+
+```bash
+git add dev/js/tools/digest.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
+  _docs/superpowers/plans/2026-09-27-tools-codec-page.md
+git diff --cached --stat      # 期望恰 4 files
+git commit -m "feat(tools): 段 3 Task 3 摘要模块 digest.js——MD5 自实现、SHA 走 subtle、降级必给理由（§M 十八判据 + 十八刀变异台账）" -- \
+  dev/js/tools/digest.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
+  _docs/superpowers/plans/2026-09-27-tools-codec-page.md
+```
+
+---
+
+### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
+
+两块都是**磁盘全文**，用 ```js 围栏（§0.6 的硬规矩：只有整文件与整节镜像允许 ```js，
+契约段一律 ```text）。
+
+#### `dev/js/tools/digest.js`（整文件）
+
+```js
+/**
+ * 摘要与校验码：MD5 与 SHA-1/256/384/512，编码工具箱页 `#digest` 那一格的纯逻辑。
+ *
+ * 这一格有三条不许让步的规矩，整套判据（§M）都是围着它们写的：
+ *
+ * 1. **MD5 自己实现，不借快捷方式**。`crypto.subtle` 根本不认 MD5（实测 Node 22 的 subtle 抛
+ *    `NotSupportedError: Unrecognized algorithm name`），而 `crypto-js` 在 §2.2 的选型表里就是"不引"。
+ *    所以 A/B/C/D 四个初值与 64 项 K 表全部写成硬编码常数——K 表**不能**用 `Math.sin` 现算，
+ *    IEEE-754 的 `sin` 不保证跨引擎逐位一致，某台设备上算错一项就是"同一串两个摘要"。
+ *    判据拿 Node 的 `createHash('md5')` 当外部对拍源（M1–M3、M18），不把自己的输出当标准。
+ * 2. **两条通道两道闸门**。文本走 UTF-8 字节、闸门 1 MiB（与 `codec.js` 的 `MAX_INPUT_BYTES` 同一个
+ *    数、同一把尺子，M9 逐样本核两处不分叉）；文件那一路走 `ArrayBuffer`/TypedArray、闸门 5 MiB，
+ *    **不进字符串**——`String.fromCharCode` 拼二进制会把字节劈成两个 code unit，摘要就成假的了（M5）。
+ *    越界一律整体拒绝且 `hex` 是空串，理由里点名实测字节数（半截摘要比报错更坏）。
+ * 3. **算不成就说清是哪一格算不成**。`crypto.subtle` 只在安全上下文有（线上是 GitHub Pages HTTPS、
+ *    本地 `http://localhost` 也算，`http://192.168.x.x` 就没有）。取不到时 SHA 四档各自
+ *    `ok:false` 并写明"需要安全上下文"，同一批里的 MD5 那一格**照样出结果**（M13）；
+ *    `digest` / `digestAll` 永不 reject——subtle 同步抛或异步拒，都收进 `{ok:false, reason}` 里，
+ *    面板只有一条 await 路径要写。
+ *
+ * 与 `idcard.js` / `codec.js` / `time.js` 同一套约定：纯函数、不碰 DOM、同级工具模块互不 import
+ * （`shapeOf` / `toText` / UTF-8 编码器因此又各多一份拷贝，代价由 M9 逐样本核一次），并且
+ * **两档入参两种处理**：
+ *   - **数据入参**（要摘要的那一串）：文本档照 `String(v === null || v === undefined ? '' : v)`
+ *     归一不抛，字节档（`ArrayBuffer` 与任意 `ArrayBufferView`）原样直通；唯一例外还是无原型对象
+ *     （`String()` 自己抛 `TypeError`，本站不替它兜，M8 逐入口钉）。
+ *   - **控制入参**（算法名与 `options`）是闸门：算法名认不出必须响——静默回落到 MD5 等于把用户
+ *     选的 SHA-256 显示成了别的算法的产物；`options` 只认 `subtle` 一键，键名拼错也要响。
+ *
+ * 异步口径是本模块与 §L 唯一的形状差：`subtle.digest` 本来就是 Promise，所以五个算法**全部**走
+ * 同一条异步路径（连自己实现的 MD5 也是），校验错误一律以 rejection 送出而不是同步抛
+ * （判据里用 `assert.rejects`——它不吃同步抛，写错形状会直接红，M7、M12 各钉一处）。
+ *
+ * 可复算口径：M6 那五条空输入官方值、M4 的 `'abc'` 向量、M1 的 RFC 1321 七条，都能用
+ * `node -e "require('crypto').createHash('md5').update('').digest('hex')"` 一行复算；
+ * K 表的第一项 `0xd76aa478` 与最后一项 `0xeb86d391` 由 M16 点名数满 64 项。
+ */
+
+/** 文本通道闸门（字节）：与 `codec.js` 的 `MAX_INPUT_BYTES` 同值同口径，§7 那句"文本类工具 1MB" */
+export const MAX_TEXT_BYTES = 1048576;
+/** 字节通道闸门（字节）：文件那一路单独一档，5 MiB = 5242880 字节；`超过`才拒，正好在数上放行 */
+export const MAX_BYTES = 5242880;
+
+/** 面板的五行按这个顺序排，`HEX_LEN` 的键集与它必须同集（M15 两处都核） */
+export const ALGORITHMS = Object.freeze(['md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512']);
+/** 各档输出的十六进制长度：面板拿它判"这格是不是被截了"，判据拿它逐档核（M4） */
+export const HEX_LEN = Object.freeze({ md5: 32, 'sha-1': 40, 'sha-256': 64, 'sha-384': 96, 'sha-512': 128 });
+
+/** 一行的口径说明，面板原样显示（与 `TIME_CAVEAT`、`BASE64_CAVEAT` 同一角色，逐条对账由 M17 守着） */
+export const DIGEST_CAVEAT =
+  'MD5 由本站自己实现，SHA-1、SHA-256、SHA-384、SHA-512 走浏览器自带的 WebCrypto；'
+  + '取不到时给明确提示、不静默出空值。文本按 UTF-8 字节计，文件走字节、不进字符串；'
+  + '文本超 1 MiB（1048576 字节）、字节超 5 MiB（5242880 字节）整体拒绝、不截断。';
+
+/** WebCrypto 认的是大写带横杠那一名，本站的规范名用它（判据里硬写期望名，不跟着这张表漂） */
+const SUBTLE_NAME = { 'sha-1': 'SHA-1', 'sha-256': 'SHA-256', 'sha-384': 'SHA-384', 'sha-512': 'SHA-512' };
+/** 算法名归一的查找表：键是"去掉分隔符的小写串" */
+const BY_COMPACT = { md5: 'md5', sha1: 'sha-1', sha256: 'sha-256', sha384: 'sha-384', sha512: 'sha-512' };
+const HEX_DIGITS = '0123456789abcdef';
+
+/** 取不到 subtle 那一句：点名"只有 SHA 档受影响"，否则用户以为整格坏了（M13） */
+const NO_SUBTLE = '当前环境取不到 crypto.subtle，SHA-* 做不了（需要 HTTPS 或 localhost 这类安全上下文）；'
+  + 'MD5 由本站自己实现，不受这一档影响。';
+
+/** 越界那一句要复用，理由里点名实测字节与两道闸门各自的上限（M9、M10） */
+const overLimit = (n, limit, label) =>
+  `输入 ${n} 字节，超过${label}上限 ${limit} 字节，整体拒绝、不截断`;
+
+/** 与 `codec.js`、`time.js`、`uscc.js` 同一份口径的第四版：报错尾巴统一是「收到 <shapeOf(值)>」 */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `Array(${v.length})`;
+  if (typeof v === 'object') return v instanceof Date ? 'Date' : 'object';
+  return typeof v;
+}
+
+const toText = (v) => String(v === null || v === undefined ? '' : v);
+
+/** 代理区上下界与 `codec.js` 同一档：落单代理项不是合法字符，UTF-8 里也没有它的编码 */
+const SUR_HIGH_LO = 0xD800;
+const SUR_HIGH_HI = 0xDBFF;
+const SUR_LOW_LO = 0xDC00;
+const SUR_LOW_HI = 0xDFFF;
+
+/** 找落单代理项，返回 1-based 字符位；干净就返回 0（M11 全靠它给位置） */
+function loneSurrogateAt(text) {
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code >= SUR_HIGH_LO && code <= SUR_HIGH_HI) {
+      const next = i + 1 < text.length ? text.charCodeAt(i + 1) : 0;
+      if (next < SUR_LOW_LO || next > SUR_LOW_HI) return i + 1;
+      i += 1;
+    } else if (code >= SUR_LOW_LO && code <= SUR_LOW_HI) {
+      return i + 1;
+    }
+  }
+  return 0;
+}
+
+/** UTF-8 字节数：文本闸门的尺子。落单代理项按 3 字节计——它反正会在下一档被拒 */
+function utf8Len(text) {
+  let n = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) n += 1;
+    else if (code < 0x800) n += 2;
+    else if (code >= SUR_HIGH_LO && code <= SUR_HIGH_HI) {
+      const next = i + 1 < text.length ? text.charCodeAt(i + 1) : 0;
+      if (next >= SUR_LOW_LO && next <= SUR_LOW_HI) { n += 4; i += 1; } else n += 3;
+    } else n += 3;
+  }
+  return n;
+}
+
+/** 文本 → UTF-8 字节（先过 `loneSurrogateAt`，否则半代理项会被当三字节写出去） */
+function utf8Write(text) {
+  const out = new Uint8Array(utf8Len(text));
+  let p = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) out[p++] = code;
+    else if (code < 0x800) {
+      out[p++] = 0xC0 | (code >> 6); out[p++] = 0x80 | (code & 0x3F);
+    } else if (code >= SUR_HIGH_LO && code <= SUR_HIGH_HI) {
+      const cp = 0x10000 + ((code - SUR_HIGH_LO) << 10) + (text.charCodeAt(i + 1) - SUR_LOW_LO);
+      out[p++] = 0xF0 | (cp >> 18); out[p++] = 0x80 | ((cp >> 12) & 0x3F);
+      out[p++] = 0x80 | ((cp >> 6) & 0x3F); out[p++] = 0x80 | (cp & 0x3F);
+      i += 1;
+    } else {
+      out[p++] = 0xE0 | (code >> 12); out[p++] = 0x80 | ((code >> 6) & 0x3F);
+      out[p++] = 0x80 | (code & 0x3F);
+    }
+  }
+  return out;
+}
+
+/** 字节 → 小写十六进制。刻意不 import `codec.js` 的 Base64 那套：本站只承诺十六进制 */
+function hexOf(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 1) s += HEX_DIGITS[bytes[i] >> 4] + HEX_DIGITS[bytes[i] & 15];
+  return s;
+}
+
+/** 是"字节"吗：`ArrayBuffer` 与任意 `ArrayBufferView`（TypedArray、DataView）都算，其余走文本档 */
+export function isBytes(v) {
+  return v instanceof ArrayBuffer || ArrayBuffer.isView(v);
+}
+
+/** 文本档的 UTF-8 字节数，面板上的"输入多少字节"与文本闸门共用这一把尺子 */
+export function byteLen(text) { return utf8Len(toText(text)); }
+
+/** 字节形状统一成 `Uint8Array` 视图：带 `byteOffset` 的视图按自己的起点读，不从整块头部偷看（M5） */
+function toView(v) {
+  if (v instanceof ArrayBuffer) return new Uint8Array(v);
+  return new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+}
+
+/**
+ * 算法名归一到规范名，认不出给 `null`（面板做即时校验用这一档，不抛）。
+ * 大小写、横杠、下划线、空格都不算两种算法：`SHA256` / `sha-256` / `' Sha_256 '` 同一档。
+ */
+export function normalizeAlgo(v) {
+  if (typeof v !== 'string') return null;
+  return BY_COMPACT[v.trim().toLowerCase().replace(/[-_\s]/g, '')] || null;
+}
+
+/* ── MD5（RFC 1321）：四个初值 + 64 项 K + 64 项移位，全部硬编码常数 ────────── */
+
+const MD5_INIT = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+/** K[i] = floor(2^32 × |sin(i+1)|)。这里写死常数，不在运行时算（文件头规矩 1） */
+const MD5_K = [
+  0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
+  0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+  0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
+  0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+  0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa,
+  0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+  0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
+  0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+  0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
+  0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+  0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05,
+  0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+  0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
+  0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+  0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
+  0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
+];
+/** 四组各 16 轮，每轮的左移位数 */
+const MD5_S = [
+  7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+  5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+  4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+  6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+];
+
+/** 补位：`0x80` + 若干 `0x00` + 64 位小端长度，凑到 64 的整数倍（M3 逐边界对拍的那一档） */
+function md5Pad(bytes) {
+  const len = bytes.length;
+  const total = (Math.floor((len + 8) / 64) + 1) * 64;
+  const padded = new Uint8Array(total);
+  padded.set(bytes);
+  padded[len] = 0x80;
+  const view = new DataView(padded.buffer);
+  const bits = len * 8;
+  view.setUint32(total - 8, bits >>> 0, true);
+  view.setUint32(total - 4, Math.floor(bits / 4294967296), true);
+  return padded;
+}
+
+/** 字节 → MD5 的 16 字节（小端写回，与 RFC 1321 的参考实现同一档字节序） */
+function md5Digest(bytes) {
+  const padded = md5Pad(bytes);
+  const dv = new DataView(padded.buffer);
+  let a = MD5_INIT[0]; let b = MD5_INIT[1]; let c = MD5_INIT[2]; let d = MD5_INIT[3];
+  const words = new Uint32Array(16);
+  for (let off = 0; off < padded.length; off += 64) {
+    for (let i = 0; i < 16; i += 1) words[i] = dv.getUint32(off + i * 4, true);
+    const aa = a; const bb = b; const cc = c; const dd = d;
+    for (let i = 0; i < 64; i += 1) {
+      let f; let g;
+      if (i < 16) { f = (b & c) | (~b & d); g = i; }
+      else if (i < 32) { f = (d & b) | (~d & c); g = (5 * i + 1) & 15; }
+      else if (i < 48) { f = b ^ c ^ d; g = (3 * i + 5) & 15; }
+      else { f = c ^ (b | ~d); g = (7 * i) & 15; }
+      const sum = (a + (f >>> 0) + words[g] + MD5_K[i]) >>> 0;
+      const s = MD5_S[i];
+      const rot = ((sum << s) | (sum >>> (32 - s))) >>> 0;
+      a = d; d = c; c = b;
+      b = (b + rot) >>> 0;
+    }
+    a = (a + aa) >>> 0; b = (b + bb) >>> 0; c = (c + cc) >>> 0; d = (d + dd) >>> 0;
+  }
+  const out = new Uint8Array(16);
+  const ov = new DataView(out.buffer);
+  ov.setUint32(0, a, true); ov.setUint32(4, b, true);
+  ov.setUint32(8, c, true); ov.setUint32(12, d, true);
+  return out;
+}
+
+/* ── subtle 的取用与降级 ───────────────────────────────────────────────── */
+
+/**
+ * `{subtle}` 三档：缺席（`undefined`）读 `globalThis.crypto`；`null` 是调用方**显式声明**
+ * "这就是取不到"，用来在非安全上下文里跑同一条降级路径（也是 §M 演那条路的唯一办法——
+ * 测试环境的 `crypto.subtle` 一直在，删不掉）；给了对象但没有可调的 `digest`，同档按"取不到"算。
+ */
+function resolveSubtle(injected) {
+  if (injected === null) return null;
+  if (injected !== undefined) return typeof injected.digest === 'function' ? injected : null;
+  const subtle = globalThis.crypto ? globalThis.crypto.subtle : undefined;
+  return subtle && typeof subtle.digest === 'function' ? subtle : null;
+}
+
+/** `options` 闸门：只认 `subtle` 一键，键名拼错必须响——静默当默认等于用户的注入白开了 */
+function gateOptions(who, options) {
+  if (options === undefined || options === null) return undefined;
+  if (typeof options !== 'object' || Array.isArray(options)) {
+    throw new TypeError(`${who} 的 options 应为对象，收到 ${shapeOf(options)}`);
+  }
+  for (const key of Object.keys(options)) {
+    if (key !== 'subtle') throw new TypeError(`${who} 有未知 options 键「${key}」，只认 subtle`);
+  }
+  const s = options.subtle;
+  if (s === undefined || s === null) return s;
+  if (typeof s !== 'object') {
+    throw new TypeError(`${who} 的 options.subtle 应为对象或 null，收到 ${shapeOf(s)}`);
+  }
+  return s;
+}
+
+/**
+ * 数据闸门：字节档看 `MAX_BYTES`，文本档看 `MAX_TEXT_BYTES`，顺序固定是
+ * "字节数越界 → 落单代理项 → 才编码"，越界优先于代理项（M11 末段），
+ * 否则会给出一句"第 1048577 位"的假位置。
+ */
+function prepare(input) {
+  if (isBytes(input)) {
+    const view = toView(input);
+    const n = view.byteLength;
+    if (n > MAX_BYTES) return { ok: false, bytes: n, reason: overLimit(n, MAX_BYTES, '字节通道') };
+    return { ok: true, bytes: n, view };
+  }
+  const s = toText(input);
+  const n = utf8Len(s);
+  if (n > MAX_TEXT_BYTES) {
+    return { ok: false, bytes: n, reason: overLimit(n, MAX_TEXT_BYTES, '文本通道（1 MiB）') };
+  }
+  const lone = loneSurrogateAt(s);
+  if (lone > 0) {
+    return { ok: false, bytes: n, reason: `第 ${lone} 位是落单代理项（半个 emoji），UTF-8 里不存在` };
+  }
+  return { ok: true, bytes: n, view: utf8Write(s) };
+}
+
+/** 这一档本来会走哪条路：闸门拦下时也照此回显，面板才分得开"没算"与"算不成" */
+const viaOf = (name, subtle) => (name === 'md5' ? 'self' : (subtle ? 'subtle' : 'unavailable'));
+
+function one(name, prepared, subtle) {
+  if (name === 'md5') {
+    return Promise.resolve({ ok: true, algo: name, hex: hexOf(md5Digest(prepared.view)),
+      bytes: prepared.bytes, via: 'self', reason: null });
+  }
+  if (!subtle) {
+    return Promise.resolve({ ok: false, algo: name, hex: '', bytes: prepared.bytes,
+      via: 'unavailable', reason: NO_SUBTLE });
+  }
+  return Promise.resolve()
+    .then(() => subtle.digest(SUBTLE_NAME[name], prepared.view))
+    .then((buf) => ({ ok: true, algo: name, hex: hexOf(new Uint8Array(buf)),
+      bytes: prepared.bytes, via: 'subtle', reason: null }))
+    .catch((err) => ({ ok: false, algo: name, hex: '', bytes: prepared.bytes, via: 'subtle',
+      reason: `摘要失败：${(err && err.name) || 'Error'} ${(err && err.message) || ''}`.trim() }));
+}
+
+/**
+ * 单档入口。`{ok, algo, hex, bytes, via, reason}` 六键恒定，成不成都不 reject。
+ * 只有控制入参（算法名、`options`、无原型对象那一种）才抛。
+ */
+export async function digest(algo, input, options) {
+  const name = normalizeAlgo(algo);
+  if (name === null) {
+    throw new TypeError(`digest 的算法名不在支持列表里，收到 ${shapeOf(algo)}`);
+  }
+  const subtle = resolveSubtle(gateOptions('digest', options));
+  const prepared = prepare(input);
+  if (!prepared.ok) {
+    return { ok: false, algo: name, hex: '', bytes: prepared.bytes,
+      via: viaOf(name, subtle), reason: prepared.reason };
+  }
+  return one(name, prepared, subtle);
+}
+
+/**
+ * 五档并列（面板的那张表）。字节数只算一次、五格报同一个数；数据闸门失败时五格同一句理由，
+ * 而个别档自己失败（只有 SHA 档取不到 subtle）不牵连邻居——`#digest` 的降级提示就靠这一档。
+ */
+export async function digestAll(input, options) {
+  const subtle = resolveSubtle(gateOptions('digestAll', options));
+  const prepared = prepare(input);
+  const rows = [];
+  for (const name of ALGORITHMS) {
+    if (!prepared.ok) {
+      rows.push({ ok: false, algo: name, hex: '', bytes: prepared.bytes,
+        via: viaOf(name, subtle), reason: prepared.reason });
+    } else {
+      rows.push(await one(name, prepared, subtle));
+    }
+  }
+  return { ok: rows.every((r) => r.ok), reason: prepared.ok ? null : prepared.reason,
+    bytes: prepared.bytes, rows };
+}
+```
+
+#### `scripts/toolkit-tests.mjs` §M（整节，从 `// ── §M` 到文件末尾）
+
+```js
+// ── §M 摘要算法（tools/digest.js，段 3 Task 3）───────────────────────────────
+// 两条外部判据源，都不拿自己的输出当标准：MD5 拿 Node 的 `createHash('md5')` 对拍，
+// SHA-* 同时拿 `node:crypto` 与 Node 22 的 `globalThis.crypto.subtle` 对拍（后者就是浏览器里
+// 那套 WebCrypto 的同一份实现，所以"SHA 走 subtle"这条在测试环境里也量得到）。
+// 真浏览器里 `crypto.subtle` 缺席的那条路（非安全上下文）在这里只能靠 `{subtle}` 注入档演，
+// 页面侧的实测留给 Task 8——这一格欠了什么，M13 的注释里写着。
+const { MAX_TEXT_BYTES, MAX_BYTES, ALGORITHMS, HEX_LEN, DIGEST_CAVEAT,
+  byteLen: dByteLen, isBytes, normalizeAlgo, digest, digestAll } = await import('../dev/js/tools/digest.js');
+
+/** 剥注释扫源码：块注释与行注释里的字样都不算命中（与 §K 的 kCode、§L 的 lCode 同一形状） */
+const dCode = () => read('dev/js/tools/digest.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 判据侧的 UTF-8 编码器：测试环境有 TextEncoder，模块里没有（M16 正是核这件事） */
+const bytesOf = (s) => new TextEncoder().encode(s);
+/** 外部判据源：算法名 → Node 的 hash 名。这张表**故意与模块无关**，模块里那份漂了这里要红 */
+const NODE_NAME = { md5: 'md5', 'sha-1': 'sha1', 'sha-256': 'sha256', 'sha-384': 'sha384', 'sha-512': 'sha512' };
+const refHex = (algo, bytes) => createHash(NODE_NAME[algo]).update(bytes).digest('hex');
+/** 对拍样本：空串、尾块四个余数、UTF-8 多字节、代理对、控制字符、BMP 边界 */
+const M_SAMPLES = ['', 'a', 'ab', 'abc', 'abcd', 'hello world', '\u4e2d\u6587', '\u4e2d',
+  '\uD83D\uDE00', '\u0000\u007F\u00FF\u0100', '\u0800', '\uFFFF', '\u{10000}',
+  'a=b&c', '  ', '\n\t', 'message digest', '0123456789'];
+/** 假 subtle：记调用参数，返回一段确定字节，好把"到底调没调、用什么名字调的"量出来 */
+const fakeSubtle = (name = 'SHA-256', fill = [0, 1, 2, 3]) => {
+  const calls = [];
+  return { calls, subtle: { digest: (algo, data) => {
+    calls.push([algo, data]);
+    return Promise.resolve(new Uint8Array(fill).buffer);
+  } } };
+};
+test('M1 MD5 对 RFC 1321 A.5 的七条官方向量逐字符相等', async () => {
+  const rfc = [
+    ['', 'd41d8cd98f00b204e9800998ecf8427e'],
+    ['a', '0cc175b9c0f1b6a831c399e269772661'],
+    ['abc', '900150983cd24fb0d6963f7d28e17f72'],
+    ['message digest', 'f96b697d7cb7938d525a2f31aaf161d0'],
+    ['abcdefghijklmnopqrstuvwxyz', 'c3fcd3d76192e4007dfb496cca67e13b'],
+    ['ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', 'd174ab98d277d9f5a5611c2c9f419d9f'],
+    ['12345678901234567890123456789012345678901234567890123456789012345678901234567890',
+      '57edf4a22be3c955ac49da2e2107b67a'],
+  ];
+  assert.equal(rfc.length, 7, '官方向量就七条，少一条等于某一档分支从此不核');
+  for (const [s, want] of rfc) {
+    const r = await digest('md5', s);
+    assert.equal(r.ok, true, JSON.stringify(s.slice(0, 12)));
+    assert.equal(r.hex, want, `RFC 1321 向量不等：${JSON.stringify(s.slice(0, 12))}`);
+    assert.equal(r.bytes, Buffer.byteLength(s, 'utf8'), JSON.stringify(s.slice(0, 12)));
+    assert.equal(refHex('md5', bytesOf(s)), want, '判据源自己得站得住：Node 的 MD5 也必须是这个值');
+  }
+});
+test('M2 MD5 与 Node 的 createHash 逐样本对拍，字节档与文本档同源', async () => {
+  for (const s of M_SAMPLES) {
+    const r = await digest('md5', s);
+    assert.equal(r.ok, true, JSON.stringify(s));
+    assert.equal(r.hex, refHex('md5', bytesOf(s)), JSON.stringify(s));
+    assert.equal(r.via, 'self', 'MD5 由本站自己实现，走 subtle 就是假结果');
+    const b = await digest('md5', bytesOf(s));
+    assert.equal(b.hex, r.hex, '同一份字节的文本档与字节档必须同结果');
+  }
+  // 256 个字节值全跑一遍：单字节值域里藏得住索引与位移的错，两条样本抓不到
+  const all = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) all[i] = i;
+  assert.equal((await digest('md5', all)).hex, refHex('md5', all));
+});
+test('M3 分组与补位边界：55/56/63/64/65/119/120/127/128/129 全部与 Node 对拍', async () => {
+  // 55→56 是"长度字段挤进下一个分组"的那道坎，63→64 是"整块不带补位"的坎，
+  // 127→128→129 是两块变三块的坎。MD5 的错九成九长在这几个位置。
+  const lens = [0, 1, 54, 55, 56, 57, 62, 63, 64, 65, 71, 118, 119, 120, 127, 128, 129, 191, 192, 320];
+  for (const n of lens) {
+    const bytes = new Uint8Array(n);
+    for (let i = 0; i < n; i++) bytes[i] = (i * 31 + n) & 0xFF;
+    const r = await digest('md5', bytes);
+    assert.equal(r.ok, true, `n=${n}`);
+    assert.equal(r.bytes, n, `n=${n} 的字节数报错了`);
+    assert.equal(r.hex, refHex('md5', bytes), `分组边界 n=${n} 与 Node 不等`);
+  }
+});
+test('M4 五档输出形状：小写十六进制、长度按 HEX_LEN 表，SHA 四档与 Node 同结果', async () => {
+  for (const algo of ALGORITHMS) {
+    const r = await digest(algo, 'abc');
+    assert.equal(r.ok, true, algo);
+    assert.equal(r.algo, algo, '回显必须是归一之后的规范名');
+    assert.equal(r.hex.length, HEX_LEN[algo], `${algo} 的 hex 长度`);
+    assert.equal(r.hex, r.hex.toLowerCase(), `${algo} 出大写就等于面板两行看着不一样`);
+    assert.match(r.hex, /^[0-9a-f]+$/, `${algo} 的输出必须是十六进制`);
+    assert.equal(r.hex, refHex(algo, bytesOf('abc')), `${algo} 与 Node 不等`);
+    assert.equal(r.reason, null, algo);
+  }
+  assert.equal(HEX_LEN.md5, 32); assert.equal(HEX_LEN['sha-1'], 40);
+  assert.equal(HEX_LEN['sha-256'], 64); assert.equal(HEX_LEN['sha-384'], 96); assert.equal(HEX_LEN['sha-512'], 128);
+  // RFC 3174 / FIPS 180 的 'abc' 官方向量各钉一条，防止"对拍源跟着实现一起漂"
+  assert.equal((await digest('sha-1', 'abc')).hex, 'a9993e364706816aba3e25717850c26c9cd0d89d');
+  assert.equal((await digest('sha-256', 'abc')).hex,
+    'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
+test('M5 文本通道与字节通道同结果：文件那半截不进字符串也照样量得到', async () => {
+  const s = '中文😀\n带换行的 data URI 场景';
+  const bytes = bytesOf(s);
+  for (const algo of ALGORITHMS) {
+    const asText = await digest(algo, s);
+    const asView = await digest(algo, bytes);
+    const asBuffer = await digest(algo, bytes.buffer);
+    assert.equal(asText.hex, asView.hex, `${algo}：Uint8Array 与字符串不同`);
+    assert.equal(asText.hex, asBuffer.hex, `${algo}：ArrayBuffer 与 Uint8Array 不同`);
+    assert.equal(asText.bytes, asView.bytes, `${algo}：两条通道的字节数必须同口径`);
+  }
+  // 视图的偏移档：一个错位视图必须算成"另一份字节"，不能偷偷从 buffer 头部开始读
+  const big = new Uint8Array([0, 0, ...bytesOf('abc')]);
+  const view = big.subarray(2);
+  assert.equal((await digest('md5', view)).hex, (await digest('md5', 'abc')).hex,
+    '带 byteOffset 的视图必须按视图自己的起点读');
+  assert.notEqual((await digest('md5', big)).hex, (await digest('md5', view)).hex,
+    '整块与尾段同结果＝偏移被吞了，这一条就是那件事的哨兵');
+});
+test('M6 空输入是一等公民：五档空串都出官方值，不是拒绝', async () => {
+  const empty = {
+    md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    'sha-1': 'da39a3ee5e6b4b0d3255bfef95601890afd80709',
+    'sha-256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    'sha-384': '38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b',
+    'sha-512': 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2'
+      + '877eec2f63b931bd47417a81a538327af927da3e',
+  };
+  assert.equal(empty['sha-512'].length, 128, '硬编码向量自己得先是 128 位，抄漏一位这里就红');
+  for (const algo of ALGORITHMS) {
+    const r = await digest(algo, '');
+    assert.equal(r.ok, true, `${algo}：空串的摘要是有定义的标准结果，不是"没输入"`);
+    assert.equal(r.bytes, 0, algo);
+    assert.equal(r.hex, refHex(algo, new Uint8Array(0)), `${algo} 与 Node 的空输入不等`);
+    assert.equal(r.hex, empty[algo], `${algo} 的官方空值`);
+    assert.equal((await digest(algo, new Uint8Array(0))).hex, r.hex, '空字节与空字符串同档');
+  }
+});
+test('M7 算法名归一到规范名，认不出的不猜、digest 直接抛', async () => {
+  for (const [v, want] of [['sha256', 'sha-256'], ['SHA-256', 'sha-256'], [' Sha_256 ', 'sha-256'],
+    ['SHA256', 'sha-256'], ['md5', 'md5'], ['MD5', 'md5'], ['sha1', 'sha-1'], ['SHA-1', 'sha-1'],
+    ['sha-512', 'sha-512']]) {
+    assert.equal(normalizeAlgo(v), want, JSON.stringify(v));
+    assert.equal((await digest(v, 'abc')).algo, want, `digest 的归一与 normalizeAlgo 分叉：${v}`);
+  }
+  for (const v of ['sha-0', 'sha-265', 'md4', '', ' ', null, undefined, 256, {}, [], Symbol('x')]) {
+    assert.equal(normalizeAlgo(v), null, `normalizeAlgo 应安静地给 null：${String(v)}`);
+  }
+  for (const v of ['sha-265', '', null, undefined, 256]) {
+    await assert.rejects(() => digest(v, 'abc'), (e) => {
+      assert.equal(e.name, 'TypeError', JSON.stringify(v));
+      assert.match(e.message, /算法名/, e.message);
+      assert.match(e.message, /收到 (null|undefined|number|string)/, e.message);
+      return true;
+    }, `未认出的算法名必须响：${String(v)}`);
+  }
+  // 静默回落 md5 是最坏的一种"看着有结果"，这里点名它
+  await assert.rejects(() => digest('sha-256x', 'abc'), { name: 'TypeError' });
+});
+test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对象同抛、字节档直通', async () => {
+  const shaOf = (s) => refHex('sha-256', bytesOf(s));
+  for (const [v, want] of [[123, '123'], [true, 'true'], [Symbol('s'), 'Symbol(s)'],
+    [0, '0'], [NaN, 'NaN'], [[1, 2], '1,2']]) {
+    const r = await digest('sha-256', v);
+    assert.equal(r.ok, true, String(v));
+    assert.equal(r.hex, shaOf(want), `文本归一档位与兄弟模块分叉：${String(v)} → ${want}`);
+  }
+  const d = await digest('md5', new Date('2026-09-28T00:00:00Z'));
+  assert.equal(d.ok, true, 'Date 走文本归一（`parseIdCard(123)` 同一档），不许抛');
+  assert.equal(d.hex, refHex('md5', bytesOf(String(new Date('2026-09-28T00:00:00Z')))));
+  for (const v of [null, undefined]) {
+    const r = await digest('md5', v);
+    assert.equal(r.ok, true, String(v)); assert.equal(r.bytes, 0, `${String(v)} 归一成空串`);
+    assert.equal(r.hex, 'd41d8cd98f00b204e9800998ecf8427e', '空输入那一档的官方值（与 M6 同一格）');
+  }
+  const noProto = Object.create(null);
+  for (const call of [() => digest('md5', noProto), () => digestAll(noProto)]) {
+    await assert.rejects(() => call(), { name: 'TypeError' }, '无原型对象必须同抛，不许静默洗成结论');
+  }
+  assert.equal(isBytes(new Uint8Array(1)), true);
+  assert.equal(isBytes(new ArrayBuffer(1)), true);
+  assert.equal(isBytes(Buffer.from('x')), true, 'Node 的 Buffer 是 Uint8Array 的子类，浏览器侧的字节档同一条路');
+  assert.equal(isBytes('abc'), false); assert.equal(isBytes(null), false); assert.equal(isBytes(1), false);
+});
+test('M9 文本闸门按字节判：1 MiB 恰好放行、+1 整体拒绝，且与 codec 的闸门同值', async () => {
+  assert.equal(MAX_TEXT_BYTES, 1048576, MAX_TEXT_BYTES);
+  const { MAX_INPUT_BYTES } = await import('../dev/js/tools/codec.js');
+  assert.equal(MAX_TEXT_BYTES, MAX_INPUT_BYTES,
+    '两个模块的文本闸门必须同一个数：§7 那句"文本类工具 1MB"只有一份口径');
+  assert.equal(dByteLen('中'), 3); assert.equal(dByteLen('中文'), 6); assert.equal(dByteLen('\uD83D\uDE00'), 4);
+  assert.equal(dByteLen('abc'), 3); assert.equal(dByteLen(null), 0);
+  // 两本模块各带一份 UTF-8 计数（同级模块互不 import 的代价），这把尺子必须两处同长：
+  // 只核上面四条硬编码值的话，某一档漂了（比如把代理对算成 2）这里才会红。
+  for (const s of M_SAMPLES) assert.equal(dByteLen(s), byteLen(s), `byteLen 与 codec 的分叉：${JSON.stringify(s)}`);
+  const atLimit = await digest('md5', 'x'.repeat(MAX_TEXT_BYTES));
+  assert.equal(atLimit.ok, true, '正好 1 MiB 是"超过"才拒');
+  assert.equal(atLimit.bytes, MAX_TEXT_BYTES);
+  const over = await digest('sha-256', 'x'.repeat(MAX_TEXT_BYTES + 1));
+  assert.equal(over.ok, false); assert.equal(over.hex, '', '拒绝就不给半截产物');
+  assert.equal(over.bytes, MAX_TEXT_BYTES + 1, '越界也要报真实字节数，面板才说得出"你这串多长"');
+  assert.match(over.reason, /超过/); assert.match(over.reason, /不截断/);
+  assert.match(over.reason, new RegExp(String(MAX_TEXT_BYTES + 1)), over.reason);
+  assert.doesNotMatch(over.reason, /第 \d+ 位/, '闸门按字节算，不许给人一个假的字符位');
+  // 汉字那一条：闸门是字节、不是字符，1 MiB 的汉字串必须拒（按字符判的实现会在这里红）
+  const cjk = await digest('md5', '中'.repeat(349526));
+  assert.equal(cjk.ok, false, `按字符判的闸门在这里会放行：${cjk.bytes} 字节`);
+  assert.equal(cjk.bytes, 1048578);
+});
+test('M10 字节闸门单独一档：5 MiB 恰好放行、+1 拒绝，且不能反过来放过文本', async () => {
+  assert.equal(MAX_BYTES, 5242880, MAX_BYTES);
+  assert.ok(MAX_BYTES > MAX_TEXT_BYTES, '字节通道比文本通道宽，否则"文件走 ArrayBuffer"这条没有意义');
+  const atLimit = await digest('sha-256', new Uint8Array(MAX_BYTES));
+  assert.equal(atLimit.ok, true); assert.equal(atLimit.bytes, MAX_BYTES);
+  const over = await digest('sha-256', new Uint8Array(MAX_BYTES + 1));
+  assert.equal(over.ok, false); assert.equal(over.hex, '');
+  assert.equal(over.bytes, MAX_BYTES + 1); assert.match(over.reason, /上限|超过/);
+  assert.match(over.reason, /字节/);
+  // 同一段字节走文本通道就要按文本闸门算：两条通道的闸门不许互相借光
+  const textBig = 'x'.repeat(MAX_TEXT_BYTES + 1);
+  assert.equal((await digest('sha-256', textBig)).ok, false);
+  assert.equal((await digest('sha-256', bytesOf(textBig.slice(0, 100)))).ok, true,
+    '字节档的 100 字节当然在两道闸门之内');
+  assert.equal((await digest('md5', new Uint8Array(MAX_BYTES + 1))).ok, false,
+    'MD5 也吃字节闸门：越界与否与算法无关');
+});
+test('M11 落单代理项两侧都拒并给位，成对的代理项放行且与 Node 同结果', async () => {
+  for (const [s, at] of [['\uD83D', 1], ['a\uDE00b', 2], ['ab\uD83D', 3]]) {
+    for (const algo of ['md5', 'sha-256']) {
+      const r = await digest(algo, s);
+      assert.equal(r.ok, false, `${algo} ${JSON.stringify(s)}`);
+      assert.equal(r.hex, '', `${algo}：拒绝就不给半截产物`);
+      assert.match(r.reason, /落单代理项/, `${algo} → ${r.reason}`);
+      assert.match(r.reason, new RegExp(`第 ${at} 位`), `${algo} → ${r.reason}`);
+    }
+  }
+  const pair = await digest('md5', '\uD83D\uDE00');
+  assert.equal(pair.ok, true); assert.equal(pair.bytes, 4, '成对代理项是 4 字节，不是 2 字符');
+  assert.equal(pair.hex, refHex('md5', bytesOf('\uD83D\uDE00')));
+  assert.equal((await digest('sha-512', '😀abc')).hex, refHex('sha-512', bytesOf('😀abc')));
+  // 越界优先于代理项：两道都中时先报闸门，免得给一个"第 1048577 位"的假位置
+  const both = await digest('md5', 'x'.repeat(MAX_TEXT_BYTES) + '\uD83D');
+  assert.equal(both.ok, false); assert.match(both.reason, /上限|超过/, both.reason);
+});
+test('M12 options 档：只认 subtle 一键、拼错必须响，注入的假 subtle 真被调用', async () => {
+  await assert.rejects(() => digest('sha-256', 'abc', { subtlez: 1 }),
+    { name: 'TypeError', message: /未知 options 键/ }, '拼错的键静默当默认＝注入白开了');
+  await assert.rejects(() => digest('sha-256', 'abc', 'subtle'),
+    { name: 'TypeError', message: /options 应为对象/ });
+  for (const o of [undefined, null, {}]) {
+    const r = await digest('sha-256', 'abc', o);
+    assert.equal(r.ok, true, JSON.stringify(o));
+    assert.equal(r.hex, refHex('sha-256', bytesOf('abc')), '默认档就是浏览器/Node 的真 subtle');
+  }
+  await assert.rejects(() => digest('sha-256', 'abc', { subtle: 1 }), (e) => {
+    assert.equal(e.name, 'TypeError');
+    assert.match(e.message, /options\.subtle/, e.message);
+    assert.match(e.message, /收到 number/, e.message);
+    return true;
+  });
+  const { calls, subtle } = fakeSubtle();
+  const r = await digest('sha-256', 'abc', { subtle });
+  assert.equal(r.ok, true); assert.equal(r.hex, '00010203', '注入档的产物原样回显，才测得到"走的是它"');
+  assert.equal(r.via, 'subtle');
+  assert.equal(calls.length, 1, `SHA 档必须恰好调一次 subtle，实际 ${calls.length}`);
+  assert.deepEqual(calls[0][0], 'SHA-256', 'WebCrypto 认的是大写带横杠那一名');
+  assert.equal(calls[0][1] instanceof Uint8Array, true, '喂给 subtle 的必须是 Uint8Array 本体');
+  assert.equal(Array.from(calls[0][1]).join(','), Array.from(bytesOf('abc')).join(','));
+  const m = fakeSubtle();
+  const sync = await digest('md5', 'abc', { subtle: m.subtle });
+  assert.equal(sync.ok, true); assert.equal(sync.via, 'self');
+  assert.equal(m.calls.length, 0, 'MD5 一次都不许碰 subtle——Node 的 subtle 根本不认 MD5，调了就红');
+  assert.equal(typeof digest('md5', 'abc').then, 'function', '五档同一条异步路径，面板才只有一种写法');
+});
+test('M13 取不到 subtle：SHA 四档明确降级、MD5 不受影响，且 digest 永不 reject', async () => {
+  const r = await digest('sha-256', 'abc', { subtle: null });
+  assert.equal(r.ok, false); assert.equal(r.hex, '');
+  assert.equal(r.via, 'unavailable');
+  assert.match(r.reason, /安全上下文/, r.reason);
+  assert.match(r.reason, /MD5/, r.reason, '降级文案必须点出"只有 SHA 档受影响"，否则用户以为整格坏了');
+  assert.equal(r.bytes, 3, '字节数与能不能算无关');
+  assert.equal((await digest('md5', 'abc', { subtle: null })).hex, refHex('md5', bytesOf('abc')),
+    '非安全上下文里 MD5 照样出结果——它是本站自己实现的');
+  for (const algo of ['sha-1', 'sha-384', 'sha-512']) {
+    assert.equal((await digest(algo, 'abc', { subtle: null })).ok, false, algo);
+  }
+  // 两种坏形状：subtle.digest 同步抛、以及返回 rejected promise，都不许把异常送出模块
+  const badSubtle = {
+    同步抛: () => { throw new Error('同步炸'); },
+    异步拒: () => Promise.reject(new Error('异步炸')),
+  };
+  for (const [kind, fn] of Object.entries(badSubtle)) {
+    const bad = await digest('sha-256', 'abc', { subtle: { digest: fn } });
+    assert.equal(bad.ok, false, kind); assert.equal(bad.hex, '', kind);
+    assert.match(bad.reason, /同步炸|异步炸/, `${kind}：底层报错文本要带出来，不然面板只能说"失败了"：${bad.reason}`);
+    const all = await digestAll('abc', { subtle: { digest: fn } });
+    assert.equal(all.ok, false, kind);
+    assert.equal(all.rows[0].ok, true, `${kind}：MD5 那一格不该被邻居的炸牵连`);
+  }
+  // 缺 digest 方法的物件（有人把 window.crypto 整个塞进来）也算不可用，不许 TypeError 出模块
+  const weird = await digest('sha-256', 'abc', { subtle: {} });
+  assert.equal(weird.ok, false, weird.reason);
+  assert.match(weird.reason, /安全上下文|subtle/, weird.reason);
+});
+test('M14 digestAll：五格并列、行序照 ALGORITHMS、闸门失败同句、单档失败不牵连', async () => {
+  const all = await digestAll('a b/c?d=e&f&g=中');
+  assert.equal(all.ok, true); assert.equal(all.reason, null);
+  assert.deepEqual(all.rows.map((r) => r.algo), ALGORITHMS, '行序就是面板的表序，漂一格面板就错一行');
+  assert.equal(all.rows.length, 5);
+  assert.deepEqual(Object.keys(all.rows[0]).sort(), Object.keys(await digest('md5', 'x')).sort(),
+    '单档入口与并列入口的键集必须一致，否则面板要写两套读法');
+  assert.equal(all.bytes, Buffer.byteLength('a b/c?d=e&f&g=中', 'utf8'));
+  for (const row of all.rows) {
+    assert.equal(row.bytes, all.bytes, '字节数只算一次，五格报同一个数');
+    assert.equal(row.hex, refHex(row.algo, bytesOf('a b/c?d=e&f&g=中')), row.algo);
+  }
+  const over = await digestAll('x'.repeat(MAX_TEXT_BYTES + 1));
+  assert.equal(over.ok, false); assert.match(over.reason, /上限|超过/, over.reason);
+  for (const row of over.rows) {
+    assert.equal(row.ok, false, row.algo); assert.equal(row.hex, '', row.algo);
+    assert.equal(row.reason, over.reason, '闸门理由五格同一句，面板才不会写出五种解释');
+  }
+  const degraded = await digestAll('abc', { subtle: null });
+  assert.equal(degraded.ok, false, '有一格不成就是不成，顶层不许报全绿');
+  assert.equal(degraded.reason, null, '闸门通过、只是个别档失败时，顶层不另编一句理由');
+  assert.equal(degraded.rows[0].ok, true, 'MD5 那格必须还成——并列展示的价值就在这里');
+  assert.equal(degraded.rows.filter((r) => !r.ok).length, 4);
+  assert.equal(degraded.bytes, 3);
+  const lone = await digestAll('\uD83D');
+  assert.equal(lone.ok, false); assert.match(lone.reason, /落单代理项/, lone.reason);
+  assert.equal(lone.rows.every((r) => r.reason === lone.reason), true, '代理项也是五格同句');
+});
+test('M15 导出面：10 个名字一个不多一个不少，两张表互相核得住', async () => {
+  const wanted = ['ALGORITHMS', 'DIGEST_CAVEAT', 'HEX_LEN', 'MAX_BYTES', 'MAX_TEXT_BYTES',
+    'byteLen', 'digest', 'digestAll', 'isBytes', 'normalizeAlgo'];
+  const got = Object.keys(await import('../dev/js/tools/digest.js')).sort();
+  assert.deepEqual(got, wanted, `导出面变了：多=${JSON.stringify(got.filter((k) => !wanted.includes(k)))} 少=${JSON.stringify(wanted.filter((k) => !got.includes(k)))}`);
+  assert.equal(got.length, 10, '清单自己要有条数；新增一个入口就得同时补判据与面板，这张表是那道门');
+  assert.deepEqual([...ALGORITHMS], ['md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512'],
+    '顺序也是契约：面板的五行按它排');
+  assert.deepEqual(Object.keys(HEX_LEN).sort(), [...ALGORITHMS].sort(),
+    'HEX_LEN 的键集与 ALGORITHMS 必须同集，少一档就有一行面板没尺子');
+  assert.equal(Object.isFrozen(ALGORITHMS), true, '共享表必须冻结（段 2 的共享表只读口径）');
+  assert.equal(Object.isFrozen(HEX_LEN), true);
+});
+test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常数必须在代码里', () => {
+  const src = dCode();
+  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['require(', /\brequire\s*\(/], ['node:crypto', /node:crypto/], ['createHash', /\bcreateHash\b/],
+    ['document', /\bdocument\b/], ['window', /\bwindow\b/], ['localStorage', /\blocalStorage\b/],
+    ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/], ['FileReader', /\bFileReader\b/],
+    ['Buffer', /\bBuffer\b/], ['atob', /\batob\s*\(/], ['btoa', /\bbtoa\s*\(/],
+    ['TextEncoder', /\bTextEncoder\b/], ['TextDecoder', /\bTextDecoder\b/],
+    ['Date.now', /Date\.now/], ['new Date(', /new Date\(/], ['Math.random', /Math\.random/],
+    ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
+  for (const [name, re] of banned) assert.equal(re.test(src), false, `digest.js 的代码里出现了 ${name}`);
+  assert.equal(banned.length, 23, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  // 自实现的证据：初值、K 表 64 项、移位表 64 项，三样都得在代码里，不是注释里
+  assert.match(src, /0x67452301/, 'MD5 的 A 初值必须在（换成 crypto.subtle 的假 MD5 时这里就没了）');
+  assert.match(src, /0x10325476/, 'MD5 的 D 初值必须在');
+  const kTable = (src.match(/0xd76aa478[\s\S]*?0xeb86d391/) || [''])[0].match(/0x[0-9a-f]{8}/gi) || [];
+  assert.equal(kTable.length, 64, `K 表要恰好 64 项常数，读到 ${kTable.length} 项`);
+  assert.equal(/Math\.sin/.test(src), false, 'K 表必须是硬编码常数：引擎的 Math.sin 不保证逐位一致');
+  assert.ok((src.match(/globalThis/g) || []).length >= 1, '取 subtle 走 globalThis，不写 window.crypto');
+  assert.equal(/\bwindow\.crypto\b/.test(src), false, '同上：window 在违禁清单里，这一条是它的正面');
+  assert.match(src, /subtle/, 'SHA 档确实经过 subtle');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/digest.js')), false,
+    'digest.js 被挪到 dev/js/ 顶层会变成 vite 入口、进产物（§6.1 零重叠，同 K18）');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/digest.js')), true, '文件不在它该在的位置时，上面那条是空转的');
+  const siteJs = resolve(ROOT, '_site/assets/js');
+  if (existsSync(siteJs)) {
+    const hits = readdirSync(siteJs).filter((f) => f.endsWith('.js')
+      && readFileSync(resolve(siteJs, f), 'utf8').includes('digestAll'));
+    assert.deepEqual(hits, [], '构建产物里出现了 digest.js 的导出名');
+  }
+});
+test('M17 口径文案与实现互相对账：文案承诺的做到，做到的也写进文案', async () => {
+  const rows = [
+    [/MD5 由本站自己实现/, (await digest('md5', 'abc')).via === 'self'],
+    [/SHA-1、SHA-256、SHA-384、SHA-512 走浏览器/, (await digest('sha-256', 'abc')).via === 'subtle'],
+    [/取不到时给明确提示/, (await digest('sha-256', 'abc', { subtle: null })).via === 'unavailable'],
+    [/文本按 UTF-8 字节/, (await digest('md5', '中')).bytes === 3],
+    [/1 MiB（1048576 字节）/, MAX_TEXT_BYTES === 1048576],
+    [/5 MiB（5242880 字节）/, MAX_BYTES === 5242880],
+    [/整体拒绝、不截断/, (await digest('md5', 'x'.repeat(MAX_TEXT_BYTES + 1))).hex === ''],
+    [/文件走字节、不进字符串/, (await digest('sha-256', bytesOf('abc'))).hex === (await digest('sha-256', 'abc')).hex],
+  ];
+  for (const [claim, holds] of rows) {
+    assert.equal(claim.test(DIGEST_CAVEAT), holds,
+      `文案与实现分叉：${claim}（文案里有=${claim.test(DIGEST_CAVEAT)}，实现做得到=${holds}）`);
+  }
+  assert.equal(rows.length, 8, '对账表自己要有条数：漏一行等于那一档的承诺没人核');
+  assert.ok(DIGEST_CAVEAT.length > 80 && DIGEST_CAVEAT.length <= 240,
+    `口径句长度不在档内（实际 ${DIGEST_CAVEAT.length} 字）：${DIGEST_CAVEAT}`);
+  const { BASE64_CAVEAT, URL_CAVEAT } = await import('../dev/js/tools/codec.js');
+  const { TIME_CAVEAT } = await import('../dev/js/tools/time.js');
+  const others = [BASE64_CAVEAT, URL_CAVEAT, TIME_CAVEAT];
+  for (const o of others) assert.notEqual(DIGEST_CAVEAT, o, '四格口径句各写各的，一模一样等于这一格没自己的口径');
+  assert.equal(dByteLen('中'), 3, '口径句里的"UTF-8 字节"这把尺子自己得先对');
+});
+test('M18 跨块大输入与闸门边界同档：1 MiB 的 MD5 与 Node 逐字符等', async () => {
+  const big = new Uint8Array(MAX_TEXT_BYTES);
+  big.fill(0xAA);
+  const r = await digest('md5', big);
+  assert.equal(r.ok, true); assert.equal(r.bytes, MAX_TEXT_BYTES);
+  assert.equal(r.hex, refHex('md5', big), '16384 个分组里出错，跨块那条判据才抓得到');
+  const five = await digest('sha-256', new Uint8Array(MAX_BYTES).fill(7));
+  assert.equal(five.ok, true); assert.equal(five.bytes, MAX_BYTES);
+  assert.equal(five.hex, refHex('sha-256', new Uint8Array(MAX_BYTES).fill(7)));
+  const text = '中'.repeat(100000);
+  assert.equal((await digest('sha-512', text)).hex, refHex('sha-512', bytesOf(text)),
+    'UTF-8 编码器在长多字节串上必须与 Node 同字节');
+});
+```
+
 
 ## Task 4: `regex.js` — 正则测试（步数上限防回溯炸页）（§N）
 
