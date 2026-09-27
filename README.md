@@ -31,7 +31,8 @@
 | 标签云 | [/tags.html](https://liaolongdong.github.io/better-blog/tags.html) | 全量标签检索 |
 | 示例 | [/demo.html](https://liaolongdong.github.io/better-blog/demo.html) | 19 条可直接打开的示例入口（来自 `demo/` 下 18 个目录，拖拽、shake、echarts、倒计时红包等） |
 | WebLab | [/weblab.html](https://liaolongdong.github.io/better-blog/weblab.html) | 浏览器里的 HTML / CSS / JS 编辑器，无需账号 |
-| 工具箱 | [/tools.html](https://liaolongdong.github.io/better-blog/tools.html) | 自研 Chrome 插件产品页 |
+| 工具箱 | [/tools.html](https://liaolongdong.github.io/better-blog/tools.html) | 自研 Chrome 插件产品页，另附站内在线工具那几节 |
+| 在线工具 | [/tools/idcard.html](https://liaolongdong.github.io/better-blog/tools/idcard.html) | 证件与机构代码工具：身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据，五块面板全部在浏览器本地算，零网络请求；条目由 `_data/onlineTools.yml` 点名 |
 | 关于 | [/about.html](https://liaolongdong.github.io/better-blog/about.html) | 作者信息与职业时间线 |
 
 ### 文章分类分布
@@ -116,7 +117,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 ```
 .
 ├── _config.yml           # 站点设置：SEO 口径、导航、Waline、构建排除项
-├── _data/                # tools.yml 产品 · series.yml 合集 · picks.yml 编辑精选
+├── _data/                # tools.yml 插件产品 · onlineTools.yml 在线工具 · series.yml 合集 · picks.yml 编辑精选
 ├── _includes/            # Liquid 片段；seoMeta.html + jsonLd.html 是全站的 SEO 出口
 ├── _layouts/             # post / default / aboutTemplate / labTemplate / demoTemplate
 ├── _posts/               # 文章（YAML front matter + Markdown）
@@ -140,7 +141,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 - `_includes/seoMeta.html` —— 输出 `<title>`、description、canonical、robots、Open Graph、Twitter card、`article:*`。
 - `_includes/jsonLd.html` —— 文章页 `BlogPosting` + `BreadcrumbList`，栏目页 `CollectionPage`，首页 `WebSite` + `Blog` + `Person`。
 
-- `sitemap.xml` / `robots.txt` —— 收录范围收敛到「导航可达页 + 全部文章」，站内封面带 `<image:image>`；分页与配图工作笔记一律不进。
+- `sitemap.xml` / `robots.txt` —— 收录范围收敛到「导航可达页 + 全部文章」，另加 `_data/onlineTools.yml` 里 `status: ready` 那几页（在线工具那一族不在 `site.nav` 里，靠数据源点名进图），站内封面带 `<image:image>`；分页与配图工作笔记一律不进。
 
 写新文章时的 front matter 约定、封面图尺寸要求、以及 `categories` 会被 Jekyll 按空格切开这类坑，都写在 [USAGE.md 的「写一篇新文章」一节](./USAGE.md) 里。
 
@@ -168,7 +169,7 @@ Beyond articles, the repo contains 18 runnable interaction demos, an in-browser 
 
 **Run it locally:** `pnpm install && bundle install && pnpm dev` → <http://localhost:4000>. Build artifacts under `assets/` and `demo/` are gitignored and rebuilt in CI, so a fresh clone must build before the CSS and JS resolve.
 
-**Repository layout:** `_posts/` Markdown articles · `_includes/` and `_layouts/` Liquid templates (SEO metadata lives in `_includes/seoMeta.html` and `_includes/jsonLd.html`) · `dev/` unminified sources · `demo/` standalone examples · `_data/` collections, curated picks and product listings.
+**Repository layout:** `_posts/` Markdown articles · `_includes/` and `_layouts/` Liquid templates (SEO metadata lives in `_includes/seoMeta.html` and `_includes/jsonLd.html`) · `dev/` unminified sources · `demo/` standalone examples · `_data/` collections, curated picks, extension and in-browser tool listings (`tools.yml` / `onlineTools.yml`).
 
 **Keywords:** frontend blog, Jekyll theme source, GitHub Pages project site, Vite build pipeline, React, Vue, Node.js, npm, pnpm, Chrome extension, WeChat Mini Program, AI Agent, web performance, Chinese tech blog, 前端博客, 廖小新
 

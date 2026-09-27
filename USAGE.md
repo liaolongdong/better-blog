@@ -419,12 +419,14 @@ pnpm deploy:ali    # 部署机更新：对齐 origin -> 装依赖 -> 构建；�
 
 ## 🔎 检索层自查
 
-Jekyll 构建成功不代表 SEO 没问题。改完模板跑下面这十一条，能在本地就把结构性问题挡下来：
-第一条命令负责重建，后面十条全部读它的产物——**每次都要带着第一条一起跑**。
+Jekyll 构建成功不代表 SEO 没问题。改完模板跑下面这十二条，能在本地就把结构性问题挡下来：
+第一条命令负责重建，后面十一条全部读它的产物——**每次都要带着第一条一起跑**。
 这个目录留着上一次的构建时踩过一次：脚本对着旧产物输出一串「异常」，
 看起来像刚修的问题没修好，其实是读错了目录。
 第 10 条与后面的样式回归还要读 Vite 产物（`assets/**`），本地没构建过就先 `pnpm build:assets`；
 第 10 条要读仓库根的 `demo.json`，所以整块命令在仓库根目录下跑。
+第 12 条与前面十一条不是一个形状：它是一条 `node` 命令，判据写在 `scripts/check-tools-surface.mjs` 里，
+这里只留"怎么跑"和"它补的是哪一档空"。
 
 ```bash
 bundle exec jekyll build --destination /tmp/seo-check   # 不污染共享的 _site/
@@ -440,14 +442,16 @@ bundle exec jekyll build --destination /tmp/seo-check   # 不污染共享的 _si
 # 缺 alt 0 个）。要数元素就先 `re.sub(r'<script\b[^>]*>.*?</script>', '', h, flags=re.S)`
 # 连 <style> 一起挖掉；本文件第 8 条之所以安全，是因为它只在正文容器里数。
 
-# 1. 每篇文章应当只有一个 H1（多余的 H1 会稀释标题信号）——预期：无输出
-for f in /tmp/seo-check/20*/*/*/*.html; do
+# 1. 每个可索引页面应当只有一个 H1（多余的 H1 会稀释标题信号）——预期：无输出
+#    第二个 glob 是 2026-09-27 随在线工具那一族加进来的：`20*/*/*/*.html` 只走文章，
+#    /tools/ 下的页面从前压根不在这一条的射程里（第 12 条补的是跨文件对账，不补这一条）。
+for f in /tmp/seo-check/20*/*/*/*.html /tmp/seo-check/tools/*.html; do
     n=$(grep -o '<h1' "$f" | wc -l | tr -d ' ')
     [ "$n" -ne 1 ] && echo "H1=$n  $f"
 done
 
-# 2. 不应出现重复标题 / 空描述 —— 预期：无输出
-grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.html | sort | uniq -d
+# 2. 不应出现重复标题 / 空描述 —— 预期：无输出（同样带上 /tools/）
+grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.html /tmp/seo-check/tools/*.html | sort | uniq -d
 
 # 3. JSON-LD 必须是合法 JSON（模板里一个未转义引号就能让它整块失效）
 #    预期：failures 为 0，且类型分布对得上口径——BlogPosting 与 BreadcrumbList 各等于
@@ -455,9 +459,12 @@ grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.h
 #    见 _includes/jsonLd.html 的 page.url == '/' 那道门），Person 2（首页 + about.html，
 #    两处都由 _includes/jsonLdAuthor.html 同一份模板渲染，所以内容必须逐字节相同；
 #    about.html 是 Person.@id 指向的那一页，缺它全站 @id 引用就落空），
-#    CollectionPage 等于所有带 page.title 的站点页与归档页（含 index-all.html）。当前站内是
-#    BlogPosting 67 + BreadcrumbList 67 + CollectionPage 26 + WebSite/Blog 各 1 + Person 2 = 164 块
-#    （noindex 的 404 页不声明结构化数据）
+#    CollectionPage 等于所有带 page.title 的站点页与归档页（含 index-all.html，也含 /tools/ 下
+#    每一页 status: ready 的在线工具页——这一族不在 site.nav 里，靠 sitemap 那条数据源点名收录，
+#    所以它的 CollectionPage 只跟着页面走，别拿导航项数目去推）。
+#    2026-09-27 现场：BlogPosting 72 + BreadcrumbList 72 + CollectionPage 27 + WebSite/Blog 各 1
+#    + Person 2 = 175 块（noindex 的 404 页不声明结构化数据）。这两个数是会跟着投稿走的，
+#    照上面那条口径重算，别把 175 当成常数判
 #    下面顺带核两件事：作者实体的 name 是否全站只有一个值（同一 @id 出现两个 name 就是噪音），
 #    以及文章的 author 是否 @id 与 name 都在——只留 @id，Rich Results 校验器报缺 author.name。
 python3 - <<'PY'
@@ -568,6 +575,8 @@ PY
 #    Google 按「列」截断，CJK 字符占 2 列，所以 len() 不合格，要按宽度算。
 #    口径：标题 ≤60 列；描述 ∈[50,158] 列（低于 50 等于没写，高于 158 会被截）。
 #    首页一起查：它是站内唯一不套文章模板的那页，改标题口径时最容易漏。
+#    四个列表装的是 (文件名, 列数) 而不是光一个列数：2026-09-27 现场报出 [188, 165]，
+#    拿不到是哪两篇，只能自己再写一遍定位脚本——和文件头那条"数异常项却不报位置"同源。
 python3 - <<'PY'
 import pathlib, re
 def cols(s):
@@ -579,13 +588,13 @@ for p in sorted(root.glob('20*/*/*/*.html')) + [root / 'index.html']:
     t = re.search(r'<title>(.*?)</title>', html, re.S)
     d = re.search(r'<meta name="description" content="([^"]*)"', html)
     if t and cols(t.group(1)) > 60:
-        long_t.append(cols(t.group(1)))
+        long_t.append((str(p.relative_to(root)), cols(t.group(1))))
     if not d:
         none_d.append(p.name)
     elif cols(d.group(1)) < 50:
-        short_d.append(cols(d.group(1)))
+        short_d.append((str(p.relative_to(root)), cols(d.group(1))))
     elif cols(d.group(1)) > 158:
-        long_d.append(cols(d.group(1)))
+        long_d.append((str(p.relative_to(root)), cols(d.group(1))))
 print('标题>60列', long_t, '| 描述<50列', short_d, '| 描述>158列', long_d, '| 无描述', none_d)
 PY
 
@@ -625,6 +634,18 @@ for p in sorted(root.rglob('*.html')):
             gone.append((str(p.relative_to(root)), src))
 print('产物里取不到文件:', len(gone), gone[:4])
 PY
+
+# 12. 在线工具那一族的"收录面"必须自洽 —— 预期：exit=0，末行一句 ✓
+#     前面十一条查的是"每一页自己对不对"，这一条查的是"同一件事在几个地方写了几遍"。
+#     这一族的信息在 `_data/onlineTools.yml` 与页面 front matter 两头各写一份，再被六个消费点
+#     读走（canonical / sitemap / llms.txt / index-all / tools.html 小节 / 顶栏下拉），
+#     漂了不会让任何一边报错，只会在 SERP 与导航里露出来。五组判据：页面源、收录、导航、
+#     图标（烘色 SVG 在八格底色上的对比度）、DOM 契约（yml ↔ spec ↔ 产物里的 id 与 data-*）。
+#     它同时补上前面的两处空：title 与 front matter 是否同源、SERP 列数区间——第 9 条的 glob
+#     只走文章与首页，/tools/ 那一族此前没人核。
+#     它读的是仓库根的 `_site/`（不是本文件的 /tmp/seo-check），所以顺序照旧：先 build、再跑它。
+#     加它之前先量过牙齿：19 组变异逐组注入，必须按预期的那一组变红（台账在段 2 计划 Task 9）。
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface.mjs
 ```
 
 `_site`（或上面的临时目录）里不该出现的东西：`README.html`、`USAGE.html`、
@@ -634,7 +655,7 @@ PY
 
 ### 产物里的样式回归
 
-前面十一条查的都是 HTML 与 feed。另有五处改动同属「失效了也不报错」的那类，只能直接查 CSS：
+前面十二条查的都是 HTML 与 feed。另有五处改动同属「失效了也不报错」的那类，只能直接查 CSS：
 
 ```bash
 python3 - <<'PY'

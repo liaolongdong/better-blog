@@ -13288,6 +13288,36 @@ A/B 是两条独立路径数出同一个 91。
 恰好 14 行——索引此前是空的，但 pathspec 照旧写死，对方 `deploy-github.sh` 里那句
 `git add .` 随时会落进来。两发的哈希与逐发清单写在下面的收口记录里。
 
+**2026-09-27 收口（两发，实跑值）**：
+
+- **发 1 = `133b7ba`**，`14 files changed, 2517 insertions(+), 59 deletions(−)`，两条新建
+  （`scripts/check-tools-surface.mjs` 531 行 / 27,316B、`scripts/check-tools-surface-teeth.mjs`
+  218 行 / 10,694B）。`git add` 那 14 条之后 `git diff --cached --name-only | wc -l` 出 **14**，
+  暂存集与计划载荷逐条相同；提交用 `git commit -m "$(cat <<'EOF' … EOF)" -- <同一批 14 条>`，
+  `commit exit=0`。提交后 `git status --porcelain -- <那 14 条>` 无输出。钩子噪音照旧
+  （pre-commit / prepare-commit-msg / commit-msg 各往 stdout 打调试行），认 `commit exit=0`
+  与 `git log -1` 里的真 SHA，不认 stdout。
+- **发 2 = 文档口径 + 本记录**：`USAGE.md`（新第 12 条收录面门禁、"这十二条/后面十一条"的
+  计数、JSON-LD 那格的 175 与「别把 175 当成常数判」、检查 1、2 的 glob 放宽到
+  `/tmp/seo-check/tools/*.html`、检查 9 的 `push (path, cols)`）+ `README.md` 四处 +
+  spec 四处（§4.3 两档 `aria-current` 重写、§8.2 第 3 条、§7 那三段复量与口径警告、
+  line 106 的 title 同步）。**这一发比计划多带一个文件**：本记录里的 `133b7ba` 只能在
+  发 1 落地之后才写得出来，所以它跟着发 2 走。这不破坏发 1 的自洽——发 1 里的计划已含
+  Step 1–11 记录、六道门禁表与第 7 条那两档脚手架缺陷，**镜像内容（`FILE_TARGETS` 那 21 件
+  对应的块）一个字节都没落在发 2**，干净检出上六道门禁照样全绿。
+- **一处遗留按 §11 交下去**：USAGE 检查 7、8 的产物侧红名单里，`描述>158列` 命中
+  `2026-09-23/browser-skill-context-bytes.html`(188) 与 `index.html`(165)——两处都是
+  另一路会话的输入，本格的 14 条路径不碰它们，**只汇报不顺手改**。
+
+下一格（Task 10，浏览器侧核验）拿这一格的这些东西去用，接口三条：
+
+1. 高亮与两档 `aria-current` 已在 91 份渲染页上逐页核过（门禁「导航-全站」），Task 10 的
+   键盘走查只需确认**焦点顺序**没被 `.nav-sub-group` 分组标题打断——那是产物核验判不到的。
+2. 首屏关键路径已实测 **15,546B / 16,384B（余 838B，5.1%）**，Task 10 量首屏按这一条判，
+   并且**别再往 `<head>` 加东西**（§7 已明写不留第二次余量）。
+3. 图标那一族的昼夜对比度由门禁「图标」八组现算，Task 10 的三档纸色温采样只核**页面**
+   前景色，不必重算图标。
+
 <!-- APPEND-10 -->
 
 
