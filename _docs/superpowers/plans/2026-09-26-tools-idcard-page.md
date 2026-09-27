@@ -13321,7 +13321,8 @@ A/B 是两条独立路径数出同一个 91。
 ## Task 10: 浏览器侧核验（真 Chrome + CDP，十三项判据）
 
 **Files:**
-- Create: `scripts/verify-idcard-browser.mjs`（261 行 / 17,840B，零依赖：Node 22 的全局 `WebSocket` + `node:http` 静态服务）
+- Create: `scripts/verify-idcard-browser.mjs`（261 行 / 17,840B，零依赖：Node 22 的全局 `WebSocket` + `node:http` 静态服务；
+  本轮整改后 **335 行 / 23,626B**，多出的是 Step 3 第 4、5、6 条的三处修与它们的注释）
 - 读：`_site/`（Task 9 Step 12 那次 `pnpm build:site` 的产物，不改）
 
 **为什么这一格必须真开浏览器**：Task 8 的 54 项与 Task 9 的五组判据全是**静态读产物**，
@@ -13336,15 +13337,18 @@ A/B 是两条独立路径数出同一个 91。
 另外两档环境处理：
 
 ```bash
-lsof -ti tcp:8791 tcp:9333 2>/dev/null | xargs -r kill      # 清遗留端口，别让上一轮的 Chrome 应答
-node scripts/verify-idcard-browser.mjs                      # 自己起 Chrome：--headless --remote-debugging-port=9333
+node scripts/verify-idcard-browser.mjs   # 两个端口都现抢；Chrome 走 --remote-debugging-port=0，
+                                         # 端点从它**自己的** stderr 里的 `DevTools listening on ws://…` 读
 ```
 
 Chrome 的 `--user-data-dir` 走 `fs.mkdtempSync(os.tmpdir())`，每次一份，避免与另一路会话的
 调试实例互抢；`--host-resolver-rules=MAP at.alicdn.com 127.0.0.1` 让那条**外链字体 CSS**
 立刻失败（`cdn.staticfile.org` 那类外链在 headless 里能卡到 `document.body` 为 null）。
+**端口这一格返工过**：旧版写死 `8791 / 9333`，并在上面留一句 `lsof … | xargs kill` 手工清端口——
+那句话不属于脚本，人就漏得跑，所以脚本自己抢端口，调试端口一律交给 Chrome 挑、从子进程 stderr
+读真实端点（详见 Step 3 第 4 条）。
 
-- [x] **Step 2: 十三项判据与现场读数（2026-09-27 实跑 `13/13`、`exit=0`）**
+- [x] **Step 2: 十三项判据与现场读数（2026-09-27 实跑 `13/13`、`exit=0`，整改后复跑仍是 `13/13`）**
 
 | # | 判据 | 现场 |
 | --- | --- | --- |
@@ -13359,10 +13363,10 @@ Chrome 的 `--user-data-dir` 走 `fs.mkdtempSync(os.tmpdir())`，每次一份，
 | 2d | 面板底色跟不跟纸色温（**只报不判**） | 面板走 `--surface`，不吃 `--paper`；仅 sage 白昼那一格 250,252,248 与另两档不同 |
 | 3a | 从文档头 Tab，**能走进下拉子项**（`:focus-within` 打开） | 第 5–9 跳是五颗 `.nav-sub-link`（含本格新加的「证件与机构代码工具」），第 10 跳才到「分类」 |
 | 3b | `.tk-btn` 焦点环不是 `outline:none` | `solid 2px rgb(110,168,254)`，`:focus-visible` 为 true |
-| 4a | 摘掉全部 `<script>` 的同一份产物：五块面板、五颗索引、正文 ≥ 开 JS 版 90% | 面板 5、索引 5、控件 26、禁 JS 1,753 字 / 开 JS 1,212 字（144.6%）、脚本 0 |
-| 5a | 首屏阻塞集现量（`renderBlockingStatus`） | HTML 57,768B + 阻塞集 **222,121B**；本页三件全是 non-blocking |
+| 4a | 摘掉全部 `<script>` 的同一份产物：五块面板、五颗索引、正文 ≥ 开 JS 版 90% | 面板 5、索引 5、控件 26、禁 JS **1,753 字（六轮恒等，纯静态正文）** / 开 JS 1,211–1,231 字（六轮读数 1211/1211/1219/1220/1226/1231，比值 142.4%–144.8%）、脚本 0。**开 JS 那一格会浮动**：面板里是当场生成的随机样例数据，数字位数不同字数就不同——所以判据用的是比值，且分母浮动只会让这一条更保守 |
+| 5a | 首屏阻塞集现量（`renderBlockingStatus`）：三件**必须**以 `non-blocking` 出现在资源表里，且阻塞清单里不得出现这三件的**确切文件名**；另有 `accountedFor` 兜"资源表空了也算过"的假绿（HTML >1,000B、本地阻塞件 ≥3、本地合计 ≥50KB 三项同时达标） | HTML 57,768B；**阻塞集本地 222,121B（7 件，两轮一字不差、可复算）** + 外链当场 6,869–6,897B（见 Step 3 第 6 条）；`toolkit.min.css` 9,621 / `toolkitCore.min.js` 18,403 / `toolIdcard.min.js` 185,125 三件全 non-blocking。**两次变异自证**：① 把 `toolkit.min.css` 那行 `<link>` 手工搬进产物的 `</head>` 之前 → 本条转红、`exit=1`，本地 222,121 → **231,742**（差的正是那 9,621B），还原后 md5 回到 `564b3d6a…`；② 在**脚本副本**上把 `accountedFor` 的 `>= 50000` 改成 `>= 999999999` → 同一格转红、`exit=1`（仓库文件未动，副本跑完即删），证这三项确实串在判据上而不是写着好看。 |
 
-- [x] **Step 3: 三条 finding（两条是核验口径自己的坑，一条是文档口径名不副实）**
+- [x] **Step 3: 六条 finding（两条是核验口径自己的坑，一条是文档口径名不副实，三条是核验器自己被代码评审抓出来的）**
 
 1. **3a 第一次是红的，红在测量本身**：`.nav-sub` 那条
    `transition: opacity .18s ease, transform .18s ease, visibility .18s`（`editorial.scss:268`）
@@ -13384,13 +13388,68 @@ Chrome 的 `--user-data-dir` 走 `fs.mkdtempSync(os.tmpdir())`，每次一份，
    它连那 15,546B 里的"阻塞"那一半都不算。**不把它搬进 `<head>`**（搬进去是给首屏添阻塞字节），
    改的是 §7 那一行的**名字与计量说明**。
 
+4. **上一版的 `13/13` 里有一格是测别人的**（代码评审自查抓到，属"脚手架静默说谎"的第 11 种形状）：
+   调试端口写死 `9333`，而那一轮跑之前，`9333` 已被更早一次 headless Chrome 占着
+   （`--user-data-dir=/tmp/t10/profile-1790514764366`，21:12:44 起，`ps` 与 `lsof -nP -iTCP:9333 -sTCP:LISTEN`
+   当场证）。脚本先 `/json/version` 探活再连——**探到的是那台孤儿**，于是 URL 是自己的、数字看着也合理，
+   而 `chrome.kill()` 关不掉应答的那一台，`--window-size` 一类 flag 也不保证一致。
+   修法不是"跑之前手工 `lsof … | xargs kill`"（那句话写在计划里、不属于脚本，人就漏得跑），
+   而是：静态端口 `net.listen(0)` 现抢，调试端口交给 Chrome（`--remote-debugging-port=0`），
+   端点只从**这个子进程的 stderr** 里的 `DevTools listening on ws://…` 读——那行日志出自
+   `chrome.pid`，连到别人的实例这个形状从此不成立；读不到或子进程提前退出即 `exit=2`，不降级继续。
+   现在每次第一行就打 `# Chrome pid=… profile=… CDP ws://…`，出处可追。
+   遗留的两台孤儿（75583 / 75682）已 kill，事后 `pgrep -f "Google Chrome --headless"` 为 0。
+
+5. **5a 判据太松，先把真缺陷读成了假缺陷**：整改前的那一版判据是
+   `!/toolkit|min\.css|toolIdcard|idcard/i.test(阻塞清单)`，`min\.css` 同时命中全站的
+   `index.min.css` 与 `normalize.min.css`，于是跑出 `12/13`、报"阻塞集里出现了本页件"——
+   而阻塞集里本来就该有公共件，这条判的是"本页专属的三件有没有被搬进 `<head>`"。
+   收到**逐文件名精确比对**（`toolkit.min.css` / `toolkitCore.min.js` / `toolIdcard.min.js`）后转绿，
+   并且同一格要求三件都以 `non-blocking` 出现在资源表里（少一件、或任一件变 blocking 都红）。
+   这一格更早还写成过 `check('5a …', true, …)` 的"只报不判"，那也是永久通行证，同轮一起改掉的——
+   牙的自证见 Step 2 表末：搬进 `</head>` → `12/13`、`exit=1`、阻塞集 +9,621B。
+
+6. **阻塞集里有两类字节，只有一类可复算**（整改后新量到的）：同一份产物（`_site/tools/idcard.html`
+   md5 恒为 `564b3d6a…`）连跑三轮，**本地七件恒 222,121B**，而外链那一族当场在
+   `https://at.alicdn.com/t/font_271755_rdxzzo2kqwk.css`（6,244B 或 0）与
+   `http://s8.qhres2.com/static/ab77b6ea7f3fbf79.js`（654B 或根本不出现在清单里）之间浮动，
+   外链合计 6,869 / 6,891 / 6,897 / 0 都出现过——**首屏阻塞总量 222,121 与 229,019 之间的差，
+   全部来自这里**，与证件页、与段 2 的任何改动无关。曾试过把这三个 host 一起
+   `MAP … 127.0.0.1`（想让外链一律失败从而把数变确定），结果 `document.readyState` 在 9.6s 内
+   到不了 complete，第 2 组导航直接 `加载超时` 崩场：同步 `<script>` 的连接被拒后 Chrome 带退避
+   重试，比让它真连上还慢。所以只保留原来那一条字体 host 的 MAP（那是防"外链卡到 body 为 null"的
+   既有口径），不确定性在**判据与读数**里消：5a 的断言与"可复算读数"只算本地块，外链原样列出、
+   不进判据。给 §7 那句"阻塞集 222,121B"的口径补一条脚注：**那是本地七件之和**，
+   真首屏在线上还要多等 0–6.9KB 的外链字节（这字节全站基线本就存在，证件页一分没添）。
+
 - [x] **Step 4: 提交**
+
+**2026-09-27 落地实跑**（整改后复跑，六道门禁逐个列退出码）：
+
+| 门禁 | 命令 | 结果 |
+| --- | --- | --- |
+| ① 单元 | `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` | `exit=0`，`# tests 146 / # pass 146 / # fail 0` |
+| ② 镜像 | `node scripts/verify-plan-blocks.mjs` | `exit=0`，33 条已落地镜像逐字节全等、**未落地 0 节** |
+| ③ 镜像牙 | `node scripts/verify-plan-blocks-teeth.mjs` | `exit=0`，`18/18`，收口那条自证脏项 15 个前后一致（对方会话那批未碰） |
+| ④ 构建 | `pnpm build:site` | **本轮不重跑**，理由见下 |
+| ⑤ 收录面 | `node scripts/check-tools-surface.mjs` | `exit=0`，1 条 ready × 5 组全绿（导航-全站核到 91 页） |
+| ⑥ 收录面牙 | `node scripts/check-tools-surface-teeth.mjs` | `exit=0`，`19/19` 组变异如期变红、还原后基线仍绿；三个就地变异源（`_data/onlineTools.yml`、`assets/img/tools/idcard-tool.svg`、`dev/js/toolIdcard.js`）事后 `git status` 无输出 |
+| ⑩ 浏览器 | `node scripts/verify-idcard-browser.mjs` | **六轮 `exit=0`、`13/13 通过`**（开 JS 那六轮读数 1211/1211/1219/1220/1226/1231）；出处行逐轮打 pid 与 profile，末轮 `# Chrome pid=91550 profile=…/t10-chrome-5MOPPq`、`# 静态服务 http://127.0.0.1:50865/better-blog`——两个都是**当场抢的端口**，别再照抄成固定值；另有两次变异自证（`5a` 转红、`exit=1`，见 Step 2 表末） |
+
+**④ 为什么不重跑**：本轮只动核验器与计划文档，页面源一个字节没改。⑩ 读过的那份
+`_site/tools/idcard.html` 出自 21:02:27 那一发 `pnpm build:site`（5a 变异自证期间被搬进过 `<head>`
+又还原，两轮下来 md5 与搬动前同为 `564b3d6a9885f14645ae1e7551bcebaa`，只有 mtime 刷成 21:58:38）；
+`find _includes _layouts _data dev/js/tools dev/sass assets/tools -newer _site/tools/idcard.html -type f`
+只回 `_data/onlineTools.yml` 一项，而它 `git status` 干净（是 ⑥ 还原时刷的 mtime，不是内容变了）——
+即 **_site 与 HEAD 的页面源一致**。此时重建反而会把对方会话 dirty 的 `_config.yml`
+（关于页时间轴，注释明写"不要提交、不要上线"）烤进 `_site`，让下一轮量到一个不对应任何 commit 的产物。
 
 `scripts/verify-idcard-browser.mjs` 是本格唯一新增文件；它不进 `FILE_TARGETS`（不在计划里贴全文，
 按路径与判据表引用），但 `pnpm build:site` 之后要能重跑，所以留 `--site` 之外的零参数形态。
-
-**2026-09-27 落地实跑**：`node scripts/verify-idcard-browser.mjs` → `exit=0`、`13/13 通过`；
-两道镜像门禁（`verify-plan-blocks` / `-teeth`）复跑仍 `exit=0`（33 条镜像全等、`18/18`）。
+格式化：本仓库没有 prettier/eslint 门禁（CI 只 `pnpm build` + `bundle exec jekyll build`，
+root 下无 `.prettierrc`、无 husky），`scripts/` 里连 `og-images.mjs` 这类长期在册的文件都不是
+prettier-clean，所以这一格沿用了本系列脚本的单引号风格，没有为它单独 `--write`（那会把整文件
+重排成双引号，583 行噪音）。
 
 <!-- APPEND-11 -->
 

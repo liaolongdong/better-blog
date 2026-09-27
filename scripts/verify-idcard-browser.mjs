@@ -11,6 +11,7 @@
  */
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -19,8 +20,32 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = path.join(ROOT, '_site');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PORT = 8791;
-const CDP = 9333;
+/**
+ * 静态服务端口现抢，不能像上一版那样写死 8791：上一版固定端口时，8791 与 9333 都可能被
+ * 前一轮遗留的进程占着，脚本却照常往下跑。
+ *
+ * Chrome 的调试端口**不用这里挑**，而是 `--remote-debugging-port=0` 让 Chrome 自己挑，
+ * 再从**它自己的 stderr** 里读 `DevTools listening on ws://…`（见下面的 spawn）。理由是一次
+ * 现场事故：2026-09-27 这一轮固定 9333 正被上一轮遗留的 headless Chrome 占着
+ * （`--user-data-dir=/tmp/t10/profile-…`），`/json/version` 秒回，脚本以为自己连上了刚 spawn
+ * 的那台，实际连的是那台孤儿——URL 是自己的、数字看着也合理，唯独 `chrome.kill()` 关不掉它，
+ * `--window-size` 等 flag 也未必一致。"结果看着对，测的却不是自己启动的那一台"是静默说谎里
+ * 最难查的一种，从子进程 stderr 读端点可以从根上排除这个形状：那行日志只可能出自这个 pid。
+ *
+ * @returns {Promise<number>} 当前空闲的 127.0.0.1 端口
+ */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once('error', reject);
+    probe.once('listening', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+    probe.listen(0, '127.0.0.1');
+  });
+}
+const PORT = await freePort(); // 静态服务端口
 const BASE = '/better-blog';
 const PAGE = '/tools/idcard.html';
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml',
@@ -45,16 +70,33 @@ const server = http.createServer((req, res) => {
 });
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
-const chrome = spawn(CHROME, ['--headless', `--remote-debugging-port=${CDP}`,
-  `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), 't10-chrome-'))}`, '--disable-gpu', '--no-first-run',
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 't10-chrome-'));
+// 只 MAP 字体那一个 host：这一格现场试过把 360 推送链上的 `js.passport.qihucdn.com`、
+// `s8.qhres2.com` 一起 MAP 到 127.0.0.1（想用"全都失败"把阻塞字节变成确定数），结果
+// `document.readyState` 在 ~9.6s 内再也到不了 complete，第 2 组导航直接 `加载超时` 崩在这一步——
+// 同步 <script> 的连接被拒后 Chrome 带退避重试，比让它真连上还慢。
+// 所以外链的不确定性不在这里消，在判据里消：**5a 的可复算读数与断言只算本地块**，
+// 外链件原样列出来但不进判据（同一份产物两轮的外链合计实测 6,869B 与 6,897B，本地恒 222,121B）。
+const chrome = spawn(CHROME, ['--headless', '--remote-debugging-port=0',
+  `--user-data-dir=${profile}`, '--disable-gpu', '--no-first-run',
   '--disable-background-networking', '--window-size=1280,900',
-  '--host-resolver-rules=MAP at.alicdn.com 127.0.0.1'], { stdio: 'ignore' });
-const getJson = async (u) => (await fetch(u)).json();
-let version = null;
-for (let i = 0; i < 60; i += 1) {
-  try { version = await getJson(`http://127.0.0.1:${CDP}/json/version`); break; } catch { await new Promise((r) => setTimeout(r, 250)); }
-}
-if (!version) { console.log('✗ Chrome 调试端口没起来'); process.exit(2); }
+  '--host-resolver-rules=MAP at.alicdn.com 127.0.0.1'],
+  { stdio: ['ignore', 'ignore', 'pipe'] });
+// 端点只认这行 stderr：它出自上面那个 pid，所以不可能连到别人启动的浏览器。
+// 子进程中途退出 / 20 秒内没吐出这行，都算这一轮没起来，直接退 2，不做任何"降级继续"。
+const wsUrl = await new Promise((resolve, reject) => {
+  let buf = '';
+  const timer = setTimeout(() => { cleanup(); reject(new Error('20s 内没读到 DevTools listening 那行 stderr')); }, 20000);
+  const onExit = () => { cleanup(); reject(new Error(`Chrome 子进程提前退出（pid ${chrome.pid}）`)); };
+  const cleanup = () => { clearTimeout(timer); chrome.stderr.off('data', onData); chrome.off('exit', onExit); };
+  function onData(chunk) {
+    buf += chunk.toString('utf8');
+    const m = /DevTools listening on (ws:\/\/[^\s]+)/.exec(buf);
+    if (m) { cleanup(); resolve(m[1]); }
+  }
+  chrome.stderr.on('data', onData);
+  chrome.once('exit', onExit);
+}).catch((err) => { console.log(`✗ Chrome 调试端点没拿到：${err.message}`); process.exit(2); });
 
 class Conn {
   constructor(url) {
@@ -75,8 +117,10 @@ class Conn {
   }
   on(fn) { this.handlers.push(fn); }
 }
-const c = new Conn(version.webSocketDebuggerUrl);
+const c = new Conn(wsUrl);
 await c.open();
+// 出处打在第一时间：这一轮连的是哪个 pid、哪份 profile，跑完对一眼，别留"测了别人"的悬念
+console.log(`# Chrome pid=${chrome.pid} profile=${profile}\n# CDP ${wsUrl}\n# 静态服务 http://127.0.0.1:${PORT}${BASE}`);
 const { targetId } = await c.send('Target.createTarget', { url: 'about:blank' });
 const { sessionId } = await c.send('Target.attachToTarget', { targetId, flatten: true });
 const S = (m, p = {}) => c.send(m, p, sessionId);
@@ -247,14 +291,44 @@ const rl = await evalJs(`(() => {
     xfer: e.transferSize || 0 }));
   const nav = performance.getEntriesByType('navigation')[0] || {};
   const blocking = res.filter((r) => r.rb === 'blocking');
+  // 名字以 "/" 开头 = 本机产物（origin+baseurl 已被剥掉）；剩下的是外链，它们的 transferSize
+  // **按当场成败浮动**（同一份产物两轮实测 222,121B 与 229,019B，差的正是 at.alicdn 6,244 +
+  // qhres2 654），所以"可复算的那个数"只算本地块，外链单独列出来但不进判据。
+  const isLocal = (b) => b.name[0] === '/';
+  const local = blocking.filter(isLocal);
+  const remote = blocking.filter((b) => !isLocal(b));
   return { htmlBytes: nav.transferSize || nav.encodedBodySize || 0,
     all: res.length, blocking: blocking.map((b) => b.name + ':' + b.xfer).join(' '),
     blockSum: blocking.reduce((s, b) => s + b.xfer, 0),
+    blockLocalSum: local.reduce((s, b) => s + b.xfer, 0),
+    localCount: local.length,
+    remoteBlock: remote.map((b) => b.name + ':' + b.xfer).join(' ') || '(无)',
     nonBlock: res.filter((r) => r.rb !== 'blocking').length,
-    tk: (res.find((r) => /toolkit\.min\.css/.test(r.name)) || { rb: '不在资源表里', xfer: -1 }),
     mine: res.filter((r) => /toolkit\.min\.css|toolkitCore|toolIdcard/.test(r.name)).map((r) => r.name.split('/').pop() + '=' + r.rb + '/' + r.xfer).join(' ') }; })()`);
-check('5a 阻塞集合的**线上字节**实测（transferSize，未 gzip）', true,
-  `HTML ${rl.htmlBytes}B + 阻塞集 ${rl.blockSum}B；本页自己的三件：${rl.mine}；阻塞清单=${rl.blocking}`);
+// 这一条**要有牙**：证件页新加的三件不该进阻塞集（`toolkit.min.css` 落在产物 <body> 第 332 行，
+// 正是为此）。写成 `true` 的"只报"就等于给这一格发了张永久通行证——将来谁把它搬进 <head>，
+// 这里一声不响，而 §7 那条 16KB 的口径当场失真。
+// 判据只认这三件的**确切文件名**。上一版写成 `min\.css|idcard` 的宽松正则，把全站公共件
+// `index.min.css`、`normalize.min.css` 也算成"本页件"，于是红了一条假缺陷——阻塞集里本来就该有
+// 公共件，这一格管的是"证件页专属的那三件有没有被搬进 <head>"。
+// `accountedFor` 兜另一种红法：资源表空/导航失败时三件都"不在阻塞集里"，前两个条件会**一起真**，
+// 于是这一格假绿。所以这里要求量到的东西成得了像：HTML 上千字节、本地阻塞件不少于 3 件、
+// 本地合计不少于 50KB（现量 7 件 / 222,121B；全站公共那一族要掉到 50KB 以下，等于 §7 的阻塞集
+// 基线整段要重写，那时这一格变红是应该的）。
+const MINE = ['toolkit.min.css', 'toolkitCore.min.js', 'toolIdcard.min.js'];
+const mineInBlocking = rl.blocking
+  .split(' ')
+  .filter(Boolean)
+  .map((e) => e.split(':')[0].split('/').pop())
+  .filter((b) => MINE.includes(b));
+const mineNonBlocking = MINE.every((f) => rl.mine.includes(`${f}=non-blocking`));
+const accountedFor = rl.htmlBytes > 1000 && rl.localCount >= 3 && rl.blockLocalSum >= 50000;
+check('5a 阻塞集里不含证件页专属件（三件全 non-blocking），并现量阻塞集的本地字节',
+  mineNonBlocking && mineInBlocking.length === 0 && accountedFor,
+  `HTML ${rl.htmlBytes}B；阻塞集本地 ${rl.blockLocalSum}B（${rl.localCount} 件，可复算）+ 外链当场 ${rl.blockSum - rl.blockLocalSum}B = ${rl.blockSum}B；资源共 ${rl.all} 条、non-blocking ${rl.nonBlock} 条；本页三件：${rl.mine}；本地阻塞清单=${rl.blocking}；外链阻塞清单=${rl.remoteBlock}`
+    + `${mineInBlocking.length ? ' ← 阻塞集里出现了本页件：' + mineInBlocking.join(', ') : ''}`
+    + `${mineNonBlocking ? '' : ' ← 三件没有全部以 non-blocking 出现在资源表里'}`
+    + `${accountedFor ? '' : ' ← 资源表没量到东西（HTML/本地块数/本地合计三项不达标），前两项即便为真也不算过'}`);
 
 console.log(`\n${results.filter((r) => r.pass).length}/${results.length} 通过${results.filter((r) => !r.pass).length ? '，失败：' + results.filter((r) => !r.pass).map((f) => f.id).join(' / ') : ''}`);
 chrome.kill(); server.close();
