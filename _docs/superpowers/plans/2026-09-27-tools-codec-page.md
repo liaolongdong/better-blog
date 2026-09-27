@@ -1209,7 +1209,7 @@ export function splitQuery(text) → Array<{ raw, key, value, keyOk, valueOk, ha
 | L14 | `splitQuery` 只按 `&` 切、真空段丢弃但**只含空白的段不丢**、`;` 不作分隔符、重复键不合并、无 `=` 的行 `hasEquals:false` 且 `value:''`、`k=a=b` 的值是 `a=b` |
 | L14b | 解不开的那一侧保留原文并标 `keyOk`/`valueOk`（`key` 位不许变空）、同一行里解得开的邻居不连坐、`%20=1` 的键解成空格、单项越界单独拒且**原文长度一位不少** |
 | L15 | 两档入参：文本入参（数字 / 布尔 / Symbol / Date）归一不抛，八个入口对无原型对象同抛 `TypeError`；options 三档 `TypeError`（非对象 / 未知键 / `strict` 非布尔），键在值缺席走默认档不抛；`mime` 那一位是文本档（缺席补默认、给了但形状不对就拒，都不是抛）；报错尾巴「收到 <shape>」一条正则同时核 `decodeBase64`、`fromEpoch`、`generateUsccCodes` 三本模块 |
-| L16 | 剥注释扫源 21 条违禁（`import`/`export from`/`require`/DOM 四件/`fetch`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟两件/`Intl`/`toLocale`/`crypto`/`unescape`/`eval`/`String.fromCharCode`），清单自己带条数断言；再**正向**断言 `MAX_INPUT_BYTES`、`0xD800`、`BASE64_ALPHABET` 必须出现在代码里（只在注释里提等于没实现）；零重叠：`dev/js/codec.js` 不存在、`_site/assets/js` 里搜不到 `splitQuery` |
+| L16 | 剥注释扫源 23 条违禁（`import`/`export from`/`export * from`/动态 `import()`/`require`/DOM 四件/`fetch`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟与随机三件/`Intl`/`toLocale`/`crypto`/`unescape`/`eval`，逐条数过来正好 23），清单自己带条数断言；`import` 那条的 `^` 带 `m` 标志是段 3 Task 3 评审回改补的牙（`export * from` 与动态 `import()` 两条也是那次补的，见 Task 3 的回改小节）——没有 `m` 时"中段插一条 import"这一整档静默不核；再**正向**断言 `MAX_INPUT_BYTES`、`0xD800`、`BASE64_ALPHABET` 必须出现在代码里（只在注释里提等于没实现）；零重叠：`dev/js/codec.js` 不存在、`_site/assets/js` 里搜不到 `splitQuery` |
 | L17 | 两句 CAVEAT 与实现**双向**对账（Base64 八行 + URL 六行，两张表各带条数断言）：文案承诺的每档实现做得到，做到的每档也写进文案；两句长度都在 80–240 字且不许相同 |
 | L18 | 导出面 13 个名字按字典序逐一比对，多一个少一个都红，清单自己带 `length === 13` |
 
@@ -2224,7 +2224,9 @@ test('L15 入参口径与兄弟模块同档：文本归一不抛、options 抛 T
 });
 test('L16 扫源：零 import、不碰 DOM、不读环境、不用 Buffer/atob/btoa/TextEncoder', () => {
   const src = lCode();
-  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+  // `m` 标志不能少：`^` 不带 `m` 只锚整份源码的开头，"中段插一条 import" 全绿（评审 2026-09-28）
+  const banned = [['import', /^\s*import[\s{*]/m], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['export * from', /export\s*\*/], ['动态 import', /\bimport\s*\(/],
     ['require(', /\brequire\s*\(/], ['document', /\bdocument\b/], ['window', /\bwindow\b/],
     ['localStorage', /\blocalStorage\b/], ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/],
     ['Buffer', /\bBuffer\b/], ['atob', /\batob\s*\(/], ['btoa', /\bbtoa\s*\(/],
@@ -2233,7 +2235,7 @@ test('L16 扫源：零 import、不碰 DOM、不读环境、不用 Buffer/atob/b
     ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['crypto', /\bcrypto\b/],
     ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
   for (const [name, re] of banned) assert.equal(re.test(src), false, `codec.js 的代码里出现了 ${name}`);
-  assert.equal(banned.length, 21, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  assert.equal(banned.length, 23, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
   // 三件事必须有牙：闸门常量导出、UTF-8 与 base64 都是自己实现的、位置信息是自己算的
   assert.match(src, /export const MAX_INPUT_BYTES/, '闸门常量必须导出，面板与 §7 的账才对得上');
   assert.equal(/String\.fromCharCode/.test(src), false, '拼字符串走自己那套 UTF-8，不用 fromCharCode 绕');
@@ -2323,6 +2325,12 @@ test('L18 导出面：13 个名字一个不多一个不少，面板绑定按这�
    M13 的注释里写着这一格欠了什么。
 5. 导出 `byteLen` / `isBytes` / `normalizeAlgo` 三个读侧函数（起草版只提了入口）。`normalizeAlgo`
    必须导出：算法名归一这件事只有面板与判据共用同一个函数才谈得上"不跟着漂"。
+6. **数据入参里有两种"看着像数据、其实不是数据"要拒**（评审回改补的契约，面板按 `reason` 原样显示就行）：
+   已脱离缓冲区的字节输入（`transfer` 过的 `ArrayBuffer` 与它下面的视图，`ok:false`、`bytes:0`）与
+   只剩默认对象标签的对象（`Blob`/`File`/`{}`/`Map`/`Set`…，判据是"`String(v)` 的结果恰好等于
+   `Object.prototype.toString.call(v)`"）。两者都**不 reject**、都走 `reason` 那一条路。
+   配套欠给 Task 6 的装配层一句：文件那一格必须先按 `File.size` 预筛再 `await file.arrayBuffer()`
+   ——`digest.js` 的 5 MiB 闸门是在**字节已经进内存之后**才判的，先读后判等于让 2 GB 文件先把内存吃掉。
 
 ```text
 export const MAX_TEXT_BYTES = 1048576;   // 文本通道闸门（字节）＝ codec.js 的 MAX_INPUT_BYTES
@@ -2355,8 +2363,10 @@ export async function digestAll(input, options?) → { ok, reason, bytes, rows: 
 
 ### 判据清单（§M，落地后回填）
 
-**18 条 `test()`**（M1–M18），外加一份 **18 刀变异台账**（Step 3，`/tmp/seg3t3/mut.mjs`，
-跑完即弃、不进套件）。§M 对套件总数的贡献是 18，全量 `# tests` 从 184 变成 **202**。
+**18 条 `test()`**（M1–M18），外加一份 **25 刀变异台账**（Step 3，首发 18 刀跑 `/tmp/seg3t3/mut.mjs`、
+回改 7 刀跑 `/tmp/seg3t5/mut.mjs`，都跑完即弃、不进套件）。§M 对套件总数的贡献是 18，全量
+`# tests` 从 184 变成 **202**。评审回改（下面那节）**没有新增 `test()`**——七处新断言全部长在
+M5/M8/M9/M11/M16 这五条已有的格子里，所以条数不变、牙齿变多。
 
 | 编号 | 咬什么 |
 | --- | --- |
@@ -2364,18 +2374,18 @@ export async function digestAll(input, options?) → { ok, reason, bytes, rows: 
 | M2 | MD5 与 `createHash('md5')` 逐样本对拍（18 条样本），`via` 必须是 `self`，同一份字节的文本档与字节档同结果；再拿 **0–255 全字节值域**跑一遍（单字节值域里藏得住索引与位移的错，两条样本抓不到） |
 | M3 | 分组与补位边界 20 档（`0/1/54/55/56/57/62/63/64/65/71/118/119/120/127/128/129/191/192/320`）全部与 Node 对拍：55→56 是"长度字段挤进下一个分组"的坎，63→64 是"整块不带补位"的坎，127→128→129 是两块变三块的坎 |
 | M4 | 五档输出形状：小写十六进制、长度按 `HEX_LEN` 表、`algo` 回显归一后的规范名、`reason` 为 `null`；SHA-1 与 SHA-256 各钉一条 RFC 3174 / FIPS 180 的 `'abc'` 官方向量，防止"对拍源跟着实现一起漂" |
-| M5 | 文本 / `Uint8Array` / `ArrayBuffer` 三形状同结果、字节数同口径；**带 `byteOffset` 的 `subarray` 视图**必须按自己的起点读，并配一条"整块 ≠ 尾段"的反向哨兵（偏移被吞时这条才响） |
+| M5 | 文本 / `Uint8Array` / `ArrayBuffer` 三形状同结果、字节数同口径；**带 `byteOffset` 的 `subarray` 视图**必须按自己的起点读，并配一条"整块 ≠ 尾段"的反向哨兵（偏移被吞时这条才响）；**脱落档**（评审回改新增）：`transfer` 过的 `ArrayBuffer`、它下面的 `Uint8Array`、`DataView` 三种形状全部 `ok:false`、`hex` 空、`bytes:0`、理由含"脱离/detached"，且**三种共用同一句**，`digestAll` 里五格同拒——少了实现里那道 `try` 这三条就变成 reject，整批连本该出结果的 MD5 一起丢；末尾两条反向哨兵钉住"长度为 0 的缓冲区/视图仍是空输入"，不许被脱落档误伤 |
 | M6 | 空输入是一等公民：五档空串都出**官方值**（硬写五条常量，`sha-512` 那条自己先断 128 位），不是拒绝；空 `Uint8Array` 与空字符串同档 |
 | M7 | 算法名归一：`sha256`/`SHA-256`/`' Sha_256 '`/`MD5` 等九个写法归一，且 `digest` 的归一与 `normalizeAlgo` 不许分叉；十种认不出的形状 `normalizeAlgo` 安静给 `null`，而 `digest` 必须 `TypeError`（`rejects`）并带「收到 <shape>」；`'sha-256x'` 单独钉"不许静默回落 md5" |
-| M8 | 入参两档与兄弟模块同档：`123`/`true`/`Symbol`/`NaN`/`[1,2]`/`Date` 归一不抛（逐条与 Node 对拍归一后的串），`null`/`undefined` 归一成空串走 M6 那一档；无原型对象在 `digest` 与 `digestAll` 两处同抛；`isBytes` 认 `Uint8Array`/`ArrayBuffer`/`Buffer`（Node 的 `Buffer` 是 `Uint8Array` 子类，浏览器侧同一条路）而不认字符串与数值 |
-| M9 | 文本闸门按**字节**：`=== 1048576`、与 `codec.js` 的 `MAX_INPUT_BYTES` 同值（§7 那句"文本类工具 1MB"只有一份口径）、`byteLen` 四值 + **与 `codec.js` 的 `byteLen` 逐样本核同长**；正好 1 MiB 放行、+1 整体拒绝且 `hex` 为空、理由点名实测字节并 `doesNotMatch(/第 \d+ 位/)`；`'中'.repeat(349526)`（1048578 字节）必须拒——按字符判的实现就在这条红 |
+| M8 | 入参两档与兄弟模块同档：`123`/`true`/`Symbol`/`NaN`/`[1,2]`/`Date` 归一不抛（逐条与 Node 对拍归一后的串），`null`/`undefined` 归一成空串走 M6 那一档；无原型对象在 `digest` 与 `digestAll` 两处同抛；`isBytes` 认 `Uint8Array`/`ArrayBuffer`/`Buffer`（Node 的 `Buffer` 是 `Uint8Array` 子类，浏览器侧同一条路）而不认字符串与数值；**只剩对象标签的要拒**（评审回改新增）：`Blob`/`File`/`{}`/`{a:1}`/`Map`/`Set` 六种全部 `ok:false`、理由含"对象标签"，并各配一条反向断言"结果不许等于那串标签本身的摘要"——`String(new Blob(['x']))` 是 `[object Blob]`，给它合法摘要是静默假成功；`digestAll(new Blob)` 五格同拒且 `bytes` 照实报 13；误伤哨兵三条：自定义 `toString` 的内容要认、`new String('x')`（标签 `[object String]` ≠ 归一结果 `x`）照常、`[]` 仍是空串那一档 |
+| M9 | 文本闸门按**字节**：`=== 1048576`、与 `codec.js` 的 `MAX_INPUT_BYTES` 同值（§7 那句"文本类工具 1MB"只有一份口径）、`byteLen` 四值 + **与 `codec.js` 的 `byteLen` 逐样本核同长**；正好 1 MiB 放行、+1 整体拒绝且 `hex` 为空、理由点名实测字节并 `doesNotMatch(/第 \d+ 位/)`；`'中'.repeat(349526)`（1048578 字节）必须拒——按字符判的实现就在这条红；**半代理项那一档也跨模块对拍**（评审回改新增：`M_SAMPLES` 里没有一个落单代理项，而 `utf8Len` 恰好在这一档有分支）——四条含落单代理项的串逐一核两本模块同长，再钉 `dByteLen` 对 `\uD83D` 的**绝对值 3**，防"两处一起漂" |
 | M10 | 字节闸门单独一档：`=== 5242880` 且 `> MAX_TEXT_BYTES`（否则"文件走 ArrayBuffer"没有意义）；正好放行、+1 拒绝且 `hex` 空、理由含"字节"；文本越界不许借字节档的光；MD5 也吃字节闸门（越界与否与算法无关） |
-| M11 | 落单代理项两档（md5 与 sha-256）都拒并给**字符位**（三种各一格的样本位 1/2/3）、`hex` 为空；成对代理项放行且 `bytes===4`、与 Node 同结果；**越界优先于代理项**（两道都中时先报闸门，否则给出"第 1048577 位"的假位置） |
+| M11 | 落单代理项两档（md5 与 sha-256）都拒并给**字符位**（三种各一格的样本位 1/2/3）、`hex` 为空；成对代理项放行且 `bytes===4`、与 Node 同结果；**越界优先于代理项**（两道都中时先报闸门，否则给出"第 1048577 位"的假位置）；拒绝那一格 `bytes` 也要照实回显（`=== dByteLen(s)`，评审回改新增——尺子的绝对值由 M9 钉住，这里不是自己跟自己对账） |
 | M12 | `options` 档：`{subtlez}` 与字符串 options 与 `{subtle:1}` 三种都 `TypeError`（尾巴「收到 number」）；`undefined`/`null`/`{}` 三种默认档都走真 `subtle` 且与 Node 同结果；**注入的假 `subtle` 恰好被调一次**、第一个参数是 `'SHA-256'`（大写带横杠）、第二个参数是 `Uint8Array` 本体且字节与 `'abc'` 的 UTF-8 一致；MD5 档 `calls.length === 0`；`digest()` 返回值有 `.then`（五档同一条异步路径） |
 | M13 | 降级：`{subtle:null}` 时 SHA 档 `ok:false`、`via:'unavailable'`、理由含"安全上下文"**且点出 MD5 不受影响**、`bytes` 照报；MD5 同档照样出正确值；另外三档 SHA 各自也拒；`subtle.digest` **同步抛**与**异步拒**两种坏形状都不许送出模块（底层报错文本必须带出来）；`{subtle:{}}`（有对象没可调函数）同归"取不到" |
 | M14 | `digestAll`：`rows` 行序＝`ALGORITHMS`（漂一格面板错一行）、`rows[0]` 键集与 `digest` 逐键相同（面板只写一套读法）、`bytes` 只算一次五格同数、每格 hex 与 Node 对拍；闸门失败时**五格同一句理由**（`row.reason === all.reason`，代理项那一格也核）；只有 SHA 降级时顶层 `ok:false` 而 `reason:null`、MD5 那格 `ok:true`、不成的一共四格 |
 | M15 | 导出面 10 个名字按字典序逐一比对，清单自带 `length === 10`；`ALGORITHMS` 顺序与内容写死；`HEX_LEN` 键集与 `ALGORITHMS` 同集（少一档就有一行面板没尺子）；两张共享表 `Object.isFrozen` 为真（段 2 的共享表只读口径） |
-| M16 | 剥注释扫源 **23 条违禁**（清单自带条数断言）：`import`/`export from`/`require(`/`node:crypto`/`createHash`/DOM 四件/`fetch(`/`FileReader`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟三件/`Math.random`/`Intl`/`toLocale`/`unescape`/`eval`；**正向**断言 `0x67452301`、`0x10325476` 必须在、K 表区间正则读到的常数**恰好 64 项**、`Math.sin` 必须不在、取 `subtle` 走 `globalThis` 而 `window.crypto` 必须不在；零重叠两条 + 位置哨兵（`dev/js/digest.js` 不存在、`dev/js/tools/digest.js` 必须在，否则前一条是空转的）；`_site/assets/js` 若有产物则搜不到 `digestAll` |
+| M16 | 剥注释扫源 **25 条违禁**（清单自带条数断言）：`import`（**这条行首锚 `^` 必须带 `m`**——不带就只锚"整份源码的第一个字符"，中段插一条 `import './codec.js'` 全绿，评审回改实测；§L 的 L16 同病同治）/`export from`/`export * from`/动态 `import()`/`require(`/`node:crypto`/`createHash`/DOM 四件/`fetch(`/`FileReader`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟两件（`Date.now`/`new Date(`）/`Math.random`/`Intl`/`toLocale`/`unescape`/`eval`，逐条数过来正好 25（起草那版写"23 条"而枚举出来是 24 项，本次一并核准）；**正向**断言 `0x67452301`、`0x10325476` 必须在、K 表区间正则读到的常数**恰好 64 项**、`Math.sin` 必须不在、取 `subtle` 走 `globalThis` 而 `window.crypto` 必须不在；零重叠两条 + 位置哨兵（`dev/js/digest.js` 不存在、`dev/js/tools/digest.js` 必须在，否则前一条是空转的）；`_site/assets/js` 若有产物则搜不到 `digestAll` |
 | M17 | 口径文案与实现**双向**对账（8 行，表自带条数）：`MD5 由本站自己实现`↔`via==='self'`、`走浏览器`↔`via==='subtle'`、`取不到时给明确提示`↔`via==='unavailable'`、`文本按 UTF-8 字节`↔`bytes===3`、两句 MiB↔两个闸门常量、`整体拒绝、不截断`↔越界那格 `hex===''`、`文件走字节、不进字符串`↔两通道同结果；长度 80–240 字；与 `BASE64_CAVEAT`/`URL_CAVEAT`/`TIME_CAVEAT` 三句都不许相同 |
 | M18 | 跨块大输入：1 MiB 的 `0xAA` 字节档（16384 个分组）与 Node 逐字符等；5 MiB 的 `sha-256`；`'中'.repeat(100000)` 的 `sha-512`（UTF-8 编码器在长多字节串上必须与 Node 同字节） |
 
@@ -2424,7 +2434,7 @@ grep -E "^# (tests|pass|fail)" /tmp/seg3t3_run.log
 ```
 实跑：`exit=0`、`# tests 202 / pass 202 / fail 0`（**首跑即绿**，没有事中改判据期望值）。
 
-- [x] **Step 3: 自证 §M 有牙（18 刀变异台账）**
+- [x] **Step 3: 自证 §M 有牙（18 刀首发 + 7 刀回改 = 25 刀变异台账）**
 
 ```bash
 node --check /tmp/seg3t3/mut.mjs
@@ -2446,7 +2456,7 @@ node mut.mjs > /tmp/seg3t3/ledger.log 2>&1; echo "exit=$?"
    改成 `export const HEX_DIGITS_EXTRA = HEX_DIGITS;`（合法、只多一个导出）才咬到 M15。
    这一条值得记住：**变异刀必须只改语义、不改可加载性**，否则量的又是"文件坏了"。
 
-台账结果（`/tmp/seg3t3/ledger.log`，基线 `# tests 202 / pass 202`）：
+台账结果（首发十八刀：`/tmp/seg3t3/ledger.log`；回改七刀：`/tmp/seg3t5/ledger.log`；两份基线都是 `# tests 202 / pass 202`）：
 
 | 刀 | 改坏什么 | 红了谁 | 归因 |
 | --- | --- | --- | --- |
@@ -2468,6 +2478,19 @@ node mut.mjs > /tmp/seg3t3/ledger.log 2>&1; echo "exit=$?"
 | D16 | 视图吞掉 `byteOffset`（整块从头读） | M5 | 单红，含那条"整块 ≠ 尾段"的反向哨兵 |
 | D17 | 导出面偷偷多长一个名字 | M15 | 单红 |
 | D18 | 十六进制出**大写** | M1 M2 M3 M4 M6 M8 M11 M12 M13 M14 M18 | 目标 M4 ✅（`hex === hex.toLowerCase()`），余下是与 D1 同构的"处处吃 MD5/SHA 输出" |
+| D19 | 摘掉 `prepare` 字节档外面那道 `try`（回改补的刀） | **M5 单红** | 脱落缓冲区回到 reject，`# tests` 仍 202（reject 是断言失败、不是加载失败），目标 ✅ |
+| D20 | 摘掉"对象标签"这一档 | **M8 单红** | Blob/File 回到静默假成功（`md5('[object Blob]')`），目标 ✅ |
+| D21 | 在 `digest.js` 中段插一条 `import './codec.js';` | **M16 单红** | 目标 ✅，并且当场对照：老正则（无 `m`）抓到=`false`、新正则抓到=`true`——这颗牙就是那个 `m` 标志 |
+| D22 | 在 `codec.js` 中段插一条 `import './digest.js';` | **L16 单红** | §L 同病同治的同一颗牙，同样的老/新对照 `false`/`true` |
+| D23 | `codec.js` 的 `utf8Len` 把半代理项算成 4 字节 | **M9 单红** | 跨模块对拍那四条咬住，L 系列一条不红（`codec.js` 自己没钉这个绝对值） |
+| D24 | `digest.js` 的 `utf8Len` 同样改错 | **M9 单红** | 同一把尺子的另一侧；两刀合起来证明 M9 这条不是"两处一起漂也测不出" |
+| D25 | 代理项那一档拒绝时回显 `bytes: 0` | **M11 单红** | M11 新增的"拒绝也要报实测字节数"咬住；尺子的绝对值在 M9，所以这一刀不是自证 |
+
+回改七刀跑在 `/tmp/seg3t5`（脚手架 `/tmp/seg3t5/mut.mjs`、台账 `/tmp/seg3t5/ledger.log`，
+`exit=0`、`✓ 7 刀全部有牙`）。这把脚手架比首发那把**少了两样**，得说明白：锚点命中数与
+`# tests` 未变两项留着，`DRY=1` 预检模式与"结尾比对工作树脏指纹"没做——代替动作是
+跑之前整份重拷副本树（`rm -rf tree && cp -R dev/js scripts demo package.json vite.config.js`）、
+跑之后在仓库里核一次 `git status --porcelain`（结果见 Step 4）。
 
 **18/18 有牙、0 刀全绿、0 刀被脚手架自检作废**（改完 D17 后重跑整轮，前 16 刀的红名单与首跑
 逐字相同）；9 刀单红恰命中目标，另外 9 刀的多红逐条可归因（M16 的 K 表条数、M17 的八行对账、
@@ -2531,6 +2554,50 @@ git commit -m "feat(tools): 段 3 Task 3 摘要模块 digest.js——MD5 自实�
 
 ---
 
+### 评审回改（2026-09-28，本格的复核账）
+
+评审员对本格报了 3 条 Important + 2 条 Minor。**五条全部先复跑证实再处置**，
+没有一条是" reviewer 说了就改"，也没有一条是"看着像误报就跳过"。
+
+| 编号 | 主张 | 我复跑出来的事实 | 处置 |
+| --- | --- | --- | --- |
+| I1 | detached 的字节输入会让入口 reject，破"数据入参永不抛" | 属实。`toView()` 在 `new Uint8Array(detachedBuffer)` 上抛 `TypeError: Cannot perform Construct on a detached ArrayBuffer`，`prepare()` 没接，一路顶到 `digest()` 外面——async 模块里表现为 rejection，`assert.throws` 抓不住，只有 `assert.rejects` 抓得住。三种形状（detached `ArrayBuffer`／detached `DataView`／`new Uint8Array(detachedBuffer)`）抛的位置还不一样：detached `ArrayBuffer` 的 `.byteLength` 读得出且为 **0**（谁要是直接拿这个数判空，就会把"读不到"当成"空输入"），detached `DataView` 连 `.byteLength`/`.byteOffset` 都读不出，各抛 `TypeError: Cannot perform get DataView.prototype.byteLength on a detached ArrayBuffer`；而 `toView()` 走 `new Uint8Array(ab)`，两条路都在它这里抛 | 已修。`prepare()` 的字节分支包 `try { view = toView(input) } catch { return { ok:false, bytes:0, reason:DETACHED } }`，判据 M5 末段加三形状同句断言（`new Set(三句 reason).size === 1`）+ `digestAll` 五格同拒 + 两条"真空输入不许被误判"（`new ArrayBuffer(0)`、`new Uint8Array(0)` 仍 `ok:true`） |
+| I2 | 传 `File`/`Blob` 时得到"看起来对"的假摘要 | 属实且更难看。`String(new Blob(['x']))` 是 `'[object Blob]'`，`toText()` 照单全收，于是对 13 个字符的标签串做了合法 MD5——面板拿到一串十六进制，完全分不出这是内容还是身份。`Object.prototype.toString.call(Object.create(null))` 返回 `'[object Object]'` **不抛**，抛的是后面的 `String()`，所以"无原型对象连标签都读不出来"这句我原先写错了，注释已改正 | 已修。新增 `defaultTagOf()`（非对象返回 null，不做 try/catch——实测它不抛）+ `prepare()` 文本分支：`toText` 的结果恰等于 `toString` 标签时判 `ok:false`，文案直接指名 `文件请先 await file.arrayBuffer() 取字节再传`。判据 M8 末段加 6 个 tagged 对象（`Blob`/`File`/`{}`/`{a:1}`/`Map`/`Set`）拒绝、`assert.notEqual(r.hex, refHex(...))` 钉死"不是对标签算的"、`digestAll(new Blob)` 五格同拒且 `bytes === 13`，另加三条防误伤（自定义 `toString` 返回 `'mine'` 要照用、`new String('x')` 要当 `'x'`、`[]` 要当空串） |
+| I3 | 判据 M16/L16 的 `import` 正则缺 `m` flag，抓不到行首 import | 属实。`/^\s*import[\s{*]/` 没有 `m` 时 `^` 只锚整串开头，而 `digest.js` 的 import 在第二行——这块判据是**假牙**。补 `m` 后自证：把 `import x from './codec.js'` 注入副本，老正则仍绿、新正则变红 | 已修（§M 与 §L 同步）。两档各补 `export * from` 与动态 `import()` 两条，条数断言随之核准：§M 25 条、§L 23 条。台账刀 D21/D22 当场印出"老正则抓不到、新正则抓得到"的对照，不是改完自称改完 |
+| Minor4 | `overLimit` 的通道措辞跨模块不齐 | 部分属实。`digest.js` 内部确实一边写"字节通道"一边写"文本通道（1 MiB）"，补齐成"字节通道（5 MiB）/文本通道（1 MiB）"。**跨模块不强求同词**：`codec.js`/`time.js` 的越界文案是各自面板的 UX 口径，§0.6 的跨模块判据核的是"不许出现对方模块的专有名词"，不是"必须同词"，强行统一反而会让判据失去区分力 | 只在本模块内对齐，跨模块不动 |
+| Minor5 | M9 没有落单代理项的字节长度样本 | 属实。原来只核对全为合法码位的串，`\uD83D` 这种半个 emoji 在"UTF-8 里按 3 字节计入 WTF-8 长度"这条口径上无锚——而 M11 的越界位置、M5 的 `bytes` 都吃这个数 | 已修。M9 加四枚落单形状与 `utf8Len` 的对拍（`dByteLen(s) === byteLen(s)`）+ 绝对值锚 `dByteLen('\uD83D') === 3`；M11 加 `r.bytes === dByteLen(s)` 把"闸门报的字节数"钉到同一把尺上。刀 D23/D24/D25 三把证明这几条断言真的有牙 |
+
+复核还提了一条"`digest.js` 里 >2 GiB 分支是死代码"。**核到但本轮不改**：
+`MAX_BYTES` 是 5 MiB，那条分支在真实入参上永不达，但它由 `toView()` 的
+`byteLength` 读出来而不是由我们算出来，删了等于把"读得出但用不上"的中间层
+变成隐式约定。它不属于"因为优化而引入风险"的范畴，留原文并注明。
+
+回改后的实读数（同一轮连跑，无中途重跑）：
+
+```text
+门禁一  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs
+        exit=0 / # tests 202 / # pass 202 / # fail 0
+门禁二  node scripts/verify-plan-blocks.mjs --fix && node scripts/verify-plan-blocks.mjs
+        exit=0 / 39 镜像 / 684198B / 未落地 0 节
+门禁三  node scripts/verify-plan-blocks-teeth.mjs
+        21/21
+镜像行数  digest.js 390 行（磁盘）；§L 磁盘 6190–6600（410 行）；
+         §M 磁盘 6601–7067（467 行）
+变异台账  /tmp/seg3t5/ledger.log — ✓ 7 刀全部有牙（D19–D25），exit=0
+```
+
+`git status` 在回改这轮跑到门禁三时是 **17 项**，其中 14 项属另一路会话
+（`_config.yml`、`about.html`、`dev/js/about.js`、`dev/sass/about.scss`、`package.json`、
+`_data/og_images.yml`、`dev/libJs/cursor-effects.js`、`.baoyu-skills/` 两处已跟踪项，
+加未跟踪的 `scripts/lib/`、`scripts/article-check.mjs`、`scripts/wechat-draft.mjs`、
+`scripts/fixtures/article-check/`、`.baoyu-skills/baoyu-post-to-wechat/`），
+另 3 项就是本轮的 `digest.js` / `toolkit-tests.mjs` / 本计划——尚未提交所以还挂在脏单里。
+门禁三自证的是**实验前后**这 17 项一字未变（脏项条数一致、另一路会话那批一律未被脚本触碰）；
+diff 指纹只在"实验窗口内"可比，我自己改一笔计划正文就会换指纹，所以这里不抄指纹值、
+只认条数与路径清单。本格提交后 `git status` 应回到 14 项。
+
+---
+
 ### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
 
 两块都是**磁盘全文**，用 ```js 围栏（§0.6 的硬规矩：只有整文件与整节镜像允许 ```js，
@@ -2553,6 +2620,8 @@ git commit -m "feat(tools): 段 3 Task 3 摘要模块 digest.js——MD5 自实�
  *    数、同一把尺子，M9 逐样本核两处不分叉）；文件那一路走 `ArrayBuffer`/TypedArray、闸门 5 MiB，
  *    **不进字符串**——`String.fromCharCode` 拼二进制会把字节劈成两个 code unit，摘要就成假的了（M5）。
  *    越界一律整体拒绝且 `hex` 是空串，理由里点名实测字节数（半截摘要比报错更坏）。
+ *    已脱离缓冲区的字节输入（`transfer` 过的 `ArrayBuffer`）也是拒：它的 `byteLength` 已经是 0，
+ *    但它与"长度为 0 的字节"是两回事，前者是读不到、后者是真空值（M5 第三段）。
  * 3. **算不成就说清是哪一格算不成**。`crypto.subtle` 只在安全上下文有（线上是 GitHub Pages HTTPS、
  *    本地 `http://localhost` 也算，`http://192.168.x.x` 就没有）。取不到时 SHA 四档各自
  *    `ok:false` 并写明"需要安全上下文"，同一批里的 MD5 那一格**照样出结果**（M13）；
@@ -2565,6 +2634,9 @@ git commit -m "feat(tools): 段 3 Task 3 摘要模块 digest.js——MD5 自实�
  *   - **数据入参**（要摘要的那一串）：文本档照 `String(v === null || v === undefined ? '' : v)`
  *     归一不抛，字节档（`ArrayBuffer` 与任意 `ArrayBufferView`）原样直通；唯一例外还是无原型对象
  *     （`String()` 自己抛 `TypeError`，本站不替它兜，M8 逐入口钉）。
+ *     归一不抛**不等于**照单全收：`String(new Blob(['x']))` 得到的是 `[object Blob]` 这个**标签**，
+ *     给它一个合法摘要就是静默的假成功，所以"归一结果恰好等于默认对象标签"要拒（M8 末段），
+ *     `File`/`Blob` 必须先 `await file.arrayBuffer()` 取字节再走字节通道。
  *   - **控制入参**（算法名与 `options`）是闸门：算法名认不出必须响——静默回落到 MD5 等于把用户
  *     选的 SHA-256 显示成了别的算法的产物；`options` 只认 `subtle` 一键，键名拼错也要响。
  *
@@ -2606,6 +2678,25 @@ const NO_SUBTLE = '当前环境取不到 crypto.subtle，SHA-* 做不了（需�
 /** 越界那一句要复用，理由里点名实测字节与两道闸门各自的上限（M9、M10） */
 const overLimit = (n, limit, label) =>
   `输入 ${n} 字节，超过${label}上限 ${limit} 字节，整体拒绝、不截断`;
+
+/**
+ * 已脱离缓冲区的字节输入（`transfer` 出去的 `ArrayBuffer`、或它下面的视图）。
+ * 这一档必须单独有句子：detached 的 `byteLength` 已经是 0，若不点名，面板上就显示成
+ * "0 字节的空输入"、给出空串的摘要——那是把"读不到"报成了"内容就是空的"（M5 末段）。
+ */
+const DETACHED = '字节输入已脱离底层缓冲区（ArrayBuffer 被 transfer 或分离之后就这样），读不到内容；'
+  + '空输入请传长度为 0 的字节或空字符串';
+
+/**
+ * 只有当 `String(v)` 的结果**恰好等于**默认对象标签时才认它"是标签不是内容"。
+ * `[1,2]`→`'1,2'`、`new Date`→日期串这些有实际文本形状的归一不动（M8 前段）；
+ * 无原型对象那一档是 `String()` 自己抛在前（它的标签读得出 `[object Object]`，但根本走不到
+ * 这一步比较），所以 M8 的"同抛"不会被这条改成拒绝（M8 末段）。
+ */
+function defaultTagOf(v) {
+  if (typeof v !== 'object' || v === null) return null;
+  return Object.prototype.toString.call(v);
+}
 
 /** 与 `codec.js`、`time.js`、`uscc.js` 同一份口径的第四版：报错尾巴统一是「收到 <shapeOf(值)>」 */
 function shapeOf(v) {
@@ -2812,17 +2903,31 @@ function gateOptions(who, options) {
 
 /**
  * 数据闸门：字节档看 `MAX_BYTES`，文本档看 `MAX_TEXT_BYTES`，顺序固定是
- * "字节数越界 → 落单代理项 → 才编码"，越界优先于代理项（M11 末段），
- * 否则会给出一句"第 1048577 位"的假位置。
+ * "读不到（detached）→ 字节数越界 → 落单代理项 → 才编码"，越界优先于代理项（M11 末段），
+ * 否则会给出一句"第 1048577 位"的假位置；detached 排在最前，因为它连字节数都读不出来。
  */
 function prepare(input) {
   if (isBytes(input)) {
-    const view = toView(input);
+    // 脱落的缓冲区在 `new Uint8Array(...)` 那一步抛，DataView 连 `byteOffset` 都读不出（M5 末段）
+    let view;
+    try {
+      view = toView(input);
+    } catch {
+      return { ok: false, bytes: 0, reason: DETACHED };
+    }
     const n = view.byteLength;
-    if (n > MAX_BYTES) return { ok: false, bytes: n, reason: overLimit(n, MAX_BYTES, '字节通道') };
+    if (n > MAX_BYTES) return { ok: false, bytes: n, reason: overLimit(n, MAX_BYTES, '字节通道（5 MiB）') };
     return { ok: true, bytes: n, view };
   }
   const s = toText(input);
+  const tag = defaultTagOf(input);
+  if (tag !== null && s === tag) {
+    return {
+      ok: false, bytes: utf8Len(s),
+      reason: `收到的是对象标签 ${tag}，不是内容：文件请先 await file.arrayBuffer() 取字节再传，`
+        + '文本请直接传字符串',
+    };
+  }
   const n = utf8Len(s);
   if (n > MAX_TEXT_BYTES) {
     return { ok: false, bytes: n, reason: overLimit(n, MAX_TEXT_BYTES, '文本通道（1 MiB）') };
@@ -2990,7 +3095,7 @@ test('M4 五档输出形状：小写十六进制、长度按 HEX_LEN 表，SHA �
   assert.equal((await digest('sha-256', 'abc')).hex,
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
 });
-test('M5 文本通道与字节通道同结果：文件那半截不进字符串也照样量得到', async () => {
+test('M5 文本通道与字节通道同结果，脱落的缓冲区单独一档不冒充空输入', async () => {
   const s = '中文😀\n带换行的 data URI 场景';
   const bytes = bytesOf(s);
   for (const algo of ALGORITHMS) {
@@ -3008,6 +3113,34 @@ test('M5 文本通道与字节通道同结果：文件那半截不进字符串�
     '带 byteOffset 的视图必须按视图自己的起点读');
   assert.notEqual((await digest('md5', big)).hex, (await digest('md5', view)).hex,
     '整块与尾段同结果＝偏移被吞了，这一条就是那件事的哨兵');
+  // 脱落档：`transfer` 出去的缓冲区与它下面的视图，`byteLength` 已经是 0，但它是"读不到"而不是
+  // "空输入"。这一条牙齿存在的理由很直白：少了 try，`digest` 会**reject**，破掉规矩 3 的
+  // "数据入参永不 reject"，而且整批五格连本该出结果的 MD5 一起丢（评审 2026-09-28）。
+  const detached = [];
+  const shapes = (() => {
+    const a = new ArrayBuffer(1024); const b = new ArrayBuffer(64); const c = new ArrayBuffer(32);
+    const u8 = new Uint8Array(b); const dv = new DataView(c);
+    structuredClone(a, { transfer: [a] });
+    structuredClone(b, { transfer: [b] });
+    structuredClone(c, { transfer: [c] });
+    return [['ArrayBuffer', a], ['Uint8Array', u8], ['DataView', dv]];
+  })();
+  for (const [label, v] of shapes) {
+    assert.equal(isBytes(v), true, `${label}：脱落后仍然是字节形状，不许掉进文本档被归一成 "..."`);
+    const r = await digest('md5', v);
+    assert.equal(r.ok, false, `${label}：脱落必须拒，不许当空输入`);
+    assert.equal(r.hex, '', label); assert.equal(r.bytes, 0, `${label}：读到的字节数就是 0`);
+    assert.match(r.reason, /脱离|detached/, `${label} 的理由要点名脱档：${r.reason}`);
+    detached.push(r.reason);
+  }
+  assert.equal(new Set(detached).size, 1, '三种脱落形状同一句理由，面板才不会写出三种解释');
+  const emptyish = await digest('md5', new ArrayBuffer(0));
+  assert.equal(emptyish.ok, true, '长度为 0 的缓冲区是空输入（M6 那一档），不许被脱落档误伤');
+  assert.equal((await digest('md5', new Uint8Array(0))).ok, true, '同上：视图形状');
+  const allDetached = await digestAll(shapes[0][1]);
+  assert.equal(allDetached.ok, false); assert.equal(allDetached.reason, allDetached.rows[0].reason);
+  assert.equal(allDetached.rows.every((r) => r.ok === false && r.hex === ''), true,
+    '并列入口里脱落也是五格同拒—— reject 会让这一格整批消失，包括 MD5');
 });
 test('M6 空输入是一等公民：五档空串都出官方值，不是拒绝', async () => {
   const empty = {
@@ -3049,7 +3182,7 @@ test('M7 算法名归一到规范名，认不出的不猜、digest 直接抛', a
   // 静默回落 md5 是最坏的一种"看着有结果"，这里点名它
   await assert.rejects(() => digest('sha-256x', 'abc'), { name: 'TypeError' });
 });
-test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对象同抛、字节档直通', async () => {
+test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对象同抛、字节档直通、只剩对象标签的要拒', async () => {
   const shaOf = (s) => refHex('sha-256', bytesOf(s));
   for (const [v, want] of [[123, '123'], [true, 'true'], [Symbol('s'), 'Symbol(s)'],
     [0, '0'], [NaN, 'NaN'], [[1, 2], '1,2']]) {
@@ -3073,6 +3206,27 @@ test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对�
   assert.equal(isBytes(new ArrayBuffer(1)), true);
   assert.equal(isBytes(Buffer.from('x')), true, 'Node 的 Buffer 是 Uint8Array 的子类，浏览器侧的字节档同一条路');
   assert.equal(isBytes('abc'), false); assert.equal(isBytes(null), false); assert.equal(isBytes(1), false);
+  // 归一不抛**不等于**照单全收：`String(new Blob(['x']))` 得到的是 `[object Blob]` 这个**标签**，
+  // 给它一个合法摘要就是静默的假成功——`#digest` 的文件那一格会显示"算出来了"（评审 2026-09-28）。
+  const tagged = [new Blob(['x']), new File(['abc'], 'a.txt'), {}, { a: 1 }, new Map(), new Set([1])];
+  for (const v of tagged) {
+    const tag = Object.prototype.toString.call(v);
+    const r = await digest('md5', v);
+    assert.equal(r.ok, false, `${tag}：只剩默认标签的对象必须拒`);
+    assert.equal(r.hex, '', tag);
+    assert.match(r.reason, /对象标签/, `${tag} 的理由要点名标签：${r.reason}`);
+    assert.notEqual(r.hex, refHex('md5', bytesOf(tag)), `${tag}：不许是"标签串的摘要"`);
+  }
+  const fileAll = await digestAll(new Blob(['x']));
+  assert.equal(fileAll.ok, false);
+  assert.equal(fileAll.rows.every((r) => r.ok === false), true, '并列入口里 Blob 五格同拒');
+  assert.equal(fileAll.bytes, 13, '字节数照实回显（`[object Blob]` 就是 13 字节），不许谎报 0');
+  // 反向哨兵：有实际文本形状的对象照常归一，不许被这条误伤
+  assert.equal((await digest('md5', { toString: () => 'mine' })).hex,
+    refHex('md5', bytesOf('mine')), '自定义 toString 的内容要认');
+  assert.equal((await digest('md5', new String('x'))).hex, refHex('md5', bytesOf('x')),
+    'String 包装对象的标签是 `[object String]`，归一结果是 `x`，两者不等就不算标签');
+  assert.equal((await digest('md5', [])).ok, true, '空数组归一成空串，是真空值那一档（与 M6 同）');
 });
 test('M9 文本闸门按字节判：1 MiB 恰好放行、+1 整体拒绝，且与 codec 的闸门同值', async () => {
   assert.equal(MAX_TEXT_BYTES, 1048576, MAX_TEXT_BYTES);
@@ -3084,6 +3238,13 @@ test('M9 文本闸门按字节判：1 MiB 恰好放行、+1 整体拒绝，且�
   // 两本模块各带一份 UTF-8 计数（同级模块互不 import 的代价），这把尺子必须两处同长：
   // 只核上面四条硬编码值的话，某一档漂了（比如把代理对算成 2）这里才会红。
   for (const s of M_SAMPLES) assert.equal(dByteLen(s), byteLen(s), `byteLen 与 codec 的分叉：${JSON.stringify(s)}`);
+  // 半代理项那一档也要两处同尺：`M_SAMPLES` 里没有一个落单代理项，而 `utf8Len` 恰好在这一档
+  // 有分支（按 3 字节计，反正下一档会拒）。两个模块各带一份计数器，这一档漂了没人核就是静默分叉
+  // （评审 2026-09-28 的 Minor 5）。
+  for (const s of ['\uD83D', '\uD83Dabc', 'ab\uDE00', '\uD83D\uDE00\uD83D']) {
+    assert.equal(dByteLen(s), byteLen(s), `半代理项档的分叉：${JSON.stringify(s)}`);
+  }
+  assert.equal(dByteLen('\uD83D'), 3, '半代理项按 3 字节计：上面那组对拍的锚，钉住绝对值才防得住两处一起漂');
   const atLimit = await digest('md5', 'x'.repeat(MAX_TEXT_BYTES));
   assert.equal(atLimit.ok, true, '正好 1 MiB 是"超过"才拒');
   assert.equal(atLimit.bytes, MAX_TEXT_BYTES);
@@ -3123,6 +3284,8 @@ test('M11 落单代理项两侧都拒并给位，成对的代理项放行且与 
       assert.equal(r.hex, '', `${algo}：拒绝就不给半截产物`);
       assert.match(r.reason, /落单代理项/, `${algo} → ${r.reason}`);
       assert.match(r.reason, new RegExp(`第 ${at} 位`), `${algo} → ${r.reason}`);
+      assert.equal(r.bytes, dByteLen(s), `${algo} ${JSON.stringify(s)}：拒绝也要回显实测字节数，`
+        + '面板那句"你这串多少字节"才有出处（M9 钉了半代理项按 3 字节，这里不是两处一起漂）');
     }
   }
   const pair = await digest('md5', '\uD83D\uDE00');
@@ -3236,7 +3399,10 @@ test('M15 导出面：10 个名字一个不多一个不少，两张表互相核�
 });
 test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常数必须在代码里', () => {
   const src = dCode();
-  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+  // `m` 标志不能少：`^` 不带 `m` 只锚整份源码的开头，"中段插一条 `import … from './codec.js'`"全绿
+  // （评审 2026-09-28 实测；§L 同一处同病，两处一起改。`export * from` 与动态 `import()` 也在补的两条里）
+  const banned = [['import', /^\s*import[\s{*]/m], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['export * from', /export\s*\*/], ['动态 import', /\bimport\s*\(/],
     ['require(', /\brequire\s*\(/], ['node:crypto', /node:crypto/], ['createHash', /\bcreateHash\b/],
     ['document', /\bdocument\b/], ['window', /\bwindow\b/], ['localStorage', /\blocalStorage\b/],
     ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/], ['FileReader', /\bFileReader\b/],
@@ -3245,7 +3411,7 @@ test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常�
     ['Date.now', /Date\.now/], ['new Date(', /new Date\(/], ['Math.random', /Math\.random/],
     ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
   for (const [name, re] of banned) assert.equal(re.test(src), false, `digest.js 的代码里出现了 ${name}`);
-  assert.equal(banned.length, 23, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  assert.equal(banned.length, 25, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
   // 自实现的证据：初值、K 表 64 项、移位表 64 项，三样都得在代码里，不是注释里
   assert.match(src, /0x67452301/, 'MD5 的 A 初值必须在（换成 crypto.subtle 的假 MD5 时这里就没了）');
   assert.match(src, /0x10325476/, 'MD5 的 D 初值必须在');
