@@ -2517,6 +2517,18 @@ git commit -m "feat(tools): 段 3 Task 3 摘要模块 digest.js——MD5 自实�
   _docs/superpowers/plans/2026-09-27-tools-codec-page.md
 ```
 
+实跑：`67ef48c`，`4 files changed, 1762 insertions(+), 9 deletions(-)`——`digest.js` 352 行是新增，
+`§M` 判据 408 行，门禁二清单 +2 行，计划 +1000/−9（两块镜像 758 行 + 本格正文）。
+暂存集按路径核过：`git diff --cached --stat` 恰好这四条，另一路会话的脏项一个都没进来。
+提交后复跑三道：门禁一 `# tests 202 / pass 202 / fail 0`、
+门禁二 `exit=0`（39 镜像、679100B、未落地 0 节）、门禁三 **21/21**。
+本格两笔（这一笔回填 Step 4/5 的实跑）收口后 `git status` 剩 14 项
+（`_config.yml` / `about.html` / `dev/js/about.js` / `dev/sass/about.scss` / `package.json` /
+`_data/og_images.yml` / `dev/libJs/cursor-effects.js` / 两处 `.baoyu-skills/**` /
+未跟踪的 `scripts/lib/`、`scripts/article-check.mjs`、`scripts/wechat-draft.mjs`、
+`scripts/fixtures/article-check/`、`.baoyu-skills/baoyu-post-to-wechat/`），
+全属另一路会话，本轮四个路径一字不剩。
+
 ---
 
 ### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
