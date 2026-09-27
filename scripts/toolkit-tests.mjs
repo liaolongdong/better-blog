@@ -3304,3 +3304,283 @@ test('F15 文案边界：单一来源、三位号段、不做归属地三句都�
   assert.equal(parseMobile(null).state, 'empty');
   assert.equal(parseMobile(undefined).state, 'empty');
 });
+
+// ── §G 随机合成数据 ────────────────────────────────────────────────────────
+//（`seededRandom` / `currentCountyCodes` / `resolveRegion` / `USE_NOTE` 与身份证那个 `GENERATE_MAX`
+//  都已在 §B、§C 顶层解构过，同名 const 再声明一次是 SyntaxError；本节只新引 random-data.js，
+//  上限那个键别名成 RAND_GENERATE_MAX，好与身份证那一档比"上限同档"。）
+const {  ADDRESS_NOTE, EMAIL_DOMAINS, EMAIL_NOTE, EMAIL_RE, EMAIL_WORDS, GIVEN_CHARS, NAME_NOTE,
+  RANDOM_CAVEAT, STREET_SUFFIXES, STREET_WORDS, SURNAMES,
+  GENERATE_MAX: RAND_GENERATE_MAX,
+  generateAddresses, generateEmails, generateNames, generateProfiles,
+} = await import('../dev/js/tools/random-data.js');
+
+const dupes = (arr) => arr.filter((v, i) => arr.indexOf(v) !== i);
+const CJK1 = /^[㐀-鿿]$/;
+const gNames = (seed) => generateNames({ count: 30, rng: seededRandom(seed) });
+const gAddr = seed => generateAddresses({ count: 30, rng: seededRandom(seed) });
+const gMails = seed => generateEmails({ count: 30, rng: seededRandom(seed) });
+
+test('G1 词表自洽：三张表各自无重复、形状合法、规模不缩水', () => {
+  for (const [who, arr] of [['SURNAMES', SURNAMES], ['GIVEN_CHARS', GIVEN_CHARS],
+    ['STREET_WORDS', STREET_WORDS], ['STREET_SUFFIXES', STREET_SUFFIXES], ['EMAIL_WORDS', EMAIL_WORDS]]) {
+    assert.deepEqual(dupes(arr), [], `${who} 表内有重复`);
+    assert.ok(Array.isArray(arr) && arr.length > 0, `${who} 是空表`);
+  }
+  assert.ok(SURNAMES.every((s) => CJK1.test(s)), '姓氏表混进了非单字汉字');
+  assert.ok(GIVEN_CHARS.every((c) => CJK1.test(c)), '字表混进了非单字汉字');
+  assert.ok(STREET_WORDS.every((w) => /^[㐀-鿿]{2}$/.test(w)), '街道词不是两个汉字');
+  assert.ok(STREET_SUFFIXES.every((s) => /^[㐀-鿿]{1,2}$/.test(s)), '街道后缀不是一到两个汉字');
+  assert.ok(EMAIL_WORDS.every((w) => /^[a-z]{2,14}$/.test(w)), '邮箱词根不是纯小写字母');
+  // 规模下限：表被误删一截时"高频"这句就该红，而不是安静地少一批候选
+  assert.ok(SURNAMES.length >= 90, `姓氏表只剩 ${SURNAMES.length} 字`);
+  assert.ok(GIVEN_CHARS.length >= 110, `字表只剩 ${GIVEN_CHARS.length} 字`);
+  assert.ok(STREET_WORDS.length >= 20, `街道词只剩 ${STREET_WORDS.length} 条`);
+  assert.ok(EMAIL_WORDS.length >= 20, `邮箱词根只剩 ${EMAIL_WORDS.length} 条`);
+});
+
+test('G2 EMAIL_RE 是从 EMAIL_DOMAINS 拼出来的，且点号是真点号', () => {
+  assert.deepEqual(EMAIL_DOMAINS, ['example.com', 'example.net', 'example.org']);
+  for (const d of EMAIL_DOMAINS) assert.ok(EMAIL_RE.test(`pear21@${d}`), `${d} 过不了自家正则`);
+  assert.equal(EMAIL_RE.test('pear21@example.info'), false, '非保留域不得通过');
+  assert.equal(EMAIL_RE.test('pear21@example!com'), false, '点号没转义：example!com 蒙混过关');
+  assert.equal(EMAIL_RE.test('pear21@examplecom'), false, '点号没转义：少了点也过关');
+  assert.equal(EMAIL_RE.test('Pear21@example.com'), false, '大写不得通过');
+  assert.equal(EMAIL_RE.test('pear2@example.com'), false, '1 位数字不得通过');
+  assert.equal(EMAIL_RE.test('pear2111@example.com'), true, '4 位数字该过');
+  assert.equal(EMAIL_RE.test('pear21111@example.com'), false, '5 位数字不得通过');
+  assert.equal(EMAIL_RE.test('.pear21@example.com'), false, 'local 以点开头不得通过');
+  assert.equal(EMAIL_RE.test('pe.rr21@example.com'), true, '两段式词根该过');
+  assert.equal(EMAIL_RE.test('p.ar21@example.com'), false, '词根短于 2 个字母不得通过');
+  assert.equal(EMAIL_RE.test('pear.21@example.com'), false, '点号后面接数字不得通过');
+});
+
+test('G3 generateNames 每条都是「表内姓 + 表内字」，字段齐', () => {
+  const list = gNames(7);
+  assert.equal(list.length, 30);
+  for (const it of list) {
+    assert.deepEqual(Object.keys(it).sort(), ['given', 'givenLength', 'name', 'surname']);
+    assert.ok(SURNAMES.includes(it.surname), `${it.name} 的姓不在表内`);
+    assert.ok([1, 2].includes(it.givenLength), `${it.name} 的名不是 1–2 字`);
+    assert.equal(it.name, it.surname + it.given);
+    assert.equal(it.given.length, it.givenLength);
+    assert.ok(it.given.split('').every((c) => GIVEN_CHARS.includes(c)), `${it.name} 的字不在表内`);
+  }
+});
+
+test('G4 givenLength：1 / 2 各钉死一档，不传则两档都有，null 等于没传', () => {
+  assert.ok(generateNames({ count: 10, givenLength: 1, rng: seededRandom(3) })
+    .every((i) => i.givenLength === 1 && i.given.length === 1));
+  assert.ok(generateNames({ count: 10, givenLength: 2, rng: seededRandom(3) })
+    .every((i) => i.givenLength === 2 && i.given.length === 2 && i.name.length === 3));
+  const dflt = generateNames({ count: 40, rng: seededRandom(11) });
+  assert.deepEqual([...new Set(dflt.map((i) => i.givenLength))].sort(), [1, 2],
+    '默认档位只出一头，"1–2 字"那句是假的');
+  assert.deepEqual(generateNames({ count: 40, givenLength: null, rng: seededRandom(11) }), dflt,
+    'givenLength: null 应当等于没传（含取值次数一致）');
+  for (const bad of [3, 0, '1', 1.5, true]) {
+    assert.throws(() => generateNames({ givenLength: bad }), TypeError, `givenLength ${String(bad)} 该抛`);
+  }
+});
+
+test('G5 批内不重复：正常随机源不撞重，恒定源必须当场抛而不是凑重复条', () => {
+  for (const [who, list] of [['姓名', gNames(5)], ['邮箱', gMails(5)], ['地址', gAddr(5)]]) {
+    const key = who === '姓名' ? 'name' : who === '邮箱' ? 'email' : 'text';
+    const keys = list.map((i) => i[key]);
+    assert.equal(new Set(keys).size, 30, `${who}批内出现了重复`);
+  }
+  // 这一档才是判重真正的牙：恒定 rng 把组合空间压成 1 格，
+  // 摘掉 uniqueBatch 的判重就会安静返回 30 条一模一样的结果、一条都不红。
+  for (const [who, fn] of [['generateNames', generateNames], ['generateEmails', generateEmails],
+    ['generateAddresses', generateAddresses]]) {
+    assert.throws(() => fn({ count: 5, rng: () => 0.5 }),
+      (e) => e instanceof RangeError && /只凑到 1 条/.test(e.message) && /不重复/.test(e.message),
+      `${who} 的批内判重没有牙`);
+  }
+});
+
+test('G6 count 闸门：1..50 之外一律 RangeError，上限与身份证同一档', () => {
+  assert.equal(RAND_GENERATE_MAX, 50);
+  assert.equal(RAND_GENERATE_MAX, GENERATE_MAX, '随机数据与身份证的条数上限不同档');
+  for (const bad of [0, -1, 51, 100, '5', 1.5, NaN, null, true]) {
+    for (const [who, fn] of [['generateNames', generateNames], ['generateEmails', generateEmails],
+      ['generateAddresses', generateAddresses], ['generateProfiles', generateProfiles]]) {
+      assert.throws(() => fn({ count: bad }),
+        (e) => e instanceof RangeError && e.message.includes(who) && /1\.\.50 的整数/.test(e.message),
+        `${who} 的 count ${String(bad)} 没按口径抛`);
+    }
+  }
+  assert.equal(generateNames().length, 1, '不传 count 应给 1 条');
+  assert.equal(generateNames(null).length, 1, '整个 options 传 null 应等于没传');
+  assert.equal(generateNames(undefined).length, 1);
+});
+
+test('G7 rng 闸门：非函数抛、越界的取值抛，两句话各点一次名', () => {
+  for (const bad of ['nope', 1, {}, []]) {
+    assert.throws(() => generateNames({ rng: bad }),
+      (e) => e instanceof TypeError && /options\.rng 应为 \(\) => number/.test(e.message));
+  }
+  for (const bad of [1, -0.1, NaN, Infinity, '0.5']) {
+    assert.throws(() => generateNames({ rng: () => bad }),
+      (e) => e instanceof TypeError && /每次应给出 \[0, 1\) 内的有限数/.test(e.message),
+      `rng 返回 ${String(bad)} 没被拦`);
+  }
+});
+
+test('G8 地址只出现行县级码，整串以区划全名开头', () => {
+  const current = new Set(currentCountyCodes());
+  const list = gAddr(9);
+  assert.equal(list.length, 30);
+  // 不收窄时一批 2,978 个县码里抽 30 条，全落在同一个县的概率是 10^-88 量级——
+  // 这一句是给"`pick` 被换成 `pool[0]`"这一类静默退化留的牙，不是给随机性留的。
+  assert.ok(new Set(list.map((i) => i.areaCode)).size > 1, '不收窄的 30 条地址全落在同一个县');
+  for (const it of list) {
+    assert.deepEqual(Object.keys(it).sort(),
+      ['areaCode', 'city', 'county', 'fullName', 'house', 'province', 'street', 'text']);
+    assert.ok(current.has(it.areaCode), `${it.areaCode} 不在现行县码表里`);
+    const r = resolveRegion(it.areaCode);
+    assert.equal(r.status, 'current');
+    assert.equal(r.level, 'county');
+    assert.equal(it.fullName, r.fullName);
+    assert.ok(it.text.startsWith(it.fullName), `${it.text} 不是以全名开头`);
+    assert.ok(it.text.includes(it.county), `${it.text} 里没有县名`);
+    assert.ok(it.text.includes(it.province), `${it.text} 里没有省名`);
+    assert.match(it.street, new RegExp(`^(${STREET_WORDS.join('|')})(${STREET_SUFFIXES.join('|')})$`));
+    assert.match(it.house, /^([1-9]|[1-9][0-9]|1[0-9]{2}|200)号$/);
+    assert.equal(it.text, `${it.fullName}${it.street}${it.house}`);
+  }
+});
+
+test('G9 区划收窄三键各按自己的长度生效，优先级 areaCode > cityCode > provinceCode', () => {
+  for (const it of generateAddresses({ count: 20, provinceCode: '11', rng: seededRandom(1) })) {
+    assert.ok(it.areaCode.startsWith('11'), `省码收窄漏了 ${it.areaCode}`);
+    assert.equal(it.province, '北京市');
+  }
+  for (const it of generateAddresses({ count: 20, cityCode: '1101', rng: seededRandom(1) })) {
+    assert.ok(it.areaCode.startsWith('1101'), `市码收窄漏了 ${it.areaCode}`);
+  }
+  const one = generateAddresses({ count: 5, areaCode: '110101', rng: seededRandom(1) });
+  assert.equal(one.length, 5);
+  assert.ok(one.every((i) => i.areaCode === '110101'), '县码收窄后还出了别的县');
+  // 三键同时给：只认优先级最高的那一个，不取交集也不报错
+  const mixed = generateAddresses({ count: 5, areaCode: '110101', cityCode: '3301',
+    provinceCode: '44', rng: seededRandom(1) });
+  assert.ok(mixed.every((i) => i.areaCode === '110101'), '三键优先级没按 areaCode 生效');
+  // 前后空白裁掉再收窄
+  assert.ok(generateAddresses({ count: 3, provinceCode: ' 32 ', rng: seededRandom(1) })
+    .every((i) => i.areaCode.startsWith('32')));
+});
+
+test('G10 区划键的形状闸门：数值与 null 与空串都抛，挑不出县码的前缀 RangeError', () => {
+  for (const key of ['areaCode', 'cityCode', 'provinceCode']) {
+    for (const bad of [110101, 11, null, '', '   ', true, {}]) {
+      assert.throws(() => generateAddresses({ [key]: bad }),
+        (e) => e instanceof TypeError && e.message.includes(`options.${key}`)
+          && /非空字符串/.test(e.message),
+        `${key}: ${JSON.stringify(bad)} 没被拦`);
+    }
+  }
+  for (const bad of ['999999', '99', '1101010', 'abc']) {
+    assert.throws(() => generateAddresses({ areaCode: bad }),
+      (e) => e instanceof RangeError && /没有前缀/.test(e.message) && e.message.includes(bad),
+      `前缀 ${bad} 该报挑不出县码`);
+  }
+  assert.throws(() => generateAddresses({ areaCode: '3712' }), RangeError, '莱芜（历史市码）不得当候选前缀用');
+});
+
+test('G11 邮箱形状与保留域：每条过自家正则，domain 只认那三个', () => {
+  const list = gMails(13);
+  assert.equal(list.length, 30);
+  for (const it of list) {
+    assert.deepEqual(Object.keys(it).sort(), ['domain', 'email', 'local']);
+    assert.ok(EMAIL_RE.test(it.email), `${it.email} 过不了自家正则`);
+    assert.equal(it.email, `${it.local}@${it.domain}`);
+    assert.ok(EMAIL_DOMAINS.includes(it.domain), `${it.domain} 不是保留域`);
+    assert.match(it.local, /^[a-z.]+\d{2,4}$/);
+    assert.ok(it.local.length <= 32);
+    const [stem] = it.local.split(/\d/);
+    assert.ok(stem.split('.').every((w) => EMAIL_WORDS.includes(w)), `${it.local} 的词根不在表内`);
+  }
+  const net = generateEmails({ count: 10, domain: ' EXAMPLE.NET ', rng: seededRandom(2) });
+  assert.ok(net.every((i) => i.domain === 'example.net'), 'domain 没 trim + 小写');
+  assert.ok(net.every((i) => i.email.endsWith('@example.net')));
+  assert.throws(() => generateEmails({ domain: 'gmail.com' }),
+    (e) => e instanceof RangeError && /不在保留域/.test(e.message) && e.message.includes('gmail.com'));
+  // `null` 与 `undefined` 一样算"没传"（与 `idcard.js` 的 minAge / sex 同一族口径）：
+  // 这一键的默认值本身就是安全的（三个保留域里挑），不像区划键那样"没传＝放开整张表"。
+  assert.deepEqual(generateEmails({ count: 10, domain: null, rng: seededRandom(2) }),
+    generateEmails({ count: 10, rng: seededRandom(2) }), 'domain:null 应当等于没传');
+  for (const bad of [1, '', '   ', true, {}]) {
+    assert.throws(() => generateEmails({ domain: bad }),
+      (e) => e instanceof TypeError && /options\.domain 应为非空字符串/.test(e.message),
+      `domain ${JSON.stringify(bad)} 没被拦`);
+  }
+  assert.ok(gMails(17).some((i) => i.local.includes('.')), '两段式词根一次都没出现过');
+});
+
+test('G12 generateProfiles：三类同批、形状与单类逐字段一致、且不挂身份证号', () => {
+  const list = generateProfiles({ count: 10, provinceCode: '32', domain: 'example.org',
+    givenLength: 2, rng: seededRandom(21) });
+  assert.equal(list.length, 10);
+  for (const it of list) {
+    assert.deepEqual(Object.keys(it).sort(), ['address', 'email', 'name'],
+      '三元组多出了别的格——§5.1 只点三类，身份证号是刻意不挂的');
+    assert.deepEqual(Object.keys(it.name).sort(), ['given', 'givenLength', 'name', 'surname']);
+    assert.deepEqual(Object.keys(it.address).sort(),
+      ['areaCode', 'city', 'county', 'fullName', 'house', 'province', 'street', 'text']);
+    assert.deepEqual(Object.keys(it.email).sort(), ['domain', 'email', 'local']);
+    assert.equal(it.name.givenLength, 2);
+    assert.ok(it.address.areaCode.startsWith('32'));
+    assert.equal(it.email.domain, 'example.org');
+    assert.ok(EMAIL_RE.test(it.email.email));
+  }
+  assert.equal(new Set(list.map((i) => i.name.name)).size, 10, '三元组里的姓名撞了');
+  assert.equal(new Set(list.map((i) => i.address.text)).size, 10, '三元组里的地址撞了');
+  assert.equal(new Set(list.map((i) => i.email.email)).size, 10, '三元组里的邮箱撞了');
+  assert.throws(() => generateProfiles({ count: 5, areaCode: 110101 }), TypeError,
+    'generateProfiles 没把区划键的闸门透给内层');
+});
+
+test('G13 四条对外口径：§5.5 原文逐字一致，各自的边界句都在', () => {
+  assert.equal(RANDOM_CAVEAT,
+    '随机合成，与真实号码重合的概率可忽略；仅供开发与测试用途，不得用于任何真实身份用途。');
+  assert.equal(RANDOM_CAVEAT, USE_NOTE, '随机数据的生成提示与身份证面板那句漂移了（§5.5 只有一句）');
+  assert.ok(NAME_NOTE.includes('不指向任何真实个人'), '§5.1 那句"明写"没落地');
+  assert.ok(NAME_NOTE.includes('自造'), '姓名口径没说明词表来源');
+  assert.ok(ADDRESS_NOTE.includes('现行') && ADDRESS_NOTE.includes('不指向真实门牌'));
+  assert.ok(EMAIL_NOTE.includes('example.com') && EMAIL_NOTE.includes('RFC 2606'));
+  assert.ok(!EMAIL_NOTE.includes('@'), '邮箱口径里不得出现可直接投递的地址');
+  for (const [who, s] of [['RANDOM_CAVEAT', RANDOM_CAVEAT], ['NAME_NOTE', NAME_NOTE],
+    ['ADDRESS_NOTE', ADDRESS_NOTE], ['EMAIL_NOTE', EMAIL_NOTE]]) {
+    assert.ok(typeof s === 'string' && s.length > 10 && !s.includes('<') && !s.includes('&lt;'),
+      `${who} 形状不对`);
+  }
+});
+
+test('G14 同种子必同输出，换种子就该换输出', () => {
+  assert.deepEqual(gNames(31), gNames(31));
+  assert.deepEqual(gAddr(31), gAddr(31));
+  assert.deepEqual(gMails(31), gMails(31));
+  assert.notDeepEqual(gNames(31).map((i) => i.name), gNames(32).map((i) => i.name));
+  assert.notDeepEqual(gMails(31).map((i) => i.email), gMails(32).map((i) => i.email));
+  assert.notDeepEqual(gAddr(31).map((i) => i.text), gAddr(32).map((i) => i.text));
+  assert.deepEqual(generateProfiles({ count: 3, rng: seededRandom(41) }),
+    generateProfiles({ count: 3, rng: seededRandom(41) }));
+});
+
+test('G15 单类与三元组共用同一套闸门：错误文案点的是出事那一格', () => {
+  assert.throws(() => generateProfiles({ count: 51 }),
+    (e) => e instanceof RangeError && e.message.startsWith('generateProfiles'));
+  assert.throws(() => generateProfiles({ count: 5, rng: 'nope' }),
+    (e) => e instanceof TypeError && e.message.startsWith('generateNames'),
+    '内层出错时点名被外层吞了');
+  assert.throws(() => generateProfiles({ count: 5, areaCode: '999999' }),
+    (e) => e instanceof RangeError && /没有前缀「999999」/.test(e.message));
+  assert.throws(() => generateProfiles({ count: 5, givenLength: 9 }),
+    (e) => e instanceof TypeError && e.message.startsWith('generateNames'),
+    '内层的 givenLength 闸门被外层吞了');
+  assert.throws(() => generateProfiles({ count: 5, provinceCode: '3712' }),
+    RangeError, '莱芜（历史市码）当收窄前缀该抛，而不是安静地放开整张表');
+  assert.throws(() => generateProfiles({ count: 5, domain: 'qq.com' }),
+    (e) => e instanceof RangeError && e.message.startsWith('generateEmails'));
+});
