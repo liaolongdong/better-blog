@@ -693,7 +693,8 @@ PY
   （Newsreader + IBM Plex Mono 400/500）是同源请求，`dev/sass/common/tokens.scss`
   里三条 `@font-face` 也都写了 `font-display: swap`，刊头那一条另有 `preload`。
   原先 `base.scss` 里那两个 Merriweather `@font-face` 是空壳、字体文件已删
-  （缘由记在 `dev/blog-growth-analysis-2026-09.md` 的 P0-11）。
+  （缘由记在体检报告 `dev/blog-growth-analysis-2026-09.md` 的 P0-11；该报告属内部运营文档，
+  只在本地留存、不进仓库）。
   别为了「让这个指标通过」往 `base.scss` 里补 `font-display`——那里没有可挂的字族，
   要挂挂在 `tokens.scss`。
 - **猫的 px→vw 豁免**：`.mao_box` 是 fixed 浮层，被换算过一次之后，设计稿里 200px 的猫在

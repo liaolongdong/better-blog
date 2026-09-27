@@ -33,8 +33,40 @@ _drafts/evidence/*
 DEEP_RESEARCH_*.md
 # baoyu-post-to-wechat 处理纯文本输入时的暂存目录
 post-to-wechat/
+# 公众号草稿同步的暂存区：scripts/wechat-draft.mjs 在这里放改写后的正文与转码封面（cover.jpg），
+# 每次同步都重建；index.json 是「这篇已同步过」的记账，换机器即失效属正常。
+.wechat-sync/
 # baoyu skill 凭据（DASHSCOPE_API_KEY 等）
 .baoyu-skills/.env
+# 公众号同步的实际配置里有 SSH 主机的公网地址，仓库是公开的，不能入库；
+# 提交的是 EXTEND.example.md 模板，真件由本人从模板复制后填值。
+.baoyu-skills/baoyu-post-to-wechat/EXTEND.md
 # 运行时原生出图工具的落盘目录：每张 ~2MB PNG，都是中间产物，
 # 会被搬进 assets/img/{slug}/ 并转成 webp，原件不入库
 vibe_images/
+
+# ── 内部与本地运营文档 ──────────────────────────────────────────
+# 这一节全是「给自己看」的过程件：公开仓库里它们不产生 SEO 价值，却把站点的
+# 生产方式（无人值守流水线规范、人设档案、机器记账、体检结论）摊在 /better-blog/
+# 源码仓库首页给任何人读。_config.yml 的 exclude 只挡得住构建产物，挡不住仓库本身。
+# 站点内容一律不碰：_posts/、README.md、USAGE.md、CHANGELOG.md、LICENSE*、llms.txt
+# 以及各类站点验证文件全部保持入库。
+#
+# 写作流水线的内部件，实测四份共 ~264KB：
+#   WRITING_PROTOCOL.md（39,624B 协议）/ persona.md（15,919B 人设档案）
+#   author-log.md（173,977B 追加式运行日志）/ rotation-state.json（33,948B 选题轮换记账）
+# 两个定时任务都从磁盘读取，与是否入库无关；日志与 state 每跑一次就多一坨 diff，
+# 入库只会让提交历史被机器记账淹没。
+# 用 `_drafts/*.{md,json}` 而不是 `_drafts/`：后者会连 `evidence/` 一起盖掉，
+# 使上面那条 `!_drafts/evidence/.gitkeep` 的反向放行失效。
+_drafts/*.md
+_drafts/*.json
+# 站内体检报告的月度产出（现为 blog-growth-analysis-2026-09.md）。
+# `dev` 已在 _config.yml:228 排除出构建，线上本来就读不到，仓库里同样不必留。
+dev/blog-growth-analysis-*.md
+# 2026-05-16 那次构建配置优化的历史快照，文件开头已自标「历史快照，内容已过时」，
+# 现状口径一律以 README.md / USAGE.md 为准。
+OPTIMIZATION_COMPLETE.md
+# 设计/动效类 skill 的落盘上下文（实测为 spark-output/context/motion-plan.json），
+# 一次性生成物，不是站点内容
+spark-output/
