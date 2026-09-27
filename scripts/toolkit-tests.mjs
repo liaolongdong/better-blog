@@ -5738,3 +5738,450 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
     assert.equal(jLabel(m.page, 'uscc', 'gen'), '复制这批代码');
   }
 });
+
+// ── §K 时间戳 ⇄ 日期换算（`tools/time.js`，段 3 Task 1）─────────────────────
+//（这一格的模块只干两件事：**判档而不猜档**、**不读运行环境**。所以本节的期望值全部可以
+//  拿 `date -u` 独立复算——每个硬编码的 ISO 串旁边注了它的秒数锚点，复算命令一并写进
+//  `dev/js/tools/time.js` 的文件头。判据编号 K1–K19 对齐计划 Task 1 的判据清单，
+//  其中 **K19 不是 test()**：它是"把实现改坏、看哪几条红"的变异自证，写在计划 Task 1 Step 3。）
+const { EPOCH_MS_LIMIT, MAX_INPUT_LEN, TIME_CAVEAT, dateDiff, fromEpoch,
+  parseCivilDate, parseTimestamp, relativeTime } = await import('../dev/js/tools/time.js');
+
+/** 去掉注释之后的 time.js 源码：K13 / K14 / K17 扫的是代码，不是文档里的自我声明 */
+const kCode = () => read('dev/js/tools/time.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 递归找 NaN / Infinity：返回字段里出现任何一个，面板就会把 "NaN" 印给用户 */
+const kBadNumbers = (v, seen = []) => {
+  if (typeof v === 'number' && !Number.isFinite(v)) seen.push(v);
+  else if (Array.isArray(v)) for (const x of v) kBadNumbers(x, seen);
+  else if (v && typeof v === 'object') for (const x of Object.values(v)) kBadNumbers(x, seen);
+  return seen;
+};
+/** 报错消息里的入参回显：Symbol 与无原型对象都不能 String()（§C 末尾那条同一档） */
+const kLabel = (v) => {
+  if (typeof v === 'symbol' || typeof v === 'function') return typeof v;
+  try { return String(v); } catch { return `unstringifiable ${typeof v}`; }
+};
+
+/**
+ * K6 用的固定用例表。父进程与两个子进程跑的是**同一个数组**（序列化过去），
+ * 所以"两边逐字节相同"这条比对不可能因为两份用例表漂移而假绿。
+ */
+const K_CASES = [
+  { fn: 'parseTimestamp', args: ['0'] },
+  { fn: 'parseTimestamp', args: ['1000000000'] },
+  { fn: 'parseTimestamp', args: ['1000000000000'] },
+  { fn: 'parseTimestamp', args: ['999999999'] },
+  { fn: 'parseTimestamp', args: ['10000000000000'] },
+  { fn: 'parseTimestamp', args: ['-2208988800000'] },
+  { fn: 'parseTimestamp', args: ['1000000000.5'] },
+  { fn: 'parseTimestamp', args: ['1_000_000_000'] },
+  { fn: 'parseTimestamp', args: ['NaN'] },
+  { fn: 'parseTimestamp', args: ['99999999999999999999'] },
+  { fn: 'fromEpoch', args: [1709164800000, 480] },
+  { fn: 'fromEpoch', args: [-1500, -840] },
+  { fn: 'fromEpoch', args: [2147483647000, 0] },
+  { fn: 'fromEpoch', args: [1709161200000, 690] },
+  { fn: 'relativeTime', args: [1709164800000, 1709164859000] },
+  { fn: 'relativeTime', args: [1709164800000 + 365 * 864e5, 1709164800000] },
+  { fn: 'dateDiff', args: [1577750400000, 1609459200000] },
+  { fn: 'dateDiff', args: [1704150000000, 1704157200000] },
+  { fn: 'parseCivilDate', args: ['2024-02-29T00:00Z', 480] },
+  { fn: 'parseCivilDate', args: ['2024-02-29 08:00:00+08:00', -840] },
+  { fn: 'parseCivilDate', args: ['2023-02-29', 0] },
+];
+/** 子进程正文：不能带反引号，否则嵌进父进程的字符串字面量会先把这条判据炸掉 */
+const K_CHILD = [
+  'const t = await import(process.env.K_MOD);',
+  'const cs = JSON.parse(process.env.K_CASES);',
+  'const out = cs.map((c) => ({ fn: c.fn, args: c.args, r: t[c.fn](...c.args) }));',
+  'process.stdout.write(JSON.stringify(out, null, 1));',
+].join('\n');
+/** 在指定 TZ 下把 K_CASES 全跑一遍，返回 stdout 原文 */
+const kRunIn = (tz) => spawnSync(process.execPath,
+  ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '--eval', K_CHILD],
+  {
+    encoding: 'utf8',
+    env: {
+      ...process.env, TZ: tz,
+      K_MOD: new URL('../dev/js/tools/time.js', import.meta.url).href,
+      K_CASES: JSON.stringify(K_CASES),
+    },
+  });
+
+test('K1 十位判秒、十三位判毫秒，两种写法落到同一毫秒', () => {
+  const s = parseTimestamp('1000000000');      // date -u -r 1000000000 → 2001-09-09T01:46:40Z
+  assert.equal(s.verdict, 'second');
+  assert.equal(s.epochMs, 1000000000000);
+  assert.equal(s.reason, null);
+  assert.deepEqual(s.readings, [], '判得出的档不许另附一份"两种解释"，那是 ambiguous 的形状');
+  const m = parseTimestamp('1000000000000');
+  assert.equal(m.verdict, 'milli');
+  assert.equal(m.epochMs, 1000000000000);
+  assert.equal(fromEpoch(1000000000000, 0).isoUtc, '2001-09-09T01:46:40Z');
+  assert.equal(fromEpoch(s.epochMs, 0).isoUtc, fromEpoch(m.epochMs, 0).isoUtc);
+});
+
+test('K2 一位/九位/十一位/十二位不猜档：readings 恰两条、秒在前', () => {
+  for (const text of ['5', '999999999', '10000000000', '100000000000']) {
+    const r = parseTimestamp(text);
+    assert.equal(r.verdict, 'ambiguous', text);
+    assert.equal(r.epochMs, null, `${text}：不猜档就不能同时给一个"主答案"`);
+    assert.equal(r.readings.length, 2, text);
+    assert.deepEqual(r.readings.map((x) => x.kind), ['second', 'milli'], text);
+    assert.equal(r.readings[0].epochMs, Number(text) * 1000, text);
+    assert.equal(r.readings[1].epochMs, Number(text), text);
+    assert.equal(r.readings[0].isoUtc, fromEpoch(r.readings[0].epochMs, 0).isoUtc, text);
+    assert.ok(typeof r.reason === 'string' && r.reason.includes('位'), `${text}：不猜也要说为什么猜不出`);
+    assert.deepEqual(kBadNumbers(r), []);
+  }
+  // 十四位是"按秒必然越界"的那一档：不猜 ≠ 硬给两条解释
+  const v14 = parseTimestamp('10000000000000');
+  assert.equal(v14.verdict, 'milli', '秒档解释越过了 EPOCH_MS_LIMIT，能留下的只有毫秒档');
+  assert.equal(v14.epochMs, 10000000000000);
+  assert.deepEqual(v14.readings, []);
+});
+
+test('K3 形状各档各有结论，NaN / Infinity 不许出现在任何返回字段', () => {
+  const cases = [
+    ['  1000000000  ', 'second', 1000000000000],
+    ['-1000000000', 'second', -1000000000000],
+    ['+1000000000', 'second', 1000000000000],
+    ['1000000000.5', 'second', 1000000000500],
+    ['1000000000.500', 'second', 1000000000500],
+    ['1 000 000 000', 'invalid', null],
+    ['1_000_000_000', 'invalid', null],
+    ['0x3b9aca00', 'invalid', null],
+    ['1e9', 'invalid', null],
+    ['1000000000000.5', 'invalid', null],
+    ['1000000000.5000', 'invalid', null],
+    ['Infinity', 'invalid', null],
+    ['-Infinity', 'invalid', null],
+    ['NaN', 'invalid', null],
+    ['', 'invalid', null],
+    ['   ', 'invalid', null],
+    ['--1000000000', 'invalid', null],
+    ['1000000000-', 'invalid', null],
+  ];
+  for (const [text, verdict, epochMs] of cases) {
+    const r = parseTimestamp(text);
+    assert.equal(r.verdict, verdict, JSON.stringify(text));
+    assert.equal(r.epochMs, epochMs, JSON.stringify(text));
+    assert.deepEqual(kBadNumbers(r), [], JSON.stringify(text));
+    if (verdict === 'invalid') {
+      assert.ok(typeof r.reason === 'string' && r.reason !== '', `${text}：invalid 必须给人话原因`);
+    } else {
+      assert.equal(r.reason, null, JSON.stringify(text));
+    }
+  }
+  // 拒绝的理由要点名是"哪一形状"不对，只写"格式错误"等于把用户支走
+  assert.match(parseTimestamp('1 000 000 000').reason, /空白/);
+  assert.match(parseTimestamp('1_000_000_000').reason, /下划线/);
+  assert.match(parseTimestamp('Infinity').reason, /不是十进制/);
+  assert.match(parseTimestamp('1000000000000.5').reason, /小数/);
+  assert.match(parseTimestamp('1000000000.5000').reason, /小数/);
+  assert.equal(parseTimestamp('').reason, '输入为空');
+});
+
+test('K4 越界判 invalid，理由点名上限值；上限本身仍在范围内', () => {
+  assert.equal(EPOCH_MS_LIMIT, 8640000000000000, '这就是 Date 的 UTC 上限，改成别的数要连 §K 的边界样本一起改');
+  const over = parseTimestamp('9999999999999999999');       // 19 位
+  assert.equal(over.verdict, 'invalid');
+  assert.equal(over.epochMs, null);
+  assert.match(over.reason, /8640000000000000/);
+  assert.match(over.reason, /273,?790/);
+  assert.equal(parseTimestamp('-9999999999999999999').verdict, 'invalid', '负号不是免死金牌');
+  // 边界：恰好等于上限可判，越一格就拒
+  assert.equal(parseTimestamp('8640000000000000').verdict, 'milli');
+  assert.equal(fromEpoch(EPOCH_MS_LIMIT, 0).isoUtc, '275760-09-13T00:00:00Z');
+  const oneOver = parseTimestamp('8640000000000001');
+  assert.equal(oneOver.verdict, 'invalid');
+  assert.match(oneOver.reason, /8640000000000000/);
+  assert.doesNotMatch(oneOver.reason, /未进入解析/, '越界的理由不许写成"被长度闸门挡下"，那是另一件事');
+});
+
+test('K5 parseCivilDate：Z 与 ±hh:mm 两种写法同一毫秒，缺标记才用入参 offset', () => {
+  const A = 1709164800000;                 // date -u -r 1709164800 → 2024-02-29T00:00:00Z
+  for (const t of ['2024-02-29T00:00Z', '2024-02-29T00:00:00Z', '2024-02-29T00:00:00.000Z',
+    '2024-02-29 00:00Z', '2024-02-29T08:00+08:00', '2024-02-29T08:00+0800',
+    '2024-02-28T16:00-08:00']) {
+    const r = parseCivilDate(t, -840);
+    assert.equal(r.ok, true, t);
+    assert.equal(r.epochMs, A, `${t}：串里带了时区标记，offsetMinutes 就不许再参与换算`);
+    assert.equal(r.reason, null, t);
+  }
+  assert.equal(parseCivilDate('2024-02-29', 0).epochMs, A);
+  assert.equal(parseCivilDate('2024-02-29', 480).epochMs, A - 28800000, '+08:00 的本地零点 = UTC 前一日 16:00');
+  assert.equal(parseCivilDate('2024-02-29 08:00', 480).epochMs, A);
+  for (const bad of ['2023-02-29', '2024-13-01', '2024-00-10', '2024-01-32', '2024-1-31',
+    '2024-02-29T24:00', '2024-02-29T12:60', '2024-02-29T12:00:61', '2024-02-29+08:00',
+    'not-a-date', '2024-02- 29', '2024-02-29T12', '2024-02-29T08:00+99:99', '']) {
+    const r = parseCivilDate(bad, 0);
+    assert.equal(r.ok, false, JSON.stringify(bad));
+    assert.equal(r.epochMs, null, JSON.stringify(bad));
+    assert.ok(typeof r.reason === 'string' && r.reason !== '', JSON.stringify(bad));
+  }
+  assert.match(parseCivilDate('2023-02-29', 0).reason, /2 月|闰/);
+  assert.match(parseCivilDate('2024-1-31', 0).reason, /两位/);
+  assert.match(parseCivilDate('2024-02-29T24:00', 0).reason, /小时/);
+});
+
+test('K6 全程不读环境：同一批入参在 TZ=UTC 与 TZ=Asia/Shanghai 里逐字节相同', () => {
+  const utc = kRunIn('UTC');
+  const sh = kRunIn('Asia/Shanghai');
+  assert.equal(utc.status, 0, utc.stderr);
+  assert.equal(sh.status, 0, sh.stderr);
+  assert.equal(utc.stderr, '', '子进程有噪声：这条比对的"相同"就不干净');
+  const a = utc.stdout;
+  assert.equal(a, sh.stdout, '两个时区下的输出不同——本模块在某处偷偷读了环境');
+  const parsed = JSON.parse(a);
+  assert.equal(parsed.length, K_CASES.length, '空集上的相等不算数：先证明两边真的把整批用例跑完了');
+  assert.equal(parsed.filter((x) => x.r === null || x.r === undefined).length, 0, '有用例返回了 null');
+  for (const x of parsed) assert.deepEqual(kBadNumbers(x.r), [], `${x.fn}(${x.args})`);
+  // 反向自证：这批用例里确实含"读环境就会不一样"的格子（本地日期、星期、偏移串）
+  const localFields = parsed.filter((x) => x.fn === 'fromEpoch')
+    .map((x) => x.r.isoLocal + '|' + x.r.weekday);
+  assert.ok(new Set(localFields).size > 1, 'fromEpoch 的本地字段全一样，说明用例没覆盖到跨日界的偏移');
+});
+
+test('K7 闰年与 2/29：2024 有、2023 没有、2100 没有、2000 有，fromEpoch 能还原 2/29', () => {
+  assert.equal(parseCivilDate('2024-02-29', 0).ok, true);
+  assert.equal(parseCivilDate('2023-02-29', 0).ok, false);
+  assert.equal(parseCivilDate('2100-02-29', 0).ok, false, '百年不闰');
+  assert.equal(parseCivilDate('2000-02-29', 0).ok, true, '四百年再闰');
+  const r = fromEpoch(1709164800000, 0);   // date -u -r 1709164800 → 周四
+  assert.equal(r.isoUtc, '2024-02-29T00:00:00Z');
+  assert.equal(r.monthName, '二月');
+  assert.equal(r.weekday, '周四');
+});
+
+test('K8 dateDiff 的 ymd 是日历分解：跨年、月末、闰日各有专断，反向同解', () => {
+  const D = 86400000;
+  // 2019-12-31 → 2021-01-01：整 1 年再加 1 天（12-31 加一年是 2020-12-31）
+  assert.deepEqual(dateDiff(1577750400000, 1609459200000).ymd, { years: 1, months: 0, days: 1 });
+  // 2024-01-31 → 2024-03-01：1 月 31 日加一个月要夹到 2/29（闰年），余 1 天
+  assert.deepEqual(dateDiff(1706659200000, 1709251200000).ymd, { years: 0, months: 1, days: 1 });
+  // 2024-02-29 → 2025-02-28：整一年，不许报成"11 个月 30 天"
+  assert.deepEqual(dateDiff(1709164800000, 1740700800000).ymd, { years: 1, months: 0, days: 0 });
+  // 同一对样本反着给：分解不变，方向由 sign 说
+  const back = dateDiff(1609459200000, 1577750400000);
+  assert.deepEqual(back.ymd, { years: 1, months: 0, days: 1 });
+  assert.equal(back.sign, -1);
+  assert.equal(back.totalMs, -367 * D, '2019-12-31 → 2021-01-01 跨 367 天：2020 整年 366 天，再加到 1/1 的那 1 天');
+  assert.equal(dateDiff(1609459200000, 1609459200000).sign, 0);
+});
+
+test('K9 calendarDays 与 totalDays 允许不等，负差向 −∞ 取整', () => {
+  const r = dateDiff(1704150000000, 1704157200000);  // 2024-01-01T23:00Z → 01-02T01:00Z
+  assert.equal(r.totalMs, 7200000);
+  assert.equal(r.totalDays, 0);
+  assert.equal(r.calendarDays, 1);
+  assert.notEqual(r.totalDays, r.calendarDays, '这对样本本来就是"两个口径不等价"的证据');
+  assert.deepEqual(r.ymd, { years: 0, months: 0, days: 1 });
+  const neg = dateDiff(1704157200000, 1704150000000);
+  assert.equal(neg.totalMs, -7200000);
+  assert.equal(neg.totalDays, -1, 'floor(-0.083) = -1：向零取整会把"不足一天"报成 0 天');
+  assert.equal(neg.calendarDays, -1);
+  const subSec = dateDiff(1704150000000, 1704150000000 - 500);
+  assert.deepEqual(subSec.breakdown.map((x) => [x.unit, x.value]),
+    [['ms', -500], ['s', -1], ['min', -1], ['h', -1], ['d', -1], ['wk', -1]],
+    'breakdown 与 totalDays 同一下取整口径，否则同一页会摆出互相矛盾的两串数');
+  assert.deepEqual(r.breakdown.map((x) => [x.unit, x.value]),
+    [['ms', 7200000], ['s', 7200], ['min', 120], ['h', 2], ['d', 0], ['wk', 0]]);
+});
+
+test('K10 边界时刻都能出完整表示：0、32 位溢出点、负 epoch、非整秒的负毫秒', () => {
+  const z = fromEpoch(0, 0);
+  assert.equal(z.isoUtc, '1970-01-01T00:00:00Z');
+  assert.equal(z.rfc3339Utc, '1970-01-01T00:00:00.000Z');
+  assert.equal(z.weekday, '周四', '1970-01-01 是星期四（date -u -r 0）');
+  const y2038 = fromEpoch(2147483647000, 0);
+  assert.equal(y2038.isoUtc, '2038-01-19T03:14:07Z');
+  assert.equal(y2038.unixSeconds, 2147483647);
+  const y1900 = fromEpoch(-2208988800000, 0);   // 70 年 × 365 + 17 闰日 = 25,567 天
+  assert.equal(y1900.isoUtc, '1900-01-01T00:00:00Z');
+  assert.equal(y1900.unixSeconds, -2208988800);
+  const n = fromEpoch(-1500, 0);
+  assert.equal(n.isoUtc, '1969-12-31T23:59:58Z', '秒档向下取整：-1.5 s → -2 s');
+  assert.equal(n.rfc3339Utc, '1969-12-31T23:59:58.500Z');
+  assert.equal(n.unixSeconds, -2);
+  assert.equal(n.unixMillis, -1500);
+  assert.equal(n.tzOffsetMinutes, 0);
+});
+
+test('K11 超长输入不进解析：闸门在形状判定之前，且"超过"不是"达到"', () => {
+  assert.equal(MAX_INPUT_LEN, 64);
+  const r = parseTimestamp('1'.repeat(MAX_INPUT_LEN + 1));
+  assert.equal(r.verdict, 'invalid');
+  assert.equal(r.epochMs, null);
+  assert.match(r.reason, /64/);
+  assert.match(r.reason, /未进入解析/);
+  const atLimit = parseTimestamp('9'.repeat(MAX_INPUT_LEN));   // 64 个 9：进了解析、被判越界
+  assert.equal(atLimit.verdict, 'invalid');
+  assert.match(atLimit.reason, /8640000000000000/, '到限的串要真的走完解析，理由才会落到越界那一档');
+  assert.doesNotMatch(atLimit.reason, /未进入解析/);
+});
+
+test('K12 入参口径与四个兄弟模块同档：文本归一不抛、数值抛 TypeError', () => {
+  // 文本档：`parseIdCard(123)` / `parseMobile(null)` 都不抛（照 `String(text ?? '')` 归一后判定），
+  // time.js 不许自己发明一条"非字符串就抛"的规矩——那等于给装配层多添一种要处理的异常。
+  for (const v of [null, undefined]) {
+    assert.equal(parseTimestamp(v).verdict, 'invalid', kLabel(v));
+    assert.equal(parseTimestamp(v).reason, '输入为空', kLabel(v));
+    assert.equal(parseCivilDate(v, 0).ok, false, kLabel(v));
+    assert.equal(parseCivilDate(v, 0).reason, '输入为空', kLabel(v));
+  }
+  assert.equal(parseTimestamp(true).verdict, 'invalid', 'String(true) = "true" → 字符集这一档拒');
+  assert.equal(parseTimestamp(Symbol('s')).verdict, 'invalid', 'String(Symbol) = "Symbol(s)" → 同样拒');
+  assert.equal(parseTimestamp(new Date(0)).verdict, 'invalid', 'Date 串里有空白 → 内部空白这一档拒');
+  assert.deepEqual(parseTimestamp(123).readings.map((x) => x.kind), ['second', 'milli'],
+    '123 归一成 "123"，三位正是"不猜档"的那一档');
+  assert.deepEqual(parseTimestamp([1]).readings.map((x) => x.kind), ['second', 'milli']);
+  // 唯一的例外：无原型对象由 `String()` 自己抛——§C 末尾"两个模块必须同抛"这一条照办
+  for (const [label, call] of [['parseTimestamp', (x) => parseTimestamp(x)],
+    ['parseCivilDate', (x) => parseCivilDate(x, 0)]]) {
+    assert.throws(() => call(Object.create(null)), { name: 'TypeError' },
+      `${label}：无原型对象必须同抛 TypeError，谁也不许自己静默洗成一条结论`);
+  }
+  // 数值档：这些是装配层算出来的量，形状不对就是写错了，必须抛且点名是哪个入参
+  for (const [fn, argName] of [[fromEpoch, 'epochMs'], [relativeTime, 'epochMs'], [dateDiff, 'aEpochMs']]) {
+    assert.throws(() => fn(1000.5, 0), (e) => {
+      assert.equal(e.name, 'TypeError');
+      assert.match(e.message, new RegExp(`^${fn.name} 的 ${argName} 应为整数毫秒，收到 `));
+      return true;
+    }, fn.name);
+  }
+  assert.throws(() => relativeTime(0, NaN), { name: 'TypeError', message: /nowMs 应为整数毫秒/ });
+  assert.throws(() => dateDiff(0, '0'), { name: 'TypeError', message: /bEpochMs 应为整数毫秒/ });
+  assert.throws(() => fromEpoch(1000, 480.5), { name: 'TypeError', message: /offsetMinutes 应为整数分钟/ });
+  assert.throws(() => fromEpoch(1000, undefined), { name: 'TypeError', message: /offsetMinutes/ });
+  assert.throws(() => fromEpoch(1000, 841), { name: 'TypeError', message: /±14 小时|840/ });
+  assert.doesNotThrow(() => fromEpoch(1000, -840));
+  // 值越界与形状不对同档（都抛 TypeError）：`parseIdCard` 对 `today: '10000-01-01'` 就是这个口径
+  assert.throws(() => fromEpoch(EPOCH_MS_LIMIT + 1, 0),
+    { name: 'TypeError', message: /fromEpoch 的 epochMs 超出 Date 可表示的时间范围/ });
+  assert.throws(() => relativeTime(0, EPOCH_MS_LIMIT + 1),
+    { name: 'TypeError', message: /relativeTime 的 nowMs 超出 Date 可表示的时间范围/ });
+  assert.throws(() => parseCivilDate('2024-01-01', '0'), { name: 'TypeError', message: /offsetMinutes/ });
+  // 三个模块的报错尾巴都是「收到 <shapeOf(值)>」这一段：口径分叉在这里红
+  // （拿真正会抛的那三类比：`generateUsccCodes` / `generateMobiles` 的 options 闸门与本页的数值闸门）
+  const tails = [
+    grab(() => fromEpoch(1000.5, 0), 'fromEpoch'),
+    grab(() => generateUsccCodes({ rng: 'nope' }), 'generateUsccCodes'),
+    grab(() => generateMobiles({ rng: 'nope' }), 'generateMobiles'),
+  ];
+  for (const [who, msg] of tails) {
+    assert.match(msg, /收到 (null|undefined|number|string|boolean|bigint|object|function|symbol|Date|Array\(\d+\))/,
+      `${who}：${msg}`);
+  }
+  function grab(fn, who) { try { fn(); } catch (e) { return [who, e.message]; } return [who, '']; }
+});
+
+test('K13 星期与月份是内置中文表：逐字钉住，源码里不许出现 Intl / toLocale', () => {
+  const code = kCode();
+  assert.ok(!code.includes('Intl'), '出现了 Intl——输出会随 Node / 浏览器的 ICU 与 locale 漂');
+  assert.doesNotMatch(code, /toLocale(String|DateString|TimeString|NumberFormat)/, 'toLocale* 同样是环境依赖');
+  const week = [];
+  for (let i = 0; i < 7; i += 1) week.push(fromEpoch(i * 86400000, 0).weekday);
+  assert.deepEqual(week, ['周四', '周五', '周六', '周日', '周一', '周二', '周三']);
+  const months = [];
+  for (let m = 1; m <= 12; m += 1) {
+    const text = `2024-${String(m).padStart(2, '0')}-15`;
+    months.push(fromEpoch(parseCivilDate(text, 0).epochMs, 0).monthName);
+  }
+  assert.deepEqual(months, ['一月', '二月', '三月', '四月', '五月', '六月',
+    '七月', '八月', '九月', '十月', '十一月', '十二月']);
+});
+
+test('K14 扫源：无 Date.now()、无无参 new Date()、不读环境、零 import', () => {
+  const code = kCode();
+  assert.equal(code.split('Date.now(').length - 1, 0, 'Date.now() 一旦出现，判据就随跑测试的时刻漂');
+  assert.doesNotMatch(code, /new Date\(\s*\)/, '无参 new Date() 同上');
+  assert.doesNotMatch(code, /getTimezoneOffset|process\.env|Date\.parse/, '本地时区只能由调用方传进来');
+  assert.doesNotMatch(code, /^\s*import[\s({]/m, 'time.js 是叶子模块：import 会把数据表拖进 codec 页');
+  assert.doesNotMatch(code, /\bimport\s*\(/, '动态 import 也算一条依赖边');
+});
+
+test('K15 偏移全域：+8h、+11:30、−14h、−5:30、0，五档的本地串与后缀自洽', () => {
+  const MS = 1709161200000;   // date -u -r 1709161200 → 2024-02-28T23:00:00Z（周三）
+  const east = fromEpoch(MS, 480);
+  assert.equal(east.isoLocal, '2024-02-29T07:00:00+08:00');
+  assert.equal(east.localDisplay, '2024-02-29 07:00:00 (UTC+08:00) 周四');
+  assert.equal(east.weekday, '周四', '本地已跨到 2/29：星期跟着本地日，不是 UTC 日');
+  assert.equal(fromEpoch(MS, 0).weekday, '周三');
+  const half = fromEpoch(MS, 690);
+  assert.equal(half.isoLocal, '2024-02-29T10:30:00+11:30', '23:00 UTC + 11:30 = 次日 10:30');
+  assert.equal(half.localDisplay, '2024-02-29 10:30:00 (UTC+11:30) 周四');
+  assert.equal(half.tzOffsetMinutes, 690);
+  const west = fromEpoch(MS, -840);
+  assert.equal(west.isoLocal, '2024-02-28T09:00:00-14:00');
+  assert.equal(west.localDisplay, '2024-02-28 09:00:00 (UTC-14:00) 周三');
+  assert.equal(fromEpoch(MS, -330).isoLocal, '2024-02-28T17:30:00-05:30');
+  for (const off of [0, 480, 690, -840, -330]) {
+    const r = fromEpoch(MS, off);
+    assert.equal(r.isoUtc, '2024-02-28T23:00:00Z', `offset ${off} 不该动 UTC 那一档`);
+    assert.equal(r.rfc3339Utc, '2024-02-28T23:00:00.000Z');
+    assert.equal(r.unixMillis, MS);
+    assert.ok(r.localDisplay.includes(r.isoLocal.slice(11, 19)), 'localDisplay 的时刻要与 isoLocal 一致');
+  }
+});
+
+test('K16 relativeTime 阈值表逐档命中，含"此刻"与未来镜像', () => {
+  const NOW = 1709164800000;
+  const S = 1000; const M = 60000; const H = 3600000; const D = 86400000;
+  const at = (deltaMs) => relativeTime(NOW + deltaMs, NOW);
+  assert.deepEqual({ ...at(0) }, { text: '此刻', past: false, future: false });
+  assert.equal(at(-59 * S).text, '59 秒前');
+  assert.equal(at(-60 * S).text, '1 分钟前', '满一分钟就进下一档，不许留"60 秒前"');
+  assert.equal(at(-59 * M).text, '59 分钟前');
+  assert.equal(at(-60 * M).text, '1 小时前');
+  assert.equal(at(-(23 * H + 59 * M + 59 * S)).text, '23 小时前');
+  assert.equal(at(-30 * D).text, '1 个月前');
+  assert.equal(at(-364 * D).text, '12 个月前');
+  assert.equal(at(-365 * D).text, '1 年前');
+  assert.equal(at(-366 * D).text, '1 年前', '满一年不满两年不再细化到天：固定档口径，写在 TIME_CAVEAT 里');
+  assert.equal(at(-730 * D).text, '2 年前');
+  assert.equal(at(45 * S).text, '45 秒后');
+  assert.equal(at(3 * D).text, '3 天后');
+  const f = at(45 * S);
+  assert.equal(f.past, false); assert.equal(f.future, true);
+  assert.equal(at(-45 * S).past, true);
+});
+
+test('K17 口径文案与实现互相对账：文案承诺的做到，做到的也写进文案', () => {
+  const NOW = 1709164800000; const D = 86400000;
+  const amb = parseTimestamp('999999999');
+  const rows = [
+    [/10 位当秒/, parseTimestamp('1000000000').verdict === 'second'],
+    [/13 位当毫秒/, parseTimestamp('1000000000000').verdict === 'milli'],
+    [/其余位数不猜/, amb.verdict === 'ambiguous' && amb.readings.length === 2 && amb.epochMs === null],
+    [/只按「10 位整数 \+ 1–3 位小数的秒」/, parseTimestamp('1000000000.5').epochMs === 1000000000500
+      && parseTimestamp('1000000000000.5').verdict === 'invalid'],
+    [/按 30 天/, relativeTime(NOW - 30 * D, NOW).text === '1 个月前'],
+    [/按 365 天/, relativeTime(NOW - 365 * D, NOW).text === '1 年前'],
+    [/不读运行环境时区/, !/process\.env|getTimezoneOffset|Intl|toLocale|Date\.now|new Date\(\s*\)/.test(kCode())],
+  ];
+  for (const [claim, holds] of rows) {
+    assert.equal(claim.test(TIME_CAVEAT), holds,
+      `文案与实现分叉：${claim}（文案里有=${claim.test(TIME_CAVEAT)}，实现做得到=${holds}）`);
+  }
+  assert.equal(rows.length, 7, '对账表自己要有条数：漏一行等于那一档的承诺没人核');
+  assert.ok(TIME_CAVEAT.length > 80 && TIME_CAVEAT.length <= 240,
+    `口径句要够说清楚、又不能长到把面板挤爆（实际 ${TIME_CAVEAT.length} 字）`);
+});
+
+test('K18 零重叠：dev/js/tools/ 不成 vite 入口', () => {
+  const top = readdirSync(resolve(ROOT, 'dev/js')).filter((f) => f.endsWith('.js') && !f.endsWith('.min.js'));
+  assert.equal(top.includes('time.js'), false, 'time.js 被挪到 dev/js/ 顶层，会变成构建入口、进产物');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/time.js')), true,
+    '文件不在它该在的位置时，上面那条断言是空转的');
+  const vite = read('vite.config.js');
+  assert.match(vite, /function getDevJsEntries\(\)[\s\S]{0,400}readDirSorted\(jsDir\)[\s\S]{0,200}endsWith\('\.js'\)/,
+    'vite 的入口扫描不再是"dev/js 一层 + .js 后缀"，本条与 §6.1 的零重叠口径要一起重写');
+  const siteJs = resolve(ROOT, '_site/assets/js');
+  if (existsSync(siteJs)) {
+    const hits = readdirSync(siteJs).filter((f) => f.endsWith('.js')
+      && readFileSync(resolve(siteJs, f), 'utf8').includes('parseTimestamp'));
+    assert.deepEqual(hits, [], '构建产物里出现了 time.js 的导出名');
+  }
+});

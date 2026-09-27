@@ -15,7 +15,8 @@
  *   node scripts/verify-plan-blocks.mjs --fix    # 把不等的那些镜像块整块换成磁盘内容，
  *                                                #   只碰唯一候选块，其余一律不动；换完再跑一次
  *
- * 镜像现在分布在**两份计划**里（段 1 那份 + 段 2 `2026-09-26-tools-idcard-page.md`）：
+ * 镜像现在分布在**三份计划**里（段 1 + 段 2 `2026-09-26-tools-idcard-page.md`
+ * + 段 3 `2026-09-27-tools-codec-page.md`，清单权威是下面的 `PLANS`）：
  * 磁盘上 `toolkit-tests.mjs` 的 §E0/§F0 两块代码是段 2 计划贴的，段 1 计划里根本没有。
  * 只认一份计划的旧实现在这儿会产出**两种**错形状——§D 那一节因为下一节没被认成分节而被
  * 一路吞到文件尾（假"逐字节不等"），§E0/§F0 则压根没人核（假"全等"）。所以块按
@@ -23,7 +24,7 @@
  * 跨计划命中同一块仍按"歧义"拒绝猜。
  *
  * 失败形状（都退 1，不静默）：
- *   - 某个磁盘文件在两份计划里都找不到逐字节相同的块 → `✗` 并打印首个不同的行
+ *   - 某个磁盘文件在所有计划里都找不到逐字节相同的块 → `✗` 并打印首个不同的行
  *   - 同一个目标匹配到两块 → `✗ 歧义`（宁可报错也不猜）
  *   - 磁盘 `scripts/toolkit-tests.mjs` 里某一节（§A／§B／…／§E0）找不到全等块 → `✗`
  *
@@ -43,13 +44,14 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * 两份计划：段 1 那份是 §A–§D 与七个整文件的镜像所在地，段 2 那份从 §E0 起接手。
- * 顺序即查找顺序，但**判定是全局的**——同一块内容若在两份计划里都能全等命中，照旧按
+ * 三份计划：段 1 那份是 §A–§D 与七个整文件的镜像所在地，段 2 从 §E0 起接手，段 3 从 §K 起接手。
+ * 顺序即查找顺序，但**判定是全局的**——同一块内容若在多份计划里都能全等命中，照旧按
  * `✗ 歧义` 拒绝猜，不因为"先命中的那份赢了"而静默挑一个。
  */
 const PLANS = [
   { rel: '_docs/superpowers/plans/2026-09-25-online-tools-foundation.md', tag: '段1' },
   { rel: '_docs/superpowers/plans/2026-09-26-tools-idcard-page.md', tag: '段2' },
+  { rel: '_docs/superpowers/plans/2026-09-27-tools-codec-page.md', tag: '段3' },
 ];
 
 /**
@@ -75,6 +77,10 @@ const FILE_TARGETS = [
   'dev/js/tools/random-data.js',
   'dev/js/tools/view.js',
   'dev/js/tools/panel-dom.js',
+  // ── 段 3 起，编码工具箱页的纯逻辑模块一间一间镜像（计划 [段3] Task 1）。
+  // 只登记磁盘上已经存在的那几本：`FILE_TARGETS` 的方向是"登记了就必须有镜像"，
+  // 提前把 codec.js / digest.js 写进来会让门禁二在 Task 2 之前一路红。
+  'dev/js/tools/time.js',
   'dev/js/toolkitCore.js',
   'dev/js/tools/workbench.js',
   'dev/js/toolIdcard.js',
@@ -277,8 +283,8 @@ function firstDiff(a, b) {
 }
 
 function main() {
-  // 两份计划各自扫一遍块，块上带 `{tag, rel}`——失败信息、`--fix` 的落笔处都要点名是哪份计划，
-  // 否则"计划第 5636 行"这种坐标在两份文档面前毫无意义。
+  // 每份计划各自扫一遍块，块上带 `{tag, rel}`——失败信息、`--fix` 的落笔处都要点名是哪份计划，
+  // 否则"计划第 5636 行"这种坐标在多份文档面前毫无意义。
   const planData = PLANS.map((p) => {
     const abs = path.join(ROOT, p.rel);
     if (!fs.existsSync(abs)) {
@@ -343,8 +349,8 @@ function main() {
       } else {
         const near = m.byLen
           ? `按行数最接近的是计划[${m.byLen.b.tag}] ${m.byLen.b.startLine}–${m.byLen.b.endLine}，差 ${m.byLen.d} 行；`
-          : `两份计划里一个 ${lang} 块都没有（或该扩展名没有对应的围栏语言映射），无从定位；`;
-        console.log(`✗ ${target}：两份计划里都没有逐字节相同的块（${near}公共前缀候选不唯一，无法定位，`
+          : `${PLANS.length} 份计划里一个 ${lang} 块都没有（或该扩展名没有对应的围栏语言映射），无从定位；`;
+        console.log(`✗ ${target}：${PLANS.length} 份计划里都没有逐字节相同的块（${near}公共前缀候选不唯一，无法定位，`
           + `${fix ? '--fix 不会动它' : '手工同步'}）`);
       }
       failures.push(target);
@@ -477,7 +483,7 @@ function main() {
   // 任务正文里的片段）**一行都不碰**——这是"计划跟着实现走"的一条口径，不是通用
   // 同步器：它绝不往计划里塞新块，也不删块。按 `startLine` 从大到小改写，
   // 这样每一刀的坐标都还是原始 `planLines` 的坐标（从小到大就会互相顶掉行号）。
-  // 两份计划各写各的：按 `plan` 分组后逐份落盘，绝不把段 2 的镜像写进段 1 的文件。
+  // 各份计划各写各的：按 `plan` 分组后逐份落盘，绝不把段 2 的镜像写进段 1 的文件。
   if (fix) {
     if (segmentationBroken) {
       // 切分本身可疑时**一刀都不落**：这时候每一段的边界都不可信，逐条落笔会把错边界
