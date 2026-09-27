@@ -16,6 +16,11 @@ export const PAN_MIN = 13;
 export const PAN_MAX = 19;
 /** 单次生成的条数上限，与 `generateIdCards` 同一档 */
 export const GENERATE_MAX = 50;
+/**
+ * 单张卡号最多重取几次随机体（模块内部口径，不导出：面板不需要知道重试存在）。
+ * 存在的理由是表里**确实**有嵌套前缀，见 `generateBankCards` 里那段判据的注释。
+ */
+const BODY_RETRY_MAX = 24;
 /** 卡种类 → 中文；快照里只出现这四种（实测 CC 633 / DC 1056 / PC 6 / SCC 14 条） */
 export const CARD_TYPES = { DC: '借记卡', CC: '贷记卡', PC: '预付费卡', SCC: '准贷记卡' };
 export const BIN_SOURCE = `${BIN_META.provider} @ ${BIN_META.ref.slice(0, 7)}（快照 ${BIN_META.fetchedAt}）`;
@@ -40,6 +45,24 @@ for (const row of ROWS) {
   BY_BIN.get(row.bin).push(row);
 }
 const BANK_MAP = new Map(BANKS);
+
+/**
+ * `bin → 表内比它更长、又以它为前缀的登记前缀`（"这个 BIN 会被谁盖住"）。
+ * 建法是**一遍扫每条 BIN 的全部真前缀**（1,697 个 BIN 共约 1.1 万次插入）；对着 1,697 个 BIN
+ * 两两比 `startsWith` 实测 38.5–40.3ms，而本模块整个 import 才 21.4–23.7ms，首屏不值这个钱。
+ * 快照实测：1,697 个 BIN 里 **8 个**有更长子前缀，嵌套对 **32 组**（`603265 ⊂ 60326500`、
+ * `621260 ⊂ 621260107` 那一串、`9558 ⊂ 95588` 都在里面），其中 **9 条登记**在生成时可能被自家
+ * 更长的前缀盖住——读侧按最长前缀取，一旦补齐，本条的行别甚至卡种都会换一家。
+ */
+const CHILD_BY_PREFIX = new Map();
+for (const bin of BY_BIN.keys()) {
+  for (let k = 1; k < bin.length; k += 1) {
+    const p = bin.slice(0, k);
+    if (!CHILD_BY_PREFIX.has(p)) CHILD_BY_PREFIX.set(p, []);
+    CHILD_BY_PREFIX.get(p).push(bin);
+  }
+}
+const childrenOf = (bin) => CHILD_BY_PREFIX.get(bin) ?? [];
 
 /** 报错文案里的"收到什么"，与 idcard / uscc / panel 同档 */
 function shapeOf(v) {
@@ -314,17 +337,38 @@ export function generateBankCards(options = {}) {
   const list = [];
   for (let i = 0; i < count; i += 1) {
     const row = pool[Math.floor(rng() * pool.length)];
-    let body = row.bin;
-    while (body.length < row.panLength - 1) body += String(Math.floor(rng() * 10));
-    const check = luhnCheckDigit(body);
-    const number = body + check;
-    const self = parseBankCard(number);
+    // 只有能在本条卡号里补齐的子前缀才拦得住：比登记位数长的子前缀要连校验位一起撞，够不着。
+    const kids = childrenOf(row.bin).filter((b) => b.length <= row.panLength);
+    let number = '';
+    let self = null;
+    for (let attempt = 0; attempt < BODY_RETRY_MAX; attempt += 1) {
+      let body = row.bin;
+      while (body.length < row.panLength - 1) {
+        let d = Math.floor(rng() * 10);
+        // 这一位要是把某个更长的登记前缀补满（`body+d` 还是某个子前缀的前缀），就顺位往后挪。
+        // 判据必须带"当前本体仍是子前缀的前缀"这一半：只看长度会把早已岔开的分支也算成挡路。
+        // 实测最挤的分支是 `621260` 下 `62126010` 开头那 8 条，挡 8 个数字、留 2 个可走，
+        // 十个全被占满的分支表里没有（0/11），所以这个挪位循环一定出得来。
+        for (let shift = 0; shift < 10
+          && kids.some((b) => b.startsWith(body + String(d))); shift += 1) {
+          d = (d + 1) % 10;
+        }
+        body += String(d);
+      }
+      number = body + luhnCheckDigit(body);
+      self = parseBankCard(number);
+      if (self.state === 'valid' && self.info.bin === row.bin) break;
+    }
     // 两条一起判：状态必须是 valid，而且读侧**最长前缀挑中的那个 BIN**必须就是本条用的前缀。
-    // 今天表里没有嵌套前缀（唯一一组 9558/95588 同属 ICBC），后半个条件不可达；留着是因为
-    // 快照一旦长出嵌套前缀，"生成平安银行、读出来是另一家"只有这一格能当场报。
+    // 上面那格避让把"本体里能补齐"的 9 条登记全挡住了，剩下的路径只有一条：某个子前缀的长度
+    // **正好等于**登记位数，要连算出来的校验位一起撞。今天这种分支一条都没有（九条挨挡登记的
+    // 子前缀最长只到 `位数-1`），所以这一格实测跑不到；留着是因为它判的是"生成的行别被读侧
+    // 换成另一家"这件事，而避让那格是按表算的、这一格是按真实读侧算的，两边不是同一个条件。
     if (self.state !== 'valid' || self.info.bin !== row.bin) {
       const why = self.checks.filter((k) => k.ok === false).map((k) => `${k.label}：${k.detail}`).join(' / ');
-      throw new Error(`内部不变量：生成的 ${number} 自检为 ${self.state}（${why}）`);
+      throw new Error(`内部不变量：${row.bin}（登记 ${row.panLength} 位）连试 ${BODY_RETRY_MAX} 次，`
+        + `最后一条 ${number} 自检为 ${self.state}、读出行别前缀 ${self.info ? self.info.bin : '（无）'}`
+        + `${why ? `（${why}）` : ''}`);
     }
     list.push({
       number, formatted: formatCardGroup(number), bin: row.bin,

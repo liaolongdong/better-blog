@@ -64,17 +64,32 @@ const check = (id, pass, detail) => {
 };
 
 /**
- * 仓库工作树的脏文件集合（`git status --porcelain` 全量，不过滤）。
- * 实验开始前拍一张、收口后再拍一张，**两集合必须相等**——这比维护一份"哪些文件本来就该脏"
- * 的白名单可靠：白名单要么每轮跟着实现改（Task 2 落地时它就把刚提交的判据文件报成意外脏），
+ * 仓库工作树的**脏指纹**，实验前拍一张、收口后再拍一张，两必须一模一样。
+ * 三项输入：
+ *   1. `git status --porcelain` 原文——路径 + XY 状态码，抓"多出一个脏文件 / 少了一个"；
+ *   2. `git diff --no-ext-diff` 的 sha256——抓**内容**漂移：只看路径名的话，一处改在
+ *      "本来就脏"的文件里、改完名字不变，集合照样相等，那记污染就静默过去了；
+ *   3. `git ls-files --others --exclude-standard` 的路径表——未跟踪目录在第 1 项里只占一行
+ *      `?? dir/`，里面新增一个文件看不出来，这一项补上（本机实测 4 条路径，代价可忽略）。
+ * 为什么不用白名单：白名单要么每轮跟着实现改（Task 2 落地时它就把刚提交的判据文件报成意外脏），
  * 要么悄悄放过实验留下的污染。
+ * 已知没盖住的一档：**已存在**的未跟踪文件被原地改内容（三项输入都不含它的字节）——
+ * 本 harness 的变异只落在 `dev/js/tools/*.js`、`scripts/*.mjs` 与两份计划这些**已跟踪**文件上，
+ * 真往那几处写的话第 1、3 项会先响。
  */
-const dirtySet = () => new Set(
-  execFileSync('git', ['status', '--porcelain'], { cwd: REPO, encoding: 'utf8' })
-    .split('\n').filter(Boolean).map((l) => l.slice(3).trim()),
-);
+const dirtyFingerprint = () => {
+  const status = execFileSync('git', ['status', '--porcelain'], { cwd: REPO, encoding: 'utf8' });
+  const diff = execFileSync('git', ['diff', '--no-ext-diff'], { cwd: REPO, encoding: 'utf8' });
+  const others = execFileSync('git', ['ls-files', '--others', '--exclude-standard'],
+    { cwd: REPO, encoding: 'utf8' });
+  return {
+    paths: new Set(status.split('\n').filter(Boolean).map((l) => l.slice(3).trim())),
+    hash: crypto.createHash('sha256').update(status).update('\0')
+      .update(diff).update('\0').update(others).digest('hex').slice(0, 16),
+  };
+};
 
-const dirtyBefore = dirtySet();
+const dirtyBefore = dirtyFingerprint();
 
 mirror();
 const base = run();
@@ -214,13 +229,17 @@ check('收口自证：副本回到全绿且工作树未被这些实验碰过',
   green.code === 0,
   `副本 exit=${green.code}`);
 
-const dirtyAfter = dirtySet();
-const added = [...dirtyAfter].filter((f) => !dirtyBefore.has(f));
-const removed = [...dirtyBefore].filter((f) => !dirtyAfter.has(f));
-check('收口自证：实验前后工作树的脏文件集合一模一样（判据文件与被借用的镜像文件回到原样）',
-  added.length === 0 && removed.length === 0,
-  added.length || removed.length ? `新增脏：${added.join(' / ') || '无'}；消失：${removed.join(' / ') || '无'}`
-    : `${dirtyAfter.size} 个脏项前后一致（含另一路会话的那批，一律未被触碰）`);
+const dirtyAfter = dirtyFingerprint();
+const added = [...dirtyAfter.paths].filter((f) => !dirtyBefore.paths.has(f));
+const removed = [...dirtyBefore.paths].filter((f) => !dirtyAfter.paths.has(f));
+const sameHash = dirtyBefore.hash === dirtyAfter.hash;
+check('收口自证：实验前后工作树的脏指纹一模一样（路径、内容 diff、未跟踪清单三项全等）',
+  added.length === 0 && removed.length === 0 && sameHash,
+  added.length || removed.length
+    ? `新增脏：${added.join(' / ') || '无'}；消失：${removed.join(' / ') || '无'}`
+    : `脏项 ${dirtyAfter.paths.size} 个前后一致，diff 指纹 ${dirtyAfter.hash}`
+      + `${sameHash ? '' : ` ≠ 实验前的 ${dirtyBefore.hash}（有文件被原地改了没还原）`}`
+      + '（含另一路会话的那批，一律未被触碰）');
 
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} 通过${failed.length ? `，失败：${failed.map((f) => f.id).join(' / ')}` : ''}`);

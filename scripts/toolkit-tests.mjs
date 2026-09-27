@@ -2598,6 +2598,33 @@ test('E0-3 每一位数档都有代表，最长前缀不是只对着 6 位一种
   }
 });
 
+test('E0-4 表里确实有嵌套前缀：8 个父 BIN、32 组、9 条登记生成时会挨挡', () => {
+  // 这一段钉的是**生成侧避让**赖以成立的数据形状。旧口径说"表里唯一一组嵌套是 9558 ⊂ 95588"，
+  // 实测是 32 组、8 个父 BIN，其中 9 条登记的本体位数够补齐自家子前缀——那 9 条正是
+  // `603265 / 621059 / 621241 / 621260×2 / 622421 / 622498 / 940046 / 9558`。
+  const rows = BIN_ROWS.split(';').map((r) => r.trim().split(' '));
+  const bins = [...new Set(rows.map((r) => r[0]))];
+  const kids = (b) => bins.filter((x) => x.length > b.length && x.startsWith(b));
+  const parents = bins.filter((b) => kids(b).length > 0);
+  assert.equal(parents.length, 8, '有更长子前缀的 BIN 个数变了，生成侧的避让口径要重看');
+  assert.equal(parents.reduce((n, b) => n + kids(b).length, 0), 32, '嵌套前缀对数变了，同上');
+  assert.deepEqual(parents.sort(), ['603265', '621059', '621241', '621260', '622421', '622498', '940046', '9558']);
+  const risky = rows.filter(([b, , , len]) => kids(b).some((c) => c.length <= +len - 1));
+  assert.equal(risky.length, 9, '生成时会被自家更长前缀盖住的登记条数变了');
+  // 最挤的一支（621260 下 62126010 开头）挡 8 个数字、仍留 2 个可走；十个全被占满的分支必须有界
+  const branch = new Map();
+  for (const b of parents) for (const c of kids(b)) {
+    const pre = c.slice(0, c.length - 1);
+    if (!branch.has(pre)) branch.set(pre, new Set());
+    branch.get(pre).add(c[c.length - 1]);
+  }
+  assert.equal([...branch.values()].reduce((n, s) => Math.max(n, s.size), 0), 8, '单支挡路数字上限变了');
+  assert.ok([...branch.values()].every((s) => s.size < 10), '有分支把 0-9 全占满，避让会退化成重取');
+  // 子前缀长度**正好等于**登记位数的那一支今天要不存在，生成侧自检那格才够得着
+  assert.equal(rows.filter(([b, , , len]) => kids(b).some((c) => c.length === +len)).length, 0,
+    '出现了与登记位数等长的子前缀，生成侧要连校验位一起撞，自检那格从不可达变可达');
+});
+
 // ── §F0 号段数据形状 ─────────────────────────────────────────────────────
 const { CARRIER_SEGMENTS } = await import('../dev/js/tools/carrier-data.js');
 test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
@@ -2805,9 +2832,11 @@ test('E14 入参形状：null / undefined / 数值都按字符串走，不抛', 
 });
 
 test('E15 生成侧：任意收窄都自洽，产出的号必被自己判 valid', () => {
+  // 钉种子：这一段本来用默认 rng（`seededRandom(Date.now())`），一旦红了就没法复现当时那组号。
+  // 默认 rng 那条路径由 E16 的 `rng: null` 覆盖，不靠这里。
   for (const opts of [{}, { count: 5 }, { bankCode: 'ICBC' }, { cardType: 'CC' },
     { bin: '95588', length: 19 }, { length: 15 }, { bankCode: 'CMB', cardType: 'DC' }]) {
-    const list = generateBankCards(opts);
+    const list = generateBankCards({ ...opts, rng: seededRandom(20260927) });
     assert.equal(list.length, opts.count ?? 1, JSON.stringify(opts));
     for (const item of list) {
       assert.equal(item.number.length, item.panLength);
@@ -2885,4 +2914,44 @@ test('E20 批量入口：跳空行、行号是原行号', () => {
   assert.equal(rows[0].raw, '6212601500012345');
   assert.deepEqual(parseBankCardList(''), []);
   assert.deepEqual(parseBankCardList(null), []);
+});
+
+test('E21 挨过挡的收窄条件逐个扫种子：不抛，且读回来的前缀就是声明的那个', () => {
+  // 2026-09-27 复核发现：表里 9 条登记的号码会被**自家更长的登记前缀**盖住（E0-4 钉着这个形状），
+  // 旧实现在那些分支上直接抛「内部不变量」。实测旧的构造方式：
+  //   `generateBankCards({ bin: '9558', length: 19, rng: seededRandom(s) })`，s=1..3000 → 抛 148 轮（4.93%）
+  //   `generateBankCards({ count: 50, rng: seededRandom(s) })`，s=1..3000 → 抛 26 轮（0.87%）
+  // 这一格把"面板点一次生成不该看到内部错误"钉成判据，并且要求读侧结论与声明一致。
+  for (const opts of [{ bin: '9558', length: 19 }, { bin: '622421', length: 19 },
+    { bin: '621260' }, { bin: '621059', length: 16 }, { bankCode: 'ICBC', length: 19 },
+    { bankCode: 'BHB', length: 19 }, { count: 20 }]) {
+    for (let s = 1; s <= 120; s += 1) {
+      const list = generateBankCards({ ...opts, rng: seededRandom(s) });
+      for (const item of list) {
+        const back = parseBankCard(item.number);
+        assert.equal(back.state, 'valid', `${JSON.stringify(opts)} seed=${s} → ${item.number} 自检 ${back.state}`);
+        assert.equal(back.info.bin, item.bin, `${JSON.stringify(opts)} seed=${s} 读回 ${back.info.bin} ≠ 声明 ${item.bin}`);
+        assert.equal(back.info.primary.bankCode, item.bankCode, `${JSON.stringify(opts)} seed=${s} 行别被换掉了`);
+      }
+    }
+  }
+});
+
+test('E22 避让是构造期发生的：定值 rng 下逐字符可复现', () => {
+  // 取第一位 0 → pool[0] 是 `9558 ICBC DC 19` 那条；紧接一位 0.8 → 算得 8，正好把子前缀
+  // `95588` 补满，于是顺位挪到 9。剩下的 13 位取 0，校验位由 Luhn 算出。
+  // 摘掉避让这一格（M8）后，第一次取号会撞 95588、被自检拦下重取，产出的号就不是这一条，
+  // 这条断言随即红——红的理由是"号变了"而不是"抛了"，这是它比 E21 更尖的地方。
+  const script = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
+  const drawn = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const [card] = generateBankCards({ bin: '9558', length: 19, rng: drawn });
+  const body = '955890000000000000';
+  assert.equal(card.bin, '9558');
+  assert.equal(card.bankCode, 'ICBC');
+  assert.equal(card.number, body + luhnCheckDigit(body), '第五位没被挪开，或挪开之后又走了别的分支');
+  assert.equal(card.number.slice(4, 5), '9', '本体第五位本该由 0.8 算成 8（撞上 95588），避让要把它挪成 9');
+  assert.equal(parseBankCard(card.number).info.bin, '9558');
+  // 同一串取值再来一次，必须一字不差（避让不吃额外随机数，所以序列长度是确定的 15 次）
+  const again = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(generateBankCards({ bin: '9558', length: 19, rng: again })[0], card);
 });

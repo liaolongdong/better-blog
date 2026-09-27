@@ -192,6 +192,15 @@ scripts/check-tools-surface.mjs      §8.2 的产物与收录面判据（本段�
 
 > **执行期已落地的四处**（2026-09-27，随 Task 1）：`scripts/verify-plan-blocks.mjs` 现在认两份计划、分节标记放宽到 `§([B-Z]\d*) `，并补了三道守卫（反查 `FILE_TARGETS` 漏项、`--fix` 在"切分变了"的形状下拒绝落笔、标记行自己漂了按节名兜底定位——见 §0.1 红线 4）；新增 `scripts/verify-plan-blocks-teeth.mjs`，那三道守卫每道都有注入实验，14 项自证；`scripts/toolkit-tests.mjs` 追加了 §E0 与 §F0 两节数据形状判据；`assets/data/LICENSES.md` 新增了 §二（并把 §三–§五 顺延成 §四–§六，§六 的"往第一节加行"改成"为新来源新起一节"，因为插入 §二 之后那句话已经不指向对的东西）。其余文件仍按各任务的时点改。
 
+> **基线从 65 涨到 68（2026-09-27，Task 2 复核整改）**：Task 2 的规格复核查出"表里唯一一组嵌套前缀"那句是错的，
+> 于是补了三条判据把这件事钉住——§E0 的 `E0-4`（数据形状：8 个父 BIN / 32 组 / 9 条挨挡登记）与 §E 的
+> `E21`（收窄条件逐个扫种子不抛）、`E22`（避让是构造期发生的、定值 rng 下逐字符可复现）。
+> **Task 1–2 之外的所有 `# tests` / `# pass` 预期数已按 +3 同步**（Task 3 起步 83、Task 4 98、Task 5 113、
+> Task 6 129、Task 7 145），照着判就行。但**写明"2026-09-26 / 09-27 在镜像上实跑"的那几张变异台账**
+> （Task 5 的二十九刀、Task 6 的三十一刀、Task 7 的六十六刀）是在 +3 之前的基线上量的，正文里那句
+> "基线 `# tests 142` 全绿"记的就是当时的数——**各任务真正落地时按当时的全量数复跑一遍台账**，
+> 别拿旧数当阈值，也别因为"刀数对不上"就判那一轮作废。
+
 **删除**：无（`demo/idCardDemo/` 按设计文档 §10 留到段 5）。
 
 ---
@@ -626,6 +635,32 @@ test('E0-3 每一位数档都有代表，最长前缀不是只对着 6 位一种
   }
 });
 
+test('E0-4 表里确实有嵌套前缀：8 个父 BIN、32 组、9 条登记生成时会挨挡', () => {
+  // 这一段钉的是**生成侧避让**赖以成立的数据形状。旧口径说"表里唯一一组嵌套是 9558 ⊂ 95588"，
+  // 实测是 32 组、8 个父 BIN，其中 9 条登记的本体位数够补齐自家子前缀——那 9 条正是
+  // `603265 / 621059 / 621241 / 621260×2 / 622421 / 622498 / 940046 / 9558`。
+  const rows = BIN_ROWS.split(';').map((r) => r.trim().split(' '));
+  const bins = [...new Set(rows.map((r) => r[0]))];
+  const kids = (b) => bins.filter((x) => x.length > b.length && x.startsWith(b));
+  const parents = bins.filter((b) => kids(b).length > 0);
+  assert.equal(parents.length, 8, '有更长子前缀的 BIN 个数变了，生成侧的避让口径要重看');
+  assert.equal(parents.reduce((n, b) => n + kids(b).length, 0), 32, '嵌套前缀对数变了，同上');
+  assert.deepEqual(parents.sort(), ['603265', '621059', '621241', '621260', '622421', '622498', '940046', '9558']);
+  const risky = rows.filter(([b, , , len]) => kids(b).some((c) => c.length <= +len - 1));
+  assert.equal(risky.length, 9, '生成时会被自家更长前缀盖住的登记条数变了');
+  // 最挤的一支（621260 下 62126010 开头）挡 8 个数字、仍留 2 个可走；十个全被占满的分支必须有界
+  const branch = new Map();
+  for (const b of parents) for (const c of kids(b)) {
+    const pre = c.slice(0, c.length - 1);
+    if (!branch.has(pre)) branch.set(pre, new Set());
+    branch.get(pre).add(c[c.length - 1]);
+  }
+  assert.equal([...branch.values()].reduce((n, s) => Math.max(n, s.size), 0), 8, '单支挡路数字上限变了');
+  assert.ok([...branch.values()].every((s) => s.size < 10), '有分支把 0-9 全占满，避让会退化成重取');
+  // 子前缀长度**正好等于**登记位数的那一支今天要不存在，生成侧自检那格才够得着
+  assert.equal(rows.filter(([b, , , len]) => kids(b).some((c) => c.length === +len)).length, 0,
+    '出现了与登记位数等长的子前缀，生成侧要连校验位一起撞，自检那格从不可达变可达');
+});
 // ── §F0 号段数据形状 ─────────────────────────────────────────────────────
 const { CARRIER_SEGMENTS } = await import('../dev/js/tools/carrier-data.js');
 test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
@@ -649,21 +684,27 @@ test('F0-1 五家运营商、56 个三位段、彼此不重叠', () => {
 跑完 Step 6 直接就是绿的——Step 4 已经把两张产物生成在磁盘上了，"模块还不存在"那一档
 文件级红在本任务**不可达**（它是段 1 的形状，也是本计划 Task 2/3/4/5 的形状：那四个模块
 此刻真的还没有）。本任务的"先红"换成一记探针：把两行 `await import` 临时摘掉再跑，
-红必须落在**新写的这三条**上。2026-09-27 实测（在 `/tmp` 全量副本上做，仓库工作树一行不动）：
+红必须落在**新写的这四条**上。2026-09-27 实测（在 `/tmp` 全量副本上做，仓库工作树一行不动）：
 
 ```bash
+# 副本里先把 §E 那一段剪掉——本探针量的是 Task 1 落地时刻的文件形状，那会儿 §E 还不存在。
+# 不剪的话 §E 的 E18/E19 也吃 `BANKS`/`BIN_ROWS`，红名单会多出两条、变成六条（2026-09-27 复现过）。
+n=$(grep -n '^// ── §E 银行卡' scripts/toolkit-tests.mjs | cut -d: -f1)
+[ -n "$n" ] || { echo '没找到 §E 标记，探针形状不对'; exit 1; }
+sed -n "1,$((n - 1))p" scripts/toolkit-tests.mjs > /tmp/t1cut && mv /tmp/t1cut scripts/toolkit-tests.mjs
 # 副本里删掉 §E0/§F0 那两行 import（行号会随追加浮动，按内容删）
 sed -i '' "/await import('..\/dev\/js\/tools\/bank-bin-data.js')/d;/await import('..\/dev\/js\/tools\/carrier-data.js')/d" scripts/toolkit-tests.mjs
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t1red.log 2>&1; echo "exit=$?"
 grep -E "^not ok|^# (tests|pass|fail)" /tmp/t1red.log
-grep -E "^  error: " /tmp/t1red.log
+grep -E "^  error: " /tmp/t1red.log | sort | uniq -c
 ```
 
-Expected：`exit=1`、`# tests 45 / # pass 42 / # fail 3`，三条 `not ok` 点名
-**E0-2 / E0-3 / F0-1**，报错正文是 `BANKS is not defined`、`BIN_ROWS is not defined`、
-`CARRIER_SEGMENTS is not defined`。E0-1 不红是**对的**：它只看生成器 `--check` 的退出码，
-一行都不碰那两个符号。跑前先证明副本没坏（未删 import 时 45/45 全绿），否则这条探针
-量的是一份跑不起来的文件。**别把这三红当成"判据有效"的证据**——判据有没有牙是 Step 8 的事。
+Expected：`exit=1`、`# tests 46 / # pass 42 / # fail 4`，四条 `not ok` 点名
+**E0-2 / E0-3 / E0-4 / F0-1**，报错正文按定义点计数是 `BANKS is not defined` ×1（E0-2 先撞上它）、
+`BIN_ROWS is not defined` ×2（E0-3、E0-4）、`CARRIER_SEGMENTS is not defined` ×1。
+E0-1 不红是**对的**：它只看生成器 `--check` 的退出码，一行都不碰那两个符号。
+跑前先证明副本没坏（未删 import 时 46/46 全绿），否则这条探针
+量的是一份跑不起来的文件。**别把这四红当成"判据有效"的证据**——判据有没有牙是 Step 8 的事。
 
 - [ ] **Step 7: 跑绿并交代那两行 `await import` 的口径**
 
@@ -682,7 +723,7 @@ Expected：`exit=1`、`# tests 45 / # pass 42 / # fail 3`，三条 `not ok` 点�
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (tests|pass|fail)|^exit='; echo "exit=${PIPESTATUS[0]}"
 ```
 
-Expected：`# pass 45`、`# fail 0`（41 + 4）。
+Expected：`# pass 46`、`# fail 0`（41 + 5）。
 
 - [ ] **Step 8: 自证这两条判据有牙（不注入就不算过）**
 
@@ -707,7 +748,7 @@ shasum -a 256 dev/js/tools/carrier-data.js   # 必须与 /tmp/t1mut/hash.before 
 ```
 
 Expected：`mutate.mjs` 静默通过（没落地就自己抛）；变异时 `not ok` 里点到 `F0-1`，
-失败信息是 `号段 192 同时属于 中国广电 与 中国联通`；恢复后 `# fail 0`、`# pass 45`，
+失败信息是 `号段 192 同时属于 中国广电 与 中国联通`；恢复后 `# fail 0`、`# pass 46`，
 最后两个哈希逐字相同。若变异没让 `F0-1` 红，先确认文件真的被改了（`git diff --stat
 dev/js/tools/carrier-data.js`），别急着判"判据有效"。
 **为什么用 heredoc 写脚本而不是 `node -e '…'`**：这一行的替换串里同时有单引号和中文，
@@ -718,7 +759,7 @@ dev/js/tools/carrier-data.js`），别急着判"判据有效"。
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
-# 门禁一：判据全绿（45 条 = §A–§D 的 41 条 + §E0/§F0 的 4 条）
+# 门禁一：判据全绿（46 条 = §A–§D 的 41 条 + §E0/§F0 的 5 条）
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t1.final.log 2>&1
 echo "test exit=$?"; grep -E '^# (tests|pass|fail)' /tmp/t1.final.log
 # 门禁二：计划镜像与磁盘逐字节全等（本任务改了 verify-plan-blocks.mjs 与两份载荷，必须现证）
@@ -749,7 +790,8 @@ Expected：`test exit=0` 且 `# fail 0`；`blocks exit=0`（若这里退 1，先
 > `scripts/verify-plan-blocks.mjs`（认第二份计划 + `§([B-Z]\d*) `）和本计划自身，
 > 它们跟着复核整改单独成一提交，`47dace6` 仍只含那 7 条路径。复核还改掉三处
 > 计划里的数字：§E0/§F0 的"变红形状"换成现场摘掉两行 `await import` 实测出的
-> `E0-2 / E0-3 / F0-1` 三条（原先写的是猜的）；两张数据表的体积改成现场重测值——
+> `E0-2 / E0-3 / F0-1` 三条（原先写的是猜的；E0-4 是 Task 2 复核时补进来的，Step 6 那一档
+> 已在同一副本上复测成四条、`# fail 4`）；两张数据表的体积改成现场重测值——
 > `bank-bin-data.js` 38,475 B（`cat f | gzip -N -c` 10,617 B、`-9` 10,616 B）、
 > `carrier-data.js` 1,239 B（`-6`/`-9` 两档都 887 B），旧稿那两个数各有各的错尺子——
 > 38,459 是 `/tmp` 镜像里那版少一行注释的产物（镜像文件现在还在，`wc -c` 可查），
@@ -767,10 +809,17 @@ Expected：`test exit=0` 且 `# fail 0`；`blocks exit=0`（若这里退 1，先
 - Test: `scripts/toolkit-tests.mjs`（§E）
 
 判据里每一个数字都是在 `/tmp/pfx` 镜像上跑出来的，不是推的：`6212601500012345` 的校验位确实是 `5`、
-表内唯一一组跨长度嵌套前缀是 `9558 ⊂ 95588`（同属 ICBC）、并列登记的 12 个 BIN 里第一个是
-`621260`（SPABANK 贷记 16 位 / CSRCB 借记 19 位）。照抄即可，别改成"看起来更像"的号码。
+并列登记的 12 个 BIN 里第一个是 `621260`（SPABANK 贷记 16 位 / CSRCB 借记 19 位）。照抄即可，别改成"看起来更像"的号码。
 
-- [ ] **Step 1: 先写 §E 的 20 条判据（此时 `bankcard.js` 还不存在，必红）**
+> **执行期修正（2026-09-27 复核）**：这一节原来还写着"表内唯一一组跨长度嵌套前缀是 `9558 ⊂ 95588`"，
+> 实测是**两组都不止**——1,697 个 BIN 里 **8 个**有更长子前缀、嵌套对 **32 组**（`603265 ⊂ 60326500`、
+> `621260 ⊂ 621260107` 那一串都在里面），其中 **9 条登记**的本体位数够补齐自家子前缀。那句话不只是
+> 描述不准：生成侧的自检当时正是按它写的，于是 `{ bin: '9558', length: 19 }` 实测 **3,000 轮里抛 148 轮
+> （4.93%）**、默认 `{ count: 50 }` **3,000 轮里抛 26 轮（0.87%）**，用户点一次"生成"就能看到
+> 「内部不变量」。Step 3 的生成循环与 §E0/§E 的三条判据（E0-4、E21、E22）已经按这个事实改掉，
+> 下面的镜像块就是改后的磁盘内容。
+
+- [ ] **Step 1: 先写 §E 的 22 条判据（此时 `bankcard.js` 还不存在，必红）**
 
 追加到 `scripts/toolkit-tests.mjs` 末尾（§E0 / §F0 之后）。**别名那两格不能省**：
 `GENERATE_MAX` 已被 §B 从 `idcard.js` 占着（§C 当年就为同一件事写成 `USCC_GENERATE_MAX`），
@@ -965,9 +1014,11 @@ test('E14 入参形状：null / undefined / 数值都按字符串走，不抛', 
 });
 
 test('E15 生成侧：任意收窄都自洽，产出的号必被自己判 valid', () => {
+  // 钉种子：这一段本来用默认 rng（`seededRandom(Date.now())`），一旦红了就没法复现当时那组号。
+  // 默认 rng 那条路径由 E16 的 `rng: null` 覆盖，不靠这里。
   for (const opts of [{}, { count: 5 }, { bankCode: 'ICBC' }, { cardType: 'CC' },
     { bin: '95588', length: 19 }, { length: 15 }, { bankCode: 'CMB', cardType: 'DC' }]) {
-    const list = generateBankCards(opts);
+    const list = generateBankCards({ ...opts, rng: seededRandom(20260927) });
     assert.equal(list.length, opts.count ?? 1, JSON.stringify(opts));
     for (const item of list) {
       assert.equal(item.number.length, item.panLength);
@@ -1046,6 +1097,46 @@ test('E20 批量入口：跳空行、行号是原行号', () => {
   assert.deepEqual(parseBankCardList(''), []);
   assert.deepEqual(parseBankCardList(null), []);
 });
+
+test('E21 挨过挡的收窄条件逐个扫种子：不抛，且读回来的前缀就是声明的那个', () => {
+  // 2026-09-27 复核发现：表里 9 条登记的号码会被**自家更长的登记前缀**盖住（E0-4 钉着这个形状），
+  // 旧实现在那些分支上直接抛「内部不变量」。实测旧的构造方式：
+  //   `generateBankCards({ bin: '9558', length: 19, rng: seededRandom(s) })`，s=1..3000 → 抛 148 轮（4.93%）
+  //   `generateBankCards({ count: 50, rng: seededRandom(s) })`，s=1..3000 → 抛 26 轮（0.87%）
+  // 这一格把"面板点一次生成不该看到内部错误"钉成判据，并且要求读侧结论与声明一致。
+  for (const opts of [{ bin: '9558', length: 19 }, { bin: '622421', length: 19 },
+    { bin: '621260' }, { bin: '621059', length: 16 }, { bankCode: 'ICBC', length: 19 },
+    { bankCode: 'BHB', length: 19 }, { count: 20 }]) {
+    for (let s = 1; s <= 120; s += 1) {
+      const list = generateBankCards({ ...opts, rng: seededRandom(s) });
+      for (const item of list) {
+        const back = parseBankCard(item.number);
+        assert.equal(back.state, 'valid', `${JSON.stringify(opts)} seed=${s} → ${item.number} 自检 ${back.state}`);
+        assert.equal(back.info.bin, item.bin, `${JSON.stringify(opts)} seed=${s} 读回 ${back.info.bin} ≠ 声明 ${item.bin}`);
+        assert.equal(back.info.primary.bankCode, item.bankCode, `${JSON.stringify(opts)} seed=${s} 行别被换掉了`);
+      }
+    }
+  }
+});
+
+test('E22 避让是构造期发生的：定值 rng 下逐字符可复现', () => {
+  // 取第一位 0 → pool[0] 是 `9558 ICBC DC 19` 那条；紧接一位 0.8 → 算得 8，正好把子前缀
+  // `95588` 补满，于是顺位挪到 9。剩下的 13 位取 0，校验位由 Luhn 算出。
+  // 摘掉避让这一格（M8）后，第一次取号会撞 95588、被自检拦下重取，产出的号就不是这一条，
+  // 这条断言随即红——红的理由是"号变了"而不是"抛了"，这是它比 E21 更尖的地方。
+  const script = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
+  const drawn = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const [card] = generateBankCards({ bin: '9558', length: 19, rng: drawn });
+  const body = '955890000000000000';
+  assert.equal(card.bin, '9558');
+  assert.equal(card.bankCode, 'ICBC');
+  assert.equal(card.number, body + luhnCheckDigit(body), '第五位没被挪开，或挪开之后又走了别的分支');
+  assert.equal(card.number.slice(4, 5), '9', '本体第五位本该由 0.8 算成 8（撞上 95588），避让要把它挪成 9');
+  assert.equal(parseBankCard(card.number).info.bin, '9558');
+  // 同一串取值再来一次，必须一字不差（避让不吃额外随机数，所以序列长度是确定的 15 次）
+  const again = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(generateBankCards({ bin: '9558', length: 19, rng: again })[0], card);
+});
 ```
 
 - [ ] **Step 2: 跑红，确认红的形状**
@@ -1056,7 +1147,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：文件级那一行 `not ok 1 - scripts/toolkit-tests.mjs`，正文里
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/bankcard.js'`，`# pass 45`
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/bankcard.js'`，`# tests 47`、`# pass 46`
 （Task 1 那批照绿）、`# fail 1`、`exit=` 非 0。**红阶段看不到 `not ok E1 …`**——这是段 1
 文件头注释里写死过的形状，别以为判据没生效。
 
@@ -1081,6 +1172,11 @@ export const PAN_MIN = 13;
 export const PAN_MAX = 19;
 /** 单次生成的条数上限，与 `generateIdCards` 同一档 */
 export const GENERATE_MAX = 50;
+/**
+ * 单张卡号最多重取几次随机体（模块内部口径，不导出：面板不需要知道重试存在）。
+ * 存在的理由是表里**确实**有嵌套前缀，见 `generateBankCards` 里那段判据的注释。
+ */
+const BODY_RETRY_MAX = 24;
 /** 卡种类 → 中文；快照里只出现这四种（实测 CC 633 / DC 1056 / PC 6 / SCC 14 条） */
 export const CARD_TYPES = { DC: '借记卡', CC: '贷记卡', PC: '预付费卡', SCC: '准贷记卡' };
 export const BIN_SOURCE = `${BIN_META.provider} @ ${BIN_META.ref.slice(0, 7)}（快照 ${BIN_META.fetchedAt}）`;
@@ -1105,6 +1201,24 @@ for (const row of ROWS) {
   BY_BIN.get(row.bin).push(row);
 }
 const BANK_MAP = new Map(BANKS);
+
+/**
+ * `bin → 表内比它更长、又以它为前缀的登记前缀`（"这个 BIN 会被谁盖住"）。
+ * 建法是**一遍扫每条 BIN 的全部真前缀**（1,697 个 BIN 共约 1.1 万次插入）；对着 1,697 个 BIN
+ * 两两比 `startsWith` 实测 38.5–40.3ms，而本模块整个 import 才 21.4–23.7ms，首屏不值这个钱。
+ * 快照实测：1,697 个 BIN 里 **8 个**有更长子前缀，嵌套对 **32 组**（`603265 ⊂ 60326500`、
+ * `621260 ⊂ 621260107` 那一串、`9558 ⊂ 95588` 都在里面），其中 **9 条登记**在生成时可能被自家
+ * 更长的前缀盖住——读侧按最长前缀取，一旦补齐，本条的行别甚至卡种都会换一家。
+ */
+const CHILD_BY_PREFIX = new Map();
+for (const bin of BY_BIN.keys()) {
+  for (let k = 1; k < bin.length; k += 1) {
+    const p = bin.slice(0, k);
+    if (!CHILD_BY_PREFIX.has(p)) CHILD_BY_PREFIX.set(p, []);
+    CHILD_BY_PREFIX.get(p).push(bin);
+  }
+}
+const childrenOf = (bin) => CHILD_BY_PREFIX.get(bin) ?? [];
 
 /** 报错文案里的"收到什么"，与 idcard / uscc / panel 同档 */
 function shapeOf(v) {
@@ -1379,17 +1493,38 @@ export function generateBankCards(options = {}) {
   const list = [];
   for (let i = 0; i < count; i += 1) {
     const row = pool[Math.floor(rng() * pool.length)];
-    let body = row.bin;
-    while (body.length < row.panLength - 1) body += String(Math.floor(rng() * 10));
-    const check = luhnCheckDigit(body);
-    const number = body + check;
-    const self = parseBankCard(number);
+    // 只有能在本条卡号里补齐的子前缀才拦得住：比登记位数长的子前缀要连校验位一起撞，够不着。
+    const kids = childrenOf(row.bin).filter((b) => b.length <= row.panLength);
+    let number = '';
+    let self = null;
+    for (let attempt = 0; attempt < BODY_RETRY_MAX; attempt += 1) {
+      let body = row.bin;
+      while (body.length < row.panLength - 1) {
+        let d = Math.floor(rng() * 10);
+        // 这一位要是把某个更长的登记前缀补满（`body+d` 还是某个子前缀的前缀），就顺位往后挪。
+        // 判据必须带"当前本体仍是子前缀的前缀"这一半：只看长度会把早已岔开的分支也算成挡路。
+        // 实测最挤的分支是 `621260` 下 `62126010` 开头那 8 条，挡 8 个数字、留 2 个可走，
+        // 十个全被占满的分支表里没有（0/11），所以这个挪位循环一定出得来。
+        for (let shift = 0; shift < 10
+          && kids.some((b) => b.startsWith(body + String(d))); shift += 1) {
+          d = (d + 1) % 10;
+        }
+        body += String(d);
+      }
+      number = body + luhnCheckDigit(body);
+      self = parseBankCard(number);
+      if (self.state === 'valid' && self.info.bin === row.bin) break;
+    }
     // 两条一起判：状态必须是 valid，而且读侧**最长前缀挑中的那个 BIN**必须就是本条用的前缀。
-    // 今天表里没有嵌套前缀（唯一一组 9558/95588 同属 ICBC），后半个条件不可达；留着是因为
-    // 快照一旦长出嵌套前缀，"生成平安银行、读出来是另一家"只有这一格能当场报。
+    // 上面那格避让把"本体里能补齐"的 9 条登记全挡住了，剩下的路径只有一条：某个子前缀的长度
+    // **正好等于**登记位数，要连算出来的校验位一起撞。今天这种分支一条都没有（九条挨挡登记的
+    // 子前缀最长只到 `位数-1`），所以这一格实测跑不到；留着是因为它判的是"生成的行别被读侧
+    // 换成另一家"这件事，而避让那格是按表算的、这一格是按真实读侧算的，两边不是同一个条件。
     if (self.state !== 'valid' || self.info.bin !== row.bin) {
       const why = self.checks.filter((k) => k.ok === false).map((k) => `${k.label}：${k.detail}`).join(' / ');
-      throw new Error(`内部不变量：生成的 ${number} 自检为 ${self.state}（${why}）`);
+      throw new Error(`内部不变量：${row.bin}（登记 ${row.panLength} 位）连试 ${BODY_RETRY_MAX} 次，`
+        + `最后一条 ${number} 自检为 ${self.state}、读出行别前缀 ${self.info ? self.info.bin : '（无）'}`
+        + `${why ? `（${why}）` : ''}`);
     }
     list.push({
       number, formatted: formatCardGroup(number), bin: row.bin,
@@ -1425,8 +1560,11 @@ export const TOP_BANKS = [...BANK_OPTIONS]
 2. **"未收录"与"登记位数对不上"都是 `null`，不是 `false`**（§5.4 的"查不到不等于无效"）。
    `state` 因此有第五态 `unlisted`，而 `luhn` 排在它前面：算式不成立是硬结论，表外是软参考。
 3. **主结论按位数挑，不按字典序挑**（`primary`）。12 个并列 BIN 里，`621260` 挂平安 16 位与
-   常熟农商 19 位——19 位串必须报 CSRCB。生成侧那句自检（`self.info.bin !== row.bin`）
-   就是为"哪天表里长出嵌套前缀，生成的行别与读出的行别不是一家"留的。
+   常熟农商 19 位——19 位串必须报 CSRCB。生成侧因此不能只管"算得出校验位"：表里今天有 8 个 BIN
+   挂着更长的子前缀（32 组嵌套对），9 条登记的号码会被自家更长的前缀**读成另一家**，所以生成侧
+   在填本体时就绕开那些会被补满的位（`childrenOf` + 挪一位），外加"读回来的前缀必须就是本条的
+   BIN"这条自检兜底。复核前的写法没有这层避让，`{ bin: '9558', length: 19 }` 实测 4.93% 直接抛
+   「内部不变量」给用户看——那条判据本身没错，错的是把它当"不可能发生"。
 
 - [ ] **Step 4: 跑绿**
 
@@ -1435,84 +1573,132 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 wc -l dev/js/tools/bankcard.js
 ```
 
-Expected：`# tests 65`、`# pass 65`、`# fail 0`、`exit=0`（45 + 20，45 = §A–§D 的 41 条 + §E0/§F0 的 4 条），`wc -l` 实测 352 行。
+Expected：`# tests 68`、`# pass 68`、`# fail 0`、`exit=0`（46 + 22，46 = §A–§D 的 41 条 + §E0/§F0 的 5 条），`wc -l` 实测 396 行。
 
-- [ ] **Step 5: 自证这 20 条有牙（七处变异，逐处记下红了谁）**
+- [ ] **Step 5: 自证这 22 条有牙（十四处变异，逐处记下红了谁）**
+
+变异一律在 **/tmp 副本**上做：本仓随时可能有第二条会话在同一个 worktree 上 `git add`，
+把 `dev/js/tools/bankcard.js` 就地改十几遍的风险不是"脏一下"，是可能被别人连脏的一起提交。
 
 ```bash
-mkdir -p /tmp/t2mut && cp dev/js/tools/bankcard.js /tmp/t2mut/bankcard.orig.js
+mkdir -p /tmp/t2mut
 cat > /tmp/t2mut/mut.mjs <<'EOF'
 import fs from 'node:fs';
+import path from 'node:path';
 import { execSync } from 'node:child_process';
-const P = 'dev/js/tools/bankcard.js';
-const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+const REPO = '/Users/liaolongdong/code/liaolongdong.github.io';
+const TREE = '/tmp/t2mut/tree';
+const P = path.join(TREE, 'dev/js/tools/bankcard.js');
+const CMD = `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ${path.join(TREE, 'scripts/toolkit-tests.mjs')}`;
+fs.rmSync(TREE, { recursive: true, force: true });
+// 真复制，不用 `cp -al`：硬链接的"影子副本"改一处两处同时变，量出来的全是假证据
+for (const d of ['dev/js', 'scripts', 'demo']) fs.cpSync(path.join(REPO, d), path.join(TREE, d), { recursive: true });
+fs.copyFileSync(path.join(REPO, 'package.json'), path.join(TREE, 'package.json'));
 const orig = fs.readFileSync(P, 'utf8');
 /** 未变异先跑一次：拿它的 `# tests` 总数当尺子，好把"脚手架其实没跑到测试"和"这处不可达"分开 */
 function run() {
   let out = '';
-  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8', cwd: TREE }); }
   catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
   return {
     total: Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1),
-    reds: [...out.matchAll(/^not ok \d+ - (E\d+)/gm)].map((m) => m[1]),
+    pass: Number((out.match(/^# pass (\d+)/m) || [])[1] ?? -1),
+    reds: [...out.matchAll(/^not ok \d+ - ([A-Z]\d+)/gm)].map((m) => m[1]),
   };
 }
 const base = run();
 if (base.total < 0 || base.reds.length > 0) {
+  console.log(base.out.split('\n').slice(-40).join('\n'));
   throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.length} 条），先让全量跑绿再谈牙齿`);
 }
-console.log(`基线 # tests ${base.total} 全绿`);
+console.log(`基线 # tests ${base.total} 全绿（副本 ${TREE}）`);
 const MUTS = [
-  ['M1 翻倍方向反过来', "const double = (s.length - i) % 2 === 1;", "const double = (s.length - i) % 2 === 0;"],
-  ['M2 前缀允许吃掉整串', "if (n >= digits.length) continue;", "if (n > digits.length) continue;"],
-  ['M3 主结论退回字典序第一条', "const primary = rows.find((m) => m.panLength === digits.length) ?? rows[0] ?? null;", "const primary = rows[0] ?? null;"],
-  ['M4 表外也报 valid', "out.state = primary === null ? 'unlisted' : 'valid';", "out.state = 'valid';"],
-  ['M5 表外判成 false', "push('bin', '行别前缀', primary === null ? null", "push('bin', '行别前缀', primary === null ? false"],
-  ['M6 位数下限放宽到 12', "export const PAN_MIN = 13;", "export const PAN_MIN = 12;"],
-  ['M7 生成侧自检整个摘掉', "if (self.state !== 'valid' || self.info.bin !== row.bin) {", "if (false) {"],
+  { name: 'M1 翻倍方向反过来', edits: [['const double = (s.length - i) % 2 === 1;', 'const double = (s.length - i) % 2 === 0;']] },
+  { name: 'M2 前缀允许吃掉整串', edits: [['if (n >= digits.length) continue;', 'if (n > digits.length) continue;']] },
+  { name: 'M3 主结论退回字典序第一条', edits: [['const primary = rows.find((m) => m.panLength === digits.length) ?? rows[0] ?? null;', 'const primary = rows[0] ?? null;']] },
+  { name: 'M4 表外也报 valid', edits: [["out.state = primary === null ? 'unlisted' : 'valid';", "out.state = 'valid';"]] },
+  { name: 'M5 表外判成 false', edits: [["push('bin', '行别前缀', primary === null ? null", "push('bin', '行别前缀', primary === null ? false"]] },
+  { name: 'M6 位数下限放宽到 12', edits: [['export const PAN_MIN = 13;', 'export const PAN_MIN = 12;']] },
+  { name: 'M7 生成侧自检整个摘掉', edits: [["if (self.state !== 'valid' || self.info.bin !== row.bin) {", 'if (false) {']] },
+  { name: 'M7b 自检只丢后半截', edits: [["if (self.state !== 'valid' || self.info.bin !== row.bin) {", "if (self.state !== 'valid') {"]] },
+  { name: 'M8 摘掉避让的挡路判据', edits: [['&& kids.some((b) => b.startsWith(body + String(d))); shift += 1) {', '&& false; shift += 1) {']] },
+  { name: 'M8b 避让放松成只看长度与末位', edits: [['&& kids.some((b) => b.startsWith(body + String(d))); shift += 1) {',
+    '&& kids.some((b) => b.length === body.length + 1 && b[body.length] === String(d)); shift += 1) {']] },
+  { name: 'M9 摘掉重试（单次取号 + 自检照抛）', edits: [['for (let attempt = 0; attempt < BODY_RETRY_MAX; attempt += 1) {', 'for (let attempt = 0; attempt < 1; attempt += 1) {']] },
+  { name: 'M10 重试的接受条件只看状态', edits: [["if (self.state === 'valid' && self.info.bin === row.bin) break;", "if (self.state === 'valid') break;"]] },
+  { name: 'M11 子前缀索引整个不建', edits: [['const childrenOf = (bin) => CHILD_BY_PREFIX.get(bin) ?? [];', 'const childrenOf = () => [];']] },
+  { name: 'M12 退回复核前的写法（避让与重试一起摘）', edits: [
+    ['    const kids = childrenOf(row.bin).filter((b) => b.length <= row.panLength);\n', ''],
+    ['    for (let attempt = 0; attempt < BODY_RETRY_MAX; attempt += 1) {', '    {'],
+    ['        for (let shift = 0; shift < 10\n          && kids.some((b) => b.startsWith(body + String(d))); shift += 1) {\n          d = (d + 1) % 10;\n        }\n', ''],
+  ] },
 ];
-for (const [name, a, b] of MUTS) {
-  if (!orig.includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
-  fs.writeFileSync(P, orig.replace(a, b));
+for (const { name, edits } of MUTS) {
+  let text = orig;
+  let bad = '';
+  for (const [a, b] of edits) {
+    const hits = text.split(a).length - 1;
+    if (hits !== 1) { bad = `锚点命中 ${hits} 处`; break; }
+    text = text.replace(a, b);
+  }
+  if (bad) { console.log(`!! ${name} ${bad}（要恰好 1 处），这一档不算证据`); continue; }
+  if (text === orig) { console.log(`!! ${name} 替换后一字未变，脚手架在骗人`); continue; }
+  fs.writeFileSync(P, text);
+  if (fs.readFileSync(P, 'utf8') !== text) { console.log(`!! ${name} 写完读回来不一样，文件系统在骗人`); continue; }
   const r = run();
-  if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
-  console.log(`${name} → ${r.reds.length ? r.reds.join(' ') : '全绿（这一处不可达，见计划 Step 5 的说明）'}`);
+  if (r.total !== base.total) {
+    console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`);
+    continue;
+  }
+  console.log(`${name} → ${r.reds.length ? [...new Set(r.reds)].join(' ') : '全绿'}（pass ${r.pass}/${r.total}）`);
 }
 fs.writeFileSync(P, orig);
+const after = run();
+console.log(`还原后：# tests ${after.total}、pass ${after.pass}、红 ${after.reds.length ? after.reds.join(' ') : '无'}`);
+console.log(`副本与工作树逐字节一致=${fs.readFileSync(P, 'utf8') === fs.readFileSync(path.join(REPO, 'dev/js/tools/bankcard.js'), 'utf8')}`);
 EOF
 node /tmp/t2mut/mut.mjs
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (pass|fail)'
-shasum -a 256 dev/js/tools/bankcard.js   # 与 /tmp/t2mut/bankcard.orig.js 的哈希逐字相同
+git status --porcelain -- dev/js/tools/bankcard.js scripts/toolkit-tests.mjs   # 仍是 Step 4 那两行 M，没有被实验改动
 ```
 
-**这一档的脚手架在段 1 栽过两次，所以两处闸门都得留下**：命令必须指向仓库里的
-`scripts/toolkit-tests.mjs`（早先草稿写的是镜像文件名 `e-tests.mjs`，在仓库里跑会退非零、
-`out` 只剩一句"找不到文件"，七处变异于是齐刷刷报"全绿"——那是脚手架坏了，不是判据没牙）；
-`run()` 里那个 `# tests` 总数与基线比对就是这一档的兜底，两边对不上就报 `!!`，不许读成结论。
-下面的红名单是 2026-09-26 在镜像上单跑 §E 那 20 条实测的；在仓库里跑全量时红名单应当一模一样，
-因为 §A–§D 没有一处 `import` `bankcard.js`（Task 3 之后的 §F 也没有）。
+**这一档的脚手架在段 1 栽过两次，所以三处闸门都得留下**：命令必须指向副本里真实存在的
+`scripts/toolkit-tests.mjs`（早先草稿写的是镜像文件名 `e-tests.mjs`，跑起来退非零、`out` 只剩一句
+"找不到文件"，变异于是齐刷刷报"全绿"——那是脚手架坏了，不是判据没牙）；`run()` 里那个 `# tests`
+总数与基线比对，两边对不上就报 `!!`，不许读成结论；每处变异落盘后要读回来比对，`sed`/`replace`
+退 0 而文件一字未变是第三次栽过的坑。最后一行 `git status` 是对"实验有没有溢出到工作树"的自证。
 
-红名单：
+红名单（2026-09-27 在副本上实测，基线 `# tests 68` 全绿）：
 
 | 变异 | 红了谁 | 说明 |
 | --- | --- | --- |
 | M1 翻倍方向反过来 | E1 E2 E4 E5 E8 E11 E13 E20 | 八条一起红，Luhn 是全模块的地基 |
 | M2 前缀允许吃掉整串 | **只 E9 红** | 最尖的一档：`n >= len` 改成 `n > len` |
-| M3 主结论退回字典序第一条 | **只 E10 红** | 并列登记那条口径由 E10 独占 |
+| M3 主结论退回字典序第一条 | E10 **E21** | 并列登记那条口径由 E10 独占；E21 现在也咬——读回来的前缀换了人 |
 | M4 表外也报 valid | E4 E6 E20 | `unlisted` 三处消费点全红 |
 | M5 表外判成 false | **只 E12 红** | 三态里 `null` 与 `false` 的分界 |
 | M6 位数下限放宽到 12 | E5 E6 E17 | 边界两侧各咬一口 |
 | M7 生成侧自检整个摘掉 | **全绿** | 见下 |
+| M7b 自检只丢 `self.info.bin` 那一半 | **全绿** | 同 M7 |
+| M8 摘掉避让的挡路判据 | **只 E22 红** | 避让这一格由 E22 独占 |
+| M8b 避让放松成只看长度与末位 | **全绿** | 见下"不判分布" |
+| M9 摘掉重试（只取一次号） | **全绿** | 避让已足够，重试今天是保险 |
+| M10 重试的接受条件只看状态 | **全绿** | 同 M9：有避让在前，状态 valid 时前缀必然相符 |
+| M11 子前缀索引整个不建 | **只 E22 红** | 索引与判据是同一条链，红在同一格 |
+| M12 避让与重试一起摘（= 复核前的写法） | E15 E16 E17 E21 E22 | 五条一起红，这就是这次复核发现的那个真实缺陷 |
 
-**M7 全绿不是判据没牙，是那一格在今天的数据下不可达**：构造与读取用的是同一套 Luhn 与同一张表，
-生成侧不可能自己算出一个不通的末位；把 `if (self.state !== 'valid' …)` 摘掉、以及只留状态判据
-丢掉 `self.info.bin !== row.bin` 那一半（实测同样全绿），都造不出触发条件。留着它的理由是
-"表里一旦长出嵌套前缀"（今天唯一一组 `9558 ⊂ 95588` 同属一家，所以不红），那一刻它是唯一的
-当场报警；而从**测试侧**独立盯这件事的是 E15 里那句 `back.info.bin === item.bin`——两边不是同一个
-条件，所以不是一句自我循环。这一段说明必须留在计划里，别改成"M7 已被某条判据覆盖"。
+**M7/M7b 全绿的解释已经换了，别再照旧话抄**：旧话是"构造与读取同套 Luhn、同一张表，所以
+不可能自己算出一个不通的末位，而嵌套前缀今天不存在"——前半句仍然成立（Luhn 那一半确实造不出
+触发条件），后半句是错的（表里今天有 32 组嵌套前缀），错到让 `{ bin: '9558' }` 真的抛了 4.93%。
+现在的因果链是**避让（M8/M11 → E22 红）先把"读回来换了人"这条路堵死，自检（M7）才有资格全绿**：
+M12 把两层一起摘就红五条，说明这两格不是重复而是叠起来的。剩下那格"重试"（M9/M10 全绿）同样是
+保险：等长的子前缀今天一条都没有（§E0 的 E0-4 钉着这个形状，一旦上游长出这种条目，E0-4 会先红，
+并直接把话指到生成侧自检那格）。
 
-脚本第一行 `!! 锚点没命中` 是这套自证的闸门：**锚点失配一律先修脚本再谈牙齿**（段 1 栽过一次
-`sed` 退 0 而变异根本没落地，量出来的是"判据有效"的假结论）。
+**M8b 全绿是有意的"不判分布"**：把避让判据放松成"只看长度与末位、不管当前本体是不是还在
+那条支上"，产出仍然自洽（只是随机体在某些分支上多挪几位），所以没有任何一条判据该为它红。
+这一格留在这里，是为了下一个人不把自己的口味当成判据——**判据盯的是自洽，不是均匀**。
+
+脚本第一行 `!! 锚点没命中` 是这套自证的闸门：**锚点失配一律先修脚本再谈牙齿**。
 
 - [ ] **Step 6: 记一次耗时（Task 10 的性能口径要用）**
 
@@ -1523,13 +1709,19 @@ const t0 = performance.now(); await import('$m');
 console.log('$m', (performance.now() - t0).toFixed(1) + 'ms');"; done
 ```
 
-Expected（2026-09-27 落地后同一台机器两组各 5 次复跑：本会话 11.4–14.2ms / 23.0–26.2ms，
-实现者那组 5.0–6.4ms / 16.5–18.6ms）：`bank-bin-data.js` **十几毫秒量级**（大头是那条
-28,266 字符的 `BIN_ROWS` 巨串本身），`bankcard.js` **二十几毫秒**（含把 1,709 行拆成对象、
-按 BIN 分桶）。**这两组数差到 2–3 倍是正常的**：同一台机器、同一个命令、冷/热页缓存不同而已，
-所以这一格记的是**量级**不是基线——Task 10 判的是"有没有冒出百毫秒级或秒级"，别拿这几个数当阈值。
+Expected（2026-09-27 在同一台机器上把上面那条命令连跑两组，各 5 次：`bank-bin-data.js` 依次为
+5.6 / 5.9 / 6.1 / 6.3 / 9.9ms 与 6.5 / 6.6 / 6.6 / 7.4 / 8.5ms，`bankcard.js` 为
+21.5 / 22.2 / 22.5 / 22.8 / 22.9ms 与 22.5 / 24.0 / 25.2 / 26.2ms）：`bank-bin-data.js`
+**几毫秒到十毫秒**（大头是那条 28,266 字符的 `BIN_ROWS` 巨串本身），`bankcard.js`
+**二十几毫秒**（含把 1,709 行拆成对象、按 BIN 分桶、再建 `CHILD_BY_PREFIX` 前缀索引）。
+建索引那一步在 import 这一档**量不出可见增量**：整段删掉再 import 是 21.9–22.8ms，
+与含它的 22.0–22.8ms 同档（11k 次 `Map` 插入摊不进这几毫秒的抖动）——但**别退回 O(n²) 的
+`startsWith` 现算**，那条路实测 38.5–40.3ms，比 import 本身还贵。**这两组数摆到 2 倍是正常的**：
+同一台机器、同一个命令、冷/热页缓存不同而已，所以这一格记的是**量级**不是基线——
+Task 10 判的是"有没有冒出百毫秒级或秒级"，别拿这几个数当阈值。
 这是**首屏一次性**成本：页面入口 `import` 它，就付这一次。查表本身很快（200 次 `parseBankCard`
-实测 8.4ms，预热后 8ms 左右）。Task 10 若量到 `toolIdcard.min.js` 的 parse+run 明显超出这个量级，
+首轮 10.6ms、预热后 1.9–3.0ms，偶发跳回 10ms 一档；`generateBankCards` 的 `count` 上限是 50，
+要凑 200 条得生成四次）。Task 10 若量到 `toolIdcard.min.js` 的 parse+run 明显超出这个量级，
 先查是不是共享 chunk 把两份数据都塞进来了，再考虑把建表挪到首次用到时（那要连带
 `BANK_OPTIONS` 的下拉填充一起改，属于计划外改动，先报再做）。
 
@@ -1845,7 +2037,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/phone.js'`，`# pass 65`（Task 1、2 那批
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/phone.js'`，`# tests 69`、`# pass 68`（Task 1、2 那批
 照绿）、`# fail 1`、`exit=` 非 0。
 
 - [ ] **Step 3: 写 `dev/js/tools/phone.js`**
@@ -2120,7 +2312,7 @@ node --check dev/js/tools/phone.js
 wc -l dev/js/tools/phone.js
 ```
 
-Expected：`# tests 80`、`# pass 80`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15），`wc -l` 258 行左右。
+Expected：`# tests 83`、`# pass 83`、`# fail 0`、`exit=0`（41 + 5 + 22 + 15），`wc -l` 258 行左右。
 
 - [ ] **Step 5: 自证这 15 条有牙（十五处变异，逐处记下红了谁）**
 
@@ -2612,7 +2804,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/random-data.js'`，`# pass 80`
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/random-data.js'`，`# tests 84`、`# pass 83`
 （Task 1–3 那批照绿）、`# fail 1`、`exit=` 非 0。红的形状与 §E / §F 当时一致：**整文件挂**，
 不是 15 条各挂一次——顶层 `await import` 抛在文件级，这一族口径是既定的。
 
@@ -2920,7 +3112,7 @@ node --check dev/js/tools/random-data.js
 wc -l dev/js/tools/random-data.js
 ```
 
-Expected：`# tests 95`、`# pass 95`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15 + 15），`wc -l` 290 行左右。
+Expected：`# tests 98`、`# pass 98`、`# fail 0`、`exit=0`（41 + 5 + 22 + 15 + 15），`wc -l` 290 行左右。
 
 - [ ] **Step 5: 自证这 15 条有牙（二十处变异，逐处记下红了谁）**
 
@@ -3061,7 +3253,7 @@ gzip -6 -c dev/js/tools/random-data.js | wc -c
 `generateNames` **26–30µs / 20 条**、`generateAddresses` **40–56µs**（每多一条多一次
 `resolveRegion`）、`generateEmails` **21–25µs**、`generateProfiles(20 组)` **97–133µs**、
 不收窄的满批 `generateAddresses(50)` **0.19ms**。同样两个坑：没预热那 500 次就量到的是 JIT
-爬坡；`# tests 95` 的整套 §G 用时 **41–52ms**（其中 G5 的恒定源探针占 12–16ms——那是
+爬坡；`# tests 98` 的整套 §G 用时 **41–52ms**（其中 G5 的恒定源探针占 12–16ms——那是
 2,700 次有界重试的代价，不是随机性代价），进程总时 291–400ms 里大头是 node 启动与
 `region-data.js` 的解析，别拿它做阈值。
 
@@ -3515,7 +3707,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/view.js'`，`# tests 96`、`# pass 95`
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/view.js'`，`# tests 99`、`# pass 98`
 （§A–§G 那批照绿）、`# fail 1`、`exit=` 非 0。红的形状与 §E / §F / §G 当时一致：**整文件挂**，
 不是 15 条各挂一次——顶层 `await import` 抛在文件级。
 
@@ -3947,7 +4139,7 @@ node --check dev/js/tools/view.js
 wc -l dev/js/tools/view.js
 ```
 
-Expected：`# tests 110`、`# pass 110`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15 + 15 + 15），`wc -l` 414 行左右。
+Expected：`# tests 113`、`# pass 113`、`# fail 0`、`exit=0`（41 + 5 + 22 + 15 + 15 + 15），`wc -l` 414 行左右。
 
 - [ ] **Step 5: 自证这 15 条有牙（二十九处变异，逐处记下红了谁）**
 
@@ -4840,7 +5032,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/panel-dom.js'`，`# tests 111`、`# pass 110`
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/panel-dom.js'`，`# tests 114`、`# pass 113`
 （§A–§H 那批照绿）、`# fail 1`、`exit=` 非 0。红的形状与 §E / §F / §G / §H 当时一致：**整文件挂**，
 不是 16 条各挂一次——§I 的 `const { createPanelDom } = await import(…)` 在文件顶层，抛在解析期，
 测试计数只多出一个"文件级子测试"。这一档要认下来：往顶层加 `await import` 的那一类判据，
@@ -5183,7 +5375,7 @@ node --check dev/js/tools/panel-dom.js
 wc -l dev/js/tools/panel-dom.js
 ```
 
-Expected：`# tests 126`、`# pass 126`、`# fail 0`、`exit=0`（41 + 4 + 20 + 15 + 15 + 15 + 16），
+Expected：`# tests 129`、`# pass 129`、`# fail 0`、`exit=0`（41 + 5 + 22 + 15 + 15 + 15 + 16），
 `node --check` 退出 0，`wc -l` 见 Step 6 的 322 行。
 
 - [ ] **Step 5: 自证这 16 条有牙（三十一处变异，逐处记下红了谁）**
@@ -5677,7 +5869,7 @@ Expected：提交只含这两条路径；剩下仍是对方那批未提交项。
 - Create: `dev/js/toolkitCore.js`（跨页共用层入口 → `window.Tk`）
 - Create: `dev/js/tools/workbench.js`（本页装配层：spec → 模块入参 → 结果 HTML）
 - Create: `dev/js/toolIdcard.js`（页面入口：读骨架那四格数据，接线）
-- Modify: `scripts/toolkit-tests.mjs`（追加 §J 十六条 → 全量 142 条）
+- Modify: `scripts/toolkit-tests.mjs`（追加 §J 十六条 → 全量 145 条）
 - 本格**不**创建 `tools-idcard.html` / `dev/sass/toolkit.scss` / `_data/onlineTools.yml` /
   `assets/img/tools/idcard-tool.svg`，也不碰 `postcss.config.js`——那五件是 Task 8 的活（骨架那一格
   从四件变五件：yml 的 `icon` 字段指向那个 svg，虽然第一个消费者要到 Task 9 的下拉才出现，但文件
@@ -5828,7 +6020,7 @@ grep -E '^# (tests|pass|fail)|^not ok' /tmp/j1a.log
 ```
 
 Expected：`插入 18 行（要 18）｜md5 …→…`（两个 md5 必然不同，行数是脚本自己断言的）、`exit=0`、
-`# tests 126`、`# pass 126`、`# fail 0`。**用例数一条都不许多**——这一步只加夹具的读写口子，
+`# tests 129`、`# pass 129`、`# fail 0`。**用例数一条都不许多**——这一步只加夹具的读写口子，
 不加判据；红了或者数字变了，唯一可能就是插入落错了位置，先修锚点再往下走。
 `md5` 在 Node 里用 `createHash` 算，不是 `execSync('md5 -s ' + 文件内容)`：那段文本里满是反引号与
 `$`，拼进命令行会被 shell 当命令替换执行（2026-09-27 写这一步时真踩过，屏幕刷出五十多行
@@ -7091,7 +7283,7 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 ```
 
 Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
-`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/workbench.js'`，`# tests 127`、`# pass 126`
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/workbench.js'`，`# tests 130`、`# pass 129`
 （§A–§I 那批照绿）、`# fail 1`、`exit=` 非 0。形状与 §I 当时相同：**整文件挂**，不是 16 条各挂一次
 ——§J 的 `await import('../dev/js/tools/workbench.js')` 在文件顶层，抛在解析期。Step 2 只核对
 `# tests` 与 `# fail` 两个数。
@@ -8330,10 +8522,10 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests
 grep -E '^# (tests|pass|fail|duration_ms)|^not ok' /tmp/j4.log
 ```
 
-Expected：`exit=0`、`# tests 142`、`# pass 142`、`# fail 0`。用例数从 126 到 142 只多 §J 那 16 条，
+Expected：`exit=0`、`# tests 145`、`# pass 145`、`# fail 0`。用例数从 129 到 145 只多 §J 那 16 条，
 **一条都不许多**：Step 5 的六十六刀靠 `^not ok \d+ - J\d+` 锚定红的是哪一节，用例名重复或凭空多一条
 都会让某一刀的"红了谁"读成假象。同一批新判据是**补在已有用例里**的（J7 加 (i) 档、J8 加位数那一格、
-J11 加 `preventDefault` 的两个增量、J13 加④、J16 加换前缀与"容器读不到属性"两档），所以 142 这个数
+J11 加 `preventDefault` 的两个增量、J13 加④、J16 加换前缀与"容器读不到属性"两档），所以 145 这个数
 从头到尾没动过——这是刻意的，见 Step 5 台账末尾那七条"补牙"记录（X10 / X40 / X50 / X55 / X57 / Z5 / Z6，
 对应上面那五处判据增量）。`# duration_ms` 本机 12–15s，
 随桌面负载漂，**不要**拿它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
@@ -8625,7 +8817,7 @@ tail -1 /tmp/t7mut/journal.log
 
 五条命令各管一件事，顺序不能并：`node --check` 只保证脚本本身能跑（Task 6 那回 `sed` 静默不干活，
 脚本"跑成功"了而变异一次都没落地）；`exit=` 是这一轮的全局判定；`head -2` 读的是"跑前三文件 md5"
-与"基线 `# tests 142` 全绿"——基线不绿就没有"牙齿"这回事，harness 会在那一行之前抛出去；
+与"基线 `# tests 145` 全绿"——基线不绿就没有"牙齿"这回事，harness 会在那一行之前抛出去；
 `grep -c '^[XYZ][0-9] '` 要等于 **66**（少一刀就是有一档被 `continue` 掉了）；`grep '^!!'` 要
 **无输出**（有输出＝锚点没命中或那一档只跑到别的用例数）；`grep '全绿'` 只许出现 **X2 那一行**；
 `tail -1` 要逐字回显"三文件已还原，跑后 md5:" 加那三个基线 md5。
@@ -9008,7 +9200,7 @@ X16 从 kind 那一格再撞一次）。FieldError 走提示行、别的一律�
 把前者说成后者是本页最像故障的那种错。复制走三级兜底，最后一级是一句"请手动选中"——
 execCommand 不存在时不许当成功（X55），失败提示要比成功停得更久（X50）。
 
-§J 十六条全部补在已有用例里，用例数从 126 到 142 只多这 16 条、一条不许多：六十六刀
+§J 十六条全部补在已有用例里，用例数从 129 到 145 只多这 16 条、一条不许多：六十六刀
 靠 `^not ok \d+ - J\d+` 锚定红了谁，多一条重名的用例就会把某一刀的证据读成假象。
 65 刀有红、X2 是构造上的等效（消费侧 `o.sex ?? null` 让"缺键"与"键为 null"是同一个值），
 曾不可达的七刀（X10 / X40 / X50 / X55 / X57 / Z5 / Z6）各补了一档真实形状，补成的判据增量是五处。
@@ -10882,7 +11074,7 @@ node /tmp/t8-verify-render.mjs > /tmp/t8-render.log 2>&1; echo "产物核验 exi
 grep -c '"3-索引条里的ARIA": 0\|"3-面板起始标签里的role或hidden": 0\|"4-form标签": 0' /tmp/t8-render.log
 ```
 
-Expected（2026-09-27 镜像实跑）：`# tests 142 / # pass 142 / # fail 0`、`build:site exit=0`
+Expected（2026-09-27 镜像实跑那次记的基线是 `# tests 142`，见 §1 的"基线从 65 涨到 68"；E0-4/E21/E22 落地后按 145 判）：`# tests 145 / # pass 145 / # fail 0`、`build:site exit=0`
 （约 31 秒；`pnpm build:site` = `vite build` + `vite build --config vite.demo.config.js` +
 `bundle exec jekyll build`，正是 CI 那一条链）、`产物核验 exit=0`、最后一条 `3`。
 镜像里那一趟全链之后，`_site/tools/idcard.html` 的 md5 仍是 `c7b6dfc8a354…`、
