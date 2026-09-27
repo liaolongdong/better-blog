@@ -4953,6 +4953,11 @@ const { createPanelDom } = await import('../dev/js/tools/panel-dom.js');
  * 2. **`removeChild` 找不到节点就抛**。真 DOM 抛 `NotFoundError`；这里静默的话"撤条没撤干净"看不见。
  * 3. **`replaceState` 会同步改 `location.hash`**，跟浏览器一致。不改的话 I4 那条
  *    "重复点同一块不重复写地址栏"永远测不到（比对 `location.hash` 那一步恒假）。
+ *
+ * **§J 借的是这一个工厂**，所以它多开五张读写口子（`value` / `disabled` / `select()` /
+ * `document.body` / `document.execCommand`）与三个观察口（`mk` / `selLog` / `commandLog`）。
+ * 上面三条"不像真 DOM"一条没撤，本节十六判也没有一条读这些新口子——`value` 与 `disabled`
+ * 是表单控件的事，绑定层只碰属性表与 `hidden`；两节共用一份工厂，是为了不让假 DOM 长第二套。
  */
 function iPage({
   ids = TOOLKIT, prefix = 'tk', hash = '', dropTab = [], dropPanel = [], withTablist = true,
@@ -4963,12 +4968,17 @@ function iPage({
   let created = 0;
 
   const mkText = (text) => ({ nodeType: 3, tagName: '#text', textContent: String(text) });
+  /** §J 的复制兜底与下拉填充要这三张口子；§I 的十六判一条都不读它们（见 §J 开头第 0 条） */
+  const selLog = [];
+  const commandLog = [];
+  const made = [];
 
   const mkEl = (tag, id = '', seed = {}) => {
     const attrs = new Map();
     const listeners = new Map();
     const el = {
       nodeType: 1, tagName: tag.toUpperCase(), id, attrs, childNodes: [], hidden: false,
+      value: '', disabled: false,
       get firstChild() { return el.childNodes.length ? el.childNodes[0] : null; },
       get textContent() { return el.childNodes.map((n) => n.textContent).join(''); },
       set textContent(v) { el.childNodes = v === '' ? [] : [mkText(v)]; },
@@ -4997,12 +5007,15 @@ function iPage({
         return evt;
       },
       focus: () => { focusLog.push(el.id); },
+      /** 临时 `<textarea>` 那条兜底路径要 `select()`；记下来供 §J 判"用完有没有摘掉" */
+      select: () => { selLog.push(el); },
     };
     for (const [k, v] of Object.entries(seed)) {
       if (k === 'hidden') el.hidden = Boolean(v);
       else attrs.set(k, String(v));
     }
     if (id !== '') nodes.set(id, el);
+    made.push(el);
     return el;
   };
 
@@ -5010,6 +5023,10 @@ function iPage({
     getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
     createElement: (tag) => { created += 1; return mkEl(tag); },
     createTextNode: mkText,
+    /** §J 的 `legacyCopy` 要往 `body` 上挂临时节点，`execCommand` 的返回值由夹具说了算 */
+    body: mkEl('body'),
+    copyOk: true,
+    execCommand: (name) => { commandLog.push(name); return doc.copyOk === true; },
   };
   const location = { hash };
   const history = {
@@ -5047,6 +5064,7 @@ function iPage({
 
   return {
     doc, ws, location, history, win, notice, focusLog, historyCalls, nodes,
+    mk: mkEl, selLog, commandLog, made,
     tab: (id) => nodes.get(`${prefix}-tab-${id}`) ?? null,
     panel: (id) => nodes.get(`${prefix}-panel-${id}`) ?? null,
     created: () => created,
@@ -6329,7 +6347,9 @@ Expected（**落地这一格是这一整段里唯一一处起草数字全部照�
 会把标记以上那几行算进 §H，改完少掉一个空行；`verify-plan-blocks.mjs` 报的"磁盘 3968–4496 /
 计划 4933–5461（529 行）逐字节全等"与这格互相印证），**追加后 `scripts/toolkit-tests.mjs`
 共 4,496 行 / 295,260 字节**（起草那格是照 §G / §H 尚未落地时的形状写的，段 1 收口时那份是
-2,554 行 / 179,197 字节）。
+2,554 行 / 179,197 字节）。**这两个数只到 Task 6 落地那一刻为止**：Task 7 Step 1a 往 §I 那台假
+DOM 工厂上插了 18 行五张口子，于是 §I 块变成 **547 行 / 磁盘 3968–4514**，镜像已同步到计划
+4933–5479，`scripts/toolkit-tests.mjs` 变成 4,514 行（Task 7 Step 1a 那一格记了实测）。
 
 - [x] **Step 7: 提交**
 
@@ -6436,7 +6456,7 @@ Expected：**这一格同样不止两条路径**——`panel-dom.js` 是整文�
    Tab 走到的隐形输入框。这两格是 Task 7 写判据时才从代码里挖出来的真缺陷：口径先写在了
    `workbench.js` 的文件头注释里，实现漏了，判据一补就红。
 
-- [ ] **Step 1a: 先给 §I 那台假 DOM 补上 §J 要用的五张口子（纯插入，18 行）**
+- [x] **Step 1a: 先给 §I 那台假 DOM 补上 §J 要用的五张口子（纯插入，18 行）**
 
 §J 接的是真装配层，于是它要比 §I 多读五样东西：控件的 `value` 与 `disabled`、临时
 `<textarea>` 的 `select()`、`document.body`（挂临时节点用）与 `document.execCommand`（第二级兜底
@@ -6528,11 +6548,22 @@ Expected：`插入 18 行（要 18）｜md5 …→…`（两个 md5 必然不同
 `$`，拼进命令行会被 shell 当命令替换执行（2026-09-27 写这一步时真踩过，屏幕刷出五十多行
 `command not found` 而脚本照样退 0——这是"脚手架静默说谎"的第 10 种形状）。
 
-这一步与 §J 的账在计划定稿时已经对过一遍：把本计划 Task 6 里 §I 那一块（524 行）单独落到沙箱、
-跑上面这份补丁，出来的 542 行与 §J 实跑时那份镜像的 §I 段**逐行相同**；所以 Step 1b 贴进去的
-判据块，读到的假 DOM 与产生这些证据的假 DOM 是同一份。
+**落地实跑 2026-09-27**：`插入 18 行（要 18）｜md5 0835acca2267 → 7f62ca69b8ed`、`exit=0`、
+`# tests 130`、`# pass 130`、`# fail 0`。七处锚点各命中一次，用例数一条没多；
+`scripts/toolkit-tests.mjs` 4,496 → **4,514 行**，`git diff --numstat` 回 `18 0`（纯插入、零删除）。
 
-- [ ] **Step 1b: 追加 §J 的 16 条判据（此时 `workbench.js` 还不存在，必红）**
+插完立刻有一件账要还：§I 的镜像比磁盘少那 18 行，`verify-plan-blocks.mjs` 当场喊出来
+（"磁盘 3968–4515 ↔ 计划 4933–5461（529 行），前 23 行相同，此后不再逐字节全等；首个不同在
+报告的第 24 行——计划 ` */` vs 磁盘 ` *`"，正是那五行节头注释插进去的位置）。已把 Task 6 那格
+镜像整块换成磁盘上的 §I：**547 行 / 磁盘 3968–4514 / 计划 4933–5479**，换完该节复绿。这条链是
+刻意留的——§I 与 §J 共用一台假 DOM 工厂，口子开在 §I 身上，镜像就必须跟着 §I 走，不留"磁盘变了、
+计划还写着旧的一份"那种静默差异（上一轮 `build-prefix-data.mjs` 就是这么躲过去的）。
+
+草稿阶段那句"§I 那一块（524 行）……出来的 542 行"是照起草时的形状估的，两个数都不对：
+§I 落地实测 **529 行**，补完五张口子 **547 行**。以这两行为准，Task 6 Step 6 末尾也已注明那两数
+只到 Task 6 落地那一刻。
+
+- [x] **Step 1b: 追加 §J 的 16 条判据（此时 `workbench.js` 还不存在，必红）**
 
 追加到 `scripts/toolkit-tests.mjs` 末尾。四条夹具口径写在节头注释里，其中第三条与第四条是这一节
 与前面各节最不一样的地方：**节点清单来自 `controlIds(prefix)` 与 `WORKBENCH_SPEC` 本身**，测试里
@@ -7095,11 +7126,11 @@ test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五�
   assert.deepEqual(carrier.labels.slice(1), CARRIERS.map((c) => `${c.carrier}（${c.count} 个号段）`),
     '括号里那个数就是 §F0 钉住的号段数，让用户先看见池子有多大');
 
-  // ③ 号段按运营商分五组，五组的成员数与 `CARRIERS` 的 count 逐格对上，一段都不落
+  // ③ 号段按运营商分五组：成员数与 `CARRIERS` 的 count 逐格对上；平铺那份比对 §F 从号段表独立数出的 `LISTED`——与被测取数链不同源，才看得出装配层掉段
   const seg = shape('mobile', 'segment');
   assert.deepEqual(seg.groups, CARRIERS.map((c) => c.carrier));
   assert.deepEqual(seg.sizes, CARRIERS.map((c) => c.count));
-  assert.deepEqual([...seg.values.slice(1)].sort(), [...SEGMENTS].sort(), '56 段一段都不能少');
+  assert.deepEqual([...seg.values.slice(1)].sort(), [...LISTED].sort(), '56 段一段都不能少');
   assert.equal(seg.bare, 1, '号段格除了占位项，其余必须都在组里');
 
   // ④ 统一社会信用代码那两格：31 个字符挨条填上，「（默认）」只许出现在默认那个字符上
@@ -7777,7 +7808,7 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
 });
 ```
 
-- [ ] **Step 2: 跑红，确认红的形状**
+- [x] **Step 2: 跑红，确认红的形状**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
@@ -7790,7 +7821,23 @@ Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
 ——§J 的 `await import('../dev/js/tools/workbench.js')` 在文件顶层，抛在解析期。Step 2 只核对
 `# tests` 与 `# fail` 两个数。
 
-- [ ] **Step 3: 写这一格的三个文件**
+**落地实跑 2026-09-27（Step 1b + Step 2）**
+
+Step 1b 用 `/tmp/t7/append1b.mjs` 把镜像**原样**追加（三条切片自检：首行是 `// ── §J ` 标记、
+尾行是 `});`、切片内不混围栏；另加两道"不重复追加"与"磁盘末行形状"的护栏）：§J 块 **1,225 行**，
+`scripts/toolkit-tests.mjs` 4,514 → **5,740 行 / 366,980 字节**。落完 `verify-plan-blocks.mjs`
+立刻报"§J（磁盘 4516–5740）：计划[段2] 6584–7808（1225 行）与磁盘逐字节全等"——这一格磁盘与
+计划一字不差，Step 1a 那 18 行的账也就此对上（两节看到的是同一台假 DOM）。
+
+Step 2 红的形状与 Expected 逐字对上：`not ok 1 - scripts/toolkit-tests.mjs`、
+`ERR_MODULE_NOT_FOUND: Cannot find module '…/dev/js/tools/workbench.js'`、`# tests 131`、
+`# pass 130`、`# fail 1`。**跑法改了**：不用上面那条 `| grep …; echo "exit=${PIPESTATUS[0]}"`，
+改成 `> /tmp/t7/step2.log 2>&1; echo "exit=$?"`（真退 1）。原因现场验过——本机默认 shell 是 zsh，
+`${PIPESTATUS[0]}` 在 zsh 下展开成**空**（zsh 的那本账叫 `pipestatus`，下标从 1 起：
+`false | true` 之后 `${pipestatus[1]}` 回 `1`、`${PIPESTATUS[0]}` 回空）。这不是洁癖：退码读成空，
+"红没红"就只剩 grep 的文本一项证据了，而这正是"管道吞退出码"那一族的老形状。
+
+- [x] **Step 3: 写这一格的三个文件**
 
 顺序是"共用层 → 装配层 → 入口"：前一个的导出名就是后一个的入参名，倒过来写会先把 `window.Tk`
 的挂面写成猜的。骨架 HTML、`dev/sass/toolkit.scss`、`_data/onlineTools.yml` 与 `postcss.config.js`
@@ -9016,7 +9063,7 @@ function start(doc, win) {
 start(document, window);
 ```
 
-- [ ] **Step 4: 跑绿**
+- [x] **Step 4: 跑绿**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
@@ -9032,7 +9079,35 @@ J11 加 `preventDefault` 的两个增量、J13 加④、J16 加换前缀与"容�
 对应上面那五处判据增量）。`# duration_ms` 本机 12–15s，
 随桌面负载漂，**不要**拿它当门禁，门禁只看 `exit=0` 与 `# fail 0`。
 
-- [ ] **Step 5: 自证这 16 条有牙（六十六处变异，逐处记下红了谁）**
+**落地实跑 2026-09-27（Step 3 + Step 4）**
+
+Step 3 三块镜像由 `/tmp/t7/extract3.mjs` 按 `scan.mjs` 现扫的围栏行号切片落盘（首行 `/**`、尾行非
+围栏、切片内不混围栏、磁盘上已存在就拒写），出来的形状是：`dev/js/toolkitCore.js` **25 行 / 1,837 B**
+（md5 `b596d1f66069`）、`dev/js/tools/workbench.js` **1,016 行 / 46,241 B**（`b06466bfc92b`）、
+`dev/js/toolIdcard.js` **148 行 / 6,987 B**（`984544971ff6`）。三块都逐字节等于计划里的镜像——
+`verify-plan-blocks.mjs` 从此**逐文件**核它们，前提是它们得进 `FILE_TARGETS`：这一格落盘后那道反查
+自己喊了三声"漏网镜像"（处置正是"把路径加进清单，不是删那块镜像"），于是清单从 13 条长成 16 条。
+这一步是清单反查第一次真正发挥作用：没有它，这三份镜像会像段 2 的 `build-prefix-data.mjs` 那样
+静默不核。
+
+Step 4 第一次跑**不绿**：`not ok 136 - J6 下拉按 spec 填充…`，原文 `ReferenceError: SEGMENTS is not
+defined`，`# tests 146`、`# pass 145`、`# fail 1`。根因在计划那格 §J 镜像自己身上，不在实现：
+J6 第 ③ 档拿 `[...SEGMENTS].sort()` 当"56 段"的对照面，而 §J 的 import 清单里没有 `phone.js` 的
+`SEGMENTS`，文件作用域也没有别的同名声明——§F 那一节是**刻意**不引它的（磁盘 3076–3077 行那两行
+注释写着"不引 phone.js 的同名派生值"，那里比对的是 §F0 从号段表独立数出来的 `LISTED`）。
+所以起草时贴进计划的那一块与产生 §J 证据的那一块不是同一份，这一条判据从没真跑过。
+
+改法取 §F 的口径而不是补一个 import：`LISTED` 就在文件作用域（磁盘 3078 行），它由 §F0 那张表独立
+派生，与被测的取数链（`workbench.js` → `phone.js` 的 `SEGMENTS`）**不同源**——同源相比对，装配层
+自己拼一份清单也能绿。落地是两处同改、行数不变（③ 那一档的注释一行改写说清为什么用 `LISTED`，
+断言里的 `SEGMENTS` 换成 `LISTED`），磁盘与计划镜像各改一次，改完 `verify-plan-blocks.mjs` 仍报
+§J"与磁盘逐字节全等"。牙齿没被这次改动削弱：X15（号段分组不查归属）照红 J6，见 Step 5 台账。
+
+改后 `exit=0`、`# tests 146`、`# pass 146`、`# fail 0`——146 这个数与 Expected 一字不差，
+一条不多。`# duration_ms` 那"12–15s"是负载重的窗口里量的：同一份判据文件，Task 6 收口那一跑
+9,749 ms，本轮两次 4,191 ms / 4,300 ms（当时 `vm.loadavg` 5.29）。这更说明它不能当门禁。
+
+- [x] **Step 5: 自证这 16 条有牙（六十六处变异，逐处记下红了谁）**
 
 三个文件一起改（`workbench.js` / `toolkitCore.js` / `toolIdcard.js`），每刀跑全量、
 只认 `^not ok \d+ - J\d+` 那一种红；`# tests` 与基线不等就判"这一档不算证据"——
@@ -9311,7 +9386,7 @@ node --check /tmp/t7mut/mut-j.mjs && echo "harness 语法 ok"
 cd /Users/liaolongdong/code/liaolongdong.github.io
 node /tmp/t7mut/mut-j.mjs > /tmp/t7mut/journal.log 2>&1; echo "exit=$?"
 head -2 /tmp/t7mut/journal.log
-grep -c '^[XYZ][0-9] ' /tmp/t7mut/journal.log
+grep -c -E '^[XYZ][0-9]+ ' /tmp/t7mut/journal.log
 grep '^!!' /tmp/t7mut/journal.log
 grep '全绿' /tmp/t7mut/journal.log
 tail -1 /tmp/t7mut/journal.log
@@ -9320,8 +9395,12 @@ tail -1 /tmp/t7mut/journal.log
 五条命令各管一件事，顺序不能并：`node --check` 只保证脚本本身能跑（Task 6 那回 `sed` 静默不干活，
 脚本"跑成功"了而变异一次都没落地）；`exit=` 是这一轮的全局判定；`head -2` 读的是"跑前三文件 md5"
 与"基线 `# tests 146` 全绿"——基线不绿就没有"牙齿"这回事，harness 会在那一行之前抛出去；
-`grep -c '^[XYZ][0-9] '` 要等于 **66**（少一刀就是有一档被 `continue` 掉了）；`grep '^!!'` 要
-**无输出**（有输出＝锚点没命中或那一档只跑到别的用例数）；`grep '全绿'` 只许出现 **X2 那一行**；
+`grep -c -E '^[XYZ][0-9]+ '` 要等于 **66**（少一刀就是有一档被 `continue` 掉了）。
+**这一条是落地时改的**：原来写的是不带 `-E` 的 `'^[XYZ][0-9] '`，BRE 里 `[0-9] ` 要求"一位数字
+紧跟一个空格"，于是 X10 以后全数不上，本机实跑回的是 **18**（X1–X9 / Y1–Y9 / Z1–Z9）——
+一个"少了一大半年轮次还退 0"的计数器，比没有更坏，这是"脚手架静默说谎"的第 11 种形状。
+`grep '^!!'` 要 **无输出**（有输出＝锚点没命中或那一档只跑到别的用例数）；`grep '全绿'` 只许两行：
+基线那一句，加 X2 的结果行（别的刀出现全绿＝那一档没牙）；
 `tail -1` 要逐字回显"三文件已还原，跑后 md5:" 加那三个基线 md5。
 
 台账表**不由手抄**，由日志生成：
@@ -9372,9 +9451,14 @@ node /tmp/pfx/t7/make-ledger.mjs
 
 `make-ledger.mjs` 只填前两列，第三列"说明"是这一格唯一要人写的东西。**它不许凭记忆写**：
 每一行照着 `workbench.js` 里那一处被反改的语句，说清"这样改会把什么变成什么样"，以及
-为什么红的是那几条而不是别的。下面是 2026-09-27 在 `/tmp/t7` 镜像上实跑（基线
-`# tests 142` 全绿、66 刀逐刀记录、无一处"锚点没命中"、无一处"只跑到"、跑完三文件 md5 与跑前
-逐字相同）生成的那张表，末尾三列里 J1–J16 每条至少被点名 2 次（最少的是 J1 与 J12，各 2 次与 3 次）。
+为什么红的是那几条而不是别的。下面这张表最初是 2026-09-27 在 `/tmp/t7` 沙箱里跑出来的（那时磁盘
+只有 §A–§I，基线 `# tests 142`）；**落地这一格按磁盘现状把六十六刀整轮重跑了一遍**：基线
+`# tests 146` 全绿、66 刀逐刀记录、无一处"锚点没命中"、无一处"只跑到别的用例数"、跑完三文件 md5
+与跑前逐字相同。前两列与重跑结果**一字不差**——不是目测：`/tmp/t7/cmp7.mjs` 三方对账（日志 /
+`ledger-rows.md` / 这张表），66 行逐行比、红名单连点名顺序一起比，输出 `✓ 66 刀三方一字不差`。
+重跑这一轮的点名次数：J1:2 J2:5 J3:9 J4:8 J5:6 J6:6 J7:12 J8:9 J9:4 J10:4 J11:8 J12:3 J13:7
+J14:8 J15:7 J16:7——§J 那 16 条判据一条都没被漏掉，最少的是 J1 的 2 次、其次 J12 的 3 次，
+草稿那句"每条至少被点名 2 次"与实跑一致；全绿仍只有 X2 那一刀。
 
 | 变异 | 红了谁 | 说明 |
 | --- | --- | --- |
@@ -9445,7 +9529,22 @@ node /tmp/pfx/t7/make-ledger.mjs
 | `Z5 行为前缀不读骨架，写死 tk` | **J16 红** | 行为前缀不读骨架、写死 `tk`：骨架写 `zx` 而行为仍按 `tk`，控件全找不到——补牙那档，红在 J16 的换前缀两档 |
 | `Z6 容器读不到属性时不判（TypeError 从入口跑出去）` | **J16 红** | 容器读不到属性时不判：`getAttribute` 不是函数时 `TypeError` 从入口跑出去，连"页面骨架不对"那句都写不出来——补牙那档，红在 J16 |
 
-- [ ] **Step 6: 记一次产物体积（§7 的预算要在这一格判，不许拖到收口）**
+**跑法改动：这一格跑在副本树 `/tmp/t7mut/tree` 里，不跑在真仓库。** 计划原来写的是"cd 到仓库、
+直接改那三个文件六十六次"，形状上没问题，但此刻真仓库有另一路会话的 `pnpm dev`（`vite build --watch`
++ `jekyll serve`，12:31 起）在跑，而这一格要**连续六分钟真改工作区的三个文件**——对方 deploy 脚本
+里那句 `git add .` 只要落在任意一刀上，就能把改到一半的 `workbench.js` 吞进一次提交。所以：
+`dev` / `scripts` / `demo` / `assets` / `_data` / `package.json` 整份 `cpSync` 出来，先在副本里跑
+基线（146 全绿才开刀，副本不绿这一轮全是假证据），再把脚本里第二条 `cd` 换成副本路径，其余一字未动。
+代价是零：harness 自己那两道护栏（跑前 md5、跑后逐文件比对还原）在副本里照样成立，而副本落定后
+三个文件与真仓库 md5 逐字相同（`b06466bfc92b…` / `b596d1f66069…` / `984544971ff6…`），"这一格没在真仓库留痕"
+就是这么证的。日志留在 `/tmp/t7mut/journal.log`（135 行 = 2 行抬头 + 66×2 行逐刀 + 1 行还原）。
+
+还有一处只在这一步露出来的：**Step 4 那次 `SEGMENTS` → `LISTED` 没削弱任何一刀**。X15（号段分组
+不查归属）照红 J6，而点 J6 的六刀（X4 / X11 / X12 / X13 / X14 / X15）与草稿表逐字相同——换的是
+对照面的来源，不是判据的形状。第三列"说明"这一格逐行复核过（照着磁盘上被反改的那一处读），
+未改一字。
+
+- [x] **Step 6: 记一次产物体积（§7 的预算要在这一格判，不许拖到收口）**
 
 这一格是段 2 里第一个"产物已经存在"的时刻，所以三条产物口径在这儿一次立起来：`import{` 必须为 0
 （共享 chunk 那条事故的红线）、预算按 **gzip** 算（不是 brotli）、四本数据的边际成本要能被复算。
@@ -9680,7 +9779,72 @@ Task 7 只有两件，所以第一段命令量到的是 70,991 = 73,101 − 2,11
 > 改了要连 `/tmp/t7` 镜像里的 `dev/js/tools/view.js` 一起改，否则"计划载荷 == 镜像落盘"
 > 这条一致性断在 Task 5 与 Task 8 之间。两处一起改写成不带数的说法，留给 Task 11 收口那一格。
 
-- [ ] **Step 7: 提交**
+**2026-09-27 落地实跑（跑在自建镜像 `/tmp/t7mk`，没在真仓库 build）**：上面那两条命令写的是
+"cd 到仓库跑 `npx vite build`"，形状没错，但此刻对方会话的 `pnpm dev`（`vite build --watch`，12:31 起）
+正盯着 `assets/`，而 `vite.config.js` 的 `outDir` 是 `resolve(__dirname, 'assets')` 加一段
+`writeBundle` 里往 `assets/js`、`assets/css` 照抄 `dev/libJs`、`dev/libCss` 的钩子——在这里跑一次
+全量构建就是把对方的输出目录清掉重写一次，量到的数还会被对方下一次增量构建覆盖。所以另起一份
+`dev` + `package.json` + `vite.config.js` + `postcss.config.js` 的拷贝树（`node_modules` 走软链，
+`vite.config.js` 里全是 `__dirname`，不带出仓库路径），开跑前断言 `diff -r dev <镜像>/dev` 为空。
+新入口必须靠这种一次性构建才见得到：watch 的 entry 列表是配置加载时定死的，`toolkitCore.js` /
+`toolIdcard.js` 是它启动之后才出生的，所以真仓库的 `assets/js/` 里现在没有这两件，**那不是构建坏了**。
+
+```
+build exit=0（4.22s，40 modules transformed）
+grep -o 'import{' assets/js/*.min.js | wc -l  →  0     # 全量，含照抄进来的 libJs
+```
+
+| 件 | raw | gzip -9（stdin 口径） | md5 |
+| --- | --- | --- | --- |
+| `toolIdcard.min.js` | 184,825 | 64,666 | `c0da44ee0e754a55f19a08b8aca357a6` |
+| `toolkitCore.min.js` | 18,103 | 6,583 | `c7da771083fa7073410bf865db46dc03` |
+| 合计 | **202,928** | **71,249** | — |
+
+下面那张七档边际表把这两件重建了七次，末档的 md5 与首建逐字相同——产物是确定性的，
+所以将来这一格再红，红的是代码，不是压缩器。
+
+**Expected 那三个数（184,221 / 64,408 / 70,991）不是作废，它量的是 04:58 那份草稿。** 差
+**+604 raw / +258 gz** 不靠"大概是复核改的吧"交代过去：把 `bankcard.js`、`random-data.js` 回退到
+各自的首个提交（`46b0042` 17,159 → 现 21,774；`bbb78ad` 16,581 → 现 17,638，其余三个模块
+`git show` 出来逐字节相同）另建 `/tmp/t7old` 重跑，`toolIdcard.min.js` 落在 **184,221 / 64,408**、
+`toolkitCore.min.js` 仍是 **18,103 / 6,583**，与 Expected 逐字节相同。这 258 B 全部来自那两次复核
+整改（生成侧避开嵌套 BIN 前缀、随机数据的容量口径与 §G 三处补牙），一条不多、一条不少。
+
+顺带把本格自身命令里的一处口径隐患记下来：上面第一段命令写的是 `gzip -9 -c $f`，那是**带 FNAME**
+的形态（今天实测 64,684 / 6,602，各比 stdin 口径多 18 B / 19 B）。表里与预算判定用的全部是
+`cat $f | gzip -9 -c` 那一份，Task 8 Step 6 的口径段讲的是同一件事。
+
+四本数据的边际成本今天重测（脚本 `/tmp/t7mk-measure.py`，与计划那份 `measure-gzip.py` 只差两处、
+都不碰口径：镜像路径换成 `/tmp/t7mk`，`ART` 只列两件 JS——`toolkit.min.css` 还没出生）。七次构建
+全部 exit=0，每一档量完立刻还原并与真仓库比 md5，末档 `full-after-restore` 与首档 `full` 逐字节相同：
+
+| 档 | 两件合计的 gz | 相对满数据 |
+| --- | --- | --- |
+| 满数据 | 71,249 | — |
+| 四本区划串全空 | 36,938 | **区划 −34,311** |
+| 只空历史层 | 59,028 | **历史层 −12,221** |
+| 清空 BIN 表 | 60,024 | **BIN −11,225** |
+| 清空号段表 | 71,063 | **号段 −186** |
+| 三本一起空 | 25,381 | **数据合计 −45,868** |
+
+与 04:58 那张表逐档比是 −2 / +1 / −5 / −1 / −3（号段那本 1,239 B 的源文件两版之间没动），
+可加性交叉检验从差 141 B 变成差 **146 B**（34,311 + 11,225 + 186 = 45,722 对 45,868），
+三条结论一项不变：**预算的敌人只有区划那一本，别在码表上抠字节**。
+
+**这张表的第一次跑法作废了，"三本一起空"当时量到 36,748，是个假数。** 原因是脚本跑到 `no-bankbin`
+那一档时，我为了让镜像里那三个禁改数据文件"看着跟真仓库一样"而 `cp` 了一次 `bank-bin-data.js`，
+正好落在脚本下一次 `put()` 之后、`vite build` 读文件之前——那一档的输入被换回了满数据。
+末档那句"与首档逐字节相同"**抓不到它**（现场确实复原了，坏的是中间某一档的输入），抓到它的是同一份
+输出里的可加性：边际相加 45,722 对三本合计 34,501 差 **11,221 B**，正好是 BIN 那一本没被扣掉的边际。
+留这条是因为它是"脚手架静默说谎"的一个新形状：**自证只覆盖"现场已复原"，不覆盖"每一档的输入没被
+旁路"，能覆盖后者的是档与档之间的交叉检验**——所以那张表里的可加性一栏不是装饰，是护栏。
+
+**§7 那条 76KB 在这一格怎么判**：本格只有两件 JS，合计 **71,249 B**；等 Task 8 的
+`toolkit.min.css` 出生（04:58 量的是 2,110 B）三件合计约 **73,359 B**，对 77,824 B 余
+**4,465 B（5.7%）**——比 04:58 拍板时写下的 4,723 B 少 258 B，仍是 gzip level 6↔9 那 248 B
+抖动的 18 倍，判定不变、不重开 BLOCKED。Task 8 落 CSS 之后这一格要照真数重算一次，别拿 4,723 当结论。
+
+- [x] **Step 7: 提交**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
@@ -9707,9 +9871,11 @@ execCommand 不存在时不许当成功（X55），失败提示要比成功停�
 65 刀有红、X2 是构造上的等效（消费侧 `o.sex ?? null` 让"缺键"与"键为 null"是同一个值），
 曾不可达的七刀（X10 / X40 / X50 / X55 / X57 / Z5 / Z6）各补了一档真实形状，补成的判据增量是五处。
 
-产物口径：两件 JS 的 gzip 70,991 B，四本数据合计 45,871 B（区划 34,313、BIN 11,230、号段 187）；
-算上 Task 8 的 CSS 2,110 B 是 73,101 B，§7 当时的 60KB 预算在这里判为超 11,661 B，按 BLOCKED 协议
-交回三个处置——2026-09-27 拍板取 (a)，§7 已改写为 ≤76KB 并新立首屏 ≤16KB 一条（见 Step 6 末的拍板记录）。
+产物口径（stdin `gzip -9`，两件 JS）：71,249 B，四本数据的边际合计 45,868 B（区划 34,311、BIN 11,225、
+号段 186），可加性交叉检验差 146 B；`import{` 全量命中 0。算上 Task 8 的 CSS 2,110 B 约 73,359 B，
+§7 那条 76KB 余 4,465 B（5.7%）。04:58 拿草稿判出的"超当时 60KB 预算 11,661 B"已按 BLOCKED 协议交回
+三个处置——2026-09-27 拍板取 (a)，§7 改写为 ≤76KB 并新立首屏 ≤16KB 一条；今天真产物比草稿多 258 B
+（`bankcard.js` 与 `random-data.js` 的两次复核整改，回退重跑逐字节复现过草稿那一版），判定不变。
 EOF
 )"
 git status --porcelain | head
@@ -9719,6 +9885,22 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 仍是对方会话那批未提交项（`.gitignore` 此刻正 STAGED 在共享索引里——**别裸 `git commit`**，
 会把别人暂存的东西吞进这一发；要提就照上面先 `git diff --cached --stat` 看清是谁的）。
 `_docs/superpowers/plans/` 里这份计划按 Task 11 的收口节奏单独提。
+
+**2026-09-27 落地实跑（`1f337e5`，五条路径 2,436 行）**：上面那条命令列的是四条，**少了一条**——
+`scripts/verify-plan-blocks.mjs` 在本格 Step 3 从 13 条目标改成 16 条（把 `toolkitCore.js` /
+`workbench.js` / `toolIdcard.js` 登记进 `FILE_TARGETS`），不提它，干净检出上反查扫描就把这三个
+新文件报成漏网镜像、门禁 exit=1（这一形状在 Step 1a 之后红过一次，当时是靠现场改脚本绕过去的，
+计划却没跟着把那条路径补进提交清单）。暂存五条、`git diff --cached --stat` 五行、
+`git commit -q -m … -- <同一批五条>` 收口：这一发跑之前共享索引是空的（`--cached --stat` 无输出），
+但 pathspec 形式照旧写死，因为对方的 `deploy-github.sh` 里那句 `git add .` 随时会落进来。
+提交后 `git status --porcelain` 20 项全是对方那批（`.gitignore`、`_config.yml`、
+`_data/og_images.yml`、`_data/tools.yml`（品牌改名「文件格式任意转换助手」）、`about.*`、
+`package.json`、`scripts/lib/` 与 `spark-output/` 那一圈未跟踪），一项未被本次触碰。
+两处新认知的钩子噪音：本仓库装了 `pre-commit` / `prepare-commit-msg` / `commit-msg` 三个钩子，
+它们往 stdout 打四行调试信息（"pre-commit hooks can use --no-verify bypass"、`process.cwd()` 之类），
+**看着像出错、其实不是**——凭据是 `commit exit=0` 加 `git log --oneline -1` 里那个真 SHA。
+提交信息比计划载荷多末段一句（讲的就是第五条路径），其余逐字照计划。
+计划文件本身按 Task 11 的节奏另发一发。
 
 ## Task 8: 证件页骨架与样式（构建期渲染，禁 JS 也读得到正文）
 
@@ -11484,7 +11666,7 @@ Expected（2026-09-27 镜像实跑，逐行照抄；`3-hidden落点` 那一行�
  "8-.tk-规则含vw": 0,
  "8-整份vw次数": 0,
  "9-core字节": 18103,
- "9-entry字节": 184221,
+ "9-entry字节": 184825,
  "9-页面字节": 56542,
  "9-import残留": 0,
  "9-顶层export": 0,
@@ -11525,17 +11707,18 @@ for f in assets/css/toolkit.min.css assets/js/toolkitCore.min.js assets/js/toolI
 done
 ```
 
-Expected（2026-09-27 镜像实跑）：
+Expected（两件 JS 是 Task 7 Step 6 真产物落地实跑那一档，CSS 与 HTML 仍是 04:58 镜像值、本格现场重测）：
 
 ```
 assets/css/toolkit.min.css         raw=9321     gz=2110
 assets/js/toolkitCore.min.js       raw=18103    gz=6583
-assets/js/toolIdcard.min.js        raw=184221   gz=64408
+assets/js/toolIdcard.min.js        raw=184825   gz=64666
 _site/tools/idcard.html            raw=56542    gz=13332
 ```
 
 **口径必须写成 `cat f | gzip -9`，不能写 `gzip -9 -c f`。** 后者会把文件名塞进 gzip header 的
-FNAME 字段，每件多 16–19 字节：镜像里同一批文件用 `-c f` 量出来是 2,126 / 6,602 / 64,426，
+FNAME 字段，每件多 16–19 字节：同一批文件用 `-c f` 量出来是 2,126 / 6,602 / 64,684（CSS 那件是
+04:58 镜像的量，两件 JS 是 Task 7 Step 6 现场复量），
 差值正好是 `toolkit.min.css\0`(16) / `toolkitCore.min.js\0`(19) / `toolIdcard.min.js\0`(18)。
 看着像压缩器抖了，其实是计量方法换了。Task 7 Step 6 那张七档表用的是 stdin 口径（它的脚本
 `measure-gzip.py` 里就是 `subprocess.run(['gzip','-9','-c'], input=b)`），本格照同一口径，
@@ -11543,17 +11726,17 @@ FNAME 字段，每件多 16–19 字节：镜像里同一批文件用 `-c f` 量
 
 四条读数：
 
-1. **两件 JS 的合计没被本格撑大**：2,110 + 6,583 + 64,408 = **73,101 B**，与 Task 7 Step 6
-   满数据那一档逐字节相同。本格没动 JS，这条就是"没动"的证据——下一次谁往骨架里加了一条
+1. **两件 JS 的合计没被本格撑大**：2,110 + 6,583 + 64,666 = **73,359 B**，其中两件 JS 那 71,249 B
+   与 Task 7 Step 6 满数据那一档逐字节相同。本格没动 JS，这条就是"没动"的证据——下一次谁往骨架里加了一条
    `<script>`，这一行会第一个对不上。
-2. **对照 §7 那条"证件页 JS + CSS"**：73,101 B 比**当时**的 61,440 B 多 **11,661 B（19%）**，
+2. **对照 §7 那条"证件页 JS + CSS"**：73,359 B 比**当时**的 61,440 B 多 **11,919 B（19%）**，
    本格不改预算、也不自己找补，处置已在 Task 7 Step 6 按 BLOCKED 协议交回。**2026-09-27 拍板取 (a)**：
-   §7 那一行现为 **≤76KB（77,824 B）**，本格实测在预算内、余 4,723 B（6.5%）；三个处置的取舍与被否
+   §7 那一行现为 **≤76KB（77,824 B）**，本格实测在预算内、余 4,465 B（5.7%）；三个处置的取舍与被否
    理由写在 Task 7 Step 6 末的拍板记录里。这一格补的那句实测事实仍然成立：**超出的量几乎全在一支
-   脚本里**，`toolIdcard.min.js` 一件就占 64,408 B，其中区划那本 34,313 B（Task 7 Step 6 的边际表）
+   脚本里**，`toolIdcard.min.js` 一件就占 64,666 B，其中区划那本 34,311 B（Task 7 Step 6 的边际表）
    ——所以将来体积再红，先看这一支，别去抠码表。
 3. **首屏关键路径是 15,442 B gzip**（`toolkit.min.css` 2,110 + 页面 HTML 13,332）——这是**禁 JS
-   也读得到整页正文**的成本，五块面板的说明文字全在那 13,332 B 里。剩下的 70,991 B（两件 JS）
+   也读得到整页正文**的成本，五块面板的说明文字全在那 13,332 B 里。剩下的 71,249 B（两件 JS）
    才买"按得动按钮"。这个分层是 §6.3 那条"构建期渲染"的直接结果；拍板 (a) 时它已从"处置 (b) 的
    量化起点"升成 §7 表里独立的一条闸门（**≤16KB = 16,384 B**，余 942 B），Task 10 按这条判，
    谁往 `<head>` 塞公共件或把 `<script>` 挪到正文之前，红的是这一条而不是总量那一条。
@@ -11632,7 +11815,9 @@ git log --oneline -1
    `WORKBENCH_SPEC` 里 switch 的 targets ↔ 页面上四段 `data-tk-when`；三页的 `url` ↔
    `permalink`（含 sitemap 收没收到）。
 3. Step 6 那笔预算账**已经拍完**（2026-09-27，处置 (a)）：spec §7 那一行现为证件页 JS+CSS
-   **gzip ≤ 76KB**，实测 73,101 B 在预算内、余 4,723 B；同时新立 **首屏关键路径 ≤16KB**
+   **gzip ≤ 76KB**，两件 JS 实测 71,249 B（Task 7 Step 6 落地实跑，比 04:58 拍板时的草稿多 258 B，
+   那两次复核整改所致），加 Task 8 的 CSS 约 2,110 B 是约 73,359 B、余 4,465 B；同时新立
+   **首屏关键路径 ≤16KB**
    （实测 15,442 B），Task 10 量首屏时按这一条判。骨架**不用返工**——(b) 被否，那一支延迟
    `<script>` 不加。理由与否决项写在 Task 7 Step 6 末的拍板记录，本格的读数四条不受影响。
    收口（Task 11）时记得把 §5.1 与 §11 里跟体积有关的句子对到 §7 的新口径上。
