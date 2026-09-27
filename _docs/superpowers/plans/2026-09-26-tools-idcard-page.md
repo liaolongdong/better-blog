@@ -3314,29 +3314,55 @@ Expected：`# tests 99`、`# pass 99`、`# fail 0`、`exit=0`（41 + 5 + 23 + 15
 - [ ] **Step 5: 自证这 15 条有牙（二十处变异，逐处记下红了谁）**
 
 ```bash
-cd /Users/liaolongdong/code/liaolongdong.github.io
-mkdir -p /tmp/t4mut && cp dev/js/tools/random-data.js /tmp/t4mut/random-data.orig.js
+mkdir -p /tmp/t4mut && cd /Users/liaolongdong/code/liaolongdong.github.io
 cat > /tmp/t4mut/mut.mjs <<'EOF'
 import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
-const P = 'dev/js/tools/random-data.js';
+const REPO = '/Users/liaolongdong/code/liaolongdong.github.io';
+const TREE = '/tmp/t4mut/tree';
+const P = path.join(TREE, 'dev/js/tools/random-data.js');
 const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+/** 本轮落地面。只有这些路径被实验改动才算"台账作废"；别的一律归因给并行会话并如实列出，
+ *  不静默放过，也不因为别人在写自己的文件就把自己的证据判死。 */
+const MINE = new Set(['dev/js/tools/random-data.js', 'scripts/toolkit-tests.mjs',
+  'scripts/verify-plan-blocks.mjs', 'scripts/verify-plan-blocks-teeth.mjs']);
+const digest = (rel) => {
+  const abs = path.join(REPO, rel);
+  if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) return 'skip';   // 未跟踪目录整条记账不哈希
+  return crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex').slice(0, 16);
+};
+const fingerprint = () => {
+  const lines = execSync('git status --porcelain', { cwd: REPO, encoding: 'utf8' })
+    .split('\n').filter(Boolean).sort();
+  return { lines, map: new Map(lines.map((l) => [l.slice(3).trim(), digest(l.slice(3).trim())])) };
+};
+const before = fingerprint();
+fs.rmSync(TREE, { recursive: true, force: true });
+// 真复制，不用 `cp -al`：硬链接的"影子副本"改一处两处同时变，量出来的全是假证据。
+// 变异一律落在副本里——本仓随时可能有第二条会话在同一个 worktree 上 `git add`。
+for (const d of ['dev/js', 'scripts', 'demo']) fs.cpSync(path.join(REPO, d), path.join(TREE, d), { recursive: true });
+fs.copyFileSync(path.join(REPO, 'package.json'), path.join(TREE, 'package.json'));
 const orig = fs.readFileSync(P, 'utf8');
 /** 未变异先跑一次：拿它的 `# tests` 总数当尺子，好把"脚手架其实没跑到测试"和"这处不可达"分开 */
 function run() {
   let out = '';
-  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8', cwd: TREE }); }
   catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
   return {
+    out,
     total: Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1),
-    reds: [...out.matchAll(/^not ok \d+ - (G\d+)/gm)].map((x) => x[1]),
+    pass: Number((out.match(/^# pass (\d+)/m) || [])[1] ?? -1),
+    reds: [...out.matchAll(/^not ok \d+ - (G\d+)/gm)].map((m) => m[1]),
   };
 }
 const base = run();
 if (base.total < 0 || base.reds.length > 0) {
-  throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.join(' ')}），先让全量跑绿再谈牙齿`);
+  console.log(base.out.split('\n').slice(-40).join('\n'));
+  throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.length} 条），先让全量跑绿再谈牙齿`);
 }
-console.log(`基线 # tests ${base.total} 全绿`);
+console.log(`基线 # tests ${base.total} 全绿（副本 ${TREE}）`);
 const MUTS = [
   ['M1 批内判重失效（键换成 tries）', 'if (!out.has(key)) out.set(key, item);', 'out.set(tries, item);'],
   ['M2 姓氏表末位换成表内已有的字', "孔向汤'", "孔向王'"],
@@ -3361,24 +3387,37 @@ const MUTS = [
 ];
 
 for (const [name, a, b] of MUTS) {
-  if (!orig.includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
-  fs.writeFileSync(P, orig.replace(a, b));
+  const hits = orig.split(a).length - 1;
+  if (hits !== 1) { console.log(`!! ${name} 锚点命中 ${hits} 处（要恰好 1 处），这一档不算证据`); continue; }
+  const text = orig.replace(a, b);
+  if (text === orig) { console.log(`!! ${name} 替换后一字未变，脚手架在骗人`); continue; }
+  fs.writeFileSync(P, text);
+  if (fs.readFileSync(P, 'utf8') !== text) { console.log(`!! ${name} 写完读回来不一样，文件系统在骗人`); continue; }
   const r = run();
   if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
-  console.log(`${name} → ${r.reds.length ? r.reds.join(' ') : '全绿（不可达，见计划说明）'}`);
+  console.log(`${name} → ${r.reds.length ? [...new Set(r.reds)].join(' ') : '全绿（不可达，见计划说明）'}（pass ${r.pass}/${r.total}）`);
 }
 fs.writeFileSync(P, orig);
-if (fs.readFileSync(P, 'utf8') !== orig) throw new Error('还原失败');
-console.log('已还原');
+const after = run();
+console.log(`还原后：# tests ${after.total}、pass ${after.pass}、红 ${after.reds.length ? after.reds.join(' ') : '无'}`);
+console.log(`副本与工作树逐字节一致=${fs.readFileSync(P, 'utf8') === fs.readFileSync(path.join(REPO, 'dev/js/tools/random-data.js'), 'utf8')}`);
+const after2 = fingerprint();
+const diffs = [...before.map.entries()].filter(([k, v]) => after2.map.get(k) !== v);
+const mine = diffs.filter(([k]) => MINE.has(k));
+console.log(`脏项 ${before.map.size} → ${after2.map.size}；清单变化=${before.lines.join('\n') !== after2.lines.join('\n')}；内容变过 ${diffs.length} 个`);
+for (const [k] of diffs) console.log(`  · ${MINE.has(k) ? '★我的' : '  别人的'} ${k}: ${before.map.get(k)} → ${after2.map.get(k) ?? '(消失)'}`);
+if (before.lines.join('\n') !== after2.lines.join('\n') || mine.length) throw new Error('工作树被这些实验碰过，台账作废');
+console.log('✓ 落地面（那四个路径）在实验前后一字未动；变化的都是并行会话的文件，未被本实验读写');
 EOF
 node /tmp/t4mut/mut.mjs
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (pass|fail)'
-shasum -a 256 dev/js/tools/random-data.js   # 必须与 /tmp/t4mut/random-data.orig.js 逐字相同
+git status --porcelain -- dev/js/tools/random-data.js scripts/toolkit-tests.mjs   # 实验不该溢出到工作树
 ```
 
-脚本里那二十条锚点与替换串**全部是从镜像上跑过的原文**（`from` 不命中就打印 `!!` 并跳过，
-跳过的那些不算证据）。2026-09-26 在镜像上单跑 §G 实测的红名单（照这个对；仓库里跑全量应当
-一模一样，因为 §A–§F 没有一处 `import` `random-data.js`）：
+脚本里那二十条锚点与替换串**全部是模块落地的原文**（`from` 命中数不是恰好 1 就打印 `!!` 并跳过，
+跳过的那些不算证据）。下表 2026-09-26 先在镜像上单跑 §G 预记，**2026-09-27 在副本
+`/tmp/t4mut/tree` 上按全量 99 条实跑，二十行逐行复现**（含 `pass` 数：单红 98/99、双红 97/99，
+M12 四红 95/99、M19 六红 93/99；§A–§F 没有一处 `import` `random-data.js`，所以全量与单跑本该一致，
+真不一致就按 `!!` 那两档先查脚手架）：
 
 | 变异 | 红了谁 | 说明 |
 | --- | --- | --- |
@@ -3442,23 +3481,60 @@ wc -c dev/js/tools/random-data.js
 gzip -6 -c dev/js/tools/random-data.js | wc -c
 ```
 
-2026-09-26 本机 Node 22 的实测**区间**（七个进程各一次、七轮基准）：
-`import random-data.js` **38–49ms**，但**这个数不能当这一格的开销用**——`random-data.js` 把
-`region.js` 拽了进来，而 `region-data.js` 单文件就有 100,020 字节；把依赖先跑热之后，
-`random-data.js` 自己求值只花 **2.6–4.2ms**。证件页上 `idcard.js` 本来就要 `region.js`，
-所以这一格对首屏的边际成本是那 3ms 上下，不是 40ms。生成侧稳态：
-`generateNames` **26–30µs / 20 条**、`generateAddresses` **40–56µs**（每多一条多一次
-`resolveRegion`）、`generateEmails` **21–25µs**、`generateProfiles(20 组)` **97–133µs**、
-不收窄的满批 `generateAddresses(50)` **0.19ms**。同样两个坑：没预热那 500 次就量到的是 JIT
-爬坡；`# tests 98` 的整套 §G 用时 **41–52ms**（其中 G5 的恒定源探针占 12–16ms——那是
-2,700 次有界重试的代价，不是随机性代价；**这个 98 是 +1 之前量的**，§G 自己那 15 条没动，
-落地时全量基数是 99，用时按同档判），进程总时 291–400ms 里大头是 node 启动与
-`region-data.js` 的解析，别拿它做阈值。
+2026-09-26 在镜像上量过一轮，**2026-09-27 文件落地后在工作树重测**（七个冷进程各一次 +
+三轮基准，每轮 500 次预热）。两边都记下来，因为**同一格两次差到一倍以上**：
 
-Expected：`wc -c` **16,581 字节**、`gzip -6` **7,242 字节**；文件 **290 行**（`wc -l`），
-其中四张词表那 10 行连随行注释 **1,435 字节**，注释 99 行 **7,538 字节**（占 45%——这一格的账
-与 `bankcard.js` 相反，大头不是数据而是"为什么这么判"）。产物口径（terser 之后）到 Task 9
-的收录面一起量，那里才有 `toolIdcard.min.js` 的真数。
+| 量 | 09-26 镜像 | 09-27 落地后 |
+| --- | --- | --- |
+| `import random-data.js`（冷进程） | 38–49ms | **14.3–27.1ms** |
+| 依赖已热时本模块自身求值 | 2.6–4.2ms | **1.82–2.00ms** |
+| `generateNames`(20) | 26–30µs | **17.0–18.8µs** |
+| `generateAddresses`(20) | 40–56µs | **25.2–42.0µs** |
+| `generateEmails`(20) | 21–25µs | **13.0–14.7µs** |
+| `generateProfiles`(20) | 97–133µs | **71.9–89.6µs** |
+| 不收窄满批 `generateAddresses(50)` | 0.19ms | **0.06–0.14ms** |
+| §G 十五条逐条 `duration_ms` 求和 | 41–52ms | **30.4–37.4ms**（其中 G5 **10.7–12.9ms**） |
+
+**这一整片的下移我没有归因**，两个候选证据都不足：镜像那一轮跑在 `/tmp/t7`、这一轮跑在工作树，
+期间另一路会话一直在改 sass/html 与自己的 `scripts/article-check.mjs`（谁在抢 CPU 说不清）；
+而两次都是本机同一份 Node 22（`node -v` 未变）。所以能立住的只有**结构与量级**，不是任何点值：
+
+- 冷 `import` 那个数**不能当这一格的开销用**：`random-data.js` 把 `region.js` 拽了进来，
+  而 `region-data.js` 单文件 100,020 字节。依赖先跑热之后本模块自身只求值 **约 2ms**，
+  证件页上 `idcard.js` 本来就要 `region.js`，所以它对首屏的边际成本是"那 2–3ms 上下"，
+  不是二三十毫秒——**两次测量在这条结论上一致，这条才是 Task 10 要用的**。
+- 生成侧全部在**几十微秒 / 20 条**这一档，满批（50 条）不到 0.2ms：面板点一次"生成"
+  离 perceptible 还差两个数量级。Task 10 要判的是"有没有冒出 10ms 以上"，别拿上面任何一个点当阈值。
+- 没预热那 500 次就量到的是 JIT 爬坡（Task 3 实测过高一个数量级）；进程总时里大头是 node 启动与
+  `region-data.js` 的解析，同样别拿它做阈值。
+
+Expected：`wc -c` **16,581 字节**（09-27 实测一致）、`gzip -6 -c 文件 | wc -c` **7,242 字节**
+（也一致；这是带 FNAME 头的写法，`cat 文件 | gzip -9 -c | wc -c` 是 **7,226**，每件少 16 字节，
+两种写法都要点明，别拿一个的数去对另一个）。文件 **290 行**（`wc -l`）。**下面这两格 09-27 重测后
+改写了口径**，因为原写法复算不出来：
+
+```bash
+node -e "const fs=require('fs');const L=fs.readFileSync('dev/js/tools/random-data.js','utf8').split('\n');
+const B=(s)=>Buffer.byteLength(s,'utf8');let cl=0,cb=0;
+for(const l of L){const s=l.trim();if(s.startsWith('//')||s.startsWith('/*')||s.startsWith('*')){cl++;cb+=B(l)+1;}}
+console.log('整行注释',cl,'行 /',cb,'字节 / 占',(cb*100/B(L.join('\n'))).toFixed(1)+'%');
+let dr=0,db=0,cr=0,cb2=0;
+for(const n of ['SURNAMES','GIVEN_CHARS','STREET_WORDS','STREET_SUFFIXES','EMAIL_WORDS']){
+  const d=L.findIndex((l)=>l.startsWith('export const '+n));let e=d;
+  while(e<L.length-1&&!L[e].trim().endsWith(';')&&!L[e].trim().endsWith('];'))e++;
+  const span=L.slice(d,e+1);dr+=span.length;db+=B(span.join('\n'));
+  let c=d-1;const hdr=[];while(c>=0&&/^(\s*\/\*\*|\s*\*|\s*\/\$)/.test(L[c])){hdr.unshift(L[c]);c--;}
+  cr+=hdr.length+span.length;cb2+=B([...hdr,...span].join('\n'));}
+console.log('五张词表声明',dr,'行 /',db+'B','｜含随行注释',cr,'行 /',cb2+'B');"
+```
+
+- 词表：五张表（`SURNAMES` / `GIVEN_CHARS` / `STREET_WORDS` / `STREET_SUFFIXES` / `EMAIL_WORDS`）
+  的**声明本身 9 行 / 1,347 字节**，各带一行随行注释后是 **13 行 / 1,812 字节**。
+  （原写法"四张词表那 10 行连随行注释 1,435 字节"在两种数法下都落不到，按上面这个口径判。）
+- 整行注释：**99 行 / 7,539 字节 / 占 45.5%**（含每行换行；上一版记 7,538 是不含末行换行的数，
+  差的就是那 1 字节）。这一格的账与 `bankcard.js` 相反——大头不是数据，是"为什么这么判"。
+
+产物口径（terser 之后）到 Task 9 的收录面一起量，那里才有 `toolIdcard.min.js` 的真数。
 
 - [ ] **Step 7: 提交**
 
