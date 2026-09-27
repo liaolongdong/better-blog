@@ -27,7 +27,9 @@
 
 - slug: transfer-any-file
   index: '02'
-  name: 文件转换助手
+  # 中文名跟着产品页走：https://liaolongdong.github.io/transfer-any-file/ 于 2026-09-27
+  # 把中文可见文案统一换成「文件格式任意转换助手」，英文品牌只留在身份位（en_name 这一处即身份位）。
+  name: 文件格式任意转换助手
   en_name: Transfer Any File
   tagline: 14 种文件格式互转，一个字节都不用上传
   summary: Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片之间的 48+ 条转换路径，全部在你自己电脑的一个标签页里完成。无服务器、无账号、无排队，文件永远不出本机。
