@@ -149,7 +149,7 @@
 
 ### 5.2 `/tools/codec.html` —— 面板式工作区，5 个面板
 
-`#timestamp`（秒/毫秒自动识别 ↔ 本地与 UTC、ISO8601、RFC3339、相对时间、两个日期之差）、`#base64`（UTF-8 安全编解码，支持带换行的 data URI 场景）、`#url`（`encodeURIComponent`/`decodeURIComponent` 与 `encodeURI` 口径差异并列展示 + query 参数拆解）、`#digest`（MD5 自带实现，SHA-1/256/384/512 走 `crypto.subtle`；支持文本与文件，文件走 `ArrayBuffer` 不进字符串）、`#regex`（flags 可选、实时高亮匹配、捕获组与命名字段、替换预览、**步数上限防回溯炸页**）。
+`#timestamp`（秒/毫秒自动识别 ↔ 本地与 UTC、ISO8601、RFC3339、相对时间、两个日期之差）、`#base64`（UTF-8 安全编解码，支持带换行的 data URI 场景）、`#url`（`encodeURIComponent`/`decodeURIComponent` 与 `encodeURI` 口径差异并列展示 + query 参数拆解）、`#digest`（MD5 自带实现，SHA-1/256/384/512 走 `crypto.subtle`；支持文本与文件，文件走 `ArrayBuffer` 不进字符串）、`#regex`（flags 可选、实时高亮匹配、捕获组与命名字段、替换预览、**四档闸门防回溯炸页**（模式长度与语法 → 静态可疑形状 → 输入字节 → 匹配次数与档间时间预算；JS 没有可打断的回溯步数计数器，单次 `exec` 内部无法熔断，所以这一档只能做在执行之前——2026-09-28 段 3 Task 4 按事实回写）。
 
 ### 5.3 `/tools/json.html` —— 单工作台，不是面板式
 
@@ -206,7 +206,7 @@ dev/js/tools/random-data.js    姓名 / 地址 / 邮箱
 dev/js/tools/time.js           时间戳与日期换算
 dev/js/tools/codec.js          Base64（UTF-8）/ URL
 dev/js/tools/digest.js         MD5 自实现 + crypto.subtle 包装
-dev/js/tools/regex.js          正则测试（带步数上限）
+dev/js/tools/regex.js          正则测试（四档闸门防回溯炸页）
 dev/js/tools/json-core.js      解析 + 精确错误定位 + 排序 + pointer
 dev/js/tools/json-tree.js      树渲染（增量）
 dev/js/tools/json-ts.js        TypeScript 类型生成
@@ -253,7 +253,7 @@ scripts/toolkit-tests.mjs                                  §8.1
 | JSON 页 JS+CSS | gzip ≤ 120KB（含 js-yaml） | js-yaml 用 `dist/browser/js-yaml.esm.min.mjs` 入口；仍超则把 YAML 降到"仅序列化" |
 | 输入硬上限 | JSON 5MB / 20 万行；文本类工具 1MB。**证件页按条数不字节**：逐行判定 `MAX_READ_LINES = 50`（`workbench.js:66`）与五张模块各自的 `GENERATE_MAX = 50`，页面无字节闸门（复算：`grep -rn 'MAX_READ_LINES\|GENERATE_MAX' dev/js/tools/`） | 明确拒绝并给出一行原因，**不许静默截断**；三页各自的闸门形状见 §8.3 对账表最后一行 |
 | 树视图 | 首屏只渲染可视节点，展开增量渲染 | 已定为此实现，不是"卡了再优化" |
-| 正则 | 匹配步数上限 + 超时保护 | 命中上限时提示"疑似灾难性回溯" |
+| 正则 | 四道闸门全部排在**执行之前**（2026-09-28 段 3 Task 4 落地时按事实回写本行；原写"匹配步数上限 + 超时保护"——JS 没有可打断的回溯步数计数器，单次 `exec` 内部无法熔断，那一档实现里不存在）：① 模式 ≤ **500 字符**（`MAX_PATTERN_CHARS`，语法错误一律转 V8 原话）② 静态可疑形状 `riskScan`——判 high 的（外层无界的 F1 嵌套量词、外层无界的 F2 倍数分支）**一次都不执行**并点名构造；判 medium 的（外层有限的 F1/F2 形状即 F4 与 F2 的有限档、相邻同源且都无界的 F3）只对 ≤ **128 字符** 求解、越线拒（`MEDIUM_MAX_INPUT_CHARS`，数的是字符不是字节）③ 输入 ≤ **1 MiB**（`MAX_INPUT_BYTES`，与上面"文本类工具 1MB"同一把 UTF-8 尺）④ 命中最多列前 **1000** 个（`MAX_MATCHES`）+ 档间 **50ms** 预算（`TIME_BUDGET_MS`，只在调用方注入时钟时被检查，模块自身一行都不读表）。复算：`grep -n "^export const" dev/js/tools/regex.js` | 整体拒绝并给一行原因 + 改写方向，**不许静默截断**；次数与时间两档真截了，必须明说"后面还有没列出的"（判据 §N 的 N18 拿这八句与实现双向对账） |
 | 深样本 | 200 层嵌套、含 `</script>` 的字符串值、emoji 与代理对、BOM | 全部有测试用例（§8.1），落 DOM 一律 `textContent`/显式转义 |
 
 体积以落地实测为准（2026-09-25，输入钉在 pin `6fb5380d`）：产物 `dev/js/tools/region-data.js` 为 100,020 字节 / **34,807B gzip = 33.99KB**。写设计时的两个估计（分组编码 92.6KB/31.9KB、历史表不分组 32.5KB）都偏低约 2KB，差额未逐项归因，只把预算按实测算钉。三级索引那档压法留给真超预算时再用，现在多出来的量换来的是编解码各只有一层 `split` 与一层循环——实测落地后生成器与读侧分别是 431 行与 389 行（复算命令 `wc -l scripts/build-region-data.mjs dev/js/tools/region.js`，第五、六轮质量复核补完闸门与注释之后；这两个数字每轮都会漂，所以按命令复算而不是照抄），其中编码本身占不到两成，其余是输入闸门与回落链。

@@ -89,6 +89,9 @@ const FILE_TARGETS = [
   'dev/js/tools/codec.js',
   // 段 3 Task 3：`digest.js` 落盘即登记，理由与上面那两行同一条（跟着磁盘走，不跟着计划走）。
   'dev/js/tools/digest.js',
+  // 段 3 Task 4：`regex.js` 落盘即登记，理由与上面那三行同一条（跟着磁盘走，不跟着计划走）。
+  // 它比另外三本晚一步，是因为计划里 Task 4 那节当时还是桩——镜像块不存在，登记了必红。
+  'dev/js/tools/regex.js',
   // Task 9 的收录面门禁：它自己也是"计划里贴全文"的规格文件，所以照样进清单。
   // 反查那道只会抓"磁盘有镜像却没声明"，抓不到"清单漏了一项"——后者要等有人把镜像
   // 贴进计划才暴露，所以这一格由 `verify-plan-blocks-teeth.mjs` 的一条变异来兜。

@@ -7066,3 +7066,461 @@ test('M18 跨块大输入与闸门边界同档：1 MiB 的 MD5 与 Node 逐字�
     'UTF-8 编码器在长多字节串上必须与 Node 同字节');
 });
 
+// ── §N 正则测试（tools/regex.js，段 3 Task 4）───────────────────────
+// 这一格的对拍源是**引擎自己**：正则语义以 native `RegExp` / `matchAll` / `replace` 为准
+// （不像 §M 拿 Node crypto 当外部标准），所以判据只核两件事——
+//   ① 本模块交给面板的结果必须与 native 逐格一致（不许自己重发明一套 `$` 或 lastIndex 口径）；
+//   ② 四道闸门必须真的在：模式长度、输入字节、静态可疑形状、匹配次数与档间预算。
+// "防炸页"的主牙齿是②里的静态检测。JS 没有可打断的回溯步数计数器，**单次 `exec` 内部无法熔断**，
+// 所以 §7 那句"匹配步数上限 + 超时保护"落地成四档事实，N9 与 N14 各钉一处，不许写成假承诺。
+// 下面每一档形状的去留都是本机 Node 22.19 / V8 实测（同一进程、必须是"匹配失败"的输入形状）：
+//   `(a+)+$` 22 字符 839ms、28 >2s ┊ `(?:\s*\w+)*$` 20 字符 30.8ms ┊ `(\w*\s?)+$` 20 字符 66.1ms
+//   `(x+a+)+$` 20 字符 0.0ms（迭代边界被必填的定宽字符钉住，故列不进真阳性）
+//   `(a{1,3})+$` 32 字符 5.4s 与 `(?:[([]{2,})+` 28 字符 29.4ms 起草时列在"不得误判"，实测归入真阳性。
+// F2 一族的阈值同样实测过（同一失败形状下逐档加倍）：`(a|a)+` 24→1012ms、`(x|xx|xxx)+` 32→5518ms、
+// `(x|xx)+` 40→6356ms、`(aa|aaaa)+` 64→247ms（每 8 字符 ×60，128 字符就是天文数字）——
+// 起草时把 `(-|--)\s*$` 当作 F2 样本，实测 28 字符 0.0ms：组上没有量词就没有放大，样本已换成 `(-|--)+`
+// （24→4.0ms、28→40.1ms，斐波那契档）。`(\d{1,3}|\d)+` 起草时列在"不得误判"，实测 16 字符 823ms、
+// 20 字符 4319ms，已移进 N11 的真阳性族。
+const { REGEX_CAVEAT, ALLOWED_FLAGS, MAX_PATTERN_CHARS, MAX_INPUT_BYTES: RE_INPUT_BYTES, MAX_MATCHES,
+  MEDIUM_MAX_INPUT_CHARS, TIME_BUDGET_MS, byteLen: nByteLen, normalizeFlags, compile, riskScan,
+  findMatches, previewReplace } = await import('../dev/js/tools/regex.js');
+
+/** 剥注释扫源码：块注释与行注释里的字样都不算命中（与 §K/§L/§M 同一形状） */
+const nCode = () => read('dev/js/tools/regex.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+test('N1 flags 白名单七位各自可用、重复归一、未知那位点名拒绝', () => {
+  assert.equal(ALLOWED_FLAGS, 'gimsuyd', '白名单就这七位：加一位要有新判据，删一位要改 CAVEAT');
+  for (const ch of ALLOWED_FLAGS) {
+    const r = normalizeFlags(ch);
+    assert.equal(r.ok, true, `${ch} 必须在白名单内`);
+    assert.equal(r.flags, ch);
+    assert.equal(r.deduplicated, false);
+  }
+  assert.equal(normalizeFlags('gi').flags, 'gi');
+  assert.equal(normalizeFlags('gig').flags, 'gi', '重复位归一：native 对 gg 直接抛，面板不该拿一个抛');
+  assert.equal(normalizeFlags('gig').deduplicated, true, '归一了要回显，否则用户以为两位都在');
+  assert.equal(normalizeFlags('').flags, '');
+  assert.equal(normalizeFlags(null).flags, '', '文本档：null 归一成空串，不抛');
+  for (const bad of ['A', 'v', 'U', 'gp', 'gGG', 'uv']) {
+    const r = normalizeFlags(bad);
+    assert.equal(r.ok, false, `${bad} 里有不在白名单的位，必须拒`);
+    assert.equal(r.flags, '', '拒了就不给半截 flags');
+    assert.match(r.reason, /不在白名单/);
+    for (const ch of bad) {
+      if (ALLOWED_FLAGS.includes(ch)) continue;
+      assert.match(r.reason, new RegExp(ch), `${bad} → ${r.reason}：要点名是哪一位`);
+    }
+  }
+  assert.equal(compile('a', 'g').ok, true);
+  assert.equal(compile('a', 'gg').ok, true, 'compile 先过归一再过 native，gg 不再是抛的口径');
+  assert.equal(compile('a', 'gg').flags, 'g');
+  assert.equal(compile('a', 'A').ok, false);
+  assert.equal(compile('a', 'A').kind, 'flags');
+});
+test('N2 编译失败逐类给 V8 原话，并分成 pattern / flags / 长度三档', () => {
+  const cases = [['(', 'Unterminated group'], [')', "Unmatched ')'"], ['[a', 'Unterminated character class'],
+    ['*', 'Nothing to repeat'], ['(?', 'Invalid group'], ['a{3,2}', 'numbers out of order'],
+    ['[z-a]', 'Range out of order'], ['a\\', '\\ at end of pattern'], ['(?<', 'Invalid capture group name'],
+    ['(?<1a>x)', 'Invalid capture group name'], ['(a', 'Unterminated group']];
+  for (const [src, msg] of cases) {
+    const r = compile(src, '');
+    assert.equal(r.ok, false, `${src} 必须编译失败`);
+    assert.equal(r.regex, null, '失败时不许把一个半残 RegExp 交出去');
+    assert.equal(r.kind, 'pattern', `${src} 的档位应是 pattern：${r.reason}`);
+    assert.match(r.reason, new RegExp(msg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      `${src} 应当报「${msg}」，实际「${r.reason}」`);
+  }
+  assert.equal(cases.length, 11, '报错分类表要有条数：漏一类等于那一类从此静默归到别的档');
+  assert.equal(compile('a', 'A').kind, 'flags');
+  assert.equal(compile('a'.repeat(MAX_PATTERN_CHARS + 1), '').kind, 'length');
+  assert.match(compile('a'.repeat(MAX_PATTERN_CHARS + 1), '').reason, /超过/);
+  assert.equal(compile('a'.repeat(MAX_PATTERN_CHARS), '').ok, true, '正好到上限要放行（"超过"才拒）');
+  assert.equal(compile('', '').ok, true, '空模式是合法的：它匹配空串');
+  assert.equal(compile('(?<=a)b', '').ok, true, '后行断言 native 认，别在分词器里当非法语法');
+});
+test('N3 模式长度闸门排在最前：报实测数与上限，拒了不跑静态检测', () => {
+  const long = '((((a+)+)))'.padEnd(MAX_PATTERN_CHARS + 1, 'b');
+  const r = findMatches(long, '', 'aaa');
+  assert.equal(r.ok, false); assert.equal(r.executed, false);
+  assert.equal(r.matches.length, 0, '越界时不许给半截结果');
+  assert.match(r.reason, new RegExp(String(long.length)));
+  assert.match(r.reason, new RegExp(String(MAX_PATTERN_CHARS)));
+  assert.equal(r.level, null, '长度这一档排在静态检测之前，level 不该被填上');
+  assert.equal(r.bytes, undefined, '长度拒时不该报字节，字节是输入那一层的数');
+  assert.equal(previewReplace(long, '', 'x', 'y').ok, false, '替换预览吃同一道闸门');
+  assert.equal(previewReplace(long, '', 'x', 'y').out, '', '同样不给半截产物');
+});
+test('N4 单次匹配与 native 逐格一致：整段、组序、命名组、未参与组', () => {
+  const m = findMatches('(\\d+)-(\\d+)', '', 'no 2026-0928 here');
+  assert.equal(m.ok, true); assert.equal(m.count, 1);
+  assert.equal(m.matches[0].text, '2026-0928');
+  assert.equal(m.matches[0].index, 3);
+  assert.equal(m.matches[0].length, 9);
+  assert.deepEqual(m.matches[0].groups.map((g) => g.text), ['2026', '0928']);
+  const oracle = new RegExp('(\\d+)-(\\d+)').exec('no 2026-0928 here');
+  assert.equal(m.matches[0].index, oracle.index, 'index 必须与 native 同格，不许自己数');
+  const none = findMatches('(a)|(b)', '', 'b');
+  assert.equal(none.matches[0].groups[0].participated, false, '第 1 组没参与');
+  assert.equal(none.matches[0].groups[0].text, undefined);
+  assert.equal(none.matches[0].groups[1].participated, true);
+  const named = findMatches('(?<y>\\d{4})-(?<m>\\d{2})', '', 'x 2026-09');
+  assert.equal(named.matches[0].named.y.text, '2026');
+  assert.equal(named.matches[0].named.m.text, '09');
+  assert.deepEqual(Object.keys(named.matches[0].named), ['y', 'm'], '命名表按声明顺序，面板才排得出列');
+  const empty = findMatches('()x', '', 'x');
+  assert.equal(empty.matches[0].groups[0].participated, true, '空串命中也叫"参与了"：只有 undefined 才是没参与');
+  assert.equal(empty.matches[0].groups[0].text, '', '组文本原样给空串，面板才显示得出"这一组存在但为空"');
+  const emptyNamed = findMatches('(?<e>)x', '', 'x');
+  assert.equal(emptyNamed.matches[0].named.e.participated, true, '命名组同一档：拿 !== undefined 判才分得开空串与没参与');
+  assert.equal(emptyNamed.matches[0].named.e.text, '');
+  assert.equal(findMatches('(a)', '', 'b').count, 0, '没命中是 count 0，不是 ok false');
+});
+test('N5 有 d 才有组位置，没 d 时位置是 null 而不是猜', () => {
+  const noD = findMatches('a(b)(c)', '', 'xxabcxx');
+  assert.equal(noD.ok, true);
+  assert.equal(noD.matches[0].index, 2, '整段位置不依赖 d');
+  assert.equal(noD.matches[0].groups[0].index, null, '没有 d 就没有 indices，猜出来的位置是假数据');
+  assert.equal(noD.matches[0].groups[0].length, null);
+  assert.equal(noD.matches[0].groups[0].text, 'b', '文本仍然给：那一档 exec 本来就有');
+  const withD = findMatches('a(?<x>b)(c)', 'd', 'xxabcxx');
+  assert.equal(withD.ok, true);
+  assert.equal(withD.matches[0].groups[0].index, 3);
+  assert.equal(withD.matches[0].groups[1].index, 4);
+  assert.equal(withD.matches[0].named.x.index, 3, '命名组的位置来自 indices.groups');
+  assert.equal(withD.matches[0].named.x.length, 1);
+  const miss = findMatches('(a)(b)', 'd', 'cb');
+  assert.equal(miss.ok, true); assert.equal(miss.count, 0);
+  assert.equal(miss.matched, false, 'matched 给面板当"没匹配上"用，与 ok 分开');
+  assert.equal(findMatches('a(b)', 'd', 'zzz').matches.length, 0);
+  assert.equal(findMatches('a', '', 'a').matched, true);
+});
+test('N6 多匹配的 index 序列与 matchAll 逐格对拍（含多字节与换行）', () => {
+  const samples = [['\\d+', 'g', 'a1 bb222 ccc33 d4e5'], ['[a-z]+', 'gi', 'AbC-ddd-e'],
+    ['\\w+', 'g', '中文 abc 123 éè'], ['.', 'g', 'a\nb'], ['.', 'gs', 'a\nb'],
+    ['^a', 'gm', 'a\nba\nb'], ['a$', 'gm', 'a\nba\nb'], ['(a)(b)', 'g', 'aabb'],
+    ['\\p{L}+', 'gu', 'abc中文'], ['(?<k>[a-z]+)', 'gd', 'x yy zzz'], ['a*', 'g', 'xaxa']];
+  for (const [src, flags, input] of samples) {
+    const gflags = flags.includes('g') ? flags : `${flags}g`;
+    const r = findMatches(src, flags, input);
+    assert.equal(r.ok, true, `${src}/${flags} → ${r.reason}`);
+    const all = [...input.matchAll(new RegExp(src, gflags))];
+    assert.deepEqual(r.matches.map((m) => m.index), all.map((m) => m.index), `${src}/${gflags} 的 index 序列`);
+    assert.deepEqual(r.matches.map((m) => m.text), all.map((m) => m[0]), `${src}/${gflags} 的整段文本`);
+  }
+  const noG = findMatches('\\d+', '', 'a1 b2 c3');
+  assert.equal(noG.count, 1, '不带 g 只给第一次命中：这是 native 口径，不是本模块的阉割');
+  assert.equal(noG.matches[0].text, '1');
+  const sticky = findMatches('a', 'y', 'baa');
+  assert.equal(sticky.count, 0, 'sticky 从 0 起算，b 不命中：与 native 同档');
+  assert.equal(findMatches('a', 'gy', 'ab').count, 1);
+});
+test('N7 零宽匹配手动推进，不死循环也不漏格', () => {
+  const r = findMatches('a*', 'g', 'bbb');
+  assert.equal(r.ok, true);
+  assert.equal(r.count, 4, `'bbb'.match(/a*/g) 实测 4 格，少一格是多算、多一格是死循环前兆`);
+  assert.deepEqual(r.matches.map((m) => m.index), [0, 1, 2, 3]);
+  assert.deepEqual(r.matches.map((m) => m.length), [0, 0, 0, 0]);
+  const mid = findMatches('x*', 'g', 'xaxa');
+  assert.deepEqual(mid.matches.map((m) => m.text), ['x', '', 'x', '', '']);
+  assert.equal(findMatches('', 'g', 'ab').count, 3, '空模式在 n 个字符上有 n+1 个零宽命中');
+  assert.equal(findMatches('', 'g', 'ab').hitLimit, false);
+  assert.equal(findMatches('\\b', 'g', 'a b cd').count, [...'a b cd'.matchAll(/\b/g)].length,
+    '词边界全是零宽，推进一档都不能错');
+  assert.equal(findMatches('(?=x)', 'g', 'xxy').count, [...'xxy'.matchAll(/(?=x)/g)].length);
+});
+test('N8 匹配次数上限：hitLimit 的语义是"还有一格没列出来"', () => {
+  const more = 'a '.repeat(MAX_MATCHES + 1).trim();
+  const r = findMatches('a', 'g', more);
+  assert.equal(r.ok, true);
+  assert.equal(r.count, MAX_MATCHES);
+  assert.equal(r.hitLimit, true, '后面还有一格没列出来时必须报 hitLimit');
+  assert.match(r.reason, /上限/); assert.match(r.reason, new RegExp(String(MAX_MATCHES)));
+  const exact = findMatches('a', 'g', 'a '.repeat(MAX_MATCHES).trim());
+  assert.equal(exact.count, MAX_MATCHES);
+  assert.equal(exact.hitLimit, false, '正好用满不算截断：这一格的红绿就是"静默截断"的分界');
+  assert.equal(exact.reason, null);
+  const capped = findMatches('a', 'g', 'aaaaaa', { maxMatches: 3 });
+  assert.equal(capped.count, 3); assert.equal(capped.capped, 3); assert.equal(capped.hitLimit, true);
+  const over = findMatches('a', 'g', 'aaaaaa', { maxMatches: MAX_MATCHES + 10 });
+  assert.equal(over.capped, MAX_MATCHES, 'options 只能往下调，不许越过面板的硬上限');
+  const zero = findMatches('a', 'g', 'aaa', { maxMatches: 0 });
+  assert.equal(zero.capped, 1, '给了 0 / 负数按 1 兜，不给"一个都不算"的静默档');
+  assert.equal(zero.count, 1);
+  const neg = findMatches('a', 'g', 'aaa', { maxMatches: -5 });
+  assert.equal(neg.capped, 1);
+});
+test('N9 档间时间预算靠注入时钟，没给时钟就只按次数收口', () => {
+  let tick = 0;
+  const now = () => (tick += 12);
+  const r = findMatches('a', 'g', 'a '.repeat(200).trim(), { now, timeBudgetMs: 50 });
+  assert.equal(r.ok, true);
+  assert.equal(r.timedOut, true, '每格 12ms、预算 50ms → 必须在中途收口');
+  assert.equal(r.count, 4, '第 4 格后累计 48ms 不超、第 5 格前 60ms 超：这个数字就是预算的牙');
+  assert.equal(r.hitLimit, false, '时间到点不是次数到点，两面旗子不许互相顶');
+  assert.equal(r.elapsedMs, 60);
+  assert.match(r.reason, /时间预算/);
+  const noClock = findMatches('a', 'g', 'a '.repeat(200).trim());
+  assert.equal(noClock.elapsedMs, null, '本模块不许自己读时钟：没注入就报 null');
+  assert.equal(noClock.timedOut, false);
+  assert.equal(noClock.count, 200);
+  const nan = findMatches('a', 'g', 'aaa', { now: () => Number.NaN });
+  assert.equal(nan.timedOut, false, '时钟给了非数字就当没时钟，不许因为 NaN 比较而永远不超时');
+  assert.equal(nan.count, 3);
+  const defaultBudget = findMatches('a', 'g', 'a '.repeat(200).trim(), { now });
+  assert.equal(defaultBudget.timedOut, true, '不给 timeBudgetMs 时用 TIME_BUDGET_MS 这一档默认');
+  assert.equal(defaultBudget.count, Math.floor(TIME_BUDGET_MS / 12));
+  assert.equal(typeof TIME_BUDGET_MS, 'number');
+});
+test('N10 输入字节闸门：超 1 MiB 整体拒，正好到线放行，字节数按 UTF-8 那把尺', () => {
+  const big = 'a'.repeat(RE_INPUT_BYTES + 1);
+  const r = findMatches('a', '', big);
+  assert.equal(r.ok, false); assert.equal(r.executed, false);
+  assert.equal(r.bytes, RE_INPUT_BYTES + 1);
+  assert.match(r.reason, /1048576/); assert.match(r.reason, /不截断/);
+  assert.equal(r.matches.length, 0);
+  const atLimit = findMatches('zzz', '', 'a'.repeat(RE_INPUT_BYTES));
+  assert.equal(atLimit.ok, true, '正好 1 MiB 放行：越界才拒');
+  assert.equal(atLimit.bytes, RE_INPUT_BYTES);
+  assert.equal(findMatches('a', '', '中'.repeat(2)).bytes, 6, '中文按 UTF-8 三字节计，不是字符数');
+  assert.equal(nByteLen('中'), 3); assert.equal(nByteLen('\uD83D\uDE00'), 4);
+  assert.equal(findMatches('a', '', null).bytes, 0, 'null 走文本档归一成空串');
+  const repl = previewReplace('a', 'g', big, 'b');
+  assert.equal(repl.ok, false); assert.match(repl.reason, /1048576/);
+  assert.equal(repl.out, '', '替换预览越界时给空串，不给半截');
+});
+test('N11 静态检测 F1：组外无界重复 + 组内没有钉死边界的定宽元素，全族报 high', () => {
+  const family = ['(a+)+', '(a*)*', '(?:a+)+', '((a+)+)', '(\\d+)+', '([a-z]+)+', '([ )]+)+',
+    '(a+){2,}', '(a{1,3})+', '(a{2,})+', '(\\w*\\s?)+', '([)]+)+', '(?:\\s*\\w+)*', '(?:[([]{2,})+',
+    '(\\d{1,3}|\\d)+'];
+  assert.equal(family.length, 15, '真阳性族要有条数：少一条等于那一档形状没人守');
+  for (const src of family) {
+    const r = riskScan(src);
+    assert.equal(r.level, 'high', `${src} 应是 high，实际 ${r.level} ${JSON.stringify(r.findings)}`);
+    assert.equal(r.parsed, true, `${src} 必须能被分词器走完`);
+    assert.ok(r.findings.length >= 1, `${src} 要给出命中的构造位置`);
+    assert.ok(r.findings[0].at >= 0 && r.findings[0].at < src.length,
+      `${src} 的位置 ${r.findings[0].at} 落在串外`);
+    assert.equal(r.findings.every((f) => /F[1-4]/.test(f.rule)), true, `${src} 每条命中都要点规则名`);
+    assert.match(r.findings[0].hint, /收紧|量词|拆成|改写/, `${src} 的提示要给出改写方向`);
+  }
+  assert.equal(riskScan('^(\\d{1,3})+$').level, 'high', '带锚不改变形状：锚不是牙齿');
+  assert.equal(riskScan('a(b(c+)+d)e').level, 'high', '嵌套三层里的 F1 也要抓到');
+  assert.equal(riskScan('(a+)').level, 'none', '组外没有量词就没有放大');
+});
+test('N12 静态检测 F2：分支互为整数倍重复 + 组外无界，报 high；同长不重叠不报', () => {
+  const high = ['(a|a)*', '(a|aa)+', '(aa|aaaa)*', '(ab|abab)+', '(x|xx|xxx)*', '(-|--)+',
+    '(\\d|\\d\\d)+', '(?:a|aa){3}'];
+  assert.equal(high.length, 8, 'F2 族同样要有条数：这一族的阈值实测在 24–64 字符之间，缺一条就没人守');
+  for (const src of high) {
+    const r = riskScan(src);
+    assert.equal(r.findings.some((f) => f.rule === 'F2'), true,
+      `${src} 的分支互为整数倍，应点名 F2：${JSON.stringify(r.findings)}`);
+  }
+  assert.equal(riskScan('(?:a|aa){3}').level, 'medium', '组外是有限重复 → medium 而非 high');
+  const safe = ['(a|b)*', '(ab|abc)+', '(test|testing)+', '(\\w|\\d)+', '([a-z]|[0-9])+', '(a|ab)*',
+    '(x|xx)', '(a|aa)'];
+  for (const src of safe) {
+    const r = riskScan(src);
+    assert.equal(r.findings.some((f) => f.rule === 'F2'), false,
+      `${src} 的分支不构成整数倍包含或组外无重复，不该报 F2：${JSON.stringify(r.findings)}`);
+  }
+  assert.equal(riskScan('(a|a)').level, 'none', '形状本身不犯忌，组外的无界重复才是');
+});
+test('N13 静态检测不许误杀：类里的括号、转义、被定宽元素钉住的组尾、单一无界量词', () => {
+  const none = ['[(]', '[)]', '([)]+)', '[(a+)+]', '(?:[([]{2,})', 'a+b+', '(a+)b', '(a+)?',
+    '(a+){1}', '(a{3})+', '(\\d{1,3},)*', '(\\d+,)+\\d+', '([a-z]+\\s)+', '(a\\s*)+', '^[a-z]+$',
+    'x?', '(a|b|ab)+', '[\\]]+\\(', '\\(a\\+\\)\\+', '(?:\\d{1,3}\\.){4}', '([a-z]+)([0-9]+)',
+    '((a)(b))+', 'a{100,}', '(x+a+)+', '([a-z]+[0-9]+)+', 'a*a?b', '(?<name>[a-z]+)', '[]a[]',
+    '[^]]*', '(a)', '\\d{4}-\\d{4}', '(?:[\\d.]+)', '^[\\w.-]+@[\\w.-]+\\.[a-z]{2,}$',
+    '(?:[ab]+c)+', '(a|b)*[^a-z]*'];
+  for (const src of none) {
+    const r = riskScan(src);
+    assert.equal(r.level, 'none', `${src} 不该被判风险，实际 ${r.level} ${JSON.stringify(r.findings)}`);
+    assert.equal(r.parsed, true, `${src} 分词器要能走完，走不完等于检测器自己哑了`);
+  }
+  assert.equal(none.length, 35, '假阳性红线要有条数：漏一条等于那一档形状没人守');
+  assert.equal(riskScan('([)]+)').level, 'none', '类里的 ) 不算闭组：这条是 35 个样本里最容易失守的一处');
+  assert.equal(riskScan('(?:[([]{2,})+').level, 'high', '形似样本的另一半：类里两个字符 + {2,} + 组外 + 是真阳性');
+  const med = ['a*a*a*a*a', '.*.*.*', '(a+){3}', '(a+){4}', '\\w*\\w*', '[a-z]*[a-z]*', 'a+a+'];
+  for (const src of med) assert.equal(riskScan(src).level, 'medium', `${src} 应是 medium`);
+  assert.equal(riskScan('a*a*a*a*a').findings[0].rule, 'F3', '串联同源的无界量词点 F3');
+  assert.equal(riskScan('(?').level, 'none', '非法语法交给 compile 报原话，静态检测不越权报错');
+  assert.equal(riskScan('[a').parsed, false, '走不完就标 parsed:false，不许把半成品当"没风险"');
+});
+test('N14 high 根本不进引擎；medium 把输入压到 128 字符，越线拒', () => {
+  const r = findMatches('(a+)+$', '', 'a'.repeat(30));
+  assert.equal(r.ok, false); assert.equal(r.level, 'high');
+  assert.equal(r.executed, false, '这一格的牙齿就是"引擎一次都没被调用"');
+  assert.equal(r.matches.length, 0);
+  assert.match(r.reason, /疑似灾难性回溯/); assert.match(r.reason, /F1/);
+  assert.match(r.reason, /一次都不执行/, '要明说没执行，否则用户以为算过了');
+  assert.equal(findMatches('(a+)+$', '', '').ok, false, '空输入也不给放行后门');
+  assert.throws(() => findMatches('(a+)+$', '', 'aaa', { allowRisky: true }), /不认识的键：allowRisky/,
+    '没有 allowRisky 这一档后门：能绕的闸门不是闸门，options 闸门先把它响掉');
+  const med = findMatches('a*a*a*a*a', '', 'a'.repeat(100));
+  assert.equal(med.level, 'medium'); assert.equal(med.ok, true); assert.equal(med.executed, true);
+  assert.match(med.reason, /可疑/);
+  const medLong = findMatches('a*a*a*a*a', '', 'a'.repeat(MEDIUM_MAX_INPUT_CHARS + 1));
+  assert.equal(medLong.ok, false); assert.equal(medLong.executed, false);
+  assert.equal(medLong.level, 'medium');
+  assert.match(medLong.reason, new RegExp(String(MEDIUM_MAX_INPUT_CHARS)));
+  assert.match(medLong.reason, /不截断/, '拒的时候要连"没截断"一起说：只报"实际 129 字符"，面板看着像只算了前 128 格');
+  assert.equal(findMatches('a*a*a*a*a', '', 'a'.repeat(MEDIUM_MAX_INPUT_CHARS)).ok, true, '正好 128 放行');
+  const clean = findMatches('\\d{1,3}', '', '123456');
+  assert.equal(clean.level, 'none'); assert.equal(clean.reason, null, '没风险就别糊黄条');
+  assert.equal(previewReplace('(a|aa)*', 'g', 'a'.repeat(30), 'x').executed, false,
+    '替换预览走同一道静态闸门');
+  assert.equal(previewReplace('a*a*a*a*a', '', 'a'.repeat(MEDIUM_MAX_INPUT_CHARS + 1), 'x').ok, false);
+});
+test('N15 替换预览与 native 逐字节一致，$ 的四种写法各有硬账', () => {
+  const cases = [['(a+)(b+)', 'g', 'xx aabb yy', '[$1|$2<$1>$$&$`$\'|$0]'],
+    ['(x*)', 'g', 'ab', '<$0>'], ['(\\w+)', 'g', 'a b', '$&-$1|$$'],
+    ['(?<k>[a-z]+)', 'g', 'aa bb', '[$<k>]'], ['a', 'g', 'banana', '$$'],
+    ['(a)(b)?', 'g', 'ac', '[$1][$2]'], ['a', '', 'aaa', 'X'], ['(a)', 'gy', 'baa', 'X'],
+    ['\\s*', 'g', 'a  b', '|'], ['(?<a>x)(y)?', 'g', 'xx', '[$<a>][$<b>]']];
+  for (const [src, flags, input, repl] of cases) {
+    const mine = previewReplace(src, flags, input, repl);
+    assert.equal(mine.ok, true, `${src} → ${mine.reason}`);
+    assert.equal(mine.out, input.replace(new RegExp(src, flags), repl),
+      `${src}/${flags} 的替换结果必须与 native 逐字节相同`);
+    assert.equal(mine.changed, mine.out !== input, 'changed 就是"产物与原文是否不同"，面板靠它决定要不要给复制');
+  }
+  assert.equal(cases.length, 10, '对拍样本要有条数');
+  assert.equal(previewReplace('(a+)(b+)', 'g', 'aabb', '[$1|$2]').out, '[aa|bb]');
+  assert.equal(previewReplace('(x*)', 'g', 'ab', '<$0>').out, '<$0>a<$0>b<$0>',
+    '$0 不是替换记号：这是 native 口径，"顺手修正"它等于改出个新语言');
+  assert.equal(previewReplace('a', 'g', 'aaa', '$$').out, '$$$',
+    '$$ 出一个字面 $，三处命中就是三个 $（native 实测，别按直觉写成 $a$a$）');
+  assert.equal(previewReplace('aa', 'g', 'aaa', '$&$&').out, 'aaaaa',
+    '$& 是整段命中：开头两处 aa 各换成 aaaa，尾部剩的那个 a 原样留着（native 实测， lastIndex 落在 2 之后不再命中）');
+  assert.equal(previewReplace('(a)', 'g', 'ab', '[$`$\'|x]').out, '[b|x]b', '前导/后随切片按 native 原样给');
+  assert.equal(previewReplace('(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)', 'g', 'abcdefghijk', '$11').out, 'k',
+    '$11 在 11 个组时是第 11 组，不是 $1 后接字符 1');
+  assert.equal(previewReplace('a', 'g', 'abc', 123).out, '123bc', '替换串走文本档归一，不抛');
+});
+test('N16 两档入参：文本档归一不抛，options 档走 TypeError 并报出形状', () => {
+  for (const v of [null, undefined, 123, true, ['a'], { toString: () => 'x' }, new Date(0)]) {
+    const r = findMatches('a', '', v);
+    assert.equal(typeof r.bytes, 'number', `文本入参 ${String(v)} 不该抛`);
+    assert.equal(typeof r.ok, 'boolean');
+  }
+  assert.equal(findMatches('a', '', undefined).bytes, 0);
+  assert.equal(findMatches('a', '', 123).matches.length, 0, '123 → "123"，里面没有 a');
+  assert.equal(findMatches('1', '', 123).count, 1, '数字进文本档要按十进制串算');
+  assert.equal(findMatches(null, '', 'x').ok, true, 'pattern 也走文本档：null 当空模式，不抛');
+  assert.equal(findMatches('a', '', Symbol('x')).bytes, 9,
+    'String(Symbol) 出 "Symbol(x)"：与 §K/§L/§M 同档，归一之后照文本算');
+  assert.equal(findMatches('a', '', Symbol('x')).count, 0, '"Symbol(x)" 里没有裸 a，归一成串之后照样判');
+  assert.throws(() => findMatches('a', '', Object.create(null)), TypeError,
+    '无原型对象是唯一会抛的那一档：String() 自己抛，本站不替它兜');
+  assert.equal(previewReplace('a', 'g', 'aa', Symbol('y')).out, 'Symbol(y)Symbol(y)',
+    '替换串同样走文本档：Symbol 归一成 "Symbol(y)"，与 §L 的 encodeUrlComponent 同一口径');
+  for (const bad of [1, 'x', true, ['a'], new Date(0)]) {
+    assert.throws(() => findMatches('a', '', 'x', bad), /options 只收对象，收到 /);
+    assert.throws(() => findMatches('a', '', 'x', bad), TypeError);
+  }
+  assert.throws(() => findMatches('a', '', 'x', { now: 1 }), /now 要的是函数，收到 number/);
+  assert.throws(() => findMatches('a', '', 'x', { maxMatches: 'x' }), /maxMatches 要的是数字，收到 string/);
+  assert.throws(() => findMatches('a', '', 'x', { timeBudgetMs: 'x' }), /timeBudgetMs 要的是数字，收到 string/);
+  assert.throws(() => findMatches('a', '', 'x', { sloppy: 1 }), /options 里有不认识的键：sloppy/);
+  assert.equal(findMatches('a', '', 'x', { now: null, maxMatches: null }).ok, true,
+    'null / undefined 的键走默认档，不是报错档');
+  assert.throws(() => compile('a', 123, 456), /收到 number/, 'compile 没有 options 档：多给一位同样要响');
+});
+test('N17 闸门先后有账：形状在前、字节在后，medium 的 128 数的是字符不是字节', () => {
+  const riskyHuge = findMatches('(a+)+$', '', 'a'.repeat(RE_INPUT_BYTES + 1));
+  assert.equal(riskyHuge.level, 'high', '高危形状要先响：否则用户把输入改小还是一句"太大"');
+  assert.match(riskyHuge.reason, /疑似灾难性回溯/);
+  assert.equal(riskyHuge.bytes, undefined, '形状这一档排在字节之前，不该报字节');
+  const medShapeCjk = findMatches('a*a*a*a*a', '', '中'.repeat(200));
+  assert.equal(medShapeCjk.ok, false);
+  assert.equal(medShapeCjk.bytes, 600, '600 字节远在 1 MiB 之内，拦住它的是 128 字符这一档');
+  assert.match(medShapeCjk.reason, /128/);
+  const cleanCjk = findMatches('\\d+', 'g', '中'.repeat(500));
+  assert.equal(cleanCjk.ok, true); assert.equal(cleanCjk.bytes, 1500);
+  assert.equal(cleanCjk.level, 'none');
+  const medCjkOk = findMatches('a*a*a*a*a', '', '中'.repeat(100));
+  assert.equal(medCjkOk.ok, true, '100 个汉字：字节 300 早过 128，字符没超——这一档数的是字符，按字节判的实现在这条红');
+  assert.equal(medCjkOk.bytes, 300, '放行也要把实测字节照实回显，别让"过了"看起来像没量');
+  assert.equal(medCjkOk.executed, true); assert.match(medCjkOk.reason, /128 字符/);
+  const tooLongPattern = findMatches('('.repeat(MAX_PATTERN_CHARS + 1), '', 'x');
+  assert.equal(tooLongPattern.level, null, '长度这一档在形状之前，level 留 null');
+  assert.equal(tooLongPattern.bytes, undefined, '连输入都没读，字节当然没有');
+});
+test('N18 CAVEAT 里承诺的每一个数都得是导出的那个常数', async () => {
+  const rows = [[/1 MiB（1048576 字节）/, () => RE_INPUT_BYTES === 1048576],
+    [/500 字符/, () => MAX_PATTERN_CHARS === 500],
+    [/前 1000 个/, () => MAX_MATCHES === 1000],
+    [/128 字符/, () => MEDIUM_MAX_INPUT_CHARS === 128],
+    [/g i m s u y d/, () => ALLOWED_FLAGS === 'gimsuyd'],
+    [/疑似灾难性回溯/, () => riskScan('(a+)+').level === 'high'],
+    [/一次都不执行/, () => findMatches('(a+)+', '', 'aaa').executed === false],
+    [/不静默截断/, () => findMatches('a', 'g', 'a '.repeat(MAX_MATCHES + 1).trim()).hitLimit === true]];
+  for (const [claim, holds] of rows) {
+    assert.equal(claim.test(REGEX_CAVEAT), holds(),
+      `文案与实现分叉：${claim}（文案里有=${claim.test(REGEX_CAVEAT)}，实现做得到=${holds}）`);
+  }
+  assert.equal(rows.length, 8, '对账表自己要有条数：漏一行等于那一档的承诺没人核');
+  assert.ok(REGEX_CAVEAT.length > 80 && REGEX_CAVEAT.length <= 260,
+    `口径句长度不在档内（实际 ${REGEX_CAVEAT.length} 字）：${REGEX_CAVEAT}`);
+  const { BASE64_CAVEAT, URL_CAVEAT } = await import('../dev/js/tools/codec.js');
+  const { TIME_CAVEAT } = await import('../dev/js/tools/time.js');
+  const { DIGEST_CAVEAT } = await import('../dev/js/tools/digest.js');
+  for (const o of [BASE64_CAVEAT, URL_CAVEAT, TIME_CAVEAT, DIGEST_CAVEAT]) {
+    assert.notEqual(REGEX_CAVEAT, o, '五格口径句各写各的，一模一样等于这一格没自己的口径');
+  }
+  assert.equal(nByteLen('中'), 3, '口径句里"UTF-8 字节"这把尺子自己得先对');
+});
+test('N19 违禁源扫描、零重叠、不成 vite 入口', () => {
+  const src = nCode();
+  const banned = [['import', /^\s*import[\s{*]/m], ['export from', /^\s*export.*from/m],
+    ['export * from', /export\s*\*/], ['动态 import', /\bimport\s*\(/], ['require(', /\brequire\s*\(/],
+    ['node:', /['"]node:/], ['createHash', /\bcreateHash\b/], ['document', /\bdocument\b/],
+    ['window', /\bwindow\b/], ['getElementById', /getElementById/], ['querySelector', /querySelector/],
+    ['addEventListener', /addEventListener/], ['localStorage', /localStorage/], ['fetch(', /\bfetch\s*\(/],
+    ['FileReader', /FileReader/], ['Buffer', /\bBuffer\b/], ['atob', /\batob\s*\(/], ['btoa', /\bbtoa\s*\(/],
+    ['TextEncoder', /TextEncoder/], ['TextDecoder', /TextDecoder/], ['Date.now', /Date\.now/],
+    ['new Date(', /new Date\(/], ['performance.now', /performance\.now/], ['Math.random', /Math\.random/],
+    ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['unescape', /\bunescape\s*\(/],
+    ['eval', /\beval\s*\(/], ['new Function', /new\s+Function\s*\(/]];
+  for (const [name, re] of banned) assert.equal(re.test(src), false, `regex.js 的代码里出现了 ${name}`);
+  assert.equal(banned.length, 29, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  assert.equal(/new\s+RegExp\s*\(/.test(src), true, '这一格的本职就是构造 RegExp，正向断言防它哪天换成 eval');
+  assert.match(src, /lastIndex\s*\+=\s*1/, '零宽推进必须写在代码里，不是注释里');
+  assert.equal(/\bwhile\s*\(\s*true\s*\)/.test(src), false, '不许出现无边界的 while(true)');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/regex.js')), false, '旧位置 dev/js/regex.js 不该存在');
+  assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/regex.js')), true, '新位置必须在，否则上一条是空转的');
+  const vite = read('vite.config.js');
+  const at = vite.indexOf('getDevJsEntries');
+  assert.ok(at > -1, '入口表由 getDevJsEntries 决定，找不到这个名字说明地基变了');
+  assert.match(vite.slice(at, at + 900), /readDirSorted/,
+    'dev/js 一层扫描走 readDirSorted（内部是 readdirSync(dir).sort()，不递归）：改成递归就该来改这条');
+  assert.equal(/tools/.test(vite.slice(at, at + 900)), false, '这一层里没有 tools/ 字样，子目录不成入口');
+  const site = resolve(ROOT, '_site/assets/js');
+  if (existsSync(site)) {
+    for (const f of readdirSync(site)) {
+      if (!f.endsWith('.js')) continue;
+      assert.equal(read(join(site, f)).includes('findMatches'), false, `产物 ${f} 里不该出现 regex 的导出名`);
+    }
+  }
+});
+test('N20 导出面：13 个名字一个不多一个不少，Task 6 的面板绑定按这张表', async () => {
+  const wanted = ['ALLOWED_FLAGS', 'MAX_INPUT_BYTES', 'MAX_MATCHES', 'MAX_PATTERN_CHARS',
+    'MEDIUM_MAX_INPUT_CHARS', 'REGEX_CAVEAT', 'TIME_BUDGET_MS', 'byteLen', 'compile', 'findMatches',
+    'normalizeFlags', 'previewReplace', 'riskScan'];
+  const mod = await import('../dev/js/tools/regex.js');
+  const got = Object.keys(mod).sort();
+  assert.deepEqual(got, wanted, `导出面变了：多=${JSON.stringify(got.filter((k) => !wanted.includes(k)))} `
+    + `少=${JSON.stringify(wanted.filter((k) => !got.includes(k)))}`);
+  assert.equal(got.length, 13, '清单自己要有条数；新增一个入口就得同时补判据与面板，这张表是那道门');
+  for (const k of ['byteLen', 'compile', 'findMatches', 'normalizeFlags', 'previewReplace', 'riskScan']) {
+    assert.equal(typeof mod[k], 'function', `${k} 必须是函数：面板按这个名字直接调`);
+  }
+  for (const k of ['ALLOWED_FLAGS', 'REGEX_CAVEAT']) {
+    assert.equal(typeof mod[k], 'string', `${k} 必须是串：白名单与口径句都是要显示给用户的东西`);
+  }
+  for (const k of ['MAX_INPUT_BYTES', 'MAX_MATCHES', 'MAX_PATTERN_CHARS', 'MEDIUM_MAX_INPUT_CHARS',
+    'TIME_BUDGET_MS']) assert.equal(typeof mod[k], 'number', `${k} 必须是数字：闸门常数写成串会静默放行`);
+});
