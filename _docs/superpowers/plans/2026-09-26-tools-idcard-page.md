@@ -6603,6 +6603,8 @@ Expected：`插入 18 行（要 18）｜md5 …→…`（两个 md5 必然不同
 //    一份 id 清单——重抄的那份会跟着 spec 一起错，Task 9 拿 spec 对账骨架也就失去了第三者。
 //    代价是：spec 与骨架同时漏一格时本节不红，那是 Task 9 的活（它比的是磁盘上的 HTML）。
 const J_VIEW = await import('../dev/js/tools/view.js');
+/** 段 3 Task 5 起 `Tk` 多一只 `ui`（复制三件套从 `workbench.js` 搬过去），挂载夹具跟着供它 */
+const J_UI = await import('../dev/js/tools/ui.js');
 const {
   createWorkbench, WORKBENCH_SPEC, PANEL_IDS, MAX_READ_LINES, controlIds,
   fieldId, buttonId, copyId, outId, whenId,
@@ -6728,7 +6730,7 @@ function jMount(o = {}) {
   const host = { dom: null };
   const wb = createWorkbench({
     document: page.doc,
-    Tk: { view: J_VIEW },
+    Tk: { view: J_VIEW, ui: J_UI },
     prefix,
     today: TODAY,
     ...(o.rng === null ? {} : { rng: o.rng ?? seededRandom(J_SEED) }),
@@ -7363,18 +7365,19 @@ test('J11 事件接线：Enter 接在数字与日期上，判定走组合键，�
   assert.equal(page.ctl('random', 'domain').disabled, false, '没打标记的格子不该被级联禁用');
 });
 
-test('J12 toolkitCore 只把框架层那三只挂成 `window.Tk`，业务模块不下沉', async () => {
+test('J12 toolkitCore 只把框架层那四只挂成 `window.Tk`，业务模块不下沉', async () => {
   const mod = { ns: null };
   globalThis.window = {};
   try {
     mod.ns = await import('../dev/js/toolkitCore.js?j12');
     const tk = globalThis.window.Tk;
-    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'view'],
-      '口径 1：只挂这三个名字，不顺手暴露别的');
+    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'ui', 'view'],
+      '口径 1：只挂这四个名字，不顺手暴露别的（段 3 Task 5 起 `ui` 是第四只，§O13 与这里必须同步）');
     assert.equal(tk.createPanelWorkspace, createPanelWorkspace, '挂的必须是 §D 判过的那一只');
     assert.equal(tk.createPanelDom, createPanelDom, '挂的必须是 §I 判过的那一只');
     assert.equal(tk.view.batchBlock, J_VIEW.batchBlock, 'view 必须是 §H 判过的那一份');
     assert.equal(typeof tk.view.parseBlock, 'function');
+    assert.equal(tk.ui.copyInto, J_UI.copyInto, 'ui 必须是 §O 判过的那一份：两页共用同一只兜底，不许各长一份');
     assert.equal('parseIdCard' in tk, false, '口径 3：业务模块走 workbench 内联，不下到共用层');
     assert.equal('generateUsccCodes' in tk, false);
     assert.equal(tk.version, undefined, '不加版本号：将来扩面是显式改动');
@@ -7476,11 +7479,11 @@ test('J14 动态文本一律过 `esc`，源码里那三条红线一条都不许�
   assert.equal(hint.includes('<script'), false, 'FieldError 的 message 拼进结果区前必须过 esc');
   assert.match(hint, /^<p class="tk-hint">数量应为 1–\d+ 的整数，现在这格是「&lt;script&gt;alert\(1\)&lt;\/script&gt;」。/);
 
-  // ③ 三条源码红线：这一层的 HTML 出口只有一处，找节点只按派生 id，跨页共用的三本不许 import
+  // ③ 三条源码红线：这一层的 HTML 出口只有一处，找节点只按派生 id，跨页共用的四本不许 import
   const src = read('dev/js/tools/workbench.js');
   assert.equal(jCount(src, '.innerHTML ='), 1, 'innerHTML 只许出现在 paint() 一处');
   assert.equal(src.includes('querySelector('), false, '控件一律按派生 id 找：querySelector 会绕过前缀与 spec 这套账');
-  for (const shared of ['./panel.js', './panel-dom.js', './view.js']) {
+  for (const shared of ['./panel.js', './panel-dom.js', './view.js', './ui.js']) {
     assert.equal(src.includes(`from '${shared}'`), false,
       `workbench.js 不许 import ${shared}：两个入口 reach 同一模块就成共享 chunk，产物当场变废文件`);
   }
@@ -7853,30 +7856,37 @@ Step 2 红的形状与 Expected 逐字对上：`not ok 1 - scripts/toolkit-tests
 
 ```js
 /**
- * 工具箱三页共用的框架层：把「面板互锁状态机 + 它的 DOM 绑定层 + 结果视图」挂成 `window.Tk`。
+ * 工具箱三页共用的框架层：把「面板互锁状态机 + 它的 DOM 绑定层 + 结果视图 + 复制兜底」
+ * 挂成 `window.Tk`。
  *
  * 为什么要有这么一层，而不是让页面入口各自 `import`：2026-09-26 在镜像里实测过，`dev/js/` 下
  * 两个入口同时 `import` 同一个模块时，Rollup 会把它提成共享 chunk，而 `vite.config.js` 的
  * `iife-wrap` 又把 ESM 的 `import` 声明包进函数体——产物里留下 `import{c as o}from"./panel.min.js"`
  * 这种句子，经典 `<script>` 里当场 SyntaxError，**整页白屏而构建 exit=0**。三页都用到
- * `panel.js` / `panel-dom.js` / `view.js`，所以这一层从段 2 就立起来，不留到段 3 返工。
+ * `panel.js` / `panel-dom.js` / `view.js`，所以这一层从段 2 就立起来，不留到段 3 返工；
+ * `ui.js`（复制兜底）是段 3 Task 5 加进来的第四本——三页同样都要"把这栏复制走"，理由同一条。
  * 站内同族先例：`dev/libJs/tools.js` 出 `window.tools.formatDate`（`_layouts/default.html` 全站引），
  * `editorial.min.js` 是主题的唯一真值源 `window.EditorialTheme`。
  *
  * 三条约束：
- * 1. **只挂这三个名字**，不加版本号、不加解析函数、不加"顺手暴露"的东西。页面入口拿不到的能力
- *    就是不存在，将来要扩面是显式改动。
+ * 1. **只挂这四个名字**，不加版本号、不加解析函数、不加"顺手暴露"的东西。页面入口拿不到的能力
+ *    就是不存在，将来要扩面是显式改动——`ui` 这一格就是段 3 Task 5 的一次显式扩面：
+ *    证件页与编码工具箱页都要复制兜底，`workbench.js` 里那份 `doCopy` / `legacyCopy` / `flash`
+ *    搬到 `tools/ui.js`，清单、J12 与 §J 的挂载夹具同批改，不留第二份实现（判据 §O13）。
  * 2. **本文件不 `export`**：产物是被 `(function(){…})();` 包起来的经典脚本，顶层 `export`
  *    在函数体里是语法错误（同上一条那个坑的另一种写法）。
  * 3. **只挂跨页共用的**：`idcard.js` / `uscc.js` 那六本业务模块只有证件页要，走
  *    `tools/workbench.js` 直接 `import` 内联进 `toolIdcard.min.js`，不下到这一层。
+ *    反方向同一条红线：挂下来的每一本自己必须零 import（`view.js` 一直是，`ui.js` 由 §O2 守着），
+ *    共用件里嵌一本业务模块，等于把那本业务模块也拖进三页的产物。
  *    判据在 Task 9：构建后 `assets/js/*.min.js` 里 `import{` 的命中数必须为 0。
  */
 import { createPanelWorkspace } from './tools/panel.js';
 import { createPanelDom } from './tools/panel-dom.js';
 import * as view from './tools/view.js';
+import * as ui from './tools/ui.js';
 
-window.Tk = { createPanelWorkspace, createPanelDom, view };
+window.Tk = { createPanelWorkspace, createPanelDom, view, ui };
 ```
 
 **3b `dev/js/tools/workbench.js`** —— 本页（以及段 3 / 段 4 那两页的同类）装配层。文件头那五条
@@ -7893,7 +7903,7 @@ window.Tk = { createPanelWorkspace, createPanelDom, view };
 ```js
 /**
  * 证件页的装配层：把 `tools-idcard.html` 里那些静态表单接到六本业务模块上，结果交给
- * `view`（`window.Tk.view`）渲染。
+ * `view`（`window.Tk.view`）渲染，复制那一栏的纯文本交给 `ui`（`window.Tk.ui`）兜底。
  *
  * 这一层存在的理由是段 1 计划 §6.0 那句分工的自然延伸：**表单与控件的对应关系只允许有一处**。
  * 页面里有 9 个栏位、35 个控件、18 个按钮与结果区，如果"哪个 id 属于哪一栏"同时写在 HTML 的
@@ -7926,10 +7936,10 @@ window.Tk = { createPanelWorkspace, createPanelDom, view };
  * 5. **动态文本只走 `view`**。`view` 里每个函数都过 `esc()`；这一层自己产出的文本（行号、
  *    回显、提示句）同样只经 `view.esc`，不拼裸 HTML。`innerHTML` 只出现在 `paint()` 一处。
  *
- * 与 `panel.js` / `panel-dom.js` / `view.js` 的分工：那三个是跨页共用的，走 `window.Tk` 进来
- * （见 `dev/js/toolkitCore.js` 开头那段实测），**本文件不许 `import` 它们**——一旦 import，
+ * 与 `panel.js` / `panel-dom.js` / `view.js` / `ui.js` 的分工：那四个是跨页共用的，走 `window.Tk`
+ * 进来（见 `dev/js/toolkitCore.js` 开头那段实测），**本文件不许 `import` 它们**——一旦 import，
  * 证件页与后面的编码工具箱页就有两个入口 reach 同一模块，产物立刻变成带 `import{` 的废文件。
- * 这条红线由 §J14 用源码文本守住。
+ * 这条红线由 §J14 用源码文本守住；`ui.js` 那一本自己还得零 import，才挂得上共用层（§O2）。
  *
  * 本文件也不是入口：`dev/js/toolIdcard.js` 才在 `dev/js/` 第一层，它 `import` 本文件，
  * 于是业务模块全部内联进 `toolIdcard.min.js`（只有一个入口 reach 它们，不会成 chunk）。
@@ -7957,11 +7967,6 @@ import {
  * 60 行也照样算得完，但结果区会长成没人能读的一堵墙。超出的行数不进表格，只在提示里报数。
  */
 export const MAX_READ_LINES = 50;
-
-/** 复制按钮改口"已复制"之后多久恢复原文案（毫秒）；只这一处用到时长，不抽 token */
-const COPY_RESET_MS = 1600;
-/** 复制失败后的提示停留时长，比成功的那句长一点：那句要被人读到才会去手动选中文本 */
-const COPY_FAIL_MS = 2600;
 
 /** 结果区里"这一栏还没有内容 / 这一栏的输入不能用"那一行的类名（`toolkit.scss` 的钩子） */
 const HINT_CLASS = 'tk-hint';
@@ -8217,7 +8222,7 @@ export class FieldError extends Error {
  *   框架层与宿主环境从 `env` 进来。
  * @param {object} env.document 只需 `getElementById` / `createElement`（与 `panel-dom` 同一档，
  *   这一层也不碰 `querySelector`：控件一律按派生 id 找，找不到就是骨架构造错了）
- * @param {object} env.Tk `window.Tk`，必须齐 `view`
+ * @param {object} env.Tk `window.Tk`，必须齐 `view`（结果视图）与 `ui.copyInto`（复制兜底）
  * @param {(panel: string, fn: () => void) => boolean} env.runGuarded 通常是
  *   `createPanelDom().run`；挂载期不走它（那时 `mounted` 还是 false），只挂在按钮上
  * @param {object} [env.navigator] 只为 `clipboard`，没有就走 `execCommand` 兜底
@@ -8238,11 +8243,17 @@ export function createWorkbench(env = {}) {
   if (!e.Tk || !e.Tk.view || typeof e.Tk.view.batchBlock !== 'function') {
     throw new TypeError('createWorkbench：env.Tk.view 应是 window.Tk 里那份 view（跨页共用层走 toolkitCore，不许 import）');
   }
+  // 复制这一件三页共用的事长在 `Tk.ui`（§O）。闸门排在 `view` 之后、构造之前：缺它的后果不是
+  // 页面塌，是"用户第一次点复制按钮没反应"——那要等到交互才暴露，构造期点名才有意义。
+  if (!e.Tk.ui || typeof e.Tk.ui.copyInto !== 'function') {
+    throw new TypeError('createWorkbench：env.Tk.ui.copyInto 应是 window.Tk 里那份 ui（跨页共用层走 toolkitCore，不许 import）');
+  }
   if (typeof e.runGuarded !== 'function') {
     throw new TypeError('createWorkbench：env.runGuarded 应是 createPanelDom().run，按钮回调不许自己 try/catch 出第二套错误口径');
   }
   const doc = e.document;
   const view = e.Tk.view;
+  const ui = e.Tk.ui;
   const runGuarded = e.runGuarded;
   const prefix = typeof e.prefix === 'string' && e.prefix !== '' ? e.prefix : 'tk';
   const rng = e.rng === undefined ? undefined : e.rng;
@@ -8692,16 +8703,10 @@ export function createWorkbench(env = {}) {
 
   // ── 复制 ────────────────────────────────────────────────────────────────
 
-  /** 按钮文案的临时改口：失败与成功走同一处，恢复时长不同（成功那句不需要读） */
-  const flash = (btn, text, ms, original) => {
-    btn.textContent = text;
-    later(() => { btn.textContent = original; }, ms);
-  };
-
   /**
-   * 复制一栏。三级兜底：`navigator.clipboard` → 临时 `<textarea>` + `execCommand` →
-   * 一句"请手动选中"。任何一级都不许抛到页面外面：剪贴板被权限策略拒绝是浏览器的正常行为，
-   * 用户按了没反应才是缺陷。
+   * 复制一栏。三级兜底、两条时长与那两句文案都在 `Tk.ui.copyInto` 里（三页共用，见
+   * `dev/js/tools/ui.js`）；这一层只负责三件事：找到那条按钮、取这一栏当前的纯文本、
+   * 把挂载时记下的原文案交回去——`COPY_LABEL` 是页面骨架的事，不是"复制"这件事的一部分。
    * @param {string} panel 面板
    * @param {string} side 栏位
    */
@@ -8710,22 +8715,7 @@ export function createWorkbench(env = {}) {
     const text = copies.get(key(panel, side)) || '';
     if (!btn || text === '') return;
     const original = COPY_LABEL.get(copyId(prefix, panel, side)) || btn.textContent;
-    const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中', ok ? COPY_RESET_MS : COPY_FAIL_MS, original);
-    if (clipboard && typeof clipboard.writeText === 'function') {
-      let p = null;
-      // 同步抛错与异步拒绝是同一条路：`writeText` 在权限策略拒绝时可能直接抛（不返回
-      // Promise），那正是上面那句话点名的场景，不能让它从按钮回调里跑出去。
-      try {
-        p = Promise.resolve(clipboard.writeText(text));
-      } catch {
-        p = null;
-      }
-      if (p !== null) {
-        p.then(() => done(true), () => done(legacyCopy(doc, text)));
-        return;
-      }
-    }
-    done(legacyCopy(doc, text));
+    ui.copyInto({ btn, text, original, clipboard, doc, later });
   };
 
   // ── 事件接线 ─────────────────────────────────────────────────────────────
@@ -8773,7 +8763,7 @@ export function createWorkbench(env = {}) {
         const btn = node(id);
         if (!btn) return;
         // 键用派生 id 而不是 `btn.id`：真 DOM 上两者相等，假 DOM 里 `.id` 是个普通属性，
-        // 一旦哪份夹具没把它设上，`set(undefined, …)` 会静默存进另一格，`flash` 就取不回原文案。
+        // 一旦哪份夹具没把它设上，`set(undefined, …)` 会静默存进另一格，`Tk.ui.flash` 就取不回原文案。
         COPY_LABEL.set(id, btn.textContent);
         btn.addEventListener('click', () => doCopy(panel, side));
       });
@@ -8851,35 +8841,6 @@ export function createWorkbench(env = {}) {
 function carrierOfSegment(segment) {
   const padded = `${segment}00000000`.slice(0, 11);
   return parseMobile(padded).carrier;
-}
-
-/**
- * `navigator.clipboard` 不可用时的兜底：临时 textarea + `execCommand('copy')`。
- * 只在 http 或用户未授予剪贴板权限时走到这里，用完立刻摘掉节点——留在 DOM 里就是
- * 一个能被 Tab 走到的隐形输入框。
- * @param {object} doc 提供 `createElement` / `body.appendChild` / `body.removeChild`
- * @param {string} text 要复制的文本
- * @returns {boolean} 有没有真的复制上
- */
-function legacyCopy(doc, text) {
-  let ta = null;
-  try {
-    const box = doc.createElement('textarea');
-    box.setAttribute('readonly', 'readonly');
-    box.value = text;
-    doc.body.appendChild(box);
-    // 只有真挂上去的那一个才需要摘：`appendChild` 自己抛时 `ta` 仍是 null，
-    // 那句 `removeChild` 就会抛出函数外，把"这一级失败"变成"这一级抛错"。
-    ta = box;
-    box.select();
-    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : false;
-  } catch {
-    return false;
-  } finally {
-    // 摘节点写在 `finally`：`select()` 与 `execCommand` 抛错时也要摘——留在页面上
-    // 就是一个能被 Tab 走到的隐形输入框，而这一级的口径是"不许抛到页面外面"。
-    if (ta) doc.body.removeChild(ta);
-  }
 }
 
 /**

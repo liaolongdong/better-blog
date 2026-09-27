@@ -4841,8 +4841,17 @@ test('N20 导出面：13 个名字一个不多一个不少，Task 6 的面板绑
 
 ## Task 5: `ui.js` — 把复制三件套从 `workbench.js` 抽出来（§O）
 
-**Files:** Create `dev/js/tools/ui.js`；Modify `dev/js/tools/workbench.js`（删三处、加一条 import）、
-`scripts/toolkit-tests.mjs`（§O + 复跑 §J 全量）、`verify-plan-blocks.mjs`。
+**Files:**
+- Create: `dev/js/tools/ui.js`（磁盘 118 行，复算 `wc -l dev/js/tools/ui.js`）
+- Modify: `dev/js/tools/workbench.js`（删两条定义与两条时长、`doCopy` 改调 `Tk.ui.copyInto`、
+  `createWorkbench` 多一道 `Tk.ui.copyInto` 闸门，磁盘 967 行）
+- Modify: `dev/js/toolkitCore.js`（import 第四本 + `window.Tk` 挂 `ui`，文件头三条约束跟着改口，磁盘 32 行）
+- Modify: `scripts/toolkit-tests.mjs`（末尾追加 `// ── §O …` 一节，13 条 `test()`，磁盘 7531–7891，
+  全量 7891 行；§J 四处跟着供 `ui`：夹具 `J_UI`、`jMount` 的 `Tk`、J12 清单三只→四只、J14 的禁 import 名单）
+- Modify: `scripts/verify-plan-blocks.mjs`（`FILE_TARGETS` 加一行 `'dev/js/tools/ui.js',`）
+- Modify: 本计划（契约回填 + 判据清单 + 变异台账 + 两块落地镜像）
+- 不动：`scripts/verify-plan-blocks-teeth.mjs`（G12 从基线现读段 3 名下全部镜像，本格落地的
+  `ui.js` 与 `§O` 两块自动进核范围）
 
 决策：站内**没有** `ui.js`（spec §6.2 列了但段 1/2 从未建），复制/Toast 的现实是
 `workbench.js:815 doCopy` / `:971 legacyCopy` / `:803 flash` 三个函数加 `:713` 的 label 同步。
@@ -4850,6 +4859,683 @@ codec 与 json 都要同一份，所以这一段是抽离的正确时机；**只
 必须原样全绿（它们是假 DOM + `commandLog` 那套，正是这一迁移的回归网）。
 搬迁前后各量一次 `toolIdcard.min.js` 的 gzip 字节（`cat f | gzip -9 | wc -c`），
 差值写进计划——预期为 0 到 ±20B（模块边界变了、minify 结果可能微调），超了要归因。
+
+### 对外契约（落地后回填，2026-09-28）
+
+起草版这格只说"把 `doCopy` / `legacyCopy` / `flash` 三个函数搬过去"。落地后有六处是写代码时才坐实的，
+其中两处与起草版不同：
+
+1. **`doCopy` 本体没搬**。它是页面接线——按派生 id 找按钮、从 `copies` 取这一栏当前的纯文本、
+   把挂载时记下的原文案（`COPY_LABEL` 那张表）交回去；这三样都属于"这一页的骨架"，不属于"复制"这件事。
+   搬走的是它调的那三级兜底，出口在 `ui.js` 里叫 **`copyInto`**。于是 `ui.js` 的导出面是
+   `COPY_RESET_MS` / `COPY_FAIL_MS` / `flash` / `legacyCopy` / `copyInto` 五个名字（O1 钉死），
+   而不是"三个函数加两个常数再多个 `doCopy`"。
+2. **`flash` 的签名多了一格 `original`**。段 2 那一份从闭包里读 `COPY_LABEL`，搬出来之后没有那个闭包了，
+   还原成哪一句必须由调用方给。这一格不是装饰：U13 那把刀把还原目标改成"改口当时的 `textContent`"，
+   后果是连点两次就停在"已复制"——只有 `original` 是传进来的，O4 里那半条连点用例才抓得到。
+3. **`later` 从闭包读变成注入参数**。段 2 的 `flash` 直接用它所在闭包里的 `later`；`ui.js` 里
+   `copyInto` 收 `later` 再透给 `flash`。没有这一改，§O 就量不到"排下去的那条回调带的时长是多少"，
+   O4/O10/O11 那三处读数全部退化成"看文案"。
+4. **"没按钮 / 没文本"那道早退故意写两遍**（`copyInto` 里一遍、`doCopy` 里一遍）。
+   codec 页要直接调 `copyInto`，那时没有人替它判空。这一条重复是有牙的：U1 只摘 `ui.js` 那一层，
+   红的只有 O12（页面路径上 `workbench` 那道还在，压根走不到 `copyInto`）——两层都摘才会红到 §J。
+   台账里记下这一对，是因为它同时是"重复必须有独立判据"的证据。
+5. **闸门排在 `view` 之后、构造之前**：缺 `Tk.ui.copyInto` 时构造期 `TypeError` 点名。
+   缺它的后果不是页面塌，是"用户第一次点复制按钮没反应"——那要等到交互才暴露，所以必须在构造期说。
+   O13(a) 钉这一格，U11 是那把刀。
+6. **`legacyCopy` 逐字符照搬**，包括 `ta = box` 那一行为什么排在 `appendChild` 之后（O8 与 U4 管着它）、
+   包括 `readonly` 那一格（O6 与 U5 管着它）。搬迁的验收不是"看起来一样"，是 §J7 那九个小节一条没改还全绿。
+
+### 判据清单（§O，落地后回填）
+
+**13 条 `test()`**，对套件总数的贡献是 13，全量 `# tests` 从 222 变成 **235**。
+夹具不新建：假 DOM 仍只有 §I 那一份工厂（`oPage = () => iPage()`），只读它的 `doc` / `mk`
+与三张观察口（`selLog` / `commandLog` / `created`），面板骨架那一半一次都不读。
+
+| 编号 | 咬什么 |
+| --- | --- |
+| O1 | 导出面**五个名字一个不多一个不少**（`Object.keys(await import(...)).sort()` 与清单 `deepEqual`，清单自带 `length === 5`）、三函数两常数各按 `typeof` 归位（时长写成串会静默变成"永不还原"）；这五名就是 `window.Tk.ui` 的全部家当，加一名要同步 J12 与 core 的文件头 |
+| O2 | 剥注释扫源：`\bimport\b` 零命中、`require(` 零命中、五个宿主全局（`window.` / `document.` / `navigator.` / `localStorage` / `globalThis`）零命中、`innerHTML` 零命中；**`setTimeout` 全文件恰一处**（`flash` 缺省那一档），多一处就没法在测试里钉住时长口径 |
+| O3 | 两条时长**值**钉死 1600 / 2600，另加两条形状（整数、正数）与一条相对关系（`COPY_FAIL_MS > COPY_RESET_MS`）。注意它只读常数：U2 那把"用法对调"的刀在这儿**不红**，台账里把它留作反例 |
+| O4 | `flash` 四格：改口当期就见效、还原排进注入的 `later` 且 `ms` 原样透传、不往 `body` 上挂任何东西、`flush()` 之后真还原成传进来的 `original`；**同一格连点两次**（先成功后失败）两条回调各还原各的，最后停在原文案——这一格是 U13 的唯一去处 |
+| O5 | 不给 `later` 时落回宿主 `setTimeout`，等 20ms 后照样还原（缺省那一档被摘掉的话，页面没注入 `later` 时按钮永远停在"已复制"）；缺省路径同样不许往页面上留东西 |
+| O6 | 兜底成功那一趟的**完整副作用序列**：造一条 `TEXTAREA` → 带 `readonly` → `value` 是传进去的那串 → 挂 `body` → `select()` 过一次且选中的就是它 → `commandLog` 恰 `['copy']` → 用完 `childNodes.length` 回 0；`execCommand` 返回 true 就是复制上了，不再要求第二样证据 |
+| O7 | 两种"没复制上"各一档：`execCommand` 返回 false → 整函数返回 false 且照样 select 过一次（失败要靠用户手动 Ctrl+C，框得留在选区里）、摘净；`doc.execCommand` 整个缺席 → 返回 false、`commandLog` 空（没这只手就别假装调用过）、照样摘净 |
+| O8 | `appendChild` 自己抛时**不许再调 `removeChild`**：`doesNotThrow`、返回 false、`removeChild` 调用次数为 0（对没挂上去的节点调它就是 `NotFoundError`，把一次失败变成一次抛出）、`selLog` 与 `commandLog` 都空（没挂上就别 select、别 execCommand——那复制的是用户原来的选区） |
+| O9 | `select()` 抛 与 `execCommand()` 抛 两档都走 `finally`：`doesNotThrow`、返回 false、临时框照样摘净、`oBoxes` 确实为 1（证明是"挂上之后抛"而不是没挂上）；`select` 那档还要求 `commandLog` 空——select 都没过去就不该问 execCommand |
+| O10 | 没有 `clipboard` 时走兜底，成败各对应一句文案与一条时长：成功 `已复制` + `COPY_RESET_MS`、失败 `复制失败，请手动选中` + `COPY_FAIL_MS` 且断言后者更长；失败那一趟末尾 `childNodes.length` 回 0；**有 `clipboard` 这只手却没有 `writeText` 那根手指**时同步退兜底且必须留下一条已排下去的回调（等一个永远不会来的 Promise 就是把反馈吞了） |
+| O11 | 四条剪贴板路逐档核：(a) `writeText` resolve → 不碰 `execCommand`、不挂临时框、成功档时长；(b) 异步 reject → 退兜底、兜底成功就报成功（且只造一条框）；(c) `writeText` 同步抛（不返回 Promise）→ `doesNotThrow` 且退到 `execCommand`；(d) 双双失败 → 失败文案 + 失败档时长 + 不抛 |
+| O12 | "没东西可复制"的早退三样都不碰：空文本时 `writeText` 零调用、`commandLog` 空、`created()` 前后相等、`later` 零排队、文案不变；`btn: null` 同一早退不抛；`copyInto({})` 与 `copyInto()` 都 `doesNotThrow` |
+| O13 | 抽离不留第二份实现，三头各钉一处：(a) `createWorkbench` 缺 `Tk.ui` 与缺 `Tk.ui.copyInto` 两种形状都在构造期 `TypeError` 且点名 `copyInto`；(b) 剥注释扫 `workbench.js`，`const flash =` / `function legacyCopy` / `const COPY_RESET_MS` / `const COPY_FAIL_MS` 四处**一处不留**，而 `ui.copyInto(` 必须在；(c) `toolkitCore.js` 里 `from './tools/ui.js'` 与 `window.Tk = {… ui …}` 都在，重开 `globalThis.window` 按新 query 载 core（同 query 会被模块缓存挡住，读到的是 J12 那次的注册结果），断 `Tk` 面恰四只、且 `tk.ui.copyInto === 本节判的那一只` |
+
+### Steps
+
+- [x] **Step 1: 写 §O 十三判据（此时 `ui.js` 不存在，必红）**
+
+```bash
+node --check scripts/toolkit-tests.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/seg3t5/gate1-red.log 2>&1; echo "exit=$?"
+grep -E "^# (tests|pass|fail)|^not ok" /tmp/seg3t5/gate1-red.log
+```
+实跑：`exit=1`、`# tests 223 / pass 222 / fail 1`，红的是一条**文件级**
+`not ok 1 - scripts/toolkit-tests.mjs`（`await import` 在注册完前序 222 条之后崩）——与 Task 2/3/4
+的 §L/§M/§N 同形状，所以"fail 恰为 §O 条数"的期望同样不成立；判据看的是这个 + §A–§N 的 222 条一条不红。
+
+- [x] **Step 2: 写 `dev/js/tools/ui.js`，直到 §O 十四条里除 O13 外全绿**
+
+写完 `ui.js` 复跑：`# tests 235 / pass 234 / fail 1`，红的恰好是
+`not ok 235 - O13 抽离不留第二份实现…`——那一节要读 `workbench.js` 与 `toolkitCore.js` 的磁盘文本，
+这一步还没改它们，`const flash =` 还留在装配层里。这一格的红绿顺序本身就是搬迁的验收：**先有模块、
+再断言旧实现归零**，反过来写会在 Step 2 就得到一片读不出归因的红。
+
+- [x] **Step 3: 改 `workbench.js` 与 `toolkitCore.js`，§O 与 §J 全绿**
+
+```bash
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/seg3t5/gate1-green.log 2>&1; echo "exit=$?"
+grep -E "^# (tests|pass|fail)|^not ok" /tmp/seg3t5/gate1-green.log
+```
+实跑：`exit=0`、`# tests 235 / pass 235 / fail 0`。§J 那 16 条改动面只有四处，且**断言本体一条没改**：
+夹具多 `import` 一只 `J_UI`、`jMount` 的 `Tk` 多供一格、J12 的清单从三只名字变四只（标题跟着改口）、
+J14 的禁 import 名单加 `'./ui.js'`。J7 那九个小节一个字没动——它们是这次搬迁的回归网，动它就是自证失效。
+
+- [x] **Step 4: 十三把刀变异自证**
+
+```bash
+cp -R dev scripts package.json vite.config.js /tmp/seg3t5u/tree && node /tmp/seg3t5u/mut.mjs   # 基线
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON node /tmp/seg3t5u/mut.mjs U1 U2 … U13
+```
+台账见下面那节。每一把都要求 `# tests` 仍是 235（少一个用例＝模块加载失败，那一刀不算证据）。
+
+- [x] **Step 5: 产物 gzip A/B**
+
+两档各跑一次 `vite build`（同一台机、同一份 `node_modules`、只差这三本源文件），口径
+`cat f | gzip -9 | wc -c`：
+
+| 产物 | 搬迁前 raw / gzip | 搬迁后 raw / gzip | gzip 差 |
+| --- | --- | --- | --- |
+| `toolIdcard.min.js` | 184,825B / 64,666B | 184,521B / 64,479B | **−187B** |
+| `toolkitCore.min.js` | 18,103B / 6,583B | 18,986B / 6,977B | **+394B** |
+| 证件页那两本合计 | 71,249B | 71,456B | **+207B** |
+
+起草版那句"预期 0 到 ±20B"落空了，但它落空的方向要说清：**单看 `toolIdcard.min.js` 是 −187B，
+不是零**——因为这一本里那份复制实现整段搬走了；共用层那本 +394B 里除了搬进来的三件套，
+还多了 Step 3 那道新闸门（闸门文案 118 字节，实测搬迁后出现在 `toolIdcard.min.js` 一次、搬迁前零次）
+和一层 module namespace 包装。两本相加 **+207B**，是"一份复制实现换成三页共用"的代价。
+按 §7 那一格的口径（**三件产物** `toolkit.min.css` + `toolkitCore.min.js` + `toolIdcard.min.js`
+各自 gzip 再相加）：`2,110 + 6,977 + 64,479 = **73,566B**`，对 76KB（77,824B）余 **4,258B（5.5%）**——
+上一格记的是 73,359B / 余 4,465B（5.7%），这 207B 就是本格的全部影响。CSS 一个字节没动，
+首屏那一格（`toolkit.min.css` + 页面 HTML）量的是非 JS 两件，本格不碰。
+
+顺带两条产物形状自证：两档各自的 22 本 `assets/js/*.min.js` 里 `import{` / `import(` 命中数都是 **0**；
+`复制失败，请手动选中` 那一句搬迁前只在 `toolIdcard.min.js`、搬迁后只在 `toolkitCore.min.js`，
+各一次——搬干净了，没有第二份。
+
+- [x] **Step 6: 登记镜像并同步计划**
+
+`FILE_TARGETS` 加 `'dev/js/tools/ui.js',`（放在段 3 那一组里，紧跟 `codec.js` 之前，注释按
+"跟着磁盘走，不跟着计划走"那条口径写），本计划 Task 5 那节贴两块落地镜像，然后
+`node scripts/verify-plan-blocks.mjs --fix` 把 §J 与 `workbench.js` 两块旧镜像整块换成磁盘内容；
+`toolkitCore.js` 那一块因为文件头整段改口、公共前缀候选不唯一，`--fix` 拒绝落笔，按行范围手工换。
+
+### 变异台账（十三把刀，`/tmp/seg3t5u/mut.mjs`，跑完即弃）
+
+十三把刀全部**有牙**：每把都咬住它点名的判据，`# tests` 每把都是 235，预期外红为零。
+第一轮跑出来有三把的预期需要处置，处置记录写在刀名后面。
+
+| 刀 | 改哪一行 | 红名单（实测＝预期） | 处置 |
+| --- | --- | --- | --- |
+| U1 | 摘 `copyInto` 的早退 | O12 | 一次过。J7 不红是设计内：`workbench.js` 那道同一条判断还在，页面路径走不到 `copyInto`——这一对就是"重复必须有独立判据"的账 |
+| U2 | 两条时长**用法**对调（`ok ? COPY_RESET_MS : COPY_FAIL_MS` 两个分支互换） | O10 / O11 / J7 | **预期改过**：起草时把 O3 写进了预期，跑出来 O3 不红——它只读常数，这一刀改的是用法，`COPY_FAIL_MS > COPY_RESET_MS` 一个字没动。改预期并把这条留作"值口径判据抓不到用法漂移"的反例 |
+| U3 | `finally` 里不摘临时框 | O6 / O7 / O9 / O10 / O11 / J7 | **预期补过一条**：O11 四小节里三小节走兜底，每节末尾都量一次 `childNodes.length === 0`，节点留在页上就红在那里 |
+| U4 | 把 `ta = box` 提到 `appendChild` 之前 | O8 | 一次过。真 DOM 上这一刀的后果是 `removeChild` 抛 `NotFoundError`，把"这一级失败"变成"抛到页面外" |
+| U5 | 临时框不写 `readonly` | O6 / O7 / O9 / O11 / J7 | **预期补过四条**，且四条同一个来路：夹具数框用的是 `oBoxes()`，它只认带 `readonly` 的那几条，属性一摘这些框在夹具眼里就"不存在"。这是**数法带来的连带**，不是四件独立的事——写进台账，免得下轮把它读成"判据互相纠缠" |
+| U6 | 不 `select` 就 `execCommand` | O6 / O7 / O9 / J7 | 一次过。复制的是用户原来的选区，不是那串结果——最坏的一种"看起来成功了" |
+| U7 | `execCommand` 缺席时当作成功 | O7 / J7 | **刀改过形状**：起草版写成整句 `return true;`，那会连 `execCommand('copy')` 那一声调用一起删掉，O6/O9/O10/O11 全红——红的是"根本没问过它"这件**别的事**，刀切歪了。改成只动三元"没手"那一支之后，红名单正好落在预期的两格 |
+| U8 | `writeText` 同步抛时当成成功（`p = null` → `p = Promise.resolve()`） | O11 / J7 | **锚点修过**：起草时按六格缩进写锚，实际文件里那三行是四格，命中 0 次、这一刀作废；修锚点后一次过 |
+| U9 | `writeText` 异步拒绝时不退兜底（`done(legacyCopy(…))` → `done(false)`） | O11 / J7 | 一次过 |
+| U10 | `doCopy` 不把 `later` 传下去 | J7 | 一次过。§O 一条都不红（`ui.js` 自己传 `later`）——这一刀证明"接线那一行是有牙的"，不是白写的参数 |
+| U11 | 摘掉 `createWorkbench` 的 `Tk.ui` 闸门 | O13 | 一次过。摘掉后缺 `ui` 的装配层照样构造成功，缺陷推迟到用户第一次点复制按钮 |
+| U12 | `toolkitCore` 不挂第四只 `ui` | J12 / J16 / O13 | **预期补过一条**：J16 在 §I 假 DOM 下真跑一遍入口，`Tk` 少一格 → `createWorkbench` 闸门当场抛 → 入口"成功路径把两条 `<script>` 接起来"落空。这一刀同时被清单（J12）、构造期点名（O13）、页面真起得来（J16）三层各抓一次 |
+| U13 | `flash` 的还原目标取改口当时的 `textContent` | O4 / J7 | 一次过。第一次改口看不出来（当前文案正是原文案），改口期间再按一次才暴露——所以 O4 里那半条连点用例是这一刀的唯一去处 |
+
+三条"刀改形状 / 锚点作废"（U7、U8）与四处"预期补条"（U2、U3、U5、U12）都留着不删，
+理由跟段 1 Task 8 那条一样：**改过的刀不记下来，下一轮就会照旧形状重犯**。
+
+### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
+
+`dev/js/tools/workbench.js` 与 `dev/js/toolkitCore.js` 的整文件镜像在**段 2 计划**的 Task 7 里，
+`§J` 那一节的镜像也在段 2——它们跟着本格的改动一起被同步，段 3 计划里不重贴第二份
+（重贴就是两份真相，门禁二只会认一块、另一块静默过期）。本节这两块是段 3 名下的新镜像。
+
+#### `dev/js/tools/ui.js`（整文件）
+
+```js
+/**
+ * 工具箱的界面小工具第一档：**把一栏结果复制到剪贴板**这件事的三级兜底。
+ *
+ * 为什么单独一本文件：证件页、编码工具箱页、JSON 页都要"把这栏的纯文本复制走"，而这句话在
+ * 浏览器里不是一句 API 就能写完的事——`navigator.clipboard` 在非安全上下文（http 页面）缺席、
+ * 被权限策略拒绝时异步 reject、个别环境下直接同步抛（连 Promise 都不返回），三条路都走完才算
+ * 试过。段 2 它长在 `workbench.js` 里（那时只有证件页要），段 3 Task 5 抽出来给三页共用。
+ *
+ * 三条口径，§O 的判据逐条对着咬：
+ *
+ * 1. **只搬不改行为**。`legacyCopy`、两条时长、四句文案（`已复制` / `复制失败，请手动选中`）
+ *    逐字符照搬段 2 落地的那一份，兜底顺序与早退条件也一样；页面接线仍由 §J 那十六判兜着，
+ *    J7 的九个小节就是这次搬迁的回归网。
+ * 2. **零 import、零宿主全局**（§O2）。`doc` / `clipboard` / `later` 一律由调用方注入，
+ *    所以这一本能在 §I 那份假 DOM 下逐条测。它同时是 `toolkitCore.js` 把 `ui` 挂进
+ *    `window.Tk` 的前提：一旦它 import 了别的东西，两个页面入口就各 reach 一份，产物立刻
+ *    变成带 `import{` 的废文件（实测记录在 `dev/js/toolkitCore.js` 开头）。
+ * 3. **任何一级都不许抛到页面外面**。剪贴板被拒绝是浏览器的正常行为，"用户按了没反应"才是
+ *    缺陷；每一级的失败都收敛成一句文案与一条恢复用的定时回调（O8、O9 分别咬两处抛点）。
+ *
+ * 与 `view.js` 的分工：`view` 出**结果 HTML**（纯字符串），这一本碰的是**按钮文案与临时节点**，
+ * 两者互不 import。`COPY_LABEL`（面板 → 复制按钮的原文案）留在 `workbench.js`——那是页面骨架
+ * 里的事，不是"复制"这件事的一部分；改口之后要还原成哪一句，由调用方说了算（O4）。
+ *
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §O 十三判，加上 §J 的 J7 原样全绿。
+ */
+
+/** 复制按钮改口"已复制"之后多久恢复原文案（毫秒）；只有 `copyInto` 读这两条时长，不抽 token */
+export const COPY_RESET_MS = 1600;
+
+/** 复制失败后的提示停留时长，比成功的那句长一点：那句要被人读到才会去手动选中文本 */
+export const COPY_FAIL_MS = 2600;
+
+/**
+ * 按钮文案的临时改口：失败与成功走同一处，恢复时长不同（成功那句不需要读）。
+ * @param {object} btn 要改口的按钮，只需 `textContent` 可写
+ * @param {string} text 改口成哪一句
+ * @param {number} ms 停留多久，原样透传给 `later`，这一层不替页面决定时长
+ * @param {string} original 恢复成哪一句：由调用方记下（见 `workbench.js` 的 `COPY_LABEL`），
+ *   不取当前 `textContent`——连点两次时当前那句正是"已复制"，取它就等于永远停在改口状态
+ * @param {(fn: () => void, ms: number) => number} [later] `setTimeout` 的别名，测试里换成
+ *   同步执行；不给就落回宿主那一只（全文件唯一一处读宿主计时器，§O2 数着它）
+ * @returns {void}
+ */
+export function flash(btn, text, ms, original, later) {
+  btn.textContent = text;
+  const at = typeof later === 'function' ? later : (fn, delay) => setTimeout(fn, delay);
+  at(() => { btn.textContent = original; }, ms);
+}
+
+/**
+ * `navigator.clipboard` 不可用时的兜底：临时 textarea + `execCommand('copy')`。
+ * 只在 http 或用户未授予剪贴板权限时走到这里，用完立刻摘掉节点——留在 DOM 里就是
+ * 一个能被 Tab 走到的隐形输入框。
+ * @param {object} doc 提供 `createElement` / `body.appendChild` / `body.removeChild`
+ * @param {string} text 要复制的文本
+ * @returns {boolean} 有没有真的复制上
+ */
+export function legacyCopy(doc, text) {
+  let ta = null;
+  try {
+    const box = doc.createElement('textarea');
+    box.setAttribute('readonly', 'readonly');
+    box.value = text;
+    doc.body.appendChild(box);
+    // 只有真挂上去的那一个才需要摘：`appendChild` 自己抛时 `ta` 仍是 null，
+    // 那句 `removeChild` 就会抛出函数外，把"这一级失败"变成"这一级抛错"。
+    ta = box;
+    box.select();
+    return typeof doc.execCommand === 'function' ? Boolean(doc.execCommand('copy')) : false;
+  } catch {
+    return false;
+  } finally {
+    // 摘节点写在 `finally`：`select()` 与 `execCommand` 抛错时也要摘——留在页面上
+    // 就是一个能被 Tab 走到的隐形输入框，而这一级的口径是"不许抛到页面外面"。
+    if (ta) doc.body.removeChild(ta);
+  }
+}
+
+/**
+ * 复制一段文本，三级兜底：`navigator.clipboard` → 临时 `<textarea>` + `execCommand` →
+ * 一句"请手动选中"。任何一级都不许抛到页面外面：剪贴板被权限策略拒绝是浏览器的正常行为，
+ * 用户按了没反应才是缺陷。
+ *
+ * 早退那一道（`btn` 缺席或 `text` 为空）与调用方 `workbench.js` 的同一条判断**故意重复**：
+ * codec 页要直接调这一句，那时没有人替它判空。摘掉它的后果是"按一条还没内容的复制按钮
+ * → 剪贴板是空的、按钮却报了'已复制'"。
+ *
+ * @param {object} args 一次复制的全部输入，全部由调用方注入
+ * @param {object} [args.btn] 按钮；缺席就早退（没地方改口）
+ * @param {string} [args.text] 要复制的纯文本；空串或没给都早退
+ * @param {string} [args.original] 按钮的原文案，改口之后还原成它
+ * @param {{writeText?: (t: string) => Promise<void>}} [args.clipboard] `navigator.clipboard`，
+ *   没有这只手、或有手却没有 `writeText` 那根手指，都直接走兜底
+ * @param {object} args.doc 传给 `legacyCopy` 的 `document`
+ * @param {Function} [args.later] 透给 `flash` 的定时器别名
+ * @returns {void}
+ */
+export function copyInto({ btn, text, original, clipboard, doc, later } = {}) {
+  if (!btn || !text) return;
+  const done = (ok) => flash(btn, ok ? '已复制' : '复制失败，请手动选中',
+    ok ? COPY_RESET_MS : COPY_FAIL_MS, original, later);
+  if (clipboard && typeof clipboard.writeText === 'function') {
+    let p = null;
+    // 同步抛错与异步拒绝是同一条路：`writeText` 在权限策略拒绝时可能直接抛（不返回
+    // Promise），那正是上面那句话点名的场景，不能让它从按钮回调里跑出去。
+    try {
+      p = Promise.resolve(clipboard.writeText(text));
+    } catch {
+      p = null;
+    }
+    if (p !== null) {
+      p.then(() => done(true), () => done(legacyCopy(doc, text)));
+      return;
+    }
+  }
+  done(legacyCopy(doc, text));
+}
+```
+
+#### `scripts/toolkit-tests.mjs` §O（整节，从 `// ── §O` 到文件末尾）
+
+```js
+// ── §O 复制三件套抽离（`tools/ui.js`，段 3 Task 5）─────────────────────────
+// 本节测的是**从 `workbench.js` 搬出来的那三个辅助**，不测页面接线：接线仍由 §J 那十六判
+// 原样兜着（J7 的九个小节就是这次搬迁的回归网，一条都没改、也不许改）。搬迁有两条约言在先
+// 的红线，本节各钉一处：
+//   ① **`ui.js` 必须像 `view.js` 一样零 import**。它一旦被 import 进两本装配层，两个页面入口
+//      就各 reach 一份，产物立刻变成带 `import{` 的废文件（实测记录在 `toolkitCore.js` 开头）。
+//      O2 拿源码文本守这一条，J14 那份"不许 import"的名单里也必须有它。
+//   ② **只搬不改行为**：三级兜底的顺序、两条时长、四句文案，逐字符照搬段 2 落地的那一份。
+//      O4–O12 按"输入形状 → 文案 / 时长 / 副作用"三条观察口逐档钉死，J7 再从页面那一头复认一次。
+// 一处口径先写在这儿，免得读代码时以为谁手滑多写了一遍：`copyInto` 里那道"没按钮 / 没文本
+// 就早退"与调用方 `doCopy` 的同一条判断是**故意重复**的。codec 页要直接调 `copyInto`，那时
+// 没有人替它判空；早退被摘掉的后果是"按一条还没内容的复制按钮 → 剪贴板是空的、按钮却说已复制"。
+// O12 咬的就是这一档。
+const { COPY_RESET_MS, COPY_FAIL_MS, flash, legacyCopy, copyInto } = await import('../dev/js/tools/ui.js');
+
+/** 剥注释扫源码：块注释与行注释里的字样都不算命中（与 §K/§L/§M/§N 同一形状） */
+const oCode = () => read('dev/js/tools/ui.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+/**
+ * 假 DOM 仍只有 §I 那一份工厂（`iPage`）——不为复制这一件小事长第二套夹具。
+ * 本节只取它的 `doc` / `mk` 与三张观察口（`selLog` / `commandLog` / `created`），
+ * 面板骨架那一半一次都不读。
+ * @returns {object} §I 的 page
+ */
+const oPage = () => iPage();
+
+/** 造一条带原文案的按钮；`textContent` 走子节点，与真 DOM 同一张脸 */
+const oBtn = (page, text = '复制这批号码') => {
+  const btn = page.mk('button', 'o-btn');
+  btn.textContent = text;
+  return btn;
+};
+
+/** `later` 的夹具：只记账不执行，`flush()` 才把还原那一下放出来（与 §J 的 `timers` 同形状） */
+const oTimers = () => {
+  const due = [];
+  return {
+    due,
+    later: (fn, ms) => { due.push({ fn, ms }); return due.length; },
+    flush: () => { const list = due.splice(0, due.length); for (const t of list) t.fn(); return list; },
+  };
+};
+
+/** 兜底造出来的临时框只认带 `readonly` 的那几条（与 §J7 同一个数法，不靠"造了几个节点"猜） */
+const oBoxes = (page) => page.made.filter((e) => e.tagName === 'TEXTAREA'
+  && e.getAttribute('readonly') === 'readonly');
+
+/**
+ * 等微任务队列落地：`writeText` 那一级的成败是异步的，而注入的 `later` 只记账不跑。
+ * 用的是全局 `setTimeout`，不是注入给 `ui.js` 的那只——后者一执行就会把按钮文案改回去。
+ * @returns {Promise<void>} Promise 链落地
+ */
+const oSettle = () => new Promise((r) => { setTimeout(r, 0); });
+
+test('O1 导出面：五个名字一个不多一个不少，两常数三函数', async () => {
+  const mod = await import('../dev/js/tools/ui.js');
+  const wanted = ['COPY_FAIL_MS', 'COPY_RESET_MS', 'copyInto', 'flash', 'legacyCopy'];
+  const got = Object.keys(mod).sort();
+  assert.deepEqual(got, wanted, `导出面变了：多=${JSON.stringify(got.filter((k) => !wanted.includes(k)))} `
+    + `少=${JSON.stringify(wanted.filter((k) => !got.includes(k)))}`);
+  assert.equal(got.length, 5, '这五名就是 `window.Tk.ui` 的全部家当：加一个名字要同步 J12 的清单与 toolkitCore 的注释');
+  for (const k of ['flash', 'legacyCopy', 'copyInto']) {
+    assert.equal(typeof mod[k], 'function', `${k} 必须是函数：两页的装配层按这个名字直接调`);
+  }
+  for (const k of ['COPY_RESET_MS', 'COPY_FAIL_MS']) {
+    assert.equal(typeof mod[k], 'number', `${k} 必须是数字：时长写成串会静默变成"永不还原"`);
+  }
+});
+
+test('O2 源码红线：零 import、零宿主全局，注入的那三样就是它的全部世界', () => {
+  const src = oCode();
+  assert.equal(/\bimport\b/.test(src), false,
+    '一条 import 都不许有：两个入口 reach 同一模块就成共享 chunk，产物当场变废文件（toolkitCore.js 开头那条实测）');
+  assert.equal(/\brequire\(/.test(src), false, 'CommonJS 同理，而且浏览器里压根不存在');
+  for (const glob of ['window.', 'document.', 'navigator.', 'localStorage', 'globalThis']) {
+    assert.equal(src.includes(glob), false,
+      `${glob} 不许直接读：宿主对象一律由调用方注入（doc / clipboard / later），否则假 DOM 驱动不了这一本`);
+  }
+  assert.equal((src.match(/\bsetTimeout\b/g) || []).length, 1,
+    '全文件只许 `flash` 缺省那一档碰宿主计时器；时长口径归注入的 `later`，多一处就没法在测试里钉住');
+  assert.equal(src.includes('innerHTML'), false, '这一本只改 `textContent`、只挂临时节点，不产 HTML：产 HTML 是 view.js 的活');
+});
+
+test('O3 两条时长：值钉死 1600 / 2600，失败那句必须比成功那句长', () => {
+  assert.equal(COPY_RESET_MS, 1600, '成功那句的停留时长是段 2 定下的口径，改它要有新判据，不是顺手调参');
+  assert.equal(COPY_FAIL_MS, 2600);
+  for (const [name, ms] of [['COPY_RESET_MS', COPY_RESET_MS], ['COPY_FAIL_MS', COPY_FAIL_MS]]) {
+    assert.equal(Number.isInteger(ms), true, `${name} 要的是整数毫秒：小数或 NaN 走进宿主 setTimeout 是哪一档没人管`);
+    assert.equal(ms > 0, true, `${name} 必须是正数：0 或负数等于"改口之后立刻还原"，用户看不见那一句`);
+  }
+  assert.equal(COPY_FAIL_MS > COPY_RESET_MS, true,
+    '两句的相对长短是口径不是巧合：失败那句要被人读完才动得起来，倒过来挂就等于没说');
+});
+
+test('O4 flash：改口立刻生效、还原排进注入的 later、时长原样透传', () => {
+  const page = oPage();
+  const btn = oBtn(page);
+  const t = oTimers();
+  flash(btn, '已复制', 1600, '复制这批号码', t.later);
+  assert.equal(btn.textContent, '已复制', '调用当期就要看到新文案，异步改口等于没有反馈');
+  assert.equal(t.due.length, 1, '改口要能改回来，就得留下一条恢复用的回调');
+  assert.equal(t.due[0].ms, 1600, '时长原样透传给宿主：ui 层不替页面决定停留多久');
+  assert.equal(page.doc.body.childNodes.length, 0, 'flash 只动文案，不往页面上挂任何东西');
+  const released = t.flush();
+  assert.equal(released.length, 1);
+  assert.equal(btn.textContent, '复制这批号码', '排下去的那条必须真的还原成传进来的原文案');
+  // 同一格排两次（连点）：两条各还原各的，先排的那条不许被后一条顶掉
+  const btn2 = oBtn(page, '复制这批代码');
+  flash(btn2, '已复制', COPY_RESET_MS, '复制这批代码', t.later);
+  flash(btn2, '复制失败，请手动选中', COPY_FAIL_MS, '复制这批代码', t.later);
+  assert.equal(btn2.textContent, '复制失败，请手动选中');
+  assert.deepEqual(t.due.map((x) => x.ms), [COPY_RESET_MS, COPY_FAIL_MS]);
+  t.flush();
+  assert.equal(btn2.textContent, '复制这批代码', '原文案只有一份，两条回调落在同一格上不会把"已复制"存成新原文案');
+});
+
+test('O5 flash 不给 later：落回宿主 setTimeout，还原照样发生', async () => {
+  const page = oPage();
+  const btn = oBtn(page);
+  flash(btn, '已复制', 0, '复制这批号码');
+  assert.equal(btn.textContent, '已复制');
+  await new Promise((r) => { setTimeout(r, 20); });
+  assert.equal(btn.textContent, '复制这批号码',
+    '缺省那一档被摘掉的话，页面没注入 `later` 时按钮永远停在"已复制"——这一档没人看，只有真跑一次才暴露');
+  assert.equal(page.doc.body.childNodes.length, 0, '缺省路径同样不许往页面上留东西');
+});
+
+test('O6 legacyCopy 成功：readonly 框挂 body → select → execCommand("copy") → 摘净、返回 true', () => {
+  const page = oPage();
+  const before = page.created();
+  const ok = legacyCopy(page.doc, '110101199003070018');
+  assert.equal(ok, true, 'execCommand 返回 true 就是复制上了，别再要求第二样证据');
+  assert.equal(page.created() - before, 1, '一次复制只造一条临时框');
+  assert.deepEqual(page.commandLog, ['copy']);
+  assert.equal(page.selLog.length, 1, '不 select 就 execCommand，复制的是用户的选区不是临时框');
+  assert.equal(page.selLog[0].tagName, 'TEXTAREA');
+  assert.equal(page.selLog[0].value, '110101199003070018', '复制的必须是传进去的那份文本');
+  assert.equal(page.selLog[0].getAttribute('readonly'), 'readonly',
+    '不写 readonly，select() 就把用户的页面变成一次真编辑（光标跳走、原有选区丢掉）');
+  assert.equal(oBoxes(page).length, 1);
+  assert.equal(page.doc.body.childNodes.length, 0, '用完必须从 body 上摘掉：留在页里就是一个能被 Tab 走到的隐形输入框');
+});
+
+test('O7 legacyCopy 的两种"没复制上"：execCommand 说不行 / 根本没这只手，都返回 false 且摘净', () => {
+  const a = oPage();
+  a.doc.copyOk = false;
+  assert.equal(legacyCopy(a.doc, 'x'), false, 'execCommand 返回 false 就是失败，不许当成功报');
+  assert.deepEqual(a.commandLog, ['copy'], 'execCommand 在，就要真的问过它');
+  assert.equal(a.selLog.length, 1, '失败也要留一条被选中过的框：这一级的失败靠用户手动 Ctrl+C 兜');
+  assert.equal(a.doc.body.childNodes.length, 0);
+  assert.equal(oBoxes(a).length, 1);
+
+  const b = oPage();
+  b.doc.execCommand = undefined;
+  assert.equal(legacyCopy(b.doc, 'x'), false, '连 execCommand 都没有（个别环境把 document 裁过）时这一级算失败');
+  assert.deepEqual(b.commandLog, [], '没有 execCommand 就不该假装调用过它');
+  assert.equal(b.selLog.length, 1);
+  assert.equal(b.doc.body.childNodes.length, 0, '这一级也要在 finally 里摘掉临时框');
+});
+
+test('O8 legacyCopy：`appendChild` 自己抛时不许再调 `removeChild`（那会把一次失败变成一次抛出）', () => {
+  const page = oPage();
+  let removed = 0;
+  page.doc.body.appendChild = () => { throw new Error('boom'); };
+  page.doc.body.removeChild = (n) => { removed += 1; return n; };
+  let ok;
+  assert.doesNotThrow(() => { ok = legacyCopy(page.doc, 'x'); },
+    '挂不上去是这一级的失败，不是抛出——抛出会顺着按钮回调跑到页面外面');
+  assert.equal(ok, false);
+  assert.equal(removed, 0, '临时框根本没挂上去，对着它 removeChild 必抛 NotFoundError');
+  assert.equal(page.selLog.length, 0, '没挂上就别 select：选中一个不在文档里的节点没有意义');
+  assert.deepEqual(page.commandLog, [], '没挂上就别 execCommand：那复制的是用户原来的选区');
+});
+
+test('O9 legacyCopy：`select()` 与 `execCommand()` 抛错都走 finally，临时框照样摘净', () => {
+  const a = oPage();
+  const realCreate = a.doc.createElement;
+  a.doc.createElement = (tag) => {
+    const el = realCreate(tag);
+    el.select = () => { throw new Error('boom'); };
+    return el;
+  };
+  let okA;
+  assert.doesNotThrow(() => { okA = legacyCopy(a.doc, 'x'); });
+  assert.equal(okA, false, 'select 抛就是这一级失败，不许报成功');
+  assert.equal(a.selLog.length, 0, '抛掉的那次 select 没成功选中');
+  assert.deepEqual(a.commandLog, [], 'select 都没过去，就不该问 execCommand');
+  assert.equal(a.doc.body.childNodes.length, 0, 'finally 那条摘节点的口子是这一节唯一的兜底，摘一次就留下一个隐形输入框');
+  assert.equal(oBoxes(a).length, 1, '临时框确实造出来过：这一刀测的是"挂上之后抛"');
+
+  const b = oPage();
+  b.doc.execCommand = () => { throw new Error('boom'); };
+  let okB;
+  assert.doesNotThrow(() => { okB = legacyCopy(b.doc, 'x'); });
+  assert.equal(okB, false);
+  assert.equal(b.selLog.length, 1);
+  assert.equal(b.doc.body.childNodes.length, 0);
+});
+
+test('O10 copyInto 没有可用的 clipboard：兜底成败对应那两句文案与那两条时长', () => {
+  const page = oPage();
+  const btn = oBtn(page);
+  const t = oTimers();
+  copyInto({ btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later });
+  assert.deepEqual(page.commandLog, ['copy'], '没有 navigator.clipboard 时不该什么都不做');
+  assert.equal(btn.textContent, '已复制');
+  assert.equal(t.due.length, 1);
+  assert.equal(t.due[0].ms, COPY_RESET_MS);
+  t.flush();
+  assert.equal(btn.textContent, '复制这批号码');
+
+  // 兜底也说"不行" → 失败那一句，时长走失败档
+  page.doc.copyOk = false;
+  copyInto({ btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later });
+  assert.equal(btn.textContent, '复制失败，请手动选中');
+  assert.equal(t.due[0].ms, COPY_FAIL_MS, '失败那句要给人时间读完');
+  assert.equal(t.due[0].ms > COPY_RESET_MS, true);
+  assert.equal(page.doc.body.childNodes.length, 0, '连失败都不许留下临时框');
+  t.flush();
+  assert.equal(btn.textContent, '复制这批号码');
+
+  // 有 `clipboard` 这只手、却没有 `writeText` 那根手指：同步走兜底，不许留下一条永远不落的 Promise
+  const c = oPage();
+  const btnC = oBtn(c);
+  const tC = oTimers();
+  copyInto({ btn: btnC, text: 'abc', original: '复制这批号码', clipboard: {}, doc: c.doc, later: tC.later });
+  assert.deepEqual(c.commandLog, ['copy'], 'writeText 缺席就直接退到 execCommand');
+  assert.equal(btnC.textContent, '已复制');
+  assert.equal(tC.due.length, 1, '这一条必须同步排下去：等一个永远不会来的 Promise 就是把反馈吞了');
+});
+
+test('O11 copyInto 的三条剪贴板路：成功 / 异步拒绝 / 同步抛，一条都不许抛到页面外面', async () => {
+  // (a) 首选 `navigator.clipboard`：不碰 execCommand，也不往 body 上挂东西
+  {
+    const page = oPage();
+    const btn = oBtn(page);
+    const t = oTimers();
+    const writes = [];
+    copyInto({
+      btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later,
+      clipboard: { writeText: (v) => { writes.push(v); return Promise.resolve(); } },
+    });
+    await oSettle();
+    assert.deepEqual(writes, ['abc'], '复制的是那串纯文本，不是结果区的 HTML');
+    assert.equal(btn.textContent, '已复制');
+    assert.equal(t.due[0].ms, COPY_RESET_MS);
+    assert.deepEqual(page.commandLog, [], '这一级根本不需要 execCommand');
+    assert.equal(page.doc.body.childNodes.length, 0, '走剪贴板就不该在页面上长出临时输入框');
+    t.flush();
+    assert.equal(btn.textContent, '复制这批号码');
+  }
+  // (b) 剪贴板被拒（异步 reject）→ 退到临时框，兜底成功了就别报失败
+  {
+    const page = oPage();
+    const btn = oBtn(page);
+    const t = oTimers();
+    const writes = [];
+    copyInto({
+      btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later,
+      clipboard: { writeText: (v) => { writes.push(v); return Promise.reject(new Error('NotAllowedError')); } },
+    });
+    await oSettle();
+    assert.equal(writes.length, 1, '先试过剪贴板，退路才是 execCommand');
+    assert.deepEqual(page.commandLog, ['copy']);
+    assert.equal(oBoxes(page).length, 1, '兜底只该造一条临时框');
+    assert.equal(btn.textContent, '已复制', '兜底成功了就别报失败');
+    assert.equal(t.due[0].ms, COPY_RESET_MS, '退路成功走的也是成功那一档时长');
+    assert.equal(page.doc.body.childNodes.length, 0);
+  }
+  // (c) `writeText` 直接同步抛（不返回 Promise）：与异步拒绝同一条退路
+  {
+    const page = oPage();
+    const btn = oBtn(page);
+    const t = oTimers();
+    assert.doesNotThrow(() => copyInto({
+      btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later,
+      clipboard: { writeText: () => { throw new Error('SecurityError'); } },
+    }), '权限策略拒绝时 writeText 可能直接抛，那正是"不许抛到页面外面"点名的场景');
+    await oSettle();
+    assert.deepEqual(page.commandLog, ['copy'], '同步抛错也要退到 execCommand');
+    assert.equal(btn.textContent, '已复制');
+  }
+  // (d) 剪贴板与兜底双双失败 → 一句失败文案，仍然不抛
+  {
+    const page = oPage();
+    const btn = oBtn(page);
+    const t = oTimers();
+    page.doc.copyOk = false;
+    copyInto({
+      btn, text: 'abc', original: '复制这批号码', doc: page.doc, later: t.later,
+      clipboard: { writeText: () => Promise.reject(new Error('NotAllowedError')) },
+    });
+    await oSettle();
+    assert.equal(btn.textContent, '复制失败，请手动选中');
+    assert.equal(t.due[0].ms, COPY_FAIL_MS);
+    assert.equal(page.doc.body.childNodes.length, 0);
+  }
+});
+
+test('O12 copyInto 的"没东西可复制"早退：剪贴板、临时框、按钮文案三样都不碰', () => {
+  const page = oPage();
+  const btn = oBtn(page);
+  const t = oTimers();
+  let writes = 0;
+  const clipboard = { writeText: () => { writes += 1; return Promise.resolve(); } };
+  const before = page.created();
+  copyInto({ btn, text: '', original: '复制这批号码', clipboard, doc: page.doc, later: t.later });
+  assert.equal(writes, 0, '空文本一次都不该写');
+  assert.deepEqual(page.commandLog, [], '空文本也不该走兜底');
+  assert.equal(page.created(), before, '空文本一次都不该造临时框');
+  assert.equal(t.due.length, 0, '什么都没复制，就别改口');
+  assert.equal(btn.textContent, '复制这批号码');
+  // 按钮缺席（骨架缺那一格）：不抛、也不碰剪贴板
+  copyInto({ btn: null, text: 'abc', original: '复制这批号码', clipboard, doc: page.doc, later: t.later });
+  assert.equal(writes, 0, '没有按钮就没地方改口，剪贴板也不该被白写一次');
+  assert.equal(page.created(), before);
+  // 整包什么都没给（`{}`）：同一早退，不抛
+  assert.doesNotThrow(() => copyInto({}), '调用方漏传不等于页面塌：这一本的第一句话就该是"没得复制，收工"');
+  assert.doesNotThrow(() => copyInto());
+});
+
+test('O13 抽离不留第二份实现：装配层经 `Tk.ui` 拿，缺它就构造期抛；core 挂第四只', async () => {
+  // (a) `createWorkbench` 的闸门：缺 `Tk.ui.copyInto` 必须当场点名，
+  //     而不是等用户第一次点复制按钮时才从回调里抛出去（那时结果是"按了没反应"）。
+  const bare = { document: oPage().doc, Tk: { view: J_VIEW }, runGuarded: () => true };
+  assert.throws(() => createWorkbench(bare),
+    (err) => err instanceof TypeError && /Tk\.ui/.test(err.message) && /copyInto/.test(err.message),
+    '闸门没拦住"缺 ui"，或者拦住了却没点名 copyInto');
+  assert.throws(() => createWorkbench({ ...bare, Tk: { view: J_VIEW, ui: {} } }),
+    (err) => err instanceof TypeError && /copyInto/.test(err.message),
+    '挂了一只没有 copyInto 的 ui 也算缺：装配层只认它要调的那一根手指');
+
+  // (b) `workbench.js` 源码里那四处定义一处不留——搬迁要一次搬干净，
+  //     留下第二份实现的下场是"改了一份、页面上跑的是另一份"。
+  const wb = read('dev/js/tools/workbench.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  for (const shape of ['const flash =', 'function legacyCopy', 'const COPY_RESET_MS', 'const COPY_FAIL_MS']) {
+    assert.equal(wb.includes(shape), false, `workbench.js 里还留着 ${shape}`);
+  }
+  assert.equal(/ui\.copyInto\(/.test(wb), true, 'doCopy 必须真的改口去调 Tk.ui.copyInto，不然 (a) 那道闸门白加');
+
+  // (c) `toolkitCore.js` 挂第四只，且它是唯一 import `ui.js` 的地方。
+  //     这里重开一次 `globalThis.window` 再按新 query 载 core——同一个 query 会被模块缓存
+  //     挡住，那样读到的是 J12 那一次的注册结果，本节就没真的验到"四只"这一格。
+  const core = read('dev/js/toolkitCore.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.equal(/from '\.\/tools\/ui\.js'/.test(core), true, 'core 要 import 它才挂得上');
+  assert.equal(/window\.Tk\s*=\s*\{[^}]*\bui\b[^}]*\}/.test(core), true, 'window.Tk 里必须有 ui 这一格');
+  globalThis.window = {};
+  try {
+    const mod = await import('../dev/js/toolkitCore.js?o13');
+    assert.deepEqual(Object.keys(mod), [], 'core 仍是入口形状：一条 export 都不许有');
+    const tk = globalThis.window.Tk;
+    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'ui', 'view'],
+      'Tk 面就是这四只：J12 那份清单与这里必须同步改，两处不同步说明有人在偷偷扩面');
+    assert.equal(tk.ui.copyInto, copyInto, '挂上去的必须是本节判的那一只，不是页面上另长出来的一份');
+    assert.equal(tk.ui.legacyCopy, legacyCopy);
+  } finally {
+    delete globalThis.window;
+  }
+});
+```
+
+### 收口读数（2026-09-28 实跑，日志留在 `/tmp/seg3t5u/` 与 `/tmp/seg3t5/`）
+
+| 门禁 | 命令 | 读数 |
+| --- | --- | --- |
+| ① 判据套件 | `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` | `exit=0`、`# tests 235 / pass 235 / fail 0`（§O 贡献 13，222 → 235） |
+| ② 镜像自证 | `node scripts/verify-plan-blocks.mjs` | `exit=0`、**43 块**镜像与磁盘逐字节全等、`⚠ 未落地` **0 节**；js 块 40 个（段1 11 / 段2 19 / 段3 10） |
+| ③ 镜像门禁的牙齿 | `node scripts/verify-plan-blocks-teeth.mjs` | `exit=0`、**21/21** 通过；G12 那一条现在读到段 3 名下 10 块，新增的 `dev/js/tools/ui.js` 与 `§O` 自动进了核范围 |
+| ④ 产物形状 | `grep -l 'import{' assets/js/*.min.js` | **0 本**命中（22 本产物全扫）；`复制失败，请手动选中` 那一句在搬迁后只出现在 `toolkitCore.min.js`、`toolIdcard.min.js` 里为零 |
+| ⑤ 收录面 | `node scripts/check-tools-surface.mjs` | `exit=0`、1 条 ready（idcard）× 5 组判据全绿 |
+| ⑥ 收录面的牙齿 | `node scripts/check-tools-surface-teeth.mjs` | `exit=0`、**19/19** 组变异如期变红并还原 |
+
+变异台账的跑法与读数见上面那节；两档构建是在 `/tmp/seg3t5u/ab/{before,after}` 各跑一次
+`vite build`，`before` 用 `git archive HEAD` 解出、`after` 只多这三本源文件，
+`node_modules` 两边同一份软链——**仓库的 `assets/js/` 一个字节都没被这两次构建写过**。
+
+### 提交与提交后复跑（2026-09-28）
+
+代码那一格实跑 `efd08b0`，`5 files changed, 521 insertions(+), 76 deletions(-)`，逐条：
+`ui.js` +118/−0（新增，`create mode 100644`）、`workbench.js` +16/−65、`toolkitCore.js` +12/−5、
+`toolkit-tests.mjs` +371/−6、`verify-plan-blocks.mjs` +4/−0。
+`toolkit-tests.mjs` 那 +371 里只有 **9 行属 §J**（`J_UI` 一条 import 与它上面那句注释、`jMount` 供 `ui`、
+J12 标题与 `Object.keys` 清单与那句口径、`tk.ui.copyInto` 一条断言、③ 那行注释与禁用清单加 `'./ui.js'`），
+删除的 6 行全在这四处里；其余 362 行就是 §O 整节（磁盘 7531–7891，361 行）加一条空行分隔。
+**`J7` 的九个小节一字未改**——它正是这次搬迁的回归网，改它就等于把"回归"两个字抹掉。
+暂存集按路径核过：`git diff --cached --stat` 恰好这五条，另一路会话的脏项一个都没进来。
+提交后复跑三道：门禁一 `# tests 235 / pass 235 / fail 0`（`/tmp/seg3t5u/post1.log`）、
+门禁二 `exit=0`（43 镜像、752375B、`未落地 0 节`）、门禁三 **21/21**
+（`脏项 17 个前后一致，diff 指纹 452fb7eb5d643128`，`/tmp/seg3t5u/post3.log`）。提交后 `git status`
+剩 17 项，其中三项属本格（两份计划与一份 spec，就在这一节里收口），其余十四项
+（`_config.yml` / `about.html` / `dev/js/about.js` / `dev/sass/about.scss` / `package.json` /
+`_data/og_images.yml` / `dev/libJs/cursor-effects.js` / 两处 `.baoyu-skills/**` /
+未跟踪的 `scripts/lib/`、`scripts/article-check.mjs`、`scripts/wechat-draft.mjs`、
+`scripts/fixtures/article-check/`、`.baoyu-skills/baoyu-post-to-wechat/`）全属另一路会话。
+**全程不 push**（段 3 自约束）。
+
+三份文档各自的改动量，给下一个读的人定位用：段 3 计划 +688/−2，就是这一节——Task 5 从
+HEAD 里的 12 行桩（4842–4853）长成 698 行（4842–5539），其中两块落地镜像 479 行
+（`ui.js` 118 + §O 361），剩下的是 Files、对外契约回填、§O 判据表、六条 Step 的实跑读数、
+13 刀台账与这两节；段 2 计划 +37/−76，只动 `toolkitCore.js` 与 `workbench.js` 两块镜像和 §J 那一节，
+全部由 `--fix` 按磁盘内容换写；spec +2/−0，§7 那三档预算下面新增一段"段 3 Task 5 落地后复量"。
 
 ## Task 6: `codecView.js` + `codecWorkbench.js` + `toolCodec.js`（§Q + §R）
 
