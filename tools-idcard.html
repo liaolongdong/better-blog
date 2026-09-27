@@ -1,0 +1,486 @@
+---
+layout: default
+title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+seo_description: 粘贴身份证号、统一社会信用代码、银行卡号或手机号，本地逐位算给你看结论从哪来；也能按区划、性别、年龄段随机合成测试数据。全部在浏览器里算，不发任何请求。
+# 理由同 categories.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/idcard.html
+# tool 指向 _data/onlineTools.yml 里的那一条：面板清单、id 前缀、大标题都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: idcard
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/js/toolkitCore.js -> toolkitCore.min.js、dev/js/toolIdcard.js -> toolIdcard.min.js。
+     GitHub Pages 在 Linux 上构建，写错一个字母本地看不出来、线上一律 404，勿改。
+     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它（同 _layouts/aboutTemplate.html
+     里 jquery 必须最后那条的反向情形——这里前一条是后一条的依赖）。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+
+<section class="g-masthead tk-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">证件 · 机构代码 · 测试数据</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
+            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>本机</strong><span>随机合成</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段是设计文档 §5.5 那句"生成类面板固定一行提示"在**禁用脚本时也读得到**的那一份：
+    结果区里还会由装配层把各模块的口径常量原样再落一次（§H 的 H8 钉的是"一字不动"），
+    两处不冲突——这里说的是整页，结果区说的是这一批数据。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页所有号码、姓名、地址、邮箱都由浏览器随机合成，与真实个人或真实登记主体重合的概率可忽略；
+        仅供开发与测试用途，<strong>不得用于任何真实身份用途</strong>。
+        校验与解析只读你粘进来的内容，全部在本地算：不发请求、不写 localStorage、不上传剪贴板。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：下面五块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
+            但"生成"与"判定"这两类动作都要在浏览器里算，此时按下按钮不会有结果。
+        </p>
+    </noscript>
+    {%- comment -%}
+    地址栏里的 #hash 不是本页任何一块面板时，装配层只在这里说一句，**不动地址栏**
+    （段 1 计划 §6.0 第三条：坏 hash 原样留着供人复制排查）。默认 hidden，由 panel-dom 覆写。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    {%- comment -%}
+    键盘捷径只在这里说一次，不在 9 个栏位里各说一句：装配层（dev/js/tools/workbench.js）给
+    「生成」接 Enter（焦点在数量或日期格时），给「判定」接 Ctrl / ⌘ + Enter（焦点在粘贴框里）。
+    禁用脚本时这两句自然不成立——上面 `<noscript>` 那段已经说过"按钮不会有结果"，这里不再各挂一份。
+    {%- endcomment -%}
+    <p class="tk-kbd"><kbd>Enter</kbd> 生成 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 判定</p>
+
+    <div class="tk-workspace" id="{{ tk.prefix }}-workspace"
+         data-tk-ids="{% for p in tk.panels %}{{ p.slug }}{% unless forloop.last %},{% endunless %}{% endfor %}"
+         data-tk-prefix="{{ tk.prefix }}"
+         data-tk-label="{{ tk.h1 }}"
+         data-tk-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
+        这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
+        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        {%- endcomment -%}
+        <nav class="tk-index" id="{{ tk.prefix }}-tablist">
+            {%- for p in tk.panels -%}
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+                <span class="tk-index__name">{{ p.name }}</span>
+                <span class="tk-index__hint">{{ p.tagline }}</span>
+            </a>
+            {%- endfor -%}
+        </nav>
+
+        {%- comment -%}
+        下面五块面板的正文全部在构建期渲染（设计文档 §6.3：禁用脚本与爬虫都要读得到内容）。
+        每块都是「左：生成 / 右：校验解析」两栏，`#random` 没有可校验的输入，只有一栏。
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?tk-in-idcard-count=5，那是工具页最不像工具的故障。提交动作由 dev/js/toolIdcard.js
+        监听按钮与 Enter 键。
+        {%- endcomment -%}
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-idcard">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[0].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[0].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[0].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-gen">生成测试号码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
+                        <p class="tk-field tk-field--static">
+                            <label for="{{ tk.prefix }}-in-idcard-province">区划（只出现行码）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-idcard-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-idcard-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-idcard-county" data-tk-cascade="county">
+                                    <option value="">不限区县</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">三级都是收窄，不是必填：只选到省就在省内随机挑县。</span>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-idcard-sex">性别</label>
+                            <select id="{{ tk.prefix }}-in-idcard-sex">
+                                <option value="">不限</option>
+                                <option value="male">男</option>
+                                <option value="female">女</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-idcard-ageband">年龄段</label>
+                            <select id="{{ tk.prefix }}-in-idcard-ageband" data-tk-switch>
+                                <option value="">18–60 岁</option>
+                                <option value="18-30">18–30 岁</option>
+                                <option value="31-45">31–45 岁</option>
+                                <option value="46-60">46–60 岁</option>
+                                <option value="custom">指定出生日期</option>
+                            </select>
+                        </p>
+                        {%- comment -%}
+                        受开关控制的段落：`id` 是装配层找它的唯一路径（`workbench.js` 与 `panel-dom.js`
+                        同档，只走 `getElementById`，不碰 `querySelector`），`data-tk-when` 记的是
+                        "哪几个开关值会让它现身"，由 Task 9 拿 `WORKBENCH_SPEC` 的 switch targets 双向对账。
+                        少了 `id` 是最难查的一种漏：显隐静默不生效，页面看起来只是"多了一格一直显示"。
+                        {%- endcomment -%}
+                        <p class="tk-field" id="{{ tk.prefix }}-when-idcard-birth" data-tk-when="custom">
+                            <label for="{{ tk.prefix }}-in-idcard-birth">出生日期</label>
+                            <input id="{{ tk.prefix }}-in-idcard-birth" type="date" min="1900-01-01"
+                                   autocomplete="off" spellcheck="false">
+                            <span class="tk-help">下限 1900-01-01，上限是今天；出生年在 1900–1999 内会同时给出 15 位写法。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-idcard-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-idcard-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-idcard-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-idcard-gen" disabled>复制这批号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-idcard-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-idcard-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-read">校验与解析</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-idcard-read">号码（可一次粘多行，每行一条）</label>
+                            <textarea id="{{ tk.prefix }}-in-idcard-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="110101199003070015"></textarea>
+                            <span class="tk-help">15 位与 18 位都收；含空格或分隔符的原样保留，判定对象单独回显给你看。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-idcard-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-idcard-read" disabled>复制判定有效的号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-idcard-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-uscc">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[1].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[1].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[1].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-uscc-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-gen">生成合规代码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-uscc-registry">登记管理部门码（第 1 位）</label>
+                            <select id="{{ tk.prefix }}-in-uscc-registry" data-tk-charsets="uscc">
+                                <option value="">不填（取默认字符 9）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-uscc-category">机构类别码（第 2 位）</label>
+                            <select id="{{ tk.prefix }}-in-uscc-category" data-tk-charsets="uscc">
+                                <option value="">不填（取默认字符 1）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--static">
+                            <label for="{{ tk.prefix }}-in-uscc-province">行政区划（现行码，市级起）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-uscc-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-uscc-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">代码第 3–8 位是 6 位区划段，市本级取「市码 + 00」。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-uscc-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-uscc-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-uscc-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-uscc-gen" disabled>复制这批代码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-uscc-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-uscc-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-uscc-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-read">校验与逐段解析</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-uscc-read">代码（可一次粘多行）</label>
+                            <textarea id="{{ tk.prefix }}-in-uscc-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="91350100M000100Y43"></textarea>
+                            <span class="tk-help">小写字母会先归一成大写，原样输入与判定对象各回显一次。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-uscc-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-uscc-read" disabled>复制判定有效的代码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-uscc-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-uscc-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-bankcard">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[2].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[2].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[2].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-gen">生成测试卡号</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-bank">发卡行</label>
+                            <select id="{{ tk.prefix }}-in-bankcard-bank" data-tk-options="banks">
+                                <option value="">不限行别（表内全部 BIN 里随机）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-type">卡种</label>
+                            <select id="{{ tk.prefix }}-in-bankcard-type" data-tk-options="cardtypes">
+                                <option value="">不限</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-bankcard-length">位数（13–19）</label>
+                            <input id="{{ tk.prefix }}-in-bankcard-length" type="number" min="13" max="19" step="1"
+                                   autocomplete="off" inputmode="numeric" placeholder="按行别登记位数">
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-bankcard-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-bankcard-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-bankcard-gen" disabled>复制这批卡号</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-read">校验（Luhn）</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-bankcard-read">卡号（可一次粘多行，空格与连字符会被去掉）</label>
+                            <textarea id="{{ tk.prefix }}-in-bankcard-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="6222 0219 9003 0700 15"></textarea>
+                            <span class="tk-help">行别与登记位数查的是内置前缀表，查不到只说"表内未收录"，不下"无效"结论。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-bankcard-read" disabled>复制判定有效的卡号</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-mobile">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[3].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[3].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[3].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-gen">生成测试号码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-mobile-carrier">运营商</label>
+                            <select id="{{ tk.prefix }}-in-mobile-carrier" data-tk-options="carriers">
+                                <option value="">随机</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-mobile-segment">号段（三位）</label>
+                            <select id="{{ tk.prefix }}-in-mobile-segment" data-tk-options="segments">
+                                <option value="">不限号段</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-mobile-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-mobile-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-mobile-gen" disabled>复制这批号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-gen"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-read">校验与号段识别</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-mobile-read">号码（可一次粘多行）</label>
+                            <textarea id="{{ tk.prefix }}-in-mobile-read" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="13800138000"></textarea>
+                            <span class="tk-help">本站不做号码归属地：三位号段这一层判不到城市，而能干净取到许可的来源也只有这一层。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-read">判定</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-mobile-read" disabled>复制判定有效的号码</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-read"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-read"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-random">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[4].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[4].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[4].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-random-gen">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-random-gen">随机合成</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-random-gen">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-random-kind">来什么</label>
+                            <select id="{{ tk.prefix }}-in-random-kind" data-tk-switch>
+                                <option value="name">姓名</option>
+                                <option value="address">地址</option>
+                                <option value="email">邮箱</option>
+                                <option value="profile">一次一组（姓名 + 地址 + 邮箱）</option>
+                            </select>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-random-count">数量（1–50）</label>
+                            <input id="{{ tk.prefix }}-in-random-count" type="number" min="1" max="50" step="1" value="5"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-random-givelen" data-tk-when="name profile">
+                            <label for="{{ tk.prefix }}-in-random-givelen">名字字数</label>
+                            <select id="{{ tk.prefix }}-in-random-givelen">
+                                <option value="">不限（1 或 2 个字）</option>
+                                <option value="1">1 个字</option>
+                                <option value="2">2 个字</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--static" id="{{ tk.prefix }}-when-random-addr" data-tk-when="address profile">
+                            <label for="{{ tk.prefix }}-in-random-province">地址区划（只出现行码）</label>
+                            <span class="tk-cascade">
+                                <select id="{{ tk.prefix }}-in-random-province" data-tk-cascade="province">
+                                    <option value="">不限省份</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-random-city" data-tk-cascade="city">
+                                    <option value="">不限地市</option>
+                                </select>
+                                <select id="{{ tk.prefix }}-in-random-county" data-tk-cascade="county">
+                                    <option value="">不限区县</option>
+                                </select>
+                            </span>
+                            <span class="tk-help">街道与门牌是通用词随机拼的，不指向真实门牌。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-random-domain" data-tk-when="email profile">
+                            <label for="{{ tk.prefix }}-in-random-domain">邮箱域</label>
+                            <select id="{{ tk.prefix }}-in-random-domain" data-tk-options="domains">
+                                <option value="">三个保留域随机</option>
+                            </select>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-random-gen">生成</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-random-gen" disabled>复制这批结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-random-gen"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-random-gen"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的一面板框架/绑定层/视图挂成 window.Tk，页面入口只装配本页业务。
+两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后（同 weblab.html 那条
+口径——HTML 解析到这里时面板节点已经存在，装配层第一件事就是去找它们）。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolIdcard.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会在 Task 9 的收录面判据（三页正文非空、五块面板齐）里当场红。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}

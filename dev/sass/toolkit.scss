@@ -1,0 +1,648 @@
+/*** 在线工具页（/tools/idcard.html 起，`/tools/codec.html`、`/tools/json.html` 共用这一层）***/
+//
+// 一、像素转视口：postcss.config.js 的黑名单里有 `.tk-` 与 `.jt-` 两条**字符串**。
+// 这里必须是字符串而不是 `/^\.tk-/` 那种正则——postcss-px-to-viewport 1.1.1 的
+// `blacklistedSelector`（node_modules/postcss-px-to-viewport/index.js:130）对字符串走
+// `selector.indexOf(regex) !== -1`（子串命中任意位置），对正则走 `selector.match(regex)`。
+// 本层大量规则的最左选择器是 `.tk-workspace .tk-col` 这类后代形式， anchored 正则一条都盖不住；
+// 漏掉一条的后果与 about.scss 记的同一种：同一块版面一半按 px 画、一半按 750 设计稿等比放大。
+// 代价是黑名单变宽：任何别的文件将来写了带 `.tk-` 子串的选择器也会被一并放过——这两串是本页
+// 专用的类名前缀，Task 9 的收录面判据盯着构建产物，不会让它悄悄长到别处。
+// `@keyframes` 依然是唯一罩不住的地方（关键帧块的「选择器」是 0%/100%），所以本层不写动画，
+// 真要位移就用 tokens.scss 的 `--travel-*`。
+//
+// 为什么非排除不可：这一层是**桌面密度**的工具排版——13px 表单字、12.5px 表格字、40px 结果行高，
+// 全按视口等比放大到 1560px 屏上会变成 27px 的表单项，五块面板拉成三屏。与 `.tool` / `.cmdk` /
+// `.reader-` 那几条同一个理由。
+//
+// 二、样式不认识 JS 的运行状态，只认识 ARIA 与 `hidden`。`panel-dom.js` 的契约是「只写
+// `panel.js` 算好的那张属性表，不加 class、不改名、不补默认值」（段 1 计划 §6.0），装配层
+// （`workbench.js`）的显隐也只落在 `hidden` 布尔属性上。所以选中态一律写成
+// `[aria-selected='true']`，「这一块塌了」写成 `.tk-panel__error`（那个类名由 panel-dom 给，
+// 是它唯一的类名钩子）。哪天要改观感，改这里；哪天要改状态形状，改 panel.js 与 §D，两边不串。
+//
+// 三、配色只走 tokens.scss 的语义变量，本层不写 `.night-mode` 分支——除了三档状态色。
+// tokens.scss 的墨阶/纸阶/signal 都是「角色」色，没有「这个校验没过」这一档，而有效 / 校验位不符 /
+// 结构非法必须一眼分得开（§5.4：让用户看得见为什么不行）。这三档按 tokens.scss 自己的办法落在
+// `:root` 并在 `body.night-mode` 重赋值（见 tokens.scss 文件头第 3 行那句「新组件不必再写第二份
+// 覆盖表」——它说的是墨阶纸阶这类已有角色，状态色是本页新造的角色，得自己把夜间值给全）。
+// 上收进 tokens.scss 是段 5 的事：那文件此刻有另一个会话在改（09-26 23:01 刚动过），
+// 现在去碰它是抢同一支笔。
+//
+// 四、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 about.scss 那条口径。
+//
+// 五、不写动画，因此本层没有自己的 `prefers-reduced-motion` 块：base.scss:147 那条全局兜底
+// 已经把所有 `transition-duration` 压成 .01ms，本层只有颜色过渡与 `:active` 那 1px 按压位移
+// （位移由用户按住触发、松手即回，不是装饰性入场）。about.scss / cat.scss 那种 reduce 块是为了
+// 撤掉滚动驱动的位移与装饰层，本层没有那种东西可撤。
+
+// 字族：数字与号码一律走 meta（等宽 + 表内对齐），标题走 display，正文交给继承。
+$tk-display: 'Newsreader', Georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', 'STSong', 'SimSun', serif;
+$tk-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+// 三档状态色的白昼值（对 `--surface` `#FFF` 按 WCAG 2.1 相对亮度比现算：绿 6.58、琥珀 5.93、
+// 红 7.77，13px 也过 AA 的 4.5；复算命令见段 2 计划 Task 8 Step 3 那段 node 片段）。
+:root {
+    --tk-ok: #136b3a;
+    --tk-warn: #8a5a00;
+    --tk-bad: #a31910;
+}
+
+body.night-mode {
+    // 夜间底是 `--surface` `#191C23`，同一批色名要提亮才够（对同一底现算：绿 8.80、琥珀 8.76、
+    // 红 6.74，三档都过 AA）。
+    --tk-ok: #5bd08b;
+    --tk-warn: #e3b341;
+    --tk-bad: #ff7b6b;
+}
+
+// ── 版心与整页提示 ────────────────────────────────────────────────────────
+
+.tk-content {
+    padding-bottom: 48px;
+}
+
+// 合规条与「脚本没执行」那一段：正文级字号，让它读起来像说明而不是装饰。
+.tk-compliance {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 2px 0 0 var(--rule-2);
+}
+
+.tk-compliance--noscript {
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--tk-warn);
+}
+
+// 坏 hash 提示（默认 `hidden`，由 panel-dom 覆写；启动失败也写这一格，见 toolIdcard.js 口径 3）。
+.tk-notice {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    background-color: var(--signal-soft);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+// 键盘捷径那一行。`<kbd>` 自己占一个视觉重量，别让它跟正文抢。
+.tk-kbd {
+    margin: 0 0 22px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.tk-kbd kbd {
+    padding: 1px 5px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border-radius: var(--radius-s);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+// ── 工作区：索引条 + 面板 ─────────────────────────────────────────────────
+
+// 176px 是按最长那条面板名定的：`__name` 落的是 yml 的 `name`，最长那条「统一社会信用代码」
+// 是八个全角字，14px 下正好 112px，加左右各 10px padding = 132px；剩下的余量给下面那行 12px 的
+// `__hint`（tagline）当折行宽度——156px 内容宽，够它每条断成两到三行而不是四行。再宽就把面板
+// 挤窄，再窄名字就断。
+.tk-workspace {
+    display: grid;
+    grid-template-columns: 176px minmax(0, 1fr);
+    gap: 24px 28px;
+    align-items: start;
+}
+
+.tk-index {
+    position: sticky;
+    top: 88px;
+    display: grid;
+    gap: 2px;
+    // 粘性条自己不能被面板压住
+    align-self: start;
+}
+
+.tk-index__link {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--ink-2);
+    text-decoration: none;
+    border-radius: var(--radius-m);
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        box-shadow var(--dur-2) var(--ease-out);
+}
+
+.tk-index__link:hover {
+    color: var(--ink);
+    background-color: var(--surface-2);
+}
+
+.tk-index__name {
+    color: inherit;
+}
+
+.tk-index__hint {
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+// 选中态来自 `panel.js` 写的 `aria-selected`，不是来自某个类名（文件头第二条）。
+.tk-index__link[aria-selected='true'] {
+    color: var(--signal-ink);
+    background-color: var(--signal-soft);
+    box-shadow: inset 2px 0 0 var(--tool-accent, var(--signal));
+}
+
+.tk-index__link[aria-selected='true'] .tk-index__hint {
+    color: inherit;
+}
+
+// ── 面板卡片 ──────────────────────────────────────────────────────────────
+
+// `scroll-margin-top: 88px` 是全站同一个数（editorial.scss 那三条），禁 JS 时索引条退成
+// 普通锚点链接，跳过去不能被顶栏盖住标题。
+.tk-panel {
+    box-sizing: border-box;
+    padding: 20px 22px 24px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+    scroll-margin-top: 88px;
+}
+
+.tk-panel__head {
+    margin-bottom: 16px;
+}
+
+.tk-panel__title {
+    margin: 0;
+    font-family: $tk-display;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--ink);
+}
+
+.tk-panel__tagline {
+    margin: 6px 0 0;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: .6px;
+    color: var(--ink-3);
+}
+
+.tk-panel__desc {
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-2);
+}
+
+// `panel-dom` 插在面板最前面的一条 `role="alert"`，文案里带着抛错原话（可能是用户粘进去的串），
+// 所以它写 `textContent`、这里也只认这一条类名。
+.tk-panel__error {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--tk-bad);
+}
+
+// ── 一屏两栏：左生成、右判定 ──────────────────────────────────────────────
+
+.tk-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+    align-items: start;
+}
+
+.tk-cols--one {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.tk-col__title {
+    margin: 0 0 10px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: 1.2px;
+    color: var(--ink-3);
+}
+
+// ── 表单 ──────────────────────────────────────────────────────────────────
+
+// `div[role=group]` 而不是 `<form>`：没有后端可交，form 的隐式提交会把整页刷成
+// `?tk-in-idcard-count=5`（骨架里那段注释记的是同一件事）。
+.tk-form {
+    margin-bottom: 14px;
+}
+
+.tk-field {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 14px;
+}
+
+.tk-field > label {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink-2);
+}
+
+.tk-field input,
+.tk-field select,
+.tk-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-1) var(--ease-out),
+        box-shadow var(--dur-1) var(--ease-out);
+}
+
+.tk-field textarea {
+    font-family: $tk-meta;
+    font-size: 13px;
+    resize: vertical;
+}
+
+// 数字、日期与号码框里的内容是要对着看的，等宽更稳。
+.tk-field input[type='number'],
+.tk-field input[type='date'] {
+    font-family: $tk-meta;
+    font-variant-numeric: tabular-nums;
+}
+
+.tk-field input:hover,
+.tk-field select:hover,
+.tk-field textarea:hover {
+    border-color: var(--ink-4);
+}
+
+.tk-field select,
+.tk-field input,
+.tk-field textarea {
+    cursor: text;
+}
+
+.tk-field select {
+    cursor: default;
+}
+
+// 级联格子被 `workbench.js` 置 `disabled` 时的样子：不能只靠 opacity（灰字压到灰底上会掉对比）。
+.tk-field :is(input, select, textarea):disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+    background-color: var(--surface-2);
+    border-color: var(--rule);
+}
+
+.tk-field--static > label {
+    color: var(--ink-3);
+}
+
+.tk-field--count input {
+    max-width: 120px;
+}
+
+// 三级区划并排：窄一格就换行，不横向滚（手机上拖三条 select 比折成两行难受得多）。
+.tk-cascade {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tk-cascade select {
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.tk-help {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+}
+
+.tk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.tk-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--paper);
+    cursor: pointer;
+    background-color: var(--ink);
+    border: 0;
+    border-radius: var(--radius-m);
+    transition: color var(--dur-2) var(--ease-out),
+        background-color var(--dur-2) var(--ease-out),
+        box-shadow var(--dur-2) var(--ease-out);
+}
+
+.tk-btn:hover {
+    color: var(--paper);
+    background-color: var(--ink-2);
+}
+
+.tk-btn:active {
+    transform: translateY(1px);
+}
+
+// `--paper` / `--ink` 是一对会随夜间整体翻转的角色色，所以主按钮在两套主题下都是「深底浅字」或
+// 「浅底深字」，对比度恒等；换成 `--signal` 打底就要在夜间反过来管文字色，那是第二份口径。
+.tk-btn--ghost {
+    color: var(--ink-2);
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+.tk-btn--ghost:hover {
+    color: var(--ink);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--ink-4);
+}
+
+.tk-btn:disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.tk-btn--ghost:disabled:hover {
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+// ── 结果区 ────────────────────────────────────────────────────────────────
+
+.tk-outwrap {
+    display: grid;
+    gap: 10px;
+    justify-items: start;
+}
+
+// 结果区自己横向滚动：号码、算式与 9 列明细不能被挤成竖排（那是这类表格最坏的读法）。
+.tk-out {
+    width: 100%;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+.tk-count {
+    margin: 0 0 8px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    letter-spacing: .6px;
+    color: var(--ink-3);
+}
+
+.tk-hint {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+}
+
+.tk-note {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+.tk-echo {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.tk-mono {
+    font-family: $tk-meta;
+    font-variant-numeric: tabular-nums;
+}
+
+.tk-table {
+    width: 100%;
+    margin: 4px 0 10px;
+    font-size: 12.5px;
+    border-collapse: collapse;
+}
+
+.tk-table th,
+.tk-table td {
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule);
+}
+
+.tk-table thead th {
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+}
+
+.tk-table tbody tr:last-child > * {
+    border-bottom: 0;
+}
+
+// 明细表与前缀表是「宁可横向滚也不折行」的那两张（九列一行的明细，压窄只会读成竖排）；
+// 判定表与生成表相反——`tk-list--address` 那一列是整条地址，`min-width: max-content` 会把它
+// 顶成 400px 宽的一行，反而要滚。号码不换行靠的是下面那条 `white-space: nowrap`，只保号码本身。
+.tk-detail,
+.tk-matches {
+    min-width: max-content;
+}
+
+.tk-table .tk-mono {
+    white-space: nowrap;
+}
+
+.tk-checks td {
+    color: var(--ink-2);
+}
+
+.tk-verdict {
+    margin: 0 0 8px;
+}
+
+.tk-state {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    font-family: $tk-meta;
+    font-size: 11.5px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.tk-state--ok {
+    color: var(--tk-ok);
+}
+
+.tk-state--warn {
+    color: var(--tk-warn);
+}
+
+.tk-state--bad {
+    color: var(--tk-bad);
+}
+
+// 未收录与等待输入都不是「结论」，用墨阶而不是状态色，避免读者把它们读成通过/失败。
+.tk-state--unknown {
+    color: var(--ink-2);
+}
+
+.tk-state--idle {
+    color: var(--ink-3);
+}
+
+.tk-result {
+    padding: 2px 0 2px 12px;
+    border-inline-start: 2px solid var(--rule-2);
+}
+
+.tk-result--ok {
+    border-inline-start-color: var(--tk-ok);
+}
+
+.tk-result--warn {
+    border-inline-start-color: var(--tk-warn);
+}
+
+.tk-result--bad {
+    border-inline-start-color: var(--tk-bad);
+}
+
+.tk-lines {
+    display: grid;
+    gap: 16px;
+}
+
+.tk-line {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.tk-line:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.tk-line__head {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.tk-line__raw {
+    font-family: $tk-meta;
+    font-size: 12.5px;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.tk-batch {
+    display: block;
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两个数是本层自己的口径，与 `$g-container-w`（960）不是一回事：960 是版心从固定宽
+// 转为 auto，900 是「176px 索引条 + 两栏面板」还挤得下的下沿。中间那段（901–959）版心已经收窄
+// 而索引条还在——**这一段本格没有实测**：Task 10 的断点清单要专门量 920 / 940 两档（"只测两端、
+// 中间塌"就是这一类漏法），量出来挤就把 900 这个数往上调，别照着注释以为已经量过。
+
+@media screen and (max-width: 900px) {
+    .tk-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    // 索引条退成横向 chip：粘着顶栏没有意义（一屏放不下面板又得躲开 chip 条），改成随页滚走。
+    .tk-index {
+        position: static;
+        grid-auto-flow: column;
+        gap: 8px;
+        padding-bottom: 4px;
+        overflow-x: auto;
+    }
+
+    .tk-index__link {
+        flex: none;
+        gap: 0;
+        padding: 6px 10px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    // 提示语在 chip 里就是噪音，且它撑宽了每一颗 chip（五条不等宽很难看）。
+    .tk-index__hint {
+        display: none;
+    }
+
+    .tk-index__link[aria-selected='true'] {
+        box-shadow: inset 0 0 0 1px var(--tool-accent, var(--signal));
+    }
+}
+
+@media screen and (max-width: 640px) {
+    .tk-panel {
+        padding: 16px 14px 18px;
+    }
+
+    // 生成与判定在窄屏上下排：判定栏的粘贴框需要整幅宽度，两栏并排时它只有 280px，粘一行号码
+    // 都看不见尾段。
+    .tk-cols {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    .tk-outwrap {
+        justify-items: stretch;
+    }
+
+    .tk-btn {
+        height: 38px;
+    }
+}

@@ -78,7 +78,14 @@ module.exports = {
         '.shelf',             // 书架：顶栏入口、书签、抽屉与账本（dialog.shelf 同串命中）
         '.wrap-up',           // 篇末收束层
         '#cmdk',              // id 选择器不含 ".cmdk" 这个子串，单独列
-        ':focus-visible'      // 裸伪类选择器同上，2px 描边不能被放大成 vw
+        ':focus-visible',     // 裸伪类选择器同上，2px 描边不能被放大成 vw
+        // 在线工具三页（/tools/idcard.html 起）。这两串必须是**字符串**而不是 /^\.tk-/ 这种正则：
+        // postcss-px-to-viewport@1.1.1 的 blacklistedSelector 对字符串走 `selector.indexOf(s)`
+        // （任意位置子串命中），对正则走 `selector.match(re)`，而本层大量规则的最左选择器是
+        // `.tk-workspace .tk-col` 这类后代形式，anchored 正则一条都盖不住。
+        // 漏一条的后果与 /^\.mao_box/ 那条注释记的同一种：同一块版面一半按 px、一半按 750 设计稿放大。
+        '.tk-',               // 证件页 / 编码工具箱页（前缀 tk）
+        '.jt-'                // JSON 工作台（前缀 jt，§6.4 两条黑名单前缀的另一条）
       ],
       minPixelValue: 1,
       mediaQuery: true
