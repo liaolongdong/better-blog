@@ -821,6 +821,14 @@ body {
     color: var(--signal);
 }
 
+// 首页刊头那一行是「拉丁词组 + 中文尾串」，中文之间没有空格却处处可断，
+// 窄屏于是按字符数把尾串切得七零八落（320 / 340 / 360 / 375 四档实测断点各不
+// 相同，375 那一档整行只把最后一个「里」字挤到第二行）。断点交给两截之间的
+// 那个空格：每截内部 nowrap，窄屏最多在两截之间折，折出来是两行完整的话。
+.kicker-seg {
+    white-space: nowrap;
+}
+
 .masthead-issue {
     position: absolute;
     // 与 .kicker 同一条基线：刊头第一行是流里的 kicker（top 0），这里原本写死
@@ -1060,9 +1068,21 @@ body {
 }
 
 .pagination {
+    // 居中原本由 common.scss 那一对 `float:left` + `left:50%` / `.page-links{left:-50%}`
+    // 完成。浮动不给 .article-list 还高度，于是窄屏（信息流下面直接是侧栏）那截
+    // 44px 高的胶囊整个压在「工具箱」卡片上——390 与 320 两档实测重叠 19px。
+    // 改成收缩宽度 + 左右自动边距：居中的结果与桌面一致，但这一格回到正常流里。
+    float: none;
+    left: auto;
+    width: max-content;
+    max-width: 100%;
     margin-top: 32px;
+    margin-right: auto;
+    margin-left: auto;
 
     .page-links {
+        // 父级不再往右挪 50%，这一半的补偿量跟着归零（见上面那条注释）。
+        left: auto;
         display: flex;
         align-items: center;
         padding: 4px;

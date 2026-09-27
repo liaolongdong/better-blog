@@ -112,7 +112,10 @@ html {
         z-index: 30;
         box-sizing: border-box;
         margin: 20px 0 10px;
-        padding: 5px 0 6px;
+        // 上下合起来 7px，正好等于「轨道那 4px 松量之外」的量：带子总高仍是 41px
+        // （3 + 33 + 4 + 1 下沿描边），--tl-top 的 105 / 97 / 41 三个数不动。
+        // 为什么把这 4px 挪到轨道里去，见下面 .tl-nav-track。
+        padding: 3px 0 4px;
         background-color: var(--paper);
         border-bottom: 1px solid var(--rule);
         box-shadow: 0 10px 12px -12px rgb(20 22 26 / 26%);
@@ -127,10 +130,18 @@ html {
     // 两侧各留 12px 内缩，配下面那道 mask：没留白时首尾那颗胶囊会被槽口齐刷刷
     // 切掉一笔（1440 实测滚到 2021 时最左边只剩「017 3」），留白让渐隐有地方落，
     // 停在原位的第一颗也不受 mask 影响。
+    //
+    // overflow-x 一旦是 auto，overflow-y 就跟着算不出 visible（规范里 visible 会被
+    // 提升成 auto），裁切就发生在这一层的内边距盒边缘：原来纵向零内边距，而胶囊的
+    // 外框高度和这条槽一样高（390 实测两者都是 29px，deltaTop / deltaBottom 均为 0），
+    // 于是选中那颗的上下描边各被削掉一线——行盒本身带小数，零余量时谁先被切纯看取整。
+    // 纵向各给 2px 让它一定落在裁切盒里面，这 4px 从 .tl-nav 的上下内边距里扣，
+    // 带子总高不变。
     .tl-nav-track {
         overflow-x: auto;
         scrollbar-width: none;
         padding-inline: 12px;
+        padding-block: 2px;
         mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent);
 
         &::-webkit-scrollbar {

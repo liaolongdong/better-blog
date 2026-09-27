@@ -15,7 +15,12 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
     {% include dandelionAnimate.html %}
     {% endif %}
     <div class="g-container masthead-inner">
-        <p class="kicker">Frontend · AI · Tools — 自 2016 年写到这里</p>
+        {%- comment -%}
+        两截各绑一颗 .kicker-seg：中文之间处处可断，这一整行在窄屏上会折在
+        「年写」「这里」这种词中间（320 / 340 / 360 / 375 四档实测各断一处，只留一两字到
+        第二行）。改成只在两个 span 之间那道空格断行，390 以上仍是一行整。
+        {%- endcomment -%}
+        <p class="kicker"><span class="kicker-seg">Frontend · AI · Tools</span> <span class="kicker-seg">— 自 2016 年写到这里</span></p>
         <p class="masthead-issue" aria-hidden="true">
             <span class="issue-rule"></span>
             <span class="issue-no">Vol. {{ site.posts.size }}</span>

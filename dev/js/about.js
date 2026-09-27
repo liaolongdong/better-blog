@@ -191,9 +191,13 @@
          * 年份胶囊的滚动跟随。
          *
          * 判据只有一条：行顶已经走过「点胶囊会把这一行的行顶放到的那条线」，这一行就算
-         * 当前年份，取其中最靠后的一行。之前是 IO 与滚帧两套判据并存（IO 用 -100px 的窄带，
-         * 兜底用 <=110），点「2021」跳过去落点在 121，两套各说各话：高亮停在 2020，
-         * 长行还会来回闪。
+         * 当前年份，取其中最靠后的一行；一行都没过线就一颗都不点亮。之所以只留这一条——
+         * 早先是 IO（-100px 窄带）与滚帧（<=110）两套并存，点「2021」跳过去落点在 121，
+         * 两边各说各话：高亮停在 2020，长行还会来回闪。
+         * 「无人过线就不亮」修的是另一件事：这里原本兜底点亮 items[0]，等于「2016 还没
+         * 读到，导航条上它已经亮了」，而吸顶条上面还压着一整块「工作履历」（390×844 实测
+         * y 0 / 415 / 864 三处过线的行都是 none），用户看到的正是「菜单和时间轴对不上年
+         * 份」。点胶囊的落点与这里的判据是同一条线。
          */
         yearSpy: function (rows) {
             var track = document.querySelector('.tl-nav-track');
@@ -218,13 +222,16 @@
             var current = null;
 
             function activate(item) {
-                if (!item || current === item) {
+                if (current === item) {
                     return;
                 }
                 if (current) {
                     current.chip.classList.remove('is-on');
                 }
                 current = item;
+                if (!item) {
+                    return;
+                }
                 item.chip.classList.add('is-on');
                 // 胶囊条自己是横向滚动的容器：把它平移到视野中间，
                 // 年份一多，当前那颗就不会跑到屏幕外面去。
@@ -253,7 +260,8 @@
                         pick = items[p];
                     }
                 }
-                activate(pick || items[0]);
+                // 没有行过线就保持全灭，别在这里往回兜一个 items[0]（原因见方法头）。
+                activate(pick);
             }
 
             // sync 要把每一行的 top 读一遍（强制同步布局），所以滚动和 resize 都只排队一次，
