@@ -72,6 +72,7 @@ const FILE_TARGETS = [
   'dev/js/tools/bankcard.js',
   'dev/js/tools/phone.js',
   'dev/js/tools/random-data.js',
+  'dev/js/tools/view.js',
 ];
 
 /** 反查要扫的目录：镜像只可能出现在这些地方 */
