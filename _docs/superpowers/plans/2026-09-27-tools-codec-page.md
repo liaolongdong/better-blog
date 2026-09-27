@@ -1338,7 +1338,7 @@ node scripts/verify-plan-blocks-teeth.mjs   # 门禁三
 
 现在 `time.js` / `codec.js` / `§K` / `§L` 四格都在核范围内，Task 3 落地 `digest.js` 时不用再动 G12。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add dev/js/tools/codec.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
@@ -1348,6 +1348,11 @@ git commit -m "feat(tools): 段 3 Task 2 编码模块 codec.js——UTF-8 与 Ba
   dev/js/tools/codec.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
   scripts/verify-plan-blocks-teeth.mjs _docs/superpowers/plans/2026-09-27-tools-codec-page.md
 ```
+
+实跑：`df58116`，`5 files changed, 2103 insertions(+), 24 deletions(-)`——`codec.js` 511 行是新增，
+`§L` 判据 410 行，两道门禁脚手架各改 3/26 行，计划 +1177 行。提交后 `git status` 里这五个路径一字不剩，
+剩下的脏项全属另一路会话（`_config.yml`/`about.*`/`package.json`/`scripts/lib/` 等），未被本轮碰过。
+提交后复跑：门禁一 `# tests 184 / pass 184`、门禁二 `exit=0`（37 镜像、未落地 0 节）、门禁三 21/21。
 
 ---
 
