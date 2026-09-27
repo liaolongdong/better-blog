@@ -3964,3 +3964,533 @@ test('H15 深样本：把 HTML 与脚本片段塞进输入、行别名与地址�
   assert.equal(listTable('mobile', [{ formatted: '138 0013 8000', segment: '138', carrier: null }])
     .includes(EMPTY_CELL), true, '运营商为空时应出空值形状');
 });
+
+// ── §I 面板 DOM 绑定（手写假 DOM） ─────────────────────────────────────────
+//（本节只新引 `panel-dom.js` 一个模块：`createPanelWorkspace` 与两份 id 清单
+//  `TOOLKIT` / `CODEC` 在 §D 顶层已经解构过了，同名 `const` 再声明一次是 SyntaxError；
+//  假 DOM 与六个 `i*` 前缀的辅助（`iPage` / `iAttr` / `iOf` / `iVisible` / `iBanner` / `iEvts`）
+//  全是本节新名字，与 §B–§H 的顶层名字不重名。）
+const { createPanelDom } = await import('../dev/js/tools/panel-dom.js');
+
+/**
+ * 手写假 DOM。绑定层用到的读写口子一共十四个：document 两个（`getElementById` /
+ * `createElement`）、节点八个（`setAttribute` / `removeChild` / `insertBefore` / `firstChild` /
+ * `textContent` 写 / `hidden` / `focus` / `addEventListener`）、外面四个（`location.hash`、
+ * `history.state`、`history.replaceState`、`window.addEventListener('hashchange')`）。
+ * 判据自己还要读 `getAttribute` 与 `childNodes`，那是测试侧的观察口，绑定层一个都不碰。
+ * 站内没有 jsdom（§0.5 实测：devDeps 只有 autoprefixer / concurrently / postcss /
+ * postcss-px-to-viewport / sass / terser / vite），为一个绑定层加依赖要动 `package.json`
+ * 与锁文件，正撞 0.6 那条并发面。
+ *
+ * 三处刻意的"不像真 DOM"，每一处都是为了少一处假绿：
+ * 1. **没有 `innerHTML`**。绑定层若写了它，只会长出一个普通属性、一个子节点都不多——
+ *    I12 判的就是"错误条里没有长出元素"。真 DOM 反而会把标签解析出来，把这条判据洗白。
+ * 2. **`removeChild` 找不到节点就抛**。真 DOM 抛 `NotFoundError`；这里静默的话"撤条没撤干净"看不见。
+ * 3. **`replaceState` 会同步改 `location.hash`**，跟浏览器一致。不改的话 I4 那条
+ *    "重复点同一块不重复写地址栏"永远测不到（比对 `location.hash` 那一步恒假）。
+ */
+function iPage({
+  ids = TOOLKIT, prefix = 'tk', hash = '', dropTab = [], dropPanel = [], withTablist = true,
+} = {}) {
+  const nodes = new Map();
+  const focusLog = [];
+  const historyCalls = [];
+  let created = 0;
+
+  const mkText = (text) => ({ nodeType: 3, tagName: '#text', textContent: String(text) });
+
+  const mkEl = (tag, id = '', seed = {}) => {
+    const attrs = new Map();
+    const listeners = new Map();
+    const el = {
+      nodeType: 1, tagName: tag.toUpperCase(), id, attrs, childNodes: [], hidden: false,
+      get firstChild() { return el.childNodes.length ? el.childNodes[0] : null; },
+      get textContent() { return el.childNodes.map((n) => n.textContent).join(''); },
+      set textContent(v) { el.childNodes = v === '' ? [] : [mkText(v)]; },
+      getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
+      setAttribute: (k, v) => { attrs.set(k, String(v)); },
+      removeAttribute: (k) => { attrs.delete(k); },
+      appendChild: (n) => { el.childNodes.push(n); return n; },
+      insertBefore: (n, ref) => {
+        const i = ref ? el.childNodes.indexOf(ref) : -1;
+        if (i < 0) el.childNodes.push(n);
+        else el.childNodes.splice(i, 0, n);
+        return n;
+      },
+      removeChild: (n) => {
+        const i = el.childNodes.indexOf(n);
+        if (i < 0) throw new Error('removeChild：假 DOM 的这个父节点下没有它');
+        el.childNodes.splice(i, 1);
+        return n;
+      },
+      addEventListener: (type, fn) => {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(fn);
+      },
+      dispatch: (type, evt = {}) => {
+        for (const fn of listeners.get(type) || []) fn(evt);
+        return evt;
+      },
+      focus: () => { focusLog.push(el.id); },
+    };
+    for (const [k, v] of Object.entries(seed)) {
+      if (k === 'hidden') el.hidden = Boolean(v);
+      else attrs.set(k, String(v));
+    }
+    if (id !== '') nodes.set(id, el);
+    return el;
+  };
+
+  const doc = {
+    getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
+    createElement: (tag) => { created += 1; return mkEl(tag); },
+    createTextNode: mkText,
+  };
+  const location = { hash };
+  const history = {
+    state: null,
+    replaceState(state, title, url) {
+      historyCalls.push({ state, title, url });
+      location.hash = url;
+    },
+  };
+  const winListeners = new Map();
+  const win = {
+    addEventListener: (type, fn) => {
+      if (!winListeners.has(type)) winListeners.set(type, []);
+      winListeners.get(type).push(fn);
+    },
+    dispatch: (type) => { for (const fn of winListeners.get(type) || []) fn({}); },
+  };
+
+  const ws = createPanelWorkspace({ ids, prefix, hash });
+  if (withTablist) mkEl('nav', `${prefix}-tablist`, { class: 'tk-index' });
+  for (const id of ids) {
+    // 骨架里预置**错的** role / aria-selected：绑定层要是手抄而不是覆写，I1 当场红。
+    // `class` / `href` / `aria-live` 是骨架自己的东西，属性表里没有，必须原样留着（I1 一并判）。
+    if (!dropTab.includes(id)) {
+      mkEl('a', `${prefix}-tab-${id}`, {
+        class: 'tk-index__link', href: `#${id}`, role: 'link', 'aria-selected': 'maybe',
+      });
+    }
+    if (!dropPanel.includes(id)) {
+      mkEl('section', `${prefix}-panel-${id}`, { class: 'tk-panel', 'aria-live': 'polite' })
+        .appendChild(mkText(`body:${id}`));
+    }
+  }
+  const notice = mkEl('p', `${prefix}-notice`, { class: 'tk-notice', hidden: true });
+
+  return {
+    doc, ws, location, history, win, notice, focusLog, historyCalls, nodes,
+    tab: (id) => nodes.get(`${prefix}-tab-${id}`) ?? null,
+    panel: (id) => nodes.get(`${prefix}-panel-${id}`) ?? null,
+    created: () => created,
+  };
+}
+
+/** 节点上现在带着哪些键（用来判"绑定层没发明表外的键、也没删骨架的键"） */
+function iAttr(el) {
+  return Object.fromEntries([...el.attrs.entries()]);
+}
+/** 只读属性表里那几键的落值：`hidden` 走属性，其余走 `getAttribute` */
+function iOf(el, table) {
+  return Object.fromEntries(Object.keys(table).map((k) => [k, k === 'hidden' ? el.hidden : el.getAttribute(k)]));
+}
+/** 当前可见的面板 id（`hidden === false`；缺节点的那块算不可见） */
+function iVisible(page) {
+  return page.ws.ids().filter((id) => {
+    const el = page.panel(id);
+    return Boolean(el) && el.hidden === false;
+  });
+}
+/** 面板里的错误条（按类名认，不按位置认） */
+function iBanner(page, id) {
+  const el = page.panel(id);
+  if (!el) return null;
+  return el.childNodes.find((n) => n.nodeType === 1 && n.getAttribute('class') === 'tk-panel__error') ?? null;
+}
+const iEvts = {
+  click: (over = {}) => ({
+    button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...over,
+  }),
+  key: (key, over = {}) => ({
+    key, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...over,
+  }),
+};
+
+test('I1 属性表原样落地：骨架的错值被覆写，多余的键一个不动', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  const list = page.doc.getElementById('tk-tablist');
+  assert.deepEqual(iOf(list, page.ws.tablistAttr()), {
+    id: 'tk-tablist', role: 'tablist', 'aria-label': '工具面板', 'aria-orientation': 'vertical',
+  }, 'tablist 容器那一格也得由属性表给');
+  assert.equal(list.getAttribute('class'), 'tk-index', '骨架自己的 class 不许被抹掉');
+  for (const id of TOOLKIT) {
+    const table = page.ws.tabAttr(id);
+    assert.deepEqual(iOf(page.tab(id), table), table, `tab ${id} 的落值与属性表不一致`);
+    assert.equal(page.tab(id).getAttribute('role'), 'tab', '骨架里预置的 role="link" 必须被覆写');
+    assert.equal(page.tab(id).getAttribute('href'), `#${id}`, 'href 不在属性表里，它是禁 JS 时的深链保险');
+    const pTable = page.ws.panelAttr(id);
+    assert.deepEqual(iOf(page.panel(id), pTable), pTable, `panel ${id} 的落值`);
+    assert.equal(page.panel(id).getAttribute('aria-live'), 'polite', '骨架上的多余键不许被 removeAttribute');
+  }
+  assert.deepEqual(Object.keys(iAttr(page.tab('idcard'))).sort(),
+    ['aria-controls', 'aria-selected', 'class', 'href', 'id', 'role', 'tabindex'],
+    '节点上只有"表里那几键 + 骨架自带那几键"，绑定层不发明键');
+});
+
+test('I2 一次只显示一块：任意时刻恰好一个面板 hidden 为假', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['idcard']);
+  assert.equal(page.panel('idcard').getAttribute('role'), 'tabpanel', '隐藏的是可见性，不是把面板降级');
+  page.tab('mobile').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['mobile']);
+  assert.deepEqual(
+    TOOLKIT.map((id) => page.tab(id).getAttribute('aria-selected')).join(','),
+    'false,false,false,true,false');
+  assert.deepEqual(
+    TOOLKIT.map((id) => page.tab(id).getAttribute('tabindex')).join(','),
+    '-1,-1,-1,0,-1', 'roving tabindex 跟着可见那块走（§D 的互锁在 DOM 上成立）');
+});
+
+test('I3 深链进入即展开对应面板，一个 replaceState 都不发', () => {
+  const page = iPage({ hash: '#bankcard' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['bankcard']);
+  assert.deepEqual(page.historyCalls, [], '地址栏本来就对，不许再写一次');
+  assert.equal(page.ws.unknownHash(), false);
+  const plain = iPage();
+  createPanelDom({
+    workspace: plain.ws, document: plain.doc, location: plain.location,
+    history: plain.history, window: plain.win,
+  }).mount();
+  assert.deepEqual(plain.historyCalls, [], '无 hash 进入时不写 hash（§6.0 第三条的 DOM 侧）');
+  assert.deepEqual(iVisible(plain), ['idcard']);
+  // 地址栏以裸一个 `#` 结尾时（人从别处复制网址常带上），`location.hash` 是 '#' 而不是 ''：
+  // 这时状态机既没 touched 也没 unknown，只有"target 是空串就别写"这一格挡得住回写。
+  const bare = iPage({ hash: '#' });
+  createPanelDom({
+    workspace: bare.ws, document: bare.doc, location: bare.location,
+    history: bare.history, window: bare.win,
+  }).mount();
+  assert.deepEqual(bare.historyCalls, [], '一个裸 # 不去动它：把它"修"成没有 hash 属于多事');
+  assert.deepEqual(iVisible(bare), ['idcard']);
+  assert.equal(bare.ws.unknownHash(), false, '`#` 不算坏 hash，不该唠叨');
+});
+
+test('I4 点 tab：拦住锚点跳转、只换那一块、地址栏写一次', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  const evt = page.tab('uscc').dispatch('click', iEvts.click());
+  assert.equal(evt.defaultPrevented, true, '不 preventDefault 就会跳锚点（§6.3 那句"不触发滚动跳动"）');
+  assert.deepEqual(iVisible(page), ['uscc']);
+  assert.equal(page.location.hash, '#uscc');
+  assert.deepEqual(page.historyCalls, [{ state: null, title: '', url: '#uscc' }]);
+  page.tab('uscc').dispatch('click', iEvts.click());
+  assert.equal(page.historyCalls.length, 1, '点已经亮着的那块不该再写一遍地址栏');
+  assert.deepEqual(iVisible(page), ['uscc']);
+  assert.equal(page.notice.hidden, true);
+});
+
+test('I5 修饰键与中键的点击整个不接：深链的开新标签语义留着', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  for (const [why, over] of [
+    ['ctrlKey', { ctrlKey: true }], ['metaKey', { metaKey: true }],
+    ['shiftKey', { shiftKey: true }], ['altKey', { altKey: true }], ['中键', { button: 1 }],
+  ]) {
+    const evt = page.tab('random').dispatch('click', iEvts.click(over));
+    assert.equal(evt.defaultPrevented, false, `${why}：不许拦浏览器的默认动作`);
+    assert.deepEqual(iVisible(page), ['idcard'], `${why}：不许换面板`);
+  }
+  assert.deepEqual(page.historyCalls, [], '带修饰键与中键的点击都不写地址栏');
+});
+
+test('I6 方向键自动激活：首尾回绕、焦点跟随、滚动被拦住', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  const evts = [];
+  for (let i = 0; i < TOOLKIT.length; i += 1) {
+    evts.push(page.tab(page.ws.active()).dispatch('keydown', iEvts.key('ArrowDown')));
+  }
+  assert.deepEqual(
+    page.focusLog,
+    [...TOOLKIT.slice(1), 'idcard'].map((id) => `tk-tab-${id}`),
+    '每次换面板焦点都跟到新那块的 tab 上（自动激活）');
+  assert.equal(page.ws.active(), 'idcard', '五块面板按五次回到第一块');
+  assert.deepEqual(iVisible(page), ['idcard']);
+  for (const evt of evts) assert.equal(evt.defaultPrevented, true, '方向键的默认动作是滚整页');
+  assert.deepEqual(page.historyCalls.map((c) => c.url),
+    ['#uscc', '#bankcard', '#mobile', '#random', '#idcard'], '无 hash 进入后，第一次按键就开始写');
+});
+
+test('I7 Home/End 到位；只有一块面板时按方向键既不动作也不炸', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  page.tab('idcard').dispatch('keydown', iEvts.key('End'));
+  assert.equal(page.ws.active(), 'random');
+  assert.deepEqual(page.focusLog, ['tk-tab-random']);
+  page.tab('random').dispatch('keydown', iEvts.key('Home'));
+  assert.equal(page.ws.active(), 'idcard');
+  assert.deepEqual(iVisible(page), ['idcard']);
+  const solo = iPage({ ids: ['only'] });
+  const soloDom = createPanelDom({
+    workspace: solo.ws, document: solo.doc, location: solo.location,
+    history: solo.history, window: solo.win,
+  });
+  soloDom.mount();
+  solo.tab('only').dispatch('keydown', iEvts.key('ArrowRight'));
+  assert.deepEqual(iVisible(solo), ['only']);
+  assert.deepEqual(solo.focusLog, [], '没换面板就不抢焦点');
+  assert.deepEqual(solo.historyCalls, [], '只有一块：无 hash 进入仍然不写地址栏');
+});
+
+test('I8 无关按键与带修饰键的按键不动状态，也不顺手 preventDefault', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  for (const [why, over] of [
+    ['Shift+ArrowUp', { key: 'ArrowUp', shiftKey: true }],
+    ['Ctrl+Home', { key: 'Home', ctrlKey: true }],
+    ['Enter', { key: 'Enter' }], ['字母 a', { key: 'a' }], ['PageDown', { key: 'PageDown' }],
+  ]) {
+    const evt = page.tab('idcard').dispatch('keydown', iEvts.key(over.key, over));
+    assert.equal(evt.defaultPrevented, false, `${why}：不抢浏览器的默认动作`);
+    assert.equal(page.ws.active(), 'idcard', `${why}：不该换面板`);
+  }
+  assert.deepEqual(page.focusLog, []);
+  assert.deepEqual(page.historyCalls, []);
+});
+
+test('I9 外部改地址栏：面板跟着换，但焦点不跳、地址栏不回写', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  page.location.hash = '#mobile';
+  page.win.dispatch('hashchange');
+  assert.deepEqual(iVisible(page), ['mobile']);
+  assert.deepEqual(page.focusLog, [], 'hashchange 抢焦点＝把用户正在读的位置跳走');
+  assert.deepEqual(page.historyCalls, [], '地址栏已经是它了，回写一次就是自己再触发一轮');
+  assert.equal(page.tab('mobile').getAttribute('aria-selected'), 'true');
+  assert.equal(page.tab('mobile').getAttribute('tabindex'), '0');
+});
+
+test('I10 坏 hash：不切成空白、不改地址栏，只给一条提示，随后自己收回去', () => {
+  const page = iPage({ hash: '#mobile' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['mobile']);
+  page.location.hash = '#nope';
+  page.win.dispatch('hashchange');
+  assert.deepEqual(iVisible(page), ['mobile'], '全部 hidden 与"退回第一块"都是把深链用户扔下不管');
+  assert.equal(page.notice.hidden, false, '坏 hash 要给一条看得见的说法');
+  assert.match(page.notice.textContent, /#nope/);
+  assert.deepEqual(page.historyCalls, [], '地址栏保持原样，坏 hash 留着给人复制排查');
+  page.tab('random').dispatch('click', iEvts.click());
+  assert.equal(page.notice.hidden, true, '用户自己动手之后不再唠叨那条坏 hash');
+  assert.deepEqual(page.historyCalls.map((c) => c.url), ['#random'], '动手之后地址栏归位');
+  assert.deepEqual(iVisible(page), ['random']);
+});
+
+test('I11 渲染抛错只塌那一块：其余四块可点可键盘，塌那块的面板还在', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: {
+      idcard: (el) => el.appendChild(page.doc.createTextNode('ok:idcard')),
+      uscc: () => { throw new Error('号段表读不出来'); },
+      bankcard: (el) => el.appendChild(page.doc.createTextNode('ok:bankcard')),
+      mobile: (el) => el.appendChild(page.doc.createTextNode('ok:mobile')),
+      random: (el) => el.appendChild(page.doc.createTextNode('ok:random')),
+    },
+  });
+  const report = dom.mount();
+  assert.deepEqual(report.mounted, TOOLKIT, '五块都升级了，uscc 塌的是内容不是面板');
+  assert.deepEqual(report.missing, []);
+  assert.deepEqual(report.rendered, ['idcard', 'bankcard', 'mobile', 'random']);
+  assert.deepEqual(report.broken, ['uscc'], '错误记在 uscc 那一格上');
+  const banner = iBanner(page, 'uscc');
+  assert.ok(banner, '塌了的面板顶部要有就地错误条');
+  assert.match(banner.textContent, /号段表读不出来/);
+  assert.match(banner.textContent, /其余面板不受影响/);
+  assert.equal(banner.tagName, 'P');
+  assert.equal(banner.getAttribute('role'), 'alert');
+  assert.equal(page.panel('uscc').firstChild, banner, '错误条排在原有内容前面');
+  assert.match(page.panel('uscc').textContent, /body:uscc/, '骨架内容不许被连带清掉');
+  assert.match(page.panel('idcard').textContent, /ok:idcard/);
+  assert.equal(iBanner(page, 'idcard'), null);
+  page.tab('bankcard').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['bankcard'], '塌一块不影响换面板');
+  page.tab('bankcard').dispatch('keydown', iEvts.key('ArrowDown'));
+  assert.equal(page.ws.active(), 'mobile', '键盘也照旧：bankcard 的下一块是 mobile');
+  assert.deepEqual(iVisible(page), ['mobile']);
+});
+
+test('I12 错误条与提示行只写文本：message 里的标签不会长成元素', () => {
+  const hostile = '<img src=x onerror=alert(1)>';
+  const page = iPage({ hash: `#${hostile}` });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+    renderers: { idcard: () => { throw new Error(`坏输入：${hostile}`); } },
+  });
+  dom.mount();
+  assert.equal(page.created(), 1, '整页只允许多出一个错误条节点：message 与 hash 都不许被解析成标签');
+  const banner = iBanner(page, 'idcard');
+  assert.deepEqual(banner.childNodes.map((n) => n.nodeType), [3], '错误条里只有一个文本子节点');
+  assert.equal(banner.innerHTML, undefined, '绑定层不许走 innerHTML');
+  assert.match(banner.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.equal(page.notice.childNodes.length, 1);
+  assert.match(page.notice.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.equal(page.notice.hidden, false);
+  assert.deepEqual(iVisible(page), ['idcard'], '坏 hash 依旧不切空白');
+});
+
+test('I13 run() 二次修好：撤掉错误条、状态归零、不留残节点；不认识的 id 抛', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: { uscc: () => { throw new Error('第一次炸'); } },
+  });
+  dom.mount();
+  const before = page.panel('uscc').childNodes.length;
+  assert.ok(iBanner(page, 'uscc'));
+  assert.equal(dom.run('uscc', (el) => el.appendChild(page.doc.createTextNode('补好了'))), true);
+  assert.equal(iBanner(page, 'uscc'), null, '修好了还挂着错误条，等于骗人');
+  assert.deepEqual(page.ws.brokenIds(), []);
+  assert.equal(page.panel('uscc').childNodes.length, before, '撤一条、追加一条，总数不变＝没有残节点');
+  assert.match(page.panel('uscc').textContent, /补好了/);
+  assert.equal(dom.run('uscc', () => { throw new Error('又炸'); }), false);
+  assert.deepEqual(page.ws.brokenIds(), ['uscc']);
+  assert.match(iBanner(page, 'uscc').textContent, /又炸/, '二次失败要覆写文案，不能留着上一句');
+  assert.equal(page.panel('uscc').childNodes.filter((n) => n.nodeType === 1).length, 1, '错误条还是那一张，没长第二张');
+  assert.throws(() => dom.run('nope', () => {}), RangeError, '装配层写错面板名要当场炸');
+  assert.throws(() => dom.run('uscc', '不是函数'), TypeError);
+});
+
+test('I14 幂等：sync 连跑三次属性表与错误条都不变，mount 只许跑一次', () => {
+  const page = iPage();
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win, notice: page.notice,
+    renderers: { mobile: () => { throw new Error('幂等样本'); } },
+  });
+  dom.mount();
+  const snap = () => JSON.stringify({
+    attrs: TOOLKIT.map((id) => [iAttr(page.tab(id)), iAttr(page.panel(id))]),
+    kids: TOOLKIT.map((id) => page.panel(id).childNodes.map((n) => n.nodeType)),
+    hidden: TOOLKIT.map((id) => [page.tab(id).hidden, page.panel(id).hidden]),
+    notice: [page.notice.hidden, page.notice.textContent],
+    created: page.created(),
+    writes: page.historyCalls.length,
+  });
+  const first = snap();
+  dom.sync();
+  dom.sync();
+  dom.sync();
+  assert.equal(snap(), first, 'sync 幂等：多跑一次既不长节点、不改属性、也不写地址栏');
+  assert.equal(page.panel('mobile').childNodes.filter((n) => n.nodeType === 1).length, 1, '错误条一张，不是三张');
+  assert.throws(() => dom.mount(), RangeError, '重复 mount 会把渲染函数再跑一遍，那种双份内容比当场炸难查');
+  assert.deepEqual(page.ws.brokenIds(), ['mobile']);
+});
+
+test('I15 缺节点分两种：没有索引条当场抛，缺一块只标坏那一块', () => {
+  const noList = iPage({ withTablist: false });
+  assert.equal(noList.doc.getElementById('tk-tablist'), null, '假 DOM 自证：这一页就是没有索引条');
+  assert.equal(noList.panel('idcard') !== null, true, '五块面板都在，缺的只有容器');
+  const noListDom = createPanelDom({
+    workspace: noList.ws, document: noList.doc, location: noList.location,
+    history: noList.history, window: noList.win,
+  });
+  assert.throws(() => noListDom.mount(), (err) => {
+    assert.equal(err.constructor.name, 'RangeError', '形状对而页面上没有那个节点，是 RangeError 那一档');
+    assert.match(err.message, /tk-tablist/, '要点名是哪个节点找不到');
+    return true;
+  });
+  const page = iPage({ dropTab: ['uscc'], dropPanel: ['bankcard'] });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+    renderers: { uscc: () => { throw new Error('不该被调用'); }, idcard: () => {} },
+  });
+  const report = dom.mount();
+  assert.deepEqual(report.missing, ['uscc', 'bankcard']);
+  assert.deepEqual(report.mounted, ['idcard', 'mobile', 'random']);
+  assert.deepEqual(report.rendered, ['idcard']);
+  assert.deepEqual(page.ws.brokenIds(), ['uscc', 'bankcard']);
+  assert.match(page.ws.brokenOf('uscc'), /tk-tab-uscc.*tab 节点/);
+  assert.match(page.ws.brokenOf('bankcard'), /tk-panel-bankcard.*panel 节点/);
+  assert.deepEqual(iVisible(page), ['idcard'], '缺 tab 的那块面板仍然参与互锁：一次还是只显示一块');
+  const degraded = iBanner(page, 'uscc');
+  assert.ok(degraded, '骨架缺陷也要在那块面板上说出来，不是只记在状态里');
+  assert.match(degraded.textContent, /tk-tab-uscc/);
+  assert.equal(iBanner(page, 'bankcard'), null, '连面板节点都没有，错误条无处可插（也不许凭空造一块）');
+  assert.equal(page.created(), 1, '整页只长出那一张错误条');
+  assert.equal(dom.run('uscc', () => { throw new Error('骨架没修好之前不该被调用'); }), false);
+  assert.equal(dom.run('bankcard', () => { throw new Error('同上'); }), false);
+  assert.match(page.ws.brokenOf('uscc'), /tab 节点/, 'run() 报 false 时不许把"缺节点"这条真话洗成"好了"');
+  page.tab('idcard').dispatch('keydown', iEvts.key('ArrowDown'));
+  assert.equal(page.ws.active(), 'uscc', '状态机只管 ids，不认"缺不缺节点"');
+  assert.deepEqual(iVisible(page), ['uscc'], 'uscc 只是没有 tab，面板还在，切过去看得见那句降级提示');
+  assert.deepEqual(page.focusLog, [], '那块没有 tab 节点，焦点无处可去（不抛）');
+  page.tab('mobile').dispatch('click', iEvts.click());
+  assert.deepEqual(iVisible(page), ['mobile'], '缺 panel 的那块点过去看不到东西，但整页不崩');
+});
+
+test('I16 换的是构造参数不是代码：.jt- 那套工作台共用同一份绑定', () => {
+  const page = iPage({ ids: CODEC, prefix: 'jt', hash: '#digest' });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location,
+    history: page.history, window: page.win,
+  });
+  dom.mount();
+  assert.deepEqual(iVisible(page), ['digest']);
+  assert.equal(page.doc.getElementById('jt-tablist').getAttribute('role'), 'tablist');
+  assert.equal(page.nodes.has('tk-tablist'), false, '换了前缀就不该再长出 tk- 的节点');
+  assert.deepEqual(iOf(page.tab('digest'), page.ws.tabAttr('digest')), page.ws.tabAttr('digest'));
+  assert.equal(page.tab('digest').getAttribute('id'), 'jt-tab-digest');
+  assert.equal(page.tab('base64').getAttribute('aria-controls'), 'jt-panel-base64');
+  page.tab('url').dispatch('click', iEvts.click());
+  assert.deepEqual(page.historyCalls.map((c) => c.url), ['#url'], 'hash 也走同一套，只是 id 换了名字');
+});
