@@ -2554,7 +2554,7 @@ test('D5 单块塌了不整页塌：错误只记在那一块上', () => {
 });
 
 // ── §E0 银行卡码表数据形状（快照 → 生成物） ──────────────────────────────
-const { BANKS, BIN_ROWS } = await import('../dev/js/tools/bank-bin-data.js');
+const { BANKS, BIN_META, BIN_ROWS } = await import('../dev/js/tools/bank-bin-data.js');
 test('E0-1 生成物与快照同步：--check 必须退 0', () => {
   // 这条判据不看内容只看退出码：它防的是"改了快照忘了重跑生成器"这一整类漂移。
   const r = spawnSync(process.execPath, ['scripts/build-prefix-data.mjs', '--check'],
@@ -2818,9 +2818,9 @@ test('E13 建议形态只在 Luhn 那一档给', () => {
 });
 
 test('E14 入参形状：null / undefined / 数值都按字符串走，不抛', () => {
-  for (const v of [null, undefined, 0, false, {}]) {
-    assert.equal(parseBankCard(v).state === 'empty' || parseBankCard(v).state === 'malformed', true,
-      `${JSON.stringify(v)} 必须安静地走两行表而不是抛`);
+  for (const [v, want] of [[null, 'empty'], [undefined, 'empty'], [0, 'malformed'],
+    [false, 'malformed'], [{}, 'malformed']]) {
+    assert.equal(parseBankCard(v).state, want, `${JSON.stringify(v)} 必须安静地给出结论而不是抛`);
   }
   assert.equal(parseBankCard(null).state, 'empty');
   assert.equal(parseBankCard(undefined).state, 'empty');
@@ -2858,7 +2858,9 @@ test('E16 固定 rng 可复现，取值口径与身份证侧同档', () => {
   const a = generateBankCards({ count: 8, rng: rngSeed() }).map((x) => x.number);
   const b = generateBankCards({ count: 8, rng: rngSeed() }).map((x) => x.number);
   assert.deepEqual(a, b);
-  assert.ok(new Set(a).size > 1, '同一个种子连出 8 条全等，说明随机体没参与');
+  // 定值 LCG 下这 8 条是确定的 8 个不同 BIN（实测 8/8）；`> 1` 那种写法漏掉"退化成两三条轮转"
+  assert.equal(new Set(a).size, 8, '同一个种子连出 8 条不是 8 个不同号，说明随机体没充分参与');
+  assert.equal(new Set(generateBankCards({ count: 8, rng: rngSeed() }).map((x) => x.bin)).size, 8);
   assert.throws(() => generateBankCards({ rng: () => 2 }), /options\.rng 每次应给出 \[0, 1\)/);
   assert.throws(() => generateBankCards({ rng: 'x' }), TypeError);
   assert.equal(generateBankCards({ count: 1, rng: null }).length, 1, 'null = 没传，与 generateIdCards 同档');
@@ -2881,10 +2883,26 @@ test('E17 生成侧闸门点名到具体键', () => {
   assert.equal(generateBankCards(null).length, 1, '整个 options 传 null 等于没传');
 });
 
-test('E18 行别下拉与表自洽', () => {
+test('E18 行别下拉与表自洽，且与生成物头部计数三方对账', () => {
   assert.equal(BANK_OPTIONS.length, BANKS.length);
   assert.equal(BANK_OPTIONS.length, 260);
-  assert.equal(BANK_OPTIONS.reduce((n, b) => n + b.binCount, 0), BIN_ROWS.split(';').length);
+  // `binCount` 之和 = 表体条目数，这句话单独看是恒等式（两边同源），所以拿生成器写在文件头的
+  // 三个计数当第三方来对：`BIN_META` 目前没有任何消费者，不对账就等于白生成。
+  const entries = BIN_ROWS.split(';');
+  assert.equal(BIN_META.rows, entries.length, '生成物头部的 rows 与表体条目数脱节——生成器计数口径漂了');
+  assert.equal(BANK_OPTIONS.reduce((n, b) => n + b.binCount, 0), BIN_META.rows);
+  const byBin = new Map();
+  for (const row of entries) {
+    const [bin, , , len] = row.split(' ');
+    if (!byBin.has(bin)) byBin.set(bin, []);
+    byBin.get(bin).push(+len);
+  }
+  assert.equal(byBin.size, BIN_META.distinctBins, '头部 distinctBins 与实际不同 BIN 个数脱节');
+  const dup = [...byBin.values()].filter((v) => v.length > 1);
+  assert.equal(dup.length, BIN_META.ambiguousBins, '头部 ambiguousBins 与并列登记个数脱节');
+  // 读侧 `primary` 从并列里挑"位数与实测一致"的那一条，靠的就是同一 BIN 的两条登记位数不同。
+  assert.ok([...byBin.values()].every((v) => new Set(v).size === v.length),
+    '出现了同 BIN 同位数的两条登记，primary 的挑法不再唯一');
   const codes = BANK_OPTIONS.map((b) => b.code);
   assert.deepEqual(codes, [...codes].sort(), '下拉顺序按行别码升序，不依赖 locale 折叠');
   assert.ok(BANK_OPTIONS.every((b) => b.binCount > 0 && b.name !== ''));
@@ -2916,6 +2934,14 @@ test('E20 批量入口：跳空行、行号是原行号', () => {
   assert.deepEqual(parseBankCardList(null), []);
 });
 
+/** 把表体解成行对象，顺序与 `ROWS` 一致——E21 要用它自己算一遍生成池，不能只信生成器 */
+const BIN_TABLE = BIN_ROWS.split(';').map((row) => {
+  const [bin, idx, cardType, len] = row.split(' ');
+  return { bin, bankCode: BANKS[+idx][0], cardType, panLength: +len };
+});
+/** 表内比 `bin` 更长、又以它为前缀的登记行 */
+const longerKids = (bin) => BIN_TABLE.filter((r) => r.bin.length > bin.length && r.bin.startsWith(bin));
+
 test('E21 挨过挡的收窄条件逐个扫种子：不抛，且读回来的前缀就是声明的那个', () => {
   // 2026-09-27 复核发现：表里 9 条登记的号码会被**自家更长的登记前缀**盖住（E0-4 钉着这个形状），
   // 旧实现在那些分支上直接抛「内部不变量」。实测旧的构造方式：
@@ -2924,7 +2950,8 @@ test('E21 挨过挡的收窄条件逐个扫种子：不抛，且读回来的前�
   // 这一格把"面板点一次生成不该看到内部错误"钉成判据，并且要求读侧结论与声明一致。
   for (const opts of [{ bin: '9558', length: 19 }, { bin: '622421', length: 19 },
     { bin: '621260' }, { bin: '621059', length: 16 }, { bankCode: 'ICBC', length: 19 },
-    { bankCode: 'BHB', length: 19 }, { count: 20 }]) {
+    { bankCode: 'BHB', length: 19 }, { bankCode: 'JSBANK', length: 16 },
+    { bankCode: 'BOSZ', length: 19 }, { count: 20 }]) {
     for (let s = 1; s <= 120; s += 1) {
       const list = generateBankCards({ ...opts, rng: seededRandom(s) });
       for (const item of list) {
@@ -2935,15 +2962,61 @@ test('E21 挨过挡的收窄条件逐个扫种子：不抛，且读回来的前�
       }
     }
   }
+  // 上面那串收窄是**手挑的**，扫 120 个种子也只保证"挑中的那几行没问题"。这一格把覆盖面换成
+  // 从表里现算：9 条挨挡登记（E0-4 同一判据）各自把四条收窄凑齐，池子里每一档都要能被点中、
+  // 生成出来、并且读回自己。实测 9 个键共 32 档（`621260/CSRCB/19` 一支就占 18 档）。
+  const riskyKeys = [...new Set(BIN_TABLE.filter((r) => longerKids(r.bin).some((c) => c.bin.length <= r.panLength - 1))
+    .map((r) => `${r.bankCode} ${r.cardType} ${r.bin} ${r.panLength}`))].sort();
+  assert.equal(riskyKeys.length, 9, '挨挡登记的个数变了，下面的覆盖面判据要跟着重看');
+  let slots = 0;
+  for (const key of riskyKeys) {
+    const [bankCode, cardType, bin, panLength] = key.split(' ');
+    const pool = BIN_TABLE.filter((r) => r.bankCode === bankCode && r.cardType === cardType
+      && r.bin.startsWith(bin) && r.panLength === +panLength);
+    assert.ok(pool.some((r) => r.bin === bin), `${key}：自己都不在自己的池里，收窄口径不一致`);
+    for (let i = 0; i < pool.length; i += 1) {
+      const row = pool[i];
+      // 恒定取值 `roll` 只负责点中池内第 i 档（`Math.floor(roll * pool.length) === i` 恒成立）。
+      // 本体的取值是**敌意**的：按这条登记最长的那个子前缀的尾巴轮转，专门去补自家前缀。
+      // 为什么必须敌意：2026-09-27 十六刀台账实测，取值恒定时 M8（摘掉避让）在这 32 档里
+      // 一档都碰不出来——`9558` 那档恒定取 0.25 → 本体全 2，压根不撞 `95588`，E21 于是全绿，
+      // 避让只剩 E22 一条在守。换成敌意取值后 M8 在 `622498` 这一档直接抛内部不变量。
+      const roll = (i + 0.5) / pool.length;
+      const kids = longerKids(row.bin).map((r) => r.bin)
+        .filter((c) => c.length <= row.panLength).sort((a, b) => b.length - a.length);
+      const tail = kids.length > 0
+        ? [...kids[0].slice(row.bin.length)].map((d) => (Number(d) + 0.5) / 10) : [0.5];
+      let n = 0;
+      let draws = 0;
+      const [card] = generateBankCards({ bankCode, cardType, bin, length: +panLength,
+        rng: () => { const v = n === 0 ? roll : tail[(n - 1) % tail.length]; n += 1; draws += 1; return v; } });
+      slots += 1;
+      const back = parseBankCard(card.number);
+      assert.equal(card.bin, row.bin, `${key} 池内第 ${i} 档选错行了`);
+      assert.equal(back.state, 'valid', `${key} 第 ${i} 档 → ${card.number} 自检 ${back.state}`);
+      assert.equal(back.info.bin, row.bin, `${key} 第 ${i} 档被读侧换成了 ${back.info.bin}`);
+      // 取值次数 = 选池 1 次 + 本体每位 1 次；避让挪位不吃随机数，重取才会。
+      // 敌意取值下"不避让"必然撞子前缀，所以这一格同时盯着避让与自检两条链。
+      assert.equal(draws, card.panLength - card.bin.length,
+        `${key} 第 ${i} 档取了 ${draws} 次，期望 ${card.panLength - card.bin.length} 次：多出来的次数只能来自重取`);
+    }
+  }
+  assert.equal(slots, 32, '九个键的池子总档数变了（实测 18+5+2+2+1×5 = 32），上面那段覆盖面的形状要重看');
 });
 
 test('E22 避让是构造期发生的：定值 rng 下逐字符可复现', () => {
-  // 取第一位 0 → pool[0] 是 `9558 ICBC DC 19` 那条；紧接一位 0.8 → 算得 8，正好把子前缀
-  // `95588` 补满，于是顺位挪到 9。剩下的 13 位取 0，校验位由 Luhn 算出。
-  // 摘掉避让这一格（M8）后，第一次取号会撞 95588、被自检拦下重取，产出的号就不是这一条，
-  // 这条断言随即红——红的理由是"号变了"而不是"抛了"，这是它比 E21 更尖的地方。
-  const script = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
-  const drawn = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  // 前提先钉住：`{bin:'9558', length:19}` 的池子按表内顺序是 `9558`、`95588` 两档，
+  // 第一位取 0 才落到 `9558`。这句从表里现算，不靠"我记得它是 pool[0]"——表序一变，
+  // 这个前提比号本身先红，红的理由才说得清。
+  const pool = BIN_TABLE.filter((r) => r.bin.startsWith('9558') && r.panLength === 19);
+  assert.deepEqual(pool.map((r) => `${r.bin} ${r.bankCode} ${r.cardType} ${r.panLength}`),
+    ['9558 ICBC DC 19', '95588 ICBC DC 19']);
+  // 紧接一位 0.8 → 算得 8，正好把子前缀 `95588` 补满，于是顺位挪到 9。剩下的 13 位取 0，
+  // 校验位由 Luhn 算出。摘掉避让这一格（M8）后第一次取号会撞 95588、被自检拦下重取，
+  // 产出的号就不是这一条，这条断言随即红——红的理由是"号变了"而不是"抛了"，这比 E21 更尖。
+  const script = (vals) => { let i = 0; const f = () => vals[i++ % vals.length]; f.calls = () => i; return f; };
+  const vals = [0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const drawn = script(vals);
   const [card] = generateBankCards({ bin: '9558', length: 19, rng: drawn });
   const body = '955890000000000000';
   assert.equal(card.bin, '9558');
@@ -2951,7 +3024,36 @@ test('E22 避让是构造期发生的：定值 rng 下逐字符可复现', () =>
   assert.equal(card.number, body + luhnCheckDigit(body), '第五位没被挪开，或挪开之后又走了别的分支');
   assert.equal(card.number.slice(4, 5), '9', '本体第五位本该由 0.8 算成 8（撞上 95588），避让要把它挪成 9');
   assert.equal(parseBankCard(card.number).info.bin, '9558');
+  assert.equal(drawn.calls(), vals.length, '取值次数超过序列长度，说明中途重取过（避让没生效）');
   // 同一串取值再来一次，必须一字不差（避让不吃额外随机数，所以序列长度是确定的 15 次）
-  const again = script([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const again = script(vals.slice());
   assert.deepEqual(generateBankCards({ bin: '9558', length: 19, rng: again })[0], card);
+});
+
+test('E23 三张派生表是只读的：谁都改不动共享行，第二次查询不受第一次影响', () => {
+  // `lookupBin` 把 `BY_BIN` 里那个数组原样交出去（每查一次号都要省这一份拷贝），
+  // `info.primary` 也是表内的行对象本身。不冻结的话，面板或调用方改一次就把生成池和之后
+  // 所有查询一起改脏，且**不会有任何报错**。解冻其中任一处，这一格立刻红。
+  const hit = lookupBin('6212601500012345');
+  assert.equal(hit.rows.length, 2);
+  assert.throws(() => { hit.rows.push({ bin: 'INJECT' }); }, TypeError);
+  assert.equal(lookupBin('6212601500012345').rows.length, 2, '上一次的 push 渗到了这一次');
+  const first = parseBankCard('6212601500012345');
+  assert.throws(() => { first.info.primary.panLength = 999; }, TypeError);
+  assert.equal(parseBankCard('6212601500012345').matches.map((m) => m.panLength).join(','), '16,19');
+  assert.throws(() => { first.info.primary.bankCode = 'HACK'; }, TypeError);
+  // `matches` 与 `triedLengths` 是**每次调用现生成**的，正相反：改它们只影响调用方自己那一份，
+  // 所以不许抛，但必须证明改动漏不出去。两条路径各拿一份：命中时 `triedLengths` 来自
+  // `lookupBin` 内部攒的 `tried`，未收录时来自 `tryableLengths` 现算，两边都得是新鲜的。
+  const copy = parseBankCard('6212601500012345');
+  copy.matches[0].panLength = 999;
+  copy.info.triedLengths.push(99);
+  const after = parseBankCard('6212601500012345');
+  assert.equal(after.matches[0].panLength, 16, 'matches 原来是共享行，改一份就串了');
+  assert.deepEqual(after.info.triedLengths, [10, 9, 8, 7, 6]);
+  const miss = parseBankCard('4242424242424242');
+  miss.info.triedLengths.push(99);
+  assert.deepEqual(parseBankCard('4242424242424242').info.triedLengths, [10, 9, 8, 7, 6, 5, 4, 3]);
+  // 生成侧同样读的是这些行：把整张表换掉要还能生成并自检通过
+  assert.equal(generateBankCards({ bin: '9558', length: 19, rng: seededRandom(7) })[0].bankCode, 'ICBC');
 });

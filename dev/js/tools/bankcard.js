@@ -6,7 +6,9 @@
  * 不含新发卡与调整，所以本模块把"前缀查不到"与"登记位数不一致"都归为 `null`
  * （不下结论）而不是 `false`——§5.4 的"查不到不等于无效"在这一页的落地方式。
  *
- * 与 `idcard.js` / `uscc.js` 同一套约定：纯函数、不碰 DOM、入参形状不对就抛。
+ * 与 `idcard.js` / `uscc.js` 同一套约定：纯函数、不碰 DOM。抛不抛分两侧——
+ * **生成侧**（`generateBankCards`）入参形状不对就抛，读侧（`parseBankCard`）对任何输入
+ * 都只给结论不抛，口径见 E14 与 E17。
  */
 import { seededRandom } from './random.js';
 import { BANKS, BIN_META, BIN_ROWS } from './bank-bin-data.js';
@@ -47,9 +49,31 @@ for (const row of ROWS) {
 const BANK_MAP = new Map(BANKS);
 
 /**
- * `bin → 表内比它更长、又以它为前缀的登记前缀`（"这个 BIN 会被谁盖住"）。
- * 建法是**一遍扫每条 BIN 的全部真前缀**（1,697 个 BIN 共约 1.1 万次插入）；对着 1,697 个 BIN
- * 两两比 `startsWith` 实测 38.5–40.3ms，而本模块整个 import 才 21.4–23.7ms，首屏不值这个钱。
+ * 三张派生结构一律冻结。`lookupBin` 把 `BY_BIN` 里的那个数组**原样**交出去（省一次拷贝，
+ * 每查一次号都要走它），`info.primary` 也是表内的行对象本身：任何一方改了它，错的不是这一条
+ * 结果，而是之后所有查询和整个生成池。E23 钉住这一点——解冻其中任一处都会红。
+ * 冻结后 `Object.freeze` 的写入在模块作用域（严格模式）下直接抛，不静默生效。
+ */
+for (const group of BY_BIN.values()) {
+  for (const row of group) Object.freeze(row);
+  Object.freeze(group);
+}
+Object.freeze(ROWS);
+
+/** 前缀候选档：从最长往下试，且**必须给账号体留一位**（前缀长度 < 卡号长度）。
+ *  读侧的分桶和"未收录时试到哪几档"的文案共用这一条口径，两边不是各写一遍比较式。 */
+const tryableLengths = (len) => BIN_LENGTHS.filter((n) => n < len);
+
+/**
+ * `登记 BIN → 表内比它更长、又以它为前缀的登记前缀`（"这个 BIN 会被谁盖住"）。
+ * 只对**本身也是登记 BIN** 的前缀建键（`childrenOf` 的入参永远是表内的 `row.bin`，别的键
+ * 一辈子查不到）：快照实测这样只剩 **8 个键 / 32 次插入**，而给每条 BIN 的全部真前缀建键是
+ * 852 个键 / 8,653 次插入——多出来的 844 个键没人查，1,697 个登记 BIN 的读回结果逐条相同（E0-4
+ * 把"8 个父 BIN / 32 组"钉在数据侧，两头对得上）。
+ * 为什么不退回两两比 `startsWith`：冷进程实测那一遍要 62.6–75.9ms（同进程里重复跑到第五遍仍要
+ * 51.9–60.0ms），而本模块整个 import 才 9.7–12.7ms，首屏不值这个钱；建索引（窄法）实测
+ * 1.28–1.53ms，宽法是 1.80–1.98ms——**这几毫秒摊不进 import 的抖动，所以删掉它量不出差别**，
+ * 省下的是那 844 个没人查的键，不是时间。
  * 快照实测：1,697 个 BIN 里 **8 个**有更长子前缀，嵌套对 **32 组**（`603265 ⊂ 60326500`、
  * `621260 ⊂ 621260107` 那一串、`9558 ⊂ 95588` 都在里面），其中 **9 条登记**在生成时可能被自家
  * 更长的前缀盖住——读侧按最长前缀取，一旦补齐，本条的行别甚至卡种都会换一家。
@@ -58,6 +82,7 @@ const CHILD_BY_PREFIX = new Map();
 for (const bin of BY_BIN.keys()) {
   for (let k = 1; k < bin.length; k += 1) {
     const p = bin.slice(0, k);
+    if (!BY_BIN.has(p)) continue;
     if (!CHILD_BY_PREFIX.has(p)) CHILD_BY_PREFIX.set(p, []);
     CHILD_BY_PREFIX.get(p).push(bin);
   }
@@ -119,15 +144,15 @@ export function luhnValid(digits) {
 
 /**
  * 最长前缀查表：从 `BIN_LENGTHS` 里最大的那一档往下试，且要求**至少留一位**给账号体
- * （前缀长度 < 卡号长度）。命中即停，返回该 BIN 的**全部**并列登记。
+ * （口径统一在 `tryableLengths`）。命中即停，返回该 BIN 的**全部**并列登记。
  * @param {string} digits 纯数字卡号
  * @returns {{bin:string,rows:{bin:string,bankCode:string,bankName:string,cardType:string,cardTypeName:string,panLength:number}[],tried:number[]}|null}
+ *   `rows` 是表内那份只读数组（冻结过），要改请先自己拷贝
  */
 export function lookupBin(digits) {
   if (typeof digits !== 'string' || !/^\d+$/.test(digits)) return null;
   const tried = [];
-  for (const n of BIN_LENGTHS) {
-    if (n >= digits.length) continue;
+  for (const n of tryableLengths(digits.length)) {
     tried.push(n);
     const hit = BY_BIN.get(digits.slice(0, n));
     if (hit) return { bin: digits.slice(0, n), rows: hit, tried };
@@ -223,7 +248,7 @@ export function parseBankCard(raw) {
     bin: primary === null ? '' : primary.bin,
     binLength: primary === null ? null : primary.bin.length,
     primary,
-    triedLengths: found === null ? [...BIN_LENGTHS].filter((n) => n < digits.length) : found.tried,
+    triedLengths: found === null ? tryableLengths(digits.length) : found.tried,
     luhnExpected: expected, luhnGiven: given, luhnWork: work,
     source: BIN_SOURCE, datasetVersion: BIN_META.fetchedAt,
   };
