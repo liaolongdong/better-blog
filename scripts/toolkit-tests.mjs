@@ -3057,3 +3057,250 @@ test('E23 三张派生表是只读的：谁都改不动共享行，第二次查�
   // 生成侧同样读的是这些行：把整张表换掉要还能生成并自检通过
   assert.equal(generateBankCards({ bin: '9558', length: 19, rng: seededRandom(7) })[0].bankCode, 'ICBC');
 });
+
+// ── §F 手机号 ──────────────────────────────────────────────────────────────
+//（CARRIER_SEGMENTS 由 Task 1 的 §F0 那行声明，这里只补 CARRIER_META——同一个模块里同名
+//  const 声明两次是 SyntaxError，而 §F 的 LISTED 与 F1/F8 都靠那一份表作证。）
+const { CARRIER_META } = await import('../dev/js/tools/carrier-data.js');
+const { CARRIERS, CARRIER_NOTE, CARRIER_SOURCE, GENERATE_MAX: MOBILE_GENERATE_MAX,
+  MOBILE_CAVEAT, MOBILE_LENGTH, MOBILE_RE, formatMobile, generateMobiles,
+  lookupCarrier, parseMobile } = await import('../dev/js/tools/phone.js');
+
+// §F0 已把号段表钉成"5 家 / 56 段 / 不重叠 / 形状合法"，§F 因此只断 phone.js 这一层的
+// 行为与派生：不重复判数据，也不断任何外部正确性（单一来源，见 CARRIER_NOTE 与计划 §0.4）。
+const mck = (r) => Object.fromEntries(r.checks.map((c) => [c.key, c.ok]));
+const mrow = (r, key) => r.checks.find((c) => c.key === key);
+/** 三位段 + 补零到十一位（尾数随便填，§F 只关心前缀那一档） */
+const pad11 = (s) => (s + '0000000000').slice(0, 11);
+/** `1[3-9]\d` 的全部 70 个三位组合——表内 56 段与表外补集都由它派生，不写死号段 */
+/** 表内号段清单：唯一权威是 §F0 那张 CARRIER_SEGMENTS，这里从它派生，
+ *  不引 phone.js 的同名派生值——判据要能看出"读侧自己数出来的段"和"表里的段"不一致。 */
+const LISTED = [];
+for (const [, segsText] of CARRIER_SEGMENTS) LISTED.push(...segsText.split(' '));
+const ALL70 = [];
+for (let a = 3; a <= 9; a += 1) for (let b = 0; b <= 9; b += 1) ALL70.push(`1${a}${b}`);
+
+test('F1 合法手机号判 valid，运营商按表内口径给出', () => {
+  const r = parseMobile('13800138000');
+  assert.equal(r.state, 'valid');
+  assert.equal(r.carrier, '中国移动');
+  assert.equal(r.segment, '138');
+  assert.deepEqual(Object.values(mck(r)), [true, true, true, true]);
+  assert.equal(r.checks.length, 4);
+  assert.equal(r.info.formatted, '138 0013 8000');
+  assert.equal(r.hasCaveat, true);
+  // 每家都取一条：五家在表里各挂 ≥1 段，取各自第一个号段
+  for (const [carrier, segsText] of CARRIER_SEGMENTS) {
+    const first = segsText.split(' ')[0];
+    const one = parseMobile(pad11(first));
+    assert.equal(one.state, 'valid', `${carrier} 的 ${first}`);
+    assert.equal(one.carrier, carrier, `${carrier} 的 ${first} 读成了 ${one.carrier}`);
+  }
+});
+
+test('F2 书写变体归一到同一结论，并在逐项表点名', () => {
+  const forms = ['138 0013 8000', '138-0013-8000', '138　0013　8000',
+    '(138)0013 8000', '+86 13800138000', '008613800138000', '8613800138000',
+    '  13800138000  ', '138-0013-8000'.replace(/-/g, '\u00A0')];
+  for (const form of forms) {
+    const r = parseMobile(form);
+    assert.equal(r.digits, '13800138000', form);
+    assert.equal(r.state, 'valid', form);
+    assert.equal(r.value, form.trim(), 'value 必须是 trim 后的原样回显');
+  }
+  assert.equal(parseMobile('+86 13800138000').normalized, '去掉了国际前缀 +86');
+  assert.match(mrow(parseMobile('+86 13800138000'), 'charset').detail, /去掉了国际前缀 \+86/);
+  assert.equal(parseMobile('13800138000').normalized, '', '没剥东西就不许凭空点名');
+});
+
+test('F3 国际前缀只在该剥的时候剥', () => {
+  // `+86` 后头不是 `1[3-9]`：不剥，于是 `+` 留在数字里被字符行点名——不猜用户想输入什么
+  const odd = parseMobile('+8623800138000');
+  assert.equal(odd.digits, '+8623800138000');
+  assert.equal(odd.state, 'malformed');
+  assert.equal(mck(odd).charset, false);
+  assert.match(mrow(odd, 'charset').detail, /含非数字字符「\+」/);
+  // 裸 `86` 只在"整串 13 位"时才当国家码；14 位那种一律不剥，免得把真号剪成合法号
+  assert.equal(parseMobile('86138001380000').state, 'malformed');
+  assert.equal(parseMobile('86138001380000').normalized, '');
+  assert.equal(parseMobile('86038001380').normalized, '');
+  assert.equal(parseMobile('86038001380').state, 'malformed');
+});
+
+test('F4 位数不合规只给前两行、info 为 null', () => {
+  for (const short of ['1380013800', '1', '', '138 0013 800']) {
+    const r = parseMobile(short);
+    if (short === '') continue;
+    assert.equal(r.state, 'malformed', short);
+    assert.equal(r.checks.length, 2, short);
+    assert.equal(r.info, null, short);
+    assert.equal(r.checks[1].ok, false, short);
+    assert.match(r.checks[1].detail, /应为 11 位/, short);
+  }
+  const long = parseMobile('138001380000');
+  assert.equal(long.state, 'malformed');
+  assert.equal(long.checks.length, 2);
+  assert.equal(long.info, null);
+  assert.equal(MOBILE_LENGTH, 11);
+});
+
+test('F5 含非数字字符时点名第几位', () => {
+  const r = parseMobile('13800138o00');
+  assert.equal(r.state, 'malformed');
+  assert.equal(mck(r).charset, false);
+  assert.match(mrow(r, 'charset').detail, /第 9 位/);
+  assert.equal(r.checks.length, 2);
+  assert.equal(r.info, null);
+});
+
+test('F6 开头不是 1[3-9]：malformed，但四行照给、运营商收空', () => {
+  const r = parseMobile('12800138000');
+  assert.equal(r.state, 'malformed');
+  assert.equal(r.checks.length, 4, '位数过了就是解出了十一位结构，四行都要在');
+  assert.equal(mck(r).segment, false);
+  assert.equal(mck(r).carrier, null, '在假号段旁边挂一个"未收录"等于凭空造结论');
+  assert.equal(r.carrier, '');
+  assert.equal(r.segment, '128');
+  assert.ok(r.info !== null);
+  assert.equal(r.info.carrier, '');
+  assert.equal(r.hasCaveat, true);
+  assert.match(mrow(r, 'segment').detail, /不是移动号段开头/);
+  assert.equal(mrow(r, 'carrier').detail, '号段不成立，不判运营商');
+});
+
+test('F7 号段合法但表里没这一格 → unlisted，不据此判无效', () => {
+  const inTable = new Set(LISTED);
+  const missing = ALL70.filter((s) => !inTable.has(s));
+  assert.equal(missing.length, ALL70.length - inTable.size, '表内段与补集必须互补');
+  assert.ok(missing.length > 0, '号段表若一次覆盖 70 档，这一格就该改成"无未收录样本"');
+  for (const s of missing) {
+    const r = parseMobile(pad11(s));
+    assert.equal(r.state, 'unlisted', s);
+    assert.equal(mck(r).segment, true, s);
+    assert.equal(mck(r).carrier, null, s);
+    assert.match(mrow(r, 'carrier').detail, /不据此判无效/, s);
+    assert.equal(r.carrier, '', s);
+    assert.equal(r.checks.filter((c) => c.ok === false).length, 0, `${s} 不许出现硬红`);
+  }
+});
+test('F8 表内 56 段逐段覆盖：都能判 valid 且运营商与表一致', () => {
+  const listed = LISTED;
+  assert.equal(listed.length, CARRIERS.reduce((n, c) => n + c.count, 0));
+  for (const s of listed) {
+    const r = parseMobile(pad11(s));
+    assert.equal(r.state, 'valid', s);
+    assert.equal(r.segment, s);
+    const owner = CARRIER_SEGMENTS.find(([, t]) => t.split(' ').includes(s))[0];
+    assert.equal(r.carrier, owner, s);
+  }
+  assert.equal(CARRIERS.length, 5);
+});
+
+test('F9 MOBILE_RE 与 parseMobile 的硬结论同口径', () => {
+  for (const s of ALL70) {
+    assert.equal(MOBILE_RE.test(pad11(s)), parseMobile(pad11(s)).state !== 'malformed', s,
+      '正则说合法而 parseMobile 判 malformed（或反之）就是两套格式口径');
+  }
+  assert.equal(MOBILE_RE.test('1380013800'), false, '少一位');
+  assert.equal(MOBILE_RE.test('12800138000'), false, '开头 12');
+  assert.equal(MOBILE_RE.test('13800138000X'), false);
+  assert.equal(parseMobile(13800138000).state, 'valid', '11 位在 2^53 内，数值入参不掉末位');
+  assert.equal(parseMobile(13800138000).digits, '13800138000');
+});
+
+test('F10 formatMobile 只认十一位纯数字', () => {
+  assert.equal(formatMobile('13800138000'), '138 0013 8000');
+  assert.equal(formatMobile('1380013800'), '1380013800', '形状不对就原样返回，不猜');
+  assert.equal(formatMobile('1380013800a'), '1380013800a');
+  assert.equal(formatMobile(null), '');
+  assert.equal(formatMobile(13800138000), '', '数值不进格式化：String() 的口径归 parseMobile，这里不各做一遍');
+});
+
+test('F11 lookupCarrier 的形状闸门与返回形状', () => {
+  assert.deepEqual(lookupCarrier('13800138000'), { segment: '138', carrier: '中国移动' });
+  assert.deepEqual(lookupCarrier('19000138000'), { segment: '190', carrier: '中国电信' });
+  assert.deepEqual(lookupCarrier('14000138000'), { segment: '140', carrier: null });
+  assert.deepEqual(lookupCarrier('13'), { segment: '13', carrier: null }, '不足三位也有 segment，供面板说"坏在哪一段"');
+  assert.equal(lookupCarrier('1380013800a'), null, '含非数字一律 null');
+  assert.equal(lookupCarrier(null), null);
+  assert.equal(lookupCarrier(13800138000), null, '不替调用方做 String()');
+});
+
+test('F12 生成侧自洽：50 条全判 valid 且号段就是表内段', () => {
+  const list = generateMobiles({ count: MOBILE_GENERATE_MAX });
+  assert.equal(list.length, MOBILE_GENERATE_MAX);
+  assert.equal(MOBILE_GENERATE_MAX, 50);
+  for (const item of list) {
+    const back = parseMobile(item.number);
+    assert.equal(back.state, 'valid', item.number);
+    assert.equal(back.segment, item.segment);
+    assert.equal(back.carrier, item.carrier);
+    assert.equal(item.formatted, formatMobile(item.number));
+    assert.ok(LISTED.includes(item.segment), `${item.segment} 不在表内`);
+    assert.equal(item.note, CARRIER_NOTE);
+    assert.equal(item.caveat, MOBILE_CAVEAT);
+  }
+  const seeded = () => {
+    const s = generateMobiles({ count: 5, rng: () => 0.42 });
+    return s.map((x) => x.number).join(',');
+  };
+  assert.equal(seeded(), seeded(), '同一个 rng 必须给同一批号');
+  assert.equal(generateMobiles().length, 1, '不传参就是 1 条');
+});
+
+test('F13 生成侧收窄：carrier 与 segment，两者冲突时报归属', () => {
+  const telecom = generateMobiles({ count: 20, carrier: '中国电信' });
+  assert.equal(telecom.length, 20);
+  for (const item of telecom) assert.equal(item.carrier, '中国电信', item.number);
+  const guangdian = generateMobiles({ count: 4, segment: '192' });
+  for (const item of guangdian) {
+    assert.equal(item.segment, '192');
+    assert.equal(item.carrier, '中国广电');
+  }
+  assert.throws(() => generateMobiles({ carrier: '中国移动', segment: '192' }),
+    (e) => e instanceof RangeError && /号段 192 不属于 中国移动（表内它归 中国广电）/.test(e.message));
+});
+
+test('F14 生成侧入参闸门', () => {
+  const bad = (options, Kind, re) => assert.throws(() => generateMobiles(options),
+    (e) => e instanceof Kind && re.test(e.message), JSON.stringify(options));
+  bad({ count: 0 }, RangeError, /count 应为 1\.\.50/);
+  bad({ count: MOBILE_GENERATE_MAX + 1 }, RangeError, /count 应为 1\.\.50/);
+  bad({ count: 2.5 }, RangeError, /count/);
+  bad({ count: '5' }, RangeError, /count 应为 1\.\.50 的整数，收到 string 5/);
+  bad({ carrier: '中国移动通讯' }, RangeError, /carrier（中国移动通讯）不在表内 5 家/);
+  bad({ carrier: 123 }, TypeError, /carrier 应为非空字符串，收到 number 123/);
+  bad({ carrier: '  ' }, TypeError, /carrier 应为非空字符串/);
+  bad({ segment: '128' }, RangeError, /segment（128）不在表内 56 个号段里/);
+  bad({ segment: '13' }, TypeError, /segment 应为匹配 \/\^\\d\{3\}\$/);
+  bad({ segment: 'abc' }, TypeError, /segment/);
+  bad({ rng: 1 }, TypeError, /rng 应为 \(\) => number，收到 number 1/);
+  bad({ rng: () => 1 }, TypeError, /rng 每次应给出 \[0, 1\) 内的有限数，收到 number 1/);
+  bad({ rng: () => Number.NaN }, TypeError, /收到 number NaN/);
+  assert.equal(generateMobiles({ carrier: null, segment: undefined }).length, 1,
+    'null / undefined 等于没给收窄条件，不抛');
+});
+
+test('F15 文案边界：单一来源、三位号段、不做归属地三句都在', () => {
+  assert.match(CARRIER_SOURCE, new RegExp(CARRIER_META.provider.replace('/', '\\/')));
+  assert.match(CARRIER_SOURCE, new RegExp(CARRIER_META.ref.slice(0, 7)));
+  assert.match(CARRIER_SOURCE, new RegExp(CARRIER_META.fetchedAt));
+  assert.match(MOBILE_CAVEAT, /格式判定.*硬结论/);
+  assert.match(MOBILE_CAVEAT, /运营商按三位号段判定/);
+  assert.match(CARRIER_NOTE, /单一来源/);
+  assert.match(CARRIER_NOTE, /携号转网/);
+  assert.match(CARRIER_NOTE, /不做号码归属地/);
+  assert.match(CARRIER_NOTE, /三位号段/);
+  assert.ok(CARRIER_NOTE.includes(CARRIER_SOURCE), '面板里那句必须带上来源与快照日期');
+  for (const r of [parseMobile('13800138000'), parseMobile('14000138000'),
+    parseMobile('12800138000'), parseMobile('1380013800')]) {
+    assert.equal(r.note, CARRIER_NOTE);
+    assert.equal(r.caveat, MOBILE_CAVEAT);
+  }
+  assert.equal(parseMobile('13800138000').hasCaveat, true);
+  assert.equal(parseMobile('1380013800').hasCaveat, false, '位数没过就没有"参考"可提示');
+  assert.equal(parseMobile('').state, 'empty');
+  assert.deepEqual(parseMobile('').checks, []);
+  assert.equal(parseMobile(null).state, 'empty');
+  assert.equal(parseMobile(undefined).state, 'empty');
+});

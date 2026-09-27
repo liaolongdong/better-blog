@@ -70,6 +70,7 @@ const FILE_TARGETS = [
   'dev/js/tools/uscc.js',
   'dev/js/tools/panel.js',
   'dev/js/tools/bankcard.js',
+  'dev/js/tools/phone.js',
 ];
 
 /** 反查要扫的目录：镜像只可能出现在这些地方 */

@@ -30,17 +30,25 @@ const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(path.join(
 const read = (p) => fs.readFileSync(path.join(MIR, p), 'utf8');
 const put = (p, t) => fs.writeFileSync(path.join(MIR, p), t);
 
+/**
+ * 从被测脚本里读 `FILE_TARGETS`。这张清单以前在镜像器里手抄了一份，Task 3 落地 `phone.js` 时
+ * 就漏抄了：副本里没有那个文件，verifier 如实报 `✗ 磁盘上没有这个文件`，整轮自证退 1。
+ * **读不出来必须抛**，不许静默少拷几件——少拷的那一档会假绿（脚手架自己说谎是这里第 10 种形状）。
+ */
+function fileTargets() {
+  const src = fs.readFileSync(path.join(REPO, SCRIPT), 'utf8');
+  const m = /const FILE_TARGETS = \[([\s\S]*?)\];/.exec(src);
+  if (!m) throw new Error('读不到 FILE_TARGETS 数组：镜像器不能靠猜清单');
+  const list = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  if (list.length < 8) throw new Error(`FILE_TARGETS 只解析出 ${list.length} 项，形状变了，先修这里`);
+  return list;
+}
+
 /** 从仓库往副本拷一棵最小子树（只拷这轮判据用得着的东西，避开 node_modules） */
 function mirror() {
   fs.rmSync(MIR, { recursive: true, force: true });
-  const files = [
-    SCRIPT, PLAN1, PLAN2,
-    'scripts/toolkit-tests.mjs', 'scripts/build-prefix-data.mjs', 'scripts/build-region-data.mjs',
-    'scripts/build-id-fixture.mjs',
-    'dev/js/tools/region.js', 'dev/js/tools/random.js', 'dev/js/tools/idcard.js',
-    'dev/js/tools/uscc.js', 'dev/js/tools/panel.js', 'dev/js/tools/bankcard.js',
-  ];
-  for (const f of files) {
+  const files = [SCRIPT, PLAN1, PLAN2, 'scripts/toolkit-tests.mjs', ...fileTargets()];
+  for (const f of new Set(files)) {
     const dst = path.join(MIR, f);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     fs.copyFileSync(path.join(REPO, f), dst);
