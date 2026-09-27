@@ -18,7 +18,24 @@
         <ul>
             {% for item in site.nav %}
             {% assign is_current = false %}
-            {% if page.url == item.url or (item.url != '/' and page.url contains item.url) %}
+            {%- comment -%}
+            判据先把 nav 项的 `.html` 剥成目录前缀再做匹配，不是原来那条 `page.url contains item.url`：
+            在线工具落在 /tools/ 目录下（page.url = /tools/idcard.html），它**不包含** /tools.html
+            这个子串，所以旧判据下点进证件页时「工具箱」既不高亮、下拉里的当前项也没有态（设计文档 §4.3）。
+            两条口径要一起看：
+              · 等值那条照旧留 `item.url`，/tools.html 自己那一页仍然按原样命中；
+              · 前缀那条用 `nav_dir_slash`（带尾斜杠）而不是裸 `nav_dir`，否则 /toolshop.html
+                这种将来可能出现的地址会被 /tools 前缀误命中。
+            这条判据不靠"改前改后各跑一遍比对"兜底，它有一个常驻的复算器：`scripts/check-tools-surface.mjs`
+            的「导航-全站」那一组用 JS 把同样的口径重写一遍，对产物里每一个渲染了这段导航的页面（现场 91 页）
+            核"该亮哪一项、aria-current 取哪一档"。换掉判据那一次另按改前/改后各建了一遍站做逐页比对：
+            高亮态（`.is-current` 与 `aria-current` 的分布）只有 /tools/idcard.html 一页变化——它从
+            「无高亮」变成「工具箱高亮」；其余 90 页两栏分布逐字节同。下拉内容则是 91 页全变，
+            因为多出来的「在线工具」分组每一页都要渲染。
+            {%- endcomment -%}
+            {% assign nav_dir = item.url | remove: '.html' %}
+            {% assign nav_dir_slash = nav_dir | append: '/' %}
+            {% if page.url == item.url or (nav_dir != '/' and (page.url == nav_dir or page.url contains nav_dir_slash)) %}
             {% assign is_current = true %}
             {% endif %}
             <li class="nav-item{% if item.dropdown %} has-sub{% endif %}{% if is_current %} is-current{% endif %}">
@@ -29,13 +46,35 @@
                 让 align-items 与 gap 去管，这两个数就不必靠魔法偏移去凑。
                 画成内联 SVG 而不是图标字体，同下面搜索按钮那条理由：断网时只剩方框。
                 {%- endcomment -%}
-                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if is_current %} aria-current="page"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}
+                {%- comment -%}
+                当前态分两档写，不是一句 aria-current="page" 全包：
+                  · page.url 与 nav 项完全相等 → "page"，这一项就是当前这一页；
+                  · 只按目录前缀命中（/tools/idcard.html 命中 /tools）→ "true"，
+                    它标的是"你现在在这一族里"，而链接目的地并不是你正在看的这页。
+                前缀匹配是这次为在线工具新加的（上面那条注释），所以第二档跟着一起加：
+                不加的话读屏会在工具箱上念出"当前页面：/tools.html"，而按下去确实会离开这一页。
+                {%- endcomment -%}
+                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if page.url == item.url %} aria-current="page"{% elsif is_current %} aria-current="true"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}
                     {% if item.dropdown == 'tools' %}
                     <svg class="nav-caret" viewBox="0 0 12 8" width="12" height="8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 1.6 6 6.6 11 1.6"/></svg>
                     {% endif %}
                 </a>
                 {% if item.dropdown == 'tools' %}
+                {%- comment -%}
+                下拉里分两族，各自一个分组标题。为什么必须有标题而不靠"看链接形状"分辨：
+                插件那一族指向 /tools.html#锚点（产品页上的一段），在线工具那一族指向它自己的页面，
+                两族混在一张四条目的列表里时，访客无法在点开之前知道点了会不会离开当前页。
+                两族的条目都取自各自的数据源（_data/tools.yml / _data/onlineTools.yml），
+                这里不写死任何一条地址。
+                `status` 不是 ready 的条目整条不画：段 3 / 段 4 的页面在数据源里先进清单，
+                导航、tools.html、index-all、sitemap 四个消费点因此不用各改一遍模板。
+                当前项的钩子是 aria-current="page"，不是自造的 .is-on 类（同 §4.3 那条改口，
+                理由与 toolkit.scss 的「样式只认 ARIA 与 hidden」一条）：读屏软件同时得到
+                「这就是当前页」，样式与语义共用一个事实。
+                {%- endcomment -%}
+                {%- assign ready_tools = site.data.onlineTools | where: 'status', 'ready' -%}
                 <ul class="nav-sub">
+                    <li class="nav-sub-group">浏览器插件</li>
                     {% for tool in site.data.tools %}
                     <li>
                         <a class="nav-sub-link" href="{{ '/tools.html' | append: '#' | append: tool.slug | prepend: site.baseurl }}" data-tool="{{ tool.slug }}">
@@ -47,6 +86,20 @@
                         </a>
                     </li>
                     {% endfor %}
+                    {% if ready_tools.size > 0 %}
+                    <li class="nav-sub-group">在线工具</li>
+                    {% for tool in ready_tools %}
+                    <li>
+                        <a class="nav-sub-link" href="{{ tool.url | prepend: site.baseurl }}"{% if page.url == tool.url %} aria-current="page"{% endif %} data-tool="{{ tool.slug }}">
+                            <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                            <span class="nav-sub-text">
+                                <strong>{{ tool.name }}</strong>
+                                <small>{{ tool.tagline }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                    {% endif %}
                     <li><a class="nav-sub-more" href="{{ '/tools.html' | prepend: site.baseurl }}">全部工具与安装方式 →</a></li>
                 </ul>
                 {% endif %}

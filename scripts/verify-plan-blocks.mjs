@@ -53,12 +53,13 @@ const PLANS = [
 ];
 
 /**
- * 整文件镜像：计划里应当存在与这些文件逐字节相同的一个 ```js 块。
+ * 整文件镜像：计划里应当存在与这些文件逐字节相同的一个块，围栏语言按 `LANG_BY_EXT` 对着
+ * 扩展名认（`.js`/`.mjs` → ` ```js `，`.yml` → ` ```yaml `，另有 `.svg` / `.html` / `.scss`）。
  *
  * 这份清单**自己会烂**：段 2 的 `build-prefix-data.mjs` 全文就贴在计划里，可它一直没被
  * 声明，于是"计划与磁盘是否一致"这件事对它是静默不核的（2026-09-27 复核发现）。所以
- * `main()` 末尾加了一道反查：任何计划 js 块若与磁盘上某个 `.js`/`.mjs` **整文件**逐字节
- * 全等、却不在本清单里，就判 `✗ 漏网镜像` 并退 1。清单漏一项从此会自己喊出来。
+ * `main()` 末尾加了一道反查：任何计划块若与磁盘上某个**整文件**逐字节全等、却不在本清单里，
+ * 就判 `✗ 漏网镜像` 并退 1。清单漏一项从此会自己喊出来。
  */
 const FILE_TARGETS = [
   'scripts/build-region-data.mjs',
@@ -77,10 +78,48 @@ const FILE_TARGETS = [
   'dev/js/toolkitCore.js',
   'dev/js/tools/workbench.js',
   'dev/js/toolIdcard.js',
+  // Task 9 的收录面门禁：它自己也是"计划里贴全文"的规格文件，所以照样进清单。
+  // 反查那道只会抓"磁盘有镜像却没声明"，抓不到"清单漏了一项"——后者要等有人把镜像
+  // 贴进计划才暴露，所以这一格由 `verify-plan-blocks-teeth.mjs` 的一条变异来兜。
+  'scripts/check-tools-surface.mjs',
+  // ── Task 8 交给本格的四块**非 js 整文件镜像**（计划 [段2] 9987/10071/10156/10711 那几个围栏）。
+  // 它们一直躺在计划里，但 `main()` 早先只收 `lang === 'js'` 的块，于是这四块落在门禁之外：
+  // 磁盘改了、计划不会红。2026-09-27 现场就吃到一次——收录面把 title 改短以进 SERP 列数预算，
+  // `_data/onlineTools.yml` 与 `tools-idcard.html` 两份镜像仍写着旧的长标题，而本脚本一路打 ✓。
+  '_data/onlineTools.yml',
+  'assets/img/tools/idcard-tool.svg',
+  'tools-idcard.html',
+  'dev/sass/toolkit.scss',
 ];
 
-/** 反查要扫的目录：镜像只可能出现在这些地方 */
-const MIRROR_SCAN_DIRS = ['dev/js/tools', 'dev/js', 'scripts'];
+/**
+ * 文件扩展名 ↔ 围栏语言。两头各一次映射，因为同一份内容在计划里的围栏名是写的人挑的：
+ * `javascript` 与 `js` 指同一件事，`.yml` 文件贴进计划用的是 `yaml` 围栏。
+ * 少一条不会报错，只会**静默少核**（旧实现就是这样漏掉四块镜像、外加一个 ` ```javascript ` 块），
+ * 所以未知扩展名与未知围栏名都按 `null` 处理，调用方必须把 `null` 报出来而不是当作"没有镜像"。
+ */
+const LANG_BY_EXT = { js: 'js', mjs: 'js', yml: 'yaml', svg: 'svg', html: 'html', scss: 'scss' };
+const LANG_ALIASES = { js: 'js', javascript: 'js', mjs: 'js', yaml: 'yaml', yml: 'yaml', svg: 'svg', html: 'html', xml: 'html', scss: 'scss', css: 'scss' };
+const langOf = (rel) => LANG_BY_EXT[path.extname(rel).slice(1).toLowerCase()] ?? null;
+const normLang = (fence) => LANG_ALIASES[String(fence).toLowerCase()] ?? null;
+
+/**
+ * 反查"清单漏项"要扫的地方与语言。`FILE_TARGETS` 是人手写的，写漏一项 = 那份镜像从此静默不核。
+ * 非 js 那几档是 Task 9 补的：只扫**镜像可能出现的目录**，且按扩展名配围栏语言，
+ * 不然 `_config.yml` 这类根本不该被镜像的文件会来凑热闹。
+ */
+const MIRROR_SCAN = [
+  ['dev/js/tools', /\.(js|mjs)$/],
+  ['dev/js', /\.(js|mjs)$/],
+  ['scripts', /\.(js|mjs)$/],
+  ['_data', /\.yml$/],
+  ['assets/img/tools', /\.svg$/],
+  ['dev/sass', /\.scss$/],
+  ['dev/sass/common', /\.scss$/],
+  ['.', /\.html$/],
+];
+
+/** 反查要扫的目录与扩展名见上面的 `MIRROR_SCAN`（Task 9 起含非 js 那四档） */
 
 /** 分段镜像：`scripts/toolkit-tests.mjs` 按 §B/§C/… 标记切段，每段各有一个块 */
 const SEGMENTED = 'scripts/toolkit-tests.mjs';
@@ -247,24 +286,28 @@ function main() {
       return null;
     }
     const lines = fs.readFileSync(abs, 'utf8').split('\n');
+    // 全部语言都收，块上标 `lang`（`javascript` 这类别名在 `normLang` 归一）。
+    // 旧实现在这里 `.filter((b) => b.lang === 'js')`，一句过滤把四块非 js 镜像关在门外——
+    // 过滤本身不打字，被关在外面的那四块也永远不报错，这是本脚本最安静的一处失效。
     const blocks = fencedBlocks(lines)
-      .filter((b) => b.lang === 'js')
-      .map((b) => ({ ...b, tag: p.tag, rel: p.rel }));
-    return { ...p, lines, blocks };
+      .map((b) => ({ ...b, lang: normLang(b.lang), tag: p.tag, rel: p.rel }));
+    const unknown = blocks.filter((b) => !b.lang);
+    return { ...p, lines, blocks, js: blocks.filter((b) => b.lang === 'js'), unknown: unknown.length };
   }).filter(Boolean);
   if (planData.length !== PLANS.length) return 1;
 
   const rawBlocks = planData.flatMap((p) => p.blocks);
-  const segBlocks = splitAtMarks(rawBlocks);
+  const jsBlocks = planData.flatMap((p) => p.js);
+  const segBlocks = splitAtMarks(jsBlocks);
   const listOnly = process.argv.includes('--list');
   const fix = process.argv.includes('--fix');
   const fixes = [];
   const used = new Set();
   const failures = [];
 
-  const report = (kind, target, want, pool, letter) => {
+  const report = (kind, target, want, pool, letter, lang = 'js') => {
     if (listOnly) {
-      console.log(`${kind}  ${target}`);
+      console.log(`${kind}  ${target}${kind === 'file' ? `（围栏 ${lang}）` : ''}`);
       return;
     }
     const m = pickMirror(pool, want, letter);
@@ -300,7 +343,7 @@ function main() {
       } else {
         const near = m.byLen
           ? `按行数最接近的是计划[${m.byLen.b.tag}] ${m.byLen.b.startLine}–${m.byLen.b.endLine}，差 ${m.byLen.d} 行；`
-          : '两份计划里一个 js 块都没有，无从定位；';
+          : `两份计划里一个 ${lang} 块都没有（或该扩展名没有对应的围栏语言映射），无从定位；`;
         console.log(`✗ ${target}：两份计划里都没有逐字节相同的块（${near}公共前缀候选不唯一，无法定位，`
           + `${fix ? '--fix 不会动它' : '手工同步'}）`);
       }
@@ -320,12 +363,20 @@ function main() {
 
   for (const rel of FILE_TARGETS) {
     const abs = path.join(ROOT, rel);
+    const lang = langOf(rel);
+    if (!lang) {
+      // 认不出的扩展名**不能当作"没有镜像"**放过：那等于给清单开一条"加个陌生后缀就不核"的后门。
+      if (listOnly) console.log(`file ${rel}（扩展名无围栏语言映射）`);
+      else { console.log(`✗ ${rel}: 扩展名没有围栏语言映射，镜像无从按语言定位`); failures.push(rel); }
+      continue;
+    }
     if (!fs.existsSync(abs)) {
-      if (listOnly) console.log(`file ${rel}`);
+      if (listOnly) console.log(`file ${rel}（围栏 ${lang}）`);
       else { console.log(`✗ ${rel}：磁盘上没有这个文件`); failures.push(rel); }
       continue;
     }
-    report('file', rel, norm(fs.readFileSync(abs, 'utf8')), rawBlocks, null);
+    const pool = rawBlocks.filter((b) => b.lang === lang);
+    report('file', rel, norm(fs.readFileSync(abs, 'utf8')), pool, null, lang);
   }
 
   const segAbs = path.join(ROOT, SEGMENTED);
@@ -372,8 +423,12 @@ function main() {
 
   if (listOnly) return 0;
   const mirrorBytes = [...used].reduce((n, b) => n + b.text.length, 0);
-  console.log(`计划 js 块 ${rawBlocks.length} 个（${planData.map((p) => `${p.tag} ${p.blocks.length}`).join('、')}），`
-    + `其中 ${used.size} 个是已落地镜像（合计 ${mirrorBytes}B），其余是任务正文里的片段/示例`);
+  const langTally = {};
+  for (const b of rawBlocks) langTally[b.lang ?? '未知'] = (langTally[b.lang ?? '未知'] ?? 0) + 1;
+  console.log(`计划 js 块 ${jsBlocks.length} 个（${planData.map((p) => `${p.tag} ${p.js.length}`).join('、')}），`
+    + `全部带语言标记的块 ${rawBlocks.length} 个（${Object.entries(langTally).map(([k, v]) => `${k} ${v}`).join('、')}）`
+    + (planData.some((p) => p.unknown) ? `，其中「未知语言」${planData.reduce((n, p) => n + p.unknown, 0)} 个不参与核对` : ''));
+  console.log(`其中 ${used.size} 个是已落地镜像（合计 ${mirrorBytes}B），其余是任务正文里的片段/示例`);
   // 计划里成节的、磁盘上还没有的 §X 节：按切出来的那一节的首行标记认。
   // 只认**磁盘上还没有那一节**的：同一节的计划块与磁盘块不等时，上面已经出过 `✗`，
   // 这里再报一句"磁盘还没有这一节"就是假话——实测整改 `22d7147` 之后，§C 在磁盘有
@@ -395,16 +450,20 @@ function main() {
   // 这里反过来问一句：计划里有没有哪块 js 与磁盘上某个**整文件**逐字节全等，却没人声明它。
   // 判失败而不是只打印，是因为"刺眼但退 0"的提示在门禁里等于没有。
   const declared = new Set([...FILE_TARGETS, SEGMENTED]);
-  for (const dir of MIRROR_SCAN_DIRS) {
+  for (const [dir, extRe] of MIRROR_SCAN) {
     const absDir = path.join(ROOT, dir);
     if (!fs.existsSync(absDir)) continue;
     for (const name of fs.readdirSync(absDir)) {
       const rel = path.posix.join(dir, name);
       if (declared.has(rel)) continue;
       const abs = path.join(ROOT, rel);
-      if (!/\.(js|mjs)$/.test(name) || !fs.statSync(abs).isFile()) continue;
+      if (!extRe.test(name) || !fs.statSync(abs).isFile()) continue;
+      const lang = langOf(rel);
+      if (!lang) continue;
       const whole = norm(fs.readFileSync(abs, 'utf8'));
-      const hits = rawBlocks.filter((b) => b.text === whole && !used.has(b));
+      // 只认**同语言**的块：一段 `.scss` 的全文若真出现在 ` ```scss ` 块里，那是镜像；
+      // 出现在 ` ```bash ` 里（比如某步骤把文件 cat 出来当证据）不是镜像，别报。
+      const hits = rawBlocks.filter((b) => b.lang === lang && b.text === whole && !used.has(b));
       if (hits.length > 0) {
         console.log(`✗ 漏网镜像：${rel}（${whole.split('\n').length} 行）在计划里有逐字节全等的整块 —— `
           + `${hits.map((h) => `[${h.tag}]${h.startLine}–${h.endLine}`).join(' / ')}，但它不在 FILE_TARGETS 里，从没被核过`

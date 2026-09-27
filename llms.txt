@@ -51,7 +51,22 @@ permalink: /llms.txt
 {%- endfor %}
 - [{{ item.label }}]({{ base }}{{ item.url }}){% if pgdesc != "" %}：{{ pgdesc }}{% endif %}
 {%- endfor %}
-- [全站索引]({{ base }}/index-all.html)：按年份列全部文章，另附合集、示例与页面清单；纯服务端渲染，不执行脚本也能读全
+{%- comment -%}
+在线工具那一族不在 site.nav 里（它是「工具箱」下拉里的条目，不是导航项），所以上面那个循环
+捞不到它，得单独走一遍数据源。摘要取页面自己的 seo_description 而不是 yml 里的 tagline：
+前者是这一页写给自己那段"粘贴什么、算出什么"的话，比 tagline 那行斜杠分隔的关键词清单
+对 AI 读者有用得多，口径也与上面那个循环一致（都是回到页面 front matter 取值）。
+status 不是 ready 的条目不列：这一句承诺的是"站内可访问地址"，还没上线的那几条不该出现。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+{%- for tool in ready_online %}
+{%- assign tdesc = "" -%}
+{%- for pg in site.pages -%}
+{%- if pg.url == tool.url and pg.seo_description -%}{%- assign tdesc = pg.seo_description -%}{%- endif -%}
+{%- endfor %}
+- [{{ tool.h1 }}]({{ base }}{{ tool.url }})：{{ tdesc }}
+{%- endfor %}
+- [全站索引]({{ base }}/index-all.html)：按年份列全部文章，另附合集、示例、在线工具与页面清单；纯服务端渲染，不执行脚本也能读全
 - [全文订阅源]({{ base }}/feed.xml)：Atom 全文源，正文完整（含图片与代码块），是站内最容易被直接引用的资产
 - [站点地图]({{ base }}/sitemap.xml)：可索引页面地址与最后更新日
 

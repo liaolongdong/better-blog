@@ -280,6 +280,42 @@ body {
             background-color: var(--surface-2);
         }
 
+        // 下拉里的当前项。钩子是 ARIA 而不是自造的类：`aria-current="page"` 由
+        // _includes/header.html 按 page.url 与条目 url 精确匹配写出，样式与语义共用
+        // 同一个事实（同 toolkit.scss 文件头「样式不认识 JS 的运行状态，只认识 ARIA 与 hidden」）。
+        // 不用背景色表当前态：.nav-sub-icon 那一格本来就是 --surface-2，整行再涂同一色，
+        // 图标反而和行底糊成一片（hover 态已经有同一个毛病，靠"hover 是瞬时的"兜着）。
+        // 这里改成左侧 2px 标记条 + 标题走 --signal-ink，与 .nav-item.is-current>.nav-link
+        // 那条主导航当前态同一套语言，且两态（hover / current）叠在一起也分得开。
+        .nav-sub-link[aria-current='page'] {
+            box-shadow: inset 2px 0 0 var(--signal);
+
+            .nav-sub-text strong {
+                color: var(--signal-ink);
+            }
+        }
+
+        // 「浏览器插件 / 在线工具」两族的分组标题。它是纯文本条目，不是链接，
+        // 所以做成 <li>：上面那条 .nav-sub>li 的淡入与步长一并管住它，
+        // 分组标题跟着自己那组的第一行一起落位，而不是先亮出来再等下面的行。
+        // 分隔线画在标题自己的上沿（而不是给上一组加下边线），因为最后一族后面还跟着
+        // .nav-sub-more 那条自带 border-top 的「全部工具」，两边都画会在 6px 内出两条横线。
+        .nav-sub-group {
+            padding: 9px 10px 4px;
+            margin-top: 6px;
+            font-family: $font-meta;
+            font-size: 10.5px;
+            letter-spacing: 1.2px;
+            color: var(--ink-3);
+            border-top: 1px solid var(--rule);
+        }
+
+        .nav-sub-group:first-child {
+            padding-top: 2px;
+            margin-top: 0;
+            border-top: none;
+        }
+
         .nav-sub-icon {
             flex: none;
             display: grid;
@@ -1677,6 +1713,19 @@ body.has-toc .post-rail {
     grid-template-columns: minmax(0, 1fr) 380px;
     column-gap: 56px;
     align-items: start;
+}
+
+// /tools.html 上「在线工具」那几节（段 2 起）。它们没有截图可放进 .tool-media 那一栏，
+// 于是 1fr + 380px 会变成"正文挤在左边、右边一条永久空白"，所以这两条把该族收成单栏，
+// 并把正文宽度收在 720px（与 .tool-summary 那边同一档行长，1140 版心拉满会读到 92 字一行）。
+// 只认 .tool-section--online 这个修饰符，插件那三节的图文双栏一行都不动。
+// 1023 以下 .tool-body 本来就单栏（下面那块里），这两条与它同向，不需要再配对。
+.tool-section--online .tool-body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.tool-section--online .tool-copy {
+    max-width: 720px;
 }
 
 .tool-tagline {
@@ -5114,18 +5163,15 @@ dialog.shelf[open] {
         translate: 0 0;
     }
 
-    // 步长取 --stagger 的一半：下拉只有四行，且它是「随开随看」的即时面板，
-    // 用满 40ms 时最后一行要等 120ms，读起来就不是错落而是迟半拍。
-    .nav-sub>li:nth-child(2) {
-        transition-delay: calc(var(--stagger) * .5);
-    }
-
-    .nav-sub>li:nth-child(3) {
-        transition-delay: var(--stagger);
-    }
-
-    .nav-sub>li:nth-child(4) {
-        transition-delay: calc(var(--stagger) * 1.5);
+    // 步长取 --stagger 的一半：下拉是「随开随看」的即时面板，用满 40ms 会读成迟半拍。
+    // 延迟改成 @for 生成而不是写死三条 nth-child：条目数从四条涨到七条（两个分组标题 +
+    // 三款插件 + 一个在线工具 + 全部工具那行），段 3 / 段 4 每加一行都要回来补一条，
+    // 而漏补的那一行拿的是**默认 0 延迟**——它会比第 2 行先落位，步乱得比没有动画更难看。
+    // 上界给到 12：段 4 之后是 9 条（160ms），留三行余量，第 12 条也才 220ms。
+    @for $i from 2 through 12 {
+        .nav-sub>li:nth-child(#{$i}) {
+            transition-delay: calc(var(--stagger) * .5 * #{$i - 1});
+        }
     }
 }
 

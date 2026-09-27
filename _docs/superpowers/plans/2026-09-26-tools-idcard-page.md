@@ -10015,7 +10015,7 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
   url: /tools/idcard.html
   name: 证件与机构代码工具
   tagline: 身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据
-  title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+  title: 身份证号校验与生成 · 统一社会信用代码
   h1: 证件与机构代码工具
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
@@ -10070,10 +10070,27 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 
 ```svg
 <!-- 顶栏「工具箱」下拉与 /tools.html 小节里「证件与机构代码工具」那一行的图标。
-     画成内联描边图形而不是图标字体：断网时只剩方框（同 _includes/header.html 里下拉箭头那条理由）。
-     全部走 currentColor，所以暗色与三档纸色温自动跟随，不需要第二份。 -->
+     画成描边图形而不是图标字体：断网时只剩方框（同 _includes/header.html 里下拉箭头那条理由）。
+
+     描边色是写死的 #737B85，不是 currentColor——这一条与文件最初那版注释相反，理由是实测：
+     这个文件通过 <img src> 引用（下拉与产品页两处都是），而 <img> 里的 SVG 是一份独立文档，
+     拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color，
+     也就是近黑色。黑色描边放在夜间 --surface-2 (#20242C) 上是 1.35:1，等于看不见。
+     走 CSS `mask + background: currentColor` 能保住跟随主题，但要动全站那份
+     dev/sass/common/editorial.scss 里的 .nav-sub-icon / .tool-icon 两处，且 mask 一旦不生效
+     就同时露出黑色底图；这里按「一份图、两档都能读」的代价重排后选了烘色。
+
+     #737B85 是把 dev/sass/common/tokens.scss 里那 8 格底色逐格算一遍挑出来的（四档纸色温
+     「暖 = :root / 冷 cool / 绿 sage / 夜间 night-mode」各出 `--surface` 与 `--surface-2` 一格），
+     取值口径是「让八组对比度里最差的那组尽量高」，WCAG 1.4.11 对图形对象要的是 3:1
+     （这两处图标都带 alt=""，属装饰，实际门槛比 3:1 还低）：
+       --surface    暖 #FFF 4.28 · 冷 #FFFFFF 4.28 · 绿 #FAFCF8 4.15 · 夜 #191C23 3.98
+       --surface-2  暖 #F4F2ED 3.83 · 冷 #EFF1F5 3.79 · 绿 #E6EDE3 3.59 · 夜 #20242C 3.63
+     最差 3.59，落在绿档的 --surface-2 (#E6EDE3) 上。复算不用手抄：跑
+     `node scripts/check-tools-surface.mjs`，它的「图标」那一组现读 tokens.scss 凑底色集合、
+     现算这八组比值，并把本文件的 `stroke` 与 `fill` 里每个色值都过一遍。 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
-     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     stroke="#737B85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
      role="img" aria-label="证件与机构代码工具">
     <rect x="2.5" y="5.5" width="19" height="13" rx="2"/>
     <path d="M2.5 9.5h19"/>
@@ -10156,7 +10173,7 @@ js 两条）的先后与"产物名逐字符跟随源文件名"的提醒写在引
 ```html
 ---
 layout: default
-title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+title: 身份证号校验与生成 · 统一社会信用代码
 seo_description: 粘贴身份证号、统一社会信用代码、银行卡号或手机号，本地逐位算给你看结论从哪来；也能按区划、性别、年龄段随机合成测试数据。全部在浏览器里算，不发任何请求。
 # 理由同 categories.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
 permalink: /tools/idcard.html
@@ -11968,5 +11985,1309 @@ OK dev/sass/toolkit.scss：计划[段2] 10694–11341（648 行）与磁盘逐�
 （`git diff --cached --stat` 无输出），但 pathspec 照旧写死——对方的 `deploy-github.sh` 里那句
 `git add .` 随时会落进来。计划文件按 Task 11 的节奏另发一发。
 
-<!-- APPEND-9 -->
+## Task 9: 收录面（顶栏下拉分两族 / 三处收录点 / 图标昼夜 / `check-tools-surface.mjs`）
+
+**Files:**
+- Create: `scripts/check-tools-surface.mjs`（531 行 / 27,316B，五组判据 + 反向一条 + 全站一条）
+- Create: `scripts/check-tools-surface-teeth.mjs`（19 组变异的牙齿台账；落进仓库而不是留在
+  `/tmp`，理由与 `verify-plan-blocks.mjs` 那次同一条：报警器有没有牙是一次实证，
+  实证脚本不在仓库里就等于没做过）
+- Modify: `_includes/header.html:21-40`（判据改目录前缀）、`49-57`（两档 `aria-current`）、`62-105`（下拉分两族）
+- Modify: `dev/sass/common/editorial.scss:283-317`（当前项样式与分组标题）、`1718-1729`（`/tools.html` 在线小节那两节）、`5166-5175`（步长 `@for`）
+- Modify: `tools.html:10-18` + `113-157`（第二族小节）
+- Modify: `index-all.html:140-161`（在线工具那一节）
+- Modify: `sitemap.xml:41-57`、`llms.txt:54-68`
+- Modify: `_data/onlineTools.yml` 与 `tools-idcard.html` 的 `title`（进 SERP 60 列预算，−18 字/处 × 产物 5 处）
+- Modify: `assets/img/tools/idcard-tool.svg`（11 → 28 行：`currentColor` 退回烘死 `#737B85`）
+- Modify: `scripts/verify-plan-blocks.mjs` + `scripts/verify-plan-blocks-teeth.mjs`（认语言、扫非 js 目录、G8/G9/G10 三条牙齿）
+- Modify: `USAGE.md`（新第 12 条）/ `README.md`（四处）/ spec 四处（§4.1 标题、§4.3 与 §8.2 的 `is-on` 改口、§7 复量）
+- 本格**不**新增 `scripts/toolkit-tests.mjs` 用例：那 146 条判的是 JS 层的行为，这一格的事实全在
+  磁盘字节与产物字符串上，判它们的必须是 `check-tools-surface.mjs`（Step 8）。判据不许跨层顶替，
+  这条口径与 Task 8 文件头那条同源。
+
+这一格是"页面存在"与"页面被收录"之间的那段路。Task 8 交付的是一张能输入 URL 打开的页，
+而爬虫、读屏、和一个从 `/tools.html` 点进来的人看到的都还不是它。三件事在这一格定死：
+
+1. **一族事实的五个存放点必须互相对得上，而且它们全部不会因为写错而报错。** 同一件事
+   （这一页叫什么、有哪些面板、地址是什么、当前是哪一页）分散在 `_data/onlineTools.yml`、
+   `tools-idcard.html` 的 front matter、`_includes/header.html`、`tools.html` + `index-all.html`、
+   `sitemap.xml` + `llms.txt` 五处。历轮"跑一遍看看"的收法在这族事实上抓不到东西，
+   三种真实形状：yml 改了 `title` 而 front matter 没改（构建绿、页面绿，只有 `<title>` 与下拉
+   文案从此是两个版本——本格就真漂过一次，靠肉眼发现的）；`{% for x in data | where: … %}`
+   这种 Liquid 里非法的过滤器写法（Jekyll 只打一行 warning 就把**整个循环渲染成空**，
+   构建退出码仍是 0）；骨架改了控件 id 而 `workbench.js` 的 spec 没跟（红的是运行时，
+   而且只红那一块面板）。Step 8 那个脚本就是把"看看"写成判据。
+2. **`{% for %}` 里不许出现管道。** 这一条是 Step 7 第一跑学到的：`{%- for tool in
+   site.data.onlineTools | where: 'status', 'ready' -%}` 在 Jekyll 4 下不报错，它打一行
+   `Liquid Warning: Expected end_of_string but found pipe in "for tool in site.data.onlineTools
+   | where: 'status', 'ready'"` 然后**整段不渲染**。所以四个消费点一律先
+   `{%- assign ready_xxx = … | where: 'status', 'ready' -%}` 再遍历 assign 结果，
+   而"构建 exit=0"从这一格起不再是判据——判据是 exit=0 **且** `grep -ciE
+   'liquid warning|liquid error'` 为 0（Step 12 第 4 道）。
+3. **当前态的钩子是 ARIA，不是自造的类。** §4.3 原文写的是给下拉子项加 `.is-on`，落地时改口成
+   `aria-current`：样式与语义共用一个事实，读屏同时得到"这就是当前页"，不需要第二处真相。
+   父级那一条还要分两档——`page.url` 与 nav 项完全相等才是 `page`，仅目录前缀命中
+   （`/tools/idcard.html` 命中 `/tools`）是 `true`。少这一档，读屏会在「工具箱」上念
+   "当前页面 /tools.html"，而按下去确实会离开这一页。
+
+再加三条本格特有的：
+
+4. **图标不能用 `currentColor`。** `assets/img/tools/*.svg` 是 `<img src>` 加载的，
+   外部 SVG 文档不继承宿主 CSS 自定义属性，`currentColor` 在它自己那棵树里解析成近黑
+   （`#000`），夜间档底色 `#20242C` 下对比度实测 **1.35:1**——等于夜间模式里图标是隐形的。
+   Step 6 把它退回烘死的 `#737B85`，并把八个纸色温底色的对比度**现算**进门禁（最差 3.59，
+   判线 3.0，因为这两处图标都带 `alt=""`，属装饰、按 WCAG 1.4.11 图形对象那一档判）。
+5. **镜像门禁只认 ` ```js `，而这一格新增的是 yml / svg / html / scss 四块整文件镜像。**
+   Step 1 先修它，理由不是"顺手"：这一格后面每一步都在改那四份文件的邻居，
+   如果镜像核对还是瞎的，收口时"计划与磁盘一致"这句话对本格新增的四块就是没有证据的。
+   放宽语言集合必须自证牙齿（G8 改一个字节必须红），否则"能核更多文件"这件事
+   本身可能是把判据改松了。
+6. **导航那一族是全站每一页都要付的体积。** §7 的首屏预算此刻余量最薄（838B / 5.1%），
+   所以 Step 11 用 A/B 两份可比产物把这一族的成本量到字节，并且逐页核高亮：
+   `is_current` 判据从"包含"改成"目录前缀"，最怕的就是某篇 `/2025/…` 文章页或某个标签页
+   被新判据多点亮一条。
+
+- [x] **Step 1: 先让镜像门禁认得出非 js 的四块 —— `scripts/verify-plan-blocks.mjs` 放宽语言集合**
+
+Task 8 收口时留下的那条缺口（"本格新认的一条门禁缺口"那一段）在这里补。改动三处：
+按扩展名认语言（`LANG_BY_EXT`）、按围栏名归一（`LANG_ALIASES`，`javascript` 与 `js` 同一件事、
+`.yml` 文件贴进计划用的是 ` ```yaml `）、反查白名单从"只扫三个 js 目录"扩到 `MIRROR_SCAN`
+那八组（`_data` 的 `.yml`、`assets/img/tools` 的 `.svg`、`dev/sass{,/common}` 的 `.scss`、
+仓库根的 `.html`）。两条设计决定值得写下来：
+
+- **未知即报错，不许静默当作"没有镜像"。** `langOf()` 与 `normLang()` 都返回 `null` 而不是
+  猜一个，调用方必须把 `null` 打印出来：`✗ README.md: 扩展名没有围栏语言映射`。少了这一条，
+  新增一档扩展名忘了配映射，结果是那一档文件从此不核，而脚本一路打 ✓。
+- **反查只扫"镜像可能出现的目录"**，不扫全仓库。全扫的话 `_config.yml`、`_data/tools.yml`
+  这些根本不该被镜像的文件会来凑热闹，反查就变成了噪声机器，然后有人给它加 `--quiet`。
+
+`FILE_TARGETS` 从 16 条涨到 21 条（Task 8 那四块 + 本格的 `check-tools-surface.mjs`）。
+门禁清单**自己会烂**：反查那道抓的是"磁盘有镜像却没声明"，抓不到"清单漏了一项"，
+所以清单漏项由 teeth 脚本的 G9（删掉一行 → 必须喊漏网）与 G10（塞一个非镜像文件进清单 →
+必须喊没有语言映射）两头兜。
+
+命令与判据（此时 `check-tools-surface.mjs` 的镜像还没进计划，所以 `✗ 1 个目标对不上`
+是**预期红**，Step 8 之后转绿）：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+node scripts/verify-plan-blocks.mjs | tail -3
+node scripts/verify-plan-blocks-teeth.mjs | tail -3
+```
+
+Expected（2026-09-27 实跑）：`OK 行 29→32`、汇总行
+`计划 js 块 29 个（段1 11、段2 18），全部带语言标记的块 153 个（未知 119、js 29、scss 2、yaml 1、
+svg 1、html 1）` + `其中 32 个是已落地镜像（合计 542076B）`；末行
+`✗ 1 个目标对不上：scripts/check-tools-surface.mjs`，`exit=1`。放宽后的**第一跑就抓出三处
+静默漂移**：`_data/onlineTools.yml` 与 `tools-idcard.html` 两份 `title`（收录面为进 SERP 列数
+预算把它改短了），和整份 svg 头注释（11 行 → 28 行）。这一句要连着读：漂移不是放宽之后才
+发生的，是一直存在而看不见——三处里有两处是本格 Step 4/6 自己改的，第三处（svg 注释）
+是 Step 6 的结论推翻原描述。
+
+- [x] **Step 2: 顶栏判据改目录前缀 + 两档 `aria-current` —— `_includes/header.html:21-40`、`49-57`**
+
+原判据一行：`{% if page.url contains item.url %}`。「工具箱」的 `item.url` 是 `/tools.html`，
+`page.url` 是 `/tools/idcard.html` → **不包含**，点进工具页后父项不高亮、下拉也没有当前态。
+直接换成"前缀匹配"会把 `/demo.html` 与 `/demo/xxx.html` 这类形状一起改动，所以剥掉 `.html`
+之后还要额外判 `nav_dir != '/'`：空串或 `/` 会把每一页都点亮，那是一条永不红死的判据。
+
+`            {%- comment -%}
+            判据先把 nav 项的 `.html` 剥成目录前缀再做匹配，不是原来那条 `page.url contains item.url`：
+            在线工具落在 /tools/ 目录下（page.url = /tools/idcard.html），它**不包含** /tools.html
+            这个子串，所以旧判据下点进证件页时「工具箱」既不高亮、下拉里的当前项也没有态（设计文档 §4.3）。
+            两条口径要一起看：
+              · 等值那条照旧留 `item.url`，/tools.html 自己那一页仍然按原样命中；
+              · 前缀那条用 `nav_dir_slash`（带尾斜杠）而不是裸 `nav_dir`，否则 /toolshop.html
+                这种将来可能出现的地址会被 /tools 前缀误命中。
+            这条判据不靠"改前改后各跑一遍比对"兜底，它有一个常驻的复算器：`scripts/check-tools-surface.mjs`
+            的「导航-全站」那一组用 JS 把同样的口径重写一遍，对产物里每一个渲染了这段导航的页面（现场 91 页）
+            核"该亮哪一项、aria-current 取哪一档"。换掉判据那一次另按改前/改后各建了一遍站做逐页比对：
+            高亮态（`.is-current` 与 `aria-current` 的分布）只有 /tools/idcard.html 一页变化——它从
+            「无高亮」变成「工具箱高亮」；其余 90 页两栏分布逐字节同。下拉内容则是 91 页全变，
+            因为多出来的「在线工具」分组每一页都要渲染。
+            {%- endcomment -%}
+            {% assign nav_dir = item.url | remove: '.html' %}
+            {% assign nav_dir_slash = nav_dir | append: '/' %}
+            {% if page.url == item.url or (nav_dir != '/' and (page.url == nav_dir or page.url contains nav_dir_slash)) %}
+            {% assign is_current = true %}
+            {% endif %}`
+
+两档 `aria-current` 住在 `.nav-link` 那一行：
+
+`                {%- comment -%}
+                当前态分两档写，不是一句 aria-current="page" 全包：
+                  · page.url 与 nav 项完全相等 → "page"，这一项就是当前这一页；
+                  · 只按目录前缀命中（/tools/idcard.html 命中 /tools）→ "true"，
+                    它标的是"你现在在这一族里"，而链接目的地并不是你正在看的这页。
+                前缀匹配是这次为在线工具新加的（上面那条注释），所以第二档跟着一起加：
+                不加的话读屏会在工具箱上念出"当前页面：/tools.html"，而按下去确实会离开这一页。
+                {%- endcomment -%}
+                <a class="nav-link" href="{{ item.url | prepend: site.baseurl }}"{% if page.url == item.url %} aria-current="page"{% elsif is_current %} aria-current="true"{% endif %}{% if item.dropdown %} aria-haspopup="true" aria-expanded="false"{% endif %}>{{ item.label }}`
+
+改完立刻做两件核（都在 Step 11 里全量重跑，这里只做最快的一眼）：
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bundle exec jekyll build > /tmp/t9-jk.log 2>&1; echo "jekyll exit=$?"
+grep -ciE 'liquid warning|liquid error' /tmp/t9-jk.log
+```
+
+Expected：`jekyll exit=0`、`0`。这一条从本格起和 exit=0 并列为第 4 道门禁的判据——
+Liquid 的 `for` 里带管道是**warning + 整段不渲染**，只看退出码等于没看。
+
+- [x] **Step 3: 下拉分两族 —— `_includes/header.html:62-105`**
+
+原来四条目的列表全是插件（`_data/tools.yml`），它们指向 `/tools.html#锚点`，也就是**产品页上的
+一段**；在线工具那三条指向各自的页面。两族混在一张列表里，访客在点开之前无法知道点了会不会
+离开当前页——所以必须有分组标题，不能靠"看链接形状"分辨。标题做成 `<li>` 而不是 `<hr>` 加
+绝对定位文本：`.nav-sub>li` 那套淡入与步长（Step 4 第 3 块）因此一并管住它，分组标题跟着
+自己那组的第一行一起落位，而不是先亮出来再等下面的行。
+
+```liquid
+                {% if item.dropdown == 'tools' %}
+                {%- comment -%}
+                下拉里分两族，各自一个分组标题。为什么必须有标题而不靠"看链接形状"分辨：
+                插件那一族指向 /tools.html#锚点（产品页上的一段），在线工具那一族指向它自己的页面，
+                两族混在一张四条目的列表里时，访客无法在点开之前知道点了会不会离开当前页。
+                两族的条目都取自各自的数据源（_data/tools.yml / _data/onlineTools.yml），
+                这里不写死任何一条地址。
+                `status` 不是 ready 的条目整条不画：段 3 / 段 4 的页面在数据源里先进清单，
+                导航、tools.html、index-all、sitemap 四个消费点因此不用各改一遍模板。
+                当前项的钩子是 aria-current="page"，不是自造的 .is-on 类（同 §4.3 那条改口，
+                理由与 toolkit.scss 的「样式只认 ARIA 与 hidden」一条）：读屏软件同时得到
+                「这就是当前页」，样式与语义共用一个事实。
+                {%- endcomment -%}
+                {%- assign ready_tools = site.data.onlineTools | where: 'status', 'ready' -%}
+                <ul class="nav-sub">
+                    <li class="nav-sub-group">浏览器插件</li>
+                    {% for tool in site.data.tools %}
+                    <li>
+                        <a class="nav-sub-link" href="{{ '/tools.html' | append: '#' | append: tool.slug | prepend: site.baseurl }}" data-tool="{{ tool.slug }}">
+                            <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                            <span class="nav-sub-text">
+                                <strong>{{ tool.name }}</strong>
+                                <small>{{ tool.tagline }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                    {% if ready_tools.size > 0 %}
+                    <li class="nav-sub-group">在线工具</li>
+                    {% for tool in ready_tools %}
+                    <li>
+                        <a class="nav-sub-link" href="{{ tool.url | prepend: site.baseurl }}"{% if page.url == tool.url %} aria-current="page"{% endif %} data-tool="{{ tool.slug }}">
+                            <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                            <span class="nav-sub-text">
+                                <strong>{{ tool.name }}</strong>
+                                <small>{{ tool.tagline }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                    {% endif %}
+                    <li><a class="nav-sub-more" href="{{ '/tools.html' | prepend: site.baseurl }}">全部工具与安装方式 →</a></li>
+                </ul>
+                {% endif %}
+```
+
+四处口径：
+
+- **`ready_tools` 必须先 assign。** 就是文件头口径 2 那条：`| where:` 写进 `for` 里
+  Jekyll 不报错，整段不渲染。这一条在四处消费点各写一遍 assign，写法一致。
+- **`status != 'ready'` 的条目整条不画**，连带那一族的分组标题一起不画（`{% if
+  ready_tools.size > 0 %}`）。段 3 / 段 4 追加 yml 条目时不必改这四个模板，
+  "先进清单、后补正文"挡在数据层。Step 9 的「planned 条目混进收录面」那条变异验的就是
+  这一档有牙：往 yml 里塞一条 `status: planned` 的幽灵条目，收录面任何一处把它画出来就得红。
+- **当前项的钩子是 `aria-current="page"`**（口径 3）；父级的 `.is-current` 与
+  `aria-current="true"` 在 Step 2 那两处。三个钩子里只有 `.is-current` 是这一族原有的类名，
+  ARIA 那两条是新加的。
+- **`data-tool="{{ tool.slug }}"` 留在两族的 sub-link 上。** 插件族用它做下拉里"这一条对应
+  产品页哪一段"的锚点归属，在线工具族沿用同一个属性名而不是另起一个：按 `[data-tool]`
+  找元素的那段逻辑因此一行不用改。
+
+- [x] **Step 4: 样式三处 —— `dev/sass/common/editorial.scss`**
+
+**4a 当前项与分组标题**（283–317）。不用背景色表当前态：`.nav-sub-icon` 那一格本来就是
+`--surface-2`，整行再涂同一色，图标反而和行底糊成一片（hover 态已经有同一个毛病，靠"hover
+是瞬时的"兜着）。改成左侧 2px 标记条 + 标题走 `--signal-ink`，与 `.nav-item.is-current>.nav-link`
+那条主导航当前态同一套语言，两态叠加也分得开。
+
+```scss
+        // 下拉里的当前项。钩子是 ARIA 而不是自造的类：`aria-current="page"` 由
+        // _includes/header.html 按 page.url 与条目 url 精确匹配写出，样式与语义共用
+        // 同一个事实（同 toolkit.scss 文件头「样式不认识 JS 的运行状态，只认识 ARIA 与 hidden」）。
+        // 不用背景色表当前态：.nav-sub-icon 那一格本来就是 --surface-2，整行再涂同一色，
+        // 图标反而和行底糊成一片（hover 态已经有同一个毛病，靠"hover 是瞬时的"兜着）。
+        // 这里改成左侧 2px 标记条 + 标题走 --signal-ink，与 .nav-item.is-current>.nav-link
+        // 那条主导航当前态同一套语言，且两态（hover / current）叠在一起也分得开。
+        .nav-sub-link[aria-current='page'] {
+            box-shadow: inset 2px 0 0 var(--signal);
+
+            .nav-sub-text strong {
+                color: var(--signal-ink);
+            }
+        }
+
+        // 「浏览器插件 / 在线工具」两族的分组标题。它是纯文本条目，不是链接，
+        // 所以做成 <li>：上面那条 .nav-sub>li 的淡入与步长一并管住它，
+        // 分组标题跟着自己那组的第一行一起落位，而不是先亮出来再等下面的行。
+        // 分隔线画在标题自己的上沿（而不是给上一组加下边线），因为最后一族后面还跟着
+        // .nav-sub-more 那条自带 border-top 的「全部工具」，两边都画会在 6px 内出两条横线。
+        .nav-sub-group {
+            padding: 9px 10px 4px;
+            margin-top: 6px;
+            font-family: $font-meta;
+            font-size: 10.5px;
+            letter-spacing: 1.2px;
+            color: var(--ink-3);
+            border-top: 1px solid var(--rule);
+        }
+
+        .nav-sub-group:first-child {
+            padding-top: 2px;
+            margin-top: 0;
+            border-top: none;
+        }
+```
+
+**4b `/tools.html` 第二族那两节的版式**（1718–1729）。在线工具没有截图可放进 `.tool-media`
+那一栏，右侧空一列会把正文挤成窄条，所以这一节把两列收成单列；`.tool-copy` 的 720px 限宽
+是全站正文的读数宽度，这里只让它在单列下继续生效，不是新定的。
+
+```scss
+// /tools.html 上「在线工具」那几节（段 2 起）。它们没有截图可放进 .tool-media 那一栏，
+// 于是 1fr + 380px 会变成"正文挤在左边、右边一条永久空白"，所以这两条把该族收成单栏，
+// 并把正文宽度收在 720px（与 .tool-summary 那边同一档行长，1140 版心拉满会读到 92 字一行）。
+// 只认 .tool-section--online 这个修饰符，插件那三节的图文双栏一行都不动。
+// 1023 以下 .tool-body 本来就单栏（下面那块里），这两条与它同向，不需要再配对。
+.tool-section--online .tool-body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.tool-section--online .tool-copy {
+    max-width: 720px;
+}
+```
+
+**4c 步长改成 `@for` 生成**（5166–5175）。原来写死三条 `nth-child`，条目数从 4 涨到 9
+（两个分组标题 + 三款插件 + 一个在线工具 + 「全部工具」那行），每加一行都要回来补一条，
+而**漏补的那一行拿的是默认 0 延迟**——它会比第 2 行先落位，步乱得比没有动画更难看。
+上界给到 12：段 4 之后是 9 条（160ms），留三行余量。
+
+```scss
+    // 步长取 --stagger 的一半：下拉是「随开随看」的即时面板，用满 40ms 会读成迟半拍。
+    // 延迟改成 @for 生成而不是写死三条 nth-child：条目数从四条涨到七条（两个分组标题 +
+    // 三款插件 + 一个在线工具 + 全部工具那行），段 3 / 段 4 每加一行都要回来补一条，
+    // 而漏补的那一行拿的是**默认 0 延迟**——它会比第 2 行先落位，步乱得比没有动画更难看。
+    // 上界给到 12：段 4 之后是 9 条（160ms），留三行余量，第 12 条也才 220ms。
+    @for $i from 2 through 12 {
+        .nav-sub>li:nth-child(#{$i}) {
+            transition-delay: calc(var(--stagger) * .5 * #{$i - 1});
+        }
+    }
+```
+
+顺手记一条给后来人：**这仓库没有 ESLint / Stylelint / Prettier 配置**，五道门禁里没有 lint
+那一道（全局规则第 7、8 条讲的是 wxt 插件项目）。本仓库的对应物是
+`scripts/toolkit-tests.mjs` + 两条构建链 + `verify-plan-blocks*` + `check-tools-surface`。
+写这句是因为每次改 scss 都要先确认一遍"有没有 lint 会替我兜"。
+
+- [x] **Step 5: `<title>` 与 `seo_description` 进 SERP 列数预算**
+
+`USAGE.md`「检索层自查」第 9 条按 `sum(2 if ord(c) > 0x2E80 else 1)` 数列：标题 ≤60 列（含
+` - Better 前端博客` 那 18 列后缀）、描述 ∈[50,158] 列。§4.1 原稿那条
+「身份证号校验与测试号生成 · 统一社会信用代码在线解析」是 68 列，**超 8 列**，第 9 条会红。
+缩成「身份证号校验与生成 · 统一社会信用代码」= 42 列（含后缀）。
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+ruby -e 't = "身份证号校验与生成 · 统一社会信用代码 - Better 前端博客"
+cols = ->(s){ s.each_char.sum { |c| c.ord > 0x2e80 ? 2 : 1 } }
+puts "标题列数=#{cols[t]}（预算 60）"'
+```
+
+Expected：`标题列数=42（预算 60）`。
+
+缩字要连着算产物账：**别只改 yml 就收工**。`title` 这个字段被 `_includes/seoMeta.html` →
+`jsonLd.html` 展开成 `<title>` / `og:title` / `og:image:alt` / `twitter:title` / JSON-LD `name`
+**五处**，每处省 18B → 整页 −90B；而产物 `<title>` 的实际来源是 `tools-idcard.html` 的
+front matter，yml 那份只喂下拉与两个清单页。两处都改，改完由 Step 1 放宽后的镜像门禁
+逐字节核——它要抓的第一批漂移就是这两份 `title`。那 −90B 记进 §7 的复量（Step 11 末），
+因为它和导航那一族的 +1,019B 同格发生、方向相反，两笔都要落字才配得上"预算仍在内"。
+
+- [x] **Step 6: 图标昼夜可读 —— `assets/img/tools/idcard-tool.svg`**
+
+Task 8 那一格把图标写成 `stroke="currentColor"`，文件头还断言"跟随纸色温"。**那句是没实测的
+假设，本格推翻它**：`<img src>` 加载的 SVG 是一张独立文档，不继承宿主的 CSS 自定义属性，
+`currentColor` 在它自己那棵树里解析成近黑，夜间档 `--surface-2`（`#20242C`）上实测
+**1.35:1**——判线 3:1 都不到，等于夜间模式里图标是隐形的。文件退回烘死一个中性灰
+`#737B85`，并把"为什么是这一个值"写成可复算的账（全文镜像仍只在 Task 8 Step 1b 那一处，
+本格改的是注释与 stroke，图形三笔路径一个字没动；再贴一份就是第二处镜像，
+`verify-plan-blocks.mjs` 会按 `✗ 歧义` 拒绝猜）。
+
+八个底色不是抄出来的：`dev/sass/common/tokens.scss` 里四档纸色温（`:root` /
+`html[data-rs-paper="cool"]` / `="sage"` / `body.night-mode`）各出一格 `--surface` 与
+`--surface-2`，脚本现读、现算。现场读数：
+
+```
+--surface   #FFF    4.28 · --surface-2 #F4F2ED 3.83 · --surface   #FFFFFF 4.28 · --surface-2 #EFF1F5 3.79
+--surface   #FAFCF8 4.15 · --surface-2 #E6EDE3 3.59 · --surface   #191C23 3.98 · --surface-2 #20242C 3.63
+最差 3.59（绿档 --surface-2） · 判线 3.0 · 着色集合 #737B85
+```
+
+判线取 3.0 而不是文字的 4.5：两处图标都带 `alt=""`，属装饰，按 WCAG 1.4.11
+「graphical objects」那一档判。取值口径是"八组里最差那组尽量高"，不是"暖档最好看"。
+
+门禁的图标组另有两条自检，缺一条这组就是假绿：`tokenSurfaces()` 拿到的底色少于 6 格、
+或去重后少于 2 个变量名，直接判红——不然 `tokens.scss` 一改写法、正则全落空，
+"八组对比度"会变成"零组对比度所以全绿"；同理扫 `currentColor` 之前先剥掉 `<!-- … -->`
+注释，否则本条注释里那个词会自己把自己判红（Step 6 第一跑就是这个形状）。
+
+- [x] **Step 7: 三处收录点 —— `tools.html`、`index-all.html`、`sitemap.xml` + `llms.txt`**
+
+同一处 `where` 在五个模板里各写一遍（`_includes/header.html:75`、`tools.html:18`、
+`index-all.html:41`、`sitemap.xml:50`、`llms.txt:61`），变量名统一 `ready_online`
+（下拉那处叫 `ready_tools`，因为它和同一段里的 `site.data.tools` 挨着，同名会读混）。
+**为什么不并进一个 include**：五处的宿主语言环境不同（页面前置、section 内、XML 内、
+纯文本内），抽成一个 include 就得让一个模板同时知道四种输出形状；这一族事实的单一出处是
+`_data/onlineTools.yml`，`where` 只是它的一句话投影，重复五次的代价远小于一个五参数 include。
+
+**7a `/tools.html` 的第二族小节**。编号连续（01–03 插件、04 起在线工具）而不是各起一轮：
+访客从上往下读，两族各自 01 会被读成"这两节是同一份列表的两个副本"。
+
+```liquid
+{%- comment -%}
+这一页现在住着两族东西：01–03 是要装的 Chrome 扩展，04 起是站内直接打开的在线工具
+（数据源 _data/onlineTools.yml，段 3 / 段 4 各追加一条）。两族共用同一套 .tool-* 版式，
+差别只有两处：在线工具没有截图（那一栏收成单栏，见 editorial.scss 的 .tool-section--online），
+以及它的 CTA 是"打开页面"而不是"去商店安装"。
+编号连续而不是各起一轮，是因为访客是从上往下读的：两族各自 01 会被读成"这两节是同一份列表的
+两个副本"。序号在 .tool-index 里，是装饰性文本（aria-hidden），对检索不构成信号。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+```
+
+```liquid
+    {% for tool in ready_online %}
+    {%- comment -%}
+    在线工具那一族。与上面插件那一族的三处差别都写在版式之外：
+      · 没有 .tool-media：这类页面没有"界面截图"这种可以预先拍下的东西（它本身就是被打开的页面），
+        空栏会留下 380px 的白，所以 editorial.scss 里 .tool-section--online 把该族收成单栏。
+      · CTA 只有"打开"这一条主按钮，没有商店 / 仓库 / 演示三颗：地址就在站内，多摆按钮是噪声。
+      · 没有 .tool-posts 页脚：那一栏在插件族里装的是产品长文，本页的等价物是面板清单，
+        已经落在 .tool-features 里了，不必再列第二遍。
+    面板清单每条都是 <a>，直接跳到页内锚点——这就是 §4.4 第 5 条要的"把插件页的老流量导过去"。
+    {%- endcomment -%}
+    {%- assign idx = site.data.tools.size | plus: forloop.index -%}
+    <section class="tool-section tool-section--online" id="online-{{ tool.slug }}">
+        <header class="tool-head">
+            <span class="tool-index" aria-hidden="true">{% if idx < 10 %}0{% endif %}{{ idx }}</span>
+            <div class="tool-heading">
+                <span class="tool-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
+                <h2 class="tool-name">{{ tool.h1 }}</h2>
+                <p class="tool-en">浏览器内运行 · 无需安装</p>
+            </div>
+        </header>
+
+        <div class="tool-body">
+            <div class="tool-copy">
+                <p class="tool-tagline">{{ tool.tagline }}</p>
+                <p class="tool-summary">{{ tool.desc }}</p>
+
+                <ul class="tool-features">
+                    {% for p in tool.panels %}
+                    <li><a href="{{ tool.url | prepend: site.baseurl }}#{{ p.slug }}">{{ p.name }}</a> — {{ p.tagline }}</li>
+                    {% endfor %}
+                </ul>
+
+                <ul class="tool-badges">
+                    <li>无需安装</li>
+                    <li>零网络请求</li>
+                    <li>{{ tool.panels.size }} 块面板</li>
+                </ul>
+
+                <div class="tool-cta">
+                    <a class="cta cta-primary" href="{{ tool.url | prepend: site.baseurl }}">打开{{ tool.h1 }}</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endfor %}
+```
+
+**7b `index-all.html` 的在线工具一节**（左栏放面板数，这一族没有"发布时间"这个维度可排）：
+
+```liquid
+    {%- comment -%}
+    在线工具一节。与 #pages 那节同样是纯链接列表，一个类名都没新写（沿 .cat-*）。
+    左栏放的是面板数而不是日期或篇数：这一族没有"发布时间"这个维度可排，
+    而"几块面板"是它唯一能在点进去之前告诉访客的信息量。
+    条目取自 _data/onlineTools.yml 且只画 status: ready 的那些——这一页的意义是"站内可访问地址列全"，
+    先进清单、还没上线的那几条不该出现在这里（同 sitemap.xml 与 llms.txt 的口径，三处共用一个 where）。
+    {%- endcomment -%}
+    <section class="cat-section" id="onetools">
+        <header class="cat-head">
+            <h2 class="cat-name">在线工具</h2>
+            <span class="cat-count">{{ ready_online.size }} 个</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ol class="cat-list">
+            {%- for tool in ready_online %}
+            <li class="cat-row">
+                <span class="cat-date">{{ tool.panels.size }} 面板</span>
+                <a class="cat-title" href="{{ tool.url | prepend: site.baseurl }}">{{ tool.h1 }}｜{{ tool.tagline }}</a>
+            </li>
+            {%- endfor -%}
+        </ol>
+    </section>
+```
+
+**7c `sitemap.xml` 与 `llms.txt`**——`site.nav` 里没有这三页（它们是「工具箱」下拉里的条目，
+不是导航项），所以两个文件里那个按导航捞的循环捞不到，必须单独走一遍数据源。摘要口径
+两文件不同，各自有理由：sitemap 只发地址；`llms.txt` 取**页面 front matter 的
+`seo_description`** 而不是 yml 的 `tagline`（后者那行斜杠分隔的关键词清单对 AI 读者没用）。
+
+```xml
+{%- comment -%}
+在线工具三页（段 2 起，段 3 / 段 4 各追加一条）走数据源点名，不进 site.nav。
+不放进导航条的理由与下面 index-all 那条同源：导航是常显入口，多三项在窄屏上要占一行；
+但这一族**是**导航得能走到的地方——它已经挂在「工具箱」下拉里了，只是下拉的条目不是 nav 项。
+所以收录范围仍然由数据决定：_data/onlineTools.yml 里 status: ready 的条目才发地址，
+先进清单、正文还没落的那几条不发（同一处 where 口径也用在 index-all.html 与 llms.txt）。
+changefreq 用 monthly 而不是上面那些页的 weekly：这一族是工具不是文章，
+它跟着功能改版而不是跟着投稿节奏；写 weekly 等于让爬虫每周来回取一份不会变的 HTML。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+{% for tool in ready_online %}
+    <url>
+        <loc>{{ tool.url | absolute_url }}</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+{% endfor %}
+```
+
+```text
+{%- comment -%}
+在线工具那一族不在 site.nav 里（它是「工具箱」下拉里的条目，不是导航项），所以上面那个循环
+捞不到它，得单独走一遍数据源。摘要取页面自己的 seo_description 而不是 yml 里的 tagline：
+前者是这一页写给自己那段"粘贴什么、算出什么"的话，比 tagline 那行斜杠分隔的关键词清单
+对 AI 读者有用得多，口径也与上面那个循环一致（都是回到页面 front matter 取值）。
+status 不是 ready 的条目不列：这一句承诺的是"站内可访问地址"，还没上线的那几条不该出现。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+{%- for tool in ready_online %}
+{%- assign tdesc = "" -%}
+{%- for pg in site.pages -%}
+{%- if pg.url == tool.url and pg.seo_description -%}{%- assign tdesc = pg.seo_description -%}{%- endif -%}
+{%- endfor %}
+- [{{ tool.h1 }}]({{ base }}{{ tool.url }})：{{ tdesc }}
+{%- endfor %}
+```
+
+`llms.txt` 里那段"遍历 `site.pages` 找 `pg.url == tool.url`"的取值写法，就是 §0 那条
+`page.url` 不含 baseurl 的坑：`tool.url` 与 `pg.url` 都是站内相对路径，比的是同一副面孔，
+而输出时补 `{{ base }}`。
+
+- [x] **Step 8: 把"跑一遍看看"写成门禁 —— `scripts/check-tools-surface.mjs`**
+
+五组 + 反向一条 + 全站一条，51 处 `bad(...)`。它读 `_site/`（可用 `--site=` 指到别处），
+yml 交给 ruby 的 stdlib 解析——**不自己写 YAML 子集解析器**，手写的那份迟早和 Liquid
+读到不一样的东西。两道防止"门禁自己变哑"的设计写在文件头：`_site` 不存在或不新鲜时
+**报错而不是跳过**（跳过会让它在没构建的机器上永远绿）；凡是"源与产物各读一份再比"的判据，
+两边都取实际值、不写死字面量（写死的数字一过期，判据就从"能红"退化成"只能红在这一格"）。
+
+下面贴的是全文（531 行 / 27,316B）。它是 `FILE_TARGETS` 的第 21 条，也是这一格里第五块**整文件
+镜像**——"判据改了磁盘而计划不红"这件事，Step 1 刚为四块非 js 镜像犯过一次，不能到门禁自己身上
+就假设不会重演。
+
+```js
+#!/usr/bin/env node
+/**
+ * 收录面自证器：`_data/onlineTools.yml` 里每条 `status: ready` 的工具页，必须在
+ * 「页面本身 / 三处收录点 / 顶栏导航 / 图标 / DOM 契约」这五层上互相对得上。
+ *
+ * 为什么要有这个脚本（设计文档 §4.4 第 8 条、§8.2）：这一族事实分散在五个地方，而它们
+ * 全部**不会因为写错而报错**——
+ *   - yml 改了 `title`，页面 front matter 没改：构建绿、页面绿，只有 `<title>` 与下拉文案
+ *     从此是两个版本（段 2 Task 9 写 §4.1 时就真的漂移过一次，靠肉眼发现的）；
+ *   - `{% for x in data | where: … %}` 这种 Liquid 里非法的过滤器写法：Jekyll 只打一行
+ *     warning 就**把整个循环渲染成空**，sitemap 少一条收录、下拉少一行，构建退出码仍是 0；
+ *   - 页面骨架改了一个控件 id，`workbench.js` 的 spec 没跟着改：构建与页面全绿，
+ *     红的是运行时——而且只红那一块面板，没人点就没人知道。
+ * 前三次收口都是"跑一遍看看"，所以把"看看"写成判据。
+ *
+ * 用法：
+ *   node scripts/check-tools-surface.mjs                 # 读 _site/
+ *   node scripts/check-tools-surface.mjs --site=_site    # 同上，显式
+ *   node scripts/check-tools-surface.mjs --list          # 只打印将要核对的条目与检查项
+ *
+ * 失败形状（退 1，不静默）：每条失败打印 `[组名] 条目：说明`，末尾给总数。
+ * 通过形状：`✓ 收录面 N 条 ready 条目 × 5 组判据全绿`。
+ *
+ * 两道防止"门禁自己变哑"的设计：
+ *   1. `_site` 不存在或不新鲜时**报错而不是跳过**——跳过会让它在没构建的机器上永远绿。
+ *   2. 逐条判据里凡是"源与产物各读一份再比"的，两边都取实际值，不写死字面量（写死的
+ *      数字一旦过期，判据就从"能红"退化成"只能红在这一格"，见 §8.2 那条教训）。
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const argv = process.argv.slice(2);
+const LIST_ONLY = argv.includes('--list');
+const SITE_REL = (() => {
+  const hit = argv.find((a) => a.startsWith('--site='));
+  return path.resolve(ROOT, hit ? hit.slice(7) : '_site');
+})();
+
+/** yml → JS：交给 ruby 的 stdlib 解析，不自己写子集解析器（手写的那份迟早和 Liquid 读到不一样的东西） */
+function readYml(rel) {
+  const script = 'require "yaml"; require "json"; puts YAML.load_file(ARGV[0]).to_json';
+  let out;
+  try {
+    out = execFileSync('ruby', ['-e', script, path.join(ROOT, rel)], { encoding: 'utf8', maxBuffer: 8 << 20 });
+  } catch (e) {
+    throw new Error(`读取 ${rel} 失败（需要 ruby + yaml，Jekyll 构建本来就依赖它）：${e.message}`);
+  }
+  return JSON.parse(out);
+}
+
+const fails = [];
+/** 记一条失败：组名 + 条目 + 人话说明，末尾统一计数打印 */
+function bad(group, entry, msg) {
+  fails.push(`[${group}] ${entry}：${msg}`);
+}
+
+// ── 输入 ──────────────────────────────────────────────────────────────────────
+
+const toolsData = readYml('_data/onlineTools.yml');
+const ready = toolsData.filter((t) => t.status === 'ready');
+const config = readYml('_config.yml');
+const nav = config.nav || [];
+const workbench = await import(pathToFileURL(path.join(ROOT, 'dev/js/tools/workbench.js')).href);
+const { WORKBENCH_SPEC, PANEL_IDS } = workbench;
+
+/** 非文本对比度下限（WCAG 1.4.11 graphical objects）；图标带 `alt=""`，按图形而非文字判 */
+const ICON_MIN_RATIO = 3.0;
+/** `<title>` 与 `seo_description` 的列宽预算，与 USAGE.md「检索层自查」第 9 条同一口径 */
+const TITLE_MAX_COLS = 60;
+const DESC_MIN_COLS = 50;
+const DESC_MAX_COLS = 158;
+
+if (ready.length === 0) {
+  console.error('✗ 收录面门禁：_data/onlineTools.yml 里没有 status: ready 的条目——门禁无事可核，这本身就是要红的事');
+  process.exit(1);
+}
+if (!fs.existsSync(SITE_REL)) {
+  console.error(`✗ 收录面门禁：找不到产物目录 ${path.relative(ROOT, SITE_REL)}；先跑 pnpm build:site（跳过检查的"绿"不算绿）`);
+  process.exit(1);
+}
+
+const site = (rel) => path.join(SITE_REL, rel);
+const readSite = (rel) => {
+  const p = site(rel);
+  if (!fs.existsSync(p)) throw new Error(`产物缺失：${rel}`);
+  return fs.readFileSync(p, 'utf8');
+};
+const readSrc = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+const hasSrc = (rel) => fs.existsSync(path.join(ROOT, rel));
+
+/** 列宽口径：CJK 与全角（码位 > 0x2E80）算 2 列，其余算 1 列 */
+const cols = (s) => [...String(s)].reduce((n, c) => n + (c.codePointAt(0) > 0x2e80 ? 2 : 1), 0);
+const escRE = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * front matter 取值：只按 `^key:` 的行形状取，取不到返回 null（让调用方去报"缺字段"，
+ * 而不是在解析阶段就抛——一个空行/一条注释不该变成"门禁崩了"）。
+ */
+function frontMatter(text, key) {
+  const fm = /^---\n([\s\S]*?)\n---/.exec(text);
+  if (!fm) return null;
+  const line = new RegExp(`^${escRE(key)}:[ \\t]*(.*)$`, 'm').exec(fm[1]);
+  return line ? line[1].trim() : null;
+}
+
+// ── 组 1：页面源文件与 yml 的 title / permalink / 检索文案 ─────────────────────
+
+function checkPageSource(t) {
+  const rel = `tools-${t.slug}.html`;
+  if (!hasSrc(rel)) {
+    bad('页面源', t.slug, `找不到 ${rel}（yml 的 slug 与页面文件名按 tools-<slug>.html 对应）`);
+    return null;
+  }
+  const src = readSrc(rel);
+  const permalink = frontMatter(src, 'permalink');
+  const title = frontMatter(src, 'title');
+  const desc = frontMatter(src, 'seo_description');
+  if (permalink !== t.url) bad('页面源', t.slug, `front matter permalink=${JSON.stringify(permalink)} 与 yml url=${JSON.stringify(t.url)} 不一致`);
+  if (title !== t.title) {
+    bad('页面源', t.slug, `front matter title 与 yml title 逐字节不等：页面 ${JSON.stringify(title)} / yml ${JSON.stringify(t.title)}`);
+  }
+  if (!desc) bad('页面源', t.slug, 'front matter 缺 seo_description（下拉与 tools.html 的小标题都靠它兜底）');
+  else {
+    const c = cols(desc);
+    if (c < DESC_MIN_COLS || c > DESC_MAX_COLS) bad('页面源', t.slug, `seo_description ${c} 列，超出检索摘要预算 [${DESC_MIN_COLS},${DESC_MAX_COLS}]`);
+  }
+  if (title) {
+    // <title> 还会被 default 布局后缀一段站点名，预算按拼接后的总列数判
+    const suffix = ' - Better 前端博客';
+    const c = cols(title + suffix);
+    if (c > TITLE_MAX_COLS) bad('页面源', t.slug, `<title> 连站点名后缀 ${c} 列，超出 SERP 预算 ${TITLE_MAX_COLS} 列`);
+  }
+  return { src, desc };
+}
+
+// ── 组 2：产物、canonical 与三处收录点 ────────────────────────────────────────
+
+/** 从产物页的 canonical 反推 baseurl：判据只认"这几处必须彼此一致"，不把 /better-blog 写死 */
+function deriveBase(html) {
+  const m = /<link rel="canonical" href="([^"]+)">/.exec(html);
+  if (!m) return null;
+  try {
+    return { href: m[1], origin: new URL(m[1]).origin };
+  } catch {
+    return { href: m[1], origin: null };
+  }
+}
+
+function checkInclusion(t, builtHtml, pageUrlRel) {
+  const canon = deriveBase(builtHtml);
+  if (!canon) {
+    bad('收录', t.slug, '产物里没有 <link rel="canonical">，无从核对地址一致性');
+    return;
+  }
+  if (!canon.href.endsWith(pageUrlRel)) {
+    bad('收录', t.slug, `canonical=${canon.href} 不以页面 permalink=${pageUrlRel} 结尾（baseurl 或 url 有一处被改过）`);
+    return;
+  }
+  const abs = canon.href;
+  const localPath = new URL(abs).pathname;
+
+  const sitemap = readSite('sitemap.xml');
+  const urlBlock = new RegExp(`<url>\\s*<loc>${escRE(abs)}</loc>\\s*<changefreq>([^<]+)</changefreq>\\s*<priority>([^<]+)</priority>\\s*</url>`).exec(sitemap);
+  if (!urlBlock) {
+    bad('收录', t.slug, `sitemap.xml 里找不到 loc=${abs} 及其 changefreq/priority（循环被 Liquid 写法吞掉时就是这个形状）`);
+  }
+  if (urlBlock && (urlBlock[1] !== 'monthly' || Number(urlBlock[2]) < 0.6)) {
+    bad('收录', t.slug, `sitemap 里这一条的权重是 ${urlBlock[1]}/${urlBlock[2]}，工具页应为 monthly/≥0.6`);
+  }
+
+  const llms = readSite('llms.txt');
+  const llmsLine = new RegExp(`^- \\[${escRE(t.h1)}\\]\\(${escRE(abs)}\\)：(.+)$`, 'm').exec(llms);
+  if (!llmsLine) bad('收录', t.slug, `llms.txt 里找不到「- [${t.h1}](${abs})：说明」这一行`);
+  else if (cols(llmsLine[1]) < 20) bad('收录', t.slug, `llms.txt 里这条的说明只有 ${cols(llmsLine[1])} 列，等于没写`);
+
+  const indexAll = readSite('index-all.html');
+  if (!indexAll.includes(`href="${escRE(localPath)}"`) && !new RegExp(`href="${escRE(localPath)}"`).test(indexAll)) {
+    bad('收录', t.slug, `index-all.html 里没有指向 ${localPath} 的链接`);
+  }
+  if (!new RegExp(`id="onetools"`).test(indexAll)) {
+    bad('收录', t.slug, 'index-all.html 里没有 #onetools 那一节，页面清单没有落点');
+  }
+
+  const toolsHtml = readSite('tools.html');
+  if (!new RegExp(`<section class="tool-section tool-section--online" id="online-${escRE(t.slug)}"`).test(toolsHtml)) {
+    bad('收录', t.slug, 'tools.html 里没有这一条的 tool-section--online 小节');
+  }
+  if (!new RegExp(`href="${escRE(localPath)}"[^>]*>打开${escRE(t.h1)}</a>`).test(toolsHtml)) {
+    bad('收录', t.slug, `tools.html 的该小节缺少指向 ${localPath} 的「打开${t.h1}」主按钮`);
+  }
+  for (const p of t.panels) {
+    if (!new RegExp(`href="${escRE(localPath)}#${escRE(p.slug)}"`).test(toolsHtml)) {
+      bad('收录', t.slug, `tools.html 的面板清单里没有指向 #${p.slug}（${p.name}）的锚点链接`);
+    }
+  }
+}
+
+// ── 组 3：顶栏导航高亮与下拉 ───────────────────────────────────────────────────
+
+/** 取当前页命中的那个导航项：`is_current` 的判据在 _includes/header.html，这里按同一口径复算 */
+function expectedActiveNav(pageUrl) {
+  for (const item of nav) {
+    if (item.url === '/') { if (pageUrl === '/') return item; continue; }
+    const dir = item.url.replace(/\.html$/, '');
+    if (pageUrl === item.url || pageUrl === dir || pageUrl.includes(`${dir}/`)) return item;
+  }
+  return null;
+}
+
+/**
+ * 导航高亮的**全站**审计：把产物里每一个带 canonical 的页面都复算一遍"该亮哪一项"。
+ *
+ * 为什么不只核工具页那三张：Task 9 改的是 `_includes/header.html` 里那条 `is_current`
+ * 判据，它的作用域是全站每一页——只在新页上抽查等于把"改前那些页会不会被带下去"这件事
+ * 交给运气。判据本身在模板里以 Liquid 写，这里用 JS 重写一份同口径的，两边不一致即红。
+ *
+ * 判三件事，全部按"数一遍全站"的写法（不是"看看有没有异常"）：
+ *   1. 命中某个导航项的页：`.is-current` 恰好一个；没命中的页（文章页、demo 页）：恰好零个；
+ *   2. 亮着的那一项文本等于复算出来的 label；
+ *   3. `aria-current` 的取值：精确命中页 = `page`，前缀命中页 = `true`，二者不得混。
+ * 没有 canonical 或不渲染这份 header 的产物跳过，但跳过与核到的份数都要打出来——
+ * 哪天整个布局不再输出 canonical，"核到 0 页"这一行就是报警。
+ */
+function auditNavSiteWide() {
+  const pages = [];
+  const walk = (dir) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (ent.name.endsWith('.html')) pages.push(p);
+    }
+  };
+  walk(SITE_REL);
+  // Liquid 里的 page.url **不含** baseurl，而 canonical 含，所以比之前先把这一段削掉
+  const BASE = (new URL(config.url).pathname.replace(/\/$/, '')) + String(config.baseurl || '');
+  let skipped = 0;
+  let checked = 0;
+  let bare = 0;
+  for (const p of pages) {
+    const html = fs.readFileSync(p, 'utf8');
+    const canon = deriveBase(html);
+    if (!canon) { skipped += 1; continue; }
+    let localPath;
+    try { localPath = new URL(canon.href).pathname; } catch { skipped += 1; continue; }
+    const pageUrl = localPath.startsWith(`${BASE}/`) ? localPath.slice(BASE.length) : localPath;
+    const rel = path.relative(SITE_REL, p);
+    const active = [...html.matchAll(/<li class="nav-item([^"]*)"/g)];
+    if (active.length === 0) { bare += 1; continue; }
+    checked += 1;
+    const current = active.filter((m) => m[1].includes('is-current'));
+    const want = expectedActiveNav(pageUrl);
+    if (!want) {
+      if (current.length !== 0) {
+        bad('导航-全站', rel, `${pageUrl} 按 header 口径不命中任何导航项，产物里却亮了 ${current.length} 个`);
+      }
+      continue;
+    }
+    if (current.length !== 1) {
+      bad('导航-全站', rel, `${pageUrl} 应亮「${want.label}」，产物里 .is-current 有 ${current.length} 个`);
+      continue;
+    }
+    const idx = active.findIndex((m) => m[1].includes('is-current'));
+    const seg = html.slice(active[idx].index, active[idx].index + 900);
+    const link = /<a class="nav-link"([^>]*)>([^<]*)/.exec(seg);
+    if (!link || !link[2].trim().startsWith(want.label)) {
+      bad('导航-全站', rel, `${pageUrl} 亮的是「${link && link[2].trim()}」，复算应为「${want.label}」`);
+      continue;
+    }
+    const exact = pageUrl === want.url || pageUrl === want.url.replace(/\.html$/, '');
+    const wantAria = exact ? 'aria-current="page"' : 'aria-current="true"';
+    if (!link[1].includes(wantAria)) {
+      bad('导航-全站', rel, `${pageUrl} 的父项 aria-current 不是 ${wantAria}（精确命中记 page、前缀命中记 true）`);
+    }
+  }
+  console.log(`  导航-全站：核到 ${checked} 页（不渲染 header 的 ${bare} 份、无 canonical 的 ${skipped} 份）`);
+  if (checked === 0) bad('导航-全站', '全站', '一页都没核到（canonical 解析或目录扫描失效），这条判据此刻无牙');
+}
+
+function checkNav(builtHtml, t) {
+  const active = [...builtHtml.matchAll(/<li class="nav-item([^"]*)"/g)];
+  const current = active.filter((m) => m[1].includes('is-current'));
+  if (current.length !== 1) {
+    bad('导航', t.slug, `导航里有 ${current.length} 个 .is-current，应为 1 个（多高亮/不高亮都是判据漂移）`);
+    return;
+  }
+  const want = expectedActiveNav(t.url);
+  if (!want) {
+    bad('导航', t.slug, '按 header 的口径这一页不该命中任何导航项，但产物里出现了高亮——两边判据不同源');
+    return;
+  }
+  // 高亮落在哪个 label 上：取该 <li> 之后第一个 nav-link 的文本
+  const idx = active.findIndex((m) => m[1].includes('is-current'));
+  const seg = builtHtml.slice(active[idx].index, active[idx].index + 900);
+  const label = /<a class="nav-link"[^>]*>([^<]+)/.exec(seg);
+  if (!label || !label[1].trim().startsWith(want.label)) {
+    bad('导航', t.slug, `高亮项文本是 ${JSON.stringify(label && label[1].trim())}，应为「${want.label}」`);
+  }
+  // 前缀命中的父项只能说"你在这族里"，不能说"这一项就是当前页"
+  if (!/class="nav-link"[^>]*aria-current="true"/.test(seg)) {
+    bad('导航', t.slug, '前缀命中的父导航项缺少 aria-current="true"（有 .is-current 而无 aria 等于对读屏用户不高亮）');
+  }
+  if (/class="nav-link"[^>]*aria-current="page"/.test(seg)) {
+    bad('导航', t.slug, '父导航项被标成 aria-current="page"，而它指向的不是当前页');
+  }
+  const sub = new RegExp(`<a class="nav-sub-link" href="[^"]*${escRE(t.url)}"[^>]*aria-current="page"`).test(builtHtml)
+    || new RegExp(`<a class="nav-sub-link" href="[^"]*${escRE(t.url)}" aria-current="page"`).test(builtHtml);
+  if (!sub) bad('导航', t.slug, '下拉里指向本页的那一条缺少 aria-current="page"');
+  if (!new RegExp(`data-tool="${escRE(t.slug)}"`).test(builtHtml)) {
+    bad('导航', t.slug, '下拉里没有这一条（data-tool 锚点缺失），status 不是 ready 或模板漏渲染');
+  }
+}
+
+// ── 组 4：图标昼夜可读 ────────────────────────────────────────────────────────
+
+const lum = (hex) => {
+  const n = hex.replace('#', '');
+  const full = n.length === 3 ? n.split('').map((c) => c + c).join('') : n;
+  const ch = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+};
+const ratio = (a, b) => {
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+};
+
+/**
+ * 从 tokens.scss 现读底色集合：`:root` 与另外两档纸色温各写一遍 `--surface` / `--surface-2`，
+ * 夜间那一块再重写一遍——四块 × 两档 = 现场 8 格（`#FFF` 与 `#FFFFFF` 是同一个色的两种写法，
+ * 按字符串去重会留两格，多算不影响判定方向：只会让判据更严，不会更松）。
+ * 返回值带变量名，是为了让调用方能判"只解析出一档"这种半失效形状。
+ */
+function tokenSurfaces() {
+  const scss = readSrc('dev/sass/common/tokens.scss');
+  const rows = [];
+  const blocks = scss.match(/:root\s*\{[\s\S]*?\n\}|html\[data-rs-paper="[a-z]+"\][^{]*\{[\s\S]*?\n\}|body\.night-mode[^{]*\{[\s\S]*?\n\}/g) || [];
+  for (const b of blocks) {
+    for (const v of ['--surface', '--surface-2']) {
+      const m = new RegExp(`^\\s*${v}:\\s*(#[0-9A-Fa-f]{3,6})\\s*;`, 'm').exec(b);
+      if (m) rows.push({ var: v, hex: m[1].toUpperCase() });
+    }
+  }
+  return rows;
+}
+
+function checkIcon(t) {
+  if (!hasSrc(t.icon.replace(/^\//, ''))) {
+    bad('图标', t.slug, `yml 指向的 ${t.icon} 在仓库里不存在`);
+    return;
+  }
+  const rawSvg = readSrc(t.icon.replace(/^\//, ''));
+  // 注释里出现 currentColor 是**记录决策**（这个文件的注释正是在解释"为什么不用它"），
+  // 判据只看渲染时会生效的那部分，所以先摘掉 <!-- … -->
+  const svg = rawSvg.replace(/<!--[\s\S]*?-->/g, '');
+  if (/currentColor/.test(svg)) {
+    bad('图标', t.slug, 'SVG 里仍有 currentColor——用 <img> 加载时它不继承宿主 CSS 变量，会渲成近黑，夜间档直接看不见');
+    return;
+  }
+  const surfaces = tokenSurfaces();
+  const seenVars = new Set(surfaces.map((s) => s.var));
+  if (surfaces.length < 6 || seenVars.size < 2) {
+    bad('图标', t.slug, `从 tokens.scss 只解析出 ${surfaces.length} 格底色、变量名 ${[...seenVars].join('/') || '无'}（现场应为 8 格、两档都在）——解析形状变了要同步改这里`);
+  }
+  const inks = new Set();
+  for (const m of svg.matchAll(/\b(?:stroke|fill)="(#[0-9A-Fa-f]{3,6})"/g)) inks.add(m[1]);
+  if (inks.size === 0) {
+    bad('图标', t.slug, 'SVG 里找不到任何着色（stroke/fill 都没有色值），这条判据对它无牙');
+    return;
+  }
+  for (const ink of inks) {
+    for (const bg of surfaces) {
+      const r = ratio(ink, bg.hex);
+      if (r < ICON_MIN_RATIO) {
+        bad('图标', t.slug, `${ink} 落在 ${bg.var}=${bg.hex} 上只有 ${r.toFixed(2)}:1，低于图形对象下限 ${ICON_MIN_RATIO}:1`);
+      }
+    }
+  }
+}
+
+// ── 组 5：DOM 契约（yml panels ↔ spec ↔ 产物里的 id / data 属性） ──────────────
+
+function checkDomContract(t, builtHtml) {
+  resetAccumulators();
+  const p = t.prefix;
+  const ymlPanels = t.panels.map((x) => x.slug);
+  if (ymlPanels.join(',') !== PANEL_IDS.join(',')) {
+    bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 workbench.js PANEL_IDS=[${PANEL_IDS}] 不同名或不同序（顺序=索引条顺序）`);
+  }
+  if (Object.keys(WORKBENCH_SPEC).join(',') !== PANEL_IDS.join(',')) {
+    bad('DOM', t.slug, 'PANEL_IDS 与 WORKBENCH_SPEC 的键对不上，workbench.js 内部已经不一致');
+  }
+
+  const ids = new Set([...builtHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+  const need = [`${p}-workspace`, `${p}-notice`, `${p}-tablist`];
+  for (const slug of ymlPanels) {
+    need.push(`${p}-tab-${slug}`, `${p}-panel-${slug}`);
+    const spec = WORKBENCH_SPEC[slug];
+    if (!spec) { bad('DOM', t.slug, `面板 ${slug} 在 WORKBENCH_SPEC 里没有条目`); continue; }
+    for (const side of ['gen', 'read']) {
+      const cfg = spec.sides?.[side];
+      if (!cfg) continue;
+      for (const c of cfg.controls || []) {
+        const id = `${p}-in-${slug}-${c.id}`;
+        need.push(id);
+        for (const attr of ['cascade', 'options', 'charsets']) {
+          if (c[attr]) markers[attr].set(id, c[attr]);
+        }
+      }
+      for (const tg of cfg.switch?.targets || []) {
+        const id = `${p}-when-${slug}-${tg.key}`;
+        need.push(id);
+        wantWhen.set(id, tg.when.join(' '));
+      }
+    }
+  }
+  const missing = need.filter((id) => !ids.has(id));
+  if (missing.length) bad('DOM', t.slug, `产物里缺少这些 id：${missing.join(' ')}`);
+
+  // 标记与开关：产物上有、spec 里没有的，同样算红（只查一个方向等于默认允许"骨架多加料"）
+  for (const [attr, want] of [['cascade', markers.cascade], ['options', markers.options], ['charsets', markers.charsets]]) {
+    const onDisk = new Map();
+    for (const m of builtHtml.matchAll(new RegExp(`id="([^"]+)"[^>]*data-${escRE(p)}-${attr}="([^"]+)"`, 'g'))) onDisk.set(m[1], m[2]);
+    for (const m of builtHtml.matchAll(new RegExp(`data-${escRE(p)}-${attr}="([^"]+)"[^>]*id="([^"]+)"`, 'g'))) onDisk.set(m[2], m[1]);
+    for (const [id, val] of want) {
+      if (onDisk.get(id) !== val) bad('DOM', t.slug, `data-${p}-${attr} 对不上：spec 要 ${id}=${val}，产物是 ${id}=${onDisk.get(id) ?? '（无）'}`);
+    }
+    for (const [id, val] of onDisk) {
+      if (!want.has(id)) bad('DOM', t.slug, `产物上 ${id} 带着 data-${p}-${attr}="${val}"，而 WORKBENCH_SPEC 里没有这个标记——两边必须同源`);
+    }
+  }
+  const whenDisk = new Map();
+  for (const m of builtHtml.matchAll(new RegExp(`id="([^"]+)"[^>]*data-${escRE(p)}-when="([^"]+)"`, 'g'))) whenDisk.set(m[1], m[2]);
+  for (const [id, val] of wantWhen) {
+    const got = (whenDisk.get(id) || '').split(/\s+/).filter(Boolean).sort().join(' ');
+    if (got !== val.split(/\s+/).filter(Boolean).sort().join(' ')) {
+      bad('DOM', t.slug, `开关目标 ${id}：spec 要 "${val}"，产物是 "${whenDisk.get(id) ?? '（无）'}"`);
+    }
+  }
+  for (const id of whenDisk.keys()) {
+    if (!wantWhen.has(id)) bad('DOM', t.slug, `产物上多出 ${id} 的 data-${p}-when，spec 里没有对应开关`);
+  }
+
+  // 骨架上那四格数据 ↔ 入口常量
+  const entry = `dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js`;
+  if (!hasSrc(entry)) bad('DOM', t.slug, `找不到入口 ${entry}（命名口径：tool + slug 首字母大写）`);
+  else {
+    const src = readSrc(entry);
+    for (const [key, want] of [['CONTAINER_ID', `${p}-workspace`], ['NOTICE_ID', `${p}-notice`]]) {
+      const m = new RegExp(`const ${key} = '([^']*)'`).exec(src);
+      if (!m) bad('DOM', t.slug, `${entry} 里没有 const ${key}`);
+      else if (m[1] !== want) bad('DOM', t.slug, `${entry} 的 ${key}='${m[1]}' 与 yml prefix 推出来的 "${want}" 不一致`);
+    }
+    for (const a of ['ids', 'prefix', 'label', 'notice']) {
+      if (!new RegExp(`${escRE(a)}: 'data-${escRE(p)}-${escRE(a)}'`).test(src)) {
+        bad('DOM', t.slug, `${entry} 的 ATTR.${a} 不是 'data-${p}-${a}'——属性名由 prefix 推，两处必须一样`);
+      }
+    }
+  }
+  const boxId = `${p}-workspace`;
+  const boxTag = new RegExp(`<[^>]*id="${escRE(boxId)}"[^>]*>`).exec(builtHtml);
+  if (boxTag) {
+    for (const a of ['ids', 'prefix', 'label', 'notice']) {
+      if (!new RegExp(`data-${escRE(p)}-${a}=`).test(boxTag[0])) {
+        bad('DOM', t.slug, `容器 #${boxId} 上没有 data-${p}-${a}，入口读不到配置`);
+      }
+    }
+    const idsAttr = /data-(?:[a-z]+)-ids="([^"]*)"/.exec(boxTag[0]);
+    if (idsAttr && idsAttr[1] !== ymlPanels.join(',')) {
+      bad('DOM', t.slug, `data-${p}-ids="${idsAttr[1]}" 与 yml panels 顺序不一致`);
+    }
+  }
+}
+
+/**
+ * 组 5 的两个累加器：每核一条 ready 条目就清空一次。
+ * 不重置的话，第二条页面（`jt-` 前缀的 JSON 页）会因为 spec 里攒着上一条（`tk-` 前缀）的
+ * 控件而报出一堆"产物里缺少这些 id"——门禁红在错的地方，比不红更糟。
+ */
+const markers = { cascade: new Map(), options: new Map(), charsets: new Map() };
+const wantWhen = new Map();
+function resetAccumulators() {
+  for (const m of Object.values(markers)) m.clear();
+  wantWhen.clear();
+}
+
+// ── 跑 ────────────────────────────────────────────────────────────────────────
+
+console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
+if (LIST_ONLY) {
+  for (const t of ready) {
+    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js`);
+  }
+  console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM');
+  process.exit(0);
+}
+
+for (const t of ready) {
+  const pageUrlRel = t.url;
+  const builtRel = t.url.replace(/^\//, '');
+  if (!fs.existsSync(site(builtRel))) {
+    bad('收录', t.slug, `产物缺 ${builtRel}（源页有 permalink 却没建出来，通常是 permalink 与 url 不一致）`);
+    checkPageSource(t);
+    continue;
+  }
+  const built = readSite(builtRel);
+  checkPageSource(t);
+  checkInclusion(t, built, pageUrlRel);
+  checkNav(built, t);
+  checkIcon(t);
+  checkDomContract(t, built);
+}
+
+auditNavSiteWide();
+
+/** 反向一条：planned 条目不该出现在任何收录面上（"先进清单、后补正文"最容易漏的就是这里） */
+for (const t of toolsData.filter((x) => x.status !== 'ready')) {
+  const surfaces = ['sitemap.xml', 'llms.txt', 'index-all.html', 'tools.html'].filter((f) => {
+    try { return readSite(f).includes(t.url); } catch { return false; }
+  });
+  if (surfaces.length) bad('收录-反向', t.slug, `status 不是 ready，却已出现在 ${surfaces.join(' / ')} 里`);
+}
+
+if (fails.length) {
+  for (const f of fails) console.log('✗ ' + f);
+  console.log(`✗ 收录面门禁：${fails.length} 条不通过`);
+  process.exit(1);
+}
+console.log(`✓ 收录面 ${ready.length} 条 ready 条目 × 5 组判据全绿（页面源/收录/导航/图标/DOM）`);
+```
+
+- [x] **Step 9: 门禁的牙齿 —— `scripts/check-tools-surface-teeth.mjs`，19 组变异**
+
+一条判据没被红过就等于没有。变异两类打法不同：**产物侧**（收录 / 导航 / 部分 DOM）把 `_site`
+整份拷进影子目录再改，真仓库零风险；**源侧**（页面源 / 图标 / 其余 DOM）门禁直读源文件，只能
+就地改、跑完立即还原（内存留备份 + `exit` 钩子批量还原，中途 Ctrl-C 也不留脏文件）。影子目录用
+`mkdtemp` 每次一份，不共用固定路径——共用的话另一路并行跑的 `rm -rf` 会把这一轮测量整批作废。
+基线在真 `_site` 上必须先 exit=0，否则后面全是假证据。19 组按组的归属：
+
+```
+[页面源] yml title 与 front matter 漂移 · yml url 与 front matter permalink 不同源
+[收录]   sitemap 少一条（Liquid 循环被写法吞掉的形状）· llms.txt 少一行 ·
+         tools.html 的面板锚点清单缺一块面板 · index-all 删掉在线工具那一节
+[导航]   导航出现两个 is-current · 父项缺 aria-current="true" · 下拉当前项缺 aria-current="page"
+[图标]   图标退回 currentColor · 图标描边压到 3:1 以下
+[DOM]    产物缺一个控件 id · 骨架多出 spec 里没有的开关目标 · data-tk-options 的取值与 spec
+         不一致 · 入口 CONTAINER_ID 与 yml prefix 脱钩
+[收录-反向] planned 条目混进收录面
+[导航-全站] 文章页凭空多出一个 is-current · 首页父项的 aria-current="page" 被摘掉 ·
+            高亮从「工具箱」挪到「分类」
+```
+
+Expected（2026-09-27 从仓库路径实跑）：`牙齿台账：19/19 组变异如期变红`、
+`✓ 全部变异已还原，复跑基线仍绿`、`exit=0`，且跑完 `git status --porcelain` 里
+`dev/js/toolIdcard.js` **不在**改动之列（源侧有一条变异改的就是它，还原没做净会在这儿露出来）。
+前 16 组是 Step 8 交付时跑的，后 3 组是 Step 11 那次"逐页核高亮"收成判据之后补的——
+**全站那一档必须有变异**，不然"核到 91 页"这句话本身就是没有牙的装饰
+（一条只打印数字的 assert 永远不会红）。
+落进仓库时拆掉两处"换台机器 / 换挂载路径就失效"的写法：`ROOT` 从 `import.meta.url` 推，
+不再写死本机绝对路径；「首页父项 `aria-current` 被摘掉」与「planned 条目混进收录面」两组里的
+`/better-blog` 改成从产物 canonical 现推（与门禁 `deriveBase()` 同一取法）。**为什么这算牙齿问题
+而不是风格问题**：`String.replace` 找不到目标时原样返回，站点一换挂载路径这两组就成了"什么都没
+注入"的空跑，而门禁仍绿 → 台账打 `✗ …（假牙）`，那一红太容易被当成脚本自己的 bug 忽略掉。
+
+同一格还要给镜像门禁补牙齿（Step 1 放宽语言集合之后，"能核更多文件"这件事本身
+可能是把判据改松了）。`scripts/verify-plan-blocks-teeth.mjs` 在原有 G1–G7 之外加三条：
+
+| 变异 | 必须出现的形状 | 抓的是哪一路哑法 |
+| --- | --- | --- |
+| G8 改 `_data/onlineTools.yml` 里一个字的 `title` | `✗ _data/onlineTools.yml`；`--fix` 写回后 `→ 已同步 …`；把磁盘还原再跑仍红；计划还原后转绿 | 非 js 镜像改了磁盘、计划不红 |
+| G9 从 `FILE_TARGETS` 删掉 `'_data/onlineTools.yml',` 一行 | `✗ 漏网镜像：_data/onlineTools.yml` | 清单漏项自己不会喊 |
+| G10 往 `FILE_TARGETS` 塞一个 `'README.md',` | `✗ README.md: 扩展名没有围栏语言映射` | 未知扩展名被当成"没有镜像"静默放过 |
+
+G8 那一组必须跑四步（红 → `--fix` 同步 → 磁盘还原后仍红 → 计划还原后转绿），只跑第一步
+等于只证明"它会红"，不证明"它红的是磁盘而不是副本"。
+
+- [x] **Step 10: 文档同步 —— `USAGE.md` 新第 12 条、`README.md` 四处、spec 四处**
+
+`USAGE.md` 里那族自检的引言写的是"这十二条 / 后面十一条"，加一条就得同时改两处计数，
+并且第 12 条是**唯一一个 node 命令**（前 11 条查的都是 HTML 与 feed），所以那句
+"前面十二条查的都是 HTML 与 feed"也要跟着改口。第 12 条原文：
+
+```bash
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface.mjs
+```
+
+同一次改动里顺手钉掉三条对不上数的旧文（都是复核发现的，不是新写的）：JSON-LD 期望值
+从写死的常数改成现场读数（`BlogPosting 72 + BreadcrumbList 72 + CollectionPage 27 +
+WebSite/Blog 各 1 + Person 2 = 175 块`，并注明"别把 175 当成常数判"、`/tools/` 那几份
+CollectionPage 来自数据源而不是 `site.nav`）；第 1、2 条的 glob 放宽到
+`/tmp/seo-check/tools/*.html`（先探针跑绿再落笔）；第 9 条那两个红名单值补上出处
+（`(文件, 列数)` 元组，之前只 push 列数，导致 `[188, 165]` 这组数在文件里定位不到是谁）。
+
+`README.md` 四处：工具表那行措辞、新增一行 `/tools/idcard.html`、目录树 `_data/` 那行补
+`onlineTools.yml 在线工具`、SEO 段里 sitemap 的收录范围补"另加 `_data/onlineTools.yml` 里
+`status: ready` 那几页"，英文摘要同步。
+
+spec 四处：§4.1 表格里那条 `title`（Step 5 缩字之后 spec 还写着 68 列的旧值）、
+§4.3 与 §8.2 的 `is-on` 改口成两档 `aria-current`、§7 补 Task 9 复量那三段（含
+`zlib` 与 `gzip -9` 的口径警告）。**spec 的改口要在计划里落字**，因为"§4.3 说 is-on、
+代码写 aria-current"这种不一致，下一个人会按哪一份改都不算错。
+
+- [x] **Step 11: 全站高亮与那一族的体积账 —— A/B 两份可比产物**
+
+判据从"包含"改成"目录前缀"，最怕的是别的页面被多点亮一条。做法是同一份工作树建两份
+产物（只差头那三处），逐页比三个量：`.is-current` 的数量与位置、`aria-current` 的取值集合、
+`id="g-nav"` 在不在。
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+python3 - <<'PY'
+import pathlib, re, collections
+def snap(root):
+    out = {}
+    for p in sorted(pathlib.Path(root).rglob('*.html')):
+        t = p.read_text(encoding='utf-8', errors='ignore')
+        out[str(p.relative_to(root))] = (t.count('is-current'),
+            tuple(sorted(re.findall(r'aria-current="([^"]+)"', t))),
+            'id="g-nav"' in t)
+    return out
+a, b = snap('/tmp/seo-old'), snap('/tmp/seo-new')
+print('页数', len(a), len(b), '| 渲染 g-nav', sum(1 for v in a.values() if v[2]))
+diff = {k: (a[k], b[k]) for k in b if a.get(k) != b[k]}
+for k, v in diff.items(): print(' ', k, v)
+PY
+```
+
+现场结果（2026-09-27，两份各 125 份 html）：核到 **91 页**渲染 `id="g-nav"`（不渲染的 18 份是
+feed/404 那类），带 canonical 的 109 份、无 canonical 16 份；**两页之间的差异恰好只有 1 页**
+——`/tools/idcard.html` 的 `.is-current` 从 0 变 1，`aria-current` 取值集合从 `[]` 变成
+`('page','true')`。没有第二页被点亮，也没有一页被摘掉。这三行是 `check-tools-surface.mjs`
+「导航-全站」那一组每次跑都重算的东西，脚本里不写 91 这个常数。
+
+体积那一笔（`cat f | gzip -9 | wc -c` 同一口径）：证件页 **56,449 → 57,468 原文 /
+13,325 → 13,436 gzip**，首屏因此 15,447 → **15,546**；首页同批 +968B / +154B，说明
+这一族全站每一页都要付。渲染出来的「在线工具」族单独量是 **813B**。三条拆解写在
+spec §7 新增的那段里，包括 Step 5 那 −90B 的反方向账。
+
+**这一格新踩的坑，必须落字**：`zlib.gzipSync(buf,{level:9})` 与 `gzip -9` 在本机对同一批
+字节给出不同结果（三件 74,295 vs **73,359**，首屏 15,839 vs **15,546**，单件
+`toolkitCore.min.js` 6,693 vs **6,583**）。首屏余量只有 838B，两套数法差 293B——
+"用哪个 API 量"能吃掉余量的三分之一。判定一律以 §7 开头钉的 shell 口径为准。
+
+- [x] **Step 12: 全量门禁 + 按路径提交（两发）**
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs > /tmp/t9-tests.log 2>&1
+echo "1) 测试 exit=$?"; grep -E '^# (tests|pass|fail)' /tmp/t9-tests.log
+node scripts/verify-plan-blocks.mjs > /tmp/t9-vpb.log 2>&1; echo "2) 镜像 exit=$?"; tail -2 /tmp/t9-vpb.log
+node scripts/verify-plan-blocks-teeth.mjs > /tmp/t9-teeth.log 2>&1; echo "3) 镜像牙齿 exit=$?"; tail -2 /tmp/t9-teeth.log
+pnpm build:site > /tmp/t9-build.log 2>&1; echo "4) build:site exit=$?"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface.mjs; echo "5) 收录面 exit=$?"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface-teeth.mjs > /tmp/t9-steeth.log 2>&1
+echo "6) 收录面牙齿 exit=$?"; tail -2 /tmp/t9-steeth.log
+```
+
+Expected（本格把"五道门禁"扩成**六道**：第 6 道是收录面门禁的牙齿，它必须与门禁本体同发提交，
+否则下一格改门禁时没人知道它还有没有牙）：`# tests 146 / # pass 146 / # fail 0`；镜像那道
+**`✗ 1 个目标对不上` 消失**、`OK` 行 33 条、汇总 `计划 js 块 30 个（段1 11、段2 19）… 其中 33 个是
+已落地镜像`；镜像牙齿 `18/18`（原 14 条 + G8/G9/G10 + 本格现场补的 G11，见下面实跑记录第 7 条）；
+`build:site exit=0` **且**
+`grep -ciE 'liquid warning|liquid error' /tmp/t9-build.log` 出 `0`；收录面那道
+`✓ 收录面 1 条 ready 条目 × 5 组判据全绿（页面源/收录/导航/图标/DOM）`；收录面牙齿
+`牙齿台账：19/19 组变异如期变红`。
+
+提交分两发，**每发都必须让五道门禁在"该发的内容"上是自洽的**：
+
+- **发 1（代码 + 计划镜像，14 条路径）**：`_includes/header.html`
+  `dev/sass/common/editorial.scss` tools.html index-all.html sitemap.xml llms.txt
+  `_data/onlineTools.yml` `tools-idcard.html` `assets/img/tools/idcard-tool.svg`
+  `scripts/check-tools-surface.mjs` `scripts/check-tools-surface-teeth.mjs`
+  `scripts/verify-plan-blocks.mjs` `scripts/verify-plan-blocks-teeth.mjs` + 本计划文件。
+  计划文件必须在这一发一起走：镜像门禁比的就是磁盘与计划，两者分开发会让中间那一发
+  在干净检出上是红的（Task 8 那"计划另发一发"的节奏在有镜像门禁之后不再成立，
+  这一条变化写进本记录）。
+- **发 2（文档口径，3 条路径）**：`USAGE.md` `README.md` + spec。
+
+```bash
+git add _includes/header.html dev/sass/common/editorial.scss tools.html index-all.html \
+        sitemap.xml llms.txt _data/onlineTools.yml tools-idcard.html \
+        assets/img/tools/idcard-tool.svg scripts/check-tools-surface.mjs \
+        scripts/check-tools-surface-teeth.mjs \
+        scripts/verify-plan-blocks.mjs scripts/verify-plan-blocks-teeth.mjs \
+        _docs/superpowers/plans/2026-09-26-tools-idcard-page.md
+git diff --cached --stat   # 必须恰好 14 行，多出来的先跟用户确认，别顺手吞
+```
+
+**别裸 `git commit`**：索引是共享的，另一路会话的 `deploy-github.sh` 里那句 `git add .`
+随时会落进来。commit message 载荷与 pathspec 收口见下面实跑记录。
+
+本格交付清单（磁盘现值，行 / 字节）：
+
+| 路径 | 行 / 字节 | 谁来判它 |
+| --- | --- | --- |
+| `scripts/check-tools-surface.mjs` | 531 / 27,316 | 它自己判别人；**它自己被 G8 那一档判**（镜像 + `verify-plan-blocks-teeth` 的 G9/G10） |
+| `scripts/check-tools-surface-teeth.mjs` | 218 / 10,694 | 19 组变异台账，Step 9 |
+| `_includes/header.html` | 214 / 15,901（本格改 3 处） | 门禁「导航」+「导航-全站」；Step 11 的 A/B |
+| `dev/sass/common/editorial.scss` | 5,539 / 170,215（本格改 3 处） | `pnpm build:site` 出产物；`.nav-sub-group` 与步长靠 Step 12 的产物核验 |
+| `tools.html` | 160 / 7,693 | 门禁「收录」第 3 项（面板锚点清单逐块核） |
+| `index-all.html` | 192 / 9,769 | 门禁「收录」第 4 项 |
+| `sitemap.xml` / `llms.txt` | 99 / 5,826 · 97 / 6,342 | 门禁「收录」第 1、2 项 |
+| `_data/onlineTools.yml` | 76 / 5,662（Task 8 时 5,683） | 计划镜像逐字节 + 门禁全部五组的输入 |
+| `tools-idcard.html` | 486 / 32,545（原 32,566） | 计划镜像 + 门禁「页面源」「DOM」 |
+| `assets/img/tools/idcard-tool.svg` | 28 / 2,348（原 11 / 762） | 计划镜像 + 门禁「图标」八组对比度 |
+| `USAGE.md` / `README.md` / spec | 993 / 59,882 · 196 / 13,666 · 361 / 52,643 | 人读；spec 的数字由 Step 11 那笔复量落字 |
+
+**2026-09-27 落地实跑（Step 1–11）**：
+
+1. **Step 7 第一跑真的撞在口径 2 上**，不是举例子。19:35 那次 `bundle exec jekyll build`
+   的 stdout 里有两行（原文照抄）：
+
+   ```
+   Liquid Warning: Liquid syntax error (line 47): Expected end_of_string but found pipe in
+   "tool in site.data.onlineTools | where: 'status', 'ready'" in sitemap.xml
+   Liquid Warning: Liquid syntax error (line 58): … 同上 … in llms.txt
+   ```
+
+   构建退出码仍是 0，而那次产物里 `sitemap.xml` 的 `<loc>` 是 **81** 条、`llms.txt` 里
+   没有那一行。改成先 assign 再遍历之后：82 条、`llms.txt:20` 有那一行。**一条 Liquid 写法
+   错的代价就是"页面在、爬虫找不到"，而构建全绿**——这就是 §4.4 第 8 条要一个门禁而不是
+   要一次"我看看"的实证。（同一次跑里 `index-all.html` 与 `tools.html` 没有报，因为我先
+   在那两处写了 assign、后两处抄的是带管道的版本：四处现在写法一致。）
+2. **Step 1 放宽语言集合后第一跑抓出三处静默漂移**：`_data/onlineTools.yml` 与
+   `tools-idcard.html` 两份 `title`（Step 5 缩字改的是磁盘，计划还写旧值），和整份
+   svg 头注释（11 行 → 28 行）。`--fix` 重写 3 块，计划 11,973 → 11,990 行。
+   **这三处里没有一处会让任何一道当时的门禁变红**，这是它们能活到今天的唯一原因。
+3. **Step 6 推翻的是本格自己写在 Task 8 的一句话**。计划 Task 8 的 1b 说明里那句"描边
+   `currentColor` 跟随纸色温"没被实测过；量出来夜间档 1.35:1（判线 3.0）。已把那句改口
+   成"烘死 `#737B85`，理由与八组读数见门禁"，同时在 svg 文件头留了复算命令。
+   这一步真正的产出不是那个颜色，是**图标组不许零输入**那条自检：底色少于 6 格就判红。
+4. **Step 11 的 A/B 是本格唯一一次"改了判据、拿全站立额证明没伤到别人"**：125 份 html、
+   91 份渲染 `id="g-nav"`、109 份带 canonical（16 份没有，是 feed 与 404 那类），
+   两版之间**差异恰好 1 页**。那 3 条「导航-全站」变异（G17–G19）就是为了让这个"1"
+   不是一句口述，而是每次跑都会重算的数。
+5. **体积账**：证件页原文 56,449 → 57,468B、gzip 13,325 → 13,436B；首屏 15,447 → **15,546B**，
+   对 16,384B 余 **838B（5.1%）**；三件 JS+CSS 一个字节没动（73,359B）。首页同批
+   +968B / +154B，说明这一族全站每页都付。全部数字与那两条口径警告已落进 spec §7。
+6. **一处新坑值得单独记**：`zlib.gzipSync(...,{level:9})` 与 `cat f | gzip -9 | wc -c` 在
+   本机对同一批字节差 936B（三件）/ 293B（首屏）。发现方式是同一句话在两份文档里给了
+   两个数。**首屏余量 838B，跨口径差 293B 就是余量的三分之一**，所以 §7 现在明写
+   "跨口径比较视同没量"。
+
+**2026-09-27 落地实跑（Step 12：六道门禁）**：
+
+跑的顺序按"谁读谁"排：**④ 先跑**（⑤⑥ 判的是 `_site/` 里的新产物，20:01 那一份已经不含本格的
+`title` 与收录改动）；①②⑤ 是只读，连着跑；**⑥ 最后单独跑**——它就地改仓库源文件（跑完还原），
+与①同跑会让测试读到被变异的那一版。现场六条：
+
+| 门禁 | 现场 | Expected |
+| --- | --- | --- |
+| ① `--test scripts/toolkit-tests.mjs` | `exit=0`，`# tests 146 / # pass 146 / # fail 0` | 146 / 146 / 0 ✓ |
+| ② `scripts/verify-plan-blocks.mjs` | `exit=0`，`OK ` 行 33 条；汇总 `计划 js 块 30 个（段1 11、段2 19）… 其中 33 个是已落地镜像（合计 563,683B）`、`未落地 0 节` | ✗ 1 个目标对不上 已消失、33 条 ✓ |
+| ③ `scripts/verify-plan-blocks-teeth.mjs` | `exit=0`，`18/18 通过`；收口两条：副本 `exit=0`、脏指纹 `a8b8ae6ae9365a96` 前后一致（脏项 30 个，含另一路会话那批） | 18/18 ✓（见记录 7：这一道第一次是**崩**的） |
+| ④ `pnpm build:site` + Liquid 计数 | `exit=0`（vite 主链 + demo 链 + `jekyll build done in 4.995 seconds`，只有 `Skipping: …future date` 一条）；`grep -ciE 'liquid warning\|liquid error'` → **0** | `exit=0` 且计数 0 ✓ |
+| ⑤ `scripts/check-tools-surface.mjs` | `exit=0`，`收录面门禁：1 条 ready（idcard），产物目录 _site/` + `导航-全站：核到 91 页（不渲染 header 的 18 份、无 canonical 的 16 份）` + `✓ …5 组判据全绿` | ✓ 那一行逐字对上了 |
+| ⑥ `scripts/check-tools-surface-teeth.mjs` | `exit=0`，`牙齿台账：19/19 组变异如期变红` + `✓ 全部变异已还原，复跑基线仍绿` | 19/19 ✓ |
+
+⑤⑥ 那两处 91 / 18 / 16 与 Step 11 A/B 数出来的（125 份 html、91 份渲染 header、109 份带
+canonical）互相咬合：`125 − 18 = 107` 是渲染页，`107 − 16 = 91` 才是能核高亮的页——门禁与
+A/B 是两条独立路径数出同一个 91。
+
+7. **两道牙齿台账在 Step 12 第一次全绿之前各自错过一档，都是脚手架自己说谎**（记进 §11 的
+   "脚手架会静默说谎"那一族）：
+   - **③ 第一次跑是崩的，不是红的**：`verify-plan-blocks-teeth.mjs` 的 `fileTargets()` 拿
+     `'([^']+)'` 扫 `FILE_TARGETS` 整个数组字面量，把本格 Step 1 新写进去的那段注释
+     （「`main()` 早先只收 `lang === 'js'` 的块」）里的 `'js'` 当成了一条镜像目标，
+     `mirror()` 在 `copyFileSync` 处 `ENOENT … /js` 抛穿，**一条 ✗ 都没打出来**——
+     自证退 1 靠的是崩，而崩在拷文件那一步意味着这一轮连"判据有没有牙"都没判。
+     修法：解析改成**按行走**，只认「整行以引号开头」的元素行，`//` 开头的行跳过；
+     含引号串却不是元素行形的抛错；元素位上没有扩展名的抛错。新增 **G11** 两头咬：
+     往真清单里插一行含 `'js'`、`'yaml'` 例子的注释，解析结果必须与原版**逐项相等**；
+     把 `'js'` 放在元素位上必须抛。G11 只在内存里改字符串，不落盘、不碰脏指纹。
+   - **G8 的断言文案描述的是代码没执行的那个状态**：detail 里写"此时磁盘已还原、计划仍是
+     改写后的那份，仍应 ✗"，可代码把两次还原都放在 `r3` 之前，于是 `r3` 判的是"两边都改写、
+     彼此相等"的**恒绿态**——`--fix` 到底有没有落笔，`r3` 说了不算。修法是只把磁盘还原挪到
+     `r3` 之前（`r1` ✗ → `--fix` 写回 → 还原磁盘后仍 ✗ → 连计划一起还原后 `r4` 退 0）。
+     修前 `17/18`、修后 `18/18`，**这一档的"预期红"必须本轮真跑出来，不能从前一次的形状里抄**。
+
+提交两发。**发 1 必须让六道门禁在干净检出上自洽**（镜像门禁比的是磁盘与计划，两者分开发，
+中间那一发在干净检出的 CI 上必红），所以本计划跟着代码一起走；`git diff --cached --stat`
+恰好 14 行——索引此前是空的，但 pathspec 照旧写死，对方 `deploy-github.sh` 里那句
+`git add .` 随时会落进来。两发的哈希与逐发清单写在下面的收口记录里。
+
+<!-- APPEND-10 -->
+
 

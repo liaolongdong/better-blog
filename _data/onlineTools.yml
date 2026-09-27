@@ -28,7 +28,7 @@
   url: /tools/idcard.html
   name: 证件与机构代码工具
   tagline: 身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据
-  title: 身份证号校验与测试号生成 · 统一社会信用代码在线解析
+  title: 身份证号校验与生成 · 统一社会信用代码
   h1: 证件与机构代码工具
   icon: /assets/img/tools/idcard-tool.svg
   status: ready

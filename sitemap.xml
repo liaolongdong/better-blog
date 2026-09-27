@@ -39,9 +39,25 @@ permalink: /sitemap.xml
     </url>
 {% endif %}{% endfor %}
 {%- comment -%}
-全站索引页是这条 nav 白名单唯一的一次破例。它确实该被收录（把抓取深度从「翻 9 页」
-压成 1 次），但不该出现在导航条上——导航是给人用的常显入口，一页纯目录挤进去
-只会把第 9 项推到移动端换行。所以在这里单独点名，而不是往 site.nav 里加一项。
+在线工具三页（段 2 起，段 3 / 段 4 各追加一条）走数据源点名，不进 site.nav。
+不放进导航条的理由与下面 index-all 那条同源：导航是常显入口，多三项在窄屏上要占一行；
+但这一族**是**导航得能走到的地方——它已经挂在「工具箱」下拉里了，只是下拉的条目不是 nav 项。
+所以收录范围仍然由数据决定：_data/onlineTools.yml 里 status: ready 的条目才发地址，
+先进清单、正文还没落的那几条不发（同一处 where 口径也用在 index-all.html 与 llms.txt）。
+changefreq 用 monthly 而不是上面那些页的 weekly：这一族是工具不是文章，
+它跟着功能改版而不是跟着投稿节奏；写 weekly 等于让爬虫每周来回取一份不会变的 HTML。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+{% for tool in ready_online %}
+    <url>
+        <loc>{{ tool.url | absolute_url }}</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+{% endfor %}
+{%- comment -%}
+nav 白名单到此为止，下面两条是点名收录。第一条全站索引：它确实该被收录（把抓取深度从
+「翻 9 页」压成 1 次），但不该出现在导航条上——一页纯目录挤进去只会把第 9 项推到移动端换行。
 llms.txt 不进站点地图：它是纯文本，不是可浏览页面，放在 urlset 里属于噪声。
 {%- endcomment -%}
     <url>
