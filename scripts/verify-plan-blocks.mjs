@@ -74,6 +74,9 @@ const FILE_TARGETS = [
   'dev/js/tools/random-data.js',
   'dev/js/tools/view.js',
   'dev/js/tools/panel-dom.js',
+  'dev/js/toolkitCore.js',
+  'dev/js/tools/workbench.js',
+  'dev/js/toolIdcard.js',
 ];
 
 /** 反查要扫的目录：镜像只可能出现在这些地方 */
