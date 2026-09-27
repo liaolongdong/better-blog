@@ -2476,32 +2476,50 @@ wc -l dev/js/tools/phone.js
 
 Expected：`# tests 84`、`# pass 84`、`# fail 0`、`exit=0`（41 + 5 + 23 + 15），`wc -l` 258 行左右。
 
+**同一批还要动一处门禁清单**：把 `dev/js/tools/phone.js` 加进 `scripts/verify-plan-blocks.mjs` 的
+`FILE_TARGETS`。漏了它，§0.1 红线 4 的反查守卫会当场报 `✗ 漏网镜像：…在计划里有逐字节全等的整块，
+但它不在 FILE_TARGETS 里，从没被核过` 并退 1——那不是在拦你，是在提醒"这块镜像从此没人核对"。
+**Task 4–7 同理**：每个整文件镜像落地的那一步就顺手加一行，别留到收口再补（段 1 的
+`build-prefix-data.mjs` 就是这么变成漏网鱼的）。
+
 - [ ] **Step 5: 自证这 15 条有牙（十五处变异，逐处记下红了谁）**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io
-mkdir -p /tmp/t3mut && cp dev/js/tools/phone.js /tmp/t3mut/phone.orig.js
+mkdir -p /tmp/t3mut
 cat > /tmp/t3mut/mut.mjs <<'EOF'
 import fs from 'node:fs';
+import path from 'node:path';
 import { execSync } from 'node:child_process';
-const P = 'dev/js/tools/phone.js';
+const REPO = '/Users/liaolongdong/code/liaolongdong.github.io';
+const TREE = '/tmp/t3mut/tree';
+const P = path.join(TREE, 'dev/js/tools/phone.js');
 const CMD = 'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs';
+fs.rmSync(TREE, { recursive: true, force: true });
+// 真复制，不用 `cp -al`：硬链接的"影子副本"改一处两处同时变，量出来的全是假证据。
+// 变异一律落在副本里：本仓随时可能有第二条会话在同一个 worktree 上 `git add`，
+// 把 `dev/js/tools/phone.js` 就地改十五遍的风险不是"脏一下"，是可能被别人连脏的一起提交。
+for (const d of ['dev/js', 'scripts', 'demo']) fs.cpSync(path.join(REPO, d), path.join(TREE, d), { recursive: true });
+fs.copyFileSync(path.join(REPO, 'package.json'), path.join(TREE, 'package.json'));
 const orig = fs.readFileSync(P, 'utf8');
 /** 未变异先跑一次：拿它的 `# tests` 总数当尺子，好把"脚手架其实没跑到测试"和"这处不可达"分开 */
 function run() {
   let out = '';
-  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8' }); }
+  try { out = execSync(`${CMD} 2>&1`, { encoding: 'utf8', cwd: TREE }); }
   catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
   return {
+    out,
     total: Number((out.match(/^# tests (\d+)/m) || [])[1] ?? -1),
+    pass: Number((out.match(/^# pass (\d+)/m) || [])[1] ?? -1),
     reds: [...out.matchAll(/^not ok \d+ - (F\d+)/gm)].map((m) => m[1]),
   };
 }
 const base = run();
 if (base.total < 0 || base.reds.length > 0) {
+  console.log(base.out.split('\n').slice(-40).join('\n'));
   throw new Error(`基线就不对（# tests ${base.total}、红 ${base.reds.length} 条），先让全量跑绿再谈牙齿`);
 }
-console.log(`基线 # tests ${base.total} 全绿`);
+console.log(`基线 # tests ${base.total} 全绿（副本 ${TREE}）`);
 const MUTS = [
   ['M1 位数下限改成 10', "export const MOBILE_LENGTH = 11;", "export const MOBILE_LENGTH = 10;"],
   ['M2 格式正则放宽成 1x 开头', "export const MOBILE_RE = /^1[3-9]\\d{9}$/;", "export const MOBILE_RE = /^1\\d{10}$/;"],
@@ -2520,21 +2538,29 @@ const MUTS = [
   ['M15 表外段兜底成中国移动', "return { segment, carrier: BY_SEGMENT.get(segment) ?? null };", "return { segment, carrier: BY_SEGMENT.get(segment) ?? '中国移动' };"],
 ];
 for (const [name, a, b] of MUTS) {
-  if (!orig.includes(a)) { console.log(`!! ${name} 锚点没命中，先修脚本再说牙齿`); continue; }
-  fs.writeFileSync(P, orig.replace(a, b));
+  const hits = orig.split(a).length - 1;
+  if (hits !== 1) { console.log(`!! ${name} 锚点命中 ${hits} 处（要恰好 1 处），这一档不算证据`); continue; }
+  const text = orig.replace(a, b);
+  if (text === orig) { console.log(`!! ${name} 替换后一字未变，脚手架在骗人`); continue; }
+  fs.writeFileSync(P, text);
+  if (fs.readFileSync(P, 'utf8') !== text) { console.log(`!! ${name} 写完读回来不一样，文件系统在骗人`); continue; }
   const r = run();
   if (r.total !== base.total) { console.log(`!! ${name} 只跑到 ${r.total} 条（基线 ${base.total}），这一档不算证据`); continue; }
-  console.log(`${name} → ${r.reds.length ? r.reds.join(' ') : '全绿（不可达，见计划说明）'}`);
+  console.log(`${name} → ${r.reds.length ? [...new Set(r.reds)].join(' ') : '全绿（不可达，见计划说明）'}（pass ${r.pass}/${r.total}）`);
 }
 fs.writeFileSync(P, orig);
+const after = run();
+console.log(`还原后：# tests ${after.total}、pass ${after.pass}、红 ${after.reds.length ? after.reds.join(' ') : '无'}`);
+console.log(`副本与工作树逐字节一致=${fs.readFileSync(P, 'utf8') === fs.readFileSync(path.join(REPO, 'dev/js/tools/phone.js'), 'utf8')}`);
 EOF
 node /tmp/t3mut/mut.mjs
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs 2>&1 | grep -E '^# (pass|fail)'
-shasum -a 256 dev/js/tools/phone.js   # 必须与 /tmp/t3mut/phone.orig.js 逐字相同
+git status --porcelain -- dev/js/tools/phone.js scripts/toolkit-tests.mjs   # 实验不该溢出到工作树
 ```
 
-2026-09-26 在镜像上单跑 §F 实测的红名单（**照这个对**；仓库里跑全量时应当一模一样，因为
-§A–§E 没有一处 `import` `phone.js`，红得多了或少了都是"哪儿变了"，先按 `!!` 那两档排查脚手架）：
+红名单（2026-09-27 在副本上按**全量 84 条**实跑，基线全绿；十五刀跑完还原后再跑一次仍是
+84/84，`副本与工作树逐字节一致=true`。这张表与 2026-09-26 在镜像上单跑 §F 预记的那张**逐行相同**，
+连带 `pass` 数一并记下来——§A–§E 没有一处 `import` `phone.js`，所以全量与单跑的红名单本该一致，
+真不一致就是"哪儿变了"，先按 `!!` 那两档排查脚手架）：
 
 | 变异 | 红了谁 | 说明 |
 | --- | --- | --- |
@@ -2586,7 +2612,13 @@ console.log('预热后 generateMobiles 满批 =', ((performance.now() - g0) / 20
 
 2026-09-26 本机 Node 22 的实测**区间**（同一台机器连跑七次的摆动，不是跑三次就够的数）：
 `import` **7–27ms**、`parseMobile` 预热后 **1.6–3.7µs/次**、`generateMobiles` 预热后
-**0.33–0.51ms/批（50 条）**。两个坑都写在这一段里：
+**0.33–0.51ms/批（50 条）**。落地当天（2026-09-27）在工作树上又连跑三组，同一条命令量到
+`import` **5.1–5.5ms**、`parseMobile` **2.0–2.5µs/次**（带分组）与 **1.0–1.2µs/次**（纯 11 位）、
+`generateMobiles` 满批 **0.09–0.14ms/批**。两次的 `parseMobile` 区间重叠（1.6–3.7 与 2.0–2.5），
+`generateMobiles` 却差着 3 倍且不重叠——**这一档的差别我没有归因**（09-26 那组跑在镜像上、
+这一组跑在工作树上，期间另一路会话还在改 sass 与 html，谁在抢 CPU 说不清）。所以这一格能立住的
+只有**量级**：满批在 **0.1–0.5ms** 之间，Task 10 要判的是"有没有冒出 10ms 以上"，别拿其中任何
+一个点当阈值。两个坑都写在这一段里：
 
 - **没预热会高一个数量级**：同一段代码冷启动第一跑量到 **56µs/次**，比稳态的 3.7µs 多 15 倍。
   Task 10 若拿这里做性能断言，必须带着那 2,000 次预热跑，否则阈值一填就是个假红。
@@ -2596,11 +2628,14 @@ console.log('预热后 generateMobiles 满批 =', ((performance.now() - g0) / 20
 
 ```bash
 wc -c dev/js/tools/phone.js dev/js/tools/carrier-data.js
-gzip -6 -c dev/js/tools/phone.js | wc -c
+gzip -6 -c dev/js/tools/phone.js | wc -c        # 5,733 —— 带 FNAME 头
+cat dev/js/tools/phone.js | gzip -6 | wc -c     # 5,724 —— 管道形态没有 FNAME 头，少 9B
 ```
 
-Expected：13,185 / 1,239 字节、`gzip -6` 5,733 字节。**这是源码原文与 gzip，不是产物**——产物口径
-（terser 之后）到 Task 9 的收录面一起量，那里才有 `toolIdcard.min.js` 的真数。
+Expected：13,185 / 1,239 字节、`gzip -6` **5,733**（`gzip -c 文件` 那种写法会把文件名打进
+`FNAME` 头，比管道形态多 9B——2026-09-27 两种都量过，别再拿这两个数互相判红）。**这是源码原文与
+gzip，不是产物**——产物口径（terser 之后）到 Task 9 的收录面一起量，那里才有 `toolIdcard.min.js`
+的真数。
 
 - [ ] **Step 7: 提交**
 
@@ -11299,3 +11334,4 @@ git log --oneline -1
    收口（Task 11）时记得把 §5.1 与 §11 里跟体积有关的句子对到 §7 的新口径上。
 
 <!-- APPEND-9 -->
+
