@@ -12,6 +12,8 @@
  *    数、同一把尺子，M9 逐样本核两处不分叉）；文件那一路走 `ArrayBuffer`/TypedArray、闸门 5 MiB，
  *    **不进字符串**——`String.fromCharCode` 拼二进制会把字节劈成两个 code unit，摘要就成假的了（M5）。
  *    越界一律整体拒绝且 `hex` 是空串，理由里点名实测字节数（半截摘要比报错更坏）。
+ *    已脱离缓冲区的字节输入（`transfer` 过的 `ArrayBuffer`）也是拒：它的 `byteLength` 已经是 0，
+ *    但它与"长度为 0 的字节"是两回事，前者是读不到、后者是真空值（M5 第三段）。
  * 3. **算不成就说清是哪一格算不成**。`crypto.subtle` 只在安全上下文有（线上是 GitHub Pages HTTPS、
  *    本地 `http://localhost` 也算，`http://192.168.x.x` 就没有）。取不到时 SHA 四档各自
  *    `ok:false` 并写明"需要安全上下文"，同一批里的 MD5 那一格**照样出结果**（M13）；
@@ -24,6 +26,9 @@
  *   - **数据入参**（要摘要的那一串）：文本档照 `String(v === null || v === undefined ? '' : v)`
  *     归一不抛，字节档（`ArrayBuffer` 与任意 `ArrayBufferView`）原样直通；唯一例外还是无原型对象
  *     （`String()` 自己抛 `TypeError`，本站不替它兜，M8 逐入口钉）。
+ *     归一不抛**不等于**照单全收：`String(new Blob(['x']))` 得到的是 `[object Blob]` 这个**标签**，
+ *     给它一个合法摘要就是静默的假成功，所以"归一结果恰好等于默认对象标签"要拒（M8 末段），
+ *     `File`/`Blob` 必须先 `await file.arrayBuffer()` 取字节再走字节通道。
  *   - **控制入参**（算法名与 `options`）是闸门：算法名认不出必须响——静默回落到 MD5 等于把用户
  *     选的 SHA-256 显示成了别的算法的产物；`options` 只认 `subtle` 一键，键名拼错也要响。
  *
@@ -65,6 +70,25 @@ const NO_SUBTLE = '当前环境取不到 crypto.subtle，SHA-* 做不了（需�
 /** 越界那一句要复用，理由里点名实测字节与两道闸门各自的上限（M9、M10） */
 const overLimit = (n, limit, label) =>
   `输入 ${n} 字节，超过${label}上限 ${limit} 字节，整体拒绝、不截断`;
+
+/**
+ * 已脱离缓冲区的字节输入（`transfer` 出去的 `ArrayBuffer`、或它下面的视图）。
+ * 这一档必须单独有句子：detached 的 `byteLength` 已经是 0，若不点名，面板上就显示成
+ * "0 字节的空输入"、给出空串的摘要——那是把"读不到"报成了"内容就是空的"（M5 末段）。
+ */
+const DETACHED = '字节输入已脱离底层缓冲区（ArrayBuffer 被 transfer 或分离之后就这样），读不到内容；'
+  + '空输入请传长度为 0 的字节或空字符串';
+
+/**
+ * 只有当 `String(v)` 的结果**恰好等于**默认对象标签时才认它"是标签不是内容"。
+ * `[1,2]`→`'1,2'`、`new Date`→日期串这些有实际文本形状的归一不动（M8 前段）；
+ * 无原型对象那一档是 `String()` 自己抛在前（它的标签读得出 `[object Object]`，但根本走不到
+ * 这一步比较），所以 M8 的"同抛"不会被这条改成拒绝（M8 末段）。
+ */
+function defaultTagOf(v) {
+  if (typeof v !== 'object' || v === null) return null;
+  return Object.prototype.toString.call(v);
+}
 
 /** 与 `codec.js`、`time.js`、`uscc.js` 同一份口径的第四版：报错尾巴统一是「收到 <shapeOf(值)>」 */
 function shapeOf(v) {
@@ -271,17 +295,31 @@ function gateOptions(who, options) {
 
 /**
  * 数据闸门：字节档看 `MAX_BYTES`，文本档看 `MAX_TEXT_BYTES`，顺序固定是
- * "字节数越界 → 落单代理项 → 才编码"，越界优先于代理项（M11 末段），
- * 否则会给出一句"第 1048577 位"的假位置。
+ * "读不到（detached）→ 字节数越界 → 落单代理项 → 才编码"，越界优先于代理项（M11 末段），
+ * 否则会给出一句"第 1048577 位"的假位置；detached 排在最前，因为它连字节数都读不出来。
  */
 function prepare(input) {
   if (isBytes(input)) {
-    const view = toView(input);
+    // 脱落的缓冲区在 `new Uint8Array(...)` 那一步抛，DataView 连 `byteOffset` 都读不出（M5 末段）
+    let view;
+    try {
+      view = toView(input);
+    } catch {
+      return { ok: false, bytes: 0, reason: DETACHED };
+    }
     const n = view.byteLength;
-    if (n > MAX_BYTES) return { ok: false, bytes: n, reason: overLimit(n, MAX_BYTES, '字节通道') };
+    if (n > MAX_BYTES) return { ok: false, bytes: n, reason: overLimit(n, MAX_BYTES, '字节通道（5 MiB）') };
     return { ok: true, bytes: n, view };
   }
   const s = toText(input);
+  const tag = defaultTagOf(input);
+  if (tag !== null && s === tag) {
+    return {
+      ok: false, bytes: utf8Len(s),
+      reason: `收到的是对象标签 ${tag}，不是内容：文件请先 await file.arrayBuffer() 取字节再传，`
+        + '文本请直接传字符串',
+    };
+  }
   const n = utf8Len(s);
   if (n > MAX_TEXT_BYTES) {
     return { ok: false, bytes: n, reason: overLimit(n, MAX_TEXT_BYTES, '文本通道（1 MiB）') };

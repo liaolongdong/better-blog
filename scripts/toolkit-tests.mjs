@@ -6531,7 +6531,9 @@ test('L15 入参口径与兄弟模块同档：文本归一不抛、options 抛 T
 });
 test('L16 扫源：零 import、不碰 DOM、不读环境、不用 Buffer/atob/btoa/TextEncoder', () => {
   const src = lCode();
-  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+  // `m` 标志不能少：`^` 不带 `m` 只锚整份源码的开头，"中段插一条 import" 全绿（评审 2026-09-28）
+  const banned = [['import', /^\s*import[\s{*]/m], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['export * from', /export\s*\*/], ['动态 import', /\bimport\s*\(/],
     ['require(', /\brequire\s*\(/], ['document', /\bdocument\b/], ['window', /\bwindow\b/],
     ['localStorage', /\blocalStorage\b/], ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/],
     ['Buffer', /\bBuffer\b/], ['atob', /\batob\s*\(/], ['btoa', /\bbtoa\s*\(/],
@@ -6540,7 +6542,7 @@ test('L16 扫源：零 import、不碰 DOM、不读环境、不用 Buffer/atob/b
     ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['crypto', /\bcrypto\b/],
     ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
   for (const [name, re] of banned) assert.equal(re.test(src), false, `codec.js 的代码里出现了 ${name}`);
-  assert.equal(banned.length, 21, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  assert.equal(banned.length, 23, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
   // 三件事必须有牙：闸门常量导出、UTF-8 与 base64 都是自己实现的、位置信息是自己算的
   assert.match(src, /export const MAX_INPUT_BYTES/, '闸门常量必须导出，面板与 §7 的账才对得上');
   assert.equal(/String\.fromCharCode/.test(src), false, '拼字符串走自己那套 UTF-8，不用 fromCharCode 绕');
@@ -6690,7 +6692,7 @@ test('M4 五档输出形状：小写十六进制、长度按 HEX_LEN 表，SHA �
   assert.equal((await digest('sha-256', 'abc')).hex,
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
 });
-test('M5 文本通道与字节通道同结果：文件那半截不进字符串也照样量得到', async () => {
+test('M5 文本通道与字节通道同结果，脱落的缓冲区单独一档不冒充空输入', async () => {
   const s = '中文😀\n带换行的 data URI 场景';
   const bytes = bytesOf(s);
   for (const algo of ALGORITHMS) {
@@ -6708,6 +6710,34 @@ test('M5 文本通道与字节通道同结果：文件那半截不进字符串�
     '带 byteOffset 的视图必须按视图自己的起点读');
   assert.notEqual((await digest('md5', big)).hex, (await digest('md5', view)).hex,
     '整块与尾段同结果＝偏移被吞了，这一条就是那件事的哨兵');
+  // 脱落档：`transfer` 出去的缓冲区与它下面的视图，`byteLength` 已经是 0，但它是"读不到"而不是
+  // "空输入"。这一条牙齿存在的理由很直白：少了 try，`digest` 会**reject**，破掉规矩 3 的
+  // "数据入参永不 reject"，而且整批五格连本该出结果的 MD5 一起丢（评审 2026-09-28）。
+  const detached = [];
+  const shapes = (() => {
+    const a = new ArrayBuffer(1024); const b = new ArrayBuffer(64); const c = new ArrayBuffer(32);
+    const u8 = new Uint8Array(b); const dv = new DataView(c);
+    structuredClone(a, { transfer: [a] });
+    structuredClone(b, { transfer: [b] });
+    structuredClone(c, { transfer: [c] });
+    return [['ArrayBuffer', a], ['Uint8Array', u8], ['DataView', dv]];
+  })();
+  for (const [label, v] of shapes) {
+    assert.equal(isBytes(v), true, `${label}：脱落后仍然是字节形状，不许掉进文本档被归一成 "..."`);
+    const r = await digest('md5', v);
+    assert.equal(r.ok, false, `${label}：脱落必须拒，不许当空输入`);
+    assert.equal(r.hex, '', label); assert.equal(r.bytes, 0, `${label}：读到的字节数就是 0`);
+    assert.match(r.reason, /脱离|detached/, `${label} 的理由要点名脱档：${r.reason}`);
+    detached.push(r.reason);
+  }
+  assert.equal(new Set(detached).size, 1, '三种脱落形状同一句理由，面板才不会写出三种解释');
+  const emptyish = await digest('md5', new ArrayBuffer(0));
+  assert.equal(emptyish.ok, true, '长度为 0 的缓冲区是空输入（M6 那一档），不许被脱落档误伤');
+  assert.equal((await digest('md5', new Uint8Array(0))).ok, true, '同上：视图形状');
+  const allDetached = await digestAll(shapes[0][1]);
+  assert.equal(allDetached.ok, false); assert.equal(allDetached.reason, allDetached.rows[0].reason);
+  assert.equal(allDetached.rows.every((r) => r.ok === false && r.hex === ''), true,
+    '并列入口里脱落也是五格同拒—— reject 会让这一格整批消失，包括 MD5');
 });
 test('M6 空输入是一等公民：五档空串都出官方值，不是拒绝', async () => {
   const empty = {
@@ -6749,7 +6779,7 @@ test('M7 算法名归一到规范名，认不出的不猜、digest 直接抛', a
   // 静默回落 md5 是最坏的一种"看着有结果"，这里点名它
   await assert.rejects(() => digest('sha-256x', 'abc'), { name: 'TypeError' });
 });
-test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对象同抛、字节档直通', async () => {
+test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对象同抛、字节档直通、只剩对象标签的要拒', async () => {
   const shaOf = (s) => refHex('sha-256', bytesOf(s));
   for (const [v, want] of [[123, '123'], [true, 'true'], [Symbol('s'), 'Symbol(s)'],
     [0, '0'], [NaN, 'NaN'], [[1, 2], '1,2']]) {
@@ -6773,6 +6803,27 @@ test('M8 入参两档与兄弟模块同档：文本归一不抛、无原型对�
   assert.equal(isBytes(new ArrayBuffer(1)), true);
   assert.equal(isBytes(Buffer.from('x')), true, 'Node 的 Buffer 是 Uint8Array 的子类，浏览器侧的字节档同一条路');
   assert.equal(isBytes('abc'), false); assert.equal(isBytes(null), false); assert.equal(isBytes(1), false);
+  // 归一不抛**不等于**照单全收：`String(new Blob(['x']))` 得到的是 `[object Blob]` 这个**标签**，
+  // 给它一个合法摘要就是静默的假成功——`#digest` 的文件那一格会显示"算出来了"（评审 2026-09-28）。
+  const tagged = [new Blob(['x']), new File(['abc'], 'a.txt'), {}, { a: 1 }, new Map(), new Set([1])];
+  for (const v of tagged) {
+    const tag = Object.prototype.toString.call(v);
+    const r = await digest('md5', v);
+    assert.equal(r.ok, false, `${tag}：只剩默认标签的对象必须拒`);
+    assert.equal(r.hex, '', tag);
+    assert.match(r.reason, /对象标签/, `${tag} 的理由要点名标签：${r.reason}`);
+    assert.notEqual(r.hex, refHex('md5', bytesOf(tag)), `${tag}：不许是"标签串的摘要"`);
+  }
+  const fileAll = await digestAll(new Blob(['x']));
+  assert.equal(fileAll.ok, false);
+  assert.equal(fileAll.rows.every((r) => r.ok === false), true, '并列入口里 Blob 五格同拒');
+  assert.equal(fileAll.bytes, 13, '字节数照实回显（`[object Blob]` 就是 13 字节），不许谎报 0');
+  // 反向哨兵：有实际文本形状的对象照常归一，不许被这条误伤
+  assert.equal((await digest('md5', { toString: () => 'mine' })).hex,
+    refHex('md5', bytesOf('mine')), '自定义 toString 的内容要认');
+  assert.equal((await digest('md5', new String('x'))).hex, refHex('md5', bytesOf('x')),
+    'String 包装对象的标签是 `[object String]`，归一结果是 `x`，两者不等就不算标签');
+  assert.equal((await digest('md5', [])).ok, true, '空数组归一成空串，是真空值那一档（与 M6 同）');
 });
 test('M9 文本闸门按字节判：1 MiB 恰好放行、+1 整体拒绝，且与 codec 的闸门同值', async () => {
   assert.equal(MAX_TEXT_BYTES, 1048576, MAX_TEXT_BYTES);
@@ -6784,6 +6835,13 @@ test('M9 文本闸门按字节判：1 MiB 恰好放行、+1 整体拒绝，且�
   // 两本模块各带一份 UTF-8 计数（同级模块互不 import 的代价），这把尺子必须两处同长：
   // 只核上面四条硬编码值的话，某一档漂了（比如把代理对算成 2）这里才会红。
   for (const s of M_SAMPLES) assert.equal(dByteLen(s), byteLen(s), `byteLen 与 codec 的分叉：${JSON.stringify(s)}`);
+  // 半代理项那一档也要两处同尺：`M_SAMPLES` 里没有一个落单代理项，而 `utf8Len` 恰好在这一档
+  // 有分支（按 3 字节计，反正下一档会拒）。两个模块各带一份计数器，这一档漂了没人核就是静默分叉
+  // （评审 2026-09-28 的 Minor 5）。
+  for (const s of ['\uD83D', '\uD83Dabc', 'ab\uDE00', '\uD83D\uDE00\uD83D']) {
+    assert.equal(dByteLen(s), byteLen(s), `半代理项档的分叉：${JSON.stringify(s)}`);
+  }
+  assert.equal(dByteLen('\uD83D'), 3, '半代理项按 3 字节计：上面那组对拍的锚，钉住绝对值才防得住两处一起漂');
   const atLimit = await digest('md5', 'x'.repeat(MAX_TEXT_BYTES));
   assert.equal(atLimit.ok, true, '正好 1 MiB 是"超过"才拒');
   assert.equal(atLimit.bytes, MAX_TEXT_BYTES);
@@ -6823,6 +6881,8 @@ test('M11 落单代理项两侧都拒并给位，成对的代理项放行且与 
       assert.equal(r.hex, '', `${algo}：拒绝就不给半截产物`);
       assert.match(r.reason, /落单代理项/, `${algo} → ${r.reason}`);
       assert.match(r.reason, new RegExp(`第 ${at} 位`), `${algo} → ${r.reason}`);
+      assert.equal(r.bytes, dByteLen(s), `${algo} ${JSON.stringify(s)}：拒绝也要回显实测字节数，`
+        + '面板那句"你这串多少字节"才有出处（M9 钉了半代理项按 3 字节，这里不是两处一起漂）');
     }
   }
   const pair = await digest('md5', '\uD83D\uDE00');
@@ -6936,7 +6996,10 @@ test('M15 导出面：10 个名字一个不多一个不少，两张表互相核�
 });
 test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常数必须在代码里', () => {
   const src = dCode();
-  const banned = [['import', /^\s*import[\s{*]/], ['export from', /export\s+\{[^}]*\}\s+from/],
+  // `m` 标志不能少：`^` 不带 `m` 只锚整份源码的开头，"中段插一条 `import … from './codec.js'`"全绿
+  // （评审 2026-09-28 实测；§L 同一处同病，两处一起改。`export * from` 与动态 `import()` 也在补的两条里）
+  const banned = [['import', /^\s*import[\s{*]/m], ['export from', /export\s+\{[^}]*\}\s+from/],
+    ['export * from', /export\s*\*/], ['动态 import', /\bimport\s*\(/],
     ['require(', /\brequire\s*\(/], ['node:crypto', /node:crypto/], ['createHash', /\bcreateHash\b/],
     ['document', /\bdocument\b/], ['window', /\bwindow\b/], ['localStorage', /\blocalStorage\b/],
     ['navigator', /\bnavigator\b/], ['fetch(', /\bfetch\s*\(/], ['FileReader', /\bFileReader\b/],
@@ -6945,7 +7008,7 @@ test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常�
     ['Date.now', /Date\.now/], ['new Date(', /new Date\(/], ['Math.random', /Math\.random/],
     ['Intl', /\bIntl\b/], ['toLocale', /toLocale/], ['unescape', /\bunescape\s*\(/], ['eval', /\beval\s*\(/]];
   for (const [name, re] of banned) assert.equal(re.test(src), false, `digest.js 的代码里出现了 ${name}`);
-  assert.equal(banned.length, 23, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
+  assert.equal(banned.length, 25, '违禁清单自己要有条数：少一条等于那一档从此静默不核');
   // 自实现的证据：初值、K 表 64 项、移位表 64 项，三样都得在代码里，不是注释里
   assert.match(src, /0x67452301/, 'MD5 的 A 初值必须在（换成 crypto.subtle 的假 MD5 时这里就没了）');
   assert.match(src, /0x10325476/, 'MD5 的 D 初值必须在');
