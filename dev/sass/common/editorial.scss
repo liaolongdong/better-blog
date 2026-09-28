@@ -3786,6 +3786,17 @@ body.cmdk-open {
             border-bottom: 1px solid var(--rule);
             box-shadow: var(--shadow-2);
 
+            // 抽屉自己滚，不让它顶穿折线。56 这一格有两个来源，改高度必须一起改：
+            // 上面 `.g-header{height:56px}` 与这里的 `top:56px`。
+            // 两条 max-height 不是手滑重复：100vh 在移动端算的是「大视口」（把地址栏
+            // 遮住的那截也算进来），所以再补一条 100svh——不认识 svh 的浏览器留用上面
+            // 那条 vh，认识的取更小的那个值，于是地址栏收着时只是少滚几像素，
+            // 不会把最后一行藏进栏子底下。
+            max-height: calc(100vh - 56px);
+            max-height: calc(100svh - 56px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+
             &>ul {
                 // 抽屉的正文是「一行一项」，但 GitHub / 书架 / 搜索这三颗是同一类东西
                 // ——动作入口。它们各占一整行时是三个 358×38 的胶囊，中间空得能停车
@@ -3822,14 +3833,26 @@ body.cmdk-open {
             }
         }
 
-        // 折叠成抽屉后，下拉没有 hover 空间，直接平铺展开
+        // 折叠成抽屉后，下拉不再平铺展开，改成与平板同一条路：点父项先展开、再点才跳转。
+        // 篇幅账（390×844 / 375×667 / 414×896 三档无头实测，判据是 .g-nav 的 rect）：
+        //   平铺展开  抽屉 766px（375 档 782）· 底边 822（375 档 838）· 其中 .nav-sub 占 323（375 档 339）
+        //   收起      抽屉 437px · 底边 493
+        // 375 那一档 838 比 667 的折线多出 171px，11 行只看得见 5 行；而 .g-header 是
+        // position:fixed，溢出部分不随文档滚动位移——实测把页面滚到 500 之后抽屉 top 仍是 56、
+        //「关于」那一行的 top 仍是 724，focus 它也不动，所以滚不到的那几行同时是点不到的。
+        // 展开入口在 editorial.js 的 initTouchDropdown（那边同步去掉了 ≤695 的提前 return），
+        // 抽屉本身就依赖 jQuery 才有开合，收起态不新增"没 JS 就用不了"的口子。
+        // 改完同口径复量（无头真 Chrome，deviceScaleFactor 2，判据是 .g-nav 的 rect）：
+        //   收起 437px / 底 493，三档（375×667、390×844、414×896）都是 11 行全在折线内、三颗药丸全可点；
+        //   展开后 390×844 与 414×896 是 766px（底 822，仍在折线内，不需要滚）；
+        //   375×667 被上面的 max-height 截在 611px（底正好等于 667），抽屉自己可滚 171px，
+        //   滚到底时「关于」在 553~596、三颗药丸在 610~648，命中测试全部落在自己身上。
         .nav-sub {
+            display: none;
             position: static;
             width: auto;
             margin: 0 0 6px;
             padding: 0 0 0 10px;
-            opacity: 1;
-            visibility: visible;
             transform: none;
             transition: none;
             background-color: transparent;
@@ -3837,6 +3860,9 @@ body.cmdk-open {
             border-left: 1px solid var(--rule);
             border-radius: 0;
             box-shadow: none;
+
+            // 这里不重复桌面那组的 opacity / visibility：display:none 已经把这一节从布局
+            // 和可访问性树里一起摘掉了，再写一遍是没人读的第二次否定。
 
             .nav-sub-text small {
                 // 桌面下拉宽 306px 用省略号截断，抽屉里只有 ~358px 且要留给图标，
@@ -3850,9 +3876,27 @@ body.cmdk-open {
             }
         }
 
-        .nav-caret {
-            display: none;
+        // 三个钩子与桌面档同形（hover / focus-within / .is-open）。权重账按产物核过：
+        // 桌面那组（editorial.scss 里 .g-header 块内，编译成 .g-header .nav-item.has-sub:hover .nav-sub）
+        // 与这一组编译后是同一串选择器，两边都 (0,5,0)，决胜只靠源序——
+        // index.min.css 里桌面那组在字节 34950、这一组在 96218，后写的赢。
+        // 所以不存在"展不开"的死区：display 从头到尾只由 ≤695 这两条决定，桌面那组根本不写它；
+        // 这里重写 transform:none 是为了压住桌面那组的 translateY(-6px)——
+        // 万一源序被调过来，代价是抽屉里展开态多 6px 上移，不是坏掉。
+        // 展开是瞬时的，没有做动画：display:none ↔ block 之间没有可插值的中间态，
+        // 要动画就得给 max-height 写一个"够大"的魔数（下拉条目会从两份数据源长出来），
+        // 或者改标记加一层 0fr→1fr 的网格包装——两头都比"少 329px 篇幅"这个目标贵。
+        .nav-item.has-sub:hover .nav-sub,
+        .nav-item.has-sub:focus-within .nav-sub,
+        .nav-item.has-sub.is-open .nav-sub {
+            display: block;
+            opacity: 1;
+            visibility: visible;
+            transform: none;
         }
+
+        // 箭头不再在抽屉里藏起来：收起态需要它当"这里还有东西"的指示，
+        // 朝向由桌面那组 .has-sub:hover / :focus-within / .is-open 的 rotate(180deg) 管。
 
         // 三颗动作药丸压成一行之后，内部一律「图标 + 文字」居中：宽度是网格给的 1fr，
         // 横向 space-between 是旧版给「图标 ←→ 数字角标」两头撑开用的，现在角标紧跟文字，

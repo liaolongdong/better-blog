@@ -73,6 +73,21 @@
                 「这就是当前页」，样式与语义共用一个事实。
                 {%- endcomment -%}
                 {%- assign ready_tools = site.data.onlineTools | where: 'status', 'ready' -%}
+                {%- comment -%}
+                tagline 在桌面档是被 ellipsis 截断的，截掉的那半句没有别的去处，所以补 title。
+                截断量按 1280×900 无头实测：.nav-sub 内容宽 306px，扣掉 .nav-sub-link 左右各
+                10px 内边距、34px 图标格与 10px 间距，.nav-sub-text 实得 242px；四条里有两条超出——
+                「本地优先的账号密码管理器，一键登录连按钮一起点」scrollWidth 276（截 34px）、
+                「身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据」332（截 90px），
+                另两条是 223 与 242（刚好不截，title 留着无害，且字号一改就会用到）。
+                挂在小节点上，不挂在 .nav-sub-link 上：那条 <a> 的可访问名已经是
+                「name + tagline」（取自内容），再给它一个 title 会额外算出一条可访问描述，
+                读屏念两遍同一串字（同文件 GitHub 那颗药丸的分工是 aria-label 管名字、
+                title 管提示，这里名字来自内容，没有 aria-label 可以让 title 去对齐）。
+                <small> 是 role=generic，title 在那里只是提示气泡，不进可访问名。
+                触屏与抽屉档不截断（editorial.scss ≤695 把 white-space 改回 normal），
+                那条 title 在那儿是冗余但无害——触摸本来也唤不出提示气泡。
+                {%- endcomment -%}
                 <ul class="nav-sub">
                     <li class="nav-sub-group">浏览器插件</li>
                     {% for tool in site.data.tools %}
@@ -81,7 +96,7 @@
                             <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
                             <span class="nav-sub-text">
                                 <strong>{{ tool.name }}</strong>
-                                <small>{{ tool.tagline }}</small>
+                                <small title="{{ tool.tagline | escape }}">{{ tool.tagline }}</small>
                             </span>
                         </a>
                     </li>
@@ -94,7 +109,7 @@
                             <span class="nav-sub-icon"><img src="{{ tool.icon | prepend: site.baseurl }}" alt=""></span>
                             <span class="nav-sub-text">
                                 <strong>{{ tool.name }}</strong>
-                                <small>{{ tool.tagline }}</small>
+                                <small title="{{ tool.tagline | escape }}">{{ tool.tagline }}</small>
                             </span>
                         </a>
                     </li>

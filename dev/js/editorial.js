@@ -774,32 +774,85 @@
      * ------------------------------------------------------------------ */
 
     /**
-     * 桌面端的下拉由 CSS :hover / :focus-within 驱动，但触屏没有可靠的 hover。
-     * 这里在无 hover 能力且未折叠成移动菜单时，把「工具箱」项改成首次点击展开、
-     * 再次点击才跳转，避免下拉在平板上成为点不到的死区。
+     * 「工具箱」这种带子面板的导航项：桌面档由 CSS :hover / :focus-within 驱动，
+     * 触屏与窄屏抽屉没有可靠的 hover，这里把父项改成首次点击展开、再次点击才跳转，
+     * 避免子面板成为点不到的死区。
+     *
+     * 能展开的两种情况合在一个函数里，因为两档都会在运行期变：视口宽度（桌面把窗口
+     * 拉到 ≤695 就是抽屉档）与 hover 能力（平板转横竖屏、触屏本就没有），
+     * 初始化时拍一次快照会让「窄屏 + 有 hover」这一档既拿不到 CSS 的 hover、
+     * 又拿不到这里的点击。以前这条判据是拆开的——启动时判 hover、点击时判宽度，
+     * ≤695 被主动排除在外，因为那份 SCSS 在抽屉里把子面板强制平铺展开了；
+     * 现在抽屉也走点按展开，篇幅账与那三条显示钩子写在 editorial.scss 的 ≤695 块里。
+     *
+     * aria-expanded 由 syncAria 改写：_includes/header.html 里那句是构建期写死的 "false"，
+     * 展开之后不改它，读屏听到的永远是「收起着」。判据取 CSS 同一套事实
+     *（.is-open 或 :focus-within），所以 hover 那条路径不在这里同步——鼠标悬停时
+     * 用户不在键盘路径上，而面板真正可点的时候永远有这两个钩子之一。
+     *
+     * 这里刻意不做「按 Esc 收起」：显示钩子有三个，:focus-within 是其中一个，
+     * 键盘用户按 Esc 之后焦点若还在面板里，CSS 依旧判它展开，加上去表现为「按了没反应」；
+     * Tab 走出这一项由 focusout 那一路把属性改回 false，面板跟着 CSS 收起（已实测）。
      */
     function initTouchDropdown() {
-        if (!window.matchMedia('(hover: none)').matches) return;
         var items = document.querySelectorAll('.nav-item.has-sub');
+
+        function expandable() {
+            return window.innerWidth <= 695 || window.matchMedia('(hover: none)').matches;
+        }
+
+        /**
+         * 把展开态写进 aria-expanded，让「面板是否展开」只有一份事实：
+         * CSS 读 .is-open 与 :focus-within，读屏听同一个属性，两边走的是同一组判据。
+         */
+        function syncAria(item) {
+            var link = item.querySelector('.nav-link');
+            if (!link) return;
+            // 焦点这一路用 contains(activeElement) 而不是 matches(':focus-within')：
+            // 后者在旧 WebKit 上会让 matches() 抛 SyntaxError（本仓库 browserslist 收到 iOS 7），
+            // 抛在 click 处理器里就等于展开功能直接坏掉；两者判的是同一件事。
+            var open = item.classList.contains('is-open') || item.contains(document.activeElement);
+            link.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function setOpen(item, open) {
+            item.classList.toggle('is-open', open);
+            syncAria(item);
+        }
+
         for (var i = 0; i < items.length; i++) {
             (function (item) {
                 var link = item.querySelector('.nav-link');
                 if (!link) return;
                 link.addEventListener('click', function (e) {
-                    if (window.innerWidth <= 695) return;
+                    if (!expandable()) return;
                     if (!item.classList.contains('is-open')) {
                         e.preventDefault();
-                        for (var j = 0; j < items.length; j++) items[j].classList.remove('is-open');
-                        item.classList.add('is-open');
+                        for (var j = 0; j < items.length; j++) setOpen(items[j], false);
+                        setOpen(item, true);
                     }
+                });
+                // 键盘路径靠 :focus-within 显形，属性得跟着说真话；Tab 走出这一项才改回 false
+                item.addEventListener('focusin', function () { syncAria(item); });
+                item.addEventListener('focusout', function () {
+                    // focusout 触发的那一刻新焦点还没落定，推到下一个宏任务再读
+                    //（不用 requestAnimationFrame：后台标签页不排帧，属性会一直停在 true）
+                    window.setTimeout(function () { syncAria(item); }, 0);
                 });
             })(items[i]);
         }
+        // 捕获阶段挂在 document 上，不用冒泡：抽屉自己的开合在 dev/js/index.js，
+        // 那里 #menu-toggle 与 .g-nav 的点击都调了 stopPropagation，冒泡版的外点收起
+        // 根本收不到那一下——实测「开抽屉→点工具箱展开→按汉堡关→再按汉堡开」，
+        // is-open 还留着，面板带着那 329px 一起回来，等于这次省下的篇幅白省。
+        // 捕获先于目标阶段，所以点父项自己那一轮不会被这里误清（判据照样排除 .has-sub）。
         document.addEventListener('click', function (e) {
-            if (!e.target.closest('.nav-item.has-sub')) {
-                for (var k = 0; k < items.length; k++) items[k].classList.remove('is-open');
+            // closest 要有守卫：SVG 图标和文本节点上都可能拿不到这个方法，
+            // 抛在 document 上等于整个抽屉的点外收起全废（同文件搜索面板那条写法）
+            if (e.target.closest && !e.target.closest('.nav-item.has-sub')) {
+                for (var k = 0; k < items.length; k++) setOpen(items[k], false);
             }
-        });
+        }, true);
     }
 
     /* ------------------------------------------------------------------
