@@ -125,7 +125,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 ├── dev/                  # 源码：js / sass / libJs / libCss（构建输入，不发布）
 ├── demo/                 # 18 个交互示例，各自带 js 与 css 源码
 ├── assets/               # 构建产物 + 图片 + 字体（产物不入库）
-├── ace/                  # 在线编辑器用的 ACE 源码
+├── ace/                  # 在线编辑器用的 ACE 源码（ace-builds 1.4.6，BSD-3-Clause，许可原文在 ace/LICENSE）
 ├── feed.xml              # 完整的 Atom 全文订阅源
 ├── sitemap.xml           # 站点地图（首页 + 导航页 + 全部文章）
 ├── robots.txt            # 爬虫规则，Sitemap 指向站内真实地址
@@ -149,6 +149,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 
 - **代码**（`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、构建与配置文件）：[MIT](./LICENSE)。拿去用、改、再分发都不必打招呼。
 - **文章与配图**（`_posts/`、`assets/img/`）：[CC BY-NC-SA 4.0](./LICENSE-CONTENT.md)。署名 + 非商业 + 相同方式共享，公众号与个人博客转载按这三条走就行；文中贴的第三方代码片段沿用其原始许可。
+- **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。已核对的是 `ace/`——它是 npm 包 `ace-builds@1.4.6` 里 `src-min/` 的整套拷贝（402 个文件逐文件 SHA-256 比对，与上游 tarball 全部一致），BSD-3-Clause，版权人 Ajax.org B.V.，许可原文随目录一起放在 [`ace/LICENSE`](./ace/LICENSE)。
 - **版本**：只有一个来源，就是 master 上的 git tag。`1.0.0` 是 2026-09-06 的线上状态（追溯打标），`2.0.0` 是 2026-09-22 的编辑杂志风改版 + 检索层治理，逐条变更见 [CHANGELOG.md](./CHANGELOG.md)，递增规则与发版步骤见 [USAGE.md](./USAGE.md)。
 
 分两段授权的理由：整仓套 MIT 等于允许别人把文章收进付费内容；整仓套 CC 又会让想复用这套 Jekyll + Vite 构建配置的人背上非商业限制，等于没开放。
