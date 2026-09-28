@@ -100,6 +100,12 @@ const FILE_TARGETS = [
   // 它是本清单里第一本**故意不挂进 `window.Tk`** 的模块——镜像因此同时是那条字节账的见证：
   // 证件页共用的 `toolkitCore.js` 那份镜像里没有 `codecView`，Q2 的源码扫核的就是这一对。
   'dev/js/tools/codecView.js',
+  // 段 3 Task 6b：装配层与页面入口落盘即登记。这两本的镜像比前面几本多一层用处——
+  // `codecWorkbench.js` 是唯一 reach `codecView.js` 的消费方（R3 的 import 边闭合判的就是它），
+  // 而 `toolCodec.js` 是全仓库**只此一处**读 `Date.now()` 与 `getTimezoneOffset()` 的地方，
+  // 两份镜像同时是"时钟只在入口"那条红线的落地见证。
+  'dev/js/tools/codecWorkbench.js',
+  'dev/js/toolCodec.js',
   // Task 9 的收录面门禁：它自己也是"计划里贴全文"的规格文件，所以照样进清单。
   // 反查那道只会抓"磁盘有镜像却没声明"，抓不到"清单漏了一项"——后者要等有人把镜像
   // 贴进计划才暴露，所以这一格由 `verify-plan-blocks-teeth.mjs` 的一条变异来兜。

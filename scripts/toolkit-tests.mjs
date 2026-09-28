@@ -8321,3 +8321,1058 @@ test('Q16 模型里放不进 HTML 的东西：fieldsTable 收到对象/数组/Na
   assert.equal(/<td>—<\/td>/.test(html), true, 'null 是"这一格没值"，显示 EMPTY_CELL');
   assert.equal(html.includes('<td class="tk-mono">0</td>'), true, '0 不是空值，不许被当成空');
 });
+
+// ── §R 编码页装配层与入口（`tools/codecWorkbench.js` / `toolCodec.js`，段 3 Task 6b）─────
+//
+// 本节测的是**接线**：四本纯模块 + `codecView` 的纯字符串 + `panel-dom` 的绑定，接成
+// `tools-codec.html` 那个样子。和 §J 一样，三方全部接真的——mock 掉任何一样，§K–§Q 那五节的
+// 判据就从"这一层没错"变成"这一层没测"。
+//
+// 五条红线，整套判据围着它们转：
+//
+// 1. **装配层不读运行环境**（R3）。时钟、时区偏移、`crypto.subtle` 三样一律由 `env` 递进来：
+//    `codecWorkbench.js` 里 `Date.now(` / `getTimezoneOffset` / `performance.` / `window` /
+//    `globalThis` 五个词一个都不许出现，而入口那一份**恰好各一处**（同一条尺子反过来量）。
+//    理由与 §K 同源：读了环境就不能复算，而"相对时间那一行"与"档间耗时那一行"在 CI 里
+//    必须是注入时钟的函数，否则同一份产物在两台机器上给出两个答案。
+// 2. **id 只由 spec 派生**（R2）。五只 `fieldId` / `buttonId` / `copyId` / `outId` / `whenId`
+//    是唯一的地址来源，`controlIds(prefix)` 与 spec 互相对账；测试夹具的节点清单也全部由
+//    它们长出，不在本节重抄一份 id 表——重抄的那份会跟着 spec 一起错，Task 9 就没了第三者。
+// 3. **两类失败分两条路**（R13）。用户填的格子不能用 → `FieldError` → 结果区一句提示，
+//    面板不算坏；模块或骨架自己抛的 → 原样上抛，交给 `createPanelDom.run` 标坏那一块。
+// 4. **异步那一栏既不抢跑也不逃逸**（R11 / R13）。`#digest` 是五块里唯一要 `await` 的：
+//    挂载期一律不计算（那时算的话，reject 落在 `mount()` 返回值之外，`report.broken` 记不到它），
+//    而画结果与报错这两条异步回写都必须重新过一遍 `runGuarded`。
+// 5. **跨页共用面不许扩**（R3）。本文件 import 的四本纯模块 + `codecView.js` 是闭合清单，
+//    `panel` / `panel-dom` / `view` / `ui` 四只一律从 `env.Tk` 拿；`codecView.js` 在全仓库
+//    只许被 `codecWorkbench.js` 一本 import——多一个入口 reach 它，产物立刻变成带 `import{`
+//    的废文件（实测记录在 `dev/js/toolkitCore.js` 开头）。
+//
+// 三条夹具口径与 §J 同形：假 DOM 复用 §I 那一份（`out.innerHTML = 串` 在假 DOM 上只长成
+// 一个属性，所以本节读的是那一串文本，而那也正是真页面唯一吃进 HTML 的地方）；每一判从
+// 按真的按钮 / 派发真的事件起步；`type` → 标签的映射由 spec 反推，spec 里长出词汇表外的
+// `type` 夹具当场抛，不让它静默长成一个 `<select>`。
+const {
+  createCodecWorkbench, CODEC_SPEC, CODEC_PANEL_IDS,
+  controlIds: rControlIds, fieldId: rField, buttonId: rButton, copyId: rCopy,
+  outId: rOut, whenId: rWhen,
+} = await import('../dev/js/tools/codecWorkbench.js');
+
+/** spec 的 `type` → 骨架标签。这张表**必须**覆盖 spec 里出现的每一个 type，多一个就当场抛 */
+const R_TAGS = { text: 'input', number: 'input', date: 'input', area: 'textarea', file: 'input', select: 'select' };
+const rTag = (type) => {
+  const tag = R_TAGS[type];
+  if (!tag) throw new Error(`夹具：CODEC_SPEC 里出现了词汇表外的 type「${String(type)}」（认得 ${Object.keys(R_TAGS).join(' / ')}）`);
+  return tag;
+};
+
+/** 一栏的骨架文案：主按钮与复制按钮。装配层只负责"改口之后改回原文"，句子本身归夹具 */
+const R_MAIN_LABEL = '计算';
+const R_COPY_LABEL = {
+  'timestamp:main': '复制换算结果', 'timestamp:diff': '复制差值',
+  'base64:main': '复制结果', 'url:main': '复制两档结果',
+  'digest:main': '复制摘要', 'regex:main': '复制命中',
+};
+
+/** 两栏的名字：`main` 每块都有，`diff` 只有 `#timestamp` 有（R1 钉这一条） */
+const R_SIDES = ['main', 'diff'];
+
+/** spec 摊平成 `{panel, side, control}` 清单，夹具与判据都从它长，不各抄一份 */
+const rControls = () => {
+  const out = [];
+  for (const [panel, cfg] of Object.entries(CODEC_SPEC)) {
+    for (const side of R_SIDES) {
+      const s = cfg.sides[side];
+      if (!s) continue;
+      for (const c of s.controls) out.push({ panel, side, c });
+    }
+  }
+  return out;
+};
+
+/** 剥注释再剥字符串字面量：报错文案与 JSDoc 里的字样都不算命中（与 §Q 的 qCode 同一形状） */
+const rBare = (rel) => read(rel)
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  .replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+/** 只剥注释（判 import 边时用：字符串里的路径要留着） */
+const rCode = (rel) => read(rel)
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const rCount = (hay, needle) => hay.split(needle).length - 1;
+
+/**
+ * 造一页"骨架"：§I 的索引条 + 五块面板 + 提示行，再按 `CODEC_SPEC` 长出控件、主按钮、
+ * 复制按钮、结果区与受开关控制的字段组。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀
+ * @param {string} [o.hash] 进页面时地址栏里的 hash
+ * @param {Record<string, string|number>} [o.seed] `'panel:control' → 初值`（挂载前就在 DOM 上）
+ * @param {Record<string, object|object[]>} [o.files] `'panel:control' → File 替身`
+ * @param {string[]} [o.drop] **不**要长的 id（造"骨架缺一格"那一类缺陷）
+ * @returns {object} §I 的那份 page，外加 `ctl` / `btn` / `html` / `set` / `change` 等观察口
+ */
+function rPage({ prefix = 'tk', hash = '', seed = {}, files = {}, drop = [] } = {}) {
+  const slugOf = (id, word) => {
+    const at = `${prefix}-${word}-`;
+    if (!id.startsWith(at)) return null;
+    const slug = id.slice(at.length);
+    return CODEC_PANEL_IDS.includes(slug) && id === `${at}${slug}` ? slug : null;
+  };
+  const dropTab = drop.map((id) => slugOf(id, 'tab')).filter((s) => s !== null);
+  const dropPanel = drop.map((id) => slugOf(id, 'panel')).filter((s) => s !== null);
+  const page = iPage({ ids: CODEC_PANEL_IDS, prefix, hash, dropTab, dropPanel });
+  const gone = new Set(drop);
+  const mk = page.mk;
+  const doc = page.doc;
+
+  for (const { panel, side, c } of rControls()) {
+    const id = rField(prefix, panel, c.id);
+    if (gone.has(id)) continue;
+    const el = mk(rTag(c.type), id);
+    if (c.type === 'select') {
+      // 占位项的"值"走**属性**（与 §J 同一条口径）；`options` 里那些才是骨架的真选项。
+      const ph = mk('option');
+      ph.setAttribute('value', '');
+      ph.textContent = '占位';
+      el.appendChild(ph);
+      for (const opt of c.options ?? []) {
+        const o = mk('option');
+        o.setAttribute('value', opt);
+        o.textContent = opt;
+        el.appendChild(o);
+      }
+    }
+    if (c.type === 'file') el.files = [];
+    const at = `${panel}:${c.id}`;
+    if (seed[at] !== undefined) el.value = String(seed[at]);
+    if (files[at] !== undefined) el.files = Array.isArray(files[at]) ? files[at] : [files[at]];
+  }
+  for (const panel of CODEC_PANEL_IDS) {
+    for (const side of R_SIDES) {
+      if (!CODEC_SPEC[panel].sides[side]) continue;
+      const bid = rButton(prefix, panel, side);
+      if (!gone.has(bid)) mk('button', bid).textContent = R_MAIN_LABEL;
+      const cid = rCopy(prefix, panel, side);
+      if (!gone.has(cid)) {
+        const cb = mk('button', cid);
+        cb.textContent = R_COPY_LABEL[`${panel}:${side}`];
+        cb.disabled = true;                       // 骨架写死 disabled：第一次画完之前没东西可复制
+      }
+      const oid = rOut(prefix, panel, side);
+      if (!gone.has(oid)) mk('div', oid);
+    }
+  }
+  for (const id of rControlIds(prefix).when) if (!gone.has(id)) mk('p', id);
+
+  const at = (id) => doc.getElementById(id);
+  return Object.assign(page, {
+    prefix,
+    ctl: (panel, control) => at(rField(prefix, panel, control)),
+    btn: (panel, side) => at(rButton(prefix, panel, side)),
+    copy: (panel, side) => at(rCopy(prefix, panel, side)),
+    outNode: (panel, side) => at(rOut(prefix, panel, side)),
+    whenNode: (panel, key) => at(rWhen(prefix, panel, key)),
+    /** 结果区里那一串 HTML；节点被 `drop` 掉时给空串，判据照样跑得动（那一判要的就是"没画"） */
+    html: (panel, side) => String(at(rOut(prefix, panel, side))?.innerHTML ?? ''),
+    set: (panel, control, v) => { const el = at(rField(prefix, panel, control)); el.value = String(v); return el; },
+    setFiles: (panel, control, list) => {
+      const el = at(rField(prefix, panel, control));
+      el.files = Array.isArray(list) ? list : [list];
+      return el;
+    },
+    change: (panel, control) => at(rField(prefix, panel, control)).dispatch('change', {}),
+    click: (panel, side) => at(rButton(prefix, panel, side)).dispatch('click', {}),
+    clickCopy: (panel, side) => at(rCopy(prefix, panel, side)).dispatch('click', {}),
+    keyOn: (panel, control, evt) => at(rField(prefix, panel, control)).dispatch('keydown', evt),
+  });
+}
+
+/**
+ * 装配层 + 绑定层 + 挂载，一路接成页面上那个样子。
+ *
+ * `offsetMinutes` 与 §J 的 `rng` 一样有默认档：夹具给 `480`（东八区），因为"本地那一行"
+ * 在偏移 0 下与 UTC 完全重合，任何写反符号的缺陷都量不出来。给 `null` 是**故意缺席**，
+ * R8 用它判"没有偏移可注入时页面落在哪一档"。`now` 没有默认档：缺席就是缺席（R8）。
+ *
+ * @param {object} o 透给 `rPage` 的选项，外加 `clipboard` / `now` / `offsetMinutes` / `subtle` / `pick`
+ * @returns {object} `{ page, wb, dom, report, timers, guarded, flush, subtle }`
+ */
+function rMount(o = {}) {
+  const prefix = o.prefix ?? 'tk';
+  const page = rPage({ prefix, hash: o.hash, seed: o.seed, files: o.files, drop: o.drop });
+  const timers = [];
+  /** `runGuarded` 的调用记录：口径 2 说"挂载期一次都不许走它"，这一格就是它的观察口 */
+  const guarded = [];
+  const host = { dom: null };
+  const subtle = o.subtle === undefined ? undefined : o.subtle;
+  const offset = 'offsetMinutes' in o ? o.offsetMinutes : 480;
+  const wb = createCodecWorkbench({
+    document: page.doc,
+    Tk: { view: Q_VIEW, ui: J_UI },
+    prefix,
+    runGuarded: (id, fn) => { guarded.push(id); return host.dom.run(id, fn); },
+    navigator: o.clipboard ? { clipboard: o.clipboard } : undefined,
+    later: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    ...(o.now === undefined ? {} : { now: o.now }),
+    ...(offset === null ? {} : { offsetMinutes: offset }),
+    ...(subtle === undefined ? {} : { subtle }),
+  });
+  const dom = createPanelDom({
+    workspace: page.ws, document: page.doc, location: page.location, history: page.history,
+    window: page.win, renderers: wb.renderers, notice: page.notice,
+  });
+  host.dom = dom;
+  const report = dom.mount();
+  for (const [who, v] of Object.entries(o.pick ?? {})) {
+    const [panel, control] = who.split(':');
+    page.set(panel, control, v);
+    page.change(panel, control);
+  }
+  const flush = () => {
+    const due = timers.splice(0, timers.length);
+    for (const t of due) t.fn();
+    return due;
+  };
+  return { page, wb, dom, report, timers, guarded, flush, prefix, subtle };
+}
+
+/**
+ * 摘要那一只假 `crypto.subtle`：`digest` 记算法名并回一个可控的三字节串。
+ * 它同时是"预闸门有没有真的拦住模块"的计数器——MD5 走本站自实现、不碰 subtle，
+ * 所以四档 SHA 一次都没被调，就等于 `digestAll` 根本没进。
+ */
+function rSubtle() {
+  const calls = [];
+  return {
+    calls,
+    digest: (name, buf) => {
+      calls.push({ name, byteLength: new Uint8Array(buf).byteLength });
+      return Promise.resolve(new Uint8Array([0, 1, 2]).buffer);
+    },
+  };
+}
+
+/**
+ * File 替身：假 DOM 上它就是一个普通对象，页面读 `name` / `size` / `arrayBuffer()` 三样。
+ * `oversize` 用来造"声明的字节数超过 5 MiB 通道上限"那一档，`fail` 用来造读盘失败。
+ */
+function rFile(name, content, { fail = false, size = null } = {}) {
+  const bytes = typeof content === 'string' ? bytesOf(content) : content;
+  const box = {
+    name, size: size === null ? bytes.byteLength : size, type: '', calls: 0,
+    arrayBuffer() {
+      box.calls += 1;
+      if (fail) return Promise.reject(new Error('读不到这个文件（磁盘上它已经不在了）'));
+      return Promise.resolve(bytes.buffer);
+    },
+  };
+  return box;
+}
+
+/** 排空微任务：`digestAll` 与 `file.arrayBuffer()` 都是异步的，而 `later` 被夹具换成只记账 */
+const rSettle = async () => {
+  for (let i = 0; i < 3; i += 1) await new Promise((r) => { setTimeout(r, 0); });
+};
+
+/** 十六位固定"此刻"：比 `1700000000` 那发秒数正好晚 730 天，`relativeTime` 的固定年档给「2 年前」 */
+const R_NOW = 1700000000000 + 730 * 86400000;
+
+test('R1 导出面九个名字与 spec 骨架：只有 #timestamp 有第二栏，kind 必须在视图白名单里', async () => {
+  const mod = await import('../dev/js/tools/codecWorkbench.js');
+  assert.deepEqual(Object.keys(mod).sort(),
+    ['CODEC_PANEL_IDS', 'CODEC_SPEC', 'buttonId', 'controlIds', 'copyId', 'createCodecWorkbench', 'fieldId', 'outId', 'whenId'],
+    '装配层就交这九样：一只工厂、两张表、五只 id 派生、一份对账清单');
+  assert.deepEqual(CODEC_PANEL_IDS, CODEC, '面板清单必须与 §D 那份两页锚点逐字同序——顺序就是索引条的顺序');
+  assert.deepEqual(Object.keys(CODEC_SPEC), CODEC_PANEL_IDS, 'spec 的键序就是 tab 序，重排等于把索引条打乱');
+  for (const panel of CODEC_PANEL_IDS) {
+    const sides = CODEC_SPEC[panel].sides;
+    assert.deepEqual(Object.keys(sides).sort(), panel === 'timestamp' ? ['diff', 'main'] : ['main'],
+      `${panel} 的栏位集合不对：只有 #timestamp 有"两个日期之差"那一栏`);
+    for (const [side, cfg] of Object.entries(sides)) {
+      assert.equal(typeof cfg.kind, 'string', `${panel}.${side} 没有 kind`);
+      assert.equal(Object.prototype.hasOwnProperty.call(PANEL_VERDICTS, cfg.kind), true,
+        `${panel}.${side} 的 kind「${cfg.kind}」不在 codecView 的白名单里——渲染时才知道就是页面上当场抛`);
+      assert.equal(Array.isArray(cfg.controls), true, `${panel}.${side} 的 controls 应为数组`);
+      const ids = cfg.controls.map((c) => c.id);
+      assert.deepEqual(ids.slice().sort(), [...new Set(ids)].sort(), `${panel}.${side} 有重名控件`);
+      for (const c of cfg.controls) {
+        assert.equal(Object.prototype.hasOwnProperty.call(R_TAGS, c.type), true,
+          `${panel}.${side} 的控件「${c.id}」type「${String(c.type)}」不在夹具词汇表里`);
+        assert.equal(R_SIDES.includes(side), true);
+      }
+      const sw = cfg.switch;
+      if (sw) {
+        assert.equal(ids.includes(sw.control), true, `${panel}.${side} 的开关控件「${sw.control}」不在自己的控件清单里`);
+        for (const t of sw.targets) {
+          assert.equal(ids.includes(t.key), true, `${panel}.${side} 的开关目标「${t.key}」不是本栏的控件 id`);
+          assert.equal(Array.isArray(t.when) && t.when.length > 0, true, `${t.key} 的 when 是空的，那段字段永远藏起来`);
+          if (sw.control === 'mode') {
+            const mode = cfg.controls.find((c) => c.id === 'mode');
+            for (const w of t.when) {
+              assert.equal((mode.options ?? []).includes(w), true,
+                `${panel}.${side}：开关说「${t.key}」在 mode=${w} 时出现，而 mode 的选项里没有 ${w}`);
+            }
+          }
+        }
+      }
+    }
+  }
+  // 四档方向与两档摘要通道是这页的骨架事实，写错一个 token 就是"点了没反应"
+  assert.deepEqual(CODEC_SPEC.base64.sides.main.controls.find((c) => c.id === 'mode').options,
+    ['encode', 'decode', 'dataUri', 'dataUriDecode']);
+  assert.deepEqual(CODEC_SPEC.digest.sides.main.controls.find((c) => c.id === 'mode').options, ['text', 'file']);
+  assert.deepEqual(CODEC_SPEC.base64.sides.main.switch,
+    { control: 'mode', targets: [{ key: 'strict', when: ['decode'] }, { key: 'mime', when: ['dataUri'] }] },
+    'strict 只管解码、mime 只管包装：多一档或少一档都是页面上的一格死字段');
+});
+
+test('R2 五只 id 派生与 controlIds 自洽，换前缀整套跟着换', () => {
+  assert.equal(rField('tk', 'base64', 'text'), 'tk-in-base64-text');
+  assert.equal(rButton('tk', 'base64', 'main'), 'tk-btn-base64-main');
+  assert.equal(rCopy('tk', 'timestamp', 'diff'), 'tk-copy-timestamp-diff');
+  assert.equal(rOut('tk', 'regex', 'main'), 'tk-out-regex-main');
+  assert.equal(rWhen('tk', 'digest', 'payload'), 'tk-when-digest-payload');
+  const got = rControlIds('tk');
+  assert.deepEqual(Object.keys(got).sort(), ['btn', 'copy', 'in', 'out', 'when']);
+  // 逐项与 spec 对账：两个方向都红才算这份 spec 是骨架的真值而不是它的影子
+  const wantIn = rControls().map(({ panel, c }) => rField('tk', panel, c.id));
+  assert.deepEqual(got.in.slice().sort(), wantIn.slice().sort(), 'controlIds 与 spec 的控件清单对不上');
+  assert.equal(new Set(got.in).size, got.in.length, '控件 id 有重复：同一格挂两处事件就是双份渲染');
+  assert.equal(got.btn.length, 6, '六栏（五块主栏 + 时间戳差值栏）各一条主按钮');
+  // 三张清单按**位置**一一对应，比的是各自去掉 `<prefix>-btn|copy|out-` 之后剩下的那半截
+  // （`tk-copy-*` 与 `tk-btn-*` 天生不同字，逐字比 id 串是判据自己写歪了——顺序照样钉得住）。
+  const tail = (word) => (id) => id.slice(`tk-${word}-`.length);
+  assert.deepEqual(got.copy.map(tail('copy')), got.btn.map(tail('btn')), '有主按钮的地方就必须有复制按钮');
+  assert.deepEqual(got.out.map(tail('out')), got.btn.map(tail('btn')), '有主按钮的地方就必须有结果区');
+  assert.deepEqual(got.when.slice().sort(),
+    ['tk-when-base64-mime', 'tk-when-base64-strict', 'tk-when-digest-payload', 'tk-when-digest-upload']);
+  const zx = rControlIds('zx');
+  assert.equal(zx.in.every((id) => id.startsWith('zx-')) && zx.btn.every((id) => id.startsWith('zx-')), true,
+    '换前缀就是整套换：残留一处 `tk-` 等于那一格在页面上永远找不到');
+  assert.deepEqual(zx.in.slice().sort(), wantIn.map((id) => `zx-${id.slice(3)}`).sort());
+  assert.deepEqual(rControlIds('tk', ['url']).in, ['tk-in-url-text'], 'panels 参数得真的生效，Task 9 按条目对账要用它');
+});
+
+test('R3 源码红线：一处 innerHTML、零 querySelector、import 边闭合、共用面不扩、时钟只在入口', () => {
+  const bare = rBare('dev/js/tools/codecWorkbench.js');
+  const code = rCode('dev/js/tools/codecWorkbench.js');
+  assert.equal(rCount(bare, 'innerHTML'), 1, 'innerHTML 只许出现在 paint() 一处：两处就有第二条插值路径');
+  for (const banned of ['querySelector', 'Date.now(', 'getTimezoneOffset', 'performance.', 'window', 'globalThis']) {
+    assert.equal(bare.includes(banned), false, `装配层不许碰 ${banned}（口径 1 与口径 2：环境量一律从 env 进来）`);
+  }
+  const specs = [...code.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(specs.slice().sort(), ['./codecView.js', './digest.js', './regex.js', './time.js', './codec.js'].slice().sort(),
+    'import 边就是这五本：panel / panel-dom / view / ui 走 window.Tk，多一本就有第二个入口 reach 它，产物变成带 import{ 的废文件');
+  assert.equal(code.includes('workbench.js'), false, '证件页那本装配层不许被复用：它 import 六本业务模块，接过来编码页就替证件页付 gzip');
+  // `codecView.js` 全仓库只许一本 reach 它（§Q2 的前提），这一判把前提钉在消费侧
+  const importers = ['dev/js/toolkitCore.js', 'dev/js/toolIdcard.js', 'dev/js/toolCodec.js',
+    'dev/js/webLab.js', 'dev/js/editorial.js', 'dev/js/index.js', 'dev/js/about.js', 'dev/js/bottomFixedBtn.js', 'dev/js/cat.js']
+    .concat(readdirSync(resolve(ROOT, 'dev/js/tools')).filter((f) => f.endsWith('.js')).map((f) => `dev/js/tools/${f}`))
+    .filter((rel) => rel !== 'dev/js/tools/codecWorkbench.js')
+    .filter((rel) => rCode(rel).includes("from './codecView.js'") || rCode(rel).includes("from '../js/tools/codecView.js'"));
+  assert.deepEqual(importers, [], 'codecView 多了一个 importer：两个入口 reach 同一模块 = 共享 chunk = 整页 SyntaxError');
+  const entry = rCode('dev/js/toolCodec.js');
+  assert.deepEqual([...entry.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]), ['./tools/codecWorkbench.js'],
+    '入口只许 import 装配层一本，框架那四只从 window.Tk 拿');
+  assert.equal(/^\s*export\b/m.test(entry), false, '入口有顶层 export 就是语法错误：iifeWrapPlugin 包成 (function(){…})() 且不补 use strict');
+  assert.equal(rCount(rBare('dev/js/toolCodec.js'), 'Date.now('), 1, '时钟只在这一处读，且必须还能被 env 覆盖');
+  assert.equal(rCount(rBare('dev/js/toolCodec.js'), 'getTimezoneOffset'), 1, '时区偏移只在这一处读');
+});
+
+test('R4 构造期闸门：缺哪一样点名哪一样，注入的偏移与时钟必须是能用形状', () => {
+  const base = {
+    document: rPage().doc, Tk: { view: Q_VIEW, ui: J_UI },
+    runGuarded: () => true,
+  };
+  assert.throws(() => createCodecWorkbench({ ...base, document: undefined }),
+    (e) => e instanceof TypeError && /env\.document/.test(e.message), '缺 document 的后果是第一次点击才炸，构造期点名才有意义');
+  assert.throws(() => createCodecWorkbench({ ...base, Tk: { view: { esc: () => '' }, ui: J_UI } }),
+    (e) => e instanceof TypeError && /view/.test(e.message), 'view 缺一只能抛，不许静默把整页渲成空');
+  assert.throws(() => createCodecWorkbench({ ...base, Tk: { view: Q_VIEW, ui: {} } }),
+    (e) => e instanceof TypeError && /copyInto/.test(e.message), '缺 ui.copyInto 的下场是"用户点复制没反应"');
+  assert.throws(() => createCodecWorkbench({ ...base, runGuarded: undefined }),
+    (e) => e instanceof TypeError && /runGuarded/.test(e.message), '按钮回调不许自己 try/catch 出第二套错误口径');
+  assert.throws(() => createCodecWorkbench({ ...base, now: 5 }),
+    (e) => e instanceof TypeError && /env\.now/.test(e.message), '非函数的 now 会让"相对时间"那一行静默消失');
+  assert.throws(() => createCodecWorkbench({ ...base, offsetMinutes: '480' }),
+    (e) => e instanceof TypeError && /offsetMinutes/.test(e.message), '字符串偏移会一路传到 fromEpoch 那口才响，早一格点名少一块面板塌');
+  assert.throws(() => createCodecWorkbench({ ...base, offsetMinutes: 900 }),
+    (e) => e instanceof TypeError && /offsetMinutes/.test(e.message), '±840 之外 time.js 一律不收，装配层不许替它兜');
+  // 前缀缺省与空串：空串会让所有派生 id 前面挂一个 `-`，等于整页找不到节点
+  const page = rPage();
+  assert.doesNotThrow(() => createCodecWorkbench({ ...base, document: page.doc, prefix: '' }));
+});
+
+test('R5 挂载期：六栏全画"等待输入"、不走 runGuarded、不出现证件页那句「未收录」', () => {
+  const m = rMount();
+  assert.deepEqual(m.report.broken, [], '五块面板应当在挂载期全部画好');
+  assert.deepEqual(m.report.rendered, CODEC_PANEL_IDS);
+  assert.deepEqual(m.report.missing, [], '夹具自证：五块面板的 tab 与 panel 节点都在');
+  assert.deepEqual(m.guarded, [], '挂载期一次都不许走 runGuarded：那时 mounted 还是 false');
+  for (const [panel, side] of [['timestamp', 'main'], ['timestamp', 'diff'], ['base64', 'main'],
+    ['url', 'main'], ['digest', 'main'], ['regex', 'main']]) {
+    const html = m.page.html(panel, side);
+    assert.equal(/class="tk-result tk-result--idle"/.test(html), true, `${panel}.${side} 的外层骨架不对`);
+    assert.equal(html.includes('等待输入'), true, `${panel}.${side} 挂载期没画上"等待输入"`);
+    assert.equal(html.includes('未收录'), false, '「未收录」是证件页判定表的措辞：checks 里出现 ok:null 就是把它带过来了');
+    assert.equal(m.page.copy(panel, side).disabled, true, `${panel}.${side} 还没有可复制的文本`);
+  }
+  assert.equal(m.subtle, undefined, '这一判没注入 subtle：挂载期就不该有任何 SHA 计算');
+});
+
+test('R6 时间戳主栏：十位按秒、十三位按毫秒、十一位两读并列、民用日期回落要说口径', () => {
+  const m = rMount({ now: () => R_NOW, seed: { 'timestamp:value': '1700000000' } });
+  m.page.click('timestamp', 'main');
+  const html = m.page.html('timestamp', 'main');
+  assert.equal(html.includes('已换算'), true, '10 位是秒档唯一解，不该并列两读');
+  assert.equal(html.includes('2023-11-14T22:13:20Z'), true, 'UTC 那一行要按注入的 epoch 复算');
+  assert.equal(html.includes('2023-11-15T06:13:20+08:00'), true, '本地那一行走 env.offsetMinutes，不是 UTC');
+  assert.equal(/2023-11-15 06:13:20 \(UTC\+08:00\)/.test(html), true, '可读那一行的括号里必须带偏移');
+  assert.equal(html.includes('2 年前'), true, '相对时间来自注入时钟：730 天在固定年档就是 2 年');
+  assert.equal(html.includes('按民用日期'), false, '数字串这一档不该出现民用日期的口径行');
+  const copy = m.wb.copyTextOf('timestamp', 'main');
+  assert.equal(copy.includes('UTC：2023-11-14T22:13:20Z'), true, '复制的是明细表那些行，不是 HTML');
+  assert.equal(copy.includes('相对时间：2 年前'), true);
+
+  const milli = rMount({ seed: { 'timestamp:value': '1700000000000' } });
+  milli.page.click('timestamp', 'main');
+  assert.equal(milli.page.html('timestamp', 'main').includes('2023-11-14T22:13:20Z'), true, '13 位按毫秒');
+
+  // 十一位：两种解释都成立，页面必须并列给，谁都不许被标成"已换算"（§K 的 K2 那一档）
+  const amb = rMount({ seed: { 'timestamp:value': '17000000000' } });
+  amb.page.click('timestamp', 'main');
+  const ambHtml = amb.page.html('timestamp', 'main');
+  assert.equal(ambHtml.includes('长度两可'), true);
+  assert.equal(ambHtml.includes('按秒') && ambHtml.includes('按毫秒'), true, '两读要两行，中文说法归视图');
+  assert.equal(ambHtml.includes('tk-state--ok'), false, '长度两可时不许把任何一种解释标成对');
+
+  // 民用日期回落：`2026-09-01` 不是时间戳，但按 +08:00 解释成立，结果区必须说清用了哪一口径
+  const civil = rMount({ seed: { 'timestamp:value': '2026-09-01' } });
+  civil.page.click('timestamp', 'main');
+  const civilHtml = civil.page.html('timestamp', 'main');
+  assert.equal(civilHtml.includes('按民用日期'), true, '回落要留痕：不然用户以为 2026-09-01 是一串时间戳');
+  assert.equal(civilHtml.includes('2026-09-01T00:00:00+08:00'), true, '不带时区标记的日期按注入偏移解释（K5）');
+  assert.equal(civilHtml.includes('已换算'), true);
+
+  // 两档都不成立：两条理由都要出现，只报一条等于把用户支走（§K 的 K3 同一条口径）
+  const bad = rMount({ seed: { 'timestamp:value': '2026-02-29' } });
+  bad.page.click('timestamp', 'main');
+  const badHtml = bad.page.html('timestamp', 'main');
+  assert.equal(badHtml.includes('不成立'), true);
+  assert.equal(badHtml.includes('不是闰年'), true, `民用日期那一档的理由没进结果区：${JSON.stringify(badHtml.slice(0, 200))}`);
+  assert.equal(badHtml.includes(parseTimestamp('2026-02-29').reason), true, '时间戳那一档的理由也要原样交出去');
+  assert.equal(badHtml.includes('<table'), false, '不成立那一档没有可显示的明细');
+
+  // `offset` 格填了就以它为准，且只动本地那一行——UTC 那一行是绝对量，谁都不该拿去乘偏移
+  const local = rMount({ now: () => R_NOW, seed: { 'timestamp:value': '1700000000', 'timestamp:offset': '-120' } });
+  local.page.click('timestamp', 'main');
+  const localHtml = local.page.html('timestamp', 'main');
+  assert.equal(localHtml.includes('2023-11-14T20:13:20-02:00'), true, '用户填的 ±分钟数应压过 env 的默认偏移');
+  assert.equal(localHtml.includes('2023-11-14T22:13:20Z'), true, 'UTC 那一行不许被本地偏移改动');
+  // 越界的偏移是"这一格不能用"，不是"这块面板坏了"（口径 3）。
+  // 注意走的仍是同一道闸门——`guarded` 记的是"过没过闸门"，不是"有没有出错"，
+  // 两条路的分别只在结果区里那一行是提示还是错误条，所以这一判量的是 `brokenOf`。
+  const oob = rMount({ seed: { 'timestamp:value': '1700000000', 'timestamp:offset': '900' } });
+  oob.page.click('timestamp', 'main');
+  assert.match(oob.page.html('timestamp', 'main'), /class="tk-hint">/, '偏移越界应当是一行提示');
+  assert.equal(oob.page.html('timestamp', 'main').includes('tk-result'), false, '提示行不该包在结果骨架里');
+  assert.deepEqual(oob.guarded, ['timestamp'], 'FieldError 走的仍是同一道闸门，不另开第二条路');
+  assert.equal(oob.page.ws.brokenOf('timestamp'), '', '把"你填的这格不能用"标成面板坏了，错误条那句"其余面板不受影响"就是废话');
+});
+
+test('R7 差值栏：三种口径同给、缺哪端点名的、两端相同就是 0', () => {
+  const m = rMount({ seed: { 'timestamp:from': '2026-09-01', 'timestamp:to': '2026-09-25' } });
+  m.page.click('timestamp', 'diff');
+  const html = m.page.html('timestamp', 'diff');
+  assert.equal(html.includes('已换算'), true);
+  assert.equal(html.includes('0 年 0 个月 24 天'), true, '日历分解那一行');
+  assert.equal(html.includes('24 天'), true, '整 24 小时那一行');
+  assert.equal(html.includes('跨 UTC 日历日'), true, '三种口径同时给，不替用户挑一种（K9）');
+  assert.equal(html.includes('整 24 小时与跨 UTC 日历日是两种口径'), false, '这一对数值相同，不该多插一句口径行');
+  assert.equal(m.wb.copyTextOf('timestamp', 'diff'),
+    '日历分解：0 年 0 个月 24 天\n整 24 小时：24 天\n跨 UTC 日历日：24 天', '复制那三行就是结果区那三行');
+
+  // 23:00 → 次日 01:00：整 24 小时是 0、跨日历日是 1，两种口径**必须不等**，页面要并列并且补一句
+  const near = rMount({ seed: { 'timestamp:from': '2026-09-01T23:00Z', 'timestamp:to': '2026-09-02T01:00Z' } });
+  near.page.click('timestamp', 'diff');
+  const nearHtml = near.page.html('timestamp', 'diff');
+  assert.equal(nearHtml.includes('整 24 小时与跨 UTC 日历日是两种口径'), true, '两口径分叉时那句说明由视图补，装配层不许自己写');
+  assert.equal(nearHtml.includes('1 天'), true);
+  assert.equal(nearHtml.includes('结束那一端在开始那一端之前'), false, '正差不该被标成反向');
+
+  // 反向：ymd 说的是绝对值，方向必须另说一句，否则"1 年 0 个月 1 天"会被读成正向那一种
+  const back = rMount({ seed: { 'timestamp:from': '2026-09-25', 'timestamp:to': '2026-09-01' } });
+  back.page.click('timestamp', 'diff');
+  assert.equal(back.page.html('timestamp', 'diff').includes('结束那一端在开始那一端之前'), true);
+
+  const same = rMount({ seed: { 'timestamp:from': '2026-09-01', 'timestamp:to': '2026-09-01' } });
+  same.page.click('timestamp', 'diff');
+  assert.equal(same.page.html('timestamp', 'diff').includes('0 年 0 个月 0 天'), true, '两端相同就是 0，不是一句"没差别"');
+
+  // 缺哪一端就说哪一端还没填；填了但不成立要说清是哪一栏
+  const half = rMount({ seed: { 'timestamp:from': '2026-09-01' } });
+  half.page.click('timestamp', 'diff');
+  assert.equal(half.page.html('timestamp', 'diff').includes('等待输入'), true, '只填一端就还没到算的时候');
+  const wrong = rMount({ seed: { 'timestamp:from': '2026-09-01', 'timestamp:to': 'abc' } });
+  wrong.page.click('timestamp', 'diff');
+  const wrongHtml = wrong.page.html('timestamp', 'diff');
+  assert.equal(wrongHtml.includes('不成立'), true);
+  assert.equal(wrongHtml.includes('终点'), true, `理由必须点名是哪一端：${JSON.stringify(wrongHtml.slice(0, 200))}`);
+  assert.equal(wrongHtml.includes('起点'), false, '另一端是好的，不许一起挨打');
+});
+
+test('R8 时钟与偏移都缺席时的降级形状：不问环境，就把 UTC 那一档交出去', () => {
+  const m = rMount({ now: undefined, offsetMinutes: null, seed: { 'timestamp:value': '1700000000' } });
+  m.page.click('timestamp', 'main');
+  const html = m.page.html('timestamp', 'main');
+  assert.equal(html.includes('2023-11-14T22:13:20Z'), true, 'UTC 那一行与偏移无关，永远给得出');
+  assert.equal(html.includes('2023-11-14T22:13:20+00:00'), true, '没有偏移可注入就按 +00:00，而不是拿本地时区猜');
+  // 「相对时间」这四个字在 `TIME_CAVEAT` 里也出现一次（"相对时间的「月」按 30 天"），
+  // 只比短语就会把口径行当成明细行。明细行在产物里的形状是 `<td>相对时间</td>`，量它。
+  assert.equal(html.includes('<td>相对时间</td>'), false, '没有时钟就没有"几年前"那一行——静默读 Date.now() 才是缺陷');
+  assert.equal(m.wb.copyTextOf('timestamp', 'main').includes('相对时间'), false);
+
+  // 正则那一只时钟同理：注入才有"档间耗时"那一行，缺席就不给一个假数字
+  const withClock = rMount({ now: () => 1000, seed: { 'regex:pattern': 'a', 'regex:text': 'aaa' } });
+  withClock.page.click('regex', 'main');
+  assert.match(withClock.page.html('regex', 'main'), /档间累计耗时 \d+ms/);
+  const noClock = rMount({ seed: { 'regex:pattern': 'a', 'regex:text': 'aaa' } });
+  noClock.page.click('regex', 'main');
+  assert.equal(noClock.page.html('regex', 'main').includes('档间累计耗时'), false,
+    '没注入时钟时 elapsedMs 是 null，视图那一格必须整行不出现');
+});
+
+test('R9 base64 四档方向、strict 档、mime 格与那两道损耗计数', () => {
+  const enc = rMount({ seed: { 'base64:mode': 'encode', 'base64:text': '中' } });
+  enc.page.click('base64', 'main');
+  assert.equal(enc.page.html('base64', 'main').includes('>5Lit<'), true, '编码结果走那一族等宽行');
+  assert.equal(enc.page.html('base64', 'main').includes('3 字节'), true, '字节数是输入侧的 UTF-8 字节数');
+  assert.equal(enc.wb.copyTextOf('base64', 'main'), b64Of('中'));
+
+  // 解码：模块那句"不在 Base64 字母表"必须原样进结果区（invalid 的理由归模块，装配层不重写）
+  const dec = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': '5Lit' } });
+  dec.page.click('base64', 'main');
+  assert.equal(dec.page.html('base64', 'main').includes('已解码'), true);
+  assert.equal(dec.page.html('base64', 'main').includes('>中<'), true);
+  assert.equal(dec.wb.copyTextOf('base64', 'main'), '中');
+  const nope = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': '!!!!' } });
+  nope.page.click('base64', 'main');
+  assert.equal(nope.page.html('base64', 'main').includes(decodeBase64('!!!!').reason), true);
+  assert.equal(nope.page.html('base64', 'main').includes('不成立'), true);
+
+  // 宽松档替用户补了 padding / 剥了空白，就不能只报"已解码"（Q8 钉的那两个词）
+  const padded = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': 'YQ' } });
+  padded.page.click('base64', 'main');
+  const paddedHtml = padded.page.html('base64', 'main');
+  assert.equal(paddedHtml.includes('有还原损耗'), true, '补了 2 位 padding 就是损耗，不是无损解码');
+  assert.equal(paddedHtml.includes('补齐的 padding'), true);
+  const even = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': 'YQ==' } });
+  even.page.click('base64', 'main');
+  assert.equal(even.page.html('base64', 'main').includes('有还原损耗'), false, '原文自带两位 = 时没有任何还原损耗');
+  const spaced = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': 'Y Q' } });
+  spaced.page.click('base64', 'main');
+  assert.equal(spaced.page.html('base64', 'main').includes('剥掉的空白'), true);
+  // strict 档只在解码那一档有意义：同一串输入在 strict 下是"不成立"，不是"有损耗"
+  const strict = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': 'Y Q', 'base64:strict': 'strict' } });
+  strict.page.click('base64', 'main');
+  assert.equal(strict.page.html('base64', 'main').includes('不成立'), true, 'strict 档不接受空白');
+  assert.equal(strict.page.html('base64', 'main').includes('有还原损耗'), false);
+
+  // data URI 包装与解包：mime 格空白就是"用默认值"，模块自己会写成 text/plain
+  const uri = rMount({ seed: { 'base64:mode': 'dataUri', 'base64:text': 'a', 'base64:mime': 'text/html' } });
+  uri.page.click('base64', 'main');
+  assert.equal(uri.page.html('base64', 'main').includes('data:text/html;charset=utf-8;base64,'), true);
+  const def = rMount({ seed: { 'base64:mode': 'dataUri', 'base64:text': 'a' } });
+  def.page.click('base64', 'main');
+  assert.equal(def.page.html('base64', 'main').includes('data:text/plain;charset=utf-8;base64,'), true,
+    'mime 格空着要把 null 递下去（空串会被模块判成"形状不合法"）');
+  const badMime = rMount({ seed: { 'base64:mode': 'dataUri', 'base64:text': 'a', 'base64:mime': 'bog' } });
+  badMime.page.click('base64', 'main');
+  assert.equal(badMime.page.html('base64', 'main').includes('mime 形状不合法'), true);
+  const unpack = rMount({ seed: { 'base64:mode': 'dataUriDecode', 'base64:text': 'data:;base64,YQ==' } });
+  unpack.page.click('base64', 'main');
+  const unpackHtml = unpack.page.html('base64', 'main');
+  assert.equal(unpackHtml.includes('已解码'), true);
+  assert.equal(unpackHtml.includes('text/plain'), true, 'mime 缺省这件事必须让用户看得见，否则复制下来是一串变了味的 URI');
+  assert.equal(unpackHtml.includes('>a<'), true);
+
+  // 页面级预闸门：超限的输入不进模块，也就不会长出模块那句按位置拒绝的话。
+  // 尺子取模块的原句而不是"字母表"三个字——`BASE64_CAVEAT` 本来就含「字母表外的字符」，
+  // 口径行常驻这一栏，用宽词量等于永远红。
+  const huge = rMount({ seed: { 'base64:mode': 'decode', 'base64:text': 'a'.repeat(MAX_INPUT_BYTES + 2) } });
+  huge.page.click('base64', 'main');
+  const hugeHtml = huge.page.html('base64', 'main');
+  assert.equal(hugeHtml.includes('已拒收'), true, '整栏不处理是"已拒收"，不是"不成立"');
+  assert.equal(hugeHtml.includes(String(MAX_INPUT_BYTES + 2)), true, '越界那一句必须报得出实际字节数');
+  assert.equal(hugeHtml.includes('不在 Base64 字母表'), false, '预闸门拦下时不该再调模块');
+  assert.equal(hugeHtml.includes('tk-line__raw'), false, '闸门拦下时没有结果行可摆');
+  // 空输入与没选方向：两种"还没开始"都落在等待输入，且不许偷算
+  for (const seed of [{ 'base64:mode': 'encode' }, { 'base64:text': 'abc' }]) {
+    const idle = rMount({ seed });
+    idle.page.click('base64', 'main');
+    assert.equal(idle.page.html('base64', 'main').includes('等待输入'), true, `${JSON.stringify(seed)} 这一档不该算`);
+  }
+});
+
+test('R10 URL 栏：两档并列 + 那 11 个差异字符 + 解码两条口径 + query 拆解', () => {
+  const m = rMount({ seed: { 'url:text': 'a?b=c d' } });
+  m.page.click('url', 'main');
+  const html = m.page.html('url', 'main');
+  assert.equal(html.includes('已编码'), true);
+  assert.equal(html.includes('a?b=c%20d'), true, 'encodeURI 档保留 ? 与 =');
+  assert.equal(html.includes('a%3Fb%3Dc%20d'), true, 'encodeURIComponent 档把 ? 与 = 一起编掉');
+  assert.equal(html.includes('11 个字符在这一档不编码'), true, '差异数量由模块那两档实测出来，不是抄一个常数');
+  // 字节那一格取自 `urlPair.bytes`，而 L11 钉死了它是**入参**字节数（不是编码结果长度）：
+  // `a?b=c d` 是 7 个 ASCII 字符 = 7 字节，写成 9 就是把 `a%3Fb%3Dc%20d` 的长度当成了口径。
+  assert.equal(html.includes('7 字节'), true);
+  assert.equal(html.includes('a?b'), true, 'query 拆解按 & 切、只在第一个 = 处切一次');
+  assert.deepEqual(m.wb.copyTextOf('url', 'main').split('\n'),
+    ['encodeURI：a?b=c%20d', 'encodeURIComponent：a%3Fb%3Dc%20d']);
+
+  // 百分号串：解得开就是"已解码"，两档的解码结果都要摆出来
+  const dec = rMount({ seed: { 'url:text': 'a%3Fb%20c' } });
+  dec.page.click('url', 'main');
+  const decHtml = dec.page.html('url', 'main');
+  assert.equal(decHtml.includes('已解码'), true, '带 %XX 且解得开，说"已编码"就是把用户刚粘的东西说反了');
+  assert.equal(decHtml.includes('a?b c'), true);
+
+  // 两档解码都失败：不是"没编"，是"这串百分号不成立"
+  const bad = rMount({ seed: { 'url:text': '%zz' } });
+  bad.page.click('url', 'main');
+  const badHtml = bad.page.html('url', 'main');
+  assert.equal(badHtml.includes('不成立'), true, '两档都解不开就是坏输入');
+  assert.equal(badHtml.includes('十六进制'), true, `模块那句理由要原样进结果区：${JSON.stringify(badHtml.slice(0, 200))}`);
+
+  // 落单代理项：模块那两道闸门之一，页面不许自己算一遍代理项
+  const lone = rMount({ seed: { 'url:text': '\uD83D' } });
+  lone.page.click('url', 'main');
+  assert.equal(lone.page.html('url', 'main').includes('落单代理项'), true);
+
+  const huge = rMount({ seed: { 'url:text': 'a'.repeat(MAX_INPUT_BYTES + 1) } });
+  huge.page.click('url', 'main');
+  assert.equal(huge.page.html('url', 'main').includes('已拒收'), true);
+  assert.equal(huge.page.html('url', 'main').includes('1 MiB'), true);
+
+  const idle = rMount({ seed: { 'url:text': '   ' } });
+  idle.page.click('url', 'main');
+  assert.equal(idle.page.html('url', 'main').includes('等待输入'), true, '整格空白也算还没输入');
+});
+
+test('R11 摘要栏：文本档五格恒定、通道预闸门与那个"没算"的计数器', async () => {
+  // 挂载期不抢跑：文本已经 seeded，摘要一次都不算
+  const fake = rSubtle();
+  const idle = rMount({ subtle: fake, seed: { 'digest:mode': 'text', 'digest:payload': 'abc' } });
+  assert.deepEqual(idle.guarded, [], '挂载期不许走 runGuarded');
+  assert.deepEqual(fake.calls, [], '摘要那一栏异步，挂载期抢跑的话 reject 会落在 mount() 返回值之外');
+  assert.equal(idle.page.html('digest', 'main').includes('等待输入'), true);
+
+  idle.page.click('digest', 'main');
+  await rSettle();
+  const html = idle.page.html('digest', 'main');
+  assert.equal(html.includes('已算出'), true);
+  assert.equal(html.includes('900150983cd24fb0d6963f7d28e17f72'), true, 'MD5 走本站自实现，与外部判据源同一值');
+  assert.equal(html.includes('000102'), true, 'SHA-* 走注入的 subtle：可控的三字节串就是可控的六字符 hex');
+  assert.equal(html.includes('浏览器 crypto'), true, '谁算的必须说清');
+  assert.equal(html.includes('文本 3 字节'), true, '文本档的计数行要点名通道');
+  assert.deepEqual(idle.guarded, ['digest', 'digest'], '计算与画结果各过一遍闸门：异步回写不许逃逸');
+  assert.deepEqual(fake.calls.map((c) => c.name), ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'],
+    '四档 SHA 各一次、按规范名的大写带横杠形态传给 WebCrypto，MD5 不碰 subtle');
+  assert.equal(idle.wb.copyTextOf('digest', 'main').split('\n')[0], 'md5=900150983cd24fb0d6963f7d28e17f72');
+
+  // subtle 明确缺席（非安全上下文）：md5 还在、四档没了 → 部分可用，且来源列要说"环境不支持"
+  const noSubtle = rMount({ subtle: null, seed: { 'digest:mode': 'text', 'digest:payload': 'abc' } });
+  noSubtle.page.click('digest', 'main');
+  await rSettle();
+  const noHtml = noSubtle.page.html('digest', 'main');
+  assert.equal(noHtml.includes('部分可用'), true, '五格里有四格算不成，报"已算出"就是骗人');
+  assert.equal(noHtml.includes('环境不支持'), true);
+
+  // 文件通道：只读一次盘，计数行不再点名通道（否则读起来是"字节 3 字节"），并补一句来源
+  const file = rFile('report.csv', 'abc');
+  const up = rMount({ subtle: rSubtle(), files: { 'digest:upload': file }, pick: { 'digest:mode': 'file' } });
+  up.page.click('digest', 'main');
+  await rSettle();
+  const upHtml = up.page.html('digest', 'main');
+  assert.equal(file.calls, 1, '一次计算只读一次盘');
+  assert.equal(upHtml.includes('3 字节'), true);
+  assert.equal(upHtml.includes('字节 3 字节'), false, 'kind 传 bytes 会让这一行变成"字节 3 字节"');
+  assert.equal(upHtml.includes('report.csv'), true, '文件档要让用户看见读的是哪一个文件');
+  assert.equal(upHtml.includes('不上传、不留存'), true, '隐私那句口径由页面自己说出来');
+
+  // 声明尺寸越界的文件：预闸门拦在 `arrayBuffer()` 之前，一个大文件不许被读进内存
+  const fat = rFile('big.bin', 'abc', { size: MAX_BYTES + 1 });
+  const gated = rMount({ subtle: rSubtle(), files: { 'digest:upload': fat }, pick: { 'digest:mode': 'file' } });
+  gated.page.click('digest', 'main');
+  await rSettle();
+  assert.equal(fat.calls, 0, '超限文件根本不该读盘');
+  assert.equal(gated.page.html('digest', 'main').includes('已拒收'), true);
+  assert.equal(gated.page.html('digest', 'main').includes(String(MAX_BYTES + 1)), true);
+
+  // 文本档的页面级预闸门：`digestAll` 一次都不进（MD5 之外没有任何 subtle 调用）
+  const fatText = rMount({ subtle: rSubtle(), seed: { 'digest:mode': 'text', 'digest:payload': 'a'.repeat(MAX_TEXT_BYTES + 1) } });
+  fatText.page.click('digest', 'main');
+  await rSettle();
+  assert.deepEqual(fatText.subtle.calls, [], '超限文本不该走进模块');
+  assert.equal(fatText.page.html('digest', 'main').includes('已拒收'), true);
+
+  // 选了文件档却没选文件 / 文本档空着：两种"还没开始"
+  const none = rMount({ subtle: rSubtle(), pick: { 'digest:mode': 'file' } });
+  none.page.click('digest', 'main');
+  await rSettle();
+  assert.equal(none.page.html('digest', 'main').includes('等待输入'), true);
+  assert.deepEqual(none.subtle.calls, []);
+});
+
+test('R12 正则栏：六档结论、静态形状拦在引擎之前、上限格与 flags 归一', () => {
+  const m = rMount({ now: () => 5000, seed: { 'regex:pattern': '(\\d+)-(?<tail>\\w+)', 'regex:flags': 'g', 'regex:text': '12-ab 34-cd' } });
+  m.page.click('regex', 'main');
+  const html = m.page.html('regex', 'main');
+  assert.equal(html.includes('有命中'), true);
+  assert.equal(html.includes('共 2 处'), true);
+  assert.equal(html.includes('序号'), true, '命中表要有');
+  assert.equal(html.includes('tail'), true, '命名组那一行与位置组并存');
+  assert.equal(html.includes('没开 d 就没有捕获组位置'), true, '位置那一列是空的，必须说一句为什么是空的');
+  assert.equal(html.includes('生效的 flags：g'), true);
+  assert.deepEqual(m.wb.copyTextOf('regex', 'main').split('\n'), ['12-ab', '34-cd']);
+
+  // 开了 d 才有组位置：同一发输入换 flags，位置那一列从 — 变成数字
+  const idx = rMount({ seed: { 'regex:pattern': '(\\d+)', 'regex:flags': 'gd', 'regex:text': 'a12' } });
+  idx.page.click('regex', 'main');
+  assert.equal(idx.page.html('regex', 'main').includes('没开 d 就没有捕获组位置'), false);
+  assert.equal(/<td>1<\/td>/.test(idx.page.html('regex', 'main')), true, 'd 档下位置 1 要真出现');
+
+  // 零命中是"零命中"，不是错误；替换预览只在填了那格时才给
+  const none = rMount({ seed: { 'regex:pattern': 'z+', 'regex:text': 'abc' } });
+  none.page.click('regex', 'main');
+  assert.equal(none.page.html('regex', 'main').includes('零命中'), true);
+  assert.equal(none.page.html('regex', 'main').includes('tk-state--bad'), false);
+  const repl = rMount({ seed: { 'regex:pattern': 'a(b)c', 'regex:text': 'aXbYc', 'regex:repl': '$1' } });
+  repl.page.click('regex', 'main');
+  assert.equal(repl.page.html('regex', 'main').includes('替换预览'), true, '填了替换格就该给预览');
+  const noRepl = rMount({ seed: { 'regex:pattern': 'a', 'regex:text': 'aaa' } });
+  noRepl.page.click('regex', 'main');
+  assert.equal(noRepl.page.html('regex', 'main').includes('替换预览'), false, '替换格空着不是"全删掉"');
+
+  // 次数上限：往下调才算得出"已到上限"，那一句话必须带上生效的那个数。
+  // flags 必须给 'g'：不开全局，`a` 打 `aaaaaaaaaa` 永远只有 1 处，"已到上限"这一档根本长不出来。
+  const capped = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'g', 'regex:text': 'a'.repeat(10), 'regex:limit': '3' } });
+  capped.page.click('regex', 'main');
+  const capHtml = capped.page.html('regex', 'main');
+  assert.equal(capHtml.includes('已到上限'), true);
+  assert.equal(capHtml.includes('上限 3 次'), true, 'capped 是本次生效的上限次数，不是布尔');
+  assert.equal(capHtml.includes('共 3 处'), true);
+  // 越界与不合法是"这一格不能用"，一次都不许进引擎
+  // （同样开 'g'：这一发输入本来能算出「共 3 处」，上限格一坏就必须整栏不跑，否则这句断言是白给的）
+  for (const limit of ['2000', '0', '-1', 'abc']) {
+    const bad = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'g', 'regex:text': 'aaa', 'regex:limit': limit } });
+    bad.page.click('regex', 'main');
+    assert.match(bad.page.html('regex', 'main'), /class="tk-hint">/, `上限「${limit}」应当是一行提示`);
+    assert.equal(bad.page.html('regex', 'main').includes('共 3 处'), false, `${limit} 这一档不该算出命中`);
+  }
+
+  // 灾难性回溯形状：静态检测先于执行，结论是"已拒收"，命中表一格都不许有
+  const scary = rMount({ seed: { 'regex:pattern': '(a+)+$', 'regex:text': `${'a'.repeat(30)}b` } });
+  scary.page.click('regex', 'main');
+  const scaryHtml = scary.page.html('regex', 'main');
+  assert.equal(scaryHtml.includes('已拒收'), true);
+  assert.equal(scaryHtml.includes('序号'), false, '引擎一次都没跑，就不该有命中表');
+  assert.equal(scaryHtml.includes('高危'), true, 'findings 那张表要跟着出来，用户才知道为什么被拒');
+
+  // 编译不过：level 是 null，走"不成立"那一档，理由原样取自模块
+  const badPattern = rMount({ seed: { 'regex:pattern': '(', 'regex:text': 'abc' } });
+  badPattern.page.click('regex', 'main');
+  assert.equal(badPattern.page.html('regex', 'main').includes('不成立'), true);
+  assert.equal(badPattern.page.html('regex', 'main').includes(findMatches('(', '', 'abc').reason), true,
+    'native 的报错文案随引擎版本变，本节只判"原样交出去"，不判它长什么样');
+
+  // flags 里重复位由模块归一：页面把归一这件事说出来，而不是悄悄改了用户的输入
+  const dup = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'gg', 'regex:text': 'aaa' } });
+  dup.page.click('regex', 'main');
+  const dupHtml = dup.page.html('regex', 'main');
+  assert.equal(dupHtml.includes('生效的 flags：g'), true);
+  assert.equal(dupHtml.includes('重复'), true, '归一是改动用户输入，必须在判定表里留一行');
+
+  // 空白 pattern 或空白待测文本：还没开始，不进模块（静态形状那一步也不许跑）
+  for (const seed of [{ 'regex:pattern': 'a', 'regex:text': '' }, { 'regex:text': 'abc' }]) {
+    const idle = rMount({ seed });
+    idle.page.click('regex', 'main');
+    assert.equal(idle.page.html('regex', 'main').includes('等待输入'), true, `${JSON.stringify(seed)} 这一档不该进引擎`);
+    assert.equal(idle.page.html('regex', 'main').includes('高危'), false);
+  }
+});
+
+test('R13 两条失败路：FieldError 是一行提示，骨架缺一格与读盘失败只标坏这一块', async () => {
+  // ① 缺主栏结果区：这块面板抛穿到绑定层，其余四块照旧
+  const a = rMount({ drop: ['tk-out-base64-main'] });
+  assert.deepEqual(a.report.broken, ['base64']);
+  assert.deepEqual(a.report.missing, [], 'tab 与 panel 两半都在，不算骨架不完整');
+  assert.deepEqual(a.report.rendered, CODEC_PANEL_IDS.filter((id) => id !== 'base64'));
+  assert.match(a.page.ws.brokenOf('base64'), /tk-out-base64-main/);
+  assert.match(iBanner(a.page, 'base64').textContent, /其余面板不受影响/);
+  for (const [panel, side] of [['timestamp', 'main'], ['url', 'main'], ['digest', 'main'], ['regex', 'main']]) {
+    assert.equal(a.page.html(panel, side).includes('等待输入'), true, `${panel}.${side} 被隔壁缺的一格拖坏了`);
+  }
+  // 缺的是差值栏那一格：塌的范围是那一栏，主栏已经画好的内容不许被拖没
+  const a2 = rMount({ drop: ['tk-out-timestamp-diff'] });
+  assert.deepEqual(a2.report.broken, ['timestamp']);
+  assert.equal(a2.page.html('timestamp', 'main').includes('等待输入'), true);
+  assert.equal(a2.page.html('timestamp', 'diff'), '');
+
+  // ② 缺复制按钮：内容照样能看，不该因此把面板判坏
+  const c = rMount({ drop: ['tk-copy-url-main'] });
+  assert.deepEqual(c.report.broken, []);
+  assert.equal(c.page.copy('url', 'main'), null);
+  c.page.set('url', 'text', 'a?b');
+  assert.doesNotThrow(() => c.page.click('url', 'main'), '再点一次计算也不该因为没按钮而抛');
+  assert.equal(c.wb.copyTextOf('url', 'main').includes('encodeURIComponent'), true, '复制文本照旧备着');
+
+  // ③ 缺开关目标那一段：少一段显隐，不该把整块面板送进 broken 名单
+  const d = rMount({ drop: ['tk-when-base64-mime'] });
+  assert.deepEqual(d.report.broken, []);
+  assert.equal(d.page.whenNode('base64', 'mime'), null, '夹具自证：这一格本来就没建');
+  assert.doesNotThrow(() => {
+    d.page.set('base64', 'mode', 'dataUri');
+    d.page.change('base64', 'mode');
+  }, 'applySwitch 撞上缺节点就抛，用户切档时这块面板当场进 broken 名单');
+
+  // ④ 读盘失败：异步 reject 必须回到同一道闸门，只标坏摘要这一块
+  const broken = rFile('gone.csv', 'abc', { fail: true });
+  const e = rMount({ subtle: rSubtle(), files: { 'digest:upload': broken }, pick: { 'digest:mode': 'file' } });
+  assert.deepEqual(e.report.broken, [], '挂载期不算，所以此刻还没有任何东西坏掉');
+  e.page.click('digest', 'main');
+  await rSettle();
+  assert.deepEqual(e.guarded, ['digest', 'digest'], '异步回写要重新走 runGuarded，否则 reject 就逃逸到控制台了');
+  assert.match(e.page.ws.brokenOf('digest'), /读不到这个文件/);
+  assert.match(iBanner(e.page, 'digest').textContent, /其余面板不受影响/);
+  assert.equal(e.page.html('regex', 'main').includes('等待输入'), true, '一块塌不该连着四块');
+  // 换回一个能读的文件再算一次：错误条撤掉，同一块面板恢复可用
+  e.page.setFiles('digest', 'upload', rFile('ok.csv', 'abc'));
+  e.page.click('digest', 'main');
+  await rSettle();
+  assert.equal(e.page.ws.brokenOf('digest'), '', '成功一次就把错误条撤掉，否则那块面板永远红着');
+  assert.match(e.page.html('digest', 'main'), /已算出/);
+});
+
+test('R14 接线：Enter 的分档、mode 驱动显隐、复制三级兜底与改口改回', async () => {
+  const writes = [];
+  const m = rMount({ clipboard: { writeText: (t) => { writes.push(t); return Promise.resolve(); } },
+    seed: { 'timestamp:value': '1700000000' } });
+  // 单行格与数字格：裸 Enter 就是提交
+  m.page.keyOn('timestamp', 'value', { key: 'Enter' });
+  assert.equal(m.page.html('timestamp', 'main').includes('已换算'), true, '文本格里的 Enter 该触发主栏');
+  assert.deepEqual(m.guarded, ['timestamp']);
+  m.page.keyOn('timestamp', 'offset', { key: 'Enter', ctrlKey: true });
+  assert.deepEqual(m.guarded, ['timestamp'], '带修饰键的 Enter 在数字格上没有提交语义');
+
+  // 多行粘贴框：裸 Enter 必须是换行，只有 Ctrl / ⌘ + Enter 触发
+  const u = rMount({ seed: { 'url:text': 'a?b' } });
+  u.page.keyOn('url', 'text', { key: 'Enter' });
+  assert.equal(u.page.html('url', 'main').includes('等待输入'), true, '粘贴框里的 Enter 吞掉换行是缺陷');
+  let prevented = 0;
+  u.page.keyOn('url', 'text', { key: 'Enter', ctrlKey: true, preventDefault: () => { prevented += 1; } });
+  assert.equal(u.page.html('url', 'main').includes('已编码'), true);
+  assert.equal(prevented, 1, '组合键提交要吃掉默认动作，否则浏览器可能再走一遍表单');
+  u.page.keyOn('url', 'text', { key: 'Enter', metaKey: true });
+  assert.equal(u.guarded.filter((x) => x === 'url').length, 2, '⌘ + Enter 与 Ctrl + Enter 同一条路');
+
+  // mode 那一格驱动字段组显隐：切到哪一档，另一档的字段就藏起来
+  const b = rMount({ seed: { 'base64:mode': 'decode' } });
+  assert.equal(b.page.whenNode('base64', 'strict').hidden, false);
+  assert.equal(b.page.whenNode('base64', 'mime').hidden, true, 'mime 只在包装那一档出现');
+  b.page.set('base64', 'mode', 'dataUri');
+  b.page.change('base64', 'mode');
+  assert.equal(b.page.whenNode('base64', 'mime').hidden, false);
+  assert.equal(b.page.whenNode('base64', 'strict').hidden, true);
+  // 挂载时 mode 是占位项：两段都该藏着，页面上不留一格用不上的字段
+  const fresh = rMount();
+  assert.equal(fresh.page.whenNode('base64', 'strict').hidden, true);
+  assert.equal(fresh.page.whenNode('digest', 'payload').hidden, true);
+
+  // 复制：纯文本、按钮改口、1600 ms 之后改回骨架那句原文
+  b.page.set('base64', 'text', '中');
+  b.page.set('base64', 'mode', 'encode');
+  b.page.change('base64', 'mode');
+  b.page.click('base64', 'main');
+  assert.equal(b.page.copy('base64', 'main').disabled, false, '有结果就该能复制');
+  b.page.clickCopy('base64', 'main');
+  await rSettle();
+  assert.equal(writes.length, 0, '这一发夹具没给 clipboard，走的是 execCommand 兜底');
+  assert.deepEqual(b.page.commandLog, ['copy']);
+  assert.equal(b.page.copy('base64', 'main').textContent, '已复制');
+  assert.equal(b.timers.length, 1, '改口要能改回来，就得留下一条恢复用的定时器');
+  assert.equal(b.timers[0].ms, 1600);
+  b.flush();
+  assert.equal(b.page.copy('base64', 'main').textContent, '复制结果', '恢复的是骨架那句原文案，不是写死的一句');
+
+  // 用剪贴板那一只：复制的必须是这一栏的纯文本，且 disabled 跟着文本走
+  const withClip = rMount({ clipboard: { writeText: (t) => { writes.push(t); return Promise.resolve(); } } });
+  withClip.page.click('regex', 'main');
+  assert.equal(withClip.page.copy('regex', 'main').disabled, true, '空结果不该留一条能点的复制按钮');
+  withClip.page.set('regex', 'pattern', 'a');
+  withClip.page.set('regex', 'flags', 'g');
+  withClip.page.set('regex', 'text', 'aaa');
+  withClip.page.click('regex', 'main');
+  assert.equal(withClip.page.copy('regex', 'main').disabled, false);
+  withClip.page.clickCopy('regex', 'main');
+  await rSettle();
+  assert.deepEqual(writes, ['a\na\na'], '复制的是三处命中的纯文本、用换行相连，不是那一叠 HTML');
+
+  // 换 hash 走的是绑定层那一条：装配层只管把六栏画上，不碰地址栏
+  const h = rMount({ hash: '#regex' });
+  assert.deepEqual(iVisible(h.page), ['regex']);
+  h.page.location.hash = '#url';
+  h.page.win.dispatch('hashchange');
+  assert.deepEqual(iVisible(h.page), ['url']);
+  assert.equal(h.page.tab('url').getAttribute('aria-selected'), 'true');
+
+  // `wb.run` 走的是与按钮完全同一条路（含 runGuarded），不给测试留第二条后门
+  const direct = rMount({ seed: { 'url:text': 'a?b' } });
+  const before = direct.guarded.length;
+  assert.equal(direct.wb.run('url', 'main'), true);
+  assert.equal(direct.guarded.length, before + 1);
+  assert.equal(direct.page.html('url', 'main').includes('已编码'), true);
+  assert.equal(direct.wb.run('digest', 'nosuch'), false, '栏位名不在 spec 里就是调用方写错了，不许凭空画一栏');
+});
+
+test('R15 每块面板的口径行在自己那块恰好一次，跨栏不串', () => {
+  const NOTES = { timestamp: TIME_CAVEAT, base64: BASE64_CAVEAT, url: URL_CAVEAT, digest: DIGEST_CAVEAT, regex: REGEX_CAVEAT };
+  const m = rMount();
+  // 量的是**转义之后**的那一句：视图唯一的插值出口是 `view.esc`，而 `URL_CAVEAT` 里带着一个
+  // 「&」（`query 只按「&」切分`），原样串在产物里根本不存在。转义是双射，比转义后的串
+  // 仍然钉住同一句话——一个字不缺、一个字不多。
+  const inHtml = (note) => Q_VIEW.esc(note);
+  for (const [panel, note] of Object.entries(NOTES)) {
+    for (const side of R_SIDES) {
+      if (!CODEC_SPEC[panel].sides[side]) continue;
+      assert.equal(rCount(m.page.html(panel, side), inHtml(note)), 1, `${panel}.${side} 挂载期就该带自己的那句口径，而且只带一次`);
+    }
+  }
+  // 算完之后仍然只有一句：口径行不随计算次数叠加
+  m.page.set('base64', 'mode', 'encode');
+  m.page.set('base64', 'text', 'a');
+  for (let i = 0; i < 3; i += 1) m.page.click('base64', 'main');
+  assert.equal(rCount(m.page.html('base64', 'main'), inHtml(BASE64_CAVEAT)), 1, '点三次只留一句，否则那块结果区每点一次长一行');
+  // 各块面板的口径句不许跑到别人家
+  for (const [panel, note] of Object.entries(NOTES)) {
+    for (const other of Object.keys(NOTES)) {
+      if (other === panel) continue;
+      assert.equal(m.page.html(other, 'main').includes(inHtml(note)), false, `${note.slice(0, 12)}… 串到了 ${other}`);
+    }
+  }
+});
+
+test('R16 入口只读骨架那四格数据；启动失败不装死，成功路径把两条 <script> 接起来', async () => {
+  /** 与 §J 的 `run` 同一条路：入口在 import 那一刻就 `start(document, window)`，
+   *  所以每一档都要先把两个全局摆好、再换查询串 import（同一 URL 只执行一次）。 */
+  const run = async (tag, page, fn) => {
+    globalThis.document = page.doc;
+    globalThis.window = Object.assign({}, page.win, {
+      location: page.location, history: page.history, navigator: {},
+    });
+    try {
+      return await fn(tag);
+    } finally {
+      delete globalThis.document;
+      delete globalThis.window;
+    }
+  };
+  const withCore = (tag) => import(`../dev/js/toolkitCore.js?r16-${tag}`);
+  const box = (page, attrs) => page.mk('div', 'tk-workspace', {
+    'data-tk-ids': CODEC_PANEL_IDS.join(','), 'data-tk-prefix': 'tk',
+    'data-tk-label': '编码与换算', 'data-tk-notice': 'tk-notice', ...attrs,
+  });
+
+  // ── 成功：时钟与偏移由入口读环境，装配层只收注入 ──
+  {
+    const page = rPage();
+    box(page);
+    await run('ok', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolCodec.js?r16-${tag}`);
+      for (const id of CODEC_PANEL_IDS) {
+        assert.equal(page.tab(id).getAttribute('role'), 'tab', `${id} 没被升级成 tab`);
+      }
+      assert.equal(page.html('timestamp', 'main').includes('等待输入'), true, '入口接错了就一格都画不上');
+      assert.equal(page.notice.hidden, true, '启动成功就别留提示行');
+      page.set('timestamp', 'value', '1700000000');
+      page.btn('timestamp', 'main').dispatch('click', {});
+      assert.equal(page.html('timestamp', 'main').includes('2023-11-14T22:13:20Z'), true);
+      // 本地那一行走的是入口注入的宿主偏移：装配层自己问环境的话，这一行在 CI 上会漂。
+      // 期望值不手拼——按 `time.js` 在同一偏移下现算（`22:13:20Z` 在东八区已经是**次日**
+      // `06:13:20+08:00`，把 UTC 那一串直接接上偏移后缀会漏掉跨日界，那一版判据是白给的）。
+      const host = -new Date().getTimezoneOffset();
+      assert.equal(page.html('timestamp', 'main').includes(fromEpoch(1700000000000, host).isoLocal), true,
+        `入口该把 -getTimezoneOffset() 当偏移递进去（本机偏移 ${host} 分钟）`);
+      page.location.hash = '#regex';
+      page.win.dispatch('hashchange');
+      assert.deepEqual(iVisible(page), ['regex']);
+    });
+  }
+
+  // ── 失败一档：容器都没有（脚本被挪进 <head> 就是这个形状）──
+  {
+    const page = rPage();
+    await run('nocontainer', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolCodec.js?r16-${tag}`), /tk-workspace/);
+      assert.equal(page.notice.hidden, false, '启动失败必须留下一句能抄下来问人的话');
+      assert.match(page.notice.textContent, /这一页的交互层没能启动/);
+      assert.match(page.notice.textContent, /正文仍然读得到/);
+    });
+  }
+
+  // ── 失败二档：容器在，`data-tk-ids` 是空的（yml 漏了 slug）──
+  {
+    const page = rPage();
+    box(page, { 'data-tk-ids': ' , ' });
+    await run('emptyids', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolCodec.js?r16-${tag}`), /data-tk-ids/);
+      assert.match(page.notice.textContent, /onlineTools\.yml/);
+    });
+  }
+
+  // ── 失败三档：`window.Tk` 没挂上来（core 404 或排在入口之后）──
+  {
+    const page = rPage();
+    box(page);
+    await run('notk', page, async (tag) => {
+      await assert.rejects(() => import(`../dev/js/toolCodec.js?r16-${tag}`), /window\.Tk/);
+      assert.match(page.notice.textContent, /toolkitCore\.min\.js/);
+      assert.equal(page.tab('url').getAttribute('role'), 'link', '框架层没跑，骨架的 role 原样留着');
+      assert.equal(page.html('url', 'main'), '');
+    });
+  }
+
+  // ── 容器在但它读不到属性：报错正文里要有容器 id 与排查方向 ──
+  {
+    const page = rPage();
+    const b = box(page);
+    delete b.getAttribute;
+    await run('noattr', page, async (tag) => {
+      await withCore(tag);
+      await assert.rejects(() => import(`../dev/js/toolCodec.js?r16-${tag}`), /tk-workspace/,
+        'TypeError 里既没有容器 id 也没有排查方向，抄下来问不到人');
+      assert.match(page.notice.textContent, /两条 <script>/);
+    });
+  }
+
+  // ── 换前缀：骨架写 `data-tk-prefix: zx`，行为那副面孔整套跟着换 ──
+  {
+    const page = rPage({ prefix: 'zx' });
+    box(page, { 'data-tk-prefix': 'zx', 'data-tk-notice': 'zx-notice' });
+    await run('zx', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolCodec.js?r16-${tag}`);
+      for (const id of CODEC_PANEL_IDS) {
+        assert.equal(page.tab(id).getAttribute('role'), 'tab',
+          `${id} 没被升级成 tab：绑定层找的是 tk-tab-*，骨架写的是 zx-tab-*`);
+      }
+      assert.equal(page.html('base64', 'main').includes('等待输入'), true);
+      page.set('base64', 'mode', 'encode');
+      page.set('base64', 'text', '中');
+      page.click('base64', 'main');
+      assert.equal(page.html('base64', 'main').includes('>5Lit<'), true);
+      assert.equal(page.notice.hidden, true, '这一档是成功路径，不该留提示行');
+    });
+  }
+});
