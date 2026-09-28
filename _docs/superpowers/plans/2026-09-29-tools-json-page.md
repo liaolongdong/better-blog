@@ -357,7 +357,7 @@ USAGE.md                        检索层自查的 CollectionPage / 总数两格
 **为什么 vendoring 排在第一格**：它是唯一一个"改了就能红"的事实——哈希判据要在任何 YAML 代码
 存在之前立住，否则将来有人"顺手修一下内置件"时没有东西拦得住。
 
-- [ ] **Step 1: 写红判据（§U 的 U1–U5：内置上游件自证族）**
+- [x] **Step 1: 写红判据（§U 的 U1–U5：内置上游件自证族）**
 
 在 `scripts/toolkit-tests.mjs` 末尾加一节 `// ── §U YAML/XML/CSV 互转（tools/json-convert.js，段 4 Task 1 起）`，
 先只写五条，全部围绕那本内置件：U1 字节数 + sha256（并把 npm tarball 整包哈希写进注释，
@@ -455,7 +455,7 @@ Expected: **U1–U4 FAIL**（内置件与 import 点都还不存在），**U5 PA
 因为 `package.json` 里本来没有 `js-yaml`；这一条不靠"红转绿"自证，它的牙在 Task 1 Step 3
 的 `--fix` 之后由门禁二核（改一个字节的内置件、或加一条依赖，都会让它立刻红）。
 
-- [ ] **Step 2: 取上游件 + 接桩，跑到绿**
+- [x] **Step 2: 取上游件 + 接桩，跑到绿**
 
 ```bash
 curl --http1.1 -sL https://registry.npmjs.org/js-yaml/-/js-yaml-5.4.2.tgz -o /tmp/seg4/js-yaml-5.4.2.tgz
@@ -476,7 +476,7 @@ U1–U4 红、**U5 从一开始就是绿的**（Step 1 的 Expected 已按事实
 `curl --http1.1 -sSL … | tar -xzO package/dist/browser/js-yaml.esm.min.mjs | shasum -a 256`，
 已逐字写进 `THIRD-PARTY-NOTICES.md` 第五节的上游路径清单。
 
-- [ ] **Step 3: 门禁一/二/三/四跑齐**
+- [x] **Step 3: 门禁一/二/三/四跑齐**
 
 `node scripts/verify-plan-blocks.mjs` 期望 `⚠ 未落地` 仍为 0、活树红格仍只有 yml 那一格。
 `node scripts/verify-plan-blocks-teeth.mjs` 必须在一棵**带 `.git`、yml 还原到 HEAD 的全量副本**里跑
@@ -515,7 +515,7 @@ import{ 命中        23 本产物合计 0
    另三份计划的镜像从此**静默不咬**。这条断言自己会红（`读到 1 个 tag`），但红的成因看起来像
    "别的计划没有镜像"，而真相是扫描没扫全。改 `gm` 之后读数 `tag 集=段1 / 段2 / 段3 / 段4`。
 
-- [ ] **Step 4: 登记镜像（本格不进任何新文件的整文件镜像——内置件按 §0.4 明确不登记，
+- [x] **Step 4: 登记镜像（本格不进任何新文件的整文件镜像——内置件按 §0.4 明确不登记，
   桩文件不进镜像），`--fix` 只在导出树里跑，然后提交**
 
 镜像方向：`§U` 那一节在磁盘上落地了 → 整节贴进本格 Step 1 的 ` ```js ` 块（计划里此刻只有这一个
@@ -596,7 +596,7 @@ export function statsOf(value) → { nodes, depth, keys, arrayItems, longestStri
 `{ nodes, depth, keys, arrayItems, longestStringChars, bytes, lines }`）；结果区顶部那一行读数全从它出，
 装配层一个数都不自算（§W 有判据）。
 
-- [ ] **Step 1: 写 §S 二十条红判据**——**20 个坏样本**逐条断 `{line, column, index, kind}` 四格
+- [x] **Step 1: 写 §S 二十条红判据**——**20 个坏样本**逐条断 `{line, column, index, kind}` 四格
   （不是断"抛错"）：空串、只有空白、`{`、`{"a"`、`{"a":`、`[1,`、`[1,,]`、`{,}`、`{"a":1}{"b":2}`、
   `'a':1`（单引号）、`{"a":1,}`、`\x41` 坏转义、`\u12g4`、`01`、`1.`、`.5`、`+1`、`NaN`、
   `0.1.2`、一个 2,000 层嵌套。每个样本旁边写一句"这一处**为什么**是这个列"，
@@ -606,11 +606,1235 @@ export function statsOf(value) → { nodes, depth, keys, arrayItems, longestStri
   Pointer `~0`/`~1` 双向 100 次随机往返；`sortJson` 稳定（两个键在 Unicode 序上相邻时谁前谁后钉死）
   与不改入参；重复键取后写 + `duplicateKeys` 报出；与原生对拍（200 层、脏样本、Unicode）
   必须同结论。
-- [ ] **Step 2: 实现到绿**（解析器**必须迭代式**，显式栈——递归实现在 1000 层会先炸自己的调用栈；
+- [x] **Step 2: 实现到绿**（解析器**必须迭代式**，显式栈——递归实现在 1000 层会先炸自己的调用栈；
   `formatJson` 与 `statsOf` 同理）。
-- [ ] **Step 3: 登记镜像 + `--fix` + 门禁①②③⑤⑥ + 提交**（一格一提交，消息
+- [x] **Step 3: 登记镜像 + `--fix` + 门禁①②③⑤⑥ + 提交**（一格一提交，消息
   `feat(tools): 段 4 Task 2 json-core——行列号自实现，20 个坏样本逐个钉行与列（§S）`）。
 
+
+
+提交后复跑（2026-09-29，本格落地时的读数）：
+
+- 门禁一 `# tests 293 / pass 293 / fail 0`（§S 进来 20 条，273 → 293）。
+- 门禁二在 **HEAD 导出树**（`git archive HEAD` + 只叠本格那四个文件，yml 与 `dev/sass/toolkit.scss`
+  保持 HEAD 那一版）里 `exit=0`：53 个已落地镜像、未落地 0 节；两块新镜像由磁盘内容直接生成，
+  `--fix` 复跑报的是"没有可同步的镜像块"。活树跑同一条只剩 `_data/onlineTools.yml`（磁盘 141 行 ↔
+  镜像 140 行）与 `dev/sass/toolkit.scss`（磁盘 755 ↔ 镜像 684）两格红——那是另一路会话未提交的
+  改口与样式批次（§0.7 第 1 条说过的"门禁在如实报告"），**不在活树 `--fix`**，否则替他们发表。
+- 门禁三在导出树（那份树里 `git init` + 一次提交，`_data/onlineTools.yml` 是 HEAD 那一版）
+  `exit=0`，35/35 通过，末尾两条自证：副本回到全绿、实验前后工作树脏指纹一字不差。
+- 门禁五 `exit=0`（2 条 ready：idcard / codec——json 条目要到 Task 7 才进收录面）。
+- 门禁六 `exit=0`（全部变异已还原，复跑基线仍绿）。
+- 5 MiB 那一档的实测（`/tmp` 里跑，不进仓库）：4,915 行 × 5,230,836B 的数组，
+  `parseJson` 211ms（425,001 个节点）、`formatJson` 两格缩进 689ms（出去 8,120,837B，
+  已被闸门如实拒收——这正好证明"格式化会把输入顶出 5 MiB"是真实形状，装配层要按**输出**再量一次）、
+  1000 层嵌套 2ms 放行、1001 层 `depth` 拒。§7 的预算只量字节不量毫秒，这一串留作 Task 7/8 的
+   debounce 与增量渲染那一格的起点读数。
+
+本格与计划的两处口径分歧，都在磁盘这一边收敛，计划正文未改：
+
+1. `modeOf` 的报错文案要点出**常量名**（`SORT_MODES` / `INDENT_MODES`），S13 的判据钉的是这一条；
+   契约段那句"只认那一族里的档"没有指定串，实现选了更强的形状。
+2. `escapeText` 对**落单代理项**走 `\udXXX` 转义（与原生 well-formed JSON.stringify 同形）。
+   文件头那条"出去的值必须还是合法 JSON"管得住 `Infinity`，也管得住裸的半个 emoji——
+   契约段没写这一档，S20 补了三条断言把它钉住（成对的代理项仍原样走）。
+### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
+
+两块都是**磁盘全文**，用 ```js 围栏（§0.6 的硬规矩：只有整文件与整节镜像允许 ```js，
+契约段一律 ```text）。Task 2 落地时（2026-09-29）这两块是**新贴**的——`--fix` 只做整块替换、
+从不插入，所以贴的时候直接由磁盘内容生成，事后跑一次 `--fix` 复验它已经全等。
+
+#### `dev/js/tools/json-core.js`（整文件）
+
+```js
+/**
+ * JSON 核心：解析（精确行列）、格式化、压缩、排序、Pointer、转义、统计。
+ * 设计文档 §5.3 的"解析 + 校验 + 精确定位 + 格式化 + 排序 + Pointer"族，段 4 Task 2 落地。
+ *
+ * ── 这一本为什么必须自己写一遍解析器 ──
+ *
+ * `JSON.parse` 给不出**位置**。V8 的 `SyntaxError` 消息是 `Unexpected token ',' in JSON at
+ * position 7` 这一族（各引擎文案还不一样，Safari 与 Firefox 至今不同形），而 §5.3 要的是
+ * "错误处标出精确行列号"并把那一格高亮到输入框上。位置错一格和没报错一样有害：用户照着提示
+ * 去删字符，删完还是错。所以行列号只能自己算，`JSON.parse` 在本模块里一次都不出现——
+ * §S 的 S16 拿它做**对拍**（同结论、同值），那是判据用的外部尺，不是运行时依赖。
+ *
+ * ── 位置口径（§S 钉死，实现不许自创第二套）──
+ *
+ * · `line` 与 `column` 都从 1 起；
+ * · `column` 数 UTF-16 **码元**，一个 emoji 占两列——`setSelectionRange` 用的就是这个单位，
+ *   两把尺一致高亮才不会错格；
+ * · 换行只认 `\n`：CRLF 一行推进一次，`\r` 留在行内、由 `lineRange` 从行内容里切掉；
+ * · BOM（U+FEFF）占第 1 行第 1 列，**不吞**它的列位；解析端只容忍头部那**一个** BOM
+ *   （从 Windows 文件里粘出来的常见形状），第二个就按"不该出现的字符"点名；
+ * · EOF 那一格 `index = text.length`、`length = 0`，列号 = 最后一行的长度 + 1。
+ *
+ * 与原生只有两处**故意**分歧，两处都由 §S 的判据钉住，不是偶然：
+ *   1. `\uFEFF{}`（文件头带一个 BOM）：原生拒，本站收——就是上面那条 BOM 容忍；
+ *   2. `1e999`：原生收成 `Infinity`，本站按 `bad-number` 拒——工具里出去的值必须
+ *      还是合法 JSON，`Infinity` 到了下游只会变成静默的 `null`。
+ *
+ * ── 为什么解析、序列化、统计三族全是显式栈 ──
+ *
+ * 深度闸门 `MAX_DEPTH = 1000` 是本站自己定的，而 V8 的调用栈在递归下降解析器里大约撑到
+ * 几百到一千多层就要抛 `RangeError: Maximum call stack size exceeded`——那意味着一份 1000 层的
+ * 合法输入会先炸掉我的栈，再炸用户的页面（并且是 `undefined` 而不是任何可读错误）。
+ * 所以 `parseJson` / `formatJson` / `minifyJson` / `statsOf` / `sortJson` 全部用显式栈迭代；
+ * 判据里那两条 1000 层的样本就是这一族的验收（§S 的 S18）。
+ *
+ * ── 纯计算 ──
+ *
+ * 本模块不读任何环境：没有 `window` / `document` / `localStorage` / `process` / `Buffer` /
+ * `TextEncoder`，不 `import` 任何东西，也不碰网络。UTF-8 字节数自己按码元算（`utf8Bytes`），
+ * 因为浏览器里没有 `Buffer`；§S 的 S3/S18 拿 Node 的 `Buffer.byteLength` 当外部尺对这一族。
+ *
+ * ── `__proto__` ──
+ *
+ * 解析出来的对象一律用 `setOwn()` 写键：`obj['__proto__'] = v` 改的是原型而不是属性，
+ * 一份恶意 JSON 可以借此污染后续所有对象。`Object.defineProperty` 那一支让它落成真属性，
+ * 与 `JSON.parse` 的行为一致（§S 的 S16 样本集里带这一族对拍）。
+ *
+ * @module dev/js/tools/json-core.js
+ */
+
+/** 输入字节上限：spec §7「JSON 5MB」那一档，与编码页文本类的 1 MiB 是**两个不同的数** */
+export const MAX_INPUT_BYTES = 5242880;
+/** 输入行数上限：同一格里 §7 写的 20 万行 */
+export const MAX_INPUT_LINES = 200000;
+/** 容器嵌套上限：本站主动闸门；§7 的深样本是 200 层，必须放行 */
+export const MAX_DEPTH = 1000;
+/** 排序三档：不动 / 只动根 / 连数组元素一起动 */
+export const SORT_MODES = ['off', 'shallow', 'deep'];
+/** 缩进三档：两个空格、四个空格、制表符 */
+export const INDENT_MODES = ['two', 'four', 'tab'];
+/** 面板原样显示的两句话径（§W 不再自己编一句） */
+export const CORE_NOTES = {
+  deepSample: '深度闸门是 1000 层；§7 的深样本按 200 层量，这一档必须放行并且给得出统计。',
+  dupKey: '重复键不算错：后写的值覆盖先写的，出现过的每一处按 Pointer 列出来（含次数）。',
+};
+
+const INDENTS = { two: '  ', four: '    ', tab: '\t' };
+const TAB = 9, LF = 10, CR = 13, SPACE = 32, QUOTE = 34, PLUS = 43, COMMA = 44, MINUS = 45,
+  DOT = 46, SLASH = 47, ZERO = 48, NINE = 57, COLON = 58, BACKSLASH = 92, LB = 91, RB = 93,
+  LC = 123, RC = 125, TILDE = 126, BOM = 0xFEFF;
+/** 码点区间展开成数组——`const` 有暂时性死区，这一把尺必须先于用它的那一行出现 */
+const rangeOf = (from, to) => { const a = []; for (let c = from; c <= to; c++) a.push(c); return a; };
+/** 数字记号的**贪婪字符集**：先读满这一串，再验语法。于是 `01`、`1.`、`0.1.2` 都指认整记号 */
+const NUMBER_CHARS = new Set([PLUS, MINUS, DOT, ...rangeOf(ZERO, NINE), 0x45, 0x65]); // E e
+const NUMBER_RE = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+const ESCAPE_SHORT = new Map([
+  ['"', '\\"'], ['\\', '\\\\'], ['\b', '\\b'], ['\f', '\\f'], ['\n', '\\n'], ['\r', '\\r'], ['\t', '\\t'],
+]);
+const ESCAPE_VALUE = new Map([
+  ['"', '"'], ['\\', '\\'], ['/', '/'], ['b', '\b'], ['f', '\f'], ['n', '\n'], ['r', '\r'], ['t', '\t'],
+]);
+
+const isContainer = (v) => v !== null && typeof v === 'object';
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const unitOrder = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const sortedKeys = (o) => Object.keys(o).sort(unitOrder);
+const clip = (token) => (token.length <= 40 ? token : `${token.slice(0, 40)}…`);
+
+/** 用 defineProperty 而不是赋值，`__proto__` 才会落成真属性（见文件头那一段） */
+function setOwn(obj, key, value) {
+  if (key === '__proto__') Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
+  else obj[key] = value;
+}
+
+/**
+ * UTF-8 字节数：代理对算 4，BMP 按 3/2/1。浏览器里没有 `Buffer`，这一族自己数；
+ * 全模块只有这一个字节口径，`gate()` 与序列化那一族的 `bytes` 都从它出。
+ * @param {string} text
+ * @returns {number}
+ */
+function utf8Bytes(text) {
+  let total = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x80) total += 1;
+    else if (c < 0x800) total += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < text.length
+      && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff) { total += 4; i++; }
+    else total += 3;
+  }
+  return total;
+}
+
+/**
+ * 每一行的起始下标，末格补 `text.length`（所以数组长度 = 行数 + 1）。
+ * 换行只认 `\n`：这是 §S 的行口径，`gate()` 的行数、`locate()`、`lineRange()` 全读它。
+ * @param {string} text
+ * @returns {number[]}
+ */
+export function lineStarts(text) {
+  const out = [0];
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === LF) out.push(i + 1);
+  out.push(text.length);
+  return out;
+}
+
+/**
+ * 下标 → 行列。列数码元；`index` 越界时钳到 `[0, length]`，EOF 那一格也给得出行列。
+ * **每次调用都重扫一遍换行**：一次定位（坏样本报错那一格）用它；要给 N 处位置算行列，
+ * 先取一次 `lineStarts()` 自己二分，别把这一本放进循环——5 MiB 输入 × 一万次就是分钟级。
+ * @param {string} text
+ * @param {number} index
+ * @returns {{line: number, column: number}}
+ */
+export function locate(text, index) {
+  const starts = lineStarts(text);
+  const at = Math.max(0, Math.min(index | 0, text.length));
+  let lo = 0, hi = starts.length - 2, k = 0;
+  while (lo <= hi) {
+    const m = (lo + hi) >> 1;
+    if (starts[m] <= at) { k = m; lo = m + 1; } else hi = m - 1;
+  }
+  return { line: k + 1, column: at - starts[k] + 1 };
+}
+
+/**
+ * 第 `line` 行的内容区间 `[start, end)`：不含 `\n`，也不含行尾那个 `\r`。
+ * 读条与选区直接用这一格，所以 CRLF 的输入不会被高亮成"多一个字符"。
+ * @param {string} text
+ * @param {number} line 从 1 起；越界钳到第一行与最后一行
+ * @returns {{start: number, end: number}}
+ */
+export function lineRange(text, line) {
+  const starts = lineStarts(text);
+  const lines = starts.length - 1;
+  const k = Math.min(Math.max((line | 0) || 1, 1), Math.max(lines, 1)) - 1;
+  const start = starts[k];
+  let end = k + 1 < starts.length ? starts[k + 1] : text.length;
+  if (end > start && text.charCodeAt(end - 1) === LF) end -= 1;
+  if (end > start && text.charCodeAt(end - 1) === CR) end -= 1;
+  return { start, end };
+}
+
+/**
+ * 字节与行数两档闸门。`parseJson` 的第一步就是它，所以"上限"在全仓库只有一处口径。
+ * @param {string} text
+ * @returns {{ok: boolean, bytes: number, lines: number, kind: (string|null), limit: (number|null), message: string}}
+ */
+export function gate(text) {
+  if (typeof text !== 'string') throw new TypeError(`gate 只收字符串，收到的是 ${text === null ? 'null' : typeof text}`);
+  const bytes = utf8Bytes(text);
+  const lines = lineStarts(text).length - 1;
+  if (bytes > MAX_INPUT_BYTES) {
+    return {
+      ok: false, bytes, lines, kind: 'too-long', limit: MAX_INPUT_BYTES,
+      message: `输入超出上限：最多 ${MAX_INPUT_BYTES} 字节，当前 ${bytes} 字节（超出 ${bytes - MAX_INPUT_BYTES} 字节）。请删减后再解析，本站不做截断。`,
+    };
+  }
+  if (lines > MAX_INPUT_LINES) {
+    return {
+      ok: false, bytes, lines, kind: 'too-many-lines', limit: MAX_INPUT_LINES,
+      message: `输入行数超出上限：最多 ${MAX_INPUT_LINES} 行，当前 ${lines} 行（超出 ${lines - MAX_INPUT_LINES} 行）。请删减后再解析，本站不做截断。`,
+    };
+  }
+  return { ok: true, bytes, lines, kind: null, limit: null, message: '' };
+}
+
+/** 转义一段文本成 JSON 字符串字面量的**内容**（不带引号），短转义优先，其余控制字符走 \\uXXXX */
+export function escapeText(text) {
+  if (typeof text !== 'string') throw new TypeError(`escapeText 只收字符串，收到的是 ${typeof text}`);
+  const hex = (code) => `\\u${code.toString(16).padStart(4, '0')}`;
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const short = ESCAPE_SHORT.get(c);
+    if (short) { out += short; continue; }
+    const code = text.charCodeAt(i);
+    if (code < 0x20) { out += hex(code); continue; }
+    if (code >= 0xd800 && code <= 0xdfff) {
+      const next = i + 1 < text.length ? text.charCodeAt(i + 1) : -1;
+      // 成对的代理项原样走（一个 emoji 就是两格码元，与原生同形）
+      if (code <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) { out += c + text[i + 1]; i += 1; continue; }
+      // 落单的那半个：原生从 ES2019 起转成 `\udXXX`（well-formed JSON.stringify），这里同形。
+      // 吐一个裸的半个代理项出去，交出去的就**不再是合法 JSON**——与文件头拒 `Infinity` 同一条理由。
+      out += hex(code);
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+const quoteText = (text) => `"${escapeText(text)}"`;
+
+/**
+ * `escapeText` 的反向：只认 JSON 那套转义序列，`\\xNN`、`\\'`、单独的 `\\` 一律点名拒。
+ * 这一族只管转义序列，不校验串内的控制字符（那是 `parseJson` 在整文档层面管的事）。
+ * @param {string} text
+ * @returns {{ok: true, text: string, error?: undefined} | {ok: false, text: string, error: {kind: string, message: string, index: number, length: number}}}
+ */
+export function unescapeText(text) {
+  if (typeof text !== 'string') throw new TypeError(`unescapeText 只收字符串，收到的是 ${typeof text}`);
+  const bad = (index, length, why) => ({
+    ok: false, text: '',
+    error: { kind: 'bad-escape', message: `不是合法的 JSON 转义序列：${why}（第 ${index + 1} 格起）。`, index, length },
+  });
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) !== BACKSLASH) { out += text[i]; continue; }
+    if (i + 1 >= text.length) return bad(i, 1, '结尾的反斜杠后面没有内容');
+    const nx = text[i + 1];
+    if (nx === 'u') {
+      const hex = text.slice(i + 2, i + 6);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) return bad(i, 2, '\\u 后面必须是四位十六进制');
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 5;
+      continue;
+    }
+    const value = ESCAPE_VALUE.get(nx);
+    if (value === undefined) return bad(i, 2, `反斜杠后面的 ${nx === '\\' ? '（空）' : nx} 不是转义字符`);
+    out += value;
+    i += 1;
+  }
+  return { ok: true, text: out };
+}
+
+const escPointer = (s) => s.replace(/~/g, '~0').replace(/\//g, '~1');
+
+/**
+ * 段数组 → RFC 6901 Pointer。数组段用十进制下标；`~`→`~0`、`/`→`~1`。
+ * @param {Array<string|number>} segments
+ * @returns {string}
+ */
+export function toPointer(segments) {
+  let out = '';
+  for (const s of segments) out += `/${escPointer(String(s))}`;
+  return out;
+}
+
+/**
+ * Pointer → 段数组。解码按左到右单趟扫：`~01` 解成 `~1`（先 `~1`→`/` 再 `~0`→`~` 的两趟写法
+ * 会把它读成 `/`，那是把用户的数据改坏）。拒的时候只给 `{message, column}`——
+ * 指针不是文档，没有行列可言。
+ * @param {string} pointer
+ * @returns {{ok: true, segments: string[]} | {ok: false, error: {message: string, column: number}}}
+ */
+export function fromPointer(pointer) {
+  if (typeof pointer !== 'string') {
+    return { ok: false, error: { message: 'Pointer 必须是字符串。', column: 1 } };
+  }
+  if (pointer === '') return { ok: true, segments: [] };
+  if (pointer.charCodeAt(0) !== SLASH) {
+    return { ok: false, error: { message: `Pointer 必须以 / 起始（或以空串表示根），第 1 列这里是 ${pointer[0]}。`, column: 1 } };
+  }
+  const parts = pointer.slice(1).split('/');
+  const segments = [];
+  let offset = 1;                                  // parts[0] 在原串里的下标
+  for (const part of parts) {
+    let seg = '';
+    for (let k = 0; k < part.length; k++) {
+      if (part.charCodeAt(k) !== TILDE) { seg += part[k]; continue; }
+      const nx = part[k + 1];
+      if (nx !== '0' && nx !== '1') {
+        return {
+          ok: false,
+          error: { message: `~ 后面只能是 0 或 1，第 ${offset + k + 1} 列这里是 ${nx === undefined ? '（结尾）' : nx}。`, column: offset + k + 1 },
+        };
+      }
+      seg += nx === '0' ? '~' : '/';
+      k += 1;
+    }
+    segments.push(seg);
+    offset += part.length + 1;                     // 吃掉那一个 /
+  }
+  return { ok: true, segments };
+}
+
+/**
+ * 父指针 + 子键 = 子指针。父串原样接上，不重解一遍再重编（那会丢已有的转义）。
+ * @param {string} parent
+ * @param {string|number} keyOrIndex
+ * @returns {string}
+ */
+export function pointerChild(parent, keyOrIndex) {
+  return `${parent}/${escPointer(String(keyOrIndex))}`;
+}
+
+/**
+ * 统计五格：值节点总数、容器最大层数、键总数、数组元素总数、最长字符串的码元数。
+ * 显式栈（见文件头那条），键与字符串值一起进"最长字符串"这一格。
+ * @param {unknown} value
+ * @returns {{nodes: number, depth: number, keys: number, arrayItems: number, longestStringChars: number}}
+ */
+export function statsOf(value) {
+  const stats = { nodes: 0, depth: 0, keys: 0, arrayItems: 0, longestStringChars: 0 };
+  const bumpString = (s) => { if (s.length > stats.longestStringChars) stats.longestStringChars = s.length; };
+  if (typeof value === 'string') { stats.nodes = 1; bumpString(value); return stats; }
+  if (!isContainer(value)) return { ...stats, nodes: 1 };
+  const stack = [{ v: value, level: 1 }];
+  while (stack.length) {
+    const { v, level } = stack.pop();
+    stats.nodes += 1;
+    if (level > stats.depth) stats.depth = level;
+    if (Array.isArray(v)) {
+      stats.arrayItems += v.length;
+      for (let i = 0; i < v.length; i++) {
+        const c = v[i];
+        if (isContainer(c)) stack.push({ v: c, level: level + 1 });
+        else { stats.nodes += 1; if (typeof c === 'string') bumpString(c); }
+      }
+    } else {
+      const keys = Object.keys(v);
+      stats.keys += keys.length;
+      for (const k of keys) {
+        bumpString(k);
+        const c = v[k];
+        if (isContainer(c)) stack.push({ v: c, level: level + 1 });
+        else { stats.nodes += 1; if (typeof c === 'string') bumpString(c); }
+      }
+    }
+  }
+  return stats;
+}
+
+/**
+ * 唯一解析入口：不抛，坏输入返回 `{ok:false,error}`；入参不是字符串才抛 TypeError。
+ * 错误七格 `{kind, message, index, length, line, column, snippet}` 里，`index` 指向出错那一个字符，
+ * `unterminated*` 两类指向 EOF 那一格；闸门两档（`too-long` / `too-many-lines`）没有位置可指，
+ * 位置给的是 EOF 那一格、`snippet` 给空串——绝不把那一大串回显出去。
+ * @param {string} text
+ * @returns {{ok: true, value: unknown, depth: number, nodeCount: number, duplicateKeys: Array<{pointer: string, times: number}>, stats: object}
+ *   | {ok: false, error: {kind: string, message: string, index: number, length: number, line: number, column: number, snippet: string}}}
+ */
+export function parseJson(text) {
+  if (typeof text !== 'string') throw new TypeError(`parseJson 只收字符串，收到的是 ${text === null ? 'null' : typeof text}`);
+  const g = gate(text);
+  if (!g.ok) {
+    const pos = locate(text, text.length);
+    return {
+      ok: false,
+      error: { kind: g.kind, message: g.message, index: text.length, length: 0, line: pos.line, column: pos.column, snippet: '' },
+    };
+  }
+
+  const n = text.length;
+  const fail = (kind, why, index, length) => {
+    const at = Math.max(0, Math.min(index, n));
+    const pos = locate(text, at);
+    const range = lineRange(text, pos.line);
+    return {
+      ok: false,
+      error: {
+        kind, message: `${why}（第 ${pos.line} 行第 ${pos.column} 列）。`, index: at, length,
+        line: pos.line, column: pos.column, snippet: text.slice(range.start, range.end),
+      },
+    };
+  };
+  const eof = (kind, why) => fail(kind, why, n, 0);
+  const here = (index) => {
+    const c = text.charCodeAt(index);
+    return c >= 0x20 && c !== BOM && c !== BACKSLASH ? `「${text[index]}」` : `U+${c.toString(16).toUpperCase().padStart(4, '0')}`;
+  };
+
+  /** 只跳过头部那一个 BOM：其余非空白字符一律由调用侧点名 */
+  const ws = (from) => {
+    let k = from;
+    while (k < n) {
+      const c = text.charCodeAt(k);
+      if (c === SPACE || c === TAB || c === LF || c === CR) { k += 1; continue; }
+      if (c === BOM && k === 0) { k += 1; continue; }
+      break;
+    }
+    return k;
+  };
+
+  const readEscape = (k) => {
+    if (k + 1 >= n) return { bad: '结尾的反斜杠后面没有内容', index: k, length: 1 };
+    const nx = text[k + 1];
+    if (nx === 'u') {
+      const hex = text.slice(k + 2, k + 6);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) return { bad: '\\u 后面必须是四位十六进制', index: k, length: 2 };
+      return { ch: String.fromCharCode(parseInt(hex, 16)), next: k + 6 };
+    }
+    const value = ESCAPE_VALUE.get(nx);
+    if (value === undefined) return { bad: `反斜杠后面的 ${nx} 不是转义字符`, index: k, length: 2 };
+    return { ch: value, next: k + 2 };
+  };
+
+  /** `from` 指向开引号；返回 {ok,value,next} 或 {bad:{kind,why,index,length}} */
+  const readString = (from) => {
+    let k = from + 1;
+    let cut = k;
+    let out = '';
+    while (k < n) {
+      const c = text.charCodeAt(k);
+      if (c === QUOTE) return { ok: true, value: out + text.slice(cut, k), next: k + 1 };
+      if (c === BACKSLASH) {
+        out += text.slice(cut, k);
+        const e = readEscape(k);
+        if (e.bad) return { bad: { kind: 'bad-escape', why: `不是合法的 JSON 转义序列：${e.bad}`, index: e.index, length: e.length } };
+        out += e.ch;
+        k = e.next;
+        cut = k;
+        continue;
+      }
+      if (c === LF || c === CR) {
+        return { bad: { kind: 'unterminated-string', why: `字符串没闭合就遇到了换行，前面还有 ${clip(text.slice(from, Math.min(k, from + 44)))}`, index: k, length: 1 } };
+      }
+      if (c < 32) {
+        return { bad: { kind: 'unexpected-char', why: `字符串里有未转义的控制字符 U+${c.toString(16).toUpperCase().padStart(4, '0')}，要写成 \\n、\\t 或 \\uXXXX`, index: k, length: 1 } };
+      }
+      k += 1;
+    }
+    return { bad: { kind: 'unterminated-string', why: '字符串没闭合就到了输入结尾', index: n, length: 0 } };
+  };
+
+  const readNumber = (from) => {
+    let k = from;
+    while (k < n && NUMBER_CHARS.has(text.charCodeAt(k))) k += 1;
+    const token = text.slice(from, k);
+    if (!NUMBER_RE.test(token)) {
+      return { bad: { kind: 'bad-number', why: `数字写法不合法：${clip(token)}（本站只认 JSON 的数字：不许前导零、不许裸小数点、不许 NaN 或 Infinity）`, index: from, length: token.length } };
+    }
+    const v = Number(token);
+    if (!Number.isFinite(v)) {
+      return { bad: { kind: 'bad-number', why: `数值超出可表示范围：${clip(token)} 会变成 Infinity，本站不产 Infinity`, index: from, length: token.length } };
+    }
+    return { ok: true, value: v, next: k };
+  };
+
+  const LITERALS = new Map([[0x74, 'true'], [0x66, 'false'], [0x6e, 'null']]);
+  const readLiteral = (from) => {
+    let k = from;
+    while (k < n && /[a-z]/.test(text[k])) k += 1;
+    const token = text.slice(from, k);
+    const want = LITERALS.get(text.charCodeAt(from));
+    if (token !== want) {
+      return { bad: { kind: 'unexpected-char', why: `${clip(token)} 不是合法的 JSON 值（本站不认 NaN、Infinity、单引号与未加引号的键）`, index: from, length: 1 } };
+    }
+    return { ok: true, value: want === 'true' ? true : want === 'false' ? false : null, next: k };
+  };
+
+  const frames = [];
+  const dupOrder = [];
+  const dupTimes = new Map();
+  let root = undefined, nodes = 0, maxDepth = 0;
+
+  // 每放一个成员就把这一格的 count 加一：`[]` 与 `[1,]` 的分别、`{}` 与 `{"a":1,}` 的分别，
+  // 全押在这一格上（收尾分支靠 count===0 认"空容器"，不是靠括号后面紧跟的字符）。
+  const place = (v) => {
+    nodes += 1;
+    if (!frames.length) { root = v; return; }
+    const f = frames[frames.length - 1];
+    f.count += 1;
+    if (f.kind === 'arr') { f.node.push(v); return; }
+    if (hasOwn(f.node, f.key)) {
+      const p = pointerChild(f.ptr, f.key);
+      if (!dupTimes.has(p)) { dupTimes.set(p, 2); dupOrder.push(p); } else dupTimes.set(p, dupTimes.get(p) + 1);
+    }
+    setOwn(f.node, f.key, v);
+  };
+
+  let state = 'value';
+  let i = ws(0);
+  if (i >= n) return fail('empty', '输入是空的或只有空白字符，没有任何可解析的内容', n, 0);
+
+  for (;;) {
+    i = ws(i);
+    const top = () => frames[frames.length - 1];
+
+    if (state === 'value') {
+      if (i >= n) return eof('unterminated', '这里在等一个值，输入却结束了');
+      const c = text.charCodeAt(i);
+      if (c === LC || c === LB) {
+        if (frames.length + 1 > MAX_DEPTH) {
+          return fail('depth', `嵌套深度超出上限：最多 ${MAX_DEPTH} 层，第 ${frames.length + 1} 层的容器出现在这里`, i, 1);
+        }
+        const parent = frames.length ? top() : null;
+        const ptr = parent
+          ? (parent.kind === 'arr' ? pointerChild(parent.ptr, parent.node.length) : pointerChild(parent.ptr, parent.key))
+          : '';
+        frames.push({ kind: c === LC ? 'obj' : 'arr', node: c === LC ? {} : [], key: null, ptr, count: 0 });
+        if (frames.length > maxDepth) maxDepth = frames.length;
+        i += 1;
+        state = c === LC ? 'key' : 'value';
+        continue;
+      }
+      if (c === RB && frames.length && top().kind === 'arr' && top().count === 0) {
+        const f = frames.pop(); i += 1; place(f.node); state = 'sep'; continue;
+      }
+      if (c === QUOTE) {
+        const s = readString(i);
+        if (s.bad) return fail(s.bad.kind, s.bad.why, s.bad.index, s.bad.length);
+        i = s.next; place(s.value); state = 'sep'; continue;
+      }
+      if (c === MINUS || (c >= ZERO && c <= NINE)) {
+        const num = readNumber(i);
+        if (num.bad) return fail(num.bad.kind, num.bad.why, num.bad.index, num.bad.length);
+        i = num.next; place(num.value); state = 'sep'; continue;
+      }
+      if (LITERALS.has(c)) {
+        const lit = readLiteral(i);
+        if (lit.bad) return fail(lit.bad.kind, lit.bad.why, lit.bad.index, lit.bad.length);
+        i = lit.next; place(lit.value); state = 'sep'; continue;
+      }
+      return fail('unexpected-char', `这里该放一个值，来的是 ${here(i)}（本站只认 JSON，不猜 JSON5 与注释）`, i, 1);
+    }
+
+    if (state === 'key') {
+      if (i >= n) return eof('unterminated', '这里在等一个键名，输入却结束了');
+      const f = top();
+      if (text.charCodeAt(i) === RC && f.count === 0) { frames.pop(); i += 1; place(f.node); state = 'sep'; continue; }
+      if (text.charCodeAt(i) !== QUOTE) {
+        return fail('unexpected-char', `这里该放一个用双引号包起来的键名，来的是 ${here(i)}`, i, 1);
+      }
+      const s = readString(i);
+      if (s.bad) return fail(s.bad.kind, s.bad.why, s.bad.index, s.bad.length);
+      i = s.next; f.key = s.value; state = 'colon'; continue;
+    }
+
+    if (state === 'colon') {
+      if (i >= n) return eof('unterminated', '键名读完在等冒号，输入却结束了');
+      if (text.charCodeAt(i) !== COLON) {
+        return fail('unexpected-char', `键名后面该是冒号，来的是 ${here(i)}`, i, 1);
+      }
+      i += 1; state = 'value'; continue;
+    }
+
+    // state === 'sep'
+    if (!frames.length) break;
+    if (i >= n) return eof('unterminated', '这里在等逗号或收尾的括号，输入却结束了');
+    const f = top();
+    const c = text.charCodeAt(i);
+    if (c === COMMA) { i += 1; state = f.kind === 'arr' ? 'value' : 'key'; continue; }
+    if ((f.kind === 'arr' && c === RB) || (f.kind === 'obj' && c === RC)) {
+      frames.pop(); i += 1; place(f.node); state = 'sep'; continue;
+    }
+    return fail('unexpected-char', `值读完以后这里该是逗号或收尾的括号，来的是 ${here(i)}`, i, 1);
+  }
+
+  const after = ws(i);
+  if (after < n) {
+    return fail('trailing', `根值已经读完，后面还多出 ${n - after} 个字符，第一个多余的是 ${here(after)}`, after, 1);
+  }
+
+  const stats = statsOf(root);
+  return {
+    ok: true,
+    value: root,
+    depth: maxDepth,
+    nodeCount: nodes,
+    duplicateKeys: dupOrder.map((pointer) => ({ pointer, times: dupTimes.get(pointer) })),
+    stats: { ...stats, bytes: g.bytes, lines: g.lines },
+  };
+}
+
+/**
+ * 值 → 文本。显式栈迭代（同文件头那一条），`unit` 是缩进单元、空串就是紧凑。
+ * 转义走 `escapeText`，数字走 `String()`，两族都与原生同形。
+ */
+function serialize(value, unit) {
+  if (!isContainer(value)) return value === undefined ? 'null' : typeof value === 'string' ? quoteText(value) : String(value);
+  // 键名表与长度只在开框时数一次，存在框上：每轮都 `Object.keys(f.v)` 会让一个 n 键的对象读 n 次，
+  // 整体退化成 O(n²)（§7 的预算量的是 5 MiB 那一档，这里省的是最坏情况）。
+  const fresh = (v, level) => {
+    const isArr = Array.isArray(v);
+    const keys = isArr ? null : Object.keys(v);
+    return { isArr, v, keys, len: isArr ? v.length : keys.length, i: 0, level, first: true };
+  };
+  const out = [];
+  const stack = [];
+  const open = (v, level) => {
+    stack.push(fresh(v, level));
+    out.push(Array.isArray(v) ? '[' : '{');
+  };
+  const sizeOf = (v) => (Array.isArray(v) ? v.length : Object.keys(v).length);
+  open(value, 0);
+  while (stack.length) {
+    const f = stack[stack.length - 1];
+    if (f.i < f.len) {
+      const isArr = f.isArr;
+      const key = isArr ? null : f.keys[f.i];
+      const child = isArr ? f.v[f.i] : f.v[key];
+      f.i += 1;
+      if (!f.first) out.push(',');
+      if (unit) out.push(`\n${unit.repeat(f.level + 1)}`);
+      f.first = false;
+      if (!isArr) out.push(`${quoteText(key)}:${unit ? ' ' : ''}`);
+      if (isContainer(child) && sizeOf(child) > 0) open(child, f.level + 1);
+      else if (isContainer(child)) out.push(Array.isArray(child) ? '[]' : '{}');
+      else out.push(child === undefined ? 'null' : typeof child === 'string' ? quoteText(child) : String(child));
+      continue;
+    }
+    if (unit && !f.first) out.push(`\n${unit.repeat(f.level)}`);
+    out.push(f.isArr ? ']' : '}');
+    stack.pop();
+  }
+  return out.join('');
+}
+
+/**
+ * 三档枚举只有一把尺。**调用方给的模式不在那一族里就当场 `RangeError`**，消息里点出常量名，
+ * 好让人顺着名字找到定义处（静默回退到默认档，是把"参数写错"藏成"输出莫名其妙"）。
+ * @param {string} mode
+ * @param {readonly string[]} list
+ * @param {string} listName 常量名，只出现在消息里
+ * @param {string} api 谁在收这个参数
+ * @returns {string}
+ */
+const modeOf = (mode, list, listName, api) => {
+  if (!list.includes(mode)) throw new RangeError(`${api} 只认 ${listName} 里的那几档：${list.join(' | ')}`);
+  return mode;
+};
+
+/**
+ * 文本 → 文本：解析、按需排序、按档缩进。坏输入把 `parseJson` 的那一格原样交出去，不吞也不改写。
+ * @param {string} text
+ * @param {{indent?: 'two'|'four'|'tab', sort?: 'off'|'shallow'|'deep'}} [options]
+ * @returns {{ok: true, text: string, bytes: number, error?: undefined} | {ok: false, text: string, bytes: 0, error: object}}
+ */
+export function formatJson(text, options = {}) {
+  const { indent = 'two', sort = 'off' } = options;
+  modeOf(indent, INDENT_MODES, 'INDENT_MODES', 'formatJson 的 indent');
+  modeOf(sort, SORT_MODES, 'SORT_MODES', 'formatJson 的 sort');
+  const parsed = parseJson(text);
+  if (!parsed.ok) return { ok: false, text: '', bytes: 0, error: parsed.error };
+  const out = serialize(sortJson(parsed.value, sort), INDENTS[indent]);
+  return { ok: true, text: out, bytes: utf8Bytes(out) };
+}
+
+/**
+ * 文本 → 紧凑文本：只删容器之间的空白，字符串内部一个空格都不动。
+ * @param {string} text
+ * @returns {{ok: true, text: string, bytes: number, error?: undefined} | {ok: false, text: string, bytes: 0, error: object}}
+ */
+export function minifyJson(text) {
+  const parsed = parseJson(text);
+  if (!parsed.ok) return { ok: false, text: '', bytes: 0, error: parsed.error };
+  const out = serialize(parsed.value, '');
+  return { ok: true, text: out, bytes: utf8Bytes(out) };
+}
+
+/**
+ * 值 → 排好键序的值。**不改入参**：`off` 交回同一个引用，`shallow` 只重建根，
+ * `deep` 用显式栈把每一层容器重建（数组只克隆、元素顺序一个不挪）。
+ * @param {unknown} value
+ * @param {'off'|'shallow'|'deep'} mode
+ * @returns {unknown}
+ */
+export function sortJson(value, mode) {
+  modeOf(mode, SORT_MODES, 'SORT_MODES', 'sortJson 的 mode');
+  if (mode === 'off' || !isContainer(value)) return value;
+  if (mode === 'shallow') {
+    if (Array.isArray(value)) return value;
+    const out = {};
+    for (const k of sortedKeys(value)) setOwn(out, k, value[k]);
+    return out;
+  }
+  const copy = (v) => (Array.isArray(v) ? [] : {});
+  const root = copy(value);
+  const stack = [{ src: value, dst: root }];
+  while (stack.length) {
+    const { src, dst } = stack.pop();
+    if (Array.isArray(src)) {
+      for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (isContainer(c)) { const cc = copy(c); dst[i] = cc; stack.push({ src: c, dst: cc }); } else dst[i] = c;
+      }
+      continue;
+    }
+    for (const k of sortedKeys(src)) {
+      const c = src[k];
+      if (isContainer(c)) { const cc = copy(c); setOwn(dst, k, cc); stack.push({ src: c, dst: cc }); }
+      else setOwn(dst, k, c);
+    }
+  }
+  return root;
+}
+```
+
+#### `scripts/toolkit-tests.mjs` §S（整节，从 `// ── §S` 到文件末尾）
+
+```js
+// ── §S JSON 核心（tools/json-core.js，段 4 Task 2）───────────────────────────
+// 这一节钉的只有一件事：**位置说得准**。设计文档 §5.3 要"错误处标出精确行列号"，
+// 而位置错了和没报错一样有害，所以 S1 那张表逐个断 {kind,index,length,line,column,snippet}
+// 六格，不断"有没有抛"（parseJson 全程不抛，坏输入是返回值——只有入参类型不对才抛 TypeError）。
+// 位置口径写死在这里，实现不许自创第二套：
+//   · line 与 column 都从 1 起；
+//   · column 数的是 UTF-16 **码元**，所以一个 emoji 占两列（它本来就是这个长度，
+//     `setSelectionRange` 用的也是这个单位，两把尺一致才对得上选区）；
+//   · 换行只认 `\n`，于是 CRLF 一行只推进一次、`\r` 留在行内被 lineRange 切掉；
+//   · BOM（U+FEFF）不吞，它就是第 1 行第 1 列那一个字符；
+//   · EOF 那一格的 index = text.length、length = 0，列号 = 最后一行的长度 + 1。
+// 与原生 `JSON.parse` 只要求**结论**同形（同一个输入两边要么都收、要么都拒），
+// 不要求错误消息同形——V8 的消息没有列号，且各引擎文案不同（S16 量的是这一条）。
+// MAX_INPUT_BYTES 在 §L 那一本 codec.js 里已经占了顶层名（1 MiB 那一档），这里借别名读 JSON 那一档的
+// 5 MiB——两个数不同名就会互相盖掉，node --check 当场报"已声明"，不会静默读错闸门（§P 的 RE_INPUT_BYTES 同理）。
+const { MAX_INPUT_BYTES: MAX_JSON_BYTES, MAX_INPUT_LINES, MAX_DEPTH, SORT_MODES, INDENT_MODES, CORE_NOTES,
+  gate, locate, lineStarts, lineRange, parseJson, formatJson, minifyJson, sortJson,
+  toPointer, fromPointer, pointerChild, escapeText, unescapeText, statsOf } =
+  await import('../dev/js/tools/json-core.js');
+
+/** 坏样本的返回部分：不是 {ok:true} 就叫人红，免得断言里到处 .error.xxx */
+const sErr = (text) => {
+  const r = parseJson(text);
+  if (r.ok) throw new Error(`样本应当被拒，却解析成功：${JSON.stringify(text)}`);
+  return r.error;
+};
+/** 剥注释扫源码：闸门只许有一处口径，扫的是代码不是文档里的自我声明（与 §K/§L 同一形状） */
+const sCode = () => read('dev/js/tools/json-core.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 确定性伪随机：S10 那一百次往返不能靠 Math.random，红第二次就得能原样重放 */
+const sRng = (seed = 20260929) => {
+  let s = seed;
+  return () => { s = (s * 1103515245 + 12345) & 0x7FFFFFFF; return s / 0x7FFFFFFF; };
+};
+
+/**
+ * S1 的表：`[编号, 样本, kind, index, length, line, column, snippet, 为什么是这个位置]`。
+ * 最后一列不是装饰——每一格的列号都得说得出理由，否则这张表只是在抄实现的输出。
+ */
+const S_BAD = [
+  ['S1a', '', 'empty', 0, 0, 1, 1, '', '空文本没有内容可指，EOF 就是 0 那一格'],
+  ['S1b', '   \n ', 'empty', 5, 0, 2, 2, ' ',
+    '全是空白也判"没有内容"；index 落在 EOF（5），换行只有那一个 \\n，所以是第 2 行、行内第 2 列'],
+  ['S1c', '{', 'unterminated', 1, 0, 1, 2, '{', '对象刚开就没了，EOF 在下标 1'],
+  ['S1d', '{"a"', 'unterminated', 4, 0, 1, 5, '{"a"', '键读完等冒号，等到的是 EOF'],
+  ['S1e', '{"a":', 'unterminated', 5, 0, 1, 6, '{"a":', '冒号读完等值，等到的是 EOF'],
+  ['S1f', '[1,', 'unterminated', 3, 0, 1, 4, '[1,', '逗号读完等下一个元素，等到的是 EOF'],
+  ['S1g', '[1,,]', 'unexpected-char', 3, 1, 1, 4, '[1,,]',
+    '指认的是第二个逗号（下标 3）：第一个逗号是合法分隔符，"该放元素的位置"来的是它后面那一个'],
+  ['S1h', '{,}', 'unexpected-char', 1, 1, 1, 2, '{,}', '空对象里容不下逗号，列 = 下标 + 1'],
+  ['S1i', '{"a":1}{"b":2}', 'trailing', 7, 1, 1, 8, '{"a":1}{"b":2}',
+    '根值已经收完，第二个 { 是"多出来的内容"，指认它的起始格'],
+  ['S1j', "'a':1", 'unexpected-char', 0, 1, 1, 1, "'a':1",
+    '单引号不是 JSON 的字符串定界符（本站不认 JSON5 方言，也不猜用户想要哪种）'],
+  ['S1k', '{"a":1,}', 'unexpected-char', 7, 1, 1, 8, '{"a":1,}',
+    '尾随逗号：逗号之后该来键，来的是 } —— 这一格就是计划里那句"尾随逗号点名拒"'],
+  ['S1l', '{"a":"\\x41"}', 'bad-escape', 6, 2, 1, 7, '{"a":"\\x41"}',
+    'index 指向反斜杠本身，length=2 是那两格；\\xNN 不是 JSON 的转义序列'],
+  ['S1m', '{"a":"\\u12g4"}', 'bad-escape', 6, 2, 1, 7, '{"a":"\\u12g4"}',
+    '同样是反斜杠那一格：\\u 后必须四位十六进制，g 把它打断，但错的是这个转义序列不是那个字母'],
+  ['S1n', '01', 'bad-number', 0, 2, 1, 1, '01',
+    '数字记号一次读完再验语法，所以指认的是整记号（长度 2）而不是第二个 1'],
+  ['S1o', '1.', 'bad-number', 0, 2, 1, 1, '1.', '小数点后面必须有数字；记号长度就是 2'],
+  ['S1p', '.5', 'unexpected-char', 0, 1, 1, 1, '.5', '. 不能起始一个值，压根进不了数字分支'],
+  ['S1q', '+1', 'unexpected-char', 0, 1, 1, 1, '+1', '同理：+ 不是值的起始字符'],
+  ['S1r', 'NaN', 'unexpected-char', 0, 1, 1, 1, 'NaN',
+    'N 也不能起始一个值——本站不产 NaN/Infinity，parse 阶段就拒'],
+  ['S1s', '0.1.2', 'bad-number', 0, 5, 1, 1, '0.1.2',
+    '与 S1n 同一口径：贪婪读满 [0-9+.eE-] 那一串再验，所以是整记号而非中间那个点'],
+  ['S1t', null, 'depth', MAX_DEPTH, 1, 1, MAX_DEPTH + 1, '['.repeat(MAX_DEPTH + 1),
+    '第 1001 个容器（下标 1000）越闸门：列 = 下标 + 1 = 1001，正好等于 MAX_DEPTH + 1'],
+];
+
+test('S1 二十个坏样本逐个钉行与列，六格一起断（不是断"抛错"）', () => {
+  for (const [id, text, kind, index, length, line, column, snippet, why] of S_BAD) {
+    const src = text === null ? '['.repeat(MAX_DEPTH + 1) : text;
+    const e = sErr(src);
+    assert.equal(e.kind, kind, `${id} 的 kind`);
+    assert.equal(e.index, index, `${id} 的 index —— ${why}`);
+    assert.equal(e.length, length, `${id} 的 length —— ${why}`);
+    assert.equal(e.line, line, `${id} 的 line —— ${why}`);
+    assert.equal(e.column, column, `${id} 的 column —— ${why}`);
+    assert.equal(e.snippet, snippet, `${id} 的 snippet（出错行原样，供读条与选区用）`);
+  }
+});
+
+test('S2 坏样本还各带一句人话：message 非空、含行与列两个读数', () => {
+  for (const [id, text] of S_BAD) {
+    if (id === 'S1t') continue;   // 深度那一档的 message 由 S20 单独核
+    const e = sErr(text === null ? '['.repeat(MAX_DEPTH + 1) : text);
+    assert.ok(typeof e.message === 'string' && e.message.length > 0, `${id} 的 message 不能是空串`);
+    assert.match(e.message, /第\s*\d+\s*行/, `${id} 的 message 要给出行号：${e.message}`);
+    assert.match(e.message, /第\s*\d+\s*列/, `${id} 的 message 要给出列号：${e.message}`);
+  }
+});
+
+test('S3 闸门按 UTF-8 字节数算，不是 .length：一个汉字三字节的那一档', () => {
+  const cn = '中'.repeat(MAX_JSON_BYTES / 3 - 2);
+  const src = JSON.stringify({ a: cn });
+  const g = gate(src);
+  assert.equal(typeof g.bytes, 'number');
+  assert.ok(g.bytes > src.length, 'UTF-8 字节数必须大于码元数');
+  assert.equal(g.bytes, Buffer.byteLength(src, 'utf8'),
+    '字节口径必须等于 Node 的 utf8 编码长度（本站不许用 Buffer，但判据拿它当外部尺）');
+});
+
+test('S4 正好 5 MiB 放行、多一字节整体拒绝且不回显那一大串', () => {
+  const atLimit = 'a'.repeat(MAX_JSON_BYTES);
+  assert.equal(gate(atLimit).ok, true, '正好 5 MiB 必须放行（边界不许多算一字节）');
+  assert.equal(gate(atLimit).bytes, MAX_JSON_BYTES);
+  const over = `${atLimit}a`;
+  const g = gate(over);
+  assert.equal(g.ok, false);
+  assert.equal(g.kind, 'too-long');
+  assert.equal(g.limit, MAX_JSON_BYTES);
+  assert.match(g.message, /超出/, '闸门的话术要出现"超出"两个字（S4 判据点名的就是它）');
+  assert.match(g.message, /5242880/, `闸门要把上限说出来：${g.message}`);
+  const e = sErr(over);
+  assert.equal(e.kind, 'too-long', 'parseJson 的第一步就是 gate：越界时给的是闸门那一格，不是解析错误');
+  assert.ok(!/aaaa/.test(e.message) && !/aaaa/.test(e.snippet),
+    '拒绝时不许把那一大串回显进 message 或 snippet（§5.4 那句的反面就是黑箱刷屏）');
+  assert.match(e.message, /超出\s*1\s*字节/,
+    `message 要给出差额数字，口径是"超出 N 字节"：${e.message}`);
+  assert.ok(e.message.includes(String(MAX_JSON_BYTES)),
+    `message 要同时给出上限，用户才知道该删多少：${e.message}`);
+});
+
+test('S5 正好 20 万行放行、多一行拒；行口径与 lineStarts 同源', () => {
+  const atLimit = `${'a\n'.repeat(MAX_INPUT_LINES - 1)}a`;
+  assert.equal(lineStarts(atLimit).length - 1, MAX_INPUT_LINES, '行数以 lineStarts 为准：行数 + 1 格');
+  assert.equal(gate(atLimit).ok, true, '正好 20 万行必须放行');
+  assert.equal(gate(atLimit).lines, MAX_INPUT_LINES);
+  const over = `${atLimit}\n`;
+  const g = gate(over);
+  assert.equal(g.ok, false);
+  assert.equal(g.kind, 'too-many-lines');
+  assert.equal(g.limit, MAX_INPUT_LINES);
+  assert.equal(sErr(over).kind, 'too-many-lines');
+});
+
+test('S6 locate：CRLF 只算一次换行，\\r 留在行内不算第二行', () => {
+  const t = '{\r\n  "a": ,\r\n}';
+  assert.deepEqual(locate(t, t.indexOf(',')), { line: 2, column: 8 },
+    'CRLF 是一行，不是两行；列从第 2 行的行首（下标 3）起算，逗号在那一行第 8 列');
+  assert.deepEqual(locate(t, t.indexOf('}')), { line: 3, column: 1 });
+  assert.deepEqual(locate(t, 0), { line: 1, column: 1 });
+  assert.deepEqual(lineStarts(t), [0, 3, 13, 14],
+    '\\r\\n 只在 \\n 处断行，所以第 2 行从下标 3 起、第 3 行从 13 起，末格是 length');
+  assert.equal(sErr(t).line, 2, '出错的是第二行那个逗号');
+  assert.equal(sErr(t).column, 8);
+});
+
+test('S7 locate：BOM 不吞，它就是第 1 行第 1 列那一个字符', () => {
+  // 样本里的 BOM 一律写成 \uFEFF 转义而不是隐形字符：计划镜像、diff、grep 都看得见它
+  const t = '\uFEFF{"a":';
+  assert.equal(t.charCodeAt(0), 0xFEFF, '夹具自检：这一格真的带 BOM，否则下面几条断言全在骗人');
+  assert.equal(t.length, 6);
+  assert.deepEqual(lineStarts(t), [0, 6], 'BOM 不单独成行，也不许被当空白跳掉');
+  assert.deepEqual(locate(t, 0), { line: 1, column: 1 }, 'BOM 占第 1 列，后面的列号依次右移');
+  assert.deepEqual(locate(t, 1), { line: 1, column: 2 });
+  const e = sErr(t);
+  assert.equal(e.kind, 'unterminated');
+  assert.equal(e.index, 6);
+  assert.equal(e.column, 7, '带 BOM 的坏输入，列号把 BOM 也算进去（与原生"跳过 BOM"不同，但选区口径必须一致）');
+  assert.equal(e.snippet, t);
+  // 容忍与位置是两件事：解析器只跳过头部**那一个** BOM，列号照旧把它算进第 1 列
+  const good = '\uFEFF{"a":1}';
+  assert.equal(parseJson(good).ok, true, '从 Windows 文件里粘出来的带头 BOM 要收，不能让用户删了才知道能解析');
+  assert.throws(() => JSON.parse(good),
+    '这是本站与原生的一处**故意**分歧（原生拒 BOM），S16 把它和 1e999 一起记成两条明说的例外');
+  assert.equal(parseJson(good).value.a, 1);
+  assert.equal(sErr('\uFEFF\uFEFF{"a":1}').kind, 'unexpected-char', '第二个 BOM 不是空白：只容一个');
+  const tail = sErr('{"a":1}\uFEFF');
+  assert.equal(tail.kind, 'trailing', 'BOM 出现在值之后就不是空白，按多余内容点名');
+  assert.deepEqual([tail.index, tail.column], [7, 8]);
+});
+
+test('S8 locate：emoji 是代理对，列号按 UTF-16 码元走（与选区同一把尺）', () => {
+  const t = '{"a":"\uD83D\uDE00",';
+  assert.equal(t.length, 10, '一个 emoji 在这里就是两个码元');
+  assert.deepEqual(locate(t, 9), { line: 1, column: 10 },
+    '列号必须与 setSelectionRange 的下标口径一致，否则高亮会错一格');
+  assert.deepEqual(locate(t, 5), { line: 1, column: 6 }, '高代理那一个码元本身也是一列');
+  assert.equal(sErr(t).kind, 'unterminated');
+  assert.equal(sErr(t).index, 10);
+});
+
+test('S9 lineRange 给出「行内 \\r 之前」的区间，供读条与选区直接用', () => {
+  const t = 'a\r\nbb\nccc';
+  assert.deepEqual(lineRange(t, 1), { start: 0, end: 1 }, '\\r 不算进行内容');
+  assert.deepEqual(lineRange(t, 2), { start: 3, end: 5 });
+  assert.deepEqual(lineRange(t, 3), { start: 6, end: 9 });
+  assert.deepEqual(lineRange(t, 0), { start: 0, end: 1 }, '行号从 1 起，第 0 档钳在第 1 行而不是越界');
+  assert.deepEqual(lineRange(t, 99), { start: 6, end: 9 }, '越界那一档钳到最后一行');
+  assert.equal(t.slice(lineRange(t, 2).start, lineRange(t, 2).end), 'bb');
+});
+
+test('S10 Pointer：~0/~1 编码与解码互为逆函数，100 次种子往返逐个键原样回来', () => {
+  assert.equal(toPointer([]), '', '空段数组就是根，指针是空串而不是 /');
+  assert.deepEqual(fromPointer(''), { ok: true, segments: [] }, '根反过来也解成空段，两边对称');
+  assert.equal(toPointer(['a', 'b']), '/a/b');
+  assert.equal(toPointer(['m~n']), '/m~0n');
+  assert.equal(toPointer(['a/b']), '/a~1b');
+  assert.equal(toPointer(['a~1b']), '/a~01b', '编码先做 ~→~0 再做 /→~1，反了就歧义');
+  assert.deepEqual(fromPointer('/a~01b'), { ok: true, segments: ['a~1b'] },
+    '解码先做 ~1→/ 再做 ~0→~：反了会把 a~1b 读成 a/b，那是把用户的数据改坏（~01b 正是这一刀的分界样本）');
+  assert.deepEqual(fromPointer('/~0~1'), { ok: true, segments: ['~/'] });
+  assert.deepEqual(fromPointer('/'), { ok: true, segments: [''] }, '单个 / 指向「键名是空串」那一格，不是根');
+  assert.deepEqual(fromPointer('/0'), { ok: true, segments: ['0'] }, '数组段是十进制下标的**字符串**，怎么用由消费侧定');
+  const rnd = sRng();
+  const alphabet = ['~', '/', '0', 'a', '', '中', '\u{1F600}', ' ', ':', '"', '\\', '.'];
+  for (let i = 0; i < 100; i++) {
+    const segs = [];
+    const n = 1 + Math.floor(rnd() * 4);
+    for (let k = 0; k < n; k++) {
+      let s = '';
+      const m = 1 + Math.floor(rnd() * 3);
+      for (let c = 0; c < m; c++) s += alphabet[Math.floor(rnd() * alphabet.length)];
+      segs.push(s);
+    }
+    const p = toPointer(segs);
+    assert.ok(p.startsWith('/'), `非空指针必须以 / 起始：${JSON.stringify(p)}`);
+    assert.deepEqual(fromPointer(p), { ok: true, segments: segs }, `第 ${i} 次往返不回来：${JSON.stringify(segs)}`);
+  }
+});
+
+test('S11 fromPointer 的两类拒：不以 / 起始、~ 后面不是 0 或 1，各自点名那一列', () => {
+  for (const [p, column, why] of [
+    ['a/b', 1, '整条指针没有以 / 起始，错在下标 0'],
+    [' ~x', 1, '开头的空格也算一格：位置要说用户按下去的那一列'],
+    ['/~x', 2, '~ 后面跟了 x，指认那个 ~ 本身（下标 1）'],
+    ['/a~2', 3, '第二段里的坏转义，~ 在下标 2'],
+    ['/a~', 3, '结尾孤零零一个 ~：后面没有字符，仍然指认它'],
+  ]) {
+    const r = fromPointer(p);
+    assert.equal(r.ok, false, `这条指针应当被拒：${JSON.stringify(p)}`);
+    assert.deepEqual(Object.keys(r.error).sort(), ['column', 'message'],
+      '契约里这一格只有 {message, column} 两栏：指针不是文档，没有行列可言');
+    assert.equal(r.error.column, column, why);
+    assert.ok(r.error.message.length > 0, `拒的时候要给出人话：${JSON.stringify(p)}`);
+  }
+});
+
+test('S12 pointerChild 与 toPointer 自洽：父指针 + 子键 == 段数组追加后整条重编', () => {
+  assert.equal(pointerChild('', 'a'), '/a', '根的孩子就是 /键');
+  assert.equal(pointerChild('/a', 'b'), '/a/b');
+  assert.equal(pointerChild('/a~1b', 'c'), '/a~1b/c', '父指针原样接上，不再解一遍再编一次（会丢转义）');
+  assert.equal(pointerChild('/list', 3), '/list/3', '数组下标收数字也收字符串');
+  assert.equal(pointerChild('/list', '3'), '/list/3');
+  assert.equal(pointerChild('/a', 'm~n'), '/a/m~0n');
+  assert.equal(pointerChild('/a', ''), '/a/');
+  const rnd = sRng(20260930);
+  const keys = ['~', '/', '~0', '~1', '', '0', 'a b', '中文', '\u{1F600}', 'x"y'];
+  for (let i = 0; i < 60; i++) {
+    const segs = [];
+    for (let k = 0, n = Math.floor(rnd() * 3); k < n; k++) segs.push(keys[Math.floor(rnd() * keys.length)]);
+    const key = keys[Math.floor(rnd() * keys.length)];
+    assert.equal(pointerChild(toPointer(segs), key), toPointer([...segs, key]),
+      `第 ${i} 次：segs=${JSON.stringify(segs)} key=${JSON.stringify(key)}`);
+  }
+});
+
+test('S13 sortJson 三档：off 交回同一个引用、shallow 只动根、deep 连数组元素一起动', () => {
+  assert.deepEqual(SORT_MODES, ['off', 'shallow', 'deep']);
+  const src = { zeta: 1, alpha: 2, mid: { z: 1, a: 2 }, arr: [{ y: 1, x: 2 }] };
+  assert.equal(sortJson(src, 'off') === src, true, 'off 连克隆都不做：装配层靠这一格判断"没动过"');
+  const shallow = sortJson(src, 'shallow');
+  assert.deepEqual(Object.keys(shallow), ['alpha', 'arr', 'mid', 'zeta']);
+  assert.deepEqual(Object.keys(shallow.mid), ['z', 'a'], 'shallow 不进第二层');
+  assert.deepEqual(Object.keys(shallow.arr[0]), ['y', 'x']);
+  const deep = sortJson(src, 'deep');
+  assert.deepEqual(Object.keys(deep), ['alpha', 'arr', 'mid', 'zeta']);
+  assert.deepEqual(Object.keys(deep.mid), ['a', 'z']);
+  assert.deepEqual(Object.keys(deep.arr[0]), ['x', 'y'],
+    'deep 进数组元素——§5.3 那一格「按键排序（含嵌套）」就是这一档');
+  assert.deepEqual(Object.keys(src), ['zeta', 'alpha', 'mid', 'arr'], '入参的键序一位都没动');
+  assert.throws(() => sortJson(src, 'deepish'), /SORT_MODES/, '不在三档里的模式要当场拒绝并点名 SORT_MODES');
+});
+
+test('S14 排序口径是 UTF-16 码元序，不是 localeCompare（相邻键谁前谁后钉死）', () => {
+  const obj = {};
+  for (const k of ['a', 'Z', 'ä', 'B', '_', '0', 'A', '\u{1F600}']) obj[k] = 1;
+  assert.deepEqual(Object.keys(sortJson(obj, 'shallow')),
+    ['0', 'A', 'B', 'Z', '_', 'a', 'ä', '\u{1F600}'],
+    '码元序：数字 < 大写 < 下划线 < 小写 < 变音符 < 代理对；localeCompare 会把 ä 塞到 a 旁边，本站不用它');
+  assert.deepEqual(Object.keys(sortJson({ ab: 1, a: 1, abc: 1, 'a-b': 1, 'a.b': 1 }, 'shallow')),
+    ['a', 'a-b', 'a.b', 'ab', 'abc'],
+    '互为前缀的两个键：短的那一个在前；连字符 45 < 句号 46 < 小写 b 98');
+  assert.ok(!sCode().includes('localeCompare'),
+    '实现里不许出现 localeCompare：它跟着 ICU 与 locale 走，同一份输入在两台机器上会给出两种"稳定"输出');
+});
+
+test('S15 sortJson 不改入参：深比较、逐层键序，以及一份 Object.freeze 的输入', () => {
+  const sKeys = (v) => (v && typeof v === 'object'
+    ? (Array.isArray(v) ? v.map(sKeys) : Object.keys(v).map((k) => [k, sKeys(v[k])]))
+    : null);
+  const src = { b: { d: 1, c: [3, { f: 1, e: 2 }] }, a: 1, z: [1, 2] };
+  const valueSnap = structuredClone(src);
+  const orderSnap = sKeys(src);
+  const deep = sortJson(src, 'deep');
+  assert.notEqual(deep, src, 'deep 必须交回新对象（off 才交回同一个引用，见 S13）');
+  assert.deepEqual(src, valueSnap, '排完以后原对象逐格等于排之前');
+  assert.deepEqual(sKeys(src), orderSnap, '原对象每一层的键序都没动');
+  assert.deepEqual(sKeys(deep), [['a', null],
+    ['b', [['c', [null, [['e', null], ['f', null]]]], ['d', null]]], ['z', [null, null]]],
+    'deep 交回的那一份：每一层都排过，数组顺序一个元素都没挪');
+  const frozen = Object.freeze({ b: 1, a: Object.freeze([Object.freeze({ d: 1, c: 2 })]) });
+  assert.doesNotThrow(() => sortJson(frozen, 'deep'),
+    '实现若就地写键，冻结的输入会当场 TypeError——这一条就是「不改入参」的牙');
+  assert.deepEqual(Object.keys(sortJson(frozen, 'deep')), ['a', 'b']);
+  assert.deepEqual(Object.keys(sortJson(frozen, 'deep').a[0]), ['c', 'd']);
+});
+
+test('S16 与原生 JSON.parse 对拍：同结论、同值；两处故意分歧明写在断言里', () => {
+  const deep200 = `${'['.repeat(200)}1${']'.repeat(200)}`;
+  const GOOD = ['{}', '[]', 'null', 'true', 'false', '0', '-0', '1e3', '1E+3', '0e0', '-1.5',
+    '12345678901234567890', '""', '"a"', '"\\u0041"', '"\\""', '"\\\\"', '"\\/"', '"\\b\\f\\n\\r\\t"',
+    '"中文"', '"\u{1F600}"', '{"a":[1,{"b":null}]}', '[1,2,3]', '  {"a" : 1 }  ', '[\n 1 ,\n 2\n]',
+    '{"":""}', '[[],[[]]]', deep200];
+  for (const t of GOOD) {
+    const mine = parseJson(t);
+    assert.equal(mine.ok, true,
+      `本站应当收：${JSON.stringify(t.slice(0, 40))}｜${mine.error ? mine.error.message : ''}`);
+    assert.deepStrictEqual(mine.value, JSON.parse(t),
+      `值必须与原生逐格相等（含 -0 与 1e3 这类形状）：${JSON.stringify(t.slice(0, 40))}`);
+  }
+  const BAD = S_BAD.map(([, text]) => (text === null ? '['.repeat(MAX_DEPTH + 1) : text)).concat([
+    '"abc', '{"a": }', '[1 2]', '{"a" 1}', 'nul', 'tru', '"\\u00"', '1 2', '{"a":1,,}', '[]]',
+    '"a" "b"', '1e', '-', '00', '{"a"::1}', '"\\x"', '"\\u00ZZ"', '[,]', '{"a":,}', 'undefined',
+  ]);
+  for (const t of BAD) {
+    assert.throws(() => JSON.parse(t), `夹具自检：样本在原生那边本来就该拒 ${JSON.stringify(t.slice(0, 24))}`);
+    const r = parseJson(t);
+    assert.equal(r.ok, false, `本站也必须拒：${JSON.stringify(t.slice(0, 24))}`);
+    assert.ok(typeof r.error.kind === 'string' && r.error.kind.length > 0, '拒的时候要给出 kind');
+  }
+  // 两条明说的分歧，钉在这里而不是散在注释里（其余一律同结论）
+  assert.equal(parseJson('\uFEFF{}').ok, true, '分歧一：原生拒 BOM，本站收（从 Windows 文件粘出来的常见形状）');
+  assert.throws(() => JSON.parse('\uFEFF{}'), '分歧一的另一半：原生确实拒');
+  const inf = parseJson('1e999');
+  assert.equal(inf.ok, false, '分歧二：原生把 1e999 收成 Infinity，本站不产 Infinity——下游算不动的形状不给进来');
+  assert.equal(inf.error.kind, 'bad-number');
+  assert.match(inf.error.message, /超出/);
+  assert.ok(Object.is(JSON.parse('1e999'), Infinity), '分歧二的另一半：原生给 Infinity，这条分歧是真的');
+});
+
+test('S17 重复键：后写生效，duplicateKeys 用 Pointer 把每一处报出来', () => {
+  const t = '{"a":1,"a":2,"a":3,"b":{"c":1,"c":2},"arr":[{"k":1},{"k":9}],"~x":1,"~x":2}';
+  const r = parseJson(t);
+  assert.equal(r.ok, true, '重复键不是错误，是要报告的形状（原生也收）');
+  assert.equal(r.value.a, 3, '后写覆盖：与原生同结论');
+  assert.equal(r.value.b.c, 2);
+  assert.deepEqual(r.value.arr, [{ k: 1 }, { k: 9 }], '两个不同对象里的同名键不算重复');
+  assert.deepEqual(r.duplicateKeys, [
+    { pointer: '/a', times: 3 },
+    { pointer: '/b/c', times: 2 },
+    { pointer: '/~0x', times: 2 },
+  ], '顺序按首次出现，pointer 走 RFC 6901 转义');
+  assert.deepEqual(parseJson('{"a":1}').duplicateKeys, [], '没有重复时给空数组，不给 undefined');
+  assert.match(CORE_NOTES.dupKey, /重复键/, '面板那句要出现「重复键」这三个字（§5.4 给依据不给黑箱）');
+});
+
+test('S18 formatJson：三种缩进逐字钉死，与 sort 组合、控制字符再转义、bytes 与 length 分家', () => {
+  assert.deepEqual(INDENT_MODES, ['two', 'four', 'tab']);
+  const v = { a: [{ b: 1 }, 2], c: '中文', d: null, e: [], f: {} };
+  const src = JSON.stringify(v);
+  assert.equal(formatJson(src, { indent: 'two' }).text, JSON.stringify(v, null, 2), 'two 档与原生逐字同形');
+  assert.equal(formatJson(src, { indent: 'four' }).text, JSON.stringify(v, null, 4), 'four 档同上');
+  assert.equal(formatJson(src, { indent: 'tab' }).text, JSON.stringify(v, null, '\t'), 'tab 档同上');
+  assert.equal(formatJson('{"b":1,"a":2}', { indent: 'two', sort: 'deep' }).text, '{\n  "a": 2,\n  "b": 1\n}');
+  assert.equal(formatJson('{"a":[{"y":1,"x":2}]}', { indent: 'two', sort: 'deep' }).text,
+    '{\n  "a": [\n    {\n      "x": 2,\n      "y": 1\n    }\n  ]\n}', 'sort 进得去数组元素里那一层');
+  assert.equal(formatJson('[]').text, '[]', '空数组不换行');
+  assert.equal(formatJson('{}').text, '{}');
+  assert.equal(formatJson('null').text, 'null', '标量根原样');
+  assert.equal(formatJson('"a"').text, '"a"');
+  assert.equal(formatJson('{"a":"\\u0000"}').text, '{\n  "a": "\\u0000"\n}',
+    '输入是六个字符的 \\u0000 转义，输出还得是六个字符的转义：不许把裸 U+0000 写回产物');
+  const cn = formatJson('{"a":"中文"}');
+  assert.equal(cn.text, '{\n  "a": "中文"\n}');
+  assert.equal(cn.text.length, 15, '码元数：那一个汉字在这里是 1 个码元');
+  assert.equal(cn.bytes, 19, '字节数是 19 不是 15——一个汉字三字节');
+  assert.equal(cn.bytes, Buffer.byteLength(cn.text, 'utf8'),
+    'bytes 那把尺就是 UTF-8（判据拿 Node 当外部尺，模块内不许用 Buffer，见 S20）');
+  const bad = formatJson('{"a":');
+  assert.equal(bad.ok, false);
+  assert.equal(bad.error.kind, 'unterminated', 'formatJson 的坏输入要把 parseJson 那一格原样交出去，不许吞');
+  assert.deepEqual([bad.error.line, bad.error.column], [1, 6]);
+  const deep1000 = `${'['.repeat(MAX_DEPTH)}1${']'.repeat(MAX_DEPTH)}`;
+  const f = formatJson(deep1000, { indent: 'two' });
+  assert.equal(f.ok, true, '1000 层要格式化得动：递归实现在这里会先炸自己的调用栈（§S Step 2 那句硬规定）');
+  assert.equal(minifyJson(f.text).text, deep1000, '格式化→压缩一圈回来必须逐字节等于最初那一串');
+});
+
+test('S19 minifyJson：只删容器之间的空白，字符串内部一个空格都不动', () => {
+  const f = minifyJson('{ "a" : [ 1 , 2 ] , "b" : "  x  " }');
+  assert.equal(f.ok, true);
+  assert.equal(f.text, '{"a":[1,2],"b":"  x  "}', '"  x  " 里那四个空格是数据，不是缩进');
+  assert.equal(f.text.length, 23);
+  assert.equal(f.bytes, 23);
+  assert.equal(minifyJson('["a\\nb"," a "]').text, '["a\\nb"," a "]', '转义序列与串内空格都原样');
+  assert.equal(minifyJson('[\n  1,\r\n  2\n]').text, '[1,2]', 'CRLF 与行首缩进一起删掉');
+  assert.equal(minifyJson('{"a": [ 1 , 2 ] }').text, '{"a":[1,2]}');
+  const src = '{"b":[1,{"c":"  两格  "}],"d":{"e":[[[]]]}}';
+  assert.deepStrictEqual(parseJson(minifyJson(src).text).value, parseJson(src).value,
+    '压缩一圈以后值树逐格相等（deepStrictEqual：1 与 "1" 在这里不许混）');
+  const bad = minifyJson('{');
+  assert.equal(bad.ok, false);
+  assert.equal(bad.error.kind, 'unterminated');
+  const deep = `${'['.repeat(200)}1${']'.repeat(200)}`;
+  assert.equal(minifyJson(deep).text, deep, '本来就紧凑的深样本，压缩以后一个字都不该变');
+});
+
+test('S20 收尾三件：转义往返与点名、八类 kind 全覆盖、纯函数红线与 stats 一致', () => {
+  assert.equal(escapeText('a"b'), 'a\\"b');
+  assert.equal(escapeText('\\'), '\\\\');
+  assert.equal(escapeText('\n\t'), '\\n\\t', '短转义用 \\n 与 \\t，与原生一致');
+  assert.equal(escapeText('\u0000'), '\\u0000', '其余控制字符走六个字符的 \\uXXXX');
+  assert.equal(escapeText('\u0008'), '\\b', '退格有短转义，不许写成 \\u0008');
+  assert.equal(escapeText('中文\u{1F600}'), '中文\u{1F600}', '非 ASCII 不转义：与原生一致，字节账由调用方管');
+  assert.equal(escapeText('\ud800'), '\\ud800', '落单的高代理项要转义出去：裸的半个 emoji 交出去就不再是合法 JSON（与原生 well-formed JSON.stringify 同形）');
+  assert.equal(escapeText('\udfff'), '\\udfff', '落单的低代理项同理，不分高低');
+  assert.equal(escapeText('\ud83d\ude00'), '\ud83d\ude00', '成对的代理项原样走：那是一个 emoji，不是两个坏字符');
+  assert.deepEqual([unescapeText('\\ud800').ok, unescapeText('\\ud800').text], [true, '\ud800'], '反向认 \\ud800：解回那落单的半个，往返不丢格');
+  assert.equal(unescapeText('a\\u0041b').text, 'aAb', '输入是 a + 转义A + b，回来三格：aAb（转义只吃反斜杠那一段）');
+  assert.equal(unescapeText('\\/').text, '/', '\\/ 是合法的，要解成 /');
+  assert.equal(unescapeText('\\b\\f\\n\\r\\t').text, '\b\f\n\r\t');
+  for (const [frag, index, length] of [
+    ['a\\x41b', 1, 2], ['a\\\'b', 1, 2], ['a\\qb', 1, 2], ['a\\u12g4', 1, 2], ['a\\u00', 1, 2], ['a\\', 1, 1],
+  ]) {
+    const r = unescapeText(frag);
+    assert.equal(r.ok, false, `这一串不是合法的 JSON 字符串内容：${JSON.stringify(frag)}`);
+    assert.equal(r.error.kind, 'bad-escape');
+    assert.deepEqual([r.error.index, r.error.length], [index, length],
+      `反斜杠那一格要指准：${JSON.stringify(frag)}`);
+  }
+  const rnd = sRng(20261001);
+  const pool = ['"', '\\', '\n', '\t', '\u0000', '\u007f', '中', '\u{1F600}', 'a', ' ', ':', '/', '~', 'é'];
+  for (let i = 0; i < 100; i++) {
+    let s = '';
+    for (let k = 0, n = 1 + Math.floor(rnd() * 8); k < n; k++) s += pool[Math.floor(rnd() * pool.length)];
+    const back = unescapeText(escapeText(s));
+    assert.equal(back.ok, true, `自己编出来的转义自己必须能解回来：${JSON.stringify(escapeText(s))}`);
+    assert.equal(back.text, s, `第 ${i} 次往返：${JSON.stringify(s)}`);
+  }
+
+  const r = parseJson('{"a":[1,2],"b":{"c":"中文"}}');
+  assert.equal(r.depth, 2, 'depth 数容器层数：根第 1 层，里面的数组与内层对象都在第 2 层');
+  assert.equal(r.nodeCount, r.stats.nodes, 'nodeCount 与 stats.nodes 必须是同一个数（装配层只读 stats 那一格）');
+  assert.equal(r.stats.nodes, 6, '六个值：根对象、数组、1、2、内层对象、那串中文');
+  assert.equal(r.stats.depth, 2);
+  assert.equal(r.stats.keys, 3, '键总数：a、b、c');
+  assert.equal(r.stats.arrayItems, 2);
+  assert.equal(r.stats.longestStringChars, 2, '最长的串是那串中文（键也一起量，它们只有 1 个码元）');
+  assert.equal(r.stats.bytes, Buffer.byteLength('{"a":[1,2],"b":{"c":"中文"}}', 'utf8'));
+  assert.equal(r.stats.lines, 1);
+  assert.deepStrictEqual(statsOf(JSON.parse('1')), { nodes: 1, depth: 0, keys: 0, arrayItems: 0, longestStringChars: 0 },
+    '标量根：depth 是 0，一个容器都没有');
+  assert.deepStrictEqual(statsOf(JSON.parse('{}')), { nodes: 1, depth: 1, keys: 0, arrayItems: 0, longestStringChars: 0 });
+  const deep200 = parseJson(`${'['.repeat(200)}1${']'.repeat(200)}`);
+  assert.equal(deep200.ok, true, '§7 那一档深样本是 200 层，必须放行');
+  assert.deepEqual([deep200.depth, deep200.stats.nodes, deep200.stats.arrayItems, deep200.stats.lines],
+    [200, 201, 200, 1]);
+  assert.equal(parseJson(`${'['.repeat(MAX_DEPTH)}1${']'.repeat(MAX_DEPTH)}`).ok, true, '正好 1000 层放行');
+
+  const kindOf = (t) => sErr(t).kind;
+  assert.deepEqual([kindOf(''), kindOf('{,}'), kindOf('"\\x"'), kindOf('01'), kindOf('"abc'),
+    kindOf('{'), kindOf('1 2'), kindOf('['.repeat(MAX_DEPTH + 1))],
+    ['empty', 'unexpected-char', 'bad-escape', 'bad-number', 'unterminated-string',
+      'unterminated', 'trailing', 'depth'],
+    '契约列出的十类 kind 里，除闸门那两档（S4/S5 各钉一刀）以外，这里八档必须全出一次场');
+
+  assert.deepEqual([MAX_JSON_BYTES, MAX_INPUT_LINES, MAX_DEPTH], [5242880, 200000, 1000],
+    '三格常量就是 §7 预算表里的那三个数，改一个就要同时改判据');
+
+  const code = sCode();
+  for (const banned of ['Buffer.', 'TextEncoder', 'process.', 'localStorage', 'document.', 'window.',
+    'JSON.parse', 'JSON.stringify', 'fetch(', 'require(']) {
+    assert.ok(!code.includes(banned), `json-core 不许出现 ${banned}：纯计算、不读环境、位置与转义都不外包给原生`);
+  }
+  assert.ok(!/^\s*import\s/m.test(code), 'json-core 一本都不 import：它是这一族的底座，不许有依赖边');
+  assert.match(code, /function parseJson\([\s\S]{0,400}?=\s*gate\(/,
+    'parseJson 的第一步必须是 gate：全仓库只有一处字节与行数的口径');
+});
+```
 ---
 
 ## Task 3: `json-ts.js` — TypeScript interface 生成（§T）

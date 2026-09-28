@@ -129,6 +129,10 @@ const FILE_TARGETS = [
   'assets/img/tools/codec-tool.svg',
   'tools-codec.html',
   'dev/sass/toolkit.scss',
+  // 段 4 Task 2：`json-core.js` 落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走不跟着计划走）。
+  // 它是本清单里第一本**自带解析器**的模块，镜像因此同时是"行列口径只有一套"的见证：
+  // §S 那 20 个坏样本钉的 line/column，与 `locate`/`lineStarts`/`lineRange` 三本读的是同一族。
+  'dev/js/tools/json-core.js',
 ];
 
 /**
