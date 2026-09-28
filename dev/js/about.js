@@ -8,6 +8,16 @@
         return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
 
+    /**
+     * 落点线：点一颗胶囊会把那一行的行顶放到的视口高度，同时也就是「这一行算不算当前年」
+     * 的判据线。三个消费者（胶囊跳转的落点由 CSS 的 scroll-margin-top 定、滚动跟随、
+     * 墨流）必须从这里取同一个值，否则就会出现「点 2019 落在 A 处，而墨和胶囊按 B 处判定」。
+     * +1 的余量是给亚像素落点的：滚动只能停在整数设备像素上，行顶本身带小数。
+     */
+    function landingLine(row) {
+        return parseFloat(window.getComputedStyle(row).scrollMarginTop) + 1;
+    }
+
     var aboutObj = {
         // 页面初始化函数
         init: function () {
@@ -66,6 +76,11 @@
             var io = 'IntersectionObserver' in window;
             var animate = io && !reducedMotion();
 
+            // 轴脚留白是版面问题，不是动画问题：「减少动态效果」或者浏览器没有
+            // IntersectionObserver 时，末尾几颗胶囊一样得跳得动，所以走在 animate 那两
+            // 道门之前。
+            this.tailRoom(page);
+
             // 未揭示态由 .tl-in 限定（about.scss），所以这几门只在真要播动画时才装；
             // 不装就是「全部已揭示」的终态，脚本没跑也一样读得通。
             if (!animate) {
@@ -88,6 +103,94 @@
             }
             this.reveal(page, rows);
             this.yearSpy(rows);
+        },
+        /**
+         * 年表轴脚留白（--tl-tail）现量。
+         *
+         * 这段空白只有一个职责：让最后一行的行顶也能被顶到「点胶囊的落点线」下面。
+         * 少了它，末尾几颗胶囊点了页面不动、滚动跟随也追不上——695×900 实测按 CSS 常数
+         * 留 360px 时这一行滚到底仍停在 168.2（线在 113），差 55px 就是差 55px。
+         *
+         * 需要多少 = 视口高 − 落点线 − 最后一行高 − 收口句高 − 收口句以下的一切。
+         * 这五个量里只有落点线是「样式给的」，其余四个全跟着内容和视口走，而落点线自己
+         * 还分展开 / 收起两态（见下面那条 MutationObserver）。所以两档媒体查询里那两个
+         * 写死的数（420 / 540）注定一头短一头长，量出来的表在 .tl-end 那条注释里。
+         * 现量之后统一多留 24px：不留这 24px 时最后一行的行顶正好压在线判据上，
+         * 滚帧取整会让高亮在相邻两年之间来回跳。
+         *
+         * 值写在 .tl-wrap--years 自己身上（不是 .p-about）：轴脚只属于年表这一块，
+         * 工作履历那块没有胶囊导航，跟着留白就只是凭空多出一截空白。
+         */
+        tailRoom: function (page) {
+            var wrap = page.querySelector('.tl-wrap--years');
+            var end = wrap ? wrap.querySelector('.tl-end') : null;
+            var rows = wrap ? wrap.querySelectorAll('.tl-row') : [];
+            if (!end || !rows.length) {
+                return;
+            }
+            var last = rows[rows.length - 1];
+            var SLACK = 24;
+            var ticking = false;
+
+            function measure() {
+                ticking = false;
+                var sy = window.pageYOffset || document.documentElement.scrollTop || 0;
+                var row = last.getBoundingClientRect();
+                var note = end.getBoundingClientRect();
+                // 「收口句以下的一切」= 文档高 − 句子的绝对底边。这一项和当前留白多高无关：
+                // 改 --tl-tail 时句子底边和文档高一起动，差值不变。
+                var below = document.documentElement.scrollHeight - (note.bottom + sy);
+                var line = parseFloat(window.getComputedStyle(last).scrollMarginTop) || 0;
+                var need = window.innerHeight - line - row.height - note.height - below + SLACK;
+                wrap.style.setProperty('--tl-tail', (need > SLACK ? need : SLACK).toFixed(1) + 'px');
+            }
+
+            function queue() {
+                if (!ticking) {
+                    ticking = true;
+                    window.requestAnimationFrame(measure);
+                }
+            }
+
+            // 落点线有两个值：顶栏展开时是「顶栏 + 导航条 + 16」，收起时只剩「导航条 + 16」，
+            // 桌面差整整一条顶栏（121 ↔ 57）。而滚到底那一下顶栏是收起的——向下滚 index.js
+            // 就挂 headerUp，点胶囊时 alignChipJump 也按方向先把它预挂上。所以留白必须按
+            // 收起后那条算，不然最后一行永远差一条顶栏的高度：700×900 实测按展开态算出
+            // 399.6px，滚到底行顶停在 96.9 而线已经抬到 57，2026 照样点不动。
+            // 这里不去抄 index.js 那个 695 断点：状态类一翻就重量，窄屏它永远不翻，
+            // 桌面用户还没滚到底就已经换过好几回了。
+            var header = document.querySelector('.g-header');
+            if (header && window.MutationObserver) {
+                new MutationObserver(queue).observe(header, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            // 页脚也得盯着，因为它是这条算式的减数：那两行不蒜子计数（PV / UV）是异步回填的
+            // （_includes/footer.html 里 '-' 换成八位数），320 窄屏下这一换就把页脚撑出
+            // 一整行。同一份产物两次现量，「收口句以下的一切」实测 273.4 → 292.5，差的
+            // 19.1px 正好是一行——回填晚于现量时留白就少算这么多，末尾那行差一点点顶不到线。
+            // 页脚的高度不吃 --tl-tail（它在 .p-about 外面），所以这条观察不会自激。
+            // 但必须等 DOM 解析完再挂：about.min.js 是同步脚本，就插在 <footer> 前面
+            // （产物里脚本在 31603 字节、页脚在 34003 字节），init() 跑的那一刻 querySelector
+            // 拿到的是 null，观察器静默不注册——320 实测把页脚撑高 240px，留白纹丝不动。
+            function watchFooter() {
+                var foot = document.querySelector('.g-footer');
+                if (foot && window.ResizeObserver) {
+                    new ResizeObserver(queue).observe(foot);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', watchFooter);
+            } else {
+                watchFooter();
+            }
+
+            measure();
+            // 字体换完、图片把版面挤稳之后各重量一次：这四个量里除了落点线全都会动。
+            window.addEventListener('resize', queue);
+            window.addEventListener('load', queue);
+            if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+                document.fonts.ready.then(queue);
+            }
         },
         /** 滚到哪一行，哪一行淡入 + 圆点弹出；同一批里按先后排 60ms 一档的错峰。 */
         reveal: function (page, rows) {
@@ -132,16 +235,26 @@
             }
         },
         /**
-         * 轴上的墨跟着阅读位置流。
+         * 墨流：把 --tl-p 从 0 推到 1，针尖停在「当前那一年」的节点圆心上。
          *
-         * 只写一个 --tl-p（0~1），CSS 那边用 translate 把它换成高度——transform 走合成器，
-         * 不碰 width / height / top，滚动时不参与重排。视口 62% 那条线当作「正在读的地方」，
-         * 所以轴永远比视线慢不了半屏。写在 wrap 而不是 page 上：两块内容两根轴各流各的，
-         * CSS 继承让这一格只影响自己 wrap 里的那根（.p-about 上仍有默认 1 兜住无 JS）。
+         * 只写一个 --tl-p（0~1），CSS 那边把它换成墨层高度（.tl-axis-fill 的 scaleY）与
+         * 针尖位置（.tl-axis:after 的 top），两者读同一个数所以永远同格。写在 wrap 而不是
+         * .p-about 上：两块内容两根轴各流各的，自定义属性继承让这一格只管自己 wrap 里那根
+         * （.p-about 上的默认值 1 兜住无 JS 与减少动态效果这两态）。
+         *
+         * 判据不另起一套。早先这里自己拿「视口高 × 62%」当参考线，而导航条亮哪一颗走的是
+         * landingLine()——390×844 上两条线差 410px（523 对 113），于是导航条亮着 2019、
+         * 针尖却停在 2021 那一格，逐 260px 扫 17 个滚动位，每一位都不一致。
+         * 用户报的「竖线条节点和导航 tab 的年份对不上、有偏差」就是这个 2 行的错位。
+         * 现在两边同一条线：谁的行顶过了线，墨就走到谁的节点圆心，p 按「圆心在墨层行程里的
+         * 位置」直接算出来，所以针尖与亮着的胶囊恒等（本地构建 390×844 与 1280×900 各扫
+         * 17 位，不一致 0 个）。
          */
         inkFlow: function (wrap) {
             var fill = wrap.querySelector('.tl-axis-fill');
-            if (!fill) {
+            var axis = wrap.querySelector('.tl-axis');
+            var rows = wrap.querySelectorAll('.tl-row');
+            if (!fill || !axis || !rows.length) {
                 return;
             }
             // 默认值是 1（无 JS 的终态），真要播动画才先归零，否则会看到一条满格线突然退回去
@@ -154,20 +267,21 @@
                 if (box.bottom < 0 || box.top > window.innerHeight) {
                     return;
                 }
-                var line = window.innerHeight * .62;
-                var p = (line - box.top) / box.height;
-                // 年表下面还压着页脚，「还能往下滚」的距离比轴剩下的高度短，那条视线就永远
-                // 追不到轴的末梢（390×844 实测滚到底只有 .9551，针尖离最后一行差 85px）。
-                // 把剩余滚动量并进分子，得到「滚到页底那天 p 能到的值」当上限去除：针就在
-                // 真正滚不动的那一刻收口。上限已经 ≥1 时不除——那说明轴先于页底走完，
-                // 除了反而会让墨跑得比视线快。
-                var left = document.documentElement.scrollHeight - window.innerHeight - (window.pageYOffset || 0);
-                var cap = (line - box.top + (left > 0 ? left : 0)) / box.height;
-                if (cap > 1) {
-                    cap = 1;
+                var line = landingLine(rows[0]);
+                var target = null;
+                for (var i = 0; i < rows.length; i++) {
+                    if (rows[i].getBoundingClientRect().top <= line) {
+                        target = rows[i];
+                    }
                 }
-                if (cap > 0) {
-                    p /= cap;
+                // 墨层的行程 = 轴槽高 − 墨层的 bottom（年表那块 bottom 就是 --tl-tail，
+                // 工作履历那块是 0）。不能用 offsetHeight：它取整，而 bottom 是算出来的小数。
+                var span = axis.getBoundingClientRect().height - (parseFloat(window.getComputedStyle(fill).bottom) || 0);
+                var p = 0;
+                if (target && span > 0) {
+                    var dot = target.querySelector('.tl-dot') || target;
+                    var d = dot.getBoundingClientRect();
+                    p = (d.top + d.height / 2 - axis.getBoundingClientRect().top) / span;
                 }
                 if (p < 0) {
                     p = 0;
@@ -244,16 +358,15 @@
             }
 
             function sync() {
-                // 判据线读 .tl-row 的 scroll-margin-top（= calc(var(--tl-top) + 16px)），
-                // 不抄 105 / 97 这些数：窄屏换档（实测 1200×800 是 121、390×844 是 113）、
-                // 顶栏收起（--tl-top 换成 41）、余量改动都跟着 CSS 走。
-                // +1 的余量是给亚像素落点的：滚动只能停在整数设备像素上，行顶本身带小数。
+                // 判据线 = landingLine()，也就是 .tl-row 的 scroll-margin-top（= calc(--tl-top
+                // + 16px)）加 1：不抄 105 / 97 这些数，窄屏换档（实测 1200×800 是 121、
+                // 390×844 是 113）、顶栏收起（--tl-top 换成 41）、余量改动都跟着 CSS 走。
                 // 1200×800 实测逐个点胶囊，顶栏收起那一态落点 56.6 ~ 57.4（线 57）、
                 // 露出那一态 121.1 ~ 121.2（线 121），也就是线上下半像素地摆，
                 // 谁过线纯看取整运气。候选行相邻顶距实测最小 38px（1440×900 与 390×844
                 // 同值——断更的那几年现在也有胶囊、也参与判定，而它只占一条窄行的高度），
-                // 1px 的口子不会误抓到下一行。
-                var line = parseFloat(getComputedStyle(items[0].row).scrollMarginTop) + 1;
+                // 1px 的口子不会误抓到下一行。墨流（inkFlow）读的是同一条线，两边不会分家。
+                var line = landingLine(items[0].row);
                 var pick = null;
                 for (var p = 0; p < items.length; p++) {
                     if (items[p].row.getBoundingClientRect().top <= line) {

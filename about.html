@@ -152,7 +152,13 @@ about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseur
                 </ul>
             </div>
         </nav>
-        <div class="tl-wrap">
+        {%- comment -%}
+        --tl-tail 只属于这一块：轴脚留白是给「年份胶囊 → 年表行」的落点用的，
+        上面那块工作履历没有胶囊导航，跟着留白就只是凭空多出一截空白。
+        所以 about.js 把量出来的值写在这个 wrap 上，about.scss 里那几条吃 --tl-tail
+        的轴规则也只挂在 .tl-wrap--years 下。
+        {%- endcomment -%}
+        <div class="tl-wrap tl-wrap--years">
             <span class="tl-axis" aria-hidden="true"><i class="tl-axis-fill"></i></span>
             <ol class="tl-list">
                 {%- for y in years -%}
@@ -236,11 +242,13 @@ about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseur
                 {%- endfor -%}
             </ol>
             {%- comment -%}
-            轴脚的收口句。它和 .p-about 的 --tl-tail 是一对：年表底下留出的那一段空白是
-            「让最后几行也能被顶到导航线下面」用的（1440×900 实测不留时 2022~2026 五行的
-            行顶停在 138~521，点它们中任何一颗页面都不再动、高亮赖在 2021）。空白要是没有
-            着落就会读成「页尾坏了一段」，所以让轴一路走到这里收口——滚到底那一刻墨针正好
-            落在这一行左侧，和每一行的圆点同一个横坐标。
+            轴脚的收口句。它和 .tl-wrap--years 上的 --tl-tail 是一对：年表底下留出的那一段
+            空白是「让最后几行也能被顶到导航线下面」用的——不留时末尾几颗胶囊点了页面不动、
+            高亮追不上（695×900 实测最后一行滚到底仍停在 168.2，线在 113）。空白要是没有
+            着落就会读成「页尾坏了一段」，所以让轴一路走到这里收口：墨停在最后一行的下沿，
+            往下是一串虚线，这一句左侧那颗空心圈是终点——「再往后是现在」由这段虚线画出来。
+            留白的大小由 about.js 按当前视口和当前内容现量（式子见方法头），CSS 里那两条
+            常数只在脚本没跑时兜底。
             {%- endcomment -%}
             <p class="tl-end">{{ years.first.name }} 年起，共 {{ site.posts.size }} 篇写在这里，再往后是现在。</p>
         </div>
