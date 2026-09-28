@@ -91,6 +91,12 @@ const DIFF_UNIT_CN = { ms: '毫秒', s: '秒', min: '分钟', h: '小时', d: '�
 /** 解码列的三种取值：`null` 是"这一格没判"，与 false 的"解不出"是两件事 */
 const DECODE_CN = { true: '可以', false: '解不出' };
 
+/**
+ * 时间戳两读的中文名。`time.js` 的 `parseTimestamp().readings[].kind` 给的是 `second` / `milli`
+ * 两个 token（§K 的 K2 钉死顺序），中文说法归视图：装配层只交事实，用户读到的句子在一本里写。
+ */
+const READING_CN = { second: '按秒', milli: '按毫秒' };
+
 /** 报错文案里的"收到什么"，与 `view.js` / 四本纯模块那份同形（各自私有，见上面第 2 条） */
 function shapeOf(v) {
   if (v === null) return 'null';
@@ -321,10 +327,18 @@ export function createCodecView(view) {
     return DIFF_UNIT_CN[unit];
   };
 
+  /** 两读的解释那一列：token 认不出来就抛，页面上少一列读数比抛错更难查 */
+  const readingOf = (kind) => {
+    if (typeof kind !== 'string' || !Object.prototype.hasOwnProperty.call(READING_CN, kind)) {
+      throw new TypeError(`内部不变量：readings[].kind 只认 second / milli，收到「${shapeOf(kind)}」（中文说法在视图这一层的 READING_CN 里，装配层不许自己写）`);
+    }
+    return READING_CN[kind];
+  };
+
   /** 时间戳：读数（ambiguous 两行）+ 明细 + 相对时间那一行 +（可选）两个日期之差 */
   const timestampBlock = (m, notes = []) => wrap('timestamp', m, notes, (model) => {
     const readings = grid('tk-matches', [
-      { label: '解释', get: (r) => r.kind },
+      { label: '解释', get: (r) => readingOf(r.kind) },
       { label: 'epoch', mono: true, get: (r) => r.epochMs },
       { label: 'UTC', mono: true, get: (r) => r.isoUtc },
     ], model.readings);
@@ -392,14 +406,23 @@ export function createCodecView(view) {
   };
 
   /**
-   * 正则：风险表 + 命中表 + 捕获组表 + 替换预览 + 三面旗。
-   * `capped` / `hitLimit` / `timedOut` 三句各说各话——"这次没算完"、"本站硬上限"、
-   * "档间预算用完"是三件不同的事，互相顶掉就等于把闸门的形状藏起来。
+   * 正则：风险表 + 命中表 + 捕获组表 + 替换预览 + 两面旗与那个上限数。
+   * `hitLimit`（次数到点）与 `timedOut`（档间时间到点）是两件不同的事，互相顶掉就等于把闸门的
+   * 形状藏起来；`capped` 不是第三面旗，它是**本次生效的上限次数**那个数字（§N 的 N8 钉的这一对），
+   * 只在前者成立时把它一起报出来——"到了上限"后面不跟一个数，用户分不清是本站硬闸门还是这一档的预算。
    * 模型里的 `pattern` 与 `level` 刻意不渲：前者是输入框本来就常驻显示的东西，
    * 后者是 `findings` 的派生值（`regex.js` 里 level 由 findings 有没有 high 算出来），
    * 表里那一列"级别"说的就是它，在表头再复述一句只是抄自己。
    */
+  const capOf = (model) => {
+    if (!Number.isInteger(model.capped) || model.capped < 1) {
+      throw new TypeError(`内部不变量：capped 应是本次生效的上限次数（正整数），收到 ${shapeOf(model.capped)}——"到没到"是 hitLimit 那面旗的事，这一格拿它当布尔读会永远说"已到上限"`);
+    }
+    return model.capped;
+  };
+
   const regexBlock = (m, notes = []) => wrap('regex', m, notes, (model) => {
+    const cap = capOf(model);
     const findings = grid('tk-matches', [
       { label: '规则', get: (r) => r.rule },
       { label: '位置', get: (r) => r.at },
@@ -426,8 +449,7 @@ export function createCodecView(view) {
     ], model.groups);
     const flagsOn = typeof model.flags === 'string' && model.flags.includes('d');
     const flagHints = [
-      model.capped ? hint('匹配次数已到上限，剩下的没有再算') : '',
-      model.hitLimit ? hint('命中次数触及本次上限，这一批没算完') : '',
+      model.hitLimit ? hint(`命中次数已到本次上限 ${cap} 次，剩下的没有再算`) : '',
       model.timedOut ? hint('档间时间预算已用完，只算了前面那些') : '',
       model.matches && model.matches.length > 0 && !flagsOn ? hint('没开 d 就没有捕获组位置，位置那一列留空') : '',
       typeof model.elapsedMs === 'number' ? hint(`档间累计耗时 ${model.elapsedMs}ms`) : '',

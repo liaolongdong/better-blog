@@ -5809,6 +5809,12 @@ const DIFF_UNIT_CN = { ms: '毫秒', s: '秒', min: '分钟', h: '小时', d: '�
 /** 解码列的三种取值：`null` 是"这一格没判"，与 false 的"解不出"是两件事 */
 const DECODE_CN = { true: '可以', false: '解不出' };
 
+/**
+ * 时间戳两读的中文名。`time.js` 的 `parseTimestamp().readings[].kind` 给的是 `second` / `milli`
+ * 两个 token（§K 的 K2 钉死顺序），中文说法归视图：装配层只交事实，用户读到的句子在一本里写。
+ */
+const READING_CN = { second: '按秒', milli: '按毫秒' };
+
 /** 报错文案里的"收到什么"，与 `view.js` / 四本纯模块那份同形（各自私有，见上面第 2 条） */
 function shapeOf(v) {
   if (v === null) return 'null';
@@ -6039,10 +6045,18 @@ export function createCodecView(view) {
     return DIFF_UNIT_CN[unit];
   };
 
+  /** 两读的解释那一列：token 认不出来就抛，页面上少一列读数比抛错更难查 */
+  const readingOf = (kind) => {
+    if (typeof kind !== 'string' || !Object.prototype.hasOwnProperty.call(READING_CN, kind)) {
+      throw new TypeError(`内部不变量：readings[].kind 只认 second / milli，收到「${shapeOf(kind)}」（中文说法在视图这一层的 READING_CN 里，装配层不许自己写）`);
+    }
+    return READING_CN[kind];
+  };
+
   /** 时间戳：读数（ambiguous 两行）+ 明细 + 相对时间那一行 +（可选）两个日期之差 */
   const timestampBlock = (m, notes = []) => wrap('timestamp', m, notes, (model) => {
     const readings = grid('tk-matches', [
-      { label: '解释', get: (r) => r.kind },
+      { label: '解释', get: (r) => readingOf(r.kind) },
       { label: 'epoch', mono: true, get: (r) => r.epochMs },
       { label: 'UTC', mono: true, get: (r) => r.isoUtc },
     ], model.readings);
@@ -6110,14 +6124,23 @@ export function createCodecView(view) {
   };
 
   /**
-   * 正则：风险表 + 命中表 + 捕获组表 + 替换预览 + 三面旗。
-   * `capped` / `hitLimit` / `timedOut` 三句各说各话——"这次没算完"、"本站硬上限"、
-   * "档间预算用完"是三件不同的事，互相顶掉就等于把闸门的形状藏起来。
+   * 正则：风险表 + 命中表 + 捕获组表 + 替换预览 + 两面旗与那个上限数。
+   * `hitLimit`（次数到点）与 `timedOut`（档间时间到点）是两件不同的事，互相顶掉就等于把闸门的
+   * 形状藏起来；`capped` 不是第三面旗，它是**本次生效的上限次数**那个数字（§N 的 N8 钉的这一对），
+   * 只在前者成立时把它一起报出来——"到了上限"后面不跟一个数，用户分不清是本站硬闸门还是这一档的预算。
    * 模型里的 `pattern` 与 `level` 刻意不渲：前者是输入框本来就常驻显示的东西，
    * 后者是 `findings` 的派生值（`regex.js` 里 level 由 findings 有没有 high 算出来），
    * 表里那一列"级别"说的就是它，在表头再复述一句只是抄自己。
    */
+  const capOf = (model) => {
+    if (!Number.isInteger(model.capped) || model.capped < 1) {
+      throw new TypeError(`内部不变量：capped 应是本次生效的上限次数（正整数），收到 ${shapeOf(model.capped)}——"到没到"是 hitLimit 那面旗的事，这一格拿它当布尔读会永远说"已到上限"`);
+    }
+    return model.capped;
+  };
+
   const regexBlock = (m, notes = []) => wrap('regex', m, notes, (model) => {
+    const cap = capOf(model);
     const findings = grid('tk-matches', [
       { label: '规则', get: (r) => r.rule },
       { label: '位置', get: (r) => r.at },
@@ -6144,8 +6167,7 @@ export function createCodecView(view) {
     ], model.groups);
     const flagsOn = typeof model.flags === 'string' && model.flags.includes('d');
     const flagHints = [
-      model.capped ? hint('匹配次数已到上限，剩下的没有再算') : '',
-      model.hitLimit ? hint('命中次数触及本次上限，这一批没算完') : '',
+      model.hitLimit ? hint(`命中次数已到本次上限 ${cap} 次，剩下的没有再算`) : '',
       model.timedOut ? hint('档间时间预算已用完，只算了前面那些') : '',
       model.matches && model.matches.length > 0 && !flagsOn ? hint('没开 d 就没有捕获组位置，位置那一列留空') : '',
       typeof model.elapsedMs === 'number' ? hint(`档间累计耗时 ${model.elapsedMs}ms`) : '',
@@ -6221,7 +6243,9 @@ const Q_MINIMAL = {
   url: { verdict: 'empty', input: '', pair: [], differs: [], decodeTries: [], queryRows: [], bytes: 0 },
   digest: { verdict: 'empty', kind: 'text', bytes: 0, rows: [] },
   regex: { verdict: 'empty', pattern: '', flags: '', input: '', level: 'none', findings: [], count: 0,
-    matches: [], groups: [], replaced: null, capped: false, hitLimit: false, timedOut: false, elapsedMs: null },
+    // `capped` 在 `regex.js` 里是**本次生效的上限次数**（数字，见 N8），不是"到没到"的那面旗；
+    // 最小模型给的是没往下调时的 `MAX_MATCHES`，三面旗按各节的需要各自覆盖。
+    matches: [], groups: [], replaced: null, capped: 1000, hitLimit: false, timedOut: false, elapsedMs: null },
 };
 const qModel = (panel, over = {}) => ({ ...Q_MINIMAL[panel], ...over });
 
@@ -6350,15 +6374,20 @@ test('Q6 五块面板外层骨架同形：一只 tk-result、恰好一个徽章�
 
 test('Q7 timestampBlock：ambiguous 两读并列且谁都没被标成对的；invalid 那一档不许出现明细表', () => {
   const cv = qCv();
+  // `kind` 给的是 `time.js` 那两个 token（K2 钉的 `['second','milli']`），中文说法归视图：
+  // 与 VIA_CN / LEVEL_CN / DECODE_CN 同一条口径，装配层只交事实、措辞只在视图这一层写。
   const readings = [
-    { kind: '按秒', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' },
-    { kind: '按毫秒', epochMs: 1700000000, isoUtc: '1970-01-20T16:13:20Z' },
+    { kind: 'second', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' },
+    { kind: 'milli', epochMs: 1700000000, isoUtc: '1970-01-20T16:13:20Z' },
   ];
   const amb = cv.timestampBlock(qModel('timestamp', { verdict: 'ambiguous', input: '1700000000', readings }), []);
   assert.equal((amb.match(/<tr><td>/g) || []).length, 2, '两读要两行，不是挤在一条文案里说（表头是 <tr><th，不计）');
   assert.equal((amb.match(/<td/g) || []).length, 6, '两读 × 三列（解释 / epoch / UTC）= 六格');
   assert.equal(amb.includes('按秒'), true);
   assert.equal(amb.includes('按毫秒'), true);
+  assert.throws(() => cv.timestampBlock(qModel('timestamp', { verdict: 'ambiguous', readings: [{ kind: '秒', epochMs: 1, isoUtc: 'x' }] }), []),
+    (e) => e instanceof TypeError && /second \/ milli/.test(e.message),
+    'token 写错（比如传了中文）说明装配层把视图的活儿抢了过去，当场点名比页面上少一列读数好查');
   assert.equal(amb.includes('tk-state--ok'), false, '长度两可时不许把任何一种解释标成"已换算"');
   assert.equal(amb.includes('1700000000'), true, '用户那一行要回显，否则两张读数对不上是谁的');
   const long = cv.base64Block(qModel('base64', { verdict: 'encoded', input: 'a'.repeat(400), out: 'YQ' }), []);
@@ -6374,7 +6403,7 @@ test('Q7 timestampBlock：ambiguous 两读并列且谁都没被标成对的；in
   assert.equal(bad.includes('第 1 位不是数字'), true, 'reason 要落在结果里，§5.4 那句"让用户看得见为什么不行"');
   const ok = cv.timestampBlock(qModel('timestamp', {
     verdict: 'converted', input: '1700000000000',
-    readings: [{ kind: '按毫秒', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' }],
+    readings: [{ kind: 'milli', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' }],
     fields: [{ label: '本地', value: '2023-11-15 06:13:20 (UTC+08:00)', mono: true }],
     relative: '2 年前',
   }), ['口径一句']);
@@ -6449,7 +6478,7 @@ test('Q10 digestBlock：五格恒定按算法序、via 那一列三档各有说�
   assert.equal(/<td class="tk-mono">—<\/td>/.test(html), true, '算不成的那格 hex 是空串，显示 EMPTY_CELL 而不是空单元格');
 });
 
-test('Q11 regexBlock：没开 d 时组位置是空值而不是 0、三面旗各说各话、零命中是 unknown 不是 bad', () => {
+test('Q11 regexBlock：没开 d 时组位置是空值而不是 0、两面旗与那个上限数各说各话、零命中是 unknown 不是 bad', () => {
   const cv = qCv();
   const html = cv.regexBlock(qModel('regex', {
     verdict: 'matched', pattern: '(a)(b)', flags: 'g', input: 'xxab', level: 'none',
@@ -6463,14 +6492,18 @@ test('Q11 regexBlock：没开 d 时组位置是空值而不是 0、三面旗各�
   assert.equal(html.includes('>0<'), false, '把"没位置"显示成 0 就是在报一个假位置');
   assert.equal(html.includes('替换预览'), true);
   assert.equal(html.includes('>X<'), true, '预览产物要落在结果里');
-  const capped = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 1000, capped: true }), []);
-  assert.equal(capped.includes('匹配次数已到上限'), true);
-  const limited = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 900, hitLimit: true }), []);
-  assert.equal(limited.includes('命中次数触及本次上限'), true, 'hitLimit 那一句要说"这次没算完"');
-  assert.equal(limited.includes('匹配次数已到上限'), false, 'capped 与 hitLimit 是两件事，措辞不许互相顶');
-  const timed = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 4, timedOut: true }), []);
+  const limited = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 900, capped: 1000, hitLimit: true }), []);
+  assert.equal(limited.includes('命中次数已到本次上限 1000 次'), true,
+    '要把"上限是多少"一起说：只说"到了上限"，用户不知道是本站硬闸门还是这一档的预算');
+  assert.equal(limited.includes('剩下的没有再算'), true, '没算完这件事不许藏');
+  const timed = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 4, capped: 1000, timedOut: true }), []);
   assert.equal(timed.includes('档间时间预算已用完'), true);
-  assert.equal(timed.includes('匹配次数已到上限'), false, 'timedOut 不许借 capped 那句话');
+  assert.equal(timed.includes('命中次数已到本次上限'), false, 'timedOut 不许借次数那句话：N8 钉的是"时间到点不是次数到点，两面旗子不许互相顶"');
+  const quiet = cv.regexBlock(qModel('regex', { verdict: 'matched', count: 2, capped: 1000 }), []);
+  assert.equal(quiet.includes('命中次数已到本次上限'), false, 'capped 那一格次次都有值（它就是本次生效的上限），拿它当旗读会永远说"已到上限"');
+  assert.throws(() => cv.regexBlock(qModel('regex', { verdict: 'capped', count: 900, capped: true, hitLimit: true }), []),
+    (e) => e instanceof TypeError && /capped/.test(e.message),
+    '装配层把 capped 当布尔传进来时，那句话会渲成「上限 true 次」——一句话骗人，必须当场抛');
   const none = cv.regexBlock(qModel('regex', { verdict: 'nomatch', count: 0, matches: [] }), []);
   assert.equal(none.includes('零命中'), true, '编译成功但没匹配上是"零命中"');
   assert.equal(none.includes('tk-state--bad'), false, '零命中不是错误，不该上 bad 那一档');
@@ -6518,7 +6551,7 @@ test('Q15 五块面板都只经注入的 esc：同一条含 <script> 与引号�
   const cv = qCv();
   const nasty = `"><script>alert(1)</script>&'`;
   const inputs = {
-    timestamp: qModel('timestamp', { verdict: 'converted', input: nasty, readings: [{ kind: nasty, epochMs: 1, isoUtc: nasty }], fields: [{ label: nasty, value: nasty }] }),
+    timestamp: qModel('timestamp', { verdict: 'converted', input: nasty, readings: [{ kind: 'second', epochMs: 1, isoUtc: nasty }], fields: [{ label: nasty, value: nasty }] }),
     base64: qModel('base64', { verdict: 'encoded', input: nasty, out: nasty, fields: [{ label: nasty, value: nasty }] }),
     url: qModel('url', { verdict: 'encoded', input: nasty, pair: [{ name: nasty, out: nasty }], queryRows: [{ raw: nasty, key: nasty, value: nasty, keyOk: true, valueOk: null, reason: nasty }], differs: [] }),
     digest: qModel('digest', { verdict: 'computed', rows: [{ algo: nasty, ok: true, hex: nasty, bytes: 1, via: 'self', reason: nasty }] }),
@@ -6546,6 +6579,7 @@ test('Q16 模型里放不进 HTML 的东西：fieldsTable 收到对象/数组/Na
   assert.equal(/<td>—<\/td>/.test(html), true, 'null 是"这一格没值"，显示 EMPTY_CELL');
   assert.equal(html.includes('<td class="tk-mono">0</td>'), true, '0 不是空值，不许被当成空');
 });
+
 ```
 
 ## Task 7: 收录面 + 门禁解耦（本段的地基改动）
