@@ -19,19 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-## 本许可证的适用范围（不是新的授权条款，只是把上面 MIT 的「Software」指清楚）
-
-覆盖：`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、`assets/js|css` 的源码与
-产物、`vite.*.config.js` / `postcss.config.js` / `_config.yml` 等构建与配置文件，
-以及 `README.md`、`USAGE.md`、`CHANGELOG.md` 里属于工程说明的文本。
-这些内容按上面的 MIT 条款授权，可以直接拿去用、改、再分发，不需要事先打招呼。
-
-不覆盖：`_posts/` 下的文章正文与 `assets/img/` 下为文章配的插图、封面、截图。
-它们是创作作品而非代码，按 CC BY-NC-SA 4.0 授权，见同目录的 `LICENSE-CONTENT.md`。
-
-之所以要分两段写：整仓套一个 MIT 会让「转载一篇实测文章」和「抄一段构建脚本」
-落在同一条款下，前者并不是我愿意无条件放开的；反过来整仓套 CC BY-NC-SA，
-又会让想复用这套 Jekyll + Vite 构建配置的人背上非商业限制，等于没开放。

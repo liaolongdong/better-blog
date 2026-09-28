@@ -148,12 +148,14 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 
 ## 许可与版本
 
-- **代码**（`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、构建与配置文件）：[MIT](./LICENSE)。拿去用、改、再分发都不必打招呼。
+- **代码**（`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、`assets/js` 与 `assets/css` 的源码和构建产物、`vite.*.config.js` / `postcss.config.js` / `_config.yml` 等构建与配置文件，以及 `README.md`、`USAGE.md`、`CHANGELOG.md` 里属于工程说明的文本）：[MIT](./LICENSE)。拿去用、改、再分发都不必打招呼。这一条同时是「上面 MIT 说的 Software 指什么」的落点。
 - **文章与配图**（`_posts/`、`assets/img/`）：[CC BY-NC-SA 4.0](./LICENSE-CONTENT.md)。署名 + 非商业 + 相同方式共享，公众号与个人博客转载按这三条走就行；文中贴的第三方代码片段沿用其原始许可。
 - **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。逐件的上游、版本、许可、版权行，以及「这一条是靠什么确证的」都写在 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) 里——8 条与上游逐字节相同、3 条有本地改动（改了哪几行写明）、8 条确证不了版本或权利待确权（`weixinJsSdk.js` 与 iconfont.cn 那一包是其中两条）。许可原文放在件所在的目录（`ace/LICENSE` 是 BSD-3-Clause，`demo/echartsDemo/lib/LICENSE` + `NOTICE` 是 Apache-2.0），MIT 正文引在清单第四节；字体与数据快照沿用它们各自的目录级清单（`assets/fonts/LICENSES.md`、`assets/data/LICENSES.md`）。
 - **版本**：只有一个来源，就是 master 上的 git tag。`1.0.0` 是 2026-09-06 的线上状态（追溯打标），`2.0.0` 是 2026-09-22 的编辑杂志风改版 + 检索层治理，逐条变更见 [CHANGELOG.md](./CHANGELOG.md)，递增规则与发版步骤见 [USAGE.md](./USAGE.md)。
 
 分两段授权的理由：整仓套 MIT 等于允许别人把文章收进付费内容；整仓套 CC 又会让想复用这套 Jekyll + Vite 构建配置的人背上非商业限制，等于没开放。
+
+`LICENSE` 这一份只有 MIT 正文、不接任何本地条款，覆盖范围写在上面这一条里，是刻意的取舍：默认分支上它此前被 GitHub 识别成 `Other`（`api.github.com/repositories/150424122` 的 `license.spdx_id` = `NOASSERTION`，且 `community/profile` 里 `files.license.html_url` 指向的正是 `LICENSE`，2026-09-28 实测），因为 MIT 正文后面接了一段中文「适用范围」，机器按已知模板匹配不上。一段给人看的说明换掉了整个仓库的机器可读许可，不划算——所以正文回到逐字 MIT，范围挪到这里。这次改动要在推上默认分支之后用同一个接口复量，读数不变成 MIT 就还不算生效。
 
 ---
 
