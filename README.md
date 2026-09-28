@@ -130,6 +130,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 ├── sitemap.xml           # 站点地图（首页 + 导航页 + 全部文章）
 ├── robots.txt            # 爬虫规则，Sitemap 指向站内真实地址
 ├── README / USAGE / CHANGELOG / LICENSE* # 仓库级文档与许可（在 exclude 列表里，不会被渲染成站点页）
+├── THIRD-PARTY-NOTICES.md # 第三方内置件清单（刻意不进 exclude：许可声明要跟着分发一起走）
 └── .github/workflows/    # Pages 部署流水线
 ```
 
@@ -149,7 +150,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 
 - **代码**（`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、构建与配置文件）：[MIT](./LICENSE)。拿去用、改、再分发都不必打招呼。
 - **文章与配图**（`_posts/`、`assets/img/`）：[CC BY-NC-SA 4.0](./LICENSE-CONTENT.md)。署名 + 非商业 + 相同方式共享，公众号与个人博客转载按这三条走就行；文中贴的第三方代码片段沿用其原始许可。
-- **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。已核对的是 `ace/`——它是 npm 包 `ace-builds@1.4.6` 里 `src-min/` 的整套拷贝（402 个文件逐文件 SHA-256 比对，与上游 tarball 全部一致），BSD-3-Clause，版权人 Ajax.org B.V.，许可原文随目录一起放在 [`ace/LICENSE`](./ace/LICENSE)。
+- **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。逐件的上游、版本、许可、版权行，以及「这一条是靠什么确证的」都写在 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) 里——8 条与上游逐字节相同、3 条有本地改动（改了哪几行写明）、8 条确证不了版本或权利待确权（`weixinJsSdk.js` 与 iconfont.cn 那一包是其中两条）。许可原文放在件所在的目录（`ace/LICENSE` 是 BSD-3-Clause，`demo/echartsDemo/lib/LICENSE` + `NOTICE` 是 Apache-2.0），MIT 正文引在清单第四节；字体与数据快照沿用它们各自的目录级清单（`assets/fonts/LICENSES.md`、`assets/data/LICENSES.md`）。
 - **版本**：只有一个来源，就是 master 上的 git tag。`1.0.0` 是 2026-09-06 的线上状态（追溯打标），`2.0.0` 是 2026-09-22 的编辑杂志风改版 + 检索层治理，逐条变更见 [CHANGELOG.md](./CHANGELOG.md)，递增规则与发版步骤见 [USAGE.md](./USAGE.md)。
 
 分两段授权的理由：整仓套 MIT 等于允许别人把文章收进付费内容；整仓套 CC 又会让想复用这套 Jekyll + Vite 构建配置的人背上非商业限制，等于没开放。
