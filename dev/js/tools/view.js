@@ -106,12 +106,25 @@ function pickPath(row, path, who) {
 /**
  * 一张表的唯一构造点：表头与每一行的格数由同一段代码算出，"列数一致"是构造保证的，
  * 不是靠人记得数 `<td>`。`fmt` 用来拼跨字段的可读串，`path` 是纯取字段。
+ * 两个格子级开关都落到类名，且**都各有后果**（不只是观感）：
+ * - `mono` → `tk-mono`：等宽 + 样式层那条 `.tk-table .tk-mono { white-space: nowrap }`，
+ *   定形串（号码、出生日期）因此不会在连字符上折成两行。
+ * - `wide` → `tk-wide`：`min-width` 的下限，给区划全称与整条地址那种"只能按词断"的长文本。
+ *   一栏里只有它可折，容器一窄它就先被压成一个字宽、折成十几行的竖条——那比横向滚更难读，
+ *   而滚这条退路 `.tk-out` 早就给了。
  * @param {string} who 报错与类名里用的名字
- * @param {{label:string,path?:string,fmt?:(row:object)=>(string|number|null),mono?:boolean}[]} columns
+ * @param {{label:string,path?:string,fmt?:(row:object)=>(string|number|null),mono?:boolean,wide?:boolean}[]} columns
  * @param {object[]} rows
  */
 function table(who, columns, rows) {
-  const head = columns.map((c) => `<th scope="col"${c.mono ? ' class="tk-mono"' : ''}>${esc(c.label)}</th>`);
+  /** 两个开关可以同格并存（比如将来某列既要等宽又要下限），所以按出现的拼 */
+  const clsOf = (c) => {
+    const keys = [];
+    if (c.mono) keys.push('tk-mono');
+    if (c.wide) keys.push('tk-wide');
+    return keys.length ? ` class="${keys.join(' ')}"` : '';
+  };
+  const head = columns.map((c) => `<th scope="col"${clsOf(c)}>${esc(c.label)}</th>`);
   const body = rows.map((row, i) => {
     const tds = columns.map((c) => {
       let v;
@@ -120,7 +133,7 @@ function table(who, columns, rows) {
       if (v !== null && v !== undefined && typeof v !== 'string' && typeof v !== 'number') {
         throw new TypeError(`内部不变量：${who} 第 ${i + 1} 行的「${c.path || c.label}」算出来是 ${shapeOf(v)}，不是文本`);
       }
-      return `<td${c.mono ? ' class="tk-mono"' : ''}>${cell(v)}</td>`;
+      return `<td${clsOf(c)}>${cell(v)}</td>`;
     });
     return `<tr>${tds.join('')}</tr>`;
   });
@@ -226,7 +239,7 @@ function regionRow(region, who) {
 const DETAIL_SPEC = {
   idcard: [
     { label: '区划', fmt: (r) => (r.info.areaCode ? `${r.info.areaCode} · ${regionRow(r.info.region, '身份证')}` : null) },
-    { label: '出生日期', fmt: (r) => r.info.birth },
+    { label: '出生日期', fmt: (r) => r.info.birth, mono: true },
     { label: '年龄', fmt: (r) => (r.info.ageYears === null ? null : `${r.info.ageYears} 岁`) },
     { label: '性别', fmt: (r) => r.info.sex },
     { label: '顺序码', fmt: (r) => r.info.seq },
@@ -298,24 +311,33 @@ export function suggestLine(kind, result) {
   return `<p class="tk-hint">只改校验位就能自洽：<span class="tk-mono">${esc(v)}</span>（随机合成，别当真实号码用）。</p>`;
 }
 
-/** 生成结果表的列定义，键与 `BATCH_KINDS` 一一对应 */
+/**
+ * 生成结果表的列定义，键与 `BATCH_KINDS` 一一对应。
+ * `mono` 不只是等宽：样式层那条 `.tk-table .tk-mono { white-space: nowrap }` 让带它的格子
+ * **不许折行**，所以定形串（号码、出生日期）必须带——`1988-02-03` 断在连字符上会被读成两个字段。
+ * `wide` 是另一件事：这列装的是长中文串（区划、发卡行、地址），整表被压窄时它是唯一能折的格子，
+ * 于是独自承担全部缺口。2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
+ * 那比横向滚难读得多，所以给它一条 `min-width` 下限，把"挤成竖排"换成"`.tk-out` 横向滚"。
+ * 两枚开关都不带的列（年龄、性别、卡种、运营商）走样式层那条兜底：`.tk-list td:not(.tk-wide)`
+ * 一并 nowrap——只靠表头的 nowrap 不够，「卡种」两字撑出的 39px 装不下三字值，会折成一字一行。
+ */
 const COLUMNS = {
   idcard: [
     { label: '号码', path: 'id18', mono: true },
-    { label: '区划', path: 'region' },
-    { label: '出生日期', path: 'birth' },
+    { label: '区划', path: 'region', wide: true },
+    { label: '出生日期', path: 'birth', mono: true },
     { label: '年龄', path: 'age' },
     { label: '性别', path: 'sex' },
   ],
   uscc: [
     { label: '代码', path: 'code', mono: true },
-    { label: '区划', path: 'regionName' },
+    { label: '区划', path: 'regionName', wide: true },
     { label: '主体标识', path: 'subject', mono: true },
     { label: '校验位', path: 'checkBit', mono: true },
   ],
   bank: [
     { label: '卡号', path: 'formatted', mono: true },
-    { label: '发卡行', path: 'bankName' },
+    { label: '发卡行', path: 'bankName', wide: true },
     { label: '卡种', path: 'cardTypeName' },
     { label: '登记位数', path: 'panLength' },
   ],
@@ -331,7 +353,7 @@ const COLUMNS = {
     { label: '名字数', path: 'givenLength' },
   ],
   address: [
-    { label: '地址', path: 'text' },
+    { label: '地址', path: 'text', wide: true },
     { label: '区划码', path: 'areaCode', mono: true },
   ],
   email: [
@@ -340,7 +362,7 @@ const COLUMNS = {
   ],
   profile: [
     { label: '姓名', path: 'name.name' },
-    { label: '地址', path: 'address.text' },
+    { label: '地址', path: 'address.text', wide: true },
     { label: '邮箱', path: 'email.email', mono: true },
   ],
 };

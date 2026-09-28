@@ -3718,8 +3718,8 @@ SyntaxError（`node --check` 在拼装阶段就会红，跑不到测试）。14 
 //（本节只新引 `view.js` 一个模块：`parseIdCard` / `parseUscc` / `parseBankCard` / `parseMobile`、
 //  八个 `generate*`、以及 `USE_NOTE` / `REFERENCE_NOTE` / `BANK_CAVEAT` / `MOBILE_CAVEAT` / `NAME_NOTE`
 //  已在 §B、§C、§E、§F、§G 的顶层解构过，同名 `const` 再声明一次是 SyntaxError；`readFileSync`
-//  文件头就有（只有 H7 读源文本用它）。view.js 这 14 个名字全是新面孔，六个 `h*` 前缀的辅助
-//  （`hHead` / `hBody` / `hLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
+//  文件头就有（只有 H7 读源文本用它）。view.js 这 14 个名字全是新面孔，七个 `h*` 前缀的辅助
+//  （`hHead` / `hBody` / `hLabels` / `hWideLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
 const { BATCH_KINDS, EMPTY_CELL, READ_KINDS, STATE_META, batchBlock, checksTable, detailTable, echoLines, esc, listTable, noteLines, parseBlock, stateBadge, suggestLine
 } = await import('../dev/js/tools/view.js');
 
@@ -3760,6 +3760,11 @@ function hLabels(html) {
 }
 /** 剥掉标签只看文字（判"这一句在不在"时不必连类名一起抄，改样式不会误红） */
 const hText = (html) => html.replace(/<[^>]*>/g, '');
+/** 带 `tk-wide` 下限的那几列的列名（判"长文本列有没有漏标"用它，改样式不误红） */
+function hWideLabels(html) {
+  const m = html.match(/<thead><tr>([\s\S]*?)<\/tr><\/thead>/);
+  return m ? [...m[1].matchAll(/<th\b[^>]*class="[^"]*\btk-wide\b[^"]*"[^>]*>([^<]*)<\/th>/g)].map((x) => x[1]) : [];
+}
 const hBanks = (seed) => generateBankCards({ count: 20, rng: seededRandom(seed) });
 
 test('H1 esc 是本文件唯一的转义出口：五个字符各转一次，非文本一律抛', () => {
@@ -3864,6 +3869,25 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     assert.deepEqual(body, new Array(rows.length).fill(cols), `${kind} 出现了 ${[...new Set(body)].join('/')} 格混排`);
     assert.ok(batchBlock(kind, rows, []).startsWith(`<div class="tk-batch tk-batch--${kind}">`),
       `${kind} 的生成块没带 kind 类名，样式没法按档区分`);
+  }
+  // 等宽那一族在样式层同时是**不许折行**那一族（`toolkit.scss` 的 `.tk-table .tk-mono`）。
+  // 2026-09-28 那张现场截图里 `1988-02-03` 断在连字符上、表头「年龄」竖着排，就是这一格
+  // 没带 nowrap 的形状——所以哪几列走等宽不是观感问题，是列契约的一部分，连类名一起钉住。
+  const idFirstRow = /<tbody><tr>(.*?)<\/tr>/.exec(listTable('idcard', batches.idcard))?.[1] ?? '';
+  assert.equal((idFirstRow.match(/<td class="tk-mono">/g) || []).length, 2,
+    'idcard 生成表只有「号码」与「出生日期」两格等宽：多钉一格就是多一列不许折行');
+  assert.equal(/<td class="tk-mono">\d{4}-\d{2}-\d{2}<\/td>/.test(idFirstRow), true,
+    '出生日期没走等宽：它会在一串 `1988-02-03` 的连字符后面折成两行');
+  // `tk-wide` 是长文本列的宽度下限（样式层 `min-width`）。生成表里只有它能折，容器一窄就先被
+  // 压成一个字宽的竖条——2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
+  // 那比横向滚难读得多（滚这条退路 `.tk-out` 早就给了）。哪几列带它，同样是列契约的一部分。
+  const WANT_WIDE = {
+    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], name: [],
+    address: ['地址'], email: [], profile: ['地址'],
+  };
+  assert.deepEqual(Object.keys(WANT_WIDE), Object.keys(WANT_LABELS), 'wide 契约的 kind 集合没跟生成表同步');
+  for (const [kind, rows] of Object.entries(batches)) {
+    assert.deepEqual(hWideLabels(listTable(kind, rows)), WANT_WIDE[kind], `${kind} 的长文本列（tk-wide）与契约不一致`);
   }
   const reads = {
     idcard: parseIdCard('110101199003070011'),
@@ -3981,6 +4005,8 @@ test('H10 明细表把解码量摊开：区划带命中级别，算式带 Σ 与
   assert.ok(idHtml.includes('Σ 154 · mod 11 = 0 · 对照表 10X98765432'));
   assert.ok(idHtml.includes('号码末位 1，算得 1'));
   assert.ok(idHtml.includes('2022-10-31'), '区划数据截止日没落地');
+  assert.ok(idHtml.includes('<td class="tk-mono">1990-03-07</td>'),
+    '明细表的出生日期与生成表同族：定形串一律等宽，两本表里同一个字段不该一个折一个不折');
   const city = detailTable('uscc', parseUscc('91350100M000100Y43'));
   assert.ok(city.includes('350100 · 福建省福州市（市级 · 现行）'), '市级命中被写成了县级');
   const history = detailTable('idcard', parseIdCard('371299199003070011'));
@@ -4074,6 +4100,34 @@ test('H15 深样本：把 HTML 与脚本片段塞进输入、行别名与地址�
   assert.equal(listTable('mobile', [{ formatted: '138 0013 8000', segment: '138', carrier: null }])
     .includes(EMPTY_CELL), true, '运营商为空时应出空值形状');
 });
+
+test('H16 视图写下的折行钩子，样式层必须真的接住：类名没人认领就是静默失效', () => {
+  // H4 钉的是"哪一格带哪个类名"，可类名自己不改布局——生效的地方在 `toolkit.scss` 那四条声明。
+  // 删掉任何一条，视图层的判据依旧全绿，页面上却回到 2026-09-28 那个截图形状：「年龄」拆两行、
+  // `1988-02-03` 断在连字符上、「内蒙古自治区乌海市海勃湾区」折成 13 行竖排（940 视口实测）。
+  // 注释先剥掉：规则体里那些 `//` 说明讲的正是这几条为什么存在，连着匹配会让判据对格式敏感。
+  const scss = read('dev/sass/toolkit.scss').replace(/^\s*\/\/.*$/gm, '');
+  /** 行首选择器 → 规则体。逐字给选择器，`.tk-table .tk-mono` 才不会误命中裸 `.tk-mono` 那条 */
+  const ruleBody = (selector) => {
+    const flat = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    const m = new RegExp(`^${flat}\\s*\\{([^}]*)\\}`, 'm').exec(scss);
+    assert.ok(m, `样式层找不到「${selector}」这条规则，视图层那些类名就是空写的`);
+    return m[1];
+  };
+  assert.match(ruleBody('.tk-table thead th'), /white-space:\s*nowrap/,
+    '表头没 nowrap：auto 布局下没人钉列宽的下限，表头一折等于把列压到内容之下');
+  assert.match(ruleBody('.tk-table .tk-mono'), /white-space:\s*nowrap/,
+    '.tk-mono 只留等宽字体，"不许折"那半条意思丢了：出生日期又会断成 `1988-02-` + `03`');
+  assert.match(ruleBody('.tk-table .tk-wide'), /min-width:\s*7em/,
+    '.tk-wide 没有下限：整表被压窄时长文本列独自吞下缺口（7em = 12.5px × 7 = 87.5px，'
+    + '下沿容 7 个汉字、上沿不许在 1280 宽屏顶出滚动条，两个数都写在样式层的注释里）');
+  assert.match(ruleBody('.tk-list td:not(.tk-wide)'), /white-space:\s*nowrap/,
+    '长文本之外的格子没钉住 nowrap：列的下限退回表头那两三个字，「借记卡」又要一字一行'
+    + '（这一条写成 `min-width: max-content` 是无效的，Chrome 的自动表格布局不采纳 td 上的该关键字）');
+  assert.match(ruleBody('.tk-out'), /overflow-x:\s*auto/,
+    '下限之上的退路：`.tk-out` 不横向滚，前面三条就只是把折行换成了裁切');
+});
+
 ```
 
 - [ ] **Step 2: 跑红，确认红的形状**
@@ -4199,12 +4253,25 @@ function pickPath(row, path, who) {
 /**
  * 一张表的唯一构造点：表头与每一行的格数由同一段代码算出，"列数一致"是构造保证的，
  * 不是靠人记得数 `<td>`。`fmt` 用来拼跨字段的可读串，`path` 是纯取字段。
+ * 两个格子级开关都落到类名，且**都各有后果**（不只是观感）：
+ * - `mono` → `tk-mono`：等宽 + 样式层那条 `.tk-table .tk-mono { white-space: nowrap }`，
+ *   定形串（号码、出生日期）因此不会在连字符上折成两行。
+ * - `wide` → `tk-wide`：`min-width` 的下限，给区划全称与整条地址那种"只能按词断"的长文本。
+ *   一栏里只有它可折，容器一窄它就先被压成一个字宽、折成十几行的竖条——那比横向滚更难读，
+ *   而滚这条退路 `.tk-out` 早就给了。
  * @param {string} who 报错与类名里用的名字
- * @param {{label:string,path?:string,fmt?:(row:object)=>(string|number|null),mono?:boolean}[]} columns
+ * @param {{label:string,path?:string,fmt?:(row:object)=>(string|number|null),mono?:boolean,wide?:boolean}[]} columns
  * @param {object[]} rows
  */
 function table(who, columns, rows) {
-  const head = columns.map((c) => `<th scope="col"${c.mono ? ' class="tk-mono"' : ''}>${esc(c.label)}</th>`);
+  /** 两个开关可以同格并存（比如将来某列既要等宽又要下限），所以按出现的拼 */
+  const clsOf = (c) => {
+    const keys = [];
+    if (c.mono) keys.push('tk-mono');
+    if (c.wide) keys.push('tk-wide');
+    return keys.length ? ` class="${keys.join(' ')}"` : '';
+  };
+  const head = columns.map((c) => `<th scope="col"${clsOf(c)}>${esc(c.label)}</th>`);
   const body = rows.map((row, i) => {
     const tds = columns.map((c) => {
       let v;
@@ -4213,7 +4280,7 @@ function table(who, columns, rows) {
       if (v !== null && v !== undefined && typeof v !== 'string' && typeof v !== 'number') {
         throw new TypeError(`内部不变量：${who} 第 ${i + 1} 行的「${c.path || c.label}」算出来是 ${shapeOf(v)}，不是文本`);
       }
-      return `<td${c.mono ? ' class="tk-mono"' : ''}>${cell(v)}</td>`;
+      return `<td${clsOf(c)}>${cell(v)}</td>`;
     });
     return `<tr>${tds.join('')}</tr>`;
   });
@@ -4319,7 +4386,7 @@ function regionRow(region, who) {
 const DETAIL_SPEC = {
   idcard: [
     { label: '区划', fmt: (r) => (r.info.areaCode ? `${r.info.areaCode} · ${regionRow(r.info.region, '身份证')}` : null) },
-    { label: '出生日期', fmt: (r) => r.info.birth },
+    { label: '出生日期', fmt: (r) => r.info.birth, mono: true },
     { label: '年龄', fmt: (r) => (r.info.ageYears === null ? null : `${r.info.ageYears} 岁`) },
     { label: '性别', fmt: (r) => r.info.sex },
     { label: '顺序码', fmt: (r) => r.info.seq },
@@ -4391,24 +4458,33 @@ export function suggestLine(kind, result) {
   return `<p class="tk-hint">只改校验位就能自洽：<span class="tk-mono">${esc(v)}</span>（随机合成，别当真实号码用）。</p>`;
 }
 
-/** 生成结果表的列定义，键与 `BATCH_KINDS` 一一对应 */
+/**
+ * 生成结果表的列定义，键与 `BATCH_KINDS` 一一对应。
+ * `mono` 不只是等宽：样式层那条 `.tk-table .tk-mono { white-space: nowrap }` 让带它的格子
+ * **不许折行**，所以定形串（号码、出生日期）必须带——`1988-02-03` 断在连字符上会被读成两个字段。
+ * `wide` 是另一件事：这列装的是长中文串（区划、发卡行、地址），整表被压窄时它是唯一能折的格子，
+ * 于是独自承担全部缺口。2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
+ * 那比横向滚难读得多，所以给它一条 `min-width` 下限，把"挤成竖排"换成"`.tk-out` 横向滚"。
+ * 两枚开关都不带的列（年龄、性别、卡种、运营商）走样式层那条兜底：`.tk-list td:not(.tk-wide)`
+ * 一并 nowrap——只靠表头的 nowrap 不够，「卡种」两字撑出的 39px 装不下三字值，会折成一字一行。
+ */
 const COLUMNS = {
   idcard: [
     { label: '号码', path: 'id18', mono: true },
-    { label: '区划', path: 'region' },
-    { label: '出生日期', path: 'birth' },
+    { label: '区划', path: 'region', wide: true },
+    { label: '出生日期', path: 'birth', mono: true },
     { label: '年龄', path: 'age' },
     { label: '性别', path: 'sex' },
   ],
   uscc: [
     { label: '代码', path: 'code', mono: true },
-    { label: '区划', path: 'regionName' },
+    { label: '区划', path: 'regionName', wide: true },
     { label: '主体标识', path: 'subject', mono: true },
     { label: '校验位', path: 'checkBit', mono: true },
   ],
   bank: [
     { label: '卡号', path: 'formatted', mono: true },
-    { label: '发卡行', path: 'bankName' },
+    { label: '发卡行', path: 'bankName', wide: true },
     { label: '卡种', path: 'cardTypeName' },
     { label: '登记位数', path: 'panLength' },
   ],
@@ -4424,7 +4500,7 @@ const COLUMNS = {
     { label: '名字数', path: 'givenLength' },
   ],
   address: [
-    { label: '地址', path: 'text' },
+    { label: '地址', path: 'text', wide: true },
     { label: '区划码', path: 'areaCode', mono: true },
   ],
   email: [
@@ -4433,7 +4509,7 @@ const COLUMNS = {
   ],
   profile: [
     { label: '姓名', path: 'name.name' },
-    { label: '地址', path: 'address.text' },
+    { label: '地址', path: 'address.text', wide: true },
     { label: '邮箱', path: 'email.email', mono: true },
   ],
 };
@@ -11181,6 +11257,11 @@ body.night-mode {
     font-weight: 500;
     color: var(--ink-3);
     background-color: var(--surface-2);
+    // 表头不许折行。列名是这张表唯一的图例，「年龄」拆成两行读起来像两列，而 11.5px 的字
+    // 一旦竖排就再也对不上下面那串数；更硬的一条理由是**表头决定列宽**：auto 布局下
+    // `th` 的 nowrap 把列的下限抬到自己的宽度（实测「出生日期」91px），下面那格
+    // `1988-02-03` 因此再没有机会在连字符处断成两行（2026-09-28 现场截图就是这个形状）。
+    white-space: nowrap;
 }
 
 .tk-table tbody tr:last-child > * {
@@ -11189,13 +11270,44 @@ body.night-mode {
 
 // 明细表与前缀表是「宁可横向滚也不折行」的那两张（九列一行的明细，压窄只会读成竖排）；
 // 判定表与生成表相反——`tk-list--address` 那一列是整条地址，`min-width: max-content` 会把它
-// 顶成 400px 宽的一行，反而要滚。号码不换行靠的是下面那条 `white-space: nowrap`，只保号码本身。
+// 顶成 400px 宽的一行，反而要滚。生成表因此留着折行，但只许**长文本那一列**折：表头被上面
+// 那条 nowrap 钉住，等宽的那几格（号码 / 出生日期，走下面 `.tk-mono`）也不折，被压窄的于是
+// 只剩区划与地址这种本来就该断在词缝里的中文串——但它折到哪儿为止，由下面那条 `.tk-wide` 管。
+// 反过来也不给整表加 `min-width: max-content`：1280 视口实测 idcard 生成表可用 433px、
+// max-content 498px，为这 65px 让整表横向滚，等于把「年龄」「性别」推到屏幕外面去。
 .tk-detail,
 .tk-matches {
     min-width: max-content;
 }
 
+// 等宽的那几格同时是「不许折」的那几格：号码与出生日期都是要逐位对着看的定形串，
+// 折在连字符上的 `1988-02-\n03` 会被读成两个字段。
 .tk-table .tk-mono {
+    white-space: nowrap;
+}
+
+// 长文本列的下限，专门对付"整表被压窄时缺口全落在一列"那个形状：这一列不带 nowrap（中文地址
+// 本来就该在字缝里断），但必须有底——2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」
+// 被压到 13 行，那已经不是折行，是竖排。
+// 7em = 12.5px × 7 = 87.5px，两头都量过：下沿要容得下 7 个汉字——生成侧 40 批 × 50 个采样里
+// 最长的区划是 25 字（甘肃省临夏回族自治州积石山保安族东乡族撒拉族自治县），到这里是 4 行，
+// 再窄就开始逐字往下掉；上沿是 1280 那个最该好读的宽屏——结果区实测 433px，其余四列
+// （号码、出生日期两张等宽 + 年龄 + 性别 + 五格 padding）合计 336px，留给这一列的只有 97px，
+// 下限一旦超过 97 就在宽屏上多出滚动条（写 8em 时实测表 436 / 区 433，正是这个形状）。
+// 触底之后挤不下怎么办：那条退路 `.tk-out` 早就给了——940 与 360 视口横向滚（实测表 426 /
+// 结果区 313 与 290），滚是看得见的代价，把区划压成竖排则是读不出来的代价。
+.tk-table .tk-wide {
+    min-width: 7em;
+}
+
+// 上限的那一半：除长文本列之外，生成表里没有一列许折。光靠表头那条 nowrap 挡不住——列的下限
+// 于是只有表头那么宽，「卡种」两字撑到 39px，下面的「借记卡」三字只好一字一行（940 视口实测 3 行），
+// `profile` 的「姓名」在 360 视口同样是 3 行。这里必须写 `white-space: nowrap` 而不是
+// `min-width: max-content`：后者作用在 `td` 上时 Chrome 的自动表格布局根本不采纳（实测计算值给了
+// `max-content`、列宽仍旧停在 39px），而 nowrap 参与的列宽计算是被尊重的（号码那一列 151px 就是它）。
+// "被压窄"这件事从此只剩 `.tk-wide` 那一列承担，整表装不下时由 `.tk-out` 横向滚。
+// 1280 实测不受影响：idcard 生成表除区划外四列合计 320px，加上区划的 104px 下限是 424px，可用 433px。
+.tk-list td:not(.tk-wide) {
     white-space: nowrap;
 }
 

@@ -3608,8 +3608,8 @@ test('G15 单类与三元组共用同一套闸门：错误文案点的是出事�
 //（本节只新引 `view.js` 一个模块：`parseIdCard` / `parseUscc` / `parseBankCard` / `parseMobile`、
 //  八个 `generate*`、以及 `USE_NOTE` / `REFERENCE_NOTE` / `BANK_CAVEAT` / `MOBILE_CAVEAT` / `NAME_NOTE`
 //  已在 §B、§C、§E、§F、§G 的顶层解构过，同名 `const` 再声明一次是 SyntaxError；`readFileSync`
-//  文件头就有（只有 H7 读源文本用它）。view.js 这 14 个名字全是新面孔，六个 `h*` 前缀的辅助
-//  （`hHead` / `hBody` / `hLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
+//  文件头就有（只有 H7 读源文本用它）。view.js 这 14 个名字全是新面孔，七个 `h*` 前缀的辅助
+//  （`hHead` / `hBody` / `hLabels` / `hWideLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
 const { BATCH_KINDS, EMPTY_CELL, READ_KINDS, STATE_META, batchBlock, checksTable, detailTable, echoLines, esc, listTable, noteLines, parseBlock, stateBadge, suggestLine
 } = await import('../dev/js/tools/view.js');
 
@@ -3650,6 +3650,11 @@ function hLabels(html) {
 }
 /** 剥掉标签只看文字（判"这一句在不在"时不必连类名一起抄，改样式不会误红） */
 const hText = (html) => html.replace(/<[^>]*>/g, '');
+/** 带 `tk-wide` 下限的那几列的列名（判"长文本列有没有漏标"用它，改样式不误红） */
+function hWideLabels(html) {
+  const m = html.match(/<thead><tr>([\s\S]*?)<\/tr><\/thead>/);
+  return m ? [...m[1].matchAll(/<th\b[^>]*class="[^"]*\btk-wide\b[^"]*"[^>]*>([^<]*)<\/th>/g)].map((x) => x[1]) : [];
+}
 const hBanks = (seed) => generateBankCards({ count: 20, rng: seededRandom(seed) });
 
 test('H1 esc 是本文件唯一的转义出口：五个字符各转一次，非文本一律抛', () => {
@@ -3754,6 +3759,25 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     assert.deepEqual(body, new Array(rows.length).fill(cols), `${kind} 出现了 ${[...new Set(body)].join('/')} 格混排`);
     assert.ok(batchBlock(kind, rows, []).startsWith(`<div class="tk-batch tk-batch--${kind}">`),
       `${kind} 的生成块没带 kind 类名，样式没法按档区分`);
+  }
+  // 等宽那一族在样式层同时是**不许折行**那一族（`toolkit.scss` 的 `.tk-table .tk-mono`）。
+  // 2026-09-28 那张现场截图里 `1988-02-03` 断在连字符上、表头「年龄」竖着排，就是这一格
+  // 没带 nowrap 的形状——所以哪几列走等宽不是观感问题，是列契约的一部分，连类名一起钉住。
+  const idFirstRow = /<tbody><tr>(.*?)<\/tr>/.exec(listTable('idcard', batches.idcard))?.[1] ?? '';
+  assert.equal((idFirstRow.match(/<td class="tk-mono">/g) || []).length, 2,
+    'idcard 生成表只有「号码」与「出生日期」两格等宽：多钉一格就是多一列不许折行');
+  assert.equal(/<td class="tk-mono">\d{4}-\d{2}-\d{2}<\/td>/.test(idFirstRow), true,
+    '出生日期没走等宽：它会在一串 `1988-02-03` 的连字符后面折成两行');
+  // `tk-wide` 是长文本列的宽度下限（样式层 `min-width`）。生成表里只有它能折，容器一窄就先被
+  // 压成一个字宽的竖条——2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
+  // 那比横向滚难读得多（滚这条退路 `.tk-out` 早就给了）。哪几列带它，同样是列契约的一部分。
+  const WANT_WIDE = {
+    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], name: [],
+    address: ['地址'], email: [], profile: ['地址'],
+  };
+  assert.deepEqual(Object.keys(WANT_WIDE), Object.keys(WANT_LABELS), 'wide 契约的 kind 集合没跟生成表同步');
+  for (const [kind, rows] of Object.entries(batches)) {
+    assert.deepEqual(hWideLabels(listTable(kind, rows)), WANT_WIDE[kind], `${kind} 的长文本列（tk-wide）与契约不一致`);
   }
   const reads = {
     idcard: parseIdCard('110101199003070011'),
@@ -3871,6 +3895,8 @@ test('H10 明细表把解码量摊开：区划带命中级别，算式带 Σ 与
   assert.ok(idHtml.includes('Σ 154 · mod 11 = 0 · 对照表 10X98765432'));
   assert.ok(idHtml.includes('号码末位 1，算得 1'));
   assert.ok(idHtml.includes('2022-10-31'), '区划数据截止日没落地');
+  assert.ok(idHtml.includes('<td class="tk-mono">1990-03-07</td>'),
+    '明细表的出生日期与生成表同族：定形串一律等宽，两本表里同一个字段不该一个折一个不折');
   const city = detailTable('uscc', parseUscc('91350100M000100Y43'));
   assert.ok(city.includes('350100 · 福建省福州市（市级 · 现行）'), '市级命中被写成了县级');
   const history = detailTable('idcard', parseIdCard('371299199003070011'));
@@ -3963,6 +3989,33 @@ test('H15 深样本：把 HTML 与脚本片段塞进输入、行别名与地址�
     /缺「text」/, '嵌套字段少了却静默显示成空');
   assert.equal(listTable('mobile', [{ formatted: '138 0013 8000', segment: '138', carrier: null }])
     .includes(EMPTY_CELL), true, '运营商为空时应出空值形状');
+});
+
+test('H16 视图写下的折行钩子，样式层必须真的接住：类名没人认领就是静默失效', () => {
+  // H4 钉的是"哪一格带哪个类名"，可类名自己不改布局——生效的地方在 `toolkit.scss` 那四条声明。
+  // 删掉任何一条，视图层的判据依旧全绿，页面上却回到 2026-09-28 那个截图形状：「年龄」拆两行、
+  // `1988-02-03` 断在连字符上、「内蒙古自治区乌海市海勃湾区」折成 13 行竖排（940 视口实测）。
+  // 注释先剥掉：规则体里那些 `//` 说明讲的正是这几条为什么存在，连着匹配会让判据对格式敏感。
+  const scss = read('dev/sass/toolkit.scss').replace(/^\s*\/\/.*$/gm, '');
+  /** 行首选择器 → 规则体。逐字给选择器，`.tk-table .tk-mono` 才不会误命中裸 `.tk-mono` 那条 */
+  const ruleBody = (selector) => {
+    const flat = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    const m = new RegExp(`^${flat}\\s*\\{([^}]*)\\}`, 'm').exec(scss);
+    assert.ok(m, `样式层找不到「${selector}」这条规则，视图层那些类名就是空写的`);
+    return m[1];
+  };
+  assert.match(ruleBody('.tk-table thead th'), /white-space:\s*nowrap/,
+    '表头没 nowrap：auto 布局下没人钉列宽的下限，表头一折等于把列压到内容之下');
+  assert.match(ruleBody('.tk-table .tk-mono'), /white-space:\s*nowrap/,
+    '.tk-mono 只留等宽字体，"不许折"那半条意思丢了：出生日期又会断成 `1988-02-` + `03`');
+  assert.match(ruleBody('.tk-table .tk-wide'), /min-width:\s*7em/,
+    '.tk-wide 没有下限：整表被压窄时长文本列独自吞下缺口（7em = 12.5px × 7 = 87.5px，'
+    + '下沿容 7 个汉字、上沿不许在 1280 宽屏顶出滚动条，两个数都写在样式层的注释里）');
+  assert.match(ruleBody('.tk-list td:not(.tk-wide)'), /white-space:\s*nowrap/,
+    '长文本之外的格子没钉住 nowrap：列的下限退回表头那两三个字，「借记卡」又要一字一行'
+    + '（这一条写成 `min-width: max-content` 是无效的，Chrome 的自动表格布局不采纳 td 上的该关键字）');
+  assert.match(ruleBody('.tk-out'), /overflow-x:\s*auto/,
+    '下限之上的退路：`.tk-out` 不横向滚，前面三条就只是把折行换成了裁切');
 });
 
 // ── §I 面板 DOM 绑定（手写假 DOM） ─────────────────────────────────────────
@@ -7896,7 +7949,7 @@ test('O13 抽离不留第二份实现：装配层经 `Tk.ui` 拿，缺它就构�
 //   ① **零 import，且不进 `window.Tk`**（Q2）。它只由 `codecWorkbench.js` 一本 import——只有
 //      一个入口 reach 它就不会成 chunk，这是它敢 import 出去的前提；反过来它自己一旦 import，
 //      那前提就没了。而它挂进 `Tk` 的后果是证件页替编码页的五块面板付 gzip，§7 的余量只剩
-//      4,258B，所以这一格由 `toolkitCore` 的源码扫守住（Q2 后半），`O13` 那份四只清单不许被扩成五只。
+//      4,173B，所以这一格由 `toolkitCore` 的源码扫守住（Q2 后半），`O13` 那份四只清单不许被扩成五只。
 //   ② **转义只有一处出口**（Q3）。`esc` / `EMPTY_CELL` / `checksTable` / `noteLines` 四样都来自
 //      注入的那只 `view`，本文件里不许长出第二只 `esc`、第二张实体表、第二个 `'—'`。
 //      表格那一半**允许**自带（`view.js` 的 `table` 是私有函数，共享它就要开 import 边），
@@ -7975,7 +8028,7 @@ test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都
   assert.equal(/require\(/.test(code), false);
   const core = read('dev/js/toolkitCore.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.equal(/codecView/.test(core), false,
-    '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,258B）');
+    '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,173B）');
   assert.deepEqual(core.match(/window\.Tk\s*=\s*\{([^}]*)\}/)[1].split(',').map((s) => s.trim()),
     ['createPanelWorkspace', 'createPanelDom', 'view', 'ui'],
     'Tk 仍是四只：这一格扩面了，O13 与 J12 那两份清单要跟着改，别在这儿偷偷加');

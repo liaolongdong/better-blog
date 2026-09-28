@@ -5555,6 +5555,8 @@ HEAD 里的 12 行桩（4842–4853）长成 698 行（4842–5539），其中�
 - 实测（2026-09-28，`cat assets/js/x | gzip -9 | wc -c`）：`toolkitCore.min.js` = **6,977B**、
   `toolIdcard.min.js` = **64,479B**。证件页 §7 那一行的预算余量只剩 **4,258B（5.5%）**，
   而这一格新写的视图层按 §Q 那五块面板的量（逐档徽章 + 五张表）估在 3–5KB gzip 一档。
+  （同日证件页表格收口后按同一口径复量，三件为 2,135 / 7,037 / 64,479 = **73,651B**、余 **4,173B（5.4%）**，
+  见 §7「2026-09-28 证件页表格收口后复量」那一格——数字往下走了一档，结论一个字不改：这一格仍挂不得。）
 - `toolkitCore.min.js` 是证件页与编码页**共用**的那一本（`tools-idcard.html:472` 与将来的
   `tools-codec.html` 都引它）：把只有编码页要读的视图层挂进去，等于让证件页为五块它没有的面板付 gzip，
   余量直接见底——而 §7 的口径是"先量后立、不许拿预算反推实现"。
@@ -5729,7 +5731,8 @@ export function controlIds(prefix, panels = CODEC_PANEL_IDS) → { btn, copy, ou
  *    只有一个入口 reach 它，Rollup 就不会把它提成共享 chunk，产物里也就没有那句会把整页
  *    打成 SyntaxError 的 `import{`（实测记录在 `dev/js/toolkitCore.js` 开头）。反过来它自己
  *    一旦 import 别的东西，"只有一个入口"这条前提就没了。而把它挂进 `Tk` 的后果是**证件页
- *    替编码页的五块面板付 gzip**——§7 那一行余量只剩 4,258B，挂不得。
+ *    替编码页的五块面板付 gzip**——§7 那一行余量只剩 4,173B（2026-09-28 证件页表格收口后按
+ *    `cat f | gzip -9 | wc -c` 复量，三件 2,135 / 7,037 / 64,479），挂不得。
  * 2. **转义只有一处出口**（§Q3）。`esc` / `EMPTY_CELL` / `checksTable` / `noteLines` 四样
  *    全部来自注入的那只 `view`（`window.Tk.view`）。这一本里不许长出第二只 `esc`、第二张
  *    实体映射表、第二个破折号字面量：两份实现的下场必然是"改了一份、页面上跑的是另一份"。
@@ -6207,7 +6210,7 @@ export function createCodecView(view) {
 //   ① **零 import，且不进 `window.Tk`**（Q2）。它只由 `codecWorkbench.js` 一本 import——只有
 //      一个入口 reach 它就不会成 chunk，这是它敢 import 出去的前提；反过来它自己一旦 import，
 //      那前提就没了。而它挂进 `Tk` 的后果是证件页替编码页的五块面板付 gzip，§7 的余量只剩
-//      4,258B，所以这一格由 `toolkitCore` 的源码扫守住（Q2 后半），`O13` 那份四只清单不许被扩成五只。
+//      4,173B，所以这一格由 `toolkitCore` 的源码扫守住（Q2 后半），`O13` 那份四只清单不许被扩成五只。
 //   ② **转义只有一处出口**（Q3）。`esc` / `EMPTY_CELL` / `checksTable` / `noteLines` 四样都来自
 //      注入的那只 `view`，本文件里不许长出第二只 `esc`、第二张实体表、第二个 `'—'`。
 //      表格那一半**允许**自带（`view.js` 的 `table` 是私有函数，共享它就要开 import 边），
@@ -6286,7 +6289,7 @@ test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都
   assert.equal(/require\(/.test(code), false);
   const core = read('dev/js/toolkitCore.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.equal(/codecView/.test(core), false,
-    '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,258B）');
+    '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,173B）');
   assert.deepEqual(core.match(/window\.Tk\s*=\s*\{([^}]*)\}/)[1].split(',').map((s) => s.trim()),
     ['createPanelWorkspace', 'createPanelDom', 'view', 'ui'],
     'Tk 仍是四只：这一格扩面了，O13 与 J12 那两份清单要跟着改，别在这儿偷偷加');
