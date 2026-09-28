@@ -10121,21 +10121,26 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 <!-- 顶栏「工具箱」下拉与 /tools.html 小节里「证件与机构代码工具」那一行的图标。
      画成描边图形而不是图标字体：断网时只剩方框（同 _includes/header.html 里下拉箭头那条理由）。
 
+     下面通篇把两格底色令牌写成 surface / surface-2，不写它们带 var 前缀的形式：XML 注释里
+     禁止出现连续两个连字符，一写整个文件就解析失败，而 SVG 是被 <img> 引用的，解析失败在
+     浏览器里直接是破图（2026-09-28 就是这个毛病：真 Chrome 里这一行渲染成破图占位，
+     naturalWidth 读到 0；xmllint 校验报六处 parser error）。改这段注释时别再引入那两划。
+
      描边色是写死的 #737B85，不是 currentColor——这一条与文件最初那版注释相反，理由是实测：
      这个文件通过 <img src> 引用（下拉与产品页两处都是），而 <img> 里的 SVG 是一份独立文档，
      拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color，
-     也就是近黑色。黑色描边放在夜间 --surface-2 (#20242C) 上是 1.35:1，等于看不见。
+     也就是近黑色。黑色描边放在夜间 surface-2 那一格 (#20242C) 上是 1.35:1，等于看不见。
      走 CSS `mask + background: currentColor` 能保住跟随主题，但要动全站那份
      dev/sass/common/editorial.scss 里的 .nav-sub-icon / .tool-icon 两处，且 mask 一旦不生效
      就同时露出黑色底图；这里按「一份图、两档都能读」的代价重排后选了烘色。
 
      #737B85 是把 dev/sass/common/tokens.scss 里那 8 格底色逐格算一遍挑出来的（四档纸色温
-     「暖 = :root / 冷 cool / 绿 sage / 夜间 night-mode」各出 `--surface` 与 `--surface-2` 一格），
+     「暖 = :root / 冷 cool / 绿 sage / 夜间 night-mode」各出 surface 与 surface-2 一格），
      取值口径是「让八组对比度里最差的那组尽量高」，WCAG 1.4.11 对图形对象要的是 3:1
      （这两处图标都带 alt=""，属装饰，实际门槛比 3:1 还低）：
-       --surface    暖 #FFF 4.28 · 冷 #FFFFFF 4.28 · 绿 #FAFCF8 4.15 · 夜 #191C23 3.98
-       --surface-2  暖 #F4F2ED 3.83 · 冷 #EFF1F5 3.79 · 绿 #E6EDE3 3.59 · 夜 #20242C 3.63
-     最差 3.59，落在绿档的 --surface-2 (#E6EDE3) 上。复算不用手抄：跑
+       surface    暖 #FFF 4.28 · 冷 #FFFFFF 4.28 · 绿 #FAFCF8 4.15 · 夜 #191C23 3.98
+       surface-2  暖 #F4F2ED 3.83 · 冷 #EFF1F5 3.79 · 绿 #E6EDE3 3.59 · 夜 #20242C 3.63
+     最差 3.59，落在绿档的 surface-2 (#E6EDE3) 上。复算不用手抄：跑
      `node scripts/check-tools-surface.mjs`，它的「图标」那一组现读 tokens.scss 凑底色集合、
      现算这八组比值，并把本文件的 `stroke` 与 `fill` 里每个色值都过一遍。 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
@@ -12948,6 +12953,21 @@ function checkIcon(t) {
     return;
   }
   const rawSvg = readSrc(t.icon.replace(/^\//, ''));
+  // 注释里出现连续两个连字符，整份 SVG 就不是合法 XML。而它是以 <img src> 引用的，
+  // 解析失败在页面上直接是破图占位——构建、其余四组判据、乃至下面那段对比度计算全是绿的，
+  // 因为它们都是按正则读文本，不看可解析性（2026-09-28 现场：本图标的注释里写了带 var 前缀
+  // 的令牌名，xmllint 报六处 parser error，下拉与 /tools.html 两处同时渲染成破图，
+  // 而门禁当时退 0）。这条判据补的是那层盲区。
+  const comments = rawSvg.match(/<!--[\s\S]*?-->/g) || [];
+  const badComments = comments.filter((c) => /--/.test(c.slice(4, -3)));
+  if (badComments.length) {
+    bad('图标', t.slug,
+      `${comments.length} 段注释里有 ${badComments.length} 段含连续两个连字符——XML 注释禁止那两划，整份 SVG 解析失败，<img> 里是破图`);
+  }
+  // 注释之外必须还剩一个带 xmlns 的根，否则同样是解析失败
+  if (!/<svg\b[^>]*\bxmlns=/s.test(rawSvg.replace(/<!--[\s\S]*?-->/g, ''))) {
+    bad('图标', t.slug, '摘掉注释之后找不到带 xmlns 的 <svg> 根节点，浏览器不会把它当 SVG 解析');
+  }
   // 注释里出现 currentColor 是**记录决策**（这个文件的注释正是在解释"为什么不用它"），
   // 判据只看渲染时会生效的那部分，所以先摘掉 <!-- … -->
   const svg = rawSvg.replace(/<!--[\s\S]*?-->/g, '');
