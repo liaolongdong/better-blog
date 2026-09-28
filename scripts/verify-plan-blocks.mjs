@@ -15,8 +15,8 @@
  *   node scripts/verify-plan-blocks.mjs --fix    # 把不等的那些镜像块整块换成磁盘内容，
  *                                                #   只碰唯一候选块，其余一律不动；换完再跑一次
  *
- * 镜像现在分布在**三份计划**里（段 1 + 段 2 `2026-09-26-tools-idcard-page.md`
- * + 段 3 `2026-09-27-tools-codec-page.md`，清单权威是下面的 `PLANS`）：
+ * 镜像现在分布在**四份计划**里（段 1 + 段 2 `2026-09-26-tools-idcard-page.md`
+ * + 段 3 `2026-09-27-tools-codec-page.md` + 段 4 `2026-09-29-tools-json-page.md`，清单权威是下面的 `PLANS`）：
  * 磁盘上 `toolkit-tests.mjs` 的 §E0/§F0 两块代码是段 2 计划贴的，段 1 计划里根本没有。
  * 只认一份计划的旧实现在这儿会产出**两种**错形状——§D 那一节因为下一节没被认成分节而被
  * 一路吞到文件尾（假"逐字节不等"），§E0/§F0 则压根没人核（假"全等"）。所以块按
@@ -44,7 +44,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * 三份计划：段 1 那份是 §A–§D 与七个整文件的镜像所在地，段 2 从 §E0 起接手，段 3 从 §K 起接手。
+ * 四份计划：段 1 那份是 §A–§D 与七个整文件的镜像所在地，段 2 从 §E0 起接手，段 3 从 §K 起接手，
+ * 段 4 从 §U 起接手（§S–§W 是 JSON 工作台页那五族，落在 `toolkit-tests.mjs` 的末尾）。
  * 顺序即查找顺序，但**判定是全局的**——同一块内容若在多份计划里都能全等命中，照旧按
  * `✗ 歧义` 拒绝猜，不因为"先命中的那份赢了"而静默挑一个。
  */
@@ -52,6 +53,10 @@ const PLANS = [
   { rel: '_docs/superpowers/plans/2026-09-25-online-tools-foundation.md', tag: '段1' },
   { rel: '_docs/superpowers/plans/2026-09-26-tools-idcard-page.md', tag: '段2' },
   { rel: '_docs/superpowers/plans/2026-09-27-tools-codec-page.md', tag: '段3' },
+  // 段 4（JSON 工作台页）2026-09-29 起接手 §S–§W。加这一条的那一格就要同时把 §U 的镜像块
+  // 贴进那份计划——`PLANS` 认了却磁盘上没有对应块，门禁二红的是"新来的这份一条都没核"，
+  // 与 §0.7 那条"登记方向跟着磁盘走"是同一条纪律的两面。
+  { rel: '_docs/superpowers/plans/2026-09-29-tools-json-page.md', tag: '段4' },
 ];
 
 /**

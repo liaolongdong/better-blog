@@ -312,7 +312,7 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { createServer } from 'node:http';
 import { execFileSync, spawnSync, execFile } from 'node:child_process';
@@ -320,7 +320,7 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

@@ -59,7 +59,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { createServer } from 'node:http';
 import { execFileSync, spawnSync, execFile } from 'node:child_process';
@@ -67,7 +67,7 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -9408,5 +9408,84 @@ test('R16 入口只读骨架那四格数据；启动失败不装死，成功路�
       assert.equal(page.html('base64', 'main').includes('>5Lit<'), true);
       assert.equal(page.notice.hidden, true, '这一档是成功路径，不该留提示行');
     });
+  }
+});
+
+// ── §U YAML/XML/CSV 互转（tools/json-convert.js，段 4 Task 1 起）────────────────
+//   本段第一格只立**内置上游件**那一族（U1–U5）。YAML 的实现要到 Task 4 才落，但
+//   "仓库里躺着一本别人写的浏览器端产物"这件事必须当天就有人盯着：将来谁"顺手修一下
+//   这个 minified 文件"（改一个空格、剥掉尾部那条 sourcemap 引用、换个版本），
+//   THIRD-PARTY-NOTICES.md 第一节里"逐字节比对已确证（就是上游那一份）"那句话就变成谎话。
+//   为什么它是内置件而不是依赖：段 4 计划 §0.4 那三条理由（package.json 当时被另一路会话
+//   占着 / 本仓库浏览器代码的既有做法就是 dev/libJs 内置 / 内置的价钱量得出来——探针实测
+//   toolJson 那一族 16,912B gzip），口径与复算命令都写在那一格，这里不抄第二遍。
+//   两条计量口径的坑提前挡掉：`grep -c` 数的是**行**而这些产物是单行的（U3 用 split 数次数）；
+//   注释里出现的那个路径不是 import 边（U4 先剥注释再数，否则本文件自己就是第一条假命中）。
+
+/** 内置件在仓库里的位置与它的上游身份，三个数一起才钉得住"这一本 = 那一份"。 */
+const YAML_LIB_PATH = 'dev/libJs/js-yaml.esm.min.mjs';
+const YAML_LIB_BYTES = 78721;
+/** npm tarball js-yaml-5.4.2 里 `package/dist/browser/js-yaml.esm.min.mjs` 那个成员 */
+const YAML_LIB_SHA256 = '154ea2da9e53404fb206f19cb9ce6c3a9880295fa34b96e40855be7cbc02f082';
+/** `https://registry.npmjs.org/js-yaml/-/js-yaml-5.4.2.tgz` 整包（363,341B，2026-09-29 curl 实读） */
+const YAML_TGZ_SHA256 = '0003d2f51f6717c17a708449d05f2f8d8c90a52e9ba4587ff7e8e474c9792209';
+/** 唯一被允许 import 它的那一本装配层之外的纯逻辑模块（§0.4 落地规矩第三条） */
+const YAML_LIB_CONSUMER = 'dev/js/tools/json-convert.js';
+
+test('U1 内置件逐字节等于上游 tarball 的那个成员，尾部 sourcemap 引用不许剥', () => {
+  const abs = resolve(ROOT, YAML_LIB_PATH);
+  const bytes = readFileSync(abs);
+  assert.equal(bytes.length, YAML_LIB_BYTES,
+    `字节数不是 §0.4 探针那格记的 ${YAML_LIB_BYTES}——内置件被改写过，或上游换了版本而没人改判据`);
+  assert.equal(sha256Of(bytes), YAML_LIB_SHA256,
+    `与 js-yaml 5.4.2 那个成员的 sha256 不符：换版本要走 §0.4 的升级口径（换文件 + 改本判据 + 复跑 §U/§W），`
+    + `整包哈希 ${YAML_TGZ_SHA256} 记在这里是为了能从 tarball 复算，不是让人顺手 sed 这个文件`);
+  const text = bytes.toString('utf8');
+  assert.match(text, /\/\/# sourceMappingURL=js-yaml\.esm\.min\.mjs\.map$/,
+    '尾部那条 map 引用被剥掉了——它指向站内不存在的文件，但"逐字节等于上游"比"少一行注释"值钱（ jquery.min.js 同样挂着一条，线上多年无人受害）');
+});
+
+test('U2 banner 里的版本与许可就是判据与 THIRD-PARTY-NOTICES 写的那一串', () => {
+  const first = readFileSync(resolve(ROOT, YAML_LIB_PATH), 'utf8').split('\n', 1)[0];
+  assert.equal(first, '/*! js-yaml 5.4.2 https://github.com/nodeca/js-yaml @license MIT */',
+    '首行 banner 变了就是身份变了：版本串、上游地址或许可任一项都不许靠记忆改');
+});
+
+test('U3 浏览器端产物：四个 Node 专属词各 0 次（数次数不是数行）', () => {
+  const code = readFileSync(resolve(ROOT, YAML_LIB_PATH), 'utf8');
+  for (const word of ['require(', 'process.', 'Buffer', 'module.exports']) {
+    assert.equal(code.split(word).length - 1, 0,
+      `内置件里出现了 ${word}——它就不再是"只给浏览器用"的那一本了（spec §7 指定的是 dist/browser 入口）`);
+  }
+});
+
+test('U4 全仓库只有一本 import 它，且那一本就是 json-convert.js', () => {
+  const importers = [];
+  const walk = (dir) => {
+    for (const f of readdirSync(dir)) {
+      const abs = join(dir, f);
+      if (statSync(abs).isDirectory()) {
+        // dev/libJs 是内置件自己的家：扫它只会把"文件名里带这个串"当成 import 边
+        if (resolve(abs) !== resolve(ROOT, 'dev/libJs')) walk(abs);
+        continue;
+      }
+      if (!/\.(js|mjs)$/.test(f) || f.endsWith('.min.js')) continue;
+      const code = readFileSync(abs, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      if (code.includes('libJs/js-yaml')) importers.push(relative(ROOT, abs).split(sep).join('/'));
+    }
+  };
+  walk(resolve(ROOT, 'dev'));
+  assert.deepEqual(importers, [YAML_LIB_CONSUMER],
+    `import 内置件的文件应当恰好只有 ${YAML_LIB_CONSUMER} 一本，实读 ${JSON.stringify(importers)}——`
+    + `多一本就是给"两个入口同时 import 同一模块 → Rollup 提共享 chunk → iife-wrap 后产物里是 import{…}"`
+    + `那一族坑递刀（toolkitCore.js:5-9 记的正是它，牙齿在门禁④）`);
+});
+
+test('U5 它不是 npm 依赖：package.json 与 pnpm-lock.yaml 里 js-yaml 出现 0 次', () => {
+  for (const rel of ['package.json', 'pnpm-lock.yaml']) {
+    assert.equal(read(rel).split('js-yaml').length - 1, 0,
+      `${rel} 里出现了 js-yaml——§0.4 拍的是"内置不加依赖"。若这一格改成依赖，`
+      + `要同时删掉 U1–U4 与内置件本体，并改 THIRD-PARTY-NOTICES.md 那一行的判据口径，不许两套并存`);
   }
 });

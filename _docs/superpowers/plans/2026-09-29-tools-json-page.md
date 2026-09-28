@@ -346,10 +346,13 @@ USAGE.md                        检索层自查的 CollectionPage / 总数两格
 - Create: `dev/js/tools/json-convert.js`（**桩**：只有文件头注释 + 那一条 import + 一个 `throw new Error('not yet')`；
   桩不进镜像，落盘即登记会红，所以登记排在 Task 4）
 - Modify: `scripts/verify-plan-blocks.mjs`（`PLANS` 加 `{ rel: '_docs/superpowers/plans/2026-09-29-tools-json-page.md', tag: '段4' }`）
-- Modify: `scripts/verify-plan-blocks-teeth.mjs`（副本要拷第四份计划、快照走 `PLAN_RELS`、G6 改"所有计划都空"、
-  G12 的清单认四份）
-- Modify: `THIRD-PARTY-NOTICES.md`（第一节一行）
+- Modify: `scripts/verify-plan-blocks-teeth.mjs`（`PLAN_RELS` 不再手抄，改从被测脚本的 `PLANS` **惰性**现读
+  （`parsePlanRels()`，见 Step 3 落地记录第 1 条：顶层读会让 G13f 变假牙）；G6 的"所有计划都空"与
+  份数文案从 `PLAN_RELS().length` 插值；G12 改成**逐 tag 各咬一刀**，tag 集从基线 `OK` 行现读）
+- Modify: `THIRD-PARTY-NOTICES.md`（第一节一行 + 第五节上游路径清单一行）
 - Modify: `scripts/toolkit-tests.mjs`（追加 `// ── §U …` 那一节的**前五条**：U1–U5 内置上游件自证，见下面 Step 1）
+- Modify: `_docs/superpowers/plans/2026-09-25-online-tools-foundation.md`（§A 镜像被 U4 带来的
+  两行 import 带漂，由导出树里的 `--fix` 整块重写——本格唯一一处"动别人的计划"，见 Step 4）
 
 **为什么 vendoring 排在第一格**：它是唯一一个"改了就能红"的事实——哈希判据要在任何 YAML 代码
 存在之前立住，否则将来有人"顺手修一下内置件"时没有东西拦得住。
@@ -357,16 +360,100 @@ USAGE.md                        检索层自查的 CollectionPage / 总数两格
 - [ ] **Step 1: 写红判据（§U 的 U1–U5：内置上游件自证族）**
 
 在 `scripts/toolkit-tests.mjs` 末尾加一节 `// ── §U YAML/XML/CSV 互转（tools/json-convert.js，段 4 Task 1 起）`，
-先只写五条，全部围绕那本内置件：读 `dev/libJs/js-yaml.esm.min.mjs` 的字节 → 断 sha256 等于写死的
-一串（执行时由 `shasum -a 256` 现算填入，并把 npm tarball 的 `js-yaml-5.4.2.tgz` 哈希一起写进注释）；
-断文件里出现版本串 `js-yaml`、`5.4.2` 与 MIT 的 banner（取上游文件实读形式，不许凭记忆写）；
-断它**不含** `require(` / `process.` / `Buffer` / `module.exports` 四个词各 0 次；
-断全仓库 import 这个路径的文件**恰好只有一个**（`grep -rln "libJs/js-yaml" dev/`）；
-断 `package.json` 与 `pnpm-lock.yaml` 里 `js-yaml` 出现 0 次（这一条钉的就是"我们没有偷偷加依赖"，
-对方若日后加了，这条要显式改，不许静默变绿）。
+先只写五条，全部围绕那本内置件：U1 字节数 + sha256（并把 npm tarball 整包哈希写进注释，
+让"从上游复算"这条路留着）+ 尾部 sourcemap 引用不许剥；U2 首行 banner 逐字等于上游那一串
+（版本、地址、许可三项一起，凭记忆写即红）；U3 四个 Node 专属词各 **0 次**（数次数不是数行，
+产物是单行的）；U4 全仓库 import 它的那一本恰好只有 `json-convert.js`（先剥注释再数，
+否则判据文件自己就是第一条假命中）；U5 `package.json` 与 `pnpm-lock.yaml` 里 `js-yaml` 出现 0 次
+——这一条钉的就是"我们没有偷偷加依赖"，对方若日后加了，这条要显式改，不许静默变绿。
+
+#### `scripts/toolkit-tests.mjs` §U（整节，从 `// ── §U` 那一行到本节末）
+
+```js
+// ── §U YAML/XML/CSV 互转（tools/json-convert.js，段 4 Task 1 起）────────────────
+//   本段第一格只立**内置上游件**那一族（U1–U5）。YAML 的实现要到 Task 4 才落，但
+//   "仓库里躺着一本别人写的浏览器端产物"这件事必须当天就有人盯着：将来谁"顺手修一下
+//   这个 minified 文件"（改一个空格、剥掉尾部那条 sourcemap 引用、换个版本），
+//   THIRD-PARTY-NOTICES.md 第一节里"逐字节比对已确证（就是上游那一份）"那句话就变成谎话。
+//   为什么它是内置件而不是依赖：段 4 计划 §0.4 那三条理由（package.json 当时被另一路会话
+//   占着 / 本仓库浏览器代码的既有做法就是 dev/libJs 内置 / 内置的价钱量得出来——探针实测
+//   toolJson 那一族 16,912B gzip），口径与复算命令都写在那一格，这里不抄第二遍。
+//   两条计量口径的坑提前挡掉：`grep -c` 数的是**行**而这些产物是单行的（U3 用 split 数次数）；
+//   注释里出现的那个路径不是 import 边（U4 先剥注释再数，否则本文件自己就是第一条假命中）。
+
+/** 内置件在仓库里的位置与它的上游身份，三个数一起才钉得住"这一本 = 那一份"。 */
+const YAML_LIB_PATH = 'dev/libJs/js-yaml.esm.min.mjs';
+const YAML_LIB_BYTES = 78721;
+/** npm tarball js-yaml-5.4.2 里 `package/dist/browser/js-yaml.esm.min.mjs` 那个成员 */
+const YAML_LIB_SHA256 = '154ea2da9e53404fb206f19cb9ce6c3a9880295fa34b96e40855be7cbc02f082';
+/** `https://registry.npmjs.org/js-yaml/-/js-yaml-5.4.2.tgz` 整包（363,341B，2026-09-29 curl 实读） */
+const YAML_TGZ_SHA256 = '0003d2f51f6717c17a708449d05f2f8d8c90a52e9ba4587ff7e8e474c9792209';
+/** 唯一被允许 import 它的那一本装配层之外的纯逻辑模块（§0.4 落地规矩第三条） */
+const YAML_LIB_CONSUMER = 'dev/js/tools/json-convert.js';
+
+test('U1 内置件逐字节等于上游 tarball 的那个成员，尾部 sourcemap 引用不许剥', () => {
+  const abs = resolve(ROOT, YAML_LIB_PATH);
+  const bytes = readFileSync(abs);
+  assert.equal(bytes.length, YAML_LIB_BYTES,
+    `字节数不是 §0.4 探针那格记的 ${YAML_LIB_BYTES}——内置件被改写过，或上游换了版本而没人改判据`);
+  assert.equal(sha256Of(bytes), YAML_LIB_SHA256,
+    `与 js-yaml 5.4.2 那个成员的 sha256 不符：换版本要走 §0.4 的升级口径（换文件 + 改本判据 + 复跑 §U/§W），`
+    + `整包哈希 ${YAML_TGZ_SHA256} 记在这里是为了能从 tarball 复算，不是让人顺手 sed 这个文件`);
+  const text = bytes.toString('utf8');
+  assert.match(text, /\/\/# sourceMappingURL=js-yaml\.esm\.min\.mjs\.map$/,
+    '尾部那条 map 引用被剥掉了——它指向站内不存在的文件，但"逐字节等于上游"比"少一行注释"值钱（ jquery.min.js 同样挂着一条，线上多年无人受害）');
+});
+
+test('U2 banner 里的版本与许可就是判据与 THIRD-PARTY-NOTICES 写的那一串', () => {
+  const first = readFileSync(resolve(ROOT, YAML_LIB_PATH), 'utf8').split('\n', 1)[0];
+  assert.equal(first, '/*! js-yaml 5.4.2 https://github.com/nodeca/js-yaml @license MIT */',
+    '首行 banner 变了就是身份变了：版本串、上游地址或许可任一项都不许靠记忆改');
+});
+
+test('U3 浏览器端产物：四个 Node 专属词各 0 次（数次数不是数行）', () => {
+  const code = readFileSync(resolve(ROOT, YAML_LIB_PATH), 'utf8');
+  for (const word of ['require(', 'process.', 'Buffer', 'module.exports']) {
+    assert.equal(code.split(word).length - 1, 0,
+      `内置件里出现了 ${word}——它就不再是"只给浏览器用"的那一本了（spec §7 指定的是 dist/browser 入口）`);
+  }
+});
+
+test('U4 全仓库只有一本 import 它，且那一本就是 json-convert.js', () => {
+  const importers = [];
+  const walk = (dir) => {
+    for (const f of readdirSync(dir)) {
+      const abs = join(dir, f);
+      if (statSync(abs).isDirectory()) {
+        // dev/libJs 是内置件自己的家：扫它只会把"文件名里带这个串"当成 import 边
+        if (resolve(abs) !== resolve(ROOT, 'dev/libJs')) walk(abs);
+        continue;
+      }
+      if (!/\.(js|mjs)$/.test(f) || f.endsWith('.min.js')) continue;
+      const code = readFileSync(abs, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      if (code.includes('libJs/js-yaml')) importers.push(relative(ROOT, abs).split(sep).join('/'));
+    }
+  };
+  walk(resolve(ROOT, 'dev'));
+  assert.deepEqual(importers, [YAML_LIB_CONSUMER],
+    `import 内置件的文件应当恰好只有 ${YAML_LIB_CONSUMER} 一本，实读 ${JSON.stringify(importers)}——`
+    + `多一本就是给"两个入口同时 import 同一模块 → Rollup 提共享 chunk → iife-wrap 后产物里是 import{…}"`
+    + `那一族坑递刀（toolkitCore.js:5-9 记的正是它，牙齿在门禁④）`);
+});
+
+test('U5 它不是 npm 依赖：package.json 与 pnpm-lock.yaml 里 js-yaml 出现 0 次', () => {
+  for (const rel of ['package.json', 'pnpm-lock.yaml']) {
+    assert.equal(read(rel).split('js-yaml').length - 1, 0,
+      `${rel} 里出现了 js-yaml——§0.4 拍的是"内置不加依赖"。若这一格改成依赖，`
+      + `要同时删掉 U1–U4 与内置件本体，并改 THIRD-PARTY-NOTICES.md 那一行的判据口径，不许两套并存`);
+  }
+});
+```
 
 Run: `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs`
-Expected: 前四条 FAIL（文件还不存在），第五条 FAIL（还没 import 点）。
+Expected: **U1–U4 FAIL**（内置件与 import 点都还不存在），**U5 PASS**——它此刻就是绿的，
+因为 `package.json` 里本来没有 `js-yaml`；这一条不靠"红转绿"自证，它的牙在 Task 1 Step 3
+的 `--fix` 之后由门禁二核（改一个字节的内置件、或加一条依赖，都会让它立刻红）。
 
 - [ ] **Step 2: 取上游件 + 接桩，跑到绿**
 
@@ -382,21 +469,74 @@ shasum -a 256 dev/libJs/js-yaml.esm.min.mjs         # 填进 §U 判据
 解释这块内置件为什么在这儿的东西**（`THIRD-PARTY-NOTICES.md` 那行只写许可与哈希）。
 再跑一次，Expected: 五条全绿，且套件总数 = 268 + 5。
 
-- [ ] **Step 3: 门禁一/二/三跑齐**
+**落地记录（2026-09-29 实跑）**：红的那一轮是 `# tests 273 / # pass 269 / # fail 4`——
+U1–U4 红、**U5 从一开始就是绿的**（Step 1 的 Expected 已按事实改口）。取件用的就是上面那五行，
+`/tmp/seg4/` 换成一次性目录，跑完即弃。两个哈希当场复算过：整包 `0003d2f5…`、成员 `154ea2da…`，
+站内那份复算同为 `154ea2da…`、78,721B。判据里那句"从 tarball 复算"不是空头支票，复算命令是
+`curl --http1.1 -sSL … | tar -xzO package/dist/browser/js-yaml.esm.min.mjs | shasum -a 256`，
+已逐字写进 `THIRD-PARTY-NOTICES.md` 第五节的上游路径清单。
+
+- [ ] **Step 3: 门禁一/二/三/四跑齐**
 
 `node scripts/verify-plan-blocks.mjs` 期望 `⚠ 未落地` 仍为 0、活树红格仍只有 yml 那一格。
 `node scripts/verify-plan-blocks-teeth.mjs` 必须在一棵**带 `.git`、yml 还原到 HEAD 的全量副本**里跑
-（段 3 Task 9 立的落点规矩：活树自相矛盾时基线必红，牙齿无从谈起），期望 `29/29`。
+（段 3 Task 9 立的落点规矩：活树自相矛盾时基线必红，牙齿无从谈起），期望 **`35/35`**——
+不是 `29/29`：本格把 G12 从"只咬段 3 一刀"改成"逐 tag 各咬一刀"（每份计划两条 check：变异落地 +
+名下镜像全 ✗），四份计划就是 8 条，比原来的 2 条多 6 条。
+
+**本格动过 `dev/`（新增内置件与桩），门禁四必须真重建**（§0.5 那条硬规矩），而且要在**导出树**里
+重建，不在活树里——活树的 `assets/` 是另一路会话的产物目录。两棵树各跑一次 `npx vite build`
+（`ln -s` 一份 `node_modules` 进去即可，`node_modules` 不在 `git archive` 里也不参与比对）：
+
+```text
+纯 HEAD 基线树      exit=0   assets/js/*.min.js 23 本   assets/css/*.min.css 10 本
+本格导出树          exit=0   产物清单与基线**逐行相同**（diff 无输出；没有 js-yaml 那一本）
+import{ 命中        23 本产物合计 0
+共付三件（与 §0.4 探针那格逐字节吻合）
+  assets/css/toolkit.min.css      raw  9,418B   gzip  2,135B
+  assets/js/toolkitCore.min.js    raw 19,109B   gzip  7,037B
+  assets/js/toolCodec.min.js      raw 59,317B   gzip 21,830B
+```
+
+这三件的读数与 §0.4 探针、与 spec §7 现有那两行完全一致，就是"内置件与桩都没进任何现有页"的证据：
+`.mjs` 不是入口（`vite.config.js:110` 只收 `.js`），`json-convert.js` 在 `dev/js/tools/` 那一层
+（`getDevJsEntries()` 只扫 `dev/js/` 一层），且此刻没有任何入口 import 它。
+
+**门禁三在本格咬到的两处自己的缺陷**（都记下来，因为它们都是"脚手架静默说谎"的第 23、24 种形状）：
+
+1. **`PLAN_RELS` 改成从 `PLANS` 现读之后，不能在模块顶层读**。G13f 那一刀把整本脚本（摘掉落点守卫
+   调用点的版本）装进一个**只有这一本脚本**的 victim 仓库，要它走到 `mirror()` 才能量出"rmSync 掉
+   自己再 ENOENT 崩"那一档；顶层 `readFileSync(REPO/scripts/verify-plan-blocks.mjs)` 会在那之前
+   ENOENT，脚本还在原地 → 那条断言的 `survived === false` 永不可能成立，G13f 变成立不起来的假牙。
+   现场读数：`exit=1，有 ENOENT=true，脚本自身还在=true`（ENOENT 是有的，但**不是那一档的 ENOENT**
+   ——这正是"红了不等于红对了"）。现在 `PLAN_RELS()` 惰性求值并缓存一次。
+2. **`matchAll` 少了 `m` 旗标**：`G12` 的 tag 集用 `/^OK .+?：计划\[(段\d+)\]/g` 扫基线输出，
+   没有 `m` 时 `^` 锚的是**整串**的开头，51 条 `OK ` 行只命中第 1 条 → tag 集只剩"段1"，
+   另三份计划的镜像从此**静默不咬**。这条断言自己会红（`读到 1 个 tag`），但红的成因看起来像
+   "别的计划没有镜像"，而真相是扫描没扫全。改 `gm` 之后读数 `tag 集=段1 / 段2 / 段3 / 段4`。
 
 - [ ] **Step 4: 登记镜像（本格不进任何新文件的整文件镜像——内置件按 §0.4 明确不登记，
   桩文件不进镜像），`--fix` 只在导出树里跑，然后提交**
 
+镜像方向：`§U` 那一节在磁盘上落地了 → 整节贴进本格 Step 1 的 ` ```js ` 块（计划里此刻只有这一个
+js 块）。但 U4 用了 `statSync` / `relative` / `sep`，`toolkit-tests.mjs` 顶部那两行 import 跟着动了，
+而**那两行在 §A 的镜像范围内**（§A 取"第一条 §B 标记之前"）——于是段 1 那份计划的 §A 块必然漂。
+处置照 §0.7 第 1 条：在导出树（`git archive HEAD` + 只叠我这一格的文件，yml 保持 HEAD 那一版）里
+`node scripts/verify-plan-blocks.mjs --fix`，导出树里 `--fix` 只重写那一条 §A 块（4 行差异，
+逐行核过就是那两行 import），复跑 `exit=0`；搬回活树前先 `diff -q <(git show HEAD:段1计划) 段1计划`
+证明没人正在改它。**不许**在活树直接 `--fix`：那会把另一路会话未发表的 `_data/onlineTools.yml`
+改口烤进段 2 计划的镜像里。
+
 ```bash
-git add dev/libJs/js-yaml.esm.min.mjs scripts/verify-plan-blocks.mjs \
-        scripts/verify-plan-blocks-teeth.mjs scripts/toolkit-tests.mjs THIRD-PARTY-NOTICES.md \
-        _docs/superpowers/plans/2026-09-29-tools-json-page.md
-git commit -m "feat(tools): 段 4 Task 1 接线——vendored js-yaml 的三条哈希自证 + 门禁认第四份计划"
+git add dev/libJs/js-yaml.esm.min.mjs dev/js/tools/json-convert.js \
+        scripts/verify-plan-blocks.mjs scripts/verify-plan-blocks-teeth.mjs scripts/toolkit-tests.mjs \
+        THIRD-PARTY-NOTICES.md _docs/superpowers/plans/2026-09-29-tools-json-page.md \
+        _docs/superpowers/plans/2026-09-25-online-tools-foundation.md
+git commit -m "feat(tools): 段 4 Task 1 接线——vendored js-yaml 的五条自证 + 门禁认第四份计划"
 ```
+
+（原计划的 `git add` 漏了 `dev/js/tools/json-convert.js` 与段 1 那份计划：前者是本格创建的桩，
+不提交就是"磁盘有、HEAD 没有"，别人干净检出时 U4 立刻红；后者是 §A 镜像被 import 行带漂的那一格。）
 
 提交前 `git status --porcelain` 逐行复核：`_data/onlineTools.yml` / `tools.html` / `README.md` /
 `package.json` / `_config.yml` / `dev/js/editorial.js` 等**必须仍在**且不在本次索引里。

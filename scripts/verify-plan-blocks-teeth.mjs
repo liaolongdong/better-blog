@@ -114,13 +114,6 @@ function resolveMirror() {
 const { dir: MIR, auto: MIR_AUTO } = resolveMirror();
 const PLAN1 = '_docs/superpowers/plans/2026-09-25-online-tools-foundation.md';
 const PLAN2 = '_docs/superpowers/plans/2026-09-26-tools-idcard-page.md';
-/**
- * 段 3 那份，2026-09-27 随 `PLANS` 一起接进来。它**必须**跟着拷进副本：
- * 只拷前两份的话，副本里的脚本会去 `readFileSync` 一个不存在的第三份计划——
- * 那一档的形状是 `✗ 磁盘上没有这个文件`（或被 ENOENT 顶穿），整轮自证在基线就退 1，
- * 红得完全不像"计划与磁盘不一致"。G12 专门把这一刀钉成判据。
- */
-const PLAN3 = '_docs/superpowers/plans/2026-09-27-tools-codec-page.md';
 const SCRIPT = 'scripts/verify-plan-blocks.mjs';
 
 const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(path.join(MIR, p))).digest('hex').slice(0, 16);
@@ -128,15 +121,56 @@ const read = (p) => fs.readFileSync(path.join(MIR, p), 'utf8');
 const put = (p, t) => fs.writeFileSync(path.join(MIR, p), t);
 
 /**
- * 三份计划的统一快照/还原/哈希。为什么要一组函数而不是各处的 `p1`/`p2` 手抄：
- * 每加一份计划就要在每个"一字未动""双向还原"的断言里多写一格，漏写的那一格是**静默**的——
- * 断言照样绿，只是它不再覆盖新来的那份计划。集合从 `PLAN_RELS` 取，加一份就全覆盖。
+ * 计划清单从**被测脚本的 `PLANS`** 现读，不在这里手抄第二份。
+ *
+ * 为什么这里也要学 `FILE_TARGETS` 那一套（见 `parseFileTargets`）：这份清单以前是手抄的，
+ * 2026-09-27 接段 3 时漏抄过一次，现场是 `ENOENT copyfile` 崩在拷文件那一步，连一条 ✗ 都没有；
+ * 2026-09-29 接段 4 时它是第二次同样的手工动作。手抄的失败形状有两种，都难查：
+ * 少抄一份 → 副本里没那个文件，整轮自证退 1，红得完全不像"计划与磁盘不一致"；
+ * 多抄一份（计划已从 `PLANS` 摘走）→ `snapPlans` 读的是副本里躺着的那份，断言照样绿，
+ * 只是它不再覆盖任何被核定的东西。现在这两种形状都退成了「 derive 不出来就抛」。
+ * @param {string} src `verify-plan-blocks.mjs` 的源码
+ * @returns {string[]} 计划相对路径清单，顺序同 `PLANS`
  */
-const PLAN_RELS = [PLAN1, PLAN2, PLAN3];
-const snapPlans = () => Object.fromEntries(PLAN_RELS.map((p) => [p, read(p)]));
-const planShas = () => PLAN_RELS.map((p) => sha(p));
-const restorePlans = (snap) => PLAN_RELS.forEach((p) => put(p, snap[p]));
-const plansUnchanged = (snap) => PLAN_RELS.every((p) => read(p) === snap[p]);
+function parsePlanRels(src) {
+  const m = /const PLANS = \[([\s\S]*?)\n\];/.exec(src);
+  if (!m) throw new Error('读不到 PLANS 数组：镜像器不能靠猜计划清单');
+  const rels = [];
+  const odd = [];
+  for (const raw of m[1].split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue;
+    const hit = /\{ *rel: '([^']+)', *tag: '[^']+' *\}/.exec(line);
+    if (hit) { rels.push(hit[1]); continue; }
+    if (line.includes("'")) odd.push(line);
+  }
+  if (odd.length) {
+    throw new Error(`PLANS 里有 ${odd.length} 行含引号串却不是条目行形（注释里的例子会被旧解析当真）：\n  ${odd.join('\n  ')}`);
+  }
+  if (rels.length < 3) throw new Error(`PLANS 只解析出 ${rels.length} 份计划，形状变了，先修这里`);
+  const absent = rels.filter((p) => !fs.existsSync(path.join(REPO, p)));
+  if (absent.length) throw new Error(`PLANS 声明了仓库里不存在的计划：${absent.join(', ')}`);
+  return rels;
+}
+const cache = {};
+/**
+ * **为什么是惰性的一次而不是顶层一句**：G13f 那一刀把整本脚本（摘掉守卫调用点的版本）
+ * 装进一个只有这一本脚本的 victim 仓库，要它一路走到 `mirror()` 才能量出"rmSync 掉自己再
+ * ENOENT"那一档。顶层读一次 `SCRIPT` 就在那之前 ENOENT 崩，脚本还在 → 那一刀的断言
+ * `survived === false` 永不可能成立，牙齿变成假牙（2026-09-29 现场，本轮改动自己踩的）。
+ * 结果只算一次并缓存，所以"清单从 `PLANS` 现读"这条口径不靠每次重读文件维持。
+ */
+const PLAN_RELS = () => {
+  if (!cache.planRels) cache.planRels = parsePlanRels(fs.readFileSync(path.join(REPO, SCRIPT), 'utf8'));
+  return cache.planRels;
+};
+/** 四份以上计划的统一快照/还原/哈希。为什么要一组函数而不是各处的 `p1`/`p2` 手抄：
+ *  每加一份计划就要在每个"一字未动""双向还原"的断言里多写一格，漏写的那一格是**静默**的——
+ *  断言照样绿，只是它不再覆盖新来的那份计划。集合从 `PLAN_RELS()` 取，加一份就全覆盖。 */
+const snapPlans = () => Object.fromEntries(PLAN_RELS().map((p) => [p, read(p)]));
+const planShas = () => PLAN_RELS().map((p) => sha(p));
+const restorePlans = (snap) => PLAN_RELS().forEach((p) => put(p, snap[p]));
+const plansUnchanged = (snap) => PLAN_RELS().every((p) => read(p) === snap[p]);
 
 /**
  * 从被测脚本里读 `FILE_TARGETS`。这张清单以前在镜像器里手抄了一份，Task 3 落地 `phone.js` 时
@@ -177,7 +211,7 @@ const fileTargets = () => parseFileTargets(fs.readFileSync(path.join(REPO, SCRIP
 /** 从仓库往副本拷一棵最小子树（只拷这轮判据用得着的东西，避开 node_modules） */
 function mirror() {
   fs.rmSync(MIR, { recursive: true, force: true });
-  const files = [SCRIPT, ...PLAN_RELS, 'scripts/toolkit-tests.mjs', ...fileTargets()];
+  const files = [SCRIPT, ...PLAN_RELS(), 'scripts/toolkit-tests.mjs', ...fileTargets()];
   for (const f of new Set(files)) {
     const dst = path.join(MIR, f);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
@@ -274,7 +308,7 @@ if (base.code !== 0) {
   const unchanged = planShas().every((s, i) => s === plans[i]);
   put('scripts/toolkit-tests.mjs', t);
   const back = run();
-  check(`G2 并节形状：报标记可疑 + §D 不等、--fix 整轮不落笔、${PLAN_RELS.length} 份计划一字未动、恢复后复绿`,
+  check(`G2 并节形状：报标记可疑 + §D 不等、--fix 整轮不落笔、${PLAN_RELS().length} 份计划一字未动、恢复后复绿`,
     r1.code === 1 && /✗ 分节标记可疑/.test(r1.out) && r2.code === 1
       && /因分节可疑/.test(r2.out) && !/已同步/.test(r2.out) && unchanged && back.code === 0,
     `读跑 exit=${r1.code} 点名标记=${/✗ 分节标记可疑/.test(r1.out)}；--fix exit=${r2.code} 拒写=${/因分节可疑/.test(r2.out)}；计划哈希未变=${unchanged}；恢复后 exit=${back.code}`);
@@ -429,39 +463,47 @@ if (base.code !== 0) {
 /* ── G6：块池为空（**所有**计划都变空文件）→ 不 TypeError ────────── */
 {
   const snap = snapPlans();
-  PLAN_RELS.forEach((p) => put(p, ''));
+  PLAN_RELS().forEach((p) => put(p, ''));
   const r = run();
   restorePlans(snap);
   // 断言里的消息不带计划份数（`份计划里都没有…`）：份数从 `PLANS.length` 插值出来，
   // 写死"两份"的话，接第三份计划时这条会红在一句**措辞**上，看着像守卫坏了。
-  check(`G6 计划全空（${PLAN_RELS.length} 份）：逐条 ✗、退 1、不崩（无 TypeError）`,
+  check(`G6 计划全空（${PLAN_RELS().length} 份）：逐条 ✗、退 1、不崩（无 TypeError）`,
     r.code === 1 && !/TypeError/.test(r.err) && /份计划里都没有逐字节相同的块/.test(r.out),
     `exit=${r.code}，TypeError=${/TypeError/.test(r.err)}，恢复后 ${(run().code === 0) ? '副本复绿' : '副本未复绿'}`);
 }
 
-/* ── G12：`PLANS` 少一份（段 3 被摘掉）→ 那一份名下的镜像必须**全部**喊出来 ── */
+/* ── G12：`PLANS` 少一份 → 那一份名下的镜像必须**全部**喊出来（基线里有镜像的每一份都试）── */
 {
   const orig = read(SCRIPT);
-  // 段 3 名下有哪些镜像，从**基线输出**里现读（所有 `…：计划[段3] …` 的 OK 行），不手抄清单。
-  // 为什么不能写死 `time.js` + `§K`：段 3 每落地一格（Task 2 的 `codec.js` 与 `§L`、Task 3 的
-  // `digest.js` 与 `§M`…）都要回来给这条断言加一项，忘加的那一格是**静默**的——断言照样绿，
-  // 只是它不再覆盖新来的那块，而"第三份条目是承重的"这句话恰好就对新的那说不成立了。
+  // 每份计划名下有哪些镜像，从**基线输出**里现读（所有 `…：计划[段N] …` 的 OK 行），不手抄清单。
+  // 为什么不能写死 `time.js` + `§K`，也不能只测段 3：每落地一格（Task 2 的 `codec.js` 与 `§L`、
+  // 段 4 的 `§U`…）都要回来给这条断言加一项，忘加的那一格是**静默**的——断言照样绿，
+  // 只是它不再覆盖新来的那块，而"每一份条目都是承重的"这句话恰好就对新来的那份不成立。
+  // 2026-09-29 接段 4 时改的这一点：循环的集合取基线里真出现过的 tag，不是取 `PLANS` 写的那几行——
+  // 一份还没有任何镜像的计划（段 4 落地前的那一格）本来就没有可摘的东西，硬凑一条断言会假红。
   const base = run();
-  const want = [...base.out.matchAll(/^OK (.+?)：计划\[段3\]/gm)].map((m) => m[1]);
-  const shorter = orig.replace(/ {2}\{ rel: '_docs\/superpowers\/plans\/2026-09-27-tools-codec-page\.md', tag: '段3' \},\n/, '');
-  check('G12 变异落地（副本里的 PLANS 只剩两份）', shorter !== orig, `替换命中 ${shorter !== orig}`);
-  check('G12 基线里段 3 名下确实有镜像（清单不是空集）', want.length >= 2,
-    `读到 ${want.length} 条：${want.join(' / ') || '（空集——这条断言会假绿）'}`);
-  put(SCRIPT, shorter);
-  const r = run();
-  put(SCRIPT, orig);
-  // 段 3 一摘，它名下每块镜像（整文件与分节都算）在"剩下的计划"里都找不到全等块。
-  // ✗ 行的前缀与 OK 行一致，按「：」切下标面逐个对，不做正则拼接（路径里的 `.` 与 `/` 会咬人）。
-  const flagged = new Set(r.out.split('\n').filter((l) => l.startsWith('✗ ')).map((l) => l.slice(2).split('：')[0]));
-  const missing = want.filter((t) => !flagged.has(t));
-  check(`G12 PLANS 少一份 → 该份名下 ${want.length} 块镜像全部 ✗ + 退 1`,
-    r.code === 1 && missing.length === 0,
-    `exit=${r.code}，未点名=${missing.join(', ') || '无'}`);
+  // `gm` 的 `m` 不是装饰：少了它 `^` 锚的是**整串**的开头，51 条 OK 行只命中第 1 条，
+  // tag 集就只剩"段1"——这条断言会红在"别的计划没有镜像可摘"上，而真相是它自己没扫全。
+  const tags = [...new Set([...base.out.matchAll(/^OK .+?：计划\[(段\d+)\]/gm)].map((m) => m[1]))];
+  check(`G12 基线里逐份计划都有镜像可摘（读到 ${tags.length} 个 tag）`,
+    tags.length >= 3, `tag 集=${tags.join(' / ') || '（空——基线没跑出 OK 行，整轮都无从谈）'}`);
+  for (const tag of tags) {
+    const want = [...base.out.matchAll(new RegExp(`^OK (.+?)：计划\\[${tag}\\]`, 'gm'))].map((m) => m[1]);
+    const shorter = orig.replace(new RegExp(` {2}\\{ rel: '.+', tag: '${tag}' \\},\n`), '');
+    check(`G12[${tag}] 变异落地（副本里的 PLANS 少这一行）`, shorter !== orig,
+      `替换未命中——PLANS 那一行的形状变了（缩进/引号/顺序），这条牙齿抓不到任何事`);
+    put(SCRIPT, shorter);
+    const r = run();
+    put(SCRIPT, orig);
+    // 摘掉一份，它名下每块镜像（整文件与分节都算）在"剩下的计划"里都找不到全等块。
+    // ✗ 行的前缀与 OK 行一致，按「：」切下标面逐个对，不做正则拼接（路径里的 `.` 与 `/` 会咬人）。
+    const flagged = new Set(r.out.split('\n').filter((l) => l.startsWith('✗ ')).map((l) => l.slice(2).split('：')[0]));
+    const missing = want.filter((t) => !flagged.has(t));
+    check(`G12[${tag}] PLANS 少一份 → 名下 ${want.length} 块镜像全部 ✗ + 退 1`,
+      r.code === 1 && want.length >= 1 && missing.length === 0,
+      `exit=${r.code}，条数=${want.length}，未点名=${missing.join(', ') || '无'}`);
+  }
 }
 
 /* ── G13：副本落点的三道拒绝（2026-09-29 随 `MIR` 那处缺陷的修复进来）─────── */

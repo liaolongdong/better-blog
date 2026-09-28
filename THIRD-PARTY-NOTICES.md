@@ -31,6 +31,7 @@ sha 一律只写前 8 位（前缀足够定位，重算方式见第五节）。
 | `demo/echartsDemo/lib/fastclick.js` | ftlabs/fastclick（npm `fastclick`） | 1.0.6 | MIT | `@copyright The Financial Times Limited` + `@license MIT License (see LICENSE.txt)` 在文件顶部 `@preserve` 块里，随文件一起分发；与 `lib/fastclick.js` 同哈希（1aa08cb3…） |
 | `demo/likeWxFloatDragBtnDemo/js/vue.min.js`<br>`demo/openMapDemo/js/vue.min.js` | vuejs/vue（npm `vue`） | 2.6.12 | MIT | (c) 2014-2020 Evan You，banner 在文件头。两份站内同哈希（29296cca…），且都等于 `dist/vue.min.js`——同名两份是历史遗留，不是两个版本 |
 | `demo/idCardDemo/lib/GB2260.js` | mc-zone/IDValidator tag `v1.2` 的 `src/GB2260.js` | v1.2 | MIT | 147465 字节，与上游逐字节相同（7ddc4d7a…）。上游许可原文在 tag tarball 里叫 `MIT-LICENSE`（1100 字节，sha 26efe3b3…，正文首行 `Copyright (c) 2014 mc-zone`），README 的 `## License` 一节也写着 MIT；文件名不合 GitHub 的识别惯例，所以它大概率把这个仓库显示成未识别——那是命名问题，不是没有授权 |
+| `dev/libJs/js-yaml.esm.min.mjs` | nodeca/js-yaml（npm `js-yaml`） | 5.4.2 | MIT | 78721 字节，与 tarball 的 `package/dist/browser/js-yaml.esm.min.mjs` 逐字节相同（154ea2da…；整包 tarball 0003d2f5…，两个哈希都记进了判据注释，为的是「从上游复算」这条路一直留着）。版权串就是文件第 1 行那条 banner：`/*! js-yaml 5.4.2 https://github.com/nodeca/js-yaml @license MIT */`。它是**唯一**有机器判据的内置件——`scripts/toolkit-tests.mjs` 的 U1–U5 钉了字节数、两个哈希、banner 逐字、四个 Node 专属词各 0 次、全仓库唯一 import 点（`dev/js/tools/json-convert.js`）、以及「`package.json` 与 `pnpm-lock.yaml` 里 `js-yaml` 出现 0 次」。换版本 = 换文件 + 改那五条里的两个哈希与版本串 + 复跑 §U 与 §W；**不许顺手 `sed` 它**，那是压缩产物不是源码（尾部那条指向站内不存在的 `.map` 的引用也照原样留着，理由见 U1） |
 
 ## 二、改过的（derivative，底本可指认）
 
@@ -133,4 +134,6 @@ tar -xzO IDValidator-1.2/MIT-LICENSE < /tmp/idv.tgz | head -6
 `echarts@{4.2.0-rc.1,4.2.0-rc.2,4.2.1} :: dist/echarts.min.js`、
 `echarts@4.2.0-rc.2 :: LICENSE|NOTICE`、
 `mc-zone/IDValidator@v1.2 :: src/GB2260.js|src/IDValidator.js|MIT-LICENSE`（走 codeload 的 tag tarball）、
-`tholman/cursor-effects@master :: readme.md`（同处无 `LICENSE` 文件，同样走 codeload）。
+`tholman/cursor-effects@master :: readme.md`（同处无 `LICENSE` 文件，同样走 codeload）、
+`js-yaml@5.4.2 :: dist/browser/js-yaml.esm.min.mjs`（§2 那段管道命令直接可用：
+`curl --http1.1 -sSL https://registry.npmjs.org/js-yaml/-/js-yaml-5.4.2.tgz | tar -xzO package/dist/browser/js-yaml.esm.min.mjs | shasum -a 256`）。
