@@ -18,18 +18,100 @@
  *      根本不进门禁（Task 9 现场靠它抓出三处静默漂移），所以放宽必须连带一刀证据
  *   G9 非 js 目标从 `FILE_TARGETS` 里被删掉 → 反查喊 `✗ 漏网镜像`
  *   G10 清单里出现没有围栏语言映射的扩展名 → 喊出来，不当作"这文件没有镜像"静默跳过
+ *   G13 副本落点的三道拒绝（2026-09-29 随这处的缺陷修复进来）：`VPB_MIR` 指到仓库自己 /
+ *       落在仓库里面 / 仓库包含它 / 非空且没有标记 / 标记的 pid 还活着 → 一律退 2 且一字不伤；
+ *       另带一刀"把守卫摘掉"的变异，证明退 2 是守卫给的、不是那条路径自己走不通
  *
- * 全部实验只在 /tmp/vpb2 这份**最小副本**上做：仓库工作树零改动（末尾用 git status 自证）。
+ * 全部实验只在一份**最小副本**上做：仓库工作树零改动（末尾用 git status 与内容 diff 指纹自证）。
+ * 副本落点原来写死 `/tmp/vpb2`，2026-09-29 改成默认每次 `mkdtemp` 一份独享的，理由与三道拒绝
+ * 都写在下面 `resolveMirror()` 那段注释里。
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = ROOT;
-const MIR = '/tmp/vpb2';
+/** 副本目录里由这本脚本自己留的标记；`mirror()` 每次重写，三道拒绝拿它认门 */
+const MARKER = '.vpb-mirror.json';
+
+/**
+ * 副本落点（2026-09-29 改掉的一处缺陷）。
+ *
+ * 原来这里写死 `const MIR = '/tmp/vpb2'`，而 `mirror()` 的第一句是
+ * `fs.rmSync(MIR, { recursive: true, force: true })`，于是有两个都是**静默**的坏处：
+ *   ① 原地跑（把仓库拷进 `/tmp/vpb2`、再在那里面执行这本脚本）时 `REPO === MIR`，
+ *      它先把**自己所在的目录**删掉、再去那目录里拷文件，`ENOENT: …/scripts/verify-plan-blocks.mjs`
+ *      当场崩（2026-09-28 段 3 Task 8 现场，那一轮被迫另建一份全量副本才跑成）；
+ *   ② 两路会话同时跑同一本，各自 `rmSync` 掉对方正在注入变异的那一份副本——红照样红，
+ *      但那一刀的成因已经不属于它了。
+ * 现在的口径：默认每次 `mkdtempSync` 一份独享副本（全绿才删，红着留着做尸检）；`VPB_MIR`
+ * 可以钉死落点，但必须先过三道拒绝——**与仓库有包含关系**（任何一种方向）、**非空且没有
+ * 这本脚本的标记**（那是别人的目录，不替谁删）、**标记里的 pid 还活着**（另一路会话正占着）。
+ * @returns {{dir: string, auto: boolean}} 落点与"是不是这本自己造的"
+ */
+function resolveMirror() {
+  const die = (dir, why) => {
+    console.error(`✗ 副本落点被拒绝：${why}`);
+    console.error(`  MIR=${dir}\n  REPO=${REPO}`);
+    console.error('  这一本会先把落点整目录 rmSync 再往里拷副本，所以落点必须是它自己那份。');
+    process.exit(2);
+  };
+  const inside = (parent, child) => child === parent || child.startsWith(parent + path.sep);
+  /**
+   * 比较之前先规范化：**macOS 的 `/tmp` 与 `/var` 都是 `/private/…` 的符号链接**，
+   * 而 Node 会把入口模块的 `import.meta.url` 走成 realpath——于是 `REPO` 带 `/private`、
+   * 传进来的 `VPB_MIR` 不带，两条包含关系都不成立，"落点就是仓库"这一档会**静默不点燃**
+   * （2026-09-29 第一次跑 G13a/G13b 就是这么红的）。目录还不存在时逐级往上找最近的
+   * 存在祖先做 realpath，再把剩下的段落拼回去。
+   */
+  const realish = (p) => {
+    let cur = path.resolve(p);
+    const tail = [];
+    while (!fs.existsSync(cur)) {
+      const parent = path.dirname(cur);
+      if (parent === cur) break;
+      tail.unshift(path.basename(cur));
+      cur = parent;
+    }
+    let base = cur;
+    try { base = fs.realpathSync(cur); } catch { /* 规范化不了就用原值 */ }
+    return tail.length ? path.join(base, ...tail) : base;
+  };
+  /** pid 是否还在（EPERM 也算在——别人的进程同样是"在用"） */
+  const pidAlive = (pid) => {
+    try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+  };
+  if (!process.env.VPB_MIR) {
+    return { dir: fs.mkdtempSync(path.join(os.tmpdir(), 'vpb2-')), auto: true };
+  }
+  const dir = path.resolve(process.env.VPB_MIR);
+  const dirReal = realish(dir);
+  const repoReal = realish(REPO);
+  if (dirReal === repoReal) die(dir, '落点就是仓库自己（原地跑会先把脚本赖以运行的源码删掉）');
+  if (inside(dirReal, repoReal)) die(dir, '仓库在这份副本里面（rmSync 会连带删掉真实的仓库）');
+  if (inside(repoReal, dirReal)) die(dir, '落点在仓库工作树里面（变异会打在真实文件上，末尾的脏指纹自证也救不回内容）');
+  if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) {
+    if (!fs.existsSync(path.join(dir, MARKER))) {
+      die(dir, `落点是非空目录、且没有 ${MARKER}（那不是这本脚本留下的，不替谁删）`);
+    }
+    let meta;
+    try {
+      meta = JSON.parse(fs.readFileSync(path.join(dir, MARKER), 'utf8'));
+    } catch {
+      die(dir, `落点里的 ${MARKER} 读不动/不是 JSON，不能确认这份副本归谁`);
+    }
+    if (meta.pid && meta.pid !== process.pid && pidAlive(meta.pid)) {
+      die(dir, `落点这份副本正被另一路会话占着（pid ${meta.pid}，${meta.repo ?? '来源未知'}）`);
+    }
+  }
+  return { dir, auto: false };
+}
+
+const { dir: MIR, auto: MIR_AUTO } = resolveMirror();
 const PLAN1 = '_docs/superpowers/plans/2026-09-25-online-tools-foundation.md';
 const PLAN2 = '_docs/superpowers/plans/2026-09-26-tools-idcard-page.md';
 /**
@@ -101,6 +183,12 @@ function mirror() {
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     fs.copyFileSync(path.join(REPO, f), dst);
   }
+  // 标记紧跟在 rmSync 之后落：下一次（含别的进程）拿它认门——三道拒绝里
+  // "非空且没标记不许删"与"标记的 pid 还活着不许占"两条都读这一格。
+  fs.writeFileSync(
+    path.join(MIR, MARKER),
+    `${JSON.stringify({ pid: process.pid, repo: REPO, at: new Date().toISOString() }, null, 2)}\n`
+  );
 }
 
 /** 跑副本里的脚本；返回 {code, out}，退码看 spawn 不看管道 */
@@ -148,6 +236,7 @@ const dirtyFingerprint = () => {
 const dirtyBefore = dirtyFingerprint();
 
 mirror();
+console.log(`副本落点：${MIR}（${MIR_AUTO ? '本次 mkdtemp 独享' : 'VPB_MIR 钉的'}）`);
 const base = run();
 // 基线判的是"副本活着且自洽"：退出码 0、汇总行里报的镜像数**与逐条 `OK ` 行的条数相等**。
 // 这里故意不写死"16 个"那种数字——镜像数每落地一节就变一次，写死的后果是每做一次任务
@@ -375,6 +464,132 @@ if (base.code !== 0) {
     `exit=${r.code}，未点名=${missing.join(', ') || '无'}`);
 }
 
+/* ── G13：副本落点的三道拒绝（2026-09-29 随 `MIR` 那处缺陷的修复进来）─────── */
+{
+  const SELF = 'scripts/verify-plan-blocks-teeth.mjs';
+  const selfSrc = fs.readFileSync(path.join(REPO, SELF), 'utf8');
+  const CALL_SITE = 'const { dir: MIR, auto: MIR_AUTO } = resolveMirror();';
+  /**
+   * 截到守卫调用点为止、后面只接一句自报落点的源码。
+   * 为什么截：三道拒绝全部发生在**模块顶层**，守卫之后的 `dirtyFingerprint()`、`mirror()`
+   * 和整轮变异对它没有任何影响。不截的话 victim 会拿着同一本脚本往下跑完整轮 G 战役，
+   * 而它自己的 G13 又再生一批 victim——递归虽然收敛（孙辈都死在守卫上），代价是把一条
+   * "退不退 2"的判据放大成几分钟的白工。G13f 不截：那一刀要的正是要让脚本活着走到 `mirror()`。
+   * @param {string} src 这本脚本的源码
+   * @returns {string} 只跑到守卫的源码
+   */
+  const guardOnly = (src) => {
+    const i = src.indexOf(CALL_SITE);
+    if (i < 0) throw new Error('读不到 resolveMirror() 调用点：G13 的截断形状变了');
+    return `${src.slice(0, i + CALL_SITE.length)}\n` +
+      "console.log('GUARD_OK ' + MIR + ' auto=' + MIR_AUTO);\n";
+  };
+  /**
+   * 建一棵一次性目录树：`<root>/repo` 当作"仓库"，`<root>/mirror` 是**仓库之外**的落点。
+   * 两者必须是兄弟。2026-09-29 第一轮就栽在这里：G13d/e/g 把落点建成 `victim/mirror`，
+   * 于是第三道拒绝（落点在仓库工作树里面）先响，那三条验的就不再是各自要验的那道——
+   * 红得像是"守卫没用"，其实是"用例的形状自己撞在另一道上"。
+   * @param {string} name 目录前缀
+   * @param {{git?: boolean}} [opt] 要不要 `git init`——需要脚本活过顶层的
+   *   `dirtyFingerprint()`（它跑三条 git 命令）才要；G13f 是唯一的用户，因为它必须走到 `mirror()`
+   * @returns {{root: string, repo: string}} 外根与当作仓库的子目录
+   */
+  const V = (name, opt = {}) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), `vpb2-g13-${name}-`));
+    const repo = path.join(root, 'repo');
+    fs.mkdirSync(repo, { recursive: true });
+    if (opt.git) execFileSync('git', ['init', '-q'], { cwd: repo, stdio: 'ignore' });
+    return { root, repo };
+  };
+  /**
+   * 把某一版源码放进 `<repo>/scripts/`，按给定 `VPB_MIR` 真跑一次。
+   * 为什么不在真仓库上试：守卫若真的被摘掉，那条路径下一步就是 `rmSync(REPO)`——
+   * 那要把工作树连另一路会话的未提交改动一起删掉才算验完。victim 里只有这一本脚本，
+   * 删干净也不伤任何人，而"摘掉守卫"那一刀正需要看它真会走到删目录这一步。
+   * @param {string} repo 当作 REPO 的目录
+   * @param {string} src 写进 repo 的脚本源码
+   * @param {string} mir 传给 `VPB_MIR` 的落点
+   * @returns {{code: number, out: string, survived: boolean}} 退码、合并输出、脚本自身是否还在
+   */
+  const runWith = (repo, src, mir) => {
+    fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(repo, SELF), src);
+    let code = 0, out = '';
+    try {
+      out = execFileSync('node', [path.join(repo, SELF)],
+        { cwd: repo, env: { ...process.env, VPB_MIR: mir }, encoding: 'utf8' });
+    } catch (e) {
+      code = e.status === undefined ? -1 : e.status;
+      out = `${String(e.stdout ?? '')}${String(e.stderr ?? '')}`;
+    }
+    return { code, out, survived: fs.existsSync(path.join(repo, SELF)) };
+  };
+  const refused = (r, phrase) => r.code === 2 && /副本落点被拒绝/.test(r.out) && r.out.includes(phrase)
+    && r.survived;
+  const guard = guardOnly(selfSrc);
+
+  const v1 = V('same');
+  const r1 = runWith(v1.repo, guard, v1.repo);
+  check('G13a 落点==仓库（原地跑）→ 退 2、点名"仓库自己"、脚本自身未被删',
+    refused(r1, '落点就是仓库自己'), `exit=${r1.code}，自身还在=${r1.survived}`);
+
+  const v2 = V('inside');
+  const r2 = runWith(v2.repo, guard, path.join(v2.repo, 'mirror'));
+  check('G13b 落点落在工作树里面 → 退 2（变异会打在真实文件上）',
+    refused(r2, '工作树里面'), `exit=${r2.code}，自身还在=${r2.survived}`);
+
+  const v3 = V('outer');
+  const r3 = runWith(v3.repo, guard, v3.root);
+  check('G13c 仓库在落点里面 → 退 2（rmSync 会连带删掉真实仓库）',
+    refused(r3, '在这份副本里面'), `exit=${r3.code}，自身还在=${r3.survived}`);
+
+  const v4 = V('foreign');
+  const foreign = path.join(v4.root, 'mirror');
+  fs.mkdirSync(foreign, { recursive: true });
+  fs.writeFileSync(path.join(foreign, 'keep.txt'), '别人的东西\n');
+  const r4 = runWith(v4.repo, guard, foreign);
+  check('G13d 落点是非空且无标记的目录 → 退 2、里面那份东西一字不伤',
+    refused(r4, '那不是这本脚本留下的') && fs.existsSync(path.join(foreign, 'keep.txt'))
+    && /工作树里面/.test(r4.out) === false,
+    `exit=${r4.code}，报的是"没标记"那一档=${/那不是这本脚本留下的/.test(r4.out)}，keep.txt 还在=${fs.existsSync(path.join(foreign, 'keep.txt'))}`);
+
+  const v5 = V('busy');
+  const pinned = path.join(v5.root, 'mirror');
+  fs.mkdirSync(pinned, { recursive: true });
+  // pid 用本进程的父进程：它一定活着，等价于"另一路会话正占着这份副本"
+  fs.writeFileSync(path.join(pinned, MARKER),
+    `${JSON.stringify({ pid: process.ppid, repo: '/tmp/别的一棵树', at: new Date().toISOString() }, null, 2)}\n`);
+  const r5 = runWith(v5.repo, guard, pinned);
+  check('G13e 标记里的 pid 还活着 → 退 2（并发互删那一档，Task 8 记的第 2 笔账）',
+    refused(r5, '正被另一路会话占着'), `exit=${r5.code}，自身还在=${r5.survived}`);
+
+  // 牙齿：把整个落点守卫换成 2026-09-28 之前那句"直接用钉进来的路径"，同一个形状必须
+  // **不再**退 2，而是照旧走到 rmSync、再从已被删的目录里拷文件而 ENOENT 崩——没有这一刀，
+  // 上面五条红就成了"这条路径本来就走不通"，而不是"守卫拦住了"。摘单行不行：另外三道
+  // 还会接着拦（那是纵深，不是 bug），所以变异要摘在**调用点**上。
+  // 这一刀必须**不截断**（要它走到 mirror()），且 victim 要 `git init`：顶层那句
+  // `dirtyFingerprint()` 在没有 .git 的目录里先崩（`not a git repository`，exit 1），
+  // 量不到后面的 ENOENT——2026-09-29 第一轮就是这么虚红的。
+  const callSite = CALL_SITE;
+  const patched = selfSrc.replace(callSite,
+    "const { dir: MIR, auto: MIR_AUTO } = { dir: path.resolve(process.env.VPB_MIR ?? '.'), auto: false };");
+  check('G13f 变异本身落地了（守卫调用点换成旧行为）', patched !== selfSrc, `替换命中 ${patched !== selfSrc}`);
+  const v6 = V('noguard', { git: true });
+  const r6 = runWith(v6.repo, patched, v6.repo);
+  check('G13f 摘掉守卫后同一形状不再退 2，而是 rmSync 掉自己再 ENOENT 崩（正是 09-28 那次现场）',
+    r6.code !== 2 && !/副本落点被拒绝/.test(r6.out) && /ENOENT/.test(r6.out) && r6.survived === false,
+    `exit=${r6.code}，有"落点被拒绝"=${/副本落点被拒绝/.test(r6.out)}，有 ENOENT=${/ENOENT/.test(r6.out)}，脚本自身还在=${r6.survived}`);
+
+  const v7 = V('valid');
+  const fresh = path.join(v7.root, 'mirror');
+  const rv = runWith(v7.repo, guard, fresh);
+  check('G13g 正对照：钉一个仓库之外、还不存在的新落点 → 守卫不拦、落点按钉进来的那条走',
+    rv.code === 0 && rv.out.includes(`GUARD_OK ${fresh} auto=false`) && !/副本落点被拒绝/.test(rv.out),
+    `exit=${rv.code}，自报落点=${rv.out.trim().split('\n').pop()}`);
+
+  [v1, v2, v3, v4, v5, v6, v7].forEach((v) => fs.rmSync(v.root, { recursive: true, force: true }));
+}
+
 const green = run();
 check('收口自证：副本回到全绿且工作树未被这些实验碰过',
   green.code === 0,
@@ -393,5 +608,9 @@ check('收口自证：实验前后工作树的脏指纹一模一样（路径、�
       + '（含另一路会话的那批，一律未被触碰）');
 
 const failed = results.filter((r) => !r.pass);
+// 收尾对副本的处理：默认那份（mkdtemp）只有全绿才删——红着删了就等于把尸检现场一起埋了；
+// `VPB_MIR` 钉过的一律留着（那是调用方指定的位置，这本脚本不替人决定保留与否）。
+if (MIR_AUTO && !failed.length) fs.rmSync(MIR, { recursive: true, force: true });
+console.log(`副本落点：${MIR}——${MIR_AUTO ? (failed.length ? '红着，留着' : '全绿，已删') : 'VPB_MIR 钉的，不动'}`);
 console.log(`\n${results.length - failed.length}/${results.length} 通过${failed.length ? `，失败：${failed.map((f) => f.id).join(' / ')}` : ''}`);
 process.exit(failed.length ? 1 : 0);
