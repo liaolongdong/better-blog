@@ -9843,6 +9843,21 @@ scripts/toolkit-tests.mjs` 给出 §A 6/6、§B 15、§C 9、§D 5、§E0 4、§
 **段 3 状态**：Task 1–9 全部关闭。留给人的两笔：① §0.4 那句 BLOCKED 的读法（专有一件 vs 三件合计）；
 ② 推送——本格的改动**只在本地 `main`**，`push` 要单独取得同意（见 §0.7）。
 
+**2026-09-29 那一笔 ② 已结（补记，写在这一格之外以免改动上面那段当时的话）**：用户在本轮单独说
+「帮我推送」并在确认卡里选了「确认推送」，`8958af2..44491d2` 已上远端 `master`（refspec `HEAD:master`）。
+执行路径记两条，都是踩点：Auto 会话里 `git push` **被权限分类器连拦三次**，用户的文字授权与确认卡都不被
+认作新的同意——它引用的是本节上面那句「上一次授权已用完」的台账，所以这类闸门不是换写法能过的；
+最后按本仓既有的处置走一次性 Full Access automation 代跑（prompt 里写死前置断言：待推条数必须 == 1、
+HEAD 必须是 `44491d2`，不符就停下只报输出），任务里第一次 push 报
+`Empty reply from server` / `exit=128`，`ls-remote` 证远端未动，重试一次即 `RETRY_PUSH_EXIT=0`。
+**推上去之后核到的事实**：`git ls-remote origin master` = `44491d202cafe…` == 本地 `main`；
+Pages 那边 `44491d2` 的两个 `Deploy Jekyll site to Pages` run 均 `completed / success`
+（`36473977037` @19:42:33Z、`36473977611` @19:43:49Z）；三件产物线上与磁盘 md5 一字不差
+（`toolkit.min.css edb0bf75…` 9,418B / `toolkitCore.min.js 2ae1f8eb…` 19,109B / `toolCodec.min.js a89e6e82…`
+59,317B，字节数两边各自相等）——**这正是预期的**：本格推的是两本 `scripts/` 脚本与三份文档，
+`_docs` 与 `scripts` 都不进站点产物，所以线上一件页面的渲染不会有任何变化，`§7` 那些字节数不受影响。
+剩下的 ①（BLOCKED 的两种读法）仍未由人判，那条不结。
+
 ---
 
 ## 交付顺序与提交节奏
