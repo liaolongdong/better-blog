@@ -13,6 +13,10 @@
  * 段 3 / 段 4 各追加一条 ready 条目之后，这 21 组必须原样重跑（它读的是数据源与产物，
  * 不写死"只有 idcard 这一页"），新增一层判据时照例往 `cases` 里加一条同名变异。
  * 组数以末尾台账打印的 `cases.length` 为准，这句里的数只是行文，别拿它当判据。
+ *
+ * 段 3 Task 7 在 `idcardCases` 之后追加了 `codecCases`：编码页每一条判据都要有自己的同名变异，
+ * 因为"门禁循环里带了第二页"和"第二页真的被核到"是两件事——只有 idcard 那一组变异时，
+ * 把 codec 条目的 spec 指针写错、或把它的 panels 顺序挪一位，台账仍是全绿的假牙。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -75,7 +79,28 @@ function runGate(siteOverride) {
   return { code: r.status, out: `${r.stdout}${r.stderr}` };
 }
 
-const cases = [
+/**
+ * 把编码条目里的某一面板整块挪到另一面板之前。
+ * 顺序就是索引条顺序 = `data-tk-ids` = 禁用脚本时的文档顺序，动一位必须红在「DOM」组
+ * （段 3 §0.3 点名的那把刀：解耦之前这条判据是拿整页 `PANEL_IDS` 比的，第二条条目一登记
+ * 就红，红了也说不清是谁的顺序错了）。
+ * 分块用前视断言，每块块首保留那个换行，拼回去时不必再操心空行与缩进。
+ */
+function moveCodecPanel(slug, before) {
+  mutateSrc('_data/onlineTools.yml', (s) => {
+    const head = (b) => `\n    - slug: ${b}\n`;
+    const blocks = s.split(/(?=\n {4}- slug: )/);
+    const from = blocks.findIndex((b) => b.startsWith(head(slug)));
+    if (from < 0) throw new Error(`找不到面板块 ${slug}，这一刀作废`);
+    const [moved] = blocks.splice(from, 1);
+    const to = blocks.findIndex((b) => b.startsWith(head(before)));
+    if (to < 0) throw new Error(`找不到面板块 ${before}，这一刀作废`);
+    blocks.splice(to, 0, moved);
+    return blocks.join('');
+  });
+}
+
+const idcardCases = [
   {
     name: 'yml title 与 front matter 漂移',
     group: '页面源',
@@ -195,6 +220,101 @@ const cases = [
       .replace('<li class="nav-item"', '<li class="nav-item is-current"')),
   },
 ];
+
+/**
+ * 段 3 Task 7 追加：编码页的同名变异。
+ *
+ * 为什么不能只跑上面那一组就收工——那 21 条全部落在 idcard 那一页上，它们证明的是
+ * "门禁对第一页有牙"。第二页登记进数据源之后，"循环里多跑了一次"与"多跑的那一次真在比"
+ * 是两件事：spec 指针写错页、panels 顺序挪一位、骨架少一个控件 id，这三样在当时那份台账里
+ * 一条都抓不到，而它们全是运行时才红的错。所以每条判据都照抄一份编码页的。
+ */
+const codecCases = [
+  {
+    name: '编码页 yml title 与 front matter 漂移',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('title: 时间戳转换 · Base64 编解码 · MD5 摘要', 'title: 时间戳转换 · Base64 编解码')),
+  },
+  {
+    name: '编码页 yml url 与 front matter permalink 不同源',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('url: /tools/codec.html', 'url: /tools/codec-c.html')),
+  },
+  {
+    name: 'sitemap 少编码页那一条',
+    group: '收录',
+    artifact: () => shadowEdit('sitemap.xml', (s) => s.replace(/\s*<url>\s*<loc>[^<]*tools\/codec\.html<\/loc>[\s\S]*?<\/url>/, '')),
+  },
+  {
+    name: 'llms.txt 少编码页那一行',
+    group: '收录',
+    artifact: () => shadowEdit('llms.txt', (s) => s.split('\n').filter((l) => !/tools\/codec\.html/.test(l)).join('\n')),
+  },
+  {
+    name: 'tools.html 的编码小节缺一块面板锚点',
+    group: '收录',
+    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/codec\.html#digest"/, 'href="#online-codec"')),
+  },
+  {
+    name: '编码页导航出现两个 is-current',
+    group: '导航',
+    artifact: () => shadowEdit('tools/codec.html', (s) => s.replace('<li class="nav-item"', '<li class="nav-item is-current"')),
+  },
+  {
+    // 不把 baseurl 写进匹配串：同上面那条 aria 变异一条规矩，换挂载路径时这刀不能静默不命中。
+    name: '编码页下拉当前项缺 aria-current="page"',
+    group: '导航',
+    artifact: () => shadowEdit('tools/codec.html', (s) => s.replace(/(href="[^"]*tools\/codec\.html")\s+aria-current="page"/, '$1')),
+  },
+  {
+    name: '编码图标退回 currentColor',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/codec-tool.svg', (s) => s.replace('stroke="#737B85"', 'stroke="currentColor"')),
+  },
+  {
+    name: '编码图标描边压到 3:1 以下',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/codec-tool.svg', (s) => s.replace('stroke="#737B85"', 'stroke="#C8CCD2"')),
+  },
+  {
+    name: '编码页产物缺一个控件 id',
+    group: 'DOM',
+    artifact: () => shadowEdit('tools/codec.html', (s) => s.replace('id="tk-in-regex-limit"', 'id="tk-in-regex-limi"')),
+  },
+  {
+    name: '编码页骨架多出 spec 里没有的开关目标',
+    group: 'DOM',
+    artifact: () => shadowEdit('tools/codec.html', (s) => s.replace('id="tk-when-digest-upload" data-tk-when="file"', 'id="tk-when-digest-upload" data-tk-when="file extra"')),
+  },
+  {
+    // 反向那一格（产物有、spec 没有）单独一刀：编码页的下拉选项全在构建期写死，
+    // CODEC_SPEC 的 `options` 是白名单数组而不是标记 token。数组一旦被当成标记收，
+    // 这一刀与上面那一刀会一起红在错的地方——所以两向都要有证据。
+    name: '编码页骨架误带证件页那个下拉标记',
+    group: 'DOM',
+    artifact: () => shadowEdit('tools/codec.html', (s) => s.replace('id="tk-in-base64-mode"', 'id="tk-in-base64-mode" data-tk-options="banks"')),
+  },
+  {
+    name: '编码条目 panels 顺序挪一位',
+    group: 'DOM',
+    src: () => moveCodecPanel('digest', 'timestamp'),
+  },
+  {
+    name: '编码条目的 spec 指针指到证件页那本模块',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace(
+      'module: dev/js/tools/codecWorkbench.js\n    table: CODEC_SPEC\n    ids: CODEC_PANEL_IDS',
+      'module: dev/js/tools/workbench.js\n    table: WORKBENCH_SPEC\n    ids: PANEL_IDS',
+    )),
+  },
+  {
+    name: '编码页入口 CONTAINER_ID 与 yml prefix 脱钩',
+    group: 'DOM',
+    src: () => mutateSrc('dev/js/toolCodec.js', (s) => s.replace("const CONTAINER_ID = 'tk-workspace';", "const CONTAINER_ID = 'tk-box';")),
+  },
+];
+
+const cases = [...idcardCases, ...codecCases];
 
 let pass = 0;
 const problems = [];

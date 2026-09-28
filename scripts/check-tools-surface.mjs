@@ -9,7 +9,7 @@
  *     从此是两个版本（段 2 Task 9 写 §4.1 时就真的漂移过一次，靠肉眼发现的）；
  *   - `{% for x in data | where: … %}` 这种 Liquid 里非法的过滤器写法：Jekyll 只打一行
  *     warning 就**把整个循环渲染成空**，sitemap 少一条收录、下拉少一行，构建退出码仍是 0；
- *   - 页面骨架改了一个控件 id，`workbench.js` 的 spec 没跟着改：构建与页面全绿，
+ *   - 页面骨架改了一个控件 id，装配层的 spec 没跟着改：构建与页面全绿，
  *     红的是运行时——而且只红那一块面板，没人点就没人知道。
  * 前三次收口都是"跑一遍看看"，所以把"看看"写成判据。
  *
@@ -63,8 +63,6 @@ const toolsData = readYml('_data/onlineTools.yml');
 const ready = toolsData.filter((t) => t.status === 'ready');
 const config = readYml('_config.yml');
 const nav = config.nav || [];
-const workbench = await import(pathToFileURL(path.join(ROOT, 'dev/js/tools/workbench.js')).href);
-const { WORKBENCH_SPEC, PANEL_IDS } = workbench;
 
 /** 非文本对比度下限（WCAG 1.4.11 graphical objects）；图标带 `alt=""`，按图形而非文字判 */
 const ICON_MIN_RATIO = 3.0;
@@ -104,6 +102,63 @@ function frontMatter(text, key) {
   if (!fm) return null;
   const line = new RegExp(`^${escRE(key)}:[ \\t]*(.*)$`, 'm').exec(fm[1]);
   return line ? line[1].trim() : null;
+}
+
+// ── 装配层 spec：按条目取 ─────────────────────────────────────────────────────
+
+/**
+ * 每条 ready 条目自己的形状表（`dev/js/tools/workbench.js` 那一类装配层导出的常量）。
+ *
+ * 这一段原来是脚本顶部一条无条件 `import('dev/js/tools/workbench.js')` 加一对解构
+ * （段 3 §0.3 实测：全文没有 `idcard` 字面量，唯一的证件页耦合就是那一句），而组 5 拿这张表
+ * 去比**每一条** ready 条目的 `panels`——于是"加第二条 ready 条目必红"，且红的是新页压根
+ * 没犯过的错。指针改放在数据源里（`spec: {module, table, ids}`）："这一页的形状表在哪本
+ * 模块的哪个导出上"本来就是这一页的事实，在本脚本里再维护一张 slug→模块 的对照表，
+ * 就是同一件事的第二处口径（加一页要改两个文件，改漏一个红在运行时）。
+ *
+ * 三个字段全部必填，且 `module` 必须是站内相对路径：这条判据会 import 并**执行**那个模块，
+ * 拼错一格时宁可红在「DOM」组里，也不要让脚本拿一个绝对路径去 require 仓库外的东西。
+ * 同一个模块只 import 一次（两页共用一本装配层时不重复求值）。
+ *
+ * @param {object} t yml 里的一条 ready 条目
+ * @returns {Promise<{table: object, ids: string[]}|null>} 取不到就记一条失败并返回 null
+ */
+const specModules = new Map();
+async function loadSpec(t) {
+  const s = t.spec || {};
+  const missing = ['module', 'table', 'ids'].filter((k) => !s[k]);
+  if (missing.length) {
+    bad('DOM', t.slug, `yml 的 spec 少了 ${missing.join('/')}（DOM 契约按条目取表，缺一格就无从取）`);
+    return null;
+  }
+  if (!/^dev\/js\/.+\.js$/.test(s.module)) {
+    bad('DOM', t.slug, `spec.module="${s.module}" 不是 dev/js 下的 .js 站内相对路径，门禁不去 import 它`);
+    return null;
+  }
+  if (!hasSrc(s.module)) {
+    bad('DOM', t.slug, `spec.module=${s.module} 在仓库里不存在`);
+    return null;
+  }
+  if (!specModules.has(s.module)) {
+    try {
+      specModules.set(s.module, await import(pathToFileURL(path.join(ROOT, s.module)).href));
+    } catch (e) {
+      bad('DOM', t.slug, `import ${s.module} 失败：${e.message}`);
+      specModules.set(s.module, {});
+    }
+  }
+  const mod = specModules.get(s.module);
+  const table = mod[s.table];
+  const ids = mod[s.ids];
+  if (!table || typeof table !== 'object') {
+    bad('DOM', t.slug, `${s.module} 没有导出对象 ${s.table}`);
+    return null;
+  }
+  if (!Array.isArray(ids)) {
+    bad('DOM', t.slug, `${s.module} 没有导出数组 ${s.ids}（面板顺序的第二个声明处）`);
+    return null;
+  }
+  return { table, ids };
 }
 
 // ── 组 1：页面源文件与 yml 的 title / permalink / 检索文案 ─────────────────────
@@ -397,31 +452,37 @@ function checkIcon(t) {
 
 // ── 组 5：DOM 契约（yml panels ↔ spec ↔ 产物里的 id / data 属性） ──────────────
 
-function checkDomContract(t, builtHtml) {
+function checkDomContract(t, builtHtml, spec) {
   resetAccumulators();
+  if (!spec) return;
   const p = t.prefix;
   const ymlPanels = t.panels.map((x) => x.slug);
-  if (ymlPanels.join(',') !== PANEL_IDS.join(',')) {
-    bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 workbench.js PANEL_IDS=[${PANEL_IDS}] 不同名或不同序（顺序=索引条顺序）`);
+  if (ymlPanels.join(',') !== spec.ids.join(',')) {
+    bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 ${t.spec.ids}=[${spec.ids}] 不同名或不同序（顺序=索引条顺序）`);
   }
-  if (Object.keys(WORKBENCH_SPEC).join(',') !== PANEL_IDS.join(',')) {
-    bad('DOM', t.slug, 'PANEL_IDS 与 WORKBENCH_SPEC 的键对不上，workbench.js 内部已经不一致');
+  if (Object.keys(spec.table).join(',') !== spec.ids.join(',')) {
+    bad('DOM', t.slug, `${t.spec.ids} 与 ${t.spec.table} 的键对不上，${t.spec.module} 内部已经不一致`);
   }
 
   const ids = new Set([...builtHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
   const need = [`${p}-workspace`, `${p}-notice`, `${p}-tablist`];
   for (const slug of ymlPanels) {
     need.push(`${p}-tab-${slug}`, `${p}-panel-${slug}`);
-    const spec = WORKBENCH_SPEC[slug];
-    if (!spec) { bad('DOM', t.slug, `面板 ${slug} 在 WORKBENCH_SPEC 里没有条目`); continue; }
-    for (const side of ['gen', 'read']) {
-      const cfg = spec.sides?.[side];
+    const panel = spec.table[slug];
+    if (!panel) { bad('DOM', t.slug, `面板 ${slug} 在 ${t.spec.table} 里没有条目`); continue; }
+    // 栏位名按条目取：证件页是 gen/read 两栏，编码页是 main/diff（时间戳那块）与单栏 main。
+    // 写死 ['gen','read'] 等于把第二页的 spec 判成"一栏控件都没有"，与 §0.3 那句 import 是同一种病。
+    for (const side of Object.keys(panel.sides || {})) {
+      const cfg = panel.sides[side];
       if (!cfg) continue;
       for (const c of cfg.controls || []) {
         const id = `${p}-in-${slug}-${c.id}`;
         need.push(id);
         for (const attr of ['cascade', 'options', 'charsets']) {
-          if (c[attr]) markers[attr].set(id, c[attr]);
+          // 只有**字符串**才是标记：编码页的 spec 里 `options` 是 `<option>` 的取值白名单数组
+          // （骨架的 `<option>` 文案归 HTML，运行时不读），与证件页那个 `options: 'banks'`
+          // 同名不同职——按真值收就把数组当成了标记，产物上找不到那条 data 属性而红。
+          if (typeof c[attr] === 'string') markers[attr].set(id, c[attr]);
         }
       }
       for (const tg of cfg.switch?.targets || []) {
@@ -443,7 +504,7 @@ function checkDomContract(t, builtHtml) {
       if (onDisk.get(id) !== val) bad('DOM', t.slug, `data-${p}-${attr} 对不上：spec 要 ${id}=${val}，产物是 ${id}=${onDisk.get(id) ?? '（无）'}`);
     }
     for (const [id, val] of onDisk) {
-      if (!want.has(id)) bad('DOM', t.slug, `产物上 ${id} 带着 data-${p}-${attr}="${val}"，而 WORKBENCH_SPEC 里没有这个标记——两边必须同源`);
+      if (!want.has(id)) bad('DOM', t.slug, `产物上 ${id} 带着 data-${p}-${attr}="${val}"，而 ${t.spec.table} 里没有这个标记——两边必须同源`);
     }
   }
   const whenDisk = new Map();
@@ -506,11 +567,15 @@ function resetAccumulators() {
 console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
 if (LIST_ONLY) {
   for (const t of ready) {
-    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js`);
+    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
   }
   console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM');
   process.exit(0);
 }
+
+/** 按条目把装配层 spec 先取齐：取不到的条目已经在「DOM」组里记了失败，这里只负责不再往下比 */
+const specs = new Map();
+for (const t of ready) specs.set(t.slug, await loadSpec(t));
 
 for (const t of ready) {
   const pageUrlRel = t.url;
@@ -525,7 +590,7 @@ for (const t of ready) {
   checkInclusion(t, built, pageUrlRel);
   checkNav(built, t);
   checkIcon(t);
-  checkDomContract(t, built);
+  checkDomContract(t, built, specs.get(t.slug));
 }
 
 auditNavSiteWide();

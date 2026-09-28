@@ -18,6 +18,13 @@
 #            顶上的 CONTAINER_ID / NOTICE_ID 两个常量（那是本页自己的地址，与行为前缀是两副
 #            面孔，见该文件头条 1）、骨架那四条 `data-tk-*` 属性名。除此之外一律从 data 属性
 #            读——多写一处就是第二处口径，而两处不一致时红的是运行时，不是构建
+#   spec     本页装配层那张形状表在仓库里的**位置**：`module` 是 dev/js 下的相对路径，
+#            `table` 与 `ids` 是那本模块导出的两个常量名（面板清单 ↔ 每块面板的栏位与控件）。
+#            只有 `scripts/check-tools-surface.mjs` 的「DOM」那一组消费它，模板一律不读。
+#            为什么写在这里而不是写死在门禁里（段 3 §0.3）：那门禁原先无条件 import 证件页的
+#            `WORKBENCH_SPEC` / `PANEL_IDS`，却拿它去比每一条 ready 条目——第二条 ready 条目
+#            一登记就必红，且红在它压根没犯的错上。指针是事实的一部分，跟着条目走；
+#            表的内容仍然只活在那本模块里，这里不抄第二遍
 #   panels   面板清单，顺序 = 索引条顺序 = 禁用脚本时的文档顺序；`slug` 就是页内 #hash 锚点
 #     desc   面板正文说明（页内静态文案，禁用脚本也读得到）
 #   status   该页的实现状态：只有 ready 的那几条会被消费点画成链接。段 2 的清单里只有 idcard
@@ -33,6 +40,10 @@
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
   prefix: tk
+  spec:
+    module: dev/js/tools/workbench.js
+    table: WORKBENCH_SPEC
+    ids: PANEL_IDS
   desc: >-
     五块面板都在浏览器本地算：粘贴号码做校验与逐段解析，或按区划、性别、年龄段随机合成测试数据。
     行别与号段按内置的第三方快照给出，只作参考、不承诺全量。
@@ -74,3 +85,56 @@
         姓名由本站自造的常用姓氏与名字用字随机组合，地址由现行区划全名加通用街道词与门牌拼出，
         邮箱一律落在 RFC 2606 的 example 保留域。三类都不指向任何真实个人或真实信箱，
         只做开发与测试用途的占位数据。
+- slug: codec
+  url: /tools/codec.html
+  name: 编码与摘要工具
+  tagline: 时间戳 / Base64 / URL 编码 / 摘要 / 正则
+  title: 时间戳转换 · Base64 编解码 · MD5 摘要
+  h1: 编码与摘要工具
+  icon: /assets/img/tools/codec-tool.svg
+  status: ready
+  prefix: tk
+  spec:
+    module: dev/js/tools/codecWorkbench.js
+    table: CODEC_SPEC
+    ids: CODEC_PANEL_IDS
+  desc: >-
+    五块面板都在浏览器本地算：粘时间戳或日期做换算与求差，文本与 Base64、URL 百分号编码互转，
+    给一段文本或一个本地文件算 MD5 与 SHA 家族，或拿正则试匹配与替换预览。超限的输入整体拒绝并说明差多少，
+    不截断悄悄算。
+  panels:
+    - slug: timestamp
+      name: 时间戳
+      tagline: 秒与毫秒 ⇄ 日期、时区偏移、两个时刻求差
+      desc: >-
+        10 位按秒、13 位按毫秒；其余长度不下"无效"结论，而是把按秒与按毫秒两种解释一起给。
+        也收 2026-09-28 09:00 这类民用写法，串里没写时区就按偏移那一格算，留空则按本机时区。
+        结果含 UTC 与本地两种表示、ISO 8601、RFC 3339 与相对时间；求差那栏取绝对值，给总秒数与几天几小时的拆法。
+    - slug: base64
+      name: Base64
+      tagline: 文本 ⇄ Base64、data URI，两种解码严格度
+      desc: >-
+        按 UTF-8 算字节，四字节 emoji 正常往返，落单的代理项（半个 emoji）会被点名是哪一位。
+        解码分宽容与严格两档：宽容档忽略空白与换行，严格档连字符集与长度一起判。
+        data URI 那一档给 MIME 与是否 base64 编码，解析失败只说明缺了哪一段。
+    - slug: url
+      name: URL 编码
+      tagline: 整串与单值两种百分号编码、查询参数拆解
+      desc: >-
+        同一段输入同时给 encodeURIComponent 与 encodeURI 两种结果，两者不等时列出差在第几位；
+        带问号的串再拆成参数表。空格写成 %20 还是加号、十六进制大小写这些分歧各写一行，
+        不替某个浏览器下结论——百分号编码没有唯一正确答案，只有"按哪条规则"。
+    - slug: digest
+      name: 摘要
+      tagline: MD5 与 SHA-1/256/384/512，文本或本地文件
+      desc: >-
+        MD5 是本站自实现，SHA 四档走浏览器的 Web Crypto。非安全上下文（http 站点与 file://）
+        拿不到 Web Crypto，那四格会标成"环境不支持"而不是留空。文本上限 1 MiB、文件上限 5 MiB，
+        字节在浏览器里读完就算，不上传、不留存。MD5 只该用于校验传输完整，不该当密码存。
+    - slug: regex
+      name: 正则
+      tagline: 匹配与捕获组、替换预览、防回溯的耗时闸门
+      desc: >-
+        表达式最长 500 字符，先过静态风险检查（嵌套量词这类可回溯的形状会点名拦下），
+        匹配另设 1000 条与 50 毫秒两道闸门，被哪一道拦住就写哪一道——这三道都是为了不让一个
+        粘贴把整页跑挂。捕获组给位置组与命名组两张表，替换串只出预览结果，不写回任何地方。

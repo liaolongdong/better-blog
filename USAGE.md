@@ -641,10 +641,15 @@ PY
 #     读走（canonical / sitemap / llms.txt / index-all / tools.html 小节 / 顶栏下拉），
 #     漂了不会让任何一边报错，只会在 SERP 与导航里露出来。五组判据：页面源、收录、导航、
 #     图标（烘色 SVG 在八格底色上的对比度）、DOM 契约（yml ↔ spec ↔ 产物里的 id 与 data-*）。
+#     最后一组按**条目**取表：`_data/onlineTools.yml` 里每条 ready 自带
+#     `spec: {module, table, ids}` 三格指针，门禁现 `import` 那一本再比——不在门禁里养第二张
+#     "哪页用哪张 spec"的表，加一页只改数据源（段 3 Task 7 拆的就是这处耦合）。
 #     它同时补上前面的两处空：title 与 front matter 是否同源、SERP 列数区间——第 9 条的 glob
 #     只走文章与首页，/tools/ 那一族此前没人核。
 #     它读的是仓库根的 `_site/`（不是本文件的 /tmp/seo-check），所以顺序照旧：先 build、再跑它。
-#     加它之前先量过牙齿：19 组变异逐组注入，必须按预期的那一组变红（台账在段 2 计划 Task 9）。
+#     加它之前先量过牙齿：36 组变异逐组注入，必须按预期的那一组变红（21 组证件页 + 15 组
+#     编码页，台账分别在段 2 计划 Task 9 与段 3 计划 Task 7；跑法是
+#     `node scripts/check-tools-surface-teeth.mjs`，它自己会先自证基线绿、末尾再验还原）。
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface.mjs
 ```
 

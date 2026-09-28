@@ -1,0 +1,396 @@
+---
+layout: default
+title: 时间戳转换 · Base64 编解码 · MD5 摘要
+seo_description: 时间戳与日期互推、Base64 与 URL 编解码、MD5/SHA 摘要、正则测试与替换预览，全部在浏览器里算：粘贴即本地处理，不发请求、不上传文件，超限整体拒绝并说明差多少。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/codec.html
+# tool 指向 _data/onlineTools.yml 里的那一条：面板清单、id 前缀、大标题都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: codec
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/js/toolkitCore.js -> toolkitCore.min.js、dev/js/toolCodec.js -> toolCodec.min.js。
+     GitHub Pages 在 Linux 上构建，写错一个字母本地看不出来、线上一律 404，勿改。
+     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它（同证件页那一份的理由）。
+     本页**多引一本**而不是把 codecView.js 挂进 window.Tk：只有编码页要读的视图层进了公共包，
+     证件页就要为五块它没有的面板付 gzip，§7 那两格首屏预算当场兑现不了（段 3 计划 R3 的
+     import 边闭合判的就是这一对：codecView 的唯一消费方是 codecWorkbench，而 codecWorkbench
+     的唯一入口是这一本）。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+
+<section class="g-masthead tk-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">时间戳 · 编解码 · 摘要 · 正则</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
+            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>1 MiB</strong><span>文本上限</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这段提示与证件页那段同一角色：设计文档 §5.5 的"固定一行提示"在**禁用脚本时也读得到**的那一份。
+    结果区里还会由装配层把各模块的口径常量原样再落一次（§K/§L/§M/§N 各钉过"一字不动"），
+    两处不冲突——这里说的是整页与两道字节闸门，结果区说的是这一次输入。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的换算、编解码、摘要与正则匹配全部在浏览器里算：<strong>不发请求、不上传文件、不写
+        localStorage、不读剪贴板</strong>。文本类输入上限 1 MiB，文件摘要上限 5 MiB，
+        超限整体拒绝并说明超了多少，不截断悄悄算；正则另有命中条数与 50 毫秒耗时两道闸门，
+        被拦下时结果区会说是哪一道。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：下面五块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
+            但换算与编解码都要在浏览器里算，此时按下按钮不会有结果。
+        </p>
+    </noscript>
+    {%- comment -%}
+    地址栏里的 #hash 不是本页任何一块面板时，装配层只在这里说一句，**不动地址栏**
+    （段 1 计划 §6.0 第三条：坏 hash 原样留着供人复制排查）。默认 hidden，由 panel-dom 覆写。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    {%- comment -%}
+    键盘捷径只在这里说一次，不在十一格控件里各说一句：装配层（dev/js/tools/codecWorkbench.js）给
+    单行格与数字格接裸 Enter（带任何修饰键都不算，那可能是浏览器的快捷键），给粘贴框接
+    Ctrl / ⌘ + Enter——裸 Enter 在 textarea 里必须是换行，吞掉用户敲的那次换行是缺陷。
+    下拉与文件格两档都不接：那两格的 Enter 没有"提交"语义。禁用脚本时这两句自然不成立。
+    {%- endcomment -%}
+    <p class="tk-kbd"><kbd>Enter</kbd> 提交单行格 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 计算粘贴框</p>
+
+    <div class="tk-workspace" id="{{ tk.prefix }}-workspace"
+         data-tk-ids="{% for p in tk.panels %}{{ p.slug }}{% unless forloop.last %},{% endunless %}{% endfor %}"
+         data-tk-prefix="{{ tk.prefix }}"
+         data-tk-label="{{ tk.h1 }}"
+         data-tk-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
+        这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
+        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        {%- endcomment -%}
+        <nav class="tk-index" id="{{ tk.prefix }}-tablist">
+            {%- for p in tk.panels -%}
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+                <span class="tk-index__name">{{ p.name }}</span>
+                <span class="tk-index__hint">{{ p.tagline }}</span>
+            </a>
+            {%- endfor -%}
+        </nav>
+
+        {%- comment -%}
+        下面五块面板的正文全部在构建期渲染（设计文档 §6.3：禁用脚本与爬虫都要读得到内容）。
+        只有「时间戳」是左右两栏（换算 / 求差），其余四块各一栏，走 `.tk-cols--one`。
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?tk-in-base64-text=…，那是工具页最不像工具的故障。提交动作由 dev/js/toolCodec.js
+        监听按钮与 Enter 键。
+        这一页**不写** `data-tk-cascade` / `-options` / `-charsets` 那三个标记：它们是证件页
+        "运行时要往下拉里灌选项"的口径（WORKBENCH_SPEC 里取值是一枚 token 名），而本页的下拉选项
+        全在构建期写死在 `<option>` 里，CODEC_SPEC 的 `options` 是那份白名单数组、同名不同职。
+        收录面门禁「DOM」那一组按 spec 双向对账，多写一个标记就红。
+        {%- endcomment -%}
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-timestamp">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[0].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[0].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[0].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-timestamp-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-timestamp-main">时间戳 ⇄ 日期</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-timestamp-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-value">时间戳或日期</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-value" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="1700000000">
+                            <span class="tk-help">10 位按秒、13 位按毫秒；其余长度不下结论，两种解释一起给。
+                                也收 <code>2026-09-28 09:00</code> 这种写法，串里没写时区就按下面那格算。</span>
+                        </p>
+                        {%- comment -%}
+                        偏移那格**留空**是有效输入：装配层取入口注入的本机偏移（`-new Date().getTimezoneOffset()`，
+                        全仓库只在那一处读时区）。把 480 写进 `value` 就等于替所有访客断言了时区，
+                        同一份产物在两台机器上会长出两个答案——§K 那条"可复算"的前提当场作废。
+                        {%- endcomment -%}
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-timestamp-offset">时区偏移（分钟，留空按本机）</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-offset" type="number"
+                                   min="-840" max="840" step="1" placeholder="UTC 填 0"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-main">换算</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-timestamp-main" disabled>复制这几行</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-timestamp-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-timestamp-main"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-timestamp-diff">两个时刻的差值</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-from">起点</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-from" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="2026-09-28 09:00">
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-to">终点</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-to" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="1789200000">
+                            <span class="tk-help">两格各按上面那一档规则解释，顺序不影响差值（取绝对值），
+                                结果给总秒数与「几天几小时几分几秒」那一种拆法。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-diff">求差</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-timestamp-diff" disabled>复制差值</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-timestamp-diff"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-base64">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[1].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[1].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[1].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-base64-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-base64-main">编解码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-base64-main">
+                        {%- comment -%}
+                        四个 `<option>` 的 value 必须与 CODEC_SPEC 里 mode 的白名单逐个对应
+                        （encode / decode / dataUri / dataUriDecode）：文案归 HTML，取值归装配层，
+                        选错一档时结果区会说"这一档不认"，而不是安静地算出另一档的答案。
+                        这一格同时是下面两段显隐的开关（`data-tk-when` 挂在段落上，不挂在那格
+                        `<select>` 上——藏掉一整格会留下一条没人答的标签）。
+                        {%- endcomment -%}
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-base64-mode">方向</label>
+                            <select id="{{ tk.prefix }}-in-base64-mode">
+                                <option value="encode">文本 → Base64</option>
+                                <option value="decode">Base64 → 文本</option>
+                                <option value="dataUri">文本 → data URI</option>
+                                <option value="dataUriDecode">data URI → 文本</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-base64-text">输入</label>
+                            <textarea id="{{ tk.prefix }}-in-base64-text" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="中文，或 5Lit5Zu9"></textarea>
+                            <span class="tk-help">按 UTF-8 算字节，四字节 emoji 与半代理项分别怎么对待，结果区会写明。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-base64-strict" data-tk-when="decode">
+                            <label for="{{ tk.prefix }}-in-base64-strict">解码严格度</label>
+                            <select id="{{ tk.prefix }}-in-base64-strict">
+                                <option value="loose">宽容（忽略空白与换行）</option>
+                                <option value="strict">严格（字符集与长度都判）</option>
+                            </select>
+                            <span class="tk-help">只有「Base64 → 文本」这一档读它。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-base64-mime" data-tk-when="dataUri">
+                            <label for="{{ tk.prefix }}-in-base64-mime">MIME 类型</label>
+                            <input id="{{ tk.prefix }}-in-base64-mime" type="text"
+                                   autocomplete="off" spellcheck="false" placeholder="text/plain;charset=utf-8">
+                            <span class="tk-help">只有「文本 → data URI」这一档读它，留空按 text/plain;charset=utf-8。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-base64-main">转换</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-base64-main" disabled>复制结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-base64-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-base64-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-url">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[2].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[2].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[2].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-url-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-url-main">百分号编码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-url-main">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-url-text">输入（一整串或一个查询串都行）</label>
+                            <textarea id="{{ tk.prefix }}-in-url-text" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="https://example.com/?q=中文&x=1"></textarea>
+                            <span class="tk-help">同一段输入同时给「整串」与「单值」两种结果，两者不等时列出差在哪一位；
+                                带 <code>?</code> 的串还会拆成参数表。空格与 <code>+</code>、
+                                大小写十六进制这些分歧各写一行，不替浏览器下结论。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-url-main">编解码</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-url-main" disabled>复制结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-url-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-url-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-digest">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[3].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[3].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[3].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-digest-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-digest-main">摘要</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-digest-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-digest-mode">读什么</label>
+                            <select id="{{ tk.prefix }}-in-digest-mode">
+                                <option value="text">文本（UTF-8，上限 1 MiB）</option>
+                                <option value="file">本地文件（上限 5 MiB）</option>
+                            </select>
+                        </p>
+                        {%- comment -%}
+                        两条通道两个闸门，所以两段各由开关控制显隐：文件那格在「文本」档里露出来，
+                        会被读成一个不响应粘贴框的孤儿控件。开关目标的名字与它自己要读的控件
+                        **同名**（payload / upload），CODEC_SPEC 里那两个 key 就是这个约定。
+                        {%- endcomment -%}
+                        <p class="tk-field tk-field--wide" id="{{ tk.prefix }}-when-digest-payload" data-tk-when="text">
+                            <label for="{{ tk.prefix }}-in-digest-payload">文本</label>
+                            <textarea id="{{ tk.prefix }}-in-digest-payload" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="要算摘要的原文"></textarea>
+                            <span class="tk-help">字节数按 UTF-8 现算，超长时说明是这一档的 1 MiB 挡住了。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-digest-upload" data-tk-when="file">
+                            <label for="{{ tk.prefix }}-in-digest-upload">文件</label>
+                            <input id="{{ tk.prefix }}-in-digest-upload" type="file">
+                            <span class="tk-help">字节在浏览器里读进内存再算，不上传、不留存；超过 5 MiB 整体拒绝。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-digest-main">计算</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-digest-main" disabled>复制这五行</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-digest-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-digest-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-regex">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[4].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[4].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[4].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-regex-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-regex-main">匹配与替换预览</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-regex-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-regex-pattern">表达式（不写两侧的斜杠）</label>
+                            <input id="{{ tk.prefix }}-in-regex-pattern" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="(\\d{4})-(\\d{2})-(\\d{2})">
+                            <span class="tk-help">最长 500 字符。写完先过四档静态检查（嵌套量词、可爆的分组这些），
+                                命中疑似回溯的形状就拦下来并点名是哪一段。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-regex-flags">flags</label>
+                            <input id="{{ tk.prefix }}-in-regex-flags" type="text" maxlength="7"
+                                   autocomplete="off" spellcheck="false" placeholder="gimsuyd">
+                            <span class="tk-help">只收这七个字母，重复与非法的会被归一并说明改了什么。</span>
+                        </p>
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-regex-text">待匹配文本</label>
+                            <textarea id="{{ tk.prefix }}-in-regex-text" rows="6"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="2026-09-28 与 2026/09/28"></textarea>
+                            <span class="tk-help">上限 1 MiB；命中 1000 条或跑了 50 毫秒即止，被哪一道拦住就写哪一道。</span>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-regex-repl">替换串（留空则只看匹配）</label>
+                            <input id="{{ tk.prefix }}-in-regex-repl" type="text"
+                                   autocomplete="off" spellcheck="false" placeholder="$1/$2/$3">
+                            <span class="tk-help">预览结果给的是字符串，不写回任何地方。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-regex-limit">命中上限（1–1000，留空取 1000）</label>
+                            <input id="{{ tk.prefix }}-in-regex-limit" type="number" min="1" max="1000" step="1"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-regex-main">匹配</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-regex-main" disabled>复制匹配到的片段</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-regex-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-regex-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的一面板框架/绑定层/视图挂成 window.Tk，页面入口只装配本页业务。
+两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后（同证件页那条
+口径——HTML 解析到这里时面板节点已经存在，装配层第一件事就是去找它们）。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolCodec.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}

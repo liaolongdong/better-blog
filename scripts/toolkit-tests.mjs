@@ -7077,11 +7077,23 @@ test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常�
   assert.equal(existsSync(resolve(ROOT, 'dev/js/digest.js')), false,
     'digest.js 被挪到 dev/js/ 顶层会变成 vite 入口、进产物（§6.1 零重叠，同 K18）');
   assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/digest.js')), true, '文件不在它该在的位置时，上面那条是空转的');
+  // **口径在段 3 Task 7 收窄过一次**（原来写的是"任何产物里都搜不到"）：那句成立于 Task 3 落
+  // 地时——那时仓库里只有证件页那一本入口。`toolCodec.js` 一存在，`digestAll` 的家就有了，
+  // 旧句子不再是"发现渗透"，而是每次构建后必红的假警报。剩下的不变量因此是**排除式的**：
+  // 除了编码页那一本，谁都不许出现这个名字（证件页那本、公共层那本、以及哪天 Rollup 真的
+  // 切出共享 chunk 都会被抓回来）。正向那一半同样要人看：名字来自 `digest.js` 里
+  // `gateOptions('digestAll', …)` 那句自报家门的诊断串，它要是从产物里没了，就是接线断了的
+  // 那一刻——改诊断写法可以，但得同时来改这一格，别让它静默变成一句谁都不核的话。
   const siteJs = resolve(ROOT, '_site/assets/js');
   if (existsSync(siteJs)) {
-    const hits = readdirSync(siteJs).filter((f) => f.endsWith('.js')
+    const HOME = 'toolCodec.min.js';
+    const hits = readdirSync(siteJs).filter((f) => f !== HOME && f.endsWith('.js')
       && readFileSync(resolve(siteJs, f), 'utf8').includes('digestAll'));
-    assert.deepEqual(hits, [], '构建产物里出现了 digest.js 的导出名');
+    assert.deepEqual(hits, [], `digest.js 的导出名渗进了 ${HOME} 以外的产物`);
+    if (existsSync(resolve(siteJs, HOME))) {
+      assert.ok(readFileSync(resolve(siteJs, HOME), 'utf8').includes('digestAll'),
+        `${HOME} 在产物里却没有 digestAll：digest.js 没被打进编码页那本，接线与这条判据要一起改`);
+    }
   }
 });
 test('M17 口径文案与实现互相对账：文案承诺的做到，做到的也写进文案', async () => {
@@ -7554,11 +7566,19 @@ test('N19 违禁源扫描、零重叠、不成 vite 入口', () => {
   assert.match(vite.slice(at, at + 900), /readDirSorted/,
     'dev/js 一层扫描走 readDirSorted（内部是 readdirSync(dir).sort()，不递归）：改成递归就该来改这条');
   assert.equal(/tools/.test(vite.slice(at, at + 900)), false, '这一层里没有 tools/ 字样，子目录不成入口');
+  // 与 M16 同一条收窄（段 3 Task 7）：`findMatches` 的家是编码页那本产物，判据因此改成
+  // 排除式——除它以外谁都不许有；正向那一半盯的是 `regex.js` 里 `readOptions(opts, 'findMatches')`
+  // 那句自报家门的诊断串，它进不了产物就说明装配层的接线断了。
   const site = resolve(ROOT, '_site/assets/js');
   if (existsSync(site)) {
+    const HOME = 'toolCodec.min.js';
     for (const f of readdirSync(site)) {
-      if (!f.endsWith('.js')) continue;
+      if (!f.endsWith('.js') || f === HOME) continue;
       assert.equal(read(join(site, f)).includes('findMatches'), false, `产物 ${f} 里不该出现 regex 的导出名`);
+    }
+    if (existsSync(join(site, HOME))) {
+      assert.ok(read(join(site, HOME)).includes('findMatches'),
+        `${HOME} 在产物里却没有 findMatches：regex.js 没被打进编码页那本，接线与这条判据要一起改`);
     }
   }
 });

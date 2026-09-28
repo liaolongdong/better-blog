@@ -2385,7 +2385,7 @@ M5/M8/M9/M11/M16 这五条已有的格子里，所以条数不变、牙齿变多
 | M13 | 降级：`{subtle:null}` 时 SHA 档 `ok:false`、`via:'unavailable'`、理由含"安全上下文"**且点出 MD5 不受影响**、`bytes` 照报；MD5 同档照样出正确值；另外三档 SHA 各自也拒；`subtle.digest` **同步抛**与**异步拒**两种坏形状都不许送出模块（底层报错文本必须带出来）；`{subtle:{}}`（有对象没可调函数）同归"取不到" |
 | M14 | `digestAll`：`rows` 行序＝`ALGORITHMS`（漂一格面板错一行）、`rows[0]` 键集与 `digest` 逐键相同（面板只写一套读法）、`bytes` 只算一次五格同数、每格 hex 与 Node 对拍；闸门失败时**五格同一句理由**（`row.reason === all.reason`，代理项那一格也核）；只有 SHA 降级时顶层 `ok:false` 而 `reason:null`、MD5 那格 `ok:true`、不成的一共四格 |
 | M15 | 导出面 10 个名字按字典序逐一比对，清单自带 `length === 10`；`ALGORITHMS` 顺序与内容写死；`HEX_LEN` 键集与 `ALGORITHMS` 同集（少一档就有一行面板没尺子）；两张共享表 `Object.isFrozen` 为真（段 2 的共享表只读口径） |
-| M16 | 剥注释扫源 **25 条违禁**（清单自带条数断言）：`import`（**这条行首锚 `^` 必须带 `m`**——不带就只锚"整份源码的第一个字符"，中段插一条 `import './codec.js'` 全绿，评审回改实测；§L 的 L16 同病同治）/`export from`/`export * from`/动态 `import()`/`require(`/`node:crypto`/`createHash`/DOM 四件/`fetch(`/`FileReader`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟两件（`Date.now`/`new Date(`）/`Math.random`/`Intl`/`toLocale`/`unescape`/`eval`，逐条数过来正好 25（起草那版写"23 条"而枚举出来是 24 项，本次一并核准）；**正向**断言 `0x67452301`、`0x10325476` 必须在、K 表区间正则读到的常数**恰好 64 项**、`Math.sin` 必须不在、取 `subtle` 走 `globalThis` 而 `window.crypto` 必须不在；零重叠两条 + 位置哨兵（`dev/js/digest.js` 不存在、`dev/js/tools/digest.js` 必须在，否则前一条是空转的）；`_site/assets/js` 若有产物则搜不到 `digestAll` |
+| M16 | 剥注释扫源 **25 条违禁**（清单自带条数断言）：`import`（**这条行首锚 `^` 必须带 `m`**——不带就只锚"整份源码的第一个字符"，中段插一条 `import './codec.js'` 全绿，评审回改实测；§L 的 L16 同病同治）/`export from`/`export * from`/动态 `import()`/`require(`/`node:crypto`/`createHash`/DOM 四件/`fetch(`/`FileReader`/`Buffer`/`atob`/`btoa`/`TextEncoder`/`TextDecoder`/时钟两件（`Date.now`/`new Date(`）/`Math.random`/`Intl`/`toLocale`/`unescape`/`eval`，逐条数过来正好 25（起草那版写"23 条"而枚举出来是 24 项，本次一并核准）；**正向**断言 `0x67452301`、`0x10325476` 必须在、K 表区间正则读到的常数**恰好 64 项**、`Math.sin` 必须不在、取 `subtle` 走 `globalThis` 而 `window.crypto` 必须不在；零重叠两条 + 位置哨兵（`dev/js/digest.js` 不存在、`dev/js/tools/digest.js` 必须在，否则前一条是空转的）；`_site/assets/js` 若有产物，则**除 `toolCodec.min.js` 以外**都搜不到 `digestAll`，而那一本里必须搜得到——起草时这句写的是"任何产物都搜不到"，那是"仓库里只有证件页一本入口"的假设，Task 6b 的入口一落地它就从发现渗透变成每次构建后必红，2026-09-28 随 Task 7 收窄（四刀取证见 §Task 7 落地记录） |
 | M17 | 口径文案与实现**双向**对账（8 行，表自带条数）：`MD5 由本站自己实现`↔`via==='self'`、`走浏览器`↔`via==='subtle'`、`取不到时给明确提示`↔`via==='unavailable'`、`文本按 UTF-8 字节`↔`bytes===3`、两句 MiB↔两个闸门常量、`整体拒绝、不截断`↔越界那格 `hex===''`、`文件走字节、不进字符串`↔两通道同结果；长度 80–240 字；与 `BASE64_CAVEAT`/`URL_CAVEAT`/`TIME_CAVEAT` 三句都不许相同 |
 | M18 | 跨块大输入：1 MiB 的 `0xAA` 字节档（16384 个分组）与 Node 逐字符等；5 MiB 的 `sha-256`；`'中'.repeat(100000)` 的 `sha-512`（UTF-8 编码器在长多字节串上必须与 Node 同字节） |
 
@@ -3424,11 +3424,23 @@ test('M16 扫源：零 import、不碰 DOM、不用 Node 专属件，MD5 的常�
   assert.equal(existsSync(resolve(ROOT, 'dev/js/digest.js')), false,
     'digest.js 被挪到 dev/js/ 顶层会变成 vite 入口、进产物（§6.1 零重叠，同 K18）');
   assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/digest.js')), true, '文件不在它该在的位置时，上面那条是空转的');
+  // **口径在段 3 Task 7 收窄过一次**（原来写的是"任何产物里都搜不到"）：那句成立于 Task 3 落
+  // 地时——那时仓库里只有证件页那一本入口。`toolCodec.js` 一存在，`digestAll` 的家就有了，
+  // 旧句子不再是"发现渗透"，而是每次构建后必红的假警报。剩下的不变量因此是**排除式的**：
+  // 除了编码页那一本，谁都不许出现这个名字（证件页那本、公共层那本、以及哪天 Rollup 真的
+  // 切出共享 chunk 都会被抓回来）。正向那一半同样要人看：名字来自 `digest.js` 里
+  // `gateOptions('digestAll', …)` 那句自报家门的诊断串，它要是从产物里没了，就是接线断了的
+  // 那一刻——改诊断写法可以，但得同时来改这一格，别让它静默变成一句谁都不核的话。
   const siteJs = resolve(ROOT, '_site/assets/js');
   if (existsSync(siteJs)) {
-    const hits = readdirSync(siteJs).filter((f) => f.endsWith('.js')
+    const HOME = 'toolCodec.min.js';
+    const hits = readdirSync(siteJs).filter((f) => f !== HOME && f.endsWith('.js')
       && readFileSync(resolve(siteJs, f), 'utf8').includes('digestAll'));
-    assert.deepEqual(hits, [], '构建产物里出现了 digest.js 的导出名');
+    assert.deepEqual(hits, [], `digest.js 的导出名渗进了 ${HOME} 以外的产物`);
+    if (existsSync(resolve(siteJs, HOME))) {
+      assert.ok(readFileSync(resolve(siteJs, HOME), 'utf8').includes('digestAll'),
+        `${HOME} 在产物里却没有 digestAll：digest.js 没被打进编码页那本，接线与这条判据要一起改`);
+    }
   }
 });
 test('M17 口径文案与实现互相对账：文案承诺的做到，做到的也写进文案', async () => {
@@ -3575,7 +3587,7 @@ export function previewReplace(pattern, flags, text, replacement, options?) → 
 | N16 | 两档入参分界：七种文本入参归一不抛（`undefined`→0 字节、`123`→"123"、`pattern` 也走这一档、`Symbol` 归一成 `"Symbol(x)"` 且 9 字节），**只有无原型对象抛** `TypeError`；替换串的 `Symbol` 同档；五种非对象 `options` 全 `TypeError` 并报形状；`now`/`maxMatches`/`timeBudgetMs` 各给错类型都点名；`{sloppy:1}` 响；`{now:null,maxMatches:null}` 走默认；`compile` 多给一位同样响 |
 | N17 | 闸门先后有账：高危形状配 1 MiB+1 输入 → 先响形状且 `bytes` 为 `undefined`；medium 配 `'中'×200` → 拦住它的是 128 **字符** 那一档、`bytes` 照实报 600；**medium 配 `'中'×100`（300 字节、字符没超）必须放行**、`bytes` 照实回显 300、理由含"128 字符"——按字节判的实现在这一格红；`\d+` 配 `'中'×500`（1500 字节）放行；501 个 `(` 的长度档排在形状之前 |
 | N18 | CAVEAT 与实现**双向**对账 8 行（表自带条数）：`1 MiB（1048576 字节）`/`500 字符`/`前 1000 个`/`128 字符`/`g i m s u y d`/`疑似灾难性回溯`/`一次都不执行`/`不静默截断`，每行核"文案里有"与"实现做得到"同真同假；长度 80–260 字；与 `BASE64_CAVEAT`/`URL_CAVEAT`/`TIME_CAVEAT`/`DIGEST_CAVEAT` 都不许相同；`byteLen('中')===3` 自证尺子 |
-| N19 | 剥注释扫源 **29 条违禁**（表自带条数；`import` 那条行首锚带 `m`）、正向 `new RegExp(` 必须在（防它哪天换成 `eval`）、`lastIndex += 1` 必须在代码里而不是注释里、无边界 `while(true)` 不许在；零重叠两条 + 位置哨兵（`dev/js/regex.js` 不存在、`dev/js/tools/regex.js` 必须在）；`vite.config.js` 的入口扫描走 `readDirSorted`（内部 `readdirSync(dir).sort()`，不递归）且那一段里没有 `tools` 字样——**本子目录不成 vite 入口**；`_site/assets/js` 若有产物则搜不到 `findMatches` |
+| N19 | 剥注释扫源 **29 条违禁**（表自带条数；`import` 那条行首锚带 `m`）、正向 `new RegExp(` 必须在（防它哪天换成 `eval`）、`lastIndex += 1` 必须在代码里而不是注释里、无边界 `while(true)` 不许在；零重叠两条 + 位置哨兵（`dev/js/regex.js` 不存在、`dev/js/tools/regex.js` 必须在）；`vite.config.js` 的入口扫描走 `readDirSorted`（内部 `readdirSync(dir).sort()`，不递归）且那一段里没有 `tools` 字样——**本子目录不成 vite 入口**；`_site/assets/js` 若有产物，则**除 `toolCodec.min.js` 以外**都搜不到 `findMatches`，而那一本里必须搜得到（同一处收窄，与 M16 同批、同一条理由） |
 | N20 | 导出面 13 个名字**一个不多一个不少**（`Object.keys(await import(...)).sort()` 与清单 `deepEqual`，清单自带 `length === 13`）、三档 `typeof` 各归各位（六个函数 / 两个串——白名单与口径句是要显示给用户的东西 / 五个数字——闸门常数写成串会静默放行）。这一格是 Step 3 补牙批次新增的：R12 那把"常数改一个数只红 N18"的刀说明**所有常数都走引用、没有一处硬编码**，但"多导出一个名字"这件事在 19 条里没有任何一格管着——Task 6 的面板绑定按这张表调，表长了没人响 |
 
 ### Steps
@@ -4810,11 +4822,19 @@ test('N19 违禁源扫描、零重叠、不成 vite 入口', () => {
   assert.match(vite.slice(at, at + 900), /readDirSorted/,
     'dev/js 一层扫描走 readDirSorted（内部是 readdirSync(dir).sort()，不递归）：改成递归就该来改这条');
   assert.equal(/tools/.test(vite.slice(at, at + 900)), false, '这一层里没有 tools/ 字样，子目录不成入口');
+  // 与 M16 同一条收窄（段 3 Task 7）：`findMatches` 的家是编码页那本产物，判据因此改成
+  // 排除式——除它以外谁都不许有；正向那一半盯的是 `regex.js` 里 `readOptions(opts, 'findMatches')`
+  // 那句自报家门的诊断串，它进不了产物就说明装配层的接线断了。
   const site = resolve(ROOT, '_site/assets/js');
   if (existsSync(site)) {
+    const HOME = 'toolCodec.min.js';
     for (const f of readdirSync(site)) {
-      if (!f.endsWith('.js')) continue;
+      if (!f.endsWith('.js') || f === HOME) continue;
       assert.equal(read(join(site, f)).includes('findMatches'), false, `产物 ${f} 里不该出现 regex 的导出名`);
+    }
+    if (existsSync(join(site, HOME))) {
+      assert.ok(read(join(site, HOME)).includes('findMatches'),
+        `${HOME} 在产物里却没有 findMatches：regex.js 没被打进编码页那本，接线与这条判据要一起改`);
     }
   }
 });
@@ -9038,6 +9058,535 @@ Modify `README.md`、`USAGE.md`、spec §4.4/§7。
 `panels: [timestamp, base64, url, digest, regex]`、图标 `/assets/img/tools/codec-tool.svg`
 （新 SVG 要走段 2 那套昼夜两档判据，图标组判据在 `check-tools-surface.mjs:349-381`）。
 五处消费点（header / tools / index-all / sitemap / llms）全数据驱动，零手写。
+
+### 落地（2026-09-28）：先解耦，再登记
+
+**解耦的现场证据**（这是 §0.3 那句话的实测，不是推断）：把本段改之前的那份
+`scripts/check-tools-surface.mjs`（`git show HEAD:scripts/check-tools-surface.mjs`）放回一棵
+只把 `_data/onlineTools.yml` 与编码页产物换成本段状态的树里跑一遍，它退 1 并打
+**10 条不通过**，全部落在「DOM」组，全部在说编码页压根没犯的错
+（`面板 timestamp 在 WORKBENCH_SPEC 里没有条目` 这类）。日志：`/tmp/seg3t7/oldgate-on-codec.log`。
+所以「先解耦再登记条目」不是节奏偏好，是**红了读不出人话**与**红了知道改哪一格**的差别。
+
+**改法：spec 指针进数据源，而不是在门禁里再养一张表。** yml 每条条目新增一格：
+
+```text
+spec:
+  module: dev/js/tools/codecWorkbench.js   # dev/js 下的 .js 站内相对路径
+  table: CODEC_SPEC                        # 面板 → 栏位 → 控件/开关/kind 那张表
+  ids: CODEC_PANEL_IDS                     # 面板顺序的第二个声明处
+```
+
+为什么放 yml 而不是在门禁里写 `{ idcard: …, codec: … }`：后者是同一件事的第二处口径，
+加一页要改两个文件，改漏一个时红的是运行时而不是构建——这条理由与 `prefix` 那格同源。
+`module` 限死 `dev/js/**/*.js`：这一句会 import 并**执行**那个模块，拼错一格宁可红在「DOM」组，
+也不要让门禁顺着数据源去 require 仓库外的东西。证件页那一条补的是
+`workbench.js#WORKBENCH_SPEC/PANEL_IDS`，与解耦前逐字同义。
+
+**顺带两处同类耦合，一起拆**（都实测过：不拆就是编码页整栏漏核）：
+
+1. 栏位名原来写死 `['gen','read']`，编码页是 `main`/`diff`；改成按 `Object.keys(panel.sides)` 取。
+   不拆的后果是编码页十一格控件**一格都不核**，而门禁绿。
+2. `data-tk-cascade/-options/-charsets` 三个标记原来按真值收。证件页那些格的取值是一枚
+   token 名（字符串），编码页 `options` 却是 `<option>` 的白名单**数组**，同名不同职；
+   按真值收会把数组当成标记，产物上找不到那条 data 属性而红在错的地方。改成只认字符串，
+   并留一条反向变异（`编码页骨架误带证件页那个下拉标记`）钉住双向对账。
+
+**图标**：`assets/img/tools/codec-tool.svg` 复用证件页那枚的 `#737B85`，取值口径与它同源
+（tokens.scss 现读 8 格底色、逐格算比值、WCAG 1.4.11 的 3:1 下限由门禁五现算）；
+注释通篇不写带两划前缀的令牌名——那正是 2026-09-28 证件页破图那次的病根。
+
+**牙齿**：`check-tools-surface-teeth.mjs` 的 21 组拆成 `idcardCases`，追加 15 组 `codecCases`，
+`cases` 是两者的拼接。**每条判据都要有第二页的同名变异**：只有 idcard 那一组时，
+"循环里多跑了一页"与"多跑那一页真在比"是两件事，spec 指针写错页、panels 顺序挪一位、
+骨架少一个控件 id 三样全抓不到。§0.3 点名的那把刀（panels 顺序挪一位）落下来的消息是
+`yml panels=[digest,timestamp,base64,url,regex] 与 CODEC_PANEL_IDS=[…] 不同名或不同序`，
+解耦前这条判据拿整页 `PANEL_IDS` 比，红了也说不清是谁的顺序错。
+
+**与另一路会话的口径冲突（本段不解，留给 Task 9）**：`_data/onlineTools.yml` 在开工前就带着
+一条未提交的改口（顶栏分组标签「在线工具 → 免安装工具」，第 2 行），它使门禁二对
+`_data/onlineTools.yml` 这一格镜像恒红。本段把 yml 的提交内容与工作区内容**分开处理**：
+提交的是 HEAD 那份 + 本段三处新增（`spec` 口径注释、idcard 的 `spec` 三行、codec 整条条目），
+工作区里那条改口原样留着。于是**已提交的仓库是自洽的**（干净检出自跑门禁二绿），
+而活工作树仍打这一格 ✗，等那条改口落地后由 Task 9 一次 `--fix` 收干净。
+
+#### 页面源整文件镜像（`tools-codec.html`，FILE_TARGETS 已登记）
+
+```html
+---
+layout: default
+title: 时间戳转换 · Base64 编解码 · MD5 摘要
+seo_description: 时间戳与日期互推、Base64 与 URL 编解码、MD5/SHA 摘要、正则测试与替换预览，全部在浏览器里算：粘贴即本地处理，不发请求、不上传文件，超限整体拒绝并说明差多少。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/codec.html
+# tool 指向 _data/onlineTools.yml 里的那一条：面板清单、id 前缀、大标题都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: codec
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/js/toolkitCore.js -> toolkitCore.min.js、dev/js/toolCodec.js -> toolCodec.min.js。
+     GitHub Pages 在 Linux 上构建，写错一个字母本地看不出来、线上一律 404，勿改。
+     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它（同证件页那一份的理由）。
+     本页**多引一本**而不是把 codecView.js 挂进 window.Tk：只有编码页要读的视图层进了公共包，
+     证件页就要为五块它没有的面板付 gzip，§7 那两格首屏预算当场兑现不了（段 3 计划 R3 的
+     import 边闭合判的就是这一对：codecView 的唯一消费方是 codecWorkbench，而 codecWorkbench
+     的唯一入口是这一本）。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+
+<section class="g-masthead tk-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">时间戳 · 编解码 · 摘要 · 正则</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
+            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>1 MiB</strong><span>文本上限</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这段提示与证件页那段同一角色：设计文档 §5.5 的"固定一行提示"在**禁用脚本时也读得到**的那一份。
+    结果区里还会由装配层把各模块的口径常量原样再落一次（§K/§L/§M/§N 各钉过"一字不动"），
+    两处不冲突——这里说的是整页与两道字节闸门，结果区说的是这一次输入。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的换算、编解码、摘要与正则匹配全部在浏览器里算：<strong>不发请求、不上传文件、不写
+        localStorage、不读剪贴板</strong>。文本类输入上限 1 MiB，文件摘要上限 5 MiB，
+        超限整体拒绝并说明超了多少，不截断悄悄算；正则另有命中条数与 50 毫秒耗时两道闸门，
+        被拦下时结果区会说是哪一道。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：下面五块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
+            但换算与编解码都要在浏览器里算，此时按下按钮不会有结果。
+        </p>
+    </noscript>
+    {%- comment -%}
+    地址栏里的 #hash 不是本页任何一块面板时，装配层只在这里说一句，**不动地址栏**
+    （段 1 计划 §6.0 第三条：坏 hash 原样留着供人复制排查）。默认 hidden，由 panel-dom 覆写。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    {%- comment -%}
+    键盘捷径只在这里说一次，不在十一格控件里各说一句：装配层（dev/js/tools/codecWorkbench.js）给
+    单行格与数字格接裸 Enter（带任何修饰键都不算，那可能是浏览器的快捷键），给粘贴框接
+    Ctrl / ⌘ + Enter——裸 Enter 在 textarea 里必须是换行，吞掉用户敲的那次换行是缺陷。
+    下拉与文件格两档都不接：那两格的 Enter 没有"提交"语义。禁用脚本时这两句自然不成立。
+    {%- endcomment -%}
+    <p class="tk-kbd"><kbd>Enter</kbd> 提交单行格 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 计算粘贴框</p>
+
+    <div class="tk-workspace" id="{{ tk.prefix }}-workspace"
+         data-tk-ids="{% for p in tk.panels %}{{ p.slug }}{% unless forloop.last %},{% endunless %}{% endfor %}"
+         data-tk-prefix="{{ tk.prefix }}"
+         data-tk-label="{{ tk.h1 }}"
+         data-tk-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
+        这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
+        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        {%- endcomment -%}
+        <nav class="tk-index" id="{{ tk.prefix }}-tablist">
+            {%- for p in tk.panels -%}
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+                <span class="tk-index__name">{{ p.name }}</span>
+                <span class="tk-index__hint">{{ p.tagline }}</span>
+            </a>
+            {%- endfor -%}
+        </nav>
+
+        {%- comment -%}
+        下面五块面板的正文全部在构建期渲染（设计文档 §6.3：禁用脚本与爬虫都要读得到内容）。
+        只有「时间戳」是左右两栏（换算 / 求差），其余四块各一栏，走 `.tk-cols--one`。
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?tk-in-base64-text=…，那是工具页最不像工具的故障。提交动作由 dev/js/toolCodec.js
+        监听按钮与 Enter 键。
+        这一页**不写** `data-tk-cascade` / `-options` / `-charsets` 那三个标记：它们是证件页
+        "运行时要往下拉里灌选项"的口径（WORKBENCH_SPEC 里取值是一枚 token 名），而本页的下拉选项
+        全在构建期写死在 `<option>` 里，CODEC_SPEC 的 `options` 是那份白名单数组、同名不同职。
+        收录面门禁「DOM」那一组按 spec 双向对账，多写一个标记就红。
+        {%- endcomment -%}
+
+        <section class="tk-panel" id="{{ tk.prefix }}-panel-timestamp">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[0].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[0].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[0].desc }}</p>
+            </header>
+            <div class="tk-cols">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-timestamp-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-timestamp-main">时间戳 ⇄ 日期</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-timestamp-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-value">时间戳或日期</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-value" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="1700000000">
+                            <span class="tk-help">10 位按秒、13 位按毫秒；其余长度不下结论，两种解释一起给。
+                                也收 <code>2026-09-28 09:00</code> 这种写法，串里没写时区就按下面那格算。</span>
+                        </p>
+                        {%- comment -%}
+                        偏移那格**留空**是有效输入：装配层取入口注入的本机偏移（`-new Date().getTimezoneOffset()`，
+                        全仓库只在那一处读时区）。把 480 写进 `value` 就等于替所有访客断言了时区，
+                        同一份产物在两台机器上会长出两个答案——§K 那条"可复算"的前提当场作废。
+                        {%- endcomment -%}
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-timestamp-offset">时区偏移（分钟，留空按本机）</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-offset" type="number"
+                                   min="-840" max="840" step="1" placeholder="UTC 填 0"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-main">换算</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-timestamp-main" disabled>复制这几行</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-timestamp-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-timestamp-main"></div>
+                    </div>
+                </section>
+
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-timestamp-diff">两个时刻的差值</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-from">起点</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-from" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="2026-09-28 09:00">
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-timestamp-to">终点</label>
+                            <input id="{{ tk.prefix }}-in-timestamp-to" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="1789200000">
+                            <span class="tk-help">两格各按上面那一档规则解释，顺序不影响差值（取绝对值），
+                                结果给总秒数与「几天几小时几分几秒」那一种拆法。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-diff">求差</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-timestamp-diff" disabled>复制差值</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-timestamp-diff"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-timestamp-diff"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-base64">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[1].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[1].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[1].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-base64-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-base64-main">编解码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-base64-main">
+                        {%- comment -%}
+                        四个 `<option>` 的 value 必须与 CODEC_SPEC 里 mode 的白名单逐个对应
+                        （encode / decode / dataUri / dataUriDecode）：文案归 HTML，取值归装配层，
+                        选错一档时结果区会说"这一档不认"，而不是安静地算出另一档的答案。
+                        这一格同时是下面两段显隐的开关（`data-tk-when` 挂在段落上，不挂在那格
+                        `<select>` 上——藏掉一整格会留下一条没人答的标签）。
+                        {%- endcomment -%}
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-base64-mode">方向</label>
+                            <select id="{{ tk.prefix }}-in-base64-mode">
+                                <option value="encode">文本 → Base64</option>
+                                <option value="decode">Base64 → 文本</option>
+                                <option value="dataUri">文本 → data URI</option>
+                                <option value="dataUriDecode">data URI → 文本</option>
+                            </select>
+                        </p>
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-base64-text">输入</label>
+                            <textarea id="{{ tk.prefix }}-in-base64-text" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="中文，或 5Lit5Zu9"></textarea>
+                            <span class="tk-help">按 UTF-8 算字节，四字节 emoji 与半代理项分别怎么对待，结果区会写明。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-base64-strict" data-tk-when="decode">
+                            <label for="{{ tk.prefix }}-in-base64-strict">解码严格度</label>
+                            <select id="{{ tk.prefix }}-in-base64-strict">
+                                <option value="loose">宽容（忽略空白与换行）</option>
+                                <option value="strict">严格（字符集与长度都判）</option>
+                            </select>
+                            <span class="tk-help">只有「Base64 → 文本」这一档读它。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-base64-mime" data-tk-when="dataUri">
+                            <label for="{{ tk.prefix }}-in-base64-mime">MIME 类型</label>
+                            <input id="{{ tk.prefix }}-in-base64-mime" type="text"
+                                   autocomplete="off" spellcheck="false" placeholder="text/plain;charset=utf-8">
+                            <span class="tk-help">只有「文本 → data URI」这一档读它，留空按 text/plain;charset=utf-8。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-base64-main">转换</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-base64-main" disabled>复制结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-base64-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-base64-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-url">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[2].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[2].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[2].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-url-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-url-main">百分号编码</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-url-main">
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-url-text">输入（一整串或一个查询串都行）</label>
+                            <textarea id="{{ tk.prefix }}-in-url-text" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="https://example.com/?q=中文&x=1"></textarea>
+                            <span class="tk-help">同一段输入同时给「整串」与「单值」两种结果，两者不等时列出差在哪一位；
+                                带 <code>?</code> 的串还会拆成参数表。空格与 <code>+</code>、
+                                大小写十六进制这些分歧各写一行，不替浏览器下结论。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-url-main">编解码</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-url-main" disabled>复制结果</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-url-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-url-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-digest">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[3].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[3].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[3].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-digest-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-digest-main">摘要</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-digest-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-digest-mode">读什么</label>
+                            <select id="{{ tk.prefix }}-in-digest-mode">
+                                <option value="text">文本（UTF-8，上限 1 MiB）</option>
+                                <option value="file">本地文件（上限 5 MiB）</option>
+                            </select>
+                        </p>
+                        {%- comment -%}
+                        两条通道两个闸门，所以两段各由开关控制显隐：文件那格在「文本」档里露出来，
+                        会被读成一个不响应粘贴框的孤儿控件。开关目标的名字与它自己要读的控件
+                        **同名**（payload / upload），CODEC_SPEC 里那两个 key 就是这个约定。
+                        {%- endcomment -%}
+                        <p class="tk-field tk-field--wide" id="{{ tk.prefix }}-when-digest-payload" data-tk-when="text">
+                            <label for="{{ tk.prefix }}-in-digest-payload">文本</label>
+                            <textarea id="{{ tk.prefix }}-in-digest-payload" rows="5"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="要算摘要的原文"></textarea>
+                            <span class="tk-help">字节数按 UTF-8 现算，超长时说明是这一档的 1 MiB 挡住了。</span>
+                        </p>
+                        <p class="tk-field" id="{{ tk.prefix }}-when-digest-upload" data-tk-when="file">
+                            <label for="{{ tk.prefix }}-in-digest-upload">文件</label>
+                            <input id="{{ tk.prefix }}-in-digest-upload" type="file">
+                            <span class="tk-help">字节在浏览器里读进内存再算，不上传、不留存；超过 5 MiB 整体拒绝。</span>
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-digest-main">计算</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-digest-main" disabled>复制这五行</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-digest-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-digest-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-regex">
+            <header class="tk-panel__head">
+                <h2 class="tk-panel__title">{{ tk.panels[4].name }}</h2>
+                <p class="tk-panel__tagline">{{ tk.panels[4].tagline }}</p>
+                <p class="tk-panel__desc">{{ tk.panels[4].desc }}</p>
+            </header>
+            <div class="tk-cols tk-cols--one">
+                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-regex-main">
+                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-regex-main">匹配与替换预览</h3>
+                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-regex-main">
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-regex-pattern">表达式（不写两侧的斜杠）</label>
+                            <input id="{{ tk.prefix }}-in-regex-pattern" type="text"
+                                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                                   spellcheck="false" placeholder="(\\d{4})-(\\d{2})-(\\d{2})">
+                            <span class="tk-help">最长 500 字符。写完先过四档静态检查（嵌套量词、可爆的分组这些），
+                                命中疑似回溯的形状就拦下来并点名是哪一段。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-regex-flags">flags</label>
+                            <input id="{{ tk.prefix }}-in-regex-flags" type="text" maxlength="7"
+                                   autocomplete="off" spellcheck="false" placeholder="gimsuyd">
+                            <span class="tk-help">只收这七个字母，重复与非法的会被归一并说明改了什么。</span>
+                        </p>
+                        <p class="tk-field tk-field--wide">
+                            <label for="{{ tk.prefix }}-in-regex-text">待匹配文本</label>
+                            <textarea id="{{ tk.prefix }}-in-regex-text" rows="6"
+                                      autocomplete="off" autocorrect="off" autocapitalize="off"
+                                      spellcheck="false" placeholder="2026-09-28 与 2026/09/28"></textarea>
+                            <span class="tk-help">上限 1 MiB；命中 1000 条或跑了 50 毫秒即止，被哪一道拦住就写哪一道。</span>
+                        </p>
+                        <p class="tk-field">
+                            <label for="{{ tk.prefix }}-in-regex-repl">替换串（留空则只看匹配）</label>
+                            <input id="{{ tk.prefix }}-in-regex-repl" type="text"
+                                   autocomplete="off" spellcheck="false" placeholder="$1/$2/$3">
+                            <span class="tk-help">预览结果给的是字符串，不写回任何地方。</span>
+                        </p>
+                        <p class="tk-field tk-field--count">
+                            <label for="{{ tk.prefix }}-in-regex-limit">命中上限（1–1000，留空取 1000）</label>
+                            <input id="{{ tk.prefix }}-in-regex-limit" type="number" min="1" max="1000" step="1"
+                                   autocomplete="off" inputmode="numeric">
+                        </p>
+                        <p class="tk-actions">
+                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-regex-main">匹配</button>
+                        </p>
+                    </div>
+                    <div class="tk-outwrap">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-regex-main" disabled>复制匹配到的片段</button>
+                        <div class="tk-out" id="{{ tk.prefix }}-out-regex-main"
+                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-regex-main"></div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的一面板框架/绑定层/视图挂成 window.Tk，页面入口只装配本页业务。
+两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后（同证件页那条
+口径——HTML 解析到这里时面板节点已经存在，装配层第一件事就是去找它们）。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolCodec.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}
+```
+
+#### 图标整文件镜像（`assets/img/tools/codec-tool.svg`，FILE_TARGETS 已登记）
+
+```svg
+<!-- 顶栏「工具箱」下拉与 /tools.html 小节里「编码与摘要工具」那一行的图标。
+     画成描边的尖括号加一道斜杠（`</>` 那一族写法），不画锁、不画齿轮：这一页做的是
+     换算与编解码，读图的人先在下拉里读到名字，图形只负责把五页区分开。
+
+     与证件页那一份同一条硬规矩：XML 注释里禁止出现连续两个连字符，一写整个文件就解析失败，
+     而 SVG 是被 <img> 引用的，解析失败在浏览器里直接是破图（2026-09-28 现场就是证件页那份
+     注释里写了带 var 前缀的令牌名，xmllint 报六处 parser error，下拉与产品页两处同时破图，
+     而收录面门禁当时退 0）。所以这段通篇把底色令牌写成 surface / surface-2，不写它们那两划
+     开头的形式；改注释时别再引入。
+
+     颜色与证件页那一枚取同一个 #737B85，理由也同一档：这一族图标通过 <img src> 引用，
+     里面的 SVG 拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color
+     （近黑），落在夜间 surface-2 上是 1.35:1，等于看不见。烘色则两档都能读，代价是
+     不跟主题变——下拉里这两枚本来也只是区分条目用。
+
+     #737B85 的取值口径同 assets/img/tools/idcard-tool.svg 那段注释：把 tokens.scss 里
+     四档纸色温的 surface 与 surface-2 共 8 格逐格算对比度，取"最差那组尽量高"的那一档，
+     WCAG 1.4.11 对图形对象要 3:1（这两处图标都带 alt=""，属装饰，实际门槛更低）。
+     复算不用手抄：跑 `node scripts/check-tools-surface.mjs`，它的「图标」那一组按条目现读
+     tokens.scss 凑底色集合、现算这八组比值，并把本文件的 stroke 与 fill 里每个色值都过一遍。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="#737B85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="编码与摘要工具">
+    <path d="M8.5 8.5 5 12l3.5 3.5"/>
+    <path d="M15.5 8.5 19 12l-3.5 3.5"/>
+    <path d="M13 6.5 11 17.5"/>
+</svg>
+```
+
+#### 同一批假设的第三处：M16 / N19 那句"任何产物里都搜不到导出名"
+
+Task 7 一登记条目、Task 6b 一落入口，`_site/assets/js/` 就多了第二本**应该**含这些名字的产物，
+于是 §M 的 M16 与 §N 的 N19 在**跑过 `vite build` 的机器上必红**（`node --test scripts/toolkit-tests.mjs`
+实测 268 例里 2 例 `not ok`，消息就是`构建产物里出现了 digest.js 的导出名`）。这与 §0.3 那处
+地基耦合是同一件事的两个面：判据写成"全仓库只有一页产物"的形状。
+
+改法与门禁五同源——不写死"只有 codec 这一本豁免"以外的特例，而是把不变量说成**排除式**：
+`digestAll` / `findMatches` 只许出现在 `toolCodec.min.js` 里，其余任何一本（含哪天真被
+Rollup 切出来的共享 chunk）出现即渗透；同时补一条正向——那一本存在却搜不到这个名字就是
+接线断了。名字之所以能在压缩产物里被搜到，是因为模块自己把它当诊断串写进了代码：
+`digest.js:377` 的 `gateOptions('digestAll', options)` 与 `regex.js:513` 的
+`readOptions(options, 'findMatches')`。改这两句诊断串的人必须同时来改这一格，正向断言就是
+为了让这件事不许静默。
+
+四刀取证（都在 `_site/assets/js/` 上就地改、跑完 `cp` 回备份、`md5 -q` 与备份逐字比对一致；
+命令形状照抄可复算）：
+
+| 刀 | 注入 | 结果 |
+| --- | --- | --- |
+| A | `printf '\n/*__teeth*/"digestAll";\n' >> _site/assets/js/toolIdcard.min.js` | `--test-name-pattern=M16` → `not ok`，消息 `digest.js 的导出名渗进了 toolCodec.min.js 以外的产物` |
+| B | 同上加 `findMatches` | N19 → `not ok`，消息 `产物 toolIdcard.min.js 里不该出现 regex 的导出名` |
+| C | 把 `toolCodec.min.js` 里的 `digestAll` 全换成 `digestXX` | M16 → `not ok`，消息 `toolCodec.min.js 在产物里却没有 digestAll…` |
+| D | 把同一本里的 `findMatches` 全换成 `rgxGuardLabel` | N19 → `not ok`，正向那一半红 |
+
+刀 D 是第一版**没落地的假刀**：当时写的替换串是 `findMatchesXX`，它含原词，`includes()` 照样
+为真，那一轮跑出来是"2 例测、1 例红"——红的只有 M16，而 N19 静默绿。发现这一点靠的是
+`grep -c` 数的是**行数**而不是出现次数、以及"这刀为什么没红"的追问；换成不含原词的串才拿到
+上表 D 那一行。收窄前的 M16/N19 对这四处注入本身是双向都不核的（任何一本有都红、
+任何一本没有都不红），所以这不叫"改坏了判据"，叫**原来那句话已经不属于这个仓库**。
+
+#### 六道门禁的落地读数（2026-09-28 收尾）
+
+| 门禁 | 命令 | 读数 |
+| --- | --- | --- |
+| ① 判据 | `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs` | exit=0，268 例全绿（收窄前 266 绿 / 2 红 = M16、N19） |
+| ② 镜像 | `node scripts/verify-plan-blocks.mjs` | exit=0，50 个已落地镜像逐字节全等（本段新登记两格：`tools-codec.html`、`assets/img/tools/codec-tool.svg`） |
+| ③ 镜像牙齿 | `node scripts/verify-plan-blocks-teeth.mjs` | exit=0，21/21 组（G12 读到段 3 名下 17 块镜像，含本段这两格） |
+| ④ 产物形状 | `npx vite build` / `bundle exec jekyll build` | 均 exit=0；`assets/js/toolCodec.min.js` 59,317B 原文 / **21,830B gzip**、`_site/tools/codec.html` 52,465B / **13,523B gzip**（口径一律 `cat f \| gzip -9 \| wc -c`）；`import{` 在 `toolCodec` / `toolkitCore` / `toolIdcard` 三本里各 **0 次**（`grep -o 'import{' f \| wc -l`，产物是单行的，`-c` 数的是行）；HTML 那两件含另一路会话未提交的头家族改动，不进本段的账 |
+| ⑤ 收录面 | `node scripts/check-tools-surface.mjs` | exit=0，2 条 ready × 5 组判据全绿，导航-全站核到 95 页 |
+| ⑥ 收录面牙齿 | `node scripts/check-tools-surface-teeth.mjs` | exit=0，36/36 组变异如期变红（21 idcard + 15 codec），还原后基线仍绿 |
+
+`§7` 的字节预算两行**留给 Task 8**：那一档要在浏览器核验之后按实测立数（段 2 那条 60KB
+的教训就是先立数），此处只把构建产物的原始字节记下，不拿它当预算。
 
 ## Task 8: 浏览器核验（含 §0.5 四条欠账）
 

@@ -133,6 +133,21 @@
 8. `README.md`：站点结构 / 页面清单。
 9. `CHANGELOG.md` + `_config.yml: version` + `package.json: version` → 2.2.0（最后一步做，见 §10）。
 
+**2026-09-28 段 3 Task 7 回写（登记第二页时这一节的实际形状）**：第 1–5 处**一格都没手写**——
+`sitemap.xml` / `llms.txt` / `index-all.html` / `_includes/header.html` / `tools.html` 五处消费的
+都是 `_data/onlineTools.yml` 里 `status: ready` 的那个集合，`_data/onlineTools.yml` 追加一条
+`slug: codec` 就全站跟着长一页（`tools.html` 那一节还把每块面板的锚点也从数据源取，所以
+"面板清单"这条也是数据驱动）。设计期把这条写成"新增 3 页会牵动以下每一处"，读起来像每页
+都要动五个模板，事实是**只有数据源一处**——这就是 §4.2 那条"同一份事实不写第二遍"要换来的东西。
+顺带把两处"只有一页"的地基假设拆了（同一批、同一种病）：`scripts/check-tools-surface.mjs`
+的「DOM」那一组原来无条件 `import` 证件页的 `WORKBENCH_SPEC`，现在按条目读 yml 里新增的
+`spec: {module, table, ids}` 三格指针；`scripts/toolkit-tests.mjs` 的 M16 / N19 原来写"任何
+产物里都搜不到该模块的导出名"，现在写成排除式——只许出现在编码页那一本产物里，其余任何一本
+出现即渗透，同时正向核那一本必须含它。取证与四刀变异台账都在段 3 计划 Task 7 的落地记录。
+第 6 条那两个计数（`CollectionPage 26 → 29`、总数 `164 → 167`）是设计期按"三页全落地"拍的，
+随页面数走；**本格没有重跑 USAGE 的检索层自查**，所以这里只登记"编码页已进数据源"这一事实，
+具体读数等 Task 9 收口那轮按第 3 条的口径现量，别拿 29 与 167 当常数判。
+
 ---
 
 ## 5. 功能规格

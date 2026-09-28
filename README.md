@@ -32,7 +32,7 @@
 | 示例 | [/demo.html](https://liaolongdong.github.io/better-blog/demo.html) | 19 条可直接打开的示例入口（来自 `demo/` 下 18 个目录，拖拽、shake、echarts、倒计时红包等） |
 | WebLab | [/weblab.html](https://liaolongdong.github.io/better-blog/weblab.html) | 浏览器里的 HTML / CSS / JS 编辑器，无需账号 |
 | 工具箱 | [/tools.html](https://liaolongdong.github.io/better-blog/tools.html) | 自研 Chrome 插件产品页，另附站内在线工具那几节 |
-| 在线工具 | [/tools/idcard.html](https://liaolongdong.github.io/better-blog/tools/idcard.html) | 证件与机构代码工具：身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据，五块面板全部在浏览器本地算，零网络请求；条目由 `_data/onlineTools.yml` 点名 |
+| 在线工具 | [/tools/idcard.html](https://liaolongdong.github.io/better-blog/tools/idcard.html) 与 [/tools/codec.html](https://liaolongdong.github.io/better-blog/tools/codec.html) | 两页十块面板全部在浏览器里本地算、零网络请求：证件与机构代码（身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据），编码与摘要（时间戳 ⇄ 日期、Base64、URL 编解码、MD5/SHA 摘要、正则测试与替换预览）；条目由 `_data/onlineTools.yml` 点名 |
 | 关于 | [/about.html](https://liaolongdong.github.io/better-blog/about.html) | 作者信息与职业时间线 |
 
 ### 文章分类分布

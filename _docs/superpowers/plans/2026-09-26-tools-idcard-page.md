@@ -10054,6 +10054,13 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 #            顶上的 CONTAINER_ID / NOTICE_ID 两个常量（那是本页自己的地址，与行为前缀是两副
 #            面孔，见该文件头条 1）、骨架那四条 `data-tk-*` 属性名。除此之外一律从 data 属性
 #            读——多写一处就是第二处口径，而两处不一致时红的是运行时，不是构建
+#   spec     本页装配层那张形状表在仓库里的**位置**：`module` 是 dev/js 下的相对路径，
+#            `table` 与 `ids` 是那本模块导出的两个常量名（面板清单 ↔ 每块面板的栏位与控件）。
+#            只有 `scripts/check-tools-surface.mjs` 的「DOM」那一组消费它，模板一律不读。
+#            为什么写在这里而不是写死在门禁里（段 3 §0.3）：那门禁原先无条件 import 证件页的
+#            `WORKBENCH_SPEC` / `PANEL_IDS`，却拿它去比每一条 ready 条目——第二条 ready 条目
+#            一登记就必红，且红在它压根没犯的错上。指针是事实的一部分，跟着条目走；
+#            表的内容仍然只活在那本模块里，这里不抄第二遍
 #   panels   面板清单，顺序 = 索引条顺序 = 禁用脚本时的文档顺序；`slug` 就是页内 #hash 锚点
 #     desc   面板正文说明（页内静态文案，禁用脚本也读得到）
 #   status   该页的实现状态：只有 ready 的那几条会被消费点画成链接。段 2 的清单里只有 idcard
@@ -10069,6 +10076,10 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
   prefix: tk
+  spec:
+    module: dev/js/tools/workbench.js
+    table: WORKBENCH_SPEC
+    ids: PANEL_IDS
   desc: >-
     五块面板都在浏览器本地算：粘贴号码做校验与逐段解析，或按区划、性别、年龄段随机合成测试数据。
     行别与号段按内置的第三方快照给出，只作参考、不承诺全量。
@@ -10110,6 +10121,59 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
         姓名由本站自造的常用姓氏与名字用字随机组合，地址由现行区划全名加通用街道词与门牌拼出，
         邮箱一律落在 RFC 2606 的 example 保留域。三类都不指向任何真实个人或真实信箱，
         只做开发与测试用途的占位数据。
+- slug: codec
+  url: /tools/codec.html
+  name: 编码与摘要工具
+  tagline: 时间戳 / Base64 / URL 编码 / 摘要 / 正则
+  title: 时间戳转换 · Base64 编解码 · MD5 摘要
+  h1: 编码与摘要工具
+  icon: /assets/img/tools/codec-tool.svg
+  status: ready
+  prefix: tk
+  spec:
+    module: dev/js/tools/codecWorkbench.js
+    table: CODEC_SPEC
+    ids: CODEC_PANEL_IDS
+  desc: >-
+    五块面板都在浏览器本地算：粘时间戳或日期做换算与求差，文本与 Base64、URL 百分号编码互转，
+    给一段文本或一个本地文件算 MD5 与 SHA 家族，或拿正则试匹配与替换预览。超限的输入整体拒绝并说明差多少，
+    不截断悄悄算。
+  panels:
+    - slug: timestamp
+      name: 时间戳
+      tagline: 秒与毫秒 ⇄ 日期、时区偏移、两个时刻求差
+      desc: >-
+        10 位按秒、13 位按毫秒；其余长度不下"无效"结论，而是把按秒与按毫秒两种解释一起给。
+        也收 2026-09-28 09:00 这类民用写法，串里没写时区就按偏移那一格算，留空则按本机时区。
+        结果含 UTC 与本地两种表示、ISO 8601、RFC 3339 与相对时间；求差那栏取绝对值，给总秒数与几天几小时的拆法。
+    - slug: base64
+      name: Base64
+      tagline: 文本 ⇄ Base64、data URI，两种解码严格度
+      desc: >-
+        按 UTF-8 算字节，四字节 emoji 正常往返，落单的代理项（半个 emoji）会被点名是哪一位。
+        解码分宽容与严格两档：宽容档忽略空白与换行，严格档连字符集与长度一起判。
+        data URI 那一档给 MIME 与是否 base64 编码，解析失败只说明缺了哪一段。
+    - slug: url
+      name: URL 编码
+      tagline: 整串与单值两种百分号编码、查询参数拆解
+      desc: >-
+        同一段输入同时给 encodeURIComponent 与 encodeURI 两种结果，两者不等时列出差在第几位；
+        带问号的串再拆成参数表。空格写成 %20 还是加号、十六进制大小写这些分歧各写一行，
+        不替某个浏览器下结论——百分号编码没有唯一正确答案，只有"按哪条规则"。
+    - slug: digest
+      name: 摘要
+      tagline: MD5 与 SHA-1/256/384/512，文本或本地文件
+      desc: >-
+        MD5 是本站自实现，SHA 四档走浏览器的 Web Crypto。非安全上下文（http 站点与 file://）
+        拿不到 Web Crypto，那四格会标成"环境不支持"而不是留空。文本上限 1 MiB、文件上限 5 MiB，
+        字节在浏览器里读完就算，不上传、不留存。MD5 只该用于校验传输完整，不该当密码存。
+    - slug: regex
+      name: 正则
+      tagline: 匹配与捕获组、替换预览、防回溯的耗时闸门
+      desc: >-
+        表达式最长 500 字符，先过静态风险检查（嵌套量词这类可回溯的形状会点名拦下），
+        匹配另设 1000 条与 50 毫秒两道闸门，被哪一道拦住就写哪一道——这三道都是为了不让一个
+        粘贴把整页跑挂。捕获组给位置组与命名组两张表，替换串只出预览结果，不写回任何地方。
 ```
 
 **1b `assets/img/tools/idcard-tool.svg`**（11 行 / 762 字节）——`icon:` 字段指向它。走内联描边图形
@@ -12610,7 +12674,7 @@ yml 交给 ruby 的 stdlib 解析——**不自己写 YAML 子集解析器**，�
  *     从此是两个版本（段 2 Task 9 写 §4.1 时就真的漂移过一次，靠肉眼发现的）；
  *   - `{% for x in data | where: … %}` 这种 Liquid 里非法的过滤器写法：Jekyll 只打一行
  *     warning 就**把整个循环渲染成空**，sitemap 少一条收录、下拉少一行，构建退出码仍是 0；
- *   - 页面骨架改了一个控件 id，`workbench.js` 的 spec 没跟着改：构建与页面全绿，
+ *   - 页面骨架改了一个控件 id，装配层的 spec 没跟着改：构建与页面全绿，
  *     红的是运行时——而且只红那一块面板，没人点就没人知道。
  * 前三次收口都是"跑一遍看看"，所以把"看看"写成判据。
  *
@@ -12664,8 +12728,6 @@ const toolsData = readYml('_data/onlineTools.yml');
 const ready = toolsData.filter((t) => t.status === 'ready');
 const config = readYml('_config.yml');
 const nav = config.nav || [];
-const workbench = await import(pathToFileURL(path.join(ROOT, 'dev/js/tools/workbench.js')).href);
-const { WORKBENCH_SPEC, PANEL_IDS } = workbench;
 
 /** 非文本对比度下限（WCAG 1.4.11 graphical objects）；图标带 `alt=""`，按图形而非文字判 */
 const ICON_MIN_RATIO = 3.0;
@@ -12705,6 +12767,63 @@ function frontMatter(text, key) {
   if (!fm) return null;
   const line = new RegExp(`^${escRE(key)}:[ \\t]*(.*)$`, 'm').exec(fm[1]);
   return line ? line[1].trim() : null;
+}
+
+// ── 装配层 spec：按条目取 ─────────────────────────────────────────────────────
+
+/**
+ * 每条 ready 条目自己的形状表（`dev/js/tools/workbench.js` 那一类装配层导出的常量）。
+ *
+ * 这一段原来是脚本顶部一条无条件 `import('dev/js/tools/workbench.js')` 加一对解构
+ * （段 3 §0.3 实测：全文没有 `idcard` 字面量，唯一的证件页耦合就是那一句），而组 5 拿这张表
+ * 去比**每一条** ready 条目的 `panels`——于是"加第二条 ready 条目必红"，且红的是新页压根
+ * 没犯过的错。指针改放在数据源里（`spec: {module, table, ids}`）："这一页的形状表在哪本
+ * 模块的哪个导出上"本来就是这一页的事实，在本脚本里再维护一张 slug→模块 的对照表，
+ * 就是同一件事的第二处口径（加一页要改两个文件，改漏一个红在运行时）。
+ *
+ * 三个字段全部必填，且 `module` 必须是站内相对路径：这条判据会 import 并**执行**那个模块，
+ * 拼错一格时宁可红在「DOM」组里，也不要让脚本拿一个绝对路径去 require 仓库外的东西。
+ * 同一个模块只 import 一次（两页共用一本装配层时不重复求值）。
+ *
+ * @param {object} t yml 里的一条 ready 条目
+ * @returns {Promise<{table: object, ids: string[]}|null>} 取不到就记一条失败并返回 null
+ */
+const specModules = new Map();
+async function loadSpec(t) {
+  const s = t.spec || {};
+  const missing = ['module', 'table', 'ids'].filter((k) => !s[k]);
+  if (missing.length) {
+    bad('DOM', t.slug, `yml 的 spec 少了 ${missing.join('/')}（DOM 契约按条目取表，缺一格就无从取）`);
+    return null;
+  }
+  if (!/^dev\/js\/.+\.js$/.test(s.module)) {
+    bad('DOM', t.slug, `spec.module="${s.module}" 不是 dev/js 下的 .js 站内相对路径，门禁不去 import 它`);
+    return null;
+  }
+  if (!hasSrc(s.module)) {
+    bad('DOM', t.slug, `spec.module=${s.module} 在仓库里不存在`);
+    return null;
+  }
+  if (!specModules.has(s.module)) {
+    try {
+      specModules.set(s.module, await import(pathToFileURL(path.join(ROOT, s.module)).href));
+    } catch (e) {
+      bad('DOM', t.slug, `import ${s.module} 失败：${e.message}`);
+      specModules.set(s.module, {});
+    }
+  }
+  const mod = specModules.get(s.module);
+  const table = mod[s.table];
+  const ids = mod[s.ids];
+  if (!table || typeof table !== 'object') {
+    bad('DOM', t.slug, `${s.module} 没有导出对象 ${s.table}`);
+    return null;
+  }
+  if (!Array.isArray(ids)) {
+    bad('DOM', t.slug, `${s.module} 没有导出数组 ${s.ids}（面板顺序的第二个声明处）`);
+    return null;
+  }
+  return { table, ids };
 }
 
 // ── 组 1：页面源文件与 yml 的 title / permalink / 检索文案 ─────────────────────
@@ -12998,31 +13117,37 @@ function checkIcon(t) {
 
 // ── 组 5：DOM 契约（yml panels ↔ spec ↔ 产物里的 id / data 属性） ──────────────
 
-function checkDomContract(t, builtHtml) {
+function checkDomContract(t, builtHtml, spec) {
   resetAccumulators();
+  if (!spec) return;
   const p = t.prefix;
   const ymlPanels = t.panels.map((x) => x.slug);
-  if (ymlPanels.join(',') !== PANEL_IDS.join(',')) {
-    bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 workbench.js PANEL_IDS=[${PANEL_IDS}] 不同名或不同序（顺序=索引条顺序）`);
+  if (ymlPanels.join(',') !== spec.ids.join(',')) {
+    bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 ${t.spec.ids}=[${spec.ids}] 不同名或不同序（顺序=索引条顺序）`);
   }
-  if (Object.keys(WORKBENCH_SPEC).join(',') !== PANEL_IDS.join(',')) {
-    bad('DOM', t.slug, 'PANEL_IDS 与 WORKBENCH_SPEC 的键对不上，workbench.js 内部已经不一致');
+  if (Object.keys(spec.table).join(',') !== spec.ids.join(',')) {
+    bad('DOM', t.slug, `${t.spec.ids} 与 ${t.spec.table} 的键对不上，${t.spec.module} 内部已经不一致`);
   }
 
   const ids = new Set([...builtHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
   const need = [`${p}-workspace`, `${p}-notice`, `${p}-tablist`];
   for (const slug of ymlPanels) {
     need.push(`${p}-tab-${slug}`, `${p}-panel-${slug}`);
-    const spec = WORKBENCH_SPEC[slug];
-    if (!spec) { bad('DOM', t.slug, `面板 ${slug} 在 WORKBENCH_SPEC 里没有条目`); continue; }
-    for (const side of ['gen', 'read']) {
-      const cfg = spec.sides?.[side];
+    const panel = spec.table[slug];
+    if (!panel) { bad('DOM', t.slug, `面板 ${slug} 在 ${t.spec.table} 里没有条目`); continue; }
+    // 栏位名按条目取：证件页是 gen/read 两栏，编码页是 main/diff（时间戳那块）与单栏 main。
+    // 写死 ['gen','read'] 等于把第二页的 spec 判成"一栏控件都没有"，与 §0.3 那句 import 是同一种病。
+    for (const side of Object.keys(panel.sides || {})) {
+      const cfg = panel.sides[side];
       if (!cfg) continue;
       for (const c of cfg.controls || []) {
         const id = `${p}-in-${slug}-${c.id}`;
         need.push(id);
         for (const attr of ['cascade', 'options', 'charsets']) {
-          if (c[attr]) markers[attr].set(id, c[attr]);
+          // 只有**字符串**才是标记：编码页的 spec 里 `options` 是 `<option>` 的取值白名单数组
+          // （骨架的 `<option>` 文案归 HTML，运行时不读），与证件页那个 `options: 'banks'`
+          // 同名不同职——按真值收就把数组当成了标记，产物上找不到那条 data 属性而红。
+          if (typeof c[attr] === 'string') markers[attr].set(id, c[attr]);
         }
       }
       for (const tg of cfg.switch?.targets || []) {
@@ -13044,7 +13169,7 @@ function checkDomContract(t, builtHtml) {
       if (onDisk.get(id) !== val) bad('DOM', t.slug, `data-${p}-${attr} 对不上：spec 要 ${id}=${val}，产物是 ${id}=${onDisk.get(id) ?? '（无）'}`);
     }
     for (const [id, val] of onDisk) {
-      if (!want.has(id)) bad('DOM', t.slug, `产物上 ${id} 带着 data-${p}-${attr}="${val}"，而 WORKBENCH_SPEC 里没有这个标记——两边必须同源`);
+      if (!want.has(id)) bad('DOM', t.slug, `产物上 ${id} 带着 data-${p}-${attr}="${val}"，而 ${t.spec.table} 里没有这个标记——两边必须同源`);
     }
   }
   const whenDisk = new Map();
@@ -13107,11 +13232,15 @@ function resetAccumulators() {
 console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
 if (LIST_ONLY) {
   for (const t of ready) {
-    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js`);
+    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
   }
   console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM');
   process.exit(0);
 }
+
+/** 按条目把装配层 spec 先取齐：取不到的条目已经在「DOM」组里记了失败，这里只负责不再往下比 */
+const specs = new Map();
+for (const t of ready) specs.set(t.slug, await loadSpec(t));
 
 for (const t of ready) {
   const pageUrlRel = t.url;
@@ -13126,7 +13255,7 @@ for (const t of ready) {
   checkInclusion(t, built, pageUrlRel);
   checkNav(built, t);
   checkIcon(t);
-  checkDomContract(t, built);
+  checkDomContract(t, built, specs.get(t.slug));
 }
 
 auditNavSiteWide();

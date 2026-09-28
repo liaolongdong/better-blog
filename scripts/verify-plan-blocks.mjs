@@ -117,6 +117,12 @@ const FILE_TARGETS = [
   '_data/onlineTools.yml',
   'assets/img/tools/idcard-tool.svg',
   'tools-idcard.html',
+  // 段 3 Task 7：编码页的页面源与图标落盘即登记，方向照旧（"有镜像才登记"）。
+  // 这两格与上面那两格成对——同一族事实在两页上各有一份，镜像就是"两页真的各按各的 spec
+  // 长"的第三方见证：`tools-codec.html` 的十一格控件 id 只要漏一个，门禁五红、而这一格镜像
+  // 会同时把改动逐字暴露出来，改了一处忘了另一处时红的是这里。
+  'assets/img/tools/codec-tool.svg',
+  'tools-codec.html',
   'dev/sass/toolkit.scss',
 ];
 
