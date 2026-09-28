@@ -352,6 +352,21 @@ function checkIcon(t) {
     return;
   }
   const rawSvg = readSrc(t.icon.replace(/^\//, ''));
+  // 注释里出现连续两个连字符，整份 SVG 就不是合法 XML。而它是以 <img src> 引用的，
+  // 解析失败在页面上直接是破图占位——构建、其余四组判据、乃至下面那段对比度计算全是绿的，
+  // 因为它们都是按正则读文本，不看可解析性（2026-09-28 现场：本图标的注释里写了带 var 前缀
+  // 的令牌名，xmllint 报六处 parser error，下拉与 /tools.html 两处同时渲染成破图，
+  // 而门禁当时退 0）。这条判据补的是那层盲区。
+  const comments = rawSvg.match(/<!--[\s\S]*?-->/g) || [];
+  const badComments = comments.filter((c) => /--/.test(c.slice(4, -3)));
+  if (badComments.length) {
+    bad('图标', t.slug,
+      `${comments.length} 段注释里有 ${badComments.length} 段含连续两个连字符——XML 注释禁止那两划，整份 SVG 解析失败，<img> 里是破图`);
+  }
+  // 注释之外必须还剩一个带 xmlns 的根，否则同样是解析失败
+  if (!/<svg\b[^>]*\bxmlns=/s.test(rawSvg.replace(/<!--[\s\S]*?-->/g, ''))) {
+    bad('图标', t.slug, '摘掉注释之后找不到带 xmlns 的 <svg> 根节点，浏览器不会把它当 SVG 解析');
+  }
   // 注释里出现 currentColor 是**记录决策**（这个文件的注释正是在解释"为什么不用它"），
   // 判据只看渲染时会生效的那部分，所以先摘掉 <!-- … -->
   const svg = rawSvg.replace(/<!--[\s\S]*?-->/g, '');

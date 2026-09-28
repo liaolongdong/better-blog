@@ -10,8 +10,9 @@
  *
  * 为什么这份台账进仓库而不是留在 /tmp：同 `verify-plan-blocks.mjs` 的理由——"门禁有没有牙"
  * 是一次实证，实证脚本不在仓库里就等于没做过，换台机器、换个会话就没人能重跑。
- * 段 3 / 段 4 各追加一条 ready 条目之后，这 19 组必须原样重跑（它读的是数据源与产物，
+ * 段 3 / 段 4 各追加一条 ready 条目之后，这 21 组必须原样重跑（它读的是数据源与产物，
  * 不写死"只有 idcard 这一页"），新增一层判据时照例往 `cases` 里加一条同名变异。
+ * 组数以末尾台账打印的 `cases.length` 为准，这句里的数只是行文，别拿它当判据。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -129,6 +130,18 @@ const cases = [
     name: '图标描边压到 3:1 以下',
     group: '图标',
     src: () => mutateSrc('assets/img/tools/idcard-tool.svg', (s) => s.replace('stroke="#737B85"', 'stroke="#C8CCD2"')),
+  },
+  {
+    // 2026-09-28 的真实现场：注释里写了带 var 前缀的令牌名，整份 SVG 因此不是合法 XML，
+    // <img> 加载它得到的是破图，而当时五组判据全绿——这条变异钉住那层盲区。
+    name: '图标注释里出现连续两个连字符',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/idcard-tool.svg', (s) => s.replace('画成描边图形而不是图标字体', '画成描边图形而不是 --surface 那种图标字体')),
+  },
+  {
+    name: '图标根节点没有 xmlns',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/idcard-tool.svg', (s) => s.replace('<svg xmlns="http://www.w3.org/2000/svg"', '<svg')),
   },
   {
     name: '产物缺一个控件 id',

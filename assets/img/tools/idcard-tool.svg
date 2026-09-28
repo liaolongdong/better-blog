@@ -1,21 +1,26 @@
 <!-- 顶栏「工具箱」下拉与 /tools.html 小节里「证件与机构代码工具」那一行的图标。
      画成描边图形而不是图标字体：断网时只剩方框（同 _includes/header.html 里下拉箭头那条理由）。
 
+     下面通篇把两格底色令牌写成 surface / surface-2，不写它们带 var 前缀的形式：XML 注释里
+     禁止出现连续两个连字符，一写整个文件就解析失败，而 SVG 是被 <img> 引用的，解析失败在
+     浏览器里直接是破图（2026-09-28 就是这个毛病：真 Chrome 里这一行渲染成破图占位，
+     naturalWidth 读到 0；xmllint 校验报六处 parser error）。改这段注释时别再引入那两划。
+
      描边色是写死的 #737B85，不是 currentColor——这一条与文件最初那版注释相反，理由是实测：
      这个文件通过 <img src> 引用（下拉与产品页两处都是），而 <img> 里的 SVG 是一份独立文档，
      拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color，
-     也就是近黑色。黑色描边放在夜间 --surface-2 (#20242C) 上是 1.35:1，等于看不见。
+     也就是近黑色。黑色描边放在夜间 surface-2 那一格 (#20242C) 上是 1.35:1，等于看不见。
      走 CSS `mask + background: currentColor` 能保住跟随主题，但要动全站那份
      dev/sass/common/editorial.scss 里的 .nav-sub-icon / .tool-icon 两处，且 mask 一旦不生效
      就同时露出黑色底图；这里按「一份图、两档都能读」的代价重排后选了烘色。
 
      #737B85 是把 dev/sass/common/tokens.scss 里那 8 格底色逐格算一遍挑出来的（四档纸色温
-     「暖 = :root / 冷 cool / 绿 sage / 夜间 night-mode」各出 `--surface` 与 `--surface-2` 一格），
+     「暖 = :root / 冷 cool / 绿 sage / 夜间 night-mode」各出 surface 与 surface-2 一格），
      取值口径是「让八组对比度里最差的那组尽量高」，WCAG 1.4.11 对图形对象要的是 3:1
      （这两处图标都带 alt=""，属装饰，实际门槛比 3:1 还低）：
-       --surface    暖 #FFF 4.28 · 冷 #FFFFFF 4.28 · 绿 #FAFCF8 4.15 · 夜 #191C23 3.98
-       --surface-2  暖 #F4F2ED 3.83 · 冷 #EFF1F5 3.79 · 绿 #E6EDE3 3.59 · 夜 #20242C 3.63
-     最差 3.59，落在绿档的 --surface-2 (#E6EDE3) 上。复算不用手抄：跑
+       surface    暖 #FFF 4.28 · 冷 #FFFFFF 4.28 · 绿 #FAFCF8 4.15 · 夜 #191C23 3.98
+       surface-2  暖 #F4F2ED 3.83 · 冷 #EFF1F5 3.79 · 绿 #E6EDE3 3.59 · 夜 #20242C 3.63
+     最差 3.59，落在绿档的 surface-2 (#E6EDE3) 上。复算不用手抄：跑
      `node scripts/check-tools-surface.mjs`，它的「图标」那一组现读 tokens.scss 凑底色集合、
      现算这八组比值，并把本文件的 `stroke` 与 `fill` 里每个色值都过一遍。 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
