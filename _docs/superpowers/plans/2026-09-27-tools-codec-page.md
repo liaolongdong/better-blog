@@ -9003,6 +9003,30 @@ not ok 1 - scripts/toolkit-tests.mjs
 `scripts/check-sw-teeth.mjs`、`scripts/verify-sw-offline.mjs`、`.tmp-swcheck/` 那一整批。
 **暂存只按这五条路径点名，全程不 `git add -A`、不跑 `deploy-github.sh`、不 push**（段 3 自约束）。
 
+### 提交与提交后复跑（2026-09-28）
+
+代码那一格实跑 `90556bf`，`5 files changed, 4705 insertions(+), 1 deletion(-)`，逐条：
+`codecWorkbench.js` +1053/−0（新增，`create mode 100644`）、`toolCodec.js` +172/−0（新增）、
+`toolkit-tests.mjs` +1055/−0（§R 整节 + 三条假 DOM/假文件/假 subtle 夹具）、
+`verify-plan-blocks.mjs` +6/−0（`FILE_TARGETS` 登记两本加那段注释）、
+段 3 计划 +2419/−1。那唯一的 −1 是 6a 留下的占位行
+「§R 那一节（装配层与入口）在这一格的后半段落，判据清单同批回填」——被 §R 判据清单整节顶掉。
+2419 行里 **2279 行是三块落地镜像**（`codecWorkbench.js` 1053 + `toolCodec.js` 172 + §R 1054），
+剩下 140 行是判据清单、六条"落地时定下的"、六刀台账、红相复量与上面这两节。
+
+提交后复跑：门禁一 `# tests 268 / pass 268 / fail 0`（`/tmp/seg3t6b/post-gate1.log`）；
+门禁二在**真实工作树**仍 `exit=1`、仍只有 `_data/onlineTools.yml` 那一格（`post-gate2.log`，
+47 镜像 / 896,356B——红的那一格不计入"已落地"，所以比副本少 1 块、少 2,934B）；
+同一份副本里 `exit=0`、**48 块全等 / 899,290B / 未落地 0 节**（改一处镜像宿主之外的事不动这些数，
+三遍 `gate2-copy{,2,3}.log` 加定稿后那遍 `gate2-copy4.log`，四遍同一读数）；门禁三在同一副本 **21/21**，
+跑了四遍——`gate3-copy.log` 是收口读数写之前、`gate3-copy2.log` 是收口读数写完、
+`gate3-copy3.log` 是"提交与提交后复跑"那一节写完、`gate3-copy4.log` 是**这一句定稿之后**，
+四遍都是 21/21、脏项 30 个前后一致
+（计划自己不在 `FILE_TARGETS` 里，往计划正文加一节不会动任何镜像，但这四遍是"加完正文之后
+镜像仍然逐字节全等"的实证，不是顺手多跑一遍）。提交后 `git status` 剩 **27 项**，比上面那 26 项多的一条是另一路会话
+这一轮刚落下的 `_docs/superpowers/specs/2026-09-28-sw-offline-design.md`；
+`git show --stat HEAD` 逐条对过，那 26 项（含 12 项已暂存的）一个都没被 `90556bf` 吞进来。
+
 ## Task 7: 收录面 + 门禁解耦（本段的地基改动）
 
 **Files:** Modify `scripts/check-tools-surface.mjs`、`scripts/check-tools-surface-teeth.mjs`、
