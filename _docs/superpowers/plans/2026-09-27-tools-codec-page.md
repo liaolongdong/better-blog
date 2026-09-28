@@ -5539,11 +5539,1014 @@ HEAD 里的 12 行桩（4842–4853）长成 698 行（4842–5539），其中�
 
 ## Task 6: `codecView.js` + `codecWorkbench.js` + `toolCodec.js`（§Q + §R）
 
-**Files:** Create 三份；Modify `scripts/toolkit-tests.mjs`、`verify-plan-blocks.mjs`、本计划。
+**Files:**
+- Create: `dev/js/tools/codecView.js`（五块面板的纯字符串视图层）
+- Create: `dev/js/tools/codecWorkbench.js`（装配层）+ `dev/js/toolCodec.js`（页面入口）
+- Modify: `scripts/toolkit-tests.mjs`（追加 §Q、§R 两节）、`scripts/verify-plan-blocks.mjs`
+  （`FILE_TARGETS` 登记两本新模块 + 入口）、本计划
+- **不动**：`dev/js/toolkitCore.js`、`dev/js/tools/view.js`、`dev/js/tools/panel.js`、
+  `dev/js/tools/panel-dom.js`、`dev/js/tools/ui.js`、`dev/sass/toolkit.scss`
 
-契约：`codecView.js` 与 `view.js` 同一条红线——**零 import**（它进 `toolkitCore` 之前不能被拽进任何
-数据模块）；`codecWorkbench.js` 里 `CODEC_SPEC` 与 `CODEC_PANEL_IDS` 两张表是 §0.3 那处解耦要读的东西；
-入口 `toolCodec.js` 的产物名必须与页面引用逐字符一致（`toolCodec.min.js`，§6.1 那条大小写教训）。
+### 一处起草版没说、落地前必须定的事：`codecView` 不进 `window.Tk`
+
+起草那一格（本节桩原文）写的是"`codecView.js` 与 `view.js` 同一条红线——零 import，
+**它进 `toolkitCore` 之前**不能被拽进任何数据模块"，读起来像要挂第五只。挂不得，理由是字节账：
+
+- 实测（2026-09-28，`cat assets/js/x | gzip -9 | wc -c`）：`toolkitCore.min.js` = **6,977B**、
+  `toolIdcard.min.js` = **64,479B**。证件页 §7 那一行的预算余量只剩 **4,258B（5.5%）**，
+  而这一格新写的视图层按 §Q 那五块面板的量（逐档徽章 + 五张表）估在 3–5KB gzip 一档。
+- `toolkitCore.min.js` 是证件页与编码页**共用**的那一本（`tools-idcard.html:472` 与将来的
+  `tools-codec.html` 都引它）：把只有编码页要读的视图层挂进去，等于让证件页为五块它没有的面板付 gzip，
+  余量直接见底——而 §7 的口径是"先量后立、不许拿预算反推实现"。
+- 反面对照：`workbench.js` 直接 `import` 六本证件业务模块，因为**只有一个入口 reach 它们**，
+  Rollup 不会成 chunk，产物里也就没有 `import{`（实测记录在 `toolkitCore.js` 文件头）。
+  `codecView.js` 同一条形状：只由 `codecWorkbench.js` import，`toolCodec.js` 是唯一 reach 它的入口。
+
+所以这一格的定案是：**`codecView.js` 由 `codecWorkbench.js` 直接 import，`window.Tk` 仍是四只**，
+证件页那两本的字节一个不减也不少（Task 6 落地后要拿构建复量自证这一句，见 Step 6）。
+"零 import"这条红线照旧保留——它现在守的不是 chunk 边界，而是**视图层不许被业务数据模块污染**，
+并且让将来段 4 若要把它挪进 `Tk` 时不用改任何一行的内部。
+
+### 对外契约（签名先定死，实现期不改名）
+
+```text
+// ── dev/js/tools/codecView.js ────────────────────────────────────────────
+// 零 import。转义 / 空值 / 判定表 / 口径行四样都从注入的那只 `view`（= `Tk.view`）拿，
+// 所以本文件里不许出现第二个 `esc`、第二个 `'—'`、第二套 `tk-checks` 表头。
+export const CODEC_TONES = ['ok', 'warn', 'bad', 'unknown', 'idle'];  // toolkit.scss 只有这五档徽章
+export const CODEC_META = {          // verdict → { label, tone }；表外的一律当场抛
+  converted: {…}, encoded: {…}, decoded: {…}, computed: {…}, matched: {…},   // tone ok
+  ambiguous: {…}, nomatch: {…},                                       // tone unknown
+  lossy: {…}, partial: {…}, capped: {…},                              // tone warn
+  invalid: {…}, rejected: {…},                                        // tone bad
+  empty: {…},                                                          // tone idle
+};                                        // 落地时是十三档，起草那张表漏了 matched（见偏差①）
+/** 面板 → 允许的 verdict 白名单：把"时间戳面板报'已编码'"这种错配挡在渲染之前 */
+export const PANEL_VERDICTS = { timestamp: [...], base64: [...], url: [...], digest: [...], regex: [...] };
+
+/** 构造期闸门：`view` 缺 `esc` / `noteLines` / `checksTable` / `EMPTY_CELL` 任一样就抛 TypeError */
+export function createCodecView(view) → {
+  badge(verdict) → string,                      // `<span class="tk-state tk-state--{tone}">label</span>`
+  fieldsTable(rows) → string,                   // rows=[{label,value,mono?}] → `<table class="tk-table tk-detail">`
+  timestampBlock(m, notes) → string,            // m.readings / m.fields / m.relative / m.diff
+  base64Block(m, notes) → string,               // m.out / m.bytes / m.fields（方向不入结果区，见偏差②）
+  urlBlock(m, notes) → string,                  // m.pair / m.differs / m.decodeTries / m.queryRows
+  digestBlock(m, notes) → string,               // m.rows（五格，按 ALGORITHMS 序）/ m.bytes / m.kind
+  regexBlock(m, notes) → string,                // m.findings / m.matches / m.groups / m.replaced / 三面旗
+  block(panel, m, notes) → string,              // 唯一分派点：panel 不在五块里抛 RangeError
+}
+// 每块 `*Block` 交出去的都是一个完整的 `<div class="tk-result tk-result--{tone}">…</div>`，
+// 与 `view.parseBlock` 同一件外层骨架（§5.4"五块面板长得一样是要求，不是巧合"）。
+// 结果文本那一行走证件页那一族的 `.tk-lines > section.tk-line > p.tk-line__raw`，
+// 输入回显按码点封顶 200 个——两条都是落地时定的，理由见下面「偏差③④」。
+```
+
+装配层交给视图的模型（`m`）只有五张，字段名与四本纯模块的返回**同名不同层**——视图不 import 它们，
+映射由 `codecWorkbench.js` 做，映射错了的后果是 §R 的红而不是 §Q 的红：
+
+```text
+timestamp = { verdict, input, checks, readings:[{kind,epochMs,isoUtc}], fields:[{label,value,mono}],
+              relative, diff:{sign,totalDays,calendarDays,ymd:{years,months,days},
+              breakdown:[{unit,value}]}|null }
+base64    = { verdict, input, checks, out, bytes, fields, reason }
+url       = { verdict, input, checks, pair:[{name,out}], differs:string[], bytes,
+              decodeTries:[{field,ok,out,reason}], queryRows:[{raw,key,value,keyOk,valueOk,reason}], reason }
+digest    = { verdict, input, checks, kind:'text'|'bytes', bytes,
+              rows:[{algo,ok,hex,bytes,via,reason}] }
+regex     = { verdict, input, checks, flags, findings:[{rule,at,level,hint}], count,
+              matches:[{i,index,length,text}], groups:[{match,label,index,length,text}],
+              replaced, capped, hitLimit, timedOut, elapsedMs, reason }
+```
+
+落地时这三处与起草的字段表不同，都按**磁盘上纯模块的真实返回**对齐（视图不 import 它们，
+映射归装配层，所以字段名以被映射的那一侧为准，不是以起草那张表为准）：
+
+- `timestamp.diff` 用 `time.js` 的 `dateDiff()` 原名（`sign` / `totalDays` / `calendarDays` /
+  `ymd` / `breakdown`），起草那对 `labels` / `totals` 作废；`civil` 一格删掉——它是 `time.js`
+  里"civil 历法换算"那一段的中间量，页面上没有独立可读的东西，留着只会让装配层以为要供一格。
+- `base64.mode` 删（偏差②）。
+- `digest.fileNote` 删（偏差⑤）：视图没有"文件"这一格可放，6b 的装配层要把它并进 `notes`。
+- `regex.pattern` / `regex.level` 与 `queryRows.hasEquals` 留在模型里但视图**不渲**：
+  前者输入框常驻显示、后者是 `findings` 的派生值（`regex.js` 里 level 由 findings 有没有 high 算出），
+  表里"级别"那一列说的就是它。渲染与否的账在 Q11 与 `regexBlock` 的注释里，不在这里。
+
+`codecWorkbench.js` 侧的两张导出表是 §0.3 那处解耦要读的东西，形状照 `workbench.js` 的
+`WORKBENCH_SPEC` / `PANEL_IDS`（`check-tools-surface.mjs:389-416` 消费的就是这一对）：
+
+```text
+export const CODEC_SPEC = { timestamp:{sides:{main:{kind,controls:[…]}, diff:{…}|null}}, … }
+export const CODEC_PANEL_IDS = Object.keys(CODEC_SPEC);      // ['timestamp','base64','url','digest','regex']
+export function controlIds(prefix, panels = CODEC_PANEL_IDS) → { btn, copy, out, in, when }
+```
+
+入口 `dev/js/toolCodec.js` 与 `toolIdcard.js` 同形：读 `#tk-workspace` 上那四个 `data-tk-*`、
+校验 `Tk` 四只齐不齐、`createPanelWorkspace` → `createWorkbench` → `createPanelDom` → `mount()`，
+不 `export`、不接 `DOMContentLoaded`。**产物名必须与页面引用逐字符一致**（`toolCodec.min.js`，
+§6.1 那条大小写教训）。
+
+### 判据清单（§Q，落地后回填）
+
+起草时先钉"这一格要咬什么"，落地后把编号与实际条数对齐：
+
+| 编号 | 咬的那一件事 |
+| --- | --- |
+| Q1 | 导出面恰好这四个名字；`CODEC_META` 十三档的 `label`/`tone` 逐字对表，`tone` 只许是 `CODEC_TONES` 那五个词（顺序也钉：多一档、少一档、重排都红） |
+| Q2 | 零 import 红线：源码剥注释**再剥字符串**后不许出现 `import`（本文件的报错文案要正写"不许 import"，不剥字符串就自咬），末尾一条自证真那一行 `import x from './y.js'` 剥完照样红；同时 §0.3 那条"不进 Tk"由 `toolkitCore.js` 的源码扫守住（那一本里不许出现 `codecView`，O13 的 `Tk` 四只清单不得被悄悄扩成五只） |
+| Q3 | 只有一处转义出口：全文对 `view.esc` 的调用是唯一插值路径，源码里不许再出现 `replace(/[&<>"']/`，也不许出现第二个 `'—'` 字面量（空值走 `view.EMPTY_CELL`） |
+| Q4 | 构造期闸门：`createCodecView` 缺 `esc`/`noteLines`/`checksTable`/`EMPTY_CELL` 任一样抛 `TypeError` 且点名缺的是哪一样 |
+| Q5 | 未知 verdict 抛、跨面板错配抛：`badge('expired')` 与 `block('timestamp', {verdict:'encoded'})` 都不许静默渲成绿的 |
+| Q6 | 五块面板外层骨架同形：`tk-result tk-result--{tone}` + `tk-verdict` + `tk-note` 三处类名逐块一致 |
+| Q7 | `timestampBlock`：`ambiguous` 必须两行读数且谁都没被标成"对的"；`invalid` 那一档不许出现明细表（空表读起来像"全都通过了"）；输入回显按**码点**封顶 200，超了就说明"共 N 字符"（偏差④，与 `time.js` 那 64 字符的闸门无关，那一档永远走不到截断） |
+| Q8 | `base64Block`：结果走 `.tk-lines > section.tk-line > p.tk-line__head` + `p.tk-line__raw`（偏差③，不再叠 `tk-mono`）；字节数按"数字 + 字节"给、不千分位；`rejected` 那一档不摆空结果行；`lossy` 那一档要把损耗那两行（"补齐的 padding" / "剥掉的空白"，由 6b 的装配层随 `fields` 供进来）显示出来，不许只报"已解码" |
+| Q9 | `urlBlock`：两档并列 + 那 11 个差异字符显式成句（L11 的口径在视图侧的落点）；`queryRows` 的 `keyOk`/`valueOk` 假值不能显示成"通过" |
+| Q10 | `digestBlock`：五格恒定按 `ALGORITHMS` 序，`via==='unavailable'` 那格给"环境不支持"而不是空格；`partial` 与 `bad` 分开（MD5 出结果 + SHA 四档缺席 ≠ 整块失败） |
+| Q11 | `regexBlock`：没开 `d` 时组位置显示 `—` 而不是 `0`（N5 在视图侧的对应）；`capped`/`hitLimit`/`timedOut` 三面旗各说各话，不许互相顶；`nomatch` 是 `unknown` 不是 `bad` |
+| Q12 | 空数组一律给一句明说的 `tk-hint`，不许摆空表（沿用 `view.checksTable` 那句的形状） |
+| Q13 | `notes` 去重：同一句口径若已经在判定表的"依据"列或 `reason` 里出现过就不再重复一遍（`parseBlock` 那条不变量的 codec 版）；`notes` 里的空串与 `null` 一并滤掉，非数组当场抛 |
+| Q14 | 数字原样 + 单位：`bytes` 一律"1234 字节"，不做千分位、不做 KB 换算（换算会让 §7 那条字节口径在读侧失效） |
+| Q15 | 全部文本经 `esc`：五块面板各喂一条含 `<script>`、引号与 `&` 的输入，断产物里 `<` 只以 `&lt;` 出现 |
+| Q16 | 模型缺字段的失败形状：`fieldsTable` 收到非字符串非数字的 `value` 抛 `TypeError` 并点名第几行，不显示 `[object Object]` |
+
+§R 那一节（装配层与入口）在这一格的后半段落，判据清单同批回填。
+
+### 落地时定下的五处（起草那张表里没有、或说得不一样）
+
+这五处不是"实现走样"，是起草那一格看不见的东西落地才看得见。每一处都记在这儿，
+下一个读计划的人不必去 diff 判据与实现。
+
+1. **`matched` 是第十三档**（"有命中"，tone `ok`）。起草那张表只有 `nomatch` 而没有它的对立面：
+   正则面板"编译成功且有命中"本来要落到 `computed`（摘要的说法）或 `converted`（时间戳的说法），
+   两者都是别的面板的措辞。§Q1 现在钉的是"十三个词、键序即契约"。
+2. **方向不进结果区**：`base64Block` 的模型里没有 `mode`。编码 / 解码 / data URI 那一档由工作台
+   顶部的分段控件常驻显示（`panel-dom.js` 的既有形状），结果区再说一遍只是把用户已经看见的东西
+   重排一遍字——而 §7 那一行是按字节算的。
+3. **结果行走 `.tk-line__raw`，不叠 `tk-mono`**。起草写的是"`out` 走 `tk-mono`"，落地查了样式层：
+   `dev/sass/toolkit.scss:581` 那一条 `.tk-line__raw` 已经写了 `$tk-meta` 等宽栈与 `word-break: break-all`，
+   再挂一个 `tk-mono` 就是同一条规则写两处——将来只改其中一处，页面上就有一族结果行不等宽。
+   外层也照证件页 `workbench.js` 的 `renderRead` 逐字对齐（`.tk-lines` 是 grid 容器、
+   `section.tk-line` 是一节、`p.tk-line__head` 必须是 `<p>`，它带块级 margin，写成 `<span>` 会静默失效）。
+4. **输入回显按码点封顶 200**（`ECHO_MAX_CHARS`）。起草没这条：证件页的输入是 18 / 18 / 19 位的数字串，
+   永远走不到截断那一支；编码页按 §5.2 那三道闸门允许到 1 MiB，不封顶就是让结果区把用户刚粘进去
+   的东西再打一遍，节点数当场翻倍。按 `Array.from` 的码点切而不是 `String#length` 的码元切：
+   切到一个 emoji 的中间，页面上是一个替换字符。判据在 Q7 末尾三条（含 250 个 emoji 那一夹具）。
+5. **`digest.fileNote` 不由视图渲染**。文件那一档的说明句是"这五格算的是哪个来源"，属于口径而非
+   结果，6b 的装配层要把它并进 `notes` 交进来。视图侧删掉这个字段，比留一格"认得的字段但不知道
+   渲到哪里"好——留着的后果是装配层老老实实供、用户一个字都看不到。
+
+另外两处是**脚手架自己的账**，不是这一本的：
+
+- §Q2 那条 import 扫描要先剥字符串。本文件的报错文案与注释都要正写"不许 import"（`view.js` 的
+  同族报错就是这口径），只剥注释会自咬。补法不是放水：Q2 末尾拿一行真 `import x from './y.js'`
+  过同一个剥函数自证仍然命中。这是 §Q 写第一遍时就红过的一次，红的是判据自己。
+- 登记镜像时 `FILE_TARGETS` 的注释口径也跟着改了一句：`codecView.js` 是本清单里第一本
+  **故意不挂进 `window.Tk`** 的模块，它的镜像同时是那条字节账的见证（`toolkitCore.js` 那份镜像
+  里没有 `codecView`，Q2 的源码扫核的就是这一对）。
+
+### Steps（6a 视图层 / 6b 装配层，两格各自一次提交）
+
+**6a** 先 §Q 判据（红）→ `codecView.js`（绿）→ 登记镜像 + `--fix` → 门禁①②③ → 提交。
+**6b** 再 §R 判据（红）→ `codecWorkbench.js` + `toolCodec.js`（绿）→ 镜像同步 → 门禁①②③④
+（④ 用构建自证"`window.Tk` 仍四只、证件页两本字节未变"）→ 提交。
+
+### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
+
+上一格的契约段一律 ```text，门禁二不核它们——它核的是**实现**逐字节，不是签名。
+下面两块是段 3 名下的新镜像：视图层整本 + §Q 那一节判据。
+
+#### `dev/js/tools/codecView.js`（整文件）
+
+```js
+/**
+ * 编码工具箱页五块面板的**纯字符串视图层**：模型进、HTML 出。
+ *
+ * 这一本处在装配层与结果区之间，只做一件事——把 `time.js` / `codec.js` / `digest.js` /
+ * `regex.js` 四本纯模块的结果对象变成 `tk-result` 那一族 DOM 片段。它不碰 DOM、不读时钟、
+ * 不读环境，所有输入都由 `codecWorkbench.js` 递进来。
+ *
+ * 四条红线，§Q 的判据逐条对着咬：
+ *
+ * 1. **零 import，且不进 `window.Tk`**（§Q2）。它只由 `codecWorkbench.js` 一本 import：
+ *    只有一个入口 reach 它，Rollup 就不会把它提成共享 chunk，产物里也就没有那句会把整页
+ *    打成 SyntaxError 的 `import{`（实测记录在 `dev/js/toolkitCore.js` 开头）。反过来它自己
+ *    一旦 import 别的东西，"只有一个入口"这条前提就没了。而把它挂进 `Tk` 的后果是**证件页
+ *    替编码页的五块面板付 gzip**——§7 那一行余量只剩 4,258B，挂不得。
+ * 2. **转义只有一处出口**（§Q3）。`esc` / `EMPTY_CELL` / `checksTable` / `noteLines` 四样
+ *    全部来自注入的那只 `view`（`window.Tk.view`）。这一本里不许长出第二只 `esc`、第二张
+ *    实体映射表、第二个破折号字面量：两份实现的下场必然是"改了一份、页面上跑的是另一份"。
+ *    表格那一半**允许**自带（`view.js` 里的 `table` 是私有函数，共享它就得开 import 边），
+ *    但每一格都逐格经注入的 `esc`，所以 §Q15 那条"五块面板都不许漏转义"仍然只需要盯一处。
+ * 3. **未知 verdict 与跨面板错配都抛**（§Q5）。与 `view.js` 的 `stateMetaOf` 同一条口径：
+ *    哪天纯模块新增一档，页面必须当场炸给装配层，而不是把一个没定论的结果渲成绿的。
+ *    这一本还多一张「面板 → 允许的 verdict」白名单：时间戳面板报"已编码"就是映射写错。
+ * 4. **五块面板外层骨架同形**（§Q6）。`<div class="tk-result tk-result--{tone}">` 包一层、
+ *    徽章那一行恰好一个，与 `view.parseBlock` 那一条一致；`toolkit.scss` 只写了
+ *    `tk-state--ok/warn/bad/unknown/idle` 五档徽章，档位词表就是从那里来的，多一档就是
+ *    一个没有样式的类名。
+ *
+ * 与 `view.js` 的分工：那一本管证件页的四读八生成，这一本管编码页的五块面板，互不 import，
+ * 共用的是同一只注入进来的 `view`。措辞也归视图：装配层只交事实（数字、串、布尔、null），
+ * "补齐的 padding"、"环境不支持"这类话术只在这一本里写，用户读到的句子才不会一页一个说法。
+ *
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Q 十六判（`toolkit-tests.mjs` 末尾）。
+ */
+
+/**
+ * 样式层认得的五档颜色后缀，逐字对着 `dev/sass/toolkit.scss` 的 `.tk-state--*` 五条规则。
+ * 这一格写成数组而不是集合，是因为 §Q1 要钉顺序——多一档、少一档、重排都要红。
+ */
+export const CODEC_TONES = ['ok', 'warn', 'bad', 'unknown', 'idle'];
+
+/**
+ * verdict → 徽章文案与档位。十三个词是五块面板全部可能落到的结论，`tone` 只有五个值。
+ * 键序即契约：§Q1 用 `Object.keys` 逐字对表，白名单也按这张表取词。
+ */
+export const CODEC_META = {
+  converted: { label: '已换算', tone: 'ok' },
+  encoded: { label: '已编码', tone: 'ok' },
+  decoded: { label: '已解码', tone: 'ok' },
+  computed: { label: '已算出', tone: 'ok' },
+  matched: { label: '有命中', tone: 'ok' },
+  ambiguous: { label: '长度两可', tone: 'unknown' },
+  nomatch: { label: '零命中', tone: 'unknown' },
+  lossy: { label: '有还原损耗', tone: 'warn' },
+  partial: { label: '部分可用', tone: 'warn' },
+  capped: { label: '已到上限', tone: 'warn' },
+  invalid: { label: '不成立', tone: 'bad' },
+  rejected: { label: '已拒收', tone: 'bad' },
+  empty: { label: '等待输入', tone: 'idle' },
+};
+
+/**
+ * 每块面板允许出现的 verdict。错配（时间戳面板报"已编码"）在渲染之前就抛——装配层的映射
+ * 表写错时，后果本来是一句被用户当事实读的文案。
+ */
+export const PANEL_VERDICTS = {
+  timestamp: ['converted', 'ambiguous', 'invalid', 'empty'],
+  base64: ['encoded', 'decoded', 'lossy', 'invalid', 'rejected', 'empty'],
+  url: ['encoded', 'decoded', 'invalid', 'rejected', 'empty'],
+  digest: ['computed', 'partial', 'invalid', 'rejected', 'empty'],
+  regex: ['matched', 'nomatch', 'capped', 'invalid', 'rejected', 'empty'],
+};
+
+/** `codec.js` 那两档编码口径的差异字符数，§Q9 与 §L 的 L11 是同一件事的两个面 */
+const URL_DIFF_SENTENCE = '个字符在这一档不编码、在那一档编码';
+
+/**
+ * 回显封顶的字符数（按码点算）。时间戳那一块的输入本来就 ≤ 64 字符（`time.js` 的
+ * `MAX_INPUT_LEN`），永远走不到截断那一支；真正需要它的是 Base64 / URL 那两块 1 MiB 的输入框。
+ */
+const ECHO_MAX_CHARS = 200;
+
+/** `viaOf` 的三档说法：谁算的必须说清，否则"MD5 出了、SHA 没出"读起来像都失败 */
+const VIA_CN = { self: '本站自实现', subtle: '浏览器 crypto', unavailable: '环境不支持' };
+
+/** 正则风险级别：`riskScan` 只给 high / medium，`none` 那一档压根不进这张表 */
+const LEVEL_CN = { high: '高危', medium: '中等' };
+
+/** `dateDiff().breakdown` 那六个 `unit` 的中文名，键集与 `time.js` 给的那一张表逐字对齐 */
+const DIFF_UNIT_CN = { ms: '毫秒', s: '秒', min: '分钟', h: '小时', d: '天', wk: '周' };
+
+/** 解码列的三种取值：`null` 是"这一格没判"，与 false 的"解不出"是两件事 */
+const DECODE_CN = { true: '可以', false: '解不出' };
+
+/** 报错文案里的"收到什么"，与 `view.js` / 四本纯模块那份同形（各自私有，见上面第 2 条） */
+function shapeOf(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `Array(${v.length})`;
+  const t = typeof v;
+  if (t === 'object' || t === 'symbol') return t;
+  return `${t} ${String(v)}`;
+}
+
+/** 注入依赖的名字与判法：`EMPTY_CELL` 是常量，其余三样是函数 */
+const REQUIRED = {
+  esc: 'function',
+  checksTable: 'function',
+  noteLines: 'function',
+  EMPTY_CELL: 'string',
+};
+
+/**
+ * 造一只编码页视图。闸门排在构造期：缺依赖的后果本来是"渲染到某一格才炸"，
+ * 那时已经落在某一块具体面板里，报错里既没有缺的名字也没有装配层的形状。
+ * @param {object} view `window.Tk.view`，必须齐 `esc` / `EMPTY_CELL` / `checksTable` / `noteLines`
+ * @returns {object} 五块面板的渲染函数与两只公用件（`badge` / `fieldsTable`）
+ */
+export function createCodecView(view) {
+  const v = view ?? {};
+  const missing = Object.keys(REQUIRED).filter((k) => typeof v[k] !== REQUIRED[k]);
+  if (missing.length > 0) {
+    throw new TypeError(`createCodecView：注入的 view 缺 ${missing.join(' / ')}（应是 window.Tk 里那份 view，跨页共用层不许 import）`);
+  }
+  const { esc, EMPTY_CELL, checksTable, noteLines } = v;
+
+  /** 取一档 verdict 的元信息；不在总表里就抛（与 `view.js` 的 stateMetaOf 同一条口径） */
+  const metaOf = (verdict, where) => {
+    if (typeof verdict !== 'string' || !Object.prototype.hasOwnProperty.call(CODEC_META, verdict)) {
+      throw new TypeError(`${where} 收到未知的结论「${shapeOf(verdict)}」，CODEC_META 里没有这一档`);
+    }
+    return CODEC_META[verdict];
+  };
+
+  /** 白名单那一层：总表里有、这块面板不该有，就是装配层的映射写错了 */
+  const verdictOf = (panel, verdict) => {
+    const list = PANEL_VERDICTS[panel];
+    if (!Array.isArray(list)) {
+      throw new RangeError(`编码页视图只服务这五块面板：${Object.keys(PANEL_VERDICTS).join(' / ')}`);
+    }
+    const m = metaOf(verdict, `${panel} 面板`);
+    if (!list.includes(verdict)) {
+      throw new TypeError(`内部不变量：${panel} 面板得不出「${verdict}」这一档结论（映射表写错了；白名单是 ${list.join(' / ')}）`);
+    }
+    return m;
+  };
+
+  /** 一句人话的提示行；`tk-hint` 与证件页共用同一个类名 */
+  const hint = (text) => `<p class="tk-hint">${esc(text)}</p>`;
+
+  /**
+   * 用户那一行原样回显；空串不占一行。
+   * **封顶**在视图这一层：证件页的输入是 18 / 18 / 19 位的数字串，编码页的输入按 §5.2 那三道
+   * 闸门允许到 1 MiB——不封顶就是让结果区把用户刚粘进去的东西再打一遍，节点数直接翻倍。
+   * 按码点切而不是按 `char.length` 切：一个 emoji 的两个码元切一半，页面上就是一个替换字符。
+   */
+  const echo = (text) => {
+    if (typeof text !== 'string' || text === '') return '';
+    const cps = Array.from(text);
+    const shown = cps.length <= ECHO_MAX_CHARS ? text
+      : `${cps.slice(0, ECHO_MAX_CHARS).join('')}…（已截断，输入共 ${cps.length} 字符）`;
+    return `<p class="tk-echo">输入 <span class="tk-mono">${esc(shown)}</span></p>`;
+  };
+
+  /**
+   * 一格取值：`null` / `undefined` / 空串 → `EMPTY_CELL`，其余交给注入的 `esc`。
+   * 非文本的取值（对象、数组）在这里抛，不等 `esc` 抛——点名第几行才有用。
+   */
+  const cellOf = (value, where) => {
+    if (value === null || value === undefined || value === '') return EMPTY_CELL;
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      throw new TypeError(`内部不变量：${where} 算出来是 ${shapeOf(value)}，不是文本`);
+    }
+    return esc(value);
+  };
+
+  /**
+   * 通用表格构造点（与 `view.js` 那个私有的 `table` 同形状，但每一格都走注入的 `esc`）。
+   * 表头与每行的格数由同一段代码算出，"列数一致"是构造保证的，不是靠人记得数 `<td>`。
+   * @param {string} who 类名后缀与报错主语
+   * @param {{label:string,mono?:(boolean|((row:object)=>boolean)),get:(row:object)=>(string|number|null)}[]} columns
+   * @param {object[]} rows
+   * @returns {string} 空行集返回空串——空表在屏幕上读起来像"全都通过了"
+   */
+  const grid = (who, columns, rows) => {
+    if (rows === undefined || rows === null) return '';
+    if (!Array.isArray(rows)) throw new TypeError(`内部不变量：${who} 的行集应为数组，收到 ${shapeOf(rows)}`);
+    if (rows.length === 0) return '';
+    // `mono` 允许是谓词：同一列里"哪些格走等宽"是随行走变化的（明细表的值列就是），
+    // 写成 `c.mono ?` 会把函数当真值，于是整列连表头一起等宽。
+    const monoAt = (c, row) => (typeof c.mono === 'function' ? c.mono(row) === true : c.mono === true);
+    const head = columns
+      .map((c) => `<th scope="col"${c.mono === true ? ' class="tk-mono"' : ''}>${esc(c.label)}</th>`)
+      .join('');
+    const body = rows
+      .map((row, i) => `<tr>${columns
+        .map((c) => `<td${monoAt(c, row) ? ' class="tk-mono"' : ''}>${cellOf(c.get(row), `${who} 第 ${i + 1} 行「${c.label}」`)}</td>`)
+        .join('')}</tr>`)
+      .join('');
+    return `<table class="tk-table ${who}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  };
+
+  /**
+   * 一栏"项目 / 值"两列的明细表，五块面板共用的那一张。
+   * @param {{label:string,value:(string|number|null),mono?:boolean}[]} rows
+   */
+  const fieldsTable = (rows) => {
+    if (!Array.isArray(rows)) throw new TypeError(`fieldsTable 的行集应为数组，收到 ${shapeOf(rows)}`);
+    rows.forEach((row, i) => {
+      if (row === null || typeof row !== 'object' || typeof row.label !== 'string' || !('value' in row)) {
+        throw new TypeError(`内部不变量：fieldsTable 第 ${i + 1} 行缺 label 或缺 value（需要 {label, value, mono?}，收到 ${shapeOf(row)}）`);
+      }
+    });
+    return grid('tk-detail', [
+      { label: '项目', get: (r) => r.label },
+      { label: '值', mono: (r) => r.mono === true, get: (r) => r.value },
+    ], rows);
+  };
+
+  /**
+   * 一行"结果"文本，形状与证件页那一族逐字对齐（`workbench.js` 的 `renderRead`）：
+   * `.tk-lines` 是 grid 容器，`.tk-line` 是带下边框的一节，`.tk-line__head` 有块级 margin
+   * 所以必须是 `<p>`。`tk-line__raw` **不再叠 `tk-mono`**——`toolkit.scss:581` 那一格已经写了
+   * `$tk-meta` 等宽栈与 `word-break: break-all`，再加一个类是同一条规则写两处。
+   * 复制按钮不在这一格里：它由页面骨架常驻给（证件页就是这个形状），视图只产文本。
+   */
+  const outLines = (label, text) => {
+    if (typeof text !== 'string' || text === '') return '';
+    return '<div class="tk-lines"><section class="tk-line">'
+      + `<p class="tk-line__head">${esc(label)}</p>`
+      + `<p class="tk-line__raw">${esc(text)}</p></section></div>`;
+  };
+
+  /** 字节数那一行。`0` 不占一行：闸门拦下与还没输入都可能是 0，说一句"0 字节"只会添乱 */
+  const bytesLine = (n, prefixText) => (typeof n === 'number' && n > 0
+    ? `<p class="tk-count">${prefixText ? `${esc(prefixText)} ` : ''}${esc(n)} 字节</p>` : '');
+
+  /** 口径行：装配层把模块的 CAVEAT 常量整包递进来，重复过的那句丢掉 */
+  const notesOf = (notes, already) => {
+    const list = notes ?? [];
+    if (!Array.isArray(list)) throw new TypeError(`编码页视图的 notes 应为数组，收到 ${shapeOf(list)}`);
+    return noteLines(list.filter((t) => typeof t === 'string' && t !== '' && !already.includes(t)));
+  };
+
+  /** 这一段是不是"真的把东西给用户了"：表格 / 等宽结果行 / 计数行，三样之一 */
+  const showsResult = (html) => html.includes('<table')
+    || html.includes('tk-line__raw') || html.includes('tk-count');
+
+  /**
+   * 一块面板的完整外层：徽章行 +（reason 提示）+（回显）+（判定表）+ 面板自己的内容 + 口径行。
+   * "没有可显示的内容"那句只在**既没有结果、也没有 reason**时补，避免和 reason 重复。
+   * 什么算"有结果"由 `showsResult` 说清楚：表格、等宽结果行、字节数行三样之一。提示行不算——
+   * 一句 `tk-hint` 正是"没有结果"的说法本身，把它算成结果就等于永远不说那句明说的话。
+   * @param {string} panel 面板名（白名单那一层在这里生效）
+   * @param {object} m 视图模型
+   * @param {(string|null|undefined)[]} notes 模块给的口径常量
+   * @param {(model:object)=>string[]} bodyOf 各面板自己的内容
+   */
+  const wrap = (panel, m, notes, bodyOf) => {
+    const model = m ?? {};
+    const { label, tone } = verdictOf(panel, model.verdict);
+    const parts = [`<p class="tk-verdict"><span class="tk-state tk-state--${tone}">${esc(label)}</span></p>`];
+    const reason = typeof model.reason === 'string' && model.reason !== '' ? hint(model.reason) : '';
+    if (reason) parts.push(reason);
+    parts.push(echo(model.input));
+    const shownDetails = [];
+    if (Array.isArray(model.checks)) {
+      parts.push(checksTable(model.checks));
+      for (const c of model.checks) if (c && typeof c.detail === 'string') shownDetails.push(c.detail);
+    }
+    const body = bodyOf(model);
+    const hasBody = body.some((x) => x !== '' && showsResult(x));
+    parts.push(...body.filter((x) => x !== ''));
+    if (!hasBody && !reason) parts.push(hint('这一栏还没有可显示的结果。'));
+    parts.push(...notesOf(notes, [...shownDetails, model.reason]));
+    return `<div class="tk-result tk-result--${tone}">${parts.filter((x) => x !== '').join('')}</div>`;
+  };
+
+  /** 徽章本身：给装配层与判据用，块函数自己走 `wrap` */
+  const badge = (verdict) => {
+    const { label, tone } = metaOf(verdict, 'badge');
+    return `<span class="tk-state tk-state--${tone}">${esc(label)}</span>`;
+  };
+
+  // ── 五块面板 ──────────────────────────────────────────────────────────────
+
+  /**
+   * 两个日期之差。`diff` 就是 `time.js` 的 `dateDiff()` 返回值原样进（字段同名，视图不 import 它），
+   * 三种口径**同时给**，不许替用户挑一种：`totalDays`（整 24 小时）与 `calendarDays`（跨 UTC 日历日）
+   * 在 23:00 → 次日 01:00 这种样本上就是 0 与 1，只报一个数等于把另一种口径藏起来（§K 的 K9）。
+   * `ymd` 是 |差| 的分解、永远非负（K8），所以 `sign < 0` 时必须补一句方向，否则"1 年 0 个月 1 天"
+   * 会被读成正向的那一种。
+   */
+  const diffOf = (diff) => {
+    if (diff === null || diff === undefined) return [];
+    const d = diff;
+    if (typeof d !== 'object' || Array.isArray(d)
+      || typeof d.totalDays !== 'number' || typeof d.calendarDays !== 'number'
+      || d.ymd === null || typeof d.ymd !== 'object' || !Array.isArray(d.breakdown)) {
+      throw new TypeError(`内部不变量：timestamp 面板的 diff 应是 dateDiff 的返回形状（totalDays / calendarDays / ymd / breakdown），收到 ${shapeOf(d)}`);
+    }
+    const rows = [
+      { label: '日历分解', value: `${d.ymd.years} 年 ${d.ymd.months} 个月 ${d.ymd.days} 天`, mono: true },
+      { label: '整 24 小时', value: `${d.totalDays} 天`, mono: true },
+      { label: '跨 UTC 日历日', value: `${d.calendarDays} 天`, mono: true },
+    ];
+    const units = grid('tk-detail', [
+      { label: '单位', get: (r) => unitOf(r.unit) },
+      { label: '个数', mono: true, get: (r) => r.value },
+    ], d.breakdown);
+    const says = [];
+    if (d.sign < 0) says.push(hint('结束那一端在开始那一端之前，上面那些数说的是绝对值。'));
+    if (d.totalDays !== d.calendarDays) {
+      says.push(...noteLines(['整 24 小时与跨 UTC 日历日是两种口径：23:00 到次日 01:00 是 0 天与 1 天。']));
+    }
+    return [fieldsTable(rows), units, ...says];
+  };
+
+  const unitOf = (unit) => {
+    if (typeof unit !== 'string' || !Object.prototype.hasOwnProperty.call(DIFF_UNIT_CN, unit)) {
+      throw new TypeError(`timestamp 面板收到未知的差值单位「${shapeOf(unit)}」`);
+    }
+    return DIFF_UNIT_CN[unit];
+  };
+
+  /** 时间戳：读数（ambiguous 两行）+ 明细 + 相对时间那一行 +（可选）两个日期之差 */
+  const timestampBlock = (m, notes = []) => wrap('timestamp', m, notes, (model) => {
+    const readings = grid('tk-matches', [
+      { label: '解释', get: (r) => r.kind },
+      { label: 'epoch', mono: true, get: (r) => r.epochMs },
+      { label: 'UTC', mono: true, get: (r) => r.isoUtc },
+    ], model.readings);
+    const fields = Array.isArray(model.fields) ? model.fields.slice() : [];
+    if (typeof model.relative === 'string' && model.relative !== '') {
+      fields.push({ label: '相对时间', value: model.relative });
+    }
+    return [readings, fieldsTable(fields), ...diffOf(model.diff)];
+  });
+
+  /**
+   * Base64：结果那一栏（等宽、可整段选中）+ 字节数 + 损耗明细。
+   * 方向（编码 / 解码 / data URI）刻意**不进结果区**：它由工作台那组分段控件常驻显示，
+   * 在结果里再说一遍只是把用户已经看见的东西再打一遍字，而 §7 的余量按字节算。
+   */
+  const base64Block = (m, notes = []) => wrap('base64', m, notes, (model) => [
+    outLines('结果', model.out),
+    bytesLine(model.bytes),
+    fieldsTable(model.fields ?? []),
+  ]);
+
+  /** URL：两档并列 + 那 11 个差异字符 + 两档各解一次 + query 参数拆解 */
+  const urlBlock = (m, notes = []) => wrap('url', m, notes, (model) => {
+    const pair = grid('tk-detail', [
+      { label: '档位', get: (r) => r.name },
+      { label: '结果', mono: true, get: (r) => r.out },
+    ], model.pair);
+    const differs = Array.isArray(model.differs) && model.differs.length > 0
+      ? hint(`${model.differs.length} ${URL_DIFF_SENTENCE}：${model.differs.join(' ')}`) : '';
+    const tries = grid('tk-detail', [
+      { label: '试的字段', get: (r) => r.field },
+      { label: '结果', mono: true, get: (r) => (r.ok ? r.out : EMPTY_CELL) },
+      { label: '结论', get: (r) => (r.ok === null ? EMPTY_CELL : DECODE_CN[String(r.ok)]) },
+      { label: '说明', get: (r) => r.reason },
+    ], model.decodeTries);
+    const query = grid('tk-detail', [
+      { label: '原始片段', mono: true, get: (r) => r.raw },
+      { label: '键', mono: true, get: (r) => r.key },
+      { label: '值', mono: true, get: (r) => r.value },
+      { label: '键解码', get: (r) => (r.keyOk === null || r.keyOk === undefined ? EMPTY_CELL : DECODE_CN[String(r.keyOk)]) },
+      { label: '值解码', get: (r) => (r.valueOk === null || r.valueOk === undefined ? EMPTY_CELL : DECODE_CN[String(r.valueOk)]) },
+      { label: '说明', get: (r) => r.reason },
+    ], model.queryRows);
+    return [pair, differs, tries, query, bytesLine(model.bytes)];
+  });
+
+  /** 摘要：五格恒定行序 + 来源那一列（谁算的）+ 字节数 */
+  const digestBlock = (m, notes = []) => wrap('digest', m, notes, (model) => {
+    const rows = grid('tk-matches', [
+      { label: '算法', get: (r) => r.algo },
+      { label: '摘要', mono: true, get: (r) => r.hex },
+      { label: '字节', get: (r) => r.bytes },
+      { label: '来源', get: (r) => viaOf(r.via) },
+      { label: '说明', get: (r) => r.reason },
+    ], model.rows);
+    const kindText = model.kind === 'bytes' ? '字节' : model.kind === 'text' ? '文本' : '';
+    return [rows, bytesLine(model.bytes, kindText)];
+  });
+
+  const viaOf = (via) => {
+    if (typeof via !== 'string' || !Object.prototype.hasOwnProperty.call(VIA_CN, via)) {
+      throw new TypeError(`digest 面板收到未知的来源「${shapeOf(via)}」`);
+    }
+    return VIA_CN[via];
+  };
+
+  /**
+   * 正则：风险表 + 命中表 + 捕获组表 + 替换预览 + 三面旗。
+   * `capped` / `hitLimit` / `timedOut` 三句各说各话——"这次没算完"、"本站硬上限"、
+   * "档间预算用完"是三件不同的事，互相顶掉就等于把闸门的形状藏起来。
+   * 模型里的 `pattern` 与 `level` 刻意不渲：前者是输入框本来就常驻显示的东西，
+   * 后者是 `findings` 的派生值（`regex.js` 里 level 由 findings 有没有 high 算出来），
+   * 表里那一列"级别"说的就是它，在表头再复述一句只是抄自己。
+   */
+  const regexBlock = (m, notes = []) => wrap('regex', m, notes, (model) => {
+    const findings = grid('tk-matches', [
+      { label: '规则', get: (r) => r.rule },
+      { label: '位置', get: (r) => r.at },
+      { label: '级别', get: (r) => levelOf(r.level) },
+      { label: '提示', get: (r) => r.hint },
+    ], model.findings);
+    const flagsRow = typeof model.flags === 'string' && model.flags !== ''
+      ? hint(`生效的 flags：${model.flags}`) : '';
+    const countRow = typeof model.count === 'number' && model.count > 0
+      ? `<p class="tk-count">共 ${esc(model.count)} 处</p>` : '';
+    const matches = grid('tk-matches', [
+      { label: '序号', get: (r) => r.i },
+      { label: '起始', get: (r) => r.index },
+      { label: '长度', get: (r) => r.length },
+      { label: '命中文本', mono: true, get: (r) => r.text },
+    ], model.matches);
+    const groups = grid('tk-matches', [
+      { label: '第几处', get: (r) => r.match },
+      { label: '组', get: (r) => r.label },
+      // 没开 `d` 时 native 根本没有组位置，null 走 EMPTY_CELL 而不是 0：显示 0 就是报一个假位置
+      { label: '位置', get: (r) => r.index },
+      { label: '长度', get: (r) => r.length },
+      { label: '内容', mono: true, get: (r) => r.text },
+    ], model.groups);
+    const flagsOn = typeof model.flags === 'string' && model.flags.includes('d');
+    const flagHints = [
+      model.capped ? hint('匹配次数已到上限，剩下的没有再算') : '',
+      model.hitLimit ? hint('命中次数触及本次上限，这一批没算完') : '',
+      model.timedOut ? hint('档间时间预算已用完，只算了前面那些') : '',
+      model.matches && model.matches.length > 0 && !flagsOn ? hint('没开 d 就没有捕获组位置，位置那一列留空') : '',
+      typeof model.elapsedMs === 'number' ? hint(`档间累计耗时 ${model.elapsedMs}ms`) : '',
+    ];
+    return [findings, flagsRow, countRow, matches, groups,
+      outLines('替换预览', model.replaced), ...flagHints];
+  });
+
+  const levelOf = (level) => {
+    if (typeof level !== 'string' || !Object.prototype.hasOwnProperty.call(LEVEL_CN, level)) {
+      throw new TypeError(`regex 面板收到未知的风险级别「${shapeOf(level)}」`);
+    }
+    return LEVEL_CN[level];
+  };
+
+  const BLOCKS = { timestamp: timestampBlock, base64: base64Block, url: urlBlock, digest: digestBlock, regex: regexBlock };
+
+  /** 唯一分派点：Task 6b 的装配层按面板名调这一只，块函数本身也各自导出，判据能逐块点名 */
+  const block = (panel, m, notes = []) => {
+    const fn = BLOCKS[panel];
+    if (!fn) {
+      throw new RangeError(`编码页视图只服务这五块面板：${Object.keys(PANEL_VERDICTS).join(' / ')}，收到 ${shapeOf(panel)}`);
+    }
+    return fn(m, notes);
+  };
+
+  return { badge, fieldsTable, timestampBlock, base64Block, urlBlock, digestBlock, regexBlock, block };
+}
+```
+
+#### `scripts/toolkit-tests.mjs` §Q（整节，从 `// ── §Q` 到文件末尾）
+
+```js
+// ── §Q 编码页视图层（`tools/codecView.js`，段 3 Task 6a）────────────────────
+// 本节测的是**纯字符串那一层**：模型进、HTML 出，不碰 DOM、不碰四本纯模块。四条红线先说清，
+// 整套判据都围着它们转：
+//   ① **零 import，且不进 `window.Tk`**（Q2）。它只由 `codecWorkbench.js` 一本 import——只有
+//      一个入口 reach 它就不会成 chunk，这是它敢 import 出去的前提；反过来它自己一旦 import，
+//      那前提就没了。而它挂进 `Tk` 的后果是证件页替编码页的五块面板付 gzip，§7 的余量只剩
+//      4,258B，所以这一格由 `toolkitCore` 的源码扫守住（Q2 后半），`O13` 那份四只清单不许被扩成五只。
+//   ② **转义只有一处出口**（Q3）。`esc` / `EMPTY_CELL` / `checksTable` / `noteLines` 四样都来自
+//      注入的那只 `view`，本文件里不许长出第二只 `esc`、第二张实体表、第二个 `'—'`。
+//      表格那一半**允许**自带（`view.js` 的 `table` 是私有函数，共享它就要开 import 边），
+//      但每一格必须逐格经注入的 `esc`——Q15 拿一条带 `<script>` 与引号的输入验这一句。
+//   ③ **未知 verdict 与跨面板错配都抛**（Q5）。与 `view.js` 的 `stateMetaOf` 同一条口径：
+//      没定论的结果不许被渲成绿的。
+//   ④ **五块面板外层骨架同形**（Q6）。`tk-result tk-result--{tone}` 与徽章那一行是要求不是巧合，
+//      `toolkit.scss` 只认那五个 tone 词。
+const Q_VIEW = await import('../dev/js/tools/view.js');
+const { CODEC_TONES, CODEC_META, PANEL_VERDICTS, createCodecView } = await import('../dev/js/tools/codecView.js');
+
+/**
+ * 剥注释扫源码：块注释与行注释里的字样都不算命中（与 §K/§O 同一形状）。
+ * `import` 那一格另算：本文件的报错文案与注释里都要正写"不许 import"（`view.js` 的同族报错
+ * 就是这口径），所以判"有没有 import 语句"时先去掉字符串与模板串。这不是给红线放水——
+ * 真那一行 `import x from './y.js'` 剥掉模块名之后 `import` 关键字还在，Q2 末尾拿它自证。
+ */
+const qCode = () => read('dev/js/tools/codecView.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const qStripStrings = (code) => code.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+const qImportScan = () => qStripStrings(qCode());
+
+/** 每节都现造一只：注入的 `view` 换了要当场看出来，不让上一节那只闭包替本节兜着 */
+const qCv = () => createCodecView(Q_VIEW);
+
+/** 外层那一只 tone（`tk-result--x`），别把徽章的 `tk-state--x` 数进来 */
+const qTone = (html) => /class="tk-result tk-result--(\w+)"/.exec(html)?.[1];
+
+/** 五块面板各自的最小模型：只补本节要看的那几个字段，其余留空 */
+const Q_MINIMAL = {
+  timestamp: { verdict: 'empty', input: '', readings: [], fields: [], diff: null },
+  base64: { verdict: 'empty', input: '', out: '', bytes: 0, fields: [] },
+  url: { verdict: 'empty', input: '', pair: [], differs: [], decodeTries: [], queryRows: [], bytes: 0 },
+  digest: { verdict: 'empty', kind: 'text', bytes: 0, rows: [] },
+  regex: { verdict: 'empty', pattern: '', flags: '', input: '', level: 'none', findings: [], count: 0,
+    matches: [], groups: [], replaced: null, capped: false, hitLimit: false, timedOut: false, elapsedMs: null },
+};
+const qModel = (panel, over = {}) => ({ ...Q_MINIMAL[panel], ...over });
+
+test('Q1 导出面恰好四个名字，CODEC_META 十三档的文案与 tone 逐字钉死', async () => {
+  const mod = await import('../dev/js/tools/codecView.js');
+  assert.deepEqual(Object.keys(mod).sort(), ['CODEC_META', 'CODEC_TONES', 'PANEL_VERDICTS', 'createCodecView'],
+    '视图层就交这四样：一张 tone 表、一张 verdict 表、一张白名单、一只工厂');
+  const TABLE = {
+    converted: ['已换算', 'ok'], encoded: ['已编码', 'ok'], decoded: ['已解码', 'ok'],
+    computed: ['已算出', 'ok'], matched: ['有命中', 'ok'],
+    ambiguous: ['长度两可', 'unknown'], nomatch: ['零命中', 'unknown'],
+    lossy: ['有还原损耗', 'warn'], partial: ['部分可用', 'warn'], capped: ['已到上限', 'warn'],
+    invalid: ['不成立', 'bad'], rejected: ['已拒收', 'bad'],
+    empty: ['等待输入', 'idle'],
+  };
+  assert.deepEqual(Object.keys(CODEC_META), Object.keys(TABLE),
+    '键序也是契约：白名单与这张表按同序取词，谁重排谁红');
+  for (const [k, [label, tone]] of Object.entries(TABLE)) {
+    assert.deepEqual(CODEC_META[k], { label, tone }, `CODEC_META.${k} 的措辞或档位变了`);
+    assert.equal(CODEC_TONES.includes(tone), true, `${k} 的 tone 不在样式层认的那五个词里`);
+  }
+  assert.deepEqual(CODEC_TONES, ['ok', 'warn', 'bad', 'unknown', 'idle'],
+    'toolkit.scss 只写了这五档徽章（.tk-state--ok/warn/bad/unknown/idle），多一档就是没有样式的类名');
+  assert.deepEqual(Object.keys(CODEC_META).filter((k) => CODEC_META[k].tone === 'ok'),
+    ['converted', 'encoded', 'decoded', 'computed', 'matched'],
+    '五个"成了"各说各话：换算 / 编码 / 解码 / 算出 / 命中，不许塌成一句"成功"');
+  assert.deepEqual(Object.keys(CODEC_META).filter((k) => CODEC_META[k].tone === 'warn'),
+    ['lossy', 'partial', 'capped'],
+    'warn 三档都是"东西给你了但要说清楚"：还原有损耗 / 只有部分能用 / 到上限了');
+});
+
+test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都不许有，toolkitCore 也不许多出第五只', () => {
+  const code = qCode();
+  assert.equal(/\bimport\b/.test(qImportScan()), false,
+    '它一旦被第二本 import，"只有一个入口 reach 它"这条前提就没了，产物立刻变成带 `import{` 的废文件');
+  assert.equal(/\bimport\b/.test(qStripStrings("import view from './tools/view.js';\n")), true,
+    '剥字符串只是为了让报错文案里的"不许 import"不算命中，不是给这条扫描开后门：真那一行 import 剥完照样红');
+  assert.equal(/require\(/.test(code), false);
+  const core = read('dev/js/toolkitCore.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.equal(/codecView/.test(core), false,
+    '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,258B）');
+  assert.deepEqual(core.match(/window\.Tk\s*=\s*\{([^}]*)\}/)[1].split(',').map((s) => s.trim()),
+    ['createPanelWorkspace', 'createPanelDom', 'view', 'ui'],
+    'Tk 仍是四只：这一格扩面了，O13 与 J12 那两份清单要跟着改，别在这儿偷偷加');
+});
+
+test('Q3 转义只有一处出口：注入的 esc 是唯一插值路径，第二只 esc / 第二张实体表 / 第二个破折号都不许有', () => {
+  const code = qCode();
+  assert.equal(/function esc\b|const esc\s*=\s*\(|esc\s*=\s*\(/.test(code), false,
+    'esc 只能是注入进来的那一只（解构赋值不算定义），本地再写一份的下场是"改了一份、页面上跑的是另一份"');
+  assert.equal(/ESC_MAP|&amp;|&lt;/.test(code), false,
+    '实体映射表只有 view.js 那一份，这里出现第二张就说明有人又写了一个转义器');
+  assert.equal((code.match(/'—'/g) || []).length, 0,
+    '空值那一格取注入的 EMPTY_CELL：两个破折号长得不一样时，没人会去对表');
+  assert.equal(/EMPTY_CELL/.test(code), true, '空值必须走 EMPTY_CELL，不许各写各的占位符');
+  assert.equal(/checksTable/.test(code), true, '逐项判定表要复用注入的那一张，不重造 tk-checks');
+  assert.equal(/noteLines/.test(code), true, '口径行走注入的 noteLines，转义与跳过空串的规则只有一处');
+});
+
+test('Q4 构造期闸门：注入的 view 缺哪一样就点名哪一样，缺四样就把四样一次说全', () => {
+  for (const miss of ['esc', 'EMPTY_CELL', 'checksTable', 'noteLines']) {
+    const partial = { ...Q_VIEW };
+    delete partial[miss];
+    assert.throws(() => createCodecView(partial),
+      (err) => err instanceof TypeError && err.message.includes(miss),
+      `缺 ${miss} 必须当场点名——视图层缺依赖的后果是渲染期才炸，那时已经在一个具体面板里了`);
+  }
+  assert.throws(() => createCodecView(), TypeError, '整包没给也要抛，不许退化成"先用着，等第一次渲染再说"');
+  assert.throws(() => createCodecView({}), (err) => {
+    const m = err.message;
+    return /esc/.test(m) && /EMPTY_CELL/.test(m) && /checksTable/.test(m) && /noteLines/.test(m);
+  }, '缺四样只点名第一样，调用方要试四轮才知道补齐了没有');
+  assert.throws(() => createCodecView({ ...Q_VIEW, EMPTY_CELL: 42 }), /EMPTY_CELL/,
+    'EMPTY_CELL 是字符串常量：按 typeof 判，不按"在不在"判，否则给了个数字也照样放行');
+  const cv = qCv();
+  for (const name of ['badge', 'fieldsTable', 'timestampBlock', 'base64Block', 'urlBlock', 'digestBlock', 'regexBlock', 'block']) {
+    assert.equal(typeof cv[name], 'function', `工厂交出的 ${name} 必须在`);
+  }
+});
+
+test('Q5 未知 verdict 抛、跨面板错配抛、白名单与总表互相对账，block 的分派也只认那五块', () => {
+  const cv = qCv();
+  assert.throws(() => cv.badge('expired'), (e) => e instanceof TypeError && /expired/.test(e.message),
+    '将来模块新增一档（比如 expired）必须当场炸给装配层，而不是把没定论的结果显示成绿的');
+  assert.throws(() => cv.badge(undefined), TypeError);
+  assert.throws(() => cv.badge(''), TypeError);
+  assert.throws(() => cv.timestampBlock({ verdict: 'encoded' }, []),
+    (e) => /timestamp/.test(e.message) && /encoded/.test(e.message),
+    '时间戳面板报"已编码"是装配层映射写错，要在渲染之前炸——渲染出来的那句文案用户会当事实读');
+  assert.deepEqual(PANEL_VERDICTS.timestamp, ['converted', 'ambiguous', 'invalid', 'empty']);
+  assert.deepEqual(PANEL_VERDICTS.base64, ['encoded', 'decoded', 'lossy', 'invalid', 'rejected', 'empty']);
+  assert.deepEqual(PANEL_VERDICTS.url, ['encoded', 'decoded', 'invalid', 'rejected', 'empty']);
+  assert.deepEqual(PANEL_VERDICTS.digest, ['computed', 'partial', 'invalid', 'rejected', 'empty']);
+  assert.deepEqual(PANEL_VERDICTS.regex, ['matched', 'nomatch', 'capped', 'invalid', 'rejected', 'empty']);
+  for (const [panel, list] of Object.entries(PANEL_VERDICTS)) {
+    for (const v of list) assert.ok(CODEC_META[v], `${panel} 的白名单里有 CODEC_META 不认识的「${v}」`);
+  }
+  const used = [...new Set(Object.values(PANEL_VERDICTS).flat())].sort();
+  assert.deepEqual(used, Object.keys(CODEC_META).sort(),
+    '表里有、没人用的档是死文案：新增一档要同时有一块面板真的会走到它');
+  assert.deepEqual(Object.keys(PANEL_VERDICTS), ['timestamp', 'base64', 'url', 'digest', 'regex'],
+    '面板清单与 panel.js 那五个 id 同序，Task 7 的收录面判据读的就是这个顺序');
+  assert.throws(() => cv.block('idcard', {}, []), RangeError, '视图层只服务编码页那五块，别的页面的块不该在这儿渲染');
+});
+
+test('Q6 五块面板外层骨架同形：一只 tk-result、恰好一个徽章、tone 由 verdict 决定，分派点也只有一处', () => {
+  const cv = qCv();
+  const cases = [
+    ['timestamp', 'converted', 'ok'], ['base64', 'encoded', 'ok'], ['url', 'decoded', 'ok'],
+    ['digest', 'computed', 'ok'], ['regex', 'matched', 'ok'],
+    ['timestamp', 'ambiguous', 'unknown'], ['regex', 'nomatch', 'unknown'],
+    ['base64', 'lossy', 'warn'], ['digest', 'partial', 'warn'], ['regex', 'capped', 'warn'],
+    ['url', 'invalid', 'bad'], ['digest', 'rejected', 'bad'], ['base64', 'empty', 'idle'],
+  ];
+  for (const [panel, verdict, tone] of cases) {
+    const html = cv.block(panel, qModel(panel, { verdict }), []);
+    assert.equal((html.match(/class="tk-result tk-result--/g) || []).length, 1, `${panel}/${verdict} 的外层不止一只`);
+    assert.equal(qTone(html), tone, `${panel}/${verdict} 外层 tone 应为 ${tone}`);
+    assert.equal((html.match(/class="tk-state tk-state--/g) || []).length, 1, '徽章那一行恰好一个');
+    assert.equal(html.includes(`<p class="tk-verdict"><span class="tk-state tk-state--${tone}">${CODEC_META[verdict].label}</span></p>`), true,
+      `${panel} 的徽章行形状与 view.parseBlock 那一条不一致`);
+    assert.equal(html.startsWith(`<div class="tk-result tk-result--${tone}">`), true);
+    assert.equal(html.endsWith('</div>'), true);
+  }
+});
+
+test('Q7 timestampBlock：ambiguous 两读并列且谁都没被标成对的；invalid 那一档不许出现明细表', () => {
+  const cv = qCv();
+  const readings = [
+    { kind: '按秒', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' },
+    { kind: '按毫秒', epochMs: 1700000000, isoUtc: '1970-01-20T16:13:20Z' },
+  ];
+  const amb = cv.timestampBlock(qModel('timestamp', { verdict: 'ambiguous', input: '1700000000', readings }), []);
+  assert.equal((amb.match(/<tr><td>/g) || []).length, 2, '两读要两行，不是挤在一条文案里说（表头是 <tr><th，不计）');
+  assert.equal((amb.match(/<td/g) || []).length, 6, '两读 × 三列（解释 / epoch / UTC）= 六格');
+  assert.equal(amb.includes('按秒'), true);
+  assert.equal(amb.includes('按毫秒'), true);
+  assert.equal(amb.includes('tk-state--ok'), false, '长度两可时不许把任何一种解释标成"已换算"');
+  assert.equal(amb.includes('1700000000'), true, '用户那一行要回显，否则两张读数对不上是谁的');
+  const long = cv.base64Block(qModel('base64', { verdict: 'encoded', input: 'a'.repeat(400), out: 'YQ' }), []);
+  assert.equal(long.includes('输入共 400 字符'), true,
+    '编码页的输入允许到 1 MiB：回显不封顶就是让结果区把刚粘进去的东西再打一遍，节点数直接翻倍');
+  assert.equal(/a{200}…/.test(long), true, '截断点就在 200 个码点上');
+  assert.equal(/a{201}/.test(long), false, '多打一个字就等于没有封顶');
+  const pair = cv.base64Block(qModel('base64', { verdict: 'encoded', input: '😀'.repeat(250), out: 'YQ' }), []);
+  assert.equal(pair.includes('😀'.repeat(200)) && pair.includes('输入共 250 字符'), true,
+    '按码点切，不按码元切：250 个 emoji 要显示前 200 个完整的，切到第 201 个的一半就是页面上一个替换字符');
+  const bad = cv.timestampBlock(qModel('timestamp', { verdict: 'invalid', input: 'abc', reason: '第 1 位不是数字' }), []);
+  assert.equal(bad.includes('<table'), false, '不成立那一档没有可显示的明细，摆一张空表读起来像"全都通过了"');
+  assert.equal(bad.includes('第 1 位不是数字'), true, 'reason 要落在结果里，§5.4 那句"让用户看得见为什么不行"');
+  const ok = cv.timestampBlock(qModel('timestamp', {
+    verdict: 'converted', input: '1700000000000',
+    readings: [{ kind: '按毫秒', epochMs: 1700000000000, isoUtc: '2023-11-14T22:13:20Z' }],
+    fields: [{ label: '本地', value: '2023-11-15 06:13:20 (UTC+08:00)', mono: true }],
+    relative: '2 年前',
+  }), ['口径一句']);
+  assert.equal(ok.includes('2 年前'), true, 'relative 由视图补一行「相对时间」，装配层只给那句短语');
+  assert.equal(ok.includes('相对时间'), true);
+  assert.equal(/<p class="tk-note">口径一句<\/p>/.test(ok), true);
+});
+
+test('Q8 base64Block：结果走等宽那一族、字节数按"数字 + 字节"给，lossy 那一档必须把损耗说出来', () => {
+  const cv = qCv();
+  const enc = cv.base64Block(qModel('base64', { verdict: 'encoded', input: '中', out: '5Lit', bytes: 3 }), []);
+  assert.equal(/class="tk-line__raw">5Lit</.test(enc), true,
+    '结果那一格走证件页那一族的 `.tk-line__raw`（toolkit.scss 里它自带 $tk-meta 与 break-all）：再叠一个 tk-mono 就是同一条规则写两处');
+  assert.equal(enc.includes('<p class="tk-line__head">结果</p>'), true,
+    'head 那一句有块级 margin，必须是 <p>；写成 <span> 的话 margin 静默失效，两行结果挤成一坨');
+  assert.equal(enc.includes('<div class="tk-lines"><section class="tk-line">'), true,
+    '一行的外层是 .tk-lines > section.tk-line，与 workbench.js 的 renderRead 同形');
+  assert.equal(enc.includes('3 字节'), true, '输入字节数是这一档唯一和"1MB 闸门"对得上的数');
+  assert.equal(enc.includes('1,234'), false, '千分位会让这串数不能被复制下来再核对');
+  const lossy = cv.base64Block(qModel('base64', {
+    verdict: 'lossy', input: 'YQ', out: 'a', bytes: 2,
+    fields: [{ label: '补齐的 padding', value: 1, mono: true }, { label: '剥掉的空白', value: 2, mono: true }],
+  }), []);
+  assert.equal(lossy.includes('有还原损耗'), true, '宽松档补了 padding 就不能只报"已解码"');
+  assert.equal(lossy.includes('补齐的 padding'), true, '补了几位 padding 要说出来');
+  assert.equal(lossy.includes('剥掉的空白'), true, '剥了几处空白也要说出来');
+  const rej = cv.base64Block(qModel('base64', { verdict: 'rejected', input: '超大', out: '', bytes: 1048577, reason: '超过 1 MiB 上限' }), []);
+  assert.equal(rej.includes('tk-line__raw'), false, '闸门拦下时 out 是空串，不该摆一个空的结果行');
+  assert.equal(rej.includes('超过 1 MiB 上限'), true);
+});
+
+test('Q9 urlBlock：两档并列 + 那 11 个差异字符成句、query 行的解码列不许把"解不出"显示成通过', () => {
+  const cv = qCv();
+  const html = cv.urlBlock(qModel('url', {
+    verdict: 'encoded', input: 'a?b=c d',
+    pair: [{ name: 'encodeURI', out: 'a?b=c%20d' }, { name: 'encodeURIComponent', out: 'a%3Fb%3Dc%20d' }],
+    differs: ['?', '/', ':', '@', '&', '=', '+', '$', ',', ';', '#'],
+    decodeTries: [{ field: 'decodeURI', ok: true, out: 'a?b=c d', reason: '' }],
+    queryRows: [{ raw: 'b=c d', key: 'b', value: 'c d', keyOk: true, valueOk: false, reason: '第 3 位不是合法百分号转义' }],
+    bytes: 9,
+  }), ['URL_CAVEAT']);
+  assert.equal(html.includes('encodeURI') && html.includes('encodeURIComponent'), true, '两档并列是 §5.2 那句"口径差异并列展示"');
+  assert.equal(/a\?b=c%20d/.test(html) && /a%3Fb%3Dc%20d/.test(html), true);
+  assert.equal(html.includes('11 个字符在这一档不编码、在那一档编码'), true, '差异要说得出数量，L11 钉的就是这 11 个');
+  for (const ch of ['?', '/', ':', '@', '&', '=', '+', '$', ',', ';', '#']) {
+    assert.equal(html.includes(ch), true, `差异字符 ${ch} 没出现在那一句里`);
+  }
+  assert.equal(html.includes('解不出'), true, 'valueOk 为 false 的那一格必须说"解不出"');
+  assert.equal(html.includes('第 3 位不是合法百分号转义'), true);
+  assert.equal(/<td>可以<\/td>/.test(html), true, 'keyOk 为 true 的那一格要说"可以"，空着会被读成"没判"');
+});
+
+test('Q10 digestBlock：五格恒定按算法序、via 那一列三档各有说法，unavailable 不许显示成空', () => {
+  const cv = qCv();
+  const rows = [
+    { algo: 'md5', ok: true, hex: '9dd4e461268c8034f5c8564e155c67a6', bytes: 5, via: 'self', reason: '' },
+    { algo: 'sha-1', ok: false, hex: '', bytes: 5, via: 'unavailable', reason: 'crypto.subtle 不可用' },
+    { algo: 'sha-256', ok: true, hex: 'abc', bytes: 5, via: 'subtle', reason: '' },
+    { algo: 'sha-384', ok: true, hex: 'def', bytes: 5, via: 'subtle', reason: '' },
+    { algo: 'sha-512', ok: true, hex: 'ghi', bytes: 5, via: 'subtle', reason: '' },
+  ];
+  const html = cv.digestBlock(qModel('digest', { verdict: 'partial', kind: 'text', bytes: 5, rows }), ['DIGEST_CAVEAT']);
+  assert.equal((html.match(/<tr>/g) || []).length, 6, '五格 + 一行表头 = 6，五档一格都不许少');
+  const order = [...html.matchAll(/<tr><td>(md5|sha-[\d]+)</g)].map((m) => m[1]);
+  assert.deepEqual(order, ['md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512'], '行序按算法表来，不按谁先算完来');
+  assert.equal(html.includes('本站自实现'), true, 'MD5 那一格要说清是自己算的');
+  assert.equal(html.includes('浏览器 crypto'), true, '四档要走 crypto.subtle，回显与 MD5 分开');
+  assert.equal(html.includes('环境不支持'), true, '取不到的那格显示"环境不支持"，不许留空——空着读起来像"没算"');
+  assert.equal(html.includes('crypto.subtle 不可用'), true, '那一格的 reason 要跟着出来，否则"部分可用"说不服人');
+  assert.equal(/<td class="tk-mono">9dd4e461268c8034f5c8564e155c67a6<\/td>/.test(html), true, '摘要走等宽');
+  assert.equal(html.includes('5 字节'), true);
+  assert.equal(/<td class="tk-mono">—<\/td>/.test(html), true, '算不成的那格 hex 是空串，显示 EMPTY_CELL 而不是空单元格');
+});
+
+test('Q11 regexBlock：没开 d 时组位置是空值而不是 0、三面旗各说各话、零命中是 unknown 不是 bad', () => {
+  const cv = qCv();
+  const html = cv.regexBlock(qModel('regex', {
+    verdict: 'matched', pattern: '(a)(b)', flags: 'g', input: 'xxab', level: 'none',
+    count: 1, matches: [{ i: 1, index: 2, length: 2, text: 'ab' }],
+    groups: [{ match: 1, label: '#1', index: null, length: null, text: 'a' }, { match: 1, label: '#2', index: null, length: null, text: 'b' }],
+    replaced: 'X', elapsedMs: null,
+  }), []);
+  assert.equal(html.includes('有命中'), true);
+  assert.equal((html.match(/tk-mono">a</g) || []).length, 1, '捕获组内容要显示');
+  assert.equal(/<td>—<\/td>/.test(html), true, '没开 d 时位置是 null，走 EMPTY_CELL');
+  assert.equal(html.includes('>0<'), false, '把"没位置"显示成 0 就是在报一个假位置');
+  assert.equal(html.includes('替换预览'), true);
+  assert.equal(html.includes('>X<'), true, '预览产物要落在结果里');
+  const capped = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 1000, capped: true }), []);
+  assert.equal(capped.includes('匹配次数已到上限'), true);
+  const limited = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 900, hitLimit: true }), []);
+  assert.equal(limited.includes('命中次数触及本次上限'), true, 'hitLimit 那一句要说"这次没算完"');
+  assert.equal(limited.includes('匹配次数已到上限'), false, 'capped 与 hitLimit 是两件事，措辞不许互相顶');
+  const timed = cv.regexBlock(qModel('regex', { verdict: 'capped', count: 4, timedOut: true }), []);
+  assert.equal(timed.includes('档间时间预算已用完'), true);
+  assert.equal(timed.includes('匹配次数已到上限'), false, 'timedOut 不许借 capped 那句话');
+  const none = cv.regexBlock(qModel('regex', { verdict: 'nomatch', count: 0, matches: [] }), []);
+  assert.equal(none.includes('零命中'), true, '编译成功但没匹配上是"零命中"');
+  assert.equal(none.includes('tk-state--bad'), false, '零命中不是错误，不该上 bad 那一档');
+  assert.equal(none.includes('<table'), false, '零命中不摆空表');
+});
+
+test('Q12 空数组一律给一句明说的话，不摆空表；五块面板各验一处', () => {
+  const cv = qCv();
+  const cases = [['base64', { verdict: 'decoded', out: '', fields: [] }],
+    ['url', { verdict: 'decoded', queryRows: [], pair: [] }],
+    ['digest', { verdict: 'computed', rows: [] }],
+    ['regex', { verdict: 'matched', matches: [], findings: [] }],
+    ['timestamp', { verdict: 'converted', readings: [], fields: [] }]];
+  for (const [panel, over] of cases) {
+    const html = cv.block(panel, qModel(panel, { input: 'x', ...over }), []);
+    assert.equal(html.includes('<table'), false, `${panel}：空的行集不许摆一张只有表头的表`);
+    assert.equal(/class="tk-hint">[^<]+<\/p>/.test(html), true, `${panel}：没有可显示的内容时要说一句明说的话`);
+  }
+});
+
+test('Q13 notes 去重：同一句口径若已经在判定表里说过，就不再重复一遍', () => {
+  const cv = qCv();
+  const same = '该区划未见于现行区划表';
+  const html = cv.base64Block(qModel('base64', {
+    verdict: 'invalid', out: '', reason: '第 4 位不是 Base64 字符',
+    checks: [{ key: 'charset', label: '字符集', ok: false, detail: same }],
+  }), [same, '另一句', '', null]);
+  assert.equal((html.match(new RegExp(same, 'g')) || []).length, 1, '判定表说过了就不再拿口径行重复一遍——两遍会让用户以为有两件事');
+  assert.equal((html.match(/<p class="tk-note">/g) || []).length, 1, '空串与 null 都要被滤掉，只剩那一句新的');
+  assert.equal(/<p class="tk-note">另一句<\/p>/.test(html), true);
+});
+
+test('Q14 数字口径：字节一律"数字 + 字节"，不做千分位、不做 KB 换算', () => {
+  const cv = qCv();
+  const html = cv.digestBlock(qModel('digest', {
+    verdict: 'computed', bytes: 1234567,
+    rows: [{ algo: 'md5', ok: true, hex: 'h', bytes: 1234567, via: 'self', reason: '' }],
+  }), []);
+  assert.equal(html.includes('1234567 字节'), true, '§7 那条预算是字节口径，视图里换成"1.2 MB"就对不上了');
+  assert.equal(/1,234/.test(html), false, '千分位会让这串数字不能被复制下来再核对');
+  assert.equal(/MB|KiB|KB/.test(html), false, '不做单位换算：换算就把 §7 的字节口径弄断了');
+});
+
+test('Q15 五块面板都只经注入的 esc：同一条含 <script> 与引号的输入，产物里 < 只以 &lt; 出现', () => {
+  const cv = qCv();
+  const nasty = `"><script>alert(1)</script>&'`;
+  const inputs = {
+    timestamp: qModel('timestamp', { verdict: 'converted', input: nasty, readings: [{ kind: nasty, epochMs: 1, isoUtc: nasty }], fields: [{ label: nasty, value: nasty }] }),
+    base64: qModel('base64', { verdict: 'encoded', input: nasty, out: nasty, fields: [{ label: nasty, value: nasty }] }),
+    url: qModel('url', { verdict: 'encoded', input: nasty, pair: [{ name: nasty, out: nasty }], queryRows: [{ raw: nasty, key: nasty, value: nasty, keyOk: true, valueOk: null, reason: nasty }], differs: [] }),
+    digest: qModel('digest', { verdict: 'computed', rows: [{ algo: nasty, ok: true, hex: nasty, bytes: 1, via: 'self', reason: nasty }] }),
+    regex: qModel('regex', { verdict: 'matched', pattern: nasty, flags: 'g', input: nasty, matches: [{ i: 1, index: 0, length: 1, text: nasty }], groups: [{ match: 1, label: nasty, index: 0, length: 1, text: nasty }], replaced: nasty, findings: [{ rule: nasty, at: 0, hint: nasty, level: 'high' }] }),
+  };
+  for (const [panel, m] of Object.entries(inputs)) {
+    const html = cv.block(panel, m, [nasty]);
+    assert.equal(html.includes('<script>'), false, `${panel}：裸的 <script> 进了产物`);
+    assert.equal(html.includes('&lt;script&gt;'), true, `${panel}：该转义的没转义，或整段被吞了`);
+    assert.equal(/&quot;&gt;&lt;script&gt;/.test(html), true, `${panel}：夹具没真的进产物，上面两条是假绿`);
+    assert.equal(html.includes('"&gt;'), false, `${panel}：属性里的引号要经 esc`);
+    assert.equal(/class="[^"]*"/.test(html), true);
+  }
+});
+
+test('Q16 模型里放不进 HTML 的东西：fieldsTable 收到对象/数组/NaN 当场抛并点名第几行', () => {
+  const cv = qCv();
+  assert.throws(() => cv.fieldsTable([{ label: 'a', value: {} }]),
+    (e) => e instanceof TypeError && /第 1 行/.test(e.message), '显示成 [object Object] 就是"结果区在骗人"');
+  assert.throws(() => cv.fieldsTable([{ label: 'a', value: [1, 2] }]), TypeError);
+  assert.throws(() => cv.fieldsTable([{ label: 'a', value: NaN }]), TypeError, 'NaN 走注入的 esc 会抛，视图不替它兜');
+  assert.throws(() => cv.fieldsTable('not an array'), TypeError);
+  assert.throws(() => cv.fieldsTable([{ label: 'a' }]), TypeError, '缺 value 也算形状不对，不许静默渲成空');
+  const html = cv.fieldsTable([{ label: '空的一格', value: null }, { label: '数字', value: 0, mono: true }]);
+  assert.equal(/<td>—<\/td>/.test(html), true, 'null 是"这一格没值"，显示 EMPTY_CELL');
+  assert.equal(html.includes('<td class="tk-mono">0</td>'), true, '0 不是空值，不许被当成空');
+});
+```
 
 ## Task 7: 收录面 + 门禁解耦（本段的地基改动）
 

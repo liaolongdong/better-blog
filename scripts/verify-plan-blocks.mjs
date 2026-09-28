@@ -96,6 +96,10 @@ const FILE_TARGETS = [
   // 不是新写的，所以它的镜像同时是"搬迁前后行为一致"的第三方见证：段 2 计划里那三行
   // `const flash = …` 的定义已经跟着 `workbench.js` 的新镜像一起换掉了，磁盘上再没有第二份。
   'dev/js/tools/ui.js',
+  // 段 3 Task 6a：`codecView.js` 落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走）。
+  // 它是本清单里第一本**故意不挂进 `window.Tk`** 的模块——镜像因此同时是那条字节账的见证：
+  // 证件页共用的 `toolkitCore.js` 那份镜像里没有 `codecView`，Q2 的源码扫核的就是这一对。
+  'dev/js/tools/codecView.js',
   // Task 9 的收录面门禁：它自己也是"计划里贴全文"的规格文件，所以照样进清单。
   // 反查那道只会抓"磁盘有镜像却没声明"，抓不到"清单漏了一项"——后者要等有人把镜像
   // 贴进计划才暴露，所以这一格由 `verify-plan-blocks-teeth.mjs` 的一条变异来兜。
