@@ -775,7 +775,11 @@ parsed = {f: blocks(css) for f, css in allc.items()}
 kf = [(f, h) for f, bl in parsed.items() for c, h, b, k in bl
       if k and re.search(r'[-:,\s]\s*-?[\d.]+(px|vw)\b', b)]
 print('A 关键帧里的 px/vw:', len(kf), kf[:3], '| 关键帧块',
-      sum(1 for f, bl in parsed.items() for c, h, b, k in bl if k))      # 预期 0（当前 32 块 / 9 份 CSS，2026-09-26 量）
+      sum(1 for f, bl in parsed.items() for c, h, b, k in bl if k))      # 预期 0（2026-09-26 量 32 块；2026-09-29
+                                        # 重量 35 块 / 10 份 CSS，动效批 IV 只认领其中 tkIn、tkShake 两块，
+                                        # 第三块不属本批、未逐笔归因。另记一笔盲点：k 只认无前缀的
+                                        # `@keyframes`，autoprefixer 补的 `@-webkit-keyframes` 副本落进规则桶、
+                                        # 不被 A 查——源里写 px 时标准块一定同带，所以咬得住，但别把它当双保险）
 
 # B. 「先藏后显」与纯装饰的动效必须整块关在 no-preference 里，而不是靠 base.scss 那份
 #    .01ms 兜底压——压得住和不存在是两回事，藏过一帧的文本在 reduce 档仍会闪一下。
@@ -995,4 +999,62 @@ PY
   `js-reveal`、画布一个像素都不该自己画、揭示名单里的元素一律可见。
   2026-09-26 批 II 收口时按 7 页 × 3 态量过一轮，21 格全绿；同日评审修复后又按
   5 页（首页 / 工具 / 文章 / 404 / 关于）× 3 态重跑一轮，判据同上。
+
+- **动效批 IV（M24 到 M29）把「三态」从纸面口径变成了脚本**：`scripts/verify-motion-batch4.mjs`，
+  真 Chrome + 裸 CDP（Node 22 的全局 `WebSocket`，零新依赖），骨架沿用 `verify-codec-browser.mjs`
+  那一份已经踩过坑的量具（端口现抢、调试端点只认自己子进程的 stderr、外链走 `direct://` +
+  `MAP * ~NOTFOUND`）。判据十组 93 项：1 量具自证（这台 Chrome 真支持 `allow-discrete` /
+  `@starting-style`，且服务的字节 == 磁盘）、2 到 4 是 M24 七个浮层的**退场**轨迹与
+  `::backdrop` 双向淡化、5 同一批层的 reduce 档、6 是 M25 文章页刊头连带的 LCP 三臂 A/B、
+  7 是 M26 指示器（线的满高基准、长度只由 `scaleY` 给、线头与点同源）、8 是 M27 揭示覆盖面
+  与图片解码闸门、9 与 10 见下面两条。跑法：
+
+  ```bash
+  MOTION_SITE=/tmp/motionsite/_site MOTION_BASE= \
+    perl -e 'alarm shift; exec @ARGV' 900 node scripts/verify-motion-batch4.mjs
+  ```
+
+  macOS 没有 `timeout`，那一句 `perl` 是死线；stdout 到管道有缓冲，卡住时看不到跑到哪儿，
+  所以进度用 `MOTION_TRACE=/tmp/x.trace` 落盘（`appendFileSync`，挂住的那一格会自己报出来）。
+  第 1 组最后一条是**采样密度**，不足 120 帧 / 300ms 直接退 2、不往下判：本机 8 核、
+  load average 被别的活压到 22 到 55 时实测只读到 47 帧与 33 帧，而那一轮第 2 到第 10 组
+  跟着红 18 项（「⌘K 退场共 8 帧」「换面板重跑只读到 0 帧」），红的全是机器。
+  这一条原先只是「一项红」，混在 93 项里会把人送去查浮层代码，所以改成致命的。
+  `MOTION_BASE` 与 `verify-idcard-browser.mjs` 的 5a 是**两种快照**：这里裸 baseurl 就够，
+  而 5a 按 `/better-blog` 前缀分本地与外链，喂 `--baseurl ""` 的快照会读出「本地 0B + 外链
+  全清单」的假红——本批就是这样先假红一次，重建默认 baseurl 的快照才 13/13。
+
+- **第 9 组管的是一个没有症状的故障**：两个元素在同一页挂同一个 `view-transition-name`，
+  浏览器会**整场废掉**跨页转场，控制台一个字都不吐。所以这一组不测转场，只测唯一性：
+  从 `index.min.css` 抽出每条 `view-transition-name`，先与真 CSSOM 逐条对账（文本解析器会把
+  at-rule 的 prelude 当成选择器，对不上就是量具坏了），再逐页保守数实例，任何一页同名 >1
+  即红。2026-09-29 那一轮：全站 130 页里 `.g-header` 最多 1 个（累计 95）、
+  `.g-masthead .masthead-inner` 最多 1 个（累计 21），产物里只有 `site-header` 与
+  `page-masthead` 两枚命名。**这一组的牙齿是它自带的夹具**：另造两页，一页把同一个 class
+  写两遍、一页放一个前缀诱饵（`g-header-y`），量具必须数到「重复 2 / 诱饵不算」——数不出重复
+  就红，因为「全站最多 0 个」那种绿只可能是量具坏了。批 IV 因此**没有新增第三枚命名**：
+  多挂一个名字就是多一条「撞名即静默废场」的暴露面，而这条守卫的价值恰恰在于它数的是
+  「产物里出现的每一枚」——新命名一旦落地就自动进这张表，不需要谁记得来加判据。
+
+- **第 10 组判的是「状态变了看不看得见」**：工具页三条（面板换页重跑 `tkIn`、判定药丸同一条
+  动画只降一档时长、红条只在第一次插入时抖 `tkShake`），外加令牌真的从 `index.min.css` 的
+  `:root` 流到了工具页、焦点环仍归 `ringGrow`，以及 reduce / 禁 JS / reduce + 禁 JS 三态
+  都必须一眼看得见正文。禁 JS 两态由量具在响应里摘掉 `<script>`（不是改磁盘，也不是 CDP 的
+  `setScriptExecutionDisabled`——那会把 `Runtime` 一起停掉，量不到任何东西）。
+  这一组自己验过牙：把 M29 那整块从产物里删掉造一份影子快照重跑，**4 项红 / 8 项绿**，
+  绿的八项是降级保险而不是同义反复（其中「服务的字节 == 磁盘」那一格还顺手钉住了
+  `tkIn` 与 `tkShake` 各 2 处的计数）。
+  2026-09-29 十组共 93 项跑绿、红 0；产物级回归同时重量过一轮，全等预期：上面 A 到 F
+  读 `A 0 / 35 块`、B 六行 OK、C `True True False`、D `[]` 与 `0`、E `1`、F `0`，
+  本节开头那七条读 `False False True True True True 0`。影子快照别用 `cp -al`：
+  macOS 对这一族文件报 `Bad file descriptor`，改 `rsync -a` 整份复制再 `rm` + `cp` 换那一件
+  CSS（直接 `>` 覆写硬链会把产物原件一起改掉）。
+
+- **批 IV 给全站首屏阻塞基线添了一笔，记在体检口径之外但要说清**：`index.min.css` 的正文从
+  125,929B 涨到 133,779B（+7,850B / gzip +674B），证件页 5a 现量的本地阻塞集因此从 222,395B
+  变成 **230,245B（7 件）**。归因用的是两份镜像重建对量（HEAD 版 `dev/sass` 与工作树版各跑
+  六个 sass 入口），差额逐字节相同，所以这一笔是本批的刊头与浮层动效本体，不是另一路会话。
+  它不进任何一条判据（那些判的是共付的 `toolkit.min.css` 与本页 HTML），但下次读到 230K
+  别以为是推送脚本又胖了。完整推导与四格预算的新数记在
+  `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md` 的 §7 末尾那两格。
 

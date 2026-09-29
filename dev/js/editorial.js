@@ -277,22 +277,51 @@
         var rail = list.closest('.post-rail');
         if (rail) rail.classList.add('is-fresh');
 
-        // 贴在目录左竖线上的「读到第几节」进度线，高度随 activate() 更新。
+        // 贴在目录左竖线上的「读到第几节」进度线，长度随 activate() 更新。
         var progress = document.createElement('span');
         progress.className = 'toc-progress';
         progress.setAttribute('aria-hidden', 'true');
         list.appendChild(progress);
+        // 线头那颗点的闸门（CSS §7.8 / §12 M26）：点的位置由这里维护，JS 没跑到 §4
+        // 时这颗元素都不存在，所以「有 is-live」就等于「有人每回高亮都重写过 --toc-y」。
+        list.classList.add('is-live');
 
         var current = null;
+
+        /**
+         * 把「读到第几节」写成两个自定义属性：线的长度是一个 0–1 的比例（scaleY 用），
+         * 点的位置是那一段像素（translate 用）。动效批 IV·M26 之前这里写的是
+         * style.height —— 那是布局属性，每换一节都要重排整张列表，而 §10 前提 1
+         * 点名的正是 height。分母取 scrollHeight 而不是 clientHeight：.toc-list 在长文里
+         * 是 overflow-y:auto 的滚动容器，绝对定位子元素的百分比高度算的是**可视**那截，
+         * 而 offsetTop 算的是内容坐标，两者一旦不等（列表超过一屏）比例就会大于 1、
+         * 线头戳到列表外面去。这条口径与改前用 px 直接写高度时是同一件事。
+         * @param {Element} li 当前高亮的那一行
+         */
+        function place(li) {
+            if (!li) return;
+            var h = list.scrollHeight || 1;
+            var y = Math.max(0, li.offsetTop + li.offsetHeight / 2);
+            progress.style.setProperty('--toc-h', h + 'px');
+            progress.style.setProperty('--toc-p', (y / h).toFixed(4));
+            list.style.setProperty('--toc-y', y + 'px');
+        }
+
         /** 高亮切换集中在一处，避免 observer 与滚动兜底互相抢状态。 */
         function activate(item) {
             if (!item || current === item) return;
             if (current) current.link.parentNode.classList.remove('is-active');
             current = item;
             item.link.parentNode.classList.add('is-active');
-            var li = item.link.parentNode;
-            progress.style.height = Math.max(0, li.offsetTop + li.offsetHeight / 2) + 'px';
+            place(item.link.parentNode);
         }
+
+        // 窗口一变，列表的高度与每行的 offsetTop 都跟着变，而 --toc-p 是比例：
+        // 不重算的话线会停在「旧满高」的那一段上。这里不判 current 变没变，
+        // 因为这一趟只是三条属性写入，比省下一次写入更值的是别让它停旧。
+        window.addEventListener('resize', function () {
+            if (current) place(current.link.parentNode);
+        }, { passive: true });
 
         if ('IntersectionObserver' in window) {
             // 只观察「进入视口上沿 20% 区域」的标题：rootMargin 把有效区间
@@ -1149,8 +1178,19 @@
                 done = true;
                 dlg.removeEventListener('transitionend', finish);
                 dlg.removeAttribute('data-closing');
-                settle();
+                // 动效批 IV·M24 换的就是这两行的顺序。
+                // 原来 settle() 抢在 close() 前面：它把内联 transition 清空，样式表里那条
+                // 退场过渡（opacity + display/overlay allow-discrete）于是接管，可在同一刻
+                // 内联 transform 也被清掉了 —— 图在淡出刚开始就瞬移回视口正中，
+                // 等于用一个更花哨的淡出，把 M1 那条正确的 FLIP 终点改错了。
+                // 现在只摘 transition、留着 transform：close() 之后图「停在缩略图上 + 淡出」，
+                // 260ms（--dur-2 200ms 加余量）再 settle()，那时元素已经 display:none，
+                // 收内联样式这件事本身是不可见的。
+                dlg.style.transition = '';
                 dlg.close();
+                setTimeout(function () {
+                    if (!dlg.open) settle();
+                }, 260);
             };
             dlg.addEventListener('transitionend', finish);
             // transitionend 不是一定会来的（标签页切走、被 CSS 打断都会让它不来），
@@ -1232,13 +1272,65 @@
         '.tool-head',
         '.tool-copy',
         '.tool-posts',
-        '.g-footer section'
-    ].join(', ');
+        '.g-footer section',
+        // 动效批 IV·M27 补的三条。各有一条前提，都不是「看着顺眼就加」：
+        // · 正文配图只收懒加载那几张：#post-body 里的图全部住在 <p> 里（kramdown 不产
+        //   <figure>，实测三篇 2026 年文章 fig=0 / p>img=5），而第一张是 eager 的 LCP
+        //   候选——把它也藏进未揭示态，等于用 opacity:0 压住首屏最大那次绘制。
+        //   _plugins/image_dims.rb 只给非首图补 loading="lazy"，这一条 selector 就
+        //   正好是那几张（实测 5 张里 4 张带）。
+        // · .related-item / .read-next-item 在折叠线以下，且各自的 hover 过渡由
+        //   editorial.scss §12 第 8) 段保住，不会因为 .reveal 那条简写而变瞬移。
+        // · .tl-row 依旧**不列**：年表整套揭示在 about.js + about.scss 里，类名恰好
+        //   也叫 is-in，两处同管会得到「按 A 的节奏淡入、按 B 的位移升起」的杂交体。
+        //   这条结论原话在上面的长注释里，动它之前先读那段。
+        '#post-body p:has(> img[loading="lazy"])',
+        '.related-item',
+        '.read-next-item'
+    ];
+
+    /**
+     * 逐条查、合到一起、去重。
+     *
+     * 原来是一份拼起来的字符串交给一次 querySelectorAll：那种写法里任何一条 selector
+     * 不认识，整次调用抛 SyntaxError，于是这份名单上的揭示**全部**失效（元素连
+     * .reveal 都拿不到，页面照常可见但从此不再揭示）——:has() 就是不认的那一条，
+     * 而它正是 M27 要加的。分开查之后，不认的那条只丢自己那一支，其余照旧。
+     * @returns {Element[]} 待揭示的元素
+     */
+    function collectRevealNodes() {
+        var out = [];
+        for (var i = 0; i < REVEAL_SELECTOR.length; i++) {
+            var found;
+            try {
+                found = document.querySelectorAll(REVEAL_SELECTOR[i]);
+            } catch (e) {
+                continue; // 这个引擎不认这条，跳过它
+            }
+            for (var j = 0; j < found.length; j++) {
+                if (out.indexOf(found[j]) < 0) out.push(found[j]);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 这一行里还没解码完的那张图，没有则返回 null。
+     * img.complete 为真就已经加载完（decoding=async 的那一小段解码不在这里管，
+     * 它最多让图晚一帧出现，而「升起来却是一块白」晚的是几百毫秒）。
+     * @param {Element} el 待揭示的元素
+     * @returns {?Element} 还在路上的那张 img
+     */
+    function undecodedImage(el) {
+        if (!el.querySelector) return null;
+        var img = el.querySelector('img');
+        return img && !img.complete ? img : null;
+    }
 
     function initReveal() {
         if (!('IntersectionObserver' in window) || prefersReducedMotion()) return;
 
-        var nodes = document.querySelectorAll(REVEAL_SELECTOR);
+        var nodes = collectRevealNodes();
         if (!nodes.length) return;
 
         // 错峰步进取自 tokens.scss 的 --stagger，不在这儿写字面毫秒：
@@ -1255,8 +1347,8 @@
         // 见 flushTail 上头那段，两个数字是 1440×813 实测出来的。
         var pending = [].slice.call(nodes);
 
-        // 揭示一批：延迟按「这一批里第几个」排，不管它们来自 io 还是 flushTail。
-        function reveal(list) {
+        // 揭示一批里真正可以画的这些：延迟按「这一批里第几个」排，不管它们来自 io 还是 flushTail。
+        function paint(list) {
             for (var k = 0; k < list.length; k++) {
                 var el = list[k];
                 // 按「同一批里第几个」排延迟：按全局序号排会让靠后滚动到的行等得越来越久。
@@ -1266,6 +1358,41 @@
                 io.unobserve(el);
                 var at = pending.indexOf(el);
                 if (at >= 0) pending.splice(at, 1);
+            }
+        }
+
+        /**
+         * 揭示一批，先把「图还在路上」的那几行按住（动效批 IV·M27）。
+         *
+         * 症状是这样的一行：按 --dur-3 升起来，图的位置是一块白，几百毫秒后图啪地出现。
+         * 位移把注意力正好送到那块空白上，比完全不揭示更糟。
+         * 按住不等于取消：load / error / 1200ms 三个出口任意一个到，就补那一次揭示。
+         * 超时那一档是给「永远不停在 opacity:0」兜底的保险 —— 卡在那儿的是内容，
+         * 不是动效，所以它必须有上界，且这个上界比一次懒加载的正常往返长。
+         * @param {Element[]} list 这一批刚进入触发线的元素
+         */
+        function reveal(list) {
+            var ready = [];
+            var held = [];
+            for (var k = 0; k < list.length; k++) {
+                var img = undecodedImage(list[k]);
+                if (img) held.push([list[k], img]); else ready.push(list[k]);
+            }
+            paint(ready);
+            for (var h = 0; h < held.length; h++) {
+                (function (el, im) {
+                    var fired = false;
+                    var go = function () {
+                        if (fired) return;
+                        fired = true;
+                        im.removeEventListener('load', go);
+                        im.removeEventListener('error', go);
+                        paint([el]);
+                    };
+                    im.addEventListener('load', go);
+                    im.addEventListener('error', go);
+                    window.setTimeout(go, 1200);
+                })(held[h][0], held[h][1]);
             }
         }
 

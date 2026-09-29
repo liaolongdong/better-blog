@@ -295,7 +295,8 @@ body {
             }
         }
 
-        // 「浏览器插件 / 在线工具」两族的分组标题。它是纯文本条目，不是链接，
+        // 「浏览器插件 / 免安装工具」两族的分组标题（后一条 2026-09-28 前写作「在线工具」）。
+        // 它是纯文本条目，不是链接，
         // 所以做成 <li>：上面那条 .nav-sub>li 的淡入与步长一并管住它，
         // 分组标题跟着自己那组的第一行一起落位，而不是先亮出来再等下面的行。
         // 分隔线画在标题自己的上沿（而不是给上一组加下边线），因为最后一族后面还跟着
@@ -1715,7 +1716,7 @@ body.has-toc .post-rail {
     align-items: start;
 }
 
-// /tools.html 上「在线工具」那几节（段 2 起）。它们没有截图可放进 .tool-media 那一栏，
+// /tools.html 上「免安装工具」那几节（段 2 起，kicker 与统计用同一个词）。它们没有截图可放进 .tool-media 那一栏，
 // 于是 1fr + 380px 会变成"正文挤在左边、右边一条永久空白"，所以这两条把该族收成单栏，
 // 并把正文宽度收在 720px（与 .tool-summary 那边同一档行长，1140 版心拉满会读到 92 字一行）。
 // 只认 .tool-section--online 这个修饰符，插件那三节的图文双栏一行都不动。
@@ -2658,6 +2659,12 @@ body.toc-open {
         display: none;
     }
 
+    // 批 IV·M26 补的一格：线头那颗点贴在同一个轨道上，线既然没有可贴的位置，
+    // 点也必须跟着摘 —— 否则抽屉里会在列表左外侧浮下一颗孤零零的蓝点。
+    body.has-toc .toc-list::after {
+        display: none;
+    }
+
     // 抽屉里的条目是手指点的，桌面端 12.5px/4px 的行高密度不够。
     body.has-toc .toc-link {
         padding: 8px 0;
@@ -2812,8 +2819,11 @@ body.toc-open {
     background-color: var(--scrim);
 }
 
+// 同上：both 把 lightboxIn 的 to 帧（opacity: 1 / transform: scale(1)）永久钉住，
+// §12 那条 .lightbox:not([open]) { opacity: 0 } 就过渡不起来。scale(1) 与基准的
+// transform: none 视觉等价，松开填充不产生收尾跳变。
 .lightbox[open] {
-    animation: lightboxIn .22s ease-out both;
+    animation: lightboxIn .22s ease-out backwards;
 }
 
 // showModal() 会把焦点交给 <dialog>，Chrome 默认画一圈紧贴边缘的 focus ring，
@@ -2864,19 +2874,49 @@ body.js-reveal .reveal.is-in {
 }
 
 // C3 目录左侧的「读到第几节」进度线：贴在 .toc 那条 1px 竖线上，
-// 高度由 activate() 按当前条目在列表中的位置写入。
+// 长度由 activate() 按当前条目在列表中的位置写入。
 .toc-list {
     position: relative;
 }
 
+// height 不再是「被动的量」而是那条线的**满高基准**：JS 把列表的内容高写进 --toc-h，
+// 长度交给 --toc-p 这个 0–1 的比例去缩。回退值 100% 是给「JS 写了属性但列表没超一屏」
+// 那种情形的兜底（绝对定位子元素的百分比高 = .toc-list 的 padding box）。
+// 它不是「装饰」而是功能（reduce 用户同样要知道读到第几节），所以整条留在 §7.8 原位、
+// 不搬进 §12 的 no-preference 块里 —— §12 只补线头那颗点的过渡。
 .toc-progress {
     position: absolute;
     top: 0;
     left: -17px;
     width: 2px;
-    height: 0;
+    height: var(--toc-h, 100%);
     background-color: var(--signal);
-    transition: height .28s ease;
+    transform-origin: top center;
+    transform: scaleY(var(--toc-p, 0));
+    transition: transform var(--dur-2) var(--ease-out);
+}
+
+// 线头那颗点：2px 线的末端在动，但一条 2px 宽的线「动了」这件事几乎看不出来，
+// 看得出来的是一头有个东西在走。它和线读的是同一个坐标（--toc-y 由 JS 一次写入），
+// 时长与曲线也与线同一条，所以收尾在同一帧 —— 两件事若不同步，症状是「点跑在线前面」。
+// 位置用 translate 而不是 top：top 是布局属性，每换一节都要重排这张列表。
+// 未挂 is-live（= JS 没跑到 §4）时整颗不出现，不会留下一颗钉在顶端的点。
+.toc-list::after {
+    content: '';
+    position: absolute;
+    left: -18.5px;
+    top: 0;
+    width: 5px;
+    height: 5px;
+    margin-top: -2.5px;
+    background-color: var(--signal);
+    border-radius: 50%;
+    opacity: 0;
+    translate: 0 var(--toc-y, 0px);
+}
+
+.toc-list.is-live::after {
+    opacity: 1;
 }
 
 // C4 刊头数字 count-up：等宽数字，否则 6→66 的过程中整行会左右跳。
@@ -3011,7 +3051,11 @@ body.reader-open .post-masthead {
     border: 1px solid var(--rule);
     border-radius: var(--radius-l);
     box-shadow: var(--shadow-3);
-    animation: readerIn .18s ease-out both;
+    // both → backwards（动效批 IV·M24）：填充模式里 both 的后半段会在动画跑完后继续把
+    // to 帧钉在元素上，而 readerIn 的 to 帧是 opacity: 1 / transform: none，与基准值逐字
+    // 相同——所以这次改动在「开」的方向没有任何跳变，它换来的只是 opacity 重新可过渡。
+    // 详见 §12 M24 第 2) 段。
+    animation: readerIn .18s ease-out backwards;
 }
 
 .reader-group {
@@ -3120,7 +3164,8 @@ body.reader-open .post-masthead {
     border: 1px solid var(--rule);
     border-radius: var(--radius-m);
     box-shadow: var(--shadow-2);
-    animation: lpIn .16s ease-out both;
+    // both → backwards，同 .reader-panel 那一条的理由（M24 第 2) 段）。
+    animation: lpIn .16s ease-out backwards;
 }
 
 .lp-kicker {
@@ -3195,7 +3240,8 @@ body.reader-open .post-masthead {
     background-color: var(--ink);
     border-radius: 999px;
     box-shadow: var(--shadow-3);
-    animation: quoteBarIn .14s ease-out both;
+    // both → backwards，同 .reader-panel 那一条的理由（M24 第 2) 段）。
+    animation: quoteBarIn .14s ease-out backwards;
 }
 
 .quote-bar-btn {
@@ -4188,8 +4234,16 @@ dialog.shelf::backdrop {
 
 // 抽屉从下方轻微抬入：和金句卡那根药丸同一套语言（都是「凭空出现的一层」），
 // 但位移更小 —— 这是一块要读内容的面板，不是提示。
+//
+// 动效批 IV·M24 把填充从 both 松开成 backwards，理由与下面 .reader-panel /
+// .lp-card / .quote-bar 三处同一条：both 跑完之后仍把 to 帧的 opacity: 1 钉在元素上，
+// 而「动画」这个 origin 排在「过渡」之前，于是 §12 里 dialog.shelf:not([open]) 的
+// opacity: 0 只能瞬间覆盖一个被钉住的值 —— 过渡根本不肯起跑（实测摘掉 open 的那一帧
+// opacity 直接从 1 跳到 0，而同一份 transition 简写里的 translate 却在正常插值）。
+// shelfIn 的 to 帧是 opacity: 1 / transform: none，与元素基准值逐字相同，
+// 松开之后终态没有任何跳变；这条改动是退场成立的前提。
 dialog.shelf[open] {
-    animation: shelfIn .2s cubic-bezier(.2, .8, .2, 1) both;
+    animation: shelfIn .2s cubic-bezier(.2, .8, .2, 1) backwards;
 }
 
 @keyframes shelfIn {
@@ -4756,8 +4810,11 @@ dialog.shelf[open] {
     will-change: transform;
 }
 
+// 这条覆盖上面那条 lightboxIn，同样要把 both 松开成 backwards：FLIP 分支才是正文配图
+// 的常态路径，它保留填充的话，关闭时的淡出照样过渡不起来（opacity 被 lightboxFade 的
+// to 帧钉住）。lightboxFade 只动 opacity，to 帧就是基准值，松开无副作用。
 .lightbox.is-flip[open] {
-    animation: lightboxFade var(--dur-2) var(--ease-out) both;
+    animation: lightboxFade var(--dur-2) var(--ease-out) backwards;
 }
 
 @keyframes lightboxFade {
@@ -4953,6 +5010,9 @@ dialog.shelf[open] {
 // 这一层，所以这里一条 > * 就覆盖完，不必逐页加类：
 // _layouts/post.html 的刊头用的是 .g-container（没有 masthead-inner），
 // 文章页因此不参与这条——标题每天被自己读几十遍，且它的首屏是正文，不适合入场。
+// （动效批 IV·M25 给文章页刊头另写了一套，就在 §12：那条「不参与」说的只是这条
+//  .masthead-inner > * 的覆盖范围，不是「文章页刊头永远不入场」。那边的取舍——
+//  时长为什么比这里快一档、头图为什么只揭不淡——写在 §12 第 6) 段上面。）
 //
 // 错峰用 nth-child 而不是 --i：刊头这几行是模板里写死的静态结构，不存在
 // 「每敲一个字重绘一次」的问题，也就没有 §M6 那套 .is-fresh 开关的必要。
@@ -5209,7 +5269,7 @@ dialog.shelf[open] {
 
     // 步长取 --stagger 的一半：下拉是「随开随看」的即时面板，用满 40ms 会读成迟半拍。
     // 延迟改成 @for 生成而不是写死三条 nth-child：条目数从四条涨到七条（两个分组标题 +
-    // 三款插件 + 一个在线工具 + 全部工具那行），段 3 / 段 4 每加一行都要回来补一条，
+    // 三款插件 + 一个免安装工具 + 全部工具那行），段 3 / 段 4 每加一行都要回来补一条，
     // 而漏补的那一行拿的是**默认 0 延迟**——它会比第 2 行先落位，步乱得比没有动画更难看。
     // 上界给到 12：段 4 之后是 9 条（160ms），留三行余量，第 12 条也才 220ms。
     @for $i from 2 through 12 {
@@ -5581,3 +5641,325 @@ dialog.shelf[open] {
     }
 }
 
+
+
+/*** 12. 动效增强批 IV（M24 · M25 · M26 · M27 · M28） ***/
+
+// 这一批不新增「会动的东西」，它补的是三处结构性缺口，都是先量出来的：
+//   · 浮层有入场、没有退场，而且它们的 ::backdrop 从来没有淡过
+//     （⌘K / 灯箱 / 书架 / 金句卡 / TOC 抽屉 / 偏好面板 / 预览卡）；
+//   · 文章页是全站唯一「零入场」的页面——实测 #post-body p、.post-hero、.post-meta、
+//     .toc、.reading-progress 的 animationName 全是 none，唯一在跑的是 M19 视差和猫；
+//   · 目录那条进度线在动 height，而 §10 前提 1 写的是「只动合成器属性」。
+// 取值一律从 tokens.scss 拿；@keyframes 里不写 px（像素转视口的黑名单按选择器文本
+// 匹配，够不到 0% / to 那两帧，写进去的 px 会静默变成 vw）。
+//
+// 这一批的动效偏好口径（与 §11 前提 5 同源）：下面凡属「先藏后显」的规则整块写在
+// (prefers-reduced-motion: no-preference) 里，reduce 档连规则都不存在，所以 §9 那份
+// 名单不需要补 .cmdk-mask / .lightbox::backdrop / .quote-dialog —— 给不存在的东西
+// 写 animation: none 是装饰，不是兜底。
+// 唯一的例外是 M26：它改的是进度线「长度怎么表达」（height → scaleY），那不是一条
+// 过渡，reduce 档同样要用（否则 JS 不再写 height，那条线就整体消失了），所以它落在
+// §7.8 原位，这一节只补它的 transition。
+
+// ———— M24 · 浮层进出对称（含 ::backdrop 淡化）————
+//
+// 「突然出现、突然消失」不是观感问题，是一个可以说清的机制：这些层全靠 hidden 属性
+// 或 dialog 的 open 属性收放，而 [hidden] 的 UA 样式是 display:none —— 元素在同一个
+// 帧里从「可见」跳到「不存在」，中间没有任何一帧可以画，所以入场只能靠 @keyframes
+// 从零造出一个动画，退场则根本没有载体。
+//
+// display / overlay 是可过渡的**离散**属性。加上 transition-behavior: allow-discrete
+// 之后，「过渡到 none」这一方向会在整个时长里保持上一个非 none 值、到点才翻，退场
+// 于是有了一段可以被观察的时间；这段时长里 opacity 与 translate 的常规过渡同时生效。
+//
+// 方向性要记清楚，它决定了这批为什么不需要动任何一条入场规则：
+//   · 关→开：元素从「未渲染」变成「渲染」，过渡**不运行**（这是规范行为），
+//     所以已有的 keyframes 入场一个字都不必改，观感与今天完全一致；
+//   · 开→关：过渡运行，退场成立。
+// 只有 ::backdrop 例外——它此前连入场都没有淡化（遮罩是硬闪出来的），所以那两处
+// 另写了 @starting-style，那是这一批里唯一新增的入场效果。
+//
+// 退场位移一律挂在 translate / scale 这两个**独立可动画属性**上，不碰 transform：
+// 这些层的入场动画全部带 animation-fill-mode: both，跑完把 transform 的终值永久钉在
+// 元素上，而动画在层叠 origin 里排在过渡之前——同一条 transform 上的退场过渡永远赢不了
+// 那条已经不跑、但仍在填充的动画。translate 与 transform 复合生效，于是绕开了这个死结。
+// （§M6 把 .cmdk-item 的 both 改成 backwards，是同一条坑的另一面；那三处见下面 2)。）
+//
+// 不支持 allow-discrete / @starting-style 的浏览器整段降级成今天的样子：离散属性不可
+// 过渡 → 硬消失，与没有这一节时逐字节相同，不需要任何 JS 分支。
+@media (prefers-reduced-motion: no-preference) {
+
+    // —— 1) ⌘K 命令面板：容器承淡化，面板承位移 ——
+    // 淡发放到 .cmdk 容器上而不是面板上，有两个理由：一是遮罩 .cmdk-mask 本身没有任何
+    // 入场动画（它一直是硬闪出来的），容器的 opacity 把它和面板一起带走，不必再给遮罩
+    // 单写一份；二是面板上的 cmdkIn 带着 both 填充，opacity 也被它钉住，容器这一层是
+    // 唯一没被那条动画占用的通道。
+    .cmdk {
+        transition: opacity var(--dur-2) var(--ease-out), display var(--dur-2) allow-discrete;
+    }
+
+    .cmdk[hidden] {
+        opacity: 0;
+    }
+
+    // -.25em 而不是入场那头的 -.5em：退场是「东西收回去」，走满一整行会读成它掉下去了。
+    // 用 em 而不是 --travel-*：面板字号 16px，--travel-s 的 4px 在这里几乎看不出来，
+    // 而入场的 -.5em（8px）是既成事实，退场取它的一半是为了让「来回不对称」这件事
+    // 只有一个来源——读的人只会觉得收得比出得轻，不会觉得两处对不上。
+    .cmdk-panel {
+        transition: translate var(--dur-2) var(--ease-out);
+    }
+
+    .cmdk[hidden] .cmdk-panel {
+        translate: 0 -.25em;
+    }
+
+    // —— 2) 三个用 hidden 收放的小浮层：预览卡 / 金句药丸 / 偏好面板 ——
+    // 这一族要把 opacity 交给过渡，就必须先松开入场动画的填充：这三条 keyframes 的
+    // to 帧写的是 opacity: 1 / transform: none，与元素的基准值逐字相同，所以把 both
+    // 改成 backwards 之后终态没有任何跳变（both 的后半段本来就在重复基准值），
+    // 而 opacity 从「被动画钉住」放回「可被过渡」——这一改动是退场成立的前提，
+    // 不是顺手美化。见下面三条 animation 声明。
+    .lp-card {
+        transition: opacity var(--dur-1) var(--ease-out), translate var(--dur-1) var(--ease-out),
+                    display var(--dur-1) allow-discrete;
+    }
+
+    // 退场方向与入场相反：lpIn / readerIn 是从上往下落（from -travel-*），所以收的时候
+    // 再往上回到它来的方向；.2em 与 .3em 是按各自字号算的，与入场的 4px / 6px 同一量级。
+    .lp-card[hidden] {
+        opacity: 0;
+        translate: 0 -.2em;
+    }
+
+    .quote-bar {
+        transition: opacity var(--dur-1) var(--ease-out), translate var(--dur-1) var(--ease-out),
+                    display var(--dur-1) allow-discrete;
+    }
+
+    .quote-bar[hidden] {
+        opacity: 0;
+        translate: 0 -.2em;
+    }
+
+    .reader-panel {
+        transition: opacity var(--dur-1) var(--ease-out), translate var(--dur-1) var(--ease-out),
+                    display var(--dur-1) allow-discrete;
+    }
+
+    .reader-panel[hidden] {
+        opacity: 0;
+        translate: 0 -.3em;
+    }
+
+    // —— 3) 三个原生 <dialog>：书架 / 灯箱 / 金句卡 ——
+    // dialog 的退场比 display 多一个 overlay：模态框在 top layer 里，[open] 一摘就先
+    // 离开 top layer，遮罩盒（::backdrop）只存在于 top layer，于是「面板还在、背景先黑
+    // 掉」或反过来都可能出现。两个离散属性必须一起过渡，这一对才是完整的。
+    //
+    // 时长分两档不是随手给的：
+    //   · 书架 / 灯箱用 --dur-2（200ms），它们盖住的是整页正文，收得比小浮层慢一档才
+    //     读得出「一层退下去」而不是「东西没了」；
+    //   · 金句卡用 --dur-2 同值，因为它和灯箱是同一类模态（都带遮罩），两档不同会让
+    //     人怀疑站点的一致性。
+    dialog.shelf {
+        transition: opacity var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out),
+                    display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete;
+    }
+
+    // 与 shelfIn 的 from 帧同值（--travel-l），所以「出来」与「回去」是同一座标，
+    // 不需要像 ⌘K 那样另定一档——那条本来就没有可用的填充位。
+    dialog.shelf:not([open]) {
+        opacity: 0;
+        translate: 0 var(--travel-l);
+    }
+
+    .lightbox {
+        transition: opacity var(--dur-2) var(--ease-out),
+                    display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete;
+    }
+
+    // 灯箱的退场刻意**不带** scale：M1 那条 FLIP 会用内联 transform 把图送回缩略图的
+    // 位置和尺寸，此刻再叠一层独立属性 scale 会让它比缩略图更小，落点收不干净。
+    // 没有走 FLIP 的那两条路径（缩略图已滚出视口 / 无原图）需要的恰恰只是「别硬闪」，
+    // 淡出已经足够。
+    .lightbox:not([open]) {
+        opacity: 0;
+    }
+
+    // 金句卡对话框是这一族里唯一「入场也缺」的：它一条 keyframes 都没有（§7.11 只给
+    // 那根药丸写了动画），所以进出都靠 @starting-style + 过渡，写成完整的三件套。
+    .quote-dialog {
+        transition: opacity var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out),
+                    display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete;
+    }
+
+    .quote-dialog:not([open]) {
+        opacity: 0;
+        translate: 0 var(--travel-s);
+    }
+
+    // —— 4) ::backdrop 的淡化：这一批唯一新增的入场效果 ——
+    // 遮罩此前在开与关两个方向都是硬闪：--scrim 那 55% 的黑一旦整帧出现，视觉上是
+    // 「有人把灯拉了」，而不是「一层盖上来」。base 写 0、[open] 写 1、@starting-style
+    // 把刚出现那一帧也写成 0，三个值凑齐才有一个淡入；关的那一半只需要 base 的 0。
+    // 遮罩自己不动位移，只动 opacity——它是一块全屏纯色层，没有可辨认的边界供它移动。
+    dialog.shelf::backdrop,
+    .lightbox::backdrop,
+    .quote-dialog::backdrop {
+        opacity: 0;
+        transition: opacity var(--dur-2) var(--ease-out),
+                    display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete;
+    }
+
+    dialog.shelf[open]::backdrop,
+    .lightbox[open]::backdrop,
+    .quote-dialog[open]::backdrop {
+        opacity: 1;
+    }
+
+    @starting-style {
+
+        dialog.shelf[open]::backdrop,
+        .lightbox[open]::backdrop,
+        .quote-dialog[open]::backdrop {
+            opacity: 0;
+        }
+    }
+
+    // —— 5) TOC 抽屉（窄屏）：底板滑回屏幕下方 ——
+    // 抽屉的关闭态是 display:none !important（见 §9 上方那条 max-width:1239 的规则），
+    // 所以这里同样要带 display 的离散过渡；权重必须与打开它的那条一致，选择器一路写到
+    // body 才够（body.has-toc:not(.toc-open) .post-rail 是 (0,3,1)，压过 §9 的
+    // .post-rail !important 之外的普通声明，而 !important 那条只能由同样的 !important…）
+    // ——实际不需要：过渡只在「离开 display:block 的那一次」由 after-change 样式决定，
+    // 而 after-change 就是 §9 那条 display:none !important，transition 取自基础规则。
+    //
+    // 位移挂在 translate 上正是这条坑的形状：tocSheetIn 的 to 帧是 transform: translateY(0)
+    // 且带 both，transform 这条路被它锁死了，translate: 0 100% 是唯一还能滑走的那条。
+    @media screen and (max-width: 1239px) {
+        .post-rail {
+            transition: translate var(--dur-3) var(--ease-out), display var(--dur-3) allow-discrete;
+        }
+
+        body.has-toc:not(.toc-open) .post-rail {
+            translate: 0 100%;
+        }
+    }
+
+    // —— 6) M25 · 文章页首屏入场 ——
+    // §M11 当年把文章页排除出去，理由写在它上面那段注释里：「标题每天被自己读几十遍，
+    // 且它的首屏是正文，不适合入场」。这句话到今天仍然对一半：正文确实不该入场（它一次
+    // 揭示一批、由 §7.8 那套观察器管，再叠一层载入动画就是双重淡入），但刊头那五行
+    // ——面包屑、标签、标题、副题、元信息——是每篇都在、每次进来都空着砸出来的一块。
+    // 实测（本文页，Chrome 153）：#post-body p / .post-hero / .post-meta / .toc /
+    // .reading-progress 的 animationName 全是 none，全站唯一零入场的版面就是这里。
+    //
+    // 三条取舍：
+    //   · 时长压在 --dur-3/--dur-4，不跟着刊头走 --dur-5。§11 前提 4 说的「一次性入场」
+    //     对作者本人是每天几十次，对读者是一篇一次；文章页比首页的进入频次高一个量级，
+    //     这一层因此比刊头快一档（560ms 收尾 vs 760ms），错峰步进仍用同一个 --stagger。
+    //   · 标题走 mastWipe（复用，不新造第二条），小字行走 riseIn。和 §M11 同一套分工：
+    //     展示字号升起会显得笨，揭开读起来像排版落纸。
+    //   · 头图只揭不淡：见下面那条 heroWipe。
+    .post-masthead .post-crumb,
+    .post-masthead .post-series,
+    .post-masthead .post-tags,
+    .post-masthead .post-masthead-lede,
+    .post-masthead .post-meta {
+        animation: riseIn var(--dur-3) var(--ease-out) backwards;
+    }
+
+    // 顺序跟着正文从上往下的读序：面包屑 → 标签 → 标题 → 副题 → 元信息。
+    // 不用 nth-child：.post-series 与 .post-masthead-lede 都是「有才有」的条件节点，
+    // 按位置排会让两种文章页排出两套错峰节奏，按角色排才是一件事。
+    .post-masthead .post-tags {
+        animation-delay: var(--stagger);
+    }
+
+    .post-masthead-title {
+        animation: mastWipe var(--dur-4) var(--ease-emph) backwards;
+        animation-delay: calc(var(--stagger) * 2);
+    }
+
+    .post-masthead .post-masthead-lede {
+        animation-delay: calc(var(--stagger) * 3);
+    }
+
+    .post-masthead .post-meta {
+        animation-delay: calc(var(--stagger) * 4);
+    }
+
+    // 头图用 clip-path 单Property 的揭幕，且延迟为 0、不带 opacity：
+    // 它是文章页的 LCP 元素。本文页实测末条 largest-contentful-paint 的 element 是
+    // figure.post-hero 里那张 img（面积 478,800px²，`closest('.post-hero')` 命中），
+    // 而 opacity: 0 的那一帧画不出像素，LCP 的时间戳会推到动画起画的第一帧为止 ——
+    // 加 200ms 延迟再淡入 560ms，等于用动效给全站最多的页面之一每天背几十毫秒的 CWV 债。
+    // clip-path: inset(0 0 100% 0) → inset(0 0 0 0) 是另一条写法：起点是「整块裁掉」，
+    // 但 --ease-out 第一拍就揭开约四分之一，首帧之后一直有像素。
+    //
+    // 三臂 A/B 的实测数（scripts/verify-motion-batch4.mjs 第 6 组，本地 no-store、warm、
+    // 四组交替取中位）：带揭幕 110ms / 服务端摘掉这条 120ms / 把它换成同长的淡入 riseIn 764ms。
+    // 也就是说 clip 揭幕量不出代价（−10ms，落在噪声里），而淡入那一写法要多背 654ms，
+    // 并且 LCP 会从头图移交到 .post-masthead-title——判据「这条判据有牙」抓的就是移交。
+    // 这三臂里前两臂的分别由「变异生效」那条自证：strip 臂的 computed animationName 必须是 none，
+    // 否则 A/B 是在拿同一份产物比自己。
+    @keyframes heroWipe {
+        from {
+            clip-path: inset(0 0 100% 0);
+        }
+
+        to {
+            clip-path: inset(0 0 0 0);
+        }
+    }
+
+    // 裁切挂在 figure 里层那只 .g-container 上，不挂 .post-hero 本身：
+    // M19 把 overflow 与 --shadow-2 一起抬到了 figure 那一层（圆角和投影都在那儿），
+    // clip-path 会连投影一起裁掉，淡出结束时「影子啪地出现」比不揭幕更糟。
+    // 内层这只盒子没有圆角与投影，裁它就是在裁图，四角仍由 figure 的 clip 收成圆的。
+    .post-hero .g-container {
+        animation: heroWipe var(--dur-4) var(--ease-out) backwards;
+    }
+
+    // 跨页转场抢同一块版面的那条冲突，M11 已经认过一次（§M22 末尾的 .is-vt-entry）。
+    // 文章页现在也入场入了，所以同一件事要在这里再压一遍：新文档的第一帧是它的快照，
+    // 刊头恰好从那一刻起算，不压住就会看到「转场途中顶部已经升了一半」。
+    // 权重写成 .is-vt-entry .post-masthead … 比 §11 那四条多一层类，且它在文件更后面，
+    // 两边都压得住（只靠次序赢是脆的，改一处就翻）。
+    .is-vt-entry .post-masthead .post-crumb,
+    .is-vt-entry .post-masthead .post-series,
+    .is-vt-entry .post-masthead .post-tags,
+    .is-vt-entry .post-masthead .post-masthead-lede,
+    .is-vt-entry .post-masthead .post-meta,
+    .is-vt-entry .post-masthead .post-masthead-title,
+    .is-vt-entry .post-hero .g-container {
+        animation: none;
+    }
+
+    // —— 7) M26 的线头：那颗点的过渡 ——
+    // 点的位置（translate: 0 var(--toc-y)）写在 §7.8 原位，因为 reduce 档同样要它落对；
+    // 「怎么走过去」才是装饰，所以这条单独关在 no-preference 里。
+    // 时长与曲线与 .toc-progress 那条逐字相同 —— 线在缩、点在走，两条不同步的代价是
+    // 点跑在线前面，而写两个数迟早会漂。
+    .toc-list::after {
+        transition: translate var(--dur-2) var(--ease-out), opacity var(--dur-2) var(--ease-out);
+    }
+
+    // —— 8) M27 新增揭示行要保住自己的 hover 过渡 ——
+    // §7.8 那条 body.js-reveal .reveal 写的是 transition **简写**，权重 (0,2,1)，
+    // 把行自己那条 (0,1,0) 的过渡整条换掉：相关行 hover 时的 border-color 加深、
+    // 上下篇卡的「抬起 + 影子铺开」都会从 200/320ms 的滑行变成瞬移。
+    // 这两条把两笔并回一条，多一层 .reveal、压得过 §7.8；等 is-in 落定之后
+    // reveal 那两笔早已跑完，剩下的就是原来的 hover 语言，观感与改前逐字一致。
+    body.js-reveal .reveal.related-item {
+        transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out),
+                    border-color var(--dur-2) var(--ease-out);
+    }
+
+    body.js-reveal .reveal.read-next-item {
+        transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out),
+                    box-shadow var(--dur-3) var(--ease-out), translate var(--dur-2) var(--ease-out);
+    }
+}

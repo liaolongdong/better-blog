@@ -10879,10 +10879,14 @@ AA(4.5) 通过：白昼 true 夜间 true
 // @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
 // `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 about.scss 那条口径。
 //
-// 五、不写动画，因此本层没有自己的 `prefers-reduced-motion` 块：base.scss:147 那条全局兜底
-// 已经把所有 `transition-duration` 压成 .01ms，本层只有颜色过渡与 `:active` 那 1px 按压位移
-// （位移由用户按住触发、松手即回，不是装饰性入场）。about.scss / cat.scss 那种 reduce 块是为了
-// 撤掉滚动驱动的位移与装饰层，本层没有那种东西可撤。
+// 五、本层的动效只有文末 M29 那一组「状态变了」的反馈：三条动画、两个关键帧，全部关在
+// `@media (prefers-reduced-motion: no-preference)` 里（§10 前提：先藏后显的入场必须关在这道
+// 门里）。这一层仍不给 reduce 补第二份块，因为 base.scss:151 那条 `*` 的 !important 兜底
+// 已经把 `animation-duration` 压成 .01ms、`animation-delay` 归零，而那三条都不写 `forwards`——
+// 收尾就是元素自己那份常态样式，红条 / 药丸 / 面板在 reduce 档一律照常可见。
+// 除那一组之外本层只有颜色过渡与 `:active` 那 1px 按压位移（位移由用户按住触发、松手即回，
+// 不是装饰性入场）。about.scss / cat.scss 那种 reduce 块是为了撤掉滚动驱动的位移与装饰层，
+// 本层没有那种东西可撤。
 
 // 字族：数字与号码一律走 meta（等宽 + 表内对齐），标题走 display，正文交给继承。
 $tk-display: 'Newsreader', Georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', 'STSong', 'SimSun', serif;
@@ -11467,6 +11471,73 @@ body.night-mode {
 
 .tk-batch {
     display: block;
+}
+
+// ── M29 · 「状态变了」要看得见（动效批 IV 的工具层精简版） ──────────────────
+// 三处，全部只吃 ARIA / hidden / 节点插入这三样本层认识的状态，JS 一行没动：
+//
+// 1) `.tk-panel` 的入场。这一层的显隐由 `panel.js` 的 `panelAttr()` 写成 `hidden`
+//    （`dev/js/tools/panel.js:123`），非当前面板是 `display:none`。而**从 display:none
+//    回到显示，CSS 动画会整个重跑**——所以这一条同时是两件事：进页面时那一次「面板浮现」，
+//    和换面板时那一次「新面板进来」。换面板原本是一记硬切（内容整块替换、零提示），
+//    人在 176px 索引条上点了一下，眼睛却分不清「变的是哪一块」。
+// 2) `.tk-state` 那枚三态药丸用的是**同一条** `tkIn`，只把时长降一档：判定是逐行算出来的
+//    短串，320ms 的升起会让它看起来像还在加载。它每次都由 `view.js` 的 innerHTML 新建，
+//    所以每次计算都重跑一次——这正是「按了生成，结论到了」的那记反馈。
+// 3) `.tk-panel__error` 的一记左右抖。`panel-dom.js:140` 是**新建**节点插在面板最前面，
+//    新节点必然从头跑动画；而第二次失败走的是 `existing.textContent = …`（137 行），
+//    节点没换 ⇒ 不重抖。这一条要知道：**抖只在该面板第一次亮红条时出现**，
+//    不是每次拒收都有。要每次都有就得让 JS 换个钩子，那撞的是文件头第二条
+//    （装配层只写 panel.js 算好的那张属性表），本批不动。
+//
+// 「复制成功脉冲」这一件是退的，不是漏的：`ui.js` 的 `flash()` 只改 `textContent`
+// （测试 O4 钉着「不往页面上挂任何东西」），CSS 看不到「刚复制成功」这个状态。
+// 加一个属性或 class 就等于改共用的 `toolkitCore.min.js`——它同时进证件页与编码页两格
+// 总量预算，而 §O 那十三判要跟着改。文案改口「已复制」本身已经是反馈。
+// 焦点环这一件是**已经付过了**：editorial.scss §11 M14 那批选择器是 `a / button / input /
+// select / textarea / summary / [tabindex]` 这种按元素类型列的，不加类名前缀，
+// 所以工具页的表单字与按钮本来就有 ringGrow 那记 4px→2px 的生长；这里再写一遍就是同一屏
+// 两种节奏。三处都由 `scripts/verify-motion-batch4.mjs` 的第 10 组在真浏览器里量（含 reduce 档）。
+//
+// 关键帧里一律不写 px（文件头第一条：postcss 的黑名单按选择器文本匹配，够不到 0%/to 帧名），
+// 位移一律取 tokens.scss 的 `--travel-s`；那组令牌住在 index.min.css 的 `:root`，
+// 工具页确实带着它（§7 第三段量的阻塞集第一件就是 index.min.css）。万一没带上，
+// `translateY(var(--travel-s))` 取值失败⇒那一条声明作废，剩下的是纯淡入，不会塌版。
+// reduce 档不需要本层再写一遍：base.scss:151 那条 `*` 的 !important 兜底已经把
+// `animation-duration` 压到 .01ms、`animation-delay` 归零，而这三条都没有
+// `forwards`，收尾就是元素自己那份常态样式——红条、药丸、面板一律照常可见。
+@media (prefers-reduced-motion: no-preference) {
+    .tk-panel {
+        animation: tkIn var(--dur-3) var(--ease-out);
+    }
+
+    .tk-state {
+        animation: tkIn var(--dur-2) var(--ease-out);
+    }
+
+    .tk-panel__error {
+        animation: tkShake var(--dur-2) var(--ease-in-out);
+    }
+}
+
+// 只写 from 帧：to 帧缺省就是元素自己的那一份，写出来等于把基准值抄第二遍。
+@keyframes tkIn {
+    from {
+        opacity: 0;
+        transform: translateY(var(--travel-s));
+    }
+}
+
+@keyframes tkShake {
+    20%,
+    60% {
+        transform: translateX(calc(var(--travel-s) * -.5));
+    }
+
+    40%,
+    80% {
+        transform: translateX(calc(var(--travel-s) * .5));
+    }
 }
 
 // ── 断点 ──────────────────────────────────────────────────────────────────
