@@ -12634,8 +12634,19 @@ Task 8 那一格把图标写成 `stroke="currentColor"`，文件头还断言"跟
                 </ul>
 
                 <ul class="tool-badges">
+                    {%- comment -%}
+                    徽章只写"算"这一件事，不写"打开这一页"那一件事（2026-09-29 改口）。
+                    这里原本印的是「零网络请求」：它对面板的计算成立，对页面不成立——每一页的 head 都还
+                    带着 at.alicdn 图标字体与统计脚本两条外链，所以那句话一次网络面板就能证伪。
+                    「输入不出本机」把主语挪回"输入"，剩下两条谁都能重跑的口径：这一族的 JS 图
+                    （dev/js/tools/ 整树 + toolkitCore / toolIdcard / toolCodec 三份页面入口）里 grep
+                    fetch( / XMLHttpRequest / sendBeacon / WebSocket / localStorage / sessionStorage /
+                    document.cookie，命中只有 json-core.js 与 json-convert.js 文件头那两行"不读任何环境"
+                    的自述注释；地址栏只会被写成面板锚点（panel.js 的 toHash() 返回 `#${active}`，
+                    装的是第几块面板，不是你粘进来的内容）。
+                    {%- endcomment -%}
                     <li>无需安装</li>
-                    <li>零网络请求</li>
+                    <li>输入不出本机</li>
                     <li>{{ tool.panels.size }} 块面板</li>
                 </ul>
 
