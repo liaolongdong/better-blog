@@ -12,6 +12,9 @@ permalink: /tools.html
 （数据源 _data/onlineTools.yml，段 3 / 段 4 各追加一条）。两族共用同一套 .tool-* 版式，
 差别只有两处：在线工具没有截图（那一栏收成单栏，见 editorial.scss 的 .tool-section--online），
 以及它的 CTA 是"打开页面"而不是"去商店安装"。
+两族的分组标签在这一页只出现在 kicker 与下面那条统计里，写作「免安装工具」，与顶栏下拉的分组标题
+同一条口径（改口的理由与"哪几处必须跟着改"都写在 _includes/header.html 那条注释里）。上面 subtitle
+与引言那两处仍写「在线工具」，那是检索口径的措辞，不是标签——两套词各有分工，别把它们对齐成一套。
 编号连续而不是各起一轮，是因为访客是从上往下读的：两族各自 01 会被读成"这两节是同一份列表的
 两个副本"。序号在 .tool-index 里，是装饰性文本（aria-hidden），对检索不构成信号。
 {%- endcomment -%}
@@ -19,7 +22,7 @@ permalink: /tools.html
 
 <section class="g-masthead tools-masthead">
     <div class="g-container masthead-inner">
-        <p class="kicker">Toolbox / 浏览器插件与在线工具</p>
+        <p class="kicker">Toolbox / 浏览器插件与免安装工具</p>
         <h1 class="masthead-title">工具箱</h1>
         <p class="masthead-lede">
             这一页上的东西都出自同一个动机：把自己每天重复几十次的动作，交给浏览器去做。
@@ -28,7 +31,7 @@ permalink: /tools.html
         </p>
         <ul class="masthead-stats">
             <li><strong>{{ site.data.tools.size }}</strong><span>款插件</span></li>
-            <li><strong>{{ ready_online.size }}</strong><span>个在线工具</span></li>
+            <li><strong>{{ ready_online.size }}</strong><span>个免安装工具</span></li>
             <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
         </ul>
     </div>

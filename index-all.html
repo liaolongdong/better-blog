@@ -34,7 +34,7 @@ permalink: /index-all.html
 页面数不能直接写 site.nav.size：下面那一节除了 nav 列出的那些，还额外列了本页、订阅源、
 llms.txt 三个地址（它们不在导航条上，但确实是站内地址，这一页的意义就是列全）。
 只加 3 不写死总数，是为了将来往导航里加项时这个数字自己跟上。
-在线工具那一节不计进这个数：它是独立的一节、自带一个计数（下面 #onetools 那节的
+免安装工具那一节不计进这个数：它是独立的一节、自带一个计数（下面 #onetools 那节的
 cat-count），混进「页面」反而让两个 chip 的数字对不上各自节里的行数。
 {%- endcomment -%}
 {%- assign page_count = site.nav.size | plus: 3 -%}
@@ -73,7 +73,7 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
         {%- endfor -%}
         <a class="cat-chip" href="#collections">合集<em>{{ site.data.series.size }}</em></a>
         <a class="cat-chip" href="#demos">示例<em>{{ site.data.demoLists.size }}</em></a>
-        <a class="cat-chip" href="#onetools">在线工具<em>{{ ready_online.size }}</em></a>
+        <a class="cat-chip" href="#onetools">免安装工具<em>{{ ready_online.size }}</em></a>
         <a class="cat-chip" href="#pages">页面<em>{{ page_count }}</em></a>
     </nav>
 
@@ -138,7 +138,8 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
     </section>
 
     {%- comment -%}
-    在线工具一节。与 #pages 那节同样是纯链接列表，一个类名都没新写（沿 .cat-*）。
+    免安装工具一节（节名跟随下拉分组标题，见 _includes/header.html 那条改口注释）。
+    与 #pages 那节同样是纯链接列表，一个类名都没新写（沿 .cat-*）。
     左栏放的是面板数而不是日期或篇数：这一族没有"发布时间"这个维度可排，
     而"几块面板"是它唯一能在点进去之前告诉访客的信息量。
     条目取自 _data/onlineTools.yml 且只画 status: ready 的那些——这一页的意义是"站内可访问地址列全"，
@@ -146,7 +147,7 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
     {%- endcomment -%}
     <section class="cat-section" id="onetools">
         <header class="cat-head">
-            <h2 class="cat-name">在线工具</h2>
+            <h2 class="cat-name">免安装工具</h2>
             <span class="cat-count">{{ ready_online.size }} 个</span>
             <a class="cat-top" href="#main">回到索引</a>
         </header>

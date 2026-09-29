@@ -27,11 +27,12 @@
               · 前缀那条用 `nav_dir_slash`（带尾斜杠）而不是裸 `nav_dir`，否则 /toolshop.html
                 这种将来可能出现的地址会被 /tools 前缀误命中。
             这条判据不靠"改前改后各跑一遍比对"兜底，它有一个常驻的复算器：`scripts/check-tools-surface.mjs`
-            的「导航-全站」那一组用 JS 把同样的口径重写一遍，对产物里每一个渲染了这段导航的页面（现场 91 页）
+            的「导航-全站」那一组用 JS 把同样的口径重写一遍，对产物里每一个渲染了这段导航的页面
+            （页数由脚本自己数并打印，2026-09-29 实跑 = 「核到 95 页」，这里不抄一个会随站点变烂的常数）
             核"该亮哪一项、aria-current 取哪一档"。换掉判据那一次另按改前/改后各建了一遍站做逐页比对：
             高亮态（`.is-current` 与 `aria-current` 的分布）只有 /tools/idcard.html 一页变化——它从
             「无高亮」变成「工具箱高亮」；其余 90 页两栏分布逐字节同。下拉内容则是 91 页全变，
-            因为多出来的「在线工具」分组每一页都要渲染。
+            因为多出来的那个分组每一页都要渲染（分组标题现为「免安装工具」，见下面那条改口注释）。
             {%- endcomment -%}
             {% assign nav_dir = item.url | remove: '.html' %}
             {% assign nav_dir_slash = nav_dir | append: '/' %}
@@ -102,7 +103,18 @@
                     </li>
                     {% endfor %}
                     {% if ready_tools.size > 0 %}
-                    <li class="nav-sub-group">在线工具</li>
+                    {%- comment -%}
+                    分组标题写作「免安装工具」，不写「在线工具」（2026-09-28 改口）。
+                    这个标签在这张下拉里的职责只有一件：与兄弟分组「浏览器插件」分开，而两族的实际分界是
+                    "要不要往浏览器里装东西"，不是"要不要联网"。「在线」把这根轴说反了一次——它字面承诺了联网，
+                    而这一族恰恰是本站少数"打开后零网络请求"的页面（见各页 .tool-badges 与 onlineTools.yml 的 desc）。
+                    「实用工具 / 常用工具」也不取：那是对父级「工具箱」的同义反复，且对插件族同样成立，区分不出来。
+                    检索口径不受影响——「在线工具」这个词留在 tools.html 的 subtitle 与引言里（描述句），
+                    以及各页 <title>（如 JSON 那页的「JSON 在线格式化与校验」），与 §4.1 的 title/h1 分工同源。
+                    站内还有第三条口径要跟着这个标签走：index-all.html 的 chip 与 #onetools 的 cat-name，
+                    改这里不改那里，同一件事就有了两个名字。
+                    {%- endcomment -%}
+                    <li class="nav-sub-group">免安装工具</li>
                     {% for tool in ready_tools %}
                     <li>
                         <a class="nav-sub-link" href="{{ tool.url | prepend: site.baseurl }}"{% if page.url == tool.url %} aria-current="page"{% endif %} data-tool="{{ tool.slug }}">
