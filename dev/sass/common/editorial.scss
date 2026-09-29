@@ -3423,29 +3423,102 @@ body.fab-tucked .bottom-fixed-btn {
     }
 }
 
+// 这一版之前搜索行上有两层框。第一层不是 UA 白送的，是 normalize.min.css 里那条
+// `[type=search]{-webkit-appearance:textfield;outline-offset:-2px}`——它把 textfield 外观
+// 又显式钉了一遍，连带 UA 给 textfield 的那圈 2px inset 灰凹槽；第二层是 §0 那条全局
+// `:focus-visible` 的 2px 蓝描边。两条框只隔 2px，读起来像控件描了两次边。
+// 现在把「框」从 input 摘下来交给容器：.cmdk-field 负责底色、描边和焦点态，
+// input 只负责写字。焦点标记因此落在整行的外沿，不再贴着面板的上边框。
+//
+// #cmdk-input 的 appearance: none 盖得过 normalize 那条，靠的是选择器权重（id 1-0-0
+// > 属性 0-1-0），与两份样式表的加载顺序无关。webkit 的清除小叉和那层装饰这里不再重复摘：
+// normalize 同一份文件里已经有 `[type=search]::-webkit-search-cancel-button,
+// [type=search]::-webkit-search-decoration{-webkit-appearance:none}`。
+// 覆盖面也数过：本地快照里带命令面板的产物页 95 份，95 份都挂着 normalize（_includes/headAssets.html）。
+//
+// 底色取 --surface-2 而不是继续留白：面板本身是 --surface，同一层浅底把
+// 「可输入的控件」和「只读的面板」分开，也和 .cmdk-item.is-active 的选中底色同族。
+// 这块底上常驻的字只有 placeholder（--ink-3、16px，输入后就没有了），四档纸面实测
+// 4.56 / 4.52 / 4.56 / 5.49（默认 / cool / sage / 夜间），都在 AA 小字号线以上。
+// 其中 sage 那档是 tokens.scss 的纸色补偿块把 --ink-3 单独压深换来的，
+// --ink-4 没有例外值、三档亮色共用 #7A8089。
+//
+// 描边用 --ink-4 而不是这一层惯用的 --rule / --rule-2：1.4.11 要求「可识别控件的边界」
+// 与相邻色至少 3:1，而 --rule-2 在这块底上只有 1.33～1.47（--rule 更低）——它们服务的是
+// 分隔线，不是控件边界。--ink-4 对面板 / 对框底：默认 3.98 / 3.56，cool 3.98 / 3.52，
+// sage 3.86 / 3.33，夜间 3.53 / 3.22，四档都过 3:1，所以不必再写第二份 .night-mode 覆盖表
+// （tokens.scss 文件头那条口径）。
 .cmdk-field {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--rule);
+    margin: 12px 14px 0;
+    padding: 0 12px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--ink-4);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+
+    // 焦点态：描边换成信号蓝并且「厚一档」——1px 描边 + 1px box-shadow 并成一条 2px 的实心框。
+    // 为什么不照抄 §0 那圈 detached ring（2px 环 + 2px 外偏移）：四种候选（detached ring /
+    // 加厚自己的框 / 只把 1px 描边换色 / 淡底光晕）都出过图比过，环与自己那圈描边之间夹着
+    // 2px 面板底色，读起来还是两层框——正是这一版要消除的东西；只换 1px 色那一版周边只有 1px，
+    // 够不上 2.4.13 的「不细于绕组件一圈 2px」。
+    // 而 2.4.13 要的是「指示不细于绕组件一圈 2px、且与非相邻色 ≥3:1」，加厚控件自己的边框
+    // 同样满足——--signal 对面板 5.00（cool 5.00 / sage 4.85 / 夜间 7.06）、对框底 4.47。
+    // 也不用 --signal-soft 那圈淡底当指示：它叠在面板上实测 1.10（夜间 1.18），写了等于没写。
+    // box-shadow 不参与布局，加厚不产生位移；外扩只有 1px，仍在 12/14px 的外边距里。
+    // 判据用 :focus-within 而不是 :focus-visible：容器自己不可聚焦，键盘 Tab 出去的是 input，
+    // 而鼠标点框内也会把焦点交给它——于是点一下框就亮。这一行本来就等着被输入，
+    // 亮框在这儿不是噪声，是把「可以打字了」说清楚。
+    // 焦点离开（Tab 到结果行）时 :focus-within 不成立，框退回 --ink-4 的 1px 灰边、阴影为 none，
+    // 这一态的边界可识别性由上面那段 3:1 的账负责。
+    &:focus-within {
+        border-color: var(--signal);
+        box-shadow: 0 0 0 1px var(--signal);
+    }
 }
 
 .cmdk-icon {
     flex: none;
     color: var(--ink-4);
+    transition: color var(--dur-1) var(--ease-out);
 }
 
+// 放大镜跟着框一起变色：光标在框里这件事，除了描边还得有个更内的信号。
+// 这条是装饰性的（图标 aria-hidden，读屏不依赖它），所以不认 transition 的浏览器无感。
+.cmdk-field:focus-within .cmdk-icon {
+    color: var(--signal);
+}
+
+// 框高 = input 的 22px 行高 + 上下各 11px + 容器 2px 描边 = 46px。
+// 竖向的呼吸全部挂在 input 身上，所以点击热区是 44px 高，而不是只有那条 22px 的字
+// （触屏上差别很明显）。横向不成立：放大镜、药丸和容器左右各 12px 内缩点不到输入区，
+// 要让整行可点得把 .cmdk-field 换成 <label for="cmdk-input">，那是模板侧的事，CSS 无解。
 #cmdk-input {
     flex: 1;
     min-width: 0;
+    padding: 11px 0;
     font-family: inherit;
+    // 16px 是下限不是审美选择：iOS Safari 聚焦到 < 16px 的表单控件时会横向放大整页，
+    // 面板会跟着抖一下。要压字号得换成随视口缩放的写法，不能直接改小。
     font-size: 16px;
+    line-height: 22px;
     color: var(--ink);
+    // 光标取 --signal，和放大镜、框的描边是同一族颜色，三处一起说「焦点在这一行」。
+    // 它不承担可读性：光标不是文本，闪烁可见性由系统 caret 动画负责。
+    caret-color: var(--signal);
     background: none;
+    border: 0;
+    // 关掉的是 input 自己那条 §0 的 :focus-visible 描边，可见性由容器的亮框承担。
+    // 顺带一提 §11·M14 那个 ringGrow 动画命中的是 input:focus-visible，它只改 outline-offset，
+    // 在这儿 outline 已经是 none，所以那条动画在这颗输入框上本就空转，不会和亮框打架。
+    outline: none;
+    appearance: none;
 
     &::placeholder {
         color: var(--ink-3);
+        opacity: 1;
     }
 }
 
@@ -3455,15 +3528,25 @@ body.fab-tucked .bottom-fixed-btn {
     font-family: $font-meta;
     font-size: 11px;
     color: var(--ink-3);
-    border: 1px solid var(--rule);
+    // 底取 --surface（与面板同色那一档）：透明底在原尺寸下会陷进框底 --surface-2 读不出来，
+    // 而这一档在白天比框底亮、夜间比框底暗，两个方向都把药丸拎出来。
+    // 字对这一档底：5.11 / 5.11 / 5.27 / 6.02（四档纸面），过 AA 小字号线。
+    // 描边留 --rule-2 是刻意的——它是药丸的装饰边、不是控件边界，1.4.11 管不到它，
+    // 对框底 1.33～1.47 也正是「一道若有若无的刻痕」该有的强度。
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
     border-radius: var(--radius-s);
 }
 
+// 三条的左边缘现在都在 14px 这一列：搜索行的框靠 margin、这一栏和结果行的底色靠 padding。
+// 改前是 0 / 16 / 8 三个数：搜索行没有左右外缩（只有一条 border-bottom 当分隔线，横跨整块面板），
+// 计数从 16px 起，选中行的底色从 8px 起。
+// 横内缩写在这儿而不是并进 .cmdk-field 的 margin，是因为这三条的竖向尺寸各不相同。
 .cmdk-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px 6px;
+    padding: 8px 14px 6px;
     font-family: $font-meta;
     font-size: 11px;
     letter-spacing: .5px;
@@ -3477,10 +3560,59 @@ body.fab-tucked .bottom-fixed-btn {
     border-radius: var(--radius-s);
 }
 
+// 空查询与零结果时这一栏没有内容可显示：计数被 JS 写成空串，而右边那句
+// 「↑↓ 选择 · Enter 打开」和空态副标题是同一句话，留着就是同一屏两遍。
+// 判据用 .cmdk-results:empty —— 那两条分支都会把它清成空列表（editorial.js 的 initPalette/render）。
+//
+// 收的方式是把 hint 摘掉 + 上下内边距归零，而不是给整条 .cmdk-meta 写 display:none：
+// #cmdk-count 挂着 aria-live="polite"，而有查询的那条分支里 render() 是先写计数、
+// 后写结果列表这两行。display:none 会让计数的变化发生在「已脱离无障碍树」的节点上，
+// 读屏能不能补上这一口取决于区域是「文本变了」还是「整块插入」——前者是这条属性最标准的
+// 工作方式，后者各家行为不一。留一个 0 高的渲染节点就把这个不确定性拿掉了。
+// .cmdk-hint 本身在模板里就是 aria-hidden，摘掉它不影响任何读屏信息。
+// 不认 :has() 的浏览器丢弃整条规则，退成改前的样子
+// （与 §11·M19 里 .post-masthead:has(.post-hero) 同一口径）。
+.cmdk-panel:has(.cmdk-results:empty) {
+    .cmdk-meta {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .cmdk-hint {
+        display: none;
+    }
+}
+
+// 触屏上没有 Esc 键，↑↓ 也没有键可按，这两处提示在这类设备是纯噪声。
+// 判据用 (hover: none) and (pointer: coarse) 而不是断点宽度：窄窗口的桌面浏览器照样有键盘。
+// 加 pointer: coarse 这一半，是因为触屏笔记本和外接键盘的平板在 (hover: none) 上
+// 和手机给的答案一样，但它们真的有键盘——那两类设备宁可多留一句提示。
+// 它与 dev/js/editorial.js 里下拉展开那支判据同族但不等价（那边是 innerWidth<=695 ||
+// matchMedia('(hover: none)')，多一个宽度项、少一个 coarse）。
+@media (hover: none) and (pointer: coarse) {
+    .cmdk-esc,
+    .cmdk-hint {
+        display: none;
+    }
+
+    // 同一件事在空态副标题里还有第三处：editorial.js 的 showEmpty() 把
+    // 「↑ ↓ 选择条目，Enter 打开文章」写进 #cmdk-empty-sub，触屏首开照样会读到它。
+    // 那句和零结果时的「换个关键词，或去分类、标签页逛逛」共用同一个节点，CSS 按内容分不开，
+    // 但按输入框分得开：空查询才 :placeholder-shown，有输入（哪怕没匹配上）就不在。
+    // 于是这一条只收首屏那句键盘指令，零结果那条带分类/标签链接的副标题一行不动。
+    // 漏网的一种：只敲空格（q 被 trim 成空、走空查询分支，但框里有值、:placeholder-shown 不成立），
+    // 触屏上会多留一句用不上的键盘提示——不遮蔽任何可点的东西，认了。
+    .cmdk-panel:has(#cmdk-input:placeholder-shown) #cmdk-empty-sub {
+        display: none;
+    }
+}
+
 .cmdk-results {
     max-height: 52vh;
     overflow-y: auto;
-    padding: 0 8px 6px;
+    // 左右各 14px 与 .cmdk-field 的外边距同值：选中行那层底色和搜索框
+    // 于是对齐成同一列，而不是一个 8px、一个 14px 各缩各的。
+    padding: 0 14px 6px;
     list-style: none;
 }
 
