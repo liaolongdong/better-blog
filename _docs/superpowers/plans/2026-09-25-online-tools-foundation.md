@@ -284,7 +284,11 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  *   §N 正则测试 20 / §O 复制三件套抽离 13 —— 编码页的纯逻辑与公共件（段 3 Task 1–5）
  *   §Q 编码页视图层 16 / §R 编码页装配层与入口 16 —— `codecView.js`（Task 6a）与
  *                `codecWorkbench.js` / `toolCodec.js`（Task 6b）
- *   合计 268。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §U 内置件自证 5 —— vendored `js-yaml` 进仓库那一步的五条（段 4 Task 1；§U 的后半族
+ *                跟着 Task 4 的 `json-convert.js` 一起往这一节末尾追加，节名不另起）
+ *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
+ *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
+ *   合计 303。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）

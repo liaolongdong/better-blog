@@ -31,7 +31,11 @@
  *   §N 正则测试 20 / §O 复制三件套抽离 13 —— 编码页的纯逻辑与公共件（段 3 Task 1–5）
  *   §Q 编码页视图层 16 / §R 编码页装配层与入口 16 —— `codecView.js`（Task 6a）与
  *                `codecWorkbench.js` / `toolCodec.js`（Task 6b）
- *   合计 268。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §U 内置件自证 5 —— vendored `js-yaml` 进仓库那一步的五条（段 4 Task 1；§U 的后半族
+ *                跟着 Task 4 的 `json-convert.js` 一起往这一节末尾追加，节名不另起）
+ *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
+ *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
+ *   合计 303。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -9973,4 +9977,305 @@ test('S20 收尾三件：转义往返与点名、八类 kind 全覆盖、纯函�
   assert.ok(!/^\s*import\s/m.test(code), 'json-core 一本都不 import：它是这一族的底座，不许有依赖边');
   assert.match(code, /function parseJson\([\s\S]{0,400}?=\s*gate\(/,
     'parseJson 的第一步必须是 gate：全仓库只有一处字节与行数的口径');
+});
+
+// ── §T interface 生成（tools/json-ts.js，段 4 Task 3）─────────────────────────
+// 这一节钉的是"从样本推断出来的类型长成什么样"。`text` 是要给人复制走的东西，所以它按**逐字相等**来断，
+// 不按"看起来像 TS"来断——一个缩进、一对括号、一处 `?:` 换了位置，复制出去的文件就归别人 debug 了。
+// 三格返回各有各的口径：
+//   · `text` = 一行注释（`TS_HEADER_NOTE`）+ 空行 + 若干声明块，块之间空一行，**结尾不留换行**；
+//   · `names` = 具名 interface 的出场顺序（根那一格若是 `type Root = …` 就不在里面）；
+//   · `notes` = 并集 / 可选键 / 索引签名三句**该说的时候**才说的话，句子里不许带计数器
+//     （带了就得再钉一遍"数的是什么"，而这里三句都只是"这类形状怎么读"，不是样本统计）。
+// 命名口径只有一套，写死在这里，实现不许自创第二套：
+//   · 数组元素里的对象 → 具名接口 `父名 + PascalCase(键名)`；**键名给出的是元素的名字**
+//     （`users: RootUsers[]`，接口叫 `RootUsers`），只有数组套数组与根数组没有键名，才追加 `Item`；
+//   · 同名冲突按出场顺序追加 2、3……一个槽一份声明，形状相同也不合并（合并要做结构相等判断，
+//     而"结构相等"和"同一个槽"根本不是一回事，宁可让输出重复）；
+//   · 其余对象一律内联；内联对象里出现的数组，它的元素照样按"父名 + 键名"提升成具名接口。
+// 并集成员的排序按档来：标量 → 数组 → 具名 interface → 内联对象 → null，同档内按渲染串升序。
+// 这条把设计文档 §5.3 的"JSON → TypeScript interface"拆成了可断的格子：嵌套、数组、联合、null、
+// 可选键五样都在 T1–T8 里各有一次逐字相等；T9 管参数口径，T10 管纯度与兜底。
+const { TS_HEADER_NOTE, toInterfaceName, generateTs } = await import('../dev/js/tools/json-ts.js');
+
+/** 剥注释扫源码：这一族的禁令跟 §S 同形，扫的是代码不是注释里的自我声明 */
+const tCode = () => read('dev/js/tools/json-ts.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 只要声明部分：注释头 + 那个空行是所有形状共有的开头，剥掉它才好逐块写逐字相等 */
+const tBody = (text) => {
+  const head = `// ${TS_HEADER_NOTE}\n\n`;
+  if (!text.startsWith(head)) throw new Error(`text 的开头不是"注释 + 空行"那一格：${JSON.stringify(text.slice(0, 40))}`);
+  return text.slice(head.length);
+};
+const tOf = (value, options) => generateTs(value, options).text;
+
+test('T1 三格返回的逐字形状：注释头、块序、names 出场顺序、notes 只说该说的', () => {
+  const v = { users: [{ id: 1, name: 'a', nick: 'n' }, { id: 2, name: 'b' }], total: 3, tags: ['x', 'y'], ok: true };
+  const out = generateTs(v);
+  assert.equal(out.text, [
+    `// ${TS_HEADER_NOTE}`,
+    '',
+    'interface Root {',
+    '  users: RootUsers[];',
+    '  total: number;',
+    '  tags: string[];',
+    '  ok: boolean;',
+    '}',
+    '',
+    'interface RootUsers {',
+    '  id: number;',
+    '  name: string;',
+    '  nick?: string;',
+    '}',
+  ].join('\n'), '行序、缩进、分号、空行一格都不许改');
+  assert.ok(!out.text.endsWith('\n'), '结尾不留换行：复制框里多出来的那个空行也要算进字节');
+  assert.deepEqual(out.names, ['Root', 'RootUsers'], 'names 就是声明块的出场顺序，跟 text 里的顺序一致');
+  assert.equal(out.notes.length, 1, '这里只有"可选键"该说话：没并集、没引号键');
+  assert.match(out.notes[0], /不是每条都有/);
+  assert.match(TS_HEADER_NOTE, /样本/, '顶部那句得说清"这是按样本推断的"，不是 schema');
+  assert.ok(!/[\r\n]/.test(TS_HEADER_NOTE), '那句注释必须是单行，不然 T1 的行序就不是上面这个形状了');
+  assert.equal(tBody(tOf(v)).split('\n\n').length, 2, '两个声明块之间恰好一个空行');
+});
+
+test('T2 toInterfaceName 的六档：renamed 与 reason 是同一件事的两半', () => {
+  assert.deepEqual(toInterfaceName('Root'), { name: 'Root', renamed: false, reason: '' });
+  assert.deepEqual(toInterfaceName('users'), { name: 'Users', renamed: true, reason: '首字母改大写' });
+  assert.deepEqual(toInterfaceName('orderID'), { name: 'OrderID', renamed: true, reason: '首字母改大写' });
+  assert.deepEqual(toInterfaceName('a-b'), { name: 'AB', renamed: true, reason: '非法字符改写' });
+  assert.deepEqual(toInterfaceName('1st'), { name: '_1st', renamed: true, reason: '非法字符改写' });
+  assert.deepEqual(toInterfaceName('中文'), { name: 'Unnamed', renamed: true, reason: '非法字符改写' });
+  assert.deepEqual(toInterfaceName('$ok'), { name: 'Ok', renamed: true, reason: '非法字符改写' });
+  assert.deepEqual(toInterfaceName(''), { name: 'Unnamed', renamed: true, reason: '空串' });
+  const long = toInterfaceName('x'.repeat(60));
+  assert.deepEqual([long.name.length, long.renamed, long.reason], [48, true, '超长截断']);
+  assert.equal(long.name, `X${'x'.repeat(47)}`);
+  // 四格自洽：renamed 当且仅当名字与原串不等；reason 空当且仅当没改名；名字永远是合法标识符
+  for (const raw of ['Root', 'users', 'a-b', '', '1st', '中文', 'z'.repeat(70), '$ok', '_A1']) {
+    const r = toInterfaceName(raw);
+    assert.equal(r.renamed, r.name !== raw, `${raw} 的 renamed 与 name 对不上`);
+    assert.equal(r.reason === '', !r.renamed, `${raw} 的 reason 与 renamed 分叉了`);
+    assert.match(r.name, /^[A-Za-z_$][A-Za-z0-9_$]*$/, `${raw} → ${r.name} 不是合法标识符`);
+  }
+  for (const bad of [42, null, undefined, {}, [], true]) {
+    assert.throws(() => toInterfaceName(bad), TypeError, `${typeof bad} 该抛 TypeError`);
+  }
+});
+
+test('T3 键名要不要加引号：合法标识符与保留字都直写，其余双引号带转义', () => {
+  const v = {
+    ok: 1, $a: 2, _b: 3, '1st': 4, 'a-b': 5, 'a b': 6, '': 7, 中文: 8,
+    class: 9, if: 10, 'a"b': 11, 'a\\b': 12, 'a\nb': 13, 'a\u0001b': 14, '\ud800': 15,
+  };
+  const out = generateTs(v);
+  assert.equal(tBody(out.text), [
+    'interface Root {',
+    '  ok: number;',
+    '  $a: number;',
+    '  _b: number;',
+    '  "1st": number;',
+    '  "a-b": number;',
+    '  "a b": number;',
+    '  "": number;',
+    '  "中文": number;',
+    '  class: number;',
+    '  if: number;',
+    '  "a\\"b": number;',
+    '  "a\\\\b": number;',
+    '  "a\\nb": number;',
+    '  "a\\u0001b": number;',
+    '  "\\ud800": number;',
+    '}',
+  ].join('\n'), '属性位置允许保留字：`class`、`if` 不加引号；数字开头与空白与引号都只能加引号');
+  assert.equal(out.notes.length, 1, '只有"索引签名"那一句该说');
+  assert.match(out.notes[0], /索引签名/);
+  const code = tCode();
+  assert.match(code, /escapeText\(/, '转义外包给 json-core 的 escapeText：本站只有一套"串怎么变成字面量"');
+});
+
+test('T4 数组的三档：同构 T[]、异构 (A | B)[] 稳定升序、空数组 unknown[]', () => {
+  assert.equal(tBody(tOf({ a: [1, 2] })), 'interface Root {\n  a: number[];\n}');
+  assert.equal(tBody(tOf({ a: [1, 'x'] })), 'interface Root {\n  a: (number | string)[];\n}');
+  assert.equal(tOf({ a: ['x', 1] }), tOf({ a: [1, 'x'] }), '等价输入必须给同一串：并集不跟着样本顺序走');
+  assert.equal(tBody(tOf({ a: [null, 1, true, 'x', null] })),
+    'interface Root {\n  a: (boolean | number | string | null)[];\n}', 'null 永远排在并集最后，其余按类型名升序');
+  assert.equal(tBody(tOf({ a: [null] })), 'interface Root {\n  a: null[];\n}', '只有 null 时它就是那一个成员，不写成 unknown');
+  assert.equal(tBody(tOf({ a: [] })), 'interface Root {\n  a: unknown[];\n}', '空数组没有样本可推断');
+  assert.equal(tBody(tOf({ a: [[]] })), 'interface Root {\n  a: unknown[][];\n}');
+  assert.equal(tBody(tOf({ a: [[1, 'x'], true] })),
+    'interface Root {\n  a: (boolean | (number | string)[])[];\n}', '数组里并了标量：内层括号是元素自己的，外层括号是数组要的');
+  assert.equal(tBody(tOf({ a: [[1, 'x'], [true]] })),
+    'interface Root {\n  a: (boolean | number | string)[][];\n}',
+    '一个数组只有一个元素槽：两层元素的形状并成一份，括号只在该并集的时候才加');
+  assert.match(generateTs({ a: [1, 'x'] }).notes[0], /并集/);
+});
+
+test('T5 提升只发生在数组元素：键名给元素命名，冲突追加 2，内联对象里的数组照样提升', () => {
+  const v = { aB: [{ q: 1 }], 'a-b': [{ r: 2 }], xs: [[{ z: 1 }]] };
+  assert.equal(tBody(tOf(v)), [
+    'interface Root {',
+    '  aB: RootAB[];',
+    '  "a-b": RootAB2[];',
+    '  xs: RootXsItem[][];',
+    '}',
+    '',
+    'interface RootAB {',
+    '  q: number;',
+    '}',
+    '',
+    'interface RootAB2 {',
+    '  r: number;',
+    '}',
+    '',
+    'interface RootXsItem {',
+    '  z: number;',
+    '}',
+  ].join('\n'), '`aB` 与 `a-b` 都推出 RootAB：先出场的那个拿原名，后面追加 2');
+  assert.deepEqual(generateTs(v).names, ['Root', 'RootAB', 'RootAB2', 'RootXsItem']);
+  assert.equal(tBody(tOf([{ a: 1 }])),
+    'type Root = RootItem[];\n\ninterface RootItem {\n  a: number;\n}', '根数组没有键名，元素用 Item');
+  assert.equal(tBody(tOf({ p: [{ a: 1 }], s: [{ a: 2 }] })), [
+    'interface Root {',
+    '  p: RootP[];',
+    '  s: RootS[];',
+    '}',
+    '',
+    'interface RootP {',
+    '  a: number;',
+    '}',
+    '',
+    'interface RootS {',
+    '  a: number;',
+    '}',
+  ].join('\n'), '形状相同也不合并：一个槽一份声明');
+  assert.equal(tBody(tOf({ meta: { list: [{ q: 1 }] } })), [
+    'interface Root {',
+    '  meta: {',
+    '    list: RootMetaList[];',
+    '  };',
+    '}',
+    '',
+    'interface RootMetaList {',
+    '  q: number;',
+    '}',
+  ].join('\n'), '内联对象自己是 RootMeta，它里面的数组元素照样按父名+键名提升');
+  // 数组套数组时名字一路追加 Item，48 字符那一档把链条截住（截断在冲突追加之前）
+  let nested = { z: 1 };
+  for (let i = 0; i < 15; i++) nested = [nested];
+  assert.deepEqual(generateTs(nested).names, [`Root${'Item'.repeat(15)}`.slice(0, 48)],
+    '根数组套 15 层：元素接口名截到 48 字符，链条不许越截越长');
+  // 追加过 2、3 的那一格，孩子跟着**声明出去的名字**走，父子链在 text 里连得上
+  const collide = { aB: [{ m: [{ p: 1 }] }], 'a-b': [{ m: [{ q: 2 }] }] };
+  assert.deepEqual(generateTs(collide).names, ['Root', 'RootAB', 'RootABM', 'RootAB2', 'RootAB2M'],
+    '两个槽都推出 RootAB：抢不到名字的那个追加 2，它里面的元素接口跟着叫 RootAB2M');
+  assert.match(tBody(tOf(collide)), /interface RootAB2 \{\n {2}m: RootAB2M\[\];/,
+    '声明与引用用同一格名字：RootAB2 的成员指着 RootAB2M，不指着断掉的 RootABM');
+});
+
+test('T6 内联对象与空容器：`{}`、`unknown[]`、根空对象、根标量走 type 别名', () => {
+  assert.equal(tBody(tOf({ meta: { k: 1 }, empty: {}, list: [[1]] })), [
+    'interface Root {',
+    '  meta: {',
+    '    k: number;',
+    '  };',
+    '  empty: {};',
+    '  list: number[][];',
+    '}',
+  ].join('\n'), '内联对象一行一个成员，闭合的 `}` 退回上一层缩进');
+  assert.equal(tBody(tOf({})), 'interface Root {}');
+  assert.deepEqual(generateTs({}).names, ['Root']);
+  assert.deepEqual(generateTs({}).notes, [], '空对象三句都不该说');
+  for (const [value, want] of [[42, 'number'], ['s', 'string'], [true, 'boolean'], [null, 'null'],
+    [[1, 2], 'number[]'], [[1, 'x'], '(number | string)[]']]) {
+    assert.equal(tBody(tOf(value)), `type Root = ${want};`, `${JSON.stringify(value)} 的根不是对象，走别名`);
+    assert.deepEqual(generateTs(value).names, [], '没有 interface 时 names 是空数组，不是 undefined');
+  }
+  assert.equal(tBody(tOf({ v: { k: 1 } })), 'interface Root {\n  v: {\n    k: number;\n  };\n}', '属性槽的对象是内联，不提升');
+});
+
+test('T7 可选键只在合并槽出现：`?:` 是"样本里没每条都有"，与 `| null` 是两回事', () => {
+  const out = generateTs({ rows: [{ id: 1, tag: 'a' }, { id: 2 }, { id: 3, tag: null }] });
+  assert.equal(tBody(out.text), [
+    'interface Root {',
+    '  rows: RootRows[];',
+    '}',
+    '',
+    'interface RootRows {',
+    '  id: number;',
+    '  tag?: string | null;',
+    '}',
+  ].join('\n'), 'tag 有两条样本、其中一条是 null：既 `?:` 又并 `null`，两件事都要说');
+  assert.match(out.notes.join('\n'), /不是每条都有/);
+  assert.match(out.notes.join('\n'), /并集/);
+  assert.equal(tBody(tOf([{ a: 1 }, { b: 'x' }])),
+    'type Root = RootItem[];\n\ninterface RootItem {\n  a?: number;\n  b?: string;\n}', '键序取首次出现的顺序');
+  assert.equal(tBody(tOf({ rows: [{ id: 1 }, { id: 2 }] })),
+    'interface Root {\n  rows: RootRows[];\n}\n\ninterface RootRows {\n  id: number;\n}',
+    '每条都有 → 不加 `?`：合并槽里"缺席"才谈得上可选');
+  const same = { rows: [{ id: 1, s: 'x' }, { id: 2, s: 'y' }] };
+  assert.deepEqual(generateTs(same).notes, [], '没有可选键也没有并集：notes 是空数组');
+});
+
+test('T8 notes 三句的条件出场：该说才说、说完就止，句子里不带计数器', () => {
+  assert.deepEqual(generateTs({ a: 1 }).notes, [], '三句都不该说的时候交回空数组，不是三个空串');
+  const onlyUnion = generateTs({ a: [1, 'x'] });
+  assert.deepEqual(onlyUnion.notes.length, 1);
+  assert.match(onlyUnion.notes[0], /并集/);
+  const onlyQuoted = generateTs({ 'a b': 1 });
+  assert.deepEqual(onlyQuoted.notes.length, 1);
+  assert.match(onlyQuoted.notes[0], /索引签名/);
+  const all3 = generateTs({ 'a-b': [{ c: 1 }, {}], d: [1, 'x'] });
+  assert.deepEqual(all3.notes.map((s) => (/并集/.test(s) ? 'u' : /不是每条都有/.test(s) ? 'o' : 'i'))
+    , ['u', 'o', 'i'], '出场顺序固定：并集 → 可选键 → 索引签名');
+  for (const s of all3.notes) {
+    assert.ok(!/\d/.test(s), `句子里不许带计数：${s}`);
+    assert.ok(!/[\r\n]/.test(s), `一句必须是一行：${s}`);
+    assert.equal(s, s.trim(), `句子两头不留空格：${s}`);
+  }
+  assert.equal(new Set(all3.notes).size, 3, '三句互不重复');
+});
+
+test('T9 indent 三档与 root 一档：模式不认就抛，静默回退默认档是把写错藏成莫名其妙', () => {
+  const v = { a: { b: 1 } };
+  assert.equal(tOf(v, { indent: 'two' }), tOf(v, {}), '缺省档就是 two');
+  assert.equal(tBody(tOf(v, { indent: 'four' })), 'interface Root {\n    a: {\n        b: number;\n    };\n}');
+  assert.equal(tBody(tOf(v, { indent: 'tab' })), 'interface Root {\n\ta: {\n\t\tb: number;\n\t};\n}');
+  assert.equal(tBody(tOf(v, { root: 'payload' })),
+    'interface Payload {\n  a: {\n    b: number;\n  };\n}', 'root 也过 toInterfaceName：小写首字母照样改大写');
+  assert.equal(tBody(tOf([{ q: 1 }], { root: 'row' })),
+    'type Row = RowItem[];\n\ninterface RowItem {\n  q: number;\n}', '根别名与它派生的元素名共用同一格 root');
+  for (const bad of ['one', '2spaces', '', 'TWO']) {
+    assert.throws(() => tOf(v, { indent: bad }), (e) => e instanceof RangeError
+      && /INDENT_MODES/.test(e.message) && /two \| four \| tab/.test(e.message), `${bad} 该点名 INDENT_MODES`);
+  }
+  assert.deepEqual(INDENT_MODES, ['two', 'four', 'tab'], '这一族的档位与 json-core 同一条清单');
+  assert.throws(() => tOf(v, { root: 42 }), TypeError);
+  assert.throws(() => generateTs(undefined), TypeError, 'undefined 不是 JSON 值，点名比推断成 unknown 有用');
+});
+
+test('T10 纯度、显式栈与深度兜底：不读环境、不吃 JSON、1000 层与环都出得来', () => {
+  const code = tCode();
+  for (const banned of ['Buffer.', 'TextEncoder', 'process.', 'localStorage', 'document.', 'window.',
+    'JSON.parse', 'JSON.stringify', 'fetch(', 'require(', 'eval(', 'Math.random']) {
+    assert.ok(!code.includes(banned), `json-ts 不许出现 ${banned}：纯计算、不读环境、转义与解析都不外包给原生`);
+  }
+  assert.equal((code.match(/^import /gm) || []).length, 1, '只有一本依赖：json-core 的那几把尺');
+  const names = /import \{([^}]*)\} from '\.\/json-core\.js'/m.exec(code)[1]
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  assert.deepEqual(names, ['INDENT_MODES', 'MAX_DEPTH', 'escapeText'], '只借三样：缩进档位、深度闸门、转义口径');
+  assert.match(code, /const buildShape[\s\S]{0,900}?while \(stack\.length\)/, '收集样本形状走显式栈，不靠调用栈');
+  // 深度：闸门之外不设第二道。1000 层是 parseJson 肯放行的最深输入，这里必须渲染得出来
+  let deep = 1;
+  for (let i = 0; i < 1000; i++) deep = { a: deep };
+  const out = tOf(deep);
+  assert.equal((out.match(/\{/g) || []).length, 1000, '一层容器一对花括号，兜底不许把中间某层悄悄压成 unknown');
+  assert.equal((out.match(/number;/g) || []).length, 1, '最深那一格是 1 → number，它还在');
+  // 环：同一格对象被反复走到，靠 MAX_DEPTH 收口，最深那一格交回 unknown
+  const cyc = {};
+  cyc.self = cyc;
+  const c = tOf(cyc);
+  assert.match(tBody(c), /unknown;/, '环走到深度闸门就停');
+  assert.ok(c.length < 200000, `环不许把输出撑爆（实际 ${c.length} 字节）`);
+  const v = { a: [{ b: 1 }], 'a-b': [{ c: 2 }] };
+  tOf(v);
+  assert.deepEqual(v, { a: [{ b: 1 }], 'a-b': [{ c: 2 }] }, '入参一个都不许改：推断只读不写');
 });
