@@ -166,7 +166,12 @@ function boot(doc, win, tk) {
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
     rowHeight: rowHeightPx(),
-    BlobCtor: win.Blob,
+    // 这一格必须给**工厂**，不能给裸构造器：装配层按 `env.BlobCtor(parts, options)` 的写法调用它
+    //（§W10 的红线 2「本层不写 `new Blob`」），而 `Blob` 是 WebIDL 接口，不带 `new` 直接调在浏览器里
+    // 必抛 `TypeError: Failed to construct 'Blob'`。§I 的假 DOM 给的是箭头函数，所以那 363 判一条都
+    // 抓不到这件事——真浏览器里点「下载结果」就是闸门那行红字，页面上没有任何一次下载发生过。
+    // 旁边两格早就是这个形状（`createObjectURL` / `revokeObjectURL` 都包了一层），这三格是一个形状。
+    BlobCtor: (parts, options) => new win.Blob(parts, options),
     createObjectURL: (b) => URL.createObjectURL(b),
     revokeObjectURL: (u) => URL.revokeObjectURL(u),
   });

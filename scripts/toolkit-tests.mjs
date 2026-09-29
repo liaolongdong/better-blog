@@ -12710,6 +12710,12 @@ test('W11 import 边闭合与入口那三格常量：门禁⑤ 组 5 用正则�
     'win.Blob', 'setTimeout(', 'win.navigator']) {
     assert.equal(wCount(bareEntry, word), 1, `入口里 ${word} 应恰好一处：多一处就是第二份环境读法，§R 立的"只在入口读一次"塌了`);
   }
+  // 「下载结果」给出去的必须是**工厂**而不是裸构造器。上面那圈词频守卫数得出 `win.Blob` 只出现一处，
+  // 数不出它前面有没有 `new`——而装配层是按 `env.BlobCtor(parts, options)` 的写法调它的（§W10 红线 2
+  // 「本层不写 `new Blob`」），`Blob` 不带 `new` 直接调必抛 `TypeError`。§I 的假 DOM 给的是箭头函数，
+  // 所以这一格在 363 判里一条都抓不到；抓到它的是真浏览器核验的 `json/10a`（点下载、`create` 记到 0）。
+  assert.match(bareEntry, /BlobCtor:\s*\([^)]*\)\s*=>\s*new\s+win\.Blob\b/,
+    '入口给 env.BlobCtor 的必须是 `(…) => new win.Blob(…)`：给裸构造器 = 页面上点「下载结果」必抛，一次下载都不会发生');
   // 行高是 Task 7 加进来的**第二只环境量**：它的权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h`，
   // 入口读一次、注入 `env.rowHeight`。数死一处的理由是"两把尺"：读第二处就可能与第一处不一样，
   // 而 §V 的窗口密度与行号槽那次 `style.height` 只认一个整数。装配层那一头由 W10 判 0 命中。

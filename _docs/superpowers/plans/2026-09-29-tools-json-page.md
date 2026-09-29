@@ -7416,7 +7416,8 @@ class FieldError extends Error {
  * @param {() => number} [env.now] 注入时钟；缺席就是缺席（记住输入的 `at` 落 0，不拿宿主时间补一个假数字）
  * @param {(fn: () => void, ms: number) => number} [env.later] `setTimeout` 的别名；缺席就不防抖（`input` 那一路 no-op）
  * @param {number} [env.rowHeight] 行高；给了但不是 ≥1 整数就 `RangeError`，缺席落 `ROW_HEIGHT`
- * @param {Function} [env.BlobCtor] `Blob` 的构造别名；与下两格缺一就不让下载按钮可用
+ * @param {(parts: Array<unknown>, options?: object) => object} [env.BlobCtor] 造 Blob 的**工厂**
+ *   （不是裸的 `Blob` 构造器——本层按函数调用它，不带 `new`）；与下两格缺一就不让下载按钮可用
  * @param {(b: object) => string} [env.createObjectURL] `URL.createObjectURL` 的别名
  * @param {(u: string) => void} [env.revokeObjectURL] `URL.revokeObjectURL` 的别名
  * @param {object} [env.navigator] 只为 `clipboard`；没有就走 `execCommand` 兜底
@@ -8362,7 +8363,12 @@ function boot(doc, win, tk) {
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
     rowHeight: rowHeightPx(),
-    BlobCtor: win.Blob,
+    // 这一格必须给**工厂**，不能给裸构造器：装配层按 `env.BlobCtor(parts, options)` 的写法调用它
+    //（§W10 的红线 2「本层不写 `new Blob`」），而 `Blob` 是 WebIDL 接口，不带 `new` 直接调在浏览器里
+    // 必抛 `TypeError: Failed to construct 'Blob'`。§I 的假 DOM 给的是箭头函数，所以那 363 判一条都
+    // 抓不到这件事——真浏览器里点「下载结果」就是闸门那行红字，页面上没有任何一次下载发生过。
+    // 旁边两格早就是这个形状（`createObjectURL` / `revokeObjectURL` 都包了一层），这三格是一个形状。
+    BlobCtor: (parts, options) => new win.Blob(parts, options),
     createObjectURL: (b) => URL.createObjectURL(b),
     revokeObjectURL: (u) => URL.revokeObjectURL(u),
   });
@@ -8973,6 +8979,12 @@ test('W11 import 边闭合与入口那三格常量：门禁⑤ 组 5 用正则�
     'win.Blob', 'setTimeout(', 'win.navigator']) {
     assert.equal(wCount(bareEntry, word), 1, `入口里 ${word} 应恰好一处：多一处就是第二份环境读法，§R 立的"只在入口读一次"塌了`);
   }
+  // 「下载结果」给出去的必须是**工厂**而不是裸构造器。上面那圈词频守卫数得出 `win.Blob` 只出现一处，
+  // 数不出它前面有没有 `new`——而装配层是按 `env.BlobCtor(parts, options)` 的写法调它的（§W10 红线 2
+  // 「本层不写 `new Blob`」），`Blob` 不带 `new` 直接调必抛 `TypeError`。§I 的假 DOM 给的是箭头函数，
+  // 所以这一格在 363 判里一条都抓不到；抓到它的是真浏览器核验的 `json/10a`（点下载、`create` 记到 0）。
+  assert.match(bareEntry, /BlobCtor:\s*\([^)]*\)\s*=>\s*new\s+win\.Blob\b/,
+    '入口给 env.BlobCtor 的必须是 `(…) => new win.Blob(…)`：给裸构造器 = 页面上点「下载结果」必抛，一次下载都不会发生');
   // 行高是 Task 7 加进来的**第二只环境量**：它的权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h`，
   // 入口读一次、注入 `env.rowHeight`。数死一处的理由是"两把尺"：读第二处就可能与第一处不一样，
   // 而 §V 的窗口密度与行号槽那次 `style.height` 只认一个整数。装配层那一头由 W10 判 0 命中。
@@ -10853,11 +10865,110 @@ Modify spec（§7 两行、§8.3 对账表那一行的状态）。
 Pointer 点击复制的载荷 == Node 现算的那一条、5 MiB/+1B/200 层三档硬输入、
 下载 `.json` 那一条（断 `createObjectURL` 收到 Blob、`revokeObjectURL` 被叫到）。
 
-- [ ] Step 1: 六族通用表 → Step 2: JSON 专有四族 → Step 3: teeth 的九项全点燃（六族各一刀变异
+- [x] Step 1: 六族通用表 → Step 2: JSON 专有四族 → Step 3: teeth 的九项全点燃（六族各一刀变异
   + 三条假牙自检），一项不点燃就是牙齿自己没牙（记忆规则「收紧守卫判据须自证仍有牙」）→
   Step 4: §7 那两行**按实测量出来的数**立进 spec（含 ≥5% 余量与 6↔9 抖动复算），
   并回写 §5.3 三处形状（§0.6）与 §8.3 对账表里"证件页那四条"的处置 → Step 5: 六道门禁跑齐、记录读数 →
   Step 6: 提交（`test(tools): 段 4 Task 8 JSON 页浏览器核验——六族×三页 + 证件页四条回补，§7 两行先量后立`）。
+
+### 落地记录（2026-09-30，Task 8 那一格实跑）
+
+**先说一件环境事件**：本格第一次的快照（`/tmp/seg4t8/_site`）与 teeth 日志（`/tmp/seg4t8-teeth`、
+`$TMPDIR/tools-teeth-logs-*`）在收口前被系统整目录清空了——`/tmp` 只剩六枚系统条目。
+那两轮的读数当时就写进了 spec §7 与 §8.3，字节没变，所以**结论不受影响**；但"复算不了"本身是一笔账，
+于是这一格从两棵导出树到快照、副本、日志全部改建到仓库内被 gitignore 的
+`node_modules/.seg4t8-scratch/`（`.gitignore:3` 命中，`git check-ignore --no-index` 自证过），
+并把三页全量与九项牙齿**各重跑了一轮**（下面的读数都出自重跑的那一轮）。
+
+**跑法**（两行都要求先有 `npx vite build` 的活产物，快照 `bundle exec jekyll build -d …`，本轮 31.293s、`exit=0`）：
+
+```bash
+node_modules/.seg4t8-scratch/browser/_site   # 快照：TK_SITE_DIR 指这里
+node_modules/.seg4t8-scratch/teeth/_site     # 副本：teeth 那一本指这里（它要能写坏再复原）
+```
+
+- **三页全量**：`TK_SITE_DIR=…/browser/_site node scripts/verify-tools-browser.mjs` →
+  **`# 合计 72 项，红 0 项`、`exit=0`**。按页分是证件 18 / 编码 18 / JSON 29，另加闸门四条 `0a`–`0d`
+  与字节三条 `11a`–`11c`。`0c` 那条同源自证本轮比对的是**58 件**（三页各自引用的 min 件去重），全等。
+- **牙齿九项**：`TK_SITE_DIR=…/teeth/_site node scripts/verify-tools-browser-teeth.mjs` →
+  **`合计 9 项（六刀 + 三自检），点燃 9 项，未点燃 0 项`、`exit=0`**。六刀的红项逐字是
+  `T1 → [0c、idcard/1b、1d、1f]`、`T2 → [0c、idcard/2a]`、`T3 → [0c、idcard/3c]`、`T4 → [json/4a]`、
+  `T5 → [codec/5a]`、`T6 → [codec/6a]`；**每一刀的退出码都是 1（判据红）而不是 2（量具挂）**。
+  三条自检 `S1`（空刀命中 0 处必须被认出"没落地"）/ `S2`（指仓库 `_site` 与不设都退 2）/
+  `S3`（写坏按 md5 复原 + 人为错位抓出恰好 1 件）同轮点齐。日志留在
+  `$TMPDIR/tools-teeth-logs-QJGduy`（脚本自己写了"不删，供后来的人复核"）。
+
+**这一格抓到的一处产品缺陷（真浏览器才有那一跳）**：`dev/js/toolJson.js` 的 `env.BlobCtor` 交的是裸构造器
+`win.Blob`，而装配层按 `env.BlobCtor(parts, options)` 的**函数**形状调它——`Blob` 是 WebIDL 接口，不带 `new`
+直接调必抛 `TypeError: Failed to construct 'Blob'`。363 判一条都抓不到（§I 的假 DOM 给的就是箭头函数），
+只有 `10a` 那一次真点击让它现形：页面上点「下载结果」从来没有任何一次下载发生过。改成
+`BlobCtor: (parts, options) => new win.Blob(parts, options)`，旁边两格（`createObjectURL` / `revokeObjectURL`）
+早就是这个形状；`jsonWorkbench.js` 的 `@param` 那一行同步改成"工厂"，并补了一条静态牙齿 `W11`
+（正则钉住入口里那一行必须写 `=> new win.Blob`）。产物随之从 `126,700B/43,440B` 走到 `126,716B/43,445B`
+——**这一格立的 §7 两行量的就是改完之后那一份**，不是改之前的。
+
+**收口前的一次假红，与它的修法（写进 §8.3 那条教训，段 5 照抄）**：第一次三页全量里 `json/9d` 红，
+单跑 `TK_PAGES=json` 立刻绿。红因不在页面，在量具：那一格把 2 MB 灌进 `value`、连发 20 次 `input` 之后
+`await wait(500)` 读**一次**状态行，而整轮跑到这里时主线程被前面的组占满，防抖那一只 `setTimeout`
+（`jsonWorkbench.js:74` 的 `DEBOUNCE_MS = 200`）在 500ms 内没轮到跑，读回来的是**开页时的旧账单**
+`字节 0 · 行 1`。这与段 3 那条"`focus()` 落在 `display:none` 子树里静默失败、读回来是上一轮旧账单"
+是同一族的假红，只是这次的时钟换成防抖。修法是加一只 `readSettledText()`：每 100ms 采一次样、
+**连续三次同文**才算落定（200ms 静默恰好盖过 `DEBOUNCE_MS`），上限 4s，且**它不等任何期望值**——
+页面真把字节数算错时照样带着错的数变红，牙齿没在这格里丢；`stat.quiet` 进了判定，耗时与采样数进了读数，
+红的时候分得开"没落定"与"落定成错的数"。重跑那一轮 `9d` 的明细是「状态行落定 560ms / 4 次采样（已落定）」。
+
+**六道门禁的读数**（`9d` 那一次改的是量具自己，改完六道全重跑，一次不退）：
+
+- **①** `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs`
+  → `# tests 363 / # pass 363 / # fail 0`，`exit=0`。
+- **②** 第一跑红三本，逐本归因**全是这一格自己的**：`dev/js/tools/jsonWorkbench.js`（磁盘 981 vs 镜像 980，
+  `@param` 那一行）、`dev/js/toolJson.js`（200 vs 195，`BlobCtor` 那六行注释）、`scripts/toolkit-tests.mjs §W`
+  （1,204 vs 1,198，`W11` 那一判）。`--fix` 重写 3 块、计划 10,899 → 10,911 行；
+  再跑 `exit=0`：**65 个镜像 / 1,349,416B** 逐字节全等、未落地 0 节。
+  （上一格记的"62 个"是**对得上盘的那 62 个**，对不上的 3 个当时不计——口径别再抄错。）
+- **③** `node scripts/verify-plan-blocks-teeth.mjs` `exit=0`，`35/35 通过`；
+  副本回到全绿、实验前后工作树脏指纹一模一样（脏项 30 个、diff 指纹 `e19a3cddf8f5220a`，含另一路会话那批，未被触碰）。
+- **④ 真重建，两棵树对拍**（这一格动过 `dev/`，按 §0.5 不许用"构建输入集未变"那一档替代）：
+  base = 纯 `git archive HEAD`，work = 同一份 HEAD 只叠上 `dev/js/toolJson.js` 与 `dev/js/tools/jsonWorkbench.js`
+  两本（`diff -rq` 自证两棵树的 `dev/` 就差这些），各自 `npx vite build`（Node v22.19.0，两边都 `✓ built in <13s`、`exit=0`）。
+  产物三列清单（口径 `cat f | gzip -9 | wc -c`）base **35 件 / 原始 792,370B / gzip 247,110B**，
+  work **35 件 / 792,386B / 247,115B**，`diff` 只差一行 → `js/toolJson.min.js 126700 43440 → 126716 43445`。
+  **件数不再从 33 涨到 34**，因为 `toolJson.min.js` 与 `toolJson.min.css` 早在 Task 7 就进了 HEAD，
+  基线那一棵本来就带着它们——这一格的 diff 只剩"字节"，没有"新增件"。
+  ESM 残留自查：四本入口产物 `import{` / `export{` 各 0 命中，头 `(function(){`、尾 `})();`。
+- **⑤** `node scripts/check-tools-surface.mjs` `exit=0`（**3 条 ready × 5 组全绿**，导航-全站核到 98 页）。
+- **⑥** `node scripts/check-tools-surface-teeth.mjs` `exit=0`（牙齿台账 **58/58** 组变异如期变红 + 全部还原、复跑基线仍绿）。
+
+**两处"活产物不等于我该量的那份"，都在这一格被抓出来并修掉**：
+
+1. 仓库 `_site/assets/js/toolJson.min.js` 还是**修复前**那一份（`b82bfd4d…`，快照建在 00:32、`vite build` 落在 03:51），
+   另外 34 件 `*.min.*` 逐件 md5 与活树全等。按活树把它覆盖成 `e00120cf…` 之后重跑 ⑤⑥，仍全绿——
+   门禁⑤ 读的正是 `_site/`，这一格不修就是"门禁对着陈旧产物点绿"。
+2. work 树与活树的 35 件 md5 对照里，`js/editorial.min.js` 差一件。归因：`dev/js/editorial.js` 此刻带另一路会话的
+   未提交改动（`git status` 的 ` M`），活树那份是**他们的**，work 树那份是 HEAD 的。
+   它不在 §7 六行的任何口径里，也不在三页判据引用的 58 件里（`0c` 全等就是这一句的自证），**不记进本格的账**。
+
+**§7 那两行按实测量出来的数立进去了**（spec §7 表 + 表末那段推导）：JSON 页 JS+CSS **58,368B（57KB）**、
+JSON 页首屏 **17,408B（17KB）**；推导只用两把尺（L6/L9 取较大当最坏读数、余量 ≥5%、向上取 1024 倍），
+`56KB 那一档立不住`（对最坏读数只剩 2,635B = 4.6%）、`16KB 立不住`（787B = 4.8%）。同表把**六行**都重算了一遍，
+其中证件页首屏（2.8%）与编码页 JS+CSS（4.9%）**低于那条 5% 线**——这两格是**旧行**，
+按"≥5% 是立预算的规则、不是守预算的规则"处理：不动它们的档，`11b` 只在明细串里点名 `⚠低于5%`，
+`11c` 只对**本格新立的那两行**判 ≥5%。分母口径这一格统一成**预算**（`余 = 预算 − 实测`，再 ÷ 预算），
+理由与那一段一起写在 spec §7 表末。
+
+**本格提交范围**：`dev/js/toolJson.js`、`dev/js/tools/jsonWorkbench.js`（那处产品缺陷与它的 `@param`）、
+`scripts/toolkit-tests.mjs`（`W11` 那一判）、`scripts/verify-tools-browser.mjs`（新建 + `readSettledText`）、
+`scripts/verify-tools-browser-teeth.mjs`（新建）、spec 的 §7 / §5.3 / §8.3 三处、本计划的 Task 8 那一格。
+`_site/` 与 `assets/` 都不进提交（`.gitignore:4` 与 `:9-10`）；另一路会话暂存集里的那一批一个字都不带。
+
+**留给 Task 9 的账**（不是缺陷，是这一格量完之后的收口动作）：① README / USAGE 的计数复算与
+`scripts/toolkit-tests.mjs` 文件头那张「用例分布」地图整表重算；② **重复面登记**——通用六族今天在
+`verify-codec-browser.mjs`、`verify-idcard-browser.mjs` 与这一本新脚本里各有一份，而 `verify-idcard-browser.mjs`
+此刻带着另一路会话未提交的改动（`--proxy-server=direct://` 那一族），合流必须等它落定；
+③ `USAGE.md` 那一格仍**未提交**（见本计划 Task 9 第 1 条第 ②点），本格没有碰它；
+④ §7 那两行低于 5% 的旧行、`assets/**/*.md` 与十档截图目测、性能分与 Lighthouse 依旧没跑过——
+这些都写进收口记录，不许并进"门禁全绿"里。
+
 
 ---
 

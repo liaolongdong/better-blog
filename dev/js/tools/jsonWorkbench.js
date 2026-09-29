@@ -205,7 +205,8 @@ class FieldError extends Error {
  * @param {() => number} [env.now] 注入时钟；缺席就是缺席（记住输入的 `at` 落 0，不拿宿主时间补一个假数字）
  * @param {(fn: () => void, ms: number) => number} [env.later] `setTimeout` 的别名；缺席就不防抖（`input` 那一路 no-op）
  * @param {number} [env.rowHeight] 行高；给了但不是 ≥1 整数就 `RangeError`，缺席落 `ROW_HEIGHT`
- * @param {Function} [env.BlobCtor] `Blob` 的构造别名；与下两格缺一就不让下载按钮可用
+ * @param {(parts: Array<unknown>, options?: object) => object} [env.BlobCtor] 造 Blob 的**工厂**
+ *   （不是裸的 `Blob` 构造器——本层按函数调用它，不带 `new`）；与下两格缺一就不让下载按钮可用
  * @param {(b: object) => string} [env.createObjectURL] `URL.createObjectURL` 的别名
  * @param {(u: string) => void} [env.revokeObjectURL] `URL.revokeObjectURL` 的别名
  * @param {object} [env.navigator] 只为 `clipboard`；没有就走 `execCommand` 兜底
