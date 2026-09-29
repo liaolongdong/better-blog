@@ -909,17 +909,32 @@ await wait(760);
       sm.push({ t: Date.now() - gT0, ...s });
     }
     const firstIn = sm.find((x) => x.isIn === 1);
+    const firstC = sm.find((x) => x.c === 1);
     const shownAt = sm.find((x) => x.op > 0.95);
     const held = sm.filter((x) => x.c === 0 && x.op < 0.05);
-    const markLine = `共 ${sm.length} 帧｜is-in 落在 t=${firstIn ? firstIn.t : 'never'}（那一刻 complete=${firstIn ? firstIn.c : '?'}）｜opacity 到 1 于 t=${shownAt ? shownAt.t : 'never'}`;
+    const markLine = `共 ${sm.length} 帧｜页面于 t=${firstC ? firstC.t : 'never'} 把图判为 complete｜is-in 落在 t=${firstIn ? firstIn.t : 'never'}（那一刻 complete=${firstIn ? firstIn.c : '?'}）｜opacity 到 1 于 t=${shownAt ? shownAt.t : 'never'}`;
     if (!firstIn || !shownAt) { RED(`解码闸门·${arm}`, `这一行停在未揭示态：${markLine}`); return; }
     if (!held.length) { RED(`解码闸门·${arm}`, `没有一帧是「图没到、这行不显」：${markLine}`); return; }
     // 两支的分别只在「是谁开的这一锁」：load 支要在图落地那一刻就升（远早于 1200ms 的保险），
     // 超时支必须在图还没到时、于 1200ms 那一档补上。
     if (arm === 'load 支') {
-      if (firstIn.t > 1150) RED(`解码闸门·${arm}`, `等过 1200ms 才升（t=${firstIn.t}），分不清是图还是保险｜${markLine}`);
-      else if (firstIn.t < imgMs) RED(`解码闸门·${arm}`, `图 ${imgMs}ms 才到，这行却在 t=${firstIn.t} 就升了——闸门没按住｜${markLine}`);
-      else ok(`解码闸门·${arm}`, `按住 ${held.length} 帧，图于 ${imgMs}ms 落地这一行才升｜${markLine}`);
+      /**
+       * load 支的两个刻度都用**同一条采样流**，不拿 Node 的 t 去比服务器的名义延时。
+       * 原先写的是 `firstIn.t < imgMs 即红`，2026-09-29 这一臂就这样假红过一次：
+       * 读到 is-in 落在 t=692 而名义延时是 700——那一刻 complete 已经是 1，
+       * 也就是浏览器自己认为图已经到了，闸门按 `img.complete`（editorial.js 的
+       * `undecodedImage`）放行，行为是对的，错的是两只钟：`gT0` 取在「写 src」与
+       * 「scrollIntoView」两次 CDP 往返**之后**，比服务器开始计 `setTimeout(ms)`
+       * 的时刻晚几毫秒，量具读到的 t 因此系统性偏小。
+       * 现在改成：夹具自证（图确实慢到接近名义值才 complete，容 80ms 的落地与调度抖动）、
+       * 不早于页面读数升（闸门真的按住过）、且不晚于页面读数 120ms 以上（升起来是因为图，
+       * 不是因为 1200ms 的保险）。三条都在同一条流里比，绝对毫秒只剩容差。
+       */
+      if (!firstC) RED(`解码闸门·${arm}`, `整趟没读到 complete=1：${markLine}`);
+      else if (firstC.t < imgMs - 80) RED(`解码闸门·夹具`, `慢响应端点名义 ${imgMs}ms，图却在 t=${firstC.t} 就 complete——夹具没慢够，这一臂量不到「图在路上」｜${markLine}`);
+      else if (firstIn.t < firstC.t) RED(`解码闸门·${arm}`, `这行在 t=${firstIn.t} 就升了，页面到 t=${firstC.t} 才把图判为 complete——闸门没按住｜${markLine}`);
+      else if (firstIn.t - firstC.t > 120) RED(`解码闸门·${arm}`, `图于 t=${firstC.t} 落地，这行却拖到 t=${firstIn.t} 才升——不是 load 开的锁，是 1200ms 的保险｜${markLine}`);
+      else ok(`解码闸门·${arm}`, `按住 ${held.length} 帧，页面读到 complete 后 ${firstIn.t - firstC.t}ms 内这一行才升｜${markLine}`);
     } else if (firstIn.c === 1) RED(`解码闸门·超时支`, `图还没到时才走这一支，实测升起来时 complete=1｜${markLine}`);
     else if (firstIn.t < 1150 || firstIn.t > 2100) RED(`解码闸门·超时支`, `保险没在 1200ms 那一档落下（实测 t=${firstIn.t}）｜${markLine}`);
     else ok(`解码闸门·超时支`, `图 5000ms 才到，1200ms 的保险于 t=${firstIn.t} 补上这一次揭示｜${markLine}`);
