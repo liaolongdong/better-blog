@@ -2928,6 +2928,13 @@ test('S21 stringifyJson：值 → 文本与 formatJson 同一只 serialize，深
 Task 1 落 `0340cd5`、Task 2 落 `a81b025`（都在 `main` 上，尚未推送）。本格当时只把命令写进了计划，
 没记 hash——而段 4 后面每一格的"HEAD 导出树"都指着某一个 hash，事后不记就等于下一格拿不到可复现的基线。
 Task 3 落 `21d1c5c`，往后各格一律在这一节续一行。
+
+续记（2026-09-30，Task 7 落地时补）：Task 4 落 `140d867`；Task 5 落 `f37dd55`，它的评审回合另落
+`22ca89b`（§V 加 V17–V18）；Task 6 落 `99794e0`——它自己的评审回合那六刀折进同一笔（`git show
+--stat 99794e0` 九格、没有第二笔），所以这一段的"实现 + 评审"两档在 Task 6 那一格是一笔；
+Task 7 落 `ece569c`。中间夹着的 `2cfa285` / `ed99fca` / `b331a84` / `e41bda2` 是另一路会话的
+触屏导航与两篇正文，不属本段——下一格要"HEAD 导出树"时按本段自己那一串取基线，别把他们的
+改动当本段的基线。
 ---
 
 ## Task 3: `json-ts.js` — TypeScript interface 生成（§T）
@@ -9785,11 +9792,13 @@ Modify `_data/onlineTools.yml`（追加条目，`layout: workbench`、`panels: [
   最后跑 `USAGE.md`「检索层自查」那族**全量**（记忆教训：不只对本次改动跑），并把 §4.4 第 6 条
   那两个计数更新后确认仍绿。
 - [x] Step 5: 镜像登记 + **HEAD 导出树里**给 yml 条目做一次 `--fix`（§0.7 第 1 条那套动作）。
-- [ ] Step 6: 提交——**只提交本段独占的那些**：`tools-json.html`、`dev/sass/toolJson.scss`、
+- [x] Step 6: 提交——**只提交本段独占的那些**：`tools-json.html`、`dev/sass/toolJson.scss`、
   `assets/img/tools/json-tool.svg`、两本 `scripts/check-tools-*`、`scripts/verify-plan-blocks.mjs`、
   本计划、段 2 计划（只 `--fix` 那一块）、`USAGE.md`。
   `_data/onlineTools.yml` 与 `tools.html` **不暂存**（§0.7 第 1、3 条），并把这个未闭合状态写进
   本格记录与收口格的"待提交窗口"清单。
+  （落 `ece569c`。这张清单有两处实测修订——少列了三本实现文件、多列了 `USAGE.md`，而 yml 与
+  `tools.html` 反而要提交，逐条理由与归因证据见下面「本格提交范围」那一格。）
 
 ### 落地记录（2026-09-30，Task 7 那一格实跑）
 
@@ -9932,6 +9941,29 @@ pathspec 提交整文件等于把他们的删除一起发布；本格改的两�
 `_data/onlineTools.yml` 与 `tools.html` 则**反过来**：清单说不暂存，本格照第 4、6 条的归因结果提交。
 其余照 §0.7 第 2 条一律不碰（`dev/js/editorial.js` 与 `scripts/verify-idcard-browser.mjs` 那两格
 是另一路会话的 SW 离线层，`git diff HEAD` 现读 33 与 22/7 行，与工具页无关）。
+
+### 提交态自证（`ece569c`，段 3 `94724f5` 那一档的复用）
+
+本格把镜像与数据源一起提交，所以"干净检出能不能自证"从可选变成必须。做法照段 3 那一笔：
+`git archive ece569c | tar -x -C /tmp/seg4t7-clean`，在**导出树里**跑：
+
+| 门禁 | 导出树读数 |
+| --- | --- |
+| ① 判据 | `# pass 363 / # fail 0`，exit=0 |
+| ② 镜像 | exit=0，`65 个已落地镜像逐字节全等`、`⚠ 未落地 0 节` |
+| ⑤ 收录面 | exit=0，`✓ 收录面 3 条 ready 条目 × 5 组判据全绿（页面源/收录/导航/图标/DOM）` |
+
+**⑤ 那一格要带一句口径**：导出树里没有 `_site`（`assets/js/*.min.js` 与 `assets/css/*.min.css`
+在 `.gitignore` 第 9、10 行，构建产物不入库），所以那一份是**从活树复制**进来的。这条自证
+证的是「提交进去的源码 + 由这套源码产出的产物 → 收录面五组判据全绿」，不是「干净检出能重建产物」
+——后者是 `pnpm build:site` 与部署那一格的事。复制的那一份配不配得上刚提交的源码，有三条现读：
+① 活 `_site` 建在 00:32:59，比最后一次改页面源（00:32:40）新；② yml 与 svg 虽然分别到 00:36:03
+与 00:35:58 才落笔，但内容没变——`md5 -q assets/img/tools/json-tool.svg
+_site/assets/img/tools/json-tool.svg` 两串相同，而收录组那条"每个 `features` 要点必须在
+`_site/tools.html` 里逐字出现"的判据在导出树里照样退 0（它读的是源 yml 与复制进来的产物，
+两边对不上就红）；③ 本格那 13 格提交后 `git status --short` 里一律不再出现。
+门禁③⑥ 两本牙齿不在导出树里重跑：⑥ 只认 `ROOT/_site` 且会改写源文件，在导出树里跑一遍
+等于把刚提交的树当试验田，收口格（Task 9）按活树口径重跑一次就够。
 
 ### 落地镜像（门禁二核的就是这三块，`--fix` 会把它们整块换成磁盘内容）
 
