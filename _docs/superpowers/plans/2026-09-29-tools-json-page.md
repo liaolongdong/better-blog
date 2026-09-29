@@ -2932,7 +2932,8 @@ Task 3 落 `21d1c5c`，往后各格一律在这一节续一行。
 续记（2026-09-30，Task 7 落地时补）：Task 4 落 `140d867`；Task 5 落 `f37dd55`，它的评审回合另落
 `22ca89b`（§V 加 V17–V18）；Task 6 落 `99794e0`——它自己的评审回合那六刀折进同一笔（`git show
 --stat 99794e0` 九格、没有第二笔），所以这一段的"实现 + 评审"两档在 Task 6 那一格是一笔；
-Task 7 落 `ece569c`。中间夹着的 `2cfa285` / `ed99fca` / `b331a84` / `e41bda2` 是另一路会话的
+Task 7 落 `ece569c`，它的提交态自证回填另落 `f18e4ee`；Task 8（浏览器核验 + §7 两行先量后立）落
+`61963bc`（父亲正是 `f18e4ee`，`update-ref` 带旧值 CAS，中间无插入）。中间夹着的 `2cfa285` / `ed99fca` / `b331a84` / `e41bda2` 是另一路会话的
 触屏导航与两篇正文，不属本段——下一格要"HEAD 导出树"时按本段自己那一串取基线，别把他们的
 改动当本段的基线。
 ---
@@ -10968,6 +10969,48 @@ JSON 页首屏 **17,408B（17KB）**；推导只用两把尺（L6/L9 取较大�
 ③ `USAGE.md` 那一格仍**未提交**（见本计划 Task 9 第 1 条第 ②点），本格没有碰它；
 ④ §7 那两行低于 5% 的旧行、`assets/**/*.md` 与十档截图目测、性能分与 Lighthouse 依旧没跑过——
 这些都写进收口记录，不许并进"门禁全绿"里。
+
+### 提交态自证（`61963bc`，Task 7 `ece569c` 那一档的复用）
+
+Step 6 落的是 **`61963bc`**（父亲 `f18e4ee`，`update-ref` 带旧值 CAS 校验过；中间没有另一路会话插入的提交），
+`git show --numstat` 恰好 7 格：本计划 `114/3`、spec `118/5`、`dev/js/toolJson.js` `6/1`、
+`dev/js/tools/jsonWorkbench.js` `2/1`、`scripts/toolkit-tests.mjs` `6/0`，加两本**第一次入库**的
+`scripts/verify-tools-browser.mjs`（`1597/0`）与 `scripts/verify-tools-browser-teeth.mjs`（`261/0`）。造提交走 plumbing（临时索引 `read-tree HEAD` →
+逐格 `hash-object -w` + `update-index --cacheinfo` → `write-tree` → `commit-tree -p` → `update-ref`），
+所以另一路会话暂存集里那一批一个字都不带；他们 staged 的那 17 行 spec 删除在提交之后**原样还在**
+（`git diff --cached --numstat -- <spec>` = `0 17`、`git diff --numstat -- <spec>` = `17 0`，两向都对上），
+为此 index 里那一格放的是"我的内容 + 他们那 17 行删除"的合并版（`merge-spec.mjs`：逐字节认出那块再按行号删，
+认不出就退 3，绝不猜）。
+
+本格同样把镜像与实现一起提交，所以干净检出自证是必须项。做法照上一格：
+`git archive 61963bc | tar -x -C node_modules/.seg4t8-scratch/clean`，在**导出树里**跑：
+
+| 门禁 | 导出树读数 |
+| --- | --- |
+| ① 判据 | `# tests 363 / # pass 363 / # fail 0`，exit=0 |
+| ② 镜像 | exit=0，`65 个已落地镜像（合计 1,349,416B）与磁盘逐字节全等`、`⚠ 未落地 0 节` |
+| ⑤ 收录面 | exit=0，`✓ 收录面 3 条 ready 条目 × 5 组判据全绿`，导航-全站核到 98 页 |
+
+**⑤ 那一份 `_site` 仍是复制进来的**（`_site/` 在 `.gitignore:4`、`assets/**/*.min.*` 在 `:9-10`，产物不入库），
+所以这条证的是「提交进去的源码 + 由这套源码产出的产物 → 收录面五组全绿」，不是「干净检出能重建产物」。
+这一格比上一格多一条要求：产物必须配得上**修过 `BlobCtor` 之后**的那份源码。md5 链四节现读（都是这一轮当场取的）：
+
+1. `git show HEAD:dev/js/toolJson.js` = `b8d87606…` = 工作树 = work 导出树里那份源——三串同一枚，
+   所以门禁④ 那次 `npx vite build` 吃的源就是提交进去的源；
+2. 它产出的 `work/assets/js/toolJson.min.js` = `e00120cf…`（126,716B、04:37:06），
+   base 那棵（源 `74063fba…`，即修复前）产出的才是 `126,700B / gzip 43,440B`；
+3. 活 `_site`、harness 快照 `browser/_site`、导出树副本 `_site` 三处那枚 `toolJson.min.js` 同为 `e00120cf…`
+   ——72 项全量、牙齿九项、门禁⑤⑥ 读的都是这一枚；
+4. 产物里逐字读得到工厂形状 `BlobCtor:(e` 与 `Blob(e`（`grep -o` 现读），不是裸 `win.Blob`。
+
+有一处观感要先说掉：`_site` 那枚建在 04:39:27，而 `dev/js/toolJson.js` 的 mtime 是 05:13:20，看着像"产物旧于源码"。
+第 1、2 节那两串 md5 把它顶掉了——05:13 那一次落笔内容未变（mtime 动、md5 不动），判据只认字节。
+
+**量具自己的又一笔账**：在活树根目录敲 `node --test node_modules/.seg4t8-scratch/clean/scripts/toolkit-tests.mjs`
+会 exit=1、日志只有 `Could not find '…'` 一行——Node 的 test runner 不肯跑 `node_modules/` 下的路径，与产品无关。
+正确姿势是**进到导出树里**跑 `node --test scripts/toolkit-tests.mjs`（上面那条 exit=0 就是这么来的）；
+下一格若把导出树放在 scratch 里，别再从活树根按相对路径去点它。
+门禁③⑥ 两本牙齿不在导出树重跑，理由照上一格（⑥ 只认 `ROOT/_site` 且会改写源文件），Task 9 按活树口径重跑即可。
 
 
 ---
