@@ -661,6 +661,28 @@ export function minifyJson(text) {
 }
 
 /**
+ * 值 → 文本。**这一格是 `formatJson` 的前半截**：文本进门的那一路（`formatJson` / `minifyJson`）
+ * 中间都过一次解析，而互转那一族（YAML / XML / CSV 转回 JSON）手里已经握着值了，再序列化成文本
+ * 让 `formatJson` 去解析一遍就是把同一份数据来回搬三次。
+ *
+ * 走的是同一只 `serialize`、同一张 `INDENTS`、同一只 `sortJson`，所以它与 `formatJson` 之间
+ * 不存在"两种缩进"这件事（S21 断的就是这一条对拍）。`undefined` 写成 `null`：JSON 里没有 `undefined`，
+ * 而这一本的出口文本必须自己读得回去——原生 `JSON.stringify` 会把带 `undefined` 的键整个删掉，
+ * 那种"键没了"在这一页是数据丢失，不是排版差异。
+ * @param {unknown} value `parseJson` 或互转那一族交出来的值
+ * @param {{indent?: 'two'|'four'|'tab', sort?: 'off'|'shallow'|'deep'}} [options]
+ * @returns {{ok: true, text: string, bytes: number, error?: undefined} | {ok: false, text: string, bytes: 0, error: object}}
+ * @throws {RangeError} `indent` / `sort` 不在那两张表里（与 `formatJson` 同一口径）
+ */
+export function stringifyJson(value, options = {}) {
+  const { indent = 'two', sort = 'off' } = options;
+  modeOf(indent, INDENT_MODES, 'INDENT_MODES', 'stringifyJson 的 indent');
+  modeOf(sort, SORT_MODES, 'SORT_MODES', 'stringifyJson 的 sort');
+  const out = serialize(sortJson(value, sort), INDENTS[indent]);
+  return { ok: true, text: out, bytes: utf8Bytes(out) };
+}
+
+/**
  * 值 → 排好键序的值。**不改入参**：`off` 交回同一个引用，`shallow` 只重建根，
  * `deep` 用显式栈把每一层容器重建（数组只克隆、元素顺序一个不挪）。
  * @param {unknown} value

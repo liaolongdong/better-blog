@@ -35,8 +35,10 @@
  * 那一次照"视口首行"的口径改写锚点就会把刚找回来的那一格换掉，所以写出去的值单独记一份、只认它一次（V18）。
  *
  * 纯度：环境一律从构造函数注入，这一本不读全局的 `window` / `document`、不写任何存储；
- * 落 DOM 只走 `textContent` 与 `setAttribute`，所以「树里出现的字符串永远不是标记」这条与 §W 的输出区
- * 是同一条红线。依赖只有 `json-core.js` 的两把尺：串的转义口径、Pointer 的拼接口径（V1 数这个 import）。
+ * 内容那一格有两条路（V19）：不给 `renderRow` 时只走 `textContent` 与 `setAttribute`，给了就一个字也不写、
+ * 行内 markup 整个交出去——装配层走的是后者，而那只钩子是段 4 Task 6 预登记的第二格形参（计划 §V 契约段 :5248-5249）。
+ * 两条路的红线是同一条：树里出现的字符串永远不是标记。
+ * 依赖只有 `json-core.js` 的两把尺：串的转义口径、Pointer 的拼接口径（V1 数这个 import）。
  */
 import { escapeText, pointerChild } from './json-core.js';
 
@@ -333,8 +335,8 @@ export function searchRows(rows, query, options = {}) {
 
 /**
  * 只渲染可视行的树控制器。**环境全部从这一格注入**：`document`、`container`、`rowHeight`、
- * `windowSize`、`indentStep`、`onViewChange`（§V 契约①②③④ 分别由 V14、V14、V15、V16 断言，
- * 回声那一条由 V18 断言）。
+ * `windowSize`、`indentStep`、`renderRow`、`onViewChange`（§V 契约①②③④ 分别由 V14、V14、V15、V16 断言，
+ * 回声那一条由 V18 断言，行内内容交给外部那一条由 V19 断言）。
  *
  * 常驻节点永远只有三块：上垫块、行容器、下垫块。窗口里的行数不越过 `windowSize`，
  * 而两条垫块的高度按"窗口外还有几行"算，所以滚动条总长永远等于 `行数 × rowHeight`——
@@ -348,7 +350,7 @@ export function searchRows(rows, query, options = {}) {
  * 闸门一律抛在挂节点之前，所以入参写错不会留下一棵半成品（V16 最后一条）。
  *
  * @param {{document: object, container: object, rowHeight: number,
- *          windowSize?: number, indentStep?: number,
+ *          windowSize?: number, indentStep?: number, renderRow?: (el: object, row: object) => void,
  *          onViewChange?: (p: {first: number, last: number, count: number, total: number, scrollTop: number}) => void}} env
  * @returns {{setData: Function, setExpanded: Function, refresh: Function, destroy: Function,
  *            scrollToPointer: Function, state: Function, visibleRange: Function}}
@@ -377,6 +379,15 @@ export function createTreeController(env = {}) {
   }
   const onViewChange = env.onViewChange;
   if (onViewChange !== undefined && typeof onViewChange !== 'function') throw new TypeError('onViewChange 要的是函数，或者干脆不给');
+  /**
+   * 行内内容的生成器（Task 6 预登记的那第二格，计划 §V 契约段 :5248-5249）。
+   * 给了就**只**叫它：控制器写 attribute / 缩进 / role，一个字的内容都不写；
+   * 不给就走 `rowText` 那条默认路（纯文本，永远不含标记）。
+   */
+  const renderRow = env.renderRow;
+  if (renderRow !== undefined && typeof renderRow !== 'function') {
+    throw new TypeError(`renderRow 要的是 (el, row) => void 或干脆不给，这里是 ${describe(renderRow)}（非函数静默回退 textContent 的下场是"树在，但行内样式没接上"）`);
+  }
 
   const above = Math.floor(size / 4);          // 视口上面留的缓冲：够翻页手感，又不动"总数 ≤ size"那条上界
   const node = (className) => {
@@ -436,7 +447,7 @@ export function createTreeController(env = {}) {
     return row.display === '' ? label : `${label}: ${row.display}`;
   };
 
-  /** 一行一个 div：语义挂 attribute，颜色挂 class，缩进挂 padding——**内容永远只进 textContent** */
+  /** 一行一个 div：语义挂 attribute，颜色挂 class，缩进挂 padding——**内容默认只进 textContent**，给了 `renderRow` 就一个字也不进 */
   function rowNode(row) {
     const more = isMore(row);
     const containerRow = !more && CONTAINER_KINDS.has(row.kind);
@@ -451,7 +462,10 @@ export function createTreeController(env = {}) {
     el.setAttribute('aria-level', String(row.depth + 1));
     if (containerRow) el.setAttribute('aria-expanded', row.expanded ? 'true' : 'false');
     el.style.paddingLeft = `${row.depth * step}px`;
-    el.textContent = rowText(row);
+    // 两条路各走到底：给了钩子就一个字都不写（V19 量的就是这一格——两处写内容等于一处赢，
+    // 而"谁赢"取决于渲染顺序），没给才走纯文本。钩子的异常照原样上抛，装配层有 `runGuarded` 接。
+    if (renderRow) renderRow(el, row);
+    else el.textContent = rowText(row);
     return el;
   }
 
@@ -592,7 +606,10 @@ export function createTreeController(env = {}) {
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      container.removeEventListener('scroll', onScroll);
+      // 真浏览器每一枚节点都有这一格；假 DOM 的骨架夹具只给 `addEventListener`/`removeChild`
+      // （§W 的 `wPage` 就是那份），摘不到监听也要把三块常驻节点拆干净——留着比漏摘一根线更伤，
+      // 因为"两种视图同时挂在 DOM 上"是用户能看见的缺陷，而孤儿监听在拆完的容器上不会复活。
+      if (typeof container.removeEventListener === 'function') container.removeEventListener('scroll', onScroll);
       while (rowsBox.childNodes.length > 0) rowsBox.removeChild(rowsBox.childNodes[0]);
       for (const piece of [padTop, rowsBox, padBottom]) detach(container, piece);
       rows = [];

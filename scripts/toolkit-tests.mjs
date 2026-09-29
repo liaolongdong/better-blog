@@ -33,12 +33,18 @@
  *                `codecWorkbench.js` / `toolCodec.js`（Task 6b）
  *   §U 内置件与三对互转 18 —— 前五条（U1–U5）钉 vendored `js-yaml` 进仓库那一步（段 4 Task 1），
  *                后十三条（U6–U18）跟着 `json-convert.js` 落在同一节末尾，节名不另起（段 4 Task 4）
- *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
+ *   §S JSON 核心 21 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）；
+ *                S21 是段 4 Task 6 评审回合补的一刀（`stringifyJson` 与 `formatJson` 共用同一只 serialize）
  *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
- *   §V 树拍平与只渲染可视行 18 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
+ *   §V 树拍平与只渲染可视行 19 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
  *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据，V17–V18 是 Task 5
- *                评审回合补的两刀（选项袋的形状尺、浏览器替自写 scrollTop 补发的那一次 scroll）
- *   合计 334。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *                评审回合补的两刀（选项袋的形状尺、浏览器替自写 scrollTop 补发的那一次 scroll），
+ *                V19 是 Task 6 评审回合补的一刀（`renderRow` 那一格：给了就只叫它）
+ *   §W JSON 工作台视图层与装配层 27 —— `jsonView.js` / `jsonWorkbench.js` / `toolJson.js`（段 4 Task 6）：
+ *                W1–W18 立那六条红线，W19–W27 是同一 Task 的评审回合补的九判（八枚 helper 的产出
+ *                字面量、十二枚动作逐个按一遍、树的点击代理、下载、存储一碰就抛、两枚复制、
+ *                树的化石、代价说明上页、读条只取窗口）
+ *   合计 363。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -10540,7 +10546,7 @@ test('U18 常量、纯度与依赖边：三对互转只站在内置件与 json-c
 // MAX_INPUT_BYTES 在 §L 那一本 codec.js 里已经占了顶层名（1 MiB 那一档），这里借别名读 JSON 那一档的
 // 5 MiB——两个数不同名就会互相盖掉，node --check 当场报"已声明"，不会静默读错闸门（§P 的 RE_INPUT_BYTES 同理）。
 const { MAX_INPUT_BYTES: MAX_JSON_BYTES, MAX_INPUT_LINES, MAX_DEPTH, SORT_MODES, INDENT_MODES, CORE_NOTES,
-  gate, locate, lineStarts, lineRange, parseJson, formatJson, minifyJson, sortJson,
+  gate, locate, lineStarts, lineRange, parseJson, formatJson, minifyJson, stringifyJson, sortJson,
   toPointer, fromPointer, pointerChild, escapeText, unescapeText, statsOf } =
   await import('../dev/js/tools/json-core.js');
 
@@ -11007,6 +11013,42 @@ test('S20 收尾三件：转义往返与点名、八类 kind 全覆盖、纯函�
   assert.ok(!/^\s*import\s/m.test(code), 'json-core 一本都不 import：它是这一族的底座，不许有依赖边');
   assert.match(code, /function parseJson\([\s\S]{0,400}?=\s*gate\(/,
     'parseJson 的第一步必须是 gate：全仓库只有一处字节与行数的口径');
+});
+
+test('S21 stringifyJson：值 → 文本与 formatJson 同一只 serialize，深度 1000 不炸栈、undefined 不吞键', () => {
+  // 这一格是 Task 6 装配层缺的那半扇门：互转那一族（YAML / XML / CSV 转回）手里已经是**值**了，
+  // 只交 text→text 的两扇门，装配层就得先序列化成文本、再让 formatJson 把它解析回来——
+  // 同一份数据搬三次。而它也不许自己用 `JSON.stringify`：S20 那条红线说的是"转义不外包给原生"。
+  const v = { b: [1, { d: 'x' }], a: null, e: [], f: {} };
+  for (const indent of INDENT_MODES) {
+    const direct = stringifyJson(v, { indent });
+    const viaText = formatJson(JSON.stringify(v), { indent });
+    assert.equal(direct.text, viaText.text, `${indent} 档：两扇门出来的串必须逐字相同，否则页面上会同时存在两种缩进`);
+    assert.equal(direct.bytes, viaText.bytes, 'bytes 也是同一把尺（UTF-8，不是码元数）');
+  }
+  assert.equal(stringifyJson({ b: 1, a: 2 }, { sort: 'deep' }).text, '{\n  "a": 2,\n  "b": 1\n}');
+  assert.throws(() => stringifyJson(v, { indent: 'wild' }),
+    (e) => e instanceof RangeError && /INDENT_MODES/.test(e.message),
+    '档位写错要停在开发期：静默按 two 档出货，用户拿到的是他从来没点过的那一种');
+  assert.throws(() => stringifyJson(v, { sort: 'wild' }),
+    (e) => e instanceof RangeError && /SORT_MODES/.test(e.message));
+  // 标量根、空容器、以及"值里没有 undefined 这件事"——三条快捷路在门外面也得走得到。
+  assert.equal(stringifyJson('a').text, '"a"');
+  assert.equal(stringifyJson(null).text, 'null');
+  assert.equal(stringifyJson(undefined).text, 'null', 'undefined 出 null，不出空串：空串读不回去');
+  assert.equal(stringifyJson({}).text, '{}', '空对象一对括号，不换行（与 S18 那条同形）');
+  assert.equal(stringifyJson([]).text, '[]');
+  assert.equal(stringifyJson({ a: undefined }).text, '{\n  "a": null\n}',
+    '原生会把 "a" 那一整个键删掉，这里不许：键没了是数据丢失，不是排版差异');
+  assert.equal(stringifyJson([undefined, 1]).text, '[\n  null,\n  1\n]', '数组那一支同一条口径');
+  // 深值：`serialize` 是显式栈（S18 那条 1000 层的硬规定就是它），门外面这一条得单独再量一次。
+  let deep = 1;
+  for (let i = 0; i < MAX_DEPTH; i++) deep = [deep];
+  const d = stringifyJson(deep, { indent: 'two' });
+  assert.equal(d.ok, true, '1000 层的值要序列化得动：递归实现在这里会先炸自己的调用栈');
+  assert.equal(parseJson(d.text).ok, true, '序列化出去的那一串得读得回来：门外面写的若不是合法 JSON，用户复制走就是一份坏文件');
+  assert.equal(stringifyJson(v).text, stringifyJson(v, { indent: 'two', sort: 'off' }).text,
+    '两格都缺席时按 two / off：与 formatJson 的默认档同一对默认值');
 });
 
 // ── §T interface 生成（tools/json-ts.js，段 4 Task 3）─────────────────────────
@@ -12050,3 +12092,1234 @@ test('V18 真浏览器会替自写的 scrollTop 补发一次 scroll：那一次�
   assert.equal(built, afterSet, '自己写出去的那一次 scrollTop，回声到了不许再建一遍行节点');
   assert.ok(afterSet > base, '正对照：setData 自己确实是建过节点的');
 });
+
+test('V19 renderRow 那一格：给了就只叫它，控制器自己一个字都不写；结构照旧，抛错不吞', () => {
+  const seen = [];
+  const page = vTree();
+  const c = createTreeController({
+    document: page.doc, container: page.container, rowHeight: 24,
+    renderRow: (el, row) => { seen.push(row.id); el.innerHTML = `<b>${row.id}</b>`; },
+  });
+  c.setData(flatten({ a: 1, b: { c: 2 } }));
+  const rows = page.holder().childNodes;
+  assert.ok(rows.length > 0, '给了 renderRow 结果一行都没长：那是 §W 的树视图整个空着');
+  assert.deepEqual(seen, page.rowIds(), 'renderRow 按行进 DOM 的顺序叫，叫的是窗口里那几行');
+  assert.deepEqual(rows.map((n) => n.innerHTML), rows.map((n) => `<b>${n.getAttribute('data-jt-id')}</b>`),
+    '行内那串只许出自回调：控制器再写一遍就是两处写、一处赢');
+  assert.deepEqual(rows.map((n) => n.textContent), rows.map(() => ''),
+    '给了 renderRow 之后控制器不许再碰 textContent——两处写法的先后决定用户看见哪一个');
+  // 结构那一半照旧：renderRow 只管行内，attribute / 缩进 / role 还是控制器的（§W 的分工写在文件头）
+  assert.equal(rows[0].getAttribute('role'), 'treeitem');
+  assert.equal(rows[0].getAttribute('data-jt-pointer'), '');
+  assert.ok(rows.every((n) => /px$/.test(n.style.paddingLeft)), '缩进仍按 depth 写在这一格自己的 style 上');
+  // 正对照：不给这一格就走原来那条 textContent 的路。根那一行是**空的**——`rowText` 对 depth 0 只给 display，
+  // 而展开中的容器 display 是空串；这正是 §W 的 treeRow 要接管行内的理由（它给那一格写「根」）。
+  const plain = vTree();
+  createTreeController({ document: plain.doc, container: plain.container, rowHeight: 24 })
+    .setData(flatten({ a: 1 }));
+  assert.deepEqual(plain.rowTexts(), ['', 'a: 1'], '不给 renderRow 时一个字都不许多：这一条路是默认档，不是废弃档');
+  assert.equal(plain.holder().childNodes[0].innerHTML, undefined);
+  assert.throws(() => createTreeController({
+    document: vTree().doc, container: vTree().container, rowHeight: 24, renderRow: 5,
+  }), (e) => e instanceof TypeError && /renderRow/.test(e.message), '非函数的 renderRow 静默回退 textContent，页面上是"树在但样式没接上"');
+  const boom = vTree();
+  const bad = createTreeController({
+    document: boom.doc, container: boom.container, rowHeight: 24,
+    renderRow: () => { throw new Error('行内生成器坏了'); },
+  });
+  assert.throws(() => bad.setData(flatten({ a: 1 })), /行内生成器坏了/,
+    '吞掉回调的错，页面就是一棵没人知道为什么空着的树；装配层那一侧有 runGuarded 接得住');
+});
+
+// ── §W JSON 工作台视图层与装配层（`tools/jsonView.js` / `tools/jsonWorkbench.js` / `toolJson.js`，段 4 Task 6）──
+//
+// 这一节测的是**这一页怎么接起来**，不是四本纯模块对不对（§S–§V 各管各的）。三方全接真的：
+// 视图层吃真的 `window.Tk.view`，装配层调真的 `json-core` / `json-ts` / `json-convert` / `json-tree`，
+// 骨架由本节自建的 `wPage` 长出——照 §V 而不是 §R 那条"复用 §I 的 `iPage`"，因为这一页要的四样
+// （`checked` / `setSelectionRange` / `scrollTop`+`scrollLeft` / `innerHTML` 只当普通属性读）
+// §I 那份一件都没有，而"补进 §I"等于把证件页与编码页三节的夹具一起改动。
+//
+// 六条红线，判据围着它们转：
+//
+// 1. **视图层零 import**（W2）。`jsonView.js` 与 `view.js` / `codecView.js` 同一条红线：它一旦 import
+//    什么，两个入口 reach 同一模块 → Rollup 提共享 chunk → iife-wrap 之后产物里是 `import{…}` →
+//    整页 SyntaxError 而构建 exit=0（`toolkitCore.js:5-9` 记的正是这个坑，牙齿在门禁④）。
+// 2. **环境只在入口**（W10、W11）。`Date.now(` / `localStorage` / `URL.createObjectURL` / `URL.revokeObjectURL` /
+//    `win.Blob` / `setTimeout(` / `win.navigator` 七个词在装配层源码里 0 命中、在入口那一份各**恰好一处**；
+//    `window` / `globalThis` / `getComputedStyle` / `querySelector` 两本都 0 命中——行高不量，它是装配层的
+//    常量 `ROW_HEIGHT`，骨架那本 SCSS 与它同源（量一次就要在挂载期读样式，而 §V 的窗口密度只认这个数）。
+//    `js-yaml` 那本内置件只许被 `json-convert.js` 够一次，`json-convert.js` 只许被装配层够一次——
+//    两跳各一枚（W11 数的是 import 语句，不是文件名出现次数），入口与装配层都不许直接够内置件。
+// 3. **id 只由 spec 派生**（W13、W18、W19）。八枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `JSON_SPEC`
+//    与 `JSON_ACTIONS` 三个方向对账；夹具的节点清单也从它们长，不在本节重抄一份 id 表。
+//    W19 把八枚 helper 的**产出字面量**逐个钉死——门禁⑤ 在产物里只正则拼 `-in-` 那一族（`check-tools-surface.mjs:479`），
+//    其余七族写错只有这一判会红。
+// 4. **挂载期一次计算都不做**（W14、W16）。`mount()`（`renderers.workbench` 就是叫它）只接线与画空态；
+//    解析只在按动作时发生，所以 20 次 `input` 之后注入的 `runGuarded` 计数必须是 0（W16）。
+// 5. **两类失败分两条路**（W14）。用户那一格不能用 → `FieldError` → 结果区一句提示，别的什么都不塌；
+//    模块或骨架自己抛的 → 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。
+// 6. **记住上次输入默认关**（W15）。`jt.memory.on` 那一格总写（否则这功能等于没有），
+//    `jt.memory.input` 只在开关为 on 时写，正文超过 256 KiB 就连那一格都不写、改在读数里说明。
+//
+// 六条红线之外，W20–W27 这八判咬的是**只有真按一遍才看得见**的那一族形状：十二枚动作各
+// 画得出哪一栏（W20）、树容器上 Pointer 那一支赢过展开那一支（W21）、下载的文件名与 MIME 跟着当前类别
+// 且摘节点/撤 URL 排在 `finally`（W22）、存储一碰就抛时页面照样起（W23，评审 P0-2 的隐私模式）、两枚
+// 复制按钮各改各的口且连点不把"已复制"转正（W24）、换输入与坏输入要拆掉旧树（W25）、那一族代价说明要
+// 上得了页面（W26）、读条只取窗口而整行进不了 DOM（W27）。
+//
+// 三条夹具口径与 §R 同形：每一判从**按真的按钮 / 派发真的事件**起步；`type` → 标签的映射由 spec
+// 反推，spec 里长出词汇表外的 `type` 夹具当场抛；`innerHTML` 在假 DOM 上只长成一个普通属性，
+// 所以本节读的就是那一串文本——那也正是真页面唯一吃进 HTML 的地方。
+const {
+  createJsonView, JT_TONES, JSON_VIEW_LABELS, OUT_KINDS,
+} = await import('../dev/js/tools/jsonView.js');
+const {
+  createJsonWorkbench, JSON_SPEC, JSON_PANEL_IDS, JSON_ACTIONS,
+  controlIds: wControlIds, fieldId: wField, buttonId: wButton, copyId: wCopy,
+  outId: wOut, whenId: wWhen, gutterId: wGutter, statusId: wStatus, treeId: wTree,
+} = await import('../dev/js/tools/jsonWorkbench.js');
+// 四本纯模块的名字**不在这儿重抄一遍**：`CORE_NOTES` / `MAX_JSON_BYTES` / `gate` / `parseJson` /
+// `formatJson`（§S）、`TS_HEADER_NOTE`（§T）、`YAML_NOTES` / `XML_CONVENTION` / `CSV_NOTES`（§U）、
+// `RENDER_WINDOW`（§V）已经是本文件的顶层名，本节直接吃上面那几行 import 的结果。
+// 再 import 一次不是风格问题：`MAX_INPUT_BYTES` 有两个不同的值（§L 的 1 MiB 与 JSON 的 5 MiB），
+// 顶层重名会让其中一档静默变成另一档的数——§S 那行别名注释写的就是这件事。
+
+/** spec 的 `type` → 骨架标签：这一页比编码页多一枚 `checkbox`，词汇表外当场抛（同 R 那条口径） */
+const W_TAGS = { text: 'input', area: 'textarea', select: 'select', checkbox: 'input' };
+const wTag = (type) => {
+  const tag = W_TAGS[type];
+  if (!tag) throw new Error(`夹具：JSON_SPEC 里出现了词汇表外的 type「${String(type)}」（认得 ${Object.keys(W_TAGS).join(' / ')}）`);
+  return tag;
+};
+
+/** 结果区与状态读数的栏位名：这一页只有一栏，工具栏那十四枚按钮的 `side` 位用的是动作 key */
+const W_OUT_SIDES = ['main'];
+
+/** 剥注释再剥字符串字面量：报错文案与 JSDoc 里的字样都不算命中（与 §R 的 `rBare` 同一形状） */
+const wBare = (rel) => read(rel)
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  .replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+/** 只剥注释（判 import 边时用：字符串里的路径要留着） */
+const wCode = (rel) => read(rel)
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/**
+ * 摘出**以 `jt-` 开头**的字符串字面量（评审 P0-1：旧口径只数 `'jt-`，模板串与双引号里的地址一概漏网，
+ * 而装配层派生地址时写错的那一格恰恰是 `` `jt-…` `` 这种形状）。
+ * 只挑"整格以 `jt-` 起头"的那些：`<pre class="jt-out__body">` 那种是排版，第一个字符是 `<`，
+ * 与本条红线（地址只由那八枚 helper 派生）无关。
+ * @param {string} rel 源码路径
+ * @returns {string[]} 命中的字面量原文
+ */
+const wHandTypedIds = (rel) => {
+  const hits = [];
+  wCode(rel).replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, (s) => {
+    if (/^['"`]jt-/.test(s)) hits.push(s);
+    return "''";
+  });
+  return hits;
+};
+/** 三种引号的 import 都算一次（W11 数的是"谁够到了那一本"，引号是风格不是事实） */
+const wImports = (rel) => [...wCode(rel).matchAll(/\bfrom\s+(['"`])([^'"`]+)\1/g)].map((m) => m[2]);
+const wCount = (hay, needle) => hay.split(needle).length - 1;
+/** HTML 串里摘某一段：假 DOM 没有 querySelector，本节按类名把那一块切出来读 */
+const wSlice = (html, cls) => {
+  const at = html.indexOf(`class="${cls}"`);
+  if (at < 0) return null;
+  const open = html.lastIndexOf('<', at);
+  const close = html.indexOf('</', at);
+  return { tag: /^<(\w+)/.exec(html.slice(open))[1], inner: html.slice(html.indexOf('>', at) + 1, close < 0 ? html.length : close) };
+};
+/** 属性值：只在视图层那几件的产出串上找（`style="…"` / `data-jt-copy="…"`） */
+const wAttr = (html, name) => {
+  const m = new RegExp(`${name}="([^"]*)"`).exec(html);
+  return m ? m[1] : null;
+};
+
+/** JSON 视图层要注入的那份 `Tk.view`：本节一律接真的 */
+const W_VIEW = { esc: J_VIEW.esc, EMPTY_CELL: J_VIEW.EMPTY_CELL };
+/** 视图层产出的串里，用户文本一律经过这一只：判据按它算期望，转义表本身归 §O 判 */
+const wEsc = W_VIEW.esc;
+
+/** 一个合法的坏样本：三行输入、第三行那个多余的逗号是病灶 */
+const W_BAD = () => {
+  const text = '{\n  "a": 1,\n  "b": 2,,\n}';
+  const err = parseJson(text).error;
+  return { text, err };
+};
+
+// ── 假 DOM：JSON 这一页自己的一份（§I 那份缺 `checked` / `setSelectionRange` / 滚动两格） ──
+
+/**
+ * 造一页骨架：提示行 + 工作台容器 + 按 `JSON_SPEC` 长出的六枚控件、行号槽、树容器、状态读数、
+ * 结果区，再按 `JSON_ACTIONS` 长出十四枚按钮与那一枚复制按钮。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀（W13 的 `zx` 那一档量的就是它）
+ * @param {Record<string, string|boolean>} [o.seed] `'panel:control' → 初值`（挂载前就在 DOM 上）
+ * @param {string[]} [o.drop] **不**要长的 id，造"骨架缺一格"那一类缺陷
+ * @param {number} [o.rowHeight] 注入给控制器的那一行高，默认 24
+ * @returns {object} 节点表 + 观察口（`set` / `input` / `click` / `html` / `text` / `sel` / `made`）
+ */
+function wPage({ prefix = 'jt', seed = {}, drop = [], rowHeight = 24 } = {}) {
+  const nodes = new Map();
+  const created = { list: [] };
+  const sel = [];
+  const selects = [];
+  const focusLog = [];
+  const mk = (tag, id = '', attrs = {}) => {
+    const el = {
+      nodeType: 1, tagName: String(tag).toUpperCase(), id, hidden: false, disabled: false,
+      value: '', checked: false, innerHTML: '', files: undefined, style: {}, scrollTop: 0, scrollLeft: 0,
+      parentNode: null,
+      attrs: new Map(), childNodes: [], listeners: new Map(),
+      get firstChild() { return this.childNodes.length > 0 ? this.childNodes[0] : null; },
+      get textContent() { return this.childNodes.map((c) => c.textContent).join(''); },
+      set textContent(v) { this.childNodes = v === '' ? [] : [mkText(v)]; },
+      getAttribute(n) { return this.attrs.has(n) ? this.attrs.get(n) : null; },
+      setAttribute(n, v) { this.attrs.set(n, String(v)); },
+      removeAttribute(n) { this.attrs.delete(n); },
+      // 只认 `[attr]` 这一种选择器：装配层的树代理用到的就只有这两种形状，多支持一件就是夹具悄悄
+      // 给了真页面没有的能力。往**上**走靠 appendChild 维护的那一格 `parentNode`。
+      closest(sel) {
+        const name = /^\[([\w-]+)\]$/.exec(String(sel));
+        if (!name) return null;
+        for (let cur = this; cur; cur = cur.parentNode) {
+          if (cur.attrs && cur.attrs.has(name[1])) return cur;
+        }
+        return null;
+      },
+      appendChild(c) { this.childNodes.push(c); c.parentNode = this; return c; },
+      insertBefore(c, ref) {
+        const at = this.childNodes.indexOf(ref);
+        if (at < 0) this.childNodes.push(c); else this.childNodes.splice(at, 0, c);
+        c.parentNode = this;
+        return c;
+      },
+      removeChild(c) {
+        const at = this.childNodes.indexOf(c);
+        if (at < 0) throw new Error('removeChild：这个节点不在里面');
+        this.childNodes.splice(at, 1);
+        c.parentNode = null;
+        return c;
+      },
+      addEventListener(t, fn) {
+        if (!this.listeners.has(t)) this.listeners.set(t, []);
+        this.listeners.get(t).push(fn);
+      },
+      dispatch(t, evt = {}) {
+        for (const fn of this.listeners.get(t) || []) fn(evt);
+        return evt;
+      },
+      // 真 DOM 的 `el.click()` 会派发一个真的 `click`：下载那一格靠它，所以这里同形而不是再添一个观察口
+      click() { return this.dispatch('click', {}); },
+      focus(arg) { focusLog.push([this.id, arg]); },
+      // `Tk.ui.legacyCopy` 那一级要摸这一根手指：没有它，兜底那一档在 §W 里永远走不到
+      // （它抛在 `legacyCopy` 自己的 try 里，于是"execCommand 在也复制不上"会伪装成"这一级本来就失败"）。
+      // 单独记一笔，不混进 `sel`：那一串量的是"装配层有没有抢用户的选区"，与兜底复制无关。
+      select() { selects.push(this.id); },
+      setSelectionRange(a, b, dir) { sel.push([a, b, dir]); },
+      scrollIntoView() { sel.push(['scrollIntoView', this.id]); },
+    };
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'hidden') el.hidden = v; else el.setAttribute(k, v);
+    }
+    if (id !== '') nodes.set(id, el);
+    return el;
+  };
+  const mkText = (text) => ({ nodeType: 3, tagName: '#text', textContent: String(text) });
+  const doc = {
+    getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
+    createElement: (tag) => { const el = mk(tag); created.list.push(el); return el; },
+    createTextNode: (text) => mkText(text),
+    body: mk('body'),
+    activeElement: null,
+  };
+  const gone = new Set(drop);
+  const want = (id) => (gone.has(id) ? null : mk('div', id));
+
+  want(`${prefix}-notice`);
+  const box = want(`${prefix}-workspace`);
+  if (box) {
+    box.setAttribute('data-jt-ids', JSON_PANEL_IDS.join(','));
+    box.setAttribute('data-jt-prefix', prefix);
+    box.setAttribute('data-jt-label', 'JSON 工作台');
+    box.setAttribute('data-jt-notice', `${prefix}-notice`);
+  }
+  for (const panel of JSON_PANEL_IDS) {
+    const sides = JSON_SPEC[panel].sides;
+    for (const side of W_OUT_SIDES) {
+      const cfg = sides[side];
+      if (!cfg) continue;
+      for (const c of cfg.controls) {
+        const id = wField(prefix, panel, c.id);
+        if (gone.has(id)) continue;
+        const el = mk(wTag(c.type), id);
+        if (c.type === 'select') {
+          const ph = mk('option');
+          ph.setAttribute('value', '');
+          ph.textContent = '占位';
+          el.appendChild(ph);
+          for (const opt of c.options ?? []) {
+            const o = mk('option');
+            o.setAttribute('value', opt);
+            o.textContent = opt;
+            el.appendChild(o);
+          }
+        }
+        const at = `${panel}:${c.id}`;
+        if (c.type === 'checkbox') { if (seed[at] !== undefined) el.checked = seed[at] === true; }
+        else if (seed[at] !== undefined) el.value = String(seed[at]);
+      }
+      for (const tg of cfg.switch?.targets ?? []) {
+        const id = wWhen(prefix, panel, tg.key);
+        if (gone.has(id)) continue;
+        const p = mk('p', id);
+        p.setAttribute('data-jt-when', tg.when.join(' '));
+        // 搜索那一组住在显隐段里：那一格控件的 id 已经由 controls 长过，这里只挂个父节点
+        const q = doc.getElementById(wField(prefix, panel, 'query'));
+        if (q) p.appendChild(q);
+      }
+      want(wOut(prefix, panel, side));
+      want(wStatus(prefix, panel, side));
+      want(wTree(prefix, panel, side));
+      const cb = want(wCopy(prefix, panel, side));
+      if (cb) cb.textContent = '复制这一栏';
+    }
+    // 行号槽跟着输入那一格长：它的 id 由 `gutterId` 派生，页面源与装配层都不许再手打一遍
+    const g = want(wGutter(prefix, panel, 'doc'));
+    if (g) g.setAttribute('aria-hidden', 'true');
+  }
+  for (const a of JSON_ACTIONS) {
+    const id = wButton(prefix, JSON_PANEL_IDS[0], a.key);
+    if (gone.has(id)) continue;
+    mk('button', id).textContent = a.label;
+  }
+  const treeBox = doc.getElementById(wTree(prefix, JSON_PANEL_IDS[0], 'main'));
+  if (treeBox) { treeBox.scrollTop = 0; treeBox.rowHeight = rowHeight; }
+
+  const ctl = (panel, control) => doc.getElementById(wField(prefix, panel, control));
+  const set = (panel, control, v) => { ctl(panel, control).value = String(v); };
+  const check = (panel, control, v) => { ctl(panel, control).checked = v; };
+  const input = (panel, control) => ctl(panel, control).dispatch('input', {});
+  const change = (panel, control) => ctl(panel, control).dispatch('change', {});
+  const click = (key) => doc.getElementById(wButton(prefix, JSON_PANEL_IDS[0], key)).dispatch('click', {});
+  const clickCopy = () => {
+    const el = doc.getElementById(wCopy(prefix, JSON_PANEL_IDS[0], 'main'));
+    if (el) el.dispatch('click', {});
+  };
+  const html = (which = 'main') => {
+    const el = doc.getElementById(wOut(prefix, JSON_PANEL_IDS[0], which));
+    return el ? String(el.innerHTML) : '';
+  };
+  const text = (id) => { const el = doc.getElementById(id); return el ? el.textContent : null; };
+  return {
+    doc, nodes, mk, box, sel, selects, focusLog, created,
+    htmlOf: html, text,
+    ctl, set, check, input, change, click, clickCopy, html,
+    attr: (id, name) => { const el = doc.getElementById(id); return el ? el.getAttribute(name) : null; },
+    made: () => created.list.length,
+    madeOf: (tag) => created.list.filter((el) => el.tagName === String(tag).toUpperCase()),
+    tree: treeBox,
+    gutter: () => doc.getElementById(wGutter(prefix, JSON_PANEL_IDS[0], 'doc')),
+    status: () => doc.getElementById(wStatus(prefix, JSON_PANEL_IDS[0], 'main')),
+    notice: doc.getElementById(`${prefix}-notice`),
+  };
+}
+
+/** 假 storage：`log` 记每一次 `setItem` 的键，关着那一档就要数它 */
+function wStore(init = {}) {
+  const map = new Map(Object.entries(init));
+  const log = [];
+  return {
+    map, log,
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); log.push(k); },
+    removeItem: (k) => { map.delete(k); log.push(`-${k}`); },
+  };
+}
+
+/** 下载那三件的注入替身：`Blob` 收块与类型，两条 URL 各记一次 */
+function wDownload() {
+  const blobs = [];
+  const urls = { made: [], revoked: [] };
+  let n = 0;
+  return {
+    blobs, urls,
+    BlobCtor: (parts, options) => { blobs.push({ parts, options }); return { __blob: blobs.length }; },
+    createObjectURL: (blob) => { n += 1; const u = `blob:w-${n}`; urls.made.push([u, blob]); return u; },
+    revokeObjectURL: (u) => { urls.revoked.push(u); },
+  };
+}
+
+/**
+ * 接一页：`wPage` 长骨架，`createJsonWorkbench` 接装配层，注入的 `runGuarded` 既数调用也记"这一格抛了"。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀
+ * @param {Record<string, string|boolean>} [o.seed] 控件初值
+ * @param {string[]} [o.drop] 骨架要缺的 id
+ * @param {object} [o.storage] 假 storage，缺席就是"这台浏览器不给存"
+ * @param {object} [o.dl] `wDownload()` 的那份，缺席就是不注入下载三件
+ * @param {number|null} [o.now] 注入时钟，`null` 代表故意缺席
+ * @param {number} [o.rowHeight] 行高
+ * @param {boolean} [o.exec] 给假 `document` 装一根 `execCommand`（复制的第二级退路，W24 量的就是它）
+ * @param {Function} [o.stub] 换掉某一本纯模块（W14 用它造"模块自己抛"那一档）
+ * @returns {object} `{ page, wb, report, guarded, threw, timers, flush }`
+ */
+function wMount(o = {}) {
+  const page = wPage({ prefix: o.prefix || 'jt', seed: o.seed || {}, drop: o.drop || [], rowHeight: o.rowHeight || 24 });
+  if (o.exec === true) page.doc.execCommand = () => true;
+  const guarded = [];
+  const threw = [];
+  const timers = [];
+  const dl = o.dl === undefined ? wDownload() : o.dl;
+  const wb = createJsonWorkbench({
+    document: page.doc,
+    Tk: { view: W_VIEW, ui: J_UI },
+    prefix: o.prefix || 'jt',
+    runGuarded: (id, fn) => {
+      guarded.push(id);
+      try { fn(page.doc.getElementById(id)); return true; } catch (err) {
+        threw.push([id, err && err.message]); return false;
+      }
+    },
+    later: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    ...(o.storage === undefined ? {} : { storage: o.storage }),
+    ...(o.now === undefined || o.now === null ? {} : { now: () => o.now }),
+    ...(o.rowHeight === undefined ? {} : { rowHeight: o.rowHeight }),
+    ...(dl === null ? {} : {
+      BlobCtor: dl.BlobCtor, createObjectURL: dl.createObjectURL, revokeObjectURL: dl.revokeObjectURL,
+    }),
+    navigator: { clipboard: o.clipboard === undefined ? null : o.clipboard },
+  });
+  const report = wb.mount();
+  return {
+    page, wb, report, guarded, threw, timers,
+    flush: () => { const list = timers.splice(0); for (const t of list) t.fn(); },
+  };
+}
+
+test('W1 视图层的对外面：四个常量与九件生成器，一格不多一格不少', () => {
+  assert.deepEqual(JT_TONES.slice(), ['ok', 'warn', 'bad', 'idle']);
+  assert.deepEqual(OUT_KINDS.slice(), ['json', 'ts', 'yaml', 'xml', 'csv']);
+  assert.deepEqual(JSON_VIEW_LABELS, { text: '文本', tree: '树' });
+  const v = createJsonView(W_VIEW);
+  assert.deepEqual(Object.keys(v).sort(),
+    ['emptyHint', 'errBlock', 'esc', 'noteLines', 'resultHead', 'statsLine', 'tone', 'treePad', 'treeRow'],
+    '九件里加一格或改名，§V 的控制器与装配层就有一处叫不到它');
+  for (const [k, fn] of Object.entries(v)) {
+    assert.equal(typeof fn, 'function', `${k} 不是函数：这一件到页面上就是"点了没反应"`);
+  }
+  assert.deepEqual(modNames('dev/js/tools/jsonView.js'),
+    ['JT_TONES', 'JSON_VIEW_LABELS', 'OUT_KINDS', 'createJsonView'].sort(),
+    'jsonView.js 的导出面多了名字：它只该出这四格，第五格就是第二条渲染路径');
+});
+
+/** 一本模块的顶层导出名（按磁盘源码扫，`export {}` 那种再导出算不算多一格由判据自己说） */
+function modNames(rel) {
+  const src = wCode(rel);
+  return [...src.matchAll(/export\s+(?:const|function|class|async\s+function)\s+(\w+)/g)]
+    .map((m) => m[1]).sort();
+}
+
+/** 全仓库工具侧源码的相对路径清单（W11 数 import 边要吃它，别把 `dev/js/*.js` 漏成一半） */
+function wAllSources() {
+  const tools = readdirSync(resolve(ROOT, 'dev/js/tools'))
+    .filter((f) => f.endsWith('.js')).map((f) => `dev/js/tools/${f}`);
+  const roots = readdirSync(resolve(ROOT, 'dev/js'))
+    .filter((f) => f.endsWith('.js')).map((f) => `dev/js/${f}`);
+  return tools.concat(roots);
+}
+
+test('W2 视图层零 import：它的 esc 只能来自注入的那一份', () => {
+  const src = wCode('dev/js/tools/jsonView.js');
+  assert.equal(/\bimport\b/.test(src), false, 'jsonView 一旦 import 什么，两个入口就 reach 同一模块 → Rollup 切共享 chunk → iife-wrap 后产物里是 import{ → 整页 SyntaxError 而构建 exit=0');
+  assert.equal(/\brequire\s*\(/.test(src), false, '同上：require 在这儿等于第二条跨模块的边');
+  const bare = wBare('dev/js/tools/jsonView.js');
+  for (const word of ['window', 'document', 'localStorage', 'Date.now(', 'getComputedStyle']) {
+    assert.equal(bare.includes(word), false, `视图层不许碰 ${word}：它是纯串生成器，碰一次就多一处不可复算`);
+  }
+  const v = createJsonView(W_VIEW);
+  assert.equal(v.esc, W_VIEW.esc, 'esc 必须是注入的那一份：视图层自己抄一份转义表，站内就有两种"什么算需要转义"');
+});
+
+test('W3 createJsonView 的构造闸门：缺哪一件点名哪一件', () => {
+  assert.throws(() => createJsonView(), (e) => e instanceof TypeError && /view|第一格/.test(e.message));
+  assert.throws(() => createJsonView({}), (e) => e instanceof TypeError && /esc/.test(e.message),
+    '缺 esc 的下场是整页结果区空白，构造期点名才有意义');
+  assert.throws(() => createJsonView({ esc: (s) => String(s) }), (e) => e instanceof TypeError && /EMPTY_CELL/.test(e.message),
+    '缺 EMPTY_CELL 那一族点会渲染成"没有那一格"，而不是给一个能读的占位');
+  assert.throws(() => createJsonView({ esc: 'not-a-function', EMPTY_CELL: '—' }),
+    (e) => e instanceof TypeError && /esc/.test(e.message), 'esc 给了但不是函数：形状对而值不能用比缺席更难查');
+  assert.doesNotThrow(() => createJsonView(W_VIEW));
+});
+
+test('W4 resultHead 的 kind 白名单与四格产出：写错一个词渲染时抛', () => {
+  const v = createJsonView(W_VIEW);
+  const html = v.resultHead({ kind: 'json', tone: 'ok', title: '格式化 <结果>', note: '2 处重复键' });
+  assert.equal(wAttr(html, 'data-jt-kind'), 'json', 'kind 要挂在 attribute 上，样式才不用认第五个词');
+  assert.equal(wSlice(html, 'jt-out__title').inner, '格式化 &lt;结果&gt;', '标题是模块给的文案，一样只许走 esc');
+  assert.equal(wSlice(html, 'jt-out__note').inner, '2 处重复键');
+  assert.ok(html.includes('jt-tone--ok'));
+  assert.equal(wSlice(v.resultHead({ kind: 'ts', tone: 'idle', title: 'T' }), 'jt-out__note'), null,
+    'note 缺席时长出一格空白，读起来像"这里本来有字，后来没了"');
+  for (const kind of OUT_KINDS) assert.doesNotThrow(() => v.resultHead({ kind, tone: 'idle', title: 'x' }));
+  assert.throws(() => v.resultHead({ kind: 'jsonx', tone: 'ok', title: 'x' }), TypeError,
+    '白名单外的 kind 不许静默渲成一栏：那是把按钮表写错藏成"输出区少了个头"');
+  assert.throws(() => v.resultHead({ kind: 'json', tone: 'ok' }), /title/, '没有标题的那一栏读不出这是哪一次结果');
+});
+
+test('W5 tone 的四档与 JT_TONES 逐字对齐，第五档抛', () => {
+  const v = createJsonView(W_VIEW);
+  assert.deepEqual(JT_TONES.map((t) => v.tone(t)), JT_TONES.map((t) => `jt-tone--${t}`));
+  assert.throws(() => v.tone('hurry'), (e) => e instanceof TypeError && /tone|档位/.test(e.message));
+  assert.throws(() => v.tone(undefined), (e) => e instanceof TypeError && /tone|档位/.test(e.message));
+});
+
+test('W6 errBlock：行列 + 三行读条 + 插入符落在列上，串里的尖括号进不了标记', () => {
+  const v = createJsonView(W_VIEW);
+  const { err } = W_BAD();
+  const ctx = { prev: '  "a": 1,', at: '  "b": 2,,', next: '}', select: true };
+  const html = v.errBlock(err, ctx);
+  // 读条里的三行是**用户文本**，所以期望值按注入的那只 esc 算（转义表本身归 §O 判，这一格判的是"结构"）。
+  const e = wEsc;
+  assert.ok(wSlice(html, 'jt-err__where').inner.includes(`第 ${err.line} 行第 ${err.column} 列`),
+    '行列必须在读条之外单说一句：等宽块里找第几列是让用户替机器做活');
+  const lines = wSlice(html, 'jt-err__ctx').inner.split('\n');
+  assert.deepEqual(lines.slice(0, 2), [e(ctx.prev), e(ctx.at)]);  assert.equal(lines[2], `${' '.repeat(err.column - 1)}^`, '插入符的列口径与 setSelectionRange 同源（码元）');
+  assert.equal(lines[3], e(ctx.next));
+  assert.ok(wSlice(html, 'jt-err__act') !== null, '真的选中了就要说出来，用户不必自己确认光标');
+  const one = v.errBlock({ ...err, line: 1, column: 1 }, { prev: '', at: '{', next: '', select: false });
+  assert.equal(wSlice(one, 'jt-err__ctx').inner, '{\n^');
+  assert.equal(wSlice(one, 'jt-err__act'), null, '没能选中时不许谎报"已选中"');
+  const evil = v.errBlock({ ...err, message: '<script>坏</script>' }, { prev: '', at: '<b>', next: '&"', select: true });
+  assert.equal(evil.includes('<script>'), false);
+  assert.ok(evil.includes('&lt;script&gt;'));
+  assert.ok(evil.includes('&amp;&quot;'), '上下文行的引号与 & 一样要转义，否则读条自己就是标记');
+  // `ctx.caret` 是那第三把尺（评审 P2-6 的第二半）：那一栏只给得出病灶左右各 120 码元的窗口，
+  // 窗口里的列号与原文里的列号就不是一回事了。旧口径没有这一格，调用方只能改 `err.column` 去对插入符，
+  // 代价是那句"第 N 行第 M 列"跟着一起换成窗口里的相对列——而抄得去 `jq` 的只有原文里的那一列。
+  const win = v.errBlock(err, { ...ctx, at: '"b": 2,,', caret: 6 });
+  assert.equal(wSlice(win, 'jt-err__ctx').inner.split('\n')[2], `${' '.repeat(6)}^`, '插入符落在窗口里那一格');
+  assert.ok(wSlice(win, 'jt-err__where').inner.includes(`第 ${err.column} 列`), '给了窗口列也不许动那句行列');
+  const zero = v.errBlock({ ...err, column: 40 }, { prev: '', at: '1,,', next: '', caret: 0 });
+  assert.equal(wSlice(zero, 'jt-err__ctx').inner.split('\n')[1], '^',
+    '窗口第一格就是病灶时 caret 是 0：把 `> 0` 当门就会退回去按原文列铺，插入符就飞出窗口外');
+  assert.throws(() => v.errBlock(null, ctx), TypeError);
+  assert.throws(() => v.errBlock(err, null), TypeError, 'ctx 缺席就没法拼读条：抛，别渲一行 undefined');
+});
+
+test('W7 treeRow 的四种行与 treePad 的高度串：Pointer 按钮只长在点得出的行上', () => {
+  const v = createJsonView(W_VIEW);
+  const row = (over) => Object.assign({
+    id: '/a', pointer: '/a', parent: '', depth: 1, keyLabel: 'a', kind: 'number',
+    display: '1', childCount: 0, expanded: false, hiddenCount: 0, truncatedFrom: -1, matched: false,
+  }, over);
+  const scalar = v.treeRow(row({}));
+  assert.equal(wAttr(scalar, 'data-jt-tri'), 'leaf', '标量行给占位的三角而不是省掉：缩进与行高靠这一格对齐');
+  assert.equal(wSlice(scalar, 'jt-tree__key').inner, 'a');
+  assert.equal(wSlice(scalar, 'jt-tree__val').inner, '1');
+  assert.equal(wAttr(scalar, 'data-jt-copy'), '/a');
+  assert.equal(scalar.includes('disabled'), false);
+  const obj = v.treeRow(row({ kind: 'object', display: '{3 键}', childCount: 3 }));
+  assert.equal(wAttr(obj, 'data-jt-tri'), 'closed');
+  assert.equal(wAttr(obj, 'data-jt-copy'), '/a', '容器也有 Pointer，指的就是这一格——不给按钮等于少一种引用方式');
+  const open = v.treeRow(row({ kind: 'array', display: '', childCount: 4, expanded: true }));
+  assert.equal(wAttr(open, 'data-jt-tri'), 'open');
+  assert.equal(wSlice(open, 'jt-tree__val').inner, '4 项', '展开行的概览串是空的，那一格由视图层补数');
+  const more = v.treeRow(row({ id: '/x~more', pointer: '', parent: '/x', display: '还有 2 个键未列出', kind: 'object' }));
+  assert.equal(wAttr(more, 'data-jt-copy'), null, '截断行没有 Pointer 可复制，给按钮就是给一个复制出空串的家伙');
+  assert.equal(wSlice(more, 'jt-tree__key').inner, '还有 2 个键未列出');
+  const root = v.treeRow(row({ depth: 0, id: '', pointer: '', keyLabel: '', kind: 'object', display: '', childCount: 2, expanded: true }));
+  assert.equal(wSlice(root, 'jt-tree__key').inner, '根', '根那一格不能是空的：空串键已经有它自己的那一档（V14）');
+  assert.equal(wAttr(root, 'data-jt-copy'), null);
+  assert.equal(wSlice(v.treeRow(row({ keyLabel: '' })), 'jt-tree__key').inner, wEsc('""'),
+    '`{ "": 1 }` 的键是空串，屏幕上要看得见那对引号');
+  assert.ok(v.treeRow(row({ matched: true })).includes('jt-tree__key is-matched'), '类名顺序要稳定，SCSS 才认这一格');
+  assert.equal(v.treeRow(row({ keyLabel: '<b>&"' })).includes('&lt;b&gt;&amp;&quot;'), true, '用户键名里的标记永远进不了标记');
+  assert.equal(v.treePad(0, 24), '0px');
+  assert.equal(v.treePad(3, 24), '72px');
+  assert.throws(() => v.treePad(-1, 24), RangeError);
+  assert.throws(() => v.treePad(2.5, 24), RangeError, '半行高的垫块会把滚动条总长算歪（§V 契约②）');
+});
+
+test('W8 statsLine 只吃那七格，多出来的读数进不了那一行；emptyHint 是空态唯一的样子', () => {
+  const v = createJsonView(W_VIEW);
+  const stats = { bytes: 12, lines: 3, nodes: 5, depth: 2, keys: 4, arrayItems: 1, longestStringChars: 7 };
+  assert.equal(wSlice(v.statsLine(stats), 'jt-out__stats').inner,
+    '字节 12 · 行 3 · 节点 5 · 深度 2 · 键 4 · 数组项 1 · 最长串 7');
+  // 出去的是带类名的那一格，不是裸文本：装配层要排版就得自己手打第二个类名，而类名词汇表只在这一本里（W10）
+  assert.equal(wSlice(v.statsLine(stats), 'jt-out__stats').tag, 'p', '读数那一行没有自己的那一格，样式那边无处可挂');
+  assert.equal(v.statsLine(Object.assign({}, stats, { evil: 999, kind: 'x' })), v.statsLine(stats),
+    '只读那七格：模块以后加读数不该让这一行静默变样');
+  assert.equal(wSlice(v.statsLine({}), 'jt-out__stats').inner, '字节 0 · 行 0 · 节点 0 · 深度 0 · 键 0 · 数组项 0 · 最长串 0');
+  assert.throws(() => v.statsLine(null), TypeError);
+  const hint = v.emptyHint('还没有算过。粘贴进来，再按上面任意一个动作。');
+  assert.equal(wSlice(hint, 'jt-empty').inner, '还没有算过。粘贴进来，再按上面任意一个动作。');
+  assert.equal(v.emptyHint('<i>').includes('<i>'), false);
+});
+
+test('W9 noteLines 去重保序、逐条转义；四族备注常量非空', () => {
+  const v = createJsonView(W_VIEW);
+  assert.equal(v.noteLines([]), '', '没有备注时长出一个空的 ul，页面上是一条没人看的分隔线');
+  assert.equal(v.noteLines(null), '');
+  const html = v.noteLines(['深度闸门是 1000 层', '深度闸门是 1000 层', '重复键 <b> 取后写']);
+  assert.deepEqual([...html.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]),
+    ['深度闸门是 1000 层', '重复键 &lt;b&gt; 取后写'], '同句只留一条，顺序按给进来的走');
+  assert.ok(html.startsWith('<ul class="jt-notes">'));
+  for (const note of [CORE_NOTES.deepSample, CORE_NOTES.dupKey, TS_HEADER_NOTE, XML_CONVENTION,
+    ...Object.values(YAML_NOTES), ...Object.values(CSV_NOTES)]) {
+    assert.equal(typeof note, 'string', '备注族里出了一格非字符串：它到页面上是 undefined');
+    assert.notEqual(note.trim(), '', '备注族里有空的那一格 = 那一族没人说明代价');
+  }
+});
+
+test('W10 装配层不读环境：七个词 0 命中，写 HTML 只有一个出口', () => {
+  const bare = wBare('dev/js/tools/jsonWorkbench.js');
+  for (const word of ['Date.now(', 'localStorage', 'sessionStorage', 'navigator.', 'new Blob',
+    'URL.', 'window', 'globalThis', 'getComputedStyle', 'querySelector', 'setTimeout(']) {
+    assert.equal(bare.includes(word), false, `装配层不许碰 ${word}：环境量一律从 env 进来，否则 §W 的每一判在两台机器上给两个答案`);
+  }
+  assert.equal(wCount(bare, 'innerHTML'), 1,
+    'innerHTML 只许有一个出口：第二个就是第二条 markup 路径，§V 的行内 HTML 必须从 renderRow 走进这一只');
+  assert.equal(wCount(wBare('dev/js/tools/jsonView.js'), 'innerHTML'), 0, '视图层只产串，不碰节点');
+  // 三种引号都数（评审 P0-1）：旧口径只认 `'jt-`，而装配层那两枚地址恰恰是模板串——拼错的那一版
+  // 在这条判据下是"自洽地绿"。这里挑的是"整格以 `jt-` 起头"的字面量：`<pre class="jt-out__body">`
+  // 那一格是排版（视图层没导出它），第一个字符不是 `j`，与本条红线无关。
+  assert.deepEqual(wHandTypedIds('dev/js/tools/jsonWorkbench.js'), [],
+    "装配层不许手打以 jt- 开头的地址串（' / \" / ` 三种引号都算，注释里的不算）：地址只由那八枚 helper 派生");
+});
+
+test('W11 import 边闭合与入口那三格常量：门禁⑤ 组 5 用正则找的就是这几个字', () => {
+  assert.deepEqual(wImports('dev/js/tools/jsonWorkbench.js').sort(),
+    ['./json-convert.js', './json-core.js', './json-tree.js', './json-ts.js', './jsonView.js'].sort(),
+    '装配层只 import 这四本纯模块加视图层一本：panel / panel-dom / view / ui 走 window.Tk，codecView 与 codecWorkbench 一本都不许碰');
+  assert.deepEqual(wImports('dev/js/toolJson.js'), ['./tools/jsonWorkbench.js'],
+    '入口只许 import 装配层一本，框架那四只从 window.Tk 拿');
+  const entry = wCode('dev/js/toolJson.js');
+  assert.equal(/^\s*export\b/m.test(entry), false, '入口有顶层 export 就是语法错误：iifeWrapPlugin 包成 (function(){…})() 且不补 use strict');
+  for (const line of [
+    "const CONTAINER_ID = 'jt-workspace';",
+    "const NOTICE_ID = 'jt-notice';",
+    "const ATTR = { ids: 'data-jt-ids', prefix: 'data-jt-prefix', label: 'data-jt-label', notice: 'data-jt-notice' };",
+  ]) {
+    assert.ok(entry.includes(line), `门禁⑤ 组 5 在入口源码里正则找的是这一行原文：${line}`);
+  }
+  const bareEntry = wBare('dev/js/toolJson.js');
+  for (const word of ['Date.now(', 'localStorage', 'URL.createObjectURL', 'URL.revokeObjectURL',
+    'win.Blob', 'setTimeout(', 'win.navigator']) {
+    assert.equal(wCount(bareEntry, word), 1, `入口里 ${word} 应恰好一处：多一处就是第二份环境读法，§R 立的"只在入口读一次"塌了`);
+  }
+  // 唯一 import 点**就是装配层那一本**，所以判据数的是"谁在 import 它"，不是"除了它自己没人 import"——
+  // 后一种写法会把装配层自己那一条当成 0 命中，反而永远抓不到"入口也够过去"这件事。
+  const importers = wAllSources()
+    .filter((rel) => rel !== 'dev/js/tools/json-convert.js')
+    .filter((rel) => wImports(rel).some((p) => /json-convert\.js$/.test(p)));
+  assert.deepEqual(importers, ['dev/js/tools/jsonWorkbench.js'],
+    'json-convert 的 import 点只许一处：入口或别的页够过去，就是第二个入口 reach 内置件那本 → 共享 chunk');
+  // 内置件那一本自己是第三个入口的候选：谁 import 它，谁就把 90 KB 拖进自己的产物，
+  // 而两个入口 reach 它时 Rollup 切的是共享 chunk——那条路的下场写在红线 1。
+  const yamlUsers = wAllSources().filter((rel) => wImports(rel).some((p) => /js-yaml/.test(p)));
+  assert.deepEqual(yamlUsers, ['dev/js/tools/json-convert.js'],
+    'js-yaml 只许被 json-convert 够一次：入口与装配层都不许直接够它，YAML 那一族要经 `jsonToYaml` / `yamlToJson` 两扇门');
+});
+
+test('W12 构造期闸门：缺哪一样点名哪一样，注入的那几件必须能用形状', () => {
+  const base = { document: wPage().doc, Tk: { view: W_VIEW, ui: J_UI }, runGuarded: () => true };
+  assert.throws(() => createJsonWorkbench({ ...base, document: undefined }),
+    (e) => e instanceof TypeError && /document/.test(e.message), '缺 document 的后果是第一次点击才炸');
+  assert.throws(() => createJsonWorkbench({ ...base, document: { getElementById: () => null } }),
+    (e) => e instanceof TypeError && /createElement/.test(e.message), '缺 createElement 的 DOM 接不出 §V 的行');
+  assert.throws(() => createJsonWorkbench({ ...base, Tk: { view: null, ui: J_UI } }),
+    (e) => e instanceof TypeError && /view/.test(e.message));
+  assert.throws(() => createJsonWorkbench({ ...base, Tk: { view: W_VIEW, ui: {} } }),
+    (e) => e instanceof TypeError && /copyInto/.test(e.message), '缺 ui.copyInto 的下场是点复制没反应');
+  assert.throws(() => createJsonWorkbench({ ...base, runGuarded: undefined }),
+    (e) => e instanceof TypeError && /runGuarded/.test(e.message), '按钮回调不许自己 try/catch 出第二套错误口径');
+  assert.throws(() => createJsonWorkbench({ ...base, storage: {} }),
+    (e) => e instanceof TypeError && /storage/.test(e.message), '给了 storage 但三个方法都没有：记住上次输入会静默不生效');
+  assert.throws(() => createJsonWorkbench({ ...base, now: 5 }),
+    (e) => e instanceof TypeError && /now/.test(e.message));
+  assert.throws(() => createJsonWorkbench({ ...base, later: 5 }),
+    (e) => e instanceof TypeError && /later/.test(e.message), '非函数的 later 让"粘贴不自动解析"那一条 debounce 静默消失');
+  assert.throws(() => createJsonWorkbench({ ...base, rowHeight: 0 }),
+    (e) => e instanceof RangeError && /rowHeight/.test(e.message), '行高 0 让 §V 的窗口折算除不尽，滚动条总长跟着歪');
+  assert.throws(() => createJsonWorkbench({ ...base, prefix: '' }),
+    (e) => e instanceof TypeError && /prefix/.test(e.message));
+  assert.doesNotThrow(() => createJsonWorkbench(base), 'storage / now / later / 下载三件都允许缺席');
+});
+
+test('W13 controlIds ↔ JSON_SPEC ↔ JSON_ACTIONS 三向对账，骨架缺一格只报不缺不塌', () => {
+  const ids = wControlIds('jt');
+  assert.deepEqual(Object.keys(ids).sort(),
+    ['btn', 'copy', 'gutter', 'in', 'out', 'status', 'tree', 'when']);
+  assert.deepEqual(Object.keys(wControlIds('jt')), Object.keys(wControlIds('zx')), '换前缀只换地址，不换形状');
+  assert.deepEqual(ids.in.map((s) => s.split('-').pop()), ['doc', 'view', 'query', 'indent', 'sort', 'memorize'],
+    '六枚控件就是 JSON_SPEC 那一条声明，门禁⑤ DOM 组比的也是它');
+  assert.equal(ids.btn.length, JSON_ACTIONS.length, '按钮清单只能从 JSON_ACTIONS 长');
+  assert.deepEqual(ids.when, ['jt-when-workbench-tree']);
+  assert.deepEqual(ids.out, ['jt-out-workbench-main']);
+  assert.deepEqual(ids.gutter, ['jt-gutter-workbench-doc']);
+  const seen = new Set();
+  for (const list of Object.values(ids)) {
+    for (const id of list) {
+      assert.ok(id.startsWith('jt-'), `${id} 不在前缀下面：装配层里有人手打了地址`);
+      assert.equal(seen.has(id), false, `${id} 派生了两次：接线会挂两遍监听`);
+      seen.add(id);
+    }
+  }
+  const page = wPage();
+  const extra = [...page.nodes.keys()].filter((k) => !seen.has(k));
+  assert.deepEqual(extra.sort(), ['jt-notice', 'jt-workspace'],
+    '骨架上只许多这两格（入口自己的地址），多第三格就是有个没人接的格子');
+  const m = wMount({ drop: [wCopy('jt', 'workbench', 'main')] });
+  assert.ok(m.report.missing.includes(wCopy('jt', 'workbench', 'main')),
+    '缺一格要报出来：静默少一枚复制按钮，用户只会以为这页坏了');
+  assert.deepEqual(m.threw, [], '缺一格不是异常：找不到节点就少接那一根线，别把整页拖塌');
+  assert.deepEqual(Object.keys(m.wb.renderers), JSON_PANEL_IDS, 'renderers 的键就是面板清单，多一块少一块都接不上 panel-dom');
+  assert.deepEqual(Object.keys(m.wb.actions).sort(), JSON_ACTIONS.map((a) => a.key).sort(),
+    '动作清单只能有一份：按钮按 `JSON_ACTIONS` 长，可调用的面也按它长，少一枚就是页面上有一枚点了没反应的按钮');
+  const twice = wMount();
+  twice.wb.mount();
+  assert.equal(twice.page.nodes.get(wButton('jt', 'workbench', 'format')).listeners.get('click').length, 1,
+    'mount() 重入不许挂第二根线：一次按键跑两遍计算');
+});
+
+test('W14 一次闭环与两类失败分两条路：用户那一格走提示，模块坏了走 guarded', () => {
+  const m = wMount({ seed: { 'workbench:doc': '{"a":1,"b":2}' } });
+  assert.deepEqual(m.guarded, [], '挂载期一次计算都不做（红线 4）');
+  assert.ok(m.page.html().includes('jt-empty'), '挂载画的是空态，不是把上次输入偷偷算一遍');
+  m.page.click('format');
+  assert.deepEqual(m.guarded, [wButton('jt', 'workbench', 'format')], '按钮走的必须是被 runGuarded 包过的那一条');
+  assert.ok(m.page.html().includes('&quot;a&quot;'), '格式化结果进的是转义后的那一栏');
+  assert.equal(m.wb.state().tone, 'ok');
+  assert.equal(m.wb.state().kind, 'json');
+  assert.deepEqual(m.threw, [], '一次正常动作不该被记成"这块坏了"（`equal` 比两个新数组永远红，这一格要的是内容）');
+  m.page.set('workbench', 'doc', W_BAD().text);
+  m.page.click('validate');
+  assert.ok(m.page.html().includes('jt-err'), '坏输入给的是行列 + 读条，不是一句"错了"');
+  assert.equal(m.wb.state().tone, 'bad');
+  assert.deepEqual(m.threw, [], '用户的输入坏了不是这块坏了，不许记进 broken');
+  assert.equal(m.page.sel.length, 1, '定位一次就好：选区落在病灶那一格');
+  assert.deepEqual(m.page.sel[0].slice(0, 2), [W_BAD().err.index, W_BAD().err.index + W_BAD().err.length]);
+  m.page.set('workbench', 'doc', '   ');
+  m.page.click('format');
+  assert.ok(m.page.html().includes('jt-hint'), '空输入走 FieldError 那一格：读条没有可指的地方');
+  assert.equal(m.page.sel.length, 1, '空输入不该动选区');
+  assert.deepEqual(m.threw, []);
+  m.page.set('workbench', 'doc', '{"a":1}');
+  m.page.set('workbench', 'sort', 'wild');
+  m.page.click('format');
+  assert.equal(m.threw.length, 1, '骨架给了 spec 之外的值 = spec 与骨架漂移，那是内部不变量坏了，原样上抛');
+  assert.equal(m.threw[0][0], wButton('jt', 'workbench', 'format'));
+  assert.ok(m.page.html().includes('jt-hint'), '坏了这一次不许把上一格的结果擦掉：用户手里那份还在');
+});
+
+test('W15 记住上次输入：关着零次写入，开着恰好一格，超长只说没存', () => {
+  const off = wStore();
+  const a = wMount({ storage: off, seed: { 'workbench:doc': '{"a":1}' } });
+  assert.equal(a.page.ctl('workbench', 'memorize').checked, false, '默认档必须是关');
+  a.page.click('validate');
+  assert.deepEqual(off.log, [], '关着的这一次 setItem 零次：默认就在往本机写东西，页面那句"默认关"就成了假话');
+  const on = wStore();
+  const b = wMount({ storage: on, seed: { 'workbench:doc': '{"a":1}' } });
+  b.page.check('workbench', 'memorize', true);
+  b.page.change('workbench', 'memorize');
+  assert.deepEqual(on.log, ['jt.memory.on'], '开关本身总写：不写的话下次打开又回到关，这功能等于没有');
+  b.page.click('validate');
+  assert.deepEqual(on.log, ['jt.memory.on', 'jt.memory.input']);
+  assert.equal(JSON.parse(on.map.get('jt.memory.input')).text, '{"a":1}');
+  b.page.check('workbench', 'memorize', false);
+  b.page.change('workbench', 'memorize');
+  assert.deepEqual(on.log.slice(2), ['jt.memory.on', '-jt.memory.input'], '关回去要把正文删干净：留着就是"关了但还在存"');
+  const restored = wMount({
+    storage: wStore({ 'jt.memory.on': '1', 'jt.memory.input': JSON.stringify({ text: '{"z":9}', at: 111 }) }),
+  });
+  assert.equal(restored.page.ctl('workbench', 'memorize').checked, true, '开关状态要跟着回来');
+  assert.equal(restored.page.ctl('workbench', 'doc').value, '{"z":9}', '正文回填，但只回填不算');
+  assert.deepEqual(restored.guarded, [], '挂载期连恢复都不解析（红线 4）');
+  assert.ok(restored.page.status().textContent.includes('已恢复上次输入'));
+  const broken = wMount({ storage: wStore({ 'jt.memory.on': '1', 'jt.memory.input': '{not json' }) });
+  assert.equal(broken.page.ctl('workbench', 'doc').value, '', '存的那一格读不出形状就当没有：宁可少恢复一次，也不把半截东西塞进输入区');
+  assert.deepEqual(broken.threw, []);
+  const hugeStore = wStore();
+  const huge = wMount({ storage: hugeStore, seed: { 'workbench:doc': `{"a":"${'x'.repeat(300000)}"}` } });
+  huge.page.check('workbench', 'memorize', true);
+  huge.page.change('workbench', 'memorize');
+  huge.page.click('validate');
+  assert.deepEqual(hugeStore.log, ['jt.memory.on'], '超过 256 KiB 就连正文那一格都不写：那一格里塞 300 KB 是把用户的整份数据留在浏览器里');
+  assert.ok(huge.page.status().textContent.includes('没存'), '超长要说"没存"，静默不写让用户以为存住了');
+  const nostore = wMount({ storage: null });
+  assert.equal(nostore.page.ctl('workbench', 'memorize').disabled, true, '这台浏览器不给存就把开关置灰：按下去没反应的一枚开关比没有更糟');
+  // 复制那两枚的可用性是**两格**决定的（评审 P3-14）：这一栏有没有可复制的文本 × 这台浏览器还有没有
+  // 一条能用的退路。旧口径只在挂载期按后一格置灰，可一旦算出结果，`syncCopy` 只看前一格就把按钮点亮——
+  // 两条退路都断的那台机器上，按下去只会把文案改成"复制失败，请手动选中"。
+  // 所以这里必须**先算出一格结果**再量：挂载期 `out` 本来就是空的，那一判量不到第二格。
+  const nodl = wMount({ dl: null, clipboard: null, seed: { 'workbench:doc': '{"a":1}' } });
+  const copies = [wCopy('jt', 'workbench', 'main'), wButton('jt', 'workbench', 'copy')];
+  assert.deepEqual(copies.map((id) => nodl.page.doc.getElementById(id).disabled), [true, true],
+    '还没算过：两枚都没有可复制的文本');
+  nodl.page.click('validate');
+  assert.deepEqual(copies.map((id) => nodl.page.doc.getElementById(id).disabled), [true, true],
+    '既无 clipboard 也无 execCommand 的两条退路都断了，算出结果也不点亮：按下去只会改一次文案的按钮不如没有');
+  assert.equal(nodl.page.doc.getElementById(wButton('jt', 'workbench', 'download')).disabled, true, '缺 Blob 那三件就 disable 下载');
+  const backstop = wMount({ exec: true, clipboard: null, seed: { 'workbench:doc': '{"a":1}' } });
+  backstop.page.click('validate');
+  assert.deepEqual(copies.map((id) => backstop.page.doc.getElementById(id).disabled), [false, false],
+    'http 场景下 `execCommand` 在，那条退路就算数：两枚都该照常可用（真页面的判据归 §X 的浏览器核验）');
+});
+
+test('W16 粘贴不自动解析：二十次 input 一次计算都不做；输出超上限只拒进 DOM', () => {
+  const m = wMount({ seed: { 'workbench:doc': '{"a":1}' } });
+  assert.equal(m.page.made(), 0,
+    '挂载期一个新节点都不许长：树控制器与行节点都在按动作之后才存在，挂载就长等于把 §V 的窗口算了一遍');
+  const before = m.page.html();
+  for (let i = 0; i < 20; i++) m.page.input('workbench', 'doc');
+  assert.equal(m.timers.length, 20, '每次 input 排一个，不排第二个：真正的合并交给那个令牌');
+  m.flush();
+  assert.deepEqual(m.guarded, [], '解析只在按动作时发生：input 只更新闸门读数');
+  assert.equal(m.page.html(), before, '空态那一栏不该被 input 换掉');
+  assert.equal(m.page.sel.length, 0, 'input 不许动选区：粘贴到一半被抢走光标是能用键盘的人最烦的事');
+  assert.equal(m.page.tree.childNodes.length, 0, '树也没被 input 喂过');
+  assert.ok(m.page.status().textContent.includes('字节'), '闸门读数要更新，否则"零网络请求"这一格没人看得见');
+  // 两档量的其实是同一件事的两头：**上限与输入那一档同源**，所以两兆的结果必须上得了页面，
+  // 而只有"结果比输入大得多"的那一族（XML 一个元素摊到 25 字节）才该被拒。
+  const big = `{"big":"${'A'.repeat(2100000)}"}`;
+  const m2 = wMount({ seed: { 'workbench:doc': big } });
+  m2.page.click('format');
+  assert.deepEqual(m2.threw, [], '两兆的结果不是这块坏了');
+  assert.ok(m2.page.html().includes('AAAA'), '越过的只是 2 MiB 那一档旧口径：它本该摆上页面');
+  assert.ok(m2.wb.state().out.length > 2097152, '这一份确实大于 2 MiB，所以它量的是"两档口径不是一回事"');
+  assert.equal(m2.wb.state().tone, 'ok');
+  // 拒样只让**输入侧**长到 6 MiB：那一条闸门由 `json-core` 自己挡，装配层不进口 `parseJson`，
+  // 所以这里量的就是"拒话里给得出上限那个数"，代价是 145 ms 而不是 2.4 s。
+  const huge = `{"a":"${'x'.repeat(MAX_JSON_BYTES + 1000)}"}`;
+  const m3 = wMount({ seed: { 'workbench:doc': huge } });
+  m3.page.click('format');
+  assert.deepEqual(m3.threw, [], '超限不是这块坏了：它是有话要说的一种结果');
+  assert.ok(m3.page.html().includes('jt-refuse'), '要有一句能读的话');
+  assert.ok(m3.page.html().includes(String(MAX_JSON_BYTES)), `话里给得出上限那个数：${huge.length} 字节的输入被谁挡的`);
+  assert.equal(m3.wb.state().tone, 'warn');
+  assert.equal(m3.wb.state().out, '', '输入就没过闸门，手里不该留一份结果');
+});
+
+test('W17 行号槽与输入同源：末格行号 == 闸门读到的行数，纵跟横不跟', () => {
+  const m = wMount();
+  const text = '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}';
+  m.page.set('workbench', 'doc', text);
+  m.page.input('workbench', 'doc');
+  m.flush();
+  const nums = m.page.gutter().textContent.split('\n');
+  assert.equal(nums.length, gate(text).lines, '行号槽与闸门不同源就是两个行数：读条那一格已经在指第 7 行，槽上只到 6');
+  assert.equal(nums[nums.length - 1], String(gate(text).lines));
+  assert.equal(nums[0], '1');
+  assert.equal(m.page.gutter().style.height, `${gate(text).lines * 24}px`, '槽的高度按行数 × 行高，与 §V 的垫块同一把尺');
+  const empty = wMount();
+  empty.page.input('workbench', 'doc');
+  empty.flush();
+  assert.equal(empty.page.gutter().textContent, '1', '空输入也有一行：槽里全空会让人以为这页没接上');
+  m.page.ctl('workbench', 'doc').scrollTop = 40;
+  m.page.ctl('workbench', 'doc').dispatch('scroll', {});
+  assert.equal(m.page.gutter().style.transform, 'translateY(-40px)');
+  m.page.ctl('workbench', 'doc').scrollLeft = 30;
+  m.page.ctl('workbench', 'doc').dispatch('scroll', {});
+  assert.equal(m.page.gutter().style.transform, 'translateY(-40px)', '横向故意不跟：行号是固定在左边的定宽列，跟着横滚会滑出视野');
+  assert.equal(m.page.gutter().style.marginLeft, undefined);
+  assert.equal(m.page.attr(wGutter('jt', 'workbench', 'doc'), 'aria-hidden'), 'true', '读屏不该把行号读成内容');
+});
+
+test('W18 换前缀端到端自证：整页在 zx 下面重新跑一遍，storage 的键也跟着换', () => {
+  const store = wStore();
+  const m = wMount({ prefix: 'zx', storage: store, seed: { 'workbench:doc': '{"a":[1,2]}' } });
+  assert.deepEqual(m.report.missing, [], '装配层里只要有一处手打了 jt，换前缀之后这一格就找不到');
+  const all = Object.values(wControlIds('zx')).flat();
+  assert.deepEqual(m.report.rendered.slice().sort(), all.slice().sort(), '每一格都接上了线，一格不多一格不少');
+  m.page.set('workbench', 'view', 'tree');
+  m.page.change('workbench', 'view');
+  assert.equal(m.page.doc.getElementById(wWhen('zx', 'workbench', 'tree')).hidden, false, '切到树要露出搜索那一组');
+  m.page.click('validate');
+  assert.ok(m.page.tree.childNodes.length > 0, '树容器里长出了 §V 的三块常驻节点（上垫块 / 行容器 / 下垫块）');
+  // 行在**行容器**那一块里，不在树容器的第一格：§V 的 `childNodes[0]` 是上垫块，它永远没有内容。
+  const rowsBox = m.page.tree.childNodes.find((el) => el.getAttribute('class') === 'jt-tree__rows');
+  assert.ok(rowsBox, '控制器那三块里的行容器不见了：§V 的常驻节点形状变了，装配层的 renderRow 也就无处可写');
+  assert.ok(rowsBox.childNodes.length > 0, '树视图的行真的长出来了（§V 的控制器接的是这一页的行高）');
+  assert.ok(String(rowsBox.childNodes[0].innerHTML).includes('jt-tree__'),
+    '行内 markup 走 renderRow，不再是一坨 textContent');
+  assert.ok(m.page.html().includes('&quot;a&quot;'));
+  m.page.check('workbench', 'memorize', true);
+  m.page.change('workbench', 'memorize');
+  m.page.click('format');
+  assert.deepEqual(store.log, ['zx.memory.on', 'zx.memory.input'], '存储的键也跟前缀走：两页共用一台浏览器时不许互相覆盖');
+  m.page.set('workbench', 'view', 'text');
+  m.page.change('workbench', 'view');
+  assert.equal(m.page.doc.getElementById(wWhen('zx', 'workbench', 'tree')).hidden, true);
+  assert.equal(m.page.tree.childNodes.length, 0, '切回文本要把树的行撤掉：留着的话两种视图会同时挂在 DOM 上');
+});
+
+test('W19 八枚 helper 的字面量逐个钉死：门禁⑤ 只认 `-in-` 那一族，其余七族只有这一判管', () => {
+  assert.equal(wField('jt', 'workbench', 'doc'), 'jt-in-workbench-doc');
+  assert.equal(wField('jt', 'workbench', 'view'), 'jt-in-workbench-view');
+  assert.equal(wField('jt', 'workbench', 'query'), 'jt-in-workbench-query');
+  assert.equal(wField('jt', 'workbench', 'indent'), 'jt-in-workbench-indent');
+  assert.equal(wField('jt', 'workbench', 'sort'), 'jt-in-workbench-sort');
+  assert.equal(wField('jt', 'workbench', 'memorize'), 'jt-in-workbench-memorize');
+  assert.equal(wButton('jt', 'workbench', 'format'), 'jt-btn-workbench-format');
+  assert.equal(wCopy('jt', 'workbench', 'main'), 'jt-copy-workbench-main');
+  assert.equal(wOut('jt', 'workbench', 'main'), 'jt-out-workbench-main');
+  assert.equal(wWhen('jt', 'workbench', 'tree'), 'jt-when-workbench-tree');
+  assert.equal(wGutter('jt', 'workbench', 'doc'), 'jt-gutter-workbench-doc');
+  assert.equal(wStatus('jt', 'workbench', 'main'), 'jt-status-workbench-main');
+  assert.equal(wTree('jt', 'workbench', 'main'), 'jt-tree-workbench-main');
+  // 评审 P0-1 的现场就是这一形状：模板串里 `${panel}` 打成 `{panel}`，产出 `jt-copy-{panel}-{side}`。
+  // W10 那条"不许手打地址"抓不到它——派生与查找用的是同一只错函数，在装配层内部完全自洽，
+  // 代价是页面上那一枚复制按钮永远找不到节点。只有逐字钉死产出串（或像下面这样查花括号）才看得见。
+  for (const list of Object.values(wControlIds('jt'))) {
+    for (const id of list) {
+      assert.equal(/[{}]/.test(id), false, `${id} 里还有没被替换的花括号：这一格在骨架上永远找不到`);
+    }
+  }
+  const m = wMount();
+  assert.deepEqual(m.report.missing, [], '上面那十三格与骨架长出来的那一串必须逐字相等');
+  const ids = wControlIds('jt');
+  for (const [family, list] of Object.entries(ids)) {
+    for (const id of list) {
+      assert.ok(m.report.rendered.includes(id),
+        `${family} 一族里的 ${id} 骨架没给：门禁⑤ 只按 \`-in-\` 拼那一族（check-tools-surface.mjs:479），`
+        + 'btn / copy / out / status / tree / when / gutter 这七族漏了只有这里报');
+    }
+  }
+});
+
+test('W20 十二枚动作逐个按一遍：每一枚都画得出一栏，标题与类别跟着动作走', () => {
+  const IN = '{"a":1,"b":[true,null,"x<y"]}';
+  const vIn = parseJson(IN).value;
+  const inputs = {
+    validate: IN,
+    format: IN,
+    minify: IN,
+    escape: 'he said "hi"',
+    unescape: 'he said \\"hi\\"',
+    ts: IN,
+    yamlOut: IN,
+    xmlOut: IN,
+    csvOut: IN,
+    yamlIn: jsonToYaml(vIn).text,
+    xmlIn: jsonToXml(vIn, { indent: 'two' }).text,
+    csvIn: jsonToCsv([{ a: 1 }, { a: 2 }]).text,
+  };
+  const m = wMount();
+  const skipped = [];
+  for (const a of JSON_ACTIONS) {
+    if (a.key === 'copy' || a.key === 'download') { skipped.push(a.key); continue; }
+    m.page.set('workbench', 'doc', inputs[a.key]);
+    m.page.click(a.key);
+    const html = m.page.html();
+    assert.deepEqual(m.threw, [], `${a.key}：按下去被记成"这一块坏了"`);
+    assert.equal(m.wb.state().tone, 'ok', `${a.key}：这一份输入本来是好的`);
+    assert.equal(m.wb.state().kind, a.kind,
+      `${a.key} 的类别要跟着动作走：按「生成 TypeScript」得到一栏 json，下载就跟着错（评审 P2-10）`);
+    assert.equal(wAttr(html, 'data-jt-kind'), a.kind, 'kind 落在 attribute 上，样式那边不用认第五个词');
+    assert.equal(wSlice(html, 'jt-out__title').inner, wEsc(a.label),
+      `${a.key} 的栏头标题就是按钮那句文案：两处不一致时用户读不出自己按的是哪一枚`);
+    assert.ok(wSlice(html, 'jt-out__body') !== null, `${a.key} 有栏头却没有正文`);
+    assert.notEqual(m.wb.state().out, '', `${a.key} 算得出空正文，那一栏就是装的空的`);
+  }
+  assert.deepEqual(skipped, ['copy', 'download'],
+    '这两枚不画栏（W22 与 W24 各量一件）：清单多谁就是有人加了一枚没人量的按钮');
+  // 转义那一族的对称（评审 P1-3 的第二半）：`转义 → 反转义` 要能回到原样。
+  m.page.set('workbench', 'doc', 'he said "hi"');
+  m.page.click('escape');
+  assert.equal(m.wb.state().out, JSON.stringify('he said "hi"'),
+    '转义产出的是"能直接贴进 JSON 字符串字面量"的那一段，外层引号要在');
+  m.page.set('workbench', 'doc', m.wb.state().out);
+  m.page.click('unescape');
+  assert.equal(m.wb.state().out, 'he said "hi"',
+    '带着外层引号反转义也要回原样：那一层是转义加的，就该由反转义剥掉');
+  // 三个"转回"读回来的值：YAML / XML 精确回到写出去的那一份，CSV 按它自己的口径全成字符串
+  m.page.set('workbench', 'doc', inputs.yamlIn);
+  m.page.click('yamlIn');
+  assert.deepEqual(JSON.parse(m.wb.state().out), vIn, 'YAML 转回的正文里就是那一份值：类型不能在这一跳里悄悄变');
+  m.page.set('workbench', 'doc', inputs.xmlIn);
+  m.page.click('xmlIn');
+  assert.deepEqual(JSON.parse(m.wb.state().out), vIn, 'XML 的 t= 那一套要真的把类型带回来，不然它只是标签名');
+  m.page.set('workbench', 'doc', inputs.csvIn);
+  m.page.click('csvIn');
+  assert.deepEqual(JSON.parse(m.wb.state().out), [{ a: '1' }, { a: '2' }],
+    'CSV 读回来每格都是字符串（§U 的口径），页面上那一族说明讲的正是这件事（W26 量它上没上页面）');
+  // 用户文本进标记只有一条路：视图层注入的那一只 `esc`
+  m.page.set('workbench', 'doc', IN);
+  m.page.click('format');
+  assert.ok(m.page.html().includes('x&lt;y'), '尖括号在正文那一栏里也是转义过的');
+  assert.equal(m.page.html().includes('"x<y"'), false, '原始形状出现在 HTML 串里 = 有一处没走 esc');
+});
+
+test('W21 树容器的点击代理：Pointer 那一支赢过展开那一支，展开态读 aria-expanded 不查行内三角', async () => {
+  const got = [];
+  const clipboard = { writeText: (t) => { got.push(t); return Promise.resolve(); } };
+  const m = wMount({ clipboard, seed: { 'workbench:doc': '{"a":[1,2]}', 'workbench:view': 'tree' } });
+  m.page.click('validate');
+  const rowsBox = () => {
+    const box = m.page.tree.childNodes.find((el) => el.getAttribute('class') === 'jt-tree__rows');
+    return box || { childNodes: [] };
+  };
+  const rowsOf = () => rowsBox().childNodes.filter((el) => el.getAttribute('data-jt-id') !== null);
+  assert.equal(rowsOf().length, 4, '默认深度 2：根 / a / a[0] / a[1] 四行');
+  // Pointer 那一支必须**先**判：它住在行内，而它的父级是一行容器（有 `aria-expanded`）。
+  // 两档顺序写反了就是"复制一格的 Pointer，顺手把这一支折叠了"——用户看到的是树跳了、剪贴板没东西。
+  const arrayRow = rowsBox().childNodes[1];
+  assert.equal(arrayRow.getAttribute('data-jt-id'), '/a');
+  assert.equal(arrayRow.getAttribute('aria-expanded'), 'true');
+  const btn = m.page.mk('button', '', { 'data-jt-copy': '/a' });
+  arrayRow.appendChild(btn);
+  m.page.tree.dispatch('click', { target: btn });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(got, ['/a'], '复制的是这一格的 Pointer 地址，不是整棵树的文本');
+  assert.equal(rowsOf().length, 4, '复制走完就 return：再往下走会把这一支整个折叠掉');
+  assert.equal(btn.textContent, '已复制', '那一枚按钮要自己给反馈：Pointer 短，复制成了没人看得见');
+  // 点行本身翻展开态。读的是行上的 `aria-expanded`，不是行内那枚 `<span data-jt-tri>`——
+  // 后者要从 DOM 里再找一次就得用 `querySelector`，那一个词在 W10 的红线上是 0 命中。
+  m.page.tree.dispatch('click', { target: rowsBox().childNodes[0] });
+  assert.equal(rowsOf().length, 1, '折叠根只留根一行');
+  assert.equal(rowsBox().childNodes[0].getAttribute('aria-expanded'), 'false', '翻的是当前那一档，不是猜的');
+  m.page.tree.dispatch('click', { target: rowsBox().childNodes[0] });
+  assert.equal(rowsOf().length, 2,
+    '再展开只回来两行：`/a` 那一支的展开态随整支离开了行集，§V 的 V10 判的就是这一档（不是这里放松）');
+  m.page.tree.dispatch('click', { target: rowsBox().childNodes[1] });
+  assert.equal(rowsOf().length, 4, '点开 `/a` 才把两项数组摊回来');
+  const scalar = rowsBox().childNodes.find((el) => el.getAttribute('aria-expanded') === null);
+  assert.ok(scalar, '标量行上没有 aria-expanded');
+  m.page.tree.dispatch('click', { target: scalar });
+  assert.equal(rowsOf().length, 4, '第三档什么都不做：点标量行不许把树翻乱');
+  m.page.tree.dispatch('click', { target: m.page.tree });
+  assert.equal(rowsOf().length, 4);
+  assert.deepEqual(got, ['/a'], '点容器与垫片（两格都 `closest` 不到）不许静默复制或塌陷');
+});
+
+test('W22 下载那一枚：文件名与 MIME 跟着当前类别，摘节点与撤销 URL 排在 finally', () => {
+  const dl = wDownload();
+  const m = wMount({ dl, seed: { 'workbench:doc': '{"a":1}' } });
+  m.page.click('download');
+  assert.deepEqual(dl.blobs, [], '还没算过就没有可下载的东西：给一个空文件比按下去没反应更坏');
+  assert.equal(dl.urls.made.length, 0);
+  m.page.click('validate');
+  m.page.click('download');
+  assert.equal(dl.blobs.length, 1);
+  assert.deepEqual(dl.blobs[0].parts, [m.wb.state().out], '下载的是当前那一栏的正文，不是输入原文');
+  assert.equal(dl.blobs[0].options.type, 'application/json');
+  assert.equal(m.page.madeOf('a')[0].download, 'data.json');
+  assert.deepEqual(dl.urls.revoked, dl.urls.made.map(([u]) => u),
+    'made 与 revoked 一对一且同一个 URL：漏一次就是一个 blob URL 泄漏到页面关掉');
+  assert.equal(m.page.doc.body.childNodes.length, 0, '那一枚 <a> 用完要摘掉，不许留在 body 上');
+  m.page.click('ts');
+  m.page.click('download');
+  assert.equal(dl.blobs[1].options.type, 'text/plain', '按「生成 TypeScript」拿到 .json 是另一回事（评审 P2-10）');
+  assert.equal(m.page.madeOf('a')[1].download, 'data.ts', '扩展名跟着那一栏的类别');
+  const before = { state: m.wb.state(), html: m.page.html() };
+  const orig = m.page.doc.createElement;
+  m.page.doc.createElement = (tag) => {
+    const el = orig(tag);
+    if (String(tag).toLowerCase() === 'a') el.click = () => { throw new Error('下载被拦'); };
+    return el;
+  };
+  m.page.click('download');
+  assert.equal(m.threw.length, 1, '抛出去交给注入的 runGuarded：这一层不自己吞掉一次真失败');
+  assert.equal(dl.urls.revoked.length, 3,
+    '旧口径把 revoke 排在 click() 之后，这一抛就整条跳过——实测泄漏一个 blob URL（评审 P2-10 那一档的 finally）');
+  assert.equal(m.page.doc.body.childNodes.length, 0, '游离的 <a> 也不能因为抛错就留在页面上');
+  assert.deepEqual(m.wb.state(), before.state, '下载失败不许改动结果区（红线 5）');
+  assert.equal(m.page.html(), before.html);
+});
+
+test('W23 存储一碰就抛：页面照样起、按钮照样能按（评审 P0-2 的隐私模式那一档）', () => {
+  /** 隐私模式那一下的真形状：`localStorage` 取到了，第一次 `getItem` 就抛 */
+  class SecurityError extends Error { }
+  const boom = () => { throw new SecurityError('这台浏览器不给读'); };
+  const store = { getItem: boom, setItem: boom, removeItem: boom };
+  const m = wMount({ storage: store, seed: { 'workbench:doc': '{"a":1}' } });
+  assert.ok(m.page.html().includes('jt-empty'), '挂载没抛：空态照常画。旧口径里这一档是整页起不来');
+  assert.ok(m.page.status().textContent.includes('字节'), '闸门读数照常给');
+  assert.deepEqual(m.threw, []);
+  assert.equal(m.page.ctl('workbench', 'memorize').disabled, false,
+    '有 storage 对象就按"能用"接线：真抛了再退。因为怕抛就把开关永久置灰，是把概率性故障当成没有这功能');
+  m.page.check('workbench', 'memorize', true);
+  m.page.change('workbench', 'memorize');
+  m.page.click('validate');
+  assert.deepEqual(m.threw, [], '读与写都抛：一次按动作不许被记成"这一块坏了"');
+  assert.equal(m.wb.state().tone, 'ok', '结果是算出来的，跟存不存得住没有关系');
+  assert.ok(m.page.html().includes('&quot;a&quot;'));
+});
+
+test('W24 两枚复制各改各的口：没有剪贴板时那一走是同步的，连点两次不许把"已复制"转正', () => {
+  const m = wMount({ exec: true, clipboard: null, seed: { 'workbench:doc': '{"a":1}' } });
+  m.page.click('validate');
+  const toolbar = m.page.doc.getElementById(wButton('jt', 'workbench', 'copy'));
+  const result = m.page.doc.getElementById(wCopy('jt', 'workbench', 'main'));
+  assert.equal(result.textContent, '复制这一栏');
+  m.page.click('copy');
+  assert.equal(toolbar.textContent, '已复制', '工具栏那一枚改的是自己那一格');
+  assert.equal(result.textContent, '复制这一栏',
+    'clipboard 缺席时走的是同步那条兜底：另一枚跟着改口就是替用户按了第二下');
+  m.page.clickCopy();
+  assert.equal(result.textContent, '已复制');
+  m.page.click('copy');
+  m.page.click('copy');
+  assert.equal(toolbar.textContent, '已复制');
+  m.flush();
+  assert.equal(toolbar.textContent, '复制',
+    '第二次的 original 取的是接线那一下记下的文案（评审 P2-9）：取当时的 textContent 就等于让"已复制"永久转正');
+  assert.equal(result.textContent, '复制这一栏', '两枚各有自己的原文案，不许共用一句');
+  assert.equal(m.page.selects.length, 4, '四次都真走到了兜底那一走（临时 textarea 被 select 过）');
+  assert.equal(m.page.doc.body.childNodes.length, 0,
+    '兜底用的临时 textarea 用完要摘干净：留在页面上就是一枚能被 Tab 走到的隐形输入框');
+});
+
+test('W25 树的化石：切视图只重画上一次那一份，坏输入与"没碰树"的动作都要拆掉旧树', () => {
+  const m = wMount({ seed: { 'workbench:doc': '{"a":[1,2]}' } });
+  const rowCount = () => {
+    const box = m.page.tree.childNodes.find((el) => el.getAttribute('class') === 'jt-tree__rows');
+    return box ? box.childNodes.length : 0;
+  };
+  m.page.set('workbench', 'view', 'tree');
+  m.page.change('workbench', 'view');
+  assert.equal(m.page.tree.childNodes.length, 0, '一次都没算过就不许有树：切视图那条路上解析就是踩红线 4');
+  assert.ok(m.page.status().textContent.includes('换了输入'),
+    '要有一句能读的话说清"树为什么不跟"，否则用户以为这一页坏了');
+  m.page.click('validate');
+  assert.ok(m.page.tree.childNodes.length > 0, '按过动作之后树长出来了');
+  assert.equal(rowCount(), 4);
+  m.page.set('workbench', 'view', 'text');
+  m.page.change('workbench', 'view');
+  assert.equal(m.page.tree.childNodes.length, 0, '切回文本要把那三块常驻节点撤干净');
+  m.page.set('workbench', 'view', 'tree');
+  m.page.change('workbench', 'view');
+  assert.equal(rowCount(), 4, '输入没动，来回切两次就要拿上一份的值重画（评审 P1-5：`lastTreeText` 不跟着树一起抹）');
+  assert.equal(m.page.status().textContent.includes('换了输入'), false,
+    '这句在这一档是假话：那棵树展示的确实是眼前这一段文本');
+  m.page.set('workbench', 'doc', W_BAD().text);
+  m.page.click('validate');
+  assert.equal(m.page.tree.childNodes.length, 0,
+    '坏输入不许让上一份的树挂着当旁证：读数照着新输入报，树里却是旧文件的键（评审 P1-4）');
+  m.page.set('workbench', 'view', 'text');
+  m.page.change('workbench', 'view');
+  m.page.set('workbench', 'doc', '{"z":9}');
+  m.page.set('workbench', 'view', 'tree');
+  m.page.change('workbench', 'view');
+  assert.equal(m.page.tree.childNodes.length, 0, '换了输入没再按动作：那一棵树是别人家的');
+  assert.ok(m.page.status().textContent.includes('换了输入'));
+  // 转义那一族排在解析之前（评审 P1-3），永远走不到 `buildTree`，它自己不碰树就得由 `dropStaleTree` 收尾
+  const e = wMount({ seed: { 'workbench:doc': '{"a":1}', 'workbench:view': 'tree' } });
+  e.page.click('validate');
+  assert.ok(e.page.tree.childNodes.length > 0, 'validate 在树视图下顺手把树建好');
+  e.page.set('workbench', 'doc', 'he said "hi"');
+  e.page.click('escape');
+  assert.equal(e.page.tree.childNodes.length, 0,
+    '输入已经换成 he said "hi"，树里还挂着 {"a":1} ——同一份文本刚算过的可以留，换了就得拆');
+});
+
+/** `jt-notes` 那一整块的原文：`wSlice` 只切到第一个 `</`，多条说明会落在它以外 */
+const wNotes = (html) => {
+  const at = html.indexOf('class="jt-notes"');
+  return at < 0 ? '' : html.slice(at, html.indexOf('</ul>', at));
+};
+
+test('W26 那一族代价说明要上得了页面：转家族逐条列出，闸门只在真的靠近时说', () => {
+  const IN = '{"a":1,"b":[true,null,"x<y"]}';
+  const m = wMount({ seed: { 'workbench:doc': IN } });
+  m.page.click('yamlOut');
+  assert.ok(m.page.html().includes('class="jt-notes"'),
+    '§U 钉的是那四族常量"非空"，把其中一句放上页面的是这一格：装配层一次都不叫 `cv.noteLines`，那四族在页面上就是 0 处命中');
+  for (const [key, note] of Object.entries(YAML_NOTES)) {
+    assert.ok(wNotes(m.page.html()).includes(wEsc(note)), `YAML_NOTES.${key} 没出现在转 YAML 那一栏`);
+  }
+  m.page.click('xmlOut');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(XML_CONVENTION)), 'XML 那一族的 t= / item 约定必须说');
+  m.page.click('csvOut');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(CSV_NOTES.fidelity)));
+  m.page.click('ts');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(TS_HEADER_NOTE)),
+    'TS 那一族只靠正文第一行那句注释不够：判据要量的是说明那一块里也有它，否则这一断言被正文白送');
+  m.page.set('workbench', 'doc', 'a: 1\n');
+  m.page.click('yamlIn');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(YAML_NOTES.ambiguous)), '读回来那一族摊的代价一样要说');
+  m.page.set('workbench', 'doc', '{"a":1}');
+  m.page.click('validate');
+  assert.equal(wNotes(m.page.html()), '',
+    '浅输入既没重复键也没靠近深度闸门：每一栏都堆一段说明就是没人看的噪音');
+  m.page.set('workbench', 'doc', '{"a":1,"a":2}');
+  m.page.click('validate');
+  assert.equal(wSlice(m.page.html(), 'jt-out__note').inner, '1 处重复键', '数量写在栏头，读第一行就知道要不要展开看');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(CORE_NOTES.dupKey)));
+  assert.ok(m.page.html().includes('/a'), '重复键的 Pointer 那一格从模块给到正文');
+  m.page.set('workbench', 'doc', '['.repeat(200) + ']'.repeat(200));
+  m.page.click('validate');
+  assert.ok(wNotes(m.page.html()).includes(wEsc(CORE_NOTES.deepSample)),
+    '§7 的深样本按 200 层量：这一档必须放行并且给得出统计');
+  const html = m.page.html();
+  assert.ok(html.indexOf('class="jt-notes"') < html.indexOf('jt-out__stats'), '头 → 说明 → 读数 → 正文');
+  assert.ok(html.indexOf('jt-out__stats') < html.indexOf('jt-out__body'),
+    '同一件事在两栏之间换了位置就是两条排版路径（评审 P3-11：validate 曾把读数拼在正文之后）');
+});
+
+test('W27 读条只取窗口：整行进不了 DOM，插入符落在窗口里而那句行列说的是原文', () => {
+  // 三档病灶位置各查一头：`from` 按 `col - 120` 又要被 `raw.length - 240` 夹住，所以行尾那一档
+  // 窗口是**贴着行尾**的——那一头不该有省略号（有了就是谎报"后面还有"），行首那一档反过来。
+  const CTX = 120;
+  // 样本一律只用数字与逗号：`"` 与 `<` 会被 `esc` 摊成 `&quot;` / `&lt;`，那一档量的是转义表（§O），
+  // 混进来就让"窗口最长 242 码元"这一判的分子变成两回事。
+  const cases = [
+    { name: '病灶在行尾', text: `[1,${'1,'.repeat(1200)}1,,]`, left: true, right: false },
+    { name: '病灶在行首', text: `[1,,${'1,'.repeat(300)}1]`, left: false, right: true },
+    { name: '病灶在行中', text: `[${'1,'.repeat(600)}1,,${'1,'.repeat(600)}1]`, left: true, right: true },
+  ];
+  for (const c of cases) {
+    const err = parseJson(c.text).error;
+    assert.equal(err.line, 1, `${c.name}：样本得是一行才量得到窗口`);
+    const m = wMount({ seed: { 'workbench:doc': c.text } });
+    m.page.click('validate');
+    const html = m.page.html();
+    const ctx = wSlice(html, 'jt-err__ctx').inner.split('\n');
+    const shown = ctx[0];
+    const caretAt = ctx[1].indexOf('^');
+    assert.ok(shown.length <= CTX * 2 + 2, `${c.name}：窗口最长 242 码元（左右各 ${CTX} 再加两头省略号），这里是 ${shown.length}`);
+    assert.equal(shown[0] === '…', c.left,
+      `${c.name}：左边切了才写 …，没切就要让人按看到的第一个字符数——那一格不是行首就是谎报`);
+    assert.equal(shown[shown.length - 1] === '…', c.right, `${c.name}：右头的 ${c.right ? '窗口没贴到行尾，要写 …' : '窗口贴着行尾，不该再写 …'}`);
+    assert.equal(html.includes(c.text), false,
+      `${c.name}：整行进 DOM，5 MiB 上限之内的一条压缩 JSON 能摊出 10 MiB 的串（评审 P2-6）`);
+    assert.ok(wSlice(html, 'jt-err__where').inner.includes(`第 ${err.line} 行第 ${err.column} 列`),
+      `${c.name}：那句行列说的是**原文**里的那一列，只有那一个数字抄得去 jq`);
+    assert.equal(shown[caretAt], c.text[err.index],
+      `${c.name}：插入符底下那一格就是病灶本身，窗口列与原文列两把尺一错位这一判必红（评审 P2-6 的第一档）`);
+  }
+  // 制符展成**一格**空格：`<pre>` 的 tab-size 默认是 8，而插入符数的是空格（评审 P2-7，页面上没有开关能改这一档）
+  const tabs = '[\n\t\t1,,]';
+  const terr = parseJson(tabs).error;
+  const t = wMount({ seed: { 'workbench:doc': tabs } });
+  t.page.click('validate');
+  const tc = wSlice(t.page.html(), 'jt-err__ctx').inner.split('\n');
+  assert.deepEqual(tc.slice(0, 1), ['['], '第一行是上一行：`[` 那一格离病灶一行，读条要给它');
+  assert.equal(tc.length, 3, '上一行 + 病灶行 + 插入符三行：末行没有下一行，不该再抄一遍');
+  assert.equal(tc[1].includes('\t'), false, '读条里不许留制表符：留着就是一格占八个码元');
+  assert.equal(tc[2], `${' '.repeat(terr.column - 1)}^`, '行短没切窗口时，插入符就按原文列铺（caret 与 column 同源）');
+  assert.equal(tc[1][tc[2].indexOf('^')], tabs[terr.index], '同一把尺在短行那一档也得落在病灶上');
+  // 越界的行号要当"没有这一行"：`lineRange` 按 §S 的口径把越界**夹到末行**，读条照抄就是把病灶行
+  // 再摊一遍——上面那一档 `html.includes(c.text)` 为真的现场正是这一格（W27 第一次跑就抓到了它）。
+  const last = wMount({ seed: { 'workbench:doc': `[1,${'1,'.repeat(20)}1,,]` } });
+  last.page.click('validate');
+  const lc = wSlice(last.page.html(), 'jt-err__ctx').inner.split('\n');
+  assert.equal(lc.length, 2, '单行输入只有"病灶行 + 插入符"两行：末行没有下一行，第三行不该是整行重抄');
+  // 三行吃同一个窗口：只裁病灶行、上一行留全文，等宽对齐的读条就自己换了列（同一档缺陷的第二张脸）
+  const long = `[${'1,'.repeat(1500)}`;
+  const two = `${long}\n2,,]`;
+  const m2 = wMount({ seed: { 'workbench:doc': two } });
+  m2.page.click('validate');
+  const h2 = m2.page.html();
+  const c2 = wSlice(h2, 'jt-err__ctx').inner.split('\n');
+  assert.equal(wAttr(h2, 'data-jt-kind'), 'json');
+  assert.ok(wSlice(h2, 'jt-err__where').inner.includes('第 2 行第 3 列'), '病灶在第二行，那句行列说的是原文的那一格');
+  assert.equal(c2.length, 3, '第一行是上一行、第二行是病灶行、第三行是插入符：末行没有下一行');
+  assert.ok(c2[0].length <= 242, `上一行也得裁进同一个窗口，这里 ${c2[0].length} 码元`);
+  assert.equal(c2[0].endsWith('…'), true, '上一行被切了右头，要写 …');
+  assert.equal(h2.includes(long), false, '上一行整行进 DOM：三行里只有病灶行有窗口，这一格就是漏的那两头');
+  assert.equal(c2[1], '2,,]', '病灶行短，窗口就贴着它自己的长度');
+  assert.equal(c2[2], '  ^', '插入符落在病灶行那一格，与上面的窗口同一条列');
+});
+

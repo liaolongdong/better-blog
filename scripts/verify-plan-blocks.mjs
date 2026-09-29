@@ -151,6 +151,20 @@ const FILE_TARGETS = [
   // 才是"只渲染可视这件事既能证、又不靠真浏览器"的现场见证——把控制器改成读 `clientHeight`
   // 或写 `innerHTML` 的任何一次"顺手优化"，红的是这两格一起红。
   'dev/js/tools/json-tree.js',
+  // ── 段 4 Task 6：这一格一次登记三本，因为它们是**同一条红线的三段**，缺一本那条线就断在中间。
+  // 方向照旧（"有镜像才登记"，跟着磁盘走不跟着计划走）。
+  // `jsonView.js` 的镜像是"站内只有一套转义口径"的第二个现场：W2 用源码扫判它零 import，
+  // 而判据读的是磁盘那份，计划里这一份只是让人**不用跑测试也能对着看**的那一份。
+  'dev/js/tools/jsonView.js',
+  // `jsonWorkbench.js` 的镜像另有两重：W10 那两条计数（`innerHTML` 恰好 1 次、`'jt-` 恰好 0 次）
+  // 数的是磁盘源码，计划里这一份是同一笔账的第二处可复算现场；它同时是 `json-convert.js`
+  // 那个"唯一 import 点"的另一半——U4 与 W11 从两头数同一条边，两头都得有现场。
+  'dev/js/tools/jsonWorkbench.js',
+  // `toolJson.js` 的镜像钉的是"环境只在入口"这条线落地的样子：W11 数的那七个词
+  // （`Date.now(` / `localStorage` / `URL.createObjectURL` / `URL.revokeObjectURL` / `win.Blob` /
+  // `setTimeout(` / `win.navigator`）在入口里各恰好一处，装配层里 0 处。
+  // 门禁⑤ 组 5 用正则找的 `CONTAINER_ID` / `ATTR` 那三行原文也只活在这一份里。
+  'dev/js/toolJson.js',
 ];
 
 /**
