@@ -243,10 +243,18 @@ body {
         transition: transform .2s ease;
     }
 
-    .nav-item.has-sub:hover .nav-caret,
     .nav-item.has-sub:focus-within .nav-caret,
     .nav-item.has-sub.is-open .nav-caret {
         transform: rotate(180deg);
+    }
+
+    // hover 这一路单独关进 (hover: hover)：触屏点上去之后浏览器会把 :hover 一直留在那个
+    // 元素上（点到别处才清），于是 editorial.js 收起时摘掉 .is-open 与焦点，箭头却还朝上，
+    // 看着像"还展开着"。鼠标档一个字没改。
+    @media (hover: hover) {
+        .nav-item.has-sub:hover .nav-caret {
+            transform: rotate(180deg);
+        }
     }
 
     // 下拉：hover / 键盘 focus-within / 触屏 .is-open 三种触发共用同一显示规则
@@ -366,12 +374,23 @@ body {
         }
     }
 
-    .nav-item.has-sub:hover .nav-sub,
     .nav-item.has-sub:focus-within .nav-sub,
     .nav-item.has-sub.is-open .nav-sub {
         opacity: 1;
         visibility: visible;
         transform: translateY(-6px);
+    }
+
+    // :hover 这一路单独关在 (hover: hover) 里，2026-09-29。触屏点上去之后浏览器会把
+    // :hover 一直留在那枚 li 上（点到别处才清），于是 editorial.js 收起时摘掉 .is-open
+    // 与焦点，面板还靠这枚粘住的 hover 亮着——平板（>695 且 hover:none）走的就是这一组，
+    // 抽屉那一组另有同一条闸门。鼠标档读到的还是同一串选择器、同一组声明，一个字没改。
+    @media (hover: hover) {
+        .nav-item.has-sub:hover .nav-sub {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-6px);
+        }
     }
 
     .nav-search-btn {
@@ -4011,7 +4030,8 @@ body.cmdk-open {
             }
         }
 
-        // 折叠成抽屉后，下拉不再平铺展开，改成与平板同一条路：点父项先展开、再点才跳转。
+        // 折叠成抽屉后，下拉不再平铺展开，改成与平板同一条路：点父项就是展开／收起开关，
+        // 第二下不再跳转（2026-09-29 改口，之前这里是"先展开、再点才跳转"）。
         // 篇幅账（390×844 / 375×667 / 414×896 三档无头实测，判据是 .g-nav 的 rect）：
         //   平铺展开  抽屉 766px（375 档 782）· 底边 822（375 档 838）· 其中 .nav-sub 占 323（375 档 339）
         //   收起      抽屉 437px · 底边 493
@@ -4025,6 +4045,13 @@ body.cmdk-open {
         //   展开后 390×844 与 414×896 是 766px（底 822，仍在折线内，不需要滚）；
         //   375×667 被上面的 max-height 截在 611px（底正好等于 667），抽屉自己可滚 171px，
         //   滚到底时「关于」在 553~596、三颗药丸在 610~648，命中测试全部落在自己身上。
+        // 2026-09-29 改成开关制、并把「全部工具」那一行垫到 43px 之后，由
+        // scripts/verify-nav-touch.mjs 的「篇幅账」那组同口径再量一遍（同一个判据、同样三档、
+        // 无头真 Chrome + Input.dispatchTouchEvent）：
+        //   收起 437px 不变；展开 390×844 是 788px、414×896 是 832px（都 ≤ 各自折线 840，
+        //   不需要滚）；375×667 仍被 max-height 截在 611px，也就是这一档展开后要自己滚。
+        //   .nav-sub 面板高 390 档 389px、375 档 405px；父项行 43px、子项行 54~70px、
+        //   「全部工具」行 43px（三档同高，宽度随视口 332 / 347 / 371）。
         .nav-sub {
             display: none;
             position: static;
@@ -4049,22 +4076,28 @@ body.cmdk-open {
             }
 
             .nav-sub-more {
+                // 触屏档把父项改成纯开关之后，「全部工具与安装方式」这一行就是抽屉里
+                // 去总览页的唯一落点，得跟同列其它行一样按"可点目标"来铺：桌面那组的
+                // 9px/5px 上下留白在这里只有 31px 高（2026-09-29 真触摸在 375/390/414 三档
+                // 量到同一个数），比父项行（43）与子项行（54）矮一大截。上下各补到 13px，
+                // 行盒 17 + 26 = 43px，与父项行齐高；同口径复量的账写在本节 .nav-sub 那条注释里。
+                padding: 13px 10px;
                 border-top: none;
-                padding-left: 10px;
             }
         }
 
-        // 三个钩子与桌面档同形（hover / focus-within / .is-open）。权重账按产物核过：
+        // 三个钩子与桌面档同形（hover / focus-within / .is-open），hover 那一路同法关在
+        // (hover: hover) 里。权重账按产物复量过（2026-09-29 这份 index.min.css，全长见门禁输出）：
         // 桌面那组（editorial.scss 里 .g-header 块内，编译成 .g-header .nav-item.has-sub:hover .nav-sub）
         // 与这一组编译后是同一串选择器，两边都 (0,5,0)，决胜只靠源序——
-        // index.min.css 里桌面那组在字节 34950、这一组在 96218，后写的赢。
+        // index.min.css 里桌面那组在字节 35245、这一组在 98318（全长 135,127），后写的赢。
         // 所以不存在"展不开"的死区：display 从头到尾只由 ≤695 这两条决定，桌面那组根本不写它；
         // 这里重写 transform:none 是为了压住桌面那组的 translateY(-6px)——
         // 万一源序被调过来，代价是抽屉里展开态多 6px 上移，不是坏掉。
+        // 改这两个字节偏移的核验：node -e "const c=require('fs').readFileSync('assets/css/index.min.css','utf8');for(const s of ['.nav-item.has-sub:hover .nav-sub{opacity','.nav-item.has-sub:hover .nav-sub{display'])console.log(s,c.indexOf(s))"
         // 展开是瞬时的，没有做动画：display:none ↔ block 之间没有可插值的中间态，
         // 要动画就得给 max-height 写一个"够大"的魔数（下拉条目会从两份数据源长出来），
         // 或者改标记加一层 0fr→1fr 的网格包装——两头都比"少 329px 篇幅"这个目标贵。
-        .nav-item.has-sub:hover .nav-sub,
         .nav-item.has-sub:focus-within .nav-sub,
         .nav-item.has-sub.is-open .nav-sub {
             display: block;
@@ -4073,8 +4106,23 @@ body.cmdk-open {
             transform: none;
         }
 
+        // hover 这一路照桌面档同法关进 (hover: hover)：触屏上点完父项，浏览器会把 :hover
+        // 一直留在那一枚 li 上（点到别处才清），于是 editorial.js 第二下摘掉了 .is-open
+        // 也摘了焦点，面板却还是亮着的——"收起"在触屏上等于没发生。2026-09-29 真触摸
+        // （375×667 与 390×844，Input.dispatchTouchEvent）实测复现，判据是 .nav-sub 的
+        // computed display 与 rect 高度。窄窗口的鼠标档照样悬停即开，一个字没改。
+        @media (hover: hover) {
+            .nav-item.has-sub:hover .nav-sub {
+                display: block;
+                opacity: 1;
+                visibility: visible;
+                transform: none;
+            }
+        }
+
         // 箭头不再在抽屉里藏起来：收起态需要它当"这里还有东西"的指示，
-        // 朝向由桌面那组 .has-sub:hover / :focus-within / .is-open 的 rotate(180deg) 管。
+        // 朝向由桌面那组 .has-sub:focus-within / .is-open 的 rotate(180deg) 管，
+        // :hover 那一路和下面的显示钩子一样关在 @media (hover: hover) 里（原因见 251 行那段）。
 
         // 三颗动作药丸压成一行之后，内部一律「图标 + 文字」居中：宽度是网格给的 1fr，
         // 横向 space-between 是旧版给「图标 ←→ 数字角标」两头撑开用的，现在角标紧跟文字，

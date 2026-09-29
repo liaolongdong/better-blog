@@ -799,13 +799,28 @@
     }
 
     /* ------------------------------------------------------------------
-     * 5. 导航下拉（触屏兜底）
+     * 5. 导航下拉（触屏与窄屏抽屉）
      * ------------------------------------------------------------------ */
 
     /**
      * 「工具箱」这种带子面板的导航项：桌面档由 CSS :hover / :focus-within 驱动，
-     * 触屏与窄屏抽屉没有可靠的 hover，这里把父项改成首次点击展开、再次点击才跳转，
-     * 避免子面板成为点不到的死区。
+     * 触屏与窄屏抽屉没有可靠的 hover，这里把父项在这一档下改成纯粹的展开／收起开关：
+     * 点一次展开、再点一次收起，点父项永远不跳转，避免子面板成为点不到的死区。
+     *
+     * 为什么不再是原先那套「首次点击展开、再次点击才跳转」的两段式（2026-09-29 改口）：
+     *   1. 同一条行、同一个箭头，第一次按是展开、第二次按是离开这一页。用户在第一次
+     *      点按里学到的规律，第二次就被推翻；而带箭头的行在触屏上的心智模型本来就是
+     *      折叠控件，不是链接。
+     *   2. 展开之后想收回去，两段式只留了一扇后门：去点面板外的某处——抽屉里那一片
+     *      几乎全是会跳转的链接，等于「收起」这个动作没有安全落点（箭头自己是
+     *      pointer-events:none，按不到）。
+     *   3. 改成开关不牺牲可达性，也不多费一次点击：总览页在面板底部有常驻的
+     *      「全部工具与安装方式 →」那一行（_includes/header.html），
+     *      「展开 → 进总览」与旧的两段式同样是两下，而且目的地写在脸上。
+     *
+     * 「我就是现在要进总览页」这三类按法一律不吞，交给浏览器原样处理：带修饰键的点击
+     * （Ctrl/Cmd 新标签、Shift 新窗口）、中键（它走 auxclick，本来就不进这个处理器）、
+     * 右键菜单。判据只认主键且无修饰，见下面的 plainTap。
      *
      * 能展开的两种情况合在一个函数里，因为两档都会在运行期变：视口宽度（桌面把窗口
      * 拉到 ≤695 就是抽屉档）与 hover 能力（平板转横竖屏、触屏本就没有），
@@ -819,6 +834,22 @@
      *（.is-open 或 :focus-within），所以 hover 那条路径不在这里同步——鼠标悬停时
      * 用户不在键盘路径上，而面板真正可点的时候永远有这两个钩子之一。
      *
+     * 收起那一下顺手 blur，这一句不是可有可无的收尾：CSS 的三个显示钩子里有
+     * :focus-within，而 Chrome 系浏览器点按 <a> 时会把焦点落在这条链接上，
+     * 只摘 .is-open 不摘焦点，面板会被 :focus-within 原地撑回来，那一下就成了
+     * 「点了没反应」，syncAria 里 contains(activeElement) 那一项也会一直报 true。
+     * 所以 blur 排在关面板之前，让最后一次 syncAria 读到的是摘掉焦点之后的事实。
+     * Safari iOS 点按本来就不给焦点，那句 blur 在它身上是空操作，两边共用一条收尾。
+     *
+     * 第三个钩子 :hover 不在这里，在样式里：同一次点按除了留焦点，还会把那枚 :hover
+     * 一直留在 li 上（点到别处才清），于是 JS 这边摘完 .is-open 又摘完焦点，面板照样亮着
+     * ——2026-09-29 真触摸实测就是这样，两句 blur 都救不了它。收起这条路因此有两道闸门：
+     * JS 摘 .is-open 与焦点，样式把 :hover 关进 @media (hover: hover)（editorial.scss 的
+     * 桌面组与 ≤695 组各一处）。改任一半之前先看 scripts/verify-nav-touch.mjs：
+     * 抽屉那一半由「触屏 第 7 条 二点=收起」与它那条牙齿（把抽屉组的 :hover 闸门放开）盯着，
+     * 横排那一半由「平板768×1024 第 4 条」与它自己的牙齿盯着，箭头那第三条钩子另有
+     * 「触屏 第 13、14 条」两条读数。哪一层被改回去都会红，且红在指名道姓的那一格上。
+     *
      * 这里刻意不做「按 Esc 收起」：显示钩子有三个，:focus-within 是其中一个，
      * 键盘用户按 Esc 之后焦点若还在面板里，CSS 依旧判它展开，加上去表现为「按了没反应」；
      * Tab 走出这一项由 focusout 那一路把属性改回 false，面板跟着 CSS 收起（已实测）。
@@ -828,6 +859,15 @@
 
         function expandable() {
             return window.innerWidth <= 695 || window.matchMedia('(hover: none)').matches;
+        }
+
+        /**
+         * 只放行「主键 + 无任何修饰键」的普通点按，其余一律不拦。
+         * e.button 在真点按里恒为 0（中键派发的是 auxclick），留这一格是给脚本合成的
+         * click 事件——非主键的 click 同样不该被吞掉一次跳转。
+         */
+        function plainTap(e) {
+            return e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
         }
 
         /**
@@ -854,12 +894,13 @@
                 var link = item.querySelector('.nav-link');
                 if (!link) return;
                 link.addEventListener('click', function (e) {
-                    if (!expandable()) return;
-                    if (!item.classList.contains('is-open')) {
-                        e.preventDefault();
-                        for (var j = 0; j < items.length; j++) setOpen(items[j], false);
-                        setOpen(item, true);
-                    }
+                    if (!expandable() || !plainTap(e)) return;
+                    var open = !item.classList.contains('is-open');
+                    e.preventDefault();
+                    // 收起支路：先摘焦点，否则 :focus-within 会把面板原地撑回来
+                    if (!open && link.blur) link.blur();
+                    for (var j = 0; j < items.length; j++) setOpen(items[j], false);
+                    setOpen(item, open);
                 });
                 // 键盘路径靠 :focus-within 显形，属性得跟着说真话；Tab 走出这一项才改回 false
                 item.addEventListener('focusin', function () { syncAria(item); });
