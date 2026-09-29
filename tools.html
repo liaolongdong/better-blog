@@ -140,8 +140,20 @@ permalink: /tools.html
                 <p class="tool-summary">{{ tool.desc }}</p>
 
                 <ul class="tool-features">
+                    {%- comment -%}
+                    这一栏的两档（2026-09-29 段 4 Task 7）：面板式那两页画的是**指向页内锚点的链接**，
+                    每块面板一个 `#slug`，这是 §4.4 第 5 条要的"把插件页的老流量导过去"。
+                    工作台那一页按设计 `panels: []`（没有索引条，清单只活在装配层那张表里），
+                    页面上没有锚点可指——硬指过去就是死链，所以退成 `features` 那一份**纯文本**要点。
+                    走的是 Liquid `for`/`else`：判据是"这一轮循环一条都没吐出"，不是"这一条是 workbench"，
+                    于是将来再加面板式条目不需要动这里。
+                    {%- endcomment -%}
                     {% for p in tool.panels %}
                     <li><a href="{{ tool.url | prepend: site.baseurl }}#{{ p.slug }}">{{ p.name }}</a> — {{ p.tagline }}</li>
+                    {% else %}
+                    {% for f in tool.features %}
+                    <li>{{ f }}</li>
+                    {% endfor %}
                     {% endfor %}
                 </ul>
 
@@ -150,16 +162,33 @@ permalink: /tools.html
                     徽章只写"算"这一件事，不写"打开这一页"那一件事（2026-09-29 改口）。
                     这里原本印的是「零网络请求」：它对面板的计算成立，对页面不成立——每一页的 head 都还
                     带着 at.alicdn 图标字体与统计脚本两条外链，所以那句话一次网络面板就能证伪。
-                    「输入不出本机」把主语挪回"输入"，剩下两条谁都能重跑的口径：这一族的 JS 图
-                    （dev/js/tools/ 整树 + toolkitCore / toolIdcard / toolCodec 三份页面入口）里 grep
-                    fetch( / XMLHttpRequest / sendBeacon / WebSocket / localStorage / sessionStorage /
-                    document.cookie，命中只有 json-core.js 与 json-convert.js 文件头那两行"不读任何环境"
-                    的自述注释；地址栏只会被写成面板锚点（panel.js 的 toHash() 返回 `#${active}`，
-                    装的是第几块面板，不是你粘进来的内容）。
+                    「输入不出本机」把主语挪回"输入"，剩下两条谁都能重跑的口径。
+                    · 网络出口：`grep -rnE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource' dev/js/tools/
+                      dev/js/toolkitCore.js dev/js/toolIdcard.js dev/js/toolCodec.js dev/js/toolJson.js` **0 命中**
+                      （`dev/js/editorial.js` 里那一条 `fetch` 是站级 ⌘K 检索，不在这张图里，也不读工具页的输入）。
+                    · 本机存储：这一族第一次有了真使用者——JSON 页的「记住上次输入」。口径是
+                      `{prefix}.memory.on` 随开关翻转总写、`{prefix}.memory.input` 只在开关为 on 且正文
+                      ≤ 256 KiB 时写（判据 W15，见 jsonWorkbench.js 文件头第 6 条），默认关。
+                      所以 grep `localStorage` 在这张图里有命中，全在 JSON 那两本 + 两行"不读任何环境"的
+                      自述注释（json-core.js / json-convert.js）；命中里没有 `sessionStorage`、`document.cookie`。
+                    地址栏那一格只管面板式那两页：panel.js 的 toHash() 写入的是"第几块面板"，
+                    JSON 页没有索引条，装配层不碰 `location`（W10 那串禁词里点名 `URL.`）。
                     {%- endcomment -%}
                     <li>无需安装</li>
                     <li>输入不出本机</li>
+                    {%- comment -%}
+                    第三格按 layout 分派（2026-09-29 段 4 Task 7）。原先这里无条件写
+                    `{{ tool.panels.size }} 块面板`：JSON 那条的 `panels` 按设计是空，于是画出「0 块面板」——
+                    一句假话，而且门禁管不到它（模板不是 JS，构建不报错）。
+                    换成 `tool.actions` 是为了让这一格仍然**能被核实**：门禁⑤ 拿它比
+                    `JSON_ACTIONS.length`，数字与模块不同步就红在门禁，不红在页面上。
+                    面板式那两页照旧数 `panels.size`，那一格的真值来自 yml 自己的面板清单。
+                    {%- endcomment -%}
+                    {% if tool.layout == 'workbench' %}
+                    <li>{{ tool.actions }} 个动作</li>
+                    {% else %}
                     <li>{{ tool.panels.size }} 块面板</li>
+                    {% endif %}
                 </ul>
 
                 <div class="tool-cta">

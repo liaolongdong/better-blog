@@ -165,6 +165,17 @@ const FILE_TARGETS = [
   // `setTimeout(` / `win.navigator`）在入口里各恰好一处，装配层里 0 处。
   // 门禁⑤ 组 5 用正则找的 `CONTAINER_ID` / `ATTR` 那三行原文也只活在这一份里。
   'dev/js/toolJson.js',
+  // ── 段 4 Task 7：页面源、样式、图标这三格落盘即登记，方向照旧（"有镜像才登记"）。
+  // 它们与段 2/段 3 的 `tools-idcard.html` / `tools-codec.html`、两枚 svg、`toolkit.scss`
+  // 凑成"三页各按各的 spec 长"的第三方见证：同一族事实（条目字段、图标取色、公共层的
+  // 消费方式）在三页上各有一份，改了一页忘另一页时，门禁⑤ 红在产物上、这两格红在字节上。
+  // `toolJson.scss` 这一格在段 4 里还独扛一件事：它是全仓库 `--jt-row-h` 的**唯一赋值处**
+  // （`grep -rn ': 24px' dev/sass/toolJson.scss` 里带这个令牌名的只有 46 行那一条，其余四处都是
+  // `var(--jt-row-h)` 的读取方），而入口 `rowHeightPx()` 只读它一次注进 `env.rowHeight`；
+  // 哪天那句被 px→vw 改写成 `0.24rem`，W11 那条计数与这一格镜像会一起红。
+  'tools-json.html',
+  'dev/sass/toolJson.scss',
+  'assets/img/tools/json-tool.svg',
 ];
 
 /**

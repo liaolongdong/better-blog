@@ -12,6 +12,9 @@
  * 2. **环境只在这一本读，每样恰好一次**（W11 数的是出现次数）。时钟、`localStorage`、`setTimeout`、
  *    剪贴板、下载那三件全从这里注入，装配层那七个词一个都不许出现（W10）。理由是同一份产物在两台
  *    机器、两个 CI runner 上只能给一个答案，而 §W 的每一判都指望它只有一个。
+ *    行高（`--jt-row-h`）也在这一本读：它是**样式**给的环境量，读一次就注入一次（`env.rowHeight`），
+ *    装配层里因此不许出现 `getComputedStyle`——那一只假件一旦要进 §W 的夹具，"不读环境"这条红线
+ *    就从判据退化成了注释。
  *    `localStorage` 在隐私模式下**访问本身就抛**，所以取它包了一层 `try`——那一格取不到就是"这台
  *    浏览器不给存"，装配层据此把"记住上次输入"置灰（W15），而不是让整页停在启动那一下。
  * 3. **`runGuarded` 由入口给**。装配层只负责"抛出来"，记不记、记在哪儿是页面这一侧的事：这一页没有
@@ -134,6 +137,25 @@ function boot(doc, win, tk) {
   let store = null;
   try { store = win.localStorage; } catch { store = null; }
 
+  /**
+   * 行号槽与树行高的那把尺：**权威在样式里，这一本只读一次**（段 4 计划 Task 7）。
+   * `dev/sass/toolJson.scss` 在容器上写 `--jt-row-h`，§V 控制器的窗口密度与 `updateGate` 里
+   * 那一次 `style.height` 要的是同一个整数；读不到、或读出来不是「≥1 的整数像素」就退回 24
+   * ——那个 24 就是装配层 `ROW_HEIGHT` 的值，两边同源靠的是 W12 那一道 `env.rowHeight` 闸门
+   * （给了非法值当场 `RangeError`），不是靠注释约定。
+   *
+   * 为什么在入口读而不在装配层读：口径 2 说的就是"环境只在这一本读"。装配层里出现
+   * `getComputedStyle`，§W 的假 DOM 夹具就要多造一件假件，而 W10 那条判据（11 个词 0 命中）
+   * 当场作废——这一格读的是**本页的样式**，不是宿主的时间与存储，但它同样是环境量。
+   * @returns {number} 整数像素
+   */
+  const rowHeightPx = () => {
+    let raw = '';
+    try { raw = String(win.getComputedStyle(box).getPropertyValue('--jt-row-h') || '').trim(); } catch { raw = ''; }
+    const n = /^\d+px$/.test(raw) ? Number(raw.slice(0, -2)) : NaN;
+    return Number.isInteger(n) && n >= 1 ? n : 24;
+  };
+
   const wb = createJsonWorkbench({
     document: doc,
     Tk: tk,
@@ -143,6 +165,7 @@ function boot(doc, win, tk) {
     navigator: win.navigator,
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
+    rowHeight: rowHeightPx(),
     BlobCtor: win.Blob,
     createObjectURL: (b) => URL.createObjectURL(b),
     revokeObjectURL: (u) => URL.revokeObjectURL(u),

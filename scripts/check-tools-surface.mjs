@@ -116,12 +116,15 @@ function frontMatter(text, key) {
  * 模块的哪个导出上"本来就是这一页的事实，在本脚本里再维护一张 slug→模块 的对照表，
  * 就是同一件事的第二处口径（加一页要改两个文件，改漏一个红在运行时）。
  *
- * 三个字段全部必填，且 `module` 必须是站内相对路径：这条判据会 import 并**执行**那个模块，
+ * 前三格全部必填，且 `module` 必须是站内相对路径：这条判据会 import 并**执行**那个模块，
  * 拼错一格时宁可红在「DOM」组里，也不要让脚本拿一个绝对路径去 require 仓库外的东西。
+ * 第四格 `actions` 是选读（只有工作台式那一支用），它的必填由组 5 按 `layout` 分派，
+ * 不在这里判——本函数不看 `t.layout`。
  * 同一个模块只 import 一次（两页共用一本装配层时不重复求值）。
  *
  * @param {object} t yml 里的一条 ready 条目
- * @returns {Promise<{table: object, ids: string[]}|null>} 取不到就记一条失败并返回 null
+ * @returns {Promise<{table: object, ids: string[], actions: string[]|null}|null>}
+ *   取不到就记一条失败并返回 null。`actions` 只有在 yml 指名了导出名时才取（工作台式那一格）
  */
 const specModules = new Map();
 async function loadSpec(t) {
@@ -158,7 +161,21 @@ async function loadSpec(t) {
     bad('DOM', t.slug, `${s.module} 没有导出数组 ${s.ids}（面板顺序的第二个声明处）`);
     return null;
   }
-  return { table, ids };
+  /**
+   * 第四格 `actions`：**按条目选读**，不是必填。它是动作清单在那本模块里的导出名，
+   * 只有 `layout: workbench` 那一条会用（tools.html 的「N 个动作」徽章，段 4 §0.7 第 3 条）。
+   * 名字写了却取不到数组，就地记一条失败并交回 null——让调用方去分派"缺哪一格"，
+   * 这里不猜布局（这一本函数不看 `t.layout`，它连 yml 的清单长度都不该知道）。
+   */
+  let actions = null;
+  if (s.actions) {
+    if (!Array.isArray(mod[s.actions])) {
+      bad('DOM', t.slug, `${s.module} 没有导出数组 ${s.actions}（spec.actions 指名了它，取不到就核不了动作枚数）`);
+    } else {
+      actions = mod[s.actions];
+    }
+  }
+  return { table, ids, actions };
 }
 
 // ── 组 1：页面源文件与 yml 的 title / permalink / 检索文案 ─────────────────────
@@ -250,6 +267,40 @@ function checkInclusion(t, builtHtml, pageUrlRel) {
     if (!new RegExp(`href="${escRE(localPath)}#${escRE(p.slug)}"`).test(toolsHtml)) {
       bad('收录', t.slug, `tools.html 的面板清单里没有指向 #${p.slug}（${p.name}）的锚点链接`);
     }
+  }
+  /**
+   * `features` 那一档只在 `panels` 为空时被消费（tools.html 的 `for`/`else`，段 4 Task 7）：
+   * 工作台那一页没有页内锚点可指，清单退成纯文本要点。两向都判——
+   *   · 空 `panels` 又没 `features`：那一栏画成一条空 `<ul>`，页面看着"少了一块"却不报错；
+   *   · 非空 `panels` 还写 `features`：模板走锚点那一支，这一格**没有消费者**，改它页面不动。
+   * 后者就是「徽章写死 0 块面板」那一族的病换个格子复发：数据源里躺着一份模板不读的清单。
+   *
+   * 第三条判据在产物上：要点**逐条**都要能在 tools.html 找到。数据源那一头有货而循环没吐，
+   * 形状是"小节少一块"——只判数据源等于默认模板一定会画出来，而这一页的模板改动（`for`/`else`）
+   * 正是本段新写的，没有既有页面替它担保。
+   */
+  const feats = Array.isArray(t.features) ? t.features : [];
+  if (t.panels.length === 0 && feats.length === 0) {
+    bad('收录', t.slug, 'panels 为空而 features 也为空——tools.html 的 .tool-features 会画成一条空白 ul，门禁绿而页面少一块');
+  }
+  if (t.panels.length > 0 && feats.length > 0) {
+    bad('收录', t.slug, `panels 非空却写了 ${feats.length} 条 features——模板那一支读的是面板锚点，这一格没有消费者`);
+  }
+  for (const f of feats) {
+    if (typeof f !== 'string' || f.trim() === '') {
+      bad('收录', t.slug, `features 里有一格不是非空字符串（${JSON.stringify(f)}），画出来是空条目`);
+    } else if (!toolsHtml.includes(`<li>${f}</li>`)) {
+      bad('收录', t.slug, `tools.html 里没有那条纯文本要点：「${f}」（循环没吐这一条，或模板被改成只走锚点那一支）`);
+    }
+  }
+  /**
+   * 第三格徽章 ↔ 数据源（§0.7 第 3 条的另一半）。「DOM」组核的是 `actions` 与
+   * `JSON_ACTIONS.length` 相等，这一条核的是**模板把那个数画出来了**：两处漏一处，页面上
+   * 就是「0 块面板」那一句假话，而构建不报错。panels 支同样判，那一格读 `panels.size`。
+   */
+  const badge = t.layout === 'workbench' ? `${t.actions} 个动作` : `${t.panels.length} 块面板`;
+  if (!new RegExp(`<li>${escRE(badge)}</li>`).test(toolsHtml)) {
+    bad('收录', t.slug, `tools.html 的第三格徽章里找不到「${badge}」——那一格按 layout 分派读数据源，模板分支或 yml 有一处被改过`);
   }
 }
 
@@ -452,22 +503,77 @@ function checkIcon(t) {
 
 // ── 组 5：DOM 契约（yml panels ↔ spec ↔ 产物里的 id / data 属性） ──────────────
 
+/**
+ * `layout` 的取值档（段 4 §0.3）。两个分支的差别只有一件事：**面板清单住在哪儿**。
+ *   · `panels`（证件页、编码页）——清单在 yml 的 `panels:` 里，索引条、`data-*-ids`、
+ *     tools.html 的面板锚点全部从它长出来；
+ *   · `workbench`（JSON 页）——这一页没有索引条，清单只有装配层那一张表（`spec.ids`），
+ *     yml 的 `panels` 按设计就是空的。
+ *
+ * **故意不给默认值**：给 `layout` 缺省成 `'panels'` 等于在本脚本里再立一处口径——`workbench`
+ * 拼错一个字母（少个 c）就悄悄退回面板支，而那条路上 `panels: []` 让控件与开关那一整族判据
+ * **空转**，红的是运行时而不是门禁。所以缺省只在"清单非空"时放行（两条存量条目的形状本来如此），
+ * 缺省 + 空清单直接红在「既没声明又没有清单」。
+ *
+ * @param {object} t yml 里的一条 ready 条目
+ * @param {string[]} ymlPanels 这条条目的面板清单
+ * @returns {'panels'|'workbench'} 已经记过失败的条目也回一支，让后面的判据照常跑完
+ */
+function resolveLayout(t, ymlPanels) {
+  if (t.layout === 'panels' || t.layout === 'workbench') return t.layout;
+  if (t.layout === undefined || t.layout === null || t.layout === '') {
+    if (ymlPanels.length === 0) {
+      bad('DOM', t.slug, '既没声明 layout，panels 清单又是空的——门禁无从判断这一页是面板式还是工作台式，而工作台式在这一支会让控件判据空转');
+    }
+    return 'panels';
+  }
+  bad('DOM', t.slug, `layout=${JSON.stringify(t.layout)} 不在取值档里：只许 panels / workbench 两个字面值之一（拼错一个字母会悄悄退回另一支，红在运行时）`);
+  return 'panels';
+}
+
 function checkDomContract(t, builtHtml, spec) {
   resetAccumulators();
   if (!spec) return;
   const p = t.prefix;
   const ymlPanels = t.panels.map((x) => x.slug);
-  if (ymlPanels.join(',') !== spec.ids.join(',')) {
+  const layout = resolveLayout(t, ymlPanels);
+  /** 面板清单的唯一取法：`workbench` 支只认装配层那份，`panels` 支只认 yml 那份（§0.3 那一颗牙） */
+  const panelIds = layout === 'workbench' ? spec.ids : ymlPanels;
+  if (layout === 'panels' && ymlPanels.join(',') !== spec.ids.join(',')) {
     bad('DOM', t.slug, `yml panels=[${ymlPanels}] 与 ${t.spec.ids}=[${spec.ids}] 不同名或不同序（顺序=索引条顺序）`);
   }
   if (Object.keys(spec.table).join(',') !== spec.ids.join(',')) {
     bad('DOM', t.slug, `${t.spec.ids} 与 ${t.spec.table} 的键对不上，${t.spec.module} 内部已经不一致`);
   }
+  /**
+   * 动作枚数（段 4 §0.7 第 3 条）。`tools.html` 的工作台支画 `{{ tool.actions }} 个动作`，
+   * 而真值只有 `${t.spec.actions}` 那一份清单知道——这一格写死在模板里就是「0 块面板」同一族：
+   * 它能被一次点击证伪，却不会被构建报错。于是数字留在 yml（数据源驱动模板），
+   * 口径由这里对账：漏写、写零、与清单长度不等，一律红在门禁。
+   *
+   * 反向也判：`layout: panels` 却写了 `actions` → 那一支的徽章数的是 `panels.size`，
+   * 这一格没有消费者，改它页面不动（与 `features` 那一族的反向判据是同一条理由）。
+   */
+  if (layout === 'workbench') {
+    if (!Number.isInteger(t.actions) || t.actions <= 0) {
+      bad('DOM', t.slug, `layout=workbench 需要 actions 是一个正整数（tools.html 的「N 个动作」徽章读它），这里是 ${JSON.stringify(t.actions)}`);
+    } else if (!spec.actions) {
+      bad('DOM', t.slug, 'yml 声明了 layout=workbench，但 spec.actions 没写或那本模块没导出对应数组——动作枚数无从对账');
+    } else if (t.actions !== spec.actions.length) {
+      bad('DOM', t.slug, `yml actions=${t.actions} 与 ${t.spec.actions}.length=${spec.actions.length} 不一致（动作清单的第二个声明处，模板画的是前者）`);
+    }
+  } else if (t.actions !== undefined && t.actions !== null) {
+    bad('DOM', t.slug, `layout=panels 却写了 actions=${t.actions}——那一支的徽章数 panels.size，这一格在模板里没有消费者`);
+  }
 
   const ids = new Set([...builtHtml.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
-  const need = [`${p}-workspace`, `${p}-notice`, `${p}-tablist`];
-  for (const slug of ymlPanels) {
-    need.push(`${p}-tab-${slug}`, `${p}-panel-${slug}`);
+  // workbench 支没有索引条，所以那一格 id 不在需求里——反过来要求它存在，就是拿面板式的形状
+  // 判一页本来没有的东西（§0.3 :468）。
+  const need = layout === 'workbench'
+    ? [`${p}-workspace`, `${p}-notice`]
+    : [`${p}-workspace`, `${p}-notice`, `${p}-tablist`];
+  for (const slug of panelIds) {
+    if (layout === 'panels') need.push(`${p}-tab-${slug}`, `${p}-panel-${slug}`);
     const panel = spec.table[slug];
     if (!panel) { bad('DOM', t.slug, `面板 ${slug} 在 ${t.spec.table} 里没有条目`); continue; }
     // 栏位名按条目取：证件页是 gen/read 两栏，编码页是 main/diff（时间戳那块）与单栏 main。
@@ -478,6 +584,10 @@ function checkDomContract(t, builtHtml, spec) {
       for (const c of cfg.controls || []) {
         const id = `${p}-in-${slug}-${c.id}`;
         need.push(id);
+        // 行号槽只跟着 `type: area` 要：它是 `updateGate` 唯一另一处写 `textContent` 的地址，
+        // 骨架漏掉这一格时装配层的 `node(GUTTER)` 取到 null 就**安静地什么都不画**——
+        // 页面上没有异常，只是行号永远不出现。面板式那两页的视图层没有这一族 id，不加。
+        if (layout === 'workbench' && c.type === 'area') need.push(`${p}-gutter-${slug}-${c.id}`);
         for (const attr of ['cascade', 'options', 'charsets']) {
           // 只有**字符串**才是标记：编码页的 spec 里 `options` 是 `<option>` 的取值白名单数组
           // （骨架的 `<option>` 文案归 HTML，运行时不读），与证件页那个 `options: 'banks'`
@@ -490,10 +600,60 @@ function checkDomContract(t, builtHtml, spec) {
         need.push(id);
         wantWhen.set(id, tg.when.join(' '));
       }
+      /**
+       * 工作台支独有的四格地址（`out` / `copy` / `status` / `tree`）与十四枚按钮。
+       * 栏位名从 `panel.sides` 的键来，不在这里写死 `main`——那等于在同一支里立第二处口径，
+       * 而装配层加一栏时这一格会**静默少要**。面板式那两页的视图层不产这四族 id，
+       * 给存量页加这条判据会红在它压根没有的东西上（§0.3 那句 import 的病，反过来的版本）。
+       */
+      if (layout === 'workbench') {
+        for (const fam of ['out', 'status', 'tree', 'copy']) need.push(`${p}-${fam}-${slug}-${side}`);
+        for (const a of spec.actions || []) need.push(`${p}-btn-${slug}-${a.key}`);
+      }
     }
   }
   const missing = need.filter((id) => !ids.has(id));
   if (missing.length) bad('DOM', t.slug, `产物里缺少这些 id：${missing.join(' ')}`);
+
+  // workbench 支**新增且只加在这一支**的那一刀（§0.3）：这一页的控件清单只有 `spec` 那一份，
+  // 所以产物上凡是 `{p}-in-*` / `{p}-when-*` / `{p}-btn-*` 而不在 `need` 里的 id，都是骨架私自
+  // 多长的一格——装配层永远不会去读它或给它接线，而它会在页面上以"没人答的标签"或
+  // "按下去没反应的一枚按钮"的形状出现。面板式那两页的产物里本来还住着别的 id 家族
+  // （-tab- / -panel- / -h- / -out- / -copy-），不给存量页加这条判据。
+  if (layout === 'workbench') {
+    const orphan = new RegExp(`^${escRE(p)}-(?:in|when|btn)-`);
+    const want = new Set(need);
+    const extras = [...ids].filter((id) => orphan.test(id) && !want.has(id));
+    if (extras.length) bad('DOM', t.slug, `产物里多出这些控件/开关/按钮 id，而 ${t.spec.table} 的 controls / switch.targets 与 ${t.spec.actions} 里没有声明：${extras.join(' ')}`);
+  }
+
+  /**
+   * 按钮文案 ↔ `JSON_ACTIONS[i].label`（`tools-json.html` 工具栏那段注释承诺的就是这一条）。
+   *
+   * 为什么单拎出来：id 对上了只说明"这一格存在"，不说明"这一格说的是同一件事"。栏头那行标题
+   * 画的是 `action.label`（`paintResult` 读它），骨架 `<button>` 里写的是文案——两处不同名时
+   * 页面上会出现"按钮写着转 YAML、结果栏标题写着转 CSV"，用户读不出自己按的是哪一枚，
+   * 而构建与运行时都不报错。这一族的文案本来就是本页里最多的一处（十四枚），漂移概率也最高。
+   *
+   * 取文案要先剥标记再压空白：骨架里那一行会换行缩进，产物里 `<option>` 之类的子节点不该
+   * 混进来（这十四枚是纯文本按钮，剥完就是那一句）。
+   */
+  if (layout === 'workbench' && spec.actions) {
+    for (const slug of panelIds) {
+      for (const a of spec.actions) {
+        const id = `${p}-btn-${slug}-${a.key}`;
+        const tag = new RegExp(`<button\\b[^>]*\\bid="${escRE(id)}"[^>]*>([\\s\\S]*?)<\\/button>`).exec(builtHtml);
+        if (!tag) {
+          bad('DOM', t.slug, `产物里没有 #${id} 那枚 <button>，或它不是按钮（${a.key} 在 ${t.spec.actions} 的清单上，装配层会给它接线）`);
+          continue;
+        }
+        const text = tag[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        if (text !== a.label) {
+          bad('DOM', t.slug, `#${id} 的文案是 "${text}"，而 ${t.spec.actions} 的 label 是 "${a.label}"（结果栏标题画的是后者，两处必须同字）`);
+        }
+      }
+    }
+  }
 
   // 标记与开关：产物上有、spec 里没有的，同样算红（只查一个方向等于默认允许"骨架多加料"）
   for (const [attr, want] of [['cascade', markers.cascade], ['options', markers.options], ['charsets', markers.charsets]]) {
@@ -544,8 +704,10 @@ function checkDomContract(t, builtHtml, spec) {
       }
     }
     const idsAttr = /data-(?:[a-z]+)-ids="([^"]*)"/.exec(boxTag[0]);
-    if (idsAttr && idsAttr[1] !== ymlPanels.join(',')) {
-      bad('DOM', t.slug, `data-${p}-ids="${idsAttr[1]}" 与 yml panels 顺序不一致`);
+    // 比的是 `panelIds` 而不是 `ymlPanels`：workbench 支的清单在装配层，`data-jt-ids` 与它
+    // 必须逐字同序（这一页的骨架那一格是字面量 `workbench`，写错一位就红在这里，不红在运行时）。
+    if (idsAttr && idsAttr[1] !== panelIds.join(',')) {
+      bad('DOM', t.slug, `data-${p}-ids="${idsAttr[1]}" 与${layout === 'workbench' ? ` ${t.spec.ids}（工作台式的清单只有这一份）` : ' yml panels'}的顺序不一致`);
     }
   }
 }
@@ -567,7 +729,7 @@ function resetAccumulators() {
 console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
 if (LIST_ONLY) {
   for (const t of ready) {
-    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
+    console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，layout ${t.layout ?? '（缺省=panels）'}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
   }
   console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM');
   process.exit(0);

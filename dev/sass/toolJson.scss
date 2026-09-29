@@ -1,0 +1,545 @@
+/*** JSON 工作台页（/tools/json.html）那一层的形状***/
+//
+// 一、这一本只管 `.jt-*` 那一族，公共层 `.tk-*` 一律不在这里重写（§0.5：`toolkit.scss`
+// 本段一个字节都不加——它此刻被另一路会话改着，而且证件页首屏的余量只剩 715B / 4.4%，
+// 往共用层加一条就是把两页的预算一起改坏）。需要公共形状的地方直接用那些类名：
+// `.tk-content` `.tk-compliance` `.tk-notice` `.tk-btn` `.tk-btn--ghost` `.tk-field`
+// `.tk-help` `.tk-outwrap` `.tk-out`，本页新增的只有工作台骨架、编辑器与行号槽、工具栏、
+// 结果区那五类读数、错误读条、树这六族形状。
+//
+// 二、px 与视口：`postcss.config.js:88` 的黑名单里 `.tk-` 与 `.jt-` 两串**早就在**，
+// 本文件不改那个配置。这条黑名单对本页不是风格问题而是**正确性**问题：
+// `--jt-row-h` 是行号槽与树行高的唯一那把尺，入口 `toolJson.js` 读它一次、注入 `env.rowHeight`，
+// §V 的控制器拿那个整数算垫片高度与 `scrollTop` 上界。一旦这一格被换算成 vw，
+// 读回来的串就不是 `^\d+px$` 的形状，入口退回 24 而样式画的是另一个数——
+// 行号与代码错行、树的行集与滚动条总长一起算歪，而构建、门禁①②③⑤⑥ 全都不会红。
+// §8.2 那六条里 `grep -c 'vw'` 对 `toolJson.min.css` 判 0，量的正是这一格。
+// 推论：任何写了 px 的新规则，选择器文本里必须带 `.jt-` 子串（黑名单按子串命中）；
+// 而 `@keyframes` 是唯一罩不住的地方（关键帧的"选择器"是 0%/to），所以**本层不写动画**。
+//
+// 三、配色只走 tokens.scss 的语义变量，本层不写颜色字面量、也不写 `.night-mode` 分支。
+// 三档语义色（`.jt-tone--ok/warn/bad`）复用 toolkit.scss 已经立好的 `--tk-ok/warn/bad`
+// 那三个角色——它们在 `:root` 与 `body.night-mode` 各写一遍，夜间值由那一层给全，
+// 这里再写一份覆盖表就是第二处口径。`idle` 那一档不引进新色，落 `--ink-3`。
+// §6.4 那条 `--ink-4` 不用于 <18px 正文性文字的约束在本层同样成立：13px 上下的读数、
+// 行号、帮助语一律取 `--ink-3`（实测 10.5–13px 那一族 `--ink-4` 只有 3.78:1，够不到 AA）。
+//
+// 四、样式不认识 JS 的运行状态，只认识 ARIA、`hidden` 与节点在不在。装配层的契约是
+// "显隐只落在 `hidden` 布尔属性上"（`jsonWorkbench.js` 的 `applySwitch`），树那一块的生死
+// 落在**容器空不空**上（§V 的 `destroy()` 摘掉那三块常驻节点）。所以本层只有两档视图判据：
+// `.jt-tree:empty` 收起整块，`.jt-side--out:has(.jt-tree:not(:empty))` 把文本正文换给树。
+// 不认 `:has()` 的浏览器整条规则丢弃，退成"两栏都在"——内容一份不丢，只是多占一段高度
+// （与 editorial.scss 那两条 `:has()` 同一条退路口径）。反过来，`.jt-query[hidden]`
+// 那一格**必须**显式写：`.tk-field` 给的是 `display:grid`，作者样式恒胜 UA 的
+// `[hidden]{display:none}`，不补这一条，搜索那一组在「文本」档里会常驻。
+//
+// 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 toolkit.scss 第四条。
+
+$jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+.jt-workspace {
+    // 唯一那把尺。写在 `.jt-workspace` 而不是 `:root`：`:root` 那条选择器文本里没有 `.jt-`，
+    // px→vw 的黑名单够不到它（见文件头第二条）。行高**不随断点变**——入口只在启动时读一次，
+    // 中途换尺就是行号与树行分家。
+    --jt-row-h: 24px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 20px;
+    align-items: start;
+    margin-top: 22px;
+}
+
+.jt-side {
+    min-width: 0;
+}
+
+.jt-side__title {
+    margin: 0 0 10px;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+// ── 输入侧：粘贴框 + 行号槽 ───────────────────────────────────────────────
+
+.jt-doc {
+    margin-bottom: 0;
+}
+
+// 槽与框包在同一只盒子里：`updateGate` 给槽写 `style.height` 与 `translateY(-scrollTop)`，
+// 那一次位移要靠这只盒子的 `overflow:hidden` 裁掉跑出可视区的那一段。
+.jt-editor {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-gutter {
+    position: absolute;
+    top: 7px;
+    left: 0;
+    // 定宽列：跟着横滚会滑出视野（W17 量的就是这一格，纵跟横不跟）。
+    width: 3.6em;
+    padding-right: .6em;
+    font-family: $jt-meta;
+    font-size: 13px;
+    line-height: var(--jt-row-h);
+    text-align: right;
+    white-space: pre;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+// `.tk-field textarea` 那一条已经给了边框与底色，包进 `.jt-editor` 之后那些归外壳，
+// 这里把框自己那一份撤掉。选择器写成 `.tk-field .jt-doc__area` 才压得住
+// `.tk-field textarea`（0,1,1）——作者样式之间比的还是特异性。
+.tk-field .jt-doc__area {
+    display: block;
+    width: 100%;
+    min-height: 240px;
+    padding: 7px 10px 7px 4em;
+    font-family: $jt-meta;
+    font-size: 13px;
+    line-height: var(--jt-row-h);
+    color: var(--ink);
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    resize: vertical;
+}
+
+.tk-field .jt-doc__area:focus {
+    outline: none;
+}
+
+.jt-editor:focus-within {
+    border-color: var(--signal);
+    box-shadow: 0 0 0 3px var(--signal-soft);
+}
+
+// 闸门读数那一格：`updateGate` 整段重写它的 textContent（「字节 N · 行 M」+ 可选那一句），
+// 所以这一格不许有 ::before 之类的装饰文本——那半句会留在改写之后。
+.jt-status {
+    margin: 8px 0 0;
+    font-family: $jt-meta;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// ── 工具栏三段 ────────────────────────────────────────────────────────────
+
+.jt-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.jt-bar__group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.jt-bar__group--opt {
+    gap: 14px;
+}
+
+.jt-opt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.jt-opt label {
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.jt-opt select {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-opt--check {
+    position: relative;
+}
+
+.jt-opt--check > label {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.jt-opt--check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--signal);
+}
+
+.jt-opt--check .tk-help {
+    font-size: 11.5px;
+}
+
+// ── 搜索那一组（唯一由 `hidden` 收放的一格） ──────────────────────────────
+
+.jt-query {
+    margin-bottom: 12px;
+}
+
+.jt-query[hidden] {
+    display: none;
+}
+
+// ── 结果区那五类读数 ──────────────────────────────────────────────────────
+
+// 四档语义色：`jsonView.js` 的 `JT_TONES` 只认这四个词，样式那边也只备这四档。
+.jt-tone--ok {
+    color: var(--tk-ok);
+}
+
+.jt-tone--warn {
+    color: var(--tk-warn);
+}
+
+.jt-tone--bad {
+    color: var(--tk-bad);
+}
+
+.jt-tone--idle {
+    color: var(--ink-3);
+}
+
+.jt-out__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.jt-out__kind {
+    padding: 1px 6px;
+    font-family: $jt-meta;
+    font-size: 11px;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-s);
+}
+
+.jt-out__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.jt-out__note {
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.jt-out__stats {
+    margin: 0 0 8px;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// 正文整块横向滚：一行 5 MiB 的压缩 JSON 不能把结果区撑成竖排（`.tk-out` 已经带 overflow-x）。
+.jt-out__body {
+    box-sizing: border-box;
+    min-width: 100%;
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    font-family: $jt-meta;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    overflow-x: auto;
+}
+
+.jt-notes {
+    margin: 0 0 8px;
+    padding-left: 20px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+.jt-empty,
+.jt-hint,
+.jt-refuse {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-empty {
+    color: var(--ink-3);
+}
+
+// 超限那一档要一眼分得开：它不是"还没算"，是"算了，但拒收"。
+.jt-refuse {
+    color: var(--tk-warn);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+.jt-err {
+    padding: 10px 12px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.jt-err__where {
+    margin: 0 0 6px;
+    font-family: $jt-meta;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--tk-bad);
+}
+
+.jt-err__ctx {
+    margin: 0 0 6px;
+    padding: 8px 10px;
+    font-family: $jt-meta;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border-radius: var(--radius-s);
+    overflow-x: auto;
+}
+
+.jt-err__msg {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+.jt-err__act {
+    margin: 6px 0 0;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.jt-foot {
+    margin-top: 10px;
+}
+
+// ── 树视图 ────────────────────────────────────────────────────────────────
+// 容器是骨架那一只**空的** div：三块常驻节点（上垫片 / `role=tree` 的行盒 / 下垫片）由 §V 的
+// 控制器建，`destroy()` 又摘干净，所以"树在不在"只由 `:empty` 判，不需要第二个状态类。
+// 高度必须写死在这一格：控制器**不读 `clientHeight`**（§V 文件头那条），窗口密度只认
+// `rowHeight`，但它自己的 `scrollTop` 要靠真滚动条才有上界——不给高度就没有滚动，
+// "只渲染可视行"会退化成"只渲染前 80 行"，而下面那一段永远到不了。
+.jt-tree {
+    height: min(520px, 58vh);
+    margin-top: 10px;
+    padding: 6px 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-family: $jt-meta;
+    font-size: 13px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-tree:empty {
+    display: none;
+}
+
+.jt-tree__pad {
+    // 高度由控制器写成 `count * rowHeight` 的整数字符串，这里不许给 min-height 之类的下界——
+    // 那会把垫片撑高，滚动条总长当场算歪（§V 契约第二条）。
+    flex: none;
+}
+
+.jt-tree__rows {
+    display: block;
+}
+
+.jt-tree__row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    height: var(--jt-row-h);
+    line-height: var(--jt-row-h);
+    padding-right: 8px;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.jt-tree__row:hover {
+    background-color: var(--surface-2);
+}
+
+.jt-tree__row:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: -2px;
+}
+
+.jt-tree__row--string .jt-tree__val {
+    color: var(--tk-ok);
+}
+
+.jt-tree__row--number .jt-tree__val {
+    color: var(--signal-ink);
+}
+
+.jt-tree__row--boolean .jt-tree__val,
+.jt-tree__row--null .jt-tree__val {
+    color: var(--tk-warn);
+}
+
+.jt-tree__row--more .jt-tree__val {
+    color: var(--ink-3);
+    font-style: italic;
+}
+
+.jt-tree__tri {
+    flex: none;
+    display: inline-flex;
+    width: 14px;
+    justify-content: center;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+
+.jt-tree__row--object,
+.jt-tree__row--array {
+    cursor: pointer;
+}
+
+.jt-tree__key {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.jt-tree__val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink-2);
+}
+
+// 命中的那一格涂色：用 `box-shadow` 而不是 `background`，与 hover 那一层可以共存。
+.jt-tree__key.is-matched {
+    box-shadow: inset 0 -7px 0 var(--signal-soft);
+    color: var(--signal-ink);
+}
+
+.jt-tree__copy {
+    flex: none;
+    margin-left: auto;
+    padding: 1px 6px;
+    font-family: $jt-meta;
+    font-size: 10.5px;
+    letter-spacing: .4px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-s);
+}
+
+.jt-tree__copy:hover {
+    color: var(--signal-ink);
+    border-color: var(--rule-2);
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两档与 toolkit.scss 同一口径（那一层的索引条在本页没有，退档退的是左右分栏）。
+// 901–1100 那一段**不在这里改**：分栏比例靠 `minmax(0, …)` 自己收缩，14 枚按钮靠 `flex-wrap` 换行。
+// 但这一段必须实测（段 2 立的十档清单里的 901/920/940）：`min-width:0` 一漏，
+// 一行 5 MiB 的结果串会把整栏撑破，而 §7 那两格预算量的都是首屏字节、看不见它。
+
+@media (max-width: 900px) {
+    .jt-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .tk-field .jt-doc__area {
+        min-height: 180px;
+    }
+
+    .jt-tree {
+        height: min(420px, 52vh);
+    }
+}
+
+@media (max-width: 640px) {
+    .jt-bar__group {
+        gap: 6px;
+    }
+
+    .jt-bar__group .tk-btn {
+        flex: 1 1 auto;
+    }
+
+    .jt-bar__group--opt {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .jt-opt {
+        justify-content: space-between;
+    }
+
+    .jt-opt select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .jt-tree {
+        height: min(360px, 46vh);
+        font-size: 12px;
+    }
+
+    .jt-gutter {
+        width: 3em;
+    }
+
+    .tk-field .jt-doc__area {
+        padding-left: 3.4em;
+    }
+}

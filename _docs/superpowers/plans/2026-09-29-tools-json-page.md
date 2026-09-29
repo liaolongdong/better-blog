@@ -7218,10 +7218,12 @@ export function createJsonView(view) {
  * 1. **视图层零 import**：`jsonView.js` 那条红线写在它自己文件头；本层只在构造期 `createJsonView` 一次。
  * 2. **环境只在入口**（W10）：`Date.now(` / `localStorage` / `navigator.` / `new Blob` / `URL.` / `window`
  *    / `globalThis` / `getComputedStyle` / `querySelector` / `setTimeout(` 在本文件源码里**一个都不许出现**。
- *    时钟、`localStorage`、剪贴板、下载那三件、`setTimeout` 全从 `env` 递进来；行高也不量——它是本层的
- *    常量 `ROW_HEIGHT`，与骨架那本 `toolJson.scss` 同源（读一次样式就要在挂载期碰 `getComputedStyle`，
- *    而 §V 的窗口密度只认这个数）。这一条与 `toolCodec.js` 口径 2 是同一条理由：同一份产物在两台机器上
- *    只能给一个答案。
+ *    时钟、`localStorage`、剪贴板、下载那三件、`setTimeout` 与**行高**全从 `env` 递进来：那把尺由
+ *    `toolJson.js` 调一次 `getComputedStyle` 读 `dev/sass/toolJson.scss` 的 `--jt-row-h`，读出来不合法
+ *    就落本层的常量 `ROW_HEIGHT`（§V 的窗口密度与行号槽的那次 `style.height` 只认这个整数）。
+ *    行高为什么算环境量：它是**样式**给的答案，纸色温与断点一变它就变；在本层读一次，
+ *    §W 的假 DOM 夹具就要多造一件假件，而 W10 那条判据当场从判据退化成注释。
+ *    这一条与 `toolCodec.js` 口径 2 是同一条理由：同一份产物在两台机器上只能给一个答案。
  * 3. **id 只由 spec 派生**（W13、W19）：那八枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `JSON_SPEC`
  *    与 `JSON_ACTIONS` 三个方向对账；本文件不许手打以 `jt-` 起头的地址串（W10 数的是**整格字面量**，
  *    单引号、双引号、模板串三种引号都算，注释里的不算——旧口径只认 `'jt-`，而拼错的那一枚恰恰是模板串）。
@@ -7261,8 +7263,11 @@ export const JSON_PANEL_IDS = ['workbench'];
 const SIDES = ['main'];
 
 /**
- * 行高常量：与 `_sass/toolJson.scss` 里 `--jt-row-h` 那一格同源。**不在装配层读样式**（W10 红线 2），
- * 因为读一次就要在挂载期碰 `getComputedStyle`，而 §V 的窗口密度只认这个整数。
+ * 行高的**退路值**：权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h` 那一格，由入口读一次再注入
+ * （`env.rowHeight`，红线 2）。只有两种情况会落到这里：样式没加载（脚本 404 之外的另一种半死）、
+ * 或那一格被改成读不出整数 px 的形状。§V 的窗口密度与行号槽的那次 `style.height` 只认这一个整数，
+ * 所以两边都得是 24——样式那本改行高时不必改这里，入口读得到新值；这里改而不改样式，只会在
+ * "样式读不到"的那一条路上生效，这正是它该有的作用域。
  */
 const ROW_HEIGHT = 24;
 
@@ -8196,6 +8201,9 @@ export { SIDES };
  * 2. **环境只在这一本读，每样恰好一次**（W11 数的是出现次数）。时钟、`localStorage`、`setTimeout`、
  *    剪贴板、下载那三件全从这里注入，装配层那七个词一个都不许出现（W10）。理由是同一份产物在两台
  *    机器、两个 CI runner 上只能给一个答案，而 §W 的每一判都指望它只有一个。
+ *    行高（`--jt-row-h`）也在这一本读：它是**样式**给的环境量，读一次就注入一次（`env.rowHeight`），
+ *    装配层里因此不许出现 `getComputedStyle`——那一只假件一旦要进 §W 的夹具，"不读环境"这条红线
+ *    就从判据退化成了注释。
  *    `localStorage` 在隐私模式下**访问本身就抛**，所以取它包了一层 `try`——那一格取不到就是"这台
  *    浏览器不给存"，装配层据此把"记住上次输入"置灰（W15），而不是让整页停在启动那一下。
  * 3. **`runGuarded` 由入口给**。装配层只负责"抛出来"，记不记、记在哪儿是页面这一侧的事：这一页没有
@@ -8318,6 +8326,25 @@ function boot(doc, win, tk) {
   let store = null;
   try { store = win.localStorage; } catch { store = null; }
 
+  /**
+   * 行号槽与树行高的那把尺：**权威在样式里，这一本只读一次**（段 4 计划 Task 7）。
+   * `dev/sass/toolJson.scss` 在容器上写 `--jt-row-h`，§V 控制器的窗口密度与 `updateGate` 里
+   * 那一次 `style.height` 要的是同一个整数；读不到、或读出来不是「≥1 的整数像素」就退回 24
+   * ——那个 24 就是装配层 `ROW_HEIGHT` 的值，两边同源靠的是 W12 那一道 `env.rowHeight` 闸门
+   * （给了非法值当场 `RangeError`），不是靠注释约定。
+   *
+   * 为什么在入口读而不在装配层读：口径 2 说的就是"环境只在这一本读"。装配层里出现
+   * `getComputedStyle`，§W 的假 DOM 夹具就要多造一件假件，而 W10 那条判据（11 个词 0 命中）
+   * 当场作废——这一格读的是**本页的样式**，不是宿主的时间与存储，但它同样是环境量。
+   * @returns {number} 整数像素
+   */
+  const rowHeightPx = () => {
+    let raw = '';
+    try { raw = String(win.getComputedStyle(box).getPropertyValue('--jt-row-h') || '').trim(); } catch { raw = ''; }
+    const n = /^\d+px$/.test(raw) ? Number(raw.slice(0, -2)) : NaN;
+    return Number.isInteger(n) && n >= 1 ? n : 24;
+  };
+
   const wb = createJsonWorkbench({
     document: doc,
     Tk: tk,
@@ -8327,6 +8354,7 @@ function boot(doc, win, tk) {
     navigator: win.navigator,
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
+    rowHeight: rowHeightPx(),
     BlobCtor: win.Blob,
     createObjectURL: (b) => URL.createObjectURL(b),
     revokeObjectURL: (u) => URL.revokeObjectURL(u),
@@ -8374,8 +8402,10 @@ start(document, window);
 //    整页 SyntaxError 而构建 exit=0（`toolkitCore.js:5-9` 记的正是这个坑，牙齿在门禁④）。
 // 2. **环境只在入口**（W10、W11）。`Date.now(` / `localStorage` / `URL.createObjectURL` / `URL.revokeObjectURL` /
 //    `win.Blob` / `setTimeout(` / `win.navigator` 七个词在装配层源码里 0 命中、在入口那一份各**恰好一处**；
-//    `window` / `globalThis` / `getComputedStyle` / `querySelector` 两本都 0 命中——行高不量，它是装配层的
-//    常量 `ROW_HEIGHT`，骨架那本 SCSS 与它同源（量一次就要在挂载期读样式，而 §V 的窗口密度只认这个数）。
+//    `window` / `globalThis` / `querySelector` 两本都 0 命中。`getComputedStyle` 分两档：装配层 0 命中、
+//    入口**恰好一处**——行号槽与树行高那把尺由 Task 7 的入口读样式上的 `--jt-row-h` 一次再注入
+//    `env.rowHeight`，读不到就落装配层那个 `ROW_HEIGHT = 24` 的退路值（它是样式给的环境量，在本层读
+//    一次就要在夹具里多造一件假件，W10 那条判据会从判据退化成注释）。
 //    `js-yaml` 那本内置件只许被 `json-convert.js` 够一次，`json-convert.js` 只许被装配层够一次——
 //    两跳各一枚（W11 数的是 import 语句，不是文件名出现次数），入口与装配层都不许直接够内置件。
 // 3. **id 只由 spec 派生**（W13、W18、W19）。八枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `JSON_SPEC`
@@ -8936,6 +8966,11 @@ test('W11 import 边闭合与入口那三格常量：门禁⑤ 组 5 用正则�
     'win.Blob', 'setTimeout(', 'win.navigator']) {
     assert.equal(wCount(bareEntry, word), 1, `入口里 ${word} 应恰好一处：多一处就是第二份环境读法，§R 立的"只在入口读一次"塌了`);
   }
+  // 行高是 Task 7 加进来的**第二只环境量**：它的权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h`，
+  // 入口读一次、注入 `env.rowHeight`。数死一处的理由是"两把尺"：读第二处就可能与第一处不一样，
+  // 而 §V 的窗口密度与行号槽那次 `style.height` 只认一个整数。装配层那一头由 W10 判 0 命中。
+  assert.equal(wCount(bareEntry, 'getComputedStyle'), 1,
+    '入口只许读一次样式（`--jt-row-h` → env.rowHeight）：多一处就是第二把尺，装配层那一头必须是 0 命中');
   // 唯一 import 点**就是装配层那一本**，所以判据数的是"谁在 import 它"，不是"除了它自己没人 import"——
   // 后一种写法会把装配层自己那一条当成 0 命中，反而永远抓不到"入口也够过去"这件事。
   const importers = wAllSources()
@@ -9731,13 +9766,13 @@ Modify `_data/onlineTools.yml`（追加条目，`layout: workbench`、`panels: [
 **必须实测中间断点**：901–1100px 那一族（§6.4 点名，段 2 已立十档清单）。
 ≤900 时工作台从左右分栏改成上下堆叠 + 视图切换。
 
-- [ ] **Step 1: 门禁 layout 分支（§0.3）先写红**：`layout` 取值档 / workbench 支**不**要求
+- [x] **Step 1: 门禁 layout 分支（§0.3）先写红**：`layout` 取值档 / workbench 支**不**要求
   `{p}-tablist` / 控件与开关那一族在 workbench 支按 `spec.ids` 遍历（`panels: []` 时不许空转）/
   `:460` 与 `:548` 那两句在本支跳过 yml 比对 / 产物里多出的 `{p}-in-*`、`{p}-when-*` 不在表里 → 红 /
   缺 `layout` 且 `panels` 空 → 红在"既没声明又没有清单"。
-- [ ] Step 2: 三本 teeth 变异（T-a/T-b/T-c）点燃并还原。
-- [ ] Step 3: yml 条目 + `tools.html` 那一行 + 图标 + 页面源 + SCSS 落地。
-- [ ] **Step 4: 一次 `pnpm build:assets` + `bundle exec jekyll build --destination /tmp/segX/_site
+- [x] Step 2: 三本 teeth 变异（T-a/T-b/T-c）点燃并还原。
+- [x] Step 3: yml 条目 + `tools.html` 那一行 + 图标 + 页面源 + SCSS 落地。
+- [x] **Step 4: 一次 `pnpm build:assets` + `bundle exec jekyll build --destination /tmp/segX/_site
   --baseurl ""`（记忆：不加 `--baseurl ""` 会全 404 量到裸页），跑门禁⑤ 期望 `3 条 ready × 5 组全绿`。
   门禁⑤ 不覆盖的 §8.2 那六条要在同一格逐条复算**（本段实测：`check-tools-surface.mjs` 里
   `CollectionPage` 与 `vw` 都无命中，那六条没有脚本兜着，靠命令钉）——
@@ -9749,12 +9784,1026 @@ Modify `_data/onlineTools.yml`（追加条目，`layout: workbench`、`panels: [
   `assets/js|css/*.min.*` 在快照里真实存在（§6.1 大小写坑）；`docs/` 不进 `_site`、全站无 404 内链。
   最后跑 `USAGE.md`「检索层自查」那族**全量**（记忆教训：不只对本次改动跑），并把 §4.4 第 6 条
   那两个计数更新后确认仍绿。
-- [ ] Step 5: 镜像登记 + **HEAD 导出树里**给 yml 条目做一次 `--fix`（§0.7 第 1 条那套动作）。
+- [x] Step 5: 镜像登记 + **HEAD 导出树里**给 yml 条目做一次 `--fix`（§0.7 第 1 条那套动作）。
 - [ ] Step 6: 提交——**只提交本段独占的那些**：`tools-json.html`、`dev/sass/toolJson.scss`、
   `assets/img/tools/json-tool.svg`、两本 `scripts/check-tools-*`、`scripts/verify-plan-blocks.mjs`、
   本计划、段 2 计划（只 `--fix` 那一块）、`USAGE.md`。
   `_data/onlineTools.yml` 与 `tools.html` **不暂存**（§0.7 第 1、3 条），并把这个未闭合状态写进
   本格记录与收口格的"待提交窗口"清单。
+
+### 落地记录（2026-09-30，Task 7 那一格实跑）
+
+**步序与计划不同，且这个不同是必须的**：Step 2 那三把 teeth 刀要点燃，前提是 json 条目、
+`tools-json.html`、`_site/tools/json.html` 三样都在——门禁五读的是「数据源 + 产物」两头，
+缺任何一头，`resolveLayout` 与 label 对账那两族判据压根不会被走到，变异跑出来是"红在别的页面上"。
+所以本格实际顺序是 Step 1（判据先写）→ Step 3（条目 / `tools.html` / 图标 / 页面源 / SCSS 落地）
+→ 一次 `pnpm build:assets` + `bundle exec jekyll build` → Step 2（teeth 点燃）→ Step 4（§8.2 复算）
+→ Step 5（镜像登记 + `--fix`）→ Step 6（提交）。
+
+**六道门禁当时的读数**（都在活工作树，`_site` 是这次重建的那一份）：
+
+| 门禁 | 命令 | 读数 |
+| --- | --- | --- |
+| ① 判据 | `node --disable-warning=… --test scripts/toolkit-tests.mjs` | 363/363 通过（本格为 `getComputedStyle` 那一档新增 1 条 W11 计数断言） |
+| ② 镜像 | `node scripts/verify-plan-blocks.mjs` | exit=0，65 个已落地镜像逐字节全等、`⚠ 未落地` 0 节（`--fix` 先前重写 5 块：段 2 那 2 块 + 段 4 的 `jsonWorkbench.js` / `toolJson.js` / §W 那 3 块；本格新贴的三格非 js 镜像按磁盘内容直读生成，落笔即全等，`--fix` 一刀没动） |
+| ③ 镜像的牙 | `node scripts/verify-plan-blocks-teeth.mjs` | exit=0，`35/35 通过`（登记完三格新镜像之后重跑；G13f 那条 ✓ 的日志里带一段 ENOENT 崩栈，那是"摘掉落点守卫之后本该发生的事"，不是失败） |
+| ④ 产物 | 两次 `npx vite build`（HEAD 导出树 ×2） | 见下面「门禁四」那一格，Task 9 收口时重算 |
+| ⑤ 收录面 | `node scripts/check-tools-surface.mjs` | `✓ 收录面 3 条 ready 条目 × 5 组判据全绿`，导航-全站核到 98 页 |
+| ⑥ 牙齿 | `node scripts/check-tools-surface-teeth.mjs` | `牙齿台账：58/58 组变异如期变红`，还原后基线复跑仍绿（36 → 58，本格 +22 组） |
+
+**门禁⑤ 本格新增的判据（计划正文只点名了 layout 分支，下面这几条是落地时补的）**：
+
+1. `resolveLayout` 的取值档：`layout` 只认 `panels` / `workbench` 两个字面值，缺省时要求
+   `panels` 非空、否则红在"既没声明又没有清单"。**不给默认值**这条是计划里写的。
+2. workbench 支的 `need` 多要四族 id（`-out-` / `-status-` / `-tree-` / `-copy-`，栏位名从
+   `panel.sides` 的键现取，不写死 `main`）与 `type: area` 那格的 `-gutter-`，再加 14 枚 `-btn-`。
+   少要任何一族，骨架漏掉那一格时装配层的 `node()` 取到 `null` 就**安静地不画**，页面上没有异常。
+3. 反向那一刀扩到 `btn`：`{p}-btn-*` 而不在 `JSON_ACTIONS` 里 → 红。骨架私自多长一枚按钮的下场
+   是"按下去没反应"，与"没人答的标签"同族。
+4. **按钮文案 ↔ `JSON_ACTIONS[i].label` 逐枚对账**（`tools-json.html` 工具栏那段注释承诺的就是它，
+   写在页面里之前先把判据补上，别让承诺空转）。id 对上只证明"这一格存在"，不证明"这一格说的是
+   同一件事"；栏头标题画的是 `label`，两处不同字时用户读不出自己按的是哪一枚。
+5. `actions` 枚数三向对账（yml ↔ `JSON_ACTIONS.length` ↔ `tools.html` 画出来的那一格），
+   外加 `layout: panels` 却写了 `actions` 的反向判据。
+6. `features` 三向：空 `panels` 无 `features` → 红；非空 `panels` 带 `features` → 红（没有消费者）；
+   每条要点必须能在 `tools.html` 产物里逐字找到（`<li>` 原文比对）。
+
+**teeth 里 T-b 的预测与实测不同，按实测改**：计划里写"把 `panelIds` 写回 `ymlPanels` → 必须红在
+「缺少 id」那一族"。真跑下来红的是两处别的判据——`panelIds` 为空时 `need` 只剩
+`jt-workspace` / `jt-notice`，产物上的 6 格控件与 14 枚按钮反而全成了"多出来的 id"（第 3 条那一刀），
+`data-jt-ids="workbench"` 与空清单也比不上。**这一条比原预测更强**：分支失效不仅会红，
+而且红在"判据还在数产物"那一句上，不是红在数据源自己跟自己比。台账里那条变异因此带
+`expect: '多出这些控件/开关/按钮 id'`——`expect` 这一格也是本格新加的机制，它把"红了"
+升级成"红在该红的那一句"。
+
+**与计划正文的三处改道，都按事实来**：
+
+1. 刊头类名：计划写 `.g-masthead.jt-masthead`，实际只写 `.g-masthead`。`jt-masthead` 与
+   `tk-masthead` 在两本 SCSS 里都没有规则，写进 HTML 就是一枚死类——而「删 CSS 死代码只 grep
+   类名会漏杀」那条教训反过来同样成立：**没被样式消费的类名不该先进 HTML**。编码页那两页带着
+   `tk-masthead` 是存量事实，本格不跟着复制。
+2. `seo_description` 首稿 178 列，红在门禁⑤「页面源」（预算 `[50,158]`）。改成 154 列：
+   保住"精确行列 + 选中那一段"与"超限整体拒绝"两处差异点，让掉"并说明差多少"（正文与 `desc`
+   里都还在）。这不是文案偏好，是列数预算。
+3. 计划 Step 4 让把快照建到 `/tmp/segX/_site --baseurl ""`。本格实际建的是仓库 `_site`
+   （默认 baseurl），因为 teeth 那份台账里有一组变异写死了 `/better-blog/` 的匹配串，
+   而门禁⑤ 的 teeth 只认 `ROOT/_site`（`--baseurl ""` 的快照会让它自己红在「导航」组）。
+   `--baseurl ""` 那份留给 Task 8 的浏览器测量单独建，两种快照的分工与段 3 一致。
+4. **`_data/onlineTools.yml` 与 `tools.html` 这两格随本格一起提交**，§0.7 第 1、3 条那句
+   "不暂存、等窗口"的前提在这一格**已经消失**，落地时逐 hunk 归因核过：
+   `git diff HEAD -- _data/onlineTools.yml` 的 52 增 1 删全是本格的（`layout` / `actions` /
+   `features` 三格字段说明 + 两条既有条目各补一行 `layout: panels` + json 那一条），
+   `git diff HEAD -- tools.html` 的 35 增 6 删也全是本格的（`for/else` 退成纯文本要点 +
+   徽章按 `layout` 分派 + 徽章注释重排）。他们那一批“免安装工具”改口**在开工前就已落进 HEAD**
+   （`git show HEAD:_data/onlineTools.yml` 第 2-3 行现读就是那四个字，且
+   `diff <(git show HEAD:_data/onlineTools.yml | sed -n '1,6p') <(sed -n '1,6p' _data/onlineTools.yml)`
+   空输出 → 头注释那六行工作树与 HEAD 一字不差），所以这两格提交时**没有一行是替别人发布的**：
+   yml 那 1 处删除是本格把 `spec` 那两行注释拆开的一行（`git diff HEAD -- _data/onlineTools.yml |
+   grep '^-'` 只剩它），`tools.html` 的 6 处删除同理（徽章注释重排 + 那一格 `<li>` 套进 `{% if %}`）。
+   为什么必须提交而不是留着：段 2 计划里那一格 yml 镜像被 `--fix` 换成了**磁盘内容**（含 json
+   条目），把镜像烤进计划却不提交数据源，等于在"干净检出"这一档上故意留一枚必红的门禁二
+   ——段 3 收口时 `94724f5` 量的正是"干净检出退 0"，本格不能反过来。
+   连带一条：这一提交之后 `/tools/json.html` 才**有任何入口指向它**（下拉、`/tools.html` 小节、
+   `index-all`、sitemap、llms.txt 五处全数据驱动），Task 9 收口账第 1 条那句"线上不可达"
+   的判据因此改写，见那里。
+5. **`_data/onlineTools.yml` 里既有的两条 `layout: panels` 是本格补的**（idcard 与 codec），
+   不是新条目带的：门禁⑤ 那条"缺 `layout` 且 `panels` 空才红"的判据给缺省留了活路，
+   但两条既有条目显式写出来，`resolveLayout` 的取值档才有正对照——三条 ready 里两条 `panels`、
+   一条 `workbench`，分派两头都有真数据走过。
+6. **Step 5 那句"在 HEAD 导出树里跑 `--fix`"没单独建树**，因为第 4 条已经把它要防的那件事证伪了：
+   磁盘 yml 与 HEAD 的差只有本格那几块（1-6 行 diff 空、`grep '^-'` 只剩我自己拆开的一行），
+   "HEAD + 我的条目"与"磁盘那一份"因此是同一份内容，建树只是同一把尺的第二种拿法。
+   反过来，真按段 3 那套在纯 HEAD 的树里跑 `--fix`，烤进段 2 计划的会是**没有 json 条目**的 yml
+   ——那是"这一格不许提交"那一轮的形状；本格两格一起提交，镜像就得跟着磁盘走才对得上。
+
+**§8.2 那六条逐条复算**（命令与读数都写在这里，不复算就只是"跑过了"）：
+
+1. 三页 HTML 都在：`_site/tools/{idcard,codec,json}.html` ✓（39,717B 那一格是 json 页）。
+2. `json.html` 的 canonical = `https://liaolongdong.github.io/better-blog/tools/json.html`；
+   它那一块 JSON-LD 用 `node -e 'JSON.parse(…)'` 解得动，`@type` 是 `CollectionPage` ✓。
+   全站 JSON-LD 185 块 / 失败 0（`USAGE.md` 第 3 条），`CollectionPage` 29 = 工具页 3 +
+   `demo/` 子树 18 + 站点页与归档页 8。
+3. `sitemap.xml` / `llms.txt` / `index-all.html` 各含三条完整地址：1/1/1 与 1/1/1 与 2/2/2
+   （`index-all` 每页两条：一节一行 + 归档列表一行）✓。
+4. 三页 `.is-current` 各恰一个且落「工具箱」——由门禁⑤ 的「导航-全站」那一组数出来（98 页），
+   不是抽查。`_includes/` 与导航数据本格一个字节都没动（`git diff HEAD -- _includes/` 空），
+   其余页的高亮态按构造不可能变；门禁⑤ 仍把它们逐页复算了一遍。
+5. `grep -c 'vw'`：`assets/css/toolkit.min.css` = **0**、`assets/css/toolJson.min.css` = **0**
+   （`--jt-row-h: 24px` 在产物里仍是 24px，`min(520px,58vh)` 那三处 `vh` 是刻意的）。
+   复算命令：`grep -o -- '--jt-row-h:[^;]*' assets/css/toolJson.min.css`。
+6. 页面引用的每个 `assets/js|css/*.min.*` 都在快照里：133 页 / 1948 处引用 / 缺失 0。
+   `docs/` 与 `_docs/` 不进 `_site` ✓。
+
+**内链与锚点**（本格顺手加的一道一次性扫描，不在六条里，读数 133 页 / 6334 条内链 / 2263 个锚点）：
+`json.html` 零异常。25 处异常全是既有形状，逐族归因：1 处 `href=""`（自链，良性）、
+2 处 demo 路由的 `#/home` 与 `#/about`（hashRouter 演示自己的状态，不是文档锚点）、
+2 处 `2023-06-07` 那篇文章的中文 TOC 锚点（`#AVL树、红黑树、B树/B+树查找` 对不上
+kramdown 生成的 `id="avl树红黑树b树b树查找"`——标点被吃掉，属文章正文的老账）、
+剩下 20 处是证件页与编码页索引条的 `href="#<slug>"`：**面板节上的 id 是 `tk-panel-<slug>`，
+不带裸 slug**，所以"禁用脚本时这一列退成普通目录链接"那句承诺在这两页上不成立——
+它只会跳到页首。本格没有复制这个形状（JSON 页没有索引条），修法要动 `_data` 与两页镜像
+外加 `panel-dom.js` 的 hash 口径，超出段 4 的范围，记在下面的遗留里。
+
+**遗留三格，都交给 Task 8 / 段 5**：
+
+1. 901–1100px 那个中间档只做了结构处理（`minmax(0,…)` + `flex-wrap`），**没有实测**。
+   §6.4 点名的十档清单要在 Task 8 的浏览器核验里逐档量，含 900/640 两个断点两侧。
+2. 上面那 20 处索引条死锚（段 2/段 3 存量页），以及那条 `[hidden]` 顶不过 `display:grid` 的
+   疑点（编码页的显隐段是 `p.tk-field`，`toolkit.scss` 里没有 `[hidden]` 兜底）——本格的
+   `toolJson.scss` 已经给自己的 `.jt-query[hidden]` 写了兜底，编码页那一格是不是真坏了要先量再说。
+3. 那篇文章的中文锚点（与工具页无关，纯存量）。
+
+**门禁④（产物体积）本格只量了活工作树的一份**：`assets/js/toolJson.min.js` 126.70 KB
+（gzip 43.99 KB）、`assets/css/toolJson.min.css` 8.06 KB（gzip 1.84 KB）。§0.5 说的那条
+"先量后立"要的是**HEAD 导出树里干净检出**的同一把尺，且要与 §7 首屏预算对齐——那一格连着
+Task 8 的浏览器测量一起做，届时按两次 `npx vite build` 的口径重算，别把这里的小数当结论。
+
+### 本格提交范围（Step 6 那张清单的实测修订）
+
+Step 6 写的清单里少了三本、多了一格。**少的那三本**是本格改到的实现文件——`dev/js/toolJson.js`
+（+23：`rowHeightPx()` 那一次 `getComputedStyle`，§W 红线"环境只在入口"落地的样子）、
+`dev/js/tools/jsonWorkbench.js`（+11/-6：`ROW_HEIGHT` 从"权威"降为"退路值"，文件头红线 2 同步改口）、
+`scripts/toolkit-tests.mjs`（+9/-2：W11 那一档给 `getComputedStyle` 补的计数断言）——
+计划写 Step 6 时还没料到这三格会在本格改动，镜像已经把它们烤进去了，实现不提交就是自相矛盾。
+**多的那一格是 `USAGE.md`：本格不提交它。** 它带着另一路会话一笔未提交的 76 行删除
+（`git diff --cached -- USAGE.md` 现读 `1 插入 / 76 删除`，删的是「动效批 IV」那一族小节），
+pathspec 提交整文件等于把他们的删除一起发布；本格改的两个计数（185 块 / `CollectionPage` 29）
+留在工作树，等他们那一批落进 HEAD 之后一次带上——这条记在 Task 9 收口账第 1 条的第 ② 项。
+`_data/onlineTools.yml` 与 `tools.html` 则**反过来**：清单说不暂存，本格照第 4、6 条的归因结果提交。
+其余照 §0.7 第 2 条一律不碰（`dev/js/editorial.js` 与 `scripts/verify-idcard-browser.mjs` 那两格
+是另一路会话的 SW 离线层，`git diff HEAD` 现读 33 与 22/7 行，与工具页无关）。
+
+### 落地镜像（门禁二核的就是这三块，`--fix` 会把它们整块换成磁盘内容）
+
+登记方向照旧：**磁盘有了才登记**。`FILE_TARGETS` 里这三格与 `tools-codec.html` /
+`assets/img/tools/codec-tool.svg` / `dev/sass/toolkit.scss` 成对——同一族事实在三页上各有一份，
+镜像就是"这三页真的各按各的 spec 长"的第三方见证。`toolJson.scss` 这一格还多一重用处：
+它是 `--jt-row-h: 24px` 在仓库里**唯一**的声明处，而入口 `rowHeightPx()` 读的就是它，
+产物里那一句被 px→vw 改写过（`0.24rem` 之类）时，红的是这两格一起红。
+
+#### 页面源整文件镜像（`tools-json.html`，FILE_TARGETS 已登记）
+
+```html
+---
+layout: default
+title: JSON 在线格式化与校验 · 转 YAML/XML/CSV
+seo_description: 粘贴即本地解析：格式化、压缩、键排序、转义与反转义，坏输入给精确行列并选中那一段；与 TypeScript、YAML、XML、CSV 互转，树视图只画看得见的行，超限整体拒绝。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/json.html
+# tool 指向 _data/onlineTools.yml 里的那一条：大标题、id 前缀、动作枚数都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: json
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/sass/toolJson.scss -> toolJson.min.css、dev/js/toolkitCore.js -> toolkitCore.min.js、
+     dev/js/toolJson.js -> toolJson.min.js。GitHub Pages 在 Linux 上构建，写错一个字母
+     本地看不出来、线上一律 404，勿改。
+
+     两本 CSS 的先后：toolkit 在前、toolJson 在后。前者供的是 .tk-content / .tk-btn /
+     .tk-outwrap / .tk-out / .tk-field 这一族公共层，后者只补 .jt-* 那一族本页独有的形状，
+     同一条规则谁都不与前者同名（改公共层是段 5 的事，本段一个字节都不动它，见 §0.5）。
+
+     它们排在 header include **之后**而不是 <head> 里（同编码页 :21 那条口径）：§7 首屏那一格
+     判的是"本页新加进阻塞集的东西"，搬进 <head> 就是当场给这一页添一件阻塞件。
+
+     两条 <script> 的先后是硬前提：toolkitCore 先挂 window.Tk，入口再读它。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolJson.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+{%- comment -%}
+面板清单在这一页按设计是空的（`layout: workbench`：没有索引条，清单只活在装配层那张表里），
+所以那一块工作区的名字在这里手打一次。它是 `JSON_PANEL_IDS` 的第二处声明处——下面 26 格 id
+全部从这一枚变量拼出，改这一行整页跟着改；而 `data-jt-ids` 那一格与它必须同值，
+门禁⑤「DOM」组拿 `data-jt-ids` 比 `JSON_PANEL_IDS.join(',')`，不一致红在门禁而不是红在页面上。
+{%- endcomment -%}
+{%- assign wbp = 'workbench' -%}
+
+<section class="g-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">格式化 · 校验 · 树视图 · 互转</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        {%- comment -%}
+        这三格读数**不许**照抄编码页那一族（编码页 :36 写的是 `{{ tk.panels.size }}` 块面板，
+        这一页的 panels 按设计是空的，照抄就画出「0 块面板」——段 4 §0.7 第 3 条点名的就是这一格）。
+        三个数各有出处，抄错就不是一句难堪的话而是一句假话：
+          · `tk.actions` 由门禁⑤ 比 `JSON_ACTIONS.length`（本段实测 14）；
+          · 5 MiB 与 1000 层是 `dev/js/tools/json-core.js` 的 `MAX_INPUT_BYTES` / `MAX_DEPTH`，
+            重算口径：`node -e 'const M=await import("./dev/js/tools/json-core.js");console.log(M.MAX_INPUT_BYTES/1048576, M.MAX_DEPTH)'`。
+        这里也不写「0 网络请求」：那一格在 09-29 已被改口成「输入不出本机」，理由写在 tools.html
+        的徽章注释里（每一页的 head 都还带着图标字体与统计两条外链）。
+        {%- endcomment -%}
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.actions }}</strong><span>个动作</span></li>
+            <li><strong>5 MiB</strong><span>输入上限</span></li>
+            <li><strong>1000</strong><span>层深度闸门</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段与证件页、编码页那两处的角色相同：§5.5 的"固定一行提示"在**禁用脚本时也读得到**的那一份。
+    本页的措辞与那两页有一处必须不同：证件页与编码页可以整句写"不写 localStorage"，
+    这一页不行——「记住上次输入」那枚开关勾上之后确实往本机写一份（默认不勾，
+    勾了才写 `{prefix}.memory.input`，正文超 256 KiB 连那一格都不写、改在读数里说"没存"）。
+    把三页写成同一句话就是拿主张盖住实现；判据在 §W 的 W15 与红线 6。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的解析、格式化与互转全部在浏览器里算：<strong>不发请求、不上传、不读剪贴板</strong>。
+        输入上限 5 MiB、深度闸门 1000 层，超限整体拒绝并说明超了多少，不截断悄悄算。
+        <strong>默认不写 localStorage</strong>：只有勾了「记住上次输入」才往本机存一份，
+        那一格只给这一台浏览器，关回去就删掉。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：输入框、十四枚按钮与那几个下拉都在，但换算要在浏览器里算，
+            按下不会出结果；右侧那一栏空着是预期，不是坏了。正文这几段与下面的口径说明照常读得到。
+        </p>
+    </noscript>
+    {%- comment -%}
+    坏消息那一格：入口的 `runGuarded` 与启动失败共用它（`toolJson.js` 口径 3 与 4），默认 hidden，
+    由脚本覆写。这一页没有面板错误条——那一块区域就是整页，所以坏消息只写这一句，
+    其余部分照常可用。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+
+    <div class="jt-workspace" id="{{ tk.prefix }}-workspace"
+         data-jt-ids="workbench" data-jt-prefix="{{ tk.prefix }}"
+         data-jt-label="{{ tk.h1 }}" data-jt-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        左右两栏：左边是输入（带行号槽），右边是结果（工具栏 + 结果区 + 树）。
+        ≤900px 收成上下堆叠（`toolJson.scss` 文末那一组）。
+
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?jt-in-workbench-doc=…，而那一串里装的正是用户粘进来的内容——这一页最不该发生的事。
+        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll），所以这一页**不写**
+        .tk-kbd 那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行，
+        编码页那一句在这是不成立的），写一句不存在的捷径比不写更坏。
+        {%- endcomment -%}
+
+        <section class="jt-side jt-side--in" aria-labelledby="{{ tk.prefix }}-h-in">
+            <h2 class="jt-side__title" id="{{ tk.prefix }}-h-in">输入</h2>
+            <div class="tk-form jt-doc" role="group" aria-labelledby="{{ tk.prefix }}-h-in">
+                <div class="tk-field tk-field--wide">
+                    <label for="{{ tk.prefix }}-in-{{ wbp }}-doc">JSON / YAML / XML / CSV 原文</label>
+                    {%- comment -%}
+                    行号槽与粘贴框包在同一只 `.jt-editor` 里：`updateGate` 写槽的 `textContent`
+                    与 `style.height`，接线那边给槽写 `translateY(-scrollTop)`（纵跟横不跟，
+                    跟着横滚会滑出视野，W17）。槽是 `aria-hidden`——它把同一个数字念两遍，
+                    读屏用户要的只是框里那一行内容。
+                    {%- endcomment -%}
+                    <span class="jt-editor">
+                        <span class="jt-gutter" id="{{ tk.prefix }}-gutter-{{ wbp }}-doc" aria-hidden="true">1</span>
+                        <textarea class="jt-doc__area" id="{{ tk.prefix }}-in-{{ wbp }}-doc" rows="14"
+                                  autocomplete="off" autocorrect="off" autocapitalize="off"
+                                  spellcheck="false" placeholder='{"a": 1, "b": [true, null]}'></textarea>
+                    </span>
+                    {%- comment -%}
+                    读数那一格由 `updateGate` 整段重写成「字节 N · 行 M」，静态值只是禁用脚本时
+                    的那一份真相（空输入：0 字节 1 行）。别在这里写"字节会跟着变"之类的承诺——
+                    它旁边就是那个数，承诺是给脚本没跑起来的读者看的。
+                    {%- endcomment -%}
+                    <p class="jt-status" id="{{ tk.prefix }}-status-{{ wbp }}-main">字节 0 · 行 1</p>
+                    <span class="tk-help">粘什么读什么：这一格只数字节与行，不解析。按上面任意一枚按钮才算一次。</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="jt-side jt-side--out" aria-labelledby="{{ tk.prefix }}-h-out">
+            <h2 class="jt-side__title" id="{{ tk.prefix }}-h-out">结果</h2>
+
+            {%- comment -%}
+            工具栏三段（§5.3 的形状）：文本动作 / 输出选项 / 互转。
+            每枚按钮的 id 走 `buttonId` 那条口径（`{p}-btn-{panel}-{actionKey}`），
+            而**按钮文案**与 `JSON_ACTIONS[i].label` 由门禁⑤「DOM」组逐枚对账——画进栏头的是
+            后者（`paintResult` 用 `action.label` 当那一栏的标题），两处不一致时用户读不出
+            自己按的是哪一枚。这一族 id 与文案都不许再往 yml 抄第二遍。
+            {%- endcomment -%}
+            <div class="jt-bar">
+                <div class="jt-bar__group" role="group" aria-label="文本动作">
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-format">格式化</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
+                </div>
+                <div class="jt-bar__group jt-bar__group--opt" role="group" aria-label="输出选项">
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-indent">缩进</label>
+                        {%- comment -%}
+                        三个 `<option>` 的 value 必须与 `JSON_SPEC.workbench.sides.main.controls` 里
+                        `indent` 那格的 `options` 逐个对应（two / four / tab）：文案归 HTML、取值归装配层，
+                        选错一档时 `coreFormat` 那本自己抛上去（红线 5 的第二条路），
+                        而不是安静地按另一档算。`sort` 与 `view` 同理。
+                        {%- endcomment -%}
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-indent">
+                            <option value="two">两格</option>
+                            <option value="four">四格</option>
+                            <option value="tab">制表符</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-sort">键排序</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-sort">
+                            <option value="off">不排</option>
+                            <option value="shallow">仅顶层</option>
+                            <option value="deep">递归</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-view">视图</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-view">
+                            <option value="text">文本</option>
+                            <option value="tree">树</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt jt-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-memorize">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-memorize" type="checkbox"> 记住上次输入
+                        </label>
+                        <span class="tk-help">默认不勾。这台浏览器不给存时这一格是灰的。</span>
+                    </span>
+                </div>
+                <div class="jt-bar__group" role="group" aria-label="互转">
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-ts">TypeScript</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-yamlOut">转 YAML</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-yamlIn">YAML 转回</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-xmlOut">转 XML</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-xmlIn">XML 转回</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-csvOut">转 CSV</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-csvIn">CSV 转回</button>
+                </div>
+            </div>
+
+            {%- comment -%}
+            搜索那一组挂在 `data-jt-when="tree"` 上：装配层的 `applySwitch` 只按
+            `JSON_SPEC…switch.targets` 那一族翻 `hidden`，所以它在「文本」档里是整段消失，
+            不是留下一条没人答的标签。`hidden` 那一句样式在 toolJson.scss 里靠
+            `[hidden]{display:none}` 兜底——`<p>` 被样式写成 `display:grid` 时，
+            UA 的 hidden 默认值顶不过作者声明。
+            {%- endcomment -%}
+            <p class="tk-field jt-query" id="{{ tk.prefix }}-when-{{ wbp }}-tree" data-jt-when="tree">
+                <label for="{{ tk.prefix }}-in-{{ wbp }}-query">在树里搜</label>
+                <input id="{{ tk.prefix }}-in-{{ wbp }}-query" type="text"
+                       autocomplete="off" autocorrect="off" autocapitalize="off"
+                       spellcheck="false" placeholder="按键名或值里的子串">
+                <span class="tk-help">只涂色与报命中数，不重排行集、不解析。折叠起来的分支不在行集里，
+                    读数会补一句「折叠里还有 N 项没算」——不说这一句，"搜不到"与"没展开"就分不清。</span>
+            </p>
+
+            <div class="tk-outwrap">
+                <button class="tk-btn tk-btn--ghost" type="button"
+                        id="{{ tk.prefix }}-copy-{{ wbp }}-main" disabled>复制这几行</button>
+                {%- comment -%}
+                这一栏的正文全部由装配层写进来（`paintResult` / `paintErr` / `paintLine` 三档共用
+                那唯一的 `paint`），骨架给的是**空的**那一格。`aria-live="polite"` 与编码页同档：
+                一次动作换一栏，不该打断用户正在读的东西。
+                {%- endcomment -%}
+                <div class="tk-out" id="{{ tk.prefix }}-out-{{ wbp }}-main"
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+            </div>
+
+            {%- comment -%}
+            树容器：骨架这里是**空的**，那三块常驻节点（上垫片 / `role=tree` 的行盒 / 下垫片）
+            由 §V 的控制器 `createElement` 出来再挂进来，`destroy()` 又摘干净。
+            于是"树在不在"这件事不需要第二个状态类：样式按 `:empty` 判（见 toolJson.scss 那条
+            `.jt-tree:empty{display:none}`），文本视图里那一栏自然收起，不留一块空白高度。
+
+            与上一栏的关系也写在样式里：视图切到「树」时把 `.jt-out__body` 收起，
+            靠的是 `:has(.jt-tree:not(:empty))`——不认 `:has()` 的浏览器整条规则丢弃，
+            退成"两栏都看得见"（内容一份不丢，只是多占一段高度），与 editorial.scss 那两条
+            `:has()` 同一条口径。装配层不为此加任何 class：它只翻 `hidden`，样式不认识 JS 状态。
+            {%- endcomment -%}
+            <div class="jt-tree" id="{{ tk.prefix }}-tree-{{ wbp }}-main"
+                 role="region" aria-label="结构树" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+
+            <p class="tk-help jt-foot">树的展开与折叠用点击（行上的三角），键盘可用的是每一格右侧那个
+                Pointer 按钮——它是真 `<button>`，Tab 得到、回车按得动。行高与行号槽同一把尺，
+                写在样式里，改它不需要动脚本。</p>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的视图层与交互层挂成 window.Tk（这一页只吃 `view` 与 `ui` 两格），
+入口只装配本页业务。两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，
+且必须排在正文之后——HTML 解析到这里时骨架节点已经存在，装配层第一件事就是去找那 26 格 id。
+`jsonView.js` / `jsonWorkbench.js` 已经打进 `toolJson.min.js` 这一本里，**绝不再挂进 window.Tk**：
+两个入口 reach 同一模块，Rollup 切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolJson.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}
+```
+
+#### 样式整文件镜像（`dev/sass/toolJson.scss`，FILE_TARGETS 已登记）
+
+
+```scss
+/*** JSON 工作台页（/tools/json.html）那一层的形状***/
+//
+// 一、这一本只管 `.jt-*` 那一族，公共层 `.tk-*` 一律不在这里重写（§0.5：`toolkit.scss`
+// 本段一个字节都不加——它此刻被另一路会话改着，而且证件页首屏的余量只剩 715B / 4.4%，
+// 往共用层加一条就是把两页的预算一起改坏）。需要公共形状的地方直接用那些类名：
+// `.tk-content` `.tk-compliance` `.tk-notice` `.tk-btn` `.tk-btn--ghost` `.tk-field`
+// `.tk-help` `.tk-outwrap` `.tk-out`，本页新增的只有工作台骨架、编辑器与行号槽、工具栏、
+// 结果区那五类读数、错误读条、树这六族形状。
+//
+// 二、px 与视口：`postcss.config.js:88` 的黑名单里 `.tk-` 与 `.jt-` 两串**早就在**，
+// 本文件不改那个配置。这条黑名单对本页不是风格问题而是**正确性**问题：
+// `--jt-row-h` 是行号槽与树行高的唯一那把尺，入口 `toolJson.js` 读它一次、注入 `env.rowHeight`，
+// §V 的控制器拿那个整数算垫片高度与 `scrollTop` 上界。一旦这一格被换算成 vw，
+// 读回来的串就不是 `^\d+px$` 的形状，入口退回 24 而样式画的是另一个数——
+// 行号与代码错行、树的行集与滚动条总长一起算歪，而构建、门禁①②③⑤⑥ 全都不会红。
+// §8.2 那六条里 `grep -c 'vw'` 对 `toolJson.min.css` 判 0，量的正是这一格。
+// 推论：任何写了 px 的新规则，选择器文本里必须带 `.jt-` 子串（黑名单按子串命中）；
+// 而 `@keyframes` 是唯一罩不住的地方（关键帧的"选择器"是 0%/to），所以**本层不写动画**。
+//
+// 三、配色只走 tokens.scss 的语义变量，本层不写颜色字面量、也不写 `.night-mode` 分支。
+// 三档语义色（`.jt-tone--ok/warn/bad`）复用 toolkit.scss 已经立好的 `--tk-ok/warn/bad`
+// 那三个角色——它们在 `:root` 与 `body.night-mode` 各写一遍，夜间值由那一层给全，
+// 这里再写一份覆盖表就是第二处口径。`idle` 那一档不引进新色，落 `--ink-3`。
+// §6.4 那条 `--ink-4` 不用于 <18px 正文性文字的约束在本层同样成立：13px 上下的读数、
+// 行号、帮助语一律取 `--ink-3`（实测 10.5–13px 那一族 `--ink-4` 只有 3.78:1，够不到 AA）。
+//
+// 四、样式不认识 JS 的运行状态，只认识 ARIA、`hidden` 与节点在不在。装配层的契约是
+// "显隐只落在 `hidden` 布尔属性上"（`jsonWorkbench.js` 的 `applySwitch`），树那一块的生死
+// 落在**容器空不空**上（§V 的 `destroy()` 摘掉那三块常驻节点）。所以本层只有两档视图判据：
+// `.jt-tree:empty` 收起整块，`.jt-side--out:has(.jt-tree:not(:empty))` 把文本正文换给树。
+// 不认 `:has()` 的浏览器整条规则丢弃，退成"两栏都在"——内容一份不丢，只是多占一段高度
+// （与 editorial.scss 那两条 `:has()` 同一条退路口径）。反过来，`.jt-query[hidden]`
+// 那一格**必须**显式写：`.tk-field` 给的是 `display:grid`，作者样式恒胜 UA 的
+// `[hidden]{display:none}`，不补这一条，搜索那一组在「文本」档里会常驻。
+//
+// 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 toolkit.scss 第四条。
+
+$jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+.jt-workspace {
+    // 唯一那把尺。写在 `.jt-workspace` 而不是 `:root`：`:root` 那条选择器文本里没有 `.jt-`，
+    // px→vw 的黑名单够不到它（见文件头第二条）。行高**不随断点变**——入口只在启动时读一次，
+    // 中途换尺就是行号与树行分家。
+    --jt-row-h: 24px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 20px;
+    align-items: start;
+    margin-top: 22px;
+}
+
+.jt-side {
+    min-width: 0;
+}
+
+.jt-side__title {
+    margin: 0 0 10px;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+// ── 输入侧：粘贴框 + 行号槽 ───────────────────────────────────────────────
+
+.jt-doc {
+    margin-bottom: 0;
+}
+
+// 槽与框包在同一只盒子里：`updateGate` 给槽写 `style.height` 与 `translateY(-scrollTop)`，
+// 那一次位移要靠这只盒子的 `overflow:hidden` 裁掉跑出可视区的那一段。
+.jt-editor {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-gutter {
+    position: absolute;
+    top: 7px;
+    left: 0;
+    // 定宽列：跟着横滚会滑出视野（W17 量的就是这一格，纵跟横不跟）。
+    width: 3.6em;
+    padding-right: .6em;
+    font-family: $jt-meta;
+    font-size: 13px;
+    line-height: var(--jt-row-h);
+    text-align: right;
+    white-space: pre;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+// `.tk-field textarea` 那一条已经给了边框与底色，包进 `.jt-editor` 之后那些归外壳，
+// 这里把框自己那一份撤掉。选择器写成 `.tk-field .jt-doc__area` 才压得住
+// `.tk-field textarea`（0,1,1）——作者样式之间比的还是特异性。
+.tk-field .jt-doc__area {
+    display: block;
+    width: 100%;
+    min-height: 240px;
+    padding: 7px 10px 7px 4em;
+    font-family: $jt-meta;
+    font-size: 13px;
+    line-height: var(--jt-row-h);
+    color: var(--ink);
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    resize: vertical;
+}
+
+.tk-field .jt-doc__area:focus {
+    outline: none;
+}
+
+.jt-editor:focus-within {
+    border-color: var(--signal);
+    box-shadow: 0 0 0 3px var(--signal-soft);
+}
+
+// 闸门读数那一格：`updateGate` 整段重写它的 textContent（「字节 N · 行 M」+ 可选那一句），
+// 所以这一格不许有 ::before 之类的装饰文本——那半句会留在改写之后。
+.jt-status {
+    margin: 8px 0 0;
+    font-family: $jt-meta;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// ── 工具栏三段 ────────────────────────────────────────────────────────────
+
+.jt-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.jt-bar__group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.jt-bar__group--opt {
+    gap: 14px;
+}
+
+.jt-opt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.jt-opt label {
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.jt-opt select {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-opt--check {
+    position: relative;
+}
+
+.jt-opt--check > label {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.jt-opt--check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--signal);
+}
+
+.jt-opt--check .tk-help {
+    font-size: 11.5px;
+}
+
+// ── 搜索那一组（唯一由 `hidden` 收放的一格） ──────────────────────────────
+
+.jt-query {
+    margin-bottom: 12px;
+}
+
+.jt-query[hidden] {
+    display: none;
+}
+
+// ── 结果区那五类读数 ──────────────────────────────────────────────────────
+
+// 四档语义色：`jsonView.js` 的 `JT_TONES` 只认这四个词，样式那边也只备这四档。
+.jt-tone--ok {
+    color: var(--tk-ok);
+}
+
+.jt-tone--warn {
+    color: var(--tk-warn);
+}
+
+.jt-tone--bad {
+    color: var(--tk-bad);
+}
+
+.jt-tone--idle {
+    color: var(--ink-3);
+}
+
+.jt-out__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.jt-out__kind {
+    padding: 1px 6px;
+    font-family: $jt-meta;
+    font-size: 11px;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-s);
+}
+
+.jt-out__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.jt-out__note {
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.jt-out__stats {
+    margin: 0 0 8px;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// 正文整块横向滚：一行 5 MiB 的压缩 JSON 不能把结果区撑成竖排（`.tk-out` 已经带 overflow-x）。
+.jt-out__body {
+    box-sizing: border-box;
+    min-width: 100%;
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    font-family: $jt-meta;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    overflow-x: auto;
+}
+
+.jt-notes {
+    margin: 0 0 8px;
+    padding-left: 20px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+.jt-empty,
+.jt-hint,
+.jt-refuse {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-empty {
+    color: var(--ink-3);
+}
+
+// 超限那一档要一眼分得开：它不是"还没算"，是"算了，但拒收"。
+.jt-refuse {
+    color: var(--tk-warn);
+    box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+
+.jt-err {
+    padding: 10px 12px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.jt-err__where {
+    margin: 0 0 6px;
+    font-family: $jt-meta;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--tk-bad);
+}
+
+.jt-err__ctx {
+    margin: 0 0 6px;
+    padding: 8px 10px;
+    font-family: $jt-meta;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border-radius: var(--radius-s);
+    overflow-x: auto;
+}
+
+.jt-err__msg {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+.jt-err__act {
+    margin: 6px 0 0;
+    font-family: $jt-meta;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.jt-foot {
+    margin-top: 10px;
+}
+
+// ── 树视图 ────────────────────────────────────────────────────────────────
+// 容器是骨架那一只**空的** div：三块常驻节点（上垫片 / `role=tree` 的行盒 / 下垫片）由 §V 的
+// 控制器建，`destroy()` 又摘干净，所以"树在不在"只由 `:empty` 判，不需要第二个状态类。
+// 高度必须写死在这一格：控制器**不读 `clientHeight`**（§V 文件头那条），窗口密度只认
+// `rowHeight`，但它自己的 `scrollTop` 要靠真滚动条才有上界——不给高度就没有滚动，
+// "只渲染可视行"会退化成"只渲染前 80 行"，而下面那一段永远到不了。
+.jt-tree {
+    height: min(520px, 58vh);
+    margin-top: 10px;
+    padding: 6px 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-family: $jt-meta;
+    font-size: 13px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.jt-tree:empty {
+    display: none;
+}
+
+.jt-tree__pad {
+    // 高度由控制器写成 `count * rowHeight` 的整数字符串，这里不许给 min-height 之类的下界——
+    // 那会把垫片撑高，滚动条总长当场算歪（§V 契约第二条）。
+    flex: none;
+}
+
+.jt-tree__rows {
+    display: block;
+}
+
+.jt-tree__row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    height: var(--jt-row-h);
+    line-height: var(--jt-row-h);
+    padding-right: 8px;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.jt-tree__row:hover {
+    background-color: var(--surface-2);
+}
+
+.jt-tree__row:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: -2px;
+}
+
+.jt-tree__row--string .jt-tree__val {
+    color: var(--tk-ok);
+}
+
+.jt-tree__row--number .jt-tree__val {
+    color: var(--signal-ink);
+}
+
+.jt-tree__row--boolean .jt-tree__val,
+.jt-tree__row--null .jt-tree__val {
+    color: var(--tk-warn);
+}
+
+.jt-tree__row--more .jt-tree__val {
+    color: var(--ink-3);
+    font-style: italic;
+}
+
+.jt-tree__tri {
+    flex: none;
+    display: inline-flex;
+    width: 14px;
+    justify-content: center;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+
+.jt-tree__row--object,
+.jt-tree__row--array {
+    cursor: pointer;
+}
+
+.jt-tree__key {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.jt-tree__val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink-2);
+}
+
+// 命中的那一格涂色：用 `box-shadow` 而不是 `background`，与 hover 那一层可以共存。
+.jt-tree__key.is-matched {
+    box-shadow: inset 0 -7px 0 var(--signal-soft);
+    color: var(--signal-ink);
+}
+
+.jt-tree__copy {
+    flex: none;
+    margin-left: auto;
+    padding: 1px 6px;
+    font-family: $jt-meta;
+    font-size: 10.5px;
+    letter-spacing: .4px;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-s);
+}
+
+.jt-tree__copy:hover {
+    color: var(--signal-ink);
+    border-color: var(--rule-2);
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两档与 toolkit.scss 同一口径（那一层的索引条在本页没有，退档退的是左右分栏）。
+// 901–1100 那一段**不在这里改**：分栏比例靠 `minmax(0, …)` 自己收缩，14 枚按钮靠 `flex-wrap` 换行。
+// 但这一段必须实测（段 2 立的十档清单里的 901/920/940）：`min-width:0` 一漏，
+// 一行 5 MiB 的结果串会把整栏撑破，而 §7 那两格预算量的都是首屏字节、看不见它。
+
+@media (max-width: 900px) {
+    .jt-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .tk-field .jt-doc__area {
+        min-height: 180px;
+    }
+
+    .jt-tree {
+        height: min(420px, 52vh);
+    }
+}
+
+@media (max-width: 640px) {
+    .jt-bar__group {
+        gap: 6px;
+    }
+
+    .jt-bar__group .tk-btn {
+        flex: 1 1 auto;
+    }
+
+    .jt-bar__group--opt {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .jt-opt {
+        justify-content: space-between;
+    }
+
+    .jt-opt select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .jt-tree {
+        height: min(360px, 46vh);
+        font-size: 12px;
+    }
+
+    .jt-gutter {
+        width: 3em;
+    }
+
+    .tk-field .jt-doc__area {
+        padding-left: 3.4em;
+    }
+}
+```
+
+#### 图标整文件镜像（`assets/img/tools/json-tool.svg`，FILE_TARGETS 已登记）
+
+
+```svg
+<!-- 顶栏「工具箱」下拉与 /tools.html 小节里「JSON 格式与转换工具」那一行的图标。
+     画成一对花括号中间夹一行缩进（`{ }` 那一族写法），不画树、不画箭头：这一页做的是
+     解析与换算，读图的人先在下拉里读到名字，图形只负责把三页区分开（证件页那枚是卡片，
+     编码页那枚是尖括号加斜杠）。
+
+     与另两枚同一条硬规矩：XML 注释里禁止出现连续两个连字符，一写整个文件就解析失败，
+     而 SVG 是被 <img> 引用的，解析失败在浏览器里直接是破图（2026-09-28 现场就是证件页那份
+     注释里写了带两划前缀的令牌名，xmllint 报六处 parser error，下拉与产品页两处同时破图，
+     而收录面门禁当时退 0）。所以这段通篇把底色令牌写成 surface / surface-2，不写它们那两划
+     开头的形式；改注释时别再引入。
+
+     颜色与另两枚取同一个 #737B85，理由也同一档：这一族图标通过 <img src> 引用，
+     里面的 SVG 拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color
+     （近黑），落在夜间 surface-2 上是 1.35:1，等于看不见。烘色则两档都能读，代价是
+     不跟主题变——下拉里这几枚本来也只是区分条目用。
+
+     #737B85 的取值口径同 assets/img/tools/idcard-tool.svg 那段注释：把 tokens.scss 里
+     四档纸色温的 surface 与 surface-2 共 8 格逐格算对比度，取"最差那组尽量高"的那一档，
+     WCAG 1.4.11 对图形对象要 3:1（这三处图标都带 alt=""，属装饰，实际门槛更低）。
+     复算不用手抄：跑 `node scripts/check-tools-surface.mjs`，它的「图标」那一组按条目现读
+     tokens.scss 凑底色集合、现算这八组对比度，并把本文件的 stroke 与 fill 里每个色值都过一遍。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="#737B85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="JSON 格式与转换工具">
+    <path d="M9.2 6.2c-1.7 0-2.4.8-2.4 2.1v1.4c0 1.3-.6 2-1.8 2 1.2 0 1.8.7 1.8 2v1.4c0 1.3.7 2.1 2.4 2.1"/>
+    <path d="M14.8 6.2c1.7 0 2.4.8 2.4 2.1v1.4c0 1.3.6 2 1.8 2-1.2 0-1.8.7-1.8 2v1.4c0 1.3-.7 2.1-2.4 2.1"/>
+    <path d="M11 10.4h2.2"/>
+    <path d="M11 13.6h2.2"/>
+</svg>
+```
 
 ---
 
@@ -9790,12 +10839,19 @@ README / USAGE 计数复算、门禁①②③④⑤⑥ 逐条读数（④ 若只
 
 本段特有的三笔收口账：
 
-1. **"待提交窗口"那一格结不结得掉**：`_data/onlineTools.yml` 的 json 条目与 `tools.html` 那一行，
-   等另一路会话的「免安装工具」批次落进 HEAD 之后才能提交。收口时先 `git status --porcelain` 复看：
-   若已落定 → 一次 `--fix` + 一格提交，门禁② 活树全绿；若仍未落定 → 本段的"完成"必须写成
-   **"代码与判据全部落地，收录面两处改动在工作树而未提交"**，并把线上 `/tools/json.html`
-   是否可达说清楚（**不可达**：yml 条目没进 HEAD，就没有任何入口指向它，也进不了 sitemap）。
-   这一句必须显式说，不许用"门禁全绿"糊过去。
+1. **"待提交窗口"那一格已经结掉了**（Task 7 落地时核，2026-09-30）：`_data/onlineTools.yml` 的
+   json 条目与 `tools.html` 那两格**随段 4 Task 7 一并提交**，前提是逐 hunk 归因证明这两格里
+   没有别人的东西（见 [Task 7 落地记录](#落地记录2026-09-30task-7-那一格实跑) 改道第 4、6 条：
+   他们那批「免安装工具」改口在开工前就落进 HEAD，头注释六行 diff 为空，删除行只剩我自己拆开的
+   那两行）。所以收口时这一格要复看的**不再是"窗口开没开"**，而是三件别的事：
+   ① 干净检出（`git archive <本格 commit> | tar -x`）里门禁② 退 0、门禁⑤ 退 0——把镜像与数据源
+   一起提交之后，这个自证从"可选"变成"必须"，红的就是那两格没对齐；
+   ② `USAGE.md` 那一格**仍未提交**（它带着另一路会话 76 行的未提交删除，pathspec 提交整文件
+   等于替他们发布），本格改的两个计数（185 块 / `CollectionPage` 29）等他们那一批落进 HEAD
+   之后一次带上，这一句必须显式写进收口记录，不许并进"门禁全绿"里；
+   ③ `/tools/json.html` 的可达性要说清**两件事**：源码层面从本格提交起，下拉、`/tools.html` 小节、
+   `index-all`、sitemap、llms.txt 五处都有它（`git archive` 的导出树里跑门禁⑤ 就是这一条的现场），
+   但**线上仍不可达**——部署走 `master`，本段全程不 push，推送与上线是收口之后单独请示的一格。
 2. **§7 那条 BLOCKED 读法的先例**：若实测越 120KB，按 §0.5 停下交回，不动"YAML 降到仅序列化"那一档。
 3. **重复面登记**：通用六族今天在 `verify-codec-browser.mjs` 与 `verify-tools-browser.mjs` 各有一份，
    写清"等 `verify-idcard-browser.mjs` 那格未提交改动落定后合流"，并把删除那一手的判据影响列出来。

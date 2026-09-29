@@ -14,10 +14,12 @@
  * 1. **视图层零 import**：`jsonView.js` 那条红线写在它自己文件头；本层只在构造期 `createJsonView` 一次。
  * 2. **环境只在入口**（W10）：`Date.now(` / `localStorage` / `navigator.` / `new Blob` / `URL.` / `window`
  *    / `globalThis` / `getComputedStyle` / `querySelector` / `setTimeout(` 在本文件源码里**一个都不许出现**。
- *    时钟、`localStorage`、剪贴板、下载那三件、`setTimeout` 全从 `env` 递进来；行高也不量——它是本层的
- *    常量 `ROW_HEIGHT`，与骨架那本 `toolJson.scss` 同源（读一次样式就要在挂载期碰 `getComputedStyle`，
- *    而 §V 的窗口密度只认这个数）。这一条与 `toolCodec.js` 口径 2 是同一条理由：同一份产物在两台机器上
- *    只能给一个答案。
+ *    时钟、`localStorage`、剪贴板、下载那三件、`setTimeout` 与**行高**全从 `env` 递进来：那把尺由
+ *    `toolJson.js` 调一次 `getComputedStyle` 读 `dev/sass/toolJson.scss` 的 `--jt-row-h`，读出来不合法
+ *    就落本层的常量 `ROW_HEIGHT`（§V 的窗口密度与行号槽的那次 `style.height` 只认这个整数）。
+ *    行高为什么算环境量：它是**样式**给的答案，纸色温与断点一变它就变；在本层读一次，
+ *    §W 的假 DOM 夹具就要多造一件假件，而 W10 那条判据当场从判据退化成注释。
+ *    这一条与 `toolCodec.js` 口径 2 是同一条理由：同一份产物在两台机器上只能给一个答案。
  * 3. **id 只由 spec 派生**（W13、W19）：那八枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `JSON_SPEC`
  *    与 `JSON_ACTIONS` 三个方向对账；本文件不许手打以 `jt-` 起头的地址串（W10 数的是**整格字面量**，
  *    单引号、双引号、模板串三种引号都算，注释里的不算——旧口径只认 `'jt-`，而拼错的那一枚恰恰是模板串）。
@@ -57,8 +59,11 @@ export const JSON_PANEL_IDS = ['workbench'];
 const SIDES = ['main'];
 
 /**
- * 行高常量：与 `_sass/toolJson.scss` 里 `--jt-row-h` 那一格同源。**不在装配层读样式**（W10 红线 2），
- * 因为读一次就要在挂载期碰 `getComputedStyle`，而 §V 的窗口密度只认这个整数。
+ * 行高的**退路值**：权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h` 那一格，由入口读一次再注入
+ * （`env.rowHeight`，红线 2）。只有两种情况会落到这里：样式没加载（脚本 404 之外的另一种半死）、
+ * 或那一格被改成读不出整数 px 的形状。§V 的窗口密度与行号槽的那次 `style.height` 只认这一个整数，
+ * 所以两边都得是 24——样式那本改行高时不必改这里，入口读得到新值；这里改而不改样式，只会在
+ * "样式读不到"的那一条路上生效，这正是它该有的作用域。
  */
 const ROW_HEIGHT = 24;
 

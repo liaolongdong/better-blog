@@ -12146,8 +12146,10 @@ test('V19 renderRow 那一格：给了就只叫它，控制器自己一个字都
 //    整页 SyntaxError 而构建 exit=0（`toolkitCore.js:5-9` 记的正是这个坑，牙齿在门禁④）。
 // 2. **环境只在入口**（W10、W11）。`Date.now(` / `localStorage` / `URL.createObjectURL` / `URL.revokeObjectURL` /
 //    `win.Blob` / `setTimeout(` / `win.navigator` 七个词在装配层源码里 0 命中、在入口那一份各**恰好一处**；
-//    `window` / `globalThis` / `getComputedStyle` / `querySelector` 两本都 0 命中——行高不量，它是装配层的
-//    常量 `ROW_HEIGHT`，骨架那本 SCSS 与它同源（量一次就要在挂载期读样式，而 §V 的窗口密度只认这个数）。
+//    `window` / `globalThis` / `querySelector` 两本都 0 命中。`getComputedStyle` 分两档：装配层 0 命中、
+//    入口**恰好一处**——行号槽与树行高那把尺由 Task 7 的入口读样式上的 `--jt-row-h` 一次再注入
+//    `env.rowHeight`，读不到就落装配层那个 `ROW_HEIGHT = 24` 的退路值（它是样式给的环境量，在本层读
+//    一次就要在夹具里多造一件假件，W10 那条判据会从判据退化成注释）。
 //    `js-yaml` 那本内置件只许被 `json-convert.js` 够一次，`json-convert.js` 只许被装配层够一次——
 //    两跳各一枚（W11 数的是 import 语句，不是文件名出现次数），入口与装配层都不许直接够内置件。
 // 3. **id 只由 spec 派生**（W13、W18、W19）。八枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `JSON_SPEC`
@@ -12708,6 +12710,11 @@ test('W11 import 边闭合与入口那三格常量：门禁⑤ 组 5 用正则�
     'win.Blob', 'setTimeout(', 'win.navigator']) {
     assert.equal(wCount(bareEntry, word), 1, `入口里 ${word} 应恰好一处：多一处就是第二份环境读法，§R 立的"只在入口读一次"塌了`);
   }
+  // 行高是 Task 7 加进来的**第二只环境量**：它的权威在 `dev/sass/toolJson.scss` 的 `--jt-row-h`，
+  // 入口读一次、注入 `env.rowHeight`。数死一处的理由是"两把尺"：读第二处就可能与第一处不一样，
+  // 而 §V 的窗口密度与行号槽那次 `style.height` 只认一个整数。装配层那一头由 W10 判 0 命中。
+  assert.equal(wCount(bareEntry, 'getComputedStyle'), 1,
+    '入口只许读一次样式（`--jt-row-h` → env.rowHeight）：多一处就是第二把尺，装配层那一头必须是 0 命中');
   // 唯一 import 点**就是装配层那一本**，所以判据数的是"谁在 import 它"，不是"除了它自己没人 import"——
   // 后一种写法会把装配层自己那一条当成 0 命中，反而永远抓不到"入口也够过去"这件事。
   const importers = wAllSources()

@@ -1,0 +1,273 @@
+---
+layout: default
+title: JSON 在线格式化与校验 · 转 YAML/XML/CSV
+seo_description: 粘贴即本地解析：格式化、压缩、键排序、转义与反转义，坏输入给精确行列并选中那一段；与 TypeScript、YAML、XML、CSV 互转，树视图只画看得见的行，超限整体拒绝。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/json.html
+# tool 指向 _data/onlineTools.yml 里的那一条：大标题、id 前缀、动作枚数都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: json
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/sass/toolJson.scss -> toolJson.min.css、dev/js/toolkitCore.js -> toolkitCore.min.js、
+     dev/js/toolJson.js -> toolJson.min.js。GitHub Pages 在 Linux 上构建，写错一个字母
+     本地看不出来、线上一律 404，勿改。
+
+     两本 CSS 的先后：toolkit 在前、toolJson 在后。前者供的是 .tk-content / .tk-btn /
+     .tk-outwrap / .tk-out / .tk-field 这一族公共层，后者只补 .jt-* 那一族本页独有的形状，
+     同一条规则谁都不与前者同名（改公共层是段 5 的事，本段一个字节都不动它，见 §0.5）。
+
+     它们排在 header include **之后**而不是 <head> 里（同编码页 :21 那条口径）：§7 首屏那一格
+     判的是"本页新加进阻塞集的东西"，搬进 <head> 就是当场给这一页添一件阻塞件。
+
+     两条 <script> 的先后是硬前提：toolkitCore 先挂 window.Tk，入口再读它。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolJson.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+{%- comment -%}
+面板清单在这一页按设计是空的（`layout: workbench`：没有索引条，清单只活在装配层那张表里），
+所以那一块工作区的名字在这里手打一次。它是 `JSON_PANEL_IDS` 的第二处声明处——下面 26 格 id
+全部从这一枚变量拼出，改这一行整页跟着改；而 `data-jt-ids` 那一格与它必须同值，
+门禁⑤「DOM」组拿 `data-jt-ids` 比 `JSON_PANEL_IDS.join(',')`，不一致红在门禁而不是红在页面上。
+{%- endcomment -%}
+{%- assign wbp = 'workbench' -%}
+
+<section class="g-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">格式化 · 校验 · 树视图 · 互转</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        {%- comment -%}
+        这三格读数**不许**照抄编码页那一族（编码页 :36 写的是 `{{ tk.panels.size }}` 块面板，
+        这一页的 panels 按设计是空的，照抄就画出「0 块面板」——段 4 §0.7 第 3 条点名的就是这一格）。
+        三个数各有出处，抄错就不是一句难堪的话而是一句假话：
+          · `tk.actions` 由门禁⑤ 比 `JSON_ACTIONS.length`（本段实测 14）；
+          · 5 MiB 与 1000 层是 `dev/js/tools/json-core.js` 的 `MAX_INPUT_BYTES` / `MAX_DEPTH`，
+            重算口径：`node -e 'const M=await import("./dev/js/tools/json-core.js");console.log(M.MAX_INPUT_BYTES/1048576, M.MAX_DEPTH)'`。
+        这里也不写「0 网络请求」：那一格在 09-29 已被改口成「输入不出本机」，理由写在 tools.html
+        的徽章注释里（每一页的 head 都还带着图标字体与统计两条外链）。
+        {%- endcomment -%}
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.actions }}</strong><span>个动作</span></li>
+            <li><strong>5 MiB</strong><span>输入上限</span></li>
+            <li><strong>1000</strong><span>层深度闸门</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段与证件页、编码页那两处的角色相同：§5.5 的"固定一行提示"在**禁用脚本时也读得到**的那一份。
+    本页的措辞与那两页有一处必须不同：证件页与编码页可以整句写"不写 localStorage"，
+    这一页不行——「记住上次输入」那枚开关勾上之后确实往本机写一份（默认不勾，
+    勾了才写 `{prefix}.memory.input`，正文超 256 KiB 连那一格都不写、改在读数里说"没存"）。
+    把三页写成同一句话就是拿主张盖住实现；判据在 §W 的 W15 与红线 6。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的解析、格式化与互转全部在浏览器里算：<strong>不发请求、不上传、不读剪贴板</strong>。
+        输入上限 5 MiB、深度闸门 1000 层，超限整体拒绝并说明超了多少，不截断悄悄算。
+        <strong>默认不写 localStorage</strong>：只有勾了「记住上次输入」才往本机存一份，
+        那一格只给这一台浏览器，关回去就删掉。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：输入框、十四枚按钮与那几个下拉都在，但换算要在浏览器里算，
+            按下不会出结果；右侧那一栏空着是预期，不是坏了。正文这几段与下面的口径说明照常读得到。
+        </p>
+    </noscript>
+    {%- comment -%}
+    坏消息那一格：入口的 `runGuarded` 与启动失败共用它（`toolJson.js` 口径 3 与 4），默认 hidden，
+    由脚本覆写。这一页没有面板错误条——那一块区域就是整页，所以坏消息只写这一句，
+    其余部分照常可用。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+
+    <div class="jt-workspace" id="{{ tk.prefix }}-workspace"
+         data-jt-ids="workbench" data-jt-prefix="{{ tk.prefix }}"
+         data-jt-label="{{ tk.h1 }}" data-jt-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        左右两栏：左边是输入（带行号槽），右边是结果（工具栏 + 结果区 + 树）。
+        ≤900px 收成上下堆叠（`toolJson.scss` 文末那一组）。
+
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?jt-in-workbench-doc=…，而那一串里装的正是用户粘进来的内容——这一页最不该发生的事。
+        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll），所以这一页**不写**
+        .tk-kbd 那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行，
+        编码页那一句在这是不成立的），写一句不存在的捷径比不写更坏。
+        {%- endcomment -%}
+
+        <section class="jt-side jt-side--in" aria-labelledby="{{ tk.prefix }}-h-in">
+            <h2 class="jt-side__title" id="{{ tk.prefix }}-h-in">输入</h2>
+            <div class="tk-form jt-doc" role="group" aria-labelledby="{{ tk.prefix }}-h-in">
+                <div class="tk-field tk-field--wide">
+                    <label for="{{ tk.prefix }}-in-{{ wbp }}-doc">JSON / YAML / XML / CSV 原文</label>
+                    {%- comment -%}
+                    行号槽与粘贴框包在同一只 `.jt-editor` 里：`updateGate` 写槽的 `textContent`
+                    与 `style.height`，接线那边给槽写 `translateY(-scrollTop)`（纵跟横不跟，
+                    跟着横滚会滑出视野，W17）。槽是 `aria-hidden`——它把同一个数字念两遍，
+                    读屏用户要的只是框里那一行内容。
+                    {%- endcomment -%}
+                    <span class="jt-editor">
+                        <span class="jt-gutter" id="{{ tk.prefix }}-gutter-{{ wbp }}-doc" aria-hidden="true">1</span>
+                        <textarea class="jt-doc__area" id="{{ tk.prefix }}-in-{{ wbp }}-doc" rows="14"
+                                  autocomplete="off" autocorrect="off" autocapitalize="off"
+                                  spellcheck="false" placeholder='{"a": 1, "b": [true, null]}'></textarea>
+                    </span>
+                    {%- comment -%}
+                    读数那一格由 `updateGate` 整段重写成「字节 N · 行 M」，静态值只是禁用脚本时
+                    的那一份真相（空输入：0 字节 1 行）。别在这里写"字节会跟着变"之类的承诺——
+                    它旁边就是那个数，承诺是给脚本没跑起来的读者看的。
+                    {%- endcomment -%}
+                    <p class="jt-status" id="{{ tk.prefix }}-status-{{ wbp }}-main">字节 0 · 行 1</p>
+                    <span class="tk-help">粘什么读什么：这一格只数字节与行，不解析。按上面任意一枚按钮才算一次。</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="jt-side jt-side--out" aria-labelledby="{{ tk.prefix }}-h-out">
+            <h2 class="jt-side__title" id="{{ tk.prefix }}-h-out">结果</h2>
+
+            {%- comment -%}
+            工具栏三段（§5.3 的形状）：文本动作 / 输出选项 / 互转。
+            每枚按钮的 id 走 `buttonId` 那条口径（`{p}-btn-{panel}-{actionKey}`），
+            而**按钮文案**与 `JSON_ACTIONS[i].label` 由门禁⑤「DOM」组逐枚对账——画进栏头的是
+            后者（`paintResult` 用 `action.label` 当那一栏的标题），两处不一致时用户读不出
+            自己按的是哪一枚。这一族 id 与文案都不许再往 yml 抄第二遍。
+            {%- endcomment -%}
+            <div class="jt-bar">
+                <div class="jt-bar__group" role="group" aria-label="文本动作">
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-format">格式化</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
+                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
+                </div>
+                <div class="jt-bar__group jt-bar__group--opt" role="group" aria-label="输出选项">
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-indent">缩进</label>
+                        {%- comment -%}
+                        三个 `<option>` 的 value 必须与 `JSON_SPEC.workbench.sides.main.controls` 里
+                        `indent` 那格的 `options` 逐个对应（two / four / tab）：文案归 HTML、取值归装配层，
+                        选错一档时 `coreFormat` 那本自己抛上去（红线 5 的第二条路），
+                        而不是安静地按另一档算。`sort` 与 `view` 同理。
+                        {%- endcomment -%}
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-indent">
+                            <option value="two">两格</option>
+                            <option value="four">四格</option>
+                            <option value="tab">制表符</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-sort">键排序</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-sort">
+                            <option value="off">不排</option>
+                            <option value="shallow">仅顶层</option>
+                            <option value="deep">递归</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-view">视图</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-view">
+                            <option value="text">文本</option>
+                            <option value="tree">树</option>
+                        </select>
+                    </span>
+                    <span class="jt-opt jt-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-memorize">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-memorize" type="checkbox"> 记住上次输入
+                        </label>
+                        <span class="tk-help">默认不勾。这台浏览器不给存时这一格是灰的。</span>
+                    </span>
+                </div>
+                <div class="jt-bar__group" role="group" aria-label="互转">
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-ts">TypeScript</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-yamlOut">转 YAML</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-yamlIn">YAML 转回</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-xmlOut">转 XML</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-xmlIn">XML 转回</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-csvOut">转 CSV</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-csvIn">CSV 转回</button>
+                </div>
+            </div>
+
+            {%- comment -%}
+            搜索那一组挂在 `data-jt-when="tree"` 上：装配层的 `applySwitch` 只按
+            `JSON_SPEC…switch.targets` 那一族翻 `hidden`，所以它在「文本」档里是整段消失，
+            不是留下一条没人答的标签。`hidden` 那一句样式在 toolJson.scss 里靠
+            `[hidden]{display:none}` 兜底——`<p>` 被样式写成 `display:grid` 时，
+            UA 的 hidden 默认值顶不过作者声明。
+            {%- endcomment -%}
+            <p class="tk-field jt-query" id="{{ tk.prefix }}-when-{{ wbp }}-tree" data-jt-when="tree">
+                <label for="{{ tk.prefix }}-in-{{ wbp }}-query">在树里搜</label>
+                <input id="{{ tk.prefix }}-in-{{ wbp }}-query" type="text"
+                       autocomplete="off" autocorrect="off" autocapitalize="off"
+                       spellcheck="false" placeholder="按键名或值里的子串">
+                <span class="tk-help">只涂色与报命中数，不重排行集、不解析。折叠起来的分支不在行集里，
+                    读数会补一句「折叠里还有 N 项没算」——不说这一句，"搜不到"与"没展开"就分不清。</span>
+            </p>
+
+            <div class="tk-outwrap">
+                <button class="tk-btn tk-btn--ghost" type="button"
+                        id="{{ tk.prefix }}-copy-{{ wbp }}-main" disabled>复制这几行</button>
+                {%- comment -%}
+                这一栏的正文全部由装配层写进来（`paintResult` / `paintErr` / `paintLine` 三档共用
+                那唯一的 `paint`），骨架给的是**空的**那一格。`aria-live="polite"` 与编码页同档：
+                一次动作换一栏，不该打断用户正在读的东西。
+                {%- endcomment -%}
+                <div class="tk-out" id="{{ tk.prefix }}-out-{{ wbp }}-main"
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+            </div>
+
+            {%- comment -%}
+            树容器：骨架这里是**空的**，那三块常驻节点（上垫片 / `role=tree` 的行盒 / 下垫片）
+            由 §V 的控制器 `createElement` 出来再挂进来，`destroy()` 又摘干净。
+            于是"树在不在"这件事不需要第二个状态类：样式按 `:empty` 判（见 toolJson.scss 那条
+            `.jt-tree:empty{display:none}`），文本视图里那一栏自然收起，不留一块空白高度。
+
+            与上一栏的关系也写在样式里：视图切到「树」时把 `.jt-out__body` 收起，
+            靠的是 `:has(.jt-tree:not(:empty))`——不认 `:has()` 的浏览器整条规则丢弃，
+            退成"两栏都看得见"（内容一份不丢，只是多占一段高度），与 editorial.scss 那两条
+            `:has()` 同一条口径。装配层不为此加任何 class：它只翻 `hidden`，样式不认识 JS 状态。
+            {%- endcomment -%}
+            <div class="jt-tree" id="{{ tk.prefix }}-tree-{{ wbp }}-main"
+                 role="region" aria-label="结构树" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+
+            <p class="tk-help jt-foot">树的展开与折叠用点击（行上的三角），键盘可用的是每一格右侧那个
+                Pointer 按钮——它是真 `<button>`，Tab 得到、回车按得动。行高与行号槽同一把尺，
+                写在样式里，改它不需要动脚本。</p>
+        </section>
+    </div>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的视图层与交互层挂成 window.Tk（这一页只吃 `view` 与 `ui` 两格），
+入口只装配本页业务。两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，
+且必须排在正文之后——HTML 解析到这里时骨架节点已经存在，装配层第一件事就是去找那 26 格 id。
+`jsonView.js` / `jsonWorkbench.js` 已经打进 `toolJson.min.js` 这一本里，**绝不再挂进 window.Tk**：
+两个入口 reach 同一模块，Rollup 切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolJson.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}

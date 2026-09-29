@@ -17,6 +17,13 @@
  * 段 3 Task 7 在 `idcardCases` 之后追加了 `codecCases`：编码页每一条判据都要有自己的同名变异，
  * 因为"门禁循环里带了第二页"和"第二页真的被核到"是两件事——只有 idcard 那一组变异时，
  * 把 codec 条目的 spec 指针写错、或把它的 panels 顺序挪一位，台账仍是全绿的假牙。
+ *
+ * 段 4 Task 7 再加 `jsonCases`，理由同一档但更尖：JSON 页走的是**另一支布局**（`panels: []`、
+ * 清单在装配层、没有索引条），分支代码最容易悄悄失效的地方正是分支自己。所以这一组除了照抄
+ * 前两页的同名变异，还带三把分支专用的刀（T-a 拼错 `layout`、T-b 切断清单来源、T-c 删掉 `layout`）
+ * 和一把新判据的刀（按钮文案 ↔ `JSON_ACTIONS.label`）。T-b 那一组是本份台账里唯一动**门禁自己**
+ * 的变异，它必须配 `expect` 才有效：分支失效时会同时红好几处，红在"数据源自洽"那一句证不了
+ * 判据还在数产物——只有红在「多出这些控件」那一句，才说明 `need` 之外的那一刀真的在工作。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -314,7 +321,145 @@ const codecCases = [
   },
 ];
 
-const cases = [...idcardCases, ...codecCases];
+/**
+ * 段 4 Task 7 追加：JSON 页的同名变异 + `layout` 分支那一族新判据。
+ *
+ * 前两页那 36 组证明的是"门禁对面板式页面有牙"。这一页是**另一种形状**（`panels: []`、
+ * 清单在装配层、没有索引条、多一枚按钮文案表），而分支代码最容易长的地方正是分支自己：
+ * `layout` 拼错一个字母就退回面板支，`panels: []` 让控件与开关那一整族**空转**，门禁全绿、
+ * 页面少一排按钮。所以这一组不只照抄前两页，还专门有"把分支弄失效"和"把清单来源改掉"的刀。
+ *
+ * `expect` 那一格是这一组独有的：分支失效时会有好几处同时红，只判"红了"等于没判——
+ * 必须红在**能证明判据还在数产物**的那一句上（「多出这些控件」），而不是红在
+ * 数据源自己跟自己比的那一句（那种红，判据空转时照样会红，证不了任何东西）。
+ */
+const jsonCases = [
+  {
+    name: 'JSON 页 yml title 与 front matter 漂移',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('title: JSON 在线格式化与校验 · 转 YAML/XML/CSV', 'title: JSON 在线格式化与校验')),
+  },
+  {
+    name: 'JSON 页 yml url 与 front matter permalink 不同源',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('url: /tools/json.html', 'url: /tools/json-x.html')),
+  },
+  {
+    name: 'sitemap 少 JSON 页那一条',
+    group: '收录',
+    artifact: () => shadowEdit('sitemap.xml', (s) => s.replace(/\s*<url>\s*<loc>[^<]*tools\/json\.html<\/loc>[\s\S]*?<\/url>/, '')),
+  },
+  {
+    name: 'llms.txt 少 JSON 页那一行',
+    group: '收录',
+    artifact: () => shadowEdit('llms.txt', (s) => s.split('\n').filter((l) => !/tools\/json\.html/.test(l)).join('\n')),
+  },
+  {
+    name: 'JSON 条目的 features 整块删掉（panels 已是空）',
+    group: '收录',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace(/ {2}features:\n(?: {4}- .*\n)+/, '')),
+  },
+  {
+    name: '证件页那条误写 features（panels 非空，模板不读这一格）',
+    group: '收录',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('  url: /tools/idcard.html', '  url: /tools/idcard.html\n  features:\n    - 没人读的一条')),
+  },
+  {
+    name: 'tools.html 的徽章数字与数据源脱钩（改模板不改 yml 的形状）',
+    group: '收录',
+    artifact: () => shadowEdit('tools.html', (s) => s.replace('<li>14 个动作</li>', '<li>12 个动作</li>')),
+  },
+  {
+    name: 'tools.html 的纯文本要点少吐一条（循环吞掉某一格）',
+    group: '收录',
+    artifact: () => shadowEdit('tools.html', (s) => s.replace(/<li>[^<]*树视图可折叠展开[^<]*<\/li>\n?/, '')),
+  },
+  {
+    name: 'JSON 页导航出现两个 is-current',
+    group: '导航',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace('<li class="nav-item"', '<li class="nav-item is-current"')),
+  },
+  {
+    name: 'JSON 页下拉当前项缺 aria-current="page"',
+    group: '导航',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace(/(href="[^"]*tools\/json\.html")\s+aria-current="page"/, '$1')),
+  },
+  {
+    name: 'JSON 图标退回 currentColor',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/json-tool.svg', (s) => s.replace('stroke="#737B85"', 'stroke="currentColor"')),
+  },
+  {
+    name: 'JSON 图标描边压到 3:1 以下',
+    group: '图标',
+    src: () => mutateSrc('assets/img/tools/json-tool.svg', (s) => s.replace('stroke="#737B85"', 'stroke="#C8CCD2"')),
+  },
+  {
+    name: 'T-a：layout 少写一个 c（退回面板支就是控件判据空转）',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('  layout: workbench', '  layout: panel')),
+  },
+  {
+    name: 'T-c：删掉 layout 而 panels 是空的',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('  layout: workbench\n', '')),
+  },
+  {
+    name: 'T-d：yml actions 写成 15（动作清单的第二个声明处漂了）',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('  actions: 14', '  actions: 15')),
+  },
+  {
+    name: 'spec.actions 指到一个不存在的导出名',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('    actions: JSON_ACTIONS', '    actions: JSON_ACTIONSS')),
+  },
+  {
+    name: '产物缺行号槽 id（updateGate 取到 null 就安静地什么都不画）',
+    group: 'DOM',
+    expect: '产物里缺少这些 id：jt-gutter-workbench-doc',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace('id="jt-gutter-workbench-doc"', 'id="jt-gutter-workbench-do"')),
+  },
+  {
+    name: '按钮文案与 JSON_ACTIONS 的 label 不同字',
+    group: 'DOM',
+    expect: '#jt-btn-workbench-yamlOut 的文案是 "转 YAML 文件"',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace('id="jt-btn-workbench-yamlOut">转 YAML</button>', 'id="jt-btn-workbench-yamlOut">转 YAML 文件</button>')),
+  },
+  {
+    name: '骨架私自多一枚按钮（装配层不会给它接线）',
+    group: 'DOM',
+    expect: '多出这些控件/开关/按钮 id',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace(
+      'id="jt-btn-workbench-ts">TypeScript</button>',
+      'id="jt-btn-workbench-ts">TypeScript</button><button class="tk-btn" type="button" id="jt-btn-workbench-pretty">美化</button>',
+    )),
+  },
+  {
+    name: 'data-jt-ids 与 JSON_PANEL_IDS 不同名',
+    group: 'DOM',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace('data-jt-ids="workbench"', 'data-jt-ids="wb"')),
+  },
+  {
+    name: 'JSON 页入口 CONTAINER_ID 与 yml prefix 脱钩',
+    group: 'DOM',
+    src: () => mutateSrc('dev/js/toolJson.js', (s) => s.replace("const CONTAINER_ID = 'jt-workspace';", "const CONTAINER_ID = 'jt-box';")),
+  },
+  {
+    // 这一刀动的是**门禁自己**：把 `layout` 那一支的清单来源写回 `ymlPanels`，分支等于失效。
+    // 必须仍红，而且红的必须是「多出这些控件」——它证明判据在数产物上的 id；如果红的是
+    // 数据源自洽那一句，就等于"分支失效也没人看见"，那一族的牙是假的。
+    name: 'T-b：panelIds 退回 ymlPanels（workbench 支的清单来源被切断）',
+    group: 'DOM',
+    expect: '多出这些控件/开关/按钮 id',
+    src: () => mutateSrc('scripts/check-tools-surface.mjs', (s) => s.replace(
+      'const panelIds = layout === \'workbench\' ? spec.ids : ymlPanels;',
+      'const panelIds = ymlPanels;',
+    )),
+  },
+];
+
+const cases = [...idcardCases, ...codecCases, ...jsonCases];
 
 let pass = 0;
 const problems = [];
@@ -335,7 +480,11 @@ for (const c of cases) {
     const hitGroup = got.out.includes(`[${c.group}]`);
     if (got.code === 0) problems.push(`✗ ${c.name}：注入后门禁仍是绿的（假牙）`);
     else if (!hitGroup) problems.push(`✗ ${c.name}：红了但没红在「${c.group}」组：\n${got.out.split('\n').filter((l) => l.startsWith('✗')).slice(0, 3).join('\n')}`);
-    else { pass += 1; console.log(`✓ ${c.name} → [${c.group}]`); }
+    else if (c.expect && !got.out.includes(c.expect)) {
+      // 只判"红了"不够：分支失效那一刀会同时红好几处，其中"数据源自洽"那一处判据空转时
+      // 照样会红，证不了门禁还在数产物。expect 点名的就是能证明判据仍在数的那一句。
+      problems.push(`✗ ${c.name}：红了，但没有一句含 ${JSON.stringify(c.expect)}：\n${got.out.split('\n').filter((l) => l.includes('：')).slice(0, 6).join('\n')}`);
+    } else { pass += 1; console.log(`✓ ${c.name} → [${c.group}]`); }
   } catch (e) {
     problems.push(`✗ ${c.name}：变异脚本自己崩了 — ${e.message}`);
   } finally {

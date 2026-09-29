@@ -19,14 +19,28 @@
 #            顶上的 CONTAINER_ID / NOTICE_ID 两个常量（那是本页自己的地址，与行为前缀是两副
 #            面孔，见该文件头条 1）、骨架那四条 `data-tk-*` 属性名。除此之外一律从 data 属性
 #            读——多写一处就是第二处口径，而两处不一致时红的是运行时，不是构建
+#   layout   这一页的**形状**：`panels`（索引条 + 若干块互斥面板）或 `workbench`（一块工作区，
+#            没有索引条）。缺省时按 `panels` 走，但缺一格且 `panels` 又是空的就判红——
+#            给 `layout` 一个默认值等于在门禁里再立一处口径，`workbench` 拼错一个字母（少个 c）
+#            就悄悄退回面板支，而那条路上空清单会让控件与开关那一整族判据**静默空转**，
+#            红的是运行时而不是门禁。消费点只有两处读它：`scripts/check-tools-surface.mjs` 的
+#            「DOM」组按它分派面板清单的来源，`tools.html` 的徽章按它决定印「N 块面板」还是「N 个动作」。
+#   actions  仅 `workbench` 那一支有：工具栏动作的**枚数**，页头统计与 tools.html 徽章都印它。
+#            它是 `spec.actions` 指向的那张表（`JSON_ACTIONS`）的长度，门禁⑤「DOM」逐条比两边相等——
+#            这一族数字写死在 HTML 里就是「零网络请求」那一档的病：它能被一次点击证伪，却不会被构建报错。
+#   features 仅 `panels` 为空的那一条有：tools.html 的 `.tool-features` 清单退成的**纯文本**要点
+#            （面板那一族画的是指向页内锚点的链接，工作台式没有锚点可指，链接会是死链）。
 #   spec     本页装配层那张形状表在仓库里的**位置**：`module` 是 dev/js 下的相对路径，
-#            `table` 与 `ids` 是那本模块导出的两个常量名（面板清单 ↔ 每块面板的栏位与控件）。
+#            `table` 与 `ids` 是那本模块导出的两个常量名（面板清单 ↔ 每块面板的栏位与控件），
+#            `actions` 是第三格、只给 `layout: workbench` 那一条用（动作清单的导出名，
+#            门禁拿它的长度对上面那格 `actions`）。
 #            只有 `scripts/check-tools-surface.mjs` 的「DOM」那一组消费它，模板一律不读。
 #            为什么写在这里而不是写死在门禁里（段 3 §0.3）：那门禁原先无条件 import 证件页的
 #            `WORKBENCH_SPEC` / `PANEL_IDS`，却拿它去比每一条 ready 条目——第二条 ready 条目
 #            一登记就必红，且红在它压根没犯的错上。指针是事实的一部分，跟着条目走；
 #            表的内容仍然只活在那本模块里，这里不抄第二遍
 #   panels   面板清单，顺序 = 索引条顺序 = 禁用脚本时的文档顺序；`slug` 就是页内 #hash 锚点
+#            （`layout: workbench` 那一条按设计就是**空**：这一页没有索引条，清单只活在装配层那张表里）
 #     desc   面板正文说明（页内静态文案，禁用脚本也读得到）
 #   status   该页的实现状态：只有 ready 的那几条会被消费点画成链接。段 2 的清单里只有 idcard
 #            这一条，段 3 / 段 4 交付时各自**追加**自己那一条（不是来改这一条的 status）；
@@ -41,6 +55,7 @@
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
   prefix: tk
+  layout: panels
   spec:
     module: dev/js/tools/workbench.js
     table: WORKBENCH_SPEC
@@ -95,6 +110,7 @@
   icon: /assets/img/tools/codec-tool.svg
   status: ready
   prefix: tk
+  layout: panels
   spec:
     module: dev/js/tools/codecWorkbench.js
     table: CODEC_SPEC
@@ -139,3 +155,38 @@
         表达式最长 500 字符，先过静态风险检查（嵌套量词这类可回溯的形状会点名拦下），
         匹配另设 1000 条与 50 毫秒两道闸门，被哪一道拦住就写哪一道——这三道都是为了不让一个
         粘贴把整页跑挂。捕获组给位置组与命名组两张表，替换串只出预览结果，不写回任何地方。
+# ── 段 4：JSON 工作台页。这一条与前两条有三处形状不同，都不是笔误：
+#   ① `prefix: jt`——前两页是 `tk`，这一页第一次让 id 前缀与类名前缀同串（§W 的换前缀自证那条判据
+#      量的就是它：改这一格，整页 id 与四条 `data-jt-*` 的值跟着换，门禁仍绿）；
+#   ② `layout: workbench` + `panels: []`——这一页没有索引条，控件清单只有装配层那一张表
+#      （`JSON_SPEC.workbench.sides.main`），yml 再列一遍就是第二处口径；
+#   ③ `actions` / `spec.actions`——工具栏动作的枚数由模块那张表报数，页头统计与 tools.html 徽章
+#      印的是它，门禁「DOM」逐条比两边相等。写死一个数字进 HTML 就是「零网络请求」那一档的病：
+#      它能被一次点击证伪，却不会被构建报错（2026-09-29 那次改口的教训记在 tools.html 的徽章注释里）。
+- slug: json
+  url: /tools/json.html
+  name: JSON 格式与转换工具
+  tagline: 格式化 / 校验 / 树视图 / 转 TS · YAML · XML · CSV
+  title: JSON 在线格式化与校验 · 转 YAML/XML/CSV
+  h1: JSON 格式与转换工具
+  icon: /assets/img/tools/json-tool.svg
+  status: ready
+  prefix: jt
+  layout: workbench
+  actions: 14
+  spec:
+    module: dev/js/tools/jsonWorkbench.js
+    table: JSON_SPEC
+    ids: JSON_PANEL_IDS
+    actions: JSON_ACTIONS
+  desc: >-
+    一块工作台，左边粘贴框带行号，右边出结果，视图在「文本 / 树」之间切。工具栏那一批动作里含格式化、
+    压缩、键排序、转义与反转义、复制下载，以及与 TypeScript、YAML、XML、CSV 的互转。坏输入给得出精确行列号，
+    并把那一处在输入区选中；超限整体拒绝并说明超了多少，不截断悄悄算。
+  features:
+    - 格式化 / 压缩 / 键排序，缩进两格、四格、制表符三档
+    - 校验给精确行列号，那一段同时在输入区选中，坏输入也照常给出字节与行数读数
+    - 树视图可折叠展开、按键与值搜索、点一下复制那一格的 JSON Pointer，只渲染看得见的行
+    - 与 TypeScript 接口、YAML、XML、CSV 互转，转回来也走同一块粘贴框
+    - 输入只在本地解析：不发请求、不上传，默认不写 localStorage，勾了「记住上次输入」才写本机
+  panels: []
