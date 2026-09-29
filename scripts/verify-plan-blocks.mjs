@@ -144,6 +144,13 @@ const FILE_TARGETS = [
   // 计划里的这一份是第二个现场），也钉住三对互转的**位置口径只有一套**（行列一律由 index
   // 经 `locate` 推出来，而 §S 那 20 个坏样本与 §U 那三张表读的是同一本尺）。
   'dev/js/tools/json-convert.js',
+  // 段 4 Task 5：`json-tree.js` 落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走不跟着计划走）。
+  // 它是本清单里第一本**半边在算 plain array、半边在碰 DOM**的模块，镜像在这一格里另有用处：
+  // §V 契约那四条外部证据里有三条要靠一个假 DOM 来断，而假 DOM 的形状（没有 `innerHTML`、
+  // `removeChild` 找不到就抛、`dispatch` 只叫真的挂上去的监听）写在测试那半边。两份镜像并排放着，
+  // 才是"只渲染可视这件事既能证、又不靠真浏览器"的现场见证——把控制器改成读 `clientHeight`
+  // 或写 `innerHTML` 的任何一次"顺手优化"，红的是这两格一起红。
+  'dev/js/tools/json-tree.js',
 ];
 
 /**

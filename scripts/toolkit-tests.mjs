@@ -35,7 +35,9 @@
  *                后十三条（U6–U18）跟着 `json-convert.js` 落在同一节末尾，节名不另起（段 4 Task 4）
  *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
  *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
- *   合计 316。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §V 树拍平与只渲染可视行 16 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
+ *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据（段 4 Task 5）
+ *   合计 332。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -11305,4 +11307,623 @@ test('T10 纯度、显式栈与深度兜底：不读环境、不吃 JSON、1000 
   const v = { a: [{ b: 1 }], 'a-b': [{ c: 2 }] };
   tOf(v);
   assert.deepEqual(v, { a: [{ b: 1 }], 'a-b': [{ c: 2 }] }, '入参一个都不许改：推断只读不写');
+});
+
+// ── §V 树拍平与只渲染可视行（tools/json-tree.js，段 4 Task 5）─────────────────
+// 这一节钉两样东西：**树的数据形状**（V2–V13，全在 plain array 上断，不碰 DOM）与
+// **「只渲染可视」那四条外部证据**（V14–V16，假 DOM 夹具形状照 §I，但本节自建，不复用 `iPage`）。
+// 为什么把拍平做成纯函数：折叠态、搜索命中、可见行集这三件事必须共用同一个真值源，
+// 否则"匹配到的行在不在屏幕上"这种话只能靠 DOM 猜——而 §V 契约那一句要的正是纯函数级的证据。
+// 行对象十二格（V2 逐行钉这个键集；加一格是一次契约变更）：
+//   id · pointer · parent · depth · keyLabel · kind · display · childCount ·
+//   expanded · hiddenCount · truncatedFrom · matched
+// 两处口径是本段**选的形状**，不是实现细节，所以各有一条判据钉着：
+//   · `id === pointer`，只有截断行例外（它的 id 是 `<父 pointer>~more`、pointer 留空串）——V7。
+//     用行当下标的话，数据一刷新折叠态就落到别的行上，而"只渲染可视"那族判据抓不到这种漂。
+//   · `hiddenCount` 数的是**这一行下面直接少了几行**，不是整棵子树的行数——V4、V13 各钉一次。
+//     拍平只有一趟，要数后代就得再来一趟，而这一格的用户读数是"还有几个没列出"。
+// `matched` 只有一个写入点：`searchRows`（V12），`flatten` 一律给 false。
+const { ROW_KEYS_LIMIT, RENDER_WINDOW, DEFAULT_EXPAND_DEPTH, ROW_KINDS,
+  flatten, expandOf, searchRows, createTreeController } = await import('../dev/js/tools/json-tree.js');
+
+/** 剥注释扫源码：这一族的禁令与 §S/§T/§U 同形，扫的是代码不是注释里的自我声明 */
+const vCode = () => read('dev/js/tools/json-tree.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 行对象的十二格，一格不多一格不少 */
+const V_FIELDS = ['childCount', 'depth', 'display', 'expanded', 'hiddenCount', 'id',
+  'keyLabel', 'kind', 'matched', 'parent', 'pointer', 'truncatedFrom'];
+/** 行序那一族八格的投影：depth / pointer / parent / keyLabel / kind / childCount / expanded / hiddenCount */
+const vPick = (r) => [r.depth, r.pointer, r.parent, r.keyLabel, r.kind, r.childCount, r.expanded, r.hiddenCount];
+/** 一小棵混合树：六个直接子项，覆盖六类 kind、「数组套数组」与「折叠的嵌套空对象」 */
+const vMix = () => ({ s: 'x', n: -0.5, b: false, z: null, a: [1, [2]], o: { k: {} } });
+/**
+ * 一层纯标量的行集：n 个键 → n+1 行；`extra` 在最前面插一格，用来造「行号漂而 id 不漂」。
+ * `maxKeys` 顶到安全整数上限，因为这批夹具要的是"五千行就是五千行"——截断那一档由 V5、V6 单独量，
+ * 别让默认的 2000 混进 V15、V16 的窗口判据里（那两条要数的是渲染，不是列表上限）。
+ */
+const vSet = (n, extra = false) => {
+  const value = {};
+  if (extra) value.extra = -1;
+  for (let i = 0; i < n; i++) value['r' + i] = i;
+  return flatten(value, { maxKeys: Number.MAX_SAFE_INTEGER });
+};
+/** 搜索样本：键里有 `Key`，值里有 `ITEM` 与 `123`，还有一支藏在 `/deep` 下面 */
+const vHay = () => ({ Key: 'value', list: ['ITEM', 12], n: 123, deep: { k: 'key inside' } });
+/** 把 vHay 那份数据「全展开」的那一行集（三个容器的 pointer 都在展开集里，故一轮就到底） */
+const vAll = (value) => flatten(value, { expanded: new Set(['', '/list', '/deep']) });
+/** 逐码元扫落单代理项：display 的截断点不许把一个 emoji 劈成两半 */
+const vHasLoneSurrogate = (s) => {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const nx = i + 1 < s.length ? s.charCodeAt(i + 1) : -1;
+      if (nx < 0xdc00 || nx > 0xdfff) return true;
+      i += 1;
+    } else if (c >= 0xdc00 && c <= 0xdfff) return true;
+  }
+  return false;
+};
+
+test('V1 三格常量的值、只借两把尺、显式栈与环：这一本不吃环境，也不吃调用栈', () => {
+  assert.deepEqual([ROW_KEYS_LIMIT, RENDER_WINDOW, DEFAULT_EXPAND_DEPTH], [2000, 80, 2],
+    '这三个数是 §7 那一格预算与页面文案的共同分母：改一个就得回来重开一次判据');
+  assert.deepEqual(ROW_KINDS, ['object', 'array', 'string', 'number', 'boolean', 'null']);
+  const code = vCode();
+  for (const banned of ['window.', 'localStorage', 'sessionStorage', 'globalThis', 'process.', 'Buffer',
+    'fetch(', 'require(', 'eval(', 'new Function', 'Date.now', 'navigator', 'getComputedStyle',
+    'innerHTML', 'outerHTML', 'insertAdjacentHTML', 'JSON.parse', 'JSON.stringify', 'document.cookie',
+    'requestAnimationFrame']) {
+    assert.ok(!code.includes(banned), `json-tree 不许出现 ${banned}：环境一律注入，落 DOM 只走 textContent`);
+  }
+  assert.equal((code.match(/^import /gm) || []).length, 1, '只有一本依赖：json-core 的那两把尺');
+  const names = /import \{([^}]*)\} from '\.\/json-core\.js'/m.exec(code)[1]
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  assert.deepEqual(names, ['escapeText', 'pointerChild'], '只借两样：串的转义口径、Pointer 的拼接口径');
+  // 显式栈：五千层容器 + 最里那一格标量，全展开就是五千零一行，且不许是 RangeError
+  let deep = 1;
+  for (let i = 0; i < 5000; i++) deep = { a: deep };
+  const full = new Set();
+  for (let i = 0, p = ''; i < 5000; i++, p += '/a') full.add(p);
+  assert.equal(flatten(deep, { expanded: new Set() }).length, 1, '谁都不展开就只剩根那一行');
+  assert.equal(flatten(deep, { expanded: full }).length, 5001, '五千层容器 + 最里那格标量，一层不落');
+  // 环：默认档走不到环那里，所以不抛；显式喂一份能让它绕回来的展开集就当场点名
+  const cyc = { a: { b: { c: null } } };
+  cyc.a.b.c = cyc;
+  assert.equal(flatten(cyc).length, 3, '默认只到第 2 层：/a/b 那一格是折叠的，压根走不到环');
+  assert.throws(() => flatten(cyc, { expanded: new Set(['', '/a', '/a/b', '/a/b/c']) }),
+    (e) => e instanceof TypeError && /环|自引用/.test(e.message) && /\/a\/b\/c/.test(e.message),
+      '环要指认到绕回来那一格的 Pointer，而不是"栈溢出"');
+  // 非 JSON 的值是入参错：与 §U 同一条口径——拒，而不是渲染成 null
+  const U = undefined;
+  for (const [label, bad] of [['undefined', U], ['函数', () => 1], ['symbol', Symbol('s')],
+    ['NaN', NaN], ['Infinity', Infinity], ['bigint', 10n]]) {
+    assert.throws(() => flatten({ k: bad }),
+      (e) => e instanceof TypeError && /\/k/.test(e.message), `${label} 不是 JSON 能表达的值`);
+  }
+  assert.throws(() => flatten(U), TypeError, '整份输入就是 undefined 也点名');
+  assert.equal(flatten(42).length, 1, '根是一格标量：一行，不是一棵');
+});
+
+test('V2 前序深度优先：一张十行的表钉住行序、parent、depth、childCount 与那十二格', () => {
+  const rows = flatten(vMix());
+  assert.equal(rows.length, 10, '六个直接子项里 a 与 o 各带一支，一共十行');
+  assert.deepEqual(rows.map(vPick), [
+    [0, '', null, '', 'object', 6, true, 0],
+    [1, '/s', '', 's', 'string', 0, false, 0],
+    [1, '/n', '', 'n', 'number', 0, false, 0],
+    [1, '/b', '', 'b', 'boolean', 0, false, 0],
+    [1, '/z', '', 'z', 'null', 0, false, 0],
+    [1, '/a', '', 'a', 'array', 2, true, 0],
+    [2, '/a/0', '/a', '0', 'number', 0, false, 0],
+    [2, '/a/1', '/a', '1', 'array', 1, false, 1],
+    [1, '/o', '', 'o', 'object', 1, true, 0],
+    [2, '/o/k', '/o', 'k', 'object', 0, false, 0],
+  ], '行的先后就是人眼从上往下读的先后：父在子前，兄弟按数据里的键序');
+  for (const r of rows) {
+    assert.deepEqual(Object.keys(r).sort(), V_FIELDS, '行对象就是那十二格，不多不少');
+    assert.equal(r.matched, false, 'flatten 不上色：matched 只由 searchRows 写（V12）');
+    assert.equal(r.truncatedFrom, -1, '这一趟没截断，-1 就是"没有起点"');
+    assert.equal(r.id, r.pointer);
+    assert.ok(ROW_KINDS.includes(r.kind), `${r.pointer} 的 kind 得在 ROW_KINDS 里`);
+  }
+  assert.equal(rows[0].parent, null, '根没有父：那一格是 null，不是空串');
+  assert.deepEqual(rows.map((r) => r.display),
+    ['', '"x"', '-0.5', 'false', 'null', '', '1', '[1 项]', '', '{}'],
+    '展开的容器行不留概览串，折叠的才有（V9 逐类钉）');
+});
+
+test('V3 DEFAULT_EXPAND_DEPTH=2：默认档只展开到第 2 层，给了 Set 就完全不看默认档', () => {
+  const chain = { l1: { l2: { l3: { l4: { l5: 'end' } } } } };
+  const P3 = '/l1/l2/l3';
+  assert.deepEqual(flatten(chain).map((r) => [r.depth, r.pointer, r.expanded]),
+    [[0, '', true], [1, '/l1', true], [2, '/l1/l2', false]],
+    '首屏最深的一行是 depth 2，而它是折叠的——"看到第 2 层"是"第 2 层在、第 3 层不在"');
+  assert.deepEqual(flatten(chain, { expanded: new Set() }).map((r) => r.pointer), [''],
+    '空 Set 是"谁都不展开"，不是"用默认档"');
+  assert.deepEqual(flatten(chain, { expanded: new Set(['', '/l1', '/l1/l2', P3]) }).map((r) => r.pointer),
+    ['', '/l1', '/l1/l2', P3, `${P3}/l4`], '展开集里点到的那一支一路到底，直到你没点的那一格');
+  assert.equal(flatten(chain, { expanded: new Set(['', '/l1/l2']) }).length, 2,
+    '展开集里的 /l1/l2 这一轮用不上（它的父 /l1 是折叠的），但不算错、也不许抛');
+  assert.deepEqual(flatten(chain, { expanded: null }).map((r) => r.depth), [0, 1, 2], 'null 走默认档');
+  for (const bad of [[''], ['x'], 0, true, {}, new Map()]) {
+    assert.throws(() => flatten(chain, { expanded: bad }),
+      (e) => e instanceof TypeError && /expanded/.test(e.message), 'expanded 只收 Set 或干脆不给');
+  }
+});
+
+test('V4 折叠换的是「行集」：hiddenCount 数直接子项，不数整棵子树', () => {
+  const v = { a: { b: 1, c: 1, d: { e: 1 } }, f: 2 };
+  assert.deepEqual(flatten(v, { expanded: new Set(['', '/a', '/a/d']) }).map((r) => r.pointer),
+    ['', '/a', '/a/b', '/a/c', '/a/d', '/a/d/e', '/f'], '全展开那一份的行序');
+  const closed = flatten(v, { expanded: new Set(['']) });
+  assert.deepEqual(closed.map((r) => [r.pointer, r.childCount, r.hiddenCount]),
+    [['', 2, 0], ['/a', 3, 3], ['/f', 0, 0]]);
+  assert.equal(closed.length, 3, '收起 /a 之后它下面四行都不在行集里');
+  assert.equal(closed[1].hiddenCount, 3, '但 hiddenCount 报 3——那一格是"直接少了几行"');
+  assert.equal(closed[1].display, '{3 键}', '概览串与 hiddenCount 是同一个数，两处不许分叉');
+});
+
+test('V5 ROW_KEYS_LIMIT 截断：多出来的那一行是唯一 pointer 留空的行', () => {
+  const ten = {};
+  for (let i = 0; i < 10; i++) ten['k' + i] = i;
+  const rows = flatten(ten, { maxKeys: 3 });
+  assert.deepEqual(rows.map((r) => r.id), ['', '/k0', '/k1', '/k2', '~more'],
+    '根的 pointer 是空串，所以它的截断行 id 就长成 ~more');
+  const root = rows[0];
+  const more = rows[4];
+  assert.deepEqual([root.childCount, root.hiddenCount, root.truncatedFrom], [10, 7, 3],
+    '父行自己报"从第 3 格起没列、还差 7 个"');
+  assert.deepEqual([more.pointer, more.parent, more.depth, more.kind, more.keyLabel],
+    ['', '', 1, 'object', ''], '截断行点不出 Pointer，也不带键名');
+  assert.deepEqual([more.childCount, more.expanded, more.hiddenCount, more.truncatedFrom], [0, false, 0, 3],
+    '计数只归父行一处：两处都报 7 的话，搜索那一格的 truncated 会加两遍（V13）');
+  assert.equal(more.display, '还有 7 个键未列出');
+  assert.equal(more.matched, false);
+  assert.deepEqual(Object.keys(more).sort(), V_FIELDS, '截断行也是那十二格');
+  assert.equal(flatten(ten, { maxKeys: 0 }).length, 2, 'maxKeys=0 是合法档：根 + 截断行');
+  assert.equal(flatten(ten, { maxKeys: 0 })[1].truncatedFrom, 0, '起点是"第一个未列出的子序号"');
+  assert.equal(flatten(ten).length, 11, '不传就是默认那一档，十键一个都不截');
+  assert.equal(flatten(ten, { maxKeys: 10 }).length, 11, '恰好等于子项数不算截断');
+  assert.deepEqual(flatten(ten, { maxKeys: null }).map((r) => r.id).length, 11, 'null 走默认档，与 expanded 同一口径');
+  for (const bad of [-1, 2.5, NaN]) {
+    assert.throws(() => flatten(ten, { maxKeys: bad }),
+      (e) => e instanceof RangeError && /maxKeys/.test(e.message), `${bad} 不是合法的键数档`);
+  }
+  assert.throws(() => flatten(ten, { maxKeys: '3' }), TypeError, '字符串档是入参错，不是"截个字符串长度"');
+});
+
+test('V6 数组那一族的文案、折叠优先于截断、截断行自己不可展开', () => {
+  const arr = Array.from({ length: 10 }, (_, i) => i);
+  const rows = flatten({ a: arr }, { maxKeys: 4 });
+  assert.deepEqual(rows.map((r) => r.id), ['', '/a', '/a/0', '/a/1', '/a/2', '/a/3', '/a~more']);
+  assert.equal(rows.length, 7);
+  const more = rows[6];
+  assert.deepEqual([more.display, more.kind, more.parent, more.depth],
+    ['还有 6 个元素未列出', 'array', '/a', 2], '截断行替的是那些子行的位置，所以 depth 也跟着父 +1');
+  assert.deepEqual([rows[1].hiddenCount, rows[1].truncatedFrom], [6, 4]);
+  const closed = flatten({ a: arr }, { expanded: new Set(['']), maxKeys: 4 });
+  assert.deepEqual(closed.map((r) => r.id), ['', '/a'], '折叠优先：子行本来就不出现，也就没有截断行');
+  assert.deepEqual([closed[1].hiddenCount, closed[1].truncatedFrom, closed[1].display], [10, -1, '[10 项]']);
+  const fed = flatten({ a: arr }, { expanded: new Set(['', '/a', '/a~more']), maxKeys: 4 });
+  assert.deepEqual(fed.map((r) => r.id), rows.map((r) => r.id),
+    '把截断行的 id 塞进展开集，行集一个字都不变——它不是一格容器');
+  const deepCut = flatten({ a: { b: arr } }, { expanded: new Set(['', '/a', '/a/b']), maxKeys: 2 });
+  assert.deepEqual(deepCut.map((r) => r.id), ['', '/a', '/a/b', '/a/b/0', '/a/b/1', '/a/b~more']);
+  assert.equal(deepCut[5].depth, 3, '深层那一支的截断行也跟在它自己那一层，不许冒到第 2 层去');
+});
+
+test('V7 id 就是 Pointer：前面插一格之后折叠态跟着 Pointer 走，不跟着行号走', () => {
+  const rows = flatten(vMix(), { expanded: new Set(['', '/a']) });
+  for (const r of rows) assert.equal(r.id, r.pointer, `${r.pointer} 的 id 必须还是那条 Pointer`);
+  assert.equal(new Set(rows.map((r) => r.id)).size, rows.length, '一轮行集里 id 唯一');
+  const before = flatten({ a: 1, target: { x: 1 } }, { expanded: new Set(['', '/target']) });
+  const after = flatten({ z: 0, a: 1, target: { x: 1 } }, { expanded: new Set(['', '/target']) });
+  const idxOf = (rs, id) => rs.findIndex((r) => r.id === id);
+  assert.deepEqual([idxOf(before, '/target'), idxOf(before, '/target/x')], [2, 3]);
+  assert.deepEqual([idxOf(after, '/target'), idxOf(after, '/target/x')], [3, 4], '行号整体 +1，数据却还是同一份');
+  assert.equal(after[idxOf(after, '/target')].expanded, true, '展开状态认的是 id，不是"第 2 行"');
+  assert.equal(after[idxOf(after, '/target')].keyLabel, 'target');
+  const cut = flatten({ a: 1, b: 2, c: 3 }, { maxKeys: 1 });
+  assert.equal(cut[2].id, '~more');
+  assert.equal(cut[2].pointer, '', '截断行是 id 口径的唯一例外：那一格点不出、也复制不出 Pointer');
+  assert.equal(new Set(cut.map((r) => r.id)).size, cut.length, '连截断行一起算，id 仍然唯一');
+});
+
+test('V8 Pointer 的转义与「自有键」口径：~0/~1、空键、原型上那几个名字', () => {
+  const v = { 'a/b': 1, 'c~d': 2, '': 3, 'e~1f': 4, 'g~0h': 5 };
+  const rows = flatten(v, { expanded: new Set(['']) });
+  assert.deepEqual(rows.slice(1).map((r) => r.pointer), ['/a~1b', '/c~0d', '/', '/e~01f', '/g~00h']);
+  assert.deepEqual(rows.slice(1).map((r) => r.keyLabel), ['a/b', 'c~d', '', 'e~1f', 'g~0h'],
+    'keyLabel 是原样键名：转义只发生在 Pointer 那一格');
+  for (const r of rows.slice(1)) {
+    const back = fromPointer(r.pointer);
+    assert.equal(back.ok, true, `${r.pointer} 解不回去：拼与解必须是同一族口径`);
+    assert.equal(back.segments.length, 1);
+  }
+  assert.equal(fromPointer('/e~01f').segments[0], 'e~1f',
+    '与 json-core 同一条回路；先 ~1 再 ~0 的两趟写法会把它读成 e/1f');
+  assert.deepEqual(flatten([1, 2], { expanded: new Set(['']) }).map((r) => [r.pointer, r.keyLabel]),
+    [['', ''], ['/0', '0'], ['/1', '1']], '数组下标不转义，也不写成 [0]：那一层排版归视图层');
+  const polluted = parseJson('{"__proto__":{"a":1},"constructor":2}');
+  assert.equal(polluted.ok, true);
+  const pr = flatten(polluted.value, { expanded: new Set(['']) });
+  assert.deepEqual(pr.map((r) => r.pointer), ['', '/__proto__', '/constructor']);
+  assert.equal(pr[1].childCount, 1, '__proto__ 那一格是真数据：它里面还有一个键');
+  assert.equal(Object.getPrototypeOf(polluted.value), Object.prototype, '拍平一趟不许把原型改掉');
+  assert.ok(!pr.some((r) => r.pointer === '/toString'),
+    '只枚举自有键：for...in 那种把原型上的方法也枚举进来的写法不许用');
+});
+
+test('V9 display 的六档与长串截断：截断在转义之前，代理对不被劈成半个', () => {
+  const show = (value) => flatten({ k: value }, { expanded: new Set(['']) })[1].display;
+  assert.equal(show('x'), '"x"');
+  assert.equal(show('a"b\\c\nd'), '"a\\"b\\\\c\\nd"', '引号、反斜杠、换行各走短转义');
+  assert.equal(show(String.fromCharCode(1)), '"\\u0001"', '其余控制字符走 \\uXXXX，与 json-core 同一条口径');
+  assert.equal(show(String.fromCharCode(7)), '"\\u0007"');
+  assert.equal(show('1e21'), '"1e21"', '那是串不是数：引号区分得开');
+  assert.equal(show(1e21), '1e+21');
+  assert.equal(show(-0), '0', '与 String(-0)、JSON.stringify(-0) 同形：display 管"读起来"，-0 保不保是文本视图那一格的事（§S）');
+  assert.equal(show(0.1 + 0.2), '0.30000000000000004');
+  assert.equal(show(true), 'true');
+  assert.equal(show(false), 'false');
+  assert.equal(show(null), 'null');
+  assert.equal(show({}), '{}');
+  assert.equal(show({ a: 1, b: 2 }), '{2 键}');
+  assert.equal(show([]), '[]');
+  assert.equal(show([1, 2, 3]), '[3 项]');
+  assert.equal(flatten({ k: { a: 1 } }, { expanded: new Set(['', '/k']) })[1].display, '',
+    '展开的容器不留概览串：子行就在下面，再来一遍 {} 是噪音');
+  const at200 = 'a'.repeat(200);
+  assert.equal(show(at200), `"${at200}"`, '刚到那一格不截');
+  assert.equal(show(at200 + 'b'), `"${at200}…"`, '越一格才截：截的是码元数，不是"看着长了"');
+  assert.equal(show('"'.repeat(300)), `"${'\\"'.repeat(200)}…"`,
+    '截断发生在转义**之前**，所以留出来的是整整 200 组 \\"，不会剩半根反斜杠');
+  const emoji = 'x'.repeat(199) + '👍'.repeat(4);
+  assert.equal(show(emoji), `"${'x'.repeat(199)}…"`,
+    '第 200 格正好落在一个 emoji 上：宁可整个不收，也不留半个代理项');
+  assert.equal(vHasLoneSurrogate(show(emoji)), false, 'display 里不许有落单的代理项');
+  assert.equal(vHasLoneSurrogate(show('👍'.repeat(300))), false, '整串都是 emoji 也一样');
+});
+
+test('V10 expandOf 交回的是新 Set：不改行对象，折叠一支就把支内的展开态一起带走', () => {
+  const rows = flatten(vMix());
+  const a = expandOf(rows, '/o', false);
+  assert.ok(a instanceof Set);
+  assert.deepEqual([...a].sort(), ['', '/a'], 'rows 里展开着的是 ""、/a、/o 三格，关掉 /o 就剩两格');
+  const b = expandOf(rows, '/a/1', true);
+  assert.deepEqual([...b].sort(), ['', '/a', '/a/1', '/o']);
+  assert.notEqual(a, b, '每一次都是一份新 Set');
+  assert.equal(a.has('/a/1'), false, '两份之间互不影响');
+  const before = rows.map((r) => [r.id, r.expanded]);
+  expandOf(rows, '/s', true);
+  assert.deepEqual(rows.map((r) => [r.id, r.expanded]), before, '行对象一格都不许被 expandOf 改');
+  a.delete('');
+  assert.deepEqual([...expandOf(rows, '/o', false)].sort(), ['', '/a'],
+    '刚才那份被调用方改了也不影响下一次：每次都从 rows 重建');
+  assert.deepEqual([...expandOf(rows, '/nope', true)].sort(), ['', '/a', '/nope', '/o'],
+    '行集里没有的 id 照收（与 V3 同一口径：不算错）');
+  assert.equal(flatten(vMix(), { expanded: expandOf(rows, '/nope', true) }).length, rows.length,
+    '多出来的那一个没用的 id 不改变行集');
+  assert.deepEqual([...expandOf(rows, '/nope', false)].sort(), ['', '/a', '/o'], '关掉一格没开着的也算没发生');
+  const chain = { l1: { l2: { l3: 1 } } };
+  const wide = flatten(chain, { expanded: new Set(['', '/l1', '/l1/l2']) });
+  assert.equal(wide.length, 4);
+  const shut = expandOf(wide, '/l1', false);
+  assert.deepEqual([...shut].sort(), ['', '/l1/l2'], '/l1/l2 的展开态还在这份里，但它已经是一格过期 id');
+  const back = expandOf(flatten(chain, { expanded: shut }), '/l1', true);
+  assert.deepEqual([...back].sort(), ['', '/l1'],
+    '再展开 /l1 时 /l1/l2 已经不在这一轮行集里，于是被丢掉：折叠一支会把支内的展开态一起带走');
+  assert.deepEqual(flatten(chain, { expanded: back }).map((r) => r.pointer), ['', '/l1', '/l1/l2']);
+  assert.throws(() => expandOf(rows, 42, true), TypeError);
+  assert.throws(() => expandOf('not rows', '', true), TypeError);
+});
+
+test('V11 搜索三档 scope：key 只认键、value 只认标量的渲染串、both 取并，档位不认就抛', () => {
+  const rows = vAll(vHay());
+  assert.equal(rows.length, 8, '四个直接子项 + list 的两个元素 + deep 的一个键 + 根');
+  assert.deepEqual(searchRows(rows, 'key', { scope: 'key' }).matchedIds, ['/Key']);
+  assert.deepEqual(searchRows(rows, 'key', { scope: 'value' }).matchedIds, ['/deep/k'],
+    '/deep/k 的渲染串是 "key inside"');
+  assert.deepEqual(searchRows(rows, 'key', {}).matchedIds, ['/Key', '/deep/k'], '缺省档就是 both');
+  assert.deepEqual(searchRows(rows, 'both', { scope: 'both' }).matchedIds, [], '档位名不是搜索词：这一趟谁都别命中');
+  assert.deepEqual(searchRows(rows, 'ITEM', { scope: 'value' }).matchedIds, ['/list/0']);
+  assert.deepEqual(searchRows(rows, '12', { scope: 'value' }).matchedIds, ['/list/1', '/n'],
+    '值搜的是渲染串，所以 12 也命中 123——"子串"这一档写死，不许谁来实现期改成整词匹配');
+  assert.deepEqual(searchRows(rows, '"', { scope: 'value' }).matchedIds, ['/Key', '/list/0', '/deep/k'],
+    '引号算进渲染串：搜一个 " 就是"所有字符串行"');
+  for (const bad of ['all', 'KEY', '', 'keys', 'Both']) {
+    assert.throws(() => searchRows(rows, 'key', { scope: bad }),
+      (e) => e instanceof RangeError && /key \| value \| both/.test(e.message), `${bad} 不是本站的档位`);
+  }
+  assert.throws(() => searchRows(rows, 42), TypeError, '搜索词是字符串：数字不是"没搜到"而是写错了');
+  assert.throws(() => searchRows(rows, null), TypeError);
+  assert.throws(() => searchRows('not rows', 'x'), TypeError);
+  const empty = searchRows(rows, '');
+  assert.deepEqual([empty.total, empty.truncated], [0, 0], '空串不是"匹配一切"');
+  assert.equal(rows.some((r) => r.matched), false, '空串这一趟还要把上一轮的色洗掉');
+});
+
+test('V12 matched 只有一处上色：顺序随行集走，重跑不留上一轮的色，容器概览串不算值', () => {
+  const rows = vAll(vHay());
+  const r1 = searchRows(rows, 'E', { scope: 'key' });
+  assert.deepEqual(r1.matchedIds, ['/Key', '/deep'], '按行序给，不是按"先命中谁"给');
+  assert.equal(r1.total, r1.matchedIds.length, 'total 就是 matchedIds 的长度，不是"扫描过的行数"');
+  assert.deepEqual(rows.filter((r) => r.matched).map((r) => r.id), ['/Key', '/deep']);
+  const r2 = searchRows(rows, 'zzz', { scope: 'both' });
+  assert.equal(r2.total, 0);
+  assert.equal(rows.every((r) => r.matched === false), true, '上一轮的 /Key 必须被洗掉');
+  assert.deepEqual(searchRows(rows, 'KEY', { scope: 'key' }).matchedIds, ['/Key'], 'ASCII 大小写折掉');
+  assert.deepEqual(searchRows(rows, 'inside', { scope: 'value' }).matchedIds, ['/deep/k']);
+  assert.deepEqual(searchRows(rows, '中文', { scope: 'both' }).matchedIds, [], '没大小写可折的照原样比');
+  const part = flatten(vHay(), { expanded: new Set(['']) });
+  assert.deepEqual([part[2].display, part[4].display], ['[2 项]', '{1 键}'], '这一份里有两格折叠概览串');
+  for (const q of ['键', '项', '[2 项]', '{1 键}']) {
+    assert.deepEqual(searchRows(part, q, { scope: 'value' }).matchedIds, [],
+      `${q}：容器行不参与值搜索，否则搜一个 2 就命中一堆 [2 项]`);
+  }
+  const cut = flatten(vHay(), { maxKeys: 3 });
+  assert.equal(cut[cut.length - 1].id, '~more');
+  assert.deepEqual(searchRows(cut, '列出', { scope: 'both' }).matchedIds, [],
+    '截断行那句文案不是数据：搜"列出"不许把它算成一次命中');
+  assert.equal(searchRows(cut, '列出', { scope: 'both' }).truncated, 1, '但它下面确实少扫了一格');
+});
+
+test('V13 truncated 是"这次没扫到的直接子项数"：全展开归 0，折叠与截断都算进去', () => {
+  const rows = vAll(vHay());
+  assert.equal(searchRows(rows, 'ITEM', { scope: 'value' }).truncated, 0, '全展开、无截断：这一趟吃下了整棵树');
+  const part = flatten(vHay(), { expanded: new Set(['']) });
+  const s = searchRows(part, 'ITEM', { scope: 'value' });
+  assert.deepEqual([s.total, s.truncated], [0, 3],
+    'ITEM 藏在 /list 里而 /list 折叠着：搜不到，truncated 报 3（/list 的 2 项 + /deep 的 1 键）');
+  const cut = flatten(vHay(), { maxKeys: 3 });
+  const s2 = searchRows(cut, 'ITEM', { scope: 'value' });
+  assert.deepEqual([s2.matchedIds, s2.truncated], [['/list/0'], 1], '截断那一格同样计入：还差一个 deep 没扫');
+  const nested = flatten({ a: { b: { c: 1 } } }, { expanded: new Set(['']) });
+  assert.equal(searchRows(nested, 'zzz').truncated, 1,
+    '只报"直接少了几格"，不是"整棵子树少了几行"——后者要第二趟扫描，而拍平只有一趟（V4 同一条口径）');
+  assert.equal(typeof searchRows(rows, 'x').truncated, 'number', '那一格是数字不是布尔：装配层要把它写进提示里');
+  assert.equal(searchRows(vSet(0), 'x').truncated, 0, '根是一格空对象：没有子项，也就没有"没扫到"');
+});
+
+/**
+ * 假 DOM（本节自建，形状照 §I 的 `iPage` 但只开 json-tree 用到的那几张口子）。
+ * 三处刻意的"不像真 DOM"，每一处都是为了少一处假绿：
+ * 1. **没有 `innerHTML`**。控制器若写了它，只会长出一个普通属性、一个子节点都不多——V14 判的正是
+ *    "三块与行是真的节点"。真 DOM 反而会把标签解析出来，把这条判据洗白。
+ * 2. **`removeChild` 找不到节点就抛**。静默的话"撤行没撤干净"看不见。
+ * 3. **`dispatch` 只调真的挂上去的监听**，`removeEventListener` 之后调不到——V16 那条
+ *    "destroy 摘干净"量的就是这个。
+ * `scrollTop` 是可写的普通字段：真浏览器里由滚动条决定，这里由判据决定，而控制器读它的方式一模一样。
+ */
+function vTree({ rowHeight = 24 } = {}) {
+  const focusLog = [];
+  let active = null;
+  const mk = (tag) => {
+    const attrs = new Map();
+    const listeners = new Map();
+    const el = {
+      nodeType: 1, tagName: tag.toUpperCase(), attrs, childNodes: [], style: {}, textContent: '',
+      setAttribute: (k, v) => { attrs.set(k, String(v)); },
+      getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
+      appendChild: (n) => { el.childNodes.push(n); return n; },
+      removeChild: (n) => {
+        const i = el.childNodes.indexOf(n);
+        if (i < 0) throw new Error('假 DOM：这个父节点下没有它');
+        el.childNodes.splice(i, 1);
+        return n;
+      },
+      addEventListener: (t, fn) => {
+        if (!listeners.has(t)) listeners.set(t, new Set());
+        listeners.get(t).add(fn);
+      },
+      removeEventListener: (t, fn) => {
+        const s = listeners.get(t);
+        if (s) s.delete(fn);
+      },
+      dispatch: (t) => { for (const fn of [...(listeners.get(t) || [])]) fn({ type: t }); },
+      listenerCount: (t) => (listeners.get(t) || new Set()).size,
+      focus: () => { active = el; focusLog.push(el.getAttribute('data-jt-id')); },
+    };
+    return el;
+  };
+  const doc = { createElement: (tag) => mk(tag), get activeElement() { return active; } };
+  const container = mk('div');
+  container.scrollTop = 0;
+  container.clientHeight = 480;
+  const holder = () => container.childNodes[1];
+  return {
+    doc, container, focusLog, holder,
+    rowCount: () => (holder() ? holder().childNodes.length : 0),
+    rowIds: () => holder().childNodes.map((n) => n.getAttribute('data-jt-id')),
+    rowAt: (i) => holder().childNodes[i],
+    rowIndexOf: (id) => holder().childNodes.map((n) => n.getAttribute('data-jt-id')).indexOf(id),
+    pad: (i) => container.childNodes[i],
+    /** 三块的总高：垫块读 style.height，行按 rowHeight 算——契约② 的外部证据就是这一个数 */
+    contentHeight: () => {
+      const px = (n) => Number.parseInt(n.style.height || '', 10) || 0;
+      const pads = container.childNodes.filter((n) => n !== holder()).reduce((s, n) => s + px(n), 0);
+      return pads + (holder() ? holder().childNodes.length * rowHeight : 0);
+    },
+    get activeId() { return active ? active.getAttribute('data-jt-id') : null; },
+  };
+}
+
+test('V14 契约①② ：容器里只有三块常驻节点，垫块高度让总长 == 行数 × rowHeight', () => {
+  const page = vTree({ rowHeight: 24 });
+  const c = createTreeController({ document: page.doc, container: page.container, rowHeight: 24, windowSize: 40 });
+  const rows = vSet(299);
+  c.setData(rows);
+  assert.equal(rows.length, 300);
+  assert.deepEqual(page.container.childNodes.map((n) => n.tagName), ['DIV', 'DIV', 'DIV'],
+    '常驻的就三块，一行动态节点都不许挂在这一层');
+  assert.deepEqual(page.container.childNodes.map((n) => n.getAttribute('class')),
+    ['jt-tree__pad', 'jt-tree__rows', 'jt-tree__pad']);
+  assert.equal(page.holder().getAttribute('role'), 'tree');
+  assert.equal(page.contentHeight(), 300 * 24, '上下垫块 + 窗口里的行 = 总高——"只渲染可视"唯一的外部证据');
+  const el = page.rowAt(0);
+  assert.deepEqual([el.tagName, el.getAttribute('role'), el.getAttribute('tabindex')], ['DIV', 'treeitem', '0']);
+  assert.equal(el.getAttribute('aria-level'), '1', 'aria-level 从 1 起、depth 从 0 起，两把尺差一格');
+  assert.equal(el.getAttribute('data-jt-id'), '');
+  assert.equal(el.getAttribute('data-jt-pointer'), '');
+  assert.equal(el.textContent, '', '根展开着：那一行只有折叠三角（CSS 给），不许挤出一句假文案');
+  assert.equal(el.getAttribute('aria-expanded'), 'true', '容器行把折叠与否写在 aria-expanded 上');
+  const second = page.rowAt(1);
+  assert.deepEqual([second.getAttribute('data-jt-id'), second.getAttribute('aria-level'),
+    second.getAttribute('data-jt-pointer'), second.textContent], ['/r0', '2', '/r0', 'r0: 0']);
+  assert.equal(second.getAttribute('aria-expanded'), null, '标量行没有这一格');
+  assert.deepEqual([el.style.paddingLeft, second.style.paddingLeft], ['0px', '12px'],
+    '缩进写在行元素自己身上，默认一档 12px（装配层要换密度就传 indentStep）');
+  const first0 = page.pad(0).style.height;
+  page.container.scrollTop = 1200;
+  page.container.dispatch('scroll');
+  const range = c.visibleRange();
+  assert.equal(page.pad(0).style.height, `${range.first * 24}px`);
+  assert.equal(page.pad(2).style.height, `${(300 - range.last - 1) * 24}px`);
+  assert.equal(page.contentHeight(), 300 * 24, '滚到哪里总高都不变，变的只是三块内部的分摊');
+  assert.notEqual(page.pad(0).style.height, first0, '垫块真的跟着滚动走');
+  assert.equal(page.rowAt(0).getAttribute('data-jt-id'), '/r39',
+    '窗口上面还留着十行缓冲：滚到 1200 就是第 50 行开头，进 DOM 的第一行是第 40 行');
+  const mixed = vTree({ rowHeight: 24 });
+  const cm = createTreeController({ document: mixed.doc, container: mixed.container, rowHeight: 24 });
+  cm.setData(flatten(vMix()));
+  const cls = (id) => mixed.rowAt(mixed.rowIndexOf(id)).getAttribute('class');
+  assert.ok(cls('/a').includes('is-open'), '/a 展开着');
+  assert.ok(cls('/a/1').includes('is-closed'), '/a/1 折叠着');
+  assert.ok(cls('/o/k').includes('is-closed'), '空容器也是一格折叠：它的概览串是 {}');
+  assert.ok(cls('/s').includes('jt-tree__row--string'), 'kind 进 class，视图层照它上色');
+  cm.setData(flatten(vMix(), { maxKeys: 1 }));
+  assert.ok(cls('~more').includes('jt-tree__row--more'), '截断行有自己的 class');
+  assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).getAttribute('role'), 'button', '那一行是一个动作，不是一条数据');
+  assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).textContent, '还有 5 个键未列出');
+  cm.setData([]);
+  assert.deepEqual(cm.visibleRange(), { first: -1, last: -1, count: 0 }, '空行集：区间用 -1 表达"没有"');
+  assert.deepEqual([mixed.rowCount(), mixed.contentHeight()], [0, 0], '两块垫块都得归零，不然滚动条留着骗人');
+  assert.equal(mixed.container.childNodes.length, 3, '空数据也不许把三块拆了');
+});
+
+test('V15 契约③：五千行、任意 scrollTop，一次进 DOM 的行数不超过 windowSize 且窗口盖住视口首行', () => {
+  const total = 5000;
+  const rowHeight = 20;
+  const windowSize = RENDER_WINDOW;
+  const page = vTree({ rowHeight });
+  const calls = [];
+  const c = createTreeController({
+    document: page.doc, container: page.container, rowHeight, windowSize,
+    onViewChange: (p) => calls.push(p),
+  });
+  c.setData(vSet(total - 1));
+  assert.equal(c.state().total, total);
+  assert.equal(c.state().windowSize, windowSize, '窗口那一格要在 state() 里读得回来：装配层的文案要说"一次渲染 80 行"');
+  let maxNodes = 0;
+  for (let i = 0; i < total; i += 37) {
+    page.container.scrollTop = i * rowHeight;
+    page.container.dispatch('scroll');
+    const n = page.rowCount();
+    maxNodes = Math.max(maxNodes, n);
+    const r = c.visibleRange();
+    assert.ok(n <= windowSize, `第 ${i} 行处渲染了 ${n} 行，越过 windowSize=${windowSize}`);
+    assert.ok(r.first <= i && i <= r.last, `视口首行 ${i} 不在窗口 [${r.first}, ${r.last}] 里`);
+    assert.equal(r.last - r.first + 1, n, 'visibleRange 报的区间必须就是 DOM 里的行数，两处一把尺');
+    if (i > 0) {
+      assert.equal(page.rowAt(i - r.first).getAttribute('data-jt-id'), `/r${i - 1}`,
+        `窗口里第 ${i} 行那一格的 id 与行序对不上`);
+    }
+  }
+  assert.equal(maxNodes, windowSize, '窗口是用满的：判据要的是"上界卡住"，不是"少渲染"');
+  page.container.scrollTop = 10 ** 9;
+  page.container.dispatch('scroll');
+  assert.deepEqual(c.visibleRange(), { first: total - windowSize, last: total - 1, count: windowSize }, '越界往下滚就贴底');
+  page.container.scrollTop = -5;
+  page.container.dispatch('scroll');
+  assert.deepEqual(c.visibleRange(), { first: 0, last: windowSize - 1, count: windowSize }, '越界往上滚就贴顶');
+  const before = calls.length;
+  page.container.scrollTop = 4000;
+  page.container.dispatch('scroll');
+  assert.equal(calls.length, before + 1, '窗口区间换了才叫这一次');
+  page.container.scrollTop = 4010;
+  page.container.dispatch('scroll');
+  assert.equal(calls.length, before + 1,
+    '同一区间的两个 scrollTop（4000 与 4010 都从第 200 行起）别再刷读数：装配层每叫一次都要重算一行状态');
+  assert.deepEqual(calls[calls.length - 1], { first: 180, last: 259, count: 80, total, scrollTop: 4000 });
+  const small = vTree({ rowHeight });
+  const cs = createTreeController({ document: small.doc, container: small.container, rowHeight, windowSize });
+  cs.setData(vSet(4));
+  assert.deepEqual(cs.visibleRange(), { first: 0, last: 4, count: 5 }, '数据比窗口短就全渲染');
+  assert.deepEqual([small.pad(0).style.height, small.pad(2).style.height], ['0px', '0px']);
+  assert.equal(small.rowCount(), 5);
+  assert.equal(small.contentHeight(), 5 * rowHeight);
+});
+
+test('V16 契约④：锚点与焦点只认 id，setExpanded 抓"行集与展开集不同轮"，destroy 摘干净', () => {
+  const rowHeight = 24;
+  const windowSize = 40;
+  const page = vTree({ rowHeight });
+  const c = createTreeController({ document: page.doc, container: page.container, rowHeight, windowSize });
+  c.setData(vSet(4999));
+  assert.equal(c.scrollToPointer('/r2500'), true);
+  assert.equal(page.container.scrollTop, 2501 * rowHeight,
+    '落点精确到那一行的行首：/r2500 是第 2501 行（第 0 行是根），所以滚到 2501 × 行高');
+  assert.equal(c.state().anchorId, '/r2500');
+  assert.equal(c.visibleRange().first, 2491, '窗口上面留着十行缓冲，所以进 DOM 的第一行比锚点早十行');
+  assert.equal(page.rowAt(10).getAttribute('data-jt-id'), '/r2500', '锚点那一行确实在窗口里，不是只改了个 scrollTop');
+  assert.equal(c.scrollToPointer('/nope'), false, '行集里没有的那一格：不动滚动，回报 false');
+  assert.equal(page.container.scrollTop, 2501 * rowHeight);
+  assert.equal(c.scrollToPointer(''), true, '根永远在第 0 行');
+  assert.equal(page.container.scrollTop, 0);
+  c.scrollToPointer('/r2500');
+  c.setData(vSet(4999, true));
+  assert.equal(page.container.scrollTop, 2502 * rowHeight, '锚点前面插了一行，scrollTop 就跟着补一行——不然锚点落到别人那格');
+  assert.equal(page.rowAt(10).getAttribute('data-jt-id'), '/r2500', '窗口里那十行缓冲之后，锚点还是这一条数据');
+  assert.equal(c.state().anchorId, '/r2500');
+  c.scrollToPointer('/r3000');
+  c.setData(vSet(10));
+  assert.equal(c.state().anchorId, '/r3000', '锚点那一行这轮没了也照样记着，等它回来');
+  assert.equal(page.container.scrollTop, (11 - 1) * rowHeight, '行集缩到 11 行，滚动条贴到最底那一格，不许悬在半空');
+  assert.equal(page.rowCount(), 11, '行集比窗口短就全渲染');
+  c.setData(vSet(4999));
+  c.scrollToPointer('/r20');
+  const focused = page.rowAt(10);
+  assert.equal(focused.getAttribute('data-jt-id'), '/r20');
+  focused.focus();
+  c.refresh();
+  assert.notEqual(page.doc.activeElement, focused, 'refresh 重建了节点，被点的那个旧节点已经不在树里');
+  assert.equal(page.activeId, '/r20', '焦点跟着 id 回来，而不是被丢回 body');
+  assert.equal(page.focusLog.length, 2, '一次是人点的、一次是控制器交回的，不许多补');
+  const rows = flatten(vMix());
+  c.setData(rows);
+  c.setExpanded(new Set(['', '/a', '/o']));
+  assert.throws(() => c.setExpanded(new Set([''])),
+    (e) => e instanceof TypeError && /展开集/.test(e.message) && /行集/.test(e.message),
+      '行集里 /a 与 /o 是展开的，喂进来的展开集却没有——这是不同轮的两份东西，当场点名');
+  c.setExpanded(new Set(['', '/a', '/o']));
+  assert.equal(c.state().expanded.size, 3, '同一份喂两次总是合法');
+  assert.throws(() => c.setData('not rows'), TypeError, 'setData 只收 flatten 交回的行集');
+  assert.throws(() => c.setData([{ id: 1 }]), TypeError,
+    '行集里那一格不是行对象：当场点名，别渲染出一树 undefined');
+  assert.equal(c.state().total, rows.length, '闸门抛在改状态之前：行集还是上一轮那一份');
+  c.destroy();
+  assert.deepEqual(page.container.childNodes, [], '常驻三块都得摘干净');
+  assert.equal(page.container.listenerCount('scroll'), 0, 'scroll 监听留在页上就是给下一次 mount 叠一份');
+  c.destroy();
+  page.container.scrollTop = 100;
+  page.container.dispatch('scroll');
+  assert.equal(page.container.childNodes.length, 0, '拆完之后的事件不许复活任何节点');
+  const gatePage = vTree({ rowHeight });
+  assert.throws(() => createTreeController({ container: gatePage.container, rowHeight: 24 }),
+    (e) => e instanceof TypeError && /document/.test(e.message));
+  assert.throws(() => createTreeController({ document: gatePage.doc, rowHeight: 24 }),
+    (e) => e instanceof TypeError && /container/.test(e.message));
+  assert.throws(() => createTreeController({ document: {}, container: gatePage.container, rowHeight: 24 }), TypeError);
+  assert.throws(() => createTreeController({ document: gatePage.doc, container: {}, rowHeight: 24 }), TypeError);
+  for (const bad of [0, -1, NaN, Infinity, '24', undefined, null]) {
+    assert.throws(() => createTreeController({ document: gatePage.doc, container: gatePage.container, rowHeight: bad }),
+      (e) => e instanceof TypeError && /rowHeight/.test(e.message), `${bad} 不是合法的 rowHeight`);
+  }
+  for (const bad of [0, -1, 2.5, NaN]) {
+    assert.throws(() => createTreeController({ document: gatePage.doc, container: gatePage.container,
+      rowHeight: 24, windowSize: bad }), (e) => e instanceof RangeError && /windowSize/.test(e.message));
+  }
+  assert.throws(() => createTreeController({ document: gatePage.doc, container: gatePage.container,
+    rowHeight: 24, onViewChange: 42 }), TypeError);
+  assert.equal(gatePage.container.childNodes.length, 0, '闸门抛在挂节点之前，别留下半棵树');
 });
