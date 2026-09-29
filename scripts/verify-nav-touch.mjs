@@ -10,7 +10,7 @@
  * `verify-motion-batch4.mjs` 与 `verify-idcard-browser.mjs` 一律 mobile:false、只有真鼠标，
  * 连一条触摸事件都没发过——本文件是全仓第一处 `Input.dispatchTouchEvent`。
  *
- * 判据七组：
+ * 判据八组：
  *   1 量具自证   —— 移动视口与触摸档真的生效；服务的字节 == 磁盘；被量那份产物里确实
  *                    躺着本次改动；**真触摸确实合成了 click**。最后一条不成立时下面全部
  *                    判据都是假的，所以它红就整轮退 2，不记在产物头上。
@@ -22,8 +22,11 @@
  *   5 桌面档不变 —— 1280 下 hover 仍展开、点父项照旧进 /tools.html（这次只改触屏档）。
  *   6 键盘档不变 —— ≤695 与 1280 下焦点落进这一项都算展开，收起态按 Enter 只展开不跳转，
  *                    真按 Tab 走出这一项之后 aria-expanded 回落 false、面板跟着收起。
- *   7 篇幅账     —— 三档视口的收起／展开抽屉高度与落点行可点区，
- *                    `dev/sass/common/editorial.scss` ≤695 那段注释里的数字由这组负责。
+ *   7 窄桌面档   —— ≤695 但 (hover:hover) 为真（桌面把窗口拖窄、触屏笔记本）。这一档 JS 走
+ *                    开关制，所以悬停不许擅自展开、第二下鼠标必须真的收起：抽屉那一组
+ *                    压根不拿 :hover 当显示钩子，箭头那一路同理。
+ *   8 篇幅账     —— 三档视口的收起／展开抽屉高度、溢出多少、溢出之后滚到底能不能命中
+ *                    落点行，`dev/sass/common/editorial.scss` ≤695 那段注释里的数字由这组负责。
  *
  * 牙齿（最后一组）：每处变异驱动**它自己的探针**，每处都必须让指名道姓的那条预期翻转；
  * 没翻转就是量具没干活，报红而不是报绿。条数由 `MUTATIONS` 决定，不写死在提示里。
@@ -56,9 +59,22 @@ if (!fs.existsSync(path.join(SITE, 'index.html'))) {
   console.log(`✗ ${SITE} 里没有 index.html——先构建产物，或用 NAV_SITE 指到快照`);
   process.exit(2);
 }
-const DISK_JS_TEXT = fs.readFileSync(path.join(SITE, SUB_BUNDLE), 'utf8');
+/**
+ * 读两份 bundle。这两句必须走"环境失败＝退 2"这条路：快照缺包时 `readFileSync` 抛的是
+ * 裸 ENOENT 栈，而且抛在 `uncaughtException` 注册（下面 Chrome 那段）之前，退出码是 1，
+ * 于是 CI 把"没建产物"读成"产物有红项"。
+ */
 const CSS_BUNDLE = 'assets/css/index.min.css';
-const DISK_CSS_TEXT = fs.readFileSync(path.join(SITE, CSS_BUNDLE), 'utf8');
+const SUB_BUNDLE_TEXT = (rel) => {
+  const p = path.join(SITE, rel);
+  if (!fs.existsSync(p)) {
+    console.log(`✗ 快照里没有 ${rel}（${p}）——先 npx vite build 再建 Jekyll 快照，这是环境没起来，不是判据红`);
+    process.exit(2);
+  }
+  return fs.readFileSync(p, 'utf8');
+};
+const DISK_JS_TEXT = SUB_BUNDLE_TEXT(SUB_BUNDLE);
+const DISK_CSS_TEXT = SUB_BUNDLE_TEXT(CSS_BUNDLE);
 /**
  * 本次改动在**压缩后产物**里的锚点。按产物形状写而不是按源变量名：压缩器把 `plainTap`
  * 改了名（这份里叫 `t`），但属性访问与 `.blur()` 这样的调用形状原样保留。
@@ -69,10 +85,19 @@ const DISK_CSS_TEXT = fs.readFileSync(path.join(SITE, CSS_BUNDLE), 'utf8');
 const PRODUCT_ANCHORS = [
   { text: DISK_JS_TEXT, re: /e\.ctrlKey\|\|e\.metaKey\|\|e\.shiftKey\|\|e\.altKey/, what: '修饰键放行', where: SUB_BUNDLE },
   { text: DISK_JS_TEXT, re: /\.blur\s*&&\s*\w+\.blur\(\)/, what: '收起时摘焦点那一句', where: SUB_BUNDLE },
-  { text: DISK_CSS_TEXT, re: /@media screen and \(max-width:695px\)and \(hover:hover\)\{\.g-header \.nav-item\.has-sub:hover \.nav-sub\{display:block/, what: '抽屉里 :hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
   { text: DISK_CSS_TEXT, re: /@media\(hover:hover\)\{\.g-header \.nav-item\.has-sub:hover \.nav-sub\{opacity:1/, what: '横排档（含平板）:hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
   { text: DISK_CSS_TEXT, re: /@media\(hover:hover\)\{\.g-header \.nav-item\.has-sub:hover \.nav-caret\{/, what: '箭头 :hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
+  { text: DISK_CSS_TEXT, re: /\.g-header \.nav-item\.has-sub:hover \.nav-caret\{-webkit-transform:none;transform:none\}/, what: '抽屉档把箭头 :hover 扳转归零那一条', where: CSS_BUNDLE },
   { text: DISK_CSS_TEXT, re: /\.g-header \.nav-sub \.nav-sub-more\{padding:13px 10px/, what: '「全部工具」行的触屏可点区', where: CSS_BUNDLE },
+];
+/**
+ * 反向锚点：抽屉那一组（≤695）不许出现任何拿 `:hover` 当**显示**钩子的规则。
+ * 这一档的开关制由 JS 写 .is-open，而 CSS 的 :hover 是 JS 摘不掉的——鼠标停在行上时
+ * 第二下点按"看着没反应"就是这么来的（判据「窄桌面/3」）。所以这里不是给 :hover 加闸门，
+ * 而是这一档根本不写它，反比正反都便宜。
+ */
+const NEGATIVE_ANCHORS = [
+  { text: DISK_CSS_TEXT, re: /\.g-header \.nav-item\.has-sub:hover \.nav-sub\{display/, what: '抽屉档不该有 :hover 显示钩子（这一档只有 opacity 那一路属于横排组）' },
 ];
 for (const a of PRODUCT_ANCHORS) {
   if (!a.re.test(a.text)) {
@@ -81,14 +106,20 @@ for (const a of PRODUCT_ANCHORS) {
   }
 }
 /**
- * 快照必须与 `assets/` 那份同源产物逐字节一致：`npx vite build` 写的是 `assets/`，
- * jekyll 只是把它复制进快照。少了这一格，"改了源码没重建"与"重建了没重新建站"两种
- * 半拉子状态都会让下面所有判据去量一份旧代码，而且绿得很难看。
+ * 活产物必须与快照同源：`npx vite build` 写的是 `assets/`，jekyll 只是把它复制进快照。
+ * 少了这一格，"改了源码没重建"与"重建了没重新建站"两种半拉子状态都会让下面所有判据
+ * 去量一份旧代码，而且绿得很难看。
  */
 const LIVE_PAIRS = [[SUB_BUNDLE, DISK_JS_TEXT], [CSS_BUNDLE, DISK_CSS_TEXT]];
 for (const [rel, snap] of LIVE_PAIRS) {
   const livePath = path.join(ROOT, 'assets', rel.replace(/^assets\//, ''));
-  if (path.resolve(SITE, rel) === path.resolve(livePath) || !fs.existsSync(livePath)) continue;
+  if (path.resolve(SITE, rel) === path.resolve(livePath)) continue;
+  if (!fs.existsSync(livePath)) {
+    // 静默跳过等于这一格没跑：`assets/*.min.*` 是被 .gitignore 忽略的构建产物，
+    // 干净检出／只给快照的环境下它本来就可能不在，所以不判红，但必须出声。
+    console.log(`  · 活产物缺失，跳过同源比对：${livePath}`);
+    continue;
+  }
   const live = fs.readFileSync(livePath, 'utf8');
   if (live.length !== snap.length || live !== snap) {
     console.log(`✗ 快照里的 ${rel}（${snap.length}B）与 assets/ 那份（${live.length}B）不是同一份产物——先 npx vite build 再重建快照`);
@@ -225,18 +256,23 @@ const S = (m, p = {}) => {
 const Soft = async (m, p = {}) => { try { await S(m, p); return true; } catch { return false; } };
 const jsErrors = [];
 /**
- * 变异轮里脚本本来就是坏的（第 4 组那一处就是要让它恒真、还有 500 的轮次），
- * 把那些 SyntaxError 与「EditorialTheme 没了导致 bottomFixedBtn 读 .get」记在产物头上，
- * 等于量具自己给自己判红。所以变异期间只数清轮的账。
+ * 变异轮里的异常单独记一本账（`mutErrors`），既不记在产物头上，也不许被当成"牙齿点着了"。
+ * 变异轮里脚本本来就是坏的（第 4 组那一处就是要让它恒真、还有 500 的轮次），把那些
+ * SyntaxError 与「EditorialTheme 没了导致 bottomFixedBtn 读 .get」记在产物头上，
+ * 等于量具自己给自己判红。但反过来，一格里出现 ReferenceError 就说明**变异串自己没跟上
+ * 压缩器的改名**：那一格翻的是"脚本炸了"，不是这条判据要看的形状，所以它必须红。
  */
 let MUTATING = false;
+const mutErrors = [];
 c.on((m) => {
+  let text = '';
   if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error'
-    && String(m.params.entry.source || '').startsWith('javascript') && !MUTATING) jsErrors.push('log:' + m.params.entry.text.slice(0, 160));
-  if (m.method === 'Runtime.exceptionThrown' && !MUTATING) {
+    && String(m.params.entry.source || '').startsWith('javascript')) text = 'log:' + m.params.entry.text.slice(0, 160);
+  else if (m.method === 'Runtime.exceptionThrown') {
     const d = m.params.exceptionDetails;
-    jsErrors.push('exc:' + (d.exception?.description || d.text || '').replace(/\s+/g, ' ').slice(0, 160));
-  }
+    text = 'exc:' + (d.exception?.description || d.text || '').replace(/\s+/g, ' ').slice(0, 160);
+  } else return;
+  (MUTATING ? mutErrors : jsErrors).push(text);
 });
 await S('Runtime.enable');
 await S('Log.enable');
@@ -304,6 +340,25 @@ async function enterDesktopPage() {
   await setDesktopVp(1280, 900);
   await goto(HOME);
   return setDesktopVp(1280, 900);
+}
+/**
+ * 窄桌面档：`mobile:false` 的窄视口。`(hover: hover)` 在这里是**真**的，而
+ * `initTouchDropdown` 的 `expandable()` 因为 `innerWidth<=695` 也是真的——
+ * 一个 JS 认为是开关、CSS 认为能悬停的交叉格。平板转竖屏、触屏笔记本把窗口拖窄、
+ * 桌面把浏览器拉到手机宽，都落在这一格，而前面六组探针一律钉着 mobile:true
+ * （(hover:none)）或 1280（>695），谁都没进过这里。
+ */
+async function setNarrowVp(width = 600, height = 900) {
+  await S('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+  await Soft('Emulation.setTouchEmulationEnabled', { enabled: false });
+  return JSON.parse(await evalJs(`JSON.stringify({w:innerWidth,h:innerHeight,
+    none:matchMedia("(hover: none)").matches, fine:matchMedia("(hover: hover)").matches,
+    t:navigator.maxTouchPoints})`));
+}
+async function enterNarrowPage(w = 600, h = 900) {
+  await setNarrowVp(w, h);
+  await goto(HOME);
+  return setNarrowVp(w, h);
 }
 /**
  * 等下拉的 opacity 落定再读数。桌面那组的显示是 opacity/visibility 过渡（.18s），
@@ -394,6 +449,30 @@ async function tapAt(x, y) {
   await wait(260);
 }
 /**
+ * 真鼠标一次点按：先 `mouseMoved` 把指针落在坐标上，`pointer` 与 `:hover` 才跟着过去。
+ * 窄桌面档（≤695 且 (hover:hover)）要量的正是"指针一直停在那一行上"这件事——
+ * 只发 click 不发 move，`:hover` 不成立，粘 hover 那一类缺陷一条都抓不到。
+ */
+async function clickAt(x, y) {
+  await S('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  await wait(80);
+  await S('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+  await S('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
+  await wait(260);
+}
+/** 只把指针挪过去，不按下（悬停档的读数要在没有 .is-open 的情况下取）。 */
+async function hoverAt(sel, nth = 0) {
+  const t = await hit(sel, nth);
+  await S('Input.dispatchMouseEvent', { type: 'mouseMoved', x: t.x, y: t.y, button: 'none' });
+  await wait(140);
+  return t;
+}
+/** 把指针甩到视口右下角的空白处，让 :hover 从那枚 li 上离开。 */
+async function hoverAway() {
+  await S('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 8, y: 700, button: 'none' });
+  await wait(140);
+}
+/**
  * 一次读数。面板可见性看 computed display 与真实高度，不看类名——类名是过程，
  * 这两样才是用户眼里的结果。`href` 一起回，跳转后的读数必须先证明还是同一页。
  */
@@ -434,7 +513,18 @@ const box = (sel, nth = 0) => evalJs(`(() => {
   const r = el.getBoundingClientRect();
   return { w: Math.round(r.width), h: Math.round(r.height) };
 })()`);
-
+/**
+ * 抽屉那只滚动容器的两本账：`rect` 是被 max-height 截过之后的可视高，
+ * `scrollH` 是内容的自然高。两者不相等就是"这一档要自己滚"，
+ * 只报 rect 会把"截住了"读成"装得下"。
+ */
+const scrollBox = () => evalJs(`(() => {
+  const nav = document.querySelector('.g-nav');
+  if (!nav) return null;
+  const r = nav.getBoundingClientRect();
+  return { rect: Math.round(r.height), client: Math.round(nav.clientHeight),
+    scrollH: Math.round(nav.scrollHeight), over: Math.round(nav.scrollHeight - nav.clientHeight) };
+})()`);
 /* ───────────────────────────── 探针 ─────────────────────────────
  * 探针只回原始读数，不下判断；判据在 suite 里，牙齿也复用同一批探针。
  * 每个探针自带导航与视口，跑完不依赖上一个探针留下的状态。
@@ -474,6 +564,33 @@ async function probeTablet(w = 768, h = 1024) {
   await tap(PARENT);
   const second = await readStable();
   return { vp, navDisplay, before, first, second };
+}
+/**
+ * 窄桌面档（600×900，mobile:false）：指针从头到尾停在那枚父项上，一次悬停、三次点按。
+ * 这条探针要抓的是"JS 的开关与 CSS 的 :hover 抢同一件事"：只要抽屉那一组还留着
+ * `:hover .nav-sub{display:block}`，指针压着的时候第二下点按就看不见效果——
+ * `.is-open` 摘了、焦点摘了，面板靠那枚 :hover 照样亮着，aria-expanded 却已经报 false。
+ * 修法不是在 :hover 上再加闸门（(hover:hover) 在这一格本来就是真，闸门等于没关），
+ * 而是这一档根本不把 :hover 当显示钩子。
+ */
+async function probeNarrowMouse(w = 600, h = 900) {
+  const vp = await enterNarrowPage(w, h);
+  await armCounter();
+  const before = await read();
+  const tg = await hit('.menu-toggle');
+  await clickAt(tg.x, tg.y);
+  const drawerDisplay = await evalJs('getComputedStyle(document.querySelector(".g-nav")).display');
+  const g = await hoverAt(PARENT);
+  const hovered = await readStable();
+  await clickAt(g.x, g.y);
+  const first = await readStable();
+  await clickAt(g.x, g.y);
+  const second = await readStable();
+  await clickAt(g.x, g.y);
+  const third = await readStable();
+  await hoverAway();
+  const away = await readStable();
+  return { vp, before, drawerDisplay, g, hovered, first, second, third, away };
 }
 /** 触屏抽屉：展开后点顶栏空白（不属于任何导航项的落点）。 */
 async function probeOutsideTap(w = 390, h = 844) {
@@ -607,18 +724,36 @@ async function probeGeometry(w, h) {
   await armCounter();
   await tap('.menu-toggle');
   const collapsed = (await read()).navH;
+  // 收起态的溢出账：抽屉自己是 `.g-nav` 上的滚动容器（max-height 见 editorial.scss），
+  // rect 高 = 被截之后的可视高，scrollHeight = 内容自然高。注释里那句"11 行全在折线内"
+  // 只有 `scrollHeight <= clientHeight` 才成立，光看 rect 高会被 max-height 骗过去。
+  const collapsedBox = await scrollBox();
   await tap(PARENT);
   const expanded = (await read()).navH;
+  const expandedBox = await scrollBox();
   // 行高必须在**展开态**量：pair 探针的收尾是收起态，那时 .nav-sub 是 display:none，
   // getBoundingClientRect 一律回 0×0——读起来像「落点行没了」，其实是量错了时机。
   const more = await box('.nav-sub-more');
   const child = await box('.nav-sub-link');
   const parentRow = await box(PARENT);
   const group = await box('.nav-sub-group');
-  // 「全部工具」行是触屏档里唯一还能进总览页的落点（父项现在是开关，不再跳转），
-  // 所以它得真的可聚焦、真的指向 tools.html——不然这次改口就少了一条出路。
-  // 只断言「可聚焦 + 指向」，不断言在不在视口内：375×667 展开态本来就比可视高长，
-  // 在不在视口是篇幅账那组的事，混在这里会让两组判据抢同一个失败原因。
+  // 不滚的时候这一行在不在抽屉的框内；不在就把抽屉滚到底，用命中测试证明它够得着。
+  // **必须排在下面那句 focus() 之前**：Chrome 的 focus 会把目标滚进视口，先 focus 再量
+  // 就等于自己把答案滚出来了——那一格读到的 "在框内=true" 是量具干的，不是页面给的。
+  const inFold = JSON.parse(await evalJs(`(() => {
+    const nav = document.querySelector('.g-nav');
+    const el = document.querySelector('.nav-sub-more');
+    if (!nav || !el) return JSON.stringify({ err: 'no-node' });
+    nav.scrollTop = 0;   // 上面 tap() 里的 scrollIntoView 可能已经滚过一格，先归零再量
+    const nr = nav.getBoundingClientRect(), mr = el.getBoundingClientRect();
+    return JSON.stringify({ scrollTop: Math.round(nav.scrollTop),
+      navTop: Math.round(nr.top), navBottom: Math.round(nr.bottom),
+      moreTop: Math.round(mr.top), moreBottom: Math.round(mr.bottom),
+      inside: mr.top >= nr.top - 1 && mr.bottom <= nr.bottom + 1 });
+  })()`));
+  // 「全部工具」行是触屏档里唯一还能进总览页的落点（父项现在是开关，不再跳转）。
+  // 只断言「可聚焦 + 指向」，不断言在不在视口内：在不在框内、滚一下能不能命中，
+  // 是上面 `inFold` 与下面 `reach` 两条的事，混在这里会让两组判据抢同一个失败原因。
   const moreLink = JSON.parse(await evalJs(`(() => {
     const el = document.querySelector('.nav-sub-more');
     if (!el) return JSON.stringify({ err: 'no-node' });
@@ -626,7 +761,28 @@ async function probeGeometry(w, h) {
     return JSON.stringify({ focused: document.activeElement === el, tag: el.tagName,
       href: el.getAttribute('href') || '', visibility: getComputedStyle(el).visibility });
   })()`));
-  return { w, h, collapsed, expanded, parentRow, more, child, group, moreLink };
+  const reach = await hit('.nav-sub-more').then((t) => ({ ok: true, ...t })).catch((e) => ({ ok: false, why: String(e.message).slice(0, 80) }));
+  const afterScroll = JSON.parse(await evalJs(`(() => {
+    const nav = document.querySelector('.g-nav');
+    const el = document.querySelector('.nav-sub-more');
+    const nr = nav.getBoundingClientRect(), mr = el.getBoundingClientRect();
+    return JSON.stringify({ scrollTop: Math.round(nav.scrollTop),
+      inside: mr.top >= nr.top - 1 && mr.bottom <= nr.bottom + 1 });
+  })()`));
+  // 溢出真正吃掉的是**面板之后**那三颗药丸（DOM 顺序见 _includes/header.html：search → shelf → git），
+  // 所以"落点行在框内"不等于"抽屉里没有东西要滚"。最后一颗是这条滚动路径的终点，够得着
+  // 才算这一档的展开态是可用的；够不着就是"有一截永远点不到"，那是这次篇幅账要还的债。
+  const lastPill = await hit('.g-nav .nav-git-btn').then((t) => ({ ok: true, ...t }))
+    .catch((e) => ({ ok: false, why: String(e.message).slice(0, 80) }));
+  const pillAfter = JSON.parse(await evalJs(`(() => {
+    const nav = document.querySelector('.g-nav');
+    const el = document.querySelector('.g-nav .nav-git-btn');
+    const nr = nav.getBoundingClientRect(), pr = el.getBoundingClientRect();
+    return JSON.stringify({ scrollTop: Math.round(nav.scrollTop), pillTop: Math.round(pr.top),
+      pillBottom: Math.round(pr.bottom), navBottom: Math.round(nr.bottom),
+      inside: pr.top >= nr.top - 1 && pr.bottom <= nr.bottom + 1 });
+  })()`));
+  return { w, h, collapsed, collapsedBox, expanded, expandedBox, parentRow, more, child, group, moreLink, inFold, reach, afterScroll, lastPill, pillAfter };
 }
 
 /* ───────────────────────────── 判据 ───────────────────────────── */
@@ -741,13 +897,65 @@ async function suiteGeometry() {
   for (const [w, h] of [[375, 667], [390, 844], [414, 896]]) {
     const g = await probeGeometry(w, h);
     const fold = h - HEADER_H;
-    mark(`篇幅账/${w}×${h} 收起态在折线内`, g.collapsed > 0 && g.collapsed <= fold,
-      `收起 ${g.collapsed}px / 展开 ${g.expanded}px / 抽屉可视高 ${fold}px`);
+    mark(`篇幅账/${w}×${h} 收起态在折线内`, g.collapsed > 0 && g.collapsed <= fold && g.collapsedBox.over <= 0,
+      `收起 ${g.collapsed}px / 展开 ${g.expanded}px / 抽屉可视高 ${fold}px；收起态内容 ${g.collapsedBox.scrollH}px ≤ 可视 ${g.collapsedBox.client}px（溢出 ${g.collapsedBox.over}px）`);
     mark(`篇幅账/${w}×${h} 落点行够按`, g.more.h >= 40 && g.child.h >= 40,
       `「全部工具」行 ${g.more.w}×${g.more.h}，子项行 ${g.child.w}×${g.child.h}，父项行 ${g.parentRow.w}×${g.parentRow.h}`);
     note(`篇幅账/${w}×${h} 分组标题`, `.nav-sub-group ${g.group && g.group.h}px（不是落点，只作对账参考）`);
     mark(`篇幅账/${w}×${h} 「全部工具」行可达`, g.moreLink.focused === true && /tools\.html$/.test(g.moreLink.href) && g.moreLink.visibility === 'visible',
       `activeElement=${g.moreLink.focused} tag=${g.moreLink.tag} href=${g.moreLink.href} visibility=${g.moreLink.visibility}`);
+    // 溢出本身不算红——这是"落点行唯一、必须在"与"抽屉不许顶穿折线"两条之间留下的那一格。
+    // 红的是**说不清**：溢出了就必须自己滚得到（命中测试过），没溢出就不许假装量到了滚。
+    const eb = g.expandedBox;
+    mark(`篇幅账/${w}×${h} 展开态自己滚、不顶穿折线`,
+      !!eb && eb.rect > 0 && eb.scrollH >= eb.client && eb.client <= fold + 1,
+      `展开内容自然高 ${eb.scrollH}px，抽屉可视 ${eb.client}px（rect ${eb.rect}px），溢出 ${eb.over}px；折线 ${fold}px`);
+    mark(`篇幅账/${w}×${h} 落点行要么不滚、要么滚得到`,
+      g.inFold.inside === true || (eb.over > 0 && g.reach.ok === true && g.afterScroll.inside === true),
+      `不滚时「全部工具」行 ${g.inFold.moreTop}~${g.inFold.moreBottom}、抽屉框 ${g.inFold.navTop}~${g.inFold.navBottom} → 在框内=${g.inFold.inside}；`
+      + `scrollTop ${g.inFold.scrollTop}→${g.afterScroll.scrollTop}（命中测试前的 scrollIntoView 把落点行滚进框），滚完在框内=${g.afterScroll.inside}，命中=${g.reach.ok ? g.reach.hit : `失败：${g.reach.why}`}`);
+    // 「滚到底」不是形容词：最末那颗药丸是这条滚动路径的终点，把它滚进框就等于滚到 max scrollTop，
+    // 所以要求 scrollTop 恰好等于上面那本账的溢出数——不相等就是没真滚到底，后面的在框内=true 是半路的读数。
+    mark(`篇幅账/${w}×${h} 滚到底时最末一颗药丸可命中`,
+      g.lastPill.ok === true && g.pillAfter.inside === true && g.pillAfter.scrollTop === eb.over,
+      `.nav-git-btn ${g.pillAfter.pillTop}~${g.pillAfter.pillBottom}（抽屉底 ${g.pillAfter.navBottom}）在框内=${g.pillAfter.inside}，`
+      + `scrollTop ${g.pillAfter.scrollTop}（溢出 ${eb.over}px，到底= ${g.pillAfter.scrollTop === eb.over}），命中=${g.lastPill.ok ? g.lastPill.hit : `失败：${g.lastPill.why}`}`);
+  }
+}
+/**
+ * 窄桌面档（≤695 且 (hover:hover)）：这一档的显示只许由 `.is-open` 与 `:focus-within`
+ * 决定，悬停不许擅自把面板顶起来，箭头也不许在面板收起时指着上。
+ * 前六组钉的是 mobile:true（(hover:none)，抽屉那一组关不到这条路径）与 1280（>695，
+ * 抽屉那一组压根没参与），两边都盖不住这一格。
+ */
+async function suiteNarrow() {
+  const tag = '窄桌面600×900';
+  console.log(`\n【${tag}：(hover:hover) 与开关制的交叉格】`);
+  const n = await probeNarrowMouse();
+  mark(`${tag}/1 这一格真的同时满足两个前提`, n.vp.w === 600 && n.vp.none === false && n.vp.fine === true && n.vp.t === 0,
+    `innerWidth=${n.vp.w} (hover:none)=${n.vp.none} (hover:hover)=${n.vp.fine} maxTouchPoints=${n.vp.t}`);
+  mark(`${tag}/2 抽屉开得了`, n.drawerDisplay !== 'none', `汉堡那一下之后 .g-nav display=${n.drawerDisplay}`);
+  mark(`${tag}/3 悬停不擅自展开面板`,
+    n.hovered.display === 'none' && n.hovered.subH === 0 && n.hovered.isOpen === false && n.hovered.aria === 'false',
+    `悬停时 display=${n.hovered.display} 面板高=${n.hovered.subH} is-open=${n.hovered.isOpen} aria-expanded=${n.hovered.aria}（指针在 ${n.g.x},${n.g.y}）`);
+  mark(`${tag}/4 悬停也不擅自扳箭头`,
+    n.hovered.caret === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(n.hovered.caret),
+    `transform=${n.hovered.caret}（面板没开、箭头先转＝"看着像开着"，与这次改口要修的是同一类错觉）`);
+  mark(`${tag}/5 第一下展开、不跳转`,
+    n.first.isOpen && n.first.display === 'block' && n.first.subH > 80 && n.first.path === n.before.path,
+    `is-open=${n.first.isOpen} display=${n.first.display} 面板高=${n.first.subH} ${n.before.path} → ${n.first.path}`);
+  mark(`${tag}/6 第二下真的收起（指针还压在行上）`,
+    !n.second.isOpen && n.second.display === 'none' && n.second.subH === 0 && n.second.aria === 'false' && n.second.path === n.before.path,
+    `is-open=${n.second.isOpen} display=${n.second.display} 面板高=${n.second.subH} aria-expanded=${n.second.aria} URL=${n.second.path}`);
+  mark(`${tag}/7 收起的不是焦点、也不是悬停留下的那口气`, n.second.focused === false,
+    `activeElement=${n.second.activeTag}`);
+  mark(`${tag}/8 展开之后指针移开仍保持展开（.is-open 在管事）`,
+    n.away.isOpen && n.away.display === 'block' && n.away.subH > 80,
+    `第三下展开=${n.third.display} 指针移开后 display=${n.away.display} 面板高=${n.away.subH}`);
+  for (const a of NEGATIVE_ANCHORS) {
+    const found = a.re.exec(a.text);
+    mark(`${tag}/9 ${a.what}`, !found,
+      found ? `产物字节 ${found.index}：${found[0]}（CSS 的 :hover 是 JS 摘不掉的，这一档留着它，第 6 条就永远不可能绿）` : '产物里没有这条规则');
   }
 }
 
@@ -755,6 +963,12 @@ async function suiteGeometry() {
  * 每处变异写的是**产物里的形状**（压缩器改过名），并指名要哪个探针的哪条预期翻转。
  * 变异没命中 → 响应 500 → 探针拿到的是一份没有编辑脚本的页面，几乎必然翻转，
  * 所以那一格另外看 mutateMiss：命中数为 0 直接判红，不给「什么都没改却全绿」留余地。
+ *
+ * 翻转还必须是"因为这条判据而翻转"：变异轮里页面抛异常（`crashed`）直接判红。
+ * 这一格自己也被验过一次（2026-09-29）：把第 1 处变异临时换成 `!i&&__nope()&&0`
+ * ——只在收起那一支抛 ReferenceError，面板因此永远不收起，`flipped` 是真的 true，
+ * 报出来的却是「✗ 变异轮里页面抛了 1 条异常，翻的是脚本炸了不是判据」，整轮退 1。
+ * 量具的两条失败方向到这里都关上了：不翻转＝没牙，翻转但抛异常＝假牙。
  * ─────────────────────────────────────────────────────────────── */
 const MUTATIONS = [
   {
@@ -772,10 +986,15 @@ const MUTATIONS = [
      * 产物里是 `&&t(n)){var i=!r.classList.contains("is-open");`——`t(n)` 的右括号与
      * `if(` 的右括号是两枚，正则必须写 `\)\)\{`。少一层就静默不命中，
      * 而「不命中」在这一格里长得和「变异成功但没影响」一模一样。
+     * 那枚 `r` 也必须进捕获组：写死成字面量 `r` 的话，压缩器哪天把它改成 `o`，
+     * 正则照样命中（`hits>0`），换出来的却是一个没定义的标识符——点父项那一下抛
+     * ReferenceError，跳转"于是真的发生了"，这一格报绿，量到的却是脚本炸了。
+     * 现在两头堵：改名要么整条不命中（报「变异串没命中」），要么命中但抛异常
+     * （下面的 crashed 报红）。
      */
     apply: (j) => j.replace(
-      /&&t\((\w)\)\)\{var (\w)=!\w\.classList\.contains\("is-open"\);/,
-      '&&t($1)&&!r.classList.contains("is-open")){var $2=!0;',
+      /&&t\(([\w$]+)\)\)\{var ([\w$]+=!)([\w$]+)\.classList\.contains\("is-open"\);/,
+      '&&t($1)&&!$3.classList.contains("is-open")){var $2$3.classList.contains("is-open");',
     ),
     expect: '二点跳了页或面板没收起',
     test: (p) => p.second.path !== p.before.path || p.first.path !== p.before.path,
@@ -800,16 +1019,34 @@ const MUTATIONS = [
     test: (d) => d.after.path === d.before.path,
   },
   {
-    name: '把抽屉里那条 :hover 显示钩子从 (hover:hover) 放出来',
+    name: '往抽屉那一组塞回一条不带闸门的 :hover 显示钩子',
     layer: 'css',
-    probe: 'pair',
-    /** 放出来之后，触屏点完留下的粘 hover 会替用户"保持展开"：第二下摘掉了 .is-open，面板照旧亮着。 */
+    probe: 'narrow',
+    /**
+     * 这一档的 :hover 已从"加闸门"改成"压根不写"（原因见 editorial.scss ≤695 那段），
+     * 所以牙齿也跟着换：旧那条「把闸门放开」在这一档已经没有靶子可打。
+     * 换法是把 `:hover` 插回那两条显示钩子的选择器列表最前面——只加一段选择器，
+     * 花括号一枚不动，CSS 解析错伪装不成判据翻转。
+     * 塞回去之后指针压在行上时面板由 :hover 常亮，「窄桌面/3 悬停不擅自展开」必须红。
+     */
     apply: (c) => c.replace(
-      '@media screen and (max-width:695px)and (hover:hover){.g-header .nav-item.has-sub:hover .nav-sub{display:block',
-      '@media screen and (max-width:695px){.g-header .nav-item.has-sub:hover .nav-sub{display:block',
+      '.g-header .nav-item.has-sub:focus-within .nav-sub,.g-header .nav-item.has-sub.is-open .nav-sub{display:block',
+      '.g-header .nav-item.has-sub:hover .nav-sub,.g-header .nav-item.has-sub:focus-within .nav-sub,.g-header .nav-item.has-sub.is-open .nav-sub{display:block',
     ),
-    expect: '二点后面板还亮着（粘 hover 顶上来了）',
-    test: (p) => p.second.display !== 'none' || p.second.subH > 0,
+    expect: '悬停就把面板顶开（display=block、is-open 却还是 false）',
+    test: (n) => n.hovered.display === 'block' || n.hovered.subH > 0,
+  },
+  {
+    name: '把抽屉里那条箭头 :hover 扳转塞回来',
+    layer: 'css',
+    probe: 'narrow',
+    /** 面板不跟 :hover 开、箭头却先转＝"看着像开着"。这一档的朝向只许跟 .is-open 与 :focus-within。 */
+    apply: (c) => c.replace(
+      '.g-header .nav-item.has-sub:hover .nav-caret{-webkit-transform:none;transform:none}',
+      '.g-header .nav-item.has-sub:hover .nav-caret{-webkit-transform:rotate(180deg);transform:rotate(180deg)}',
+    ),
+    expect: '悬停时箭头朝上（面板还收着）',
+    test: (n) => /matrix\(-1/.test(n.hovered.caret),
   },
   {
     name: '把「全部工具」行的触屏内边距退回桌面的 9px/5px',
@@ -818,6 +1055,20 @@ const MUTATIONS = [
     apply: (c) => c.replace('.g-header .nav-sub .nav-sub-more{padding:13px 10px;', '.g-header .nav-sub .nav-sub-more{padding:9px 10px 5px;'),
     expect: '落点行高掉回 40px 以下',
     test: (g) => g.more.h < 40,
+  },
+  {
+    name: '让抽屉不再自己滚（overflow-y 改回 visible）',
+    layer: 'css',
+    probe: 'geometry',
+    /**
+     * 这一处盯的是"溢出之后到底够不够得着"那条，不是行高。抽屉是 `.g-header` 里的
+     * fixed 头部之一：容器不再滚动时，超出折线的那几行不会随文档滚动位移——
+     * 旧那段篇幅账记的就是这个坑（"滚不到的那几行同时是点不到的"）。
+     * 换法只动一枚关键字，`max-height` 与花括号一律不碰，解析错误伪装不成翻转。
+     */
+    apply: (c) => c.replace('max-height:calc(100svh - 56px);overflow-y:auto', 'max-height:calc(100svh - 56px);overflow-y:visible'),
+    expect: '最末一颗药丸滚不到（命中测试失败或落点掉在框外）',
+    test: (g) => g.lastPill.ok === false || g.pillAfter.inside === false,
   },
   {
     name: '把横排档那条 :hover 显示钩子从 (hover:hover) 放出来',
@@ -834,23 +1085,29 @@ const MUTATIONS = [
   {
     name: '把箭头那条 :hover 钩子从 (hover:hover) 放出来',
     layer: 'css',
-    probe: 'pair',
-    /** 面板收起、箭头还朝上＝「看着像还开着」，与这次改口要修的是同一类错觉，所以给它单独的牙齿。
-     *  两处换法都只把 `(hover:hover)` 换成 `all`，条件块的左右花括号原样留着——
-     *  整段删掉前缀会在产物里剩一枚孤立的 `}`，那一轮翻的是「CSS 解析报错」，不是这条判据要看的形状。 */
+    probe: 'tablet',
+    /**
+     * 面板收起、箭头还朝上＝「看着像还开着」，与这次改口要修的是同一类错觉，所以给它单独的牙齿。
+     * 两处换法都只把 `(hover:hover)` 换成 `all`，条件块的左右花括号原样留着——
+     * 整段删掉前缀会在产物里剩一枚孤立的 `}`，那一轮翻的是「CSS 解析报错」，不是这条判据要看的形状。
+     * 探针从 `pair` 搬到 `tablet`：≤695 那一档现在自己写了一条 `:hover .nav-caret{transform:none}`
+     * 归零（见抽屉那组的源序账），桌面这条闸门被改回去也进不了抽屉——它在 >695 且无 hover
+     * 的平板档才有看得见的后果，那里读的是「平板 第 6 条」。
+     */
     apply: (c) => c.replace(
       '@media(hover:hover){.g-header .nav-item.has-sub:hover .nav-caret{',
       '@media all{.g-header .nav-item.has-sub:hover .nav-caret{',
     ),
-    expect: '二点收起后箭头仍 rotate(180deg)',
+    expect: '平板二点收起后箭头仍 rotate(180deg)',
     test: (p) => /matrix\(-1/.test(p.second.caret),
   },
 ];
 
 async function teeth() {
-  console.log(`\n【牙齿：${MUTATIONS.length} 处变异必须各自点名点燃】`);
+  console.log(`\n【牙齿：${MUTATIONS.length} 处变异必须各自点燃，且只许点它自己那一格】`);
   for (const mut of MUTATIONS) {
     const missesBefore = mutateMiss;
+    mutErrors.length = 0;
     let hits = 0;
     const rewrite = (src) => {
       const out = mut.apply(src);
@@ -865,17 +1122,23 @@ async function teeth() {
     try {
       const raw = mut.probe === 'pair' ? await probeTapPair()
         : mut.probe === 'modifiers' ? await probeModifiers()
-          : mut.probe === 'desktop' ? await probeDesktop()
-            : mut.probe === 'tablet' ? await probeTablet()
-              : mut.probe === 'geometry' ? await probeGeometry(375, 667) : await probeKeyboard();
+          : mut.probe === 'narrow' ? await probeNarrowMouse()
+            : mut.probe === 'desktop' ? await probeDesktop()
+              : mut.probe === 'tablet' ? await probeTablet()
+                : mut.probe === 'geometry' ? await probeGeometry(375, 667) : await probeKeyboard();
       flipped = mut.test(raw);
     } catch (e) { err = String((e && e.message) || e).slice(0, 90); }
+    MUTATING = false;
     JS_MUTATE = null;
     CSS_MUTATE = null;
-    MUTATING = false;
     const missed = mutateMiss > missesBefore;
-    mark(`牙齿/${mut.name}`, !missed && hits > 0 && flipped,
-      hits ? `${mut.layer === 'css' ? '样式' : '脚本'}响应改写命中 ${hits} 次，预期翻转=${flipped}（要看见的是：${mut.expect}）${err ? ` 探针抛错：${err}` : ''}`
+    // 变异轮里页面自己抛了异常：这一格翻的是"脚本坏了"而不是"这条判据有牙"，判红。
+    // 只在命中（`!missed`）的前提下判——500 那一轮本来就发不出脚本，抛错是命中失败的果。
+    const crashed = !missed && mutErrors.length > 0;
+    mark(`牙齿/${mut.name}`, !missed && hits > 0 && flipped && !crashed,
+      hits ? `${mut.layer === 'css' ? '样式' : '脚本'}响应改写命中 ${hits} 次，预期翻转=${flipped}（要看见的是：${mut.expect}）`
+        + `${crashed ? ` ✗ 变异轮里页面抛了 ${mutErrors.length} 条异常，翻的是脚本炸了不是判据：${mutErrors[0]}` : ''}`
+        + `${err ? ` 探针抛错：${err}` : ''}`
         : `变异串没在产物里命中——这一格等于没测`);
   }
 }
@@ -890,6 +1153,7 @@ await suiteModifiers();
 await suiteTablet();
 await suiteDesktop();
 await suiteKeyboard();
+await suiteNarrow();
 await suiteGeometry();
 await teeth();
 
