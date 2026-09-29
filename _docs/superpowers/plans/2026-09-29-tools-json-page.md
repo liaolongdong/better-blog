@@ -448,6 +448,1033 @@ test('U5 它不是 npm 依赖：package.json 与 pnpm-lock.yaml 里 js-yaml 出�
       + `要同时删掉 U1–U4 与内置件本体，并改 THIRD-PARTY-NOTICES.md 那一行的判据口径，不许两套并存`);
   }
 });
+
+// §U 续（Task 4 落地三对互转）：这一族钉的是"站在内置件上面写出去的三对转换"。
+//   上面 U1–U5 钉的是"仓库里躺着的那一本上游件"，两族各有各的盯法，不重名也不重口径。
+//   方向不对称，判据也得分开写：
+//     · JSON → X 是**本站写出去**的东西，形状按逐字相等来断（缩进、引号、换行、结尾），
+//       因为它要给人复制走、贴进别人的文件里；
+//     · X → JSON 是**别人写来的**东西，只能立一个"无损子集"：子集内逐字往返，子集外点名拒绝，
+//       绝不"尽力而为"地把读不懂的东西猜成某个值（设计文档 §5.4「给依据不给黑箱」）。
+//   YAML 那一族读侧用的 schema 是 YAML11 而不是默认的 CORE：CORE 连 `!!binary` 都不认
+//   （实测抛 unknown scalar tag），而 §0.6 承诺了"binary → base64 串、Date → ISO 串"两条，
+//   只有 YAML11 给得出这两个类型。价钱是 YAML 1.1 那族历史包袱会真的生效：`yes/no/y/n/on/off`
+//   是布尔、`0755` 是八进制、`2024-01-01` 是日期、连键位上单个 `y` 也是布尔。写侧全部靠引号挡住
+//   （dump 自己会加，U7 逐字钉住），读侧挡不住的那几档由 U8 逐条点名、并由 YAML_NOTES 如实告诉用户。
+//   深度那一格是**实测出来的数**：内置件的读侧自己带一道嵌套闸门，2026-09-29 在它上面二分得到
+//   98 层（第 99 层抛 nesting exceeded maxDepth (100)；报错里那个 100 是它自己的内部计数器，
+//   与"用户能嵌套几层"差 2，所以判据钉实测的 98，不钉消息里的 100）。写侧用同一个数，理由只有一条：
+//   **写出去就必须读得回来**。它比 §7 的深样本（200 层）窄，所以 roundTrips().yaml 在那一档会给
+//   false，面板照实显示，不假装能转。
+//   XML 只支持本站自己写的那个子集：`t` 属性标类型、数组元素一律 `<item>`、空白不 trim；
+//   命名空间、DOCTYPE、外部实体、非预定义实体一律拒（U12 逐条）。
+//   CSV 按 RFC 4180 补三处（引号转义、内嵌换行、CRLF），读回来一律是字符串——它没有类型可保
+//   （CSV_NOTES 那一格就是这句）。
+const U_MOD = await import('../dev/js/tools/json-convert.js');
+const { YAML_LIB, YAML_NOTES, YAML_DEPTH_LIMIT, XML_CONVENTION, CSV_NOTES,
+  jsonToYaml, yamlToJson, jsonToXml, xmlToJson, jsonToCsv, csvToJson, roundTrips } = U_MOD;
+// 这一族要自己算"闸门那一档该报哪一格"，所以借 core 的五件：`locate` 与 `lineRange` 用来对账
+// （error 里的行列必须由 index 推得出来，两套数字不许各说各话；snippet 必须是那一行、不含 `\r`），
+// `gate` 用来对消息原话。别名是必须的——
+// `MAX_INPUT_BYTES` 这一格在 §L 已经被 codec.js 的 1 MiB 占了顶层名。
+const { MAX_INPUT_BYTES: U_JSON_BYTES, MAX_INPUT_LINES: U_LINES, MAX_DEPTH: U_MAX_DEPTH,
+  gate: uGate, locate: uLocate, lineRange: uLineRange } = await import('../dev/js/tools/json-core.js');
+
+/** 剥注释扫源码：与 §S/§T 同形，扫的是代码不是注释里的自我声明 */
+const uCode = () => read('dev/js/tools/json-convert.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 写侧成功：失败就让测试红在"实读了什么"上，不红在一句 undefined 上 */
+const uWrite = (r, what = '写侧') => {
+  if (!r.ok) throw new Error(`${what}应当成功，实读 error=${JSON.stringify(r.error)}`);
+  return r.text;
+};
+const uWriteErr = (r, what = '写侧') => {
+  if (r.ok) throw new Error(`${what}应当被拒，却成功产出 ${JSON.stringify(r.text).slice(0, 70)}`);
+  return r.error;
+};
+const uRead = (r, what = '读侧') => {
+  if (!r.ok) throw new Error(`${what}应当成功，实读 error=${JSON.stringify(r.error)}`);
+  return r.value;
+};
+const uReadErr = (r, what = '读侧') => {
+  if (r.ok) throw new Error(`${what}应当被拒，却解析成 ${JSON.stringify(r.value).slice(0, 70)}`);
+  return r.error;
+};
+/** 只挂 own 键的原型污染样本：`o.__proto__ = v` 改的是原型，必须 defineProperty 才落成真属性 */
+const uWithProtoKey = (value) => {
+  const o = { b: 2 };
+  Object.defineProperty(o, '__proto__', { value, enumerable: true, writable: true, configurable: true });
+  return o;
+};
+/** 造 n 层嵌套数组（U6 与 U8 的两档深度样本都用它，别再各写一遍循环） */
+const uDeep = (n) => { let v = 1; for (let i = 0; i < n; i++) v = [v]; return v; };
+/** U+FEFF：CSV（U15、U16）与 XML（U12、U13）两族都要它，字面量里不写转义，一律 chr 造 */
+const U_BOM = String.fromCharCode(0xfeff);
+/** 深相等（走 assert 的严格口径：-0 与 +0 是两格，NaN 自等）；U17 的"手工往返"用它 */
+const uEq = (a, b) => {
+  try { assert.deepStrictEqual(a, b); return true; } catch { return false; }
+};
+/** 一趟往返：写侧不抛且 ok、读侧 ok、回来与原值深相等——roundTrips 的定义就是这三件事 */
+const uRound = (value, write, read) => {
+  const w = write(value);
+  if (w.ok !== true) return false;
+  const r = read(w.text);
+  return r.ok === true && uEq(r.value, value);
+};
+
+test('U6 JSON→YAML→JSON 逐值原样：本站写出去的东西一定读得回来', () => {
+  const U6_SAMPLES = [
+    ['空对象', {}],
+    ['空数组', []],
+    ['纯标量数组', [1, 'a', true, null]],
+    ['两层对象', { a: 1, b: 'x' }],
+    ['深嵌套', { a: { b: { c: { d: 'deep' } } } }],
+    ['数组里套对象', { arr: [{ k: 1 }, { k: 2 }], n: null }],
+    ['空键名', { '': 'x', b: 2 }],
+    ['中文键值', { 中文: '值', 键: { 内: [1, 2] } }],
+    ['引号与撇号', { s: 'a"b\'c', t: 'it\'s' }],
+    ['多行串', { m: '第一行\n第二行\n' }],
+    ['制表与前空格', { tab: 'a\tb', lead: ' x ' }],
+    ['数字族', { n: [0, -0.5, 1e21, -1e-7, 3.14159, 9007199254740991] }],
+    ['歧义串全族', {
+      yes: 'yes', no: 'no', on: 'On', y: 'y', n: 'n', nul: 'null', tilde: '~',
+      inf: '.inf', nan: '.nan', oct: '0755', hex: '0x10', date: '2024-01-01', exp: '1e5', bool: 'true',
+    }],
+    ['YAML 指示符起始', {
+      bang: '!x', hash: '#c', amp: '&a', star: '*a', at: '@x', pct: '%x', pipe: '|x',
+      gt: '>', dash: '-', plus: '+', qm: '?', colon: 'a: b', comma: 'a,b',
+    }],
+    ['长串', { long: 'x'.repeat(500) }],
+    ['__proto__ 是真属性', uWithProtoKey('x')],
+    ['嵌套到闸门那一层', uDeep(YAML_DEPTH_LIMIT)],
+  ];
+  for (const [label, v] of U6_SAMPLES) {
+    const text = uWrite(jsonToYaml(v), label);
+    assert.ok(text.endsWith('\n'), `${label}：YAML 文本必须以换行结尾——复制框里少这一个换行，黏上来的就是下一行`);
+    assert.equal(text, uWrite(jsonToYaml(v), label), `${label}：同一份输入两次产出逐字相同（不许有随机键序或时间戳）`);
+    // deepStrictEqual 而不是 deepEqual：后者把 -0 与 0、null 与 undefined 判等，正是"原样回来"不能容忍的
+    assert.deepStrictEqual(uRead(yamlToJson(text), label), v, `${label}：往返改了值`);
+  }
+});
+
+test('U7 歧义值写侧必须带引号——值位与键位各一档，负零单列', () => {
+  const U7_VALUE = [
+    [{ a: 'yes' }, 'a: \'yes\'\n'], [{ a: 'no' }, 'a: \'no\'\n'], [{ a: 'On' }, 'a: \'On\'\n'],
+    [{ a: 'y' }, 'a: \'y\'\n'], [{ a: 'n' }, 'a: \'n\'\n'], [{ a: 'true' }, 'a: \'true\'\n'],
+    [{ a: 'null' }, 'a: \'null\'\n'], [{ a: '~' }, 'a: \'~\'\n'], [{ a: '.inf' }, 'a: \'.inf\'\n'],
+    [{ a: '0755' }, 'a: \'0755\'\n'], [{ a: '0x10' }, 'a: \'0x10\'\n'], [{ a: '1e5' }, 'a: \'1e5\'\n'],
+    [{ a: '2024-01-01' }, 'a: \'2024-01-01\'\n'],
+    [{ a: '2024-01-01T00:00:00.000Z' }, 'a: \'2024-01-01T00:00:00.000Z\'\n'],
+  ];
+  const U7_KEY = [
+    [{ y: 1 }, '\'y\': 1\n'], [{ n: 1 }, '\'n\': 1\n'], [{ '0755': 5 }, '\'0755\': 5\n'],
+    [{ null: 7 }, '\'null\': 7\n'], [{ '~': 8 }, '\'~\': 8\n'], [{ true: 9 }, '\'true\': 9\n'],
+    [{ '1e5': 10 }, '\'1e5\': 10\n'], [{ '2024-01-01': 11 }, '\'2024-01-01\': 11\n'],
+  ];
+  for (const [v, want] of U7_VALUE) assert.equal(uWrite(jsonToYaml(v), JSON.stringify(v)), want);
+  for (const [v, want] of U7_KEY) assert.equal(uWrite(jsonToYaml(v), JSON.stringify(v)), want);
+  // 负零那一档：JSON 文本里根本没有 -0（`JSON.stringify(-0) === '0'`），面板走不到这里。
+  // 钉它不是为用户体验，是为了"实现别自创第二种写法"——比如先把值过一遍 JSON 再 dump，
+  // 那样 -0 会静默变成 0，而 U6 那张表里没有任何一格能抓到这一条。
+  assert.equal(uWrite(jsonToYaml({ a: -0 }), '负零'), 'a: -0.0\n');
+  // 2026-09-29 实测：YAML11 的 float 记号走的是 `Number('-0.0')`，回来的**还是 -0**——
+  // 这一档在 YAML 与 XML 两族都保得住，只有 CSV 保不住（它连类型都没有，见 U17 那一格）。
+  // 钉成"实测如此"而不是"YAML 大概不行"：换内置件版本时这一格会红，逼人来重审。
+  assert.equal(Object.is(uRead(yamlToJson('a: -0.0\n')).a, -0), true,
+    'dump 写 -0.0、读侧给回 -0：roundTrips({a:-0}).yaml 那个 ✓ 靠的就是这一格');
+});
+
+test('U8 写侧的归一与拒、读侧的 YAML 1.1 包袱：每一档都得点名', () => {
+  // ── 写侧归一：两种"JSON 里没有、JS 里常见"的值各自变成一个字符串 ──
+  // 先变成串再交给 dump，而不是让 dump 写 `!!binary` / 裸时间戳：本站交出去的 YAML 必须与
+  // 交进来的 JSON 同形（别人拿别的 yaml→json 工具转一圈，还得是同一份数据）。
+  assert.equal(uWrite(jsonToYaml({ a: new Date('2024-06-01T08:30:00+08:00') }), '日期'),
+    'a: \'2024-06-01T00:30:00.000Z\'\n', 'Date 走 UTC 的 ISO 串，+08:00 那一档必须折进 00:30Z');
+  assert.equal(uWrite(jsonToYaml([new Date('2024-01-01T00:00:00Z')]), '数组里的日期'),
+    '- \'2024-01-01T00:00:00.000Z\'\n');
+  assert.equal(uWrite(jsonToYaml({ a: new Uint8Array([104, 105]) }), '两字节'), 'a: aGk=\n');
+  assert.equal(uWrite(jsonToYaml({ a: new Uint8Array([0, 1, 2]) }), '三字节'), 'a: AAEC\n');
+  assert.equal(uWrite(jsonToYaml({ a: new Uint8Array(0) }), '零字节'), 'a: \'\'\n',
+    '空字节串编码成空字符串——写成 `a:` 会被读成 null，那是第二种值');
+
+  // ── 写侧拒：JSON 里装不下的东西，逐个点名并给出 Pointer ──
+  const U8_REJECT = [
+    ['undefined 在根', undefined, ''],
+    ['函数在根', () => {}, ''],
+    ['Symbol 在根', Symbol('s'), ''],
+    ['BigInt 在根', 10n, ''],
+    ['NaN 在根', NaN, ''],
+    ['+Infinity 在根', Infinity, ''],
+    ['-Infinity 在根', -Infinity, ''],
+    ['Map 在根', new Map([['k', 1]]), ''],
+    ['undefined 在键位', { a: undefined }, '/a'],
+    ['函数在数组里', { a: [() => {}] }, '/a/0'],
+    ['NaN 在键位', { a: NaN }, '/a'],
+    ['BigInt 在数组里', [10n], '/0'],
+    ['-Infinity 在第二个元素', [null, -Infinity], '/1'],
+    ['Infinity 在三层里', { a: { b: { c: Infinity } } }, '/a/b/c'],
+    ['Map 在键位', { a: new Map() }, '/a'],
+    ['Set 在键位', { a: new Set() }, '/a'],
+    ['非 Uint8Array 的 typed array', { a: new Int16Array([1]) }, '/a'],
+    ['带原型的类实例', { a: new (class Thing { constructor() { this.k = 1; } })() }, '/a'],
+    // 这一族站得住的理由与上面不同：面板喂给这三个写函数的值一律来自 parseJson，那里头没有 getter
+    // 与 Proxy——但 json-convert.js 是**模块的公开面**，别人拿它接别的数据源（DOM 属性、类实例的
+    // 快照）就会撞上"读这一格时它自己抛了"。约束是"绝不抛给调用方"，所以这一族也必须在闸门里落地。
+    ['抛异常的 getter', { get a() { throw new Error('boom'); } }, '/a'],
+    ['读 trap 抛的 Proxy', new Proxy({ a: 1 }, {
+      get() { throw new Error('nope'); },
+      ownKeys() { return ['a']; },
+      getOwnPropertyDescriptor() { return { enumerable: true, configurable: true }; },
+    }), '/a'],
+  ];
+  for (const [label, v, path] of U8_REJECT) {
+    const e = uWriteErr(jsonToYaml(v), label);
+    assert.equal(e.kind, 'non-json', `${label} 的 kind 应当是 non-json，实读 ${e.kind}`);
+    assert.equal(e.path, path, `${label} 的 Pointer 应当是 ${JSON.stringify(path)}，实读 ${JSON.stringify(e.path)}`);
+    assert.match(e.message, /JSON/, `${label} 的消息要点名"JSON 里装不下"这件事`);
+  }
+  // 同一个理由，三个写函数一个都不许漏：面板上 YAML/XML/CSV 三格并排站着，任何一格把异常抛到
+  // 调用方外面，就是把整块面板打成一次未捕获异常（"绝不抛"这条约束见本节开头）。
+  // 上面那一族只用 jsonToYaml 走过一遍——它对这三格是同一道闸门（scanJson），所以这里补另两个。
+  for (const [label, v] of U8_REJECT.slice(-2)) {
+    for (const [name, fn] of [['jsonToXml', jsonToXml], ['jsonToCsv', jsonToCsv]]) {
+      let r;
+      try { r = fn(v); } catch (err) { throw new Error(`${name} 对 ${label} 抛了：${err.message}`); }
+      assert.equal(r.ok, false, `${name} 对 ${label} 必须交回 error，实读 ${JSON.stringify(r)}`);
+      assert.equal(r.error.kind, 'non-json', `${name} 对 ${label} 的 kind 实读 ${r.error.kind}`);
+      assert.equal(r.error.path, '/a', `${name} 对 ${label} 的 Pointer 实读 ${r.error.path}`);
+    }
+  }
+  // dump 遇到 undefined 键是**静默丢键**（实测 `dump({v:undefined})` → `'{}\n'`），函数/BigInt/Symbol 才抛。
+  // 上面那一族全在 dump 之前拦住，这一格留着只为说清"不拦会是什么样"：键无声消失，用户看不出来。
+  assert.equal(uWrite(jsonToYaml({ a: 1 }), '对照'), 'a: 1\n');
+
+  // ── 写侧拒：环。判据只用"祖先栈"，不用全局 seen ──
+  // 同一个对象被两个键引用（DAG）在 JSON 里就是两份拷贝，`JSON.stringify` 也照样写两份，
+  // 那是**正确行为**不是坑；只有回到祖先自己的环才必须拒。用 seen 判环会把前者一起拒掉。
+  const cyc = { a: 1 }; cyc.self = cyc;
+  const e1 = uWriteErr(jsonToYaml(cyc), '对象环');
+  assert.equal(e1.kind, 'cycle'); assert.equal(e1.path, '/self');
+  const arr = [1]; arr.push(arr);
+  const e2 = uWriteErr(jsonToYaml(arr), '数组环');
+  assert.equal(e2.kind, 'cycle'); assert.equal(e2.path, '/1');
+  const shared = { k: 1 };
+  // 实测的键位引号（`'y':`）不是多余的：本站读侧用的是 YAML11，那里 `y` 是布尔——写出去不带引号，
+  // 读回来就成了 `{true: {k:1}}`。dump 自己会挡这一族（U7 键位那一表钉的就是它），这里顺手把 DAG 钉全。
+  assert.equal(uWrite(jsonToYaml({ x: shared, y: shared }), '共享但不成环'), 'x:\n  k: 1\n\'y\':\n  k: 1\n',
+    'DAG 写两份：与 JSON.stringify 同形，不许把它当环拒');
+
+  // ── 写侧拒：深度。U6 那格放行 98 层，这一格拒 99 层，两个数必须一起出现在消息里 ──
+  const deep = uWriteErr(jsonToYaml(uDeep(YAML_DEPTH_LIMIT + 1)), '深一层');
+  assert.equal(deep.kind, 'depth');
+  assert.equal(deep.path.split('/').length - 1, YAML_DEPTH_LIMIT,
+    `越界那一格的 Pointer 应当正好 ${YAML_DEPTH_LIMIT} 段（它就是被拒的那个节点），实读 ${deep.path}`);
+  assert.match(deep.message, new RegExp(String(YAML_DEPTH_LIMIT + 1)), '消息要点名当前深度');
+  assert.match(deep.message, new RegExp(String(YAML_DEPTH_LIMIT)), '消息要点名上限');
+  assert.equal(jsonToYaml({ a: uDeep(YAML_DEPTH_LIMIT - 1) }).ok, true,
+    '根对象 + 97 层数组 = 98 层容器，放行');
+  assert.equal(jsonToYaml({ a: uDeep(YAML_DEPTH_LIMIT) }).error.kind, 'depth',
+    '层数只数容器，不数它外面那个根：99 层就得拒');
+
+  // ── 读侧：YAML 1.1 的历史包袱会真的生效，逐条钉成"实际就是这样"，而不是"我们承诺不是这样" ──
+  const U8_COERCE = [
+    ['布尔词 yes', 'a: yes\n', { a: true }],
+    ['布尔词 no', 'a: no\n', { a: false }],
+    ['布尔词 on', 'a: on\n', { a: true }],
+    ['布尔词 off', 'a: off\n', { a: false }],
+    ['布尔词 y', 'a: y\n', { a: true }],
+    ['布尔词 n', 'a: n\n', { a: false }],
+    ['布尔词 True', 'a: True\n', { a: true }],
+    ['八进制 0755', 'a: 0755\n', { a: 493 }],
+    ['十六进制 0x10', 'a: 0x10\n', { a: 16 }],
+    ['二进制 0b101', 'a: 0b101\n', { a: 5 }],
+    ['下划线 1_000', 'a: 1_000\n', { a: 1000 }],
+    ['六十进制 12:30', 'a: 12:30\n', { a: 750 }],
+    ['日期当值', 'a: 2024-01-01\n', { a: '2024-01-01T00:00:00.000Z' }],
+    ['日期时间不带时区', 'a: 2024-01-01 10:00:00\n', { a: '2024-01-01T10:00:00.000Z' }],
+    ['日期在数组里', '- 2024-01-01\n', ['2024-01-01T00:00:00.000Z']],
+    ['正无穷掉成 null', 'a: .inf\n', { a: null }],
+    ['非数掉成 null', 'a: .nan\n', { a: null }],
+    ['键位上的 y', 'y: 1\n', { true: 1 }],
+    ['键位上的 n', 'n: 1\n', { false: 1 }],
+    ['!!binary 转 base64 串', 'a: !!binary aGk=\n', { a: 'aGk=' }],
+    ['!!binary 在数组里', '- !!binary AAEC\n', ['AAEC']],
+    ['!!str 强制字符串', 'a: !!str 1\n', { a: '1' }],
+    ['没给值的键', 'a:\n', { a: null }],
+    ['根是数字', '42\n', 42],
+    ['根是裸串', 'hello\n', 'hello'],
+    ['根是 null', 'null\n', null],
+    ['流嵌套', '[1, [2]]\n', [1, [2]]],
+    ['只有文档起始符', '---\n', null],
+    ['起始加结束', '---\n...\n', null],
+    // 2026-09-29 实测：内置件把"文档结束符之后再来一个 `...`"当同一份文档（它只对 `---` 计份数），
+    // 本站的预扫一度把它判成两份——那是**误拒合法输入**，比漏拒更伤用户。U9 里补的是反方向那一格。
+    ['连续两个点线还是一份', 'a: 1\n...\n...\n', { a: 1 }],
+    ['注释加文档', '# c\n---\na: 1\n', { a: 1 }],
+    ['尾部空行', 'a: 1\n\n', { a: 1 }],
+  ];
+  for (const [label, text, want] of U8_COERCE) {
+    assert.deepStrictEqual(uRead(yamlToJson(text), label), want, label);
+  }
+  // `.inf` 那一档要说清是谁在动手：实测内置件的 YAML11 读侧自己就把 `.inf` / `.nan` 落成交集外的
+  // 空值（本站再兜一层：非有限的数一律折成 null），最终交出去的是 `null` 而不是 `Infinity`——
+  // 与 `JSON.stringify({a:Infinity}) === '{"a":null}'` 同一条口径。不折的话，交出去的就不是合法 JSON，
+  // 而"给 JSON 工作台喂一个 JSON 里没有的值"这一族坑，面板上一个高亮都抓不到。
+  assert.equal(JSON.stringify(uRead(yamlToJson('a: .inf\n'), '.inf')), '{"a":null}', '折成 null 而不是留着 Infinity');
+  // `---` 算一份文档、`...` 与注释不算——上一格里两档各给了一次，这里只留一句为什么：
+  // 空文档是 YAML 的合法成员（值是 null），"没有文档"才是没有输入。
+
+  // ── 读侧不许污染原型：这一条盯的是**依赖**，不是自己的代码 ──
+  // 换掉内置件、或它哪天改了构造对象的方式，这一格就会红，逼人来重新审一遍。
+  const polluted = uRead(yamlToJson('a: { __proto__: { polluted: 1 } }\n'), '__proto__');
+  assert.equal({}.polluted, undefined, 'Object.prototype 被污染了——后面每一个对象都带上了 polluted');
+  assert.equal(Object.prototype.hasOwnProperty.call(polluted.a, '__proto__'), true,
+    '__proto__ 必须是 own 属性，与 json-core 的 setOwn 同一条口径');
+  assert.equal(polluted.a.polluted, undefined, '它读的是自己那个 __proto__ 值，不是原型');
+  assert.deepStrictEqual(Object.keys(polluted.a), ['__proto__']);
+});
+
+test('U9 读侧 error 的形状与位置：六格齐活、行列自洽、闸门那一档交回原话', () => {
+  const flow99 = '['.repeat(YAML_DEPTH_LIMIT + 1) + '1' + ']'.repeat(YAML_DEPTH_LIMIT + 1) + '\n';
+  // [档位, 样本, kind, index, line, column, snippet, 这一格的位置为什么是它]
+  const U9_ROWS = [
+    ['空文本', '', 'empty', 0, 1, 1, '', '没有内容可指，EOF 就是 0 那一格'],
+    ['只有空白', '   \n ', 'empty', 5, 2, 2, ' ', '换行只有那一个 \\n，所以第 2 行、行内第 2 列'],
+    ['只有制表', '\t\n', 'empty', 2, 2, 1, '', 'EOF 落在第 2 行的开头，那一行是空的'],
+    ['只有点线', '...\n', 'empty', 4, 2, 1, '', '`...` 是文档结束符，不构成文档，所以仍算"没有输入"'],
+    ['只有注释', '# only comment\n', 'empty', 15, 2, 1, '', '注释不是内容：与 `...` 同一档，指 EOF'],
+    ['超字节上限', 'y: ' + 'x'.repeat(U_JSON_BYTES), 'too-long', U_JSON_BYTES + 3, 1, U_JSON_BYTES + 4, '',
+      '闸门那一档不给 snippet（一行就是 5 MiB），index = text.length'],
+    ['超行数上限', 'a\n'.repeat(U_LINES + 1), 'too-many-lines', 2 * (U_LINES + 1), U_LINES + 2, 1, '',
+      '行口径只认 \\n：末格是那个换行之后、空掉的第 200002 行'],
+    // 内置件自己给的 position 是 4（它的消息写 (1:5)，那里 column 从 0 起）——行列一律由 index 经 locate 推，
+    // 不读 mark.line/mark.column，否则两套尺会在 CRLF 与 emoji 上分家。
+    ['映射里套映射', 'a: b: c\n', 'parse', 4, 1, 5, 'a: b: c', '指认第二个冒号（下标 4）'],
+    ['流序列没闭合', 'a: [1,\n', 'parse', 7, 2, 1, '', 'EOF 在下标 7：逗号之后该来下一个元素'],
+    ['流映射没闭合', '{a: 1\n', 'parse', 6, 2, 1, '', '流集合一直读到 EOF'],
+    ['双引号串没闭合', '"unterminated\n', 'parse', 14, 2, 1, '', '同上，EOF 那一格'],
+    ['缩进多一格', 'a: 1\n b: 2\n', 'parse', 7, 2, 3, ' b: 2', '第二行的 b 落在下标 7，列 = 7 - 5 + 1'],
+    ['重复键', 'a: 1\na: 2\n', 'parse', 5, 2, 1, 'a: 2', '内置件自己判重复键，指认后写那一行的开头'],
+    ['未知标签', 'a: !!python/object:x {}\n', 'unknown-tag', 3, 1, 4, 'a: !!python/object:x {}',
+      '指认标签起始的 `!`（下标 3），不是它后面的名字'],
+    ['binary 内容坏了', 'a: !!binary "@@@"\n', 'parse', 3, 1, 4, 'a: !!binary "@@@"',
+      '标签认得、内容解不开：这一档归 parse，不新开一档'],
+    ['指令没收尾', '%TAG ! x\na: 1\n', 'parse', 9, 2, 1, 'a: 1', '它要的是 directives 结束标记，实读到第 2 行开头'],
+    ['合并键没有来源', '<<: 1\n', 'parse', 0, 1, 1, '<<: 1', '合并源必须是个映射'],
+    ['两行文档', 'a: 1\n---\nb: 2\n', 'multi-document', 5, 2, 1, '---', '上面已经有内容，这一行就是第二份的开头'],
+    ['首行就是分隔符', '---\na: 1\n---\nb: 2\n', 'multi-document', 9, 3, 1, '---',
+      '第一个 `---` 只是"显式起始"，它上面没有内容，所以不算第二份'],
+    ['点线分文档', 'a: 1\n...\nb: 2\n', 'multi-document', 5, 2, 1, '...', '`...` 之后还有内容，同样算第二份'],
+    // 空文档也算文档：`---` 开了它，`...` 关掉它，后面那个 `---` 就是第二份。上一格钉的是"点线后面跟内容"，
+    // 这一格钉"点线后面跟起始符"——两处都指认**把文本切成两份的第一个边界**，尺子只有一把。
+    ['空文档关掉后又起一份', '---\n...\n---\n...\n', 'multi-document', 4, 2, 1, '...',
+      '`...`（下标 4）关掉第一份，第二个 `---` 开第二份：指认前者，与上一格同一条口径'],
+    ['尾部点线', 'a: 1\n---\nb: 2\n...\n', 'multi-document', 5, 2, 1, '---', '报的是**第一个**越界处，不是最后一个'],
+    ['注释后起文档', '# c\n---\na: 1\n---\nb: 2\n', 'multi-document', 13, 4, 1, '---', '注释行不算内容：下标 13 那个才是第二份'],
+    ['流式两文档', '[1]\n---\n[2]\n', 'multi-document', 4, 2, 1, '---', '列 1：分隔符行永远顶格'],
+    ['嵌套过深', flow99, 'depth', 99, 1, 100, flow99.slice(0, -1),
+      '内置件在第 99 层就停，指认它当时站的那一格（下标 99 是第 100 个 `[`）'],
+  ];
+  for (const [label, text, kind, index, line, column, snippet, why] of U9_ROWS) {
+    const e = uReadErr(yamlToJson(text), label);
+    assert.deepEqual(Object.keys(e).sort(), ['column', 'index', 'kind', 'line', 'message', 'snippet'],
+      `${label}：error 的六格必须齐活`);
+    assert.equal(e.kind, kind, `${label}：kind 实读 ${e.kind}（${why}）`);
+    assert.equal(e.index, index, `${label}：index 实读 ${e.index}，期望 ${index}——${why}`);
+    assert.equal(e.line, line, `${label}：行号实读 ${e.line}，期望 ${line}——${why}`);
+    assert.equal(e.column, column, `${label}：列号实读 ${e.column}，期望 ${column}——${why}`);
+    assert.equal(e.snippet, snippet, `${label}：snippet 实读 ${JSON.stringify(e.snippet)}`);
+    // 自洽：行列必须由 index 推出来，两套数字不许各说各话
+    assert.deepStrictEqual(uLocate(text, e.index), { line: e.line, column: e.column },
+      `${label}：locate(text, index) 与 error 的行列不一致`);
+    assert.equal(e.index >= 0 && e.index <= text.length, true, `${label}：index 越界`);
+  }
+  // 消息口径：有位置的那几档自己带"第 N 行第 M 列"，闸门那一档交回 core 的原话（同一句只有一处口径）
+  for (const label of ['未知标签', '两行文档', '嵌套过深']) {
+    const row = U9_ROWS.find((r) => r[0] === label);
+    const e = uReadErr(yamlToJson(row[1]), label);
+    assert.equal(e.message.includes(`第 ${row[4]} 行第 ${row[5]} 列`), true, `${label}：消息要带行列`);
+  }
+  for (const label of ['超字节上限', '超行数上限']) {
+    const row = U9_ROWS.find((r) => r[0] === label);
+    assert.equal(uReadErr(yamlToJson(row[1]), label).message, uGate(row[1]).message,
+      `${label}：闸门那一档的消息必须是 json-core 的原话，站内不许有第二句"超出上限"`);
+  }
+  // 类型闸门：非字符串入参当场 TypeError，与 parseJson 同形（坏输入是返回值，入参错是编程错）
+  assert.throws(() => yamlToJson(null), TypeError);
+  assert.throws(() => yamlToJson(42), TypeError);
+  assert.throws(() => xmlToJson([]), TypeError);
+  assert.throws(() => csvToJson(undefined), TypeError);
+});
+
+test('U10 XML 写侧的逐字形状：类型靠 t 属性、数组元素一律 item、三档缩进、结尾一个换行', () => {
+  const X = (...lines) => lines.join('\n') + '\n';
+  const v = { a: 1, b: 'x', c: [1, true, null], d: { e: {} }, f: [] };
+  assert.equal(uWrite(jsonToXml(v)), X(
+    '<json t="obj">',
+    '  <a t="num">1</a>',
+    '  <b t="str">x</b>',
+    '  <c t="arr">',
+    '    <item t="num">1</item>',
+    '    <item t="bool">true</item>',
+    '    <item t="null"></item>',
+    '  </c>',
+    '  <d t="obj">',
+    '    <e t="obj"></e>',
+    '  </d>',
+    '  <f t="arr"></f>',
+    '</json>',
+  ), '行序、缩进、属性写法一格都不许改：这是要给人贴进别人文件里的东西');
+  assert.equal(uWrite(jsonToXml([[1]], { indent: 'four' })), X(
+    '<json t="arr">', '    <item t="arr">', '        <item t="num">1</item>', '    </item>', '</json>'),
+    'four 档就是每一层四个空格：拿 two 档做字符串替换是写不出这一条的');
+  assert.equal(uWrite(jsonToXml([[1]], { indent: 'tab' })), X(
+    '<json t="arr">', '\t<item t="arr">', '\t\t<item t="num">1</item>', '\t</item>', '</json>'));
+  assert.equal(uWrite(jsonToXml({ a: 1 }, { root: 'payload' })),
+    X('<payload t="obj">', '  <a t="num">1</a>', '</payload>'));
+  // 根可以不是对象：JSON 的根本来就是任意值
+  assert.equal(uWrite(jsonToXml('hi')), X('<json t="str">hi</json>'));
+  assert.equal(uWrite(jsonToXml(42)), X('<json t="num">42</json>'));
+  assert.equal(uWrite(jsonToXml(true)), X('<json t="bool">true</json>'));
+  assert.equal(uWrite(jsonToXml(null)), X('<json t="null"></json>'));
+  assert.equal(uWrite(jsonToXml([1, 2])),
+    X('<json t="arr">', '  <item t="num">1</item>', '  <item t="num">2</item>', '</json>'));
+  assert.equal(uWrite(jsonToXml([])), X('<json t="arr"></json>'),
+    '空容器写成对标签而不是自闭合：两种都读得懂，选**读侧只有一种解释**的那一个');
+  // 转义只有四格：`&` `<` `>` `\r`。`\n` 与 `\t` 原样留着（它们在线文本里就是自己），
+  // `"` 与 `'` 在文本节点里不需要转义（本站不把用户数据写进属性值）。
+  assert.equal(uWrite(jsonToXml({ s: 'a<b>&c"d\'e' })),
+    X('<json t="obj">', '  <s t="str">a&lt;b&gt;&amp;c"d\'e</s>', '</json>'));
+  assert.equal(uWrite(jsonToXml({ s: 'p\rq' })), X('<json t="obj">', '  <s t="str">p&#13;q</s>', '</json>'),
+    '回车必须数字化：不转义的话读侧会按平台规矩把它当行尾吃掉，那是静默改数据');
+  assert.equal(uWrite(jsonToXml({ s: 'l1\nl2' })), X('<json t="obj">', '  <s t="str">l1', 'l2</s>', '</json>'),
+    '换行原样写出：包一层 CDATA 也能过，但"本站写的东西"就有了两种形状');
+  assert.equal(uWrite(jsonToXml({ s: ']]>' })), X('<json t="obj">', '  <s t="str">]]&gt;</s>', '</json>'));
+  assert.equal(uWrite(jsonToXml({ n: [0, -0.5, 1e21, 1e-7, 3.5] })), X(
+    '<json t="obj">', '  <n t="arr">', '    <item t="num">0</item>', '    <item t="num">-0.5</item>',
+    '    <item t="num">1e+21</item>', '    <item t="num">1e-7</item>', '    <item t="num">3.5</item>',
+    '  </n>', '</json>'), '数字用 String(n)：那本来就是 JSON 的记号，读侧按同一把尺验它');
+  assert.equal(uWrite(jsonToXml({ a: -0 })), X('<json t="obj">', '  <a t="num">-0</a>', '</json>'),
+    '负零是这一族唯一要偏离 String(n) 的地方：`String(-0)` 给 "0"，那一格就把 -0 弄丢了——'
+    + 'U13 的往返表里有 {a:-0}，而 JSON 文本里根本没有 -0，只有本站自己写的 XML 保得住它');
+  assert.equal(uWrite(jsonToXml({ 中文键: '值' })),
+    X('<json t="obj">', '  <中文键 t="str">值</中文键>', '</json>'));
+  assert.equal(uWrite(jsonToXml({ 'x-m': 1, 'a.b': 2, _u: 3 })), X(
+    '<json t="obj">', '  <x-m t="num">1</x-m>', '  <a.b t="num">2</a.b>', '  <_u t="num">3</_u>', '</json>'));
+  // 参数口径：indent 不在 INDENT_MODES 里就当场 RangeError（静默回退默认档，是把"参数写错"藏成"输出莫名其妙"）
+  assert.throws(() => jsonToXml(v, { indent: '2' }), /INDENT_MODES/);
+  assert.throws(() => jsonToXml(v, { indent: 2 }), /INDENT_MODES/);
+});
+
+test('U11 XML 写侧的拒绝：非法键名一次列全，非法根名单列', () => {
+  // 名字的规矩只有一条：`[字母 或 _]` 起始，后面跟 `[字母 数字 . _ -]`；外加 `xml` 前缀（不分大小写）
+  // 与带冒号那一档（命名空间）拒。中文与希腊字母都算 `\p{L}`，所以合法——上一格刚钉过中文键。
+  const U11_LEGAL = ['end-', 'a.b', '_u', 'x-m', 'n1', '中文键', 'Ωmega', 'A_b.C-d', '__proto__'];
+  assert.equal(jsonToXml(Object.fromEntries(U11_LEGAL.map((k, i) => [k, i]))).ok, true,
+    '这一族名字一个都不许拒：多禁一格就是把用户的键弄丢');
+  const U11_BAD = ['1a', 'a b', '#x', 'a/b', '', '<x', 'a"', 'xml', 'XMLName', 'Xml:id', 'a:b', 'a\nb', '-lead', '.dot', 'a\tb', 'a\rb'];
+  const e = uWriteErr(jsonToXml(Object.fromEntries(U11_BAD.map((k, i) => [k, i]))), '一堆非法键');
+  assert.equal(e.kind, 'invalid-key');
+  assert.deepEqual(e.keys, U11_BAD, '非法键要**一次列全**（按出场顺序），不许只报第一个就让人改三轮');
+  assert.deepEqual(Object.keys(e).sort(), ['keys', 'kind', 'message', 'path'],
+    '写侧 error 就这四格：指针不是文档，没有行列可言（读侧那六格见 U9）');
+  assert.equal(e.path, '/1a', 'Pointer 给第一个越界者，面板拿它做"跳到那一行"');
+  assert.match(e.message, /键名/);
+  assert.deepEqual(uWriteErr(jsonToXml({ a: 1, 'b c': 2, x: 3 }), '混着合法键').keys, ['b c']);
+  for (const root of ['a b', '1x', '', 'xml', 'a:b']) {
+    const bad = uWriteErr(jsonToXml({ a: 1 }, { root }), `非法根名 ${JSON.stringify(root)}`);
+    assert.equal(bad.kind, 'invalid-root');
+    assert.equal(bad.path, '', '根没有父路径可指：Pointer 就是空串');
+    assert.match(bad.message, /根/);
+  }
+  // 字符闸门：XML 1.0 连数字引用都容不下的那几位（C0 里除 `\t` `\n` 之外的一切），加上落单代理项。
+  // "静默删掉"是最省事也最坏的写法：用户看不出少了什么。码点一律用 chr() 造，字面量里不写转义。
+  const chr = (c) => String.fromCharCode(c);
+  const U11_CHARS = [
+    ['C0 控制符', { a: 'x' + chr(1) + 'y' }, '/a', 'U+0001'],
+    ['垂直制表', { a: chr(11) }, '/a', 'U+000B'],
+    ['换页符', { a: chr(12) }, '/a', 'U+000C'],
+    ['单元控制符', { a: 'q' + chr(31) }, '/a', 'U+001F'],
+    ['落单代理项（前件）', { a: chr(0xD800) }, '/a', 'U+D800'],
+    ['落单代理项（后件）', { a: 'x' + chr(0xDC00) + 'y' }, '/a', 'U+DC00'],
+    ['数组里的深一层', { a: [{ b: chr(2) }] }, '/a/0/b', 'U+0002'],
+  ];
+  for (const [label, v, path, code] of U11_CHARS) {
+    const err = uWriteErr(jsonToXml(v), label);
+    assert.equal(err.kind, 'bad-char', `${label} 的 kind 应当是 bad-char，实读 ${err.kind}`);
+    assert.equal(err.path, path, `${label} 的 Pointer 实读 ${err.path}`);
+    assert.ok(err.message.includes(code), `${label} 的消息要点名码点 ${code}，实读 ${err.message}`);
+  }
+  assert.ok(jsonToXml({ a: 'x\r\ty\nz' }).text.includes('&#13;'),
+    '回车走数字引用、制表与换行走原样：这一档不归字符闸门管（各自的写法见 U10）');
+  assert.equal(jsonToXml({ a: chr(0x7F) + chr(0x80) + chr(0x2028) }).ok, true,
+    'DEL、U+0080 与行分隔符都在 XML 1.0 的合法字符集里，闸门不许顺手多禁');
+  assert.equal(uWrite(jsonToXml({ s: '🎉' })), '<json t="obj">\n  <s t="str">🎉</s>\n</json>\n',
+    '成对的代理项是一个字符，不是落单：原样写出，不许转成 \\ud83c\\udf89 那种字面量');
+
+  // 深度只许一把尺，而且**写出去的必须读得回来**。读侧那道闸门数的是**元素层数**（根算第 1 层，
+  // U12 最后那一族逐个钉的就是它），而本站的 XML 编码里"一个值恰好一个元素"——最深那一格是标量时
+  // 元素层数 = 容器层数 + 1。写侧原先只数容器，于是放行了自己读不回来的东西：2026-09-29 实测
+  // `jsonToXml(uDeep(1000))` 交回 ok，而 `xmlToJson` 对同一份文本判 depth（"第 1001 层"），
+  // 面板上就是一格亮着 ✓ 却转不回来。改口只改写侧的尺，读侧那一把一字不动（它是 U12 的既成事实）。
+  assert.equal(jsonToXml(uDeep(U_MAX_DEPTH - 1)).ok, true,
+    '999 层容器 + 最深那一格标量 = 1000 层元素，正好在闸门口，必须放行');
+  const xd = uWriteErr(jsonToXml(uDeep(U_MAX_DEPTH)), 'XML 深一层');
+  assert.equal(xd.kind, 'depth', `实读 ${xd.kind}：${xd.message}`);
+  assert.equal(xd.path.split('/').length - 1, U_MAX_DEPTH,
+    `越界那一格的 Pointer 应当正好 ${U_MAX_DEPTH} 段（它就是被拒的那个标量叶），实读 ${xd.path}`);
+  assert.match(xd.message, new RegExp(String(U_MAX_DEPTH + 1)), '消息要点名当前层数');
+  assert.match(xd.message, new RegExp(String(U_MAX_DEPTH)), '消息要点名上限');
+  for (const n of [U_MAX_DEPTH - 1, U_MAX_DEPTH]) {
+    const w = jsonToXml(uDeep(n));
+    assert.equal(w.ok ? xmlToJson(w.text).ok : false, w.ok,
+      `${n} 层容器：写侧与读侧在这一格必须同结论（写出即可读回）`);
+  }
+  assert.equal(roundTrips(uDeep(U_MAX_DEPTH)).xml, false,
+    '转不回来的那一档，面板上那个 ✓ 必须是 ✗：roundTrips 与写侧闸门不许各说各话');
+});
+
+test('U12 XML 读侧的子集边界：坏样本逐个钉 kind 与那一处位置', () => {
+  // 读侧只认写器发得出来的那一族（`XML_CONVENTION` 那句人话就是这张表的目录），越界整体拒绝并指认位置。
+  // index 一律指向**越界的那一个字符**，不指向它后面也不指向它的父标签；行口径借 §S 那把尺（只认 `\n`）。
+  // 六格 = 位置五件套 + message：§S 那一本多一个 `length`，是因为它自己扫记号能给；这里给不出，宁缺不假。
+  const U12_ROWS = [
+    ['空输入', '', 'empty', 0, 1, 1],
+    ['只有空白', '  \n ', 'empty', 4, 2, 2],
+    ['只有注释', '<!-- only -->\n', 'empty', 14, 2, 1],
+    ['只有声明', '<?xml version="1.0"?>', 'empty', 21, 1, 22],
+    // BOM 三族同一条口径（CSV 见 U15、U16，YAML 走内置件）：剥掉它再解析，但**位置一律指原文**——
+    // 面板高亮吃的是用户粘进去的那份文本，BOM 占第 1 行第 1 列这一格。
+    ['只有 BOM', U_BOM, 'empty', 1, 1, 2],
+    ['开始标签没闭合', '<a t="num">1', 'unterminated', 12, 1, 13],
+    ['闭合名不匹配', '<a t="str">x</b>\n', 'bad-name', 12, 1, 13],
+    ['闭合标签带属性', '<a t="str">x</a k>', 'bad-attr', 15, 1, 16],
+    // 三格都指"根元素之后的第一个越界字符"：`<a t="str">` 占 0–10、`x` 在 11、`</a>` 占 12–15，所以越界者在 16
+    ['根之后有裸文本', '<a t="str">x</a>y', 'trailing', 16, 1, 17],
+    ['根之后有第二个根', '<a t="str">x</a><b t="num">1</b>', 'trailing', 16, 1, 17],
+    ['根之后有注释', '<a t="str">x</a><!-- tail -->', 'trailing', 16, 1, 17],
+    // 同一档前面加一格 BOM：越界者在原文里是第 17 格、第 18 列（剥 BOM 只用于解析，位置指原文）
+    ['BOM 之后的越界者', U_BOM + '<a t="str">x</a>y', 'trailing', 17, 1, 18],
+    ['num 装非数字', '<a t="num">x</a>', 'bad-value', 11, 1, 12],
+    ['num 带正号', '<a t="num">+1</a>', 'bad-value', 11, 1, 12],
+    ['num 有前导零', '<a t="num">01</a>', 'bad-value', 11, 1, 12],
+    ['num 装 Infinity', '<a t="num">Infinity</a>', 'bad-value', 11, 1, 12],
+    // `t="bool"` 与 `t="null"` 比 `t="num"` 长一格，所以这两档的内容起始是 12 不是 11——
+    // 指认的是内容里第一个非空白字符，不是标签。
+    ['bool 装 TRUE', '<a t="bool">TRUE</a>', 'bad-value', 12, 1, 13],
+    ['null 有内容', '<a t="null">z</a>', 'bad-value', 12, 1, 13],
+    ['缺 t 属性', '<a>1</a>', 'bad-shape', 0, 1, 1],
+    ['t 值不在册', '<a t="int">1</a>', 'bad-shape', 5, 1, 6],
+    ['多一个属性', '<a t="str" k="v">x</a>', 'bad-attr', 11, 1, 12],
+    ['属性没有等号', '<a t="str" x>', 'bad-attr', 11, 1, 12],
+    ['t 写了两遍', '<a t="str" t="num">x</a>', 'bad-attr', 11, 1, 12],
+    ['arr 的子元素名不是 item', '<a t="arr"><b t="num">1</b></a>', 'bad-shape', 11, 1, 12],
+    ['arr 里有裸文本', '<a t="arr">txt<item t="num">1</item></a>', 'bad-shape', 11, 1, 12],
+    ['str 里有子元素', '<a t="str"><b t="num">1</b></a>', 'bad-shape', 11, 1, 12],
+    ['未注册的具名实体', '<a t="str">&weird;</a>', 'bad-entity', 11, 1, 12],
+    ['数字引用是 0', '<a t="str">&#0;</a>', 'bad-entity', 11, 1, 12],
+    ['数字引用是落单代理项', '<a t="str">&#xD800;</a>', 'bad-entity', 11, 1, 12],
+    ['数字引用超出码位上限', '<a t="str">&#x110000;</a>', 'bad-entity', 11, 1, 12],
+    ['裸的 &', '<a t="str">a&b</a>', 'bad-entity', 12, 1, 13],
+    ['实体少分号', '<a t="str">&amp</a>', 'bad-entity', 11, 1, 12],
+    ['DOCTYPE 打头', '<!DOCTYPE json SYSTEM "x.dtd">\n<a t="num">1</a>', 'doctype', 0, 1, 1],
+    ['声明后跟 DOCTYPE', '<?xml version="1.0"?>\n<!DOCTYPE a>\n<a t="num">1</a>', 'doctype', 22, 2, 1],
+    // 名字越界一律指认**整个名字那一段的开头**（扫到空白 / `/` / `>` 为止的那一段），不指认段内第几个字符：
+    // `a!`、`1a`、`XMLa`、`a:b` 四档的病灶都是"这一段不是合法名字"，把光标放到段首最容易看懂。
+    ['注释没闭合', '<a t="str"><!-- unterminated</a>', 'unterminated', 11, 1, 12],
+    ['CDATA 没闭合', '<a t="str"><![CDATA[x</a>', 'unterminated', 11, 1, 12],
+    ['根之前有垃圾', 'junk<a t="num">1</a>', 'bad-document', 0, 1, 1],
+    ['尖括号之后不是名字', '<a! t="num">1</a>', 'bad-name', 1, 1, 2],
+    ['元素名数字打头', '<1a t="num">1</a>', 'bad-name', 1, 1, 2],
+    ['元素名撞 xml 前缀', '<XMLa t="str">x</XMLa>', 'bad-name', 1, 1, 2],
+    ['元素名带冒号', '<a:b t="str">x</a:b>', 'bad-name', 1, 1, 2],
+    ['属性名带冒号', '<a t="str" x:y="1">x</a>', 'bad-name', 11, 1, 12],
+    ['只有一个尖括号', '<', 'unterminated', 0, 1, 1],
+    ['先出现闭合标签', '</a>', 'bad-document', 0, 1, 1],
+    ['闭合标签半截', '<a t="str">x</a', 'unterminated', 12, 1, 13],
+    ['t 的引号没合上', '<a t="str>x</a>', 'unterminated', 5, 1, 6],
+    ['处理指令没闭合', '<?xml version="1.0"?>\n<?pi tail\n<a t="num">1</a>', 'unterminated', 22, 2, 1],
+    ['声明写两遍', '<?xml version="1.0"?><?xml version="1.0"?>\n<a t="num">1</a>', 'bad-document', 21, 1, 22],
+    ['声明半截', '<?xml version="1.0"', 'unterminated', 0, 1, 1],
+  ];
+  const seen = new Set();
+  for (const [label, text, kind, index, line, column] of U12_ROWS) {
+    seen.add(kind);
+    const e = uReadErr(xmlToJson(text), label);
+    assert.deepEqual(Object.keys(e).sort(), ['column', 'index', 'kind', 'line', 'message', 'snippet'],
+      `${label}：读侧 error 的六格必须齐活（与 U9 同一条口径）`);
+    assert.equal(e.kind, kind, `${label}：kind 实读 ${e.kind}，期望 ${kind}`);
+    assert.equal(e.index, index, `${label}：index 实读 ${e.index}，期望 ${index}`);
+    assert.equal(e.line, line, `${label}：行号实读 ${e.line}，期望 ${line}`);
+    assert.equal(e.column, column, `${label}：列号实读 ${e.column}，期望 ${column}`);
+    assert.deepStrictEqual(uLocate(text, e.index), { line: e.line, column: e.column },
+      `${label}：行列必须由 index 推出来，两套数字不许各说各话`);
+    // snippet 就是"那一行"，切法借 §S 的 lineRange（所以 CRLF 不会多带一个 \r）
+    const rng = uLineRange(text, e.line);
+    assert.equal(e.snippet, text.slice(rng.start, rng.end), `${label}：snippet 实读 ${JSON.stringify(e.snippet)}`);
+    assert.equal(e.message.includes(`第 ${line} 行第 ${column} 列`), true,
+      `${label}：消息要带人话的行列，实读 ${e.message}`);
+  }
+  // 十档 kind 一档都不许缺：缺了就意味着实现里那条分支从来没被踩过
+  for (const k of ['empty', 'unterminated', 'bad-name', 'bad-attr', 'bad-value', 'bad-shape',
+    'bad-entity', 'doctype', 'trailing', 'bad-document']) {
+    assert.ok(seen.has(k), `样本集没覆盖 ${k}：那一档的拒绝路径等于没测`);
+  }
+
+  // 深度：闸门只有一把（`MAX_DEPTH`，与 parseJson 同一档），且必须**边扫边判**——
+  // 递归下降在这里会先炸调用栈，那样给出的就是"栈溢出"而不是行列号。
+  const U12_DEEP = `<json t="arr">\n${'<item t="arr">\n'.repeat(U_MAX_DEPTH)}`;
+  const deep = uReadErr(xmlToJson(U12_DEEP), '嵌套超过 MAX_DEPTH');
+  assert.equal(deep.kind, 'depth', `实读 ${deep.kind}：${deep.message}`);
+  assert.equal(deep.line, U_MAX_DEPTH + 1, '根算第 1 层，越界的是第 1001 行');
+  assert.equal(deep.column, 1, '那一行顶格就是越界的 `<`');
+  assert.equal(deep.index, 15 * U_MAX_DEPTH, 'index = 每行 15 格 × 1000 行');
+  assert.equal(deep.snippet, '<item t="arr">', 'snippet 只给那一行，不许把 1 MB 输入整条塞进消息');
+  assert.match(deep.message, new RegExp(String(U_MAX_DEPTH)));
+  // 边界另一侧：刚好卡在闸门内的最深**闭合**样本必须读得回来（只测拒绝侧抓不到"多禁一层"）
+  const closer = '</item>\n'.repeat(U_MAX_DEPTH - 1);
+  const okInside = xmlToJson(`<json t="arr">\n${'<item t="arr">\n'.repeat(U_MAX_DEPTH - 1)}${closer}</json>\n`);
+  assert.equal(okInside.ok, true, `1000 层必须放行：${JSON.stringify(okInside.error)}`);
+  assert.equal(Array.isArray(okInside.value) && okInside.value.length === 1, true, '根是一元数组');
+  let walk = okInside.value;
+  for (let i = 0; i < U_MAX_DEPTH - 1; i++) walk = walk[0];
+  assert.deepEqual(walk, [], '最里那一层是空数组：1000 层一格都没被吞');
+  // 再深一层就拒，且位置随那一行走（不是固定指根，也不是 EOF）
+  const oneMore = uReadErr(xmlToJson(`<json t="arr">\n${'<item t="arr">\n'.repeat(U_MAX_DEPTH)}${closer}</item>\n`),
+    '1001 层');
+  assert.equal(oneMore.kind, 'depth');
+  assert.equal(oneMore.line, U_MAX_DEPTH + 1);
+  assert.equal(oneMore.column, 1);
+  assert.equal(deep.message.includes('第 1001 行第 1 列'), true, '深度那一档的行列也要进消息');
+});
+
+test('U13 XML 往返 26 例 + 读侧的接受面：本站写出去的必须原样回来，别人手写合法的也要认', () => {
+  // 设计文档 §8.1 的"JSON→X→JSON 深比较"落到 XML 这一族就是这张表。
+  // 表里**没有**空键名、`"引号"开头的键` 这类形状——它们归 U11 的非法键那一档，写侧就出不来东西。
+  const U13_ROUND = [
+    {}, [], 'hi', 42, true, null,
+    { a: 1, b: 'x', c: true, d: null, e: [1, 2], f: { g: {} }, h: [] },
+    [[1, 'a'], [null, true]],
+    '&<>',
+    ']]> 结束符',
+    'CRLF\r\n换行',
+    '🎉 代理对',
+    '  前后空格与制表\t  ',
+    { 'a.b': 1, 'x-y': 2, '_u': 3, '中文键': '值' },
+    { a: -0 },
+    { a: 1e21, b: 1e-7 },
+    { a: 0.30000000000000004 },
+    { a: 9007199254740991 },
+    { a: 'x'.repeat(2000) },
+    uWithProtoKey({ nested: 1 }),
+    '</script>',
+    { '单引号': "it's" },
+    { 嵌套: [{ k: 'v' }, {}, []] },
+    { a: { b: { c: { d: { e: '深一层' } } } } },
+    { a: '\n\n连续空行\n' },
+    [null, null],
+  ];
+  assert.ok(U13_ROUND.length >= 20, 'plan §Task 4 明写"写→读深相等覆盖 20 例"，这一族不许缩水');
+  for (const v of U13_ROUND) {
+    const label = `往返 ${JSON.stringify(v === undefined ? 'undef' : v).slice(0, 44)}`;
+    const text = uWrite(jsonToXml(v), label);
+    const back = xmlToJson(text);
+    assert.equal(back.ok, true, `${label}：写出去的东西读不回来，实读 ${JSON.stringify(back.error)}`);
+    assert.deepEqual(Object.keys(back).sort(), ['ok', 'value'],
+      'XML 读侧成功只有这两格：meta 是 CSV 的事（U16），这里塞一份只会让面板多读一个空格子');
+    assert.deepStrictEqual(back.value, v, `${label}：深相等没过`);
+    assert.equal(roundTrips(v).xml, true, `${label}：面板那个 ✓ 读的就是这一格，必须与手工往返同结论`);
+  }
+  // 确定性：同一个值两次写出逐字节相同（否则"复制走的内容每次不一样"这种抱怨没法追）
+  const once = uWrite(jsonToXml({ a: [1, { b: 'x' }], c: null }));
+  assert.equal(uWrite(jsonToXml({ a: [1, { b: 'x' }], c: null })), once, '两次写出必须逐字节相同');
+  // 原型那一格：读回来的对象原型还是 Object.prototype，污染只许停在 own 键上
+  const polluted = uRead(xmlToJson(uWrite(jsonToXml(uWithProtoKey({ nested: 1 })))));
+  assert.equal(Object.getPrototypeOf(polluted), Object.prototype, '读侧不许把 __proto__ 当构造器');
+  assert.deepEqual(Object.keys(polluted), ['b', '__proto__'], 'own 键序与写侧一致');
+  assert.equal({}.nested, undefined, 'Object.prototype 一个键都没多');
+
+  // 接受面：写器自己不发这些形状，但手改过的合法 XML 要认——这一族是"子集"不是"自家产物"，
+  // 只认自家写法等于把"编辑后再读"这条路堵死（面板上那句说明承诺的是子集）。
+  const ACCEPT = [
+    ['自闭合空数组', '<json t="arr"/>', []],
+    ['自闭合空对象', '<json t="obj"/>', {}],
+    ['自闭合 null', '<json t="null"/>', null],
+    ['自闭合空串', '<json t="str"/>', ''],
+    ['num 带包围空白', '<json t="num"> 42 </json>', 42],
+    ['bool 带换行', '<json t="bool">\ntrue\n</json>', true],
+    ['null 带空白', '<json t="null"> \n </json>', null],
+    ['属性用单引号', "<json t='str'>x</json>", 'x'],
+    ['属性四周留白', '<json   t = "str"  >x</json  >', 'x'],
+    ['注释夹在元素间', '<json t="obj">\n<!-- c -->\n<a t="num">1</a>\n</json>\n', { a: 1 }],
+    ['CDATA 里的尖括号不算标签', '<json t="str"><![CDATA[<a> & raw]]></json>', '<a> & raw'],
+    ['五类预定义实体', '<json t="str">&amp;&lt;&gt;&quot;&apos;</json>', '&<>"\''],
+    ['数字引用十进制与十六进制', '<json t="str">&#65;&#x42;</json>', 'AB'],
+    ['同名兄弟归并成数组', '<json t="obj"><b t="num">1</b><b t="num">2</b></json>', { b: [1, 2] }],
+    ['同名兄弟只有一个就还是标量', '<json t="obj"><b t="num">1</b></json>', { b: 1 }],
+    ['三个同名兄弟', '<json t="obj"><b t="num">1</b><b t="num">2</b><b t="num">3</b></json>', { b: [1, 2, 3] }],
+    ['CRLF 排版的文档', '<json t="obj">\r\n  <b t="str">x</b>\r\n</json>\r\n', { b: 'x' }],
+    ['声明与处理指令跳过', '<?xml version="1.0" encoding="UTF-8"?>\n<?php x ?>\n<json t="num">1</json>', 1],
+    ['根元素名不必叫 json', '<payload t="obj"><a t="num">1</a></payload>', { a: 1 }],
+    ['str 里的换行是内容', '<json t="str">a\nb</json>', 'a\nb'],
+    ['str 不 trim', '<json t="str">  空格  </json>', '  空格  '],
+    ['arr 里的 item 是空容器', '<json t="arr"><item t="arr"/><item t="obj"/></json>', [[], {}]],
+    ['obj 里可以有个键就叫 item', '<json t="obj"><item t="num">1</item></json>', { item: 1 }],
+    ['BOM 开头的一份文档', U_BOM + '<json t="obj"><a t="str">x</a></json>', { a: 'x' }],
+    ['BOM 之后还有声明', U_BOM + '<?xml version="1.0"?>\n<json t="num">1</json>', 1],
+  ];
+  for (const [label, text, want] of ACCEPT) {
+    assert.deepStrictEqual(uRead(xmlToJson(text), label), want, `${label}：读侧的接受面实读不符`);
+  }
+  // root 选项写出去的东西，读侧不靠"json"这个名字认路
+  assert.deepStrictEqual(uRead(xmlToJson(uWrite(jsonToXml({ a: 1 }, { root: 'payload' })))), { a: 1 },
+    '根名换成 payload 也要读得回来');
+});
+
+test('U14 CSV 写侧：形状闸门、表头口径与逐字输出', () => {
+  // CSV 没有类型、没有嵌套、也没有"这一格是 null 还是空串"的分别——所以写侧只有两档收：
+  // **对象数组**与**单个对象**（当一行看）。其余一律拒，并说明要求（plan §Task 4 明写这一条）。
+  // 嵌套容器不拒：压成一行 JSON 写进单元格，读回来是字符串——比"你的数据转不了"有用，
+  // 且不撒谎（CSV_NOTES.fidelity 那句就是说这件事，见 U16）。
+  const U14_OK = [
+    ['一行对象数组', [{ a: 1, b: 'x' }], undefined, 'a,b\r\n1,x\r\n'],
+    ['单个对象当一行', { a: 1, b: 'x' }, undefined, 'a,b\r\n1,x\r\n'],
+    ['后行有新键就追加', [{ a: 1 }, { b: 2, c: 3 }], undefined, 'a,b,c\r\n1,,\r\n,2,3\r\n'],
+    ['同键两行', [{ a: 1 }, { a: 2 }], undefined, 'a\r\n1\r\n2\r\n'],
+    ['分号当分隔符', [{ a: 1 }], ';', 'a\r\n1\r\n'],
+    ['制表符当分隔符', [{ a: 'x\ty' }], '\t', 'a\r\n"x\ty"\r\n'],
+    ['键名里有空格', [{ 名字: 1, 'x y': 2 }], undefined, '名字,x y\r\n1,2\r\n'],
+    ['键名里有逗号要引起来', [{ 'a,b': 1 }], undefined, '"a,b"\r\n1\r\n'],
+    ['空键名给个占位名', [{ '': 1 }], undefined, 'col_1\r\n1\r\n'],
+    ['null 是空格子', [{ a: null }], undefined, 'a\r\n\r\n'],
+    ['空串也是空格子：与上一格逐字相同', [{ a: '' }], undefined, 'a\r\n\r\n'],
+    ['布尔小写、数字走 String', [{ a: true, b: false, c: 1e21 }], undefined, 'a,b,c\r\ntrue,false,1e+21\r\n'],
+    ['负零写成 0', [{ a: -0 }], undefined, 'a\r\n0\r\n'],
+    ['对象压成一行 JSON 进单元格', [{ a: { b: 1 } }], undefined, 'a\r\n"{""b"":1}"\r\n'],
+    ['数组同样压进单元格', [{ a: [1, 'x'] }], undefined, 'a\r\n"[1,""x""]"\r\n'],
+    ['嵌套里的 null 不丢', [{ a: { b: null } }], undefined, 'a\r\n"{""b"":null}"\r\n'],
+    ['含分隔符的值引起来', [{ a: 'x,y' }], undefined, 'a\r\n"x,y"\r\n'],
+    ['含引号的值 doubling', [{ a: 'a"b' }], undefined, 'a\r\n"a""b"\r\n'],
+    ['含换行的值引起来、换行原样', [{ a: 'l1\nl2' }], undefined, 'a\r\n"l1\nl2"\r\n'],
+    ['含 CRLF 的值也原样', [{ a: 'l1\r\nl2' }], undefined, 'a\r\n"l1\r\nl2"\r\n'],
+    ['制表与行首空格不需要引号', [{ a: '\ttab' }, { b: ' lead' }], undefined, 'a,b\r\n\ttab,\r\n, lead\r\n'],
+    ['__proto__ 是普通键名', uWithProtoKey('v'), undefined, 'b,__proto__\r\n2,v\r\n'],
+    ['日期先变 ISO 串（与 YAML 那一族同一条口径）', { at: new Date('2024-06-01T00:30:00Z') }, undefined,
+      'at\r\n2024-06-01T00:30:00.000Z\r\n'],
+    ['字节串先变 base64（同上）', { a: new Uint8Array([104, 105]) }, undefined, 'a\r\naGk=\r\n'],
+  ];
+  for (const [label, v, delimiter, want] of U14_OK) {
+    const r = delimiter === undefined ? jsonToCsv(v) : jsonToCsv(v, { delimiter });
+    assert.deepEqual(Object.keys(r).sort(), ['ok', 'text'], `${label}：写侧成功就这两格，实读 ${JSON.stringify(r)}`);
+    assert.equal(r.text, want, `${label}：逐字实读 ${JSON.stringify(r.text)}`);
+    assert.equal(r.text.endsWith('\r\n'), true, `${label}：每一行都以 CRLF 收尾，最后一行也一样`);
+  }
+  // 两次写出逐字节相同：表头顺序由出场顺序决定，不许有实现把键序交给哈希
+  assert.equal(uWrite(jsonToCsv([{ b: 1, a: 2 }])), 'b,a\r\n1,2\r\n', '表头就是首行的键序');
+
+  const U14_SHAPE = [
+    ['空数组', [], 'empty'], ['零个键的一行', [{}], 'empty'], ['空对象', {}, 'empty'],
+    ['数字', 42, 'shape'], ['字符串', 'x', 'shape'], ['null', null, 'shape'], ['纯标量数组', [1, 2], 'shape'],
+    ['数组里混标量', [{ a: 1 }, 2], 'shape'], ['数组套数组', [[1]], 'shape'], ['布尔', true, 'shape'],
+  ];
+  for (const [label, v, kind] of U14_SHAPE) {
+    const e = uWriteErr(jsonToCsv(v), label);
+    assert.deepEqual(Object.keys(e).sort(), ['kind', 'message', 'path'], `${label}：写侧 error 就这三格`);
+    assert.equal(e.kind, kind, `${label}：kind 实读 ${e.kind}，期望 ${kind}`);
+    assert.equal(e.path, '', `${label}：整份输入的毛病，Pointer 是空串`);
+    assert.match(e.message, /对象数组|对象/, `${label}：要说清楚收什么形状，实读 ${e.message}`);
+  }
+  // `[]` 与 `[{}]` 是"没有列可写"，与"形状不对"分开两档：面板给的下一步不一样
+  for (const v of [[], [{}], {}]) {
+    assert.equal(uWriteErr(jsonToCsv(v)).kind, 'empty', `${JSON.stringify(v)} 应当落在 empty`);
+  }
+  for (const v of [42, 'x', null, [1, 2], true]) {
+    assert.equal(uWriteErr(jsonToCsv(v)).kind, 'shape', `${JSON.stringify(v)} 应当落在 shape`);
+  }
+
+  const U14_BAD = [
+    ['undefined 在格子里', [{ a: undefined }], '/0/a'],
+    ['函数在格子里', { a: () => {} }, '/a'],
+    ['NaN 在格子里', { a: NaN }, '/a'],
+    ['+Infinity 在格子里', { a: Infinity }, '/a'],
+    ['BigInt 在格子里', [{ a: 10n }], '/0/a'],
+    ['Map 在格子里', { a: new Map() }, '/a'],
+    ['Set 在格子里', { a: new Set() }, '/a'],
+    ['非 Uint8Array 的 typed array', { a: new Int16Array([1]) }, '/a'],
+    ['嵌套里的 undefined', { a: { b: undefined } }, '/a/b'],
+    ['嵌套里的 NaN', [{ a: [NaN] }], '/0/a/0'],
+  ];
+  for (const [label, v, path] of U14_BAD) {
+    const e = uWriteErr(jsonToCsv(v), label);
+    assert.equal(e.kind, 'non-json', `${label}：kind 实读 ${e.kind}`);
+    assert.equal(e.path, path, `${label}：Pointer 实读 ${JSON.stringify(e.path)}，期望 ${path}`);
+    assert.match(e.message, /JSON/, `${label}：消息要点名"JSON 里装不下"`);
+  }
+  const cyc = { a: 1 }; cyc.self = cyc;
+  const c = uWriteErr(jsonToCsv(cyc), '环');
+  assert.equal(c.kind, 'cycle');
+  assert.equal(c.path, '/self');
+  const shared = { k: 1 };
+  assert.equal(jsonToCsv({ x: shared, y: shared }).ok, true, 'DAG 不算环，与 YAML 那一族同一条判据（见 U8）');
+  // 单元格里的嵌套深度借 §S 的 MAX_DEPTH 那一把尺，不另立第二个数
+  const deepCell = uWriteErr(jsonToCsv({ a: uDeep(U_MAX_DEPTH) }), '单元格套 1000 层');
+  assert.equal(deepCell.kind, 'depth', `实读 ${deepCell.kind}`);
+  assert.match(deepCell.message, new RegExp(String(U_MAX_DEPTH)), '消息要点名上限');
+
+  // 分隔符是"档位"不是"字符串"：与 §S 的 modeOf 同形，非法值当场编程错，不返回 error。
+  // `undefined` 不在这一族里——面板的控件会把"没选"传成 undefined，那一格走默认逗号（下一格钉它）。
+  for (const bad of ['', ',,', 'ab', '"', '\n', '\r', 42, null]) {
+    assert.throws(() => jsonToCsv([{ a: 1 }], { delimiter: bad }), RangeError,
+      `分隔符 ${JSON.stringify(bad)} 必须 RangeError`);
+  }
+  assert.equal(jsonToCsv([{ a: 1 }], { delimiter: undefined }).text, 'a\r\n1\r\n',
+    '不传选项走逗号；显式传 undefined 也一样（面板的控件会把"没选"传成 undefined）');
+  assert.throws(() => csvToJson('a', { delimiter: ',,' }), RangeError, '读侧的分隔符必须走同一条尺');
+});
+
+test('U15 读侧的 RFC 4180 五族：引号转义、内嵌换行、CRLF、BOM、尾行无换行', () => {
+  const bomChar = String.fromCharCode(0xFEFF);
+  // [档位, CSV 文本, 期望值]（meta 那一格归 U16，这一族只管"读回来的东西对不对"）
+  const U15_ROWS = [
+    ['基本一行', 'a,b\r\n1,2\r\n', [{ a: '1', b: '2' }]],
+    ['引号里的分隔符算内容', 'a\r\n"x,y"\r\n', [{ a: 'x,y' }]],
+    ['两连引号解成一个', 'a\r\n"a""b"\r\n', [{ a: 'a"b' }]],
+    ['引号里的 LF 是内容', 'a\r\n"l1\nl2"\r\n', [{ a: 'l1\nl2' }]],
+    ['引号里的 CRLF 也原样', 'a\r\n"l1\r\nl2"\r\n', [{ a: 'l1\r\nl2' }]],
+    ['引号里的裸 CR 也原样', 'a\r\n"l1\rl2"\r\n', [{ a: 'l1\rl2' }]],
+    ['尾行没有换行', 'a,b\r\n1,2', [{ a: '1', b: '2' }]],
+    ['只有表头', 'a,b', []],
+    ['LF 排版的文件', 'a,b\n1,2\n', [{ a: '1', b: '2' }]],
+    ['CR 排版的文件（老 Mac）', 'a,b\r1,2\r', [{ a: '1', b: '2' }]],
+    ['BOM 吃掉但值不变', bomChar + 'a,b\r\n1,2\r\n', [{ a: '1', b: '2' }]],
+    ['短行补空串', 'a,b,c\r\n1\r\n', [{ a: '1', b: '', c: '' }]],
+    ['中间的空行是一行', 'a\r\n1\r\n\r\n2\r\n', [{ a: '1' }, { a: '' }, { a: '2' }]],
+    ['表头自己带引号', '"a""b",c\r\n1,2\r\n', [{ 'a"b': '1', c: '2' }]],
+    ['表头空位给占位名', ',x\r\n1,2\r\n', [{ col_1: '1', x: '2' }]],
+    ['重复表头追加序号', 'a,a,a\r\n1,2,3\r\n', [{ a: '1', a__2: '2', a__3: '3' }]],
+    ['重复表头与空位混着来', 'a,,a\r\n1,2,3\r\n', [{ a: '1', col_2: '2', a__2: '3' }]],
+    ['占位名撞上真名继续加序号', 'a,a__2,a\r\n1,2,3\r\n', [{ a: '1', a__2: '2', a__3: '3' }]],
+    ['字段中间的裸引号容忍', 'a\r\nb"c\r\n', [{ a: 'b"c' }]],
+    ['闭合引号后面还有字就拼上', 'a\r\n"x"y\r\n', [{ a: 'xy' }]],
+    ['一对引号就是空串', 'a\r\n""\r\n', [{ a: '' }]],
+    ['引号里就是一个换行', 'a\r\n"\n"\r\n', [{ a: '\n' }]],
+    ['分号分隔', 'a;b\r\n1;2\r\n', [{ a: '1', b: '2' }], ';'],
+    ['分号分隔里的逗号不算分隔符', 'a\r\n"x,y"\r\n', [{ a: 'x,y' }], ';'],
+    ['行首空格是内容', 'a\r\n lead\r\n', [{ a: ' lead' }]],
+    ['行尾空格是内容', 'a\r\ntrail \r\n', [{ a: 'trail ' }]],
+    ['表头两侧空格也留着', ' a , b \r\n1,2\r\n', [{ ' a ': '1', ' b ': '2' }]],
+    ['引号字段跨行之后仍对齐表头', 'a,b\r\n"x\ny",2\r\n', [{ a: 'x\ny', b: '2' }]],
+    ['一行三格带空尾格', 'a,b,\r\n1,2,\r\n', [{ a: '1', b: '2', col_3: '' }]],
+  ];
+  for (const [label, text, want, delimiter] of U15_ROWS) {
+    const r = delimiter === undefined ? csvToJson(text) : csvToJson(text, { delimiter });
+    assert.deepStrictEqual(uRead(r, label), want, `${label}：值实读 ${JSON.stringify(r.value)}`);
+  }
+
+  // 写→读成对：本站自己写出去的三族（引号、内嵌换行、CRLF）读回来逐格等于原值
+  const PAIRS = [
+    [{ a: 'x,y' }, { a: 'b\nc' }],
+    [{ a: 'say "hi"' }],
+    [{ a: 'r1\r\nr2' }],
+    [{ a: '列,与"引号"混排', b: '换\n行' }],
+    [{ 名: '值', 空: '' }],
+  ];
+  for (const rows of PAIRS) {
+    const label = `成对 ${JSON.stringify(rows).slice(0, 40)}`;
+    assert.deepStrictEqual(uRead(csvToJson(uWrite(jsonToCsv(rows)), label), label), rows, label);
+  }
+  // 读→写的幂等：读一份合规 CSV 再写回去，逐字不变（面板"导入后重新导出"那条路）
+  const IDEMPOTENT = ['a,b\r\n1,2\r\n', 'a\r\n"x,y"\r\n', 'a,b\r\n1,\r\n', '名字,x y\r\n1,2\r\n'];
+  for (const text of IDEMPOTENT) {
+    const back = uRead(csvToJson(text));
+    assert.equal(uWrite(jsonToCsv(back)), text, `幂等实读 ${JSON.stringify(uWrite(jsonToCsv(back)))}`);
+  }
+  // 非法形状只有一档：分隔符（RangeError 见 U14），非字符串入参在 U9 钉过
+});
+
+test('U16 回读一律字符串、meta 六格与拒绝位置：形状与 U9 同一条口径', () => {
+  const bomChar = String.fromCharCode(0xFEFF);
+  const r = csvToJson('a,b\r\n1,2\r\n');
+  assert.deepEqual(Object.keys(r).sort(), ['meta', 'ok', 'value'],
+    'CSV 读侧成功是这三格：比 YAML/XML 多一个 meta，因为"几行几列、什么换行"是用户要看的');
+  assert.deepEqual(Object.keys(r.meta).sort(), ['allStrings', 'bom', 'columns', 'delimiter', 'lineEnding', 'rows'],
+    'meta 六格一个不多一个不少：面板直接读这几格，多一格就要改面板');
+  assert.deepStrictEqual(r.meta, { rows: 1, columns: 2, delimiter: ',', allStrings: true, bom: false, lineEnding: 'crlf' },
+    `meta 实读 ${JSON.stringify(r.meta)}`);
+
+  // 一律字符串：这一条是 CSV 这一族的**全部代价**，面板那句 fidelity 说的就是它
+  const mixed = uRead(csvToJson('s,n,b,z,e\r\n1,2.5,true,,\r\n'));
+  assert.deepStrictEqual(mixed, [{ s: '1', n: '2.5', b: 'true', z: '', e: '' }],
+    '看着像数字与布尔的一律是字符串，空格子也是');
+  const stringy = uRead(csvToJson(uWrite(jsonToCsv([{ a: 1, b: true, c: null, d: { e: 1 } }]))));
+  for (const [k, v] of Object.entries(stringy[0])) {
+    assert.equal(typeof v, 'string', `${k} 那一格写出去再读回来是 ${typeof v}`);
+  }
+  // allStrings 是真话：拿一份什么花样都有的输入逐格验类型
+  const wild = uRead(csvToJson('a,b\r\n"x""y",\r\n,1e3\r\n"l1\nl2",true\r\n'));
+  assert.equal(wild.length, 3, '三行数据');
+  for (const row of wild) {
+    for (const [k, v] of Object.entries(row)) {
+      assert.equal(typeof v, 'string', `${k} 那一格实读 ${typeof v}`);
+    }
+  }
+  assert.equal(wild[0].a, 'x"y');
+  assert.equal(wild[2].a, 'l1\nl2');
+
+  // lineEnding 五档：由**实际出现过的**终止符决定，出现两种以上就是 mixed
+  const LE = [
+    ['全 CRLF', 'a,b\r\n1,2\r\n', 'crlf'],
+    ['全 LF', 'a,b\n1,2\n', 'lf'],
+    ['全 CR', 'a,b\r1,2\r', 'cr'],
+    ['混着排', 'a,b\r\n1,2\n', 'mixed'],
+    ['整份没有终止符', 'a,b', 'none'],
+    ['只有一行表头也算 none', 'a', 'none'],
+    ['引号里的换行不参与统计', 'a\r\n"x\ny"\r\n', 'crlf'],
+    ['引号里的裸 CR 不参与统计', 'a\r\n"x\ry"\r\n', 'crlf'],
+    ['尾行没有终止符不影响判定', 'a,b\r\n1,2', 'crlf'],
+    ['BOM 不影响判定', bomChar + 'a,b\n1\n', 'lf'],
+  ];
+  for (const [label, text, want] of LE) {
+    assert.equal(csvToJson(text).meta.lineEnding, want, `${label}：实读 ${csvToJson(text).meta.lineEnding}`);
+  }
+  // BOM 只认开头那一个；正文里出现的 U+FEFF 是内容
+  assert.equal(csvToJson(bomChar + 'a\r\n1\r\n').meta.bom, true, '开头的 BOM 要报出来');
+  assert.equal(uRead(csvToJson(bomChar + 'a\r\n1\r\n'))[0].a, '1', 'BOM 不进表头');
+  const zws = String.fromCharCode(0xFEFF);
+  assert.equal(csvToJson('a\r\n' + zws + 'x\r\n').meta.bom, false, '正文里的 U+FEFF 不是 BOM');
+  assert.equal(uRead(csvToJson('a\r\n' + zws + 'x\r\n'))[0].a, zws + 'x', '它是内容，一个字符都不许丢');
+  assert.equal(csvToJson('a;b\r\n1;2\r\n', { delimiter: ';' }).meta.delimiter, ';', 'meta 回显读的时候用的分隔符');
+  assert.equal(csvToJson('a,b\r\n1,2\r\n').meta.delimiter, ',', '不传选项就是逗号');
+  assert.equal(csvToJson('a,b\r\n1,2\r\n3,4\r\n').meta.rows, 2, 'rows 只数数据行，不含表头');
+  assert.equal(csvToJson('a,b\r\n1,2\r\n').meta.columns, 2, 'columns 数的是表头格数');
+
+  // 拒绝那一族：三档（empty / unterminated / ragged）+ 闸门两档，六格形状与位置口径同 U9
+  const U16_ERR = [
+    ['空文本', '', 'empty', 0, 1, 1],
+    ['只有空白', '  \n ', 'empty', 4, 2, 2],
+    ['只有终止符', '\r\n', 'empty', 2, 2, 1],
+    // 两处都指认**那个没合上的引号自己**（不是它后面的内容，也不是 EOF）：面板把选区放到引号上才看得懂
+    ['引号没合上', 'a\r\n"b', 'unterminated', 3, 2, 1],
+    ['引号没合上（到 EOF）', 'a,b\n"c', 'unterminated', 4, 2, 1],
+    ['多出来的格', 'a,b\r\n1,2,3\r\n', 'ragged', 9, 2, 5],
+    ['多出来的格在跨行字段之后', 'a,b\r\n"x\ny",2,3\r\n', 'ragged', 13, 3, 6],
+  ];
+  for (const [label, text, kind, index, line, column] of U16_ERR) {
+    const e = uReadErr(csvToJson(text), label);
+    assert.deepEqual(Object.keys(e).sort(), ['column', 'index', 'kind', 'line', 'message', 'snippet'],
+      `${label}：六格齐活（与 U9/U12 同一条口径）`);
+    assert.equal(e.kind, kind, `${label}：kind 实读 ${e.kind}`);
+    assert.equal(e.index, index, `${label}：index 实读 ${e.index}，期望 ${index}`);
+    assert.equal(e.line, line, `${label}：行号实读 ${e.line}，期望 ${line}`);
+    assert.equal(e.column, column, `${label}：列号实读 ${e.column}，期望 ${column}`);
+    assert.deepStrictEqual(uLocate(text, e.index), { line: e.line, column: e.column },
+      `${label}：行列必须由 index 推出来`);
+    const rng = uLineRange(text, e.line);
+    assert.equal(e.snippet, text.slice(rng.start, rng.end), `${label}：snippet 实读 ${JSON.stringify(e.snippet)}`);
+    assert.equal(e.message.includes(`第 ${line} 行第 ${column} 列`), true, `${label}：消息要带行列`);
+  }
+  // 行号是**物理行**，不是"第几条记录"：上一格第三行那一档已经钉住了这件事。
+  // ragged 只指认多出来的那一格，不去数前面有几格（消息里给期望与实际）
+  const rag = uReadErr(csvToJson('a,b\r\n1,2,3\r\n'), 'ragged 的消息');
+  assert.match(rag.message, /2/, `消息要给表头格数，实读 ${rag.message}`);
+  assert.match(rag.message, /3/, `消息要给实际格数，实读 ${rag.message}`);
+
+  // 闸门两档与 YAML/XML 走同一把尺，消息交回 core 的原话
+  const tooLong = 'a,' + 'x'.repeat(U_JSON_BYTES);
+  const gl = uReadErr(csvToJson(tooLong), 'CSV 超字节上限');
+  assert.equal(gl.kind, 'too-long');
+  assert.equal(gl.message, uGate(tooLong).message, '闸门消息只有一处口径');
+  assert.equal(gl.index, tooLong.length);
+  const tooMany = 'a,b\n'.repeat(U_LINES + 1);
+  const gm = uReadErr(csvToJson(tooMany), 'CSV 超行数上限');
+  assert.equal(gm.kind, 'too-many-lines');
+  assert.equal(gm.message, uGate(tooMany).message);
+  assert.equal(gm.index, tooMany.length);
+  assert.deepStrictEqual(uLocate(tooMany, gm.index), { line: gm.line, column: gm.column }, '闸门那一档的行列也自洽');
+});
+
+test('U17 roundTrips：面板那三个 ✓ 读的就是这一格，判据与手工往返同结论', () => {
+  // 这一格只服务面板上那三个"是否等价"读数，所以它的定义必须与 U6/U13/U15 的**手工往返**逐字一致：
+  // 写侧不抛 && 写侧 ok && 读侧 ok && 深相等。任何一个条件单列出去，面板就会显示一个假 ✓。
+  assert.deepEqual(Object.keys(roundTrips({})).sort(), ['csv', 'xml', 'yaml'], '三档，一档都不许多给');
+  assert.deepEqual(roundTrips([{ a: '1', b: 'x' }]), { yaml: true, xml: true, csv: true },
+    '全字符串的一行：三族都等价（CSV 里 "1" 本来就是串）');
+  assert.deepEqual(roundTrips([{ a: 1 }]), { yaml: true, xml: true, csv: false },
+    'CSV 没有类型：数字回来是字符串，所以 csv 必须 false——这不是缺陷，是这一族的代价');
+  assert.deepEqual(roundTrips([{ a: { b: 1 } }]), { yaml: true, xml: true, csv: false },
+    '嵌套压进单元格，回来是串');
+  assert.deepEqual(roundTrips({ a: -0 }), { yaml: true, xml: true, csv: false },
+    '负零只有 CSV 保不住：YAML 写 -0.0 读回 -0（U7 那格钉的是实测），本站的 XML 显式写 -0（U10），'
+    + '而 CSV 那一格连类型都没有');
+  assert.deepEqual(roundTrips([]), { yaml: true, xml: true, csv: false }, '空数组没有列名，CSV 写不出去');
+  assert.deepEqual(roundTrips('hi'), { yaml: true, xml: true, csv: false }, '根是标量：CSV 只收对象与对象数组');
+  const deep200 = uDeep(200);
+  assert.deepEqual(roundTrips(deep200), { yaml: false, xml: true, csv: false },
+    '200 层那一档：YAML 读侧撑不住（98 层），XML 撑得住（1000 层）——面板照实显示，不假装');
+  assert.deepEqual(roundTrips(uWithProtoKey(1)).yaml, true, '__proto__ 那一格与 U6 同结论');
+  assert.deepEqual(roundTrips(uWithProtoKey(1)).xml, true, '与 U13 同结论');
+
+  // 非 JSON 入参：三个 false，且**不抛**——面板拿它做即时读数，抛一次就是整块面板空白
+  const cyc = { a: 1 }; cyc.self = cyc;
+  for (const v of [undefined, () => {}, Symbol('s'), 10n, NaN, Infinity, -Infinity, new Map(), new Set(), cyc]) {
+    assert.deepEqual(roundTrips(v), { yaml: false, xml: false, csv: false },
+      `${String(v?.toString ? v.toString() : v)}：roundTrips 不许抛，也不许给半个 ✓`);
+  }
+
+  // 与手工往返逐格一致：这一族是"实现不许自创第二套判定"的牙齿
+  const CHECK = [
+    {}, [], 'hi', 42, true, null, 0, -0, 1e21, { a: 1 }, { a: 'x' }, { a: [1, 2] },
+    [{ a: 'x,y' }], [{ a: '1' }, { b: '' }], { a: { b: { c: '深' } } }, uDeep(98), uDeep(99),
+    uWithProtoKey({ n: 1 }), { 键: '值' }, new Date('2024-01-01T00:00:00Z'),
+  ];
+  for (const v of CHECK) {
+    const label = `一致性 ${JSON.stringify(v instanceof Date ? 'Date' : v).slice(0, 34)}`;
+    const rt = roundTrips(v);
+    assert.equal(rt.yaml, uRound(v, jsonToYaml, yamlToJson), `${label}：yaml 读数与手工往返不一致`);
+    assert.equal(rt.xml, uRound(v, jsonToXml, xmlToJson), `${label}：xml 读数与手工往返不一致`);
+    assert.equal(rt.csv, uRound(v, jsonToCsv, csvToJson), `${label}：csv 读数与手工往返不一致`);
+  }
+});
+
+test('U18 常量、纯度与依赖边：三对互转只站在内置件与 json-core 上面', () => {
+  assert.deepEqual(Object.keys(U_MOD).sort(), ['CSV_NOTES', 'XML_CONVENTION', 'YAML_DEPTH_LIMIT', 'YAML_LIB',
+    'YAML_NOTES', 'csvToJson', 'jsonToCsv', 'jsonToXml', 'jsonToYaml', 'roundTrips', 'xmlToJson', 'yamlToJson'],
+    '导出清单逐格钉住：多一格就是面板之外还有人能拿到内部件');
+  // 版本串不许靠记忆：它必须与内置件首行 banner、与判据里的路径同源（U1/U2 钉的是文件，这一格钉的是字符串）
+  assert.equal(YAML_LIB, 'js-yaml 5.4.2 (MIT) · dev/libJs/js-yaml.esm.min.mjs');
+  const banner = read(YAML_LIB_PATH).split('\n', 1)[0];
+  assert.equal(banner.includes(YAML_LIB.split(' ')[1]), true, `YAML_LIB 的版本与内置件 banner 不一致：${banner}`);
+  assert.equal(YAML_LIB.includes(YAML_LIB_PATH), true, 'YAML_LIB 里的路径就是那一本文件');
+  assert.equal(YAML_DEPTH_LIMIT, 98, '98 是实测出来的（见本节开头），改它要重跑二分，不许顺着消息里的 100 填');
+  assert.equal(typeof XML_CONVENTION, 'string');
+  assert.ok(XML_CONVENTION.length > 30 && XML_CONVENTION.length < 200,
+    `XML_CONVENTION 是面板上的一句话（${XML_CONVENTION.length} 字），长过这一档就该拆进 help 而不是堆在面板`);
+  for (const word of ['item', 't=']) assert.ok(XML_CONVENTION.includes(word), `那句话要提到 ${word}，实读 ${XML_CONVENTION}`);
+  assert.deepEqual(Object.keys(YAML_NOTES).sort(), ['ambiguous', 'date']);
+  assert.deepEqual(Object.keys(CSV_NOTES).sort(), ['fidelity']);
+  assert.match(YAML_NOTES.ambiguous, /布尔|yes/i);
+  assert.match(YAML_NOTES.date, /日期|时间/);
+  assert.match(CSV_NOTES.fidelity, /字符串/, 'fidelity 那句必须明说"回来一律字符串"，否则 csv 的 false 读数没人解释');
+
+  // 纯度：浏览器里跑的纯计算，不读环境、不外包转义与解析
+  const code = uCode();
+  for (const banned of ['document.', 'window.', 'localStorage', 'process.', 'Buffer', 'TextEncoder',
+    'fetch(', 'require(', 'atob(', 'btoa(', 'JSON.parse', 'JSON.stringify', 'DOMParser', 'XMLSerializer',
+    'eval(', 'new Function']) {
+    assert.equal(code.includes(banned), false, `json-convert 不许出现 ${banned}：纯计算、不读环境、转义与解析都不外包`);
+  }
+  // 依赖边只有两把：内置件 + json-core；面板与 DOM 那一族一概不碰（§W 才接）
+  const imports = [...code.matchAll(/^import .*$/gm)].map((m) => m[0]);
+  assert.equal(imports.length, 2, `只许两本依赖，实读 ${JSON.stringify(imports)}`);
+  assert.equal(imports.some((s) => s.includes('libJs/js-yaml')), true, 'YAML 走内置件');
+  assert.match(code, /from '.\/json-core\.js'/);
+  const names = /import \{([^}]*)\} from '\.\/json-core\.js'/m.exec(code)[1]
+    .split(',').map((s) => s.trim()).filter(Boolean).sort();
+  assert.deepEqual(names, ['INDENT_MODES', 'MAX_DEPTH', 'escapeText', 'gate', 'lineRange', 'locate', 'pointerChild'],
+    `借的那几把尺逐格钉住，实读 ${JSON.stringify(names)}——多借一格就该先加判据`);
+  // 深度只有一把尺：本站的 XML 两向都吃 MAX_DEPTH，不许写一个字面量 1000
+  assert.equal(code.includes('1000'), false, `出现字面量 1000 就是自创了第二把深度尺：借 MAX_DEPTH`);
+});
 ```
 
 Run: `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs`
@@ -1835,6 +2862,12 @@ test('S20 收尾三件：转义往返与点名、八类 kind 全覆盖、纯函�
     'parseJson 的第一步必须是 gate：全仓库只有一处字节与行数的口径');
 });
 ```
+
+### 落地那一格的两个 commit 号（补记 2026-09-29，写在这里免得对账时找不到）
+
+Task 1 落 `0340cd5`、Task 2 落 `a81b025`（都在 `main` 上，尚未推送）。本格当时只把命令写进了计划，
+没记 hash——而段 4 后面每一格的"HEAD 导出树"都指着某一个 hash，事后不记就等于下一格拿不到可复现的基线。
+Task 3 落 `21d1c5c`，往后各格一律在这一节续一行。
 ---
 
 ## Task 3: `json-ts.js` — TypeScript interface 生成（§T）
@@ -2574,8 +3607,1573 @@ function/undefined → 拒；歧义值（`yes`/`no`/`on`/`off`/`null`/`~`/`2024-
 空表头列 → `col_<1 起的序号>`；引号 / 内嵌换行 / CRLF / BOM / 尾行无换行五族各有断言；
 回读一律字符串（`meta.allStrings === true` 这一类可断言的形状）。
 
-- [ ] Step 1 §U 续 13 条红 → Step 2 绿 → Step 3 镜像 + 门禁 + 提交
-  （`feat(tools): 段 4 Task 4 json-convert——YAML 走内置件、XML 立无损子集、CSV 补 RFC 4180（§U）`）。
+### 落地镜像（门禁二核的就是这两块，`--fix` 会把它们整块换成磁盘内容）
+
+一块是 `dev/js/tools/json-convert.js` 的**磁盘全文**，另一块是磁盘上 §U 那一节的**整节**
+（U1–U5 与 §U 续的 U6–U18 同属一节：§U 续那行是普通注释、不是 `// ── §` 标记，所以
+`splitAtMarks` 不再切它——这正是本节名不另起、口径不分叉的落地形状）。§0.6 的硬规矩照旧：
+只有整文件与整节镜像允许 ` ```js `，契约段一律 ` ```text `。上面那一格 ` ```js ` 是新贴的，
+由磁盘内容直接生成（`--fix` 只做整块替换、从不插入），贴完在导出树里跑一次复验它已全等；
+下面那一格 §U 镜像由导出树里的 `--fix` 从 Task 1 那一块整块换过来。
+
+#### `dev/js/tools/json-convert.js`（整文件）
+
+```js
+/**
+ * JSON ↔ YAML / XML / CSV 三对互转（设计文档 §5.3 的转换族，段 4 Task 4 落地）。
+ * 判据是 §U 的 U6–U18（`scripts/toolkit-tests.mjs`），本文件的每一格口径都在那里钉着；
+ * 注释与判据冲突时以判据为准，因为判据是要在 CI 里红给下一个改这一本的人看的。
+ *
+ * ── 为什么 YAML 那一族用的是一本**内置件**而不是 npm 依赖（段 4 计划 §0.4 的三条理由）──
+ *
+ * 1. `package.json` 与 `pnpm-lock.yaml` 是全站构建的公共件，本段落地期间它正被另一路
+ *    会话占着（未提交的两条 `wechat:draft*` scripts）。加依赖要同批改这两个文件，
+ *    而 CI 是 `--frozen-lockfile` —— 两处不同批就红在别人的批次上。
+ * 2. 本仓库对**浏览器代码**的既有做法就是内置：`dev/libJs/` 里躺着 jquery、prism、
+ *    social-share、canvas-nest、vue、vconsole、fastclick，`package.json` 的
+ *    `dependencies` 一格根本没有（只有 7 项 devDependencies，全是构建工具）。
+ *    `THIRD-PARTY-NOTICES.md` 第一节就是为这一族内置件设的账。
+ * 3. 内置的价钱量得出来（2026-09-29 在 HEAD 导出树里真跑 `npx vite build` 的探针，
+ *    exit=0，口径 `cat f | gzip -9 | wc -c`）：探针入口 `probeJson.min.js` 原文 56,955B /
+ *    **gzip 16,912B**，同批对照 `toolCodec.min.js` 是 21,830B、`toolkitCore.min.js` 7,037B、
+ *    `toolkit.min.css` 2,135B；24 本产物（基线 23 本 + 探针那一本，Task 1 复跑核对过清单）里
+ *    `import{` 命中 0，且 `assets/js/` 没有多出
+ *    一本 js-yaml —— `.mjs` 既不成 Vite 入口（`vite.config.js:110` 只收 `.js`），
+ *    也不被 `copyMinifiedLibs` 复制（`:67` 只复制 `.min.js`）。
+ *
+ * ── 这一本是什么、能动到什么程度 ──
+ *
+ * `dev/libJs/js-yaml.esm.min.mjs` = npm tarball `js-yaml-5.4.2` 里那个
+ * `package/dist/browser/js-yaml.esm.min.mjs` 成员，**逐字节**（78,721B /
+ * sha256 `154ea2da…`，U1 钉它；整包 `js-yaml-5.4.2.tgz` 是 sha256 `0003d2f5…`，
+ * 两个数一起才能从上游复算）。spec §7 指定的就是这个入口。不改名、不重排、不剥尾部那条
+ * sourceMappingURL 引用（"逐字节等于上游"比"少一行指向站内不存在的 map"值钱，
+ * `jquery.min.js` 同样挂着一条，线上多年无人受害）。
+ *
+ * **升级口径**：换版本 = 换文件 + 改 §U 那一族记下的 sha256 / 字节数 / banner 串
+ * + 复跑 §U 与 §W 与门禁②③，并同步 `THIRD-PARTY-NOTICES.md` 那一行。
+ * 不许 sed 内置件本身——那会让第一节那句"逐字节比对已确证"变成谎话。
+ *
+ * ── 三对各自的边界，都是判据而不是"尽力而为" ──
+ *
+ * · **YAML**：读侧用 YAML11 的 schema（不是默认的 CORE），因为只有它给得出 `!!binary`
+ *   与时间戳这两类；价钱是 YAML 1.1 的历史包袱会真的生效（`yes/no/y/n/on/off` 是布尔、
+ *   `0755` 是八进制、`2024-01-01` 是日期，连键位上单个 `y` 也是布尔）。写侧全靠引号挡住
+ *   （U7 逐字钉住 dump 自己加的那些引号），读侧挡不住的由 U8 逐条点名、并由 `YAML_NOTES`
+ *   如实告诉用户。深度闸门 `YAML_DEPTH_LIMIT` 是**在内置件上二分实测**出来的 98 层：
+ *   写侧用同一个数，理由只有一条——写出去就必须读得回来。
+ * · **XML**：只支持本站自己写的那个子集（`XML_CONVENTION` 那句话就是这张表的目录）：
+ *   类型写在 `t` 属性上、数组元素一律 `<item>`、空白不 trim。命名空间、DOCTYPE、外部实体、
+ *   非预定义实体一律拒，且指认到越界的那一个字符（U12 四十八档）。读侧比写侧宽：接受自闭合、
+ *   单引号属性、注释、CDATA、数字引用与同名兄弟归并（U13），因为"编辑后再读"这条路要留着。
+ * · **CSV**：按 RFC 4180 补三处（引号 doubling、内嵌换行、CRLF），读回来一律是字符串——
+ *   它没有类型可保（`CSV_NOTES.fidelity` 就是说这件事）。形状只收"对象数组"与"单个对象"，
+ *   嵌套容器压成一格 JSON 文本（不拒，因为拒了用户就没法把这份数据带出去）。
+ *
+ * ── 三条贯穿全本的口径 ──
+ *
+ * 1. **坏输入是返回值，入参错才是编程错**：三个写函数对"这份数据转不了"返回
+ *    `{ok:false, error:{kind, message, path}}`，三个读函数对"这份文本读不懂"返回
+ *    `{ok:false, error:{kind, message, line, column, index, snippet}}`；而非字符串入参、
+ *    非法缩进档、非法分隔符一律当场 `TypeError` / `RangeError`（静默回退默认档，是把
+ *    "参数写错"藏成"输出莫名其妙"）。
+ * 2. **位置只有一把尺**：行列口径全借 `json-core` 的 `gate` / `locate` / `lineRange`，
+ *    闸门那两档的消息交回 core 的原话（站内不许有第二句"超出上限"）。深度也只有一把尺：
+ *    XML 两向都吃 `MAX_DEPTH`，本文件里不写字面量那一千。
+ * 3. **显式栈**：`scanJson` 与两个写读器都是迭代。`MAX_DEPTH` 那一档的合法输入会先把
+ *    递归下降的调用栈撑爆（`RangeError` 而不是行列号），而"报错报在第几行第几列"正是
+ *    这一族存在的理由。
+ *
+ * ── 纯计算 ──
+ *
+ * 不读任何环境：没有 `window` / `document` / `localStorage` / `process` / `Buffer` /
+ * `TextEncoder`，不用 `atob` / `btoa` / `DOMParser` / `XMLSerializer`，不碰网络，
+ * base64 与 XML 与 CSV 的解析全部自己写（U18 钉这一族，也钉"只借 json-core 那七把尺"）。
+ * 解析与序列化一律不外包给原生：`JSON.parse` / `JSON.stringify` 在本文件里一次都不出现
+ * （CSV 单元格里的紧凑 JSON 用 `escapeText` 自己拼，数字用 `String(n)`）。
+ *
+ * `__proto__` 一律走本文件的 `setOwn()` 写：`obj['__proto__'] = v` 改的是原型而不是属性，
+ * 一份恶意输入可以借此污染后续所有对象（U8 与 U13 各有一格盯着这条，它盯的是**依赖**）。
+ *
+ * @module dev/js/tools/json-convert.js
+ */
+import * as YAML from '../../libJs/js-yaml.esm.min.mjs';
+import { INDENT_MODES, MAX_DEPTH, escapeText, gate, lineRange, locate, pointerChild } from './json-core.js';
+
+/**
+ * 面板与判据共读的那一句身份说明（U18 拿它与内置件首行 banner、与 §U 的路径同时逐字对账）。
+ * @type {string}
+ */
+export const YAML_LIB = 'js-yaml 5.4.2 (MIT) · dev/libJs/js-yaml.esm.min.mjs';
+
+/**
+ * YAML 那一族的深度上限：在内置件的读侧上二分实测（2026-09-29），98 层能读回来、
+ * 99 层它自己就抛。写侧用同一个数，是为了 `roundTrips().yaml` 给出的那个 ✓ 不是假话。
+ * 它与 `MAX_DEPTH`（1000）是两个数：YAML 这一族窄，XML 那一族宽，面板照实显示。
+ * @type {number}
+ */
+export const YAML_DEPTH_LIMIT = 98;
+
+/**
+ * 面板上"读 YAML 要知道的两件事"（键名由 §W 的面板按格读，加一格就要改面板）。
+ * @type {{ambiguous: string, date: string}}
+ */
+export const YAML_NOTES = {
+  ambiguous: 'YAML 1.1 把 yes/no/on/off/y/n 当布尔、0755 当八进制、2024-01-01 当日期：'
+    + '本站写的时候每一格都加了引号，读你手上的 YAML 时它们会真的变成布尔与数字。',
+  date: '日期与时间在 YAML 里是另一种类型：本站一律折成 UTC 的 ISO 8601 字符串'
+    + '（形如 2024-01-01T00:00:00.000Z），!!binary 一律折成 base64 字符串。',
+};
+
+/**
+ * XML 那一族的一句话约定说明（U18 钉它必须提到 `item` 与 `t=`，且长不过 200 字——
+ * 长过这一档就该拆进 help 而不是堆在面板上）。
+ * @type {string}
+ */
+export const XML_CONVENTION = '类型只写在 t= 属性上（obj / arr / str / num / bool / null），'
+  + '数组元素一律叫 item，对象键名就是标签名；命名空间、DOCTYPE 与外部实体不读。';
+
+/**
+ * CSV 那一族的代价说明（面板那句 fidelity，也是 `roundTrips().csv === false` 的解释）。
+ * @type {{fidelity: string}}
+ */
+export const CSV_NOTES = {
+  fidelity: 'CSV 没有类型：每一格读回来都是字符串，数字、布尔与 null 都一样；'
+    + '嵌套的对象与数组压成一格 JSON 文本写进去，读回来同样是字符串。',
+};
+
+/** 三档缩进的单位：与 `INDENT_MODES` 同名同序，档位合法性由那一本管（U10） */
+const INDENT_UNIT = { two: '  ', four: '    ', tab: '\t' };
+
+/** XML 的类型标签（写侧按它输出，读侧按它校验；`item` 不在这一族里，那是元素名） */
+const XML_KINDS = ['obj', 'arr', 'str', 'num', 'bool', 'null'];
+
+/** 读侧只认这五个预定义实体，其余具名实体一律点名拒（U12） */
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+/** 合法名字：字母或下划线起始，后面跟字母、数字、点、下划线、连字符；`xml` 前缀与冒号拒（U11） */
+const NAME_RE = /^[\p{L}_][\p{L}\p{Nd}._-]*$/u;
+/** JSON 的数字记号（读侧按它校验 `t="num"` 的内容，所以 `+1`、`01`、`Infinity` 都进不来） */
+const NUM_RE = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+
+const LT = '<';
+const GT = '>';
+const AMP = '&';
+const SLASH = '/';
+const EQ = '=';
+const QUOTE = '"';
+const APOS = "'";
+const SEMI = ';';
+const TILDE = '~';
+
+/** 内置件读侧遇到 JSON 装不下的类型时，`settle()` 交回的这个哨兵（只在本文件内流通） */
+const NOT_JSON = Symbol('not-json');
+
+/**
+ * 把键写成 own 属性（`obj['__proto__'] = v` 改的是原型）。与 json-core 的同名内部件同形——
+ * 那一本没有导出它，因为它是解析器 internals；这一本要的也只是 internals。
+ * @param {Record<string, unknown>} obj
+ * @param {string} key
+ * @param {unknown} value
+ */
+const setOwn = (obj, key, value) => {
+  Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
+};
+
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+/** 容器 = 数组或"干净的对象"（原型是 Object.prototype 或 null）；类实例、Map、Set 都不算 */
+const isPlainObject = (v) => {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+};
+
+const isContainer = (v) => Array.isArray(v) || isPlainObject(v);
+
+const CLASS_SCALAR = 0;
+const CLASS_CONTAINER = 1;
+const CLASS_BAD = 2;
+
+/**
+ * 三族共用的分类：哪些值能进 JSON、哪些是容器、哪些"JSON 里装不下"。
+ * `Date` 与 `Uint8Array` 算标量，因为每一族都有明确的归一方式（ISO 串 / base64 串）；
+ * 非有限的数（NaN 与两个 Infinity）算装不下——交出去就不是合法 JSON 了。
+ * @param {unknown} v
+ * @returns {number} `CLASS_SCALAR` | `CLASS_CONTAINER` | `CLASS_BAD`
+ */
+const classify = (v) => {
+  const t = typeof v;
+  if (v === null || t === 'string' || t === 'boolean') return CLASS_SCALAR;
+  if (t === 'number') return Number.isFinite(v) ? CLASS_SCALAR : CLASS_BAD;
+  if (t === 'object') {
+    if (Array.isArray(v)) return CLASS_CONTAINER;
+    if (v instanceof Date || v instanceof Uint8Array) return CLASS_SCALAR;
+    return isPlainObject(v) ? CLASS_CONTAINER : CLASS_BAD;
+  }
+  return CLASS_BAD;
+};
+
+/** 容器的键序列：数组用下标，对象用 own 可枚举键（`__proto__` 在列，因为它就是 own 键） */
+const keyListOf = (v) => (Array.isArray(v) ? Array.from(v, (unused, i) => i) : Object.keys(v));
+
+const typeNameOf = (v) => {
+  if (v === null) return 'null';
+  if (v instanceof Date) return 'Date';
+  if (v instanceof Uint8Array) return 'Uint8Array';
+  const t = typeof v;
+  if (t === 'object') return isPlainObject(v) ? 'object' : (v && v.constructor && v.constructor.name) || 'object';
+  return t;
+};
+
+/** base64  alphabet：`atob` / `btoa` 在 U18 的禁令里（外包就等于不可审计），这一族自己写 */
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/**
+ * 字节串 → base64（含 `=` 补齐）。空字节串得到空字符串，而不是"看起来像 null"的裸 `a:`。
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+const b64 = (bytes) => {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const hasB = i + 1 < bytes.length;
+    const hasC = i + 2 < bytes.length;
+    const n = (a << 16) | ((hasB ? bytes[i + 1] : 0) << 8) | (hasC ? bytes[i + 2] : 0);
+    out += B64_CHARS.charAt((n >> 18) & 63) + B64_CHARS.charAt((n >> 12) & 63);
+    out += hasB ? B64_CHARS.charAt((n >> 6) & 63) : '=';
+    out += hasC ? B64_CHARS.charAt(n & 63) : '=';
+  }
+  return out;
+};
+
+/**
+ * 写侧共用的三道闸门：非 JSON 的值、环、深度。全部迭代，且**祖先栈只沿当前这条路径**——
+ * 同一个对象被两个键引用（DAG）在 JSON 里就是两份拷贝，`seen` 判法会把它当环一起拒掉（U8）。
+ * @param {unknown} value
+ * @param {number} limit 层数上限（根算第 1 层）
+ * @param {boolean} [countScalars] 标量叶算不算一层。XML 那一族要它（`true`）：本站的编码里
+ *   **一个值恰好一个元素**，最深那一格是标量时元素层数 = 容器层数 + 1，而读侧的闸门数的就是元素层数
+ *   （U12 钉死的既是它）。YAML 与 CSV 不数（`false`），它们的闸门各自窄一档/根本没有那一族。
+ *   这一把尺不许有两套读法：写侧只数容器就会放出自己读不回来的东西（U11 最后那一族钉的是这个）。
+ * @returns {{ok: true} | {ok: false, error: {kind: string, message: string, path: string}}}
+ */
+const scanJson = (value, limit, countScalars = false) => {
+  const rootClass = classify(value);
+  if (rootClass === CLASS_SCALAR) return { ok: true };
+  if (rootClass === CLASS_BAD) {
+    return { ok: false, error: { kind: 'non-json', message: nonJsonMessage(value), path: '' } };
+  }
+  const stack = [{ v: value, path: '', level: 1, keys: keyListOf(value), i: 0, anc: null }];
+  let where = '';
+  try {
+    while (stack.length > 0) {
+      const f = stack[stack.length - 1];
+      if (f.i >= f.keys.length) { stack.pop(); continue; }
+      const key = f.keys[f.i];
+      f.i += 1;
+      const path = pointerChild(f.path, key);
+      where = path;
+      const child = f.v[key];
+      const cls = classify(child);
+      if (cls === CLASS_BAD) return { ok: false, error: { kind: 'non-json', message: nonJsonMessage(child), path } };
+      if (cls === CLASS_SCALAR) {
+        const level = f.level + 1;
+        if (countScalars && level > limit) {
+          return { ok: false, error: { kind: 'depth', message: depthMessage(level, limit), path } };
+        }
+        continue;
+      }
+      if (child === f.v || hasAncestor(f.anc, child)) {
+        return { ok: false, error: { kind: 'cycle', message: CYCLE_MESSAGE, path } };
+      }
+      const level = f.level + 1;
+      if (level > limit) {
+        return { ok: false, error: { kind: 'depth', message: depthMessage(level, limit), path } };
+      }
+      stack.push({ v: child, path, level, keys: keyListOf(child), i: 0, anc: { node: f.v, prev: f.anc } });
+    }
+  } catch {
+    // 走到这里只剩一种可能：**读这一格的值时它自己抛了**（对象上的 getter 或 Proxy 的 trap）。
+    // 面板喂进来的值一律出自 parseJson，那里头没有 getter，所以这一族不是"用户的数据"而是"别人
+    // 直接调模块"才会撞上的形状；但出口那句"绝不抛给调用方"不许因为它破——三格并排的面板里，
+    // 任何一格把异常抛出去就是整块面板一次未捕获异常。与"装不进 JSON"同一档，当场指认 Pointer。
+    return { ok: false, error: { kind: 'non-json', message: THREW_MESSAGE, path: where } };
+  }
+  return { ok: true };
+};
+
+/** 沿祖先链表找有没有同一个对象（深度已先由闸门卡住，这一族最贵就是 limit 次比较） */
+const hasAncestor = (anc, node) => {
+  for (let p = anc; p !== null; p = p.prev) if (p.node === node) return true;
+  return false;
+};
+
+const nonJsonMessage = (v) => `${typeNameOf(v)} 这种值装不进 JSON：本站只认对象、数组、`
+  + '字符串、有限的数、布尔与 null。undefined 键与函数会被静默丢掉或改写，比报错更难查，所以当场拒。';
+
+const CYCLE_MESSAGE = '这份数据里有自引用（对象或数组里出现了它自己）：JSON 里表达不了环，'
+  + '本站不展开也不截断，请把它改成两份独立的值。';
+
+/** `scanJson` 里那道 catch 的话：读值时对象自己抛了（getter / Proxy 的 trap） */
+const THREW_MESSAGE = '取这一格的值时它自己抛了（对象上的 getter 或 Proxy 的 trap）：'
+  + '那不是 JSON 里取得出的一份数据，本站当场拒，不改写成 null 也不跳过这一格。';
+
+const depthMessage = (level, limit) => `嵌套到第 ${level} 层，超出这一族的上限 ${limit} 层：`
+  + '本站不做静默压平，请减一层再转。';
+
+/** 码点写成 `U+XXXX`（U11 钉这一族的写法：删掉它用户看不出来少了什么，必须点名） */
+const hexPoint = (code) => `U+${code.toString(16).toUpperCase().padStart(4, '0')}`;
+
+/**
+ * 读侧 error 的唯一造法：行列由 index 经 `locate` 推、snippet 由 `lineRange` 切，
+ * 所以两套数字不会各说各话（U9 与 U12 各有一格自洽断言）。
+ * @param {string} kind
+ * @param {string} text
+ * @param {number} index
+ * @param {string} why
+ */
+const readError = (kind, text, index, why) => {
+  const at = Math.max(0, Math.min(index | 0, text.length));
+  const pos = locate(text, at);
+  const rng = lineRange(text, pos.line);
+  return {
+    kind,
+    message: `${why}（第 ${pos.line} 行第 ${pos.column} 列）`,
+    line: pos.line,
+    column: pos.column,
+    index: at,
+    snippet: text.slice(rng.start, rng.end),
+  };
+};
+
+/** 闸门那一档：消息交回 json-core 的原话，不给 snippet（一行就是 5 MiB，指认到 EOF 那一格） */
+const gateError = (g, text) => {
+  const pos = locate(text, text.length);
+  return {
+    kind: g.kind, message: g.message, line: pos.line, column: pos.column, index: text.length, snippet: '',
+  };
+};
+
+const typeGuard = (api, value) => {
+  if (typeof value !== 'string') {
+    throw new TypeError(`${api} 只收字符串，收到的是 ${value === null ? 'null' : typeof value}`);
+  }
+};
+
+// ── YAML 那一族 ──────────────────────────────────────────────────────────────
+
+/**
+ * 值 → 交给内置件之前的归一：`Date` 变 ISO 串、`Uint8Array` 变 base64 串，其余原样。
+ * 归一是为了"交出去的 YAML 与交进来的 JSON 同形"——别人拿别的 yaml→json 工具转一圈
+ * 还得是同一份数据，所以不能让 dump 自己写 `!!binary` 或裸时间戳（U8）。
+ * 递归在这里是安全的：`scanJson` 已经把它压到 98 层以内，栈顶还剩几十格余量。
+ * @param {unknown} v
+ * @returns {unknown}
+ */
+const normalizeForYaml = (v) => {
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Uint8Array) return b64(v);
+  if (Array.isArray(v)) return v.map((item) => normalizeForYaml(item));
+  if (isPlainObject(v)) {
+    const out = {};
+    for (const key of Object.keys(v)) setOwn(out, key, normalizeForYaml(v[key]));
+    return out;
+  }
+  return v;
+};
+
+/**
+ * JSON 值 → YAML 文本。
+ * @param {unknown} value
+ * @returns {{ok: true, text: string} | {ok: false, error: {kind: string, message: string, path: string}}}
+ */
+export function jsonToYaml(value) {
+  const scan = scanJson(value, YAML_DEPTH_LIMIT);
+  if (!scan.ok) return { ok: false, error: scan.error };
+  let text;
+  try {
+    // lineWidth=-1：500 字的串不许被折成多行（复制出去就不是同一份数据）
+    // noRefs=true：DAG 写两份，与 JSON 同形；写成锚点引用是另一种"看起来一样"的东西
+    text = YAML.dump(normalizeForYaml(value), { lineWidth: -1, noRefs: true });
+  } catch (err) {
+    return { ok: false, error: { kind: 'non-json', message: `内置件不肯写这一族值：${err && err.message}`, path: '' } };
+  }
+  return { ok: true, text: text.endsWith('\n') ? text : `${text}\n` };
+}
+
+/**
+ * 在真正调用内置件之前，先把"整份输入没有文档"与"多于一个文档"这两档自己判掉：
+ * 内置件给这两档的异常不带位置（mark 是 null），而 §5.3 要的是行列号。
+ * 行口径借 §S 那一把尺（只认 `\n`），`---` 与 `...` 必须顶格才算标记（块标量里的缩进内容
+ * 因此不会被误读成文档边界）。
+ * @param {string} text
+ * @returns {{kind: 'empty'|'multi-document', index: number} | null}
+ */
+const prescanYaml = (text) => {
+  let pending = false;    // 最近一个文档标记之后有没有真正的内容
+  let open = false;       // 当前这一份文档开着（`---` 起了头，或已经有内容）
+  let everOpen = false;   // 整份输入里有没有开过文档——`...` 会关掉当前的，但不抹掉这一格
+  let endAt = -1;         // 看到 `...` 但还没有内容跟着它——它下面一旦有内容就是第二份的边界
+  let at = 0;
+  for (;;) {
+    const nl = text.indexOf('\n', at);
+    const end = nl === -1 ? text.length : nl;
+    const raw = text.slice(at, end);
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    const marker = /^---(?=[\s]|$)/.test(line) ? '---' : /^\.\.\.(?=[\s]|$)/.test(line) ? '...' : '';
+    const blank = line.trim() === '';
+    const comment = !blank && line.charAt(line.search(/[^\s]/)) === '#';
+    if (marker === '---') {
+      // 上面已经开过一份（哪怕内容是空的，`---\n---` 就是两份），这一行就是第二份的起始符
+      if (endAt >= 0) return { kind: 'multi-document', index: endAt };
+      if (pending || open) return { kind: 'multi-document', index: at };
+      open = true;
+      everOpen = true;
+      pending = false;
+    } else if (marker === '...') {
+      // 已经关掉过就什么也不做：2026-09-29 实测内置件对"结束符之后再来一个 `...`"仍算同一份文档，
+      // 这里抢先返回 multi 就是把**合法输入**误拒成两份——比漏拒更伤用户（U8 那一格钉的是它）。
+      // 空文档也要记下结束位：`---` 开了它、`...` 关掉它，后面再出现 `---` 就是第二份（U9 那一格）。
+      if (endAt < 0 && (pending || open)) endAt = at;
+      open = false;
+      pending = false;
+    } else if (!blank && !comment) {
+      if (endAt >= 0) return { kind: 'multi-document', index: endAt };
+      open = true;
+      everOpen = true;
+      pending = true;
+    }
+    if (nl === -1) break;
+    at = end + 1;
+  }
+  // 只有 `---` 也算一份文档（它的值是 null）；`...` 与注释不算——那才是"没有输入"
+  if (!everOpen) return { kind: 'empty', index: text.length };
+  return null;
+};
+
+/** 内置件的异常 → 本站的 kind：嵌套闸门、未知标签各一档，其余归 parse */
+const yamlErrorKind = (message) => {
+  if (/nesting exceeded|maximum nesting|maxDepth/i.test(message)) return 'depth';
+  if (/unknown [\w ]*tag/i.test(message)) return 'unknown-tag';
+  return 'parse';
+};
+
+/** 内置件消息的第一行（它后面还挂着源码上下文那几行，面板那一格只要这一句） */
+const firstLine = (message) => String(message).split('\n', 1)[0];
+
+/**
+ * 内置件给的值 → JSON 给得起的值：Date → ISO 串、Uint8Array → base64 串、
+ * 非有限的数 → null、JSON 装不下的那一族 → 交回 `NOT_JSON`。
+ * 所有对象一律用 `setOwn` 重建：原型必须回到 Object.prototype，`__proto__` 落成 own 键（U8）。
+ * 落到 `NOT_JSON` 的到底是哪一族，2026-09-29 实测过才这么写：`!!set` 与 `!!python/*` 那一族
+ * 在内置件那关就报 unknown tag（走 `unknown-tag` 那一档，压根到不了这里）；`!!omap` 在 YAML11
+ * 的 schema 里给回的就是"单键对象组成的数组"——那是 omap 在 JSON 里唯一成立的写法，原样收下，
+ * 不是把类型换掉。所以这里拦到的只剩 bigint / symbol / function 与"原型不是 Object 的脏对象"
+ * 这一族（站内可达的样本几乎没有，留着是因为换掉内置件的那天这一档就会不一样）。
+ * @param {unknown} v
+ * @returns {unknown} `NOT_JSON` 表示这份 YAML 里的东西 JSON 装不下
+ */
+const settleYamlValue = (v) => {
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Uint8Array) return b64(v);
+  if (Array.isArray(v)) {
+    const out = [];
+    for (const item of v) {
+      const s = settleYamlValue(item);
+      if (s === NOT_JSON) return NOT_JSON;
+      out.push(s);
+    }
+    return out;
+  }
+  if (v !== null && typeof v === 'object') {
+    const proto = Object.getPrototypeOf(v);
+    if (proto !== Object.prototype && proto !== null) return NOT_JSON;
+    const out = {};
+    for (const key of Object.keys(v)) {
+      const s = settleYamlValue(v[key]);
+      if (s === NOT_JSON) return NOT_JSON;
+      setOwn(out, key, s);
+    }
+    return out;
+  }
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (v === undefined || typeof v === 'bigint' || typeof v === 'symbol' || typeof v === 'function') return NOT_JSON;
+  return v;
+};
+
+/**
+ * YAML 文本 → JSON 值。读侧用 YAML11 的 schema（`YAML_NOTES` 那两格说的就是它的价钱）。
+ * @param {string} text
+ * @returns {{ok: true, value: unknown} | {ok: false, error: {kind: string, message: string, line: number, column: number, index: number, snippet: string}}}
+ */
+export function yamlToJson(text) {
+  typeGuard('yamlToJson', text);
+  const g = gate(text);
+  if (!g.ok) return { ok: false, error: gateError(g, text) };
+  const pre = prescanYaml(text);
+  if (pre) {
+    const why = pre.kind === 'empty'
+      ? '没有可解析的 YAML 内容：整份输入是空的、只有空白，或者只有注释与文档结束符'
+      : '这份文本里有多于一个 YAML 文档，本站一次只转一份';
+    return { ok: false, error: readError(pre.kind, text, pre.index, why) };
+  }
+  let loaded;
+  try {
+    loaded = YAML.load(text, { schema: YAML.YAML11_SCHEMA });
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    const mark = err ? err.mark : null;
+    const at = mark && typeof mark.position === 'number' ? mark.position : text.length;
+    return { ok: false, error: readError(yamlErrorKind(message), text, at, `YAML 解析失败：${firstLine(message)}`) };
+  }
+  const value = settleYamlValue(loaded);
+  if (value === NOT_JSON) {
+    return {
+      ok: false,
+      error: readError('non-json', text, text.length,
+        '这份 YAML 里有 JSON 装不下的类型（bigint、symbol、函数，或原型不是普通对象的那一族），'
+        + '本站只认对象、数组、字符串、有限的数、布尔与 null'),
+    };
+  }
+  return { ok: true, value };
+}
+
+// ── XML 那一族 ───────────────────────────────────────────────────────────────
+
+const isWs = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+
+const skipWs = (text, at) => {
+  let i = at;
+  while (i < text.length && isWs(text.charAt(i))) i += 1;
+  return i;
+};
+
+/** 名字合法性：字符集那一档 + `xml` 前缀那一档（U11 的合法/越界两族表就是它） */
+const isLegalName = (name) => NAME_RE.test(name) && !/^xml/i.test(name);
+
+/**
+ * 这段文字里有没有写进 XML 就存不下的字符：C0 控制符（`\t` `\n` `\r` 除外）与落单代理项。
+ * 命中就交回它的码点串，否则交回空串。`DEL`、U+0080、U+2028 都在 XML 1.0 的字符集里，
+ * 闸门不许顺手多禁（U11 有一格专门钉这一条）。
+ * @param {string} s
+ * @returns {string}
+ */
+const badCharIn = (s) => {
+  for (let i = 0; i < s.length; i += 1) {
+    const code = s.charCodeAt(i);
+    if (code < 0x20 && code !== 9 && code !== 10 && code !== 13) return hexPoint(code);
+    if (code >= 0xd800 && code <= 0xdfff) {
+      const next = i + 1 < s.length ? s.charCodeAt(i + 1) : -1;
+      if (code <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) { i += 1; continue; }
+      return hexPoint(code);
+    }
+  }
+  return '';
+};
+
+/** 文本节点只转四格：`&` `<` `>` 与 `\r`（后者不数字化会被读侧按平台规矩当行尾吃掉） */
+const xmlEscape = (s) => {
+  let out = '';
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charAt(i);
+    if (c === AMP) out += '&amp;';
+    else if (c === LT) out += '&lt;';
+    else if (c === GT) out += '&gt;';
+    else if (c === '\r') out += '&#13;';
+    else out += c;
+  }
+  return out;
+};
+
+/** 标量 → 写进标签中间的那段文字（负零是这一族唯一要偏离 `String(n)` 的地方，U10 钉它） */
+const xmlLeafText = (v) => {
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Uint8Array) return b64(v);
+  if (v === null) return '';
+  if (typeof v === 'number') return Object.is(v, -0) ? `-${String(0)}` : String(v);
+  return String(v);
+};
+
+const xmlKindOf = (v) => {
+  if (Array.isArray(v)) return 'arr';
+  if (v === null) return 'null';
+  if (v instanceof Date || v instanceof Uint8Array || typeof v === 'string') return 'str';
+  if (typeof v === 'number') return 'num';
+  if (typeof v === 'boolean') return 'bool';
+  return 'obj';
+};
+
+/**
+ * 写之前的一次预遍历：非法键名**一次列全**（按出场顺序），字符闸门指认第一个越界者。
+ * 分两趟而不是边写边报，是因为"改三轮"与"改一轮"的差别就在这一格上。
+ * @param {unknown} value
+ */
+const xmlWriteGate = (value) => {
+  const badKeys = [];
+  let firstKeyPath = '';
+  let charError = null;
+  const checkString = (s, path) => {
+    if (charError !== null) return;
+    const code = badCharIn(s);
+    if (code) {
+      charError = {
+        kind: 'bad-char',
+        message: `这个字符写进 XML 就丢了：${code}。XML 1.0 的字符集里没有它，`
+          + '本站既不删也不转成数字引用，请把它换掉或删掉。',
+        path,
+      };
+    }
+  };
+  if (typeof value === 'string') checkString(value, '');
+  if (!isContainer(value)) {
+    if (badKeys.length > 0) return { ok: false, error: invalidKeyError(badKeys, firstKeyPath) };
+    return charError ? { ok: false, error: charError } : { ok: true };
+  }
+  const stack = [{ v: value, path: '', keys: keyListOf(value), i: 0 }];
+  while (stack.length > 0) {
+    const f = stack[stack.length - 1];
+    if (f.i >= f.keys.length) { stack.pop(); continue; }
+    const key = f.keys[f.i];
+    f.i += 1;
+    const child = f.v[key];
+    const path = pointerChild(f.path, key);
+    if (!Array.isArray(f.v) && !isLegalName(String(key))) {
+      badKeys.push(String(key));
+      if (firstKeyPath === '') firstKeyPath = path;
+    }
+    if (typeof child === 'string') checkString(child, path);
+    else if (isContainer(child)) stack.push({ v: child, path, keys: keyListOf(child), i: 0 });
+  }
+  if (badKeys.length > 0) return { ok: false, error: invalidKeyError(badKeys, firstKeyPath) };
+  if (charError !== null) return { ok: false, error: charError };
+  return { ok: true };
+};
+
+const invalidKeyError = (keys, path) => ({
+  kind: 'invalid-key',
+  message: `这些对象键名不能当 XML 标签名：${keys.join('、')}。`
+    + '标签名要字母或下划线起始，后面跟字母、数字、点、下划线或连字符，且不以 xml 起始、不带冒号。',
+  path,
+  keys,
+});
+
+/**
+ * JSON 值 → XML 文本（本站自己那一族无损子集）。显式栈：`MAX_DEPTH` 那一档的合法输入
+ * 用递归下降写会先炸调用栈，而炸栈的报错给不出用户要的那一格内容。
+ * @param {unknown} value
+ * @param {{root?: string, indent?: string}} [options]
+ * @returns {{ok: true, text: string} | {ok: false, error: {kind: string, message: string, path: string, keys?: string[]}}}
+ */
+export function jsonToXml(value, options = {}) {
+  const opts = options || {};
+  const root = opts.root === undefined ? 'json' : String(opts.root);
+  const indent = opts.indent === undefined ? 'two' : opts.indent;
+  if (!INDENT_MODES.includes(indent)) {
+    throw new RangeError(`jsonToXml 只认 INDENT_MODES 里的那几档：${INDENT_MODES.join(' | ')}`);
+  }
+  // 第三格 `true`：XML 这一族的层数要把标量叶也算上，与读侧那道闸门同一把尺（见 `scanJson` 的 JSDoc）。
+  const scan = scanJson(value, MAX_DEPTH, true);
+  if (!scan.ok) return { ok: false, error: scan.error };
+  if (!isLegalName(root)) {
+    return {
+      ok: false,
+      error: { kind: 'invalid-root', message: `根元素名 ${root === '' ? '（空）' : root} 不能当 XML 标签名。`, path: '' },
+    };
+  }
+  const names = xmlWriteGate(value);
+  if (!names.ok) return { ok: false, error: names.error };
+
+  const unit = INDENT_UNIT[indent];
+  const out = [];
+  const stack = [{ name: root, v: value, level: 0, keys: null, i: 0 }];
+  while (stack.length > 0) {
+    const f = stack[stack.length - 1];
+    if (f.keys === null) {
+      const kind = xmlKindOf(f.v);
+      const pad = unit.repeat(f.level);
+      if (!isContainer(f.v)) {
+        out.push(`${pad}<${f.name} t="${kind}">${xmlEscape(xmlLeafText(f.v))}</${f.name}>`);
+        stack.pop();
+        continue;
+      }
+      f.keys = keyListOf(f.v);
+      f.i = 0;
+      // 空容器一律写成对标签：两种写法都读得懂，选读侧只有一种解释的那一个（U10）
+      if (f.keys.length === 0) {
+        out.push(`${pad}<${f.name} t="${kind}"></${f.name}>`);
+        stack.pop();
+        continue;
+      }
+      out.push(`${pad}<${f.name} t="${kind}">`);
+      continue;
+    }
+    if (f.i >= f.keys.length) {
+      out.push(`${unit.repeat(f.level)}</${f.name}>`);
+      stack.pop();
+      continue;
+    }
+    const key = f.keys[f.i];
+    f.i += 1;
+    stack.push({
+      name: Array.isArray(f.v) ? 'item' : String(key),
+      v: f.v[key],
+      level: f.level + 1,
+      keys: null,
+      i: 0,
+    });
+  }
+  return { ok: true, text: `${out.join('\n')}\n` };
+}
+
+/** 读侧内部的中断信号：只在模块内抛与接，绝不越过导出面（越界处 + kind + 人话原因） */
+class OutOfSubset {
+  constructor(kind, index, why) {
+    this.kind = kind;
+    this.index = index;
+    this.why = why;
+  }
+}
+
+/** 在制品节点：`start` 是它 `<` 的位置，`contentStart` 是 `>` 之后第一格，`firstAt` 是内容里第一个非空白字符 */
+const xmlFrame = (tag, start) => ({
+  name: tag.name,
+  kind: tag.kind,
+  start,
+  contentStart: tag.after,
+  value: tag.kind === 'obj' ? {} : tag.kind === 'arr' ? [] : null,
+  merged: null,
+  buf: '',
+  firstAt: -1,
+});
+
+const xmlIsContainerKind = (kind) => kind === 'obj' || kind === 'arr';
+
+/** 一段内容写进缓冲区，并记住"第一个非空白字符"的位置（bad-value 指认它） */
+const xmlAppend = (f, piece, at) => {
+  if (f.firstAt < 0) {
+    for (let i = 0; i < piece.length; i += 1) {
+      if (!isWs(piece.charAt(i))) { f.firstAt = at + i; break; }
+    }
+  }
+  f.buf += piece;
+};
+
+/** 读一个开始标签（根与子共用）。名字段扫到空白 / `/` / `>` 为止，整段一起校验，越界指认段首 */
+const readOpenTag = (text, at, level) => {
+  if (level > MAX_DEPTH) {
+    throw new OutOfSubset('depth', at, `嵌套到第 ${level} 层，超出本站的 ${MAX_DEPTH} 层上限`);
+  }
+  const n = text.length;
+  let k = at + 1;
+  while (k < n && !isWs(text.charAt(k)) && text.charAt(k) !== GT && text.charAt(k) !== SLASH) k += 1;
+  if (k >= n) throw new OutOfSubset('unterminated', at, '标签没有 > 收尾');
+  const name = text.slice(at + 1, k);
+  if (name === '') throw new OutOfSubset('bad-name', at + 1, '元素名一个字符都没有');
+  if (!isLegalName(name)) throw new OutOfSubset('bad-name', at + 1, `元素名 ${name} 不合法`);
+  let i = k;
+  const attrs = [];
+  let selfClosing = false;
+  for (;;) {
+    i = skipWs(text, i);
+    if (i >= n) throw new OutOfSubset('unterminated', at, '标签没有 > 收尾');
+    const c = text.charAt(i);
+    if (c === GT) { i += 1; break; }
+    if (c === SLASH) {
+      if (text.charAt(i + 1) !== GT) throw new OutOfSubset('bad-attr', i, '斜杠后面不是 >');
+      selfClosing = true;
+      i += 2;
+      break;
+    }
+    const s = i;
+    while (i < n && !isWs(text.charAt(i)) && text.charAt(i) !== EQ && text.charAt(i) !== GT && text.charAt(i) !== SLASH) i += 1;
+    const aName = text.slice(s, i);
+    if (aName === '') throw new OutOfSubset('bad-attr', i, '属性名一个字符都没有');
+    if (!isLegalName(aName)) throw new OutOfSubset('bad-name', s, `属性名 ${aName} 不合法`);
+    i = skipWs(text, i);
+    if (text.charAt(i) !== EQ) throw new OutOfSubset('bad-attr', s, `属性 ${aName} 后面没有等号`);
+    i = skipWs(text, i + 1);
+    const q = text.charAt(i);
+    if (q !== QUOTE && q !== APOS) throw new OutOfSubset('bad-attr', s, `属性 ${aName} 的值没有引号`);
+    const close = text.indexOf(q, i + 1);
+    if (close === -1) throw new OutOfSubset('unterminated', i, '属性的引号没有合上');
+    attrs.push({ name: aName, at: s, value: text.slice(i + 1, close), valueAt: i });
+    i = close + 1;
+  }
+  if (attrs.length > 1) {
+    throw new OutOfSubset('bad-attr', attrs[1].at, `元素 ${name} 上只许有 t 这一个属性`);
+  }
+  if (attrs.length === 0) {
+    throw new OutOfSubset('bad-shape', at, `元素 ${name} 缺 t 属性：这一族把类型写在 t= 上`);
+  }
+  const t = attrs[0];
+  if (t.name !== 't') throw new OutOfSubset('bad-attr', t.at, `元素 ${name} 的属性名是 ${t.name}，本站只认 t`);
+  if (!XML_KINDS.includes(t.value)) {
+    throw new OutOfSubset('bad-shape', t.valueAt, `t 的值 ${t.value} 不在册，只认 ${XML_KINDS.join(' / ')}`);
+  }
+  return { name, kind: t.value, selfClosing, after: i };
+};
+
+/** 注释：`<!--` 起始，越界指认它自己的 `<`（读不下去的时候，指认构造的开头最有用） */
+const readComment = (text, at) => {
+  const end = text.indexOf('-->', at + 4);
+  if (end === -1) throw new OutOfSubset('unterminated', at, '注释没有 --> 收尾');
+  return end + 3;
+};
+
+/** CDATA：内容原样进缓冲区，里面的尖括号与 & 都不算标签也不算实体（U13 的接受面） */
+const readCdata = (text, at, f) => {
+  const end = text.indexOf(']]>', at + 9);
+  if (end === -1) throw new OutOfSubset('unterminated', at, 'CDATA 没有 ]]> 收尾');
+  xmlAppend(f, text.slice(at + 9, end), at + 9);
+  return end + 3;
+};
+
+/** 实体引用：五个预定义 + 数字引用，数字引用要过 XML 1.0 的字符集与代理项两档 */
+const readEntity = (text, at, f) => {
+  const semi = text.indexOf(SEMI, at + 1);
+  if (semi === -1) throw new OutOfSubset('bad-entity', at, '实体引用没有分号收尾');
+  const body = text.slice(at + 1, semi);
+  if (body.charAt(0) === '#') {
+    const hex = body.charAt(1) === 'x' || body.charAt(1) === 'X';
+    const digits = hex ? body.slice(2) : body.slice(1);
+    if (!digits || !/^[0-9a-fA-F]+$/.test(digits)) {
+      throw new OutOfSubset('bad-entity', at, `数字引用 &#${hex ? 'x' : ''}${body.slice(1)}; 的数字不合法`);
+    }
+    const code = parseInt(digits, hex ? 16 : 10);
+    if (code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff) || !isXmlChar(code)) {
+      throw new OutOfSubset('bad-entity', at, `数字引用指向的 ${hexPoint(code)} 不是 XML 1.0 能存的字符`);
+    }
+    xmlAppend(f, String.fromCodePoint(code), at);
+    return semi + 1;
+  }
+  if (!hasOwn(XML_ENTITIES, body)) {
+    throw new OutOfSubset('bad-entity', at,
+      `未注册的实体 &${body};：这一族只认 ${Object.keys(XML_ENTITIES).map((k) => `&${k};`).join(' ')}，也不读外部实体`);
+  }
+  xmlAppend(f, XML_ENTITIES[body], at);
+  return semi + 1;
+};
+
+/** XML 1.0 的字符集（数字引用那一档用它校验；C0 里只留 `\t` `\n` `\r`） */
+const isXmlChar = (code) => code === 9 || code === 10 || code === 13
+  || (code >= 0x20 && code <= 0xd7ff) || (code >= 0xe000 && code <= 0xfffd)
+  || (code > 0xffff && code <= 0x10ffff);
+
+/** 子元素完成 → 挂到父亲身上。对象键同名时归并成数组（本站的写器发不出这一族，它是为手改过的合法 XML 留的） */
+const xmlAttach = (parent, name, value) => {
+  if (parent.kind === 'arr') { parent.value.push(value); return; }
+  if (hasOwn(parent.value, name)) {
+    if (parent.merged === null) parent.merged = new Map();
+    if (parent.merged.has(name)) { parent.merged.get(name).push(value); return; }
+    const merged = [parent.value[name], value];
+    parent.merged.set(name, merged);
+    setOwn(parent.value, name, merged);
+    return;
+  }
+  setOwn(parent.value, name, value);
+};
+
+/** 标量内容收口：`str` 不 trim，其余三档按 trim 后的内容校验，越界指认第一个非空白字符（U12） */
+const xmlScalarValue = (f) => {
+  if (f.kind === 'str') return f.buf;
+  const trimmed = f.buf.trim();
+  const at = f.firstAt < 0 ? f.contentStart : f.firstAt;
+  if (f.kind === 'null') {
+    if (trimmed !== '') throw new OutOfSubset('bad-value', at, `类型 null 的内容必须是空的，这里是 ${trimmed}`);
+    return null;
+  }
+  if (f.kind === 'bool') {
+    if (trimmed !== 'true' && trimmed !== 'false') {
+      throw new OutOfSubset('bad-value', at, `类型 bool 的内容只能是 true 或 false，这里是 ${trimmed}`);
+    }
+    return trimmed === 'true';
+  }
+  if (!NUM_RE.test(trimmed)) {
+    throw new OutOfSubset('bad-value', at, `${trimmed === '' ? '（空）' : trimmed} 不是合法的 JSON 数字`);
+  }
+  return Number(trimmed);
+};
+
+const xmlDone = (f) => (xmlIsContainerKind(f.kind) ? f.value : xmlScalarValue(f));
+
+/**
+ * 值树：显式栈，深度由 `readOpenTag` 那一格当场判（边扫边判，不然 1001 层的输入
+ * 先炸调用栈，报出来的就不是行列号了）。
+ * @returns {{value: unknown, next: number}}
+ */
+const readXmlTree = (text, at) => {
+  const open = readOpenTag(text, at, 1);
+  const rootFrame = xmlFrame(open, at);
+  let i = open.after;
+  if (open.selfClosing) return { value: xmlDone(rootFrame), next: i };
+  const stack = [rootFrame];
+  while (stack.length > 0) {
+    const f = stack[stack.length - 1];
+    if (xmlIsContainerKind(f.kind)) {
+      i = skipWs(text, i);
+      if (text.startsWith('<!--', i)) { i = readComment(text, i); continue; }
+      const c = text.charAt(i);
+      if (c === '') throw new OutOfSubset('unterminated', i, `元素 ${f.name} 没有闭合标签`);
+      if (c === LT && text.startsWith(SLASH, i + 1)) {
+        i = readCloseTag(text, i, f.name);
+        const value = xmlDone(f);
+        stack.pop();
+        if (stack.length === 0) return { value, next: i };
+        xmlAttach(stack[stack.length - 1], f.name, value);
+        continue;
+      }
+      if (c === LT && !text.startsWith('![', i + 1)) {
+        const childAt = i;
+        const child = readOpenTag(text, i, stack.length + 1);
+        if (f.kind === 'arr' && child.name !== 'item') {
+          throw new OutOfSubset('bad-shape', childAt, `数组里的子元素必须叫 item，这里是 ${child.name}`);
+        }
+        i = child.after;
+        const childFrame = xmlFrame(child, childAt);
+        if (child.selfClosing) xmlAttach(f, child.name, xmlDone(childFrame));
+        else stack.push(childFrame);
+        continue;
+      }
+      throw new OutOfSubset('bad-shape', i,
+        f.kind === 'arr' ? '数组里只能有 item 元素，这里出现了裸文本' : '对象里只能有子元素，这里出现了裸文本');
+    }
+    // 标量：一路读到 `</`，中间的 CDATA 与注释不算内容的一部分（注释跳过、CDATA 进文本）
+    for (;;) {
+      if (i >= text.length) throw new OutOfSubset('unterminated', i, `元素 ${f.name} 没有闭合标签`);
+      const c = text.charAt(i);
+      if (c === LT) {
+        if (text.startsWith('!--', i + 1)) { i = readComment(text, i); continue; }
+        if (text.startsWith('![CDATA[', i + 1)) { i = readCdata(text, i, f); continue; }
+        if (text.startsWith(SLASH, i + 1)) break;
+        throw new OutOfSubset('bad-shape', i, `类型 ${f.kind} 的内容里不许有子元素`);
+      }
+      if (c === AMP) { i = readEntity(text, i, f); continue; }
+      let k = i;
+      while (k < text.length && text.charAt(k) !== LT && text.charAt(k) !== AMP) k += 1;
+      xmlAppend(f, text.slice(i, k), i);
+      i = k;
+    }
+    i = readCloseTag(text, i, f.name);
+    const value = xmlDone(f);
+    stack.pop();
+    if (stack.length === 0) return { value, next: i };
+    xmlAttach(stack[stack.length - 1], f.name, value);
+  }
+  throw new OutOfSubset('bad-document', text.length, '没有读完一个完整的根元素');
+};
+
+/** 闭合标签：名字必须与开着的那个逐字相同，且不许带属性 */
+const readCloseTag = (text, at, name) => {
+  const n = text.length;
+  const s = at + 2;
+  let k = s;
+  while (k < n && !isWs(text.charAt(k)) && text.charAt(k) !== GT) k += 1;
+  if (k >= n) throw new OutOfSubset('unterminated', at, `闭合标签 </${name}> 没有 > 收尾`);
+  const got = text.slice(s, k);
+  if (got !== name) throw new OutOfSubset('bad-name', at, `闭合标签是 ${got}，但它要关的是 ${name}`);
+  const after = skipWs(text, k);
+  if (text.charAt(after) !== GT) throw new OutOfSubset('bad-attr', k, `闭合标签 </${name}> 里不许有属性`);
+  return after + 1;
+};
+
+/**
+ * XML 文本 → JSON 值。只读本站那一族子集，越界整体拒绝并指认位置（U12 四十八档逐个钉）。
+ * BOM 与 CSV 同一条口径（U15、U16）：剥掉它才解析（它是字节序记号，不是内容，也不占"根元素之前"
+ * 那一族的空白），但**位置一律指原文**——面板高亮吃的是用户粘进去的那一份，BOM 就占第 1 行第 1 列。
+ * @param {string} text
+ * @returns {{ok: true, value: unknown} | {ok: false, error: {kind: string, message: string, line: number, column: number, index: number, snippet: string}}}
+ */
+export function xmlToJson(text) {
+  typeGuard('xmlToJson', text);
+  const g = gate(text);
+  if (!g.ok) return { ok: false, error: gateError(g, text) };
+  const bom = text.charCodeAt(0) === 0xfeff;
+  const body = bom ? text.slice(1) : text;
+  const shift = bom ? 1 : 0;
+  const at = (index) => index + shift;
+  try {
+    const n = body.length;
+    let i = 0;
+    let sawDecl = false;
+    for (;;) {
+      i = skipWs(body, i);
+      if (i >= n) {
+        return { ok: false, error: readError('empty', text, at(n), '没有找到根元素：整份输入是空的、只有空白，或只有声明与注释') };
+      }
+      if (body.charAt(i) !== LT) {
+        return { ok: false, error: readError('bad-document', text, at(i), '根元素之前只许空白、注释、声明与处理指令') };
+      }
+      if (body.startsWith(SLASH, i + 1)) {
+        return { ok: false, error: readError('bad-document', text, at(i), '文档以闭合标签开头，找不到要开的那个根元素') };
+      }
+      if (body.startsWith('!', i + 1)) {
+        if (body.startsWith('--', i + 2)) { i = readComment(body, i); continue; }
+        if (body.startsWith('[CDATA[', i + 2)) {
+          return { ok: false, error: readError('bad-document', text, at(i), '根元素之前不许有 CDATA') };
+        }
+        return { ok: false, error: readError('doctype', text, at(i), '本站不读文档类型声明（DOCTYPE）与外部实体') };
+      }
+      if (body.startsWith('?', i + 1)) {
+        const end = body.indexOf('?>', i);
+        if (end === -1) throw new OutOfSubset('unterminated', i, '处理指令没有 ?> 收尾');
+        let k = i + 2;
+        while (k < n && !isWs(body.charAt(k)) && body.charAt(k) !== GT && body.charAt(k) !== '?') k += 1;
+        if (body.slice(i + 2, k).toLowerCase() === 'xml') {
+          if (sawDecl) {
+            return { ok: false, error: readError('bad-document', text, at(i), 'XML 声明只能出现在文档最开头一次') };
+          }
+          sawDecl = true;
+        }
+        i = end + 2;
+        continue;
+      }
+      break;
+    }
+    const tree = readXmlTree(body, i);
+    const trailing = skipWs(body, tree.next);
+    if (trailing < n) {
+      return { ok: false, error: readError('trailing', text, at(trailing), '根元素之后还有内容：本站只读一个根元素') };
+    }
+    return { ok: true, value: tree.value };
+  } catch (err) {
+    if (err instanceof OutOfSubset) {
+      return { ok: false, error: readError(err.kind, text, at(err.index), err.why) };
+    }
+    throw err;
+  }
+}
+
+// ── CSV 那一族 ───────────────────────────────────────────────────────────────
+
+/**
+ * 分隔符是"档位"不是"字符串"：与 §S 的 modeOf 同形，非法值当场 `RangeError`。
+ * `undefined` 走默认逗号（面板的控件把"没选"传成 undefined），其余一律单个字符、
+ * 且不能是 `"` 或换行——那三种会让写出去的文本读不回来。
+ */
+const resolveDelimiter = (api, value) => {
+  if (value === undefined) return ',';
+  if (typeof value !== 'string' || value.length !== 1 || value === QUOTE || value === '\n' || value === '\r') {
+    throw new RangeError(`${api} 的分隔符只认单个字符，且不能是引号或换行：收到的是 ${describeBad(value)}`);
+  }
+  return value;
+};
+
+const describeBad = (v) => (typeof v === 'string' ? JSONish(v) : String(v));
+
+/** 把任意入参写成可看的样子，但不借 JSON.stringify（U18 那条禁令） */
+const JSONish = (s) => `"${escapeText(s)}"`;
+
+const cellText = (v) => {
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Uint8Array) return b64(v);
+  if (typeof v === 'string') return v;
+  if (v === null) return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  return compactJson(v);
+};
+
+/**
+ * 嵌套容器 → 一格紧凑 JSON 文本。显式栈（同一族第二个理由：单元格里也可能藏着 999 层）。
+ * 数字用 `String(n)`、字符串用 `escapeText`，所以这一格交出去的东西本身就是合法 JSON。
+ * @param {unknown} root
+ * @returns {string}
+ */
+const compactJson = (root) => {
+  const out = [];
+  const stack = [{ v: root, entered: false, keys: null, i: 0 }];
+  while (stack.length > 0) {
+    const f = stack[stack.length - 1];
+    if (!f.entered) {
+      f.entered = true;
+      const isArr = Array.isArray(f.v);
+      f.keys = keyListOf(f.v);
+      out.push(isArr ? '[' : '{');
+      if (f.keys.length === 0) {
+        out.push(isArr ? ']' : '}');
+        stack.pop();
+      }
+      continue;
+    }
+    if (f.i >= f.keys.length) {
+      out.push(Array.isArray(f.v) ? ']' : '}');
+      stack.pop();
+      continue;
+    }
+    const key = f.keys[f.i];
+    f.i += 1;
+    if (f.i > 1) out.push(',');
+    const child = f.v[key];
+    if (!Array.isArray(f.v)) {
+      out.push(`"${escapeText(String(key))}":`);
+      if (child instanceof Date) out.push(`"${escapeText(child.toISOString())}"`);
+      else if (child instanceof Uint8Array) out.push(`"${escapeText(b64(child))}"`);
+      else if (isContainer(child)) stack.push({ v: child, entered: false, keys: null, i: 0 });
+      else out.push(scalarJson(child));
+      continue;
+    }
+    if (child instanceof Date) out.push(`"${escapeText(child.toISOString())}"`);
+    else if (child instanceof Uint8Array) out.push(`"${escapeText(b64(child))}"`);
+    else if (isContainer(child)) stack.push({ v: child, entered: false, keys: null, i: 0 });
+    else out.push(scalarJson(child));
+  }
+  return out.join('');
+};
+
+const scalarJson = (v) => {
+  if (typeof v === 'string') return `"${escapeText(v)}"`;
+  if (v === null) return 'null';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  return 'null';
+};
+
+const csvQuote = (text, delimiter) => {
+  let need = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charAt(i);
+    if (c === delimiter || c === QUOTE || c === '\n' || c === '\r') { need = true; break; }
+  }
+  if (!need) return text;
+  let out = QUOTE;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charAt(i);
+    out += c === QUOTE ? '""' : c;
+  }
+  return out + QUOTE;
+};
+
+/** 表头占位与去重：空键名给 `col_<1 起的序号>`，撞名（含撞占位名）就往后加 `__2`、`__3`（U14/U15） */
+const uniqueColumnName = (used, base, position) => {
+  const root = base === '' ? `col_${position}` : base;
+  if (!used.has(root)) {
+    used.add(root);
+    return root;
+  }
+  let k = 2;
+  while (used.has(`${base}__${k}`)) k += 1;
+  const name = `${base}__${k}`;
+  used.add(name);
+  return name;
+};
+
+const CSV_SHAPE_MESSAGE = 'CSV 只收两种形状：对象数组（每个对象一行）或单个对象（当一行看）。'
+  + '标量、纯数组与数组套数组没有"列"这一层，写不成一张表。';
+
+/**
+ * JSON 值 → CSV 文本（CRLF 收尾、RFC 4180 的引号转义、嵌套容器压成一格 JSON 文本）。
+ * @param {unknown} value
+ * @param {{delimiter?: string}} [options]
+ * @returns {{ok: true, text: string} | {ok: false, error: {kind: string, message: string, path: string}}}
+ */
+export function jsonToCsv(value, options = {}) {
+  const opts = options || {};
+  const delimiter = resolveDelimiter('jsonToCsv', opts.delimiter);
+  const rows = Array.isArray(value) ? value : [value];
+  const shapeError = csvShapeOf(value, rows);
+  if (shapeError) return { ok: false, error: shapeError };
+  const scan = scanJson(value, MAX_DEPTH);
+  if (!scan.ok) return { ok: false, error: scan.error };
+
+  // 列由**键的出场顺序**决定；`columns` 是给人看的名，`columnKey` 是取格子用的真键
+  // （表头会改空键名与撞名，两者不是一回事，靠 indexOf 反查既慢又会在撞名时取错格子）
+  const columns = [];
+  const columnKey = [];
+  const seen = new Map();
+  const used = new Set();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (!seen.has(key)) {
+        seen.set(key, columns.length);
+        columns.push(uniqueColumnName(used, key, columns.length + 1));
+        columnKey.push(key);
+      }
+    }
+  }
+  if (columns.length === 0) {
+    return {
+      ok: false,
+      error: { kind: 'empty', message: '这些对象一个键都没有，写不出表头：至少给一行带键的对象。', path: '' },
+    };
+  }
+  const lines = [columns.map((name) => csvQuote(name, delimiter)).join(delimiter)];
+  for (const row of rows) {
+    const cells = [];
+    for (let c = 0; c < columns.length; c += 1) {
+      const key = columnKey[c];
+      cells.push(csvQuote(cellText(hasOwn(row, key) ? row[key] : null), delimiter));
+    }
+    lines.push(cells.join(delimiter));
+  }
+  return { ok: true, text: `${lines.join('\r\n')}\r\n` };
+}
+
+/** 形状闸门：`[]` / `[{}]` / `{}` 落 empty（没有列可写），其余非"对象数组/对象"落 shape（U14） */
+const csvShapeOf = (value, rows) => {
+  const bad = (kind, message) => ({ kind, message, path: '' });
+  if (Array.isArray(value)) {
+    for (const row of rows) {
+      if (!isPlainObject(row)) return bad('shape', CSV_SHAPE_MESSAGE);
+    }
+    return null;
+  }
+  if (isPlainObject(value)) return null;
+  return bad('shape', CSV_SHAPE_MESSAGE);
+};
+
+/**
+ * CSV 文本 → 对象数组。一律字符串（`meta.allStrings` 这一格就是说给它自己的），
+ * 并交回六格 meta：面板上"几行几列、什么换行、有没有 BOM"读的就是它。
+ * @param {string} text
+ * @param {{delimiter?: string}} [options]
+ * @returns {{ok: true, value: object[], meta: {rows: number, columns: number, delimiter: string, allStrings: boolean, bom: boolean, lineEnding: string}} | {ok: false, error: {kind: string, message: string, line: number, column: number, index: number, snippet: string}}}
+ */
+export function csvToJson(text, options = {}) {
+  typeGuard('csvToJson', text);
+  const opts = options || {};
+  const delimiter = resolveDelimiter('csvToJson', opts.delimiter);
+  const g = gate(text);
+  if (!g.ok) return { ok: false, error: gateError(g, text) };
+  const bom = text.charCodeAt(0) === 0xfeff;
+  const body = bom ? text.slice(1) : text;
+  // 位置一律报回**用户手里那一份文本**的坐标：BOM 是第 1 行第 1 列那一个字符，
+  // 所以从 body 读回来的下标要整体加回去（面板拿它做选区，差一格就高亮错一格）。
+  const shift = bom ? 1 : 0;
+  const at = (index) => index + shift;
+  try {
+    if (onlyWhitespace(body)) {
+      return {
+        ok: false,
+        error: readError('empty', text, text.length, '没有可解析的 CSV 内容：整份输入是空的、只有空白，或只有空行'),
+      };
+    }
+    const { records, endings } = readRecords(body, delimiter);
+    const header = records[0].cells;
+    const used = new Set();
+    const names = header.map((cell, index) => uniqueColumnName(used, cell, index + 1));
+    const rows = [];
+    for (let r = 1; r < records.length; r += 1) {
+      const { cells, at: starts } = records[r];
+      if (cells.length > names.length) {
+        throw new OutOfCsv('ragged', starts[names.length],
+          `这一行有 ${cells.length} 格，表头只有 ${names.length} 格`);
+      }
+      const row = {};
+      for (let c = 0; c < names.length; c += 1) setOwn(row, names[c], cells[c] === undefined ? '' : cells[c]);
+      rows.push(row);
+    }
+    const kinds = [...endings];
+    return {
+      ok: true,
+      value: rows,
+      meta: {
+        rows: rows.length,
+        columns: names.length,
+        delimiter,
+        allStrings: true,
+        bom,
+        lineEnding: kinds.length === 0 ? 'none' : kinds.length === 1 ? kinds[0] : 'mixed',
+      },
+    };
+  } catch (err) {
+    if (err instanceof OutOfCsv) {
+      return { ok: false, error: readError(err.kind, text, at(err.index), err.why) };
+    }
+    throw err;
+  }
+}
+
+/** 整份输入是不是只有空格、制表与换行（空行也算）——没有表头可读，就是"没有内容"那一档（U16） */
+const onlyWhitespace = (text) => {
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charAt(i);
+    if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') return false;
+  }
+  return true;
+};
+
+/** 读侧内部的 CSV 中断信号（与 XML 的 OutOfSubset 同一条理由：不外泄）。位置交给 readError 换算 */
+class OutOfCsv {
+  constructor(kind, index, why) {
+    this.kind = kind;
+    this.index = index;
+    this.why = why;
+  }
+}
+
+/**
+ * RFC 4180 的状态机，补三处：引号 doubling、内嵌换行、CRLF（外加老 Mac 的裸 CR）。
+ * 交回"记录 → 格子数组"与每格的起始下标，越界那一档才指认得出多出来的那一格。
+ * @returns {{records: Array<{cells: string[], at: number[]}>, endings: Set<string>}}
+ */
+const readRecords = (text, delimiter) => {
+  const records = [];
+  const endings = new Set();
+  let cells = [];
+  let starts = [];
+  let cell = '';
+  let cellAt = 0;
+  let cellStarted = false;
+  let quoted = false;
+  let quoteAt = -1;
+  let i = 0;
+  const flushCell = (at) => {
+    cells.push(cell);
+    starts.push(at);
+    cell = '';
+    cellStarted = false;
+  };
+  const flushRecord = () => {
+    records.push({ cells, at: starts });
+    cells = [];
+    starts = [];
+  };
+  while (i < text.length) {
+    const c = text.charAt(i);
+    if (quoted) {
+      if (c === QUOTE) {
+        if (text.charAt(i + 1) === QUOTE) { cell += QUOTE; i += 2; continue; }
+        quoted = false;
+        i += 1;
+        continue;
+      }
+      cell += c;
+      i += 1;
+      continue;
+    }
+    if (c === QUOTE && !cellStarted) {
+      quoted = true;
+      quoteAt = i;
+      cellStarted = true;
+      i += 1;
+      continue;
+    }
+    if (c === delimiter) { flushCell(cellAt); cellAt = i + 1; i += 1; continue; }
+    if (c === '\r' || c === '\n') {
+      if (c === '\r' && text.charAt(i + 1) === '\n') { endings.add('crlf'); i += 2; } else {
+        endings.add(c === '\r' ? 'cr' : 'lf');
+        i += 1;
+      }
+      flushCell(cellAt);
+      flushRecord();
+      cellAt = i;
+      continue;
+    }
+    cell += c;
+    cellStarted = true;
+    i += 1;
+  }
+  if (quoted) {
+    throw new OutOfCsv('unterminated', quoteAt, '引号包住的字段没有闭合的引号');
+  }
+  if (cell !== '' || cellStarted || cells.length > 0) {
+    flushCell(cellAt);
+    flushRecord();
+  }
+  return { records, endings };
+};
+
+/**
+ * 三个往返读数：面板上那三个"是否等价"。定义与判据里的手工往返逐字一致
+ * （写侧不抛且 ok、读侧 ok、回来与原值深相等），所以它显示 ✓ 的时候一定真等价；
+ * 转不了的那些族（环、非 JSON 值、超过 YAML 深度的嵌套）交回 false 而不是抛。
+ * @param {unknown} value
+ * @returns {{yaml: boolean, xml: boolean, csv: boolean}}
+ */
+export function roundTrips(value) {
+  return {
+    yaml: canRoundTrip(value, jsonToYaml, yamlToJson),
+    xml: canRoundTrip(value, jsonToXml, xmlToJson),
+    csv: canRoundTrip(value, jsonToCsv, csvToJson),
+  };
+}
+
+const canRoundTrip = (value, write, read) => {
+  try {
+    const written = write(value);
+    if (!written.ok) return false;
+    const back = read(written.text);
+    return back.ok === true && sameValue(back.value, value);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * 深相等，严格到把 `-0` 与 `+0` 分成两格（`uRound` 用的就是 assert.deepStrictEqual 的口径）。
+ * 迭代而不是递归：这一族要处理 1000 层的合法输入。
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+const sameValue = (a, b) => {
+  const stack = [[a, b]];
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    if (Object.is(x, y)) continue;
+    if (x === null || y === null || typeof x !== 'object' || typeof y !== 'object') return false;
+    const xArr = Array.isArray(x);
+    if (xArr !== Array.isArray(y)) return false;
+    if (x instanceof Date || y instanceof Date || x instanceof Uint8Array || y instanceof Uint8Array) return false;
+    const xa = xArr ? keyListOf(x) : Object.keys(x);
+    const yb = xArr ? keyListOf(y) : Object.keys(y);
+    if (xa.length !== yb.length) return false;
+    for (let i = 0; i < xa.length; i += 1) {
+      const key = xa[i];
+      if (String(key) !== String(yb[i])) return false;
+      stack.push([x[key], y[key]]);
+    }
+  }
+  return true;
+};
+```
+
+### 落地记录（2026-09-29，Task 4 那一格实跑）
+
+- [x] **Step 1 §U 续 13 条红 → Step 2 绿 → Step 3 镜像 + 门禁 + 提交**
+
+Step 1 的那一轮红是 `# tests 316 / # pass 303 / # fail 13`——13 条全落在 U6–U18，没有一条"顺手就绿"。
+Step 2 之后：`node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs`
+→ `# tests 316 / # pass 316 / # fail 0`（8.7s）。文件头的用例分布表按 §0.6 那条 awk 口径重算，
+不是手抄：§U 那一格现在写 `18`（前五条 U1–U5 是 Task 1 的接线自证，后十三条 U6–U18 是本格），
+合计 316，与 runner 的 `# tests` 对齐。单跑 §U：`node --test --test-name-pattern '^U' scripts/toolkit-tests.mjs`
+→ 18/18。
+
+**判据被实测回改的地方（四处，改的全是期望值，实现一字未动）**：
+
+1. **U7 负零**：先按"`-0` 这一族一定在 YAML 丢"下断言，实测 `dump({a:-0})` 给 `a: -0.0`、
+   读回来的 `Object.is(..., -0)` 是 **true**（YAML11 的 float 记号走 `Number('-0.0')`）。
+   U7 于是断"读回仍是 -0"，U17 的 `roundTrips({a:-0})` 跟着改口为 `{yaml:true, xml:true, csv:false}`——
+   负零只有 CSV 保不住，那一档由 U13 的"负零写成 0"钉着。
+2. **U12 的 `<!-- only -->\n`**：期望 13、实读 14。空文本那一档指的是**结尾**（`index = text.length`），
+   注释行 13 字符之后还有那个 `\n`。
+3. **U12 的 `bool 装 TRUE` / `null 有内容`**：两档都期望 11、实读 12。指认的是内容里第一个非空白字符，
+   而 `<a t="bool">` 与 `<a t="null">` 都是 12 字符；隔壁 `<a t="str">` 是 11 字符，所以 str/num
+   那两档仍在 11——差一个字符的标签长度，一开始看漏了。
+4. **U16 的 `a\r\n"b`**：期望 2、实读 3。两处"引号没合上"都指认**那个没合上的引号自己**。
+
+**实现里三处"两难选完并钉死"的口径**（都写进了注释，因为它们只看代码看不出来）：
+
+1. `prescanYaml` 用三个旗标而不是一面旗：`pending`/`open` 只判"这是不是第二份文档"，
+   `everOpen` 只判"到底有没有内容"，`endAt` 记住 `...` 落在哪。单旗标版本会把
+   `---\n---\na: 1\n` 静默当成一份文档（那一档在 U9 里，改完当场红）。
+2. 行列一律由 `index` 经 `locate` 推，**不读**内置件的 `mark.line` / `mark.column`：它的消息写
+   `(1:5)`，那里的 column 从 0 起。两套尺在 CRLF 与 emoji 上必然分家，所以 U9 每一档都额外自证
+   `uLocate(text, e.index)` 与 error 的行列一致。
+3. CSV 读侧剥 BOM 只用于解析（`body`），所有 error 的 `index` 经 `at()` 加回 `shift`：
+   面板高亮吃的是**用户粘进去的那份原文**，不是剥过 BOM 的副本。`onlyWhitespace(body)` 那一档
+   交回 `empty`（空行、纯空白都不构成表头），而不是硬造一个零列的表。
+
+**门禁二**：`FILE_TARGETS` 加进 `dev/js/tools/json-convert.js`——它是这份清单里第一本
+**站在内置件上面**的模块，镜像在这一格里另有两重用处（别人干净检出时，镜像是唯一能证明
+"这本网关确实 import 了那 78,721B 的 vendored 文件、而且只 import 它"的东西）。
+导出树 `--fix` 一共跑了两轮（第二轮是评审回合改完实现与判据之后），脚本自己的读数：
+第一轮 `--fix：[段1] … 重写 1 块，6513 → 6513 行`（§A 块里的文件头用例分布表跟着 §U 的 18/合计 316 走）
+与 `--fix：[段4] … 重写 1 块，4205 → 5174 行`；第二轮
+`→ 已同步 scripts/toolkit-tests.mjs §U（磁盘 9418–10523）：计划[段4] 373–1419（1047 行）← 磁盘 1105 行`
+`→ 已同步 dev/js/tools/json-convert.js：计划[段4] 3564–4933（1370 行）← 磁盘 1409 行`。
+复跑：`✓ 全部已落地镜像与磁盘逐字节全等（未落地 0 节）`，56 个已落地镜像合计 1,119,776B，
+其中三本整文件镜像 `json-core.js` 698 行、`json-ts.js` 310 行、`json-convert.js` 1409 行逐字节全等。
+
+**门禁三**：在同一棵导出树里 `git init` + `git add -A` + 一条提交（让它看起来干净，
+`dirtyFingerprint()` 才跑得过），`node scripts/verify-plan-blocks-teeth.mjs` → `exit=0`、
+`35/35 通过`、末两格"副本回到全绿且工作树未被这些实验碰过"/"脏项 0 个前后一致"。
+
+**门禁四（真重建，两棵树对拍）**：`git archive HEAD | tar -x` 出一份纯 HEAD 基线树，本格导出树一份，
+各 `ln -s` 同一份 `node_modules` 后 `npx vite build` → 两棵都 `exit=0`。
+两棵树的 `assets/{js,css}/*.min.*` 三列清单（路径 + raw 字节 + `cat f | gzip -9 | wc -c`）**各 33 件**
+（23 js + 10 css），`diff` 无输出。这就是"本格的内置件与 `json-convert.js` 都没进任何现有页"的证据：
+产物里没有 `js-yaml` 那一本，23 本 js 里 `import(` 命中 **0** 次。
+共付三件在 HEAD 这一版的读数（与 Task 3 那格记录的逐字相同，与 §0.4 探针那格差的是 55cf005 那批动效）：
+
+```text
+assets/css/toolkit.min.css      raw 10,541B   gzip  2,306B
+assets/js/toolkitCore.min.js    raw 19,109B   gzip  7,037B
+assets/js/toolCodec.min.js      raw 59,317B   gzip 21,830B
+```
+
+**这一格里踩到的脚手架陷阱**（记下来，因为它是"红了不等于红对了"的第 25 种形状）：门禁四为了拿干净
+产物先 `rm -rf assets`，而 `assets/` 在这个仓库里**是跟踪的**（`git ls-files assets` 346 件，含
+`assets/img/tools/*.svg` 那两本图标）——删完再跑门禁二，读数从 `56 个镜像 / 1,114,549B` 掉成
+`54 / 1,111,542B`，并冒出 `✗ 2 个目标对不上：assets/img/tools/idcard-tool.svg / codec-tool.svg`。
+那不是镜像漂了，是**被核对的文件自己没了**。处置：`git checkout -- assets`（基线树那棵没有 `.git`，
+改从活树 `git archive HEAD assets | tar -x` 补回），复跑门禁二回到 56/全等。
+以后两棵树对拍要么在 build 之后恢复 `assets/`，要么把 build 输出到临时目录，别在核对之后留一个空壳。
+
+**门禁五、六**：活树跑（它们读 `_site`），`check-tools-surface.mjs` → `exit=0`
+（"收录面 2 条 ready 条目 × 5 组判据全绿"，核到 95 页）；`check-tools-surface-teeth.mjs` → `exit=0`
+（"牙齿台账：36/36 组变异如期变红"+"全部变异已还原，复跑基线仍绿"）。
+跑之前确认过 `vite build --watch` / `jekyll serve` 都没在跑，`_site` 不是活的。
+
+```bash
+git add dev/js/tools/json-convert.js scripts/toolkit-tests.mjs scripts/verify-plan-blocks.mjs \
+        _docs/superpowers/plans/2026-09-29-tools-json-page.md \
+        _docs/superpowers/plans/2026-09-25-online-tools-foundation.md
+git commit -m "feat(tools): 段 4 Task 4 json-convert——YAML 走内置件、XML 立无损子集、CSV 补 RFC 4180（§U）"
+```
+
+（本格**不碰** `_data/onlineTools.yml` 与 `tools.html`：收录窗口开在 Task 7，此刻线上还进不去 JSON 页——
+这是有意的，纯逻辑层先落地并全绿，页面那一格再一次性放行。）
+
+#### 评审回合（六道门禁跑完后派的那一刀，2026-09-29）
+
+派了一路只读评审审 `json-convert.js`（全量读实现 + 对 §U 判据 + 一轮随机变异输入 fuzz），
+带回 7 条。**逐条实测复核**后才落笔——结论是 5 条真缺陷（已全部改口并补判据）、2 条经实测判为
+"与 `JSON.stringify` 同形"（不动，读数记在下面）。判据先行：新增的那几格第一轮就红
+（U8/U9/U11/U12/U13 五条 `not ok`，U8 的报错就是 `'boom'`——getter 抛出来的），改完实现回到
+§U 18/18、全量 `# tests 316 / # pass 316 / # fail 0`。**这一轮只往既有 test 里加断言，没新开格子**，
+所以文件头那张用例分布表一字未动。
+
+真缺陷与它们的改口方向：
+
+1. **深度两把尺合不拢**：读侧数的是**元素层数**（U12 钉死的既是它），写侧只数**容器层数**，
+   而本站的 XML 编码里"一个值恰好一个元素"——最深那一格是标量时元素层数 = 容器层数 + 1。
+   现场读数：`jsonToXml(uDeep(1000))` 交回 `ok`（2,023,023B 文本），`xmlToJson` 对同一份文本判
+   `depth`（"嵌套到第 1001 层"）→ 面板上是一格亮着 ✓ 却转不回来。改口只改写侧
+   （`scanJson(value, MAX_DEPTH, true)`，第三格"标量叶算不算一层"），读侧那把尺一字不动。
+   U11 补的四格：999 层容器必须放行、1000 层必须拒且 Pointer 正好 1000 段（它就是被拒的那个标量叶）、
+   `{MAX_DEPTH-1, MAX_DEPTH}` 两档写读必须同结论、`roundTrips(uDeep(1000)).xml` 必须是 `false`。
+2. **XML 读侧不认 BOM**：YAML 靠内置件、CSV 走 `shift`，两族都处理，只有 XML 判 `bad-document`，
+   而"整份输入只有一个 BOM"也不同归 `empty`——三族三样口径。补齐成与 CSV 同一条：剥 BOM 只为解析，
+   **位置一律指原文**（U12 补"只有 BOM"与"BOM 之后的越界者"两档，U13 接受面补两档）。
+3. **YAML 预扫误拒合法输入**：`a: 1\n...\n...\n` 被判成两份文档，实测内置件算**同一份**
+   （`{a:1}`）。误拒合法输入比漏拒更伤用户，改成"已经关掉过一次就什么也不做"。
+4. **同一处判据的反向那一格也真**：`---\n...\n---\n...` 第一份是空文档——旧代码只在 `pending`
+   （有内容）时记结束位，`open` 却没内容那一档漏记，于是预扫放过、内置件报
+   "expected a single document in the stream"，而 `yamlErrorKind` 把这句归进 `parse`——**kind 报错档**。
+   改成 `pending || open` 都记结束位（U9 补一档，指认下标 4 那个 `...`：与"点线分文档"同一把尺，
+   都是"把文本切成两份的第一个边界"）。
+5. **出口那句"绝不抛"被 getter / Proxy 的 trap 破**：`jsonToYaml({ get a() { throw … } })` 把异常
+   直接抛给调用方，`jsonToXml` / `jsonToCsv` 同（实测三格全抛）。面板喂的值一律出自 `parseJson`，
+   那里头没有 getter，所以这一族只有"别人直接调模块"才撞得上——但三格并排站着，任何一格抛出去
+   就是整块面板一次未捕获异常。`scanJson` 的走查包一层 catch，交回 `non-json` + 那一格的 Pointer
+   （U8 的 `U8_REJECT` 补两档，另加一条"三个写函数一个都不许抛"的循环）。
+
+实测判为**不是缺陷**的那两条，读数留在这里，因为"看着像缺陷"与"是与 `JSON.stringify` 同形"只差一张表：
+
+- DAG 无记忆化、按引用数指数展开：`n=16` 的双共享 DAG 实测 `JSON.stringify` 21ms / 1.38 MB，
+  本站 `jsonToYaml` 1,105ms / 6.68 MB、`jsonToXml` 1,000ms / 13.8 MB——增长是同一条曲线（`2^n`），
+  而"DAG 写两份"正是 U8 钉死的"与 stringify 同形"。**加记忆化会把 DAG 判成环**，那是把用户的内容弄丢。
+  面板到不了这一族：`parseJson` 出来的值永远是树（JSON 文本里没有共享引用）。
+- Symbol 键与非枚举键被"静默丢弃"：`JSON.stringify({[Symbol('s')]:1, a:1})` 与
+  `JSON.stringify(Object.defineProperty({a:1},'b',{value:2}))` 都是 `{"a":1}`——同一口径，不是本站改写。
+- （顺带）写侧没有产出上限：`gate` 那一族管的是**进来的**文本，给写侧再立一把尺就是自创第二份预算；
+  要不要限留到 Task 8 量 §7 那两行时按实测判，已记进下面的账。
+
+还有一处**注释与用户可见的消息在说谎**（不改行为，改文案）：`settleYamlValue` 的 JSDoc 与 `non-json`
+那句消息都写着"`!!set` / `!!omap` 那一族"。实测：`!!set` 在内置件那关就报 unknown tag（走 `unknown-tag`，
+到不了这里），`!!omap` 在 YAML11 里给回的就是"单键对象组成的数组"——那是 omap 在 JSON 里唯一成立的
+写法，原样收下不是换类型。两处都改成实际拦得住的那一族（bigint / symbol / 函数 / 原型不是 Object 的脏对象）。
+
+
+**留给下一格的账**：§7 证件页首屏那一格的余量已被 55cf005 的共付件涨幅继续吃掉（`toolkit.min.css`
+gzip 2,135B → 2,306B），Task 8 量那两行之前必须先在 HEAD 上重算一遍，别沿用 §0.4 探针的旧读数。
+第二笔：**写侧要不要产出上限**（评审回合那条"3 万节点写出十几 MB"）。本格没加——`gate` 那把尺量的是
+进来的文本，给写侧另立一把就是站内第二份字节预算。但它确实是真的运行期账：Task 8 量 §7 时一并量
+"最大合法输入（5 MiB）写进 YAML / XML / CSV 各自撑到多大"，越界就在 §W 的输出框那一侧处理
+（分批渲染 / 提示另存），而不是回头改纯逻辑层的闸门。
 
 ---
 
