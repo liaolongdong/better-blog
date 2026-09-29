@@ -35,9 +35,10 @@
  *                后十三条（U6–U18）跟着 `json-convert.js` 落在同一节末尾，节名不另起（段 4 Task 4）
  *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
  *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
- *   §V 树拍平与只渲染可视行 16 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
- *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据（段 4 Task 5）
- *   合计 332。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §V 树拍平与只渲染可视行 18 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
+ *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据，V17–V18 是 Task 5
+ *                评审回合补的两刀（选项袋的形状尺、浏览器替自写 scrollTop 补发的那一次 scroll）
+ *   合计 334。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -11694,6 +11695,11 @@ test('V13 truncated 是"这次没扫到的直接子项数"：全展开归 0，�
  * 3. **`dispatch` 只调真的挂上去的监听**，`removeEventListener` 之后调不到——V16 那条
  *    "destroy 摘干净"量的就是这个。
  * `scrollTop` 是可写的普通字段：真浏览器里由滚动条决定，这里由判据决定，而控制器读它的方式一模一样。
+ * 也正因为它是个普通字段，**控制器自己写它的时候这里不会补发 `scroll`**——真浏览器一定会补发，
+ * 而那一次回声会把"锚点是视口首行"这条口径反过来吃掉判据想要的行为，所以 V18 手动 `dispatch` 一次，
+ * 把那一刀补在夹具够不着的地方（这是本节唯一一处"判据替浏览器说话"，别的都让夹具自己说）。
+ * `focus` 记的是 `[id, 实参]` 两元：不带 `preventScroll` 的 `focus()` 在真浏览器里会为视口外的
+ * 缓冲行滚一次，光看 id 那一格永远测不到。
  */
 function vTree({ rowHeight = 24 } = {}) {
   const focusLog = [];
@@ -11722,7 +11728,7 @@ function vTree({ rowHeight = 24 } = {}) {
       },
       dispatch: (t) => { for (const fn of [...(listeners.get(t) || [])]) fn({ type: t }); },
       listenerCount: (t) => (listeners.get(t) || new Set()).size,
-      focus: () => { active = el; focusLog.push(el.getAttribute('data-jt-id')); },
+      focus: (arg) => { active = el; focusLog.push([el.getAttribute('data-jt-id'), arg]); },
     };
     return el;
   };
@@ -11735,6 +11741,7 @@ function vTree({ rowHeight = 24 } = {}) {
     doc, container, focusLog, holder,
     rowCount: () => (holder() ? holder().childNodes.length : 0),
     rowIds: () => holder().childNodes.map((n) => n.getAttribute('data-jt-id')),
+    rowTexts: () => holder().childNodes.map((n) => n.textContent),
     rowAt: (i) => holder().childNodes[i],
     rowIndexOf: (id) => holder().childNodes.map((n) => n.getAttribute('data-jt-id')).indexOf(id),
     pad: (i) => container.childNodes[i],
@@ -11793,8 +11800,49 @@ test('V14 契约①② ：容器里只有三块常驻节点，垫块高度让总
   assert.ok(cls('/s').includes('jt-tree__row--string'), 'kind 进 class，视图层照它上色');
   cm.setData(flatten(vMix(), { maxKeys: 1 }));
   assert.ok(cls('~more').includes('jt-tree__row--more'), '截断行有自己的 class');
-  assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).getAttribute('role'), 'button', '那一行是一个动作，不是一条数据');
+  assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).getAttribute('role'), 'treeitem',
+    '那一行是一个动作，但 `role=tree` 只认 treeitem / group 当子节点——button 挂在这一层是 ARIA 违规，'
+    + '真要一颗按钮由 §W 的 treeRow 在行内再挂一层');
+  assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).getAttribute('aria-expanded'), null,
+    '截断行自己没有子行，不许占一格 aria-expanded');
   assert.equal(mixed.rowAt(mixed.rowIndexOf('~more')).textContent, '还有 5 个键未列出');
+  // 空串键：`{ "": … }` 是合法 JSON，而按 keyLabel 空不空来判"是不是根"会把它渲染成一格空白（V14 上面
+  // 那条"根那一行的 textContent 是空串"要留住，所以判据得看 depth 与截断行，不能看 keyLabel）。
+  const blank = vTree({ rowHeight: 24 });
+  const cb = createTreeController({ document: blank.doc, container: blank.container, rowHeight: 24 });
+  cb.setData(flatten({ '': { deep: 1 }, k: { deep: 2 } }, { expanded: new Set(['', '/', '/k']) }));
+  assert.deepEqual(blank.rowIds(), ['', '/', '//deep', '/k', '/k/deep'],
+    '空串键的 Pointer 是 "/"，再往里是 "//deep"——pointerChild 在这一格不许省那一段');
+  assert.deepEqual(blank.rowTexts(), ['', '""', 'deep: 1', 'k', 'deep: 2'],
+    '根那一格还是空串，空串键那一格给成对的空引号：一行都不许是"看不见内容"的');
+  // matched 那一格要落到 class 上——它是搜索高亮唯一的外部证据，纯函数级判据（V11–V13）看不到这一环
+  const hl = vTree({ rowHeight: 24 });
+  const ch = createTreeController({ document: hl.doc, container: hl.container, rowHeight: 24 });
+  const hlRows = vAll(vHay());
+  ch.setData(hlRows);
+  assert.equal(searchRows(hlRows, 'ITEM').total, 1);
+  ch.refresh();
+  assert.ok(hl.rowAt(hl.rowIndexOf('/list/0')).getAttribute('class').includes('is-matched'),
+    '命中那一行要带上 is-matched：视图层的底色就认这一个 class');
+  assert.ok(!hl.rowAt(hl.rowIndexOf('/n')).getAttribute('class').includes('is-matched'),
+    '没命中的不许跟着沾色');
+  searchRows(hlRows, '没有这一格');
+  ch.refresh();
+  assert.ok(!hl.rowAt(hl.rowIndexOf('/list/0')).getAttribute('class').includes('is-matched'),
+    '下一轮搜空了要洗掉：残留的高亮比没有高亮更骗人');
+  // 缩进那一格是注入的，不是写死的：换密度只换 indentStep，行属性表其余各格一个字都不动
+  const tight = vTree({ rowHeight: 24 });
+  const ct = createTreeController({ document: tight.doc, container: tight.container, rowHeight: 24, indentStep: 0 });
+  ct.setData(flatten(vMix()));
+  assert.deepEqual([tight.rowAt(0).style.paddingLeft, tight.rowAt(1).style.paddingLeft, tight.rowAt(6).style.paddingLeft],
+    ['0px', '0px', '0px'], 'indentStep=0 就是一格都不缩，但 aria-level 照旧');
+  assert.equal(ct.state().indentStep, 0, 'state() 要把这一格交回去：装配层的读数要说当前密度');
+  const wide = vTree({ rowHeight: 24 });
+  const cw = createTreeController({ document: wide.doc, container: wide.container, rowHeight: 24, indentStep: 30 });
+  cw.setData(flatten(vMix()));
+  assert.deepEqual([wide.rowAt(0).style.paddingLeft, wide.rowAt(1).style.paddingLeft, wide.rowAt(6).style.paddingLeft],
+    ['0px', '30px', '60px'], 'depth × indentStep：/a/0 是第 2 层，所以 60px');
+  assert.equal(wide.rowAt(6).getAttribute('aria-level'), '3', '缩进换了，aria-level 跟着 depth 走、不跟着像素走');
   cm.setData([]);
   assert.deepEqual(cm.visibleRange(), { first: -1, last: -1, count: 0 }, '空行集：区间用 -1 表达"没有"');
   assert.deepEqual([mixed.rowCount(), mixed.contentHeight()], [0, 0], '两块垫块都得归零，不然滚动条留着骗人');
@@ -11926,4 +11974,79 @@ test('V16 契约④：锚点与焦点只认 id，setExpanded 抓"行集与展开
   assert.throws(() => createTreeController({ document: gatePage.doc, container: gatePage.container,
     rowHeight: 24, onViewChange: 42 }), TypeError);
   assert.equal(gatePage.container.childNodes.length, 0, '闸门抛在挂节点之前，别留下半棵树');
+});
+
+test('V17 选项袋只认对象字面量：把展开集直接塞进第二格要当场抛，不许静默走默认档', () => {
+  const chain = { l1: { l2: { l3: 'end' } } };
+  // 数组与 Set 都过得了 `typeof === 'object'` 那一关，于是 flatten(v, new Set([''])) 会当成"没给选项"
+  // 走默认档——同一份写错的调用在 expandOf 那里是抛的（第三格要布尔、id 要字符串），两把尺不一样长
+  // 就是装配层迟早踩的那种坑：它看着绿，只是错了三行。
+  class Config { constructor() { this.expanded = new Set(['', '/l1']); } }
+  for (const [label, bad] of [['数组', ['/l1']], ['Set', new Set(['', '/l1'])], ['Map', new Map()],
+    ['类实例', new Config()]]) {
+    assert.throws(() => flatten(chain, bad),
+      (e) => e instanceof TypeError && /第二格/.test(e.message), `${label} 不是 { expanded, maxKeys } 那个形状`);
+  }
+  assert.deepEqual(flatten(chain, Object.create(null)).map((r) => r.pointer), ['', '/l1', '/l1/l2'],
+    'null 原型那一份照样收：这一格判的是"是不是一个空的选项袋"，不是"是不是 {…} 写出来的"');
+  assert.deepEqual(flatten(chain, { expanded: new Set(['', '/l1']) }).map((r) => r.pointer),
+    ['', '/l1', '/l1/l2'], '对象字面量那一档是正对照：闸门不许把合法调用一起拦掉');
+  const rows = vSet(3);
+  for (const bad of [['数组', ['key']], ['Set', new Set(['key'])]]) {
+    assert.throws(() => searchRows(rows, 'r1', bad[1]),
+      (e) => e instanceof TypeError && /第三格/.test(e.message), `searchRows 那一格同一条尺：${bad[0]}`);
+  }
+  assert.deepEqual(searchRows(rows, 'r1', Object.create(null)), { matchedIds: ['/r1'], total: 1, truncated: 0 },
+    'scope 不给就走 both（null 原型的选项袋不是错误）：这一格命中只可能是键那一半给的');
+  assert.equal(searchRows(rows, 'r1', { scope: 'value' }).total, 0,
+    '同一份搜索词换成只搜值就一格不中：both 确实生效了，不是"闸门放行了一切"');
+});
+
+test('V18 真浏览器会替自写的 scrollTop 补发一次 scroll：那一次回声不许换锚点、也不许重画一遍', () => {
+  const rowHeight = 24;
+  const windowSize = 40;
+  const page = vTree({ rowHeight });
+  const c = createTreeController({ document: page.doc, container: page.container, rowHeight, windowSize });
+  c.setData(vSet(4999));
+  c.scrollToPointer('/r2500');
+  page.container.dispatch('scroll');
+  assert.equal(c.state().anchorId, '/r2500',
+    'V16 那条"锚点留着等它回来"在真浏览器里只有一句承诺：回声事件把 scrollTop 之外的东西改掉了，判据就得自己补这一次');
+  assert.equal(page.container.scrollTop, 2501 * rowHeight, '回声也不许把落点改写走');
+
+  // 行集缩到比锚点短：scrollTop 被夹回范围内，紧跟着的那一次回声照样不该把锚点换成"新的视口首行"
+  c.setData(vSet(10));
+  assert.equal(page.container.scrollTop, (11 - 1) * rowHeight, '夹还是要夹，那一格是滚动条的边界，不是锚点的');
+  page.container.dispatch('scroll');
+  assert.equal(c.state().anchorId, '/r2500', '夹过之后补发的回声不许把 /r2500 判成"用户滚到了第 10 行"');
+  c.setData(vSet(4999));
+  assert.equal(page.container.scrollTop, 2501 * rowHeight, '行集长回来要带回原处——这就是契约④那句"折叠→展开不漂"');
+
+  // 回声之外的那一次是用户滚的：视口首行换了人，锚点必须跟着换（否则 V16 那族判据就白钉了）
+  page.container.scrollTop = 100 * rowHeight;
+  page.container.dispatch('scroll');
+  assert.equal(c.state().anchorId, '/r99', '真滚动之后锚点就是视口首行那一格');
+
+  // 焦点交回带 preventScroll：窗口上面那十行缓冲在视口外，裸 focus() 会把视口为它拽上去
+  page.container.scrollTop = 1200;
+  page.container.dispatch('scroll');
+  assert.equal(page.rowAt(0).getAttribute('data-jt-id'), '/r39', '窗口第一行比视口首行早十行');
+  page.rowAt(0).focus();
+  c.refresh();
+  assert.deepEqual(page.focusLog[page.focusLog.length - 1], ['/r39', { preventScroll: true }],
+    '交回焦点要带 preventScroll：不然这一次 focus 自己就是一第三次滚动');
+  assert.equal(page.activeId, '/r39', '焦点还是按 id 回来的');
+
+  // 回声不重画：render 已经在 setData / scrollToPointer 里做过一次，再来一次就是白拆一遍节点
+  const churn = vTree({ rowHeight });
+  let built = 0;
+  const rawCreate = churn.doc.createElement;
+  churn.doc.createElement = (tag) => { built += 1; return rawCreate(tag); };
+  const cc = createTreeController({ document: churn.doc, container: churn.container, rowHeight, windowSize });
+  const base = built;
+  cc.setData(vSet(499));
+  const afterSet = built;
+  churn.container.dispatch('scroll');
+  assert.equal(built, afterSet, '自己写出去的那一次 scrollTop，回声到了不许再建一遍行节点');
+  assert.ok(afterSet > base, '正对照：setData 自己确实是建过节点的');
 });

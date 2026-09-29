@@ -288,9 +288,10 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  *                后十三条（U6–U18）跟着 `json-convert.js` 落在同一节末尾，节名不另起（段 4 Task 4）
  *   §S JSON 核心 20 —— `json-core.js` 的解析、行列定位、格式化、排序、Pointer（段 4 Task 2）
  *   §T interface 生成 10 —— `json-ts.js`：从样本推断 TS 类型的那一族口径（段 4 Task 3）
- *   §V 树拍平与只渲染可视行 16 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
- *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据（段 4 Task 5）
- *   合计 332。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §V 树拍平与只渲染可视行 18 —— `json-tree.js`：V2–V13 在 plain array 上钉行集形状，
+ *                V14–V16 在自建假 DOM 上钉「只渲染可视」那四条外部证据，V17–V18 是 Task 5
+ *                评审回合补的两刀（选项袋的形状尺、浏览器替自写 scrollTop 补发的那一次 scroll）
+ *   合计 334。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）

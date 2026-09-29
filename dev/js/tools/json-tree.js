@@ -29,8 +29,10 @@
  * 所以 `display` 里出现的引号、`\uXXXX` 与字面量永远是完整的一对。
  *
  * 控制器那一半只认 id：锚点是「视口首行那一格的 id」，`setData` 之后按 id 找回去，找不着也照样记着
- * （等那一行回来），焦点在重建后按 id 交还（V16）。窗口只由 `windowSize` 决定，**不读 `clientHeight`**——
- * 判据因此与视口高度无关，装配层要多密的窗口自己按 `rowHeight` 折算。
+ * （等那一行回来），焦点在重建后按 id 交还、且带 `preventScroll`（V16）。窗口只由 `windowSize` 决定，
+ * **不读 `clientHeight`**——判据因此与视口高度无关，装配层要多密的窗口自己按 `rowHeight` 折算。
+ * 只有"谁滚的"这件事没法从外面读：浏览器会为控制器自己写的那一次 `scrollTop` 补发一个 `scroll`，
+ * 那一次照"视口首行"的口径改写锚点就会把刚找回来的那一格换掉，所以写出去的值单独记一份、只认它一次（V18）。
  *
  * 纯度：环境一律从构造函数注入，这一本不读全局的 `window` / `document`、不写任何存储；
  * 落 DOM 只走 `textContent` 与 `setAttribute`，所以「树里出现的字符串永远不是标记」这条与 §W 的输出区
@@ -91,14 +93,16 @@ function kindOf(value) {
 }
 
 /**
- * 只枚举**自有**键：数组的下标写成 `'0'`、`'1'`（Pointer 那一层排版归视图层，V8），
- * 对象走 `Object.keys`——`for…in` 会把原型上的 `toString` 之类也枚举进来，V8 有一条判据专门拒那个。
- * @param {object|Array} node
+ * 只枚举**自有**键，而且只给对象那一支：数组的子项就是下标，它的"键表"是 `length` 这一个数，
+ * 不是一串现造的字符串（`for…in` 会把原型上的 `toString` 之类也枚举进来，V8 有一条判据专门拒那个）。
+ * 早先这里写的是 `Array.from({ length: n }, (_, i) => String(i))`：一行都不差，但为了列出
+ * `maxKeys` 那一档（默认 2000）先把整个下标表物化出来——100 万元素的数组（5 MiB 的 JSON 里
+ * 常见的一格）实测 191ms / 净增 56MB 堆，只为交回 2002 行。改成在列出的那一圈里现取 `String(i)`，
+ * 行集形状一格不变（V2 那张表里的 `/a/0`、`/a/1` 就是这一条）。
+ * @param {object} node kind 已经判成 object 的那一格
  * @returns {string[]}
  */
-const keysOf = (node) => (Array.isArray(node)
-  ? Array.from({ length: node.length }, (_, i) => String(i))
-  : Object.keys(node));
+const objectKeysOf = (node) => Object.keys(node);
 
 /**
  * 按码元截一段串。末格正好是代理对的高半边时整个不收，所以截出来的尾巴永远是完整码点（V9）。
@@ -159,6 +163,20 @@ function readMaxKeys(raw) {
 
 const describe = (value) => (Array.isArray(value) ? `长度 ${value.length} 的数组` : `${typeof value}`);
 
+/**
+ * 选项袋只认对象字面量与 null 原型那一份。
+ * `typeof x === 'object'` 这一关放得过数组、Set、Map、类实例，而它们身上的 `expanded` / `scope`
+ * 全是 `undefined`——于是"写错的调用"被读成"没写选项"，静默走默认档：展开集落回前两层、
+ * scope 落回 both。默认档与用户要的那一档差的是整棵树的展开态，所以这一格要抛而不是猜（V17）。
+ * @param {unknown} raw
+ * @returns {boolean}
+ */
+function isPlainBag(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const proto = Object.getPrototypeOf(raw);
+  return proto === Object.prototype || proto === null;
+}
+
 /** 行集闸门的第 1 层：是不是 flatten 交回的那种数组 */
 function assertRows(list, who) {
   if (!Array.isArray(list)) throw new TypeError(`${who} 只收 flatten 交回的行集（数组），这里是 ${describe(list)}`);
@@ -186,7 +204,7 @@ function assertRow(row, i) {
  * @throws {RangeError} `maxKeys` 是数但不是非负整数
  */
 export function flatten(value, options = {}) {
-  if (options === null || typeof options !== 'object') {
+  if (!isPlainBag(options)) {
     throw new TypeError(`flatten 的第二格只收 { expanded, maxKeys } 这一个形状，这里是 ${describe(options)}`);
   }
   const expanded = readExpanded(options.expanded);
@@ -217,8 +235,10 @@ export function flatten(value, options = {}) {
       throw new TypeError(`${where(pointer)}绕回了它的父链（自引用）：JSON 里没有环，这份数据在 parseJson 之前就已经不是 JSON 了。`);
     }
 
-    const kids = container ? keysOf(node) : [];
-    const childCount = kids.length;
+    // 数组那一支只读 `length`，键串到列出的那一圈里现取；对象那一支才要真的枚举键。
+    const asArray = kind === 'array';
+    const kids = container && !asArray ? objectKeysOf(node) : null;
+    const childCount = asArray ? node.length : (container ? kids.length : 0);
     const open = container && (expanded === null ? depth < DEFAULT_EXPAND_DEPTH : expanded.has(pointer));
     const listed = open ? Math.min(childCount, maxKeys) : 0;
     const hidden = childCount - listed;
@@ -235,7 +255,7 @@ export function flatten(value, options = {}) {
     stack.push({ t: 'out', value: node });
     if (hidden > 0) stack.push({ t: 'more', parent: pointer, depth, kind, hidden, from: listed });
     for (let i = listed - 1; i >= 0; i--) {
-      const key = kids[i];
+      const key = asArray ? String(i) : kids[i];
       stack.push({
         t: 'row', value: node[key], keyLabel: key,
         pointer: pointerChild(pointer, key), parent: pointer, depth: depth + 1,
@@ -282,7 +302,7 @@ export function expandOf(rows, id, on) {
 export function searchRows(rows, query, options = {}) {
   assertRows(rows, 'searchRows');
   if (typeof query !== 'string') throw new TypeError(`searchRows 的搜索词要是字符串，这里是 ${describe(query)}`);
-  if (options === null || typeof options !== 'object') {
+  if (!isPlainBag(options)) {
     throw new TypeError(`searchRows 的第三格只收 { scope } 这一个形状，这里是 ${describe(options)}`);
   }
   const scope = options.scope === undefined ? 'both' : options.scope;
@@ -313,15 +333,19 @@ export function searchRows(rows, query, options = {}) {
 
 /**
  * 只渲染可视行的树控制器。**环境全部从这一格注入**：`document`、`container`、`rowHeight`、
- * `windowSize`、`indentStep`、`onViewChange`（§V 契约①②③④ 分别由 V14、V14、V15、V16 断言）。
+ * `windowSize`、`indentStep`、`onViewChange`（§V 契约①②③④ 分别由 V14、V14、V15、V16 断言，
+ * 回声那一条由 V18 断言）。
  *
  * 常驻节点永远只有三块：上垫块、行容器、下垫块。窗口里的行数不越过 `windowSize`，
  * 而两条垫块的高度按"窗口外还有几行"算，所以滚动条总长永远等于 `行数 × rowHeight`——
  * 这是"只渲染可视"唯一能从外面看见的证据（契约②），也是 V14 那条 `contentHeight()` 不变量量的东西。
  *
  * 锚点是「视口首行那一格的 id」：`setData` 之后按 id 找回去（前面插了一行也不会漂），
- * 找不着也照样记着，等那一行回来；焦点在节点重建后按 id 交还。闸门一律抛在挂节点之前，
- * 所以入参写错不会留下一棵半成品（V16 最后一条）。
+ * 找不着也照样记着，等那一行回来；焦点在节点重建后按 id 交还，且带 `preventScroll`。
+ * "谁滚的"这一格只能自己判：`setData` / `scrollToPointer` 写 `scrollTop` 之后浏览器必然补发一次
+ * `scroll`，那一次不是用户滚的，照旧口径会把刚找回来的锚点换成"夹过之后的视口首行"，
+ * 于是"折叠→展开不漂"只在假 DOM 里成立——所以写出去的那个值记一份，回声到了就只认它一次（V18）。
+ * 闸门一律抛在挂节点之前，所以入参写错不会留下一棵半成品（V16 最后一条）。
  *
  * @param {{document: object, container: object, rowHeight: number,
  *          windowSize?: number, indentStep?: number,
@@ -373,6 +397,14 @@ export function createTreeController(env = {}) {
   /** @type {Map<string, number>} id → 行号；`scrollToPointer` 与锚点找回都读它，所以每轮 setData 重建一次 */
   let indexById = new Map();
   let anchorId = '';
+  /**
+   * 我们自己写出去的那一次 `scrollTop`。真浏览器会为它补发一个 `scroll`，而监听器分不出"谁滚的"——
+   * 于是 `setData` 刚按 id 找回来的锚点，会被这一次回声换成"新的视口首行"。行集比锚点短时
+   * （折叠一支、或换一份小文档）`scrollTop` 是被夹过来的，那一格尤其明显：V16 承诺的
+   * "留着等它回来"会在这里静默失效，而假 DOM 永远不会自己补发那一次（V18 手动补）。
+   */
+  let echoTop = null;
+  const writeTop = (value) => { echoTop = value; container.scrollTop = value; };
   let expandedSet = new Set();
   let range = { first: -1, last: -1, count: 0 };
   let lastRangeKey = '';
@@ -393,8 +425,16 @@ export function createTreeController(env = {}) {
     if (at >= 0) parent.removeChild(child);
   };
 
-  const rowText = (row) => (row.keyLabel === '' ? row.display
-    : (row.display === '' ? row.keyLabel : `${row.keyLabel}: ${row.display}`));
+  /**
+   * 一行的文字。"`keyLabel === ''` 就是根"是错的：`{ "": 1 }` 是合法 JSON，那一格的键就是空串，
+   * 于是一行什么都看不见（V14 有一条钉它）。真正"没有键"的只有两种：第 0 行那棵树本身，
+   * 和截断行——后者的文案全在 `display` 里。空串键给成对的空引号，让它在屏幕上占得住一格。
+   */
+  const rowText = (row) => {
+    if (row.depth === 0 || isMore(row)) return row.display;
+    const label = row.keyLabel === '' ? '""' : row.keyLabel;
+    return row.display === '' ? label : `${label}: ${row.display}`;
+  };
 
   /** 一行一个 div：语义挂 attribute，颜色挂 class，缩进挂 padding——**内容永远只进 textContent** */
   function rowNode(row) {
@@ -404,7 +444,7 @@ export function createTreeController(env = {}) {
     if (containerRow) cls.push(row.expanded ? 'is-open' : 'is-closed');
     if (row.matched) cls.push('is-matched');
     const el = node(cls.join(' '));
-    el.setAttribute('role', more ? 'button' : 'treeitem');
+    el.setAttribute('role', 'treeitem');
     el.setAttribute('tabindex', '0');
     el.setAttribute('data-jt-id', row.id);
     el.setAttribute('data-jt-pointer', row.pointer);
@@ -436,7 +476,8 @@ export function createTreeController(env = {}) {
     range = { first, last, count };
     if (keepFocus !== null) {
       const back = built.findIndex((el) => el.getAttribute('data-jt-id') === keepFocus);
-      if (back >= 0) built[back].focus();
+      // 窗口上面那 `above` 行在视口外，裸 focus() 会先为它滚一次——那一次滚动又是一次回声。
+      if (back >= 0) built[back].focus({ preventScroll: true });
     }
     if (onViewChange !== undefined) {
       const key = `${first}|${last}|${total}`;
@@ -449,6 +490,13 @@ export function createTreeController(env = {}) {
 
   const onScroll = () => {
     if (destroyed) return;                     // 拆完之后事件里不许复活任何节点（V16）
+    if (echoTop !== null) {
+      const mine = container.scrollTop === echoTop;
+      echoTop = null;
+      // 我们自己写出去的那一次：窗口已经按这个 top 画过了，锚点也不是"用户滚到的那一格"。
+      // 浏览器把值夹走（真 DOM 的上界是 scrollHeight − clientHeight）就不算回声了，按用户滚动处理。
+      if (mine) return;
+    }
     const total = rows.length;
     const top = clampTop(container.scrollTop, total);
     if (total > 0) {
@@ -482,7 +530,7 @@ export function createTreeController(env = {}) {
       for (let i = 0; i < next.length; i++) assertRow(next[i], i);
       adopt(next);
       const at = indexById.get(anchorId);
-      container.scrollTop = clampTop(at === undefined ? container.scrollTop : at * rowHeight, rows.length);
+      writeTop(clampTop(at === undefined ? container.scrollTop : at * rowHeight, rows.length));
       render();
     },
 
@@ -522,7 +570,7 @@ export function createTreeController(env = {}) {
       const at = indexById.get(pointer);
       if (at === undefined) return false;
       anchorId = pointer;
-      container.scrollTop = clampTop(at * rowHeight, rows.length);
+      writeTop(clampTop(at * rowHeight, rows.length));
       render();
       return true;
     },
