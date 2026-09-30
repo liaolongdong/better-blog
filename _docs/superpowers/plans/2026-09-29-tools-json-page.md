@@ -11152,8 +11152,31 @@ harness 快照、导出树副本三处同为这一串——所以 72 项浏览�
 
 **7) 本格提交范围与 commit 号**：`README.md`（那一行补 json）、spec 两处（§7「输入硬上限」行补深度闸门、
 §8.3「本格没关的账」那条换成测量值 + 两个修法）、本计划的 Task 9 落地记录。三格都是文档，`dev/` 与页面源未动。
-commit 号台账续到这里：Task 8 落 `61963bc`、其自证回填 `da09898`，本格落 **`<本格 hash>`**（plumbing 造提交，
-另一路会话的暂存集一格都不带；他们 staged 的那 17 行 spec 删除在 index 里继续保住）。**全程不 push。**
+本格落 **`a67e00b`**（父亲正是 `da09898`，`update-ref` 带旧值 CAS，中间无插入），提交态自证三笔：
+
+| 格 | `git show --numstat a67e00b` | 处置 |
+| --- | --- | --- |
+| `README.md` | `1 / 1` | 单行替换（那一行从「两页十块面板」变三页），index 里此前无别人的暂存 |
+| 本计划 | `123 / 0` | Task 9 落地记录整块插入，纯新增 |
+| spec | `10 / 2` | §7 那一行与 §8.3 那一条改写，两处都是文档 |
+
+- **另一路会话的暂存集一格都没带**：提交前脚本先断言 `README.md` / 本计划的 `git diff --cached` 为空、
+  spec 的 staged 形状仍是 `0 / 17`，任何一格走样就 exit 3；提交后 `git diff --cached --name-only` 仍是 **16 格**，
+  与提交前同一批（`.baoyu-skills/**`、`USAGE.md`、`_config.yml`、`_data/og_images.yml`、`package.json`、
+  `dev/sass/toolkit.scss`、`scripts/article-check.mjs` 与它的 fixtures、`scripts/lib/post-meta.mjs`、
+  `scripts/wechat-draft.mjs`、`scripts/verify-motion-batch4.mjs` 的 staged 删除、spec 那一格）。
+- **他们 staged 的那 17 行 spec 删除保住了**：`git diff --cached --numstat -- <spec>` 现读 `0 / 17`、
+  `git diff --numstat` 现读 `17 / 0`。做法与 Task 8 同一套——**HEAD 里进的是工作树那一版**（M29 那 17 行还在，
+  我没替他们发布删除），而真 index 里那一格对齐成 `merge-spec.mjs` 按**当前工作树**重算的合并版
+  （`570 → 553`，md5 `c0015956…`，脚本自己钉住"删除集必须正好 17 行、在我的版本里连续且唯一"，认不出就 exit 3）。
+  于是他们随后提交那一格时，落下来的是"我的最新版 − 那 17 行"，不是"我的最新版被他们那版覆盖"。
+- **干净检出自证**：`git archive a67e00b | tar -x` → 导出树里 `node scripts/verify-plan-blocks.mjs` **退 0**
+  （`65 个镜像 / 1,349,416B / ⚠ 未落地 0 节`，与活工作树同一读数），导出树的 `README.md` 读得到
+  `/tools/json.html` 那一格、spec 读得到 M29 那 17 行。本格没动 `dev/`，所以 ①④⑤⑥ 不需要在导出树里重跑——
+  它们在 Task 8 那两棵导出树里已经点过（见上面「提交态自证」那一节），本格的改动集对产物是空影响。
+
+commit 号台账续到这里：Task 8 落 `61963bc`、其自证回填 `da09898`，Task 9 落 `a67e00b`、本段这条自证回填另落一格。
+**全程不 push。**
 
 **8) 段 4 收口时仍然开着的账**（一条都不许并进"门禁全绿"，也不许由本段顺手扩范围做掉）：
 ① 十档截图目测、性能分与 Lighthouse 到今天没跑过；`assets/**/*.md` 那几份没人读；
