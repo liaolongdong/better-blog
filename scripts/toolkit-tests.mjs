@@ -48,7 +48,11 @@
  *                CRLF 与末行换行、行内 token 与预算、配对与五个统计量、unified 与折叠（段 5 Task 2）
  *   §Y JSON 感知比对 18 —— `diff-json.js`：与 `json-core` 的**对拍**（Y1，三件同结论）、键顺序无关、
  *                类型变化单列、Pointer 同规则、预览截断不切代理对、数组按索引、两个预算闸门（段 5 Task 3）
- *   合计 410。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §Z 对比页视图层与装配层 12（前半）—— `diffView.js`：零 import 与前缀派生（Z1、Z3）、两栏行数相等（Z4）、
+ *                行内高亮各半边（Z5）、CRLF 符号与折叠条同源（Z6、Z7）、转义与属性位（Z8、Z9）、
+ *                JSON 表六列与代价说明同屏（Z10）、坏输入一句话（Z11）、读数与结论的词表（Z12）。
+ *                **后半 Z13–Z28 由 Task 5 在同一节续写**（节名不另起，先例是 §U）
+ *   合计 422。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -14308,5 +14312,346 @@ test('Y18 DIFF_JSON_NOTES 六句各管一件事：非空、带自己那个数、
   assert.ok(Y_NOTES.depth.includes(String(Y_DEPTH)), `深度那句要给得出闸门：${Y_NOTES.depth}`);
   assert.ok(Y_NOTES.previewCut.includes(String(Y_PREVIEW)), `预览那句要给得出长度：${Y_NOTES.previewCut}`);
   assert.ok(Y_NOTES.truncated.includes('截'), `截断那句要明说"后面还有没列出的"：${Y_NOTES.truncated}`);
+});
+
+// ── §Z 对比页视图层与装配层（`tools/diffView.js` / `tools/diffWorkbench.js` / `toolDiff.js`，段 5 Task 4/5）──
+// 本格（Task 4）只立前半 **Z1–Z12**，钉的是视图层那七件；后半 Z13–Z28 由 Task 5 在**同一节**续写
+// ——节名不另起，先例是 §U（§S–§W 那几族里 §U 就是两格共用一节）。
+// 三条红线写死在这里，实现不许自创第二套：
+//   · **零 import**（Z1）：与 `jsonView.js` 同一条构建约束（§0.4）——这一本一旦 import 什么，
+//     `toolDiff.js` 与 `toolkitCore.js` 就同时 reach 那个模块，Rollup 切出共享 chunk，
+//     `iifeWrapPlugin` 包完的产物里留下 `import{`，整页 SyntaxError 而构建 exit=0。
+//     所以 `esc`、类名前缀与 CR 符号三件全部由 `env` 注入，缺一件在**构造期**点名（Z2），
+//     不许退化成"默认前缀 df"那种静默兜底。
+//   · **类名与属性名只从 `env.prefix` 派生**（Z3）：本文件剥注释的源码里 `df-` 出现 **0 次**，
+//     连整格字面量（§W10 那条口径，三种引号都算）也不许有。这不是洁癖——Task 5 的换前缀自证
+//     （`df` ↔ `zx`）只有在派生是真的时才绿，手打过一处字面量就等于给那道门禁装假牙。
+//   · **用户文本只出现在 `esc` 之后，且永远不进属性位**（Z8、Z9）：属性值只允许整数。
+//     对齐引擎交出来的是 `textA/textB` 与 Pointer 这类文本；行号、栏内下标、省略行数、深度才是这一格的属性。
+// 视图层另管三件"CSS 兜不了的事"：
+//   ① 并排两栏各读同一份行流，**缺席那一侧长成 fill 而不是少一行**（Z4）——两栏行数不等时滚动一错位，
+//      用户读到的是"这行没变"，实情是两侧各有一行；
+//   ② 一个 `change` 行在两栏各出现一次，而高亮只有各自那一半（Z5），且分段拼回去必须还是整行原文；
+//   ③ CRLF 那一格画注入的符号而不是留白（Z6），折叠条那句"省略 N 行"的 N 与 `hunksOf` 同源（Z7）。
+// JSON 档那一表另有两格：`absent` 与"值真的是 null"必须分得开（Z10，§0.6 记的那格偏差），
+// 而 `DIFF_JSON_NOTES` 那六句代价说明与表同屏——Y18 的第二半就落在这里。
+// §W 那三把剥源码的尺（`wCode` / `wBare` / `wCount`）与 `modNames` 在本节直接复用：
+// 同一件事只该有一把尺，重新写一遍就成了"两遍里有一遍是错的"（X4 第一轮抓到的那种形状）。
+const {
+  createDiffView: zCreate, DF_SIDES: Z_SIDES, DF_CORE_KINDS: Z_CORE_KINDS,
+} = await import('../dev/js/tools/diffView.js');
+
+/** 本节一律用真前缀与真符号：视图层不许自己存一份 `␍`（Z6 断的就是这件事） */
+const Z_P = 'df';
+const zEnv = (over) => ({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: X_CR, ...over });
+/** 全展开的行流：`hunksOf(..., Infinity)` 摊平，Z4/Z5/Z6 要的是"没有折叠干扰"的那一份行档 */
+const zRows = (a, b, o) => dHunks(dLines(a, b, o), Infinity).flatMap((h) => h.rows);
+/** renderSide 的输出是一串并排的 `<div>`，按 `<div` 切开就能逐格读行档 */
+const zBlocks = (html) => html.split(/(?=<div)/).filter((s) => s !== '');
+/** 剥标签并把 esc 那五枚实体还原：断"这一格显示的正是原文"用得上（&amp; 必须最后还原） */
+const zPlain = (html) => html.replace(/<[^>]*>/g, '')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&amp;/g, '&');
+/** 行内容那一格：`<pre class="df-row__txt">` 到它的 `</pre>`——用 pre 而不是 span，行内再套多少枚 span 都切得干净 */
+const zTxt = (html) => {
+  const m = /<pre class="[^"]*row__txt">([\s\S]*?)<\/pre>/.exec(html);
+  return m ? zPlain(m[1]) : null;
+};
+/** 属性清单：`\sname="value"` 的成对，Z9 数的是"这一页到底往属性位写了什么" */
+const zAttrs = (html) => [...html.matchAll(/ ([-a-z]+)="([^"]*)"/g)].map((m) => ({ name: m[1], value: m[2] }));
+/** 数出现次数：§W 那把尺在本节直接复用（同一件事只该有一把尺），换个本节读得通的名字 */
+const zCount = wCount;
+
+test('Z1 视图层零 import、零环境词：它只产串，节点与浏览器一律够不着', () => {
+  const rel = 'dev/js/tools/diffView.js';
+  assert.equal(/\bimport\b/.test(wCode(rel)), false, 'diffView 一旦 import 什么，两个入口就 reach 同一模块 → Rollup 切共享 chunk → iife-wrap 后产物里是 import{ → 整页 SyntaxError 而构建 exit=0（§0.4 那条红线，与 §W2 同一条）');
+  assert.equal(/\brequire\s*\(/.test(wCode(rel)), false, '同上：require 在这儿等于第二条跨模块的边');
+  assert.equal(wCount(wCode(rel), 'innerHTML'), 0, '视图层不许写节点：整页只有装配层那唯一的 innerHTML 出口（§W 同一条口径，这里连字符串里都不许出现）');
+  const bare = wBare(rel);
+  for (const word of ['window', 'document', 'localStorage', 'Date.now(', 'getComputedStyle', 'querySelector', 'FileReader', 'navigator']) {
+    assert.equal(bare.includes(word), false, `视图层不许碰 ${word}：纯串生成器碰一次就多一处不可复算，而 FileReader 与 File 那一格归入口`);
+  }
+});
+
+test('Z2 注入缺件在构造期就点名，导出面恰好这三格与那七件', () => {
+  const v = zCreate(zEnv());
+  assert.deepEqual(Object.keys(v).sort(),
+    ['renderFoldBar', 'renderInline', 'renderJsonTable', 'renderNotice', 'renderSide', 'renderStats', 'renderVerdict'],
+    '七件里加一件或改一名，装配层就有一处叫不到它；而"多一件"通常是第二条渲染路径');
+  for (const [name, fn] of Object.entries(v)) assert.equal(typeof fn, 'function', `${name} 不是函数：这一件到页面上就是"点了没反应"`);
+  assert.deepEqual(modNames('dev/js/tools/diffView.js'), ['DF_CORE_KINDS', 'DF_SIDES', 'createDiffView'].sort(),
+    'diffView.js 的导出面多了名字：词表之外不许再有第二格公开的东西');
+  assert.deepEqual(Z_SIDES, ['a', 'b'], '第三栏在这一页没有对应的事实');
+  assert.deepEqual(Z_CORE_KINDS, ['equal', 'change', 'del', 'ins'], '对齐引擎只交得出这四档，第五档（fill）是视图层自己的，不许混进这一份词表');
+  const missing = [
+    [{ prefix: Z_P, crGlyph: X_CR }, /esc/, '缺 esc 的下场是用户文本被当标记插进结果区'],
+    [{ esc: J_VIEW.esc, crGlyph: X_CR }, /prefix/, '缺前缀则整套类名与属性名无从派生'],
+    [{ esc: J_VIEW.esc, prefix: Z_P }, /crGlyph/, '缺符号则"行尾有回车"与"这一格没渲染"混成同一档'],
+  ];
+  for (const [env, re, why] of missing) {
+    assert.throws(() => zCreate(env), (e) => e instanceof TypeError && re.test(e.message) && /createDiffView/.test(e.message),
+      `构造期没点名（${why}）：抛在挂载期就是整页空白，而这里连挂载都到不了`);
+  }
+  assert.throws(() => zCreate(), TypeError, '整格缺件也要抛，不许退化成"默认前缀 df"');
+  assert.throws(() => zCreate({ esc: 'nope', prefix: Z_P, crGlyph: X_CR }), TypeError);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: 'df bad', crGlyph: X_CR }), /prefix/, '前缀里带空格：整套 class 名到页面上就是碎的');
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: '', crGlyph: X_CR }), /prefix/);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: 'df-row', crGlyph: X_CR }), /prefix/, '前缀自己带连字符，产出的类名读不出哪一段是词根');
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: '' }), /crGlyph/);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: 7 }), /crGlyph/);
+});
+
+test('Z3 类名与属性名全由 env.prefix 派生：本文件剥注释的源码里 df- 出现 0 次', () => {
+  const rel = 'dev/js/tools/diffView.js';
+  assert.equal(wCount(wCode(rel), 'df-'), 0, '手打 df- 字面量一处，Task 5 的换前缀自证就绿得没有牙：整页类名跟着 zx- 换才是真的派生');
+  const hand = [];
+  wCode(rel).replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, (s) => {
+    if (/^['"`]df-/.test(s)) hand.push(s);
+    return "''";
+  });
+  assert.deepEqual(hand, [], '整格字面量口径（§W10 同一条，三种引号都算）：以 df- 起头的串在本文件里一处都不该有');
+  const rows = zRows('keep\nold tail', 'keep\nnew tail');
+  const asDf = zCreate(zEnv()).renderSide(rows, 'a');
+  const asZx = zCreate(zEnv({ prefix: 'zx' })).renderSide(rows, 'a');
+  assert.equal(asZx, asDf.replaceAll('df-', 'zx-'), '换前缀之后产出必须逐字符跟着换：这一格没跟着换的地方就是第二套类名');
+  assert.equal(asZx.includes('df-'), false, '换档之后还留着 df- = 两处字面量没派生');
+});
+
+test('Z4 并排两栏的行数相等：缺席那一侧长成 fill 而不是少一行，且不给自己编行号', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('a\nb\nc', 'a\nX\nc\nlast');
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, ` data-${Z_P}-i=`), rows.length, '一栏一份行块：renderSide 不许把 fill 那一格省掉');
+  assert.equal(zCount(B, ` data-${Z_P}-i=`), rows.length, '两栏行数不等 = 滚动一错位就错到底，对齐是视图层的责任不是 CSS 的');
+  assert.deepEqual(zBlocks(A).map((bl) => /-row--(\w+)/.exec(bl)[1]), ['equal', 'change', 'equal', 'fill'],
+    'A 栏那一列行档：新增行在 A 侧是 fill，不是凭空少一行');
+  assert.deepEqual(zBlocks(B).map((bl) => /-row--(\w+)/.exec(bl)[1]), ['equal', 'change', 'equal', 'ins']);
+  const fill = zBlocks(A)[3];
+  assert.equal(fill.includes(` data-${Z_P}-ln=`), false, 'fill 不许有行号：那是"这一侧没有这一行"，不是第 0 行');
+  assert.equal(zPlain(fill).trim(), '', 'fill 那一格除了行档什么都不写，占位交给 CSS 的行高');
+  const bothRows = zBlocks(B)[3];
+  assert.equal(new RegExp(` data-${Z_P}-ln="(\\d+)"`).exec(bothRows)[1], '3', '行号取的是这一侧的下标（0-based → 屏上 1-based）');
+  assert.deepEqual(zRows('a\nb', 'a\nb'), [],
+    '完全相同拿不出任何行：hunksOf 只切差异块。两栏各 0 行仍然等长，而"这里明明比过了"那句话归结论格（Z12）与装配层的空态（Task 5）');
+  const same = v.renderSide(zRows('a\n\nb', 'a\n\nB'), 'a');
+  assert.equal(zBlocks(same).length, 3, '有差异才切得出块：这一份的中间那行是空行');
+  assert.equal(zCount(same, `${Z_P}-row__txt"></pre>`), 1, '空行那一格是空串，但行块照样在：视图层不许替它猜一个占位符');
+  assert.throws(() => v.renderSide(rows, 'c'), /栏只认/);
+  assert.throws(() => v.renderSide(null, 'a'), TypeError);
+  assert.throws(() => v.renderSide(['x'], 'a'), TypeError, '行对象不是对象要说清第几行——静默渲一栏空白是这一层最难查的形状');
+  assert.throws(() => v.renderSide([{ kind: 'weird', a: 0, b: 0, textA: '', textB: '', inline: null, crlfA: false, crlfB: false }], 'a'),
+    /kind/, '对齐引擎多出一档而行视图不认识它，必须停在开发期，不许静默渲成一栏没有头的东西');
+});
+
+test('Z5 change 行在两栏各出现一次，而高亮只有各自那一半', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('foo bar baz', 'foo qux baz');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, 'change');
+  assert.ok(Array.isArray(rows[0].inline), '这一对行该有行内细化；没有的话是夹具越了 token 档，要改样本不是改口径');
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, `${Z_P}-row--change`), 1, '同一次改动在两栏各出现一次');
+  assert.equal(zCount(B, `${Z_P}-row--change`), 1);
+  assert.equal(A.includes(`${Z_P}-inline--ins`), false, 'A 栏高亮对方新增的 token，等于把 B 的内容画在 A 的行上');
+  assert.equal(B.includes(`${Z_P}-inline--del`), false, '同一件事的反方向');
+  assert.equal(zCount(A, `${Z_P}-inline--del`), 1);
+  assert.equal(zCount(B, `${Z_P}-inline--ins`), 1);
+  assert.equal(zTxt(A), 'foo bar baz', '分段拼回去必须还是整行原文：少一段就是"页面上的行"不再是那一行');
+  assert.equal(zTxt(B), 'foo qux baz');
+  assert.equal(v.renderInline([{ t: 'equal', text: 'a' }, { t: 'del', text: 'b' }, { t: 'ins', text: 'c' }], 'a'),
+    `a<span class="${Z_P}-inline--del">b</span>`, '一条片段序列里 del 与 ins 交替躺着：A 栏只读等价与自己被删的那半，另一侧那半是 B 栏的内容');
+  assert.equal(v.renderInline([{ t: 'equal', text: 'a' }, { t: 'del', text: 'b' }, { t: 'ins', text: 'c' }], 'b'),
+    `a<span class="${Z_P}-inline--ins">c</span>`, '同一份片段在 B 栏读的是另一半（少挑一次就是把对方的改动画在自己行上）');
+  assert.throws(() => v.renderInline('x', 'a'), TypeError);
+  assert.throws(() => v.renderInline([{ t: 'weird', text: 'y' }], 'a'), /档只认/,
+    '词汇表外的着色档要抛：样式那边没有第四种颜色，静默忽略就是"高亮少了一块却看不出来"');
+  assert.throws(() => v.renderInline([{ t: 'equal' }], 'a'), TypeError, '缺 text 的片段到了页面上是一串 undefined');
+});
+
+test('Z6 CRLF 那一格画注入的符号而不是留白，符号换了产出跟着换', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('a\r\nb\r\n', 'a\r\nb\n');
+  assert.deepEqual(rows.map((r) => r.kind), ['equal', 'change'], '同一行文字、行尾形状不同 → 第二行是一处改动（crlf 进比较键，X1 与 X6 的口径）');
+  assert.equal(rows[1].crlfA, true);
+  assert.equal(rows[1].crlfB, false);
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, `${Z_P}-row__cr">${X_CR}<`), 2, '行尾那个回车必须画得出符号：留白与"这一格没渲染"在页面上是同一张脸');
+  assert.equal(zCount(B, `${Z_P}-row__cr">${X_CR}<`), 1);
+  assert.equal(zCount(B, `${Z_P}-row__cr`), 1, '不带回车的那一侧不许长出这一格（省一格是一格，别靠 CSS 藏）');
+  assert.equal(zPlain(zBlocks(A)[1]).endsWith(`b${X_CR}`), true, '符号落在行内容之后，读起来就是"这一行以回车结尾"');
+  const swapped = zCreate(zEnv({ crGlyph: 'CR' })).renderSide(rows, 'a');
+  assert.equal(swapped, A.replaceAll(X_CR, 'CR'), '符号从注入里来：写死 ␍ 等于在视图层再存一份口径，而那一本已经在 diff-core');
+  assert.equal(v.renderSide(zRows('a\nb', 'a\nb'), 'a').includes(`${Z_P}-row__cr`), false, '一格里都不该有');
+});
+
+test('Z7 折叠条那句"省略 N 行"的 N 与 hunksOf 同源，0 行那一档整条不长', () => {
+  const v = zCreate(zEnv());
+  const a = Array.from({ length: 40 }, (_, i) => `L${i}`).join('\n');
+  const b = a.replace('L0', 'X0').replace('L30', 'Y30');
+  const hs = dHunks(dLines(a, b), 1);
+  assert.equal(hs.length, 2, '夹具该折叠出两块：context=1 而两段之间隔着 29 行相同');
+  assert.equal(hs[0].skipped, 0, '夹具的第一块要从文件头开始，否则下面那句"第一条不许长条"是空跑');
+  assert.ok(hs.slice(1).every((h) => h.skipped > 0), '省略行数不全是正数的话，这一串断言同样在空跑');
+  const bars = hs.map((h) => v.renderFoldBar({ skipped: h.skipped, tail: false }));
+  assert.equal(bars[0], '', '第一块前面没有东西，不许长出"省略 0 行"那种自证式空条');
+  for (let k = 1; k < hs.length; k += 1) {
+    const n = Number(new RegExp(` data-${Z_P}-skip="(\\d+)"`).exec(bars[k])[1]);
+    assert.equal(n, hs[k].skipped, '条上的数字与 skipped 同源：两处各算一遍就是"折叠条说谎"的成因');
+    assert.equal(zPlain(bars[k]).startsWith(`省略 ${n} 行`), true);
+    assert.equal(zCount(bars[k], String(n)), 2, '属性一次、正文一次，别的格子不许出现这个数');
+  }
+  const last = hs[hs.length - 1];
+  assert.ok(last.tailSkipped > 0, '夹具该在末尾留下一段折叠');
+  const tail = v.renderFoldBar({ skipped: last.tailSkipped, tail: true });
+  assert.equal(tail.includes(`${Z_P}-fold--tail`), true, '尾条与头条是两档：样式与点击行为都按这两档分');
+  assert.equal(tail.includes(`${Z_P}-fold--head`), false);
+  assert.equal(tail.includes(` data-${Z_P}-skip="${last.tailSkipped}"`), true);
+  assert.equal(v.renderFoldBar({ skipped: 0, tail: true }), '');
+  assert.equal(v.renderFoldBar({ skipped: last.skipped }), v.renderFoldBar({ skipped: last.skipped, tail: false }), 'tail 缺省就是 false，不许把"没给"读成"是尾条"');
+  assert.throws(() => v.renderFoldBar({ skipped: 2.5 }), RangeError, '省略行数只该是整数：小数会把滚动条总长算歪（与 §V 的 treePad 同一条）');
+  assert.throws(() => v.renderFoldBar({ skipped: -1 }), RangeError);
+  assert.throws(() => v.renderFoldBar({ skipped: 3, tail: 'yes' }), TypeError);
+  assert.throws(() => v.renderFoldBar(null), TypeError);
+});
+
+test('Z8 每一只渲染器都过 env.esc：三类载荷进去，出来的串里没有裸标记', () => {
+  const v = zCreate(zEnv());
+  const payloads = ['<script>alert("x")</script>', 'a"b\'c&d', '两行\n载荷'];
+  for (const raw of payloads) {
+    const want = J_VIEW.esc(raw);
+    assert.equal(v.renderNotice(raw).includes(want), true, `renderNotice 没走注入的那只 esc：${raw}`);
+    assert.equal(v.renderNotice(raw).includes('<script'), false);
+    const rowHtml = v.renderSide([{ kind: 'equal', a: 4, b: 4, textA: raw, textB: raw, inline: null, crlfA: false, crlfB: false }], 'a');
+    assert.equal(rowHtml.includes(want), true, `renderSide 的行内容没走 esc：${raw}`);
+    assert.equal(zTxt(rowHtml), raw, '转义是可逆的这一层该做到的：屏上读到的还是那一行');
+    assert.equal(v.renderSide([{ kind: 'change', a: 0, b: 0, textA: raw, textB: raw, inline: [{ t: 'del', text: raw }], crlfA: false, crlfB: false }], 'a').includes(want), true,
+      '行内片段同样只出 esc 之后的串');
+    const table = v.renderJsonTable({
+      changes: [{ pointer: raw, kind: 'change', owner: 'both', depth: 1, aPreview: raw, bPreview: '1', aType: 'string', bType: 'number' }],
+      stats: { add: 0, remove: 0, change: 1, type: 0, compared: 3, depth: 1 }, notes: [raw], truncated: false,
+    });
+    assert.equal(wCount(table, want) >= 3, true, 'Pointer、A 侧与表尾那一句三处都要过 esc，少一处就是有一格漏网');
+    assert.equal(table.includes('<script'), false);
+  }
+  assert.equal(v.renderNotice('<b>粗</b>').includes('&lt;b&gt;'), true, '连强调标签都不许放过去');
+});
+
+test('Z9 行内容与 Pointer 不许落到属性位：属性名与属性值都只认那几格', () => {
+  const v = zCreate(zEnv());
+  const nasty = 'x" data-evil="1';
+  const html = v.renderSide([{ kind: 'change', a: 2, b: 3, textA: nasty, textB: 'y', inline: [{ t: 'del', text: nasty }, { t: 'ins', text: 'y' }], crlfA: false, crlfB: false }], 'a')
+    + v.renderJsonTable({
+      changes: [{ pointer: nasty, kind: 'remove', owner: 'only-a', depth: 0, aPreview: nasty, bPreview: null, aType: 'string', bType: 'absent' }],
+      stats: { add: 0, remove: 1, change: 0, type: 0, compared: 1, depth: 0 }, notes: [], truncated: false,
+    })
+    + v.renderFoldBar({ skipped: 7 });
+  const attrs = zAttrs(html);
+  assert.ok(attrs.length >= 6, `夹具该产出若干属性，实际 ${attrs.length} 个——空跑一遍等于没判`);
+  assert.deepEqual([...new Set(attrs.map((x) => x.name))].filter((n) => n !== 'class' && n !== 'type').sort(),
+    [`data-${Z_P}-depth`, `data-${Z_P}-i`, `data-${Z_P}-ln`, `data-${Z_P}-skip`],
+    '属性名多一枚就是第二套口径：装配层与样式只认这几格');
+  for (const { name, value } of attrs) {
+    if (name === 'class' || name === 'type') continue;
+    assert.match(value, /^\d+$/, `${name} 的属性位上出现了非整数值：${value}`);
+  }
+  assert.equal(/[A-Za-z]/.test(attrs.filter((x) => x.name !== 'class' && x.name !== 'type').map((x) => x.value).join('')), false,
+    '属性值里出现字母就是文本进了属性位——那一格 esc 管不住');
+  assert.equal(zPlain(html).includes(nasty), true, '载荷要作为正文原样到达，不许被"顺手剔掉"');
+});
+
+test('Z10 JSON 变更表：六列表头、absent 与真 null 分得开、代价说明同屏（Y18 的第二半）', () => {
+  const v = zCreate(zEnv());
+  const r = yDiff('{"a":1,"b":2}', '{"a":null}');
+  assert.deepEqual([r.verdict, r.stats.type, r.stats.remove, r.stats.compared], ['diff', 1, 1, 2], '夹具形状：/a 是类型变（1 → null），/b 是删除');
+  const html = v.renderJsonTable({ changes: r.changes, stats: r.stats, notes: Object.values(Y_NOTES), truncated: false });
+  assert.deepEqual([...html.matchAll(/<th[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]),
+    ['位置', '变更', '归属', 'A 侧', 'B 侧', '深度'], '六列少一列或换了次序，表读起来就和 diff-json 交出的那六格对不上');
+  const cellsOf = (tr) => [...tr.matchAll(/<td class="[^"]*">([\s\S]*?)<\/td>/g)].map((m) => zPlain(m[1]));
+  const trs = html.split('<tr').slice(2);
+  assert.equal(trs.length, 2);
+  assert.deepEqual(cellsOf(trs[0]), ['/a', '类型变', '两侧', '1', 'null', '1'], '值真的是 null 的那一格写 null，不是"这一侧没有"（§0.6 记的偏差）');
+  assert.deepEqual(cellsOf(trs[1]), ['/b', '删除', '仅 A', '2', '（这一侧没有）', '1']);
+  assert.equal(zCount(html, '（这一侧没有）'), 1, '缺席档只在真缺席的那一格出现');
+  assert.equal(html.includes('比对 2 格'), true, 'stats.compared 要上屏：不写这一格用户读不出"比了多久"');
+  assert.equal(html.includes('最深 1 层'), true);
+  assert.equal(zCount(html, '<li'), Object.keys(Y_NOTES).length, '六句代价说明与表同屏，拆到别处就没人读');
+  for (const [k, sentence] of Object.entries(Y_NOTES)) assert.equal(html.includes(J_VIEW.esc(sentence)), true,
+    `漏了 ${k} 那一句（或那一句没过 esc）：${sentence}`);
+  assert.equal(html.includes('这里截断'), false);
+  assert.equal(v.renderJsonTable({ changes: r.changes, stats: r.stats, notes: [], truncated: true }).includes('这里截断'), true,
+    'truncated 那一档要说"列表截了、计数仍是全量"（Y12、Y18）');
+  const empty = v.renderJsonTable({ changes: [], stats: { add: 0, remove: 0, change: 0, type: 0, compared: 3, depth: 2 }, notes: [], truncated: false });
+  assert.equal(zCount(empty, '<tr class'), 0, '零变更就是一张没有体的表，不是"没有这张表"');
+  assert.equal(empty.includes('比对 3 格'), true);
+  const bad = (over, re, why) => assert.throws(() => v.renderJsonTable({
+    changes: [{ pointer: '/a', kind: 'change', owner: 'both', depth: 0, aPreview: '1', bPreview: '2', aType: 'number', bType: 'number', ...over }],
+    stats: {}, notes: [], truncated: false,
+  }), re, why);
+  bad({ kind: 'rename' }, /变更档/, '词汇表外的 kind 不许静默渲成一格空白的"变更"列');
+  bad({ owner: 'only-c' }, /归属/, '同一件事在归属列');
+  bad({ pointer: 1 }, TypeError, 'Pointer 是文本，不是编号');
+  bad({ depth: 1.5 }, RangeError, '深度只该是整数');
+  bad({ aPreview: undefined }, /预览/, '非缺席的一格预览缺席 = 表里出现空格子');
+  assert.throws(() => v.renderJsonTable({ changes: 'x', stats: {}, notes: [] }), TypeError);
+  assert.throws(() => v.renderJsonTable({ changes: [], stats: {}, notes: 'x' }), TypeError, 'notes 只收那六句的数组：装配层递错了要在这一层点名');
+  assert.throws(() => v.renderJsonTable({ changes: [], stats: {}, notes: [], truncated: 'yes' }), TypeError);
+  assert.throws(() => v.renderJsonTable(null), TypeError);
+});
+
+test('Z11 坏输入那一格只有一句话，且不吞掉别的文案', () => {
+  const v = zCreate(zEnv());
+  const reason = dGate(X_HUGE, '1').reason;
+  const html = v.renderNotice(reason);
+  assert.equal(zCount(html, '<p'), 1, '一句话就是一句话：拆成两段会让"闸门那一档"在页面上长得像一段说明');
+  assert.equal(zCount(html, '</p>'), 1);
+  assert.equal(zPlain(html), reason, '那句理由要逐字到达（上限与实测与超出都在里面）');
+  assert.equal(html.includes(`${Z_P}-notice`), true);
+  const page = html + v.renderStats(dLines('a', 'a').stats);
+  assert.equal(zCount(page, '<p'), 2, 'notice 与读数各写各的格子，拼起来两处都还在');
+  assert.throws(() => v.renderNotice(''), /一句话/);
+  assert.throws(() => v.renderNotice(null), TypeError);
+  assert.throws(() => v.renderNotice(['a', 'b']), TypeError, '两句话该由装配层挑一句递进来，视图层不许静默拼成一段');
+});
+
+test('Z12 读数只认那七个名字，结论按模式各有词表且 blocked / invalid 进不来', () => {
+  const v = zCreate(zEnv());
+  const s = { added: 1, removed: 2, changed: 3, unchanged: 4, blocks: 5, inlineSkipped: 6, ignored: 7 };
+  const html = v.renderStats(s);
+  assert.equal(html, `<p class="${Z_P}-stats">增 1 · 删 2 · 改 3 · 同 4 · 5 处 · 未行内 6 · 归一化抹平 7</p>`,
+    '读数那一行的措辞与顺序钉死：装配层只挑递哪一份 stats，不挑这一行长什么样');
+  assert.equal(html, v.renderStats({ ...s, future: 99, verdict: 'nope' }), '模块以后往 stats 里加一格，这一行的形状不许跟着变');
+  assert.equal(v.renderStats({}), `<p class="${Z_P}-stats">增 0 · 删 0 · 改 0 · 同 0 · 0 处 · 未行内 0 · 归一化抹平 0</p>`,
+    '缺的那一格给 0，不给空格也不给 —：那是"这一份里一处新增也没有"，不是"没测出来"');
+  assert.throws(() => v.renderStats(null), TypeError);
+  assert.throws(() => v.renderStats('x'), TypeError);
+  const t = (over) => v.renderVerdict({ mode: 'text', verdict: 'same', stats: { ...s, ignored: 0 }, ...over });
+  assert.equal(t().includes('逐字符相同'), true);
+  assert.equal(t({ stats: { ...s, ignored: 9 } }).includes('归一化'), true, '勾了忽略空白之后的"相同"要说清是被归一化过的结论（X20、DIFF_NOTES.ignored）');
+  const d = v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s });
+  for (const piece of ['增 1 行', '删 2 行', '改 3 行', '5 处']) assert.equal(d.includes(piece), true, `结论那一格少说一件事：${piece}`);
+  assert.equal(v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s, degraded: true }).includes('整块'), true, '降级必须在结论格里也说一句（X13、X14 上页的那一半）');
+  assert.equal(d.includes('整块'), false, '没降级不许提');
+  const jSame = v.renderVerdict({ mode: 'json', verdict: 'same', stats: { add: 0, remove: 0, change: 0, type: 0, compared: 3, depth: 1 } });
+  assert.equal(jSame.includes('按 JSON 值判为相同'), true, 'json 档的"相同"不许写成"逐字符相同"——那是另一件事（Y3）');
+  assert.equal(jSame.includes('键的书写次序也一致'), true);
+  const sk = yDiff('{"a":1,"b":2}', '{"b":2,"a":1}');
+  assert.equal(sk.verdict, 'same-key-order');
+  assert.equal(v.renderVerdict({ mode: 'json', verdict: sk.verdict, stats: sk.stats }).includes('键的书写次序不同'), true);
+  assert.equal(v.renderVerdict({ mode: 'json', verdict: 'diff', stats: { add: 1, remove: 2, change: 3, type: 4 } }).includes('10 处不同'), true,
+    '四个数要在这一格里合得起来：用户读的是"几处"，表读的是"哪几处"');
+  for (const word of ['blocked', 'invalid', 'same-key-order']) {
+    assert.throws(() => v.renderVerdict({ mode: 'text', verdict: word, stats: s }), /renderNotice/,
+      `text 档认得 ${word} 就是把"没比成"写成结论`);
+  }
+  for (const word of ['blocked', 'invalid']) {
+    assert.throws(() => v.renderVerdict({ mode: 'json', verdict: word, stats: {} }), TypeError);
+  }
+  assert.throws(() => v.renderVerdict({ mode: 'yaml', verdict: 'same', stats: s }), /模式/);
+  assert.throws(() => v.renderVerdict(null), TypeError);
+  assert.throws(() => v.renderVerdict({ mode: 'text', verdict: 'same', stats: s, degraded: 'yes' }), TypeError);
+  assert.equal(v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s }).includes(`${Z_P}-verdict--diff`), true, '结论档也进 class：样式只认那三个词');
 });
 

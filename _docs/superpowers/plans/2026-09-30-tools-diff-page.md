@@ -161,6 +161,10 @@ T-c 在骨架里私自多写一枚 `id="df-tree-diff-a"` 而 `nodes` 里没有 `
 | §Y 判据表 Y18 那句"且 `renderJsonTable` 的产出里逐句出现" | 本格只落**第一半**（六句非空、各带自己那个数、不许留占位），"上页面"那一半交给 §Z（Task 4 第 9 条） | `renderJsonTable` 到 Task 4 才存在，这一格现在断它只能靠桩——判据名与这张表上都留了"由 §Z 接"的字样，不许读的人以为 Y18 已经全了 |
 | 测试文件头部那张"用例分布"表（`§A` 那一段的第二现场） | 补 §X / §Y 两行、合计 `363` → **`410`** | `363` 是段 4 收口之后没人再对过的旧数，本次是第一次真去对它的账。那张表长在磁盘 §A 里，所以 `--fix` 把**段 1 那份计划**的 §A 镜像整块换成磁盘内容（`6522 → 6526 行`）——本提交因此多带一份段 1 计划的改动；按 §0.7 的暂存口径，那一格只碰 §A 那一个块，另一路会话压在索引上的 16 格与工作树文件一件未动 |
 | Task 2 那节的 §X 镜像小标题"到文件末尾" | 改成"到本节末" | §Y 的 `// ── §Y` 标记把磁盘上的 §X 截短了：作废的只是"读到哪儿"那个说法，§X 那一段字节未动、门禁② 照样 `OK`。分节按标记切、不按行号切（`verify-plan-blocks.mjs:37-39`） |
+| §1.1「`hunksOf(result, context)` → 折叠后的块」与 §5.6「未变行折叠」——**两份完全相同那一档没写** | 完全相同时返回 `[]`，一块都不给；视图层画零行，那句"逐字符相同"的文案归装配层（Task 5） | 折叠的输入是"差异游程"，`runs.length === 0` 就没有块。硬造一块"全篇上下文"会让第一块 `skipped` 与末块 `tailSkipped` 双双为 0，页面上多出一条**谁都不想要的折叠条**，而那一档本来没有可折叠的东西。Z4 钉的是"给它零行就画零行"；那句话由 §Z 后半的装配层判据来咬 |
+| §1.1 `Row.inline` 那格写的是"一份 `[{t,text}]`（或 `null`）"，没说两侧各取哪几档 | 序列里 equal/del/ins **混着放**，视图层按侧**筛**：`INLINE_BY_SIDE = {a: ['equal','del'], b: ['equal','ins']}`；tone 不在那三档才抛 | "两侧各画一半"是渲染事实，不是数据事实：存一份混合序列，X20/X21 那种"两侧逐字符能各自拼回原文"的对拍才成立，各存一半就是两份真相。按侧筛而不是按侧取，装配层从此不必知道行内是怎么存的（Z5 钉两栏各自只高亮自己那半，并把两栏的产出串逐字符钉下来） |
+| §5.6「并排两栏逐行对齐」没写缺席那一侧长什么样 | 那一格画 `--fill`：**行还在**，但没有 `ln` 属性、没有行号、正文为空 | 少一行，两栏就从这一行起永久错位；画一个"看起来像 0"的行号是编造读数。`Row.a` / `Row.b` 的 `null` 是唯一真相，视图层把它翻译成"这一侧在这里什么都没有"（Z4 同时钉两栏块数相等与"不许给自己编行号"两半） |
+| 测试文件头部那张"用例分布"表（`§A` 的第二现场） | 补 §Z 那一行（`12`，前半）、合计 `410` → **`422`** | §Z 前半落进磁盘，那张表就过期了；重算口径照旧是 §A 注释里那条 awk（按行首 `^test(` 数每段），逐段读数 `…§Y: 18 / §Z: 12`，合计与 runner 的 `# tests 422` 对上才算对完账。那张表长在磁盘 §A 里，所以 `--fix` **又一次**把段 1 那份计划的 §A 镜像整块换成磁盘内容（`6526 → 6530 行`）——本提交因此再带一份段 1 计划的改动，只碰 §A 那一个块 |
 
 （本表是空的才算正常；每加一行就要在 §5.6 或 §8.1 里回写一次，段 4 那份计划的 §0.6 是同一族先例。）
 
@@ -170,6 +174,12 @@ T-c 在骨架里私自多写一枚 `id="df-tree-diff-a"` 而 `nodes` 里没有 `
 改在它上面等于替那一格落地。**与段 4 同一处置**：Task 9 对账收口那一次把这一行改成现行值，
 连同 `grep -n "^export const MAX_" dev/js/tools/diff-core.js` 的复算一起写（段 4 Task 9 的
 "spec §7 常量对现行值"就是同一件事的先例）。
+
+Task 4 落完，这一格里再记两笔**同一族**的欠账（都是"§0.6 上面那张表新登记的行为，spec 那侧还没跟着写"）：
+① §5.6 的"未变行折叠"那一句要在 Task 9 补上**两份完全相同**那一档的页面形状（零块、零行，加一句
+装配层给的"逐字符相同"文案，而不是画一条 0 行的折叠条）；② §5.6 的"并排两栏逐行对齐"要在 Task 9
+写明缺席那一侧的画法是**占位行 `--fill`**（行在、无行号、正文空），否则读 spec 的人会以为那一侧少一行。
+两笔都只动 spec，不动实现——实现那侧 Z4 已经把两条钉死了。
 
 **上面两格里那些数的复算**（Node 22 单线程，本机 `load average` 5.4；两份读数是同一次会话里先跑曲线、
 再跑 A/B，输入构造逐字钉在下面，不复现就别引用它）：
@@ -3287,7 +3297,7 @@ test('Y18 DIFF_JSON_NOTES 六句各管一件事：非空、带自己那个数、
 **Files：** Create `dev/js/tools/diffView.js`；Modify `scripts/toolkit-tests.mjs`（新节 `// ── §Z …`，
 本格只落前半，Task 5 在同一节续写——**节名不另起**，先例是 §U）。
 
-- [ ] **Step 1：写判据 Z1–Z12**：视图层零 import（源码扫）、`esc` 由 `env` 注入且缺失时**构造期**
+- [x] **Step 1：写判据 Z1–Z12**：视图层零 import（源码扫）、`esc` 由 `env` 注入且缺失时**构造期**
       `TypeError`（那句理由与 §W 的"抛在挂载期就是整页空白"同一条）、并排两栏的行数必须相等
       （对齐是视图层的责任不是装配层的）、`change` 行在左右两栏各出现一次且各自只高亮自己那半、
       `crlf` 那一格画 `CR_GLYPH` 而不是留白、折叠条那句"省略 N 行"的 N 与 `Row.skipped` 同源、
@@ -3295,8 +3305,780 @@ test('Y18 DIFF_JSON_NOTES 六句各管一件事：非空、带自己那个数、
       （行内容）不许出现在属性位、JSON 变更表那六列的表头与 `DIFF_JSON_NOTES` 同页、
       坏输入态的 `renderNotice` 只有一句且不吞掉别的文案、`df-` 字面量在本文件源码里 **0 次**
       （类名一律由 `env.prefix` 派生，同 §W10 的整格字面量口径）。
-- [ ] **Step 2：写实现到绿**；**Step 3：登记镜像** + `--fix`；**Step 4：门禁①②③**；
+      先红一步照旧是形状的一部分：判据落完跑门禁① 得 `411 tests / 410 pass / 1 fail` 退 1，
+      红的是**文件级**那一行 `not ok 1 - scripts/toolkit-tests.mjs`，正文里是
+      `ERR_MODULE_NOT_FOUND … /dev/js/tools/diffView.js`——§Z 那十二判在模块缺席时**一条都没注册**，
+      所以看不到 `not ok Z1 …` 那种形状（§A 注释里 2026-09-26 实测过：按 `^not ok <用例名>` 去点名
+      是锚错了层，不是判据没牙）。
+      起草时改掉五处，都记在这里，因为全是"判据落下去才发现前提读错"的形状：
+      ① 类名 needle 一律不带前导 `-`——`-df-row--change` 在 `class="df-row df-row--change"` 里恒 0 命中，
+      十一处一起改（属性 needle 保留 ` data-df-` 那个前导空格，那一格是真的）；
+      ② `renderInline` 的 premise 错过一次：`Row.inline` 是 equal/del/ins **混着的一份**，不是"本侧那半"，
+      于是实现改成按侧**筛**，Z5 顺势把两栏的产出串逐字符钉下来、"要抛"的边界挪到那三档之外
+      （§0.6 新增的"行内按侧筛"那一行）；
+      ③ Z4 原来拿 `'a\nb'` vs `'a\nb'` 断"两栏各两行"，实测 `hunksOf` 在零差异时**返回 `[]`**，
+      那条软断言当场退化成空跑——改成先钉 `deepEqual(rows, [])` 把这个发现固化，再换一份真含差异的夹具
+      （§0.6 新增的"`hunksOf` 零块"那一行）；
+      ④ Z7 的夹具把第一处差异放在 L5，于是契约里"第一块 `skipped` 恒 0"在测试里读成 4：把差异挪到 L0，
+      并补两条硬闸门 `hs.length === 2` 与 `hs[0].skipped === 0`，专防"空跑一遍还全绿"；
+      ⑤ Z12 的 `t()` helper 从夹具继承了 `ignored: 7`，结论句自动选到"归一化之后相同"那一档，整段跟着改；
+      那一格里原有一条"每个数字都出现在串里"的弱判据，换成**整串逐字符相等**——把七个标签全删掉，
+      弱判据照样绿，而这一格的承诺正是"那七个标签一个都不能少"。
+- [x] **Step 2：写实现到绿**——`dev/js/tools/diffView.js` 落盘 **312 行 / 20,996B**（`wc -l -c` 的读数）。
+      导出恰好三格、`createDiffView(env)` 还回来恰好七件（Z2 两头都钉：多一件、少一件、改一名都红）。
+      `env` 那三件在**构造期**各挡一档（`esc` 不是函数 / `prefix` 不匹配 `^[a-z][a-z0-9]*$`，
+      含 `'df bad'` 与 `'df-row'` 两种形状 / `crGlyph` 不是非空字符串）；入参闸门在**调用期**：
+      非整数或负数的 `skipped` 抛 `RangeError`、`tail` 不是布尔抛 `TypeError`、
+      `renderVerdict` 拿到 `blocked` / `invalid` 抛的点名句里带 `renderNotice`，等于把"那一档该走哪条路"
+      写进报错本身。
+      两处刻意的排版选择写进文件头，也写进上面的镜像说明：行内容放进 `<pre class="{p}-row__txt">`
+      （缩进是内容不是排版；也正因为这一格，`zTxt` 有唯一提取锚点）；`Row.a` / `Row.b` 为 `null` 的
+      那一侧画 `--fill`（行在、无 `ln` 属性、无行号、正文空）而不是少一行。
+      迭代三刀的读数（`--test-name-pattern="^Z[0-9]+ "` 单跑）：`4/12` → `10/12` → `12/12`。
+      前两档里判据侧与实现侧都动过——判据动的是上面记的那五处（前提读错），实现动的是渲染形状，
+      **没有一处是把断言改松**：唯一的方向是加硬（Z4 加 `deepEqual(rows, [])`、Z7 加两条硬闸门、
+      Z12 换成整串逐字符、Z5 换成两栏产出串逐字符）。
+- [x] **Step 3：登记镜像**——`FILE_TARGETS` 追加 `'dev/js/tools/diffView.js'`（方向照旧：跟着磁盘走，
+      不跟着计划走），注释写清这一本**没有算法**、整本只有排版口径，而 Z1/Z3 那两判是源码扫描型的，
+      所以这一格镜像留的是"行内容当时放在哪个标签里、属性位上有哪几枚名字"的现场。本计划新贴两块
+      ` ```js ` 围栏（整文件 **312 行**、整节 **340 行**），种子直接由磁盘内容生成（一支 `/tmp` 里的
+      拼装脚本读磁盘拼围栏，不做手抄，另加一道"围栏内容里不许出现 ` ``` ` 行"的自检），
+      `--fix` 那一轮**没有改写这两块的任何一行**——它只换掉段 1 的 §A（下一段）。裸门禁② 的两行读数：
+      `OK dev/js/tools/diffView.js：计划[段5] 3405–3716（312 行）与磁盘逐字节全等`、
+      `OK scripts/toolkit-tests.mjs §Z（磁盘 14317–14656）：计划[段5] 3741–4080（340 行）与磁盘逐字节全等`。
+      连带动作一条，与 Task 3 那次同一形状：`--fix` 把**段 1 那份计划**的 §A 镜像整块换成磁盘内容
+      （`6526 → 6530 行`），因为"用例分布"表的 §Z 那一行长在磁盘 §A 里；本提交因此再带一份段 1 计划的改动，
+      只碰 §A 那一个块，另一路会话压在索引上的格与工作树文件一件未动（§0.6 最后一行是这一笔的账）。
+- [x] **Step 4：门禁①②③**——① 全量 `422/422` 退 0（另用 `--test-name-pattern="^Z[0-9]+ "` 单跑过 12/12）；
+      ② 裸跑退 0：`71` 块已落地镜像全等、`未落地 0 节`，js 块 `63` 个（段5 从 4 块长到 6 块）；
+      ③ **37/37** 退 0，末尾两条自证照旧（副本回到全绿；实验前后工作树脏指纹一字不差，`29` 个脏项里
+      含另一路会话那批，一件未碰）。跑之前先 `uptime`：本机 load averages 一度 `15.00 / 16.84 / 11.50`，
+      那种档位下红要先归因给量具，这里等它落到 `4.47` 才跑全量，判据一位未松。
+      头部那张表的账照旧用 §A 注释里那条 awk 重算，逐段读到 `…§X: 29 / §Y: 18 / §Z: 12`、
+      合计 `422`，与 runner 的 `# tests 422` 对上（对不上就是表过期，改表而不是改口径）。
 - [ ] **Step 5：提交** `feat(tools): 段 5 Task 4 对比页视图层——diffView 与 §Z 前半十二判`。
+
+### 落地镜像（门禁二核的就是这一块，`--fix` 会把它整块换成磁盘内容）
+
+Task 2/3 那两节立的规矩在这里照用：只有**整文件**与**整节**镜像允许 ` ```js ` 围栏（§0.6 的硬规矩），
+贴的时候直接由磁盘内容生成，事后跑一次 `--fix` 复验它已经全等。下面两块是一对——
+`diffView.js` 改了而 §Z 没跟着改，红的是门禁①；§Z 改了而计划没跟着改，红的是门禁②。
+
+登记面这一格只动了一处：`FILE_TARGETS` 里新增 `dev/js/tools/diffView.js`（方向照旧，**跟着磁盘走
+不跟着计划走**——`diffWorkbench.js` / `toolDiff.js` 还没落地，Task 5 落盘那一格再登记，同 §0.7）。
+`scripts/toolkit-tests.mjs` 的 §Z 是**按标记切段**登记的（`SEG_MARK`，不看行号），所以这一格镜像
+现在是"那一节的头注释 + 那一次 `await import` + 前半十二判"整节；Task 5 往末尾续写 Z13–Z28 时
+**不插新标记**，§Z 这一段只会变长、不会被截短，`--fix` 会把这一格整块换过去——"节名不另起"在这里
+的代价就是 §Z 只有一本镜像，前后两半共用同一格。
+
+> Task 3 那格立的"到本节末"这个说法在这一格照抄，但它指的是**当前**的切分边界：§Z 现在是磁盘上
+> 最后一节，下面没有别的 `// ── §` 标记，所以"到本节末"与"到文件末尾"此刻是同一段字节；Task 5
+> 续写之后两者仍指同一段，因为续写不插标记。本计划的判据到 §Z 收口（§0.1 那张表里 §Z 是最后一格），
+> 若日后还有别的段往同一文件续节，那一带来的作废形状与 Task 3 那格完全一样：只作废"读到哪儿"的说法，
+> 字节一位不动。
+
+#### `dev/js/tools/diffView.js`（整文件）
+
+这一本只有一件事：**把 `diff-core` / `diff-json` 的返回值变成 HTML 串**——不碰 DOM、不读环境、
+不引本地文件。它导出的名字恰好三格（`DF_CORE_KINDS` / `DF_SIDES` / `createDiffView`），
+`createDiffView(env)` 还回来的方法恰好七件（`renderSide` / `renderInline` / `renderFoldBar` /
+`renderStats` / `renderJsonTable` / `renderNotice` / `renderVerdict`）。三条红线在 Z1/Z2/Z3 上钉着，
+而它们全是**源码扫描**型判据，所以这一格镜像的作用比前两本更直白：它留的是"当时那一版把行内容
+放在哪个标签里、属性位上到底有哪些名字"的现场。
+
+- **零 import**（§0.4 那条构建硬约束，与 `diff-json.js` 同源）：`esc` / `prefix` / `crGlyph` 三件由
+  `env` 注入，且都在**构造期**挡（缺一件抛点名的 `TypeError`，含 `prefix` 不是 `[a-z][a-z0-9]*` 那一档），
+  不留到挂载期——这一页没有兜底，抛在挂载期就是整页空白（§W 立的那条）。
+- **类名与属性名一律由 `env.prefix` 派生**，`df-` 字面量在本文件剥注释的源码里 **0 次**；Z3 的自证形状
+  是把前缀换成 `zx` 整页重出，产出必须等于 `df` 那一版的 `replaceAll('df-','zx-')`——前缀派生不是注释里的
+  承诺，是一整页字符串级别的等式。
+- **用户文本永不进属性位**：属性位只有那四枚整数槽（`data-{p}-i` / `-ln` / `-skip` / `-depth`），
+  Z9 把整节的属性词表钉成"恰好这四枚 + 渲染器自己的 `class` / `type`"，且每一枚的值必须是纯数字。
+
+排版有两格是**刻意的**，动它们等于同时动 §Z 的提取锚点，所以写在这里而不是只留在测试里：
+行内容放进 `<pre class="{p}-row__txt">`（缩进是内容不是排版；也正因为这一格，`zTxt` 能把整列的
+行内容逐字符还原回去，Z8 的三类恶意样本才有一个"绕一圈还是原样"的往返可断）；
+`Row.a` / `Row.b` 为 `null` 的那一侧画成 `--fill`（无 `ln` 属性、无行号、正文为空）而不是少一行——
+**并排两栏的行数必须相等**，对齐是视图层对装配层的承诺（Z4），装配层不再补行也不删行。
+
+```js
+/**
+ * 文件对比页输出区的视图层（段 5 Task 4；设计文档 §5.5 的「结果区」与 §1.3 那份契约）。
+ *
+ * 这一本和 `jsonView.js` 干同一件事，只是形状不同：把已经算好的行对象、片段与读数**拼成 HTML 串**。
+ * 它不算任何东西，也不碰任何节点——拼出来的串由装配层那唯一的 `innerHTML` 出口写进页面。
+ * 于是"什么样的文本会变成标记"这一件事在全仓库只有一个答案，而那个答案是注入进来的 `esc`。
+ *
+ * 三条口径：
+ *
+ * 1. **零 import**（Z1）。第 0.4 节那条构建红线在这一本同样成立：一旦这里 import 了什么，
+ *    `toolDiff.js` 与 `toolkitCore.js` 就同时 reach 那个模块，Rollup 切出共享 chunk，
+ *    `iifeWrapPlugin` 包完的产物里留下 `import{`——整页 SyntaxError 而构建 exit=0。
+ *    代价是三件东西必须由 `env` 递进来：转义函数、类名前缀、行尾回车的符号（`{ esc, prefix, crGlyph }`），
+ *    缺任何一件在构造期点名（Z2），不许退化成"默认前缀"那种静默兜底。
+ * 2. **类名与属性名只从 `prefix` 派生**（Z3）。全文件剥注释的源码里那个页面专属的前缀串出现 **0 次**，
+ *    连整格字面量也不许有（§W10 同一条口径）。这不为了好看：Task 5 的换前缀自证
+ *    （`df` ↔ `zx` 一整页跟着换）只有在派生是真的时候才有牙，手打过一处就是给那道门禁装假牙。
+ * 3. **用户文本只出现在 `esc` 之后，且永远不进属性位**（Z8、Z9）。属性值只有四类整数：
+ *    行块下标、这一侧的行号、折叠省略的行数、变更格的深度。对齐引擎交出的 `textA/textB`、
+ *    Pointer、预览串一律落在正文位置——那里 `esc` 说得上话，属性位上它说不上（引号转义后仍是文本）。
+ *
+ * 三件"不是 CSS 能兜的事"归这一层（Z4、Z5、Z6）：并排两栏各读同一份行流、缺席那一侧长成占位行而不是
+ * 少一行；一个改动行在两栏各出现一次而高亮只有各自那一半；行尾回车画得出符号。
+ * 行内容那一格用 `pre` 而不是 `span`：代码行的缩进是内容不是排版，CSS 万一漏了 `white-space` 也不会
+ * 把四格缩进并成一格，同时让"行内再套 span"这一件事在判据里切得干净（§Z 的 `zTxt`）。
+ *
+ * JSON 档那一表（`renderJsonTable`）另扛两格：一侧缺席与"值真的是 `null`"分得开（判的是 `absent` 这一档，
+ * 不是预览串空不空——`{"a":null}` 的预览正是 `"null"`，反过来推会读错），而六句代价说明与表同屏，
+ * 用户读到的"这一页在哪一档上打了折"和那张变更清单一块儿长出来。
+ */
+
+/** 对齐引擎能交出的四档行（视图层自己加的那档 `fill` 不在这里，见 `rowBlock`） */
+export const DF_CORE_KINDS = ['equal', 'change', 'del', 'ins'];
+/** 两栏：只有 A 与 B，第三栏在这一页没有对应的事实 */
+export const DF_SIDES = ['a', 'b'];
+
+/** 行内片段的三档（对齐引擎的词汇表，样式那边也只认这三种颜色） */
+const INLINE_TONES = ['equal', 'del', 'ins'];
+/** 每一栏认得的行内片段档：A 栏读等价的与自己被删的那半，B 栏反之（Z5） */
+const INLINE_BY_SIDE = { a: ['equal', 'del'], b: ['equal', 'ins'] };
+/** 折叠条两档：块与块之间与文件末尾，样式与点击行为按这两档分 */
+const FOLD_WHERE = { head: 'head', tail: 'tail' };
+/** 结论两档模式，与它们各自的词表（`blocked` / `invalid` 进不来，见 `renderVerdict`） */
+const MODES = ['text', 'json'];
+const VERDICTS = { text: ['same', 'diff'], json: ['same', 'same-key-order', 'diff'] };
+/** 变更表四档 kind 与三档归属的显示名：白名单外的词一律抛，不静默渲成一格空白 */
+const KIND_LABELS = { add: '新增', remove: '删除', change: '值变', type: '类型变' };
+const OWNER_LABELS = { 'only-a': '仅 A', 'only-b': '仅 B', both: '两侧' };
+/** 一侧根本没有这一格时写的话（与"值真的是 null"是两件事） */
+const ABSENT_TEXT = '（这一侧没有）';
+
+/** 这一件收到的东西不像样子就说清是哪一格不像：视图层的静默空格是最难查的"页面没坏但少了东西" */
+const shape = (value) => (value === null ? 'null' : Array.isArray(value) ? '数组' : typeof value);
+
+/**
+ * 造出对比页的那七件生成器。
+ * @param {{esc: Function, prefix: string, crGlyph: string}} env `window.Tk.view` 里的那份 `esc`，
+ *   加上装配层从 `diff-core.js` 递来的类名前缀与行尾回车符号
+ * @returns {{renderSide: Function, renderInline: Function, renderFoldBar: Function, renderStats: Function,
+ *   renderJsonTable: Function, renderNotice: Function, renderVerdict: Function}}
+ * @throws {TypeError} 注入缺件，或某一件的入参不在白名单里
+ */
+export function createDiffView(env) {
+  if (!env || typeof env !== 'object') {
+    throw new TypeError(`createDiffView：第一格应是 { esc, prefix, crGlyph }，这里是 ${shape(env)}`);
+  }
+  if (typeof env.esc !== 'function') {
+    throw new TypeError(`createDiffView：env.esc 应是 view.js 里那只转义函数，这里是 ${shape(env.esc)}（缺它的下场是用户文本被当标记插进结果区）`);
+  }
+  if (typeof env.prefix !== 'string' || !/^[a-z][a-z0-9]*$/.test(env.prefix)) {
+    throw new TypeError(`createDiffView：env.prefix 应是一枚只含小写字母与数字的短串（类名与属性名都从它派生），这里是 ${shape(env.prefix)}（带空格或连字符的整套类名到页面上是碎的）`);
+  }
+  if (typeof env.crGlyph !== 'string' || env.crGlyph === '') {
+    throw new TypeError('createDiffView：env.crGlyph 应是一个非空字符串（行尾回车那一格画它，缺它"行尾有回车"与"这一格没渲染"就混成同一档）');
+  }
+  const esc = env.esc;
+  const p = env.prefix;
+  const crGlyph = env.crGlyph;
+
+  /** `df-row`：词根 */
+  const c = (root) => `${p}-${root}`;
+  /** `df-row--change`：档位 */
+  const mod = (root, m) => `${p}-${root}--${m}`;
+  /** `df-row__txt`：从属格 */
+  const el = (root, part) => `${p}-${root}__${part}`;
+  /** `data-df-ln`：属性名（名字里也带前缀，换前缀时整套跟着换） */
+  const at = (name) => `data-${p}-${name}`;
+
+  /**
+   * 行内片段序列 → 某一栏的串。等价段**不套 span**：一行满屏 span 是噪声，也是第二套口径。
+   * 一条片段序列里 `del` 与 `ins` 是**交替躺着**的（`inlineFromTokens` 给的就是这一串），
+   * 所以这一件按栏**挑段**而不是按栏各收一份：A 栏读等价与自己被删的那半，B 栏读等价与自己新增的那半。
+   * 另一侧的档跳过不是错误，是这一栏本来就没有那半；词汇表外的档要抛（Z5）——那意味着对齐引擎
+   * 多了一种着色档，而样式那边没人认识它，静默忽略就成了"高亮少了一块却看不出来"。
+   * @param {Array<{t: string, text: string}>} inline `inlineDiff` / `Row.inline` 交出的那一段
+   * @param {'a'|'b'} side 栏
+   * @returns {string}
+   */
+  const renderInline = (inline, side) => {
+    if (!Array.isArray(inline)) {
+      throw new TypeError(`renderInline：第一格应是行内细化交出的片段数组，这里是 ${shape(inline)}（缺了它那一行只按整行着色，视图层不许自己猜一段回来）`);
+    }
+    if (!DF_SIDES.includes(side)) {
+      throw new TypeError(`renderInline：栏只认 ${DF_SIDES.join(' / ')}，这里是 ${String(side)}`);
+    }
+    let out = '';
+    for (let k = 0; k < inline.length; k += 1) {
+      const seg = inline[k];
+      if (!seg || typeof seg !== 'object' || typeof seg.text !== 'string') {
+        throw new TypeError(`renderInline：第 ${k} 段应是 { t, text }，这里是 ${shape(seg)}（缺 text 的片段到页面上是一串 undefined）`);
+      }
+      if (!INLINE_TONES.includes(seg.t)) {
+        throw new TypeError(`renderInline：第 ${k} 段的档只认 ${INLINE_TONES.join(' / ')}，这里是 ${String(seg.t)}（样式那边没有第三种颜色，静默忽略就是"高亮少了一块却看不出来"）`);
+      }
+      if (!INLINE_BY_SIDE[side].includes(seg.t)) continue;
+      out += seg.t === 'equal' ? esc(seg.text) : `<span class="${mod('inline', seg.t)}">${esc(seg.text)}</span>`;
+    }
+    return out;
+  };
+
+  /**
+   * 一行 → 某一栏的行块。缺席那一侧长成 `fill` 而不是少一行（Z4）：两栏各读同一份行流，
+   * 行数不等时滚动一错位就错到底，而对齐这件事 CSS 兜不了。
+   * `fill` 那一格不给自己编行号，也不写正文——它是"这一侧没有这一行"，不是第 0 行也不是空行。
+   */
+  const rowBlock = (row, side, i) => {
+    if (!row || typeof row !== 'object') {
+      throw new TypeError(`renderSide：第 ${i} 行应是 diff-core 的那个行对象，这里是 ${shape(row)}`);
+    }
+    if (!DF_CORE_KINDS.includes(row.kind)) {
+      throw new TypeError(`renderSide：第 ${i} 行的 kind 只认 ${DF_CORE_KINDS.join(' / ')}，这里是 ${String(row.kind)}（多一档意味着对齐引擎多了一种行，而视图层不认识它）`);
+    }
+    const ln = side === 'a' ? row.a : row.b;
+    const kind = ln === null ? 'fill' : row.kind;
+    const crlf = side === 'a' ? row.crlfA : row.crlfB;
+    const inline = row.kind === 'change' && Array.isArray(row.inline) && row.inline.length > 0
+      ? renderInline(row.inline, side) : '';
+    const body = kind === 'fill' ? '' : (inline === '' ? esc(side === 'a' ? row.textA : row.textB) : inline);
+    const cr = kind !== 'fill' && crlf === true ? `<span class="${el('row', 'cr')}">${esc(crGlyph)}</span>` : '';
+    return `<div class="${c('row')} ${mod('row', kind)}" ${at('i')}="${i}"`
+      + (kind === 'fill' ? '' : ` ${at('ln')}="${ln}"`) + '>'
+      + `<span class="${el('row', 'no')}">${kind === 'fill' ? '' : ln + 1}</span>`
+      + `<pre class="${el('row', 'txt')}">${body}</pre>${cr}</div>`;
+  };
+
+  /**
+   * 一栏的整列行块。
+   * @param {object[]} rows `hunksOf` 摊出来的行对象数组（两栏递的是同一份）
+   * @param {'a'|'b'} side 栏
+   * @returns {string}
+   */
+  const renderSide = (rows, side) => {
+    if (!Array.isArray(rows)) throw new TypeError(`renderSide：第一格应是行对象数组，这里是 ${shape(rows)}`);
+    if (!DF_SIDES.includes(side)) {
+      throw new TypeError(`renderSide：栏只认 ${DF_SIDES.join(' / ')}，这里是 ${String(side)}（第三栏在这一页没有对应的事实）`);
+    }
+    let out = '';
+    for (let i = 0; i < rows.length; i += 1) out += rowBlock(rows[i], side, i);
+    return out;
+  };
+
+  /**
+   * 折叠条。`skipped` 直接抄 `hunksOf` 的那一格，属性与正文两处用同一个数（Z7）——
+   * 分两处算就是"折叠条说谎"的成因。0 那一档整条不长：第一块前面本来就没有东西。
+   * @param {{skipped: number, tail?: boolean}} o 省略的行数与头尾档
+   * @returns {string} `<button>` 或空串
+   */
+  const renderFoldBar = (o) => {
+    if (!o || typeof o !== 'object') throw new TypeError(`renderFoldBar：只收 { skipped, tail } 这一个对象，这里是 ${shape(o)}`);
+    if (!Number.isInteger(o.skipped) || o.skipped < 0) {
+      throw new RangeError(`renderFoldBar：省略行数得是 ≥0 的整数（它抄的是 hunksOf 的 skipped），这里是 ${String(o.skipped)}（小数会把滚动条总长算歪）`);
+    }
+    if (o.skipped === 0) return '';
+    const tail = o.tail === undefined ? false : o.tail;
+    if (typeof tail !== 'boolean') throw new TypeError(`renderFoldBar：tail 是布尔，这里是 ${shape(tail)}（"没给"不许读成"是尾条"）`);
+    return `<button class="${c('fold')} ${mod('fold', tail ? FOLD_WHERE.tail : FOLD_WHERE.head)}" type="button" ${at('skip')}="${o.skipped}">`
+      + `省略 ${o.skipped} 行 · 展开</button>`;
+  };
+
+  /**
+   * 那一行读数。**只**读那七个名字，其余一律不看（Z12）：模块以后往 stats 里加一格，
+   * 这一行的形状不许跟着变。缺的那一格给 0，不给空格也不给 `—`——"这一份里一处新增也没有"是事实。
+   * @param {object} stats `diff-core.js` 的 stats 那一份
+   * @returns {string} `<p>` 块
+   */
+  const renderStats = (stats) => {
+    if (!stats || typeof stats !== 'object') throw new TypeError(`renderStats：只收 diff-core 的 stats 那一份，这里是 ${shape(stats)}`);
+    const n = (key) => (Number.isFinite(stats[key]) ? stats[key] : 0);
+    return `<p class="${c('stats')}">增 ${n('added')} · 删 ${n('removed')} · 改 ${n('changed')} · `
+      + `同 ${n('unchanged')} · ${n('blocks')} 处 · 未行内 ${n('inlineSkipped')} · 归一化抹平 ${n('ignored')}</p>`;
+  };
+
+  /**
+   * 结论那一格。两档模式各有自己的词表与账本：text 档读 `diff-core.stats` 那七个名字，
+   * json 档读 `diff-json.stats` 那六个——名字不许混用，因为两张账表数的是不同的事。
+   * `blocked` 与 `invalid` 到不了这里，抛是故意的：把它们写成结论就是把"没比成"说成"一样"，
+   * 那一条路径归 `renderNotice`。
+   * @param {{mode: string, verdict: string, stats: object, degraded?: boolean, normalized?: boolean}} o 四格
+   * @returns {string} `<p>` 块
+   */
+  const renderVerdict = (o) => {
+    if (!o || typeof o !== 'object') {
+      throw new TypeError(`renderVerdict：只收 { mode, verdict, stats, degraded } 这一个对象，这里是 ${shape(o)}`);
+    }
+    if (!MODES.includes(o.mode)) throw new TypeError(`renderVerdict：模式只认 ${MODES.join(' / ')}，这里是 ${String(o.mode)}（第三种模式在这一页没有对应的算法）`);
+    const words = VERDICTS[o.mode];
+    if (!words.includes(o.verdict)) {
+      throw new TypeError(`renderVerdict：${o.mode} 档的结论只认 ${words.join(' / ')}，这里是 ${String(o.verdict)}（blocked / invalid 走 renderNotice——写成结论就是把"没比成"说成"一样"）`);
+    }
+    if (o.degraded !== undefined && typeof o.degraded !== 'boolean') {
+      throw new TypeError(`renderVerdict：degraded 是布尔，这里是 ${shape(o.degraded)}`);
+    }
+    const s = o.stats && typeof o.stats === 'object' ? o.stats : {};
+    const n = (key) => (Number.isFinite(s[key]) ? s[key] : 0);
+    let text;
+    if (o.mode === 'text') {
+      text = o.verdict === 'same'
+        ? (n('ignored') > 0 ? `归一化之后两份文本相同（${n('ignored')} 行的空白或大小写差别没有计入）` : '两份文本逐字符相同')
+        : `两份文本有差异：增 ${n('added')} 行 · 删 ${n('removed')} 行 · 改 ${n('changed')} 行 · ${n('blocks')} 处`;
+    } else {
+      const total = n('add') + n('remove') + n('change') + n('type');
+      text = o.verdict === 'diff'
+        ? `按 JSON 值有 ${total} 处不同（增 ${n('add')} · 删 ${n('remove')} · 改 ${n('change')} · 类型变 ${n('type')}）`
+        : o.verdict === 'same-key-order' ? '按 JSON 值判为相同，但键的书写次序不同' : '按 JSON 值判为相同，键的书写次序也一致';
+    }
+    const warn = o.degraded === true ? `<span class="${el('verdict', 'warn')}">有一段对不齐，按整块删加整块增给出</span>` : '';
+    return `<p class="${c('verdict')} ${mod('verdict', o.verdict)}">${esc(text)}${warn}</p>`;
+  };
+
+  /**
+   * 坏输入与闸门那一档的一句话（Z11）。只有一句：两句话该由装配层挑一句递进来，
+   * 视图层静默拼成一段就是吞掉了别的文案。
+   * @param {string} text 那一句（通常是 `gate().reason` 或 `diffJson().error.reason`）
+   * @returns {string} `<p>` 块
+   */
+  const renderNotice = (text) => {
+    if (typeof text !== 'string' || text === '') {
+      throw new TypeError(`renderNotice：只收一句话，这里是 ${shape(text)}（那一格空着，用户读到的是"这页坏了"而不是"哪儿不对"）`);
+    }
+    return `<p class="${c('notice')}">${esc(text)}</p>`;
+  };
+
+  /** 一侧那一格：缺席读 `absent` 这一档，不读预览串空不空（`{"a":null}` 的预览正是 `null`） */
+  const sideCell = (type, preview, pointer) => {
+    if (type === 'absent') return `<span class="${el('json', 'none')}">${esc(ABSENT_TEXT)}</span>`;
+    if (typeof preview !== 'string') {
+      throw new TypeError(`renderJsonTable：${String(pointer)} 这一格不是缺席档（type=${String(type)}）却没有预览串，这里是 ${shape(preview)}（表里出现空格子比抛出来难查十倍）`);
+    }
+    return esc(preview);
+  };
+
+  /**
+   * JSON 档的变更清单：六列（位置 / 变更 / 归属 / A 侧 / B 侧 / 深度）+ 表尾那六句代价说明。
+   * 表头与 `DIFF_JSON_NOTES` 同屏是刻意的（Y18 的第二半）：这一页给的结果在哪一档上打了折，
+   * 用户应当在读"哪几格变了"的同一次滚动里读到，而不是翻到页脚。
+   * @param {{changes: object[], stats: object, notes: string[], truncated: boolean}} o 四格
+   * @returns {string}
+   */
+  const renderJsonTable = (o) => {
+    if (!o || typeof o !== 'object') {
+      throw new TypeError(`renderJsonTable：只收 { changes, stats, notes, truncated } 这一个对象，这里是 ${shape(o)}`);
+    }
+    if (!Array.isArray(o.changes)) throw new TypeError(`renderJsonTable：changes 应是 diffJson 交出的那份清单，这里是 ${shape(o.changes)}`);
+    if (!Array.isArray(o.notes)) throw new TypeError('renderJsonTable：notes 应是 DIFF_JSON_NOTES 那六句的数组（装配层递错了要在这一层点名，静默少一句就是没人读的代价说明）');
+    if (o.truncated !== undefined && typeof o.truncated !== 'boolean') {
+      throw new TypeError(`renderJsonTable：truncated 是布尔，这里是 ${shape(o.truncated)}`);
+    }
+    const s = o.stats && typeof o.stats === 'object' ? o.stats : {};
+    const meta = `<p class="${el('json', 'meta')}">比对 ${Number.isFinite(s.compared) ? s.compared : 0} 格 · 最深 ${Number.isFinite(s.depth) ? s.depth : 0} 层</p>`;
+    const head = '<thead><tr>'
+      + `<th class="${el('json', 'ptr')}">位置</th>`
+      + `<th class="${el('json', 'kind')}">变更</th>`
+      + `<th class="${el('json', 'owner')}">归属</th>`
+      + `<th class="${el('json', 'a')}">A 侧</th>`
+      + `<th class="${el('json', 'b')}">B 侧</th>`
+      + `<th class="${el('json', 'depth')}">深度</th>`
+      + '</tr></thead>';
+    let body = '';
+    for (let k = 0; k < o.changes.length; k += 1) {
+      const row = o.changes[k];
+      if (!row || typeof row !== 'object') throw new TypeError(`renderJsonTable：第 ${k} 行应是 diffJson 交出的那个变更对象，这里是 ${shape(row)}`);
+      if (typeof row.pointer !== 'string') throw new TypeError(`renderJsonTable：第 ${k} 行的 Pointer 应是字符串，这里是 ${shape(row.pointer)}`);
+      if (!KIND_LABELS[row.kind]) {
+        throw new TypeError(`renderJsonTable：变更档只认 ${Object.keys(KIND_LABELS).join(' / ')}，这里是 ${String(row.kind)}（词汇表外的一档渲出来是一格空白的"变更"列）`);
+      }
+      if (!OWNER_LABELS[row.owner]) {
+        throw new TypeError(`renderJsonTable：归属只认 ${Object.keys(OWNER_LABELS).join(' / ')}，这里是 ${String(row.owner)}`);
+      }
+      if (!Number.isInteger(row.depth) || row.depth < 0) {
+        throw new RangeError(`renderJsonTable：第 ${k} 行的深度得是 ≥0 的整数，这里是 ${String(row.depth)}`);
+      }
+      body += `<tr class="${el('json', 'row')} ${mod('json__row', row.kind)}" ${at('depth')}="${row.depth}">`
+        + `<td class="${el('json', 'ptr')}">${esc(row.pointer === '' ? '（根）' : row.pointer)}</td>`
+        + `<td class="${el('json', 'kind')}">${KIND_LABELS[row.kind]}</td>`
+        + `<td class="${el('json', 'owner')}">${OWNER_LABELS[row.owner]}</td>`
+        + `<td class="${el('json', 'a')}">${sideCell(row.aType, row.aPreview, row.pointer)}</td>`
+        + `<td class="${el('json', 'b')}">${sideCell(row.bType, row.bPreview, row.pointer)}</td>`
+        + `<td class="${el('json', 'depth')}">${row.depth}</td></tr>`;
+    }
+    let list = '';
+    for (const raw of o.notes) {
+      if (typeof raw !== 'string' || raw.trim() === '') throw new TypeError(`renderJsonTable：notes 里每一句应是非空字符串，这里是 ${shape(raw)}`);
+      list += `<li>${esc(raw)}</li>`;
+    }
+    const cut = o.truncated === true
+      ? `<p class="${el('json', 'cut')}">列表到这里截断了，上面那四个计数仍是全量——没列出来的差额照样存在。</p>` : '';
+    return `${meta}<table class="${c('json')}">${head}<tbody>${body}</tbody></table>`
+      + (list === '' ? '' : `<ul class="${c('notes')}">${list}</ul>`) + cut;
+  };
+
+  return { renderSide, renderInline, renderFoldBar, renderStats, renderJsonTable, renderNotice, renderVerdict };
+}
+```
+
+#### `scripts/toolkit-tests.mjs` §Z（整节，从 `// ── §Z` 那一行到本节末）
+
+前半十二判各自咬的那一件事：Z1 视图层零 import + 八枚环境词 0 命中（`window` / `document` /
+`localStorage` / `Date.now(` / `getComputedStyle` / `querySelector` / `FileReader` / `navigator`，
+外加 `innerHTML` 0 次）；Z2 导出面恰好那三格与那七件、`env` 三缺件各自的构造期 `TypeError`；
+Z3 `df-` 字面量 0 次 + 换前缀整页等式；Z4 两栏行数相等与 `fill` 那一格；Z5 `change` 行在两栏各
+出现一次而高亮只有各自那一半；Z6 CRLF 画注入的符号、符号换了产出跟着换；Z7 折叠条那句"省略 N 行"
+的 N 与 `hunksOf` 同源（同一串里恰好出现两次：属性一次、正文一次）；Z8 三类恶意载荷过全部渲染器
+且行内容能逐字符还原；Z9 属性词表恰好那四枚整数槽；Z10 JSON 表六列表头与 `DIFF_JSON_NOTES` 同页
+（Y18 的第二半）；Z11 坏输入态只有一句话且不吞别的文案；Z12 统计串与结论串逐字符钉死、`blocked`
+与 `invalid` 进不了 `renderVerdict`。
+
+三把源码扫描的尺**直接复用 §W 的顶层 helper**（`wCode` / `wBare` / `modNames`），`zCount` 就是
+`wCount` 换了个本节读得懂的名字——同一把尺不许有第二份实现（§Y 复用 §X 的 `X_BYTES` / `X_HUGE` /
+`dGate` 是同一条纪律）。
+
+落地时从引擎里读出来的两条，钉成判据而不是绕过去，§0.6 里各有一行登记（那一格另有两行：`--fill` 的画法、用例分布表的账）：
+① 两份文本**逐字符相同**时 `hunksOf` 返回 `[]`，也就是一行都不产出（"完全相同"那一档的空页面形状是
+Task 5 装配层的事，视图层只保证"给它零行就画零行"）；② `Row.inline` 是 equal/del/ins **混在一起的
+一份数组**，所以 `renderInline` 按侧**筛**而不是各拿一半——传错侧的 tone 不报错，超出那三种 tone 才抛。
+
+```js
+// ── §Z 对比页视图层与装配层（`tools/diffView.js` / `tools/diffWorkbench.js` / `toolDiff.js`，段 5 Task 4/5）──
+// 本格（Task 4）只立前半 **Z1–Z12**，钉的是视图层那七件；后半 Z13–Z28 由 Task 5 在**同一节**续写
+// ——节名不另起，先例是 §U（§S–§W 那几族里 §U 就是两格共用一节）。
+// 三条红线写死在这里，实现不许自创第二套：
+//   · **零 import**（Z1）：与 `jsonView.js` 同一条构建约束（§0.4）——这一本一旦 import 什么，
+//     `toolDiff.js` 与 `toolkitCore.js` 就同时 reach 那个模块，Rollup 切出共享 chunk，
+//     `iifeWrapPlugin` 包完的产物里留下 `import{`，整页 SyntaxError 而构建 exit=0。
+//     所以 `esc`、类名前缀与 CR 符号三件全部由 `env` 注入，缺一件在**构造期**点名（Z2），
+//     不许退化成"默认前缀 df"那种静默兜底。
+//   · **类名与属性名只从 `env.prefix` 派生**（Z3）：本文件剥注释的源码里 `df-` 出现 **0 次**，
+//     连整格字面量（§W10 那条口径，三种引号都算）也不许有。这不是洁癖——Task 5 的换前缀自证
+//     （`df` ↔ `zx`）只有在派生是真的时才绿，手打过一处字面量就等于给那道门禁装假牙。
+//   · **用户文本只出现在 `esc` 之后，且永远不进属性位**（Z8、Z9）：属性值只允许整数。
+//     对齐引擎交出来的是 `textA/textB` 与 Pointer 这类文本；行号、栏内下标、省略行数、深度才是这一格的属性。
+// 视图层另管三件"CSS 兜不了的事"：
+//   ① 并排两栏各读同一份行流，**缺席那一侧长成 fill 而不是少一行**（Z4）——两栏行数不等时滚动一错位，
+//      用户读到的是"这行没变"，实情是两侧各有一行；
+//   ② 一个 `change` 行在两栏各出现一次，而高亮只有各自那一半（Z5），且分段拼回去必须还是整行原文；
+//   ③ CRLF 那一格画注入的符号而不是留白（Z6），折叠条那句"省略 N 行"的 N 与 `hunksOf` 同源（Z7）。
+// JSON 档那一表另有两格：`absent` 与"值真的是 null"必须分得开（Z10，§0.6 记的那格偏差），
+// 而 `DIFF_JSON_NOTES` 那六句代价说明与表同屏——Y18 的第二半就落在这里。
+// §W 那三把剥源码的尺（`wCode` / `wBare` / `wCount`）与 `modNames` 在本节直接复用：
+// 同一件事只该有一把尺，重新写一遍就成了"两遍里有一遍是错的"（X4 第一轮抓到的那种形状）。
+const {
+  createDiffView: zCreate, DF_SIDES: Z_SIDES, DF_CORE_KINDS: Z_CORE_KINDS,
+} = await import('../dev/js/tools/diffView.js');
+
+/** 本节一律用真前缀与真符号：视图层不许自己存一份 `␍`（Z6 断的就是这件事） */
+const Z_P = 'df';
+const zEnv = (over) => ({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: X_CR, ...over });
+/** 全展开的行流：`hunksOf(..., Infinity)` 摊平，Z4/Z5/Z6 要的是"没有折叠干扰"的那一份行档 */
+const zRows = (a, b, o) => dHunks(dLines(a, b, o), Infinity).flatMap((h) => h.rows);
+/** renderSide 的输出是一串并排的 `<div>`，按 `<div` 切开就能逐格读行档 */
+const zBlocks = (html) => html.split(/(?=<div)/).filter((s) => s !== '');
+/** 剥标签并把 esc 那五枚实体还原：断"这一格显示的正是原文"用得上（&amp; 必须最后还原） */
+const zPlain = (html) => html.replace(/<[^>]*>/g, '')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&amp;/g, '&');
+/** 行内容那一格：`<pre class="df-row__txt">` 到它的 `</pre>`——用 pre 而不是 span，行内再套多少枚 span 都切得干净 */
+const zTxt = (html) => {
+  const m = /<pre class="[^"]*row__txt">([\s\S]*?)<\/pre>/.exec(html);
+  return m ? zPlain(m[1]) : null;
+};
+/** 属性清单：`\sname="value"` 的成对，Z9 数的是"这一页到底往属性位写了什么" */
+const zAttrs = (html) => [...html.matchAll(/ ([-a-z]+)="([^"]*)"/g)].map((m) => ({ name: m[1], value: m[2] }));
+/** 数出现次数：§W 那把尺在本节直接复用（同一件事只该有一把尺），换个本节读得通的名字 */
+const zCount = wCount;
+
+test('Z1 视图层零 import、零环境词：它只产串，节点与浏览器一律够不着', () => {
+  const rel = 'dev/js/tools/diffView.js';
+  assert.equal(/\bimport\b/.test(wCode(rel)), false, 'diffView 一旦 import 什么，两个入口就 reach 同一模块 → Rollup 切共享 chunk → iife-wrap 后产物里是 import{ → 整页 SyntaxError 而构建 exit=0（§0.4 那条红线，与 §W2 同一条）');
+  assert.equal(/\brequire\s*\(/.test(wCode(rel)), false, '同上：require 在这儿等于第二条跨模块的边');
+  assert.equal(wCount(wCode(rel), 'innerHTML'), 0, '视图层不许写节点：整页只有装配层那唯一的 innerHTML 出口（§W 同一条口径，这里连字符串里都不许出现）');
+  const bare = wBare(rel);
+  for (const word of ['window', 'document', 'localStorage', 'Date.now(', 'getComputedStyle', 'querySelector', 'FileReader', 'navigator']) {
+    assert.equal(bare.includes(word), false, `视图层不许碰 ${word}：纯串生成器碰一次就多一处不可复算，而 FileReader 与 File 那一格归入口`);
+  }
+});
+
+test('Z2 注入缺件在构造期就点名，导出面恰好这三格与那七件', () => {
+  const v = zCreate(zEnv());
+  assert.deepEqual(Object.keys(v).sort(),
+    ['renderFoldBar', 'renderInline', 'renderJsonTable', 'renderNotice', 'renderSide', 'renderStats', 'renderVerdict'],
+    '七件里加一件或改一名，装配层就有一处叫不到它；而"多一件"通常是第二条渲染路径');
+  for (const [name, fn] of Object.entries(v)) assert.equal(typeof fn, 'function', `${name} 不是函数：这一件到页面上就是"点了没反应"`);
+  assert.deepEqual(modNames('dev/js/tools/diffView.js'), ['DF_CORE_KINDS', 'DF_SIDES', 'createDiffView'].sort(),
+    'diffView.js 的导出面多了名字：词表之外不许再有第二格公开的东西');
+  assert.deepEqual(Z_SIDES, ['a', 'b'], '第三栏在这一页没有对应的事实');
+  assert.deepEqual(Z_CORE_KINDS, ['equal', 'change', 'del', 'ins'], '对齐引擎只交得出这四档，第五档（fill）是视图层自己的，不许混进这一份词表');
+  const missing = [
+    [{ prefix: Z_P, crGlyph: X_CR }, /esc/, '缺 esc 的下场是用户文本被当标记插进结果区'],
+    [{ esc: J_VIEW.esc, crGlyph: X_CR }, /prefix/, '缺前缀则整套类名与属性名无从派生'],
+    [{ esc: J_VIEW.esc, prefix: Z_P }, /crGlyph/, '缺符号则"行尾有回车"与"这一格没渲染"混成同一档'],
+  ];
+  for (const [env, re, why] of missing) {
+    assert.throws(() => zCreate(env), (e) => e instanceof TypeError && re.test(e.message) && /createDiffView/.test(e.message),
+      `构造期没点名（${why}）：抛在挂载期就是整页空白，而这里连挂载都到不了`);
+  }
+  assert.throws(() => zCreate(), TypeError, '整格缺件也要抛，不许退化成"默认前缀 df"');
+  assert.throws(() => zCreate({ esc: 'nope', prefix: Z_P, crGlyph: X_CR }), TypeError);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: 'df bad', crGlyph: X_CR }), /prefix/, '前缀里带空格：整套 class 名到页面上就是碎的');
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: '', crGlyph: X_CR }), /prefix/);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: 'df-row', crGlyph: X_CR }), /prefix/, '前缀自己带连字符，产出的类名读不出哪一段是词根');
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: '' }), /crGlyph/);
+  assert.throws(() => zCreate({ esc: J_VIEW.esc, prefix: Z_P, crGlyph: 7 }), /crGlyph/);
+});
+
+test('Z3 类名与属性名全由 env.prefix 派生：本文件剥注释的源码里 df- 出现 0 次', () => {
+  const rel = 'dev/js/tools/diffView.js';
+  assert.equal(wCount(wCode(rel), 'df-'), 0, '手打 df- 字面量一处，Task 5 的换前缀自证就绿得没有牙：整页类名跟着 zx- 换才是真的派生');
+  const hand = [];
+  wCode(rel).replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, (s) => {
+    if (/^['"`]df-/.test(s)) hand.push(s);
+    return "''";
+  });
+  assert.deepEqual(hand, [], '整格字面量口径（§W10 同一条，三种引号都算）：以 df- 起头的串在本文件里一处都不该有');
+  const rows = zRows('keep\nold tail', 'keep\nnew tail');
+  const asDf = zCreate(zEnv()).renderSide(rows, 'a');
+  const asZx = zCreate(zEnv({ prefix: 'zx' })).renderSide(rows, 'a');
+  assert.equal(asZx, asDf.replaceAll('df-', 'zx-'), '换前缀之后产出必须逐字符跟着换：这一格没跟着换的地方就是第二套类名');
+  assert.equal(asZx.includes('df-'), false, '换档之后还留着 df- = 两处字面量没派生');
+});
+
+test('Z4 并排两栏的行数相等：缺席那一侧长成 fill 而不是少一行，且不给自己编行号', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('a\nb\nc', 'a\nX\nc\nlast');
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, ` data-${Z_P}-i=`), rows.length, '一栏一份行块：renderSide 不许把 fill 那一格省掉');
+  assert.equal(zCount(B, ` data-${Z_P}-i=`), rows.length, '两栏行数不等 = 滚动一错位就错到底，对齐是视图层的责任不是 CSS 的');
+  assert.deepEqual(zBlocks(A).map((bl) => /-row--(\w+)/.exec(bl)[1]), ['equal', 'change', 'equal', 'fill'],
+    'A 栏那一列行档：新增行在 A 侧是 fill，不是凭空少一行');
+  assert.deepEqual(zBlocks(B).map((bl) => /-row--(\w+)/.exec(bl)[1]), ['equal', 'change', 'equal', 'ins']);
+  const fill = zBlocks(A)[3];
+  assert.equal(fill.includes(` data-${Z_P}-ln=`), false, 'fill 不许有行号：那是"这一侧没有这一行"，不是第 0 行');
+  assert.equal(zPlain(fill).trim(), '', 'fill 那一格除了行档什么都不写，占位交给 CSS 的行高');
+  const bothRows = zBlocks(B)[3];
+  assert.equal(new RegExp(` data-${Z_P}-ln="(\\d+)"`).exec(bothRows)[1], '3', '行号取的是这一侧的下标（0-based → 屏上 1-based）');
+  assert.deepEqual(zRows('a\nb', 'a\nb'), [],
+    '完全相同拿不出任何行：hunksOf 只切差异块。两栏各 0 行仍然等长，而"这里明明比过了"那句话归结论格（Z12）与装配层的空态（Task 5）');
+  const same = v.renderSide(zRows('a\n\nb', 'a\n\nB'), 'a');
+  assert.equal(zBlocks(same).length, 3, '有差异才切得出块：这一份的中间那行是空行');
+  assert.equal(zCount(same, `${Z_P}-row__txt"></pre>`), 1, '空行那一格是空串，但行块照样在：视图层不许替它猜一个占位符');
+  assert.throws(() => v.renderSide(rows, 'c'), /栏只认/);
+  assert.throws(() => v.renderSide(null, 'a'), TypeError);
+  assert.throws(() => v.renderSide(['x'], 'a'), TypeError, '行对象不是对象要说清第几行——静默渲一栏空白是这一层最难查的形状');
+  assert.throws(() => v.renderSide([{ kind: 'weird', a: 0, b: 0, textA: '', textB: '', inline: null, crlfA: false, crlfB: false }], 'a'),
+    /kind/, '对齐引擎多出一档而行视图不认识它，必须停在开发期，不许静默渲成一栏没有头的东西');
+});
+
+test('Z5 change 行在两栏各出现一次，而高亮只有各自那一半', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('foo bar baz', 'foo qux baz');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, 'change');
+  assert.ok(Array.isArray(rows[0].inline), '这一对行该有行内细化；没有的话是夹具越了 token 档，要改样本不是改口径');
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, `${Z_P}-row--change`), 1, '同一次改动在两栏各出现一次');
+  assert.equal(zCount(B, `${Z_P}-row--change`), 1);
+  assert.equal(A.includes(`${Z_P}-inline--ins`), false, 'A 栏高亮对方新增的 token，等于把 B 的内容画在 A 的行上');
+  assert.equal(B.includes(`${Z_P}-inline--del`), false, '同一件事的反方向');
+  assert.equal(zCount(A, `${Z_P}-inline--del`), 1);
+  assert.equal(zCount(B, `${Z_P}-inline--ins`), 1);
+  assert.equal(zTxt(A), 'foo bar baz', '分段拼回去必须还是整行原文：少一段就是"页面上的行"不再是那一行');
+  assert.equal(zTxt(B), 'foo qux baz');
+  assert.equal(v.renderInline([{ t: 'equal', text: 'a' }, { t: 'del', text: 'b' }, { t: 'ins', text: 'c' }], 'a'),
+    `a<span class="${Z_P}-inline--del">b</span>`, '一条片段序列里 del 与 ins 交替躺着：A 栏只读等价与自己被删的那半，另一侧那半是 B 栏的内容');
+  assert.equal(v.renderInline([{ t: 'equal', text: 'a' }, { t: 'del', text: 'b' }, { t: 'ins', text: 'c' }], 'b'),
+    `a<span class="${Z_P}-inline--ins">c</span>`, '同一份片段在 B 栏读的是另一半（少挑一次就是把对方的改动画在自己行上）');
+  assert.throws(() => v.renderInline('x', 'a'), TypeError);
+  assert.throws(() => v.renderInline([{ t: 'weird', text: 'y' }], 'a'), /档只认/,
+    '词汇表外的着色档要抛：样式那边没有第四种颜色，静默忽略就是"高亮少了一块却看不出来"');
+  assert.throws(() => v.renderInline([{ t: 'equal' }], 'a'), TypeError, '缺 text 的片段到了页面上是一串 undefined');
+});
+
+test('Z6 CRLF 那一格画注入的符号而不是留白，符号换了产出跟着换', () => {
+  const v = zCreate(zEnv());
+  const rows = zRows('a\r\nb\r\n', 'a\r\nb\n');
+  assert.deepEqual(rows.map((r) => r.kind), ['equal', 'change'], '同一行文字、行尾形状不同 → 第二行是一处改动（crlf 进比较键，X1 与 X6 的口径）');
+  assert.equal(rows[1].crlfA, true);
+  assert.equal(rows[1].crlfB, false);
+  const A = v.renderSide(rows, 'a');
+  const B = v.renderSide(rows, 'b');
+  assert.equal(zCount(A, `${Z_P}-row__cr">${X_CR}<`), 2, '行尾那个回车必须画得出符号：留白与"这一格没渲染"在页面上是同一张脸');
+  assert.equal(zCount(B, `${Z_P}-row__cr">${X_CR}<`), 1);
+  assert.equal(zCount(B, `${Z_P}-row__cr`), 1, '不带回车的那一侧不许长出这一格（省一格是一格，别靠 CSS 藏）');
+  assert.equal(zPlain(zBlocks(A)[1]).endsWith(`b${X_CR}`), true, '符号落在行内容之后，读起来就是"这一行以回车结尾"');
+  const swapped = zCreate(zEnv({ crGlyph: 'CR' })).renderSide(rows, 'a');
+  assert.equal(swapped, A.replaceAll(X_CR, 'CR'), '符号从注入里来：写死 ␍ 等于在视图层再存一份口径，而那一本已经在 diff-core');
+  assert.equal(v.renderSide(zRows('a\nb', 'a\nb'), 'a').includes(`${Z_P}-row__cr`), false, '一格里都不该有');
+});
+
+test('Z7 折叠条那句"省略 N 行"的 N 与 hunksOf 同源，0 行那一档整条不长', () => {
+  const v = zCreate(zEnv());
+  const a = Array.from({ length: 40 }, (_, i) => `L${i}`).join('\n');
+  const b = a.replace('L0', 'X0').replace('L30', 'Y30');
+  const hs = dHunks(dLines(a, b), 1);
+  assert.equal(hs.length, 2, '夹具该折叠出两块：context=1 而两段之间隔着 29 行相同');
+  assert.equal(hs[0].skipped, 0, '夹具的第一块要从文件头开始，否则下面那句"第一条不许长条"是空跑');
+  assert.ok(hs.slice(1).every((h) => h.skipped > 0), '省略行数不全是正数的话，这一串断言同样在空跑');
+  const bars = hs.map((h) => v.renderFoldBar({ skipped: h.skipped, tail: false }));
+  assert.equal(bars[0], '', '第一块前面没有东西，不许长出"省略 0 行"那种自证式空条');
+  for (let k = 1; k < hs.length; k += 1) {
+    const n = Number(new RegExp(` data-${Z_P}-skip="(\\d+)"`).exec(bars[k])[1]);
+    assert.equal(n, hs[k].skipped, '条上的数字与 skipped 同源：两处各算一遍就是"折叠条说谎"的成因');
+    assert.equal(zPlain(bars[k]).startsWith(`省略 ${n} 行`), true);
+    assert.equal(zCount(bars[k], String(n)), 2, '属性一次、正文一次，别的格子不许出现这个数');
+  }
+  const last = hs[hs.length - 1];
+  assert.ok(last.tailSkipped > 0, '夹具该在末尾留下一段折叠');
+  const tail = v.renderFoldBar({ skipped: last.tailSkipped, tail: true });
+  assert.equal(tail.includes(`${Z_P}-fold--tail`), true, '尾条与头条是两档：样式与点击行为都按这两档分');
+  assert.equal(tail.includes(`${Z_P}-fold--head`), false);
+  assert.equal(tail.includes(` data-${Z_P}-skip="${last.tailSkipped}"`), true);
+  assert.equal(v.renderFoldBar({ skipped: 0, tail: true }), '');
+  assert.equal(v.renderFoldBar({ skipped: last.skipped }), v.renderFoldBar({ skipped: last.skipped, tail: false }), 'tail 缺省就是 false，不许把"没给"读成"是尾条"');
+  assert.throws(() => v.renderFoldBar({ skipped: 2.5 }), RangeError, '省略行数只该是整数：小数会把滚动条总长算歪（与 §V 的 treePad 同一条）');
+  assert.throws(() => v.renderFoldBar({ skipped: -1 }), RangeError);
+  assert.throws(() => v.renderFoldBar({ skipped: 3, tail: 'yes' }), TypeError);
+  assert.throws(() => v.renderFoldBar(null), TypeError);
+});
+
+test('Z8 每一只渲染器都过 env.esc：三类载荷进去，出来的串里没有裸标记', () => {
+  const v = zCreate(zEnv());
+  const payloads = ['<script>alert("x")</script>', 'a"b\'c&d', '两行\n载荷'];
+  for (const raw of payloads) {
+    const want = J_VIEW.esc(raw);
+    assert.equal(v.renderNotice(raw).includes(want), true, `renderNotice 没走注入的那只 esc：${raw}`);
+    assert.equal(v.renderNotice(raw).includes('<script'), false);
+    const rowHtml = v.renderSide([{ kind: 'equal', a: 4, b: 4, textA: raw, textB: raw, inline: null, crlfA: false, crlfB: false }], 'a');
+    assert.equal(rowHtml.includes(want), true, `renderSide 的行内容没走 esc：${raw}`);
+    assert.equal(zTxt(rowHtml), raw, '转义是可逆的这一层该做到的：屏上读到的还是那一行');
+    assert.equal(v.renderSide([{ kind: 'change', a: 0, b: 0, textA: raw, textB: raw, inline: [{ t: 'del', text: raw }], crlfA: false, crlfB: false }], 'a').includes(want), true,
+      '行内片段同样只出 esc 之后的串');
+    const table = v.renderJsonTable({
+      changes: [{ pointer: raw, kind: 'change', owner: 'both', depth: 1, aPreview: raw, bPreview: '1', aType: 'string', bType: 'number' }],
+      stats: { add: 0, remove: 0, change: 1, type: 0, compared: 3, depth: 1 }, notes: [raw], truncated: false,
+    });
+    assert.equal(wCount(table, want) >= 3, true, 'Pointer、A 侧与表尾那一句三处都要过 esc，少一处就是有一格漏网');
+    assert.equal(table.includes('<script'), false);
+  }
+  assert.equal(v.renderNotice('<b>粗</b>').includes('&lt;b&gt;'), true, '连强调标签都不许放过去');
+});
+
+test('Z9 行内容与 Pointer 不许落到属性位：属性名与属性值都只认那几格', () => {
+  const v = zCreate(zEnv());
+  const nasty = 'x" data-evil="1';
+  const html = v.renderSide([{ kind: 'change', a: 2, b: 3, textA: nasty, textB: 'y', inline: [{ t: 'del', text: nasty }, { t: 'ins', text: 'y' }], crlfA: false, crlfB: false }], 'a')
+    + v.renderJsonTable({
+      changes: [{ pointer: nasty, kind: 'remove', owner: 'only-a', depth: 0, aPreview: nasty, bPreview: null, aType: 'string', bType: 'absent' }],
+      stats: { add: 0, remove: 1, change: 0, type: 0, compared: 1, depth: 0 }, notes: [], truncated: false,
+    })
+    + v.renderFoldBar({ skipped: 7 });
+  const attrs = zAttrs(html);
+  assert.ok(attrs.length >= 6, `夹具该产出若干属性，实际 ${attrs.length} 个——空跑一遍等于没判`);
+  assert.deepEqual([...new Set(attrs.map((x) => x.name))].filter((n) => n !== 'class' && n !== 'type').sort(),
+    [`data-${Z_P}-depth`, `data-${Z_P}-i`, `data-${Z_P}-ln`, `data-${Z_P}-skip`],
+    '属性名多一枚就是第二套口径：装配层与样式只认这几格');
+  for (const { name, value } of attrs) {
+    if (name === 'class' || name === 'type') continue;
+    assert.match(value, /^\d+$/, `${name} 的属性位上出现了非整数值：${value}`);
+  }
+  assert.equal(/[A-Za-z]/.test(attrs.filter((x) => x.name !== 'class' && x.name !== 'type').map((x) => x.value).join('')), false,
+    '属性值里出现字母就是文本进了属性位——那一格 esc 管不住');
+  assert.equal(zPlain(html).includes(nasty), true, '载荷要作为正文原样到达，不许被"顺手剔掉"');
+});
+
+test('Z10 JSON 变更表：六列表头、absent 与真 null 分得开、代价说明同屏（Y18 的第二半）', () => {
+  const v = zCreate(zEnv());
+  const r = yDiff('{"a":1,"b":2}', '{"a":null}');
+  assert.deepEqual([r.verdict, r.stats.type, r.stats.remove, r.stats.compared], ['diff', 1, 1, 2], '夹具形状：/a 是类型变（1 → null），/b 是删除');
+  const html = v.renderJsonTable({ changes: r.changes, stats: r.stats, notes: Object.values(Y_NOTES), truncated: false });
+  assert.deepEqual([...html.matchAll(/<th[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]),
+    ['位置', '变更', '归属', 'A 侧', 'B 侧', '深度'], '六列少一列或换了次序，表读起来就和 diff-json 交出的那六格对不上');
+  const cellsOf = (tr) => [...tr.matchAll(/<td class="[^"]*">([\s\S]*?)<\/td>/g)].map((m) => zPlain(m[1]));
+  const trs = html.split('<tr').slice(2);
+  assert.equal(trs.length, 2);
+  assert.deepEqual(cellsOf(trs[0]), ['/a', '类型变', '两侧', '1', 'null', '1'], '值真的是 null 的那一格写 null，不是"这一侧没有"（§0.6 记的偏差）');
+  assert.deepEqual(cellsOf(trs[1]), ['/b', '删除', '仅 A', '2', '（这一侧没有）', '1']);
+  assert.equal(zCount(html, '（这一侧没有）'), 1, '缺席档只在真缺席的那一格出现');
+  assert.equal(html.includes('比对 2 格'), true, 'stats.compared 要上屏：不写这一格用户读不出"比了多久"');
+  assert.equal(html.includes('最深 1 层'), true);
+  assert.equal(zCount(html, '<li'), Object.keys(Y_NOTES).length, '六句代价说明与表同屏，拆到别处就没人读');
+  for (const [k, sentence] of Object.entries(Y_NOTES)) assert.equal(html.includes(J_VIEW.esc(sentence)), true,
+    `漏了 ${k} 那一句（或那一句没过 esc）：${sentence}`);
+  assert.equal(html.includes('这里截断'), false);
+  assert.equal(v.renderJsonTable({ changes: r.changes, stats: r.stats, notes: [], truncated: true }).includes('这里截断'), true,
+    'truncated 那一档要说"列表截了、计数仍是全量"（Y12、Y18）');
+  const empty = v.renderJsonTable({ changes: [], stats: { add: 0, remove: 0, change: 0, type: 0, compared: 3, depth: 2 }, notes: [], truncated: false });
+  assert.equal(zCount(empty, '<tr class'), 0, '零变更就是一张没有体的表，不是"没有这张表"');
+  assert.equal(empty.includes('比对 3 格'), true);
+  const bad = (over, re, why) => assert.throws(() => v.renderJsonTable({
+    changes: [{ pointer: '/a', kind: 'change', owner: 'both', depth: 0, aPreview: '1', bPreview: '2', aType: 'number', bType: 'number', ...over }],
+    stats: {}, notes: [], truncated: false,
+  }), re, why);
+  bad({ kind: 'rename' }, /变更档/, '词汇表外的 kind 不许静默渲成一格空白的"变更"列');
+  bad({ owner: 'only-c' }, /归属/, '同一件事在归属列');
+  bad({ pointer: 1 }, TypeError, 'Pointer 是文本，不是编号');
+  bad({ depth: 1.5 }, RangeError, '深度只该是整数');
+  bad({ aPreview: undefined }, /预览/, '非缺席的一格预览缺席 = 表里出现空格子');
+  assert.throws(() => v.renderJsonTable({ changes: 'x', stats: {}, notes: [] }), TypeError);
+  assert.throws(() => v.renderJsonTable({ changes: [], stats: {}, notes: 'x' }), TypeError, 'notes 只收那六句的数组：装配层递错了要在这一层点名');
+  assert.throws(() => v.renderJsonTable({ changes: [], stats: {}, notes: [], truncated: 'yes' }), TypeError);
+  assert.throws(() => v.renderJsonTable(null), TypeError);
+});
+
+test('Z11 坏输入那一格只有一句话，且不吞掉别的文案', () => {
+  const v = zCreate(zEnv());
+  const reason = dGate(X_HUGE, '1').reason;
+  const html = v.renderNotice(reason);
+  assert.equal(zCount(html, '<p'), 1, '一句话就是一句话：拆成两段会让"闸门那一档"在页面上长得像一段说明');
+  assert.equal(zCount(html, '</p>'), 1);
+  assert.equal(zPlain(html), reason, '那句理由要逐字到达（上限与实测与超出都在里面）');
+  assert.equal(html.includes(`${Z_P}-notice`), true);
+  const page = html + v.renderStats(dLines('a', 'a').stats);
+  assert.equal(zCount(page, '<p'), 2, 'notice 与读数各写各的格子，拼起来两处都还在');
+  assert.throws(() => v.renderNotice(''), /一句话/);
+  assert.throws(() => v.renderNotice(null), TypeError);
+  assert.throws(() => v.renderNotice(['a', 'b']), TypeError, '两句话该由装配层挑一句递进来，视图层不许静默拼成一段');
+});
+
+test('Z12 读数只认那七个名字，结论按模式各有词表且 blocked / invalid 进不来', () => {
+  const v = zCreate(zEnv());
+  const s = { added: 1, removed: 2, changed: 3, unchanged: 4, blocks: 5, inlineSkipped: 6, ignored: 7 };
+  const html = v.renderStats(s);
+  assert.equal(html, `<p class="${Z_P}-stats">增 1 · 删 2 · 改 3 · 同 4 · 5 处 · 未行内 6 · 归一化抹平 7</p>`,
+    '读数那一行的措辞与顺序钉死：装配层只挑递哪一份 stats，不挑这一行长什么样');
+  assert.equal(html, v.renderStats({ ...s, future: 99, verdict: 'nope' }), '模块以后往 stats 里加一格，这一行的形状不许跟着变');
+  assert.equal(v.renderStats({}), `<p class="${Z_P}-stats">增 0 · 删 0 · 改 0 · 同 0 · 0 处 · 未行内 0 · 归一化抹平 0</p>`,
+    '缺的那一格给 0，不给空格也不给 —：那是"这一份里一处新增也没有"，不是"没测出来"');
+  assert.throws(() => v.renderStats(null), TypeError);
+  assert.throws(() => v.renderStats('x'), TypeError);
+  const t = (over) => v.renderVerdict({ mode: 'text', verdict: 'same', stats: { ...s, ignored: 0 }, ...over });
+  assert.equal(t().includes('逐字符相同'), true);
+  assert.equal(t({ stats: { ...s, ignored: 9 } }).includes('归一化'), true, '勾了忽略空白之后的"相同"要说清是被归一化过的结论（X20、DIFF_NOTES.ignored）');
+  const d = v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s });
+  for (const piece of ['增 1 行', '删 2 行', '改 3 行', '5 处']) assert.equal(d.includes(piece), true, `结论那一格少说一件事：${piece}`);
+  assert.equal(v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s, degraded: true }).includes('整块'), true, '降级必须在结论格里也说一句（X13、X14 上页的那一半）');
+  assert.equal(d.includes('整块'), false, '没降级不许提');
+  const jSame = v.renderVerdict({ mode: 'json', verdict: 'same', stats: { add: 0, remove: 0, change: 0, type: 0, compared: 3, depth: 1 } });
+  assert.equal(jSame.includes('按 JSON 值判为相同'), true, 'json 档的"相同"不许写成"逐字符相同"——那是另一件事（Y3）');
+  assert.equal(jSame.includes('键的书写次序也一致'), true);
+  const sk = yDiff('{"a":1,"b":2}', '{"b":2,"a":1}');
+  assert.equal(sk.verdict, 'same-key-order');
+  assert.equal(v.renderVerdict({ mode: 'json', verdict: sk.verdict, stats: sk.stats }).includes('键的书写次序不同'), true);
+  assert.equal(v.renderVerdict({ mode: 'json', verdict: 'diff', stats: { add: 1, remove: 2, change: 3, type: 4 } }).includes('10 处不同'), true,
+    '四个数要在这一格里合得起来：用户读的是"几处"，表读的是"哪几处"');
+  for (const word of ['blocked', 'invalid', 'same-key-order']) {
+    assert.throws(() => v.renderVerdict({ mode: 'text', verdict: word, stats: s }), /renderNotice/,
+      `text 档认得 ${word} 就是把"没比成"写成结论`);
+  }
+  for (const word of ['blocked', 'invalid']) {
+    assert.throws(() => v.renderVerdict({ mode: 'json', verdict: word, stats: {} }), TypeError);
+  }
+  assert.throws(() => v.renderVerdict({ mode: 'yaml', verdict: 'same', stats: s }), /模式/);
+  assert.throws(() => v.renderVerdict(null), TypeError);
+  assert.throws(() => v.renderVerdict({ mode: 'text', verdict: 'same', stats: s, degraded: 'yes' }), TypeError);
+  assert.equal(v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s }).includes(`${Z_P}-verdict--diff`), true, '结论档也进 class：样式只认那三个词');
+});
+```
 
 ---
 
