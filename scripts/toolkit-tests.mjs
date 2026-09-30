@@ -13336,3 +13336,640 @@ test('W27 读条只取窗口：整行进不了 DOM，插入符落在窗口里而
   assert.equal(c2[2], '  ^', '插入符落在病灶行那一格，与上面的窗口同一条列');
 });
 
+// ── §X 行级与 token 级对齐引擎（`tools/diff-core.js`，段 5 Task 2）─────────────
+// 这一族只钉一件事：**对齐的结论必须最短、而展示的必须还是原文**。
+// 口径写死在这里，实现不许自创第二套：
+//   · 断行只认 `\n`，行尾那个 `\r` 剥出来记进 `crlf[]`，行内的 `\r` 是正文（X1）；
+//   · 空串是**零行**、一枚 `\n` 是**一行空行**，两档并成一条的话空文件比空文件会报出非零增删（X1）；
+//   · 归一化（`ws` / `case`）只进**比较键**，行号、`textA/textB`、`unifiedText` 一律是原文（X6）；
+//   · `ws` 是"并成空格"不是"删掉空白"，所以 `'ab'` 与 `'a b'` 必须判不同（X7）；
+//   · 降级与退化都必须上页面，因为它们给出的编辑脚本比最短的**长**（X13、X14、X17、X29）；
+//   · 配对规则只有一句 `pairs = min(删, 增)`，"改 K 处"、`change` 行、unified 内容行、折叠条四件事同源（X18）。
+// 最短性不靠"看着对"：X4 拿测试侧自己写的朴素 LCS DP 对拍 200 组，X5 在同一批样本上逐组验 ops 三条不变式。
+// `gate` 与 §S 那一本的 `gate` 同名（一个是按侧双输入、一个是单输入返回 {kind,message}），别名读；
+// `MAX_INPUT_BYTES` / `MAX_INPUT_LINES` 在 §S 顶层已经占了名字，这里一律 `X_` 前缀，别互相盖掉。
+const {
+  MAX_INPUT_BYTES: X_BYTES, MAX_INPUT_LINES: X_LINES, MAX_COST: X_COST,
+  MAX_INLINE_TOKENS: X_TOKENS, MAX_INLINE_WORK: X_WORK, DEFAULT_CONTEXT: X_CTX, CR_GLYPH: X_CR,
+  splitLines: dSplit, compareKey: dKey, diffSeq: dSeq, gate: dGate, diffLines: dLines,
+  inlineDiff: dInline, hunksOf: dHunks, unifiedText: dUnified, DIFF_NOTES: X_NOTES,
+} = await import('../dev/js/tools/diff-core.js');
+
+/** 固化种子（xorshift32）：X4/X5 那 200 组不能靠 `Math.random`，红第二次就得原样重放 */
+const xRng = (seed = 20260930) => {
+  let s = seed >>> 0;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+};
+/** 朴素 LCS 长度：编辑脚本长度的**对侧口径**（`cost = n + m − 2·LCS`），滚动数组够用就行 */
+const xLcs = (a, b) => {
+  const m = b.length;
+  let prev = new Uint32Array(m + 1);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = new Uint32Array(m + 1);
+    for (let j = 1; j <= m; j++) {
+      cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+    }
+    prev = cur;
+  }
+  return prev[m];
+};
+/**
+ * ops 的三条不变式（X5）：① 文档顺序不回退 ② 段与段之间不留空洞也不重叠
+ * ③ 两侧各自覆盖到末行。`equal` 两侧必须等长，否则 `rowsOfRun` 那套配对规则从源头就是假的。
+ */
+const xInvariants = (ops, n, m, tag) => {
+  const errs = [];
+  let pa = 0;
+  let pb = 0;
+  for (const o of ops) {
+    if (o.op === 'equal' && o.aLen !== o.bLen) errs.push(`${tag}: equal 两侧不等长`);
+    if (o.a < pa) errs.push(`${tag}: a 侧文档顺序倒退（${o.a} < ${pa}）`);
+    if (o.b < pb) errs.push(`${tag}: b 侧文档顺序倒退（${o.b} < ${pb}）`);
+    if (o.a + o.aLen > n) errs.push(`${tag}: a 侧越界 ${o.a}+${o.aLen}>${n}`);
+    if (o.b + o.bLen > m) errs.push(`${tag}: b 侧越界 ${o.b}+${o.bLen}>${m}`);
+    if (o.op === 'del' && o.a !== pa) errs.push(`${tag}: a 侧有空洞或重叠（del 起点 ${o.a}，期望 ${pa}）`);
+    if (o.op === 'ins' && o.b !== pb) errs.push(`${tag}: b 侧有空洞或重叠（ins 起点 ${o.b}，期望 ${pb}）`);
+    if (o.op === 'equal' && (o.a !== pa || o.b !== pb)) errs.push(`${tag}: equal 起点错位`);
+    pa = o.a + o.aLen;
+    pb = o.b + o.bLen;
+  }
+  if (pa !== n) errs.push(`${tag}: a 侧没覆盖到尾（${pa} != ${n}）`);
+  if (pb !== m) errs.push(`${tag}: b 侧没覆盖到尾（${pb} != ${m}）`);
+  return errs;
+};
+/** 把 ops 分别按两侧重建回原序列：这是"ops 就是这份输入的编辑脚本"最硬的一条自证 */
+const xRebuild = (ops, a, b) => {
+  let ra = '';
+  let rb = '';
+  for (const o of ops) {
+    if (o.op !== 'ins') ra += a.slice(o.a, o.a + o.aLen).join('');
+    if (o.op !== 'del') rb += b.slice(o.b, o.b + o.bLen).join('');
+  }
+  return [ra, rb];
+};
+/** 造 n 行样本：`tag` 里带上行号，保证"每行都独一无二"，前后缀裁剪才量得准 */
+const xRows = (n, tag, from = 0) => Array.from({ length: n }, (_, i) => `${tag}${i + from}`);
+const xJoin = (arr) => `${arr.join('\n')}\n`;
+
+test('X1 splitLines 六档形状：空串 / 只有换行 / LF / CRLF / 行内裸 \\r / 末行无换行', () => {
+  // 空串是零行，一枚 `\n` 是一行空行——并成一条的话"空文件 vs 空文件"会报出非零的增删
+  assert.deepEqual(dSplit(''), { lines: [], count: 0, crlf: [], finalNewline: true, bytes: 0 });
+  assert.deepEqual(dSplit('\n'), { lines: [''], count: 1, crlf: [false], finalNewline: true, bytes: 1 });
+  assert.deepEqual(dSplit('a\nb\n'),
+    { lines: ['a', 'b'], count: 2, crlf: [false, false], finalNewline: true, bytes: 4 });
+  assert.deepEqual(dSplit('a\r\nb\r\n'),
+    { lines: ['a', 'b'], count: 2, crlf: [true, true], finalNewline: true, bytes: 6 },
+    'CRLF 只算一次断行，行内容里不留 \\r');
+  assert.deepEqual(dSplit('a\rb\n'),
+    { lines: ['a\rb'], count: 1, crlf: [false], finalNewline: true, bytes: 4 },
+    '行内裸 \\r 是正文：只认 \\n，剥 \\r 只剥行尾那一枚。bytes 量的是**输入全文**（含行内 \\r 和行尾 \\n），闸门那一只尺');
+  assert.deepEqual(dSplit('a\nb'),
+    { lines: ['a', 'b'], count: 2, crlf: [false, false], finalNewline: false, bytes: 3 },
+    '末行没有换行符要单独说得出，不许静默补一个');
+  // 字节口径是 UTF-8：代理对算 4，与 §S 那一本同一把尺（闸门按字节判，量错一寸就放过 4 MiB）
+  assert.equal(dSplit('😀\n').bytes, 5, '一枚 emoji 是 4 字节 UTF-8 + 换行 1');
+  assert.equal(dSplit('中\n').bytes, 4);
+  assert.equal(dSplit('\r\n').lines.length, 1, '只有 CRLF 也是一行空行');
+  assert.equal(dSplit('\r\n').crlf[0], true);
+  assert.equal(dSplit('a\n\nb\n').lines.join('|'), 'a||b', '中间那行空行不能丢');
+});
+
+test('X2 两侧同空：verdict same、ops 一条 equal、五个统计量全 0', () => {
+  const r = dLines('', '');
+  assert.equal(r.verdict, 'same');
+  assert.equal(r.blocked, null);
+  assert.equal(r.ops.length, 1, '两侧都空也给一条 equal，视图层不必为"零段"再开一档');
+  assert.deepEqual(r.ops[0], { op: 'equal', a: 0, aLen: 0, b: 0, bLen: 0 });
+  assert.deepEqual(r.stats, { added: 0, removed: 0, changed: 0, unchanged: 0, blocks: 0, inlineSkipped: 0, ignored: 0 });
+  assert.equal(r.cost, 0);
+  assert.equal(r.degraded, false);
+  assert.equal(dHunks(r, 3).length, 0, '没有差异段就没有块');
+  // 空 vs 非空那一档才是"增 N 行"，别和上面那格混成一件事
+  const one = dLines('', 'a\n');
+  assert.equal(one.verdict, 'diff');
+  assert.deepEqual([one.stats.added, one.stats.removed, one.stats.changed], [1, 0, 0]);
+  assert.deepEqual([one.a.count, one.b.count], [0, 1]);
+});
+
+test('X3 公共前后缀裁剪：50 行前缀与 30 行后缀原样成两条 equal', () => {
+  const pre = xRows(50, 'p');
+  const tail = xRows(30, 't');
+  // 中段第一行两侧就不同（mid-1 对 mid-X），前缀才恰好裁到 50 那一格；
+  // 尾行两侧唯一，后缀才恰好裁到 30——样本里留一格共同的行，这两条数字就都成了 51 / 31。
+  const a = [...pre, 'mid-1', 'mid-2', 'mid-3', ...tail];
+  const b = [...pre, 'mid-X', ...tail];
+  const r = dSeq(a, b, (x, y) => x === y, X_COST);
+  assert.equal(r.ops.length, 4, '法式：equal + 一条 del + 一条 ins + equal，中间那段不许再碎');
+  assert.deepEqual(r.ops, [
+    { op: 'equal', a: 0, aLen: 50, b: 0, bLen: 50 },
+    { op: 'del', a: 50, aLen: 3, b: 50, bLen: 0 },
+    { op: 'ins', a: 53, aLen: 0, b: 50, bLen: 1 },
+    { op: 'equal', a: 53, aLen: 30, b: 51, bLen: 30 },
+  ]);
+  assert.equal(r.cost, 4, '删 3 行增 1 行 = 4，最短脚本就这么多');
+  assert.equal(r.degraded, false);
+  // 前后缀**都**没有的极端：整份重写，裁剪一步都不该生效
+  const all = dSeq(xRows(40, 'a'), xRows(40, 'b'), (x, y) => x === y, X_COST);
+  assert.equal(all.cost, 80);
+  assert.equal(all.ops.length, 2, '整份重写就是一块 del + 一块 ins');
+});
+
+test('X4 最短性对拍：200 组小样本与朴素 LCS 逐组相等，不许多一格少一格', () => {
+  const rnd = xRng();
+  const alphas = [2, 3, 5, 8];
+  const bad = [];
+  for (let g = 0; g < 200; g++) {
+    const alpha = alphas[g % alphas.length];
+    const n = Math.floor(rnd() * 41);
+    const m = Math.floor(rnd() * 41);
+    const a = Array.from({ length: n }, () => String.fromCharCode(97 + Math.floor(rnd() * alpha)));
+    const b = Array.from({ length: m }, () => String.fromCharCode(97 + Math.floor(rnd() * alpha)));
+    const r = dSeq(a, b, (x, y) => x === y, 100000);
+    const want = n + m - 2 * xLcs(a, b);
+    // 上限给到 10 万 = 这一族根本不该降级：降了就是把最短脚本换成了"整块删 + 整块增"
+    if (r.degraded) bad.push(`g${g}(n=${n},m=${m}): 不该降级`);
+    if (r.cost > want) bad.push(`g${g}(n=${n},m=${n}): cost ${r.cost} > 最短 ${want}`);
+    // 也不许"短于"最短：那说明 ops 少覆盖了行，对拍当场就该红
+    if (r.cost < want) bad.push(`g${g}(n=${n},m=${m}): cost ${r.cost} < 最短 ${want}，等于凭空丢了行`);
+  }
+  assert.deepEqual(bad, [], `对拍 200 组，失败 ${bad.length} 项：\n${bad.slice(0, 8).join('\n')}`);
+});
+
+test('X5 ops 三条不变式在 X4 那 200 组上逐组成立，且两侧都能重建回原序列', () => {
+  const rnd = xRng();
+  const alphas = [2, 3, 5, 8];
+  const bad = [];
+  for (let g = 0; g < 200; g++) {
+    const alpha = alphas[g % alphas.length];
+    const n = Math.floor(rnd() * 41);
+    const m = Math.floor(rnd() * 41);
+    const a = Array.from({ length: n }, () => String.fromCharCode(97 + Math.floor(rnd() * alpha)));
+    const b = Array.from({ length: m }, () => String.fromCharCode(97 + Math.floor(rnd() * alpha)));
+    const r = dSeq(a, b, (x, y) => x === y, 100000);
+    for (const e of xInvariants(r.ops, n, m, `g${g}(n=${n},m=${m})`)) bad.push(e);
+    const [ra, rb] = xRebuild(r.ops, a, b);
+    if (ra !== a.join('')) bad.push(`g${g}: a 侧重建不一致`);
+    if (rb !== b.join('')) bad.push(`g${g}: b 侧重建不一致`);
+    // `mergeRuns` 的法式：一段里只许"一条 del + 一条 ins"相邻，不许出现 ins 紧跟 ins
+    for (let i = 1; i < r.ops.length; i++) {
+      if (r.ops[i].op === 'ins' && r.ops[i - 1].op === 'ins') bad.push(`g${g}: 第 ${i} 条是连续两条 ins，没归一`);
+      if (r.ops[i].op === 'del' && r.ops[i - 1].op === 'del') bad.push(`g${g}: 第 ${i} 条是连续两条 del，没归一`);
+      if (r.ops[i].op === 'equal' && r.ops[i - 1].op === 'equal') bad.push(`g${g}: 第 ${i} 条是连续两条 equal，没归一`);
+    }
+  }
+  assert.deepEqual(bad, [], `200 组的不变式检查失败 ${bad.length} 项：\n${bad.slice(0, 8).join('\n')}`);
+});
+
+test('X6 归一化只影响判等：ignored 那几行的 textA/textB 仍是原文、行号仍按原文', () => {
+  // 第 2 行两侧原文不同（一个空格对两个空格），勾了 ws 才算相同；第 4 行是真改动。
+  // 必须留一格真改动：全都判等就没有差异块，hunksOf 按设计返回空数组，"递原文"那一格反而没人验。
+  const a = 'x\na b\ny\nZ\n';
+  const b = 'x\na  b\ny\nQ\n';
+  const on = dLines(a, b, { ws: true });
+  assert.equal(on.verdict, 'diff');
+  assert.equal(on.stats.ignored, 1, '被归一化抹平的那一行要计数，否则页面上那句"忽略过空白"没有着落');
+  assert.equal(on.stats.changed, 1, '只有 Z→Q 那一格算改动');
+  assert.equal(on.stats.unchanged, 3);
+  assert.equal(dLines(a, b).stats.changed, 2, '不勾 ws，那两格都算改动');
+  const rows = dHunks(on, X_CTX).flatMap((h) => h.rows);
+  const flat = rows.find((r) => r.kind === 'equal' && r.textA !== r.textB);
+  assert.ok(flat, '归一化只进比较键：hunksOf 递出来的还是原文');
+  assert.equal(flat.textA, 'a b');
+  assert.equal(flat.textB, 'a  b');
+  assert.deepEqual([flat.a, flat.b], [1, 1], '行号按原文数，不许因为归一化就少一行');
+  // 原文与行号同源第三条路：unified 文本里出现的也必须是原文那一格
+  const uni = dUnified(on);
+  assert.match(uni, / a b\n/, `上下文行写的是原文：${JSON.stringify(uni)}`);
+  assert.equal(uni.includes('a  b'), false, '上下文行不许"顺手归一化"过再写出去');
+});
+
+test('X7 ws 档：并成空格算相同，删空白不等于把词也并掉', () => {
+  assert.equal(dKey('a b', { ws: true }), dKey('a  b', { ws: true }), '连续空白并成一格');
+  assert.equal(dKey(' x', { ws: true }), dKey('x', { ws: true }), '首尾空白去掉');
+  assert.equal(dKey('\tx\t', { ws: true }), 'x', '制表符也是空白');
+  assert.notEqual(dKey('ab', { ws: true }), dKey('a b', { ws: true }),
+    "'ab' 与 'a b' 必须判不同：把空白全删掉会造出一批用户读不出来的'相同'");
+  assert.equal(dKey('a b'), 'a b', '不勾就是原文');
+  const r = dLines('foo 1\t2\n', 'foo 1 2\n', { ws: true });
+  assert.equal(r.verdict, 'same');
+  assert.equal(r.stats.ignored, 1);
+  assert.equal(dLines('foo 1 2\n', 'foo1 2\n', { ws: true }).verdict, 'diff',
+    '同一个口径在主入口那一层也得成立');
+});
+
+test('X8 case 档：Foo 与 foo 判相同，数字串不受影响', () => {
+  assert.equal(dKey('Foo', { case: true }), 'foo');
+  assert.equal(dKey('123', { case: true }), '123', 'toLowerCase 对数字是恒等，别把它写成"只改字母"的样子货');
+  assert.notEqual(dKey('Foo'), dKey('foo'), '不勾就是两行');
+  assert.equal(dKey('中', { case: true }), '中');
+  // 两档同时勾：先后是定死的（先 ws 后 case），交错写出来就不是同一个键
+  assert.equal(dKey('  Foo BAR ', { ws: true, case: true }), 'foo bar');
+  const r = dLines('Foo\nbar\n', 'foo\nbar\n', { case: true });
+  assert.equal(r.verdict, 'same');
+  assert.equal(r.stats.ignored, 1);
+  assert.equal(dLines('Foo\nbar\n', 'foo\nbar\n').verdict, 'diff');
+  // 行内细化跟着同一把尺：勾了 case 就不该在行里再标一处"改动"
+  assert.deepEqual(dInline('Foo bar', 'foo bar', { case: true }), [{ t: 'equal', text: 'Foo bar' }]);
+  assert.deepEqual(dInline('Foo bar', 'foo bar', {}),
+    [{ t: 'del', text: 'Foo' }, { t: 'ins', text: 'foo' }, { t: 'equal', text: ' bar' }]);
+});
+
+test('X9 CRLF：默认算差异且 crlfA/crlfB 说得清，勾了 ws 之后并入空白档不算', () => {
+  const r = dLines('a\nb\n', 'a\r\nb\r\n');
+  assert.equal(r.verdict, 'diff', '行尾形状也是内容：LF 文件对 CRLF 文件必须报差异');
+  assert.deepEqual([r.stats.added, r.stats.removed], [2, 2]);
+  const rows = dHunks(r, X_CTX).flatMap((h) => h.rows);
+  const chg = rows.filter((x) => x.kind === 'change');
+  assert.equal(chg.length, 2);
+  assert.equal(chg[0].crlfA, false);
+  assert.equal(chg[0].crlfB, true, '视图层拿这两格画 ␍，行号与原文都不受影响');
+  assert.equal(chg[0].textB, 'a', '剥出来的 \\r 不在行内容里，只在 crlfB 那一格');
+  const on = dLines('a\nb\n', 'a\r\nb\r\n', { ws: true });
+  assert.equal(on.verdict, 'same', '勾了忽略空白之后行尾回车并进同一档，不再算差异');
+  assert.equal(on.stats.ignored, 2, '"归一化抹平了几行"要数得出来，那句说明才有数字');
+  assert.deepEqual(dKey('a', { crlf: true }), 'a\r', 'crlf 那一档是补上 \\r 再比，不是比较时特殊对待');
+  assert.throws(() => dInline('a', 'b', { crlf: true }), TypeError,
+    'inlineDiff 不认 crlf：行尾形状在行级已经判过等，这里递下去就是拼错的开关');
+});
+
+test('X10 末行缺换行符单独成档：finalNewline 两侧各一格，那句说明非空', () => {
+  const r = dLines('a\nb', 'a\nb\n');
+  assert.equal(r.a.finalNewline, false);
+  assert.equal(r.b.finalNewline, true);
+  assert.equal(r.verdict, 'same', '那一档不是"少一行"：行数相同、内容相同，缺的只是一个换行');
+  assert.deepEqual([r.a.count, r.b.count], [2, 2]);
+  assert.equal(typeof X_NOTES.finalNewline, 'string');
+  assert.ok(X_NOTES.finalNewline.length > 0, '点亮时要用的那句话不许是空串');
+  assert.ok(X_NOTES.finalNewline.includes(X_CR), `那句话要说清回车上屏长什么样：${X_NOTES.finalNewline}`);
+  // 末行缺换行的两侧都是缺：那一档在 unified 里是 `\ No newline`，不是"两边都一样"就完事
+  const both = dLines('a\nb', 'a\nb');
+  assert.equal(both.verdict, 'same');
+  assert.equal(both.a.finalNewline, false);
+  assert.equal(both.b.finalNewline, false);
+  assert.equal(both.stats.ignored, 0, '没勾归一化就没有"抹平"，这一格不许凭空非零');
+});
+
+// 闸门那一档要"真超线"才量得准：5 MiB + 7 字节，跟着常量拼，别手抄 5242880。
+const X_HUGE = 'q'.repeat(X_BYTES + 7);
+const X_TOO_MANY = 'a\n'.repeat(X_LINES + 3);
+
+test('X11 gate 按侧拒：只 A 超字节 / 只 B 超字节 / 两侧都超 / 只 A 超行数，四种形状各自的 which 与 over', () => {
+  const shape = (g) => ({ ok: g.ok, which: g.which, reason: g.reason, over: g.over });
+  assert.deepEqual(shape(dGate('a\n', 'b\n')), {
+    ok: true, which: null, reason: null, over: { bytesA: 0, bytesB: 0, linesA: 0, linesB: 0 },
+  }, '没超线时四格差额都必须是 0，页面那句"超出 N"不许凭空报一个数');
+  assert.deepEqual(shape(dGate(X_HUGE, 'b\n')), {
+    ok: false, which: 'a', reason: 'bytes', over: { bytesA: 7, bytesB: 0, linesA: 0, linesB: 0 },
+  }, '只 A 超字节：which 说的是 a，over 里也只有 bytesA 非零');
+  assert.equal(shape(dGate('b\n', X_HUGE)).over.bytesB, 7, '换一侧超，报的就得换一侧');
+  assert.deepEqual(shape(dGate(X_HUGE, X_HUGE)), {
+    ok: false, which: 'both', reason: 'bytes', over: { bytesA: 7, bytesB: 7, linesA: 0, linesB: 0 },
+  });
+  const lines = shape(dGate(X_TOO_MANY, 'b\n'));
+  assert.deepEqual([lines.ok, lines.which, lines.reason, lines.over.linesA], [false, 'a', 'lines', 3],
+    '超行数那一档：量纲是行，不是字节');
+  // 两档先后是定死的：先字节、后行数。同一侧都超时报字节，另一侧的差额仍留在表里。
+  const mixed = shape(dGate(X_HUGE, X_TOO_MANY));
+  assert.deepEqual([mixed.which, mixed.reason], ['a', 'bytes'], 'B 侧超行数排在字节之后，先说量纲大的那件');
+  assert.deepEqual([mixed.over.bytesA, mixed.over.bytesB, mixed.over.linesA, mixed.over.linesB], [7, 0, 0, 3],
+    '差额四格是同一本账：页面能一次说清"这侧超字节、那侧超行数"两处');
+  // 按侧判而不是合计判：一侧塞满、一侧空着，合计口径会把整页拒掉（spec §5.6 第 1 条）
+  const g = dGate(X_HUGE, 'b\n');
+  assert.equal(g.a.count, 1, '闸门不过也得把两份拆行结果递出去，页面要报"你这侧多少行、多少字节"');
+  assert.equal(g.b.bytes, 2);
+  assert.equal(g.b.count, 1);
+});
+
+test('X12 拒时给差额，且闸门不过时 diffLines 不做任何对齐：verdict blocked、ops 空、形状照样齐', () => {
+  const r = dLines(X_HUGE, 'b\n');
+  assert.equal(r.verdict, 'blocked');
+  assert.deepEqual(r.ops, [], '一行都不许对齐：那才是"闸门"，不是"建议"');
+  assert.deepEqual(r.segments, []);
+  assert.equal(r.cost, 0);
+  assert.equal(r.degraded, false);
+  assert.deepEqual(r.stats, { added: 0, removed: 0, changed: 0, unchanged: 0, blocks: 0, inlineSkipped: 0, ignored: 0 });
+  assert.deepEqual(r.blocked, { which: 'a', reason: 'bytes', over: { bytesA: 7, bytesB: 0, linesA: 0, linesB: 0 } });
+  assert.equal(r.a.bytes, X_BYTES + 7, '差额之外还要给实测值，那句"你这侧 5.0 MB"从它出');
+  assert.ok(r.inlineByKey instanceof Map && r.inlineByKey.size === 0,
+    '视图层拿 inlineByKey 是无条件的：闸门那一档少这一格就是 undefined.size');
+  assert.deepEqual(dHunks(r, X_CTX), [], '没有对齐结果就没有块');
+  assert.equal(dUnified(r), '', 'unified 那一栏在拒的那一档必须是空串，不是报错');
+});
+
+test('X13 MAX_COST 降级：中段整块 del + 整块 ins，两侧行数一行不少（降级不是截断）', () => {
+  const midA = xRows(1200, 'A');
+  const midB = xRows(900, 'B');
+  const a = [...xRows(10, 'c'), ...midA, ...xRows(10, 't')];
+  const b = [...xRows(10, 'c'), ...midB, ...xRows(10, 't')];
+  const r = dSeq(a, b, (x, y) => x === y, X_COST);
+  assert.equal(r.degraded, true, '中段 1200×900 全不相干，D 越了 MAX_COST 那一档');
+  assert.deepEqual(r.ops.map((o) => `${o.op}:${o.a},${o.aLen},${o.b},${o.bLen}`), [
+    'equal:0,10,0,10', 'del:10,1200,10,0', 'ins:1210,0,10,900', 'equal:1210,10,910,10',
+  ], '降级只换掉那一段的配对方式：前后两段 equal 原样留着');
+  assert.equal(r.cost, midA.length + midB.length);
+  const [ra, rb] = xRebuild(r.ops, a, b);
+  assert.equal(ra, a.join(''), '降级那一档也不许丢行');
+  assert.equal(rb, b.join(''));
+  const res = dLines(`${a.join('\n')}\n`, `${b.join('\n')}\n`);
+  assert.equal(res.degraded, true);
+  assert.equal(res.verdict, 'diff');
+  assert.deepEqual([res.stats.removed, res.stats.added, res.stats.unchanged, res.stats.blocks], [1200, 900, 20, 1]);
+  const rows = dHunks(res, Infinity).flatMap((h) => h.rows);
+  assert.equal(rows.filter((x) => x.a !== null).length, res.a.count, 'a 侧 1220 行一行不少');
+  assert.equal(rows.filter((x) => x.b !== null).length, res.b.count, 'b 侧 920 行同理');
+});
+
+test('X14 DIFF_NOTES.degraded 非空且带 MAX_COST 那个数，降级档的脚本不短于不降级档', () => {
+  const rnd = xRng(20260931);
+  const mk = (n, alpha) => Array.from({ length: n }, () => String.fromCharCode(97 + Math.floor(rnd() * alpha)));
+  const a = mk(80, 4);
+  const b = mk(70, 4);
+  const capped = dSeq(a, b, (x, y) => x === y, 3);
+  const free = dSeq(a, b, (x, y) => x === y, 1e9);
+  assert.equal(capped.degraded, true);
+  assert.equal(free.degraded, false);
+  assert.ok(free.cost > 3, '这份样本必须真越得过那道闸门，否则两条走同一条路，这一判就成了空判');
+  assert.ok(capped.cost >= free.cost, `降级给的是"整块删+整块增"，只会更长不会更短：${capped.cost} vs ${free.cost}`);
+  assert.deepEqual(xInvariants(capped.ops, a.length, b.length, 'degraded'), [], '降级档的 ops 照样得守三条不变式');
+  assert.ok(X_NOTES.degraded.length > 0);
+  assert.ok(X_NOTES.degraded.includes(String(X_COST)), `那句话里的数字要从常量插：${X_NOTES.degraded}`);
+  assert.ok(X_NOTES.degraded.includes('一行'), '那句还得说清"行数不会少"，用户才不会被"变了样"吓到');
+});
+
+test('X15 inlineDiff 四类 token：ASCII 词、空白串、标点、逐码点的 CJK——改一个汉字只标那一个字的 token', () => {
+  assert.deepEqual(dInline('改成汉字好', '改成中文字好', {}), [
+    { t: 'equal', text: '改成' }, { t: 'del', text: '汉' }, { t: 'ins', text: '中文' }, { t: 'equal', text: '字好' },
+  ], 'CJK 逐码点成一枚：删的那一侧就是"汉"这一个字，不许把整句标红');
+  assert.deepEqual(dInline('let a = 1;', 'let a = 2;', {}), [
+    { t: 'equal', text: 'let a = ' }, { t: 'del', text: '1' }, { t: 'ins', text: '2' }, { t: 'equal', text: ';' },
+  ], 'ASCII 词只吃 [A-Za-z0-9_]+，词间空白各成一枚，标点 ; 单独一枚');
+  assert.deepEqual(dInline('a.b', 'a-c', {}), [
+    { t: 'equal', text: 'a' }, { t: 'del', text: '.b' }, { t: 'ins', text: '-c' },
+  ], '标点不是词的一部分：a. 与 a- 里只有 a 能对上');
+  assert.deepEqual(dInline('x  y', 'x y', {}), [
+    { t: 'equal', text: 'x' }, { t: 'del', text: '  ' }, { t: 'ins', text: ' ' }, { t: 'equal', text: 'y' },
+  ], '连续空白并成一枚：两格对一格正好一对，不是拆成两枚各删一枚');
+  assert.deepEqual(dInline('中文 abc 123', '中文 abcd 123', {}), [
+    { t: 'equal', text: '中文 ' }, { t: 'del', text: 'abc' }, { t: 'ins', text: 'abcd' }, { t: 'equal', text: ' 123' },
+  ], '数字跟着词（123 是一枚），不另起第三条');
+  for (const [a, b] of [['改成汉字好', '改成中文字好'], ['let a = 1;', 'let a = 2;'], ['a.b', 'a-c']]) {
+    const s = dInline(a, b, {});
+    assert.equal(s.filter((x) => x.t !== 'ins').map((x) => x.text).join(''), a, `重建 a 侧不许吞字：${a}`);
+    assert.equal(s.filter((x) => x.t !== 'del').map((x) => x.text).join(''), b, `重建 b 侧不许吞字：${b}`);
+  }
+  assert.deepEqual(dInline('', '', {}), [], '两行都空就是零段，不许造一条 equal:""');
+  assert.deepEqual(dInline('abc', 'abc', {}), [{ t: 'equal', text: 'abc' }]);
+});
+
+test('X16 emoji：代理对 / ZWJ 序列 / 旗标 / 变体选择符，切完不得出现孤立代理项', () => {
+  // 孤立代理项上屏是  或空白，而行内高亮正是"逐段塞进 <span>"——那一格坏了用户只会说"字少了"。
+  const LONE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+  const samples = [
+    ['a😀b', 'a😃b'],
+    ['👩‍💻 ok', '👨‍💻 ok'],
+    ['🇨🇳🇺🇸', '🇨🇳🇩🇪'],
+    ['❤️ red', '💗 red'],
+  ];
+  for (const [a, b] of samples) {
+    const s = dInline(a, b, {});
+    assert.ok(Array.isArray(s), `这一对不该被形状闸门拦下：${a}`);
+    for (const x of s) {
+      assert.equal(LONE.test(x.text), false, `段里有孤立代理项：${JSON.stringify(x.text)}`);
+      assert.doesNotThrow(() => encodeURIComponent(x.text), `encodeURIComponent 都拒的段就是坏段：${JSON.stringify(x.text)}`);
+    }
+    assert.equal(s.filter((x) => x.t !== 'ins').map((x) => x.text).join(''), a, '重建 a 侧');
+    assert.equal(s.filter((x) => x.t !== 'del').map((x) => x.text).join(''), b, '重建 b 侧');
+  }
+  assert.deepEqual(dInline('a😀b', 'a😃b', {}), [
+    { t: 'equal', text: 'a' }, { t: 'del', text: '😀' }, { t: 'ins', text: '😃' }, { t: 'equal', text: 'b' },
+  ], '一枚 emoji 是一枚 token：不许把代理对劈成两半各标一次');
+});
+
+test('X17 MAX_INLINE_TOKENS 退化：越线那一对 inline:null，且 stats.inlineSkipped 计数 +1', () => {
+  const longA = '字'.repeat(X_TOKENS + 1000);
+  const longB = `${longA}改`;
+  assert.equal(dInline(longA, longB, {}), null, '单侧切到上限零一枚就收手，不为一行建那张百万项的表');
+  const r = dLines(`${longA}\nq1\n`, `${longB}\nq2\n`);
+  assert.deepEqual([r.stats.changed, r.stats.inlineSkipped], [2, 1], '只有越线那一对退化，另一对照常细化');
+  assert.equal(r.inlineByKey.has('0:0'), false, '越线那一对不举行内结果');
+  assert.equal(r.inlineByKey.has('1:1'), true, '同一次调用里，下一对不该被连坐');
+  const rows = dHunks(r, Infinity).flatMap((h) => h.rows);
+  assert.equal(rows.find((x) => x.a === 0).inline, null, '视图层拿到的那一格必须是 null，不是 undefined 也不是空表');
+  assert.ok(X_NOTES.inlineSkipped.length > 0);
+  assert.ok(X_NOTES.inlineSkipped.includes(String(X_TOKENS)), `那句话里的数字从常量插：${X_NOTES.inlineSkipped}`);
+});
+
+test('X18 五个统计量逐格定义 + 那条自洽关系（added ≥ changed、removed ≥ changed、blocks 数法）', () => {
+  const a = 'k1\nk2\nD1\nD2\nk3\nk4\nk5\nk6\nk7\nX1\nX2\n';
+  const b = 'k1\nk2\nk3\nk4\nk5\nk6\nk7\nY1\nY2\nY3\nk8\n';
+  const r = dLines(a, b);
+  assert.deepEqual(r.stats, { added: 4, removed: 4, changed: 2, unchanged: 7, blocks: 2, inlineSkipped: 0, ignored: 0 });
+  assert.equal(r.stats.unchanged + r.stats.removed, r.a.count, 'a 侧每一行要么对上、要么只在 a 侧出现');
+  assert.equal(r.stats.unchanged + r.stats.added, r.b.count, 'b 侧同理');
+  assert.ok(r.stats.added >= r.stats.changed && r.stats.removed >= r.stats.changed, '改动行同时计入增与删');
+  assert.ok(r.stats.blocks <= r.segments.length, 'blocks 数的是极大非等段，一段既删又增只算一块');
+  const rows = dHunks(r, Infinity).flatMap((h) => h.rows);
+  assert.deepEqual(rows.map((x) => x.kind), ['equal', 'equal', 'del', 'del', 'equal', 'equal', 'equal', 'equal', 'equal', 'change', 'change', 'ins', 'ins']);
+  assert.equal(rows.filter((x) => x.kind === 'change').length, r.stats.changed, '"改 K 处"与 change 行同源');
+  assert.equal(rows.filter((x) => x.kind === 'del').length + r.stats.changed, r.stats.removed);
+  assert.equal(rows.filter((x) => x.kind === 'ins').length + r.stats.changed, r.stats.added);
+  assert.equal(dHunks(r, 0).length, r.stats.blocks, 'context 0 时一块就是一段：折叠条数与"处"数是同一件事');
+  assert.deepEqual([dLines('a\n', 'a\nb\n').stats.added, dLines('a\n', 'a\nb\n').stats.changed], [1, 0], '纯增：changed 必须是 0');
+  assert.equal(dLines('a\nb\n', 'a\n').stats.changed, 0, '纯删同理');
+  assert.deepEqual(dLines('x\ny\n', 'x\ny\n').stats, { added: 0, removed: 0, changed: 0, unchanged: 2, blocks: 0, inlineSkipped: 0, ignored: 0 });
+});
+
+test('X19 stats.ignored 只在归一化开启时非零，关掉就是 0', () => {
+  const a = 'a b\nc\n';
+  const b = 'a  b\nd\n';
+  assert.equal(dLines(a, b).stats.ignored, 0, '没勾任何归一化就不许有"被抹平"的行');
+  assert.equal(dLines(a, b, { ws: false, case: false }).stats.ignored, 0, '显式写 false 与不写同一条路');
+  assert.equal(dLines(a, b, { ws: true }).stats.ignored, 1);
+  const cs = dLines('Foo\nbar\n', 'foo\nbar\n', { case: true });
+  assert.equal(cs.stats.ignored, 1);
+  assert.equal(cs.verdict, 'same', 'ignored 那几行进的是 unchanged，不是 added/removed');
+  assert.equal(dLines('a\n', 'a\r\n', { ws: true }).stats.ignored, 1, '行尾回车并进空白那一档，也算被抹平');
+  assert.equal(dLines('a\n', 'a\r\n').stats.ignored, 0, '不勾 ws，行尾形状是差异而不是被忽略的行');
+  for (const r of [dLines(a, b), dLines(a, b, { ws: true }), cs, dLines('a\n', 'a\r\n', { ws: true })]) {
+    assert.equal(r.stats.unchanged + r.stats.removed, r.a.count,
+      'ignored 不许从 unchanged 里再扣一次：它只是 unchanged 中"原文其实不同"的那几行');
+    assert.equal(r.stats.unchanged + r.stats.added, r.b.count);
+  }
+});
+
+test('X20 hunksOf(result, 3)：块内首尾各 3 行 equal，skipped 数的是被折掉的行数', () => {
+  const a = `${[...xRows(10, 'e'), 'C1', ...xRows(20, 'm'), 'C2', ...xRows(10, 'f')].join('\n')}\n`;
+  const r = dLines(a, a.replace('C1', 'Z1').replace('C2', 'Z2'));
+  const hk = dHunks(r, 3);
+  assert.equal(hk.length, 2);
+  assert.deepEqual(hk[0].rows.map((x) => x.kind), ['equal', 'equal', 'equal', 'change', 'equal', 'equal', 'equal'], '首尾各 3 行上下文');
+  assert.deepEqual([hk[0].aFrom, hk[0].aTo, hk[0].skipped, hk[0].tailSkipped], [7, 14, 7, 0], 'skipped 是折掉的行数：前 10 行只留 3 行');
+  assert.deepEqual([hk[1].aFrom, hk[1].aTo, hk[1].skipped, hk[1].tailSkipped], [28, 35, 14, 7], '只有末块那一格才带尾折');
+  assert.equal(hk[0].rows[0].a, 7);
+  assert.equal(hk[0].rows[0].textA, 'e7');
+  assert.equal(hk[1].rows[0].textA, 'm17');
+  const folded = hk.reduce((s, h) => s + h.skipped + h.rows.length, 0) + hk[hk.length - 1].tailSkipped;
+  assert.equal(folded, 42, '折掉的 + 露出的 + 尾折的 == 虚拟行流全长，少一行就是折叠算错了');
+  const one = dHunks(r, 1);
+  assert.deepEqual(one[0].rows.map((x) => x.kind), ['equal', 'change', 'equal']);
+  assert.deepEqual([one[0].skipped, one[1].skipped, one[1].tailSkipped], [9, 18, 9]);
+});
+
+test('X21 context=Infinity 摊出全部行；context 传非数值 / 负数 / 小数一律 TypeError', () => {
+  const a = `${[...xRows(10, 'e'), 'C1', ...xRows(20, 'm'), 'C2', ...xRows(10, 'f')].join('\n')}\n`;
+  const r = dLines(a, a.replace('C1', 'Z1').replace('C2', 'Z2'));
+  const inf = dHunks(r, Infinity);
+  assert.equal(inf.length, 1, '全展开就是一块');
+  assert.equal(inf[0].rows.length, 42, '全部行：42 格一行不少');
+  assert.deepEqual([inf[0].skipped, inf[0].tailSkipped], [0, 0], '全展开没有折掉的行');
+  assert.deepEqual([inf[0].aFrom, inf[0].aTo, inf[0].bFrom, inf[0].bTo], [0, 42, 0, 42]);
+  assert.equal(dHunks(r, 0).length, 2, 'context 0 就是两块，各带 0 行上下文');
+  for (const bad of ['all', true, null, {}, NaN, -1, 1.5]) {
+    assert.throws(() => dHunks(r, bad), TypeError, `context=${String(bad)} 必须点名拒，不许当 0 用`);
+  }
+  assert.throws(() => dHunks({ ops: 'no' }, 3), TypeError, 'result 不是 diffLines 的返回值也要点名');
+});
+
+test('X22 边界：差异就在第 1 行 / 就在末行时，首块与末块的 skipped 不得为负、不得凭空多上下文', () => {
+  const first = dHunks(dLines('C1\nb\nc\nd\ne\nf\ng\n', 'Z1\nb\nc\nd\ne\nf\ng\n'), 3);
+  assert.equal(first.length, 1);
+  assert.deepEqual([first[0].aFrom, first[0].aTo, first[0].skipped, first[0].tailSkipped], [0, 4, 0, 3], '前头只有 0 行可给，不许凑出 -3 行');
+  assert.deepEqual(first[0].rows.map((x) => x.kind), ['change', 'equal', 'equal', 'equal']);
+  assert.equal(first[0].rows[0].a, 0);
+  const last = dHunks(dLines('a\nb\nc\nd\ne\nf\nC7\n', 'a\nb\nc\nd\ne\nf\nZ7\n'), 3);
+  assert.deepEqual([last[0].aFrom, last[0].aTo, last[0].skipped, last[0].tailSkipped], [3, 7, 3, 0], '末行之后没有行，尾折必须是 0');
+  assert.deepEqual(last[0].rows.map((x) => x.kind), ['equal', 'equal', 'equal', 'change']);
+  // 只有一侧有行的块：本侧区间是空的，落点也得是个有限的数
+  const del = dHunks(dLines('a\nb\nc\nd\ne\n', 'a\ne\n'), 1)[0];
+  assert.deepEqual([del.aFrom, del.aTo, del.bFrom, del.bTo], [0, 5, 0, 2]);
+  const ins = dHunks(dLines('a\ne\n', 'a\nb\nc\nd\ne\n'), 1)[0];
+  assert.deepEqual([ins.aFrom, ins.aTo, ins.bFrom, ins.bTo], [0, 2, 0, 5]);
+  const empty = dHunks(dLines('', 'a\nb\n'), 3)[0];
+  assert.deepEqual([empty.aFrom, empty.aTo, empty.bFrom, empty.bTo], [0, 0, 0, 2], '整侧为空：区间退化成锚点，不许是 Infinity');
+  assert.equal(dUnified(dLines('', 'a\nb\n'), { context: 3 }), '--- A\n+++ B\n@@ -1,0 +1,2 @@\n+a\n+b\n', '空侧的头写 ,0——那是"插在这里"的唯一写法');
+});
+
+test('X23 unifiedText 的 @@ -a,b +c,d @@ 与手算逐字符对照，单行区间不省略 ,1', () => {
+  const r = dLines('a\nb\nc\nd\n', 'a\nX\nc\nd\n');
+  assert.equal(dUnified(r, { a: 'A.txt', b: 'B.txt', context: 1 }),
+    '--- A.txt\n+++ B.txt\n@@ -1,3 +1,3 @@\n a\n-b\n+X\n c\n');
+  assert.equal(dUnified(r, { context: 0 }),
+    '--- A\n+++ B\n@@ -2,1 +2,1 @@\n-b\n+X\n',
+    '单行区间也得写 ,1：省略是 git 的排版偏好，不是格式的必要部分，而本站的对照判据逐字符');
+  const a2 = `${[...xRows(10, 'e'), 'C1', ...xRows(20, 'm'), 'C2', ...xRows(10, 'f')].join('\n')}\n`;
+  const two = dLines(a2, a2.replace('C1', 'Z1').replace('C2', 'Z2'));
+  assert.equal(dUnified(two, { context: 3 }),
+    '--- A\n+++ B\n@@ -8,7 +8,7 @@\n e7\n e8\n e9\n-C1\n+Z1\n m0\n m1\n m2\n@@ -29,7 +29,7 @@\n m17\n m18\n m19\n-C2\n+Z2\n f0\n f1\n f2\n',
+    '两块的头、上下文、改动行全部逐字符钉住');
+  assert.deepEqual(dUnified(two, { context: 1 }).split('\n').filter((l) => l.startsWith('@@')),
+    ['@@ -10,3 +10,3 @@', '@@ -31,3 +31,3 @@'], '头里的行号从 1 起，长度是"这一块的行数"');
+  assert.equal(dUnified(dLines('a\nb\nc\nd\ne\n', 'a\ne\n'), { context: 1 }),
+    '--- A\n+++ B\n@@ -1,5 +1,2 @@\n a\n-b\n-c\n-d\n e\n', '纯删：+ 侧只有 2 行');
+  assert.equal(dUnified(dLines('a\ne\n', 'a\nb\nc\nd\ne\n'), { context: 1 }),
+    '--- A\n+++ B\n@@ -1,2 +1,5 @@\n a\n+b\n+c\n+d\n e\n', '纯增：镜像那一档');
+});
+
+test('X24 unifiedText 两侧都空只有头两行；两名默认 A/B，传入才换', () => {
+  const empty = dLines('', '');
+  assert.equal(dUnified(empty), '--- A\n+++ B\n', '一块都没有，就只有那两行文件头');
+  assert.equal(dUnified(empty, { a: 'x.txt', b: 'y.txt' }), '--- x.txt\n+++ y.txt\n');
+  assert.equal(dUnified(empty, { a: '', b: '' }), '--- A\n+++ B\n', '空串名回落成默认，不许写出 "--- " 那种半截头');
+  assert.equal(dUnified(empty, { a: 42 }), '--- A\n+++ B\n', '非字符串的名同样回落，不许把 42 拼进头里');
+  assert.equal(dUnified(empty, { context: 99 }), '--- A\n+++ B\n', 'context 再大也不许凭空造出一块');
+  assert.equal(dUnified(dLines(X_HUGE, 'b\n')), '', 'blocked 那一档是空串，连文件头都不写');
+});
+
+test('X25 unifiedText 里 \\r 的处理与 X1/X9 同口径：行尾回车原样带出去，不许悄悄吃掉', () => {
+  assert.equal(dUnified(dLines('a\r\nb\r\n', 'a\nb\n'), { context: 1 }),
+    '--- A\n+++ B\n@@ -1,2 +1,2 @@\n-a\r\n+a\n-b\r\n+b\n', 'CRLF 对 LF 是差异，两个 \\r 都得在文本里看得见');
+  assert.equal(dLines('a\r\nb\r\n', 'a\r\nb\r\n').verdict, 'same');
+  assert.equal(dUnified(dLines('a\r\nb\r\n', 'a\r\nb\r\n')), '--- A\n+++ B\n', '判等就没有内容行');
+  const ctx = dLines('q\na\r\nz\n', 'q\na\r\nZ\n', { ws: true });
+  assert.equal(dUnified(ctx, { context: 1 }), '--- A\n+++ B\n@@ -2,2 +2,2 @@\n a\r\n-z\n+Z\n',
+    '上下文行的行尾取 a 侧：两侧到这里已判等，那一格差别只在勾了归一化时才可能存在');
+  assert.equal(dUnified(dLines('a\nb', 'a\nB'), { context: 0 }),
+    '--- A\n+++ B\n@@ -2,1 +2,1 @@\n-b\n+B\n\\ No newline at end of file\n',
+    '末行缺换行要写 git 那一句，不许静默补一个换行');
+});
+
+test('X26 入参闸门：非字符串一律 TypeError 点名，报错要说清是哪个调用的哪一个参数', () => {
+  const bad = [null, undefined, 42, {}, ['a\n'], Symbol('x'), true];
+  const callSites = [
+    ['splitLines(text)', (v) => dSplit(v)],
+    ['compareKey(line, opts)', (v) => dKey(v)],
+    ['gate(textA, textB)', (v) => dGate(v, 'a\n')],
+    ['gate(textA, textB)', (v) => dGate('a\n', v)],
+    ['diffLines(textA, textB, opts)', (v) => dLines(v, 'a\n')],
+    ['inlineDiff(lineA, lineB, opts)', (v) => dInline(v, 'a', {})],
+  ];
+  for (const [site, fn] of callSites) {
+    for (const v of bad) assert.throws(() => fn(v), TypeError, `${site} 对 ${String(v)} 必须红`);
+    try {
+      fn(42);
+      assert.fail(`${site} 放行了 number`);
+    } catch (e) {
+      assert.ok(e instanceof TypeError);
+      assert.ok(e.message.includes(site), `${site} 的报错没点名调用处：${e.message}`);
+    }
+  }
+  assert.throws(() => dHunks(null, 3), TypeError);
+  assert.throws(() => dUnified(null), TypeError);
+  assert.throws(() => dUnified(dLines('a\n', 'b\n'), []), TypeError, 'names 是数组也算非法形状');
+  assert.throws(() => dSeq(null, [], (x, y) => x === y, 10), TypeError);
+  assert.throws(() => dSeq(['a'], 'b', (x, y) => x === y, 10), TypeError);
+  assert.throws(() => dSeq(['a'], ['b'], 'no', 10), TypeError, 'equals 不是函数同样点名，不许静默当"全不等"');
+  assert.throws(() => dSeq(['a'], ['b'], (x, y) => x === y, 0), TypeError, 'maxCost=0 会让每一格都降级，是拼错的常量不是档位');
+  assert.equal(dLines('a\n', 'a\n', undefined).verdict, 'same', 'opts 的 undefined 是"不传"，不是"传了个非法值"');
+});
+
+test('X27 opts 取值档：truthy 但非法的值一律 TypeError，未知键也拒', () => {
+  for (const v of ['yes', 1, [], {}, 'true']) {
+    assert.throws(() => dLines('a\n', 'b\n', { ws: v }), TypeError, `ws=${String(v)} 是 truthy，但不是布尔`);
+    assert.throws(() => dLines('a\n', 'b\n', { case: v }), TypeError);
+    assert.throws(() => dInline('a', 'b', { ws: v }), TypeError);
+  }
+  assert.throws(() => dLines('a\n', 'b\n', { ignoreWs: true }), TypeError, '拼错的键名不许静默忽略：那个勾选框就成了装饰品');
+  assert.throws(() => dLines('a\n', 'b\n', { crlf: true }), TypeError, 'crlf 只有 compareKey 认这一格');
+  assert.throws(() => dLines('a\n', 'b\n', 'ws'), TypeError);
+  assert.throws(() => dLines('a\n', 'b\n', ['ws']), TypeError);
+  assert.throws(() => dKey('a', { ws: null }), TypeError, 'null 也是"非法值"，不许当成 falsy 放行');
+  assert.equal(dLines('a\n', 'a\n', { ws: false, case: false }).verdict, 'same', '显式 false 是合法档位');
+  assert.equal(dKey('A', { ws: true, case: true, crlf: true }), 'a', '三格同开：先补 \\r、再并空白、最后落小写');
+  assert.equal(dKey('a', { ws: true, case: true, crlf: true }), dKey('a', { ws: true, case: true }),
+    '勾了 ws 之后行尾回车并进空白档——这正是 X9 那句"不算差异"的来处');
+});
+
+test('X28 幂等：同一输入两次调用 diffLines，ops 与 stats 与行内结果逐格深相等', () => {
+  const a = 'k1\nD1\nk2\nk3\nk4\nk5\n中文 abc\n';
+  const b = 'k1\nZ1\nk2\nk3\nk4\nk6\n中文 abcd\n';
+  for (const o of [{}, { ws: true }, { case: true }]) {
+    const r1 = dLines(a, b, o);
+    const r2 = dLines(a, b, o);
+    assert.deepEqual(r2.ops, r1.ops);
+    assert.deepEqual(r2.stats, r1.stats);
+    assert.equal(r2.cost, r1.cost);
+    assert.deepEqual([...r2.inlineByKey.keys()], [...r1.inlineByKey.keys()], '行内细化按文档顺序记账，两次必须同序同集合');
+    assert.deepEqual(dHunks(r2, 3), dHunks(r1, 3), '连行内分段也得同源：视图层重绘不许变色');
+    assert.equal(dUnified(r2, { context: 1 }), dUnified(r1, { context: 1 }));
+  }
+});
+
+test('X29 MAX_INLINE_WORK 预算：装不下那一对就跳过它，后面装得下的照常细化（跳过不是掐断）', () => {
+  const big = (tag, n) => Array.from({ length: n }, (_, i) => `${tag}${i}`).join(' ');
+  // 一对约 790 枚 token 的行，按 4·rest² 记的就是 249 万格：第一对装得下，第二对同一档装不下
+  const a = [big('p1', 198), big('p2', 198), 'x1', 'x2', 'x3'];
+  const b = [big('q1', 198), big('q2', 198), 'y1', 'y2', 'y3'];
+  const r = dLines(`${a.join('\n')}\n`, `${b.join('\n')}\n`);
+  assert.equal(r.stats.changed, 5, '五对都配上行了：预算掐的是行内细化，不是行级对齐');
+  assert.deepEqual([...r.inlineByKey.keys()], ['0:0', '2:2', '3:3', '4:4'],
+    '预算只掐掉装不下的那一格，后面的小配对照常细化——写成"后面全掐"就少了这一判');
+  assert.equal(r.stats.inlineSkipped, 1);
+  const rows = dHunks(r, Infinity).flatMap((h) => h.rows);
+  assert.equal(rows.find((x) => x.a === 1).inline, null);
+  assert.ok(rows.find((x) => x.a === 2).inline.length > 0, '排在超预算那一对后面的行必须有高亮');
+  assert.ok(X_NOTES.inlineSkipped.includes(String(X_WORK)), `那句要说清预算数额：${X_NOTES.inlineSkipped}`);
+  const again = dLines(`${a.join('\n')}\n`, `${b.join('\n')}\n`);
+  assert.deepEqual([...again.inlineByKey.keys()], [...r.inlineByKey.keys()], '同一档必须可重放，不许"刷新一下又高亮了"');
+  assert.equal(again.stats.inlineSkipped, r.stats.inlineSkipped);
+});
+

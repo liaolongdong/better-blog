@@ -15,8 +15,9 @@
  *   node scripts/verify-plan-blocks.mjs --fix    # 把不等的那些镜像块整块换成磁盘内容，
  *                                                #   只碰唯一候选块，其余一律不动；换完再跑一次
  *
- * 镜像现在分布在**四份计划**里（段 1 + 段 2 `2026-09-26-tools-idcard-page.md`
- * + 段 3 `2026-09-27-tools-codec-page.md` + 段 4 `2026-09-29-tools-json-page.md`，清单权威是下面的 `PLANS`）：
+ * 镜像现在分布在**五份计划**里（段 1 + 段 2 `2026-09-26-tools-idcard-page.md`
+ * + 段 3 `2026-09-27-tools-codec-page.md` + 段 4 `2026-09-29-tools-json-page.md`
+ * + 段 5 `2026-09-30-tools-diff-page.md`，清单权威是下面的 `PLANS`）：
  * 磁盘上 `toolkit-tests.mjs` 的 §E0/§F0 两块代码是段 2 计划贴的，段 1 计划里根本没有。
  * 只认一份计划的旧实现在这儿会产出**两种**错形状——§D 那一节因为下一节没被认成分节而被
  * 一路吞到文件尾（假"逐字节不等"），§E0/§F0 则压根没人核（假"全等"）。所以块按
@@ -57,6 +58,10 @@ const PLANS = [
   // 贴进那份计划——`PLANS` 认了却磁盘上没有对应块，门禁二红的是"新来的这份一条都没核"，
   // 与 §0.7 那条"登记方向跟着磁盘走"是同一条纪律的两面。
   { rel: '_docs/superpowers/plans/2026-09-29-tools-json-page.md', tag: '段4' },
+  // 段 5（文件对比页）2026-09-30 起接手 §X–§Z。加这一条的同一格就要把 `diff-core.js` 的镜像块
+  // 贴进那份计划——同上面段 4 那一条立的规矩：`PLANS` 认了却磁盘上没有对应块，
+  // 门禁二红的是"新来的这份一条都没核"，登记方向跟着磁盘走。
+  { rel: '_docs/superpowers/plans/2026-09-30-tools-diff-page.md', tag: '段5' },
 ];
 
 /**
@@ -176,6 +181,14 @@ const FILE_TARGETS = [
   'tools-json.html',
   'dev/sass/toolJson.scss',
   'assets/img/tools/json-tool.svg',
+  // 段 5 Task 2：`diff-core.js` 落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走不跟着计划走）。
+  // 它是本清单里第一本**自带算法**的模块——不 import 任何本地文件、不碰 DOM、不读环境，
+  // 全部承诺都在那五条口径和 §X 那二十九判上。镜像在这里另有两重用处：
+  // ① `MAX_COST` / `MAX_INLINE_TOKENS` / `MAX_INLINE_WORK` 三个数是 spec §7 那一行"输入硬上限"
+  // 复算的现场（spec 故意不抄数字），计划里这一份就是第二处可对账的地方；
+  // ② X4/X5 的对拍尺子写在测试那半边，实现这一边漂一格（比如把 `mergeRuns` 的归一去掉），
+  // 红的是这两格一起红——计划里的镜像留得住"当时那 1200×900 的降级块到底长什么样"。
+  'dev/js/tools/diff-core.js',
 ];
 
 /**
