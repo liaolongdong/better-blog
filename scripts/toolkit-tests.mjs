@@ -44,7 +44,11 @@
  *                W1–W18 立那六条红线，W19–W27 是同一 Task 的评审回合补的九判（八枚 helper 的产出
  *                字面量、十二枚动作逐个按一遍、树的点击代理、下载、存储一碰就抛、两枚复制、
  *                树的化石、代价说明上页、读条只取窗口）
- *   合计 363。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   §X 行级与 token 级对齐引擎 29 —— `diff-core.js`：最短性（与朴素 LCS 对拍）、降级、归一化只进判等、
+ *                CRLF 与末行换行、行内 token 与预算、配对与五个统计量、unified 与折叠（段 5 Task 2）
+ *   §Y JSON 感知比对 18 —— `diff-json.js`：与 `json-core` 的**对拍**（Y1，三件同结论）、键顺序无关、
+ *                类型变化单列、Pointer 同规则、预览截断不切代理对、数组按索引、两个预算闸门（段 5 Task 3）
+ *   合计 410。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -13971,5 +13975,338 @@ test('X29 MAX_INLINE_WORK 预算：装不下那一对就跳过它，后面装得
   const again = dLines(`${a.join('\n')}\n`, `${b.join('\n')}\n`);
   assert.deepEqual([...again.inlineByKey.keys()], [...r.inlineByKey.keys()], '同一档必须可重放，不许"刷新一下又高亮了"');
   assert.equal(again.stats.inlineSkipped, r.stats.inlineSkipped);
+});
+
+// ── §Y JSON 感知比对（`tools/diff-json.js`，段 5 Task 3）─────────────────────
+// 这一族钉两件事：**两本独立实现必须同结论**，以及**这一页的比对口径只有一套**。
+// §0.4 那条构建层的硬约束（`json-core.js` 已被 `toolJson.js` 那一个入口 reach，第二本入口再 reach 它
+// 就被 Rollup 切成共享 chunk → 整页 SyntaxError 而构建 exit=0）换来的代价全在 Y1：
+// **自带一份读侧不等于"复制一份就完事"**——同一批样本喂两本，合法/非法、非法时的行列、解出的值
+// 三件必须同结论，先例是 §B 的"与站内旧库对拍"（两个独立实现同结论才算过）。
+// 比对口径写死在这里，实现不许自创第二套：
+//   · 对象按**键名**比、键顺序无关，只有顺序不同判 `same-key-order`，不许判 `same`（Y3）；
+//   · 数组按**索引**比，"把 x[3] 挪到 x[1]"报成一串改而不是一处移动（Y5，spec §5.6 明写不做）；
+//   · 两侧类型档不同单列一档 `type`，并且**不再往里比**（Y4、Y14）——`null` 是一种值，不是"没有值"；
+//   · 一侧存在另一侧缺席是一档 `add` / `remove`，**整棵子树只报一格**（Y9）；
+//   · Pointer 与 `json-core` 那份逐字符同规则，转义先 `~` 后 `/`（Y6、Y7）；
+//   · 深度闸门 `MAX_DEPTH` 两本必须是同一个数，而 `diff-json.js` 源码里 `json-core` 出现 **0 次**（Y2）；
+//   · 字节与行数两档闸门**只有 `diff-core.gate` 一处口径**、按侧判（Y16），`readJson` 自己不设闸门；
+//   · `stats.compared` 数的是"两侧都有节点、因此逐格判过一次"的格数（判出不一致的也算判过）。
+// §X 那两份顶层常量（`X_BYTES` / `X_HUGE` / `X_TOO_MANY` / `dGate`）在本节直接复用——
+// 同一把尺要由同一个变量递过去，重新 import 一遍就成了两份。
+const {
+  MAX_DEPTH: Y_DEPTH, MAX_CHANGES: Y_CHANGES, PREVIEW_CHARS: Y_PREVIEW,
+  readJson: yRead, pointerOf: yPointer, diffJson: yDiff, DIFF_JSON_NOTES: Y_NOTES,
+} = await import('../dev/js/tools/diff-json.js');
+
+/** 剥注释扫源码：闸门与 import 面只看代码，不看文档里的自我声明（与 §S 的 sCode 同一形状） */
+const yCode = () => read('dev/js/tools/diff-json.js')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+/**
+ * 对拍用的好样本，每条各挑一件事（写死的串，不是生成时现造——红了第二次要能原样重放）：
+ * 空白与 BOM、转义与 `\u`、代理对与**落单**的半个、`__proto__`、重复键、数字的各档形状、空容器、深容器。
+ */
+const Y_GOOD = [
+  '{}', '[]', 'null', 'true', 'false', '0', '-0', '1e2', '3.5e-2',
+  '{"a":1,"b":[1,2,{"c":"d"}]}',
+  '{"a":{"a":{"a":[]}}}',
+  '  \t\n{"k" : [ 1 , 2 ] }\r\n',
+  '{"e":"\\u00e9\\n\\t\\"\\\\/"}',
+  '{"emoji":"😀🦄","中":"键"}',
+  '{"__proto__":{"polluted":1},"constructor":"x"}',
+  '{"dup":1,"dup":2}',
+  '\ufeff{"bom":true}',
+  '{"neg":-1.5e-3,"max":1.7976931348623157e308}',
+  '{"deep":[[[[[[1]]]]]]}',
+  '{"esc":"\\ud83d\\ude00","lone":"\\ud83d"}',
+  '{"s":"a\\/b\\tc \u007f"}',
+  '{"n":null,"m":"","z":[]}',
+  '[null,false,true,0,-0,"",[],{}]',
+  '{"a":[[1],[2],{"b":null}],"c":{},"d":"x"}',
+];
+
+/** §S 那 20 格没走到的分支：`colon` 与 `sep` 两个状态、第二个 BOM、串内换行与没闭合到 EOF 的串 */
+const Y_BAD_EXTRA = ['1e999', '{"a" 1}', '[1 2]', '{"a":}', '{"a":1\'}', '\ufeff\ufeff{}',
+  '{"k":v}', '[,]', '{"a":1,,"b":2}', 'tru', '{"a":[1,2]', '{"a":1}}', '{"a":"x', '{"a":"b\nc"}'];
+
+test('Y1 与 json-core 对拍：同一批样本两本读侧三件同结论（合法/非法、非法的行列、解出的值）', () => {
+  const bad = S_BAD.map(([id, text]) => [id, text === null ? '['.repeat(MAX_DEPTH + 1) : text]);
+  for (const [k, t] of Y_BAD_EXTRA.entries()) bad.push([`Y1x${k}`, t]);
+  const good = Y_GOOD.map((t, k) => [`Y1g${k}`, t]);
+  assert.equal(bad.length, 34, '样本集是本格的承重墙：§S 那 20 格一格都不许掉，少的这一格就是少的那一片分支');
+  assert.ok(good.length >= 24, '好样本缩到一组以下，对拍就退化成"两边都收"');
+  for (const [tag, src] of [...bad, ...good]) {
+    const p = parseJson(src);
+    const r = yRead(src);
+    assert.equal(r.ok, p.ok, `${tag} 的合法/非法结论必须同：${JSON.stringify(src.slice(0, 24))}`);
+    if (p.ok) {
+      assert.deepStrictEqual(r.value, p.value, `${tag} 解出的值必须逐格同（键序与原型污染那两处最容易分叉）`);
+    } else {
+      assert.equal(r.kind, p.error.kind, `${tag} 的 kind —— ${JSON.stringify(src.slice(0, 24))}`);
+      assert.equal(r.line, p.error.line, `${tag} 的 line —— 位置差一格和没报错一样有害`);
+      assert.equal(r.column, p.error.column, `${tag} 的 column —— 数的是 UTF-16 码元，一个 emoji 占两列`);
+      assert.ok(typeof r.reason === 'string' && r.reason.length > 0, `${tag} 要给得出那句人话`);
+    }
+  }
+  // 量具自己要有牙：八类 kind 必须由这批样本**真的**踩到，否则"两边都拒"可能只是拒在同一处
+  const kinds = new Set(bad.map(([, t]) => yRead(t).kind));
+  for (const k of ['empty', 'unterminated', 'unexpected-char', 'bad-escape', 'bad-number',
+    'unterminated-string', 'depth', 'trailing']) {
+    assert.ok(kinds.has(k), `样本集没踩到 ${k} 那一类，这一族的对拍对它就没有牙`);
+  }
+});
+
+test('Y2 深度闸门两本是同一个数，而 diff-json.js 的源码里 json-core 出现 0 次（§0.4 那条构建红线）', () => {
+  assert.equal(Y_DEPTH, MAX_DEPTH, 'MAX_DEPTH 分叉 = 同一份输入两页一个收一个拒');
+  assert.equal(Y_DEPTH, 1000, '改这一档要同时改 json-core、spec §7 与本判据，三处一起才算数');
+  const src = yCode();
+  assert.equal(src.includes('json-core'), false,
+    '自带一份的前提是真的不 import：两本入口 reach 同一模块就是共享 chunk，包完整页 SyntaxError');
+  const declared = src.match(/export const MAX_DEPTH = (\d+);/);
+  assert.ok(declared, '深度那一档在源码里必须是写死的字面量，不许从别处读');
+  assert.equal(declared[1], String(Y_DEPTH));
+  assert.equal(yRead('['.repeat(Y_DEPTH + 1)).kind, 'depth', '第 1001 层容器照样拒，与 json-core 同档');
+});
+
+test('Y3 键顺序无关：只有顺序不同判 same-key-order 而不是 same，数组换了位置仍判 diff', () => {
+  for (const [a, b] of [
+    ['{"b":2,"a":1}', '{"a":1,"b":2}'],
+    ['{"x":{"b":2,"a":1},"y":[1]}', '{"x":{"a":1,"b":2},"y":[1]}'],
+  ]) {
+    const r = yDiff(a, b);
+    assert.equal(r.verdict, 'same-key-order', `${a} ↔ ${b} 只差键顺序，直接报"完全相同"是这一页最容易说谎的一处`);
+    assert.equal(r.changes.length, 0, '顺序差不是变更，列出来就是把同一件事说两遍');
+    assert.equal(r.truncated, false);
+    assert.strictEqual(r.error, null);
+    assert.ok(r.stats.compared > 0, '这一档仍然真的比过，compared 不许跟着变 0');
+  }
+  assert.equal(yDiff('{"a":1,"b":2}', '{"a":1,"b":2}').verdict, 'same', '逐格同序才配得上 same');
+  assert.equal(yDiff('[1,2]', '[2,1]').verdict, 'diff', '数组按索引比，换了位置就是两处不同（Y5 那一句）');
+  assert.equal(yDiff('{"a":[1,2]}', '{"a":[1,2]}').verdict, 'same');
+});
+
+test('Y4 类型变化单列一档 type：1→"1"、{}→[]、null→缺键 三档各自的 kind 与 aType/bType', () => {
+  const one = yDiff('{"v":1}', '{"v":"1"}');
+  const c1 = one.changes[0];
+  assert.equal(c1.kind, 'type', '类型变了不许混进 change——那两个数读出来是两回事');
+  assert.deepEqual([c1.pointer, c1.aType, c1.bType, c1.owner, c1.depth], ['/v', 'number', 'string', 'both', 1]);
+  assert.deepEqual([one.stats.type, one.stats.change], [1, 0], 'change 那一档必须真的是 0');
+  const two = yDiff('{}', '[]').changes[0];
+  assert.deepEqual([two.kind, two.pointer, two.aType, two.bType], ['type', '', 'object', 'array']);
+  const three = yDiff('{"a":null}', '{}').changes[0];
+  assert.equal(three.kind, 'remove', 'null 是值、缺键是没有值，两档不许并成一档');
+  assert.deepEqual([three.aType, three.bType], ['null', 'absent']);
+  const four = yDiff('{"a":null}', '{"a":1}').changes[0];
+  assert.equal(four.kind, 'type', 'null 与 number 也是两档——null 是一种值，不是"没有值"');
+  assert.equal(yDiff('{"a":[1]}', '{"a":{"0":1}}').changes[0].kind, 'type', '数组与对象在同一路径下就是类型变');
+  assert.equal(yDiff('{"a":1}', '{"a":[1]}').changes[0].kind, 'type');
+  assert.equal(yDiff('{"a":1}', '{"a":[1]}').changes.length, 1, '类型变之后不再往里比，免得把一格报成两格');
+});
+
+test('Y5 数组按索引比：中间插一项会报成一串改，这是设计而不是缺陷，那句说明必须给得出', () => {
+  const r = yDiff('[1,2,3,4]', '[1,9,2,3,4]');
+  assert.equal(r.verdict, 'diff');
+  assert.deepEqual(r.changes.map((c) => [c.pointer, c.kind, c.owner]),
+    [['/1', 'change', 'both'], ['/2', 'change', 'both'], ['/3', 'change', 'both'], ['/4', 'add', 'only-b']],
+    '把 9 插在中间，报的是"其后每一格都变了"——识别移动这件事本站明写不做');
+  assert.deepEqual([r.stats.change, r.stats.add, r.stats.remove, r.stats.type], [3, 1, 0, 0]);
+  assert.ok(Y_NOTES.arrayMove.includes('索引') && Y_NOTES.arrayMove.includes('移动'),
+    `那句要说清"按索引比"与"不识别移动"：${Y_NOTES.arrayMove}`);
+});
+
+test('Y6 Pointer 的转义与 json-core 那份逐字符同规则：~、/、空串键、数字键四种', () => {
+  for (const k of ['~', '/', '', '0', '10', 'a/b', 'a~b', '~/']) {
+    assert.equal(yPointer([k]), toPointer([k]), `${JSON.stringify(k)} 这一段两本必须编出同一个串`);
+    assert.deepEqual(fromPointer(yPointer([k])), { ok: true, segments: [k] },
+      '编出去还得解得回来，且解回原样——指针是给用户粘进 RFC 6901 的实现里用的');
+  }
+  assert.equal(yPointer(['a', 'b/c', 3]), toPointer(['a', 'b/c', 3]), '数字段两本都按十进制字符串进指针');
+  assert.equal(yPointer([]), '', '根那一格就是空串，与 json-core 的 toPointer([]) 同形');
+  const r = yDiff('{"a/b":1,"c~d":2}', '{"a/b":9,"c~d":8}');
+  assert.deepEqual(r.changes.map((c) => c.pointer), ['/a~1b', '/c~0d']);
+  assert.deepEqual(yDiff('{"":1}', '{"":2}').changes.map((c) => c.pointer), ['/'],
+    '空串键的指针是一格 /，与根那个空串不是同一格');
+});
+
+test('Y7 转义次序钉死：先 ~ 后 /，两趟反过来会把 ~1 再转义一次', () => {
+  assert.equal(yPointer(['~1']), '/~01', '键名本身写着 ~1 时必须编成 ~01；先 / 后 ~ 的两趟写法会解错');
+  assert.equal(yPointer(['~/']), '/~0~1', '这一格是两种次序唯一能分开的形状：反过来得到的是 ~0~01');
+  assert.equal(yPointer(['~01']), '/~001');
+  for (const k of ['~1', '~0', '/~', '~01', '~0~1']) {
+    assert.deepEqual(fromPointer(yPointer([k])), { ok: true, segments: [k] }, `${k} 必须原样回来`);
+  }
+});
+
+test('Y8 预览串：越 PREVIEW_CHARS 才带省略号，切点不许切断代理对', () => {
+  const lone = 'x'.repeat(Y_PREVIEW - 2) + '😀' + 'z';
+  const preview = yDiff(`{"a":"${lone}"}`, '{"a":"other"}').changes[0].aPreview;
+  assert.equal(preview, `"${'x'.repeat(Y_PREVIEW - 2)}…`,
+    '切点正好落在代理对中间：那一枚高位代理项必须退回，省略号还要算进预算内');
+  assert.ok(preview.length <= Y_PREVIEW, `预算是含省略号的总长：${preview.length} > ${Y_PREVIEW}`);
+  for (let k = 0; k < preview.length; k++) {
+    const c = preview.charCodeAt(k);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const nx = preview.charCodeAt(k + 1);
+      assert.ok(nx >= 0xdc00 && nx <= 0xdfff, `切出孤立高位代理项（第 ${k} 格），交出去的就不再是合法 JSON`);
+      k += 1;
+    } else assert.ok(!(c >= 0xdc00 && c <= 0xdfff), `第 ${k} 格是孤立低位代理项`);
+  }
+  const short = yDiff('{"a":"1"}', '{"a":"2"}').changes[0];
+  assert.deepEqual([short.aPreview, short.bPreview], ['"1"', '"2"'], '没越线就一个字符都不许切');
+  assert.deepEqual([yDiff('{"a":[1,2,3]}', '{"a":"x"}').changes[0].aPreview,
+    yDiff('{"a":{"b":1}}', '{"a":"x"}').changes[0].aPreview], ['[1,2,3]', '{"b":1}'],
+    '容器给的是紧凑形式，不是"（对象）"这种没信息量的占位');
+  const wide = yDiff(`{"a":{"k":"${'y'.repeat(Y_PREVIEW + 40)}"}}`, '{"a":1}');
+  assert.ok(wide.changes[0].aPreview.length <= Y_PREVIEW, '整棵子树一起压进预算，不许先拼再切出天文数字');
+});
+
+test('Y9 owner 三档在深层路径下的形状：缺席一侧给 null 预览，整棵子树只报一格', () => {
+  const add = yDiff('{}', '{"a":{"b":{"c":[1,2]}}}').changes;
+  assert.equal(add.length, 1, '新增一整棵子树是一格变更，摊成五格就是把同一个决定说五遍');
+  assert.deepEqual([add[0].pointer, add[0].kind, add[0].owner, add[0].depth, add[0].aPreview, add[0].aType],
+    ['/a', 'add', 'only-b', 1, null, 'absent']);
+  assert.equal(typeof add[0].bPreview, 'string', '在场那一侧的预览照给，否则这一格读起来是空的');
+  const rm = yDiff('{"a":{"b":1}}', '{}').changes;
+  assert.deepEqual([rm[0].pointer, rm[0].kind, rm[0].owner, rm[0].aType, rm[0].bPreview],
+    ['/a', 'remove', 'only-a', 'object', null]);
+  const both = yDiff('{"a":{"b":[0,{"z":1}]}}', '{"a":{"b":[0,{"z":2}]}}');
+  assert.deepEqual([both.changes.length, both.changes[0].pointer, both.changes[0].owner, both.changes[0].depth],
+    [1, '/a/b/1/z', 'both', 4]);
+  assert.deepEqual([both.changes[0].aPreview, both.changes[0].bPreview], ['1', '2']);
+  assert.equal(yDiff('[1]', '[]').changes[0].owner, 'only-a', '数组尾部少一项是 remove，指针是那个下标');
+});
+
+test('Y10 一侧非法：error.which 点名是哪一侧，另一侧即使合法也不比', () => {
+  const r = yDiff('{', '1');
+  assert.equal(r.verdict, 'invalid');
+  assert.deepEqual([r.error.which, r.error.line, r.error.column], ['a', 1, 2], '行列给的是坏的那一侧');
+  assert.equal(r.error.reason, yRead('{').reason, '那句理由直接来自读侧，不在这里另编一套');
+  assert.deepEqual([r.changes.length, r.truncated, r.stats], [0, false,
+    { add: 0, remove: 0, change: 0, type: 0, compared: 0, depth: 0 }], '坏输入那一档七个数全给 0，而不是"没有这一格"');
+  const b = yDiff('1', '[1,');
+  assert.deepEqual([b.error.which, b.error.line, b.error.column], ['b', 1, 4]);
+  assert.equal(b.changes.length, 0, '一侧坏了就不比——比出来的表会把人引向另一侧');
+});
+
+test('Y11 两侧都非法：which 是 both，行列报 A 那一侧，两句理由都给', () => {
+  const r = yDiff('{', "'a':1");
+  assert.equal(r.verdict, 'invalid');
+  assert.equal(r.error.which, 'both');
+  const ea = yRead('{').reason;
+  const eb = yRead("'a':1").reason;
+  assert.deepEqual([r.error.line, r.error.column], [1, 2], '顺序口径写死：两侧都坏时报 A 的行列');
+  assert.ok(r.error.reason.includes(ea) && r.error.reason.includes(eb),
+    `两侧都坏时不许只说一侧：${r.error.reason}`);
+  assert.equal(r.error.reason.includes('B'), true, '那一句要让人知道两侧都得修');
+});
+
+test('Y12 MAX_CHANGES 越线：truncated 为真、只列前 5000 格，四个计数仍是全量', () => {
+  const over = Array.from({ length: Y_CHANGES + 1000 }, (_, k) => `"k${k}":1`).join(',');
+  const r = yDiff('{}', `{${over}}`);
+  assert.equal(r.truncated, true);
+  assert.equal(r.changes.length, Y_CHANGES, '列出的格子必须正好卡在预算上，多一格都不许');
+  assert.equal(r.stats.add, Y_CHANGES + 1000, '截了列表不许顺手把总数也截了——那句"还有没列出的"靠它');
+  assert.equal(r.verdict, 'diff');
+  assert.ok(Y_NOTES.truncated.includes(String(Y_CHANGES)), `那句要给得出预算数额：${Y_NOTES.truncated}`);
+  const under = yDiff('{}', `{${Array.from({ length: Y_CHANGES - 1 }, (_, k) => `"k${k}":1`).join(',')}}`);
+  assert.equal(under.truncated, false, '卡在线上那一格以内不许报截断——报了就是又一次说谎');
+  assert.equal(under.changes.length, Y_CHANGES - 1);
+});
+
+test('Y13 stats 四档与 changes 自洽：compared 与 depth 按构造算得出', () => {
+  const r = yDiff('{"a":1,"b":{"c":3},"d":[1,2],"x":true}', '{"a":"1","b":{"c":3},"d":[1,2,9],"y":null}');
+  assert.deepEqual(r.stats, { add: 2, remove: 1, change: 0, type: 1, compared: 7, depth: 2 },
+    'compared 数的是"两侧都有节点、因此逐格判过一次"的格数（根与 /a 那格判出不一致也算判过）');
+  for (const kind of ['add', 'remove', 'change', 'type']) {
+    assert.equal(r.changes.filter((c) => c.kind === kind).length, r.stats[kind],
+      `${kind} 的计数必须等于它自己那一档的条数`);
+  }
+  assert.equal(r.changes.length, r.stats.add + r.stats.remove + r.stats.change + r.stats.type,
+    '不截断时四档之和就是列出的格数——这是"没有静默丢"的唯一可读证据');
+  assert.deepEqual(r.changes.map((c) => c.kind), ['type', 'add', 'remove', 'add'],
+    '变更按文档顺序给：先 A 侧的键、再 B 侧多出来的键，同一份输入两次同序');
+});
+
+test('Y14 空档：{} vs {}、[] vs [] 判 same，{} vs [] 是 type，空容器与缺席键不是一回事', () => {
+  for (const t of ['{}', '[]', '0', '""']) {
+    const r = yDiff(t, t);
+    assert.equal(r.verdict, 'same', `${t} 与自己比必须判 same`);
+    assert.deepEqual([r.changes.length, r.stats.compared, r.stats.depth], [0, 1, 0]);
+  }
+  const e = yDiff('{}', '[]');
+  assert.deepEqual([e.verdict, e.changes.length, e.changes[0].kind, e.changes[0].pointer],
+    ['diff', 1, 'type', ''], '空对象与空数组是类型变，不是"都空所以相同"');
+  assert.equal(yDiff('{}', '{"a":{}}').changes[0].kind, 'add');
+  assert.equal(yDiff('{"a":{}}', '{"a":{}}').verdict, 'same', '空容器相等，不许因为"没内容"就漏报成两侧缺席');
+  assert.equal(yDiff('[]', '[1]').changes[0].kind, 'add');
+  assert.deepEqual([yDiff('', '').verdict, yDiff('', '').error.which], ['invalid', 'both'],
+    '两侧都空是"没内容可读"，不是"两份空文件相同"');
+});
+
+test('Y15 depth 读数：每下一段加一，根那一格是 0，1000 层的合法输入照样走得完', () => {
+  const build = (leaf, levels) => {
+    let v = String(leaf);
+    for (let k = 0; k < levels; k++) v = `{"a":${v}}`;
+    return v;
+  };
+  const r = yDiff(build(1, 8), build(2, 8));
+  assert.equal(r.changes.length, 1);
+  assert.equal(r.changes[0].pointer, '/a/a/a/a/a/a/a/a');
+  assert.deepEqual([r.changes[0].depth, r.stats.depth], [8, 8]);
+  assert.equal(r.changes[0].aPreview, '1', '叶子那一格的预览就是它自己');
+  const deep = yDiff(build(1, Y_DEPTH), build(2, Y_DEPTH));
+  assert.equal(deep.changes.length, 1, '1000 层比栈深敏感——这一族走的是显式栈，抛 RangeError 就是整页空白');
+  assert.deepEqual([deep.changes[0].depth, deep.stats.depth], [Y_DEPTH, Y_DEPTH]);
+  assert.equal(deep.truncated, false);
+});
+
+test('Y16 入参口径：非字符串抛 TypeError，字节与行数两档走 diff-core 那一把尺（按侧判）', () => {
+  for (const [name, call] of [
+    ['readJson', () => yRead(1)], ['readJson', () => yRead(null)], ['readJson', () => yRead(['{"a":1}'])],
+    ['diffJson(textA, textB)', () => yDiff(1, '1')], ['diffJson(textA, textB)', () => yDiff('1', undefined)],
+    ['pointerOf(segments)', () => yPointer('a')], ['pointerOf(segments)', () => yPointer(null)],
+  ]) {
+    assert.throws(call, (e) => e instanceof TypeError && e.message.includes(name),
+      `${name} 要抛点名的 TypeError——入参形状不对是调用侧的错，不许咽进返回值`);
+  }
+  const bytes = yDiff(X_HUGE, '1');
+  assert.equal(bytes.verdict, 'invalid', '闸门排在读之前，不许先把 5MB 解析完再拒');
+  assert.deepEqual([bytes.error.which, bytes.error.line, bytes.error.column], ['a', null, null],
+    '闸门这一档没有"出错的那一格"可指，行列给 null 而不是硬编一个 1');
+  assert.ok(bytes.error.reason.includes(String(X_BYTES)) && bytes.error.reason.includes(String(X_BYTES + 7)),
+    `那句要给得出上限与实测：${bytes.error.reason}`);
+  assert.equal(dGate(X_HUGE, '1').over.bytesA, 7, '同一把尺：这一档的差额由 diff-core 的 gate 出，不是第二套');
+  assert.equal(yDiff('1', X_HUGE).error.which, 'b',
+    '按侧判不按两侧合计判——合起来判会让"一侧塞满、一侧空着"整页不可用');
+  const lines = yDiff(X_TOO_MANY, '1');
+  assert.ok(lines.error.reason.includes(String(X_LINES)), `行数那一档说的是行数：${lines.error.reason}`);
+  assert.equal(lines.error.reason.includes(String(X_LINES + 3)), true, '上限之外还要给实测');
+});
+
+test('Y17 数字口径按值不按字面：1 与 1.0 与 1e0 同值，"1" 是 type，1 与 1.5 是 change', () => {
+  assert.equal(yDiff('1', '1.0').verdict, 'same');
+  assert.equal(yDiff('1', '1e0').verdict, 'same');
+  assert.equal(yDiff('{"n":[1,1.0,1e0]}', '{"n":[1,1,1]}').verdict, 'same', '数组里的数字同口径');
+  assert.equal(yDiff('-0', '0').verdict, 'same', '按 JSON 值判就是按 === 判：-0 与 0 是同一个数');
+  assert.equal(yDiff('1', '0').verdict, 'diff', '别把 1 和 0 看成同值');
+  assert.equal(yDiff('1', '"1"').changes[0].kind, 'type');
+  assert.equal(yDiff('1', '1.5').changes[0].kind, 'change');
+  assert.equal(yDiff('1e2', '100').stats.compared, 1, '同值那一档只判一根格，不许因为字面不同就多比一次');
+});
+
+test('Y18 DIFF_JSON_NOTES 六句各管一件事：非空、带自己那个数、不许留占位（上页面那一半由 §Z 接）', () => {
+  const keys = ['keyOrder', 'arrayMove', 'typeChange', 'truncated', 'depth', 'previewCut'];
+  assert.deepEqual(Object.keys(Y_NOTES), keys, '六句就是六句，多一句少一句都得先改 §1.2 的契约');
+  for (const k of keys) {
+    assert.equal(typeof Y_NOTES[k], 'string', `缺 ${k} 那一句`);
+    assert.ok(Y_NOTES[k].length > 20, `${k} 那句短得不像在说一件事：${Y_NOTES[k]}`);
+    assert.notEqual(Y_NOTES[k], '…', '起草时契约里写的就是这个占位串，落地时不许原样留着');
+  }
+  assert.ok(Y_NOTES.keyOrder.includes('键顺序'), Y_NOTES.keyOrder);
+  assert.ok(Y_NOTES.typeChange.includes('类型'), Y_NOTES.typeChange);
+  assert.ok(Y_NOTES.depth.includes(String(Y_DEPTH)), `深度那句要给得出闸门：${Y_NOTES.depth}`);
+  assert.ok(Y_NOTES.previewCut.includes(String(Y_PREVIEW)), `预览那句要给得出长度：${Y_NOTES.previewCut}`);
+  assert.ok(Y_NOTES.truncated.includes('截'), `截断那句要明说"后面还有没列出的"：${Y_NOTES.truncated}`);
 });
 
