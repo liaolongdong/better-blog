@@ -492,7 +492,22 @@ Modify 本计划（镜像块 + 判据表勾选）。
       `inlineByKey` 只红 X12；把 first-fit 改成 latch 只红 X29；摘掉 `mergeRuns` 的规范化红 15 判。
       三刀全部按 `md5` 还原回基线（第四刀"末行标记"因分类器中途把一条 Bash 拦了下来，
       当场用 Edit 回退并 `md5 -q` 自证与基线相同，没有留在工作树里）。
-- [ ] **Step 5：提交** `feat(tools): 段 5 Task 2 行级对齐引擎——diff-core 与 §X 二十九判`。
+- [x] **Step 5：提交** `feat(tools): 段 5 Task 2 行级对齐引擎——diff-core 与 §X 二十九判`。
+      落笔 = `76cef84`（`be5246b` → `76cef84`，`git update-ref` 的 CAS 带旧 sha）。
+      pathspec 四件：`dev/js/tools/diff-core.js`（新）/ `scripts/toolkit-tests.mjs` /
+      `scripts/verify-plan-blocks.mjs` / 本计划，`git show --stat` 读到 `3548 insertions(+) / 15 deletions(-)`
+      且**只有这四行**；另一路会话压在索引上的 **16 格一格不少**（`USAGE.md` 仍是 `1/76`、
+      spec 仍是 `0/17`），它的工作树文件一件没动。
+      **提交态自证**（`git archive HEAD` 整份导出 → 三道人真跑）：门禁① `392/392` 退 0、
+      门禁② 退 0（`67` 块已落地镜像全等、`未落地 0 节`）、门禁③ **37/37** 退 0。
+      两处形状要记：① **导出树必须先 `git init`**——门禁③ 末尾那句"实验前后工作树脏指纹一字不差"
+      拿的是 `git status --porcelain`，裸导出树里它是 `fatal: not a git repository`，
+      脚本连一项都没跑就崩（项目记忆里"门禁三要先在导出树 git init"那条，本次第二次撞上）；
+      ② **稀疏导出会造四道假红**：只 `git archive HEAD scripts dev _docs` 时 B14 / K18 / N19 / U5
+      四判 ENOENT（缺 `demo/`、`vite.config.js`、`package.json`、`pnpm-lock.yaml`），
+      门禁② 也跟着报 7 个目标缺席（缺 `_data/`、`assets/`、`tools/`）——**自证要整份导出**，
+      少一块就少一批被核的对象，那种红是量具的红。
+      时间跨了零点是真跨了：`2026-09-30` 开工、`2026-10-01` 落笔，本文件的日期与文件名仍按开工那天。
 
 ### 落地镜像（门禁二核的就是这一块，`--fix` 会把它整块换成磁盘内容）
 
