@@ -185,7 +185,7 @@ T-c 在骨架里私自多写一枚 `id="df-tree-diff-a"` 而 `nodes` 里没有 `
 | 本节 Task 6 Step 1 起草时写的循环 `{%- for side in (array: 'a,b') -%}` | 改成 `{%- assign df_sides = 'a,b' | split: ',' -%}` + `{%- for side in df_sides -%}` | `(array:)` 是 Shopify 主题液的字面量数组语法，本仓库的 liquid 解到冒号就报 `Liquid Warning: Expected dotdot but found colon` 并把**整个 tag 渲染成空**：`jekyll build` 退 0、产物里 `df-area` 命中 **0**、A/B 两栏整块不存在，而门禁⑤ 全绿——它比的 `data-df-ids`、按钮文案、`{p}-in-…` 那几族里，凡在别处找得到的都不红，没有一条要求"必须存在两栏"。这与门禁① 文件头点名的 `{% for x in data \| where: … %}` 是同一个病的**新形状**：`bundle exec jekyll build` 输出里那行 `Liquid Warning` 是判据，退出码不是 |
 | spec §6.4「`selectorBlackList` 那两条前缀」 | 落**三串**：`'.tk-'` / `'.jt-'` / `'.df-'`，并把那一格上方"在线工具三页 / 这两串"的说明同步改成"四页 / 这三串"；spec 那一格留给 Task 9 回写 | 黑名单前缀是**按页**发的，不是按"工具页"这个概念发的。`--df-row-h` 那把尺一旦被 `px→vw` 改写，入口 `getComputedStyle` 读回来的就是 vw 串，跳转换算与样式里的行块高度不再是同一个数（§0.5 那条"改 postcss 配置要重启 watcher"的坑同一条线）。产物自证：`grep -o 'vw' assets/css/toolDiff.min.css \| wc -l` = 0 |
 | §0.3(b)「登记第四格会让每一页变长，先量后立」 | 量到：A/B 两棵副本共同 **837** 份产物里 **105** 份有差，正差合计 **13,145B gz、负差 0**；渲染顶栏下拉的每一页 **+704 raw / +99–121 gz**（文章页、about、首页都在这族），`tools.html` +3,342 / +639、`index-all.html` +1,048 / +160、`llms.txt` +326 / +141；`tools/diff.html` 从"查无条目"的 31,520B 变成 45,774B | 这一格是全段唯一动到**每一页**的改动（顶栏下拉多一行），证件页首屏那一格（§7 最小格 544B / 3.3%）的余量必被吃掉一截。数字来自"同一份工作树、只差 yml 那一格"的两次独立 `jekyll build`（`rsync -a` 排除 `_site/.git/vendor/node_modules/.jekyll-cache/demo`，两份 `--destination` 各指回自己那棵，跑完 `md5 -q _data/onlineTools.yml` 仍是 B 那份），Task 7 Step 5 直接续这份账 |
-| 门禁⑤「收录」组那三条判据原本的写法：拿**整页** `tools.html` 比，"这一串出现过就算对" | 收到**每一小节自己那一段**——新增 `toolsSectionOf(toolsHtml, slug)`，从 `<section … id="online-<slug>">` 起按 `<section>`/`</section>` 计数配平取段；徽章、面板锚点、纯文本要点三条都改拿这一段比对，段缺失就先记一条"整节不在"再交回 | 第四格进来之后 `14 个动作` 与 `5 块面板` **各自出现两次**，"改坏任何一节、另一节还替它答是"：门禁⑥ 的「tools.html 的徽章数字与数据源脱钩」那一刀注入后门禁仍是绿的（台账 `60/61`），它把 `14 个动作` 的第一处（json 段 698 行）改成 `12`，而 diff 段 740 行仍是原串。**修的是作用域，不是判据**：没把它改成 `replaceAll`（那会误伤"两节同串"这种完全合法的形状，也仍然证不了"数的是自己那一节"）。台账同步加 `badgeInSection`（按节标记定位而不是按出现顺序，没命中就**抛**——`String.replace` 找不到目标是原样返回的，静默 no-op 正是假牙的制造工序），并补 codec 那一枚 `5 块面板` 与 diff 那一格的四把刀，`66/66` |
+| 门禁⑤「收录」组那三条判据原本的写法：拿**整页** `tools.html` 比，"这一串出现过就算对" | 收到**每一小节自己那一段**——新增 `toolsSectionOf(toolsHtml, slug)`，从 `<section … id="online-<slug>">` 起按 `<section>`/`</section>` 计数配平取段；徽章、面板锚点、纯文本要点三条都改拿这一段比对，段缺失就先记一条"整节不在"再交回 | 第四格进来之后 `14 个动作` 与 `5 块面板` **各自出现两次**，"改坏任何一节、另一节还替它答是"：门禁⑥ 的「tools.html 的徽章数字与数据源脱钩」那一刀注入后门禁仍是绿的（台账 `60/61`），它把 `14 个动作` 的第一处（json 段 698 行）改成 `12`，而 diff 段 740 行仍是原串。**修的是作用域，不是判据**：没把它改成 `replaceAll`（那会误伤"两节同串"这种完全合法的形状，也仍然证不了"数的是自己那一节"）。台账同步加 `badgeInSection`（按节标记定位而不是按出现顺序，没命中就**抛**——`String.replace` 找不到目标是原样返回的，静默 no-op 正是假牙的制造工序），并补 codec 那一枚 `5 块面板` 与 diff 那一格的四把刀，台账 `60/61` → `66/66` → 再加一刀「整节缺席」（带 `expect`，钉新写的早退分支）后 `67/67` |
 | 测试文件头部那张"用例分布"表（`§A` 的第四现场） | §Z 那一行 `28` → **`29`**（Z29 折叠条点开）、合计 `438` → **`439`** | 同一条口径第四次连带：表长在磁盘 §A 里，`--fix` 把段 1 那计划的 §A 块换成磁盘内容。逐段读数由那条 awk 现算（`§X: 29 / §Y: 18 / §Z: 29`），与 runner 的 `# tests 439` 对上才算对完账 |
 
 （本表是空的才算正常；每加一行就要在 §5.6 或 §8.1 里回写一次，段 4 那份计划的 §0.6 是同一族先例。）
@@ -6194,9 +6194,14 @@ Modify `_data/onlineTools.yml`（追加一条 `slug: diff`）、`postcss.config.
       修法与自证：判据的作用域收到每一小节那一段（`toolsSectionOf`，按 `<section>`/`</section>` 计数配平），
       变异刀同步改成 `badgeInSection`（按 `id="online-<slug>"` 定位、没命中就抛），
       并补 codec 那枚 `5 块面板` 与 diff 那一格的四把刀（title / url / 徽章 / `actions`）。
-      改完重跑：⑤ 退 0（`4 条 ready` × 5 组全绿、导航核到 101 页），⑥ `牙齿台账：66/66 组变异如期变红`
-      退 0，末尾"全部变异已还原，复跑基线仍绿"。判据一条没放宽、也没有改成 `replaceAll`——
-      理由与那一行偏差记在 §0.6 倒数第三行。
+      改完重跑：⑤ 退 0（`4 条 ready` × 5 组全绿、导航核到 101 页），⑥ 台账
+      `60/61` → **`66/66`**（`badgeInSection` + codec 那枚 `5 块面板` + diff 那一格四把刀），
+      再补一刀「tools.html 少整节」之后 **`67/67`** 退 0，末尾"全部变异已还原，复跑基线那发仍绿"。
+      那把多出来的刀钉的是新写的**早退分支**本身有牙：整节缺席时只记一句
+      「没有这一条的 tool-section--online 小节」然后交回，不再逐格比（否则一节不在会连带报五条
+      "这格里找不到"）——`expect` 就点这一句，而 `dropSection` 的边界算法与门禁的 `toolsSectionOf`
+      逐字同源，两把尺同一口径，这一刀才证得了"门禁找的那一段就是页面上那一段"。
+      判据一条没放宽、也没有改成 `replaceAll`——理由与那一行偏差记在 §0.6 倒数第三行。
       `--fix` 那一发另外连带重写了**段 2** 那份计划里 `check-tools-surface.mjs` 的整文件镜像
       （`14265 → 14301 行`，8 处替换全在那一块里）：那本脚本从段 2 起就是镜像目标，
       方向照旧跟着磁盘走。
@@ -7321,6 +7326,59 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     <path d="M15.5 17h5"/>
 </svg>
 ```
+
+---
+
+### 提交态自证（`93d6e12` 落笔之后，在导出树里跑的那一发）
+
+**落笔 = `93d6e12`**（`65819d0` → `93d6e12`，`git update-ref` 的 CAS 带旧 sha；
+临时索引 `mktemp /tmp/qoder-task6-index-*`、`read-tree HEAD`、逐格 `hash-object -w` +
+`update-index --add --cacheinfo`，新树 `0514598` 先与 `HEAD^{tree}` 比过"必不相等"再
+`commit-tree -F` 那份信息文件）。`git show --stat` 读到 **`2,806 insertions(+) / 41 deletions(-)`
+且正好十三行**，Step 7 列的那十三格一格不多一格不少。
+
+**索引对齐那一格**（Task 5 的 §0.7 记过它的形状，这一发按同一条走）：plumbing 只写树、
+不动工作索引，所以落笔之后我那十三格在 `git status` 里全是"暂存改动"（索引还挂着旧 blob），
+逐格用 `git update-index --add --cacheinfo 100644,$(git rev-parse HEAD:<path>),<path>` 对齐回新 HEAD；
+对齐那一刻 `--porcelain` 剩 **25** 行、逐条都是另一路会话那批（`USAGE.md` 仍 `1/76`、
+spec 仍 `0/17`，两格的暂存字节账与本发之前一字不差），工作树文件一件未动。
+新增那三格在对齐之前根本不在索引里，`--add` 是唯一能把它们从"未跟踪"变成"与 HEAD 齐平"的写法。
+
+**门禁④（两棵导出树真重建 + 三列字节表）**：`/tmp/seg5t6-base` = `git archive 65819d0`、
+`/tmp/seg5t6-work` = `git archive HEAD`（提交之后），各 `ln -s` 活树 `node_modules`、各跑一次
+真 `npx vite build`（Node v22.19.0；base `✓ built in 5.25s`、work `✓ built in 4.69s`，两边 `exit=0`）。
+字节表逐件列 **原始 / L6 / L9**（`stat -f%z` 与 `gzip -6|-9 -c f | wc -c`），
+`assets/{js,css}/*.min.*` 合计 **base 36 件 = 843,534 / 268,225 / 267,455**，
+**work 37 件 = 853,571 / 270,556 / 269,770**，两份清单 md5
+`ec8749e4…` / `bdfbf511…` **不再等式**——段 4 Task 5 那一格预告的"Task 6 之后这一格必然不再是等式"
+就是这一刻，差额全部落在本页两件上，逐行 diff 只有两条：
+
+| 件 | base（raw / L6 / L9） | work（raw / L6 / L9） | 差 |
+| --- | --- | --- | --- |
+| `assets/css/toolDiff.min.css` | 查无此件（`dev/sass/toolDiff.scss` 这一格才进 `vite` 的入口扫描面） | 9,644 / 2,218 / 2,202 | 新件 |
+| `assets/js/toolDiff.min.js` | 51,148 / 19,764 / 19,745 | 51,541 / 19,877 / 19,858 | +393 / +113 / +113 |
+
+合计那一笔 **+10,037 / +2,331 / +2,315** 里，`toolDiff.min.js` 那 +393 raw 是本格补的 `onFoldClick`
+（折叠条点开），其余全是新那张样式表。**`import{` 在 work 那 25 本 `assets/js/*.min.js` 里逐文件
+`grep -c` 求和 = 0**（§0.4 那条"别让两入口 reach 同一模块切出共享 chunk"的自动版）。
+Step 5 欠的那一半在这里补完：导出树里 `tools-diff.html` 与 `toolDiff.scss` 都在，
+所以这一发的 `jekyll` 侧不需要重跑——构建产物面的红线（`import{`）与字节账都在 `vite` 这一侧。
+
+**干净检出那三道人**（都在 `/tmp/seg5t6-work` 里跑，跑之前先在那棵树 `git init` 让门禁③
+的"实验前后脏指纹"自证有基线可取）：
+① `# tests 439 / # pass 439 / # fail 0 / # cancelled 0` 退 0；
+② 退 0（`76` 块已落地镜像全等、`未落地 0 节`、js 块 `65`）——这一发同时自证了"提交进去的那份计划
+镜像与提交进去的那份磁盘内容互为逐字节"，活树里我后来改的格不参与；
+③ **`37/37`** 退 0，末尾"副本回到全绿、实验前后脏指纹一字不差"。
+⑤⑥ 只在活树跑（⑤ 读 `ROOT/_site`，导出树里没有 `_site`）：⑤ 退 0（4 条 ready × 5 组、导航核到 101 页），
+⑥ `67/67` 退 0 + "全部变异已还原，复跑基线仍绿"（它就地改源再还原，所以那一刀跑完后
+`scripts/check-tools-surface-teeth.mjs` 自己那次 `+29` 行改动仍在工作树里，随下一格提交）。
+
+**台账随本发放回原处**：门禁⑥ 补的那一刀「tools.html 少整节（JSON 那一小节连头带尾删掉）」
+在 `scripts/check-tools-surface-teeth.mjs`（`dropSection` + `expect`），单独一发
+`test(tools)` 提交 = **`2a3f16e`**（`93d6e12` → `2a3f16e`，同一套 plumbing + CAS，只那一格），
+与这段自证分开——它动的是判具不是文档，混进 `docs(plans)` 就会让
+"这一格只改了计划"那句话变成假的。
 
 ---
 
