@@ -394,6 +394,14 @@ scripts/toolkit-tests.mjs                                  §8.1
 
 - `role="tablist"` / `role="tab"` / `role="tabpanel"`，方向键上下切换、`Home`/`End`、roving `tabindex`（WAI-ARIA Tabs 模式），焦点环复用站点现有 `:focus-visible` 样式。
 - `#hash` 与当前面板双向同步，深链进来直接展开对应面板；hash 变化不触发滚动跳动（`scroll-margin-top` 顶开固定头）。
+- **两种 hash 形状都认（2026-10-01 修 A 落地）**：索引条那十枚 `<a>` 的 `href` 从裸 `#{{ p.slug }}` 改成
+  `#{{ tk.prefix }}-panel-{{ p.slug }}`——只有这一形指的是产物里真实存在的 id，禁 JS 那一档的"退成普通锚点链接"才成立；
+  而 `toHash()` 往地址栏写的**仍是裸 slug**，所以 `parseHash` 必须双认。形状是**先剥尾段再查白名单**：
+  `stripPanelPrefix()` 用 `s.toLowerCase().lastIndexOf('-panel-')` 找标记（大小写不敏感，与它下面那句查白名单的口径一致），
+  认不出标记就整串去认，认得出就只拿最后那一段；`id` 仍是白名单里的字符串或 `null`，**剥头不等于放宽**，未知仍然是未知。
+  判据 D4 钉四串认（`#idcard-panel-uscc` / 无 `#` / 全大写 / `bankcard-panel-bankcard` 这种"前缀与 slug 同名"）与四串仍判未知
+  （`#idcard-panel-nope` / `#idcard-panel-` / `#idcard-panel-uscc-z` / `#panel-uscc`），并钉"以锚点形状开局仍落到那块面板、
+  写回地址栏的仍是裸 slug"。
 - JS 未执行时：面板全部可见、按文档顺序排、锚点照常跳，左侧索引退化成普通目录链接。
 - 面板内任何一块抛错只塌那一块（每面板独立 `try/catch` + 就地错误条），不整页崩。
 
@@ -656,6 +664,51 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 或者继续挂着——继续挂着的代价是那一行永远只能记半笔账。全站 `href="#…"` 落空仍是 14 枚 / 4 页（工具页 10 枚 + 2023 年那篇文章的
 中文 TOC 2 枚 + `demo/vueRouterDemo/hashRouter.html` 故意写的假路由 2 枚），两条修法任挑一条都能把工具页那 10 枚清零。
 
+**2026-10-01 判定已收到并落地：修 A。落地之后的八行重量（这一格是现行读数，上一格作废为历史预测）**
+判定来自同一轮三问三答：**修 A**（索引条标题挂真锚点）、推送=「现在就推，45 条一起上」（已执行，`origin/master` =
+`c542febd18491112ce85cfc349d0c4c2441470e8`）、对比页 `kb()` 那句「多了 0.0 KB」的文案缺陷=**保留现状**（欠账仍在，本格不动它）。
+代码侧六件：`dev/js/tools/panel.js`（`parseHash` 双认 + 新增 `stripPanelPrefix`）、`scripts/toolkit-tests.mjs`（D4 补判据，
+**总判数仍是 439**）、`tools-idcard.html` 与 `tools-codec.html`（索引条 `href` 与那一格注释）、
+`scripts/check-tools-surface.mjs`（门禁⑤ 的 `panels` 分支新增逐枚核锚点指向）、`scripts/check-tools-surface-teeth.mjs`（三刀牙，
+台账 67 → **70/70**）。口径仍是本节开头钉死的 `cat f | gzip -9 | wc -c`（另跑 `-6`），`ROWS` 的件集没改、逐件之和可复算：
+首屏行 = 页面 HTML + `toolkit.min.css` + 本页 CSS，JS+CSS 行 = `toolkit.min.css` + `toolkitCore.min.js` + 本页 JS + 本页 CSS。
+逐件：`toolkitCore.min.js` md5 `2ae1f8eb…` → **`0d693c1b…`**、L9 **7,037 → 7,075**、L6 **7,049 → 7,086**（这一件是八行里唯一动的 JS，
+四行 JS+CSS 因此各 +38 / +37）；`tools/idcard.html` md5 `8d74d6ae…` → **`18e596d5…`**、原文 59,938 → **59,983（+45）**、L9 **13,709 → 13,710**；
+`tools/codec.html` md5 `2056e6dc…` → **`1501a4cf…`**、原文 +45、L9 **13,691 → 13,695**；`tools/json.html` `d1065a3f…`、
+`tools/diff.html` `c9e1e854…` **两枚一字未变**——工作台形状没有索引条，这正是"差值来自这一刀"的对照件。
+八行现行读数（L9 / L6 → 对档、余量与百分比按较大那把尺另给）：证件 JS+CSS **73,860 / 74,110** 对 77,824 余 3,964B = 5.1%、
+较大者 3,714B = 4.8%；证件首屏 **16,016 / 16,079** 对 16,384 余 **368B = 2.2%、较大者 305B = 1.9%**；
+编码 JS+CSS **31,211 / 31,262** 对 32,768 余 1,557B = 4.8%、较大者 1,506B = 4.6%；编码首屏 **16,001 / 16,063** 对 17,408 余 1,407B = 8.1%、
+较大者 1,345B = 7.7%；JSON JS+CSS **54,669 / 54,746** 对 58,368 余 3,699B = 6.3%、较大者 3,622B = 6.2%；JSON 首屏
+**15,632 / 15,682**（+0 / +0）余 1,776B = 10.2%、较大者 1,726B = 9.9%；对比 JS+CSS **31,408 / 31,462** 对 33,792 余 2,384B = 7.1%、
+较大者 2,330B = 6.9%；对比首屏 **17,067 / 17,134**（+0 / +0）余 1,365B = 7.4%、较大者 1,298B = 7.0%。
+两把尺下"低于 5%"的仍是**同两格**（证件首屏、编码 JS+CSS），预算四条老档一个字没改——**§0.3(b) 那条 300B 线仍然守着，
+但较大那把尺只剩 5B**（修 A 之前是 7B），下一格只要往 `<head>`、头家族或共用的 `toolkit.min.css` 里加东西，先重量证件页首屏这一格。
+
+**预测与落地的差 6B 要说清**：上一格量的是 D 树副本上那只补丁（`at = s.lastIndexOf('-panel-')`、大小写敏感），实测 +32B / +31B；
+落地这只多了**一次 `.toLowerCase()`**（`s.toLowerCase().lastIndexOf('-panel-')`），因为 `parseHash` 原本就是大小写不敏感地查白名单的，
+剥标记那一步若敏感，`#IDCARD-PANEL-USCC` 这一形就会从"认得"掉回"未知"——D4 里正是拿这一发钉住的。6B 就是那一次调用在 min 后的价钱，
+它同样只落在四行 JS+CSS（各 +6）。**这一笔不回头改预测**：那一格是当时那把尺的读数，本格是落地后的读数，两格都标了日期与口径。
+
+**"锚点可跳"这一行从现在起记满笔账**（§8.3 那一格的半笔账在这里补齐）。禁 JS 那一档用一次性 headless A/B 量的，
+量具是 `node_modules/.seg5t9-scratch/fixA/`：把 `_site/tools/idcard.html` 摘掉全部 `<script>` 后按 `file://` 打开，
+`innerWidth` 自证 500、脚本 0 枚——**修之前**点裸 `#uscc`：`scrollY = 0` 且 `document.getElementById('uscc') === null`
+（那一枚 id 根本不存在，点了等于没点）；**修之后**十枚逐个走：`#tk-panel-idcard` / `uscc` / `bankcard` / `mobile` / `random` 与编码页
+`timestamp` / `base64` / `url` / `digest` / `regex` 全部落得下去，`.tk-panel` 顶边逐枚读到 **88px**（`scroll-margin-top: 88px`
+把 65px 的粘性头顶开），证件页 `#tk-panel-random` 那发 `scrollY` 从 0 变 **4,514**。开 JS 那一档同页自证向后兼容：
+直接以 `idcard.html#tk-panel-uscc` 开局 → 面板 `tk-panel-uscc` 显示、`tk-tab-uscc` 带 `aria-selected`、提示条 `hidden`，
+而 `select('mobile')` 之后 `toHash()` 写回的仍是裸 `#mobile`——地址栏那一种形状没有分叉。
+全站 `href="#…"` 落空按同一把尺复算（遍历 `_site/**/*.html`，`href="#x"` 与同页 `id="x"` 求差集）：**14 枚 → 4 枚**，
+剩的是 `_site/2023/06/07/common-search-algorithm.html` 那 2 枚中文 TOC（「二叉搜索树查找」「AVL树、红黑树、B树/B+树查找」）
+与 `demo/vueRouterDemo/hashRouter.html` 故意写的 2 枚假路由（`/home`、`/about`）——工具页那 10 枚**已归零**。
+
+**为什么这一格不加常驻的浏览器判据**：常驻判据只能挂进 `scripts/verify-tools-browser.mjs`，而它配套的牙齿
+`scripts/verify-tools-browser-teeth.mjs` 那六刀是直接改共享真产物（仓库 `_site` 与 `assets/**`）的；本轮并行会话仍在那棵工作树上写
+`_config.yml` / `dev/js/editorial.js` / `USAGE.md`，跑一次就是把他们的现场掀掉重铺。所以锚点指向这条红线落在**静态那一头**——
+门禁⑤ 的 `panels` 分支逐枚核「href 指向的 id 必须在本页产物里真实存在」加索引条枚数 == 面板数，牙由门禁⑥ 那三刀给
+（退回裸 `#slug`、整枚摘掉 `href`、只改编码页——三形各红一次，70/70 全点燃）。浏览器侧那一档留成**可复跑的一次量具**，
+读数如上面那一段，量具目录在 gitignore 的 `node_modules/` 下，重建它只要两份产物与一发 headless Chrome。
+
 
 ---
 
@@ -715,6 +768,13 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 三串（§6.1 那一格写明了这是段 5 唯一要动的构建配置）；第 6 条新增 `toolDiff.min.js` / `toolDiff.min.css` 两枚，
 `assets/js/` 下 `import{` 命中数为 0 那条同样罩它——**这一页是第一次让第四本入口去 reach 一本新模块，
 `json-core.js` 绝不能被两个入口同时 reach**（§5.6 那格写的就是这件事，判据落点门禁④）。
+
+**2026-10-01 修 A 追加的第 7 条（不收进上面六条的编号，因为它罩的是 `panels` 那一支）**：
+`layout: panels` 那两页的产物里，索引条每一枚 `.tk-index__link` 都必须有 `href="#…"`，**且那串指向的 id 要在同一页产物里真实存在**，
+枚数还得等于面板数（一一对应才算目录）。这一条是静态核的，判据落点 `scripts/check-tools-surface.mjs` 的 `checkDomContract`，
+三刀牙在 `scripts/check-tools-surface-teeth.mjs`（退回裸 `#slug` / 整枚摘掉 `href` / 只改编码页那一枚，台账现 **70/70**）。
+为什么钉在产物这一头而不是只在测试那一头：`parseHash` 的双认判据（D4）只保证 JS 开着的用户两种形状都进得去，
+而"禁 JS 时 href 落得下去"这件事的消费者是**页面本身**，改一行 Liquid 就能悄悄破掉，只有对产物求差集才看得见。
 
 ### 8.3 浏览器实测（headless Chrome）
 
@@ -817,8 +877,14 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
   理由是两条都要重量证件页首屏那一格，而段 5 本来就必然触发那一次重算，合起来只付一次；
   这一段不改它，也不把"锚点已修"写进任何一格的账。
   **两份代价已在 2026-10-01 段 5 Task 9 Step 3 量完**（三棵隔离 jekyll 树 + 两发 vite build + headless 实测滚动落点，
-  逐笔读数、越线那一格与"为什么仍然不擅自落地"记在 §7 末段那一格）；**那一行仍然只记半笔账**——
-  核到的是"按钮形状 + 正文比"，"锚点可跳"要等人挑了修法、下一次重建之后才能打勾。
+  逐笔读数、越线那一格与"为什么仍然不擅自落地"记在 §7 末段那一格）。
+  **判定已收到并落地（同日，修 A）**：索引条那十枚 `href` 改成 `{prefix}-panel-{slug}` 真锚点、`parseHash` 双认，
+  八行重量与逐件 md5 记在 §7「2026-10-01 判定已收到并落地：修 A」那一格。**上面那句"那一行仍然只记半笔账"到此结清**——
+  禁 JS 那一档现在两笔都齐：按钮形状与正文比照旧，"锚点可跳"是十枚逐个走一遍、`.tk-panel` 顶边逐枚落在 88px
+  （修之前点裸 `#uscc` 是 `scrollY = 0`、`getElementById('uscc')` 为 `null`）；
+  全站 `href="#…"` 落空由 14 枚降到 **4 枚**，工具页那 10 枚归零，剩的 4 枚是 2023 年那篇文章的中文 TOC 与
+  `demo/vueRouterDemo/hashRouter.html` 故意写的假路由，都不在本节的账上。
+  锚点指向的常驻红线不在浏览器侧（理由与量具去向同样写在那一格），而在**产物侧**：见 §8.2 末段追加的第 7 条与它的三刀牙。
 
 **2026-10-01 段 5 Task 7：第四页进同一张表，22 项专有判据与一次八行同表的重量**
 （跑法仍是 `TK_SITE_DIR=<一份产物快照> node scripts/verify-tools-browser.mjs`，那一轮快照 = 仓库 `npx vite build`
@@ -904,3 +970,6 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 （索引条 10 枚死锚点"随段 5 或收尾一起判"、推送"改挂在段 5 收口之后"）——**读法跟着变成"随段 5 或段 6 一起"**，
 指向的具体那一格不变：死锚点那一格在段 5 动共付件的那一次重建里判（§5.6 与 §7 那两行本来就要重量），
 推送在段 5 收口后单独请示。
+**这两处到今天都已了结**（2026-10-01）：推送在段 5 Task 9 Step 6 请示、当场获批并执行（`origin/master` = `c542feb…`）；
+死锚点那一格的判定=**修 A**，且它兑现了这里预言的形状——动的正是共付件（`dev/js/tools/panel.js` 在 `toolkitCore.min.js` 里，
+八行里四行 JS+CSS 各涨 38B），首屏那四行只涨 0–4B，逐笔读数与"锚点可跳"这一行怎么结清的，写进 §7 与 §8.3 各自那一格。

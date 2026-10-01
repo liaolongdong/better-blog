@@ -32,6 +32,11 @@
  * 台账里那句「注入后门禁仍是绿的（假牙）」就是这一格抓出来的。判据的作用域因此收到
  * `tools.html` 每一小节自己那一段（见 check-tools-surface.mjs 的 `toolsSectionOf`），
  * 变异刀同步改成 `badgeInSection`：按 `id="online-<slug>"` 定位，不靠出现顺序，且没命中就抛。
+ *
+ * 段 5 Task 9 收口后又补三颗：索引条 `href` 的落点（证件两枚 + 编码一枚）。这一族是本台账建起来
+ * 之后第一件"六道人全绿而页面是坏的"的实证——十枚死锚点从段 1 蹲到段 5，抓不到不是因为刀钝，
+ * 而是因为**没有一把刀量的是锚点指向的那一头**。所以这三颗牙各钉新判据的一支：目标 id 不存在、
+ * `href` 整格缺失、循环有没有走到第二页；三颗都用"没命中就抛"的写法，别长出一颗静默不命中的假牙。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -237,6 +242,34 @@ const idcardCases = [
     group: 'DOM',
     artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('id="tk-in-bankcard-bank" data-tk-options="banks"', 'id="tk-in-bankcard-bank" data-tk-options="banklist"')),
   },
+  /**
+   * 段 5 Task 9「修 A」那一刀的三颗牙。为什么索引条的 `href` 要单独长牙：这十枚死锚点在页面上
+   * 蹲了整整四段，六道人一道没抓到——`need` 核的是"骨架该有的 id 都在"，而锚点指的是**另一头**，
+   * 产物里没有 `id="uscc"` 这件事没有任何一条判据在看；开脚本时点 tab 走 `preventDefault()`，
+   * 连一次点击都证伪不了它。三颗牙各自钉住新判据的一支：目标 id 不存在、`href` 整格缺失、
+   * 以及"循环有没有走到第二页"。每一刀都先断言变异真的命中——`s.replace` 没命中时原样返回，
+   * 那一档会退化成"注入 nothing 而门禁仍绿"的假牙（本文件开头讲 `首页父项` 那一刀时立过的规矩）。
+   */
+  {
+    name: '索引条 href 退回裸 #slug（产物里没有那枚 id，十枚死锚点的原形状）',
+    group: 'DOM',
+    expect: '落不下去',
+    artifact: () => shadowEdit('tools/idcard.html', (s) => {
+      const next = s.replace('id="tk-tab-uscc" href="#tk-panel-uscc"', 'id="tk-tab-uscc" href="#uscc"');
+      if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
+      return next;
+    }),
+  },
+  {
+    name: '索引条那一枚整个没有 href（禁 JS 时它不是目录项）',
+    group: 'DOM',
+    expect: '没有 href',
+    artifact: () => shadowEdit('tools/idcard.html', (s) => {
+      const next = s.replace('id="tk-tab-bankcard" href="#tk-panel-bankcard"', 'id="tk-tab-bankcard"');
+      if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
+      return next;
+    }),
+  },
   {
     name: '入口 CONTAINER_ID 与 yml prefix 脱钩',
     group: 'DOM',
@@ -339,6 +372,18 @@ const codecCases = [
     name: '编码页骨架多出 spec 里没有的开关目标',
     group: 'DOM',
     artifact: () => shadowEdit('tools/codec.html', (s) => s.replace('id="tk-when-digest-upload" data-tk-when="file"', 'id="tk-when-digest-upload" data-tk-when="file extra"')),
+  },
+  {
+    // 索引条锚点那一刀在编码页的同名变异：`layout === 'panels'` 是一支两页的分支，
+    // 只留证件页那一颗牙，等于没证明循环走到过第二页（本文件开头 `codecCases` 的理由，原样适用）。
+    name: '编码页索引条 href 退回裸 #slug',
+    group: 'DOM',
+    expect: '落不下去',
+    artifact: () => shadowEdit('tools/codec.html', (s) => {
+      const next = s.replace('id="tk-tab-base64" href="#tk-panel-base64"', 'id="tk-tab-base64" href="#base64"');
+      if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
+      return next;
+    }),
   },
   {
     // 反向那一格（产物有、spec 没有）单独一刀：编码页的下拉选项全在构建期写死，

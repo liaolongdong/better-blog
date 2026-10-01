@@ -9212,11 +9212,13 @@ tool: codec
         {%- comment -%}
         索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
         这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
-        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        没有脚本时这一列就是普通目录，每条 `href="#{prefix}-panel-{slug}"` 跳到同名面板——
+        那枚 id 由下面的 `<section class="tk-panel">` 真的写着，锚点落得下去（与证件页同一刀，
+        段 5 Task 9 对账里的「修 A」；裸 `#slug` 那时是死锚点，`parseHash` 如今两种形状都认）。
         {%- endcomment -%}
         <nav class="tk-index" id="{{ tk.prefix }}-tablist">
             {%- for p in tk.panels -%}
-            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ tk.prefix }}-panel-{{ p.slug }}">
                 <span class="tk-index__name">{{ p.name }}</span>
                 <span class="tk-index__hint">{{ p.tagline }}</span>
             </a>

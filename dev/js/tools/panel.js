@@ -197,11 +197,25 @@ function shapeOf(v) {
   return `${t} ${String(v)}`;
 }
 
-/** 只去前导 #、只做小写折叠，别的字符一律不解释——id 是白名单里的字符串或 null */
+/**
+ * 锚点的两种形状 → 面板 id。只去前导 #、只做小写折叠，别的字符一律不解释——
+ * id 是白名单里的字符串或 null。
+ *
+ * 两种形状各有各的写入者，砍掉任何一种都会作废一类链接（段 5 Task 9 对账里的「修 A」）：
+ * `toHash()` 往地址栏写的是裸 `slug`（口径 2），索引条 `href` 挂的是产物里真存在的
+ * `{prefix}-panel-slug`（禁 JS 时浏览器原生锚点只认这一种）。所以这里**先剥尾段再查白名单**：
+ * 认不出标记就整串去认，认得出就只拿最后那一段——未知仍然是未知，剥头不等于放宽。
+ */
+function stripPanelPrefix(s) {
+  const at = s.toLowerCase().lastIndexOf('-panel-');
+  return at < 0 ? s : s.slice(at + 7);
+}
+
 export function parseHash(raw, ids) {
   const s = typeof raw === 'string' ? raw.trim().replace(/^#/, '') : '';
   if (s === '') return { id: null, unknown: false };
-  const hit = ids.find((id) => id.toLowerCase() === s.toLowerCase());
+  const key = stripPanelPrefix(s);
+  const hit = ids.find((id) => id.toLowerCase() === key.toLowerCase());
   return hit === undefined ? { id: null, unknown: true } : { id: hit, unknown: false };
 }
 

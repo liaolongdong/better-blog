@@ -5543,6 +5543,36 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.deepEqual(parseHash('#nope', TOOLKIT), { id: null, unknown: true });
   assert.deepEqual(parseHash('#idcard/../x', TOOLKIT), { id: null, unknown: true },
     '奇奇怪怪的 hash 只能当不认识，不能进 id');
+  /**
+   * 修 A（段 5 Task 9 对账交回来的那 10 枚死锚点）：索引条 `href` 从 `#slug` 改成
+   * `{prefix}-panel-slug`——那才是产物里真存在的 id，禁 JS 时浏览器才跳得下去。
+   * 于是 hash 有两种合法形状，`parseHash` 必须**双认**：
+   * ① 裸 `slug` 是 `toHash()` 往地址栏写的那一份，改了它等于把已分享的链接全作废；
+   * ② `{prefix}-panel-slug` 是用户从索引条复制、或浏览器原生锚点带进来的那一份。
+   * 只认一种的话，另一种会落进 `unknown`，页面上凭空多一条"不是本页的某一块面板"。
+   */
+  assert.deepEqual(parseHash('#idcard-panel-uscc', TOOLKIT), { id: 'uscc', unknown: false },
+    '索引条那种 `{prefix}-panel-slug` 形状要认，且认的是尾段而不是首段');
+  assert.deepEqual(parseHash('idcard-panel-uscc', TOOLKIT), { id: 'uscc', unknown: false },
+    '双认不但 #：漏了 # 的锚点形状同样要认');
+  assert.deepEqual(parseHash('#IDCARD-PANEL-USCC', TOOLKIT), { id: 'uscc', unknown: false },
+    '标记本身也走小写折叠，与裸 slug 同一档');
+  assert.deepEqual(parseHash('#bankcard-panel-bankcard', TOOLKIT), { id: 'bankcard', unknown: false },
+    '前缀与尾段同名时取尾段，别把 `bankcard` 本身当成面板');
+  assert.deepEqual(parseHash('#idcard-panel-nope', TOOLKIT), { id: null, unknown: true },
+    '双认之后未知仍是未知：剥了头查白名单，查不到就报，不许回落到别的板');
+  assert.deepEqual(parseHash('#idcard-panel-', TOOLKIT), { id: null, unknown: true },
+    '剥完只剩空串，等价于不认识');
+  assert.deepEqual(parseHash('#idcard-panel-uscc-z', TOOLKIT), { id: null, unknown: true },
+    '只按**最后**一处 `-panel-` 剥，尾段整串去查白名单');
+  assert.deepEqual(parseHash('#panel-uscc', TOOLKIT), { id: null, unknown: true },
+    '认的是 `{prefix}-panel-slug` 这一种形状，前缀不留空：`#panel-uscc` 不是本页会产生的 hash，' +
+    '给它开门等于在同一处立第二套口径（两条锚点都由页面自己写，没有第三种来源）');
+  const anchored = createPanelWorkspace({ ids: TOOLKIT, hash: '#idcard-panel-random' });
+  assert.equal(anchored.active(), 'random', '开局是锚点形状也要落到那块面板');
+  assert.equal(anchored.unknownHash(), false);
+  anchored.select('mobile');
+  assert.equal(anchored.toHash(), '#mobile', '写回地址栏的仍必须是裸 slug，不与索引条那形长成两种');
   const ws = createPanelWorkspace({ ids: TOOLKIT, hash: '#bankcard' });
   assert.equal(ws.active(), 'bankcard');
   assert.equal(ws.unknownHash(), false);
@@ -5898,11 +5928,25 @@ function shapeOf(v) {
   return `${t} ${String(v)}`;
 }
 
-/** 只去前导 #、只做小写折叠，别的字符一律不解释——id 是白名单里的字符串或 null */
+/**
+ * 锚点的两种形状 → 面板 id。只去前导 #、只做小写折叠，别的字符一律不解释——
+ * id 是白名单里的字符串或 null。
+ *
+ * 两种形状各有各的写入者，砍掉任何一种都会作废一类链接（段 5 Task 9 对账里的「修 A」）：
+ * `toHash()` 往地址栏写的是裸 `slug`（口径 2），索引条 `href` 挂的是产物里真存在的
+ * `{prefix}-panel-slug`（禁 JS 时浏览器原生锚点只认这一种）。所以这里**先剥尾段再查白名单**：
+ * 认不出标记就整串去认，认得出就只拿最后那一段——未知仍然是未知，剥头不等于放宽。
+ */
+function stripPanelPrefix(s) {
+  const at = s.toLowerCase().lastIndexOf('-panel-');
+  return at < 0 ? s : s.slice(at + 7);
+}
+
 export function parseHash(raw, ids) {
   const s = typeof raw === 'string' ? raw.trim().replace(/^#/, '') : '';
   if (s === '') return { id: null, unknown: false };
-  const hit = ids.find((id) => id.toLowerCase() === s.toLowerCase());
+  const key = stripPanelPrefix(s);
+  const hit = ids.find((id) => id.toLowerCase() === key.toLowerCase());
   return hit === undefined ? { id: null, unknown: true } : { id: hit, unknown: false };
 }
 

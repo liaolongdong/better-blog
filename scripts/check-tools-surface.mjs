@@ -698,6 +698,34 @@ function checkDomContract(t, builtHtml, spec) {
   }
 
   /**
+   * 索引条那五枚 `href` 落不落得下去（段 5 Task 9 对账交回来的「修 A」）。
+   *
+   * 为什么这一刀非得由门禁自己补：上面的 `need` 只核"骨架该有的 id 都在"，而锚点是**另一头的
+   * 地址**——裸 `#slug` 在产物里压根没有同名 id：构建不报错、开脚本时点 tab 走 `preventDefault()`
+   * 也撞不到，只有禁 JS、中键新标签、或把链接复制给别人时才露出来。十枚死锚点在页面上蹲了一整段，
+   * 六道人一道没抓到，就是因为「产物里有这个 id」与「产物里有这条 href 要的那个 id」是两件事。
+   *
+   * 判两件，缺一件都还留得住死锚点：枚数等于面板数（少一枚 = 索引条与面板清单脱钩），
+   * 且每一枚的目标 id 真存在于本页产物（前缀写错 = 又一次静默死锚）。
+   */
+  if (layout === 'panels') {
+    const links = [...builtHtml.matchAll(/<a\b[^>]*class="tk-index__link"[^>]*>/g)];
+    if (links.length !== panelIds.length) {
+      bad('DOM', t.slug, `索引条有 ${links.length} 枚 .tk-index__link，而面板有 ${panelIds.length} 块（一一对应才算目录）`);
+    }
+    for (const m of links) {
+      const hm = /\shref="#([^"]*)"/.exec(m[0]);
+      if (!hm) {
+        bad('DOM', t.slug, `索引条那枚没有 href="#…"：${m[0]}`);
+        continue;
+      }
+      if (!ids.has(hm[1])) {
+        bad('DOM', t.slug, `索引条的 href="#${hm[1]}" 在产物里落不下去——本页没有 id="${hm[1]}" 这个节点`);
+      }
+    }
+  }
+
+  /**
    * 按钮文案 ↔ `JSON_ACTIONS[i].label`（`tools-json.html` 工具栏那段注释承诺的就是这一条）。
    *
    * 为什么单拎出来：id 对上了只说明"这一格存在"，不说明"这一格说的是同一件事"。栏头那行标题

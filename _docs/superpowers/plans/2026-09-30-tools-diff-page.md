@@ -7602,7 +7602,8 @@ G12 那一族是遍历 `PLAN_RELS()` 的，第四份计划一进清单就自动�
 - [x] Step 3：索引条那 10 枚死锚点按 §0.3(b) 的条件交回（修 A / 修 B 两份代价 + 重量后的余量）；
 - [x] Step 4：`USAGE.md` 的检索层自查计数（等对方那格 `1/76` 先落地，§0.7 第 4 条）；
 - [x] Step 5：收口记录 + 六道门禁复跑 + 提交；
-- [ ] Step 6：**单独请示推送**（含"要不要连带另一路会话那二十六条一起发"）。
+- [x] Step 6：**单独请示推送**（含"要不要连带另一路会话那二十六条一起发"）——2026-10-01 已请示、获批「现在就推，
+      45 条一起上」，`origin/master` 现为 `c542febd18491112ce85cfc349d0c4c2441470e8`；同一轮另两问的答复见下面那格。
 
 **Step 1 对账台账（2026-10-01，十格落 spec、一格落本计划标题，代码侧只动了一行注释）**
 
@@ -7747,3 +7748,84 @@ Task 8 已处置过一次，本格沿用（⑥ 的活树读数 67/67 见上面�
 
 于是 Step 5 的六道：①②③④⑤ 各有**活树 + 提交态**两份读数、全部退 0，⑥ 只有活树一份（67/67），形状与 Task 8 那格一致。
 
+
+**Step 3 的处置：判定=修 A，落地记录（2026-10-01 同一轮，代码与文档各一次提交）**
+
+三问三答都来自 2026-10-01 那一轮 AskUserQuestion，逐条照答执行：
+**推送**=「现在就推，45 条一起上」（已执行，见上面 Step 6 那格）；**索引条那 10 枚死锚点**=**修 A**（索引条标题挂真锚点）；
+**`kb()` 那句「多了 0.0 KB」**=**保留现状**——本段 §0.6 第三行那笔欠账**仍在账上不动**，10e 的超限夹具仍按 4,096B 绕开它。
+
+**代码侧六件**（`git diff --numstat` 逐件，行数为磁盘现读）：
+
+| 件 | 行数变化 | 改了哪一件事 |
+| --- | --- | --- |
+| `dev/js/tools/panel.js` | 228 → **242**（+16 / −2） | 新增 `stripPanelPrefix(s)`（`s.toLowerCase().lastIndexOf('-panel-')`，`at < 0 ? s : s.slice(at + 7)`），`parseHash` 改成**先剥尾段再查白名单**；docstring 从一行扩成一段，写死"两种形状各有各的写入者"与"剥头不等于放宽" |
+| `scripts/toolkit-tests.mjs` | 15,462 → **15,495**（+35 / −2） | D4 补判据（见下）＋ `iPage` 夹具的 tab seed 改挂真锚点。**全文件判数仍是 439**，只加断言不加 `test()`，别的格子不必改号 |
+| `tools-idcard.html` | 486 → **490**（+6 / −2） | 索引条 `href="#{{ tk.prefix }}-panel-{{ p.slug }}"` ＋ 那一格注释重写（点名"段 5 Task 9 之前这里挂的是裸 `#slug`，五块面板 × 两页 = 10 枚死锚点"） |
+| `tools-codec.html` | 396 → **398**（+4 / −2） | 同一刀，注释短写并指回证件页那一格 |
+| `scripts/check-tools-surface.mjs` | 843 → **871**（+28） | 门禁⑤ `checkDomContract` 的 `panels` 分支新增一段：`.tk-index__link` 枚数 == 面板数、每枚必须有 `href="#…"`、**那串指向的 id 必须在本页产物里真实存在** |
+| `scripts/check-tools-surface-teeth.mjs` | 635 → **680**（+45） | 三刀牙（见下），台账 67 → **70** |
+
+**D4 新增的判据（一条 `test()` 里，认与不认各四串）**：认 `#idcard-panel-uscc`、`idcard-panel-uscc`（无 `#`）、
+`#IDCARD-PANEL-USCC`（全大写）、`#bankcard-panel-bankcard`（"前缀与 slug 同名"那一形）；
+仍判未知 `#idcard-panel-nope`、`#idcard-panel-`（标记后是空串）、`#idcard-panel-uscc-z`（尾段多一截）、
+`#panel-uscc`（**只有标记、没有前缀**——这条第一版写成了"应该认"，是错的：标记的定义是"前面还得有东西"，
+而这两种形状都由本页自己写入，没有第三种形状值得再补一条规则）。另有 workspace 级三发：
+以 `hash: '#idcard-panel-random'` 开局要 `active() === 'random'`、`unknownHash() === false`，
+`select('mobile')` 之后 `toHash()` 写回的**仍是裸 `#mobile`**——地址栏那一形不许分叉。
+夹具那一改的理由记在测试注释里：`iPage` 的 tab seed 原本挂裸 `#${id}`，与产物不同形，
+"href 是禁 JS 时的深链保险"这句话在测试里量的是一枚产物上根本不存在的 href。
+
+**TDD 两发**：先只有 D4 那几条新断言 → `node --test --test-name-pattern` 单跑那一判，
+红在 `#tk-panel-uscc` 那串被 `parseHash` 判成 `unknown`（`node_modules/.seg5t9-scratch/fixA/d4-red.log`）；
+落 `stripPanelPrefix` 之后同一发绿（`d4-green.log`），再跑全量 ①（439 / 439 / fail 0 / cancelled 0，`gate1.log`）。
+
+**落地读数比预测贵 6B，理由要说清**：Step 3 那一只打在 D 树副本上的补丁是**大小写敏感**的
+`s.lastIndexOf('-panel-')`，量出 `toolkitCore.min.js` gzip L9 +32B / L6 +31B；落地这一只多了一次 `.toLowerCase()`，
+实读 **+38B / +37B**（`7,037 → 7,075` / `7,049 → 7,086`，md5 `2ae1f8eb…` → `0d693c1b…`）。
+多的那一次不贵，但没有它 `#IDCARD-PANEL-USCC` 就会从"认得"掉回"未知"，而 `parseHash` 查白名单那句本来就是
+大小写不敏感的——两处口径必须同形，否则判据红在第一发、静默绿在第二发。四行「JS+CSS」因此各 +38 / +37，
+首屏那四行只涨 HTML 那一头（证件 +1B / 编码 +4B gzip L9，与 Step 3 的预测**逐字相同**）；
+八行的现行读数、余量与逐件之和的复算口径写在 spec §7「2026-10-01 判定已收到并落地：修 A」那一格，本计划不重抄第二遍。
+最要紧的那一格在这里点名：**证件页首屏余 368B（L9）/ 305B（较大者），§0.3(b) 的 300B 线仍守着，
+较大那把尺从 7B 只剩 5B**——这一格现在是全表最薄的一格，下一格往 `<head>`、头家族或共用的 `toolkit.min.css`
+里加任何东西，先重量它。
+
+**三刀牙（门禁⑥，67 → 70/70）**：① 证件页索引条 href 退回裸 `#slug` → 红在「`href="#uscc"` 在产物里落不下去」；
+② 那一枚整段没有 `href` → 红在「索引条那枚没有 `href="#…"`」；③ 只改编码页那一枚 → 红在编码页那一格
+（这一刀证明它不是"两页合并数一遍"，而是逐页各核）。三刀各带一句 `if (next === s) throw`——
+变异锚点没命中就当场抛，不给"静默不红"留位置。跑完还原，复跑基线仍绿（`gate6.log`：70/70 组变异如期变红、
+"✓ 全部变异已还原，复跑基线仍绿"）。
+
+**浏览器侧：一次性量具，不加常驻判据**。为什么不加：常驻判据只能挂进 `scripts/verify-tools-browser.mjs`，
+而它配套的 `scripts/verify-tools-browser-teeth.mjs` 那六刀是**直接改共享真产物**（仓库 `_site` 与 `assets/**`）的，
+本轮并行会话仍在那棵工作树上写 `_config.yml` / `dev/js/editorial.js` / `USAGE.md`——跑一次等于掀他们的现场。
+所以锚点指向这条红线落在静态那一头（门禁⑤ + ⑥），浏览器这一档留成可复跑的量具，读数：
+把 `_site/tools/idcard.html` 摘掉全部 `<script>`（脚本 0 枚、`innerWidth` 自证 500）后开 `file://`——
+**修之前**点裸 `#uscc`：`scrollY = 0`、`document.getElementById('uscc') === null`；
+**修之后**十枚逐个走（证件 5 + 编码 5）全部落得下去，`.tk-panel` 顶边逐枚 **88px**
+（`scroll-margin-top: 88px` 顶开 65px 粘性头），证件页 `#tk-panel-random` 那发 `scrollY` 0 → **4,514**，
+编码页五枚落点 `yReal` 依次 515 / 1,413 / 2,211 / 2,778 / 3,496。开 JS 那一档同页自证向后兼容：
+以 `idcard.html#tk-panel-uscc` 开局 → `tk-panel-uscc` 显示、`tk-tab-uscc` 带 `aria-selected`、提示条 `hidden`、
+`scrollMargin` 读到 `88px`，`select('mobile')` 之后地址栏写回 `#uscc`。
+四页同表的浏览器全量在本轮重跑过：**115 项 / 红 0 / `exit=0`**（起跑 1 分钟负载 5.7、收轮 36.5，
+`node_modules/.seg5t9-scratch/fixA/browser-full.log`），项数与 Task 7 那一轮一字不差。
+
+**全站 `href="#…"` 落空复算**（`_site/**/*.html` 的 `href="#x"` 与同页 `id="x"` 求差集，Node 现读）：
+**14 枚 → 4 枚**，工具页那 10 枚**归零**，剩 `_site/2023-06-07/common-search-algorithm.html` 的 2 枚中文 TOC
+（「二叉搜索树查找」「AVL树、红黑树、B树/B+树查找」）与 `demo/vueRouterDemo/hashRouter.html` 故意写的
+`/home`、`/about`——两枚都不在本节的账上。**spec §8.3 那句"那一行仍然只记半笔账"到此结清**，
+§6.3 加了"两种 hash 形状都认"那一格，§8.2 加了第 7 条（索引条锚点指向的产物侧判据）。
+
+**镜像与门禁的本轮状态**：门禁② 在源码落地后报 6 处失配（预期，动的是三格镜像的宿主），
+按批准过的 `--fix` 同步后复跑退 0——**76 个已落地镜像合计 1,630,637B、未落地 0 节**；被 `--fix` 重写的三格：
+段 1 计划 +46 / −2（`panel.js` 那一块与它的镜像登记）、段 2 计划 +39 / −4（三块）、段 3 计划 +4 / −2（一块）。
+⑤ 退 0（4 条 ready × 5 组判据全绿）。重建两件都 `exit=0`（`vite.log` / `jekyll.log`），
+产物 HTML 上 `href="#tk-panel-…"` 十枚逐枚可数。① 与 ③ 与提交态那四道人（`export-base` = 本轮之前的 `HEAD`、
+`export-work` = 修 A 那一发）在下面那格自证完再回填。
+
+**一笔危险复记**（Step 4 那条的本轮版本，读数会变、结论不变）：本轮往 spec 又写了四格（§6.3 / §7 / §8.2 / §8.3），
+而共享索引里那枚 `7c009a3c…` 仍**比 HEAD 旧**、`USAGE.md` 那枚 998 行 blob 也还挂着。
+另一路会话下一次裸 `git commit` 会把这两枚旧 blob 写进 master，**本轮的四格写回会整块退回**——
+产物与判据不受影响（那 10 枚锚点已经真修好、门禁⑤ 的判据在磁盘上），坏的只有文档那一头。
+索引对齐照旧只对我自己的路径做，`7c009a3c…` 与 `USAGE.md` 那格一件不动。

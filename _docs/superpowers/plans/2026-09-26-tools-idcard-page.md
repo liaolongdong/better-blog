@@ -5130,9 +5130,11 @@ function iPage({
   for (const id of ids) {
     // 骨架里预置**错的** role / aria-selected：绑定层要是手抄而不是覆写，I1 当场红。
     // `class` / `href` / `aria-live` 是骨架自己的东西，属性表里没有，必须原样留着（I1 一并判）。
+    // `href` 写的是产物里真存在的那枚 id（`{prefix}-panel-{id}`，段 5 Task 9「修 A」）——假 DOM
+    // 不解释锚点，这条落值只是让夹具与 `tools-idcard.html` 保持同一形状，别在这儿留下旧口径。
     if (!dropTab.includes(id)) {
       mkEl('a', `${prefix}-tab-${id}`, {
-        class: 'tk-index__link', href: `#${id}`, role: 'link', 'aria-selected': 'maybe',
+        class: 'tk-index__link', href: `#${prefix}-panel-${id}`, role: 'link', 'aria-selected': 'maybe',
       });
     }
     if (!dropPanel.includes(id)) {
@@ -5197,7 +5199,8 @@ test('I1 属性表原样落地：骨架的错值被覆写，多余的键一个�
     const table = page.ws.tabAttr(id);
     assert.deepEqual(iOf(page.tab(id), table), table, `tab ${id} 的落值与属性表不一致`);
     assert.equal(page.tab(id).getAttribute('role'), 'tab', '骨架里预置的 role="link" 必须被覆写');
-    assert.equal(page.tab(id).getAttribute('href'), `#${id}`, 'href 不在属性表里，它是禁 JS 时的深链保险');
+    assert.equal(page.tab(id).getAttribute('href'), `#tk-panel-${id}`,
+      'href 不在属性表里，它是禁 JS 时的深链保险——保险那头的地址必须是产物里真存在的 id');
     const pTable = page.ws.panelAttr(id);
     assert.deepEqual(iOf(page.panel(id), pTable), pTable, `panel ${id} 的落值`);
     assert.equal(page.panel(id).getAttribute('aria-live'), 'polite', '骨架上的多余键不许被 removeAttribute');
@@ -10454,11 +10457,15 @@ tool: idcard
         {%- comment -%}
         索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
         这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
-        没有脚本时这一列就是普通目录，每条 `href="#slug"` 跳到同名面板。
+        没有脚本时这一列就是普通目录，每条 `href="#{prefix}-panel-{slug}"` 跳到同名面板——
+        那枚 id 由下面的 `<section class="tk-panel">` 真的写着，锚点落得下去。段 5 Task 9 之前这里
+        挂的是裸 `#slug`，产物里没有这个 id，五块面板 × 两页 = 10 枚死锚点（禁 JS 与右键新标签才暴露，
+        开脚本时点 tab 走的是 `preventDefault()`，永远撞不到）。`parseHash` 两种形状都认，
+        所以已分享出去的裸 `#slug` 链接不作废。
         {%- endcomment -%}
         <nav class="tk-index" id="{{ tk.prefix }}-tablist">
             {%- for p in tk.panels -%}
-            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ p.slug }}">
+            <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ tk.prefix }}-panel-{{ p.slug }}">
                 <span class="tk-index__name">{{ p.name }}</span>
                 <span class="tk-index__hint">{{ p.tagline }}</span>
             </a>
@@ -13531,6 +13538,34 @@ function checkDomContract(t, builtHtml, spec) {
     const want = new Set(need);
     const extras = [...ids].filter((id) => orphan.test(id) && !want.has(id));
     if (extras.length) bad('DOM', t.slug, `产物里多出这些控件/开关/按钮/节点 id，而 ${t.spec.table} 的 controls / switch.targets / nodes 与 ${t.spec.actions} 里没有声明：${extras.join(' ')}`);
+  }
+
+  /**
+   * 索引条那五枚 `href` 落不落得下去（段 5 Task 9 对账交回来的「修 A」）。
+   *
+   * 为什么这一刀非得由门禁自己补：上面的 `need` 只核"骨架该有的 id 都在"，而锚点是**另一头的
+   * 地址**——裸 `#slug` 在产物里压根没有同名 id：构建不报错、开脚本时点 tab 走 `preventDefault()`
+   * 也撞不到，只有禁 JS、中键新标签、或把链接复制给别人时才露出来。十枚死锚点在页面上蹲了一整段，
+   * 六道人一道没抓到，就是因为「产物里有这个 id」与「产物里有这条 href 要的那个 id」是两件事。
+   *
+   * 判两件，缺一件都还留得住死锚点：枚数等于面板数（少一枚 = 索引条与面板清单脱钩），
+   * 且每一枚的目标 id 真存在于本页产物（前缀写错 = 又一次静默死锚）。
+   */
+  if (layout === 'panels') {
+    const links = [...builtHtml.matchAll(/<a\b[^>]*class="tk-index__link"[^>]*>/g)];
+    if (links.length !== panelIds.length) {
+      bad('DOM', t.slug, `索引条有 ${links.length} 枚 .tk-index__link，而面板有 ${panelIds.length} 块（一一对应才算目录）`);
+    }
+    for (const m of links) {
+      const hm = /\shref="#([^"]*)"/.exec(m[0]);
+      if (!hm) {
+        bad('DOM', t.slug, `索引条那枚没有 href="#…"：${m[0]}`);
+        continue;
+      }
+      if (!ids.has(hm[1])) {
+        bad('DOM', t.slug, `索引条的 href="#${hm[1]}" 在产物里落不下去——本页没有 id="${hm[1]}" 这个节点`);
+      }
+    }
   }
 
   /**
