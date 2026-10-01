@@ -296,9 +296,28 @@ function checkInclusion(t, builtHtml, pageUrlRel) {
   if (!new RegExp(`href="${escRE(localPath)}"[^>]*>打开${escRE(t.h1)}</a>`).test(section)) {
     bad('收录', t.slug, `tools.html 的该小节缺少指向 ${localPath} 的「打开${t.h1}」主按钮`);
   }
+  /**
+   * 面板清单那一栏是**跨页**锚点（`href="另一页#x"`），修 B（2026-10-01）把片段从裸 `{slug}`
+   * 换成目标页真存在的 `{prefix}-panel-{slug}`。两支各钉一头，缺一支都还留得住死锚点：
+   * ① **按数据源逐枚对**：`href` 必须是 `{prefix}-panel-{slug}`，且锚文本必须是那一块面板的名字——
+   *    只判"片段非空"或只判"那一枚落得下去"，都留得住目录与内容错位（把 `uscc` 那枚指到
+   *    `random` 的面板时，两支里更弱的那一支照样绿，见门禁⑥ 那第二颗新牙）；
+   * ② **读产物里真写出去的那串片段**，逐枚要求目标页的产物里有同名 id——这一支读的才是
+   *    "锚点指向的那一头"：本页的 id 集合再全也救不了它，而落地页与目标页之间隔着一次构建，
+   *    目标页把面板 id 改了名、yml 与模板都跟着动了 ① 也仍绿（①判的是"两边按同一份数据写"），
+   *    只有 ② 会红在"跳转落空"这一件事上。
+   * 与 `checkDomContract` 里那条同页判据的分工：那条读「本页 href ↔ 本页 id」，这条读
+   * 「落地页 href ↔ 本页 id」，两形一起钉才不算半把尺。
+   */
   for (const p of t.panels) {
-    if (!new RegExp(`href="${escRE(localPath)}#${escRE(p.slug)}"`).test(section)) {
-      bad('收录', t.slug, `tools.html 的面板清单里没有指向 #${p.slug}（${p.name}）的锚点链接`);
+    const want = `${t.prefix}-panel-${p.slug}`;
+    if (!new RegExp(`href="${escRE(localPath)}#${escRE(want)}">${escRE(p.name)}</a>`).test(section)) {
+      bad('收录', t.slug, `tools.html 的面板清单里没有指向 #${want}（${p.name}）的锚点链接`);
+    }
+  }
+  for (const m of section.matchAll(new RegExp(`href="${escRE(localPath)}#([^"]+)"[^>]*>[^<]*</a>`, 'g'))) {
+    if (!new RegExp(`\\sid="${escRE(m[1])}"`).test(builtHtml)) {
+      bad('收录', t.slug, `跨页锚点 ${localPath}#${m[1]} 在 ${pageUrlRel} 的产物里落不下去（目标页没有这枚 id：禁 JS 时浏览器原生那一次跳转什么也跳不到，而开 JS 有 parseHash 认裸形、构建也不报错）`);
     }
   }
   /**

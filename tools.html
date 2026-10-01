@@ -142,14 +142,20 @@ permalink: /tools.html
                 <ul class="tool-features">
                     {%- comment -%}
                     这一栏的两档（2026-09-29 段 4 Task 7）：面板式那两页画的是**指向页内锚点的链接**，
-                    每块面板一个 `#slug`，这是 §4.4 第 5 条要的"把插件页的老流量导过去"。
-                    工作台那一页按设计 `panels: []`（没有索引条，清单只活在装配层那张表里），
-                    页面上没有锚点可指——硬指过去就是死链，所以退成 `features` 那一份**纯文本**要点。
-                    走的是 Liquid `for`/`else`：判据是"这一轮循环一条都没吐出"，不是"这一条是 workbench"，
-                    于是将来再加面板式条目不需要动这里。
+                    这是 §4.4 第 5 条要的"把插件页的老流量导过去"。工作台那一页按设计 `panels: []`
+                    （没有索引条，清单只活在装配层那张表里），页面上没有锚点可指——硬指过去就是死链，
+                    所以退成 `features` 那一份**纯文本**要点。走的是 Liquid `for`/`else`：判据是
+                    "这一轮循环一条都没吐出"，不是"这一条是 workbench"，于是将来再加面板式条目不需要动这里。
+
+                    片段那一串写的是 `#{prefix}-panel-{slug}` 而不是裸 `#{slug}`（2026-10-01 修 B）：
+                    这是**跨页**锚点，落点在另一本页面上，而落地页这一枚不是 tab——证件页与编码页里那句
+                    `preventDefault()` 管得到页内的索引条，管不到这里。裸形在产物里压根没有同名 id：
+                    开 JS 时目标页的 `parseHash` 认裸形、面板照样选中（所以这十枚一直是"活的"），
+                    而禁 JS、中键新标签、把链接复制给别人这三条路上，浏览器原生那一次跳转找不到 id，就落在空气上。
+                    `{prefix}-panel-{slug}` 才是目标页真有的那枚 id（与索引条那十枚同源，见 tools-*.html 的面板骨架）。
                     {%- endcomment -%}
                     {% for p in tool.panels %}
-                    <li><a href="{{ tool.url | prepend: site.baseurl }}#{{ p.slug }}">{{ p.name }}</a> — {{ p.tagline }}</li>
+                    <li><a href="{{ tool.url | prepend: site.baseurl }}#{{ tool.prefix }}-panel-{{ p.slug }}">{{ p.name }}</a> — {{ p.tagline }}</li>
                     {% else %}
                     {% for f in tool.features %}
                     <li>{{ f }}</li>

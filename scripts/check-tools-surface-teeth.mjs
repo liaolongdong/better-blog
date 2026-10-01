@@ -43,6 +43,12 @@
  * "id 存在"就收工（它最初确实只写到这一层），把 `tk-tab-idcard` 那枚的 `#tk-panel-idcard` 改成
  * `#tk-panel-random` 仍是绿的，而页面上"点第一块面板滚到最后一块"这种错位谁也拦不住。
  * 五颗都用"没命中就抛"的写法，别长出一颗静默不命中的假牙。
+ *
+ * 同一天的修 B 又补两颗（`落地页跨页锚点退回裸 #slug` / `落到兄弟面板`）：索引条那五颗量的是
+ * **同页**那一形（本页 href ↔ 本页 id），而落地页 `tools.html` 那十枚是**跨页**那一形
+ * （落地页 href ↔ 另一页的 id）——同页的 id 集合再全，也证不了跨页那一头落不落得下去。
+ * 形状与那五颗里的第一、第四颗一一对应（一支读"落不下去"、一支读"不是你点的那一块"），
+ * 两形各两颗，缺哪一支都是半把尺。台账因此 70 → 72 → **74**。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -189,7 +195,7 @@ const idcardCases = [
   {
     name: 'tools.html 的面板锚点清单缺一块面板',
     group: '收录',
-    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/idcard\.html#uscc"/, 'href="#online-idcard"')),
+    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/idcard\.html#tk-panel-uscc"/, 'href="#online-idcard"')),
   },
   {
     name: 'index-all 删掉在线工具那一节',
@@ -315,6 +321,40 @@ const idcardCases = [
     }),
   },
   {
+    /**
+     * 第六颗牙（2026-10-01 修 B）：这一族第一次量到**跨页**那一头。落地页那十枚 `href="另一页#x"`
+     * 从段 1 蹲到修 A 都是裸形，六道人一道没抓到——不是因为 `ids.has` 写坏了，而是因为
+     * **本页的 id 集合再全，也救不了落在另一本页面上的片段**。修 B 把片段换成
+     * `{prefix}-panel-{slug}`（目标页真有的那枚），门禁⑤ 因此多了一支读产物里真写出去的那串片段的判据。
+     * 这一刀把它改回裸形：`①` 按数据源对的那一支也会红，所以 `expect` 特意点 `跨页锚点`
+     * 那一句独有的一串——出现即证明"读落地页 href、拿去查目标页 id"那一支真的在跑。
+     */
+    name: '落地页跨页锚点退回裸 #slug（目标页产物里没有这枚 id，禁 JS 时跳不动）',
+    group: '收录',
+    expect: '跨页锚点',
+    artifact: () => shadowEdit('tools.html', (s) => {
+      const next = s.replace('href="/better-blog/tools/idcard.html#tk-panel-uscc"', 'href="/better-blog/tools/idcard.html#uscc"');
+      if (next === s) throw new Error('落地页那一枚跨页锚点没命中，修 B 的变异作废');
+      return next;
+    }),
+  },
+  {
+    /**
+     * 第七颗牙：同一枚链接改到**目标页另一块真实存在的面板**上。`#tk-panel-random` 在证件页产物里
+     * 是有 id 的，所以"落不下去"那一支绿；红只能来自"按数据源逐枚对"那一支（href 与锚文本必须
+     * 成对）。与索引条那一族第四颗同一形状——两形各留一颗，缺一支就是半把尺。
+     */
+    name: '落地页跨页锚点落到兄弟面板（目标页有这枚 id，却不是你点的那一块）',
+    group: '收录',
+    expect: '的面板清单里没有指向',
+    artifact: () => shadowEdit('tools.html', (s) => {
+      const next = s.replace('href="/better-blog/tools/idcard.html#tk-panel-uscc">统一社会信用代码</a>',
+        'href="/better-blog/tools/idcard.html#tk-panel-random">统一社会信用代码</a>');
+      if (next === s) throw new Error('落地页那一枚成对的 href+锚文本没命中，错位变异作废');
+      return next;
+    }),
+  },
+  {
     name: '入口 CONTAINER_ID 与 yml prefix 脱钩',
     group: 'DOM',
     src: () => mutateSrc('dev/js/toolIdcard.js', (s) => s.replace("const CONTAINER_ID = 'tk-workspace';", "const CONTAINER_ID = 'tk-box';")),
@@ -384,7 +424,7 @@ const codecCases = [
   {
     name: 'tools.html 的编码小节缺一块面板锚点',
     group: '收录',
-    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/codec\.html#digest"/, 'href="#online-codec"')),
+    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/codec\.html#tk-panel-digest"/, 'href="#online-codec"')),
   },
   {
     name: '编码页导航出现两个 is-current',
