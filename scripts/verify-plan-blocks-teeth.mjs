@@ -21,6 +21,14 @@
  *   G13 副本落点的三道拒绝（2026-09-29 随这处的缺陷修复进来）：`VPB_MIR` 指到仓库自己 /
  *       落在仓库里面 / 仓库包含它 / 非空且没有标记 / 标记的 pid 还活着 → 一律退 2 且一字不伤；
  *       另带一刀"把守卫摘掉"的变异，证明退 2 是守卫给的、不是那条路径自己走不通
+ *   G14 清单漏项反查打在**段 5 那三本**上（2026-10-01，第四份计划接手 §X–§Z）：从
+ *       `FILE_TARGETS` 里摘掉 `dev/js/tools/diff-core.js` → `✗ 漏网镜像` + 退 1。G1 摘的是
+ *       段 1 的老目标，那一格只证明"反查存在"；新登记的这一本从清单里掉一行若没人喊，
+ *       那块 5.8 万字的镜像就静默不核
+ *   G15 §X 的标记行缩进 → 假"逐字节不等"那一族（与 G2 同形、落点换成最新那一份计划接手的
+ *       那一节）：`// ── §X` 缩进两格就不算分节标记，§X 的一千多行被判给 §W 的尾巴，
+ *       上一节假红、§X 假绿，`--fix` 会把污染的那一节整块写回段 5 计划。判的是
+ *       "报分节可疑 + --fix 整轮不落笔 + 五份计划一字未动"
  *
  * 全部实验只在一份**最小副本**上做：仓库工作树零改动（末尾用 git status 与内容 diff 指纹自证）。
  * 副本落点原来写死 `/tmp/vpb2`，2026-09-29 改成默认每次 `mkdtemp` 一份独享的，理由与三道拒绝
@@ -115,6 +123,8 @@ const { dir: MIR, auto: MIR_AUTO } = resolveMirror();
 const PLAN1 = '_docs/superpowers/plans/2026-09-25-online-tools-foundation.md';
 const PLAN2 = '_docs/superpowers/plans/2026-09-26-tools-idcard-page.md';
 const SCRIPT = 'scripts/verify-plan-blocks.mjs';
+/** 分段镜像的那本判据文件（与 `verify-plan-blocks.mjs:265` 同名同值；G15 拿它落刀） */
+const SEGMENTED = 'scripts/toolkit-tests.mjs';
 
 const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(path.join(MIR, p))).digest('hex').slice(0, 16);
 const read = (p) => fs.readFileSync(path.join(MIR, p), 'utf8');
@@ -630,6 +640,48 @@ if (base.code !== 0) {
     `exit=${rv.code}，自报落点=${rv.out.trim().split('\n').pop()}`);
 
   [v1, v2, v3, v4, v5, v6, v7].forEach((v) => fs.rmSync(v.root, { recursive: true, force: true }));
+}
+
+/* ── G14：清单漏项反查打在**段 5 那三本**上（第四份计划接手 §X–§Z，2026-10-01）────
+ * G1 摘的是段 1 的 `build-prefix-data.mjs`，那一格证明的是"反查这件事存在"；而 §X–§Z 是最新
+ * 一份计划才带来的镜像面——反查若只认老目标，"新登记的 `diff-core.js` 从清单里掉一行"照样全绿，
+ * 那块 5.8 万字的镜像就静默不核了。所以这一刀必须打在段 5 的目标上。 */
+{
+  const orig = read(SCRIPT);
+  const cut = "  'dev/js/tools/diff-core.js',\n";
+  check('G14 变异落地（副本里的 FILE_TARGETS 少这一行）', orig.includes(cut), `锚点命中=${orig.includes(cut)}`);
+  put(SCRIPT, orig.replace(cut, ''));
+  const r = run();
+  put(SCRIPT, orig);
+  const back = run();
+  check('G14 漏声明 diff-core → ✗ 漏网镜像 + 退 1（反查打到段 5 的镜像面）',
+    r.code === 1 && /✗ 漏网镜像：dev\/js\/tools\/diff-core\.js/.test(r.out) && /没被核过/.test(r.out)
+      && back.code === 0,
+    `exit=${r.code}，点名=${/✗ 漏网镜像：dev\/js\/tools\/diff-core\.js/.test(r.out)}；还原后 exit=${back.code}`);
+}
+
+/* ── G15：§X 的标记行缩进 → 假"逐字节不等"那一族（2026-10-01）──────────────────
+ * G2 打的是段 2 的 §E0，形状一样但落点不同：§X 起头一行缩进两格就不再是分节标记，于是 §X 那
+ * 一千多行被判给 §W 的尾巴——**上一节逐字节不等（假红）、§X 从此没人核（假绿）**，而 `--fix`
+ * 会拿被污染的那一节整块写回最新那份计划（Task 2 落地时规格被截成 119 行就是这一族的前身）。
+ * 段 5 之后这一族的代价最大：那份计划是五份里最新的一本，也是最容易被人手工编辑的一本。 */
+{
+  const before = snapPlans();
+  const t = read(SEGMENTED);
+  const marked = t.replace('\n// ── §X ', '\n  // ── §X ');
+  check('G15 变异落地（副本里 §X 的标记行缩进两格）', marked !== t, `替换命中=${marked !== t}`);
+  put(SEGMENTED, marked);
+  const r1 = run();
+  const r2 = run(['--fix']);
+  const unchanged = plansUnchanged(before);
+  put(SEGMENTED, t);
+  const back = run();
+  check(`G15 §X 标记漂移：报分节可疑 + §X 那一节假不等、--fix 整轮不落笔、${PLAN_RELS().length} 份计划一字未动、恢复后复绿`,
+    r1.code === 1 && /✗ 分节标记可疑/.test(r1.out) && /§X/.test(r1.out) && r2.code === 1
+      && /因分节可疑/.test(r2.out) && !/已同步/.test(r2.out) && unchanged && back.code === 0,
+    `读跑 exit=${r1.code} 点名标记=${/✗ 分节标记可疑/.test(r1.out)}、§X 露头=${/§X/.test(r1.out)}；`
+      + `--fix exit=${r2.code} 拒写=${/因分节可疑/.test(r2.out)}、写了东西=${/已同步/.test(r2.out)}；`
+      + `计划哈希未变=${unchanged}；恢复后 exit=${back.code}`);
 }
 
 const green = run();

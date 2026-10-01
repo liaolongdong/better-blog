@@ -2150,6 +2150,18 @@ test('X20 hunksOf(result, 3)：块内首尾各 3 行 equal，skipped 数的是�
   const one = dHunks(r, 1);
   assert.deepEqual(one[0].rows.map((x) => x.kind), ['equal', 'change', 'equal']);
   assert.deepEqual([one[0].skipped, one[1].skipped, one[1].tailSkipped], [9, 18, 9]);
+  // 并块的那一档边界：间距恰好 2×context 时两块必须并成一块。Task 8 的 X-5 那一刀（`lo <= last.hi`
+  // 改成 `lo < last.hi`）在上面那两份样本里量不到——它们的间距是 20 与 10，都不是 6，而分成两块时
+  // 行集仍逐格相同（7+7 == 14），只是"共几处 / 第几处"的读数与折叠条的归属会变。钉住这一格，
+  // `<=` 才不是写着好看的保险。
+  const tA = [...xRows(4, 'a'), 'C1', ...xRows(6, 'e'), 'C2', ...xRows(4, 'b')].join('\n');
+  const tH = dHunks(dLines(tA, tA.replace('C1', 'Z1').replace('C2', 'Z2')), 3);
+  assert.equal(tH.length, 1, '间距 == 2×context：前后上下文正好相接，该并成一块而不是贴着的两块');
+  assert.equal(tH[0].rows.length, 14, '并块那一格的行数：3+1+3 与 3+1+3 相接，中间那 6 行不重复也不缺席');
+  const gA = [...xRows(4, 'a'), 'C1', ...xRows(7, 'e'), 'C2', ...xRows(4, 'b')].join('\n');
+  const gH = dHunks(dLines(gA, gA.replace('C1', 'Z1').replace('C2', 'Z2')), 3);
+  assert.deepEqual(gH.map((h) => h.rows.length), [7, 7], '间距 = 2×context + 1：中间多出的那一行被折掉，才分得出两块');
+  assert.deepEqual(gH.map((h) => h.skipped), [1, 1], '两块各带自己的省略数：第一块的 1 是头尾钳位后的账');
 });
 
 test('X21 context=Infinity 摊出全部行；context 传非数值 / 负数 / 小数一律 TypeError', () => {
@@ -3943,6 +3955,14 @@ test('Z4 并排两栏的行数相等：缺席那一侧长成 fill 而不是少�
   assert.equal(zPlain(fill).trim(), '', 'fill 那一格除了行档什么都不写，占位交给 CSS 的行高');
   const bothRows = zBlocks(B)[3];
   assert.equal(new RegExp(` data-${Z_P}-ln="(\\d+)"`).exec(bothRows)[1], '3', '行号取的是这一侧的下标（0-based → 屏上 1-based）');
+  // 上面那一句读的是**属性**里那个 0-based 下标，屏上画出来的那一格还得再钉一次：Task 8 的变异刀
+  // （`ln + 1` 改成 `ln`）在这一格里量不到任何东西——整族 439 判全绿，而页面上每一行的行号都从 0 起。
+  const noCell = (bl) => {
+    const m = new RegExp(`<span class="${Z_P}-row__no">([^<]*)</span>`).exec(bl);
+    return m ? m[1] : null;
+  };
+  assert.deepEqual(zBlocks(A).map(noCell), ['1', '2', '3', ''], '可见行号 = 下标 + 1：属性是 0-based 那一格已经钉过，这一句钉的是用户读到的那个数（fill 留空）');
+  assert.deepEqual(zBlocks(B).map(noCell), ['1', '2', '3', '4'], '两栏各自数自己那一侧的行号：B 侧多出的第 4 行在 A 侧是 fill');
   assert.deepEqual(zRows('a\nb', 'a\nb'), [],
     '完全相同拿不出任何行：hunksOf 只切差异块。两栏各 0 行仍然等长，而"这里明明比过了"那句话归结论格（Z12）与装配层的空态（Task 5）');
   const same = v.renderSide(zRows('a\n\nb', 'a\n\nB'), 'a');
@@ -7405,34 +7425,122 @@ Step 5 欠的那一半在这里补完：导出树里 `tools-diff.html` 与 `tool
 `scripts/verify-tools-browser.mjs` 的 `BUDGET_ROWS` 与页集，二选一由本格实读决定并在此登记）；
 Modify `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md`（§7 两行把"待量"换成实数）。
 
-- [ ] **Step 1：清场**——`ps` / `lsoff` 证明没有遗留 runner 与占用端口（项目记忆那条
+- [x] **Step 1：清场**——`ps` / `lsoff` 证明没有遗留 runner 与占用端口（项目记忆那条
       "e2e 前先清遗留进程与端口"，本轮并行会话负载到过 500）。
-- [ ] **Step 2：十档视口 × 本页**（1a–1e 那五档沿用，另加对比页独有的两档：并排两栏在 ≤640 **保持并排**、
+- [x] **Step 2：十档视口 × 本页**（1a–1e 那五档沿用，另加对比页独有的两档：并排两栏在 ≤640 **保持并排**、
       横向溢出只由 `.df-out` 那一个滚动容器承担，**不退成上下堆叠**（Task 6 Step 2 改道，理由记 §0.6，
       原句"必须退成上下堆叠"已按此改口）——要各测一次：并排档在 360 档不出现"两栏被挤到读不出"，
       「视图」下拉切到**行内单栏**那一档在 360 档能单栏读完，那才是窄屏的真退路；
       折叠条在 360 档不得把"省略 N 行"截成两个字）。
-- [ ] **Step 3：本页专属的交互族**——真实鼠标点击要过命中测试（`elementFromPoint` 自证落点）、
+- [x] **Step 3：本页专属的交互族**——真实鼠标点击要过命中测试（`elementFromPoint` 自证落点）、
       拖入文件与 `<input type=file>` 两路各跑一次（`DataTransfer` 造的那份不算，要真文件描述符）、
       非 UTF-8 与含 NUL 的两份样本必须被拒并给那句、超 5 MiB 的样本**先按 size 拒**（断言
       `FileReader` 一次都没被叫）、禁 JS 档读得到整页正文与六句说明、`console.error` 为 0（6a 那一族）。
-- [ ] **Step 4：`§7` 两行先量后立**——口径 `cat f | gzip -9 | wc -c`，件集与档位推导照 §7 表格那两行写。
-- [ ] **Step 5：四页首屏 + 三页总量一起重量**（§0.3(b) 那一格），A/B 两份可比产物（同一份工作树、
+- [x] **Step 4：`§7` 两行先量后立**——口径 `cat f | gzip -9 | wc -c`，件集与档位推导照 §7 表格那两行写。
+- [x] **Step 5：四页首屏 + 三页总量一起重量**（§0.3(b) 那一格），A/B 两份可比产物（同一份工作树、
       只差 yml 那一格）量出登记第四页这一笔的**逐页差额**；证件页首屏余量若掉到 300B 以下 →
       **BLOCKED 停下交回**，附三种处置的字节账。
-- [ ] **Step 6：提交** `test(tools): 段 5 Task 7 对比页浏览器核验——§7 两行先量后立，四页首屏一起重量`。
+- [x] **Step 6：提交** `test(tools): 段 5 Task 7 对比页浏览器核验——§7 两行先量后立，四页首屏一起重量`。
 
 ---
 
 ## Task 8：变异台账 + 六道门禁全量 + 自证
 
-- [ ] Step 1：§X/§Y/§Z 三族逐族注入变异（每族 ≥5 刀，记"单红/恰目标"），照段 3/段 4 的台账形状；
-- [ ] Step 2：`verify-plan-blocks-teeth.mjs` 为"第四份计划接手 §X–§Z"补刀（清单漏项反查、
+- [x] Step 1：§X/§Y/§Z 三族逐族注入变异（每族 ≥5 刀，记"单红/恰目标"），照段 3/段 4 的台账形状；
+- [x] Step 2：`verify-plan-blocks-teeth.mjs` 为"第四份计划接手 §X–§Z"补刀（清单漏项反查、
       §X 节被截短的假"逐字节不等"那一族）；
-- [ ] Step 3：六道门禁全量重跑（**只对改动文件跑 prettier/eslint 不算过**——本仓库根本没有这些配置，
+- [x] Step 3：六道门禁全量重跑（**只对改动文件跑 prettier/eslint 不算过**——本仓库根本没有这些配置，
       这条记在项目记忆里）；① 高负载假红按 §0.8 那句处理，不改判据、不并进绿；
 - [ ] Step 4：干净检出（`git archive HEAD` 导出树）自证：门禁② 与⑤在导出树里退 0；
 - [ ] Step 5：提交 + 把 commit 号续进台账那一格。
+
+前置与跑法：变异**全部打在 gitignored 镜像** `node_modules/.seg5t8-scratch/mirror/`（`rsync` 全量 +
+补拷 `demo/`——基线首跑 `# fail 1` 那条 `not ok 26 - B14` 就是镜像缺 `demo/idCardDemo/lib/GB2260.js`，
+补拷之后 439/439），活树那五本算法／视图／入口一件未动（`git status` 逐格自证为空）。
+每刀一发命令、一次只落一把：开跑前先从 `pristine/` 复位 → 整串字面匹配 + 唯一性检查（命中数不是 1
+就直接退 9，刀不落）→ 跑**全量 439**（不用 `--test-name-pattern`，红名单要跨族才量得到"这一刀有没有把
+别页带下水"）→ 立刻复位并 md5 自证。落刀前基线 `# tests 439 / # pass 439 / # fail 0 / # cancelled 0`
+退 0、14.6s；收刀时五本 md5 与基线一字不差：`diff-core.js 13e69986…`、`diff-json.js f92296fe…`、
+`diffView.js 534b70cf…`、`diffWorkbench.js 3fa5ce13…`、`toolDiff.js 79b7f3a1…`。
+23 刀的红名单**全部落在 §X/§Y/§Z 之内，族外 0 条**；跑动期间本机 1 分钟负载 5.2–45.3（并行会话在动），
+没有一刀出现超时假红——高负载只会多红不会少红，所以下面那两格"0 红"的结论不受负载影响。
+
+§X（`dev/js/tools/diff-core.js`，8 刀）：
+
+| 刀 | 改哪一行 | 红名单（实测） | 处置 |
+| --- | --- | --- | --- |
+| X-1 | `:226` compareKey 的 ws 档去掉 `.trim()` | X7 X8 X9 X19 X27 | 有牙。预期 X7/X9/X19 全中，另抓 X8/X27——那两判也读同一只 compareKey，归一化那一格是四判共用的出口 |
+| X-2 | `:663` `bytesBad` 的 `\|\|` 改成 `&&` | X11 X12 X24 Y16 Z11 | 有牙，且**跨族**：§Y 的"两档走 diff-core 那一把尺"与 §Z 的坏输入文案都被这一格牵着 |
+| X-3 | `:633` del 行起点 `seg.pairs` 改成 `0` | X18 | 有牙但只一格。Z4/Z5 不红的道理：两栏读**同一份**行流，多出来的 del 行是对称的，"两栏行数相等"抓不到行流被污染——这一格的账归 X18 一处守（登记为 §Z 那两判的已知边界，不补刀） |
+| X-4 | `:589` `pairs: Math.min(del, ins)` → `Math.max` | X13 X18 X22 X23 | 有牙 |
+| X-5 | `:935` 并块门 `lo <= last.hi` → `lo < last.hi` | 首跑 0 红 → 补判据后 X20 | **判据缺口，当场补掉**。X20 两份样本的间距是 20 与 10，都不是 2×context，所以那一档边界全族无人读。取证用一份临时探针（跑完即删）：gap=6 基线是一块 14 行、落刀变两块 7+7；gap=7 两种写法都是两块——行集逐格相同、只有 `skipped` 与"共几处"的读数变，故不是等价写法而是没测到。补的是 X20 末尾四句（2×context 并块、+1 分块、行数与 skipped 各一格） |
+| X-6 | `:1027` unified 头 A 侧行号少 1 | X22 X23 X25 Z19 | 有牙。预期里的 X24 不红——那份样本两侧都空，头里没有行号可错 |
+| X-7 | `:762` `ignored` 少看 `crlf` 半边 | X9 X19 | 有牙。预期里的 X6/Z24 不红：X6 的样本不含"仅行尾回车不同"的 equal 行，Z24 读的是文案同现而非计数来源 |
+| X-8 | `:971` `skipped: g.lo - prevHi` 多算 1 | X20 X21 X22 Z7 Z21 Z28 Z29 | 有牙，本族最狠的一刀：折叠条、快捷键、换前缀三判一起红，正是"属性与正文用同一个数"那条线 |
+
+§Y（`dev/js/tools/diff-json.js`，6 刀）：
+
+| 刀 | 改哪一行 | 红名单（实测） | 处置 |
+| --- | --- | --- | --- |
+| Y-1 | `:120` Pointer 转义次序颠倒（先 `/` 后 `~`） | Y6 Y7 | **恰目标** |
+| Y-2 | `:63` `MAX_DEPTH` 1000 → 64 | Y1 Y2 | 有牙。Y15/Y18 不红的道理：那两判的层数取自 `import` 的 `MAX_DEPTH`（`toolkit-tests.mjs:14012` 那格 `MAX_DEPTH: Y_DEPTH`），跟着常量走就永远自洽；死数只有 Y2 里 `assert.equal(Y_DEPTH, 1000)` 那一句——改数值这一档只有对拍那头抓得到，登记为这一族的量测边界 |
+| Y-3 | `:479-480` `stats[kind] += 1` 挪到截断 return 之后 | Y12 | **恰目标**（单红） |
+| Y-4 | `:502` `type` 档并入 `change` | Y4 Y13 Y14 Y17 Z10 | 有牙；预期里的 Z25 不红——那一判数的是变更表的行档名与六列形状，`type` 换成 `change` 两者都不变 |
+| Y-5 | `:518` `let sameOrder = lenA === lenB` 强制 `true` | 0 红 | **可证无牙，不动它**：`keyOrderDiffers` 那一格（`:532`）要求两侧键互为对方子集，键集相等 ⇒ `lenA === lenB`，所以那半句在任何输入下都不改变输出——是实现里的一处冗余保险，不是判据缺口 |
+| Y-6 | `:83` 数字读侧放行前导零 | Y1 | **恰目标**（单红）：坏数写法只在 Y1 与 `json-core` 对拍那一格露头，本族没有第二判走 `readNumber` 的那条分支 |
+
+§Z（`diffView.js` 5 刀 + `diffWorkbench.js` 3 刀 + 入口 1 刀，共 9）：
+
+| 刀 | 改哪一行 | 红名单（实测） | 处置 |
+| --- | --- | --- | --- |
+| Z-1 | `:116` 行内高亮那半段不转义 | Z8 Z9 | 有牙；预期里的 Z5 不红——样本是纯字母，转与不转同一串 |
+| Z-2 | `:134` fill 判据 `ln === null` → `undefined` | Z4 | **恰目标**（单红） |
+| Z-3 | `:142` 可见行号 `ln + 1` → `ln` | 首跑 0 红 → 补判据后 Z4 | **判据缺口，当场补掉**：Z4 钉的是属性 `data-df-ln`（0-based 那一格），屏上那一格 `df-row__no` 的内容全族无人读——行号从 0 起、整页照绿。补的是 Z4 里两句 `noCell`（A 栏 `1/2/3/空`、B 栏 `1/2/3/4`），注释写明这一刀是唯一来源 |
+| Z-4 | `:173` 去掉 `skipped === 0` 那一档 | Z7 Z21 Z28 Z29 | 有牙 |
+| Z-5 | `:176` 折叠条属性比正文多 1 | Z7 | **恰目标**（单红）：Z7 那句"属性与正文两处用同一个数"抓得准 |
+| Z-6 | workbench `:717` `data-${env.prefix}-skip` 打成 `data-df-skip` | Z16 Z29 | 有牙；预期里的 Z28 不红——换前缀那一判量的是节点地址与产物串，不点折叠条 |
+| Z-7 | workbench `:563` 文件闸门 5 MiB → 10 MiB | Z27 | **恰目标**（单红）：抓它的正是 `reads.length` 那一格（"超限必须在读之前拒掉"） |
+| Z-8 | workbench `:792` 折叠条的点击线摘掉 | Z29 | **恰目标**（单红） |
+| Z-9 | 入口 `toolDiff.js` 顶层插一枚 `Date.now()` | Z15 | **恰目标**（单红）：时钟归零那一半有牙 |
+
+小结：23 刀里 **8 刀恰目标**、**12 刀多判共抓**（跨族牵引记三处：X-2 → Y16/Z11、X-8 → Z7/Z21/Z28/Z29、
+X-6 → Z19）、**2 刀首跑 0 红**（X-5 的 2×context 边界档、Z-3 的可见行号）→ 两处判据缺口当场补掉，
+都只加断言不加用例（`# tests` 仍是 439；补完基线复跑 `# pass 439 / # fail 0` 退 0，重跑那两刀各红恰一条），
+**1 刀可证无牙**（Y-5，是实现里的冗余保险而非测试缺口，不动它）。
+
+**Step 2 台账（2026-10-01，`scripts/verify-plan-blocks-teeth.mjs` 37 → 41 项）**
+
+补的两刀都打在"第四份计划接手 §X–§Z"这一格，跑法照 G13 那一族：改动只落进临时副本（`verify-plan-blocks.mjs`
+与 `scripts/toolkit-tests.mjs` 的副本），落点守卫仍拦仓库之外的落点，实验前后各拍一张工作树脏指纹。
+
+| 新项 | 反查的那一族 | 实测读数 |
+| --- | --- | --- |
+| G14 清单漏项 | 副本里 `FILE_TARGETS` 删掉 `'dev/js/tools/diff-core.js',` 一行 | 退 1 且点名 `✗ 漏网镜像：dev/js/tools/diff-core.js`（"没被核过"那句话到得了页面），还原后退 0。这一刀的靶子是"磁盘上有这份文件、门禁却宣称全部已落地镜像逐字节全等"——清单少一行时那句仍然退 0，所以反查必须由牙齿来钉 |
+| G15 标记漂移 | 副本里把 `// ── §X` 那行缩进两格 | 读跑退 1 并报 `✗ 分节标记可疑`、§X 那一节露出假"逐字节不等"；`--fix` 同一轮退 1、拒写（无 `已同步`）、**5 份计划文件哈希一字未变**；恢复后退 0 |
+
+G12 那一族是遍历 `PLAN_RELS()` 的，第四份计划一进清单就自动进了它的覆盖面，本轮没有为它补刀。
+
+**Step 3 六道读数（活树，2026-10-01 15:10，本机 1 分钟负载 4.5）**
+
+① `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/toolkit-tests.mjs`：
+`# tests 439 / pass 439 / fail 0 / cancelled 0`，退 0，18.1s。补的那两处判据只加断言不加用例，
+所以 `# tests` 与 Step 1 的基线同一个数——这也是那两刀重跑各红恰一条的前提。
+② `verify-plan-blocks.mjs`：退 0，76 个已落地镜像 / 合计 1,626,755B / 未落地 0 节，
+计划 js 块 65 个（段1 11、段2 19、段3 15、段4 12、段5 8）。
+③ `verify-plan-blocks-teeth.mjs`：41/41 通过、退 0；脏指纹 `a2259c5be45f434a` 前后一模一样（27 个脏项，
+含另一路会话那批，一律未被触碰）。
+④ 归 Step 4：这道门禁读的是 `git archive HEAD` 导出的**提交态**，在活树跑等于拿工作树自证工作树。
+⑤ `check-tools-surface.mjs`：退 0，4 条 ready（idcard / codec / json / diff）× 5 组判据全绿，
+导航核到 101 页（不渲染 header 的 18 份、无 canonical 的 17 份）。
+⑥ `check-tools-surface-teeth.mjs`：67/67 组变异如期变红 + "全部变异已还原，复跑基线仍绿"。
+
+六道里没有一道出现高负载假红：① 是唯一的 20s 超时来源，18.1s 是在负载 4.5 下过的；Step 1 那 23 刀
+跑在负载 5.2–45.3 之间，没有一刀超时，§0.8 那句"红了先 `uptime` 再单跑那一判自证"本轮没有触发过。
+
+**Steps 1–3 落到工作树的只有三格**：`scripts/toolkit-tests.mjs`（Z4 两句 `noCell` + X20 末尾四句，
+`md5 -q` = `e70eacbc646ee4ce81468130c8d3ef1d`，改前那一份是 `884c7d19…`，记在镜像基线里）、
+`scripts/verify-plan-blocks-teeth.mjs`（G14/G15）、
+本计划（台账 + `--fix` 同步的 §X/§Z 两块，7504 → 7524 行）。被测的五个模块 md5 与基线一字不差。
 
 ---
 

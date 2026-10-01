@@ -13831,6 +13831,18 @@ test('X20 hunksOf(result, 3)：块内首尾各 3 行 equal，skipped 数的是�
   const one = dHunks(r, 1);
   assert.deepEqual(one[0].rows.map((x) => x.kind), ['equal', 'change', 'equal']);
   assert.deepEqual([one[0].skipped, one[1].skipped, one[1].tailSkipped], [9, 18, 9]);
+  // 并块的那一档边界：间距恰好 2×context 时两块必须并成一块。Task 8 的 X-5 那一刀（`lo <= last.hi`
+  // 改成 `lo < last.hi`）在上面那两份样本里量不到——它们的间距是 20 与 10，都不是 6，而分成两块时
+  // 行集仍逐格相同（7+7 == 14），只是"共几处 / 第几处"的读数与折叠条的归属会变。钉住这一格，
+  // `<=` 才不是写着好看的保险。
+  const tA = [...xRows(4, 'a'), 'C1', ...xRows(6, 'e'), 'C2', ...xRows(4, 'b')].join('\n');
+  const tH = dHunks(dLines(tA, tA.replace('C1', 'Z1').replace('C2', 'Z2')), 3);
+  assert.equal(tH.length, 1, '间距 == 2×context：前后上下文正好相接，该并成一块而不是贴着的两块');
+  assert.equal(tH[0].rows.length, 14, '并块那一格的行数：3+1+3 与 3+1+3 相接，中间那 6 行不重复也不缺席');
+  const gA = [...xRows(4, 'a'), 'C1', ...xRows(7, 'e'), 'C2', ...xRows(4, 'b')].join('\n');
+  const gH = dHunks(dLines(gA, gA.replace('C1', 'Z1').replace('C2', 'Z2')), 3);
+  assert.deepEqual(gH.map((h) => h.rows.length), [7, 7], '间距 = 2×context + 1：中间多出的那一行被折掉，才分得出两块');
+  assert.deepEqual(gH.map((h) => h.skipped), [1, 1], '两块各带自己的省略数：第一块的 1 是头尾钳位后的账');
 });
 
 test('X21 context=Infinity 摊出全部行；context 传非数值 / 负数 / 小数一律 TypeError', () => {
@@ -14442,6 +14454,14 @@ test('Z4 并排两栏的行数相等：缺席那一侧长成 fill 而不是少�
   assert.equal(zPlain(fill).trim(), '', 'fill 那一格除了行档什么都不写，占位交给 CSS 的行高');
   const bothRows = zBlocks(B)[3];
   assert.equal(new RegExp(` data-${Z_P}-ln="(\\d+)"`).exec(bothRows)[1], '3', '行号取的是这一侧的下标（0-based → 屏上 1-based）');
+  // 上面那一句读的是**属性**里那个 0-based 下标，屏上画出来的那一格还得再钉一次：Task 8 的变异刀
+  // （`ln + 1` 改成 `ln`）在这一格里量不到任何东西——整族 439 判全绿，而页面上每一行的行号都从 0 起。
+  const noCell = (bl) => {
+    const m = new RegExp(`<span class="${Z_P}-row__no">([^<]*)</span>`).exec(bl);
+    return m ? m[1] : null;
+  };
+  assert.deepEqual(zBlocks(A).map(noCell), ['1', '2', '3', ''], '可见行号 = 下标 + 1：属性是 0-based 那一格已经钉过，这一句钉的是用户读到的那个数（fill 留空）');
+  assert.deepEqual(zBlocks(B).map(noCell), ['1', '2', '3', '4'], '两栏各自数自己那一侧的行号：B 侧多出的第 4 行在 A 侧是 fill');
   assert.deepEqual(zRows('a\nb', 'a\nb'), [],
     '完全相同拿不出任何行：hunksOf 只切差异块。两栏各 0 行仍然等长，而"这里明明比过了"那句话归结论格（Z12）与装配层的空态（Task 5）');
   const same = v.renderSide(zRows('a\n\nb', 'a\n\nB'), 'a');
