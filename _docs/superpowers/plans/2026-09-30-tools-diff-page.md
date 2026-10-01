@@ -7451,8 +7451,8 @@ Modify `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md`（§7 �
       §X 节被截短的假"逐字节不等"那一族）；
 - [x] Step 3：六道门禁全量重跑（**只对改动文件跑 prettier/eslint 不算过**——本仓库根本没有这些配置，
       这条记在项目记忆里）；① 高负载假红按 §0.8 那句处理，不改判据、不并进绿；
-- [ ] Step 4：干净检出（`git archive HEAD` 导出树）自证：门禁② 与⑤在导出树里退 0；
-- [ ] Step 5：提交 + 把 commit 号续进台账那一格。
+- [x] Step 4：干净检出（`git archive HEAD` 导出树）自证：门禁② 与⑤在导出树里退 0；
+- [x] Step 5：提交 + 把 commit 号续进台账那一格。
 
 前置与跑法：变异**全部打在 gitignored 镜像** `node_modules/.seg5t8-scratch/mirror/`（`rsync` 全量 +
 补拷 `demo/`——基线首跑 `# fail 1` 那条 `not ok 26 - B14` 就是镜像缺 `demo/idCardDemo/lib/GB2260.js`，
@@ -7541,6 +7541,55 @@ G12 那一族是遍历 `PLAN_RELS()` 的，第四份计划一进清单就自动�
 `md5 -q` = `e70eacbc646ee4ce81468130c8d3ef1d`，改前那一份是 `884c7d19…`，记在镜像基线里）、
 `scripts/verify-plan-blocks-teeth.mjs`（G14/G15）、
 本计划（台账 + `--fix` 同步的 §X/§Z 两块，7504 → 7524 行）。被测的五个模块 md5 与基线一字不差。
+
+**Step 4 与门禁④（`ff21e4a` 落笔之后，在导出树里跑的那一发）**
+
+**落笔 = `ff21e4a`**（`454befa` → `ff21e4a`，`git update-ref` 的 CAS 带旧 sha；临时索引
+`mktemp /tmp/qoder-seg5t8-index-XXXX`、`read-tree <旧 sha>`、逐格 `hash-object -w` +
+`update-index --add --cacheinfo`，新树 `78aa605` 先与 `HEAD^{tree}`（`532cd91`）比过"必不相等"
+再 `commit-tree -F` 那份信息文件）。`git show --stat` 读到 **`189 insertions(+) / 9 deletions(-)`
+且正好三行**，与上面"落到工作树的只有三格"同一句话。
+**索引对齐**：plumbing 只写树、不动工作索引，落笔之后那三格在 `git status` 里全是 `MM`（索引还挂着旧 blob），
+逐格 `git update-index --add --cacheinfo 100644,$(git rev-parse HEAD:<path>),<path>` 对齐回新 HEAD；
+对齐那一刻 `--porcelain` 剩 **25** 行、逐条都是另一路会话那批，工作树文件一件未动。
+另一路会话在 spec 那一格的暂存 blob 仍是 `7c009a3c…`，与它们的备份一字不差——本发没碰它，
+但它还在索引里，它们下一次裸 `git commit` 仍然会把那一格写进去（§0.7 第 4 条那笔账照旧挂着）。
+
+**落点偏差（要登记）**：两棵导出树放 gitignored 的 `node_modules/.seg5t8-scratch/export-{base,work}`，
+不放 `/tmp/seg5t6-*` 那种写法——`/tmp` 会被清，项目记忆里那条，这一发改成落在仓库内的忽略目录。
+
+**门禁④（两棵导出树真重建 + 三列字节表）**：`export-base` = `git archive 454befa`、
+`export-work` = `git archive ff21e4a`，各 `ln -s` 活树 `node_modules`、各跑一次真 `npx vite build`
+（Node v22.19.0；base `✓ built in 8.34s`、work `✓ built in 10.64s`，两边 `exit=0`）。
+口径 `stat -f%z` 与 `gzip -6|-9 -c f | wc -c`，件集 `assets/js/*.min.js` + `assets/css/*.min.css`：
+
+| 树 | 件 | 原始 | L6 | L9 | 清单 md5 | 逐件内容 md5 的合集 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `export-base`（454befa） | 37 | 853,571 | 270,556 | 269,770 | `27b3d6cb…` | `84c56e7f…` |
+| `export-work`（ff21e4a） | 37 | 853,571 | 270,556 | 269,770 | `27b3d6cb…` | `84c56e7f…` |
+
+**这一发的读数是"等式"，而 Task 6 那一发是"不等式"**——这正是本格该有的形状：三格改动（判据、牙齿、计划）
+都不在 vite 的入口扫描面上，产物必须逐件相同；两份逐件清单 `diff` 无输出、内容 md5 合集同一个数，
+就是"这一轮没有因为改判据把产物带下水"的证据。合计与段 5 Task 6 那一步的 work 读数一字不差
+（37 件 / 853,571 / 270,556 / 269,770），§7 那两行不需要重立。**`import{` 在 work 那 25 本
+`assets/js/*.min.js` 里逐文件 `grep -c` 求和 = 0**（§0.4 那条红线的自动版）。
+
+**干净检出那四道人**（都在 `export-work` 里跑；跑之前先在那棵树 `git init`，否则门禁③ 末尾那句
+"实验前后工作树脏指纹一字不差"拿到的是 `fatal: not a git repository`——项目记忆里那条，本轮第三次用）：
+
+- ① `# tests 439 / pass 439 / fail 0 / cancelled 0` 退 0——跑的是提交进去的那份 `toolkit-tests.mjs`，
+  所以 Step 1 补的那两处判据在"工作树里我后来的改动"不参与的前提下仍然全绿。
+- ② 退 0（76 块已落地镜像全等、`未落地 0 节`、js 块 65）。这一发同时自证"提交进去的那份计划镜像
+  与提交进去的那份磁盘内容互为逐字节"。
+- ③ **`41/41`** 退 0，末尾"副本回到全绿、实验前后脏指纹一字不差"（导出树里 62 项前后一致，
+  指纹 `ecc2eb005f5ff60c`——那 62 项里含上面 vite 刚重建的 `assets/`）。
+- ⑤ 退 0（4 条 ready × 5 组、导航核到 101 页）。**这一格把 Task 6 那句"⑤⑥ 只在活树跑"补完**：
+  `check-tools-surface.mjs` 的 `ROOT` 由 `import.meta.url` 推（`:34`），所以在导出树里跑时页面源、
+  `_data/onlineTools.yml`、DOM 判据要 `import` 的 `dev/js/*` 全部读提交态；导出树里没有自己的 `_site`，
+  这一发 `ln -s` 活树那一份（同 Task 6 对 `node_modules` 的做法）。也就是说**源侧是提交态、产物侧是活构建**，
+  这一发的绿只到"提交进去的源与活构建产物对得上"这一档，不覆盖"干净机器上重建 `_site` 也能过"——
+  那一档要 `jekyll build`，归 Task 9 Step 5 的收口复跑。
+- ④ 就是上面那一格（两棵树真重建），⑥ 照旧只在活树跑：它就地改源再还原，导出树里那些格只是快照。
 
 ---
 
