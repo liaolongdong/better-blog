@@ -704,7 +704,9 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 **同一轮把第二把尺也量了**（跨页那一形 `href="页#x"`，按目标页的 `id` 求差、跳过 15 枚站外绝对 URL；带片段的 href 全站共 2,344 枚）：
 `base` 站内同页 **14** ＋ 跨页 **10**、`work` 站内同页 **4** ＋ **跨页仍是 10**——落地页 `tools.html:152` 那十枚速览链接写的仍是
 裸 `#slug`，开 JS 时目标页认裸形（这十枚是活的），禁 JS 时面板静态全可见、只是滚不过去。
-修法同本格那一刀（`#{{ tool.prefix }}-panel-{{ p.slug }}`），代价在 D 树副本上实测 **raw +90B / L9 +8B / L6 +9B**，
+修法同本格那一刀（`#{{ tool.prefix }}-panel-{{ p.slug }}`），代价在 `_site/tools.html` 的补丁副本上实测
+**raw +90B / L9 +8B / L6 +9B**（同一把尺量两遍：python `gzip.compress` 与 §7 钉死的 `cat f | gzip -N | wc -c`，
+读数一致；副本落 `node_modules/.seg5t9-scratch/landing-patched.html` 可复算），
 而 `tools.html` 不在 `scripts/verify-tools-browser.mjs:2702` 那八行 `ROWS` 里，**没有预算格会挪动**。
 它改的是落地页那十枚链接的落点（交互面），不在"索引条那 10 枚"这句批准的范围里，**登记为待判**，
 逐笔读数见段 5 计划 Task 9 末那一格。
@@ -712,8 +714,12 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 **为什么这一格不加常驻的浏览器判据**：常驻判据只能挂进 `scripts/verify-tools-browser.mjs`，而它配套的牙齿
 `scripts/verify-tools-browser-teeth.mjs` 那六刀是直接改共享真产物（仓库 `_site` 与 `assets/**`）的；本轮并行会话仍在那棵工作树上写
 `_config.yml` / `dev/js/editorial.js` / `USAGE.md`，跑一次就是把他们的现场掀掉重铺。所以锚点指向这条红线落在**静态那一头**——
-门禁⑤ 的 `panels` 分支逐枚核「href 指向的 id 必须在本页产物里真实存在」加索引条枚数 == 面板数，牙由门禁⑥ 那三刀给
-（退回裸 `#slug`、整枚摘掉 `href`、只改编码页——三形各红一次，70/70 全点燃）。浏览器侧那一档留成**可复跑的一次量具**，
+门禁⑤ 的 `panels` 分支逐枚核四件事：索引条枚数 == 面板数、`href` 指向的 id 必须在本页产物里真实存在、
+那枚 id 必须就是这一枚 tab **自己的**面板（`id="{prefix}-tab-{slug}"` ↔ `href="#{prefix}-panel-{slug}"` 逐字对上），
+以及面板 slug 里不许带 `-panel-` 这个前提本身（带了的话锚点形与裸形一起解错）。
+牙由门禁⑥ 那五刀给（证件四刀：退回裸 `#slug`、整枚摘掉 `href`、落到兄弟面板、yml 里塞一枚带标记的 slug；
+编码一刀：退回裸 `#slug`）——评审回合补的两刀各点名自己那句独有判据，**72/72** 全点燃。
+浏览器侧那一档留成**可复跑的一次量具**，
 读数如上面那一段，量具目录在 gitignore 的 `node_modules/` 下，重建它只要两份产物与一发 headless Chrome。
 
 
@@ -777,9 +783,12 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 `json-core.js` 绝不能被两个入口同时 reach**（§5.6 那格写的就是这件事，判据落点门禁④）。
 
 **2026-10-01 修 A 追加的第 7 条（不收进上面六条的编号，因为它罩的是 `panels` 那一支）**：
-`layout: panels` 那两页的产物里，索引条每一枚 `.tk-index__link` 都必须有 `href="#…"`，**且那串指向的 id 要在同一页产物里真实存在**，
-枚数还得等于面板数（一一对应才算目录）。这一条是静态核的，判据落点 `scripts/check-tools-surface.mjs` 的 `checkDomContract`，
-三刀牙在 `scripts/check-tools-surface-teeth.mjs`（退回裸 `#slug` / 整枚摘掉 `href` / 只改编码页那一枚，台账现 **70/70**）。
+`layout: panels` 那两页的产物里，索引条每一枚 `.tk-index__link` 都必须有 `href="#…"`，**且那串指向的 id 要在同一页产物里真实存在、
+必须就是这一枚 tab 自己的面板**（`id="{prefix}-tab-{slug}"` ↔ `href="#{prefix}-panel-{slug}"` 逐字对上），
+枚数还得等于面板数（一一对应才算目录），面板 slug 里也不许带 `-panel-` 这个前提本身。
+这一条是静态核的，判据落点 `scripts/check-tools-surface.mjs` 的 `checkDomContract`，
+五刀牙在 `scripts/check-tools-surface-teeth.mjs`（退回裸 `#slug` / 整枚摘掉 `href` / 只改编码页那一枚 /
+落到兄弟面板 / yml 里塞一枚带标记的 slug，台账现 **72/72**）。
 为什么钉在产物这一头而不是只在测试那一头：`parseHash` 的双认判据（D4）只保证 JS 开着的用户两种形状都进得去，
 而"禁 JS 时 href 落得下去"这件事的消费者是**页面本身**，改一行 Liquid 就能悄悄破掉，只有对产物求差集才看得见。
 

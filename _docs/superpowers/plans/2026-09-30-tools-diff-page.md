@@ -8028,4 +8028,78 @@ slug 不含标记时两种取法给出的都是 slug；slug 含标记（记作 `
 不碰；并行会话挂在 spec 那格的暂存 blob `7c009a3cb…`（相对 HEAD 少 294 行、多 14 行，是一份旧快照）
 **不参与本格的暂存与对齐**，落笔后逐枚复读见下一格。
 
+**提交态自证（`15ca9ed` 落笔之后，`export-review` 一棵）**
+
+**落笔 = `15ca9ed`**（`fc37f1e` → `15ca9ed`，§0.7 那套 CAS：`mktemp` 出来的临时索引 +
+`read-tree fc37f1e5…` + 八格各自 `hash-object -w` 与 `update-index --cacheinfo` + `write-tree` +
+`commit-tree -F fixA/msg-review.txt` + `update-ref refs/heads/main <新> <旧>` 的 CAS；索引路径与两枚 sha
+逐字留在 `node_modules/.seg5t9-scratch/fixA/review-{idx-path,old-sha,new-sha}.txt`，可复算"旧 sha 就是当时写的 `<旧>`"）。
+`git show --numstat` 读到正好八行、**+280 / −35**，八枚 blob 是 `47a93bb6`（`check-tools-surface.mjs`）/
+`372bf66e`（teeth）/ `40e64d1b`（`toolkit-tests.mjs`）/ `52a4e9f4`（段 1 计划）/ `80882995`（段 2 计划）/
+`cc9ae60c`（段 4 计划）/ `72328199`（本计划）/ `781db3ab`（spec）。
+**索引对齐只对我那七格做**，spec 那一格**故意不对齐**——共享索引里挂着另一路会话那枚 `7c009a3cb…`，对齐它
+等于替他们重写那一格。落笔后逐枚复读（`git ls-files -s`）：spec 仍是
+`7c009a3cb462d0445c001de944a1a4a012e8e216`，`USAGE.md e8f821ff8…`、`_config.yml 3f0b74e0b…`、
+`dev/sass/toolkit.scss 330fb304b…`、`package.json d4e40c1d8…` 一字未动，`git diff --cached --numstat` 的行数仍是 **16**。
+
+**门禁④**：`export-review` = `git archive 15ca9ed`，**1,151** 件（放 gitignored 的 `node_modules/.seg5t9-scratch/`），
+`node_modules` 与 `vendor` 两处 `ln -s` 活树；真 `npx vite build` `✓ built in 8.69s`、`exit=0`；
+真 `bundle exec jekyll build --trace`、`exit=0`、`Liquid Warning` **0** 条、`_site` **938** 件（`gate4-review.log`）。
+
+**三列字节表（上一格欠的那一发）**：
+
+| 树（sha） | 件 | 原始 | L6 逐件之和 | L9 逐件之和 | 清单 md5 | 逐件内容 md5 的合集 | `import{` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `export-base`（c542feb） | 37 | 853,571 | 269,928 | 269,142 | `27b3d6cb…` | `cda922ef…` | 0 |
+| `export-work`（59dee1e） | 37 | 853,662 | 269,965 | 269,180 | `27b3d6cb…` | `8ea256e4…` | 0 |
+| `export-docs`（a94fd40） | 37 | 853,662 | 269,965 | 269,180 | `27b3d6cb…` | `8ea256e4…` | 0 |
+| `export-review`（15ca9ed） | 37 | 853,662 | 269,965 | 269,180 | `27b3d6cb…` | `8ea256e4…` | 0 |
+
+口径与 Task 9 那一格逐字相同（件集 = `find assets/js assets/css -name '*.min.*'`，25 本 js + 12 本 css；
+raw 走 `stat -f%z`；L6/L9 走**逐件** stdin 口径；清单 md5 是那串路径排序后的 md5；合集 md5 是逐件内容 md5
+按同序拼接再取 md5），**四行今天在同一把新尺上一次跑完**（`node_modules/.seg5t9-scratch/seg5t9-bytetable.sh`，
+读数留 `bytetable.log`）。前两行不是新数：它们与上一格记账的 `853,571 / 269,928 / 269,142 / cda922ef…` 和
+`853,662 / 269,965 / 269,180 / 8ea256e4…` **一字不差**——新尺先在旧账上自证，才拿它读那一格欠的 `export-review`。
+
+**等式**：`15ca9ed` 与 `a94fd40` 两棵的 `assets/` 逐字节 `diff -r` **无输出**，六页 HTML 的 md5 逐枚相同
+（`tools/idcard.html 18e596d5` / `tools/codec.html 1501a4cf` / `tools/json.html d1065a3f` /
+`tools/diff.html c9e1e854` / `tools.html ca57384c` / `index.html d3b50f13`），`_site` 全树差异只有 **1** 件、
+是 `feed.xml`（带构建时间戳）。"`scripts/` 与 `_docs/` 不进站点构建"这条口径**第四次**拿到等式，
+上面那句"`dev/**` 一字未动 ⇒ 产物必须零差，这条等式去提交态那一格拿"就此关上。
+
+**提交态四道人**（都在 `export-review` 里跑，跑前 `git init -q .` + `git add -A .`；导出树自己读到脏项 **1,150**，
+与活树无关）：① 退 0、`# tests 439 / pass 439 / fail 0 / cancelled 0`；② 退 0、
+"全部已落地镜像与磁盘逐字节全等（未落地 0 节）"；③ **41/41** 退 0；⑤ 退 0、
+"收录面 4 条 ready 条目 × 5 组判据全绿（页面源/收录/导航/图标/DOM）"、导航核到 **101** 页。
+**⑥ 不在导出树跑**（它要在源文件上原地打 72 发变异，等于改提交态工作树，沿用 Task 8 的处置），活树读数 72/72
+记在上面那一格。本轮六道的形状因此是：**①②③⑤ 各有活树 + 提交态两份、④ 只有提交态一份（含上面那张字节表）、
+⑥ 只有活树一份**，与 Task 8、Task 9 那两格一致。
+
+**量具自己那一刀（本格的两次假读数，先记账再读数）**：字节表第一次跑出来是
+`件 37 ｜ raw 0 ｜ L6 0 ｜ L9 0 ｜ 清单 md5 27b3d6cb… ｜ 合集 md5 d41d8cd9…`——**同一行里既有真又有假**：
+清单那一枚真（它读的是先落盘的路径清单），三个求和与合集全假，因为逐件循环写的是 `for f in ${=FILES}`，
+那是 **zsh 的强制分词**、脚本壳却是 `#!/bin/bash`，`bad substitution` 让循环体一次都没跑，
+而 `d41d8cd98f00b204e9800998ecf8427e` 正是"**空串的 md5**"——认得出这一枚，读数才没被糊过去。
+第二次直接在交互 shell（zsh）里重试同一串，`for f in $FILES` 在 zsh 下**不分词**，`stat`/`cat`/`md5` 收到整串清单，
+于是 `No such file or directory` 当场炸；这一发是显式红，比上一发的静默 0 便宜得多。
+修法：新脚本**不依赖 shell 的分词行为**——`find` 先落清单文件、再 `while IFS= read -r f` 逐行读，并加四条前置断言
+（树里必须有 `assets/{js,css}`、件数必须 > 0、每件 `stat`/`gzip` 失败即 `exit 1`、`import{` 仍按逐本 `grep -c` 求和）。
+**落进账本的是这一句**：一把尺里只要有一段"循环没跑、但 sum 照样打印得出来"，它就能在 `exit=0` 的壳里给出全 0；
+所以要在求和**之前**断言件数，而不是读完之后再判断数对不对。
+
+**文档侧的尾巴**：spec 那三处口径（§7 里"代价在 D 树副本上实测"改成补丁副本 + 两套 gzip 口径 + 副本路径，
+同段下面那句"三刀牙 / 70/70"改成四件事 / 五刀 / **72/72**；§8.2 那条判据同样从三刀扩到五刀）与段 4 计划第 11139 行
+那句"牙在门禁⑥，70/70"改成 72/72 并指向本节——这三处没挤进 `15ca9ed`（那一发的边界是代码 + 本格自证），
+它们与本格一起走下一次 `docs(plans)`。spec 那一格照上面那条：只提交工作树内容，索引里的 `7c009a3cb…` 不参与、不对齐。
+
+**写回之后的那一道回身**（本格落笔、`15ca9ed` 之后的活树复跑，读数留 `docpost.log` 与 `docpost2.log`）：
+① 退 0、`439 / 439 / fail 0 / cancelled 0`；② 退 0、"全部已落地镜像与磁盘逐字节全等（未落地 0 节）"、
+已落地镜像仍是 **76** 个、合计仍是 **1,633,498B**（本格只动 `_docs/`，镜像内容一字未变——这两个数不变就是那条口径的又一次自证）；
+③ **41/41** 退 0、"副本回到全绿且工作树未被这些实验碰过"、"实验前后工作树的脏指纹一模一样"（脏项 **26** 个前后一致、
+diff 指纹 `3c39a750f0cf88ef`，含另一路会话那批，一件未碰）；⑤ 退 0、"收录面 4 条 ready 条目 × 5 组判据全绿"、导航核到 **101** 页。
+**⑤ 那一行有一个数变了，说清免得跨格读成矛盾**："不渲染 header 的 18 份"仍是 18，"无 canonical 的"从 **16 变成 17**——
+多出来那一枚是另一路会话挂在活树上的 `_site/offline.html`（源 `offline.html` 未跟踪，他们那一轮 `_site` 重建把它带了进去；
+逐枚 `grep -c 'rel="canonical"'` 现读为 0）。导出树里没有 `offline.html`，所以提交态那一发的 **16** 与活树这一发的 **17**
+都不是错——差的不是产物，是树。
+
 
