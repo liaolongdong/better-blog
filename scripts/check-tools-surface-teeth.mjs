@@ -195,7 +195,11 @@ const idcardCases = [
   {
     name: 'tools.html 的面板锚点清单缺一块面板',
     group: '收录',
-    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/idcard\.html#tk-panel-uscc"/, 'href="#online-idcard"')),
+    artifact: () => shadowEdit('tools.html', (s) => {
+      const next = s.replace(/href="[^"]*tools\/idcard\.html#tk-panel-uscc"/, 'href="#online-idcard"');
+      if (next === s) throw new Error('落地页 idcard 那一枚面板锚点没命中，收录面变异作废');
+      return next;
+    }),
   },
   {
     name: 'index-all 删掉在线工具那一节',
@@ -424,7 +428,11 @@ const codecCases = [
   {
     name: 'tools.html 的编码小节缺一块面板锚点',
     group: '收录',
-    artifact: () => shadowEdit('tools.html', (s) => s.replace(/href="[^"]*tools\/codec\.html#tk-panel-digest"/, 'href="#online-codec"')),
+    artifact: () => shadowEdit('tools.html', (s) => {
+      const next = s.replace(/href="[^"]*tools\/codec\.html#tk-panel-digest"/, 'href="#online-codec"');
+      if (next === s) throw new Error('落地页 codec 那一枚面板锚点没命中，收录面变异作废');
+      return next;
+    }),
   },
   {
     name: '编码页导航出现两个 is-current',
