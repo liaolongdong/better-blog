@@ -206,6 +206,51 @@ WebApplication 作为**追加**的一个 JSON-LD 块。
 不复用 `permalink` 做字符串匹配：那等于在模板里立第二处 slug 口径，
 而 `onlineTools.yml` 的文件头注释已经明确说过「同一份事实写第二遍，迟早只改一处」。
 
+**落地时改掉了上面这条**：四页 front matter 里**本来就有** `tool: <slug>`，而且各页正文正是用
+`assign tk = site.data.onlineTools | where: 'slug', page.tool | first` 查数据的。再加一个
+`tool_slug` 就是给同一个事实立第二个键，恰好是上面那段话要避免的事。所以直接复用 `page.tool`。
+
+**也改掉了 `alternateName`**：yml 里四个工具的 `name` 与 `h1` 逐字相同（`name` 供顶栏下拉与
+`tools.html` 小节标题用，那两处渲染的就是同一串），无条件发出去等于把同一个值写两遍，
+而 schema.org 的 `alternateName` 语义是「另一个叫法」。改成**只在 `_tk.name != _tk.h1` 时才发**，
+第五个工具真取了不同的 name 时它自己就开始说话。
+
+**Google 的评分要求：查过文档，本轮刻意不满足。** Software App 富媒体结果把「评分或评价」
+列为**必要**属性——`aggregateRating` 与 `review` 至少要有一个（`developers.google.cn` 的
+software-app 文档，已抓取核对；该页无弃用声明，`WebApplication` 也在它明确支持的
+Web 应用子类型里）。本仓拿不出诚实的那一个：四个工具页都是 `layout: default`，没有评论区
+（waline 只挂在 `_layouts/post.html`），也没有任何评分采集。编一个 `aggregateRating`
+是 Google 明确处理的评价类作弊，代价比拿不到富媒体结果大得多。
+
+所以这一块重新定位为：**不追 Google 的 Software App 富媒体结果，只做实体描述**——
+让 AI 检索（Google 的生成式结果、其它答案引擎）与 Bing 能准确回答「有没有一个免费、
+不上传输入的在线工具能做 X」。这仍然对着用户要的「Google/AI 优先」，只是收益在
+AEO 一侧而不是富媒体一侧。Search Console 的 Software App 报告可能把这四页列为「缺少评价」，
+那是已知且刻意的取舍。**这一段与 jsonLdTool.html 文件头都写了「不要补 aggregateRating」**，
+因为后来人看见「缺必要属性」的第一反应就是去补一个。
+
+`applicationCategory` 写死 `DeveloperApplication` 而不进 yml：四个都是面向开发者的本地计算工具
+（证件页的随机测试数据那一栏自己写明「只做开发与测试用途的占位数据」），子项目 2 计划新增的
+QR / 颜色 / UUID / JWT / cron / 单位换算 / markdown 也全在这一类里；在 yml 里加一格四行同值的
+字段只是把同一个事实写第二遍。`browserRequirements` 只写 `"Requires JavaScript."`，
+隐私口径不写进去——「不上传、不发请求」是**逐页**的事实、已各自写在 `tk.desc` 里，
+在共享模板里替四页下一句总括的隐私承诺，第五个工具一旦联网就是模板在说谎。
+
+**落地实测**（快照 137 页，196 个 ld+json 块全部 `JSON.parse` 通过，0 失败）：
+
+| `@type` | 改前 | 改后 |
+| --- | --- | --- |
+| WebApplication | 0 | 4 |
+| CollectionPage | 30 | 30 |
+| BlogPosting / BreadcrumbList | 79 / 79 | 79 / 79 |
+| Person / WebSite / Blog | 2 / 1 / 1 | 2 / 1 / 1 |
+
+四页的 `name` 与页面可见 `<h1 class="masthead-title">` 逐字相等（Google 的硬要求），
+`featureList` 四页各 5 项——两种形状都覆盖到了：`panels` 形状的 idcard / codec 取
+`panels[].name`（身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据），
+`workbench` 形状的 json / diff 取 `features`。`CollectionPage` 保持不变，说明 WebApplication
+是**追加**而不是替换。
+
 **FAQPage 本轮不做。** 理由：`FAQPage` 要求结构化数据与**页面可见内容**一致，
 否则是 Google 明确处理的 cloaking。要做就必须同时新增可见的 FAQ 区块（新 DOM + 新 scss + 新牙），
 而工具页的 DOM 契约正被 `check-tools-surface.mjs` 的「DOM」组逐条盯着

@@ -1,0 +1,76 @@
+{%- comment -%}
+工具页的 WebApplication 结构化数据。由 jsonLd.html 在 `page.tool` 命中时追加，
+与它已经发出的 CollectionPage **并存**（后者描述「这一页是个页面」，前者描述「这一页上跑着
+一个什么应用」，两者不冲突）。
+
+依赖调用方的 person_id（jsonLd.html:23 赋值）——与本文件同目录 jsonLd.html 依赖 seoMeta.html
+四个变量是同一种约定：include 与调用方共享 Liquid 作用域。
+
+数据全部取自 _data/onlineTools.yml 里 page.tool 指向的那一条，**零新文案**：
+  name           ← tk.h1，与页面上看得见的 <h1 class="masthead-title"> 同值
+                   （四页都实测过渲染结果与 yml 逐字一致；Google 要求 name 与可见标题相符）
+  alternateName  ← tk.name，**仅当它与 h1 不同才发**（四个工具当前都相同，见下面那段注释）
+  description    ← tk.desc（与 meta description 同源，避免「摘要与卡片不符」）
+  featureList    ← tk.features；那一格为空时退回 tk.panels[].name
+                   （json / diff 两页是 workbench 形状，只有 features；
+                     idcard / codec 两页是 panels 形状，只有 panels——两种形状都不能漏）
+
+为什么用 WebApplication 而不是 SoftwareApplication：这四个都是纯浏览器端、无安装、无下载的
+应用，Google 的文档明确说 Web 应用用 WebApplication（它是 SoftwareApplication 的子类型，
+富媒体资格的判据完全相同）。
+
+【不要给这一块补 aggregateRating 或 review】
+Google 的 Software App 富媒体结果把「评分或评价」列为**必要**属性：aggregateRating 与 review
+至少要有一个。本仓拿不出诚实的那一个——四个工具页都是 layout: default，没有评论区
+（waline 只挂在 _layouts/post.html 上，已核），也没有任何评分采集。编一个 aggregateRating
+出来是 Google 明确处理的评价类作弊，代价比拿不到富媒体结果大得多。
+所以这一块的定位是：**不追 Google 的 Software App 富媒体结果**，只做实体描述——
+让 AI 检索（Google 的生成式结果、其它答案引擎）与 Bing 能准确回答「有没有一个免费、
+不上传输入的在线工具能做 X」。Search Console 的 Software App 报告可能因此把这四页列为
+「缺少评价」，那是已知且刻意的取舍，不是缺陷，别去"修"它。
+真要让这四页拿到富媒体资格，前置是先有一个真实的评分来源（例如工具页也接 waline 并积累出
+真实评价），那是另一件事，不是在这里加两行 JSON。
+
+applicationCategory 写死 DeveloperApplication 而不进 yml：四个工具都是面向开发者的本地
+计算工具（证件页的随机测试数据那一栏自己写明「只做开发与测试用途的占位数据」），
+子项目 2 计划新增的 QR / 颜色 / UUID / JWT / cron / 单位换算 / markdown 也全在这一类里。
+在 yml 里加一格四行同值的字段，只是把同一个事实写第二遍。
+
+operatingSystem 写 "Any"、browserRequirements 只写 "Requires JavaScript."：
+两句都是真的（页面正文在禁用脚本时仍有静态面板说明可读，但**应用**本身要 JS 才能算）。
+隐私口径刻意不写进 browserRequirements——「不上传、不发请求」是逐页的事实，
+已经各自写在 tk.desc 里了；在共享模板里替四页下一句总括的隐私承诺，
+第五个工具一旦联网就是模板在说谎。
+{%- endcomment -%}
+{%- assign _tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if _tk -%}
+{%- assign _feat = _tk.features -%}
+{%- if _feat == nil or _feat.size == 0 -%}
+{%- assign _feat = _tk.panels | map: 'name' -%}
+{%- endif -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": {{ _tk.h1 | jsonify }},
+{%- comment -%}
+alternateName 只在它真的与 name 不同时才发。四个工具在 yml 里 name 与 h1 逐字相同
+（name 供顶栏下拉与 tools.html 小节标题用，那两处渲染的就是同一串），无条件发出去等于
+把同一个事实写第二遍，而 schema.org 的 alternateName 语义是「另一个叫法」，重复值是噪音。
+写成条件式，第五个工具真取了不同的 name 时它自己就开始说话。
+{%- endcomment -%}
+{%- if _tk.name and _tk.name != _tk.h1 %}
+  "alternateName": {{ _tk.name | jsonify }},
+{%- endif %}
+  "description": {{ _tk.desc | jsonify }},
+  "url": "{{ page.url | absolute_url }}",
+  "inLanguage": "zh-CN",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript.",
+  "offers": { "@type": "Offer", "price": 0, "priceCurrency": "CNY" },
+  "featureList": {{ _feat | jsonify }},
+  "author": { "@id": "{{ person_id }}" }
+}
+</script>
+{%- endif -%}
