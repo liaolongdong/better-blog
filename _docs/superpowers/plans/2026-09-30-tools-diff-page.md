@@ -236,7 +236,9 @@ const r = mod.diffLines(mk('a'), mk('b'), {});       // 各跑两遍，取 JIT �
 2. 另一路会话在同一个工作树上持续提交。**每一格用 plumbing 出提交**：临时 `GIT_INDEX_FILE` +
    `read-tree HEAD` + `hash-object -w` + `update-index --cacheinfo` + `write-tree` + `commit-tree -F` +
    `update-ref refs/heads/main <新> <旧>` 的 CAS（`<旧>` 写死完整 sha，不符就 abort），
-   跑完再把真索引里我那几格对齐回去，**保证对方的 16 格暂存一格不少**。
+   跑完再把真索引里我那几格对齐回去，**保证对方的 16 格暂存一格不少**。（对齐这一步不是收尾的美观：
+   plumbing 不动索引，落笔后我那几格在 `git status` 里是 `MM`、新文件是 `D `，对方若从共享索引落笔
+   就把我这格整体退回旧 blob——现场与逐格对照见 Task 5 Step 7。）
 3. 提交前逐格自证：`git diff --cached --numstat` 里对方那些格的形状**与上一格记录相同**
    （spec 那一格必须是 `0/17`——那是对方的删除暂存，本格不能替它落地）。
 4. **`USAGE.md` 本段不提交**：它同时是"对方的暂存"（`1/76`）与"我 Task 7 那一次的计数改动"（工作树
@@ -4859,13 +4861,16 @@ Modify `scripts/check-tools-surface.mjs`（§0.3(a) 那两处）、`scripts/chec
       门禁仍绿，照 §R16 / §W18 那一形状）、`diff-json` 与 `diff-core` 各自只被本装配层 reach 一次
       （import 边闭合，防渗透的正向核 + 反向核照 M16 / N19 的排除式写法）。
       落笔分四块（Z13–Z17 已在 Task 4 那格落好，本格续 Z18–Z28 共十一判加 import 面那一条）。
-      **这一格踩的坑值得单独记**：前两回合各有一次"长内容工具调用中途断掉"，根因不在长度而在**内容**——
-      判据里那份二进制样本写成 `'\u0000'` 字面转义，工具参数在 JSON 层把它解成**真 NUL 字节**，
-      序列化当场截断（`Write` 那一次报的是 `params must have required property 'file_path'`，
-      看着像漏填参数，其实是同一件事）。改成 `String.fromCharCode(0)` 与 `String.fromCharCode(0xFFFD)`
-      构造样本即通，并把 319 行拆成四块追加；追加完用 `node -e` 数 NUL 字节（0）+ `node --check` 自证。
-      顺带一条假证据：`grep -c $'\x00' file` 里 shell 会吞掉 NUL，模式变空 → **匹配全文件**，
-      数出来的那个大数不是证据。
+      **这一格踩的坑值得单独记**（写的是观察到的事实，最后一句是推断，别再往下当结论传）：
+      前两回合各有一次"长内容工具调用中途断掉"——`cat >> <<'ZZEOF'` 两次、`Write` 一次，
+      报错形状是 `params must have required property 'file_path'`，看着像漏填参数。
+      三次的内容里都恰好含那份二进制样本的 NUL unicode 字面转义；把样本改成
+      `String.fromCharCode(0)` / `String.fromCharCode(0xFFFD)` 构造、并把 319 行拆成四块追加之后，
+      一次通过。**推断**是那一格在参数的序列化层被解成真 NUL 字节、把调用截断，
+      而长度只是让它在别的地方也偶发——这一条没有单独复现过，别再拿它当已证事实。
+      落完自证两味：`node -e` 数整个文件的 NUL 字节（得 0）、`node --check` 语法过。
+      顺带一条**假证据**要挡在下一个读者前面：`grep -c $'\x00' file` 里 shell 会吞掉那个字节，
+      模式变空 → **匹配全文件**，数出来的那个大数不是"有很多 NUL"。
 - [x] **Step 2：写实现到绿**。`diffWorkbench.js` 落 **761 行**、`toolDiff.js` 落 **237 行**。
       评审时删掉一处死参数：`bodyOf` 给 `renderVerdict` 传了 `normalized: stats.ignored > 0`，
       而视图层那本按 `stats.ignored` 自己判（Z12 的词表口径），多传的这一格永远没人读——
@@ -4902,7 +4907,29 @@ Modify `scripts/check-tools-surface.mjs`（§0.3(a) 那两处）、`scripts/chec
       门禁④ 本格不跑：`vite.config.js` 的 `input` 里还没有 `toolDiff`（Task 6 才接），
       本格没有产物侧改动，硬跑只会量到段 4 那一份。
       跑之前 `uptime`：本机 load `2.6`，没有那种"红要先归因给量具"的档位。
-- [ ] **Step 7：提交** `feat(tools): 段 5 Task 5 对比页装配层与入口——§Z 续到二十八判，收录面 nodes 拆牙`。
+- [x] **Step 7：提交** `feat(tools): 段 5 Task 5 对比页装配层与入口——§Z 续到二十八判，收录面 nodes 拆牙`。
+      落笔 = `ff9a878`（`709c1ad` → `ff9a878`，`git update-ref` 的 CAS 带旧 sha）。
+      pathspec 十件：`dev/js/tools/diffWorkbench.js`（新）/ `dev/js/toolDiff.js`（新）/
+      `scripts/toolkit-tests.mjs` / `scripts/check-tools-surface.mjs` / `scripts/check-tools-surface-teeth.mjs` /
+      `scripts/verify-plan-blocks.mjs` / 本计划 / **另外三份计划**（各只被 `--fix` 换掉一个镜像块：
+      段 1 的 §A 用例分布表、段 2 的 `check-tools-surface.mjs`、段 4 的 §W）。
+      `git show --stat` 读到 `3694 insertions(+) / 49 deletions(-)` 且**只有这十行**；
+      另一路会话压在索引上的格一格不少（`USAGE.md` 仍 `1/76`、spec 仍 `0/17`），工作树文件一件未动
+      （`git status --porcelain -unormal` 落笔前 `35` 行、之后 `26` 行，逐行 diff 只少我这十格，
+      多出来的那一格是本格回填又把它弄脏的这份计划）。
+      **提交态自证**（`git archive HEAD` 整份导出 → 导出树里 `git init`（脏项 0）→ 三道人真跑）：
+      门禁① `438/438` 退 0、门禁② 退 0（`73` 块已落地镜像全等、`未落地 0 节`、js 块 `65`）、
+      门禁③ **37/37** 退 0（副本回到全绿、实验前后脏指纹一字不差）。
+      **§0.7 第 2 条那句"跑完再把真索引里我那几格对齐回去"，这一格第一次看清它防的是什么**，
+      把现场形状记在这儿：plumbing 只写树、**不动工作索引**，所以落笔之后 `git status` 里我那八格
+      变成 `MM`（索引里还压着**旧 blob**，与新 HEAD 比就是"暂存了一处回退"），两本新文件更显示成
+      `D `（索引压根没有那一格 = "已暂存的删除"）。不清醒的下一步是另一路会话从共享索引落笔，
+      把我这十格整体退回旧 blob，而它的提交看起来只是"少了它自己那一格"。
+      处置：提交之后立刻把**只属于我的那十格**
+      `git update-index --add --cacheinfo 100644,$(git rev-parse "HEAD:$f"),$f` 对齐到新 HEAD，
+      并用 `git ls-files -s` 前后各存一份对照——差异必须**只有那十行**，别人压在索引上的条目
+      （`USAGE.md` / `_config.yml` / `package.json` / `scripts/article-check.mjs` 那十六格）逐字节不动。
+      对齐完 `git status` 里我这十格全部消失，剩下的脏项全是另一路会话的。
 
 
 ### 落地镜像（门禁二核的就是这一块，`--fix` 会把它整块换成磁盘内容）
