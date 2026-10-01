@@ -45,7 +45,8 @@
  * 两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，`iifeWrapPlugin` 包完就是整页
  * SyntaxError 而构建 exit=0（§0.4 那条构建红线，Z13 正反两头核它）。
  *
- * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 二十八判。
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 二十九判
+ * （原写二十八，`Z29`「折叠条真的能点开」是 Task 6 落第四页骨架时补的那一发——2026-10-01 段 5 Task 9 对账改口）。
  */
 import {
   gate as coreGate, diffLines, hunksOf, unifiedText, DIFF_NOTES, CR_GLYPH,
