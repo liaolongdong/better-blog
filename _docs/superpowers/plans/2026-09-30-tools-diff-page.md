@@ -7601,7 +7601,7 @@ G12 那一族是遍历 `PLAN_RELS()` 的，第四份计划一进清单就自动�
 - [x] Step 2：§7 全表（含 2026-09-30 之前六行）按现行产物重算一次，与 Task 7 的读数对得上才对；
 - [x] Step 3：索引条那 10 枚死锚点按 §0.3(b) 的条件交回（修 A / 修 B 两份代价 + 重量后的余量）；
 - [x] Step 4：`USAGE.md` 的检索层自查计数（等对方那格 `1/76` 先落地，§0.7 第 4 条）；
-- [ ] Step 5：收口记录 + 六道门禁复跑 + 提交；
+- [x] Step 5：收口记录 + 六道门禁复跑 + 提交；
 - [ ] Step 6：**单独请示推送**（含"要不要连带另一路会话那二十六条一起发"）。
 
 **Step 1 对账台账（2026-10-01，十格落 spec、一格落本计划标题，代码侧只动了一行注释）**
@@ -7690,4 +7690,60 @@ spec（§5.6 三处、§6.1 一处、§7 两格、§8.1 两处、§8.3 三处）
 于是报了 `✗ [DOM] json：… 与 yml prefix 推出来的 "jt-workspace" 不一致`。**那一条红不是产物问题，是并发踩源**；
 第一发随后自然收口，67/67 全绿、`dev/js/toolJson.js:38` 回到 `'jt-workspace'`、`git status` 逐格自证与开跑前一致。
 教训与项目记忆里"e2e 前先清遗留进程"同一条：这一类的红要先 `pgrep -f check-tools-surface` 数一遍进程再判。
+
+**Step 5 后半：门禁④ 与提交态自证（`5919c69` 落笔之后，在导出树里跑的那一发）**
+
+**落笔 = `5919c69`**（`c99dda9` → `5919c69`，§0.7 那套 CAS：临时索引 `node_modules/.seg5t9-scratch/seg5t9-index`
+上 `read-tree <旧 sha>`、三格各自 `hash-object -w` + `update-index --add --cacheinfo`、新树 `87fff43` 先与旧树
+`50149ac` 比过"必不相等"再 `commit-tree -F` 那份信息文件、`update-ref refs/heads/main <新> <旧>`）。
+`git show --stat` 读到正好三行、**256 insertions(+) / 18 deletions(-)**，三格 blob `c58f1046 / 27ff2e4c / f83c7993`。
+**索引对齐只对我那两格做**（本计划、`diffWorkbench.js`）；spec 那一格**故意不对齐**——共享索引里挂着另一路会话那枚
+`7c009a3c…`，对齐它等于替他们把那一格重写。跑完 `git ls-files -s` 复读到它仍是 `7c009a3c…`，而 spec 在我这一发之后是
+`MM`：`HEAD` 有本轮 §5.6/§6.1/§7/§8.1/§8.3 的写回，索引那枚却**比 HEAD 旧**（它把 §7 对比页两行退回"待量"、
+把 09-29 批 IV 与 10-01 Task 7 那两段整体删掉，`git diff --cached` 读到 +3 / −66）。
+**他们下一次裸 `git commit` 会把这枚旧 blob 写进 master**，与 Step 4 记的 `USAGE.md` 那笔是同一条危险的两个头。
+
+**量具自己那一刀（先记账再读数）**：第一发整轮红、外壳退出码却是 0。红因在脚本第 9 行
+`REPO="$(cd ../../.. && pwd)"`——从 `node_modules/.seg5t9-scratch` 往上数三层落到仓库的**父目录**，
+于是 `git -C "$REPO" archive` 立刻 `fatal: not a git repository`，两棵导出树各 0 件，
+连带 vite `exit=1`、jekyll `exit=1`、①②③⑤ 全 `exit=1`。修法 `../..` 再加一句
+`[ -d "$REPO/.git" ] || exit 1` 的前置断言；那一发 fatal 已按原表达式复现一次（同一条文案），
+开跑前 `pgrep -fl "vite|jekyll|verify-plan|check-tools"` 空。**这一格与 §0.8 那句"红了先查量具"是同一件事，
+只不过这次量具没挂在判据上、挂在路径解析上。**
+
+**门禁④（两棵导出树真重建 + 三列字节表）**：`export-base` = `git archive c99dda9`、`export-work` = `git archive 5919c69`，
+两棵各 **1,151** 件（落在 gitignored 的 `node_modules/.seg5t9-scratch/export-*`，不放 `/tmp`），各 `ln -s` 活树 `node_modules`，
+各跑一发真 `npx vite build`（Node v22.19.0；`✓ built in 17.72s` / `8.46s`，两边 `exit=0`）。件集 37 件
+（`assets/js/*.min.js` 25 + `assets/css/*.min.css` 12），口径 `stat -f%z` 与**逐件** `cat f | gzip -N | wc -c`：
+
+| 树 | 件 | 原始 | L6 逐件之和 | L9 逐件之和 | 清单 md5 | 逐件内容 md5 的合集 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `export-base`（c99dda9） | 37 | 853,571 | 269,928 | 269,142 | `27b3d6cb…` | `cda922ef…` |
+| `export-work`（5919c69） | 37 | 853,571 | 269,928 | 269,142 | `27b3d6cb…` | `cda922ef…` |
+
+`import{` 在那 25 本 js 里逐本 `grep -c` 求和 = **0**。**这一发的读数是等式**——本格代码侧只有
+`diffWorkbench.js:48` 一行注释，terser 剥注释，提交态产物必须逐件相同；等式本身就是"注释刀没把产物带下水"的证据，
+§7 那八行不需要重立（三枚关键 md5 另在 Step 1 那一段：`toolDiff.min.js 2b5cefa3…` / `toolkit.min.css 8d355faa…` /
+`toolkitCore.min.js 2ae1f8eb…`，导出树与活树磁盘一字不差）。
+
+**与 Task 8 那一格的 aggregate 对不上，差在口径不在产物**（不许把这 628B 读成"产物变小了"）：那一格记
+L6 270,556 / L9 269,770，正文钉的是 `gzip -6|-9 -c f`（带 FNAME 头）。同一棵 `export-work` 今天按那把尺逐件之和是
+**270,286**、按 §7 开头钉死的 stdin 口径是 **269,142**，两个都不等于 269,770（差 516 与 628），
+而 raw **853,571** 与逐件清单 md5 **`27b3d6cb…`** 两处与那一格一字不差——件集相同、原始字节相同，只有 gzip 那一列复算不出来。
+处置：**跨格只比同一口径**，本格的 aggregate 以 stdin 口径为准（`cda922ef…` 这一枚也是同一把尺下的），
+逐件数另有 §7 那张表；Task 8 那一格的数保留原样、不改写，因为改写它要连带重量它那一轮的三列，不属于本格。
+
+**work 树里真 `bundle exec jekyll build --trace`**：`exit=0`、`Liquid Warning` **0** 条、`_site` **938** 件。
+
+**提交态四道人**（都在 `export-work` 里跑；跑前 `git init -q .` + `git add -A .`，否则门禁③ 末尾那句
+"实验前后工作树脏指纹一字不差"会拿 `fatal: not a git repository` 连一项都不跑）：
+① `# tests 439 / pass 439 / fail 0 / cancelled 0` 退 0；② 退 0，"全部已落地镜像与磁盘逐字节全等（未落地 0 节）"；
+③ **41/41** 退 0；⑤ 退 0，"收录面 4 条 ready 条目 × 5 组判据全绿"、导航核到 **101** 页。
+**Task 8 那一格欠的那一档在本格关上**：那一次 ⑤ 靠 `ln -s` 活树 `_site` 才跑通，只到"提交态的源对得上活构建的产物"；
+这一发导出树里有自己重建的 938 件 `_site`，所以"干净机器上重建 `_site` 也能过"这一档现在有据。
+两处仍带快照性质、不算零依赖自证：`node_modules` 与 `vendor` 是 `ln -s` 活树的。
+**门禁⑥ 不在导出树跑**：它按 §0.8 要在源文件上原地打 67 发变异，在提交态树上跑等于改提交态的工作树，
+Task 8 已处置过一次，本格沿用（⑥ 的活树读数 67/67 见上面那段）。
+
+于是 Step 5 的六道：①②③④⑤ 各有**活树 + 提交态**两份读数、全部退 0，⑥ 只有活树一份（67/67），形状与 Task 8 那格一致。
 
