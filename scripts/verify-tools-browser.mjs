@@ -31,8 +31,8 @@
  *   5) 首屏阻塞集：按 `renderBlockingStatus` 现量；本页专属那几件（清单在 `PER_PAGE`，
  *      并**自证每一件真的出现在资源表里**，防止清单自己漂成第二处口径）全不在阻塞集。
  *   6) Console 三档归因：本源 error 级 0 条、本页专属那几件与页面本身 0 条、站级 warning 只列账。
- *   ── 7–10 是 JSON 页专有（§V ③ 的真浏览器版 / §W 的复制与下载 / §7 深样本那一档）──
- *   7) 树视图滚动上界：常驻节点恰三块、任意滚动位置下 DOM 行数 ≤ `RENDER_WINDOW`、
+ *   ── 7–10 是**本页专有**那四族（`json` 一份、`diff` 一份，同一时刻只跑其中一份，编号不冲突）──
+ *   json：7) 树视图滚动上界：常驻节点恰三块、任意滚动位置下 DOM 行数 ≤ `RENDER_WINDOW`、
  *      垫片 + 行容器 + padding 与 `scrollHeight` 自洽（总行数按夹具构造独立数出来）、
  *      行高 == `--jt-row-h` 那把尺、滚到底拿得到最后一行。
  *   8) Pointer 点击复制（真鼠标 + 命中测试自证）：载荷 == 本脚本**自己按 RFC 6901 现算**的那一条
@@ -60,7 +60,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = process.env.TK_SITE_DIR ? path.resolve(process.env.TK_SITE_DIR) : null;
@@ -97,10 +97,51 @@ if (ONLY.length && PROFILES.length !== ONLY.length) {
 }
 
 /**
+ * 对比页那两份行级样本（放在页表**之前**，因为页表的 `sample` / `sample2` 就是它们）。
+ *
+ * 形状不是随手写的：30 行、三处改动，且三处彼此隔开 ≥6 行——`hunksOf(result, 3)` 在上下文 3 行
+ * 那一档会把它们分成**恰好三块**。这一格必须≥两块，理由是 8 族里「第一处 / 上一处 / 下一处」
+ * 那三枚跳的就是块与块之间：只有一块时 `at` 恒为 0，钳位（`Math.min(Math.max(i,0), n-1)`）与
+ * 计数句（`第 i / n 处差异`）在一种形状下长得完全一样，那一族就白测了。
+ * ① 第 06 行改一个词（`change` 档，行内高亮才有得画）② 第 15 行整行删掉（`del`）
+ * ③ 末尾追加两行（`ins`，同时给尾折叠条一个非零的 `tailSkipped` 舞台）。
+ */
+const DIFF_TEXT_A = (() => {
+  const rows = [];
+  for (let i = 1; i <= 30; i += 1) {
+    const n = String(i).padStart(2, '0');
+    if (i === 6) rows.push(`line ${n} alpha beta gamma`);
+    else if (i === 15) rows.push(`line ${n} deleted line`);
+    else rows.push(`line ${n} alpha beta gamma`);
+  }
+  return rows.join('\n');
+})();
+const DIFF_TEXT_B = (() => {
+  const rows = [];
+  for (let i = 1; i <= 30; i += 1) {
+    const n = String(i).padStart(2, '0');
+    if (i === 6) { rows.push(`line ${n} alpha BETA gamma`); continue; }
+    if (i === 15) continue;
+    rows.push(`line ${n} alpha beta gamma`);
+  }
+  rows.push('line 31 appended tail');
+  rows.push('line 32 appended tail');
+  return rows.join('\n');
+})();
+
+/**
  * 每页那张**不可避免**的小表：样本输入、那两句口径的正则、本页专属件清单。
  * 为什么不并进 `_data/onlineTools.yml`：那份数据源的消费者是模板与门禁，往里加一栏「核验用的
  * 样本号码」等于让线上页面背上测试夹具。样本只有一条真约束——必须是**这一页能算出非空结果**的
  * 输入，红在「结果区是空的」时第一个要怀疑的就是这一格，所以每一格都写清了它凭什么。
+ *
+ * 段 5 Task 7 往这一格加了第四份 profile，于是它同时承担第二件事：**把"页面上那几格的地址"
+ * 从通用族里收回页表**。第一版通用六族是按 JSON 页的形状写的（`data-jt-ids` / `-in-{panel}-doc`
+ * / `-out-{panel}-main` / `.jt-out__body` / `-btn-{panel}-format` / `controls ≥ 18`），第四页
+ * 那些地址一格都不叫这个名字（对比页是 `data-df-ids`、两栏 `a-text`/`b-text`、结果栏 `-bar`、
+ * 出结果那枚按钮叫 `compare`）。留着字面量只有两种结局：新页假红（查不到节点被读成"页面缺格"），
+ * 或者把 `if (slug === 'json')` 到处补洞——后者会把"公共六族"慢慢腐蚀成"JSON 页 + 三处例外"。
+ * `doc` / `out` / `shape` 这三格因此是**地址表**，不是第二份口径：口径仍在 `LAYOUT` 与判据里。
  */
 const PER_PAGE = {
   idcard: {
@@ -113,17 +154,73 @@ const PER_PAGE = {
     sample2: '11010519491231002Y',
     caveat: [/不得用于任何真实身份用途/, /不发请求/],
     own: ['toolkit.min.css', 'toolkitCore.min.js', 'toolIdcard.min.js'],
+    scss: ['dev/sass/toolkit.scss'],
   },
   codec: {
     sample: 'Better',                 // Base64 → QmV0dGVy，Node 侧同一条现算
     sample2: 'Qoder',                 // 同 idcard 那一格的理由：这条的编码结果与 Better 那条不同
     caveat: [/1 MiB/, /超限整体拒绝/],
     own: ['toolkit.min.css', 'toolkitCore.min.js', 'toolCodec.min.js'],
+    scss: ['dev/sass/toolkit.scss'],
   },
   json: {
     sample: '{"a":1}',                // 合法 JSON，格式化给得出非空结果
     caveat: [/5 MiB/, /1000 层/],
     own: ['toolkit.min.css', 'toolJson.min.css', 'toolkitCore.min.js', 'toolJson.min.js'],
+    doc: 'jt-in-workbench-doc',
+    out: '#jt-out-workbench-main',
+    /** 3f 那一族按"页面上出结果的那枚按钮 + 那一栏的正文"对账，三格地址都归页表 */
+    run: 'format', copyBtn: 'copy', paneCopy: 'main', bodyCls: '.jt-out__body',
+    /** 3f 的载荷期望值：`body` = 结果栏正文（与屏幕同源），`unified` = Node 侧现算的那一份差异文本 */
+    expect: 'body',
+    /** 禁 JS 那一档数得到的控件下限（JSON 工作台：粘贴框 + 六枚下拉/勾选 + 指针格等） */
+    minControls: 18,
+    scss: ['dev/sass/toolkit.scss', 'dev/sass/toolJson.scss'],
+  },
+  diff: {
+    /**
+     * 两份**行级**样本：A/B 各 30 行、三处改动（一处替换、一处删除、一处追加）。
+     * 这一页的"算得出非空结果"比前三页多一重含义——差异块必须**至少两块**，否则 8 族里
+     * 「下一处 / 上一处」那两枚按钮与折叠条都只在一种形状下量过（一块 hunk 时 `at` 恒为 0，
+     * 钳位与计数那两件事根本分不开）。样本在 §7 之外还兼任 10a 的对照：Node 侧 import
+     * `diff-core.js` 现算同一份 `unifiedText`，与浏览器复制到的载荷逐字节比。
+     */
+    sample: DIFF_TEXT_A,
+    sample2: DIFF_TEXT_B,
+    caveat: [/不发请求、不上传、不读剪贴板/, /不读写 localStorage/],
+    own: ['toolkit.min.css', 'toolDiff.min.css', 'toolkitCore.min.js', 'toolDiff.min.js'],
+    doc: 'df-in-workbench-a-text',
+    /** 这一页有**两栏输入**，第二栏的地址单独立一格（3c/9 族都要用） */
+    doc2: 'df-in-workbench-b-text',
+    out: '#df-out-workbench-bar',
+    run: 'compare', copyBtn: 'copyDiff', paneCopy: 'a', bodyCls: '.df-cols, .df-lines',
+    expect: 'unified',
+    /**
+     * 禁 JS 那一档数得到的控件**下限**：实测读数是 **23**＝14 枚按钮 + 3 枚 `select`
+     * + 2 枚 `textarea` + 2 枚 `checkbox` + 2 枚 `input[type=file]`（`run-t7f.log` 那一行逐类点名）。
+     * 计划里那条估算是 18，太松等于没判——一页少一整个输入栏（6 枚）都还能绿在 18 上，
+     * 所以按实测量收紧成 23（记忆规则「收紧守卫判据须自证仍有牙」；这一处已在计划 §0.6 登记）。
+     */
+    minControls: 23,
+    scss: ['dev/sass/toolkit.scss', 'dev/sass/toolDiff.scss'],
+    /**
+     * 工作台那一族的形状**逐格覆盖** `LAYOUT.workbench`（JSON 页那份是缺省值）：
+     *   · `primary` 与 `gap`：三栏（A / B / 控制与结果），`gap` 写的是 `20px 24px` 那种两值串。
+     *   · `gutter: null`：本页两个粘贴框按设计**不带行号槽**（`DIFF_SPEC` 的 `gutter: false`，
+     *     行号住在结果区的行块里）。1c 那一族因此换成"整页画不出 `.df-gutter`"，
+     *     而不是把 JSON 页那条换挡判据原样搬来——搬过来会红在"查不到节点"上，那是量具的假红。
+     *   · `treeSel` / `treeHeight`：那一条**固定高度、唯一可横滚**的容器在这一页是 `.df-out`，
+     *     三档 `min()` 的数从 `toolDiff.scss` 文末那两组读（620/68vh、500/60vh、420/54vh）。
+     */
+    shape: {
+      primary: '.df-workspace',
+      shift: 900,
+      gap: { wide: '20px 24px', narrow: '18px' },
+      gutter: null,
+      treeSel: '.df-out',
+      treeHeight: (w, vh) => (w > 900 ? Math.min(620, 0.68 * vh) : w > 640 ? Math.min(500, 0.6 * vh) : Math.min(420, 0.54 * vh)),
+      optColumn: { sel: '.df-bar__group--opt', shift: 640 },
+    },
   },
 };
 
@@ -144,16 +241,30 @@ const LAYOUT = {
     primary: '.jt-workspace',
     shift: 900,
     gap: { wide: '20px', narrow: '18px' },
+    treeSel: '.jt-tree',
     treeHeight: (w, vh) => (w > 900 ? Math.min(520, 0.58 * vh) : w > 640 ? Math.min(420, 0.52 * vh) : Math.min(360, 0.46 * vh)),
     optColumn: { sel: '.jt-bar__group--opt', shift: 640 },
     gutter: { sel: '.jt-gutter', shift: 640, em: 3 },
   },
 };
 
-/** 从 SCSS 源文件现读 `(max-width: N)` 声明集：这是"换挡只许落在声明过的那一档"的那把尺。 */
-function declaredBps(layout) {
-  const files = layout === 'workbench' ? ['dev/sass/toolkit.scss', 'dev/sass/toolJson.scss']
-    : ['dev/sass/toolkit.scss'];
+/**
+ * 页表里的 `shape` 叠在 `LAYOUT.workbench` 之上（第四页那一族 `.df-*` 的地址与三档 `min()` 高度
+ * 都在 `PER_PAGE.diff.shape`）。**叠而不是换**：换挡点的判据形状、`FLIP` 那把观察尺、
+ * 声明集那条比对，两页共用一套；只有"这一页的那几格叫什么、各档多高、有没有行号槽"随页变。
+ * @param {object} P profile
+ * @param {object} cfg 页表里的那一格
+ * @returns {object} 这一页的形状表
+ */
+const shapeOf = (P, cfg) => (P.layout === 'workbench'
+  ? Object.assign({}, LAYOUT.workbench, cfg.shape || {}) : LAYOUT[P.layout]);
+
+/**
+ * 从 SCSS 源文件现读 `(max-width: N)` 声明集：这是"换挡只许落在声明过的那一档"的那把尺。
+ * 文件清单归页表（`cfg.scss`）——第四页的声明在 `toolDiff.scss` 文末那两组里，照 JSON 页那份清单
+ * 读的话这一把尺量到的是别人的档，1b/1c 会红在"换挡点不在声明集里"这种归因错了的位置上。
+ */
+function declaredBps(files) {
   const out = new Set();
   for (const f of files) {
     for (const m of fs.readFileSync(path.join(ROOT, f), 'utf8')
@@ -323,6 +434,115 @@ const POINTER_ESCAPED = [...POINTER_TABLE.keys()].find((p) => p.includes('~1') |
 /** 2 MB 那一档：粘贴不自动解析 + 整段不卡死用的大输入（ASCII，字节数好算） */
 const PASTE_2MB = `{"big":"${'y'.repeat(2 * 1024 * 1024)}"}`;
 
+// ── 对比页专有四族的夹具（同样全部在 Node 侧构造）──────────────────────────
+/**
+ * 两本纯逻辑模块**直接 import**（`diff-core.js` 与 `diff-json.js` 一行环境都不读，Node 里跑得动）。
+ * 这里与 JSON 页那一族不同：那几枚闸门常数是从源码正则里抠出来的（只需要"数对不对"），
+ * 而对比页的判据需要**算出期望值**——剪贴板里那一份 unified 文本、差异块的枚数、变更表的行数，
+ * 都由本脚本独立算一遍再与页面比。同一份算法在两处各跑一次（Node 与浏览器）不是同源自证：
+ * 它们中间隔着装配层与视图层两次转手，页面上少一行、多一行、顺序倒了都会在这里红。
+ */
+const DC = await import(pathToFileURL(path.join(ROOT, 'dev/js/tools/diff-core.js')).href);
+const DJ = await import(pathToFileURL(path.join(ROOT, 'dev/js/tools/diff-json.js')).href);
+const DIFF_MAX_BYTES = DC.MAX_INPUT_BYTES;
+const DIFF_MAX_LINES = DC.MAX_INPUT_LINES;
+/** 一 MiB：闸门文案里"5 MiB / 5.0 MB"两格都由它换算（与 `diffWorkbench.js` 同字而不同源） */
+const MIB = 1048576;
+/** 页面上「复制差异」与「下载 .diff」那一份文本的期望值：两侧名都为空串 ⇒ `--- A` / `+++ B` */
+const DIFF_UNIFIED = DC.unifiedText(DC.diffLines(DIFF_TEXT_A, DIFF_TEXT_B, {}),
+  { a: '', b: '', context: 3 });
+/** 默认档（上下文 3 行）下这份夹具该有几块差异——夹具的构造意图，不是模块的输出 */
+const DIFF_HUNK_WANT = 3;
+const DIFF_HUNK_N = DC.hunksOf(DC.diffLines(DIFF_TEXT_A, DIFF_TEXT_B, {}), 3).length;
+if (DIFF_HUNK_N !== DIFF_HUNK_WANT) {
+  die(`对比页的样本只切出 ${DIFF_HUNK_N} 块差异，而 8 族要按 ${DIFF_HUNK_WANT} 块设计（`
+    + '两端钳位与「上一处/下一处」在一块 hunk 上分不出形状）——改夹具或改判据，别硬跑');
+}
+if (DIFF_UNIFIED === '') die('对比页的 unified 期望文本算出空串：3f 那一族没有可比的东西');
+/**
+ * 三档硬输入的文本夹具。形状不是随手写的：
+ *   · **按字节那一档用"许多等长行"**而不是"一行 5 MiB"——一行 5 MiB 会让结果区把 5 MB 画进 DOM，
+ *     量的就变成量具的耐心；而 81,920 行等长行在"只差一行"的另一侧面前只有三块小 hunk，
+ *     闸门数的是字节，渲染的是折叠后的那十几行，两件事各归各。`5242880 ÷ 64 = 81920` 整除，
+ *     所以"恰好 5 MiB"这一格是**构造出来的精确值**，不是接近值。
+ *   · **按行那一档两侧都给满**：只有一侧塞到 200,001 行时拒绝的消息点名"哪一侧多了几行"，
+ *     这一格判的就是那句点名，所以两侧的形状都得是"很多行"，否则红绿都指向不了东西。
+ */
+const LINE_W = 63;
+/**
+ * 每行 63 字符、行间一个 `
+ * ` ⇒ `count` 行共 `64×count − 1` 字节，比 64 的整数倍少一格。所以**第一行多给一个字符**：
+ * 总长正好 `64 × 81920 = 5,242,880` = `MAX_INPUT_BYTES`（下面那道 `die` 判的就是这件事，
+ * 少算那一格时它是红的而不是"接近 5 MiB 也算过"）。
+ */
+const txtBytes = (count) => Array.from({ length: count }, (_, i) => `l${String(i).padStart(7, '0')}${'q'.repeat(LINE_W - 8)}${i === 0 ? 'x' : ''}`).join('\n');
+/** 行数那一档要的是"行多而字节少"：每行 8 字左右，20 万行 ≈ 1.6 MB，绝不先撞字节闸门 */
+const txtNum = (count) => Array.from({ length: count }, (_, i) => `k${i}`).join('\n');
+const TXT_AT_BYTES = txtBytes(DIFF_MAX_BYTES / (LINE_W + 1));
+if (Buffer.byteLength(TXT_AT_BYTES, 'utf8') !== DIFF_MAX_BYTES) {
+  die(`5 MiB 整那份文本夹具字节数=${Buffer.byteLength(TXT_AT_BYTES, 'utf8')}，不等于 ${DIFF_MAX_BYTES}`);
+}
+/** 越界那一份只多 1 字节（判的是"点名差多少"，不是"差很多"） */
+const TXT_OVER_BYTES = `${TXT_AT_BYTES}x`;
+/** 与 `TXT_AT_BYTES` 只差**一个字符**的另一份：放行那一档要让 Myers 真的算得出东西，而不是整块替换 */
+const TXT_NEAR = `${TXT_AT_BYTES.slice(0, LINE_W * 2)}Z${TXT_AT_BYTES.slice(LINE_W * 2 + 1)}`;
+const TXT_AT_LINES = txtNum(DIFF_MAX_LINES);
+const TXT_AT_LINES_NEAR = `${TXT_AT_LINES.slice(0, 7)}Z${TXT_AT_LINES.slice(8)}`;
+const TXT_OVER_LINES = txtNum(DIFF_MAX_LINES + 1);
+if (TXT_AT_LINES.split('\n').length !== DIFF_MAX_LINES || TXT_OVER_LINES.split('\n').length !== DIFF_MAX_LINES + 1
+  || Buffer.byteLength(TXT_AT_LINES, 'utf8') > DIFF_MAX_BYTES) {
+  die('20 万行那几份夹具的行数或字节数不对（行数档必须只撞行闸门、不撞字节闸门）');
+}
+/**
+ * JSON 档的小夹具与**手数的**变更格数：A 与 B 之间只有两处**值**的差别
+ * （`tags[1]` 由 `y` 变 `z`、`meta.n` 由 `one` 变 `ONE`），而 B 同时把 `meta` 的两个键换了顺序、
+ * 整份文档换了缩进——"按值比"的那一格判的正是这两处写法差异**不进变更表**。
+ * 期望值手写成 2 而不是 `diffJson()` 现算：拿模块的输出当判据，页面与模块就永远同错。
+ */
+const JSON_A = '{\n  "name": "Ada",\n  "tags": ["x", "y"],\n  "meta": { "v": 1, "n": "one" }\n}';
+const JSON_B = '{"name":"Ada","tags":["x","z"],"meta":{"n":"ONE","v":1}}';
+const JSON_CHANGE_WANT = 2;
+/** 同一份文档的两种写法：键序与缩进都变了、值都没变 ⇒ 变更表必须是空的 */
+const JSON_SAME_B = '{"meta":{"n":"one","v":1},"tags":["x","y"],"name":"Ada"}';
+
+/**
+ * 本机文件那一路的夹具**必须落在磁盘上**：`DOM.setFileInputFiles` 要的是真路径，浏览器隔着
+ * 文件层读它们，页面上走的才是"真文件"那一条路（粘贴框里的字符串模拟不了编码判断）。
+ * 目录选 `node_modules/.seg5t7-scratch/fixtures/`——`/tmp` 在本机跑长任务时会被清理（段 4 Task 8
+ * 记过那一笔），仓库内的 scratch 既不会被 git 看见（`node_modules/` 整目录 ignore），也不共享。
+ */
+const FIX_DIR = path.join(ROOT, 'node_modules/.seg5t7-scratch/fixtures');
+fs.mkdirSync(FIX_DIR, { recursive: true });
+const FIX = {
+  utf8: path.join(FIX_DIR, 'sample-utf8.txt'),
+  gbk: path.join(FIX_DIR, 'sample-gbk.txt'),
+  nul: path.join(FIX_DIR, 'sample-nul.txt'),
+  over: path.join(FIX_DIR, 'sample-over-5mib.txt'),
+};
+/** GBK 的「中文编码测试」四个字节序列：不是合法 UTF-8（`fatal: true` 那一档要的就是它） */
+fs.writeFileSync(FIX.utf8, DIFF_TEXT_B, 'utf8');
+fs.writeFileSync(FIX.gbk, Buffer.from([0xd6, 0xd0, 0xce, 0xc4, 0xb2, 0xe2, 0xca, 0xd4, 0x0a, 0x41, 0x42, 0x43]));
+fs.writeFileSync(FIX.nul, Buffer.from('line one\nline two\ntail \u0000 with nul\n', 'utf8'));
+/**
+ * 超闸门那一份**多出一档够说清的数**：那一格的文案是 `比 5 MiB 多了 ${kb(size - 上限)}`，
+ * 而 `kb()` 在不足 1 MiB 时说 KB 且只留一位小数——只差 2 字节会渲染成"多了 0.0 KB"，
+ * 与粘贴框那一路的"约 2 字节"读起来是两回事。这一格判的是"先按 size 拒、不去读"，
+ * 于是把超量放到 4 KiB，让那句说人话（"多了 4.0 KB"），措辞不一致那一笔记进计划 §0.6。
+ */
+const FIX_OVER_DELTA = 4096;
+const FIX_OVER_KB = `${(FIX_OVER_DELTA / 1024).toFixed(1)} KB`;
+fs.writeFileSync(FIX.over, Buffer.concat([
+  Buffer.from(TXT_AT_BYTES, 'utf8'), Buffer.from('x'.repeat(FIX_OVER_DELTA), 'utf8')]));
+if (fs.statSync(FIX.over).size !== DIFF_MAX_BYTES + FIX_OVER_DELTA) die('超闸门那份文件夹具的字节数不对');
+/**
+ * 拖放那一条路**不去 `fetch` 同源文件**：`DOM.setFileInputFiles` 之后 `input.files[0]` 已经是浏览器
+ * 文件层给的真 `File`（真路径、真描述符背书的），把它 `add` 进一只新的 `DataTransfer` 再派发 `drop`，
+ * 拖的那一份与选的那一份是同一个对象——两条路的差别只剩"事件从哪儿来"。
+ * headless CDP 没有 OS 级拖放，这一格是量具的上界，不是页面的下界：**事件是合成的**这一点写进
+ * 计划 §0.6 的账，不假装它是真拖。
+ */
+
+
 // ── Chrome + CDP ───────────────────────────────────────────────────────────
 /**
  * flag 那一族照段 3 那本更稳的一版：本机开着系统代理时 `--host-resolver-rules` 一条都不参与，
@@ -382,11 +602,25 @@ const { sessionId } = await c.send('Target.attachToTarget', { targetId, flatten:
  * `TK_TRACE=1` 另开一档在途日志（→ 发出 / ← 落定 + 耗时），挂住时最后一条只有 → 没有 ←。
  */
 const CDP_MS = 30000;
+/**
+ * 第 9 族「把 5 MiB / 二十万行塞进 `textarea`」那几发写入单独一档死线。**这不是放宽判据**：
+ * 判的是"读数落定"与"结果区一字节都不长"那些条，它们自己的预算在 `settledLine` 那一头；
+ * 这一档管的只是**量具自己的耐心**。实测两轮：单页跑（`TK_PAGES=diff`）时这一发 1.6s 就回
+ * （`9c` 绿、落定 5,300ms），四页同进程串跑到 diff 那一页时**同一发 30s 无回应**，整轮在
+ * 「9) diff」半途挂掉、第 10 族与 §7 那三行一个都没量到——而那台机此刻 1 分钟负载 51，
+ * json 页刚把 2,097,343B 的结果画进 DOM。一行 `el.value = <1.5MB>` 在 Chrome 里是同步赋值
+ * 加一次脏排版，代价随整机负载走；把"排版慢"记成"页面卡死"是量具说谎。
+ * 所以放大只给这一族的写入那几发，别处仍是 30s，而"页面真卡死"仍会被 `settledLine` 的
+ * `quiet=false` 与 9d 的墙钟那一枪抓出来（两头的账都在读数里，不在死线里）。
+ */
+const HARD_WRITE_MS = 90000;
 const TRACE = !!process.env.TK_TRACE;
 let SEQ = 0;
 const oneLine = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 let GROUP = '(启动)';
-const S = (m, p = {}) => {
+/** 本机 1 分钟负载，只进读数不进判据：绝对毫秒那一格红了要能自证是谁的钟慢 */
+const LOAD1 = () => (os.loadavg ? os.loadavg()[0].toFixed(1) : '—');
+const S = (m, p = {}, ms = CDP_MS) => {
   const call = c.send(m, p, sessionId);
   call.catch(() => {}); // 超时之后那条迟到的拒绝不该把进程带崩
   const reqId = ++SEQ;
@@ -394,14 +628,14 @@ const S = (m, p = {}) => {
   const t0 = Date.now();
   if (TRACE) process.stderr.write(`… ${reqId} → ${GROUP} :: ${label}\n`);
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`CDP ${label} 在 ${CDP_MS / 1000}s 内没有回应（当时正在跑「${GROUP}」）`)), CDP_MS);
+    const timer = setTimeout(() => reject(new Error(`CDP ${label} 在 ${ms / 1000}s 内没有回应（当时正在跑「${GROUP}」，本机 1 分钟负载 ${LOAD1()}）`)), ms);
     call.then((r) => { if (TRACE) process.stderr.write(`… ${reqId} ← ${Date.now() - t0}ms\n`); resolve(r); },
       (e) => { if (TRACE) process.stderr.write(`… ${reqId} ✗ ${oneLine(e.message)}\n`); reject(e); })
       .finally(() => clearTimeout(timer));
   });
 };
-const evalJs = async (expression) => {
-  const r = await S('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+const evalJs = async (expression, ms = CDP_MS) => {
+  const r = await S('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, ms);
   if (r.exceptionDetails) {
     throw new Error('页内异常：' + (r.exceptionDetails.exception?.description
       || r.exceptionDetails.text) + ' @ ' + expression.replace(/\s+/g, ' ').slice(0, 90));
@@ -447,19 +681,49 @@ const focusOn = (id) => evalJs(`(() => { const el=document.getElementById(${JSON
  * 真鼠标点一击（§V 那两族「点 Pointer 复制 / 点容器行展开」的浏览器版）。
  * **先做命中测试**：`elementFromPoint` 拿到的必须就是目标自己或它的子节点，否则这一击落在视口外，
  * 会伪装成"交互坏了"的假红（记忆规则「真鼠标点击验证先做命中测试」）。
+ *
+ * 命中的是**固定定位的装饰层**时（段 5 Task 7 在 1280×300 实测：左下角那颗 `.mao_box` 猫盒子
+ * 占 `left:30px;bottom:30px` 的 200×174，视口矮到 408px 以下就会盖住工作台那一排左侧按钮），
+ * 这一只把手挪到猫盒子的上沿或下沿之外再试一次——**换的是落点，不是通道**：真鼠标事件、真命中、
+ * 真按钮，只是不等在矮视口里与装饰层重叠的那一行像素。盖过来的那一枚自己是 `.mao_head` 这种
+ * `position:relative` 的**内部件**，所以判"是不是固定层"要顺着父级往上找 `position:fixed` 的那一格
+ * （`fa`），并拿它的外沿当避让带。命中的是**没有固定祖先**的东西就不挪了，直接红：那可能是真的
+ * 层叠缺陷，替页面圆场等于把牙磨掉。挪了几次、被谁盖过都进读数（`tries`/`cover`），
+ * 红的时候分得开"页面点不动"与"量具的视口太矮"。
  * @param {string} sel 目标的选择器
  * @param {number} [nth] 同一选择器里的第几枚
- * @returns {Promise<{ok: boolean, why: string, x: number, y: number}>} ok=false 时带着没打中的原因
+ * @returns {Promise<{ok: boolean, why: string, x: number, y: number, tries: number, cover: string|null}>}
+ *   ok=false 时带着没打中的原因
  */
 const realClick = async (sel, nth = 0) => {
   const h = await evalJs(`(() => { const all=document.querySelectorAll(${JSON.stringify(sel)});`
-    + ` const el=all[${nth}]; if(!el) return {ok:false,why:'no-node(n='+all.length+')',x:0,y:0};`
-    + ` el.scrollIntoView({block:'center',inline:'center'});`
-    + ' const r=el.getBoundingClientRect(); const x=Math.round(r.left+r.width/2), y=Math.round(r.top+r.height/2);'
-    + ' const hit=document.elementFromPoint(x,y);'
-    + " if(!hit) return {ok:false,why:'elementFromPoint=null',x,y};"
-    + " if(!(hit===el||el.contains(hit)||hit.contains(el))) return {ok:false,why:'命中在别处:'+((hit.className||hit.tagName)+'').slice(0,40),x,y};"
-    + ' return {ok:true,why:"hit",x,y}; })()');
+    + ' const el=all[' + String(nth) + '];'
+    + " if(!el) return {ok:false,why:'no-node(n='+all.length+')',x:0,y:0,tries:0,cover:null};"
+    + ' const center=()=>{const r=el.getBoundingClientRect();'
+    + ' return {x:Math.round(r.left+r.width/2), y:Math.round(r.top+r.height/2)};};'
+    + ' const fa=(c)=>{for(let n=c;n&&n!==document.documentElement;n=n.parentElement){'
+    + ' if(getComputedStyle(n).position==="fixed") return n;} return null;};'
+    + ' const band=(fx)=>{const acc=fx.getBoundingClientRect();'
+    + ' let t=acc.top,b=acc.bottom;'
+    + ' fx.querySelectorAll("*").forEach((q)=>{const r=q.getBoundingClientRect();'
+    + ' if(r.width<1||r.height<1) return; if(r.top<t) t=r.top; if(r.bottom>b) b=r.bottom;});'
+    + ' return {t,b};};'
+    + ' const hits=(p)=>{const c=document.elementFromPoint(p.x,p.y); if(!c) return null;'
+    + ' if(c===el||el.contains(c)||c.contains(el)) return {self:true,name:"",fx:null,band:null};'
+    + ' const fx=fa(c); return {self:false,name:String(c.className||c.tagName),fx,'
+    + ' band:fx?band(fx):null};};'
+    + " el.scrollIntoView({block:'center',inline:'center'});"
+    + ' let p=center(); let hs=hits(p); let tries=0; let cover=null;'
+    + ' while(hs && !hs.self && hs.fx && tries<3){'
+    + ' cover=hs.name+"@"+String(hs.fx.className||hs.fx.tagName); tries+=1;'
+    + ' const cr=hs.band;'
+    + ' const above=cr.t-6; const below=cr.b+6;'
+    + ' const wantY=(above>40?above:(below<window.innerHeight-40?below:40));'
+    + ' window.scrollBy(0, p.y-wantY);'
+    + ' p=center(); hs=hits(p);}'
+    + " if(!hs) return {ok:false,why:'elementFromPoint=null',x:p.x,y:p.y,tries,cover};"
+    + " if(!hs.self) return {ok:false,why:'命中在别处:'+hs.name.slice(0,40),x:p.x,y:p.y,tries,cover};"
+    + ' return {ok:true,why:"hit",x:p.x,y:p.y,tries,cover}; })()');
   if (!h.ok) return h;
   await S('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x, y: h.y });
   await S('Input.dispatchMouseEvent', { type: 'mousePressed', x: h.x, y: h.y, button: 'left', buttons: 1, clickCount: 1 });
@@ -468,10 +732,22 @@ const realClick = async (sel, nth = 0) => {
   return h;
 };
 /** 往格子里写值并**补一次 input**：闸门读数挂在 input 监听上，只设 `.value` 不刷新读数 */
-const putValue = (id, value, fire = true) => evalJs(`(() => { const el=document.getElementById(${JSON.stringify(id)});`
+const putValue = (id, value, fire = true, ms = CDP_MS) => evalJs(`(() => { const el=document.getElementById(${JSON.stringify(id)});`
   + ' if(!el) return "missing"; el.value=' + JSON.stringify(String(value)) + ';'
   + (fire ? ' el.dispatchEvent(new Event("input",{bubbles:true}));' : '')
-  + ' return String(el.value).length; })()');
+  + ' return String(el.value).length; })()', ms);
+/**
+ * 第 9 族专用的"带表的重写入"：同 `putValue`，只是把这一发自己的墙钟一并交回去。
+ * 为什么要把这个数打进读数：四页串跑那一轮里，diff 的 20 万行写入在无探针的形状下只能留下
+ * 「30s 内没有回应」一句话，读者分不清是页面卡死还是量具的钟慢。有了这一格，两件事各有名字——
+ * **写入自身耗时**（`ms`，Chrome 的赋值 + 脏排版）与**读数落定耗时**（`settledLine` 的 `settledMs`），
+ * 判据仍然只咬后者。死线默认走 `HARD_WRITE_MS`（理由见它自己的注释）。
+ */
+const timedPut = async (id, value, fire = true, ms = HARD_WRITE_MS) => {
+  const t0 = Date.now();
+  const r = await putValue(id, value, fire, ms);
+  return { r, writeMs: Date.now() - t0 };
+};
 const setSelect = (id, value) => evalJs(`(() => { const el=document.getElementById(${JSON.stringify(id)});`
   + ' if(!el) return "missing"; el.value=' + JSON.stringify(String(value)) + ';'
   + ' el.dispatchEvent(new Event("change",{bubbles:true})); return el.value; })()');
@@ -519,13 +795,50 @@ const readSettledText = async (sel, timeoutMs = 4000, POLL_MS = 100, NEED_SAME =
 };
 
 /**
+ * 读一句**必须先离开旧账再落定**的读数：`readSettledText` 在「开页之后的第一发」上会撒谎。
+ *
+ * 为什么还要这一只（段 5 Task 7 实测到的假红）：空状态那一句 `0 行 · 0.0 KB` 本身就是稳的，
+ * 三次同文立刻成立，于是量具在防抖那一发还没轮到跑时就返回了**开页时的旧账单**。同一个形状在
+ * `9a` 是绿的（那次落定等了 4365ms，因为 5 MiB 塞进 `textarea` 后重排把主线程占满了），
+ * 到 `9c` 的 1.4 MB 就红了——差别只在「第一次采样之前主线程忙多久」，与被测的页无关。
+ * 判据改成「先离开 `from`，离开之后再连续 `NEED_SAME` 次同文」：它仍然**不等任何期望值**，
+ * 页面真把数字算错时照样带着那个错的数变红；`moved:false` 的读数与「动成错的数」分得开。
+ *
+ * @param {string} sel 状态行选择器
+ * @param {string|null} from 粘贴之前现读的那一份基线
+ * @param {number} [timeoutMs] 落定上限
+ * @returns {Promise<{text: string|null, settledMs: number, samples: number, quiet: boolean, moved: boolean}>}
+ *   `quiet` = 离开基线之后还落定了；`moved` = 到点是否离开了基线
+ */
+const readMovedText = async (sel, from, timeoutMs = 12000, POLL_MS = 100, NEED_SAME = 3) => {
+  const t0 = Date.now();
+  let prev = null;
+  let same = 0;
+  let samples = 0;
+  let cur = null;
+  let moved = false;
+  for (;;) {
+    samples += 1;
+    cur = await readText(sel);
+    if (!moved && cur !== from) moved = true;
+    same = moved && cur === prev ? same + 1 : 1;
+    prev = cur;
+    if (moved && same >= NEED_SAME) return { text: cur, settledMs: Date.now() - t0, samples, quiet: true, moved };
+    if (Date.now() - t0 >= timeoutMs) return { text: cur, settledMs: Date.now() - t0, samples, quiet: false, moved };
+    await wait(POLL_MS);
+  }
+};
+
+/**
  * 记账钩子。装不上就**抛**，让量具退 2 而不是让计数器安静停在 0——"钩子没装上"和
  * "钩子记到 0 次"在两处判定里长得一模一样（段 3 那本的假牙教训原样继承）。
  * 每次 `goto()` 都是新文档，所以每组的第一个动作前要重装；`resetSpy()` 只清计数。
  * @returns {Promise<string>} 安装形状自证串
  */
+const SPY_SEED = '{ copy: [], exec: 0, create: 0, revoke: 0, fr: 0, blobType: null, blobSize: null,'
+  + ' isBlob: false, anchorName: null, anchorInDom: null, aClick: 0 }';
 const installSpies = () => evalJs(`(() => {
-  window.__spy = { copy: [], exec: 0, create: 0, revoke: 0, blobType: null, blobSize: null, isBlob: false, anchorName: null };
+  window.__spy = ${SPY_SEED};
   const shape = [];
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText = (t) => { window.__spy.copy.push(String(t)); return Promise.resolve(); };
@@ -554,11 +867,45 @@ const installSpies = () => evalJs(`(() => {
     if (n && n.tagName === 'A' && n.download) window.__spy.anchorName = n.download;
     return oadd.apply(this, arguments);
   };
-  shape.push('createObjectURL=on revoke=on appendChild=on');
+  /**
+   * 第二枚眼睛：原型级的 click 钩子。对比页那一份下载**不往 body 里塞** 这一枚 a
+   * （只造节点、设 href 与 download、直接 click），appendChild 那一格于是永远读不到文件名——
+   * 而"文件名对不对"与"这枚 a 到底进没进过文档"恰恰是这一格要问的两件事
+   * （不进文档在 Firefox 那一边是不触发的，Chrome 触发与否只能靠落盘那一线来答）。
+   * 所以这里记三样：download 那一句、点没点、点的那一刻它在不在文档里。
+   */
+  const OAC = HTMLAnchorElement.prototype.click;
+  if (typeof OAC !== 'function') throw new Error('包不上：HTMLAnchorElement.prototype.click 不可调');
+  HTMLAnchorElement.prototype.click = function () {
+    if (window.__spy && this.download) {
+      window.__spy.aClick += 1;
+      window.__spy.anchorName = String(this.download);
+      window.__spy.anchorInDom = document.contains(this);
+    }
+    return OAC.apply(this, arguments);
+  };
+  shape.push('createObjectURL=on revoke=on appendChild=on anchorClick=on');
+  /**
+   * FileReader 那一格是给对比页 9 族用的："按大小拒绝"必须发生在**读之前**（五 MiB 不该先进内存
+   * 再说"不行"），所以判据要数的是"这一次有没有真的调过 readAsArrayBuffer"，而不是页面上那句话。
+   * 原型级钩子只包一次（__frPatched 挂在 window 上，跨 installSpies 重入不双计），
+   * 包不上就抛——和上面几枚钩子同一条口径：钩子没装上与记到 0 次，在判据里长得一模一样。
+   * （这段注释活在注入页内的模板字符串里，里头不许出现反引号——那会提前关掉模板。）
+   */
+  if (!window.__frPatched) {
+    const ORA = FileReader.prototype.readAsArrayBuffer;
+    if (typeof ORA !== 'function') throw new Error('包不上：FileReader.prototype.readAsArrayBuffer 不可调');
+    FileReader.prototype.readAsArrayBuffer = function (x) {
+      if (window.__spy) window.__spy.fr += 1;
+      return ORA.call(this, x);
+    };
+    window.__frPatched = 1;
+  }
+  shape.push('readAsArrayBuffer=on');
   window.__spied = 1;
   return shape.join(' ');
 })()`);
-const resetSpy = () => evalJs('window.__spy = { copy: [], exec: 0, create: 0, revoke: 0, blobType: null, blobSize: null, isBlob: false, anchorName: null }; 1');
+const resetSpy = () => evalJs(`window.__spy = ${SPY_SEED}; 1`);
 /** 把 spy 里那一枚 Blob 的内容读出来（Blob 对象不能跨 CDP 序列化，只能在页内 `.text()`；
  *  `evalJs` 带 `awaitPromise`，所以这里返回的 Promise 会在这一侧落定） */
 const readBlobText = () => evalJs('window.__lastBlob && typeof window.__lastBlob.text === "function"'
@@ -688,12 +1035,13 @@ const scrollToMid = async () => {
 
 console.log(`# Chrome pid=${chrome.pid} profile=${chromeProfile}`);
 console.log(`# 快照 ${SITE}（与仓库 _site 无关）· profile 来自 ${path.relative(ROOT, YML_PATH)}`);
-console.log(`# profile ${PROFILES.map((p) => `${p.slug}(${p.layout})`).join(' / ')} · 视口 ${VPS.join('/')}`);
+console.log(`# profile ${PROFILES.map((p) => `${p.slug}(${p.layout})`).join(' / ')} · 视口 ${VPS.join('/')}`
+  + ` · 起跑时本机 1 分钟负载 ${LOAD1()}`);
 if (ONLY.length) console.log(`# ⚠ TK_PAGES=${ONLY.join(',')} —— 本轮只跑 ${PROFILES.length}/${ALL_PROFILES.length} 页，`
   + '这是迭代用的子集读数，**不算门禁**（六道门禁那一格要三页全跑）');
 
 // ══ 0) 环境与快照自证 ═══════════════════════════════════════════════════════
-GROUP = '0) 环境与快照 0a–0d';
+GROUP = '0) 环境与快照自证 0a–0f';
 check('0a TK_SITE_DIR 是隔离快照，不是仓库自己的 _site', SITE !== path.join(ROOT, '_site'),
   `TK_SITE_DIR=${SITE}`);
 check('0b 没有 jekyll serve / vite build --watch 在跑（否则量的中途产物会换）', watchers.length === 0,
@@ -703,26 +1051,62 @@ check('0c 快照里页面引用的每一件 min 产物与工作树逐字节同 m
 check('0d 闸门常数从 json-core.js 现读：5 MiB / 1000 层，夹具按字节精确凑',
   MAX_BYTES === 5242880 && MAX_DEPTH === 1000,
   `MAX_INPUT_BYTES=${MAX_BYTES}、MAX_DEPTH=${MAX_DEPTH}；夹具 整=${Buffer.byteLength(JSON_AT_LIMIT)}B / +1=${Buffer.byteLength(JSON_OVER_LIMIT)}B / 深=${JSON_DEEP_200.length}B`);
+/**
+ * 对比页那一族的四个数（每侧字节、每侧行数、行级对齐代价、行内 token 预算）从 `diff-core.js`
+ * 现读——**这一页的闸门是"按侧判"的**（spec §7 段 5 追加那一句），所以 0e 里同时把"两侧合起来
+ * 不判"这件事写成夹具：字节那两份各自 5 MiB 整，两侧合计就是 10 MiB，页面上仍必须放行。
+ * 上一版如果只读两个数，"按侧 / 按合计"这一档在两页之间根本没有可判的东西。
+ */
+check('0e 对比页四个闸门常数从 diff-core.js 现读，且夹具按"每侧"精确构造（两侧合计 10 MiB 也该放行）',
+  DIFF_MAX_BYTES === 5242880 && DIFF_MAX_LINES === 200000 && DC.MAX_COST === 2000 && DC.MAX_INLINE_TOKENS === 4000,
+  `MAX_INPUT_BYTES=${DIFF_MAX_BYTES}、MAX_INPUT_LINES=${DIFF_MAX_LINES}、MAX_COST=${DC.MAX_COST}、`
+    + `MAX_INLINE_TOKENS=${DC.MAX_INLINE_TOKENS}；夹具 整=${Buffer.byteLength(TXT_AT_BYTES)}B ×2 侧=`
+    + `${Buffer.byteLength(TXT_AT_BYTES) + Buffer.byteLength(TXT_NEAR)}B 合计 / +1=${Buffer.byteLength(TXT_OVER_BYTES)}B / `
+    + `行=${TXT_AT_LINES.split('\n').length}（字节 ${Buffer.byteLength(TXT_AT_LINES)}B，不撞字节闸）与 ${TXT_OVER_LINES.split('\n').length}；`
+    + `样本切出 ${DIFF_HUNK_N} 块差异（意图 ${DIFF_HUNK_WANT}）、期望导出 ${DIFF_UNIFIED.length} 字`);
+/** 磁盘夹具四份自证：编码判断那三档全靠它们的字节形状，凑错一份就有一档在量自己的错觉 */
+const fixUtf8Ok = (() => { try { Buffer.from(fs.readFileSync(FIX.utf8)).toString('utf8'); return true; } catch { return false; } })();
+const fixGbkBad = (() => {
+  try { new TextDecoder('utf-8', { fatal: true }).decode(fs.readFileSync(FIX.gbk)); return false; } catch { return true; }
+})();
+check(`0f 本机文件的四份夹具在磁盘上且形状如其名（UTF-8 能读、GBK 过不了 fatal 解码、NUL 那份含 0x00、超限那份比 ${DIFF_MAX_BYTES / MIB} MiB 多 ${FIX_OVER_DELTA}B）`,
+  fs.existsSync(FIX.utf8) && fixUtf8Ok && fs.statSync(FIX.utf8).size === Buffer.byteLength(DIFF_TEXT_B, 'utf8')
+  && fixGbkBad && fs.readFileSync(FIX.nul).includes(0) && fs.statSync(FIX.over).size === DIFF_MAX_BYTES + FIX_OVER_DELTA,
+  `${FIX.utf8}=${fs.statSync(FIX.utf8).size}B(=DIFF_TEXT_B 的字节数 ${Buffer.byteLength(DIFF_TEXT_B, 'utf8')})`
+    + ` 解码=${fixUtf8Ok ? 'OK' : '坏'}；${FIX.gbk}=${fs.statSync(FIX.gbk).size}B fatal 解码=${fixGbkBad ? '真的抛' : '居然没抛'}`
+    + `；${FIX.nul}=${fs.statSync(FIX.nul).size}B 含 NUL=${fs.readFileSync(FIX.nul).includes(0)}；`
+    + `${FIX.over}=${fs.statSync(FIX.over).size}B（闸门 ${DIFF_MAX_BYTES}B）`);
 
 // ══ 逐页跑通用六族 ══════════════════════════════════════════════════════════
 /** 每页的读数都带 `<slug>/` 前缀：三页同一族的形状对得上、数各算各的。 */
 for (const P of PROFILES) {
   const cfg = PER_PAGE[P.slug];
-  const L = LAYOUT[P.layout];
-  const bps = declaredBps(P.layout);
+  const L = shapeOf(P, cfg);
+  const bps = declaredBps(cfg.scss);
   const pref = P.prefix;
   const html = fs.readFileSync(path.join(SITE, P.url.slice(1)), 'utf8');
-  /** 面板键清单：`panels` 支读 yml，`workbench` 支读产物骨架那格 `data-jt-ids`（两处都是现读，不抄） */
+  /**
+   * 面板键清单：`panels` 支读 yml，`workbench` 支读产物骨架那一格（两处都是现读，不抄）。
+   * 属性名带页面前缀（`data-jt-ids` / `data-df-ids`），所以按 `pref` 拼——这一格是**从产物里读**
+   * 的第一枚地址，读不到就是 `exec` 回 `null` 然后崩在 `[1]` 上，那一句 `TypeError` 会把
+   * 「页面骨架缺这格」伪装成「量具坏了」，所以这里显式判空并说清是哪一格。
+   */
+  const IDS_ATTR = `data-${pref}-ids`;
+  const idsRaw = P.layout === 'workbench'
+    ? new RegExp(`${IDS_ATTR}="([^"]+)"`).exec(html)?.[1] : null;
+  if (P.layout === 'workbench' && !idsRaw) {
+    die(`${P.url.slice(1)} 的骨架里没有 ${IDS_ATTR} 那一格（或它是空的）：workbench 支的面板清单全靠这一格现读`);
+  }
   const panelKeys = P.layout === 'workbench'
-    ? /data-jt-ids="([^"]+)"/.exec(html)[1].split(',').map((s) => s.trim())
-    : P.panels.map((x) => x.slug);
+    ? idsRaw.split(',').map((s) => s.trim()) : P.panels.map((x) => x.slug);
   const PK = panelKeys[0];
   /**
-   * 结果栏选择器。**只在 `workbench` 那一支有唯一答案**（这一页只有 `main` 一栏），
-   * `panels` 支的栏位是 `read`/`gen` 两栏且随面板变，所以那一支从 DOM 现读（见 3e 的 `ids.out`），
-   * 这里留 null 而不是猜一个——猜出来的选择器查不到节点时判据会假绿，那比红更难查。
+   * 结果栏选择器。**只在 `workbench` 那一支有唯一答案**，而"那一栏叫什么"随页变（JSON 页 `-main`、
+   * 对比页 `-bar`），所以从页表读；`panels` 支的栏位是 `read`/`gen` 两栏且随面板变，那一支从 DOM
+   * 现读（见 3e 的 `ids.out`），这里留 null 而不是猜一个——猜出来的选择器查不到节点时判据会假绿，
+   * 那比红更难查。
    */
-  const OUTSEL = P.layout === 'workbench' ? `#${pref}-out-${PK}-main` : null;
+  const OUTSEL = P.layout === 'workbench' ? cfg.out : null;
   /**
    * 现挑一块**真的有 `<textarea>`** 的面板，并把它那一栏的按钮 / 复制 / 结果区一起读回来。
    *
@@ -771,8 +1155,10 @@ for (const P of PROFILES) {
         cols:[...document.querySelectorAll('.tk-cols')].map((el)=>({ one: el.classList.contains('tk-cols--one'),
           t:getComputedStyle(el).gridTemplateColumns, vis: el.getBoundingClientRect().width > 0 })),
         optDir:(()=>{const e=g(${JSON.stringify(L.optColumn ? L.optColumn.sel : '.jt-bar__group--opt')});return e?e.flexDirection:null;})(),
-        gutterW:(()=>{const e=document.querySelector('.jt-gutter');return e?Math.round(parseFloat(getComputedStyle(e).width)):null;})(),
-        treeH:(()=>{const e=g('.jt-tree');return e?Math.round(parseFloat(e.height)):null;})() };
+        gutterW:(()=>{const s=${JSON.stringify(L.gutter ? L.gutter.sel : null)};if(!s)return null;`
+          + `const e=document.querySelector(s);return e?Math.round(parseFloat(getComputedStyle(e).width)):null;})(),
+        gutterN:(()=>{const s=${JSON.stringify(L.gutter ? L.gutter.sel : null)};return s?document.querySelectorAll(s).length:0;})(),
+        treeH:(()=>{const e=g(${JSON.stringify(L.treeSel || '.jt-tree')});return e?Math.round(parseFloat(e.height)):null;})() };
     })()`);
     rows.push(Object.assign({ w }, shape));
   }
@@ -846,22 +1232,60 @@ for (const P of PROFILES) {
   } else {
     const gapWrong = rows.filter((r) => px(r.primGap) !== (r.w <= L.shift ? px(L.gap.narrow) : px(L.gap.wide)));
     const optFlips = flipAt(rows.map((r) => ({ w: r.w, n: r.optDir === 'column' ? 1 : 0 })));
-    const gFlips = flipAt(rows.map((r) => ({ w: r.w, n: r.gutterW })));
     const treeWrong = rows.filter((r) => r.treeH !== null && Math.abs(r.treeH - Math.round(L.treeHeight(r.w, r.vh))) > 1);
-    check(id(`1c 工作台形状三族各自换挡：分栏 gap ${L.gap.wide}↔${L.gap.narrow}、选项组排向与行号槽定宽换在 ${L.optColumn.shift}、树高按 min() 三档`),
-      gapWrong.length === 0 && optFlips.length === 1 && optFlips[0] === FLIP(L.optColumn.shift)
-        && gFlips.length === 1 && gFlips[0] === FLIP(L.gutter.shift) && treeWrong.length === 0
-        && bps.includes(L.optColumn.shift),
-      `gap ${rows.map((r) => `${r.w}:${px(r.primGap)}`).join(' ')}；选项组排向=${rows.map((r) => `${r.w}:${(r.optDir || '-')[0]}`).join(' ')}（换在 ${optFlips.join()}）；`
-        + `行号槽宽 ${rows.map((r) => `${r.w}:${r.gutterW}`).join(' ')}（换在 ${gFlips.join()}）；`
-        + `树高实测 ${rows.map((r) => `${r.w}:${r.treeH}`).join(' ')} vs 期望 ${rows.map((r) => Math.round(L.treeHeight(r.w, r.vh))).join(' ')}；`
-        + `声明集=${bps.join('/')}px`);
-    await setVp(640); await wait(160); const g640 = await emOf(L.gutter.sel);
-    await setVp(641); await wait(160); const g641 = await emOf(L.gutter.sel);
-    check(id(`1e 640 那一档行号槽确实是 ${L.gutter.em}em 定宽（按它自己的 font-size 折 px），641 那一档不是`),
-      !!g640 && !!g641 && g640.w === Math.round(L.gutter.em * g640.fs) && g641.w !== Math.round(L.gutter.em * g641.fs),
-      `640px：宽 ${g640 && g640.w}px，${L.gutter.em}×font-size ${g640 && g640.fs}=${g640 && Math.round(L.gutter.em * g640.fs)}；`
-        + `641px：宽 ${g641 && g641.w}px ≠ ${g641 && Math.round(L.gutter.em * g641.fs)}`);
+    /**
+     * 行号槽那一族**按页分派**：JSON 页的粘贴框带 `.jt-gutter`，它在 640 换挡（定宽那两档），
+     * 换挡点与 `em` 定宽都归 1c/1e 量；对比页按设计**不带**行号槽（`DIFF_SPEC` 的 `gutter: false`，
+     * 行号住在结果区的行块里），于是 1c 里那一格换成"十档恒 0 枚"——把 JSON 那条原样搬过来会红在
+     * "查不到节点"上，那是量具的假红而不是页面的缺陷。
+     */
+    if (L.gutter) {
+      const gFlips = flipAt(rows.map((r) => ({ w: r.w, n: r.gutterW })));
+      check(id(`1c 工作台形状四族各自换挡：分栏 gap ${L.gap.wide}↔${L.gap.narrow}、选项组排向与行号槽定宽换在 ${L.optColumn.shift}、树高按 min() 三档`),
+        gapWrong.length === 0 && optFlips.length === 1 && optFlips[0] === FLIP(L.optColumn.shift)
+          && gFlips.length === 1 && gFlips[0] === FLIP(L.gutter.shift) && treeWrong.length === 0
+          && bps.includes(L.optColumn.shift),
+        `gap ${rows.map((r) => `${r.w}:${px(r.primGap)}`).join(' ')}；选项组排向=${rows.map((r) => `${r.w}:${(r.optDir || '-')[0]}`).join(' ')}（换在 ${optFlips.join()}）；`
+          + `行号槽宽 ${rows.map((r) => `${r.w}:${r.gutterW}`).join(' ')}（换在 ${gFlips.join()}）；`
+          + `树高实测 ${rows.map((r) => `${r.w}:${r.treeH}`).join(' ')} vs 期望 ${rows.map((r) => Math.round(L.treeHeight(r.w, r.vh))).join(' ')}；`
+          + `声明集=${bps.join('/')}px`);
+      await setVp(640); await wait(160); const g640 = await emOf(L.gutter.sel);
+      await setVp(641); await wait(160); const g641 = await emOf(L.gutter.sel);
+      check(id(`1e 640 那一档行号槽确实是 ${L.gutter.em}em 定宽（按它自己的 font-size 折 px），641 那一档不是`),
+        !!g640 && !!g641 && g640.w === Math.round(L.gutter.em * g640.fs) && g641.w !== Math.round(L.gutter.em * g641.fs),
+        `640px：宽 ${g640 && g640.w}px，${L.gutter.em}×font-size ${g640 && g640.fs}=${g640 && Math.round(L.gutter.em * g640.fs)}；`
+          + `641px：宽 ${g641 && g641.w}px ≠ ${g641 && Math.round(L.gutter.em * g641.fs)}`);
+    } else {
+      check(id(`1c 工作台形状三族换挡（本页按设计无行号槽，那一族换成"十档恒 0 枚"）：分栏 gap ${L.gap.wide}↔${L.gap.narrow}、选项组排向换在 ${L.optColumn.shift}、结果栏高度按 min() 三档`),
+        gapWrong.length === 0 && optFlips.length === 1 && optFlips[0] === FLIP(L.optColumn.shift)
+          && treeWrong.length === 0 && rows.every((r) => r.gutterN === 0) && bps.includes(L.optColumn.shift),
+        `gap ${rows.map((r) => `${r.w}:${px(r.primGap)}`).join(' ')}；选项组排向=${rows.map((r) => `${r.w}:${(r.optDir || '-')[0]}`).join(' ')}（换在 ${optFlips.join()}）；`
+          + `行号槽枚数 ${rows.map((r) => `${r.w}:${r.gutterN}`).join(' ')}（期望恒 0）；`
+          + `结果栏高实测 ${rows.map((r) => `${r.w}:${r.treeH}`).join(' ')} vs 期望 ${rows.map((r) => Math.round(L.treeHeight(r.w, r.vh))).join(' ')}；`
+          + `声明集=${bps.join('/')}px`);
+      /**
+       * 1e 在这一支量的是**跳转那三枚按钮的前提**：`goTo()` 靠 `scrollTop = 视觉行 × 行高`，
+       * 而那只 `scrollTop` 只在"这一格真的有上界"时才会动——样式把 `.df-out` 的高度写成 `min()`
+       * 三档而不是随内容长，就是为了这一格。三档各量一次：高度 > 0、`overflow` 含 `auto`、
+       * 且**空内容时它就是那一栏本身**（`scrollHeight === clientHeight`，还没有东西可滚）。
+       * 内容灌进去之后的"唯一滚动容器"那一判在 8 族，两处不重复：这里量声明，那里量行为。
+       */
+      const sc = [];
+      for (const w of [360, 640, 1280]) {
+        await setVp(w); await wait(160);
+        sc.push(Object.assign({ w }, await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(L.treeSel)});`
+          + ' if(!el) return { miss:1 }; const cs=getComputedStyle(el);'
+          + ' return { h:Math.round(el.getBoundingClientRect().height), ov:cs.overflowY + "/" + cs.overflowX,'
+          + ' sh:el.scrollHeight, ch:el.clientHeight }; })()')));
+      }
+      check(id('1e 结果栏（.df-out）在 360/640/1280 三档都是固定高度 + overflow:auto 的滚动容器（跳转那三枚的上界前提）'),
+        sc.every((r) => !r.miss && r.h > 0 && /auto|scroll/.test(r.ov || '') && r.sh === r.ch),
+        sc.map((r) => `${r.w}:${r.h ?? '缺'}px ov=${r.ov || '-'} sh/ch=${r.sh}/${r.ch}`).join(' '));
+      await setVp(640); await wait(140);
+      const noGut = await evalJs(`document.querySelectorAll('.jt-gutter, .df-gutter, [class*="-gutter"]').length`);
+      check(id('1e2 640 那一档整页画不出行号槽（0 枚）：输入区的左内边距因此不随断点变'),
+        noGut === 0, `现量 ${noGut} 枚（期望 0——粘贴框带行号槽是 JSON 页的形状，不是本页的）`);
+    }
     await setVp(1280);
   }
 
@@ -882,7 +1306,9 @@ for (const P of PROFILES) {
   let loadedWhere = '';
   if (P.layout === 'workbench') {
     loadedWhere = `${PK}/doc`;
-    loaded = await putValue(`${pref}-in-${PK}-doc`, `{"k":${longLine}}`);
+    /** 长行的**外壳**按页给：JSON 页要让那 400KB 落在一份合法 JSON 的字符串值里（否则算不出结果栏），
+     *  对比页要让它落在一份**文本**行里（这一页的 1f 量的就是"一行几百 KB 把栏撑破"，与语法无关）。 */
+    loaded = await putValue(cfg.doc, cfg.doc2 ? `x ${longLine.replace(/"/g, '')}` : `{"k":${longLine}}`);
   } else {
     const ta1f = await pickTaPanel();
     if (ta1f) {
@@ -925,7 +1351,7 @@ for (const P of PROFILES) {
       const o = await evalJs(`(() => { const de=document.documentElement, body=document.body;
         const bgh=(el)=>{ let n=el; while(n){ const v=getComputedStyle(n).backgroundColor;
           if(v && !/rgba\\(0, 0, 0, 0\\)|transparent/.test(v)) return v; n=n.parentElement; } return 'rgb(255, 255, 255)'; };
-        const picks=[...document.querySelectorAll('h1, .tk-compliance, ${P.layout === 'workbench' ? '.jt-side__title' : '.tk-panel h2'}')].slice(0,3);
+        const picks=[...document.querySelectorAll('h1, .tk-compliance, ${P.layout === 'workbench' ? `.${pref}-side__title` : '.tk-panel h2'}')].slice(0,3);
         return { night: de.classList.contains('night-mode'), rs: de.getAttribute('data-rs-paper')||'',
           bodyBg: bgh(body), n:picks.length,
           samples: picks.map(el=>({ tag:(el.className||el.tagName)+'', color:getComputedStyle(el).color, bg:bgh(el) })) }; })()`);
@@ -1031,7 +1457,7 @@ for (const P of PROFILES) {
      * 判线扣在它头上就是拿量具的构图去告页面。所以先让框完整可见，把这条原生路径关掉，
      * 剩下的 `scrollY` 位移才真的归这一族判。
      */
-    const DOCID = `${pref}-in-${PK}-doc`;
+    const DOCID = cfg.doc;
     const fit = async () => evalJs(`(() => { const el=document.getElementById(${JSON.stringify(DOCID)});`
       + ' if(!el) return { found: false };'
       + ' const de=document.documentElement, max=Math.max(0, de.scrollHeight - window.innerHeight);'
@@ -1066,25 +1492,60 @@ for (const P of PROFILES) {
       `框整块进视口=${JSON.stringify(f1)}（先一次=${JSON.stringify(f0)}）；`
         + `scrollTop 0→${after.top}px（框高 ${after.h}px）、selectionStart→${after.sel}、焦点在=${after.active}、`
         + `window.scrollY ${yBefore}→${after.y}（判线 ≤40px，框底边此刻在 ${after.boxBottom}px / 视口 ${f1.ih}px）`);
-    /** Home/End 落在粘贴框上是"回到行首/行尾"，不是"甩到页顶/页底"：同一把尺现场对照 */
+    /** Home/End 落在粘贴框上是"回到行尾"，不是"甩到页底"：同一把尺现场对照。
+     *  按下之前先把框的形状重读一次（`scrollToMid` 自己会把框推出视口），并按 `selectionEnd`
+     *  起算——原生 `End` 取的是**选区末点**所在那一行，不是 `selectionStart`。 */
     await evalJs(`(() => { const m=document.querySelector('main'); m.tabIndex=-1; m.focus(); return 1; })()`);
     const midA = await scrollToMid(); await press('End', 'End', 35); const ctlEnd = await readYStable();
-    await evalJs(`(() => { const el=document.getElementById('${pref}-in-${PK}-doc'); el.focus();`
+    await evalJs(`(() => { const el=document.getElementById(${JSON.stringify(DOCID)}); el.focus();`
       + ` el.setSelectionRange(3,6); return 1; })()`);
-    const midB = await scrollToMid(); await press('End', 'End', 35);
-    const boxEnd = await evalJs(`(() => { const el=document.getElementById('${pref}-in-${PK}-doc');`
-      + ' return { y: Math.round(window.scrollY), sel: el.selectionStart }; })()');
+    const midBraw = await scrollToMid();
+    /**
+     * 按下之前先把框**摆到位**：`scrollToMid` 是按整页中点滚的，在对比页那种长页面上会把两米高的
+     * 粘贴框推到视口之外（段 5 Task 7 实测 `top=-143 bottom=144`）——那时候原生 caret 揭示**本来就要**
+     * 滚整页，量具把自己的前提失败算成页面的账，与段 4 那条"focus() 落在 display:none 子树里静默失败"
+     * 是同一族假红。所以这里自己先把框摆进视口正中，并把"挪之前在哪、挪之后在哪"都留进读数；
+     * 框若因为太矮而摆不进去（`fully` 仍为假）或下面没有 100px 可滚（`room`），这一格红着报。
+     */
+    const preEnd = await evalJs(`(() => { const el=document.getElementById(${JSON.stringify(DOCID)});`
+      + ' const before=(()=>{const r=el.getBoundingClientRect();'
+      + ' return Math.round(r.top)>=0 && Math.round(r.bottom)<=window.innerHeight;})();'
+      + " if(!before) el.scrollIntoView({block:'center',inline:'center'});"
+      + ' const r=el.getBoundingClientRect();'
+      + ' const max=document.documentElement.scrollHeight - window.innerHeight;'
+      + ' return { active: document.activeElement.id, top: Math.round(r.top),'
+      + ' bottom: Math.round(r.bottom), ih: window.innerHeight,'
+      + ' fully: r.top >= 0 && r.bottom <= window.innerHeight, taTop: Math.round(el.scrollTop),'
+      + ' sel: `${el.selectionStart}-${el.selectionEnd}`, y: Math.round(window.scrollY),'
+      + ' room: Math.round(max - window.scrollY), midBraw: ' + String(midBraw)
+      + ', beforeFit: before }; })()');
+    await press('End', 'End', 35);
+    const yEnd = await readYStable();
+    const boxEnd = await evalJs(`(() => { const el=document.getElementById(${JSON.stringify(DOCID)});`
+      + ' const r=el.getBoundingClientRect();'
+      + ' return { y: Math.round(window.scrollY), sel: el.selectionEnd, taTop: Math.round(el.scrollTop),'
+      + ' top: Math.round(r.top), active: document.activeElement.id }; })()');
+    const midB = preEnd.y;
     /**
      * 尺子的下限写死 **100px**、比例判 25%：这一族判的是"劫持与不劫持差得远"，
      * 绝对值只是"这把尺够不够长"的自检。上一格用 `> 200`，在证件页与编码页量得到（页面足够高），
      * 而 JSON 工作台整页在 1280×900 只有 324px 可滚——尺子本身只有 162px，于是"0px vs 162px"
      * 这一对清清楚楚的读数被门限判成红。162px 的差别够判；真的没有 100px 可滚时这一格红着报，
      * 不许静默通过。
+     *
+     * 判据另加两条前置：按下之前框必须**整块在视口里**（`preEnd.fully`）、且下面还有 ≥100px 可滚
+     * （`preEnd.room`）——"甩到页底"这一档要有"底"可甩才量得到。不满足就这一格直接红，
+     * 因为那时 caret 揭示本来就要滚整页——量具把自己的前提失败算成页面的账，与段 4 那条
+     * "focus() 落在 display:none 子树里静默失败"是同一族。
      */
     check(id('3d End 落在粘贴框上：只把 caret 移到行尾，不许把整页甩到页底（与无处理器的同一键对照）'),
-      Math.abs(ctlEnd - midA) >= 100 && Math.abs(boxEnd.y - midB) < Math.abs(ctlEnd - midA) * 0.25,
-      `无处理器 End 走 ${Math.abs(ctlEnd - midA)}px（尺子下限 100px）；`
-        + `粘贴框上 End 走 ${Math.abs(boxEnd.y - midB)}px、selectionStart=${boxEnd.sel}；mid=${midA}/${midB}`);
+      preEnd.fully && preEnd.room >= 100 && Math.abs(ctlEnd - midA) >= 100
+        && Math.abs(yEnd - midB) < Math.abs(ctlEnd - midA) * 0.25,
+      `无处理器 End 走 ${Math.abs(ctlEnd - midA)}px（尺子下限 100px）；粘贴框上 End 走 `
+        + `${yEnd - midB}px（正=往下）、selectionEnd ${preEnd.sel}→${boxEnd.sel}、焦点在=${boxEnd.active}；`
+        + `按下之前：scrollToMid 落点 ${preEnd.midBraw}→框摆进视口后 ${midB}（摆之前整块可见=${preEnd.beforeFit}、`
+        + `之后=${JSON.stringify({ fully: preEnd.fully, top: preEnd.top, bottom: preEnd.bottom, ih: preEnd.ih })}、`
+        + `下面还可滚 ${preEnd.room}px），框内 scrollTop ${preEnd.taTop}→${boxEnd.taTop}px、框顶 ${boxEnd.top}px`);
   }
 
   /**
@@ -1094,7 +1555,7 @@ for (const P of PROFILES) {
    *      Enter 记到的载荷逐字相等，判的才是"这条按键接到了那一件事"，而不是"按钮改口了"。
    */
   await setVp(1280); await goto(URL_OF(P.url)); await wait(340); await installSpies();
-  const docId = `${pref}-in-${PK}-doc`;
+  const docId = cfg.doc;
   if (P.layout === 'workbench') {
     await putValue(docId, cfg.sample); await wait(260);
     const before = await readOut(OUTSEL);
@@ -1105,9 +1566,9 @@ for (const P of PROFILES) {
     const afterOut = await readOut(OUTSEL);
     const spyBare = await evalJs('window.__spy.copy.length');
     /**
-     * 判"没算"量的是**结果栏容器自己的 innerHTML 与文本**，不是"`.jt-out__body` 查得到吗"：
-     * 空态那一栏画的是 `.jt-empty` 那一行，`.jt-out__body` 只在算过之后才存在，
-     * 拿"子节点在不在"当证据会因为空态换 markup 而假红；容器整体前后一致才判得住。
+     * 判"没算"量的是**结果栏容器自己的 innerHTML 与文本**，不是"结果区的某一枚子节点查得到吗"：
+     * 空态那一栏画的是 `.jt-empty` / 那一句提示，行流节点（`.jt-out__body` / `.df-cols`）只在算过之后
+     * 才存在，拿"子节点在不在"当证据会因为空态换 markup 而假红；容器整体前后一致才判得住。
      */
     check(id('3e 粘贴框里裸 Enter 不算：结果区一个字节都没变，而那一次换行真的落进了框里（没被吞）'),
       !!before && !!afterOut && before.html === afterOut.html && before.text === afterOut.text
@@ -1115,20 +1576,44 @@ for (const P of PROFILES) {
       `按键前 value=${lenBefore} 字、结果栏 ${before && before.html}B「${String(before && before.text).slice(0, 24)}」；`
         + `按键后 value=${afterEnter.len} 字（换行 ${afterEnter.nl} 处）、结果栏 ${afterOut && afterOut.html}B「`
         + `${String(afterOut && afterOut.text).slice(0, 24)}」、复制记账 ${spyBare} 次`);
-    await putValue(docId, cfg.sample); await clickById(`${pref}-btn-${PK}-format`); await wait(240);
-    const outText = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUTSEL + ' .jt-out__body')});`
+    /**
+     * 3f 的"可复制正文"在两页不是同一样东西，所以载荷的**期望值**归页表：
+     *   · JSON 页 `copy` 那枚复制的是结果栏的正文 ⇒ 期望 == 现读的 `outText`；
+     *   · 对比页 `copyDiff` 那枚复制的是 `s.out`（那份 unified 文本），它**不等于**屏幕上的正文——
+     *     结果区还带着结论行、统计行、折叠条与代价说明。这里的期望由本脚本 **import `diff-core.js`
+     *     在 Node 侧现算**（`unifiedText(diffLines(A,B,{}), {a:'',b:'',context:3})`），不是抄一份
+     *     字符串：屏幕上的行流与剪贴板里的那一份各归各的渲染路径，两边同值才算"这一枚按钮给的就是
+     *     那件事"，而按 DOM 反推期望只会把渲染结果再抄一遍（那样视图层坏了它也测不出）。
+     */
+    if (cfg.doc2) await putValue(cfg.doc2, cfg.sample2);
+    await putValue(docId, cfg.sample); await clickById(`${pref}-btn-${PK}-${cfg.run}`); await wait(260);
+    const outText = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUTSEL + ' ' + cfg.bodyCls)});`
       + ' return el ? el.textContent : null; })()');
-    await resetSpy(); await focusOn(`${pref}-btn-${PK}-copy`); await press('Enter', 'Enter', 13); await wait(150);
+    const expect = cfg.expect === 'unified' ? DIFF_UNIFIED : outText;
+    await resetSpy(); await focusOn(`${pref}-btn-${PK}-${cfg.copyBtn}`); await press('Enter', 'Enter', 13); await wait(150);
     const viaEnter = await evalJs('window.__spy.copy.slice()');
-    await resetSpy(); await clickById(`${pref}-copy-${PK}-main`); await wait(150);
-    const viaMainCopy = await evalJs('window.__spy.copy.slice()');
-    await resetSpy(); await clickById(`${pref}-btn-${PK}-copy`); await wait(150);
+    await resetSpy(); await clickById(`${pref}-btn-${PK}-${cfg.copyBtn}`); await wait(150);
     const viaClick = await evalJs('window.__spy.copy.slice()');
-    check(id('3f 真 Enter 落在复制按钮上 = 与 click 同一条通道、载荷逐字等于结果区那一栏的正文'),
-      viaEnter.length === 1 && viaClick.length === 1 && viaMainCopy.length === 1
-        && viaEnter[0] === viaClick[0] && viaMainCopy[0] === viaClick[0] && viaEnter[0] === outText,
+    /**
+     * 栏内那枚复制按钮（第三发）在两页也是两件事：JSON 页它复制的是同一份正文（所以判"与 click 同值"）；
+     * 对比页的 `copy-a` 复制的是**那一栏的输入**，与差异文本无关——所以这一发的期望换成 A 框的 `value`，
+     * 而不是让第四页假红在"载荷不等于差异正文"上。
+     */
+    await resetSpy(); await clickById(`${pref}-copy-${PK}-${cfg.paneCopy}`); await wait(150);
+    const viaPaneCopy = await evalJs('window.__spy.copy.slice()');
+    const readVal = (sel) => evalJs(`document.getElementById(${JSON.stringify(sel)}).value`);
+    /** `paneCopy` 那一格在这一页是栏位短名（`a` / `b`），在 JSON 页是面板名（`main`）——所以两页各走一条期望 */
+    const paneExpect = cfg.doc2
+      ? await readVal(cfg.paneCopy === 'b' ? cfg.doc2 : cfg.doc) : outText;
+    const paneOk = viaPaneCopy.length === 1 && viaPaneCopy[0] === paneExpect;
+    check(id(`3f 真 Enter 落在「${cfg.copyBtn}」上 = 与 click 同一条通道、载荷逐字等于本脚本自己算出的那一份可复制正文`
+      + `，栏内那枚复制的是${cfg.doc2 ? '那一栏的输入' : '同一份正文'}`),
+      viaEnter.length === 1 && viaClick.length === 1 && !!expect
+        && viaEnter[0] === viaClick[0] && viaClick[0] === expect && paneOk,
       `Enter=${JSON.stringify(String(viaEnter[0] || '').slice(0, 40))}；click=${JSON.stringify(String(viaClick[0] || '').slice(0, 40))}；`
-        + `结果栏那枚=${JSON.stringify(String(viaMainCopy[0] || '').slice(0, 40))}；正文=${JSON.stringify(String(outText || '').slice(0, 40))}`);
+        + `期望=${JSON.stringify(String(expect || '').slice(0, 40))}（长度 ${String(expect || '').length}）；`
+        + `栏内那枚=${JSON.stringify(String((viaPaneCopy || [])[0] || '').slice(0, 32))} vs ${JSON.stringify(String(paneExpect || '').slice(0, 32))}；`
+        + `屏幕正文长度=${outText === null ? '(查不到 ' + cfg.bodyCls + ')' : String(outText).length}`);
   } else {
     const ta = await pickTaPanel();
     if (!ta) {
@@ -1245,6 +1730,16 @@ for (const P of PROFILES) {
     controls: document.querySelectorAll('.${pref}-panel input, .${pref}-panel select, .${pref}-panel textarea,`
       + ` .${pref}-side input, .${pref}-side select, .${pref}-side textarea, .${pref}-bar button').length,
     btns: document.querySelectorAll('button[id^="${pref}-btn-"]').length,
+    /**
+     * main 内的控件逐类现量（只列账、不判红）：controls 那一格是选择器并集，看不出
+     * "少了一枚下拉"和"少了一个粘贴框"的区别。第四页的等值判线要在第一遍实测读数之后才立得起来
+     * （先量后立，同 §7 那两行的规矩），这里先把三类数打出来，收口时按读数收紧成等值。
+     * 注意：这段注释活在注入页内的模板字符串里，里面出现反引号会提前关掉那个模板。
+     */
+    mSel: document.querySelectorAll('main select').length,
+    mArea: document.querySelectorAll('main textarea').length,
+    mChk: document.querySelectorAll('main input[type=checkbox]').length,
+    mFile: document.querySelectorAll('main input[type=file]').length,
     outs: [...document.querySelectorAll('[id^="${pref}-out-"], .tk-out, .jt-out')].map((el)=>el.innerHTML.trim().length),
     caveat: ${JSON.stringify(cfg.caveat.map(String))}.map(s=>new RegExp(s.slice(1,-1)).test(document.querySelector('main').innerText)),
     noscript: !!document.querySelector('.tk-compliance--noscript'),
@@ -1252,9 +1747,10 @@ for (const P of PROFILES) {
   check(id('4a 摘掉全部 <script>：骨架与控件全在、结果区一个字节都不长、那两句口径逐条还在、正文不少于开 JS 那一版的 90%'),
     nj.scripts === 0 && nj.workspace && nj.text >= withJs * 0.9 && nj.outs.every((n) => n === 0)
       && nj.caveat.every(Boolean) && nj.noscript && nj.noscriptText.replace(/\s+/g, '').length >= 20
-      && (P.layout === 'workbench' ? nj.btns === P.actions && nj.controls >= 18
+      && (P.layout === 'workbench' ? nj.btns === P.actions && nj.controls >= cfg.minControls
         : (nj.panels === P.panels.length && nj.hiddenPanels === 0 && nj.links === P.panels.length)),
-    `面板 ${nj.panels}（展开 ${nj.panels - nj.hiddenPanels}）、索引 ${nj.links}、按钮 ${nj.btns}（profile 声明 ${P.actions ?? '—'}）、控件 ${nj.controls}；`
+    `面板 ${nj.panels}（展开 ${nj.panels - nj.hiddenPanels}）、索引 ${nj.links}、按钮 ${nj.btns}（profile 声明 ${P.actions ?? '—'}）、控件 ${nj.controls}（下限 ${cfg.minControls ?? 18}）`
+      + `｜main 内 select ${nj.mSel}、textarea ${nj.mArea}、checkbox ${nj.mChk}、file ${nj.mFile}；`
       + `结果区 innerHTML 长度 ${nj.outs.join('/')}（全 0 才对：没有脚本就没有换算）；`
       + `口径句 ${JSON.stringify(nj.caveat)}；noscript 那句摊平后 ${nj.noscriptText.replace(/\s+/g, ' ').trim().slice(0, 36)}；`
       + `正文 禁JS ${nj.text} 字 / 开JS ${withJs} 字（${(nj.text / withJs * 100).toFixed(1)}%）、脚本 ${nj.scripts}`);
@@ -1407,13 +1903,13 @@ for (const P of PROFILES) {
     // ── 9) 三档硬输入 ─────────────────────────────────────────────────────
     GROUP = '9) json 三档硬输入 9a–9d';
     await setSelect(`${pref}-in-${PK}-view`, 'text'); await wait(200);
-    await putValue(docId, JSON_AT_LIMIT); await wait(400);
+    await putValue(docId, JSON_AT_LIMIT, true, HARD_WRITE_MS); await wait(400);
     await clickById(`${pref}-btn-${PK}-validate`); await wait(1200);
     const atLimit = await readOut(OUT);
     check(id(`9a 恰好 ${MAX_BYTES} 字节（5 MiB 整）：放行，并且给得出统计那一行（不是"看着像成功"）`),
       !!atLimit && !/超出上限/.test(atLimit.text) && /字节/.test(atLimit.text) && atLimit.html > 200,
       `结果区 ${atLimit && atLimit.html}B；读数前 90 字=${String(atLimit && atLimit.text).slice(0, 90)}`);
-    await putValue(docId, JSON_OVER_LIMIT); await wait(400);
+    await putValue(docId, JSON_OVER_LIMIT, true, HARD_WRITE_MS); await wait(400);
     await clickById(`${pref}-btn-${PK}-validate`); await wait(900);
     const over = await readOut(OUT);
     const copyDisabled = await evalJs(`(() => { const b=document.getElementById('${pref}-btn-${PK}-copy');`
@@ -1441,18 +1937,23 @@ for (const P of PROFILES) {
     const outBefore = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUT)});`
       + ' return el ? el.innerHTML.length : -1; })()');
     const t0 = Date.now();
+    // 这一发的死线走 `HARD_WRITE_MS`：2 MB 灌进 `value` 加 20 次 `input` 是同步的赋值 + 排版，
+    // 四页同进程串跑到这一页时它比单页跑慢一个数量级（理由见 `HARD_WRITE_MS` 自己的注释）。
     await evalJs(`(() => { const el=document.getElementById(${JSON.stringify(docId)});`
       + ` el.value=${JSON.stringify(PASTE_2MB)};`
       + " for (let i=0;i<20;i+=1) el.dispatchEvent(new Event('input',{bubbles:true}));"
-      + ' return String(el.value.length); })()');
+      + ' return String(el.value.length); })()', HARD_WRITE_MS);
     /** 状态行由防抖写出来，所以"落定才读"，不是"等 500ms 读一次"（理由见 `readSettledText` 那一段）。 */
     const stat = await readSettledText(`#${pref}-status-${PK}-main`);
+    const pasteMs = Date.now() - t0;
     const statusAfter = stat.text;
     const outDuringPaste = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUT)});`
       + ' return el ? el.innerHTML.length : -1; })()');
+    const tBtn = Date.now();
     await clickById(`${pref}-btn-${PK}-format`); await wait(1400);
     const outAfterBtn = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUT)});`
       + ' return el ? el.innerHTML.length : -1; })()');
+    const btnMs = Date.now() - tBtn;
     const wall = Date.now() - t0;
     /**
      * 期望字节数从**夹具自己**算，不写死数字：`PASTE_2MB` 里的 `2 * 1024 * 1024` 是体那一段，
@@ -1466,7 +1967,9 @@ for (const P of PROFILES) {
       `out.innerHTML 粘贴中=${outDuringPaste}B（与初始 ${outBefore}B 相同）→ 按按钮后=${outAfterBtn}B；`
         + `读数=${JSON.stringify(statusAfter)}（要含「字节 ${wantBytes}」，由 Buffer.byteLength(夹具) 现算）；`
         + `状态行落定 ${stat.settledMs}ms / ${stat.samples} 次采样（${stat.quiet ? '已落定' : '到 4s 上限仍在漂'}）；`
-        + `20 次 input + 一次动作墙钟 ${wall}ms`);
+        + `20 次 input + 一次动作墙钟 ${wall}ms`
+        + `（拆三段：写入 + 20 发 input ${pasteMs}ms、落定 ${stat.settledMs}ms、按按钮那一段 ${btnMs}ms`
+        + `，其中 1400ms 是量具自己钉死的等待；本机 1 分钟负载 ${LOAD1()}）`);
 
     // ── 10) 下载 .json 那一条 ─────────────────────────────────────────────
     GROUP = '10) json 下载 10a–10b';
@@ -1515,6 +2018,662 @@ for (const P of PROFILES) {
       dlTs.create === 1 && dlTs.name === 'data.ts' && dlTs.type === 'text/plain' && dlTs.revoke >= 1,
       `TypeScript 点击=${cTs}、下载按钮=${JSON.stringify(b1)}、下载点击=${cDl2}；${JSON.stringify(dlTs)}`);
   }
+
+  // ══ 7–10) 对比页专有那四族 ════════════════════════════════════════════════
+  if (P.slug === 'diff') {
+    const OUT = OUTSEL;                                  // #df-out-workbench-bar
+    const A_AREA = cfg.doc;
+    const B_AREA = cfg.doc2;
+    const FIELD = (id) => `${pref}-in-workbench-${id}`;
+    const BTN = (key) => `${pref}-btn-workbench-${key}`;
+    /**
+     * 同一枚按钮在两只手里要两种写法：`clickById`/`putValue` 走 `getElementById`（裸 id），
+     * `realClick` 走 `querySelectorAll`（要 `#`）。段 5 Task 7 第一轮 8a–8d 四连红就是把手里
+     * 传了裸 id——`querySelectorAll('df-btn-workbench-expand')` 把它当**标签名**查，收 0 枚，
+     * 于是命中自证恒假。两种写法分开命名，别让调用点各拼各的。
+     */
+    const BTNSEL = (key) => `#${BTN(key)}`;
+    const STAT = (side) => `#${pref}-status-workbench-${side}`;
+    /**
+     * 行高那把尺从**样式**现读（入口注入 `env.rowHeight` 走的是同一个来源），并且与 `toolDiff.scss`
+     * 里声明的那一格比——跳转那三枚的期望 `scrollTop` 全靠它换算，抄一个 24 进去就是"量具跟着样式
+     * 漂了而没人红"。声明值从源码读，不从产物读：产物是这一格要证的对象的下游。
+     */
+    const DECL_ROW_H = Number(/--df-row-h:\s*(\d+)px/.exec(
+      fs.readFileSync(path.join(ROOT, 'dev/sass/toolDiff.scss'), 'utf8'))[1]);
+    const readRowH = () => evalJs(`(() => { const b=document.querySelector(${JSON.stringify(OUT)});`
+      + ' if(!b) return null;'
+      + ' return Math.round(parseFloat(getComputedStyle(b).getPropertyValue("--df-row-h"))); })()');
+    /** 读数那一行（`N 行 · 大小`）由防抖写出来，所以一律「落定才读」，同 9d 那一条的说明。
+     *  基线必给：开页之后第一发用 `readSettledText` 会读回旧账单（见 `readMovedText` 那一段）。 */
+    const settledLine = (side, from, ms = 12000) => readMovedText(STAT(side), from, ms);
+    /** 粘贴之前现读基线：`null` 与空串都是合法基线，判据只要求「离开它」 */
+    const baseOf = (side) => readText(STAT(side));
+    /**
+     * 把真文件塞进 `input[type=file]`：`DOM.setFileInputFiles` 收的是**磁盘路径**，浏览器隔着文件层
+     * 把它们填进 `files`——计划 Step 3 要的那枚"真文件描述符"只有这一条路（页内 `new File([...])`
+     * 造的是一团我自己给的内存字节，编码与大小读的都是自己塞的东西，等于自证）。
+     * `objectId` 每次现取：`goto()` 之后旧文档的句柄全部失效。
+     */
+    const setFileInputFiles = async (sel, files) => {
+      const r = await S('Runtime.evaluate', {
+        expression: `document.querySelector(${JSON.stringify(sel)})`, returnByValue: false,
+      });
+      const oid = r.result && r.result.objectId;
+      if (!oid) return 'no-node';
+      await S('DOM.setFileInputFiles', { files, objectId: oid });
+      await S('Runtime.releaseObject', { objectId: oid }).catch(() => {});
+      return 'set';
+    };
+    /**
+     * 等一句侧栏读数变成期望形状。`DOM.setFileInputFiles` 在 Chrome 里**通常**自己派发 `change`，
+     * 但这一格不赌它：900ms 内没等到就补发一次 `change`（谁派发事件不属于本页的账——监听器读到的
+     * 那一份 `files` 仍是文件层给的真 `FileList`），并把"补发过"写进读数，红的时候分得开两种因。
+     * @param {'a'|'b'} side 栏
+     * @param {RegExp} want 期望的那一句的形状
+     * @param {null|(()=>Promise<unknown>)} [rescue] 900ms 之后补一次的那一发
+     * @returns {Promise<{text: string|null, ms: number, rescued: boolean}>}
+     */
+    const waitLine = async (side, want, rescue = null) => {
+      const t0 = Date.now();
+      let rescued = false;
+      for (;;) {
+        const text = await readText(STAT(side));
+        if (text && want.test(text)) return { text, ms: Date.now() - t0, rescued };
+        if (Date.now() - t0 > 3000) return { text, ms: Date.now() - t0, rescued };
+        if (rescue && !rescued && Date.now() - t0 > 900) { rescued = true; await rescue(); }
+        else if (rescued) return { text, ms: Date.now() - t0, rescued };
+        await wait(90);
+      }
+    };
+    /**
+     * 跳转期望位置：本脚本按 Node 侧 `hunksOf` 的产出**独立**数一遍视觉行（并排档一行一块、
+     * 折叠条各占一整行），与页内 `linesOf` 不同源。页内那一份读的是 `s.layout`，这一份读的是夹具。
+     */
+    const unitsBefore = (hs, j) => {
+      let u = 0;
+      for (let k = 0; k < j; k += 1) u += hs[k].rows.length + (hs[k].skipped > 0 ? 1 : 0);
+      return u + (hs[j].skipped > 0 ? 1 : 0);
+    };
+    /**
+     * 第 j 块在 `.df-col--a .df-row` 那条**扁平**清单里的起始下标：每块自带一栏两列，
+     * `querySelectorAll` 按文档序收，折叠条是 `.df-cols` 的兄弟而不是 `.df-row`，所以行数直接累加。
+     */
+    const blockStartOf = (hs) => { let u = 0; return hs.map((h) => { const s0 = u; u += h.rows.length; return s0; }); };
+    /** 第 j 块里第一处"不是相同"的行下标（`goTo` 把块顶贴到栏顶，所以它距栏顶就是 `下标 × 行高`） */
+    const firstDiffOf = (hs) => hs.map((h) => {
+      const i = h.rows.findIndex((r) => r.kind !== 'equal');
+      return i < 0 ? 0 : i;
+    });
+    /** 视图层那一行读数的模板，本脚本自己写一遍（与 `renderStats` 同字而不同源） */
+    const statsLine = (st) => `增 ${st.added} · 删 ${st.removed} · 改 ${st.changed} · 同 ${st.unchanged}`
+      + ` · ${st.blocks} 处 · 未行内 ${st.inlineSkipped} · 归一化抹平 ${st.ignored}`;
+
+    // ── 7) 视图形状：并排不堆叠、横滚只归一处、行内单栏 ────────────────────
+    GROUP = '7) diff 视图形状 7a–7d';
+    /**
+     * 一行足够长的样本：让行流**真的**比 360 档的结果栏宽。判"横向溢出只由 `.df-out` 那一个容器
+     * 承担"必须有一件可滚的东西在场，否则空页面上"只有一处能滚"是废话（记忆规则「收紧守卫判据
+     * 须自证仍有牙」）。160 个 ASCII 在 12.5px 等宽下约 1,250px，远超那一格的 ~330px。
+     */
+    const LONG = `const value = "${'m'.repeat(160)}";`;
+    const LONG_A = `head\n${LONG}\ntail`;
+    const LONG_B = `head\n${LONG.replace('"mm', '"Mm')}\ntail`;
+    const longH = DC.hunksOf(DC.diffLines(LONG_A, LONG_B, {}), 3);
+    const longRows = longH.reduce((s2, h) => s2 + h.rows.length, 0);
+    const longChanges = longH.reduce((s2, h) => s2 + h.rows.filter((r) => r.kind === 'change').length, 0);
+    await setVp(360); await goto(URL_OF(P.url)); await wait(360); await installSpies();
+    const RH = await readRowH();
+    await putValue(A_AREA, LONG_A); await putValue(B_AREA, LONG_B); await wait(320);
+    await clickById(BTN('compare')); await wait(460);
+    const sideShape = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + ' if(!box) return null; const bc=getComputedStyle(box);'
+      + " const sc=[...box.querySelectorAll('*')].filter((e)=>/auto|scroll/.test(getComputedStyle(e).overflowX))"
+      + '.map((e)=>String(e.className||e.tagName).slice(0,28));'
+      + " const cols=document.querySelector('.df-cols'), lines=document.querySelector('.df-lines');"
+      + ' const cs=cols?getComputedStyle(cols):null;'
+      + " const t=box.querySelector('.df-row__txt');"
+      + ' return { boxScrollW: box.scrollWidth, boxClientW: box.clientWidth, ox: bc.overflowX, sc, '
+      + ' tracks: cs?cs.gridTemplateColumns.trim().split(/\\s+/).length:0,'
+      + ' colsW: cols?Math.round(cols.getBoundingClientRect().width):0,'
+      + ' linesW: lines?Math.round(lines.getBoundingClientRect().width):0,'
+      + ' rows: box.querySelectorAll(".df-row").length, colsN: box.querySelectorAll(".df-cols").length,'
+      + ' txtOx: t?getComputedStyle(t).overflowX:null, '
+      + ' parentOf: (()=>{const r=box.querySelector(".df-row");return r?String(r.parentElement.className):null;})() }; })()');
+    check(id('7a 360 档并排视图仍是**两条轨道**、横向溢出只由 .df-out 一个容器承担（行流里第二条滚动条都不许有）'),
+      !!sideShape && RH === DECL_ROW_H && sideShape.tracks === 2
+        && sideShape.colsN === 1 && sideShape.colsW > sideShape.boxClientW
+        && sideShape.boxScrollW > sideShape.boxClientW && /auto|scroll/.test(sideShape.ox)
+        && sideShape.sc.length === 0 && /hidden|visible/.test(sideShape.txtOx),
+      `--df-row-h 实测 ${RH}px（SCSS 声明 ${DECL_ROW_H}px）；.df-cols 轨道 ${sideShape && sideShape.tracks} 条、`
+        + `宽 ${sideShape && sideShape.colsW}px vs 结果栏可视 ${sideShape && sideShape.boxClientW}px`
+        + `（scrollWidth ${sideShape && sideShape.boxScrollW}、overflow-x ${sideShape && sideShape.ox}）；`
+        + `行流里可横滚的后代=${JSON.stringify(sideShape && sideShape.sc)}；正文格 overflow-x=${sideShape && sideShape.txtOx}；`
+        + `行块 ${sideShape && sideShape.rows} 块（期望 ${longRows * 2}＝${longRows} 行 × 两栏）`);
+    /**
+     * 行内档：**一栏**、且 `change` 那一行摊成两行 ⇒ 行块数 = 行数 + 变更行数。
+     * 这一格与 7a 用的是同一份输入、中间只切了一次「视图」下拉，所以它同时是 Z20 那条
+     * "两档布局共一份行流"的浏览器半：读数那一行（`增 · 删 · 改 · 同 · 处`）必须逐字不变——
+     * 切布局若偷偷重算，账目形状就可能跟着变（Node 侧那半读的是注入计数器，页内没有对外计数口，
+     * 浏览器这一头只能判**看得见的那一面**，两个口径都写清才不算夸大）。
+     */
+    await setSelect(FIELD('layout'), 'inline'); await wait(420);
+    const inlineShape = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + ' const lines=box.querySelector(".df-lines"), cols=box.querySelector(".df-cols");'
+      + " const st=document.querySelector('.df-stats');"
+      + ' const cs=lines?getComputedStyle(lines):null;'
+      + ' return { colsN: box.querySelectorAll(".df-cols").length, linesN: box.querySelectorAll(".df-lines").length,'
+      + ' rows: box.querySelectorAll(".df-row").length, tracks: cs?cs.gridTemplateColumns.trim().split(/\\s+/).length:0,'
+      + ' parent: (()=>{const r=box.querySelector(".df-row");return r?String(r.parentElement.className):null;})(),'
+      + ' stats: st?st.innerText.replace(/\\s+/g," ").trim():null, '
+      + ' pair: (()=>{const a=[...box.querySelectorAll(".df-row--change")];'
+      + ' return a.length===2?a.map((x)=>({no:x.querySelector(".df-row__no").innerText,'
+      + ' txt:x.querySelector(".df-row__txt").innerText.slice(0,18), ln:x.getAttribute("data-df-ln")})):null;})() }; })()');
+    const longStats = DC.diffLines(LONG_A, LONG_B, {}).stats;
+    check(id('7b 「视图」切到行内单栏：一栏读完、change 那一行摊成两行、行块数按夹具独立算得出来，且读数一字不变（切布局不重算）'),
+      inlineShape.colsN === 0 && inlineShape.linesN === 1 && inlineShape.rows === longRows + longChanges
+        && inlineShape.stats === statsLine(longStats)
+        && /^df-lines/.test(String(inlineShape.parent)) && !!inlineShape.pair
+        && inlineShape.pair.length === 2 && inlineShape.pair[0].txt !== inlineShape.pair[1].txt,
+      `行块 ${inlineShape.rows}（期望 ${longRows + longChanges}＝${longRows} 行 + ${longChanges} 处改）、`
+        + `.df-cols ${inlineShape.colsN} 块 / .df-lines ${inlineShape.linesN} 块、行块父节点=${JSON.stringify(inlineShape.parent)}；`
+        + `读数=${JSON.stringify(inlineShape.stats)}（Node 侧现算=${JSON.stringify(statsLine(longStats))}）；`
+        + `被拆的那一对=${JSON.stringify(inlineShape.pair)}`);
+
+    /**
+     * 折叠条的数字与 Z7 那条"属性与正文同一枚数"的浏览器半：`data-df-skip` 与正文里那个 N
+     * 必须都等于 Node 侧 `hunksOf` 现算的 `skipped`。清单顺序 = `bodyOf` 的产出顺序（逐块头条 +
+     * 最后一块的尾条），尾条这一档在样本里是 0（`tailSkipped` 只有末行之后还有内容才非零），
+     * 所以期望集只头条三枚——**样本给不出尾条形状**这件事写在读数里，不假装测到了。
+     */
+    await setSelect(FIELD('layout'), 'side'); await wait(320);
+    await putValue(A_AREA, DIFF_TEXT_A); await putValue(B_AREA, DIFF_TEXT_B, false);
+    await putValue(B_AREA, DIFF_TEXT_B); await wait(340);
+    await clickById(BTN('compare')); await wait(460);
+    const h3 = DC.hunksOf(DC.diffLines(DIFF_TEXT_A, DIFF_TEXT_B, {}), 3);
+    const tailOf = (hs) => (hs.length && hs[hs.length - 1].tailSkipped > 0
+      ? [hs[hs.length - 1].tailSkipped] : []);
+    const wantSkips = h3.filter((h) => h.skipped > 0).map((h) => h.skipped).concat(tailOf(h3));
+    const sampleRows = h3.reduce((s2, h) => s2 + h.rows.length, 0);
+    const foldShape = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + " const bars=[...box.querySelectorAll('.df-fold')];"
+      + ' return { n: bars.length, skips: bars.map((b)=>b.getAttribute("data-df-skip")),'
+      + ' texts: bars.map((b)=>b.innerText.replace(/\\s+/g," ").trim()),'
+      + " tail: bars.filter((b)=>/df-fold--tail/.test(b.className)).length,"
+      + ' rows: box.querySelectorAll(".df-row").length } })()');
+    check(id('7c 折叠条逐枚点名省略的行数：data-df-skip 与正文那句都 == Node 侧 hunksOf 现算的那一份（Z7 的浏览器半）'),
+      !!foldShape && foldShape.n === wantSkips.length
+        && JSON.stringify(foldShape.skips) === JSON.stringify(wantSkips.map(String))
+        && foldShape.texts.every((t, i) => t === `省略 ${wantSkips[i]} 行 · 展开`)
+        && foldShape.tail === 0 && foldShape.rows === sampleRows * 2,
+      `实测 ${foldShape && foldShape.n} 枚（尾条 ${foldShape && foldShape.tail} 枚，样本那份末行之后没有内容 ⇒ 尾条形状这一格给不出）；`
+        + `skip=${JSON.stringify(foldShape && foldShape.skips)}、正文=${JSON.stringify(foldShape && foldShape.texts)}；`
+        + `Node 侧现算=[${wantSkips.join(',')}]（三块 × 上下文 3 行）；行块 ${foldShape && foldShape.rows}`
+        + `（期望 ${sampleRows * 2}＝${sampleRows} 行 × 两栏）`);
+    /**
+     * 360 档横滚之后折叠条还在不在？**粘左沿**（`position: sticky`）这件事只有滚起来才量得到：
+     * 不滚的时候它与"跟着内容一起走"完全同形。截断量的是 `scrollWidth − clientWidth`（那一格
+     * 写了 `overflow:hidden`，截掉的部分照样算宽度），文案完整量的是正文那句。
+     */
+    const sticky = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + " const bars=[...box.querySelectorAll('.df-fold')]; if(!bars.length) return null;"
+      + ' box.scrollLeft=260;'
+      + ' const br=box.getBoundingClientRect();'
+      + ' return { sl: Math.round(box.scrollLeft), max: box.scrollWidth - box.clientWidth,'
+      + ' bars: bars.map((b)=>({ cut: b.scrollWidth - b.clientWidth,'
+      + ' left: Math.round(b.getBoundingClientRect().left - br.left),'
+      + ' text: b.innerText.replace(/\\s+/g," ").trim() })) }; })()');
+    check(id('7d 360 档横滚 260px 之后：折叠条仍粘在结果栏左沿、那句「省略 N 行 · 展开」一字不被截'),
+      !!sticky && sticky.sl > 100 && sticky.bars.length > 0
+        && sticky.bars.every((b) => b.cut <= 1 && Math.abs(b.left) <= 2 && /^省略 \d+ 行 · 展开$/.test(b.text)),
+      `横滚后 scrollLeft=${sticky && sticky.sl}（可滚上限 ${sticky && sticky.max}）；逐枚 `
+        + `${sticky && sticky.bars.map((b) => `截${b.cut}B/偏移${b.left}px/${JSON.stringify(b.text)}`).join(' ')}`);
+
+    // ── 8) 折叠快捷键、点开折叠条与那三枚跳转（真鼠标 + 命中自证）──────────
+    GROUP = '8) diff 折叠与跳转 8a–8d';
+    /**
+     * 视口给 1280×**560**：`.df-out` 的高是 `min(620px, 68vh)`，也就是 381px，而整段行流 665px。这一格量的是
+     * "跳到第 j 块就把那一块顶到栏顶"，而**可滚上限必须大于前两发的换算值**——默认 900 高时
+     * 612px 的栏几乎装得下整份行流，三处跳转的 `scrollTop` 一起被浏览器钳到同一个最大值，
+     * "钳位"与"真跳到位"就此分不开（假绿）。期望写成 `min(块首行 × 行高, scrollHeight − clientHeight)`，
+     * 前两发（24 / 216）落在那条硬不变量上，第三发（408 > max 284）是被钳住的那一发、
+     * 它的行位置期望按 `want − top` 加上钳位损失（见下），所以两种情形各有一个样本撑着。
+     *
+     * 高度不能一味往矮里给：`.mao_box` 是 `position:fixed;left:30px;bottom:30px` 的 200×174 猫，
+     * 耳朵（`.erduo`）还长在它自己那圈矩形之上，于是它盖住的是「以 `H−30−174−耳高` 为顶」的那条横带。
+     * 300 高时栏顶已挪到 y≈96，工具条左半那几枚按钮被 `scrollIntoView` 居中后正落在带里
+     * （实测 `命中在别处:erduo`，而 `realClick` 让开时页面早已滚到底、y 卡在 90 出不去）；
+     * 560 高时带顶在 y≈320，按钮居中在 280 恰好躲开；381px 的栏留下 284px 的可滚上限，
+     * 比 900 高时那 53px 宽得多，三发跳转因此仍然是三个不同的数。
+     */
+    await setVp(1280, 560); await goto(URL_OF(P.url)); await wait(360); await installSpies();
+    const RH8 = await readRowH();
+    await putValue(A_AREA, DIFF_TEXT_A); await putValue(B_AREA, DIFF_TEXT_B); await wait(340);
+    await clickById(BTN('compare')); await wait(460);
+    const stats0 = await readText('.df-stats');
+    const allH = DC.hunksOf(DC.diffLines(DIFF_TEXT_A, DIFF_TEXT_B, {}), Infinity);
+    const cAll = await realClick(BTNSEL('expand'));
+    const expanded = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + ' return { ctx: document.getElementById(' + JSON.stringify(FIELD('context')) + ').value,'
+      + " fold: box.querySelectorAll('.df-fold').length, rows: box.querySelectorAll('.df-row').length,"
+      + ' stats: ((document.querySelector(\'.df-stats\')||{}).innerText||"").replace(/\\s+/g," ").trim() } })()');
+    check(id('8a 真鼠标点「全部展开」：命中自证、写回的是同一枚 context 下拉（快捷键不另存状态）、折叠条归零而行块长成整篇'),
+      cAll.ok && expanded.ctx === 'all' && expanded.fold === 0
+        && expanded.rows === allH.reduce((s2, h) => s2 + h.rows.length, 0) * 2 && expanded.stats === stats0,
+      `命中=${JSON.stringify(cAll)}；context=${expanded.ctx}（期望 all）、折叠条 ${expanded.fold} 枚、`
+        + `行块 ${expanded.rows}（期望 ${allH.reduce((s2, h) => s2 + h.rows.length, 0) * 2}＝32 行 × 两栏）；`
+        + `读数没变=${expanded.stats === stats0}`);
+    /** 折叠那三枚是 `context` 的快捷键：点「上下文三行」必须把折叠条带回来（8b 的前半） */
+    const cFold = await realClick(BTNSEL('fold'));
+    const backTo3 = await evalJs(`(() => ({ ctx: document.getElementById(${JSON.stringify(FIELD('context'))}).value,`
+      + ` fold: document.querySelectorAll(${JSON.stringify(OUT + ' .df-fold')}).length }))()`);
+    const barOf = () => evalJs(`(document.getElementById(${JSON.stringify(`${pref}-status-workbench-bar`)})||{}).innerText`);
+    await resetSpy();
+    const cBar = await realClick(`${OUT} .df-fold`, wantSkips.length - 1);
+    const barClicked = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + ' return { ctx: document.getElementById(' + JSON.stringify(FIELD('context')) + ').value,'
+      + ' fold: box.querySelectorAll(".df-fold").length,'
+      + ' line: ((document.getElementById(' + JSON.stringify(`${pref}-status-workbench-bar`) + ')||{}).innerText||"").trim() } })()');
+    check(id('8b 真鼠标点折叠条本身（委派到 data-df-skip 那一枚）：与「全部展开」是同一档、状态行这么说、页面也就此归零'),
+      cBar.ok && cFold.ok && backTo3.ctx === '3' && backTo3.fold === wantSkips.length
+        && barClicked.ctx === 'all' && barClicked.fold === 0 && /已展开全部/.test(barClicked.line),
+      `「上下文三行」命中=${JSON.stringify(cFold)} → context=${backTo3.ctx}/折叠条 ${backTo3.fold}（期望 ${wantSkips.length}）；`
+        + `点第 ${wantSkips.length} 枚折叠条命中=${JSON.stringify(cBar)} → context=${barClicked.ctx}、`
+        + `折叠条 ${barClicked.fold} 枚、状态行=${JSON.stringify(String(barClicked.line).slice(0, 46))}`);
+    /**
+     * 跳转三枚：`第一处 / 上一处 / 下一处` 读的都是同一份 hunk 清单，所以这一族的期望值就是
+     * Node 侧那份 `hunksOf(…, 3)`。**期望 scrollTop 由本脚本自己按折叠条与行数换算**（`unitsBefore`），
+     * 行高从样式现读；钳位写进期望式，所以浏览器自己截住的那一发不算红。
+     *
+     * 第二证是**目标那一块的首个差异行**：行流之前还压着结论行与读数行那段引言（高度由页面自己长出来，
+     * 本脚本现量成 `intro`），`goTo` 认的又是 `units × 行高`，所以那一块顶落定在栏顶之下 `intro` 处、
+     * 首个差异行落定在 `intro + 块内下标 × 行高` 处；它的行号必须等于夹具里那一行的真行号（`data-df-ln`）。
+     * 只判 scrollTop 会放过"算对了数、跳错了块"——两栏错位时 scrollTop 照样是那个整数。
+     */
+    const bsOf = blockStartOf(h3);
+    const fdOf = firstDiffOf(h3);
+    const jumps = [];
+    await realClick(BTNSEL('fold')); await wait(300);
+    for (const [key, j] of [['firstDiff', 0], ['nextDiff', 1], ['nextDiff', 2]]) {
+      const rowIdx = bsOf[j] + fdOf[j];
+      const firstRow = h3[j].rows[fdOf[j]];
+      // 并排档里 `ins` 那一行在 A 栏是占位（视图层不给它行号），期望因此是 null 而不是一个数
+      const expLn = firstRow.kind === 'ins' ? null : String(firstRow.a);
+      const rc = await realClick(BTNSEL(key));
+      const want = unitsBefore(h3, j) * RH8;
+      const got = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+        + ' if(!box) return null; const br=box.getBoundingClientRect();'
+        + " const col=[...box.querySelectorAll('.df-col--a .df-row')];"
+        + ` const i=${rowIdx}; const r=col[i]?col[i].getBoundingClientRect():null;`
+        + ' const st=box.querySelector(".df-stats"), vr=box.querySelector(".df-verdict");'
+        + ' const intro=st?Math.round(st.getBoundingClientRect().bottom-br.top+box.scrollTop)'
+        + ' : (vr?Math.round(vr.getBoundingClientRect().bottom-br.top+box.scrollTop):0);'
+        + ' return { top: Math.round(box.scrollTop), max: box.scrollHeight - box.clientHeight,'
+        + ' clientH: Math.round(box.clientHeight), nRows: col.length, intro, line: ((document.getElementById('
+        + JSON.stringify(`${pref}-status-workbench-bar`) + ')||{}).innerText||"").replace(/\\s+/g," ").trim(),'
+        + ' rowTop: r?Math.round(r.top - br.top):null, ln: r?(col[i].getAttribute("data-df-ln")):undefined,'
+        + ' rowText: r?col[i].innerText.replace(/\\s+/g," ").slice(0,12):null } })()');
+      // 结论行 + 读数行那段引言（现量 `intro`）住在行流之前，`goTo` 认的是" units × 行高"，
+      // 所以块顶落定在栏顶之下 `intro` 处——那一格由本脚本现读，不假设它是 2 行 × 24px。
+      jumps.push({ key, j, rc, want, rowIdx, expLn, expTop: (got && got.intro + fdOf[j] * RH8), ...got });
+    }
+    const clampEnd = await realClick(BTNSEL('nextDiff'));
+    const atEnd = await evalJs(`(document.getElementById(${JSON.stringify(`${pref}-status-workbench-bar`)})||{}).innerText`);
+    const topClamp = [];
+    for (let k = 0; k < 4; k += 1) {
+      const rc = await realClick(BTNSEL('prevDiff'));
+      const got = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+        + ' return { top: Math.round(box.scrollTop), line: ((document.getElementById('
+        + JSON.stringify(`${pref}-status-workbench-bar`) + ')||{}).innerText||"").replace(/\\s+/g," ").trim() } })()');
+      topClamp.push({ rc, ...got });
+    }
+    const clampWant = jumps.map((x) => `第${x.j}:${x.top}/${Math.min(x.want, x.max)}`);
+    /**
+     * `rowTop` 的期望写成「块顶到栏顶」那一格**加上这一发的钳位损失**：`expTop` 只在未钳位时成立，
+     * 栏内可视高度一旦大于"最后一块之前那段行流"，浏览器就只能滚到 `max` 为止，目标那一行因此
+     * 恰好低出 `want − top` 这么多像素。把这一项写进期望式而不是放宽容差——560 高这一档
+     * `max=284 < 408`，最后一发正是被钳住的那一发（放宽容差等于"跳哪儿都算对"）。
+     * 前两发未钳位，`want === top`，于是"块顶贴栏顶"这条硬不变量仍有样本撑着。
+     */
+    const expRowTop = (x) => x.expTop + (x.want - x.top);
+    check(id('8c 三枚跳转逐处对账：状态行说第几处、scrollTop 就是本脚本独立换算的那一格（行高从样式读、钳位算进期望）、目标那一块的首个差异行按行号对上且落在栏内'),
+      jumps.every((x) => x.rc.ok && x.line === `第 ${x.j + 1} / ${h3.length} 处差异`
+        && Math.abs(x.top - Math.min(x.want, x.max)) <= 1
+        && x.nRows === h3.reduce((s2, h) => s2 + h.rows.length, 0)
+        && x.ln === x.expLn && x.rowTop !== null
+        && Math.abs(x.rowTop - expRowTop(x)) <= 1 && x.rowTop >= 0 && x.rowTop + RH8 <= x.clientH + 1),
+      `行高 ${RH8}px、引言段（结论+读数）现量 ${jumps[0] && jumps[0].intro}px、`
+        + `栏内可视 ${jumps[0] && jumps[0].clientH}px、可滚上限 ${jumps[0] && jumps[0].max}px；`
+        + jumps.map((x, i) => `#${i + 1} 命中=${x.rc.ok} 状态=${JSON.stringify(x.line)}`
+          + ` scrollTop=${x.top}（换算 ${x.want}、钳位后期望 ${Math.min(x.want, x.max)}）`
+          + ` A 栏行块 ${x.nRows} 块、第 ${x.rowIdx} 块 data-df-ln=${JSON.stringify(x.ln)}（期望 ${JSON.stringify(x.expLn)}）`
+          + ` 距栏顶 ${x.rowTop}px（期望 ${expRowTop(x)}＝${x.expTop}=${x.intro}+${fdOf[x.j]}×${RH8}`
+          + ` ＋钳位损失 ${x.want - x.top}）「${String(x.rowText).replace(/\s+/g, ' ')}」`).join('；')
+        + `｜钳位算式=${clampWant.join(' ')}`);
+    check(id('8d 两端钳位：到最后一处再按「下一处」不越界、回到第一处再按「上一处」不越负，状态行那枚 i 跟着夹住'),
+      clampEnd.ok && String(atEnd).trim() === `第 ${h3.length} / ${h3.length} 处差异`
+        && topClamp.length === 4 && topClamp.every((x) => x.rc.ok)
+        && topClamp[3].line === `第 1 / ${h3.length} 处差异`
+        && Math.abs(topClamp[3].top - unitsBefore(h3, 0) * RH8) <= 1,
+      `末尾多按一发「下一处」之后=${JSON.stringify(String(atEnd).trim())}（命中=${JSON.stringify(clampEnd)}）；`
+        + `连按四发「上一处」之后=${JSON.stringify(topClamp[3].line)}、scrollTop=${topClamp[3].top}`
+        + `（期望 ${unitsBefore(h3, 0) * RH8}＝第一块之前那一枚折叠条的高度）；全过程=${JSON.stringify(topClamp.map((x) => `${x.top}/${x.line}`))}`);
+
+    // ── 9) 三档硬输入（字节闸门 / 行数闸门 / 粘贴不自动算）─────────────────
+    GROUP = '9) diff 三档硬输入 9a–9d';
+    await setVp(1280); await goto(URL_OF(P.url)); await wait(380); await installSpies();
+    const atRes = DC.diffLines(TXT_AT_BYTES, TXT_NEAR, {});
+    const atH = DC.hunksOf(atRes, 3);
+    const atCount = (TXT_AT_BYTES.match(/\n/g) || []).length + 1;
+    const headAt = `${atCount.toLocaleString('en-US')} 行 · ${(DIFF_MAX_BYTES / MIB).toFixed(1)} MB`;
+    const baseA0 = await baseOf('a'); const baseB0 = await baseOf('b');
+    const wA0 = await timedPut(A_AREA, TXT_AT_BYTES, false);
+    const wB0 = await timedPut(B_AREA, TXT_NEAR); await wait(200);
+    const lineAt = await settledLine('a', baseA0, 20000);
+    await clickById(BTN('compare')); await wait(2000);
+    const atPainted = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + " return { rows: box.querySelectorAll('.df-row').length,"
+      + " stats: ((document.querySelector('.df-stats')||{}).innerText||'').replace(/\\s+/g,' ').trim() } })()");
+    const lineAtB = await settledLine('b', baseB0, 20000);
+    check(id(`9a 恰好 ${DIFF_MAX_BYTES} 字节（5 MiB 整）：闸门放行、读数说出那个数、真算得出结果（不是"看着像成功"）`),
+      lineAt.quiet && lineAt.moved && String(lineAt.text).startsWith(headAt) && !/超了闸门/.test(String(lineAt.text))
+        && atPainted.rows === atH.reduce((s2, h) => s2 + h.rows.length, 0) * 2
+        && atPainted.stats === statsLine(atRes.stats),
+      `A 侧读数 ${lineAt.settledMs}ms/${lineAt.samples} 次采样（离开基线=${lineAt.moved}、落定=${lineAt.quiet}）`
+        + `=${JSON.stringify(lineAt.text)}（基线=${JSON.stringify(baseA0)}，开头要=${JSON.stringify(headAt)}，`
+        + `行数由夹具自己数出=${atCount}）；B 侧=${JSON.stringify(String(lineAtB.text).slice(0, 46))}；`
+        + `量具自己的账：5 MiB 那两发写入 ${wA0.writeMs}ms / ${wB0.writeMs}ms（本机 1 分钟负载 ${LOAD1()}）；`
+        + `行块 ${atPainted.rows}（期望 ${atH.reduce((s2, h) => s2 + h.rows.length, 0) * 2}）、`
+        + `读数=${JSON.stringify(atPainted.stats)}（Node 现算=${JSON.stringify(statsLine(atRes.stats))}）`);
+    const wB0o = await timedPut(B_AREA, TXT_OVER_BYTES); await wait(200);
+    const lineOver = await settledLine('b', lineAtB.text);
+    const rowsBeforeFail = atPainted.rows;
+    await clickById(BTN('compare')); await wait(1600);
+    const failLine = await barOf();
+    const rowsAfterFail = await evalJs(`document.querySelectorAll(${JSON.stringify(OUT + ' .df-row')}).length`);
+    check(id('9b 越界 1 字节：闸门点名"多了 1 字节、上限 5 MiB"，按对比那一发被拒且**不许擦掉上一格的结果**'),
+      lineOver.moved && /这一侧超了闸门约 1 字节/.test(String(lineOver.text)) && /上限 5 MiB/.test(String(lineOver.text))
+        && /超出闸门/.test(String(failLine)) && /约 1 字节/.test(String(failLine))
+        && rowsAfterFail === rowsBeforeFail && rowsBeforeFail > 0,
+      `B 侧读数=${JSON.stringify(String(lineOver.text).slice(0, 80))}；状态行=${JSON.stringify(String(failLine).slice(0, 96))}；`
+        + `那一发 5 MiB+1 的写入自证 ${wB0o.writeMs}ms；`
+        + `行块按按钮之前 ${rowsBeforeFail} → 之后 ${rowsAfterFail}（同一份才是"抛在画之前"）`);
+    await goto(URL_OF(P.url)); await wait(380); await installSpies();
+    const lnRes = DC.diffLines(TXT_AT_LINES, TXT_AT_LINES_NEAR, {});
+    const lnCount = (TXT_AT_LINES.match(/\n/g) || []).length + 1;
+    const baseA1 = await baseOf('a');
+    const wA1 = await timedPut(A_AREA, TXT_AT_LINES, false);
+    const wB1 = await timedPut(B_AREA, TXT_AT_LINES_NEAR); await wait(200);
+    /**
+     * 30s 而不是默认的 12s：这一档的夹具是**二十万行**，Chrome 给两枚这样的 `textarea` 排行盒
+     * 就要十几秒（第一轮实测：一次 `readText` 的往返就堵了 15.6s，防抖那 200ms 排在主线程后面）。
+     * 等久一点不是放宽判据——判的还是"读数有没有离开 0 行、离开之后是不是那句 200,000 行"。
+     */
+    const lineLines = await settledLine('a', baseA1, 30000);
+    /**
+     * 键名要和下面那串读数**一字不差**：上一版这里返回 `dup` / `now`，读数串里写的却是
+     * `domCount` / `bar`，于是"页内同名状态格 undefined 枚"一路绿着过了三轮——`undefined` 不参与
+     * 判据，它只是安静地出现在读数里。这是本段记忆里"核验脚手架自己会静默说谎"的新形状，
+     * 所以这一格顺手把它从读数升级成判据：`id` 重复时 `readText` 读的是第一枚，页面可能对、
+     * 量具可能读到另一本，两种都得红。
+     */
+    const diagLines = await evalJs(`(() => ({ aLen: String(document.getElementById(${JSON.stringify(A_AREA)}).value).length,`
+      + ` bLen: String(document.getElementById(${JSON.stringify(B_AREA)}).value).length,`
+      + ` domCount: document.querySelectorAll("#${pref}-status-workbench-a").length,`
+      + ` bar: (document.getElementById(${JSON.stringify(`${pref}-status-workbench-a`)})||{}).innerText }))()`);
+    await clickById(BTN('compare')); await wait(2400);
+    const lnPainted = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + " return { rows: box.querySelectorAll('.df-row').length,"
+      + " stats: ((document.querySelector('.df-stats')||{}).innerText||'').replace(/\\s+/g,' ').trim() } })()");
+    const midB = await baseOf('b');
+    const wB2 = await timedPut(B_AREA, TXT_OVER_LINES); await wait(200);
+    const lineOverLines = await settledLine('b', midB, 30000);
+    await clickById(BTN('compare')); await wait(1600);
+    const failLines = await barOf();
+    check(id(`9c 行数那两道闸：${DIFF_MAX_LINES.toLocaleString('en-US')} 行放行并算得出结果，20 万 + 1 行被点名"多了约 1 行"`),
+      lineLines.moved && lineLines.quiet && /200,000 行/.test(String(lineLines.text))
+        && !/超了闸门/.test(String(lineLines.text))
+        && diagLines.domCount === 1
+        && lnPainted.stats === statsLine(lnRes.stats) && lnPainted.rows > 0
+        && /这一侧超了闸门约 1 行/.test(String(lineOverLines.text))
+        && /上限 200,000 行/.test(String(lineOverLines.text))
+        && /超出闸门/.test(String(failLines)) && /约 1 行/.test(String(failLines)),
+      `满闸门读数 ${lineLines.settledMs}ms/${lineLines.samples} 次采样（离开基线=${lineLines.moved}、`
+        + `落定=${lineLines.quiet}）=${JSON.stringify(String(lineLines.text).slice(0, 46))}`
+        + `（基线=${JSON.stringify(baseA1)}，夹具自己数出 ${lnCount} 行；读数到手时 A 栏 value `
+        + `${diagLines.aLen} 字、B 栏 ${diagLines.bLen} 字、页内同名状态格 ${diagLines.domCount} 枚（判 1）、`
+        + `此刻状态行=${JSON.stringify(String(diagLines.bar).slice(0, 40))}）；`
+        + `量具自己的账：A 写入 ${wA1.writeMs}ms、B 写入 ${wB1.writeMs}ms、越界那发 ${wB2.writeMs}ms`
+        + `（本机 1 分钟负载 ${LOAD1()}）；`
+        + `结果读数=${JSON.stringify(lnPainted.stats)}（Node 现算=${JSON.stringify(statsLine(lnRes.stats))}）、行块 ${lnPainted.rows}；`
+        + `越界读数=${JSON.stringify(String(lineOverLines.text).slice(0, 76))}；状态行=${JSON.stringify(String(failLines).slice(0, 80))}`);
+    /**
+     * 9d 粘贴不自动比对：连发 20 次 `input`。§Z 的 Z18 在 Node 侧数的是注入的 `runGuarded` 次数与
+     * `computes`；页内没有对外计数口，浏览器这一头判**能观察到的那一面**：结果区一字节都不长、
+     * 一行 `df-row` 都不长、状态行仍是「还没有比较」，而闸门读数跟着防抖走。两头口径都写出来，
+     * 别让读的人以为这里数了解析次数（同 JSON 页 9d 那一条的说明）。
+     */
+    await goto(URL_OF(P.url)); await wait(380);
+    const outBefore = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUT)});`
+      + ' return el ? { html: el.innerHTML.length, rows: el.querySelectorAll(".df-row").length,'
+      + ' line: (document.querySelector(\'.df-notice\')||{}).innerText } : null; })()');
+    const t0d = Date.now();
+    const baseA2 = await baseOf('a');
+    await evalJs(`(() => { const el=document.getElementById(${JSON.stringify(A_AREA)});`
+      + ` el.value=${JSON.stringify(DIFF_TEXT_A)};`
+      + " for (let i=0;i<20;i+=1) el.dispatchEvent(new Event('input',{bubbles:true}));"
+      + ' return String(el.value.length); })()');
+    const lineAfterPaste = await settledLine('a', baseA2);
+    const outAfterPaste = await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(OUT)});`
+      + ' return el ? { html: el.innerHTML.length, rows: el.querySelectorAll(".df-row").length } : null; })()');
+    const barAfterPaste = await barOf();
+    const wallPaste = Date.now() - t0d;
+    check(id('9d 连发 20 次 input：比对一次都没发生（结果区零字节增长、行块为 0、状态行还是「还没有比较」），而闸门读数跟着防抖落定'),
+      outAfterPaste.html === outBefore.html && outAfterPaste.rows === 0 && outBefore.rows === 0
+        && /还没有比较/.test(String(barAfterPaste)) && lineAfterPaste.moved && lineAfterPaste.quiet
+        && /^30 行/.test(String(lineAfterPaste.text)) && wallPaste < 12000,
+      `结果区 innerHTML ${outBefore.html}B → ${outAfterPaste.html}B、行块 ${outBefore.rows} → ${outAfterPaste.rows}；`
+        + `状态行=${JSON.stringify(String(barAfterPaste).trim())}；A 侧读数 ${lineAfterPaste.settledMs}ms 内`
+        + `${lineAfterPaste.samples} 次采样（基线=${JSON.stringify(baseA2)}、离开=${lineAfterPaste.moved}、`
+        + `落定=${lineAfterPaste.quiet}）→ ${JSON.stringify(lineAfterPaste.text)}；`
+        + `20 次 input 墙钟 ${wallPaste}ms（这一档的夹具只有 30 行，墙钟里绝大部分是防抖那 ${lineAfterPaste.settledMs}ms`
+        + `与量具自己的往返；本机 1 分钟负载 ${LOAD1()}）`);
+
+    // ── 10) 本机文件两路、超限拒在读之前、下载与 JSON 档 ───────────────────
+    GROUP = '10) diff 本机文件与下载 10a–10j';
+    await setVp(1280); await goto(URL_OF(P.url)); await wait(380); await installSpies();
+    const fixUtf8Text = fs.readFileSync(FIX.utf8, 'utf8');
+    const fixUtf8Bytes = fs.statSync(FIX.utf8).size;
+    const pickRescue = (selId) => evalJs(`document.getElementById(${JSON.stringify(selId)})`
+      + ".dispatchEvent(new Event('change',{bubbles:true}))");
+    await resetSpy();
+    const setA = await setFileInputFiles(`#${FIELD('a-file')}`, [FIX.utf8]);
+    const readA = await waitLine('a', /已读入/, () => pickRescue(FIELD('a-file')));
+    const afterPick = await evalJs(`(() => { const inp=document.getElementById(${JSON.stringify(FIELD('a-file'))});`
+      + ' const f=inp && inp.files && inp.files[0];'
+      + ` return { area: String(document.getElementById(${JSON.stringify(A_AREA)}).value),`
+      + ` name: document.getElementById(${JSON.stringify(FIELD('a-name'))}).value,`
+      + ' fr: window.__spy ? window.__spy.fr : null,'
+      + ' fname: f ? f.name : null, fsize: f ? f.size : null, ftype: f ? f.type : null,'
+      + ' ctor: f ? Object.prototype.toString.call(f) : null } })()');
+    check(id('10a 真文件走 input[type=file]：files[0] 是文件层给的真 File（名字与字节数 == 磁盘那一份）、正文与文件名都上了屏'),
+      setA === 'set' && /已读入/.test(String(readA.text))
+        && afterPick.area === fixUtf8Text && afterPick.name === 'sample-utf8.txt'
+        && afterPick.fsize === fixUtf8Bytes && afterPick.fname === 'sample-utf8.txt'
+        && /\[object File\]/.test(String(afterPick.ctor)) && afterPick.fr === 1,
+      `setFileInputFiles=${setA}、状态句 ${readA.ms}ms 内=${JSON.stringify(String(readA.text))}`
+        + `（补发过 change=${readA.rescued}：Chrome 这一路通常自己派发，没派发才算量具的补位）；`
+        + `files[0]=${JSON.stringify(afterPick.ctor)} name=${JSON.stringify(afterPick.fname)} size=${afterPick.fsize}`
+        + `（磁盘那一份 ${fixUtf8Bytes}B）；粘贴框 ${afterPick.area.length} 字 == 夹具全文=${afterPick.area === fixUtf8Text}、`
+        + `文件名格=${JSON.stringify(afterPick.name)}；readAsArrayBuffer 被叫 ${afterPick.fr} 次（这一格必须 ≥1，否则 10e 那个 0 是假账）`);
+    /**
+     * 拖放那一条路：`files[0]` 已经是文件层给的真 `File`，把它 `add` 进一只新的 `DataTransfer`
+     * 再派发 `drop`——**被读的那一份不是编造的**，编造的只有"事件从哪儿来"这一层。headless CDP
+     * 没有 OS 级拖放，这一格是量具的上界（记进计划 §0.6），不是页面的下界。
+     */
+    const dropped = await evalJs(`(() => { const inp=document.getElementById(${JSON.stringify(FIELD('a-file'))});`
+      + ' const f=inp && inp.files && inp.files[0]; if(!f) return "no-file";'
+      + ' const dt=new DataTransfer(); dt.items.add(f);'
+      + ` const el=document.getElementById(${JSON.stringify(B_AREA)});`
+      + " const ev=new Event('drop',{bubbles:true,cancelable:true});"
+      + " Object.defineProperty(ev,'dataTransfer',{value:dt});"
+      + ' el.dispatchEvent(ev); return { name: f.name, size: f.size }; })()');
+    const readB = await waitLine('b', /已读入/);
+    const afterDrop = await evalJs(`(() => ({ area: String(document.getElementById(${JSON.stringify(B_AREA)}).value),`
+      + ` name: document.getElementById(${JSON.stringify(FIELD('b-name'))}).value }))()`);
+    check(id('10b 拖放那一路与选文件那一路是同一条：同一个真 File 交给 drop，B 侧得到逐字相同的正文与文件名'),
+      !!dropped && dropped !== 'no-file' && dropped.size === fixUtf8Bytes
+        && /已读入/.test(String(readB.text)) && afterDrop.area === fixUtf8Text
+        && afterDrop.name === 'sample-utf8.txt',
+      `drop 里那枚 File=${JSON.stringify(dropped)}（磁盘 ${fixUtf8Bytes}B）；B 侧状态=${JSON.stringify(String(readB.text))}`
+        + `（${readB.ms}ms）；正文 ${afterDrop.area.length} 字 == 夹具全文=${afterDrop.area === fixUtf8Text}、`
+        + `文件名=${JSON.stringify(afterDrop.name)}`);
+    const beforeBad = await evalJs(`String(document.getElementById(${JSON.stringify(A_AREA)}).value).length`);
+    await resetSpy();
+    await setFileInputFiles(`#${FIELD('a-file')}`, [FIX.gbk]);
+    const readGbk = await waitLine('a', /不是 UTF-8/, () => pickRescue(FIELD('a-file')));
+    const afterGbk = await evalJs(`(() => ({ len: String(document.getElementById(${JSON.stringify(A_AREA)}).value).length,`
+      + ` name: document.getElementById(${JSON.stringify(FIELD('a-name'))}).value, fr: window.__spy.fr }))()`);
+    check(id('10c 非 UTF-8（GBK 那份）被 fatal 解码当场拒：点名"不是 UTF-8"、粘贴框里上一份内容一字不动'),
+      /不是 UTF-8/.test(String(readGbk.text)) && afterGbk.len === beforeBad && afterGbk.fr === 1,
+      `状态=${JSON.stringify(String(readGbk.text))}（${readGbk.ms}ms、补发=${readGbk.rescued}）；`
+        + `粘贴框 ${beforeBad} → ${afterGbk.len} 字（读不成就不许留半份）、文件名格=${JSON.stringify(afterGbk.name)}、`
+        + `readAsArrayBuffer ${afterGbk.fr} 次（编码判断发生在读完之后，这里要的就是那 1 次）`);
+    await resetSpy();
+    await setFileInputFiles(`#${FIELD('a-file')}`, [FIX.nul]);
+    const readNul = await waitLine('a', /NUL 或替换字符/, () => pickRescue(FIELD('a-file')));
+    check(id('10d 含 NUL 那份（合法 UTF-8、根本不是文本）走的是第二句话：fatal 放它过关、页面上单独点名'),
+      /NUL 或替换字符/.test(String(readNul.text)),
+      `状态=${JSON.stringify(String(readNul.text))}（${readNul.ms}ms、补发=${readNul.rescued}）`);
+    /**
+     * 超限那一份**必须在读之前**被拒：`FileReader` 一次都不许被叫到（五 MiB 不该先进内存再说"不行"）。
+     * 计数器与 10c 共用同一只钩子，而 10a/10c 各自记到过 1 次——所以这里的 0 是"钩子活着而没被叫"，
+     * 不是"钩子根本没装上"（记忆规则「收紧守卫判据须自证仍有牙」）。
+     */
+    await resetSpy();
+    await setFileInputFiles(`#${FIELD('a-file')}`, [FIX.over]);
+    const readOver = await waitLine('a', /超出闸门/, () => pickRescue(FIELD('a-file')));
+    const afterOver = await evalJs(`(() => ({ len: String(document.getElementById(${JSON.stringify(A_AREA)}).value).length,`
+      + ' fr: window.__spy.fr }))()');
+    check(id('10e 超闸门的文件夹：先按 size 拒、点名多出多少与上限，且 FileReader 一次都没被叫（读之前那一刀）'),
+      /超出闸门/.test(String(readOver.text)) && /5 MiB/.test(String(readOver.text))
+        && String(readOver.text).includes(`多了 ${FIX_OVER_KB}`)
+        && afterOver.fr === 0 && afterOver.len === beforeBad,
+      `状态=${JSON.stringify(String(readOver.text))}（${readOver.ms}ms、补发=${readOver.rescued}；`
+        + `夹具超量 ${FIX_OVER_DELTA}B → 该说"多了 ${FIX_OVER_KB}"）；`
+        + `readAsArrayBuffer ${afterOver.fr} 次（10a/10c 同一只钩子各记到过 1 次）；粘贴框仍是你上一份 ${afterOver.len} 字`);
+    await putValue(A_AREA, DIFF_TEXT_A); await putValue(B_AREA, DIFF_TEXT_B); await wait(320);
+    await clickById(BTN('compare')); await wait(500);
+    /**
+     * 「下载」这一格不接受"钩子说 click 调过了"就算成：把落盘目录开到量具自己的 scratch 里，
+     * 点完之后**在磁盘上找那一枚文件**，名字与字节都要对。这一格问的是"用户按了会不会得到一份
+     * 文件"，而不是"页内有没有调那几个 API"。
+     * `Page.setDownloadBehavior` 是页级命令（会话内可用）；它若不该，这一格直接红着报，
+     * 不许退成"钩子计数对上了就当过"。
+     */
+    const DL_DIR = path.join(ROOT, 'node_modules/.seg5t7-scratch/dl');
+    fs.mkdirSync(DL_DIR, { recursive: true });
+    for (const f of fs.readdirSync(DL_DIR)) fs.rmSync(path.join(DL_DIR, f), { force: true });
+    let dlSet = 'ok';
+    try {
+      await S('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: DL_DIR, eventsEnabled: false });
+    } catch (e) { dlSet = `没生效：${oneLine(String(e && e.message))}`; }
+    await resetSpy();
+    const cDl = await clickById(BTN('download'));
+    let files = [];
+    for (let i = 0; i < 25; i += 1) {
+      files = fs.readdirSync(DL_DIR).filter((f) => !/\.crdownload$/.test(f));
+      if (files.length) break;
+      await wait(200);
+    }
+    const allFiles = fs.readdirSync(DL_DIR);
+    const dl = await evalJs(`(() => ({ ...window.__spy, anchors: document.querySelectorAll('body a[download]').length }))()`);
+    const blobText = await readBlobText();
+    const dlNames = await evalJs(`(() => { const g=(k)=>{const e=document.getElementById(k);`
+      + ' return e ? String(e.value) : null; };'
+      + ` return { a: g(${JSON.stringify(FIELD('a-name'))}), b: g(${JSON.stringify(FIELD('b-name'))}),`
+      + ` ctx: g(${JSON.stringify(FIELD('context'))}) }; })()`);
+    /** 上下文档位→数字这张表本脚本自己写一遍（与 `diffWorkbench.js` 的 `CONTEXT_VALUE` 同字而不同源） */
+    const CTX_OF = { diff: 0, 3: 3, 5: 5, all: Infinity };
+    const dlExpect = DC.unifiedText(DC.diffLines(DIFF_TEXT_A, DIFF_TEXT_B, {}),
+      { a: dlNames.a, b: dlNames.b, context: CTX_OF[dlNames.ctx] });
+    const firstBadLine = typeof blobText === 'string'
+      ? (() => {
+        const e = dlExpect.split('\n'); const g = blobText.split('\n');
+        for (let i = 0; i < Math.max(e.length, g.length); i += 1) {
+          if (e[i] !== g[i]) return `${i + 1}: ${JSON.stringify(String(g[i]))} != ${JSON.stringify(String(e[i]))}`;
+        }
+        return null;
+      })()
+      : 'blob 没读到';
+    const landedName = files.length === 1 ? files[0] : null;
+    const landedBytes = landedName === null
+      ? null : fs.readFileSync(path.join(DL_DIR, landedName));
+    const landedSame = landedBytes !== null
+      && Buffer.compare(landedBytes, Buffer.from(dlExpect, 'utf8')) === 0;
+    check(id('10f 下载 .diff：真落盘为证——磁盘上那一枚文件就叫 changes.diff、字节 == Node 侧现算的那一份 unified（`--- / +++` 两格与上下文档按页内现读的值算），而 createObjectURL 收到真 Blob、MIME 是 text/plain;charset=utf-8、URL 被收回且不留游离 <a>'),
+      dlSet === 'ok' && landedName === 'changes.diff' && landedSame && files.length === 1
+      && dl.create === 1 && dl.isBlob && dl.blobType === 'text/plain;charset=utf-8'
+      && dl.aClick === 1 && dl.anchorName === 'changes.diff' && dl.revoke >= 1 && dl.anchors === 0
+      && typeof blobText === 'string' && blobText === dlExpect,
+      `下载点击=${cDl}、setDownloadBehavior=${JSON.stringify(dlSet)}；落盘目录=${JSON.stringify(DL_DIR)} 里 `
+      + `最终=${JSON.stringify(allFiles)}（去掉临时后缀 ${files.length} 枚）、文件名=${JSON.stringify(landedName)}、`
+      + `字节逐字对=${landedSame}（落盘 ${landedBytes === null ? '没读到' : `${landedBytes.length}B`} vs 现算 `
+      + `${Buffer.byteLength(dlExpect, 'utf8')}B）；页内 anchor.click ${dl.aClick} 次、那一刻在文档里=${dl.anchorInDom}、`
+      + `download=${JSON.stringify(dl.anchorName)}；create=${dl.create}、isBlob=${dl.isBlob}、`
+      + `type=${JSON.stringify(dl.blobType)}、size=${dl.blobSize}（按页内现读 ${JSON.stringify([dlNames.a, dlNames.b, dlNames.ctx])} `
+      + `算的那份 ${Buffer.byteLength(dlExpect, 'utf8')}B；默认名+上下文 3 那份 ${Buffer.byteLength(DIFF_UNIFIED, 'utf8')}B）、`
+      + `revoke=${dl.revoke}、body 残留 <a download> ${dl.anchors} 枚；Blob 正文 == 现算 unified=${blobText === dlExpect}`
+      + `（第一处不同行=${JSON.stringify(firstBadLine)}）`);
+    /**
+     * JSON 档：口径换成"按值比"，行流那一族整排必须置灰（折叠与跳转在那一档没有意义），
+     * 而变更表的行数与那两枚 Pointer 由**手数的**期望值对账——拿模块输出当判据的话，
+     * 页面与模块就永远同错（同 §Y 那条口径）。
+     */
+    await putValue(A_AREA, JSON_A, false); await putValue(B_AREA, JSON_B); await wait(300);
+    await setSelect(FIELD('mode'), 'json'); await wait(420);
+    await clickById(BTN('compare')); await wait(500);
+    const jsonTable = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + " const rows=[...box.querySelectorAll('.df-json__row')];"
+      + " const ptr=(r)=>{const t=r.querySelector('.df-json__ptr');return t?t.innerText.trim():null;};"
+      + " const g=(k)=>{const e=document.getElementById(k);return e?(e.disabled?1:0):-1};"
+      + " const h=(k)=>{const e=document.getElementById(k);return e?(e.hidden?1:-1):-2};"
+      + ' return { n: rows.length, ptrs: rows.map(ptr),'
+      + ' verdict: ((box.querySelector(".df-verdict")||{}).innerText||"").replace(/\\s+/g," ").trim(),'
+      + ' meta: ((box.querySelector(".df-json__meta")||{}).innerText||"").replace(/\\s+/g," ").trim(),'
+      + ' notes: box.querySelectorAll(".df-notes li").length, cols: box.querySelectorAll(".df-json thead th").length,'
+      + ' fold: [g(' + JSON.stringify(BTN('expand')) + '), g(' + JSON.stringify(BTN('diffOnly')) + ')],'
+      + ' goto: [g(' + JSON.stringify(BTN('firstDiff')) + '), g(' + JSON.stringify(BTN('nextDiff')) + ')],'
+      + ' rows: box.querySelectorAll(".df-row").length,'
+      + ' whenText: h(' + JSON.stringify(`${pref}-when-workbench-text`) + '),'
+      + ' whenJson: h(' + JSON.stringify(`${pref}-when-workbench-json`) + ') } })()');
+    check(id(`10g JSON 档：变更表恰 ${JSON_CHANGE_WANT} 行、Pointer 逐字是手数的那两条、六列表头与六句代价说明都在`),
+      jsonTable.n === JSON_CHANGE_WANT && JSON.stringify(jsonTable.ptrs) === JSON.stringify(['/tags/1', '/meta/n'])
+        && jsonTable.cols === 6 && jsonTable.notes === 6 && jsonTable.rows === 0
+        && jsonTable.verdict.includes(`${JSON_CHANGE_WANT} 处不同`) && /比对 8 格 · 最深 2 层/.test(jsonTable.meta),
+      `表内 ${jsonTable.n} 行、Pointer=${JSON.stringify(jsonTable.ptrs)}（手数的=[/tags/1, /meta/n]）；`
+        + `表头 ${jsonTable.cols} 列、代价说明 ${jsonTable.notes} 句、行块 ${jsonTable.rows}（JSON 档不该有行流）；`
+        + `结论=${JSON.stringify(jsonTable.verdict)}；读数=${JSON.stringify(jsonTable.meta)}`);
+    check(id('10h JSON 档把折叠与跳转那一整排置灰、显隐段跟着口径换人（那一档没有"第几处差异"这一说）'),
+      jsonTable.fold.every((x) => x === 1) && jsonTable.goto.every((x) => x === 1)
+        && jsonTable.whenText === 1 && jsonTable.whenJson === -1,
+      `折叠 disabled=${JSON.stringify(jsonTable.fold)}、跳转 disabled=${JSON.stringify(jsonTable.goto)}`
+        + `（1=禁用）；显隐段 text=${jsonTable.whenText} / json=${jsonTable.whenJson}（1=hidden、-1=可见、-2=查无此格）`);
+    await putValue(B_AREA, JSON_SAME_B); await wait(260);
+    await clickById(BTN('compare')); await wait(460);
+    const sameTable = await evalJs(`(() => { const box=document.querySelector(${JSON.stringify(OUT)});`
+      + ' return { n: box.querySelectorAll(\'.df-json__row\').length,'
+      + ' verdict: ((box.querySelector(".df-verdict")||{}).innerText||"").replace(/\\s+/g," ").trim() } })()');
+    check(id('10i 同一份文档的两种写法（键序与缩进都变了、值都没变）：变更表必须是空的，那句结论要说清"值相同、键序不同"'),
+      sameTable.n === 0 && /按 JSON 值判为相同，但键的书写次序不同/.test(sameTable.verdict),
+      `变更表 ${sameTable.n} 行；结论=${JSON.stringify(sameTable.verdict)}`);
+    /**
+     * 6a 那一族在通用六族末尾就判完了，7–10 这七族之后没人再核过一次账——这一格把那条口径
+     * 延长到**整页全程**（对比页的四族才是真会碰 Blob / FileReader / 大文本的那几族）。
+     */
+    check(id('10j 全程（含 7–10 那四族）：本源异常与 error 级仍为 0，本页专属那几件一条都不出'),
+      noisePass(), noiseShot());
+  }
 }
 
 // ══ 11) §7 那两行的先量后立（Node 侧，不开页）═══════════════════════════════
@@ -1529,18 +2688,26 @@ GROUP = '11) §7 字节 11a–11c';
  * 否则"余量掉没掉到 5% 以下"这件事两边各判一次、各得一个结论。
  * 老那一格（11a 的设计期 120KB）也一起改口，并且把分母写进明细串，让人不必猜。
  *
- * 两行 JSON 的 `budget` 是**按本次实测量立出来的**（不是设计期拍的数），推导过程由 11c 现算：
- * 取 L6/L9 里**较大的那一档**当最坏读数（压缩级抖动必须被余量吸收，§7 第一段那条理由），
- * 再要求「(预算 − 最坏) ÷ 预算 ≥ 5%」（段 3 计划 §0.4 立的线），最后向上取到 1024 的整数倍。
- * 立出来的两个数：JS+CSS **58,368B（57KB）**、首屏 **17,408B（17KB）**。
+ * 新立的四行（JSON 两行 + 对比两行）的 `budget` 是**按本次实测量立出来的**（不是设计期拍的数），
+ * 推导过程由 11c 现算：取 L6/L9 里**较大的那一档**当最坏读数（压缩级抖动必须被余量吸收，
+ * §7 第一段那条理由），再要求「(预算 − 最坏) ÷ 预算 ≥ 5%」（段 3 计划 §0.4 立的线），
+ * 最后向上取到 1024 的整数倍。立出来的四个数：JSON JS+CSS **58,368B（57KB）**、JSON 首屏 **17,408B（17KB）**、
+ * 对比 JS+CSS **33,792B（33KB）**、对比首屏 **18,432B（18KB）**。
+ *
+ * 对比页的「首屏」件集跟着 **JSON 那一行**的形状走（`toolkit.min.css` + 页面自己的 `toolDiff.min.css`
+ * + 页 HTML），不跟证件/编码那两行的旧形状走：那两行没算页面 CSS，是因为它们**没有**页面级 CSS
+ * （`toolIdcard.min.css` / `toolCodec.min.css` 不在它们的 JS+CSS 行里，页内样式全在 toolkit 那份里）。
+ * 同一件事在两行里必须是同一把尺，否则"首屏成本"这四个字在两行指的是两个东西。
  */
 const ROWS = [
   { row: '证件页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolIdcard.min.js'], budget: 77824 },
   { row: '证件页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/idcard.html'], budget: 16384 },
   { row: '编码页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolCodec.min.js'], budget: 32768 },
   { row: '编码页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/codec.html'], budget: 17408 },
-  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 58368 },
-  { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 17408 },
+  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 58368, fresh: true },
+  { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 17408, fresh: true },
+  { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 33792, fresh: true },
+  { row: '对比页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolDiff.min.css', 'tools/diff.html'], budget: 18432, fresh: true },
 ];
 /** §7 表里 JSON 那一行设计期拍的 120KB：它只服务一件事——判要不要触发"YAML 降到仅序列化"那一档 */
 const DESIGN_YAML_CAP = 122880;
@@ -1565,24 +2732,24 @@ check('11a JSON 页 JS+CSS 实测远在 120KB（设计期拍的数）之下，�
  * 判的是**两条老规矩**：① 每一件都量得出非零字节，② L6↔L9 抖动 < 4,000B（超过就说明压缩器
  * 或数据形状变了，那不再是"参数抖动"而是"该重新决定预算"），③ 有预算的行**两档读数都在档内**。
  * ≥5% 那一档**不在这里判**：它是**立预算**时的规则（11c 判），不是**守预算**时的规则——
- * §7 现有四行里已有两行落在 5% 以下（证件页首屏、编码页 JS+CSS），那是 Task 8 量出来的事实、
+ * 八行里已有两行落在 5% 以下（证件页首屏 L9 余 2.3%、编码页 JS+CSS 余 4.9%），那是 Task 8 量出来的事实、
  * 要人重新决定档位，不是把档位松开就能绿的事；把它写成判据会让这一格从第一天就红着，
  * 而红着的门禁和没门禁等价。低于 5% 的行在明细里**逐行点名**，不藏。
  */
-check('11b 六行全部同表重算，压缩级抖动 level 6↔9 逐行报出（预算余量必须吸收得掉它）',
+check('11b 八行全部同表重算，压缩级抖动 level 6↔9 逐行报出（预算余量必须吸收得掉它）',
   measured.every((m) => m.sum9 > 0 && m.sum6 > 0 && Math.abs(m.sum6 - m.sum9) < 4000
     && m.worst <= m.budget),
   measured.map((m) => `${m.row}: L9=${m.sum9}B / L6=${m.sum6}B（抖 ${m.sum6 - m.sum9 >= 0 ? '+' : ''}${m.sum6 - m.sum9}）`
     + ` / 预算 ${m.budget}B、${margin(m.budget, m.sum9)}`
     + `${(m.budget - m.sum9) / m.budget < 0.05 ? ' ⚠低于5%' : ''}`).join('；'));
 /**
- * 新立的那两行按 §0.4 的取档规则**当场回算一遍**：判「写进 ROWS 的档 ≥ 最坏读数 ÷ 0.95」，
+ * 新立的那四行（带 `fresh` 标记的）按 §0.4 的取档规则**当场回算一遍**：判「写进 ROWS 的档 ≥ 最坏读数 ÷ 0.95」，
  * 并打出"满足这一条的最小 1024 倍数"。字节只减不增时这一条继续绿（不必跟着缩档，
  * §7 的老两行就是同一形状）；一旦增长到吸收不掉 5%，红的就是这一条，且明细直接给出该立的新档。
  */
-check('11c 新立的 JSON 两行按"最坏读数 ÷ 0.95 再向上取 1024 倍"当场回算得出台账里写的档（≥5% 是立预算的规则）',
-  measured.filter((m) => /JSON/.test(m.row)).every((m) => m.budget >= Math.ceil(m.worst / 0.95 / 1024) * 1024),
-  measured.filter((m) => /JSON/.test(m.row)).map((m) => `${m.row}: 最坏读数=${m.worst}B（L6/L9 取大）`
+check('11c 新立的 JSON/对比 四行按"最坏读数 ÷ 0.95 再向上取 1024 倍"当场回算得出台账里写的档（≥5% 是立预算的规则）',
+  measured.filter((m) => m.fresh).every((m) => m.budget >= Math.ceil(m.worst / 0.95 / 1024) * 1024),
+  measured.filter((m) => m.fresh).map((m) => `${m.row}: 最坏读数=${m.worst}B（L6/L9 取大）`
     + ` → ÷0.95=${Math.ceil(m.worst / 0.95)}B → 取 1024 倍=${Math.ceil(m.worst / 0.95 / 1024) * 1024}B`
     + ` ｜ 台账写 ${m.budget}B、${margin(m.budget, m.worst)}`).join('；')
     + '；口径：预算 − 最坏读数，分母是预算');
@@ -1591,7 +2758,8 @@ check('11c 新立的 JSON 两行按"最坏读数 ÷ 0.95 再向上取 1024 倍"�
 // ══ 汇总 ════════════════════════════════════════════════════════════════════
 const red = results.filter((r) => !r.pass);
 console.log(`\n# 合计 ${results.length} 项，红 ${red.length} 项`
-  + (red.length ? `：${red.map((r) => r.id.split(' ')[0]).join('、')}` : ''));
+  + (red.length ? `：${red.map((r) => r.id.split(' ')[0]).join('、')}` : '')
+  + `（收轮时本机 1 分钟负载 ${LOAD1()}——绝对毫秒那几格的账）`);
 console.log(`# 分组：${[...new Set(results.map((r) => r.id.split('/')[0]))].join(' / ')}`);
 teardown();
 process.exit(red.length ? 1 : 0);
