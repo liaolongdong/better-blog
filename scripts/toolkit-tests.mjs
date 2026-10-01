@@ -2485,21 +2485,40 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.deepEqual(parseHash('#idcard-panel-uscc-z', TOOLKIT), { id: null, unknown: true },
     '只按**最后**一处 `-panel-` 剥，尾段整串去查白名单');
   assert.deepEqual(parseHash('#panel-uscc', TOOLKIT), { id: null, unknown: true },
-    '认的是 `{prefix}-panel-slug` 这一种形状，前缀不留空：`#panel-uscc` 不是本页会产生的 hash，' +
-    '给它开门等于在同一处立第二套口径（两条锚点都由页面自己写，没有第三种来源）');
+    '整串里找不到 `-panel-` 标记（`panel-uscc` 的连字符在前头）→ 不剥，原样查白名单，查不到就是 unknown');
   /**
-   * 剥尾段那一刀对**任何裸 slug 必须是恒等**：`stripPanelPrefix` 只在"标记前面还有东西"时动手。
-   * 这一族唯一的失效形状是"面板 slug 自己含 `-panel-`"（那会儿裸形先被剥掉一截、只剩尾段去查白名单），
-   * 而 slug 全部来自 `_data/onlineTools.yml`——多出那样一枚是数据改动，不该由用户的深链先撞上。
-   * 所以这里拿现成的 `TOOLKIT` 逐个走一遍裸形：真出现了那一枚，红在这里。
+   * 评审回合纠正的一处口径：原来这一格的话写的是"前缀不留空"，读起来像 `#-panel-uscc` 会被拒——
+   * 实测**是接受的**：`stripPanelPrefix` 的判据是"找不找得到标记"，不是"标记前有没有东西"，
+   * 标记落在 index 0 时 `at < 0` 不成立，照样剥，剩下 `uscc` 查白名单查得到。
+   * 这里把它写成"实测接受"而不是顺手改成"拒绝"，因为这一形页面永不产出（索引条写
+   * `{prefix}-panel-{slug}`、`toHash()` 写裸 slug，没有第三种来源），而要关它得动
+   * `dev/js/tools/panel.js` 里的一个字符——那是进产物的字节，§7 那一行的余量就得整轮重量。
+   * 换来的只是拒绝一枚没人写得出的 URL，不划算。**真实边界由这一格钉住，别在注释里写成更严的口径。**
+   */
+  assert.deepEqual(parseHash('#-panel-uscc', TOOLKIT), { id: 'uscc', unknown: false },
+    '空前缀那一形（标记落在 index 0）实测接受：这是实现的边界，不是设计意图');
+  /**
+   * 剥尾段那一刀对**不含标记的裸 slug 必须是恒等**：`stripPanelPrefix` 只要在串里找到 `-panel-`
+   * 就动手（标记在开头也算，见上面那一格），找到几处都取**最后**一处。
+   * 于是这一族的失效形状是"slug 自己含 `-panel-`"——那会儿裸形先被剥掉一截、只剩尾段去查白名单，
+   * 而锚点形会被剥到**第二个**标记之后，两种形状一起失效。slug 全部来自
+   * `_data/onlineTools.yml`，多出那样一枚是数据改动，不该由用户的深链先撞上——
+   * 所以这里拿现成的 `TOOLKIT` 逐个走一遍（裸形 + 生产里那枚真前缀的锚点形），
+   * 真出现那一枚时红在这里，而门禁⑤ 另有同款判据把 yml 那十枚一起看住
+   * （见 `check-tools-surface.mjs` 的 `tainted`，牙齿台账里那一颗的名字点的是同一件事）。
    * 它不是给 `parseHash` 加宽容（加 fallback 去"先整串再尾段"会在产物里养一条永不生效的分支），
    * 而是把"两种形状"这条口径的前提钉住。
    */
   for (const id of TOOLKIT) {
     assert.deepEqual(parseHash(`#${id}`, TOOLKIT), { id, unknown: false }, `裸 slug ${id} 必须原样解得开`);
+    // `tk` 是 `_data/onlineTools.yml` 里 idcard / codec 两页共用的 prefix，也是产物里索引条那十枚
+    // href 的真实形状；上面那些 `idcard-panel-*` 是合成形状——只测合成的，真 prefix 写错一格就测不到。
+    // （prefix 本身对不对由门禁⑤ 逐枚核产物，这里只钉 `parseHash` 对这一族的解析。）
+    assert.deepEqual(parseHash(`#tk-panel-${id}`, TOOLKIT), { id, unknown: false },
+      `锚点形 #tk-panel-${id} 必须解得回 ${id}`);
   }
-  const anchored = createPanelWorkspace({ ids: TOOLKIT, hash: '#idcard-panel-random' });
-  assert.equal(anchored.active(), 'random', '开局是锚点形状也要落到那块面板');
+  const anchored = createPanelWorkspace({ ids: TOOLKIT, hash: '#tk-panel-random' });
+  assert.equal(anchored.active(), 'random', '开局是生产里那枚真锚点（{prefix}-panel-{slug}）也要落到那块面板');
   assert.equal(anchored.unknownHash(), false);
   anchored.select('mobile');
   assert.equal(anchored.toHash(), '#mobile', '写回地址栏的仍必须是裸 slug，不与索引条那形长成两种');

@@ -705,10 +705,24 @@ function checkDomContract(t, builtHtml, spec) {
    * 也撞不到，只有禁 JS、中键新标签、或把链接复制给别人时才露出来。十枚死锚点在页面上蹲了一整段，
    * 六道人一道没抓到，就是因为「产物里有这个 id」与「产物里有这条 href 要的那个 id」是两件事。
    *
-   * 判两件，缺一件都还留得住死锚点：枚数等于面板数（少一枚 = 索引条与面板清单脱钩），
-   * 且每一枚的目标 id 真存在于本页产物（前缀写错 = 又一次静默死锚）。
+   * 判四件，缺一件都还留得住死锚点：枚数等于面板数（少一枚 = 索引条与面板清单脱钩）、
+   * 每一枚的目标 id 真存在于本页产物（前缀写错 = 又一次静默死锚）、那一枚 id 就是这枚 tab
+   * 自己的面板（指到兄弟面板 = 目录与内容错位，见下面第二层），以及 slug 里不许带 `-panel-`
+   * 这个前提本身（带上了，两种形状一起解错，见下面那一格）。
    */
   if (layout === 'panels') {
+    /**
+     * 锚点形的前提（评审回合补的这一格）：`parseHash` 认的是"取**最后**一处 `-panel-`、拿它之后的
+     * 整串去查白名单"，而它找的是标记本身、不认前缀——所以 slug 自己带这七个字符时，索引条那形
+     * `#tk-panel-a-panel-b` 会剥成 `b`，裸形 `#a-panel-b` 同样剥成 `b`：两种形状一起失效，
+     * 落点是另一块板，或者那条"不是本页的某一块面板"的提示。今天这十枚 slug 没有一枚带标记，
+     * 所以这一格判的是"改数据的人不许悄悄作废深链"——真出现那一枚时红在门禁，
+     * 不等用户的收藏来报。口径与 `parseHash` 对齐着写：它也走小写折叠。
+     */
+    const tainted = t.panels.map((x) => x.slug).filter((s) => String(s).toLowerCase().includes('-panel-'));
+    if (tainted.length) {
+      bad('DOM', t.slug, `面板 slug ${tainted.join(' ')} 含 "-panel-"，与索引条那形 {prefix}-panel-{slug} 的剥法相撞：parseHash 取最后一处标记，锚点形与裸形会一起解错`);
+    }
     const links = [...builtHtml.matchAll(/<a\b[^>]*class="tk-index__link"[^>]*>/g)];
     if (links.length !== panelIds.length) {
       bad('DOM', t.slug, `索引条有 ${links.length} 枚 .tk-index__link，而面板有 ${panelIds.length} 块（一一对应才算目录）`);
@@ -721,6 +735,18 @@ function checkDomContract(t, builtHtml, spec) {
       }
       if (!ids.has(hm[1])) {
         bad('DOM', t.slug, `索引条的 href="#${hm[1]}" 在产物里落不下去——本页没有 id="${hm[1]}" 这个节点`);
+        continue;
+      }
+      /**
+       * 第二层：**落得下去还不够，得落在自己那一块面板上**。
+       * 每一枚 `<a>` 同时带 `id="{prefix}-tab-{slug}"`，所以这一枚的归宿是唯一确定的——
+       * `href` 必须逐字等于 `{prefix}-panel-{那个 slug}`。指到本页**另一块**真实存在的面板时，
+       * 上面那条 `ids.has` 是绿的（id 在、滚得动），但目录与内容错位：点「统一社会信用代码」
+       * 滚到「校验位计算」那一格，禁 JS 与开 JS 两档都表现为"链接撒谎"，而构建与运行时都不报错。
+       */
+      const tm = new RegExp(`\\sid="${escRE(p)}-tab-([^"]+)"`).exec(m[0]);
+      if (tm && hm[1] !== `${p}-panel-${tm[1]}`) {
+        bad('DOM', t.slug, `索引条那枚 tab 的 href="#${hm[1]}" 不是它自己的面板（id="${p}-tab-${tm[1]}" 只能指 #${p}-panel-${tm[1]}）`);
       }
     }
   }

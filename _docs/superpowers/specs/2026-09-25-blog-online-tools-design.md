@@ -698,9 +698,16 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 把 65px 的粘性头顶开），证件页 `#tk-panel-random` 那发 `scrollY` 从 0 变 **4,514**。开 JS 那一档同页自证向后兼容：
 直接以 `idcard.html#tk-panel-uscc` 开局 → 面板 `tk-panel-uscc` 显示、`tk-tab-uscc` 带 `aria-selected`、提示条 `hidden`，
 而 `select('mobile')` 之后 `toHash()` 写回的仍是裸 `#mobile`——地址栏那一种形状没有分叉。
-全站 `href="#…"` 落空按同一把尺复算（遍历 `_site/**/*.html`，`href="#x"` 与同页 `id="x"` 求差集）：**14 枚 → 4 枚**，
+**站内同页那一形** `href="#…"` 落空按同一把尺复算（遍历 `_site/**/*.html`，`href="#x"` 与同页 `id="x"` 求差集）：**14 枚 → 4 枚**，
 剩的是 `_site/2023/06/07/common-search-algorithm.html` 那 2 枚中文 TOC（「二叉搜索树查找」「AVL树、红黑树、B树/B+树查找」）
 与 `demo/vueRouterDemo/hashRouter.html` 故意写的 2 枚假路由（`/home`、`/about`）——工具页那 10 枚**已归零**。
+**同一轮把第二把尺也量了**（跨页那一形 `href="页#x"`，按目标页的 `id` 求差、跳过 15 枚站外绝对 URL；带片段的 href 全站共 2,344 枚）：
+`base` 站内同页 **14** ＋ 跨页 **10**、`work` 站内同页 **4** ＋ **跨页仍是 10**——落地页 `tools.html:152` 那十枚速览链接写的仍是
+裸 `#slug`，开 JS 时目标页认裸形（这十枚是活的），禁 JS 时面板静态全可见、只是滚不过去。
+修法同本格那一刀（`#{{ tool.prefix }}-panel-{{ p.slug }}`），代价在 D 树副本上实测 **raw +90B / L9 +8B / L6 +9B**，
+而 `tools.html` 不在 `scripts/verify-tools-browser.mjs:2702` 那八行 `ROWS` 里，**没有预算格会挪动**。
+它改的是落地页那十枚链接的落点（交互面），不在"索引条那 10 枚"这句批准的范围里，**登记为待判**，
+逐笔读数见段 5 计划 Task 9 末那一格。
 
 **为什么这一格不加常驻的浏览器判据**：常驻判据只能挂进 `scripts/verify-tools-browser.mjs`，而它配套的牙齿
 `scripts/verify-tools-browser-teeth.mjs` 那六刀是直接改共享真产物（仓库 `_site` 与 `assets/**`）的；本轮并行会话仍在那棵工作树上写

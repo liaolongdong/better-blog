@@ -33,10 +33,16 @@
  * `tools.html` 每一小节自己那一段（见 check-tools-surface.mjs 的 `toolsSectionOf`），
  * 变异刀同步改成 `badgeInSection`：按 `id="online-<slug>"` 定位，不靠出现顺序，且没命中就抛。
  *
- * 段 5 Task 9 收口后又补三颗：索引条 `href` 的落点（证件两枚 + 编码一枚）。这一族是本台账建起来
- * 之后第一件"六道人全绿而页面是坏的"的实证——十枚死锚点从段 1 蹲到段 5，抓不到不是因为刀钝，
- * 而是因为**没有一把刀量的是锚点指向的那一头**。所以这三颗牙各钉新判据的一支：目标 id 不存在、
- * `href` 整格缺失、循环有没有走到第二页；三颗都用"没命中就抛"的写法，别长出一颗静默不命中的假牙。
+ * 段 5 Task 9 收口时补三颗（证件两枚 + 编码一枚），2026-10-01 的评审回合再补两颗：索引条那一族
+ * 现在五颗牙。这一族是本台账建起来之后第一件"六道人全绿而页面是坏的"的实证——十枚死锚点从段 1
+ * 蹲到段 5，抓不到不是因为刀钝，而是因为**没有一把刀量的是锚点指向的那一头**。
+ * 前五颗各钉新判据的一支：目标 id 不存在、`href` 整格缺失、循环有没有走到第二页、
+ * **落得下去却不落在自己那一块面板**（评审回合补的第一颗），以及 **slug 里不许带 `-panel-`
+ * 这个前提本身**（评审回合补的第二颗，它改的是数据源 `_data/onlineTools.yml`）。
+ * 原来那三把刀都把 `href` 改坏成"本页没有的 id"，那只证明 `ids.has` 那一支有牙；若判据只写到
+ * "id 存在"就收工（它最初确实只写到这一层），把 `tk-tab-idcard` 那枚的 `#tk-panel-idcard` 改成
+ * `#tk-panel-random` 仍是绿的，而页面上"点第一块面板滚到最后一块"这种错位谁也拦不住。
+ * 五颗都用"没命中就抛"的写法，别长出一颗静默不命中的假牙。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -243,12 +249,14 @@ const idcardCases = [
     artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('id="tk-in-bankcard-bank" data-tk-options="banks"', 'id="tk-in-bankcard-bank" data-tk-options="banklist"')),
   },
   /**
-   * 段 5 Task 9「修 A」那一刀的三颗牙。为什么索引条的 `href` 要单独长牙：这十枚死锚点在页面上
-   * 蹲了整整四段，六道人一道没抓到——`need` 核的是"骨架该有的 id 都在"，而锚点指的是**另一头**，
-   * 产物里没有 `id="uscc"` 这件事没有任何一条判据在看；开脚本时点 tab 走 `preventDefault()`，
-   * 连一次点击都证伪不了它。三颗牙各自钉住新判据的一支：目标 id 不存在、`href` 整格缺失、
-   * 以及"循环有没有走到第二页"。每一刀都先断言变异真的命中——`s.replace` 没命中时原样返回，
-   * 那一档会退化成"注入 nothing 而门禁仍绿"的假牙（本文件开头讲 `首页父项` 那一刀时立过的规矩）。
+   * 索引条那一族在本页的四颗牙（编码页另有同名的一颗，见下面 `codecCases`）。前两颗是段 5 Task 9
+   * 「修 A」当轮补的，后两颗是 2026-10-01 评审回合补的。为什么索引条的 `href` 要单独长牙：
+   * 这十枚死锚点在页面上蹲了整整四段，六道人一道没抓到——`need` 核的是"骨架该有的 id 都在"，
+   * 而锚点指的是**另一头**，产物里没有 `id="uscc"` 这件事没有任何一条判据在看；
+   * 开脚本时点 tab 走 `preventDefault()`，连一次点击都证伪不了它。这四颗各自钉住新判据的一支：
+   * 目标 id 不存在、`href` 整格缺失、落点不是自己那一块面板、slug 里不许带 `-panel-` 这个前提。
+   * 每一刀都先断言变异真的命中——`s.replace` 没命中时原样返回，那一档会退化成
+   * "注入 nothing 而门禁仍绿"的假牙（本文件开头讲 `首页父项` 那一刀时立过的规矩）。
    */
   {
     name: '索引条 href 退回裸 #slug（产物里没有那枚 id，十枚死锚点的原形状）',
@@ -267,6 +275,42 @@ const idcardCases = [
     artifact: () => shadowEdit('tools/idcard.html', (s) => {
       const next = s.replace('id="tk-tab-bankcard" href="#tk-panel-bankcard"', 'id="tk-tab-bankcard"');
       if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
+      return next;
+    }),
+  },
+  {
+    /**
+     * 第四颗牙（评审回合）：钉住新判据的第二层——**id 存在且滚得动，却落在兄弟面板上**。
+     * 前三颗把 `href` 改成的都是"本页查无此 id"，那只量得到 `ids.has` 那一支；这一颗改成
+     * `#tk-panel-random`（本页真实存在的第五块面板），`ids.has` 是绿的、枚数也是对的，
+     * 页面上却表现为"点『身份证』滚到『随机数据』"——构建不报错、开脚本点 tab 也照常工作
+     * （`preventDefault()` 之后 tab 的选中态跟的是 `data-tk-id`，与 `href` 无关），
+     * 只有禁 JS / 中键新标签 / 把链接复制给别人时才露馅。这正是"落不下去"那一族最难自证的一支。
+     * 循环走到第二页由下面编码页那一颗钉，这一族不再重复。
+     */
+    name: '索引条 href 落到兄弟面板（id 在、落点错）',
+    group: 'DOM',
+    expect: '不是它自己的面板',
+    artifact: () => shadowEdit('tools/idcard.html', (s) => {
+      const next = s.replace('id="tk-tab-idcard" href="#tk-panel-idcard"', 'id="tk-tab-idcard" href="#tk-panel-random"');
+      if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
+      return next;
+    }),
+  },
+  {
+    /**
+     * 第五颗牙：钉的是"锚点形的前提"那一格——slug 自己带 `-panel-`。这一刀只改数据源
+     * （`_data/onlineTools.yml` 的 `slug: uscc` → `uscc-panel-x`），产物不动，所以它会连带把
+     * "yml panels 与 spec.ids 脱钩""控件 id 缺一整块"那些判据一起吵红；这不影响取证——
+     * `expect` 点的是新判据那一句独有的一串（`含 "-panel-"`），出现即证明那一格真的在数 yml。
+     * 现实中错的就是这一形：改数据的人动 yml、忘了动装配层那张表。
+     */
+    name: '面板 slug 带 -panel-（与锚点形的剥法相撞，两种形状一起失效）',
+    group: 'DOM',
+    expect: '含 "-panel-"',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => {
+      const next = s.replace('slug: uscc\n', 'slug: uscc-panel-x\n');
+      if (next === s) throw new Error('yml 里没命中那枚 `slug: uscc`，锚点前提变异作废');
       return next;
     }),
   },
