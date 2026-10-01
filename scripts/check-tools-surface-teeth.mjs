@@ -24,6 +24,14 @@
  * 和一把新判据的刀（按钮文案 ↔ `JSON_ACTIONS.label`）。T-b 那一组是本份台账里唯一动**门禁自己**
  * 的变异，它必须配 `expect` 才有效：分支失效时会同时红好几处，红在"数据源自洽"那一句证不了
  * 判据还在数产物——只有红在「多出这些控件」那一句，才说明 `need` 之外的那一刀真的在工作。
+ *
+ * 段 5 Task 6 起 `diffCases`，并给徽章那一族换了一种数法。前四段每加一页就是"照抄一套同名变异"，
+ * 这次照抄之外还多一件事：第四条条目登记进去以后，`tools.html` 上**同一个字面量出现了两次**
+ * （json 与 diff 都 `14 个动作`，idcard 与 codec 都 `5 块面板`），于是原先"整页找得到就算对"的
+ * 三条判据（徽章 / 面板锚点 / 纯文本要点）集体失去牙——把任何一节改坏，另一节还替它答"是"。
+ * 台账里那句「注入后门禁仍是绿的（假牙）」就是这一格抓出来的。判据的作用域因此收到
+ * `tools.html` 每一小节自己那一段（见 check-tools-surface.mjs 的 `toolsSectionOf`），
+ * 变异刀同步改成 `badgeInSection`：按 `id="online-<slug>"` 定位，不靠出现顺序，且没命中就抛。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -66,6 +74,25 @@ const shadowEdit = (rel, fn) => {
   const p = path.join(SHADOW, rel);
   fs.writeFileSync(p, fn(fs.readFileSync(p, 'utf8')));
 };
+
+/**
+ * 改 `tools.html` 里**某一小节自己**的那枚徽章，别的小节一眼不动。
+ *
+ * 为什么变异刀要跟着判据一起改成"节内"（段 5 Task 6）：徽章判据原本拿整页 `test` 比，
+ * 第四条条目登记后 json 与 diff 的徽章是同一个字面量（都 `14 个动作`），整页 replace
+ * 只改得到排在前面的那一处，而"另一处仍在"恰好让整页判据仍是绿的——这就是台账里
+ * 「注入后门禁仍是绿的（假牙）」那一句。定位用 `id="online-<slug>"` 这个节标记而不是
+ * 出现次数：yml 里条目顺序一改，"第一处"是谁就变了，那一刀会静默挪到别的条目上去。
+ *
+ * 没命中就抛：`String.replace` 找不到目标是**原样返回**的，静默 no-op 正是假牙的制造工序，
+ * 抛出来会让这一组红成"变异脚本自己崩了"，台账不会把它记成通过。
+ */
+function badgeInSection(s, slug, from, to) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const out = s.replace(new RegExp(`(id="online-${esc(slug)}"[\\s\\S]*?)<li>${esc(from)}</li>`), `$1<li>${to}</li>`);
+  if (out === s) throw new Error(`tools.html 的 online-${slug} 小节里没有 <li>${from}</li>，这一刀作废`);
+  return out;
+}
 
 /**
  * baseurl 从产物自己的 canonical 现推（与门禁 `deriveBase()` 同一种取法），不把 `/better-blog`
@@ -319,6 +346,14 @@ const codecCases = [
     group: 'DOM',
     src: () => mutateSrc('dev/js/toolCodec.js', (s) => s.replace("const CONTAINER_ID = 'tk-workspace';", "const CONTAINER_ID = 'tk-box';")),
   },
+  {
+    // 段 5 Task 6 加：徽章判据从"整页出现过"改成"节内出现过"之后，panels 支也得有自己的
+    // 那一刀——证件页与编码页的徽章同样是同一个字面量（都 `5 块面板`），"改第一处"只碰得到
+    // 排在前面的证件页，编码页那一节被改坏时台账仍是绿的。
+    name: '编码小节徽章被改（与证件小节同串，整页 replace 碰不到这一处）',
+    group: '收录',
+    artifact: () => shadowEdit('tools.html', (s) => badgeInSection(s, 'codec', '5 块面板', '4 块面板')),
+  },
 ];
 
 /**
@@ -367,7 +402,7 @@ const jsonCases = [
   {
     name: 'tools.html 的徽章数字与数据源脱钩（改模板不改 yml 的形状）',
     group: '收录',
-    artifact: () => shadowEdit('tools.html', (s) => s.replace('<li>14 个动作</li>', '<li>12 个动作</li>')),
+    artifact: () => shadowEdit('tools.html', (s) => badgeInSection(s, 'json', '14 个动作', '12 个动作')),
   },
   {
     name: 'tools.html 的纯文本要点少吐一条（循环吞掉某一格）',
@@ -493,7 +528,44 @@ const jsonCases = [
   },
 ];
 
-const cases = [...idcardCases, ...codecCases, ...jsonCases];
+/**
+ * 段 5 Task 6 起头：对比页那一格的四把刀。
+ *
+ * 为什么现在就得加，而不是等 Task 8 那一整套——这一格落地本身就是**让上一组刀变成假牙的那件事**
+ * （两条 workbench 条目并排，徽章同串），所以"判据收紧"与"新条目自己那一刀"必须同一次落地，
+ * 否则台账里留下的是"改完判据没人复验"的形状。全套同名变异（sitemap / llms / 导航 / 图标 /
+ * 控件 id / 按钮文案）按段 4 的先例在 Task 8 补齐。
+ */
+const diffCases = [
+  {
+    name: '对比页 yml title 与 front matter 漂移',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('title: 文本对比工具 · 两份文件差异与JSON比对', 'title: 文本对比工具')),
+  },
+  {
+    name: '对比页 yml url 与 front matter permalink 不同源',
+    group: '页面源',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('url: /tools/diff.html', 'url: /tools/diff-x.html')),
+  },
+  {
+    name: '对比小节徽章被改（与 JSON 小节同串，整页判据抓不到）',
+    group: '收录',
+    artifact: () => shadowEdit('tools.html', (s) => badgeInSection(s, 'diff', '14 个动作', '12 个动作')),
+  },
+  {
+    // 与 T-d 同一格，但打在 diff 那一节：`  actions: 14` 在两节里各一次，整页 replace 只碰
+    // 排前面的 json。锚点用 `slug: diff` 往后找，条目顺序变了也不会静默换靶子。
+    name: '对比条目 actions 写成 13（DIFF_ACTIONS.length 还是 14）',
+    group: 'DOM',
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => {
+      const out = s.replace(/(slug: diff[\s\S]*?)\n  actions: 14/, '$1\n  actions: 13');
+      if (out === s) throw new Error('yml 的 diff 条目里没找到「  actions: 14」，这一刀作废');
+      return out;
+    }),
+  },
+];
+
+const cases = [...idcardCases, ...codecCases, ...jsonCases, ...diffCases];
 
 let pass = 0;
 const problems = [];

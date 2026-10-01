@@ -190,3 +190,40 @@
     - 与 TypeScript 接口、YAML、XML、CSV 互转，转回来也走同一块粘贴框
     - 输入只在本地解析：不发请求、不上传，默认不写 localStorage，勾了「记住上次输入」才写本机
   panels: []
+# ── 段 5：文件与文本对比页。形状与上面 JSON 那一条同档（`layout: workbench` + `panels: []` +
+#   `actions` / `spec.actions` 那两格），三处名字不同，都不是笔误：
+#   ① `prefix: df`——这一页第一次让**页内两栏共用一个前缀**：A 栏、B 栏与那一栏控制都住在同一块
+#      工作区里，33 格 id 全从 `df` 拼出（Z28 的换前缀自证量的就是这一格，改它整页 id 与四条
+#      `data-df-*` 的值一起换，门禁仍绿）；
+#   ② `spec` 指向 `diffWorkbench.js` 的 `DIFF_SPEC` / `DIFF_PANEL_IDS` / `DIFF_ACTIONS`——
+#      `actions: 14` 与那张表的长度由门禁⑤「DOM」逐条比对，页头统计与 tools.html 徽章印的都是它；
+#   ③ 这一页是四页里唯一**没有存储**的一条：不读不写 localStorage（勾「记住上次输入」那一档在本页
+#      根本没有），也是唯一带两只读文件的手的一页。所以它的合规那一行写的是「不读写 localStorage」，
+#      与 JSON 页那句「默认不写」不是同一句，改模板时别把它们并成一条。
+- slug: diff
+  url: /tools/diff.html
+  name: 文件与文本对比工具
+  tagline: 逐行差异 / 行内高亮 / 并排与行内两视图 / 按 JSON 值比对
+  title: 文本对比工具 · 两份文件差异与JSON比对
+  h1: 文件与文本对比工具
+  icon: /assets/img/tools/diff-tool.svg
+  status: ready
+  prefix: df
+  layout: workbench
+  actions: 14
+  spec:
+    module: dev/js/tools/diffWorkbench.js
+    table: DIFF_SPEC
+    ids: DIFF_PANEL_IDS
+    actions: DIFF_ACTIONS
+  desc: >-
+    一块工作台，两份输入并排摆着逐行对齐：改动行再做行内逐字高亮，未变的行按上下文三行、五行或只看差异
+    折叠成「省略 N 行」，点开就全部展开。视图有并排两栏与行内单栏两档，口径有按文本逐行与按 JSON 值两档，
+    后者忽略键序与缩进，给六列变更表。粘贴、选文件、拖放三条路都在浏览器里读，非 UTF-8 与超 5 MiB 当场拒并说明原因。
+  features:
+    - 并排两栏逐行对齐，改动行再做行内逐字高亮，未变行折叠成「省略 N 行」并可点开
+    - 行内单栏视图把一处改动摊成删与加两行，窄屏和长行读起来不用左右对照
+    - 按 JSON 值比对那一档忽略键序与缩进，给键、类型、旧值、新值那六列变更表与代价说明
+    - 粘贴、选文件、拖放三条路都只在本机读，非 UTF-8、含空字节、超 5 MiB 各有一句明确拒绝
+    - 不上传、不发请求、不读写 localStorage，结果可复制也可下载成 .diff 文件
+  panels: []

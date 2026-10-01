@@ -216,6 +216,20 @@ const FILE_TARGETS = [
   // ② 那三条"没有"——无顶层 `export`、无 `DOMContentLoaded`、`localStorage` 与 `Date.now(` 两本一起
   // 归零——最后一条是"这一页不做记住上次输入，所以'输入不出本机'连一条退路都不必写"的字节见证。
   'dev/js/toolDiff.js',
+  // ── 段 5 Task 6：页面源、样式、第四枚图标落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走）。
+  // 这三格与段 2/3/4 的 `tools-idcard.html` / `tools-codec.html` / `tools-json.html`、三枚 svg、
+  // `toolkit.scss` / `toolJson.scss` 凑成"四页各按各的 spec 长"的现场见证。本页那两格另有两处
+  // **只活在这里**的事实：① `tools-diff.html` 是 33 格 id 与十四枚按钮文案的第二现场——门禁⑤ 核的是
+  // **产物**，改一处文案构建不会红（它比的就是这一份源），镜像让"改了页面没改 spec"这一步留下字节证据；
+  // ② `toolDiff.scss` 是全仓库 `--df-row-h` 的**唯一赋值处**，入口 `rowHeightPx()` 只读它一次，
+  // §Z 的跳转 `scrollTop` 换算与样式画的行高共用那一个整数——那句被 px→vw 改写（黑名单少一串）时，
+  // 红的是这一格镜像与 postcss 那一格，§Z 一条都不会红。
+  'tools-diff.html',
+  'dev/sass/toolDiff.scss',
+  // 第四枚 svg：门禁⑥ 的「图标」那一组把 stroke/fill 里每个色值拿去比 tokens.scss 现读的八格底色，
+  // 而它读的是**磁盘**那份；镜像在这里多扛一条：XML 注释禁连续两划那条硬规矩的第四个现场
+  //（2026-09-28 证件页那枚破图，判据补的就是这一档）。
+  'assets/img/tools/diff-tool.svg',
 ];
 
 /**

@@ -1,0 +1,33 @@
+<!-- 顶栏「工具箱」下拉与 /tools.html 小节里「文件与文本对比工具」那一行的图标。
+     画成一条中缝分隔的左右两栏短行，两栏的行长短不一：这一页做的是「两份东西摆一起看哪几行不一样」，
+     图形要说的就是那几处不一样，所以不画放大镜、不画文件夹、不画箭头（那些读出来的是「搜索」或「同步」）。
+     三枚同族图标各占一种形状——卡片、尖括号加斜杠、花括号——这一枚是第四种，读图的人在下拉里
+     先读到名字，图形只负责把这一族页面互相区分开。
+
+     与另三枚同一条硬规矩：XML 注释里禁止出现连续两个连字符，一写整个文件就解析失败，
+     而 SVG 是被 <img> 引用的，解析失败在浏览器里直接是破图（2026-09-28 现场就是证件页那份
+     注释里写了带 var 前缀的令牌名，xmllint 报六处 parser error，下拉与产品页两处同时破图，
+     而收录面门禁当时退 0）。所以这段通篇把底色令牌写成 surface / surface-2，不写它们那两划
+     开头的形式；连中缝那一格的自定义属性也写成 df row h，不在这里写它的原名。
+
+     颜色与另三枚取同一个 #737B85，理由也同一档：这一族图标通过 <img src> 引用，
+     里面的 SVG 拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color
+     （近黑），落在夜间 surface-2 上是 1.35:1，等于看不见。烘色则两档都能读，代价是
+     不跟主题变——下拉里这几枚本来也只是区分条目用。
+
+     #737B85 的取值口径同 assets/img/tools/idcard-tool.svg 那段注释：把 tokens.scss 里
+     四档纸色温的 surface 与 surface-2 共 8 格逐格算对比度，取"最差那组尽量高"的那一档，
+     WCAG 1.4.11 对图形对象要 3:1（这几处图标都带 alt=""，属装饰，实际门槛更低）。
+     复算不用手抄：跑 `node scripts/check-tools-surface.mjs`，它的「图标」那一组按条目现读
+     tokens.scss 凑底色集合、现算这八组比值，并把本文件的 stroke 与 fill 里每个色值都过一遍。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="#737B85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="文件与文本对比工具">
+    <path d="M12 4.5v15" stroke-width="1"/>
+    <path d="M3.5 8h5"/>
+    <path d="M3.5 12.5h5"/>
+    <path d="M3.5 17h2.6"/>
+    <path d="M15.5 8h5"/>
+    <path d="M15.5 12.5h2.6"/>
+    <path d="M15.5 17h5"/>
+</svg>

@@ -1,0 +1,345 @@
+---
+layout: default
+title: 文本对比工具 · 两份文件差异与JSON比对
+seo_description: 两份文本并排逐行对齐，改动行再做行内逐字高亮，未变行折叠成「省略 N 行」；另有行内视图与按 JSON 值比对的档。粘贴或选本地文件都在浏览器里读，不上传、不发请求。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/diff.html
+# tool 指向 _data/onlineTools.yml 里的那一条：大标题、id 前缀、动作枚数都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: diff
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/sass/toolDiff.scss -> toolDiff.min.css、dev/js/toolkitCore.js -> toolkitCore.min.js、
+     dev/js/toolDiff.js -> toolDiff.min.js。GitHub Pages 在 Linux 上构建，写错一个字母
+     本地看不出来、线上一律 404，勿改。
+
+     两本 CSS 的先后与编码页、JSON 页同一条口径：公共层在前、本页独有层在后。
+     `toolkit.min.css` 供的是 .tk-content / .tk-btn / .tk-field / .tk-out / .tk-help 这一族，
+     `toolDiff.min.css` 只补 .df-* 那一族本页独有的形状（两栏行流、折叠条、行内高亮、变更表），
+     同名规则一条都不许有——公共层是段 1 立好的，本段一个字节都不动它（§0.5：证件页首屏
+     余量只剩几个百分点，往共用层加一条就是把两页的预算一起改坏）。
+
+     它们排在 header include **之后**而不是 <head> 里（同 JSON 页 :21 那条口径）：§7 首屏那一格
+     判的是"本页新加进阻塞集的东西"，搬进 <head> 就是当场给这一页添一件阻塞件。
+
+     两条 <script> 的先后是硬前提：toolkitCore 先挂 window.Tk，入口再读它。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolDiff.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+{%- comment -%}
+这一页只有一个工作区（`layout: workbench`：没有索引条，控件清单只活在装配层那张 `DIFF_SPEC` 里），
+所以那一块的短名在这里手打一次。它是 `DIFF_PANEL_IDS` 的第二处声明处——下面 33 格 id 全部从这一枚
+变量拼出，改这一行整页跟着换；而 `data-df-ids` 那一格与它必须同值，门禁⑤「DOM」组拿
+`data-df-ids` 比 `DIFF_PANEL_IDS.join(',')`，不一致红在门禁而不是红在页面上。
+{%- endcomment -%}
+{%- assign wbp = 'workbench' -%}
+
+<section class="g-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">并排 · 行内 · 折叠 · JSON 按值</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        {%- comment -%}
+        这三格读数**不许**照抄 JSON 页那一族（那一页第三格是「1000 层深度闸门」，是它自己的
+        `MAX_DEPTH`；这一页没有深度闸门这一说，只有行级与行内两级预算）。三个数各有出处，
+        抄错就不是一句难堪的话而是一句假话：
+          · `tk.actions` 由门禁⑤ 比 `DIFF_ACTIONS.length`（本段实测 14）；
+          · 5 MiB 与 20 万行是 `dev/js/tools/diff-core.js` 的 `MAX_INPUT_BYTES`(5242880) /
+            `MAX_INPUT_LINES`(200000)，**每一侧各一份**，所以第二格写的是「单侧上限」。
+            重算口径：`node -e 'const M=await import("./dev/js/tools/diff-core.js");console.log(M.MAX_INPUT_BYTES/1048576, M.MAX_INPUT_LINES)'`
+        这里也不写「0 网络请求」：那一格在 09-29 已被改口成「输入不出本机」，理由写在 tools.html
+        的徽章注释里（每一页的 head 都还带着图标字体与统计两条外链）。
+        {%- endcomment -%}
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.actions }}</strong><span>个动作</span></li>
+            <li><strong>5 MiB</strong><span>单侧输入上限</span></li>
+            <li><strong>20 万</strong><span>单侧行闸门</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段与证件页、编码页、JSON 页那几处的角色相同：§5.5 的"固定一行提示"在**禁用脚本时也读得到**
+    的那一份。这一句比 JSON 页那一句还好写：这一页**根本没有存储**——不做「记住上次输入」，
+    `toolDiff.js` 与 `diffWorkbench.js` 两本里 `localStorage` 与 `Date.now(` 各出现 0 次
+    （§Z 的 Z15 钉的就是这一格，它是数出来的、不是承诺出来的）。所以这里可以整句写"不读写"，
+    而不必像 JSON 页那样补一句"勾了才写本机"。
+    剪贴板那一格也要说准：这一页只**写**（复制差异、栏内复制），从不**读**剪贴板。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的对齐、行内高亮与 JSON 比对全部在浏览器里算：<strong>不发请求、不上传、不读剪贴板</strong>。
+        粘贴、拖放、选本地文件三条路都在这一台机器上完成；单侧输入上限 5 MiB、20 万行，
+        超限整体拒绝并说明超了多少，不截断悄悄算。<strong>不读写 localStorage</strong>：
+        这一页没有"记住"这一档，关掉标签就什么都不剩。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：两个粘贴框、十四枚按钮与那三枚下拉都在，但对比要在浏览器里算，
+            按下不会出结果；右侧那一栏空着是预期，不是坏了。正文这几段与下面那六句口径说明照常读得到。
+        </p>
+    </noscript>
+    {%- comment -%}
+    坏消息那一格：入口的 `runGuarded` 与启动失败共用它（`toolDiff.js` 口径 3 与 4），默认 hidden，
+    由脚本覆写。这一页没有面板错误条——那一块区域就是整页，所以坏消息只写这一句，
+    其余部分照常可用。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+
+    <div class="df-workspace" id="{{ tk.prefix }}-workspace"
+         data-df-ids="workbench" data-df-prefix="{{ tk.prefix }}"
+         data-df-label="{{ tk.h1 }}" data-df-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        三栏：A 与 B 各是一栏输入，第三条 `.df-side--bar` 装控制栏与结果区。
+        ≤900px 收成上下堆叠（`toolDiff.scss` 文末那一组）。
+
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?df-in-workbench-a-text=…，而那一串里装的正是用户粘进来的两份内容——这一页最不该发生的事。
+        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`），所以这一页**不写** .tk-kbd
+        那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行），
+        写一句不存在的捷径比不写更坏。
+
+        两栏的 id 短名里编了栏位（`a-text` / `b-file`），而不是把栏位做成 id 的一维：
+        门禁⑤ 的控件公式 `{p}-in-{面板}-{控件}` 没有栏位那一格，多塞一维就红（§0.6 记的偏差）。
+
+        那一轮 `for` 的清单走 `'a,b' | split: ','`，不走 `(array: 'a,b')`：后一种是 Shopify 主题液的
+        写法，本仓库的 liquid（Jekyll 4 那份）解析到冒号就报 `Expected dotdot but found colon`，
+        而**报错的 tag 渲染成空**——2026-10-01 现场：产物里 `df-area` 零命中，A/B 两栏整块不见，
+        构建退 0、页面看着只是一段空正文。（同一段警告在 `bundle exec jekyll build` 的输出里，
+        别只盯退出码。）
+        {%- endcomment -%}
+        {%- assign df_sides = 'a,b' | split: ',' -%}
+        {%- for side in df_sides -%}
+        {%- assign S = side | upcase -%}
+        <section class="df-side df-side--{{ side }}" aria-labelledby="{{ tk.prefix }}-h-{{ side }}">
+            <h2 class="df-side__title" id="{{ tk.prefix }}-h-{{ side }}">{{ S }} 侧输入</h2>
+            <div class="tk-form df-doc" role="group" aria-labelledby="{{ tk.prefix }}-h-{{ side }}">
+                <div class="tk-field tk-field--wide">
+                    <label for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-text">{{ S }} 侧文本</label>
+                    {%- comment -%}
+                    这一族粘贴框**不带行号槽**（`DIFF_SPEC` 里那两格写的 `gutter: false`）：
+                    行号在这一页住在结果区的行块里，输入区的行号对"两份待比文本"没有意义——
+                    而且两侧行数不等时，两套行号会各自数一遍，读的人先要分辨哪一套是哪一侧的。
+                    门禁⑤ 那一格退出闸就是为这一档开的（段 5 §0.3）。
+                    {%- endcomment -%}
+                    <textarea class="df-area" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-text" rows="14"
+                              autocomplete="off" autocorrect="off" autocapitalize="off"
+                              spellcheck="false" placeholder="把第 {{ S }} 份内容贴在这里，或从文件管理器拖一个进来"></textarea>
+                    {%- comment -%}
+                    读数那一格由 `refreshGate` 整段重写成「N 行 · 大小」，静态值只是禁用脚本时的
+                    那一份真相（空输入：0 行 · 0.0 KB，与挂载后第一次读数逐字同形）。
+                    同侧那枚栏内复制按钮走的是 `copy` 节点族（`df-copy-…-a`），灰不灰由浏览器
+                    有没有 `navigator.clipboard` 决定，不靠这行字承诺。
+                    {%- endcomment -%}
+                    <p class="df-status" id="{{ tk.prefix }}-status-{{ wbp }}-{{ side }}"
+                       aria-live="polite">0 行 · 0.0 KB</p>
+                    <span class="tk-help">这一格只数行与字节，不对齐。按「重新对比」才算一次。</span>
+                    <div class="df-namerow">
+                        <label class="df-namerow__label" for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-name">文件名</label>
+                        {%- comment -%}
+                        那一格是**可编辑**的：它写进复制与下载得到的那一份 unified 文本的
+                        `--- a/xxx` 行，也显示在状态读数里。选文件时装配层会把真名填进来，
+                        但用户改它不会有任何一处报错——它只是那一份导出的署名。
+                        {%- endcomment -%}
+                        <input class="df-name" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-name" type="text"
+                               autocomplete="off" spellcheck="false" placeholder="例如 left.txt">
+                    </div>
+                    <div class="df-filerow">
+                        <label class="df-filerow__label" for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-file">本机文件</label>
+                        {%- comment -%}
+                        故意不写 `accept`：这一页读的是字节再判编码（UTF-8 与 NUL 两道），
+                        扩展名过滤会把 `.log`、无扩展名的文件、以及用户自己知道的文本挡在门外，
+                        而"是不是文本"这件事本机那一次读取才答得上来。
+                        {%- endcomment -%}
+                        <input class="df-file" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-file" type="file">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-btn-{{ wbp }}-file{{ side | upcase }}">选 {{ S }} 侧文件</button>
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-{{ wbp }}-{{ side }}">复制这一栏</button>
+                    </div>
+                    <span class="tk-help">那一枚按钮打开的是旁边这台选择器；文件只在这一台机器上读，读完把正文填进上面的框。</span>
+                </div>
+            </div>
+        </section>
+        {%- endfor -%}
+
+        <section class="df-side df-side--bar" aria-labelledby="{{ tk.prefix }}-h-bar">
+            <h2 class="df-side__title" id="{{ tk.prefix }}-h-bar">对比与控制</h2>
+
+            {%- comment -%}
+            按钮文案与 `DIFF_ACTIONS[i].label` 逐字相同（门禁⑤「DOM」组那一族对账量的就是这两处
+            同字）。分组按 `group` 那五族走：run / fold / goto / file / copy，其中 file 那两枚
+            画在上面两栏里（id 不含栏位，位置跟着语义走更省事），copy 那两枚分在这里与上面。
+            折叠那三枚是 `context` 下拉的**快捷键**：写回同一枚 select、不另存一份状态（红线 6），
+            所以它们的文案与下拉那三档用同一批词，用户读到的是同一件事的两种按法。
+            {%- endcomment -%}
+            <div class="df-bar">
+                <div class="df-bar__group df-bar__group--mode" role="group" aria-label="口径与视图">
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-mode">口径</label>
+                        {%- comment -%}
+                        `<option>` 的 value 必须与 `DIFF_SPEC` 里那三格的 `options` 逐个对应
+                        （mode: text/json；layout: side/inline；context: diff/3/5/all）：
+                        文案归 HTML、取值归装配层。选错一档时 `selectOf` 那一句当场抛上去
+                        （红线 5 的第二条路），而不是安静地按另一档算。
+                        第一枚 `<option>` 就是**默认档**：`DEFAULTS` 是 mode=text、layout=side、
+                        context=3，而 `CONTEXT_VALUE` 的键序是 diff/3/5/all——照键序排下来的话
+                        第一档成了「只看差异」，禁 JS 读到的默认档与启 JS 算出来的默认档就此分家。
+                        所以那一格必须显式 `selected`。
+                        {%- endcomment -%}
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-mode">
+                            <option value="text">按文本逐行</option>
+                            <option value="json">按 JSON 值</option>
+                        </select>
+                    </span>
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-layout">视图</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-layout">
+                            <option value="side">并排两栏</option>
+                            <option value="inline">行内单栏</option>
+                        </select>
+                    </span>
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-context">上下文</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-context">
+                            <option value="diff">只看差异</option>
+                            <option value="3" selected>上下文 3 行</option>
+                            <option value="5">上下文 5 行</option>
+                            <option value="all">全部展开</option>
+                        </select>
+                    </span>
+                </div>
+
+                {%- comment -%}
+                两枚模式说明挂在 `data-df-when` 上：装配层的 `syncGate` 只按
+                `DIFF_SPEC…switch.targets` 那一族翻 `hidden`，所以它在另一档里是整段消失，
+                不是留下一句没人答的话。`[hidden]` 那一行样式在 toolDiff.scss 里显式补过——
+                `.tk-help` 本身没有 display 声明，UA 默认顶得住，但那一条依赖的是"没人给它写
+                display"，写死更省事（JSON 页 `.jt-query[hidden]` 同一条口径）。
+                {%- endcomment -%}
+                <p class="tk-help df-mode" id="{{ tk.prefix }}-when-{{ wbp }}-text" data-df-when="text">
+                    文本档：两侧按行对齐，改动行再做行内逐字高亮，未变行按上面那一档折叠。
+                    粘贴框里贴什么读什么，不挑语言、不解析语法。
+                </p>
+                <p class="tk-help df-mode" id="{{ tk.prefix }}-when-{{ wbp }}-json" data-df-when="json">
+                    JSON 档：两侧各读一份，再按<strong>值</strong>逐格比，所以格式化、键顺序、缩进这些
+                    写法差异都不算改动；坏 JSON 会点名是第几行第几列，并让你切回文本档。
+                    这一档没有"第几处差异"与"上下文"，那六枚按钮跟着灰着。
+                </p>
+
+                <div class="df-bar__group" role="group" aria-label="对比动作">
+                    <button class="tk-btn" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-compare">重新对比</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-swap">交换两侧</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-clear">清空输入</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-reset">恢复默认档</button>
+                </div>
+
+                <div class="df-bar__group" role="group" aria-label="折叠与跳转">
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-expand">全部展开</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-fold">上下文三行</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-diffOnly">只看差异</button>
+                    <span class="df-bar__sep" aria-hidden="true"></span>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-firstDiff">第一处差异</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-prevDiff">上一处</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-nextDiff">下一处</button>
+                </div>
+
+                <div class="df-bar__group df-bar__group--opt" role="group" aria-label="归一化与导出">
+                    <span class="df-opt df-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-ws">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-ws" type="checkbox"> 忽略空白
+                        </label>
+                    </span>
+                    <span class="df-opt df-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-case">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-case" type="checkbox"> 忽略大小写
+                        </label>
+                    </span>
+                    <span class="df-bar__sep" aria-hidden="true"></span>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-copyDiff">复制差异</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载 .diff</button>
+                </div>
+            </div>
+
+            <div class="tk-outwrap">
+                {%- comment -%}
+                这一栏的正文全部由装配层写进来（`paint` 是整页**唯一**一处 `innerHTML` 出口，
+                结论、读数、两块行流、折叠条与代价说明都从它走），骨架给的是**空的**那一格。
+                它同时是本页唯一的滚动容器：跳转那三枚算的是 `scrollTop = 视觉行数 × 行高`，
+                行高的权威在 `toolDiff.scss` 的 `--df-row-h`，由入口读一次注入（Z15 数那一格）。
+                所以这一格的高度必须写死在样式里而不是随内容长——没有滚动就没有上界，
+                那三枚按钮就永远跳不动（同 JSON 页 `.jt-tree` 那一段的理由）。
+                `aria-live="polite"` 与另三页同档：一次动作换一栏，不该打断用户正在读的东西。
+                {%- endcomment -%}
+                <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
+                   aria-live="polite">还没有比较</p>
+                <div class="tk-out df-out" id="{{ tk.prefix }}-out-{{ wbp }}-bar"
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+            </div>
+            <h2 class="df-side__title df-side__title--sr" id="{{ tk.prefix }}-h-out">差异结果</h2>
+        </section>
+    </div>
+
+    {%- comment -%}
+    下面那六句是**页内静态口径**：与结果区里那一列 `df-notes` 不重复，两处的职责不同——
+    这一列说的是"这一页在哪一档上打了折"（永远全量、禁脚本也读得到），结果区那一列由
+    `notesOf()` 只挑**这一次真的发生了**的那几句（degraded、inlineSkipped、ignored、
+    finalNewline 各按条件出现，末尾两句恒定）。把两处并成一处只有两种坏结果：
+    静态那一列被运行时覆盖，或运行时那一列变成永远全量。措辞同源但不是一个句子，
+    改这一列不必改 `DIFF_NOTES`，反之也一样。
+    {%- endcomment -%}
+    <section class="df-terms" aria-labelledby="{{ tk.prefix }}-h-terms">
+        <h2 class="tk-panel__title" id="{{ tk.prefix }}-h-terms">这一页在哪一档上打了折</h2>
+        <ol class="df-terms__list">
+            <li>行对齐用的是本站自实现的 Myers 最短编辑脚本，代价上限 2000：越线那一段按「整块删 + 整块增」给出，行数一行不会少，只是不再替你把最相似的行两两配起来。</li>
+            <li>行内逐字高亮另有一道预算（单对 4000 个 token、整篇三百万格）：越线的那些行只按整行着色，读数里写「未行内 N」告诉你少了多少。</li>
+            <li>折叠只是阅读形状：只看差异 / 上下文 3 行 / 5 行 / 全部展开四档改变"看到多少行"，不改变差异本身；复制与下载走的是你当前这一档。</li>
+            <li>勾了「忽略空白」或「忽略大小写」之后，"相同"是一个被归一化过的结论：那些行的原文仍有差别，只是没有计入差异统计，被抹平的行数单列在读数里。</li>
+            <li>「复制差异」与「下载 .diff」得到的是一份按阅读习惯排的 unified 形状文本，不承诺能被 <code>git apply</code> 接住——本站不校验上下文行，也不生成可打的补丁。</li>
+            <li>两份内容都只在这一台机器上读：粘贴、拖放、选本地文件三条路都不发请求、不上传；这一页也不读写 localStorage，关掉标签什么都不留下。</li>
+        </ol>
+    </section>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的视图层与交互层挂成 window.Tk（这一页只吃 `view.esc` 那一格），
+入口只装配本页业务。两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，
+且必须排在正文之后——HTML 解析到这里时骨架节点已经存在，装配层第一件事就是去找那 33 格 id。
+`diffView.js` / `diffWorkbench.js` 已经打进 `toolDiff.min.js` 这一本里，**绝不再挂进 window.Tk**：
+两个入口 reach 同一模块，Rollup 切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolDiff.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}

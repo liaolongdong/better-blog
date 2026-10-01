@@ -48,7 +48,7 @@
  *                CRLF 与末行换行、行内 token 与预算、配对与五个统计量、unified 与折叠（段 5 Task 2）
  *   §Y JSON 感知比对 18 —— `diff-json.js`：与 `json-core` 的**对拍**（Y1，三件同结论）、键顺序无关、
  *                类型变化单列、Pointer 同规则、预览截断不切代理对、数组按索引、两个预算闸门（段 5 Task 3）
- *   §Z 对比页视图层与装配层 28 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
+ *   §Z 对比页视图层与装配层 29 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
  *                行内高亮各半边 Z5，CRLF 符号与折叠条同源 Z6、Z7，转义与属性位 Z8、Z9，JSON 表六列与
  *                代价说明同屏 Z10，坏输入一句话 Z11，读数与结论的词表 Z12）；后半 Task 5 续写的 16 判
  *                钉 `diffWorkbench.js` / `toolDiff.js`：import 面与 reach 唯一（Z13）、装配层零环境词
@@ -56,9 +56,10 @@
  *                三栏 nodes 与十四枚动作的名单（Z17）、挂载期零计算（Z18）、复制与下载同字（Z19）、
  *                两档布局共一份行流（Z20）、折叠四档单一口径（Z21）、跳转与钳位（Z22）、
  *                交换/恢复默认/清空（Z23）、归一化只进判等（Z24）、JSON 档整屏（Z25）、
- *                两类失败分两条路（Z26）、文件读手的拒读时机（Z27）、换前缀整页自证（Z28）。
+ *                两类失败分两条路（Z26）、文件读手的拒读时机（Z27）、换前缀整页自证（Z28）；
+ *                Task 6 补 Z29（折叠条那枚按钮真的能点开，且点开的就是「全部展开」）。
  *                **节名不另起，先例是 §U**——另起一节会让下面那张表少算一格
- *   合计 438。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   合计 439。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -14852,6 +14853,23 @@ function zPage({ prefix = Z_P, seed = {}, drop = [] } = {}) {
     pickFile: (side, file) => { const el = ctl(`${side}-file`); el.files = file ? [file] : []; return el.dispatch('change', {}); },
     /** 拖放落点：每一侧的粘贴框自己 */
     drop: (side, files) => ctl(`${side}-text`).dispatch('drop', { dataTransfer: { files }, preventDefault: () => {} }),
+    /**
+     * 点结果区里的一条折叠条。真浏览器里 `evt.target` 就是那枚 `<button class="df-fold">`，
+     * 而假 DOM 的 `innerHTML` 只是个串、里面根本不长节点，所以这一发自己造一枚带那格属性的按钮再派发
+     * ——它量的仍是"装配层在那一发里做了什么"。`attr` 允许外部指定属性名（Z29 用它试"换了前缀
+     * 还认不认得旧地址"那一刀）。
+     */
+    clickFold: (skip = 7, attr) => {
+      const box = at(zOut(prefix, Z_PANEL, Z_BAR));
+      if (!box) return null;
+      return box.dispatch('click', { target: mk('button', '', { [attr || `data-${prefix}-skip`]: String(skip) }) });
+    },
+    /** 点结果区里一处**不是**折叠条的落点：行块只带 `data-{prefix}-ln`，点它不许动档 */
+    clickRow: (ln = 3) => {
+      const box = at(zOut(prefix, Z_PANEL, Z_BAR));
+      if (!box) return null;
+      return box.dispatch('click', { target: mk('div', '', { [`${`data-${prefix}-ln`}`]: String(ln) }) });
+    },
     madeOf: (tag) => created.list.filter((el) => el.tagName === String(tag).toUpperCase()),
   };
 }
@@ -15216,6 +15234,13 @@ test('Z23 整理三枚：交换连文件名一起换、恢复默认档不碰输�
   m.page.click('clear');
   assert.equal(m.page.area('a'), '');
   assert.equal(m.page.name('a'), '');
+  assert.equal(m.page.ctl('a-file').value, '', '清空要连文件那一格一起清：留着上一次的选择，下一次「读入」读的是旧文件');
+  // 真浏览器里 `input.files` 是 FileList 的**只读访问器**，给它赋 `[]` 当场
+  // `TypeError: Failed to set the 'files' property`——而假 DOM 量不到这件事（那里的 `files`
+  // 是个普通属性，赋什么都行）。清空那一步会停在第一栏、第二栏没清，页面上是一句坏消息。
+  // 这一格钉的是源码里不许再出现那一形写法：清文件只有 `value = ''` 那一条正路。
+  assert.equal(/\.files\s*=[^=]/.test(wCode(Z_ASSEMBLY)), false,
+    '装配层里出现了 `.files = …` 的赋值：那一格在真页面上读不回来');
   assert.equal(m.page.disabled(`${Z_P}-in-workbench-a-file`), false, '清空输入不许顺手把文件那一格也禁用——那是「这台浏览器不给读」那一档');
   assert.equal(m.page.btnDisabled('copyDiff'), true, '清空之后导出要重新灰回去');
   assert.equal(m.page.out().includes(`${Z_P}-row`), false, '清空要回到空态那一句话，而不是留着上一份结果');
@@ -15342,6 +15367,16 @@ test('Z27 文件三件：拒在 read 之前、非 UTF-8 明说、拖放同一条
   await zSettle();
   assert.deepEqual(d.reads, ['dropped.txt'], '拖放与选文件必须是同一条路：两条路迟早只修好一条');
   assert.equal(d.page.name('a'), 'dropped.txt');
+  // 「选 A / B 侧文件」那两枚只**转发**、不自己读：真页面上打开选择器的那只手是旁边那枚原生
+  // input，读的那一发归 `change`。假 DOM 的 `el.click()` 会往 `clicked` 里留痕，所以这一判
+  // 量得到"按了哪一枚"；而 `reads` 那一本账钉的是"转发不等于读"。
+  const fwd = zMount({ seed: { 'b-text': 'beta' } });
+  fwd.page.click('fileB');
+  assert.deepEqual(fwd.page.clicked, [`${Z_P}-in-workbench-b-file`],
+    '那一枚按钮的文案是「选 B 侧文件」，它必须去开那台选择器，而不是复读自己那一格');
+  assert.equal(fwd.reads.length, 0, '打开选择器不算读文件：readFile 一次都不许发生');
+  assert.equal(String(fwd.page.read('b')).includes('没有读到文件'), false,
+    '第一次按就当街报错，等于把每一次首发都变成一次坏消息');
   const none = zMount({ readFile: null });
   assert.equal(none.page.btnDisabled('fileA'), true, '这台浏览器没有那两只读手，按钮就该灰着');
   assert.equal(none.page.btnDisabled('fileB'), true);
@@ -15366,4 +15401,42 @@ test('Z28 换前缀自证：整页地址跟着 prefix 走，而产物里一处 d
   assert.match(String(m.page.line()), /比完了/);
   assert.equal(wCount(out, `${Q}-row `), 6, '两栏各三份行块：这一格数的就是「整页跟着前缀走」');
   assert.equal(wCount(out, `${Q}-fold--`), 0, '三行两份、上下文三行：一块到底，不该有折叠条');
+});
+
+test('Z29 折叠条真的能点开：那一发就是「全部展开」，不重算，而且只认带 skip 的那一枚', () => {
+  const m = zMount({ seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  m.page.click('compare');
+  m.page.click('diffOnly');
+  const s0 = m.wb.state();
+  const g0 = m.guarded.length;
+  assert.ok(s0.hunks.length > 1, '前提：只看差异那一档确实折出了不止一块');
+  assert.ok(wCount(m.page.out(), `${Z_P}-fold--`) > 0, '前提：页面上确实画出了折叠条');
+  // 先试一处"不是折叠条"的落点：行块只带 `data-df-ln`，结果区里除了那枚按钮什么都不该动档。
+  // 这一判是防"把容器上的 click 当成整块的重画信号"——那一形写法在这一格里同样能过"能展开"。
+  m.page.clickRow();
+  assert.equal(m.page.val('context'), 'diff', '点行块不许动上下文那一档：结果区里只有折叠条是按钮');
+  assert.equal(m.guarded.length, g0, '不该发生的一发不许记进 guarded 的账：那一本数的是真做过的动作');
+  m.page.clickFold(24);
+  assert.equal(m.page.val('context'), 'all', '点开折叠条要写回那枚下拉：状态有第二份口径就是红线 6 破');
+  assert.equal(wCount(m.page.out(), `${Z_P}-fold--`), 0, '展开之后一条折叠条都不该留');
+  const all = dHunks(dLines(Z_A40, Z_B40, {}), Infinity);
+  assert.equal(wCount(m.page.out(), `${Z_P}-row `), all.reduce((acc, h) => acc + h.rows.length, 0) * 2,
+    '两栏各四十行：折叠只是阅读形状，展开之后行数一行不会少');
+  assert.equal(m.wb.state().computes, s0.computes, '点开折叠条不是重算：行级那份 result 与折叠档无关');
+  assert.match(String(m.page.line()), /已展开全部/, '状态行要说清"展开的是整页"，不是让读者猜那一发做了什么');
+  assert.deepEqual(m.threw, [], '这一发要是抛了，用户得到的是一句坏消息而不是一份展开的结果');
+  assert.equal(m.guarded[m.guarded.length - 1], `${Z_P}-out-workbench-bar`,
+    '这一发发生在结果区，记的账就得是那只容器的地址，不能冒充成按钮按过');
+  // 换前缀那一刀：装配层读的属性名从 `env.prefix` 派生，所以 `zx` 页面上的旧地址 `data-df-skip`
+  // 必须**不**触发（触发了就说明有一处把这一页的地址写死在行为里）。
+  const q = zMount({ prefix: 'zx', seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  q.page.click('compare');
+  const qBars = wCount(q.page.out(), 'zx-fold--');
+  assert.ok(qBars > 0, '前提：换前缀那一页同样折出了折叠条（不然下面两条判的是空集）');
+  q.page.clickFold(6, 'data-df-skip');
+  assert.equal(q.page.val('context'), '', '旧前缀的地址不该被认：认了就是本层手打过那一串（与 Z16 同一件事）');
+  assert.equal(wCount(q.page.out(), 'zx-fold--'), qBars, '不认的那一发不许留下任何痕迹：折叠条要一条不少地留着');
+  q.page.clickFold(6);
+  assert.equal(q.page.val('context'), 'all', '而本页自己的属性名要认得：整页跟着前缀走');
+  assert.equal(wCount(q.page.out(), 'zx-fold--'), 0, '认到之后那一发要真的展开，不是只写下拉不重画');
 });

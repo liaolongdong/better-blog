@@ -581,6 +581,19 @@ export function createDiffWorkbench(env) {
       else throw err;
     });
   };
+  /**
+   * 「选 A / B 侧文件」那两枚按钮：把这一发**转发**给旁边那枚原生 `input[type=file]`，
+   * 由它打开选择器；读仍然只在 `change` 与 `drop` 那两条路上发生。
+   *
+   * 为什么不是"本层再复读一次 `.files`"：按钮的文案说的是"选文件"，而打开选择器的那只手只有
+   * 原生 input 有。按钮自己去读那一格，第一次按（那一格还是空的）就得到一句"没有读到文件：
+   * 再从本机选一个"——等于把每一次首发都变成一次报错，而它旁边就是那个能打开选择器的控件。
+   * 转发之后这一枚与直接点 input 是同一件事，`loadFile` 那一条路一份都不多（Z27 判的正是
+   * "按按钮只留一次 click 痕迹、`readFile` 零次"）。input 不能读时按钮同批置灰
+   * （`mount` 里那两行），所以这一发不会打开一台读不了的选择器。
+   * @param {'a'|'b'} side 栏
+   */
+  const openPicker = (side) => { field(`${side}-file`).click(); };
 
   /**
    * 十四枚按钮的共同落点。里面**不套第二层 try**：坏消息要么变成状态行那一句话（`FieldError`），
@@ -605,7 +618,10 @@ export function createDiffWorkbench(env) {
         field(`${side}-text`).value = '';
         field(`${side}-name`).value = '';
         const pick = field(`${side}-file`);
-        pick.files = [];
+        /** 只写 `value`：`input.files` 那一格在真浏览器里是 `FileList` 只读访问器，
+         *  给它赋 `[]` 会当场 `TypeError: Failed to set the 'files' property`（假 DOM 量不到，
+         *  那里的 `files` 是个普通属性），而清空那一步会停在第一栏、第二栏没清。
+         *  清文件的选择框只有这一条正路。 */
         pick.value = '';
       }
       s.out = ''; s.produced = null; s.result = null; s.hunks = []; s.rows = []; s.at = 0;
@@ -637,8 +653,8 @@ export function createDiffWorkbench(env) {
     if (key === 'nextDiff') { goTo(s.at); return; }
     if (key === 'copyDiff') { copy(s.out, '那一份差异'); return; }
     if (key === 'download') { download(); return; }
-    if (key === 'fileA') { takeFile('a', field('a-file').files); return; }
-    if (key === 'fileB') { takeFile('b', field('b-file').files); return; }
+    if (key === 'fileA') { openPicker('a'); return; }
+    if (key === 'fileB') { openPicker('b'); return; }
     throw new RangeError(`「${key}」在 DIFF_ACTIONS 的清单上，本层却没有对应的行为：按钮长出来了而没人接`);
   };
   /** 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界 */
@@ -677,6 +693,36 @@ export function createDiffWorkbench(env) {
       paint(bodyOf(s.produced));
     }
     syncGate();
+  };
+
+  /**
+   * 结果区上的一次点击，只认折叠条那一枚。
+   *
+   * 规格 §5.6 那句是「折叠条上写"省略 N 行"**并可点开**」，而这一页的折叠档只有**一个口径**
+   * （`context` 那一枚下拉；Z21 钉的正是「三枚快捷键写回同一枚 select、不另存状态」）。所以点开
+   * 一条折叠条 = 把那一档调成 `all`，页面上所有折叠条一起归零。它**不是**"只展开这一块"：那一档
+   * 要另存一份"哪几块已经展开"的 per-block 状态，同一次比较就此有了两个口径，而复制与下载读的那一份
+   * （`unifiedText` 按 `CONTEXT_VALUE[s.context]` 出）会跟着分家——屏幕上展开三块、导出的还是折叠的。
+   *
+   * 认折叠条只认 `data-{prefix}-skip`：那一格是 `renderFoldBar` 唯一的产出标记，行块挂的是
+   * `data-{prefix}-ln` / `data-{prefix}-i`，所以点结论、点行块、点代价说明都不动档。属性名从
+   * `env.prefix` 派生（Z16：本层一处 `df-` 字面量都不许有），查找只走 `getAttribute`——
+   * `querySelector` 在 Z14 的词表里是禁的，而 `closest` 在 §Z 的假 DOM 里根本不存在，写了就是
+   * 给这一判添一处量不到的分支（§W 的树用 `closest` 是因为它的行有嵌套，这里没有那个形状）。
+   * @param {object} evt 派发到手上的那一次点击
+   */
+  const onFoldClick = (evt) => {
+    const target = evt && evt.target;
+    if (!target || typeof target.getAttribute !== 'function') return;
+    if (target.getAttribute(`data-${env.prefix}-skip`) === null) return;
+    const inner = () => {
+      // 展开那一发不在这儿重写第二遍：走 `dispatch('expand')`，也就是「全部展开」那枚按钮的同一条路
+      // （写回 `context` 再 `retune`）。这一格里出现第二次"怎么展开"的口径，Z21 就只咬得住一半。
+      dispatch('expand');
+      say('bar', '已展开全部：与「全部展开」那枚按钮是同一档');
+    };
+    if (typeof env.runGuarded === 'function') env.runGuarded(outId(env.prefix, PANEL, 'bar'), inner);
+    else inner();
   };
 
   return {
@@ -741,6 +787,9 @@ export function createDiffWorkbench(env) {
           });
         }
       }
+      /** 折叠条的「点开」：结果区每次比较都整块重画，监听只能挂在容器上（§W 的树容器同一条理由） */
+      const ob = nodes.get(outId(env.prefix, PANEL, 'bar'));
+      if (ob && typeof ob.addEventListener === 'function') ob.addEventListener('click', onFoldClick);
       for (const id of ['ws', 'case']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {

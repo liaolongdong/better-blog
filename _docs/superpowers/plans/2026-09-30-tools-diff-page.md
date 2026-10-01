@@ -175,6 +175,18 @@ T-c 在骨架里私自多写一枚 `id="df-tree-diff-a"` 而 `nodes` 里没有 `
 | Z26 那条"骨架与 spec 漂移"的夹具，选哪一格 | 摘掉 `df-in-workbench-b-name`——它是装配层真读、且**不在启动期**被读的那一格 | 摘 `a-text` 会在 `mount` 的 `refreshGate` 就炸（那是启动路径，测不到"先算后画"）；摘 `out` 那一格会让 `paint` 直接抛（结论连状态行都到不了）。`b-name` 只在按「重新对比」时被 `readControls` 读一次，`report.missing` 报出它而不拦启动，Z26 要的就是这一档：缺格 → 按动作时抛 → **上一格结果不擦** |
 | 门禁⑥「 teeth 用例」原本计划里的四刀（含"把 `DEFAULT_NODE_FAMILIES` 去掉 `tree`"那一刀） | 只落三刀（产物缺 `tree`、`nodes: ['trec']`、`nodes: ['status']`），第四刀**不做** | 牙齿用例的结构是"注入变异 → 必须变红"，而弱化默认族只会让门禁**更绿**，那一刀注定点不红，写进去就是一把假牙。"声明被新页消费"这件事此刻没有第四页可证，交给 Task 6 的 diff 页产物那一刀（`nodes` 真被门禁⑤ 读走）。这是 §0.3(a) 那颗牙拆完之后自己露出来的空档，不是漏做 |
 | 测试文件头部那张"用例分布"表（`§A` 的第三现场） | §Z 那一行改成 `28`（前后两半合起来）、合计 `422` → **`438`** | 与前两格同一条口径、同一次连带：表长在磁盘 §A 里（现在 `1–901`），`--fix` **第三次**把段 1 那计划的 §A 块换成磁盘内容（`6530 → 6536 行`）。逐段读数由 awk 现算（`§X: 29 / §Y: 18 / §Z: 28`），与 runner 的 `# tests 438` 对上才算对完账 |
+| §5.6「未变行折叠成「省略 N 行」**并可点开**」——没写点开之后是什么 | 点折叠条 = 把 `context` 下拉写成 `all`，走的就是「全部展开」那枚按钮的同一条 `dispatch('expand')`；**不做逐块展开** | 折叠档只有一个真值，它住在那枚下拉里（Z21 的单一口径）。逐块展开要在装配层另存一份 per-block 状态，而那份状态与 `unifiedText` 导出的折叠档必然分家——复制出来的是"全部展开"，看到的是"上下文 3 行"，这一页最不该给出的就是两种真相。**Task 5 落地的 `mount()` 根本没给结果区挂 `click`**：画出来的 `<button class="df-fold">省略 N 行 · 展开</button>` 按下去没反应，而 §Z 那 28 判数的是**画出来**的折叠条、不数"点得动"，所以全绿。修法 `onFoldClick`（容器事件代理，只认 `data-{prefix}-skip` 那一枚；不用 `querySelector`——Z14 禁，也不用 `closest`——§Z 那本假 DOM 没有这方法），夹具补 `clickFold` / `clickRow` 两个观察口，落 **Z29**（三子判：负落点不动档 / 正点开发 `'all'` 且 `computes` 不涨 / 换前缀 `zx` 后旧的 `data-df-skip` 不认） |
+| §5.6「并排两栏逐行对齐」＋本节 Task 7 Step 2 原句「并排视图在 ≤640 必须退成上下堆叠」 | ≤640 **不**堆叠：两栏继续并排，横向溢出只由 `.df-out` 那一个滚动容器承担；窄屏的真退路是「视图」下拉里的**行内单栏**那一档。Task 7 Step 2 那句已照此改口 | 堆叠把一处改动拆到上下两屏，读的人要先滚一次才能对齐同一对 del/ins——正好毁掉这一页唯一的核心价值（对齐看得见）。而样式里改 `grid-template-columns` 会造出一幅"下拉写着并排两栏、画面是两栏竖排"的假象：视图那一档的真值只住在那枚 `select` 里（Z20 两档布局共一份行流），样式不许替它说话 |
+| §5.6 与 §1.4 都没写并排那两栏的**轨道宽度** | `grid-template-columns: max-content max-content`（不是 `1fr 1fr`），且每一视觉行正好一个 `--df-row-h`：`margin` / `border` 一律不给、描边全走 `box-shadow: inset`、行块与折叠条 `white-space: nowrap` | `1fr` 会把长行**在栏内折行**，折一行就多占一行高，而 `scrollTop` 是按"视觉行数 × 行高"换算的（Z22）——折行之后跳转落点与样式算的不是同一件事。`max-content` 把溢出交给那一个滚动容器，行高因此是可数的；nowrap 与"零 margin/border"是同一条账的两半 |
+| §1.4 草图里「选 A 侧文件」画成一枚动作按钮 | 那枚按钮不读文件，`openPicker(side)` 只做 `field(\`${side}-file\`).click()`，把选择器转交给同栏那枚真 `<input type=file>`；`change` 与拖放两条路都汇到同一个 `takeFile` | 两只"给一个文件"的手必须走同一个入口，否则拒读那三句（非 UTF-8 / 含 NUL / 超 5 MiB 先按 size 拒）要写两遍、迟早分叉。装配层不 `querySelector`、不 `new FileReader`（Z14），`click()` 是它唯一被允许碰那枚 input 的方式 |
+| 「清空」那枚按钮要不要顺手把文件选择器也清掉 | 只写 `pick.value = ''`，**不写** `pick.files = []` | `HTMLInputElement.files` 在真浏览器里是 `FileList` **只读访问器**，赋 `[]` 当场抛 `TypeError: Failed to set the 'files' property`——而假 DOM 里 `files` 是个普通属性，§Z 那本夹具量不到这件事，清空那一步会停在第一栏、第二栏没清。Task 7 Step 3 那两路真文件核验跑的就是这一段 |
+| §5.6「上下文三档」那枚下拉的当前值 | 构建期就把 `3` 那一档写成 `<option value="3" selected>`，与装配层 `DEFAULTS.context` 逐字同 | 第一档是 `diff`（只看差异），不写 `selected` 时浏览器取**第一个** option，于是"禁 JS 的那份页面"默认档与"有 JS"的默认档不同，页面上那句说明跟着说假话；而禁 JS 档读得到正文正是这一族页面的硬前提（Task 7 Step 3） |
+| §5.6 只写"给一句口径说明" | 页内两处分工写死：`.df-terms` 是**静态口径**（六句，构建期就在，禁 JS 也读得到），`df-notes` 是**这一次对比的代价说明**（随结果整段重写，`notesOf()` 只挑真发生了的那几句：degraded / inlineSkipped / ignored / blocked…） | 两块更新时机与作者都不同：前者住在页面源，后者由视图层按 `result` 现算（Z10 钉"代价说明与六列表同屏"）。合并成一处，"禁 JS 读得到口径"那一判就去数一块只有 JS 才存在的东西，读的人以为核过了 |
+| 本节 Task 6 Step 1 起草时写的循环 `{%- for side in (array: 'a,b') -%}` | 改成 `{%- assign df_sides = 'a,b' | split: ',' -%}` + `{%- for side in df_sides -%}` | `(array:)` 是 Shopify 主题液的字面量数组语法，本仓库的 liquid 解到冒号就报 `Liquid Warning: Expected dotdot but found colon` 并把**整个 tag 渲染成空**：`jekyll build` 退 0、产物里 `df-area` 命中 **0**、A/B 两栏整块不存在，而门禁⑤ 全绿——它比的 `data-df-ids`、按钮文案、`{p}-in-…` 那几族里，凡在别处找得到的都不红，没有一条要求"必须存在两栏"。这与门禁① 文件头点名的 `{% for x in data \| where: … %}` 是同一个病的**新形状**：`bundle exec jekyll build` 输出里那行 `Liquid Warning` 是判据，退出码不是 |
+| spec §6.4「`selectorBlackList` 那两条前缀」 | 落**三串**：`'.tk-'` / `'.jt-'` / `'.df-'`，并把那一格上方"在线工具三页 / 这两串"的说明同步改成"四页 / 这三串"；spec 那一格留给 Task 9 回写 | 黑名单前缀是**按页**发的，不是按"工具页"这个概念发的。`--df-row-h` 那把尺一旦被 `px→vw` 改写，入口 `getComputedStyle` 读回来的就是 vw 串，跳转换算与样式里的行块高度不再是同一个数（§0.5 那条"改 postcss 配置要重启 watcher"的坑同一条线）。产物自证：`grep -o 'vw' assets/css/toolDiff.min.css \| wc -l` = 0 |
+| §0.3(b)「登记第四格会让每一页变长，先量后立」 | 量到：A/B 两棵副本共同 **837** 份产物里 **105** 份有差，正差合计 **13,145B gz、负差 0**；渲染顶栏下拉的每一页 **+704 raw / +99–121 gz**（文章页、about、首页都在这族），`tools.html` +3,342 / +639、`index-all.html` +1,048 / +160、`llms.txt` +326 / +141；`tools/diff.html` 从"查无条目"的 31,520B 变成 45,774B | 这一格是全段唯一动到**每一页**的改动（顶栏下拉多一行），证件页首屏那一格（§7 最小格 544B / 3.3%）的余量必被吃掉一截。数字来自"同一份工作树、只差 yml 那一格"的两次独立 `jekyll build`（`rsync -a` 排除 `_site/.git/vendor/node_modules/.jekyll-cache/demo`，两份 `--destination` 各指回自己那棵，跑完 `md5 -q _data/onlineTools.yml` 仍是 B 那份），Task 7 Step 5 直接续这份账 |
+| 门禁⑤「收录」组那三条判据原本的写法：拿**整页** `tools.html` 比，"这一串出现过就算对" | 收到**每一小节自己那一段**——新增 `toolsSectionOf(toolsHtml, slug)`，从 `<section … id="online-<slug>">` 起按 `<section>`/`</section>` 计数配平取段；徽章、面板锚点、纯文本要点三条都改拿这一段比对，段缺失就先记一条"整节不在"再交回 | 第四格进来之后 `14 个动作` 与 `5 块面板` **各自出现两次**，"改坏任何一节、另一节还替它答是"：门禁⑥ 的「tools.html 的徽章数字与数据源脱钩」那一刀注入后门禁仍是绿的（台账 `60/61`），它把 `14 个动作` 的第一处（json 段 698 行）改成 `12`，而 diff 段 740 行仍是原串。**修的是作用域，不是判据**：没把它改成 `replaceAll`（那会误伤"两节同串"这种完全合法的形状，也仍然证不了"数的是自己那一节"）。台账同步加 `badgeInSection`（按节标记定位而不是按出现顺序，没命中就**抛**——`String.replace` 找不到目标是原样返回的，静默 no-op 正是假牙的制造工序），并补 codec 那一枚 `5 块面板` 与 diff 那一格的四把刀，`66/66` |
+| 测试文件头部那张"用例分布"表（`§A` 的第四现场） | §Z 那一行 `28` → **`29`**（Z29 折叠条点开）、合计 `438` → **`439`** | 同一条口径第四次连带：表长在磁盘 §A 里，`--fix` 把段 1 那计划的 §A 块换成磁盘内容。逐段读数由那条 awk 现算（`§X: 29 / §Y: 18 / §Z: 29`），与 runner 的 `# tests 439` 对上才算对完账 |
 
 （本表是空的才算正常；每加一行就要在 §5.6 或 §8.1 里回写一次，段 4 那份计划的 §0.6 是同一族先例。）
 
@@ -4328,6 +4340,23 @@ function zPage({ prefix = Z_P, seed = {}, drop = [] } = {}) {
     pickFile: (side, file) => { const el = ctl(`${side}-file`); el.files = file ? [file] : []; return el.dispatch('change', {}); },
     /** 拖放落点：每一侧的粘贴框自己 */
     drop: (side, files) => ctl(`${side}-text`).dispatch('drop', { dataTransfer: { files }, preventDefault: () => {} }),
+    /**
+     * 点结果区里的一条折叠条。真浏览器里 `evt.target` 就是那枚 `<button class="df-fold">`，
+     * 而假 DOM 的 `innerHTML` 只是个串、里面根本不长节点，所以这一发自己造一枚带那格属性的按钮再派发
+     * ——它量的仍是"装配层在那一发里做了什么"。`attr` 允许外部指定属性名（Z29 用它试"换了前缀
+     * 还认不认得旧地址"那一刀）。
+     */
+    clickFold: (skip = 7, attr) => {
+      const box = at(zOut(prefix, Z_PANEL, Z_BAR));
+      if (!box) return null;
+      return box.dispatch('click', { target: mk('button', '', { [attr || `data-${prefix}-skip`]: String(skip) }) });
+    },
+    /** 点结果区里一处**不是**折叠条的落点：行块只带 `data-{prefix}-ln`，点它不许动档 */
+    clickRow: (ln = 3) => {
+      const box = at(zOut(prefix, Z_PANEL, Z_BAR));
+      if (!box) return null;
+      return box.dispatch('click', { target: mk('div', '', { [`${`data-${prefix}-ln`}`]: String(ln) }) });
+    },
     madeOf: (tag) => created.list.filter((el) => el.tagName === String(tag).toUpperCase()),
   };
 }
@@ -4692,6 +4721,13 @@ test('Z23 整理三枚：交换连文件名一起换、恢复默认档不碰输�
   m.page.click('clear');
   assert.equal(m.page.area('a'), '');
   assert.equal(m.page.name('a'), '');
+  assert.equal(m.page.ctl('a-file').value, '', '清空要连文件那一格一起清：留着上一次的选择，下一次「读入」读的是旧文件');
+  // 真浏览器里 `input.files` 是 FileList 的**只读访问器**，给它赋 `[]` 当场
+  // `TypeError: Failed to set the 'files' property`——而假 DOM 量不到这件事（那里的 `files`
+  // 是个普通属性，赋什么都行）。清空那一步会停在第一栏、第二栏没清，页面上是一句坏消息。
+  // 这一格钉的是源码里不许再出现那一形写法：清文件只有 `value = ''` 那一条正路。
+  assert.equal(/\.files\s*=[^=]/.test(wCode(Z_ASSEMBLY)), false,
+    '装配层里出现了 `.files = …` 的赋值：那一格在真页面上读不回来');
   assert.equal(m.page.disabled(`${Z_P}-in-workbench-a-file`), false, '清空输入不许顺手把文件那一格也禁用——那是「这台浏览器不给读」那一档');
   assert.equal(m.page.btnDisabled('copyDiff'), true, '清空之后导出要重新灰回去');
   assert.equal(m.page.out().includes(`${Z_P}-row`), false, '清空要回到空态那一句话，而不是留着上一份结果');
@@ -4818,6 +4854,16 @@ test('Z27 文件三件：拒在 read 之前、非 UTF-8 明说、拖放同一条
   await zSettle();
   assert.deepEqual(d.reads, ['dropped.txt'], '拖放与选文件必须是同一条路：两条路迟早只修好一条');
   assert.equal(d.page.name('a'), 'dropped.txt');
+  // 「选 A / B 侧文件」那两枚只**转发**、不自己读：真页面上打开选择器的那只手是旁边那枚原生
+  // input，读的那一发归 `change`。假 DOM 的 `el.click()` 会往 `clicked` 里留痕，所以这一判
+  // 量得到"按了哪一枚"；而 `reads` 那一本账钉的是"转发不等于读"。
+  const fwd = zMount({ seed: { 'b-text': 'beta' } });
+  fwd.page.click('fileB');
+  assert.deepEqual(fwd.page.clicked, [`${Z_P}-in-workbench-b-file`],
+    '那一枚按钮的文案是「选 B 侧文件」，它必须去开那台选择器，而不是复读自己那一格');
+  assert.equal(fwd.reads.length, 0, '打开选择器不算读文件：readFile 一次都不许发生');
+  assert.equal(String(fwd.page.read('b')).includes('没有读到文件'), false,
+    '第一次按就当街报错，等于把每一次首发都变成一次坏消息');
   const none = zMount({ readFile: null });
   assert.equal(none.page.btnDisabled('fileA'), true, '这台浏览器没有那两只读手，按钮就该灰着');
   assert.equal(none.page.btnDisabled('fileB'), true);
@@ -4842,6 +4888,44 @@ test('Z28 换前缀自证：整页地址跟着 prefix 走，而产物里一处 d
   assert.match(String(m.page.line()), /比完了/);
   assert.equal(wCount(out, `${Q}-row `), 6, '两栏各三份行块：这一格数的就是「整页跟着前缀走」');
   assert.equal(wCount(out, `${Q}-fold--`), 0, '三行两份、上下文三行：一块到底，不该有折叠条');
+});
+
+test('Z29 折叠条真的能点开：那一发就是「全部展开」，不重算，而且只认带 skip 的那一枚', () => {
+  const m = zMount({ seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  m.page.click('compare');
+  m.page.click('diffOnly');
+  const s0 = m.wb.state();
+  const g0 = m.guarded.length;
+  assert.ok(s0.hunks.length > 1, '前提：只看差异那一档确实折出了不止一块');
+  assert.ok(wCount(m.page.out(), `${Z_P}-fold--`) > 0, '前提：页面上确实画出了折叠条');
+  // 先试一处"不是折叠条"的落点：行块只带 `data-df-ln`，结果区里除了那枚按钮什么都不该动档。
+  // 这一判是防"把容器上的 click 当成整块的重画信号"——那一形写法在这一格里同样能过"能展开"。
+  m.page.clickRow();
+  assert.equal(m.page.val('context'), 'diff', '点行块不许动上下文那一档：结果区里只有折叠条是按钮');
+  assert.equal(m.guarded.length, g0, '不该发生的一发不许记进 guarded 的账：那一本数的是真做过的动作');
+  m.page.clickFold(24);
+  assert.equal(m.page.val('context'), 'all', '点开折叠条要写回那枚下拉：状态有第二份口径就是红线 6 破');
+  assert.equal(wCount(m.page.out(), `${Z_P}-fold--`), 0, '展开之后一条折叠条都不该留');
+  const all = dHunks(dLines(Z_A40, Z_B40, {}), Infinity);
+  assert.equal(wCount(m.page.out(), `${Z_P}-row `), all.reduce((acc, h) => acc + h.rows.length, 0) * 2,
+    '两栏各四十行：折叠只是阅读形状，展开之后行数一行不会少');
+  assert.equal(m.wb.state().computes, s0.computes, '点开折叠条不是重算：行级那份 result 与折叠档无关');
+  assert.match(String(m.page.line()), /已展开全部/, '状态行要说清"展开的是整页"，不是让读者猜那一发做了什么');
+  assert.deepEqual(m.threw, [], '这一发要是抛了，用户得到的是一句坏消息而不是一份展开的结果');
+  assert.equal(m.guarded[m.guarded.length - 1], `${Z_P}-out-workbench-bar`,
+    '这一发发生在结果区，记的账就得是那只容器的地址，不能冒充成按钮按过');
+  // 换前缀那一刀：装配层读的属性名从 `env.prefix` 派生，所以 `zx` 页面上的旧地址 `data-df-skip`
+  // 必须**不**触发（触发了就说明有一处把这一页的地址写死在行为里）。
+  const q = zMount({ prefix: 'zx', seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  q.page.click('compare');
+  const qBars = wCount(q.page.out(), 'zx-fold--');
+  assert.ok(qBars > 0, '前提：换前缀那一页同样折出了折叠条（不然下面两条判的是空集）');
+  q.page.clickFold(6, 'data-df-skip');
+  assert.equal(q.page.val('context'), '', '旧前缀的地址不该被认：认了就是本层手打过那一串（与 Z16 同一件事）');
+  assert.equal(wCount(q.page.out(), 'zx-fold--'), qBars, '不认的那一发不许留下任何痕迹：折叠条要一条不少地留着');
+  q.page.clickFold(6);
+  assert.equal(q.page.val('context'), 'all', '而本页自己的属性名要认得：整页跟着前缀走');
+  assert.equal(wCount(q.page.out(), 'zx-fold--'), 0, '认到之后那一发要真的展开，不是只写下拉不重画');
 });
 ```
 
@@ -5538,6 +5622,19 @@ export function createDiffWorkbench(env) {
       else throw err;
     });
   };
+  /**
+   * 「选 A / B 侧文件」那两枚按钮：把这一发**转发**给旁边那枚原生 `input[type=file]`，
+   * 由它打开选择器；读仍然只在 `change` 与 `drop` 那两条路上发生。
+   *
+   * 为什么不是"本层再复读一次 `.files`"：按钮的文案说的是"选文件"，而打开选择器的那只手只有
+   * 原生 input 有。按钮自己去读那一格，第一次按（那一格还是空的）就得到一句"没有读到文件：
+   * 再从本机选一个"——等于把每一次首发都变成一次报错，而它旁边就是那个能打开选择器的控件。
+   * 转发之后这一枚与直接点 input 是同一件事，`loadFile` 那一条路一份都不多（Z27 判的正是
+   * "按按钮只留一次 click 痕迹、`readFile` 零次"）。input 不能读时按钮同批置灰
+   * （`mount` 里那两行），所以这一发不会打开一台读不了的选择器。
+   * @param {'a'|'b'} side 栏
+   */
+  const openPicker = (side) => { field(`${side}-file`).click(); };
 
   /**
    * 十四枚按钮的共同落点。里面**不套第二层 try**：坏消息要么变成状态行那一句话（`FieldError`），
@@ -5562,7 +5659,10 @@ export function createDiffWorkbench(env) {
         field(`${side}-text`).value = '';
         field(`${side}-name`).value = '';
         const pick = field(`${side}-file`);
-        pick.files = [];
+        /** 只写 `value`：`input.files` 那一格在真浏览器里是 `FileList` 只读访问器，
+         *  给它赋 `[]` 会当场 `TypeError: Failed to set the 'files' property`（假 DOM 量不到，
+         *  那里的 `files` 是个普通属性），而清空那一步会停在第一栏、第二栏没清。
+         *  清文件的选择框只有这一条正路。 */
         pick.value = '';
       }
       s.out = ''; s.produced = null; s.result = null; s.hunks = []; s.rows = []; s.at = 0;
@@ -5594,8 +5694,8 @@ export function createDiffWorkbench(env) {
     if (key === 'nextDiff') { goTo(s.at); return; }
     if (key === 'copyDiff') { copy(s.out, '那一份差异'); return; }
     if (key === 'download') { download(); return; }
-    if (key === 'fileA') { takeFile('a', field('a-file').files); return; }
-    if (key === 'fileB') { takeFile('b', field('b-file').files); return; }
+    if (key === 'fileA') { openPicker('a'); return; }
+    if (key === 'fileB') { openPicker('b'); return; }
     throw new RangeError(`「${key}」在 DIFF_ACTIONS 的清单上，本层却没有对应的行为：按钮长出来了而没人接`);
   };
   /** 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界 */
@@ -5634,6 +5734,36 @@ export function createDiffWorkbench(env) {
       paint(bodyOf(s.produced));
     }
     syncGate();
+  };
+
+  /**
+   * 结果区上的一次点击，只认折叠条那一枚。
+   *
+   * 规格 §5.6 那句是「折叠条上写"省略 N 行"**并可点开**」，而这一页的折叠档只有**一个口径**
+   * （`context` 那一枚下拉；Z21 钉的正是「三枚快捷键写回同一枚 select、不另存状态」）。所以点开
+   * 一条折叠条 = 把那一档调成 `all`，页面上所有折叠条一起归零。它**不是**"只展开这一块"：那一档
+   * 要另存一份"哪几块已经展开"的 per-block 状态，同一次比较就此有了两个口径，而复制与下载读的那一份
+   * （`unifiedText` 按 `CONTEXT_VALUE[s.context]` 出）会跟着分家——屏幕上展开三块、导出的还是折叠的。
+   *
+   * 认折叠条只认 `data-{prefix}-skip`：那一格是 `renderFoldBar` 唯一的产出标记，行块挂的是
+   * `data-{prefix}-ln` / `data-{prefix}-i`，所以点结论、点行块、点代价说明都不动档。属性名从
+   * `env.prefix` 派生（Z16：本层一处 `df-` 字面量都不许有），查找只走 `getAttribute`——
+   * `querySelector` 在 Z14 的词表里是禁的，而 `closest` 在 §Z 的假 DOM 里根本不存在，写了就是
+   * 给这一判添一处量不到的分支（§W 的树用 `closest` 是因为它的行有嵌套，这里没有那个形状）。
+   * @param {object} evt 派发到手上的那一次点击
+   */
+  const onFoldClick = (evt) => {
+    const target = evt && evt.target;
+    if (!target || typeof target.getAttribute !== 'function') return;
+    if (target.getAttribute(`data-${env.prefix}-skip`) === null) return;
+    const inner = () => {
+      // 展开那一发不在这儿重写第二遍：走 `dispatch('expand')`，也就是「全部展开」那枚按钮的同一条路
+      // （写回 `context` 再 `retune`）。这一格里出现第二次"怎么展开"的口径，Z21 就只咬得住一半。
+      dispatch('expand');
+      say('bar', '已展开全部：与「全部展开」那枚按钮是同一档');
+    };
+    if (typeof env.runGuarded === 'function') env.runGuarded(outId(env.prefix, PANEL, 'bar'), inner);
+    else inner();
   };
 
   return {
@@ -5698,6 +5828,9 @@ export function createDiffWorkbench(env) {
           });
         }
       }
+      /** 折叠条的「点开」：结果区每次比较都整块重画，监听只能挂在容器上（§W 的树容器同一条理由） */
+      const ob = nodes.get(outId(env.prefix, PANEL, 'bar'));
+      if (ob && typeof ob.addEventListener === 'function') ob.addEventListener('click', onFoldClick);
       for (const id of ['ws', 'case']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {
@@ -5975,21 +6108,1222 @@ start(document, window);
 Modify `_data/onlineTools.yml`（追加一条 `slug: diff`）、`postcss.config.js`（加 `'.df-'`）、
 本计划。
 
-- [ ] **Step 1：写 `tools-diff.html`**——`layout: default` + `title` / `seo_description` / `permalink`，
+- [x] **Step 1：写 `tools-diff.html`**——`layout: default` + `title` / `seo_description` / `permalink`，
       骨架**全部构建期渲染**（禁 JS 读得到正文与六句说明），两条 `<script>` 排正文之后
       （`toolkitCore.min.js` 在前，顺序与 `tools-json.html` 同一条硬前提），四格 `data-df-*` 属性、
       六族 id、十四枚按钮的文案与 `DIFF_ACTIONS[i].label` 逐字同（门禁⑤那条按钮文案对账就是为它设的）。
-- [ ] **Step 2：写 `dev/sass/toolDiff.scss`**——本页独有形状；只用 `--ink` / `--ink-2` / `--ink-3`，
+      落 **345 行 / 25,541B**。id 合计 **33 格** = 11 控件 + 6 节点 + 2 枚 `data-df-when` + 14 枚按钮，
+      全部从 `{%- assign wbp = 'workbench' -%}` 与 `{{ tk.prefix }}` 拼出，正文里零处 `df-` 字面量 id。
+      **本格踩到的一处真缺陷（构建退 0 而整块版面不见）**：第一版那一轮两栏循环写成
+      `{%- for side in (array: 'a,b') -%}`——那是 Shopify 主题液的写法，本仓库的 liquid 解析到冒号就报
+      `Liquid Warning: Expected dotdot but found colon`，而**报错的 tag 渲染成空**：第一次 `jekyll build`
+      退 0，产物里 `grep -c df-area _site/tools/diff.html` 读到 **0**，A/B 两栏整块不存在，
+      门禁⑤ 的「DOM」组却一路绿（它比的 `data-df-ids`、按钮文案、`{p}-in-…` 那些判据里，
+      凡是能在**别处**找到的都不红，找不到 `df-area` 这一族它反倒没有一条要求"必须存在两栏"）。
+      处置见 §0.6 新登记的那一行；改成 `'a,b' | split: ','` 之后同一道警告消失、产物 `df-area` 命中 2、
+      `id="df-in-workbench-a-text"` 与 `-b-text"` 各 1。**教训写死**：`bundle exec jekyll build` 的
+      输出里那行 `Liquid Warning` 是判据，不是噪声——只看退出码就会把"少了一整块版面"当成构建成功。
+- [x] **Step 2：写 `dev/sass/toolDiff.scss`**——本页独有形状；只用 `--ink` / `--ink-2` / `--ink-3`，
       `--ink-4` 不得用于 <18px 正文；`--df-row-h` 是唯一赋值处（照 `--jt-row-h` 那一格，入口读一次）。
-- [ ] **Step 3：`postcss.config.js` 加 `'.df-'`**，并按 §0.5 那条缓存坑自证产物里没有 `vw`。
-- [ ] **Step 4：`_data/onlineTools.yml` 追加第四格**（`prefix: df`、`layout: workbench`、`actions: 14`、
+      落 **692 行 / 22,944B**。文件头五条口径记着本页独有的两件事：① 行号跳转按 `--df-row-h` 换算，
+      所以**每一视觉行必须正好一个 row-h**——`margin` / `border` 一律不给，描边全走 `box-shadow: inset`，
+      折叠条与行块一律 `white-space: nowrap`（折一行就多算一行，跳转会偏）；② 配色只用 tokens 语义色
+      与 `--tk-ok` / `--tk-warn` / `--tk-bad`，每一处 `color-mix()` 前各写一条纯色退路。
+      ≤900 竖排的是**那两条输入栏**，≤640 **不**把并排两栏改成堆叠——这一格与 Step 2（Task 7）
+      原句冲突，改道与理由记进 §0.6，Task 7 Step 2 那句跟着改了口。
+- [x] **Step 3：`postcss.config.js` 加 `'.df-'`**，并按 §0.5 那条缓存坑自证产物里没有 `vw`。
+      黑名单从两串变三串（那一格上方"在线工具三页 / 这两串"的说法同步改成"四页 / 这三串"）；
+      自证读数：`grep -o 'vw' assets/css/toolDiff.min.css | wc -l` = **0**，
+      `grep -o -- '--df-row-h:[^;]*'` 读到 `--df-row-h: 24px`（原样是 px，没被换成 `0.24rem` 一类）。
+      §0.5 那条缓存坑（watch 里的 vite 缓存旧 postcss 配置）本格不构成风险：跑前 `ps` 过，
+      本机没有本仓库的 vite/jekyll watcher（只有另一路会话在兄弟仓库跑 vitest）。
+- [x] **Step 4：`_data/onlineTools.yml` 追加第四格**（`prefix: df`、`layout: workbench`、`actions: 14`、
       `spec` 四格指针、`panels: []`、`desc` + `features` 五条）。**这一格是全段唯一会让
       每一页 HTML 变长的一笔**，所以 Step 5 之后立刻做一次"改前/改后 `_site` 逐页 diff"，
       差额记进 Task 7 的账（§0.3(b)）。
-- [ ] **Step 5：构建两遍**（`npx vite build` + `bundle exec jekyll build`）→ 门禁④ + 门禁⑤，
+      yml 从 192 行长到 **229 行 / 16,682B**。逐页差额按"同一份工作树、只差 yml 那一格"量：
+      两棵独立副本（`/tmp/diffAB/A` = HEAD 那份 yml 三页、`B` = 工作树那份四页）各跑一次
+      `jekyll build`（两边 exit 0、零 Liquid 警告），量具是 `zlib.gzipSync(buf,{level:9}).length`
+      与 `stat.size`，口径与 §7 那两行同一把尺。**共同 837 份产物里字节有差的 105 份，正差合计 13,145B gz、
+      负差 0B**：逐页看，渲染了顶栏下拉的每一页 **+704 raw / +99~121 gz**（文章页、about、首页都在这族里），
+      `tools.html` **+3,342 / +639**、`index-all.html` **+1,048 / +160**、`llms.txt` **+326 / +141**；
+      `tools/diff.html` 本身在 A 里是"查无条目"的空正文分支（31,520B），B 里 45,774B。
+      **这笔账交 Task 7 Step 5 直接续**：证件页首屏那一格（§7 最小格 544B / 3.3%）的余量必被这 +704 raw
+      那一族吃掉一截，重量时以 B 这一侧为准，掉到 300B 以下就按原计划 BLOCKED 交回。
+      副本与活树隔离：`rsync -a` 排除 `_site/.git/vendor/node_modules/.jekyll-cache/demo`，
+      两份 `--destination` 各指回自己那棵，跑完 `md5 -q _data/onlineTools.yml` 仍等于 B 那份
+      （`8787d62…`），活树 `_site/` 一个字节没被这两次构建碰过。
+- [x] **Step 5：构建两遍**（`npx vite build` + `bundle exec jekyll build`）→ 门禁④ + 门禁⑤，
       `assets/js/*.min.js` 的 `import{` 命中必须是 0。
-- [ ] **Step 6：登记四本镜像**（页面源、scss、svg、yml）+ `--fix` + 门禁①②③⑥。
-- [ ] **Step 7：提交** `feat(tools): 段 5 Task 6 第四页收录面——tools-diff.html + toolDiff.scss + yml 登记`。
+      vite：`✓ built in 1m 41s`，新产物两格 `assets/js/toolDiff.min.js` **51,541B / gz 19,842B**、
+      `assets/css/toolDiff.min.css` **9,644B / gz 2,185B**（vite 自己那行报的是 `51.54 kB │ gzip: 20.22 kB`
+      与 `9.64 kB │ gzip: 2.19 kB`——它按 kB 与 gzip 默认档算，本格 §7 用的是 `gzip -9` 口径，
+      两个读数都记下来，别把它们当同一个数）。`import{` 在 `assets/js/*.min.js` 里逐文件
+      `grep -c` 全部 0 命中（§0.4 那条共享 chunk 的红线）。
+      jekyll 第二遍 35.6s 退 0、零警告。门禁⑤ 退 0：`收录面门禁：4 条 ready（idcard / codec / json / diff）`、
+      `导航-全站：核到 101 页`、`✓ 5 组判据全绿`——第四枚图标的八组对比度、33 格 id 对账、
+      十四枚按钮文案、features 五条逐条在 `tools.html` 命中，都在这一发里过。
+      **门禁④ 本格只跑到"真构建 + `import{` = 0"这一半**：`git archive HEAD` 那份导出树里
+      还没有 `tools-diff.html` 与 `toolDiff.scss`（Task 6 的代码格尚未落笔），三列字节表要等
+      提交态自证那一格量，记在本节末。
+- [x] **Step 6：登记镜像** + `--fix` + 门禁①②③⑥。`FILE_TARGETS` 新增三格
+      （`tools-diff.html` / `dev/sass/toolDiff.scss` / `assets/img/tools/diff-tool.svg`，方向照旧：
+      跟着磁盘走不跟着计划走）；第四本"yml"不需要新登记——`_data/onlineTools.yml` 从段 2 就在清单里，
+      这一格那 37 行由 `--fix` 把段 2 计划里那块整块换过去。同一发里 `--fix` 还换了
+      `diffWorkbench.js`（折叠条点开那一处，见下）与磁盘 §Z 两格。
+      **本格补的一处真缺陷（折叠条是死按钮）**：spec §5.6 写的是"未变行折叠…**并可点开**"，
+      而 Task 5 落地的 `mount()` 只给那三枚快捷键按钮接了线，结果区一次 `click` 监听都没挂——
+      画出来的 `<button class="df-fold">省略 N 行 · 展开</button>` 按下去没有反应，
+      §Z 那 28 判一条都抓不到（它数的是**画出来的**折叠条，不数"点得动"）。
+      修法与判据：`diffWorkbench.js` 加 `onFoldClick`（容器事件代理，只认 `data-{prefix}-skip` 那一枚，
+      不用 `querySelector` 也不用 `closest`——Z14 禁前者、§Z 那本假 DOM 没有后者），一发就
+      `dispatch('expand')`，与「全部展开」那枚按钮同一条路；测试侧夹具加 `clickFold` / `clickRow`
+      两个观察口，落 **Z29**（三子判：负落点不动档、正点开发 'all' 且 `computes` 不涨、
+      换前缀 `zx` 之后旧的 `data-df-skip` 不认）。这一档"点开 = 全部展开"不是省事，是**口径只有一个**：
+      折叠档住在那枚 `context` 下拉里（Z21），逐块展开要另存一份 per-block 状态，
+      而那份状态与 `unifiedText` 的导出会分家。记进 §0.6。
+      门禁读数（跑之前 `uptime`：load `16.73 45.62 62.61`，是那种"红要先归因给量具"的档位）：
+      ① 全量 `# tests 439 / pass 439 / fail 0` 退 0；② 裸跑退 0（`--fix` 之后第二次跑，见 Step 6 末）；
+      ③ `37/37 通过` 退 0，且末尾那句"实验前后工作树的脏指纹一模一样（37 个脏项、diff 指纹 `c566c334a354bfeb`）"
+      同时自证了它没碰另一路会话压在那儿的任何一格。
+      **⑥ 第一发是红的，而且红得对**：`牙齿台账：60/61`，那一句是
+      `✗ tools.html 的徽章数字与数据源脱钩（改模板不改 yml 的形状）：注入后门禁仍是绿的（假牙）`。
+      这不是量具的钟——第四格落地之后 `14 个动作` 在 `tools.html` 里出现了**两次**
+      （`_site/tools.html` 实测 json 段 698 行、diff 段 740 行；`5 块面板` 同病，616 与 656 行），
+      而那三条判据拿的是整页"出现过"，所以只改第一处的变异被第二处替它答了"是"。
+      修法与自证：判据的作用域收到每一小节那一段（`toolsSectionOf`，按 `<section>`/`</section>` 计数配平），
+      变异刀同步改成 `badgeInSection`（按 `id="online-<slug>"` 定位、没命中就抛），
+      并补 codec 那枚 `5 块面板` 与 diff 那一格的四把刀（title / url / 徽章 / `actions`）。
+      改完重跑：⑤ 退 0（`4 条 ready` × 5 组全绿、导航核到 101 页），⑥ `牙齿台账：66/66 组变异如期变红`
+      退 0，末尾"全部变异已还原，复跑基线仍绿"。判据一条没放宽、也没有改成 `replaceAll`——
+      理由与那一行偏差记在 §0.6 倒数第三行。
+      `--fix` 那一发另外连带重写了**段 2** 那份计划里 `check-tools-surface.mjs` 的整文件镜像
+      （`14265 → 14301 行`，8 处替换全在那一块里）：那本脚本从段 2 起就是镜像目标，
+      方向照旧跟着磁盘走。
+- [x] **Step 7：提交** `feat(tools): 段 5 Task 6 第四页收录面——tools-diff.html + toolDiff.scss + yml 登记`。
+      pathspec 十三格：新增三格 `tools-diff.html` / `dev/sass/toolDiff.scss` /
+      `assets/img/tools/diff-tool.svg`，改动十格 `_data/onlineTools.yml` / `postcss.config.js` /
+      `dev/js/tools/diffWorkbench.js`（折叠条点开那一处）/ `scripts/toolkit-tests.mjs`（§Z 到 29 判）/
+      `scripts/verify-plan-blocks.mjs`（`FILE_TARGETS` 新增那三格）/ `scripts/check-tools-surface.mjs`
+      与 `scripts/check-tools-surface-teeth.mjs`（徽章判据收段内 + 五把新刀，见 Step 6 末）/
+      本计划 / **另外两份计划**（各只被 `--fix` 换掉镜像块：段 1 的 §A 用例分布表、段 2 的
+      `check-tools-surface.mjs` 整文件；段 2 那发同时把 `_data/onlineTools.yml` 那块换成四格内容）。
+      提交态自证（含门禁④ 那三列字节表）记在本节末的下一格。
+
+### 落地镜像（门禁二核的就是这一块，`--fix` 会把它整块换成磁盘内容）
+
+Task 2/3/4/5 那四节立的规矩在这里照用：只有**整文件**镜像允许用与扩展名对应的围栏
+（`html` / `scss` / `svg` / `yaml`，`LANG_BY_EXT` 那张表两头各一次映射），贴的时候直接由磁盘内容生成，
+事后跑一次 `--fix` 复验它已经全等。
+
+本段登记的第四格镜像（`_data/onlineTools.yml`）不在这里，它在段 2 那份计划里——同一份磁盘内容
+在两棵计划树里各有一块镜像时，`--fix` 会把**两处**都换成磁盘内容，所以那一格的字节账跟着
+本提交走，本计划里不重贴第二遍（重贴就是第三个现场）。
+
+#### `tools-diff.html`（整文件，345 行）
+
+它是 33 格 id 与十四枚按钮文案的**第二现场**：门禁⑤ 读的是 `_site` 产物，改一句按钮文案构建不会红
+（它比的就是源与产物的对应），而这一格镜像让"改了页面没改 spec"这一步留下字节证据。
+本页独有的三处也只活在这里：A/B 两栏由一轮 `for` 生成（Step 1 记录里那个 `(array: …)` 的坑
+就写在这段注释里，作为它自己的现场见证）、`context` 那枚下拉第一档**显式 `selected`**
+（禁 JS 读到的默认档必须与 `DEFAULTS.context` 同档，否则页面与运行时各说一遍默认值）、
+`.df-out` 那一格是**唯一**滚动容器（跳转换算的前提，样式若把滚动分给两栏，Z22 量的算术就假了）。
+
+```html
+---
+layout: default
+title: 文本对比工具 · 两份文件差异与JSON比对
+seo_description: 两份文本并排逐行对齐，改动行再做行内逐字高亮，未变行折叠成「省略 N 行」；另有行内视图与按 JSON 值比对的档。粘贴或选本地文件都在浏览器里读，不上传、不发请求。
+# 理由同 tools-idcard.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
+permalink: /tools/diff.html
+# tool 指向 _data/onlineTools.yml 里的那一条：大标题、id 前缀、动作枚数都从数据源取，
+# 页面正文与顶栏下拉、/tools.html 小节因此不会各写一遍。
+tool: diff
+---
+{% include header.html %}
+
+<!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
+     dev/sass/toolDiff.scss -> toolDiff.min.css、dev/js/toolkitCore.js -> toolkitCore.min.js、
+     dev/js/toolDiff.js -> toolDiff.min.js。GitHub Pages 在 Linux 上构建，写错一个字母
+     本地看不出来、线上一律 404，勿改。
+
+     两本 CSS 的先后与编码页、JSON 页同一条口径：公共层在前、本页独有层在后。
+     `toolkit.min.css` 供的是 .tk-content / .tk-btn / .tk-field / .tk-out / .tk-help 这一族，
+     `toolDiff.min.css` 只补 .df-* 那一族本页独有的形状（两栏行流、折叠条、行内高亮、变更表），
+     同名规则一条都不许有——公共层是段 1 立好的，本段一个字节都不动它（§0.5：证件页首屏
+     余量只剩几个百分点，往共用层加一条就是把两页的预算一起改坏）。
+
+     它们排在 header include **之后**而不是 <head> 里（同 JSON 页 :21 那条口径）：§7 首屏那一格
+     判的是"本页新加进阻塞集的东西"，搬进 <head> 就是当场给这一页添一件阻塞件。
+
+     两条 <script> 的先后是硬前提：toolkitCore 先挂 window.Tk，入口再读它。 -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolDiff.min.css">
+
+{%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
+{%- if tk -%}
+{%- comment -%}
+这一页只有一个工作区（`layout: workbench`：没有索引条，控件清单只活在装配层那张 `DIFF_SPEC` 里），
+所以那一块的短名在这里手打一次。它是 `DIFF_PANEL_IDS` 的第二处声明处——下面 33 格 id 全部从这一枚
+变量拼出，改这一行整页跟着换；而 `data-df-ids` 那一格与它必须同值，门禁⑤「DOM」组拿
+`data-df-ids` 比 `DIFF_PANEL_IDS.join(',')`，不一致红在门禁而不是红在页面上。
+{%- endcomment -%}
+{%- assign wbp = 'workbench' -%}
+
+<section class="g-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Online Tools / 本地计算，不上传输入</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">并排 · 行内 · 折叠 · JSON 按值</span>
+        </p>
+        <h1 class="masthead-title">{{ tk.h1 }}</h1>
+        <p class="masthead-lede">{{ tk.desc }}</p>
+        {%- comment -%}
+        这三格读数**不许**照抄 JSON 页那一族（那一页第三格是「1000 层深度闸门」，是它自己的
+        `MAX_DEPTH`；这一页没有深度闸门这一说，只有行级与行内两级预算）。三个数各有出处，
+        抄错就不是一句难堪的话而是一句假话：
+          · `tk.actions` 由门禁⑤ 比 `DIFF_ACTIONS.length`（本段实测 14）；
+          · 5 MiB 与 20 万行是 `dev/js/tools/diff-core.js` 的 `MAX_INPUT_BYTES`(5242880) /
+            `MAX_INPUT_LINES`(200000)，**每一侧各一份**，所以第二格写的是「单侧上限」。
+            重算口径：`node -e 'const M=await import("./dev/js/tools/diff-core.js");console.log(M.MAX_INPUT_BYTES/1048576, M.MAX_INPUT_LINES)'`
+        这里也不写「0 网络请求」：那一格在 09-29 已被改口成「输入不出本机」，理由写在 tools.html
+        的徽章注释里（每一页的 head 都还带着图标字体与统计两条外链）。
+        {%- endcomment -%}
+        <ul class="masthead-stats">
+            <li><strong>{{ tk.actions }}</strong><span>个动作</span></li>
+            <li><strong>5 MiB</strong><span>单侧输入上限</span></li>
+            <li><strong>20 万</strong><span>单侧行闸门</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container tk-content" id="main">
+    {%- comment -%}
+    这一段与证件页、编码页、JSON 页那几处的角色相同：§5.5 的"固定一行提示"在**禁用脚本时也读得到**
+    的那一份。这一句比 JSON 页那一句还好写：这一页**根本没有存储**——不做「记住上次输入」，
+    `toolDiff.js` 与 `diffWorkbench.js` 两本里 `localStorage` 与 `Date.now(` 各出现 0 次
+    （§Z 的 Z15 钉的就是这一格，它是数出来的、不是承诺出来的）。所以这里可以整句写"不读写"，
+    而不必像 JSON 页那样补一句"勾了才写本机"。
+    剪贴板那一格也要说准：这一页只**写**（复制差异、栏内复制），从不**读**剪贴板。
+    {%- endcomment -%}
+    <p class="tk-compliance">
+        本页的对齐、行内高亮与 JSON 比对全部在浏览器里算：<strong>不发请求、不上传、不读剪贴板</strong>。
+        粘贴、拖放、选本地文件三条路都在这一台机器上完成；单侧输入上限 5 MiB、20 万行，
+        超限整体拒绝并说明超了多少，不截断悄悄算。<strong>不读写 localStorage</strong>：
+        这一页没有"记住"这一档，关掉标签就什么都不剩。
+    </p>
+    <noscript>
+        <p class="tk-compliance tk-compliance--noscript">
+            脚本没有执行：两个粘贴框、十四枚按钮与那三枚下拉都在，但对比要在浏览器里算，
+            按下不会出结果；右侧那一栏空着是预期，不是坏了。正文这几段与下面那六句口径说明照常读得到。
+        </p>
+    </noscript>
+    {%- comment -%}
+    坏消息那一格：入口的 `runGuarded` 与启动失败共用它（`toolDiff.js` 口径 3 与 4），默认 hidden，
+    由脚本覆写。这一页没有面板错误条——那一块区域就是整页，所以坏消息只写这一句，
+    其余部分照常可用。
+    {%- endcomment -%}
+    <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+
+    <div class="df-workspace" id="{{ tk.prefix }}-workspace"
+         data-df-ids="workbench" data-df-prefix="{{ tk.prefix }}"
+         data-df-label="{{ tk.h1 }}" data-df-notice="{{ tk.prefix }}-notice">
+        {%- comment -%}
+        三栏：A 与 B 各是一栏输入，第三条 `.df-side--bar` 装控制栏与结果区。
+        ≤900px 收成上下堆叠（`toolDiff.scss` 文末那一组）。
+
+        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
+        ?df-in-workbench-a-text=…，而那一串里装的正是用户粘进来的两份内容——这一页最不该发生的事。
+        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`），所以这一页**不写** .tk-kbd
+        那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行），
+        写一句不存在的捷径比不写更坏。
+
+        两栏的 id 短名里编了栏位（`a-text` / `b-file`），而不是把栏位做成 id 的一维：
+        门禁⑤ 的控件公式 `{p}-in-{面板}-{控件}` 没有栏位那一格，多塞一维就红（§0.6 记的偏差）。
+
+        那一轮 `for` 的清单走 `'a,b' | split: ','`，不走 `(array: 'a,b')`：后一种是 Shopify 主题液的
+        写法，本仓库的 liquid（Jekyll 4 那份）解析到冒号就报 `Expected dotdot but found colon`，
+        而**报错的 tag 渲染成空**——2026-10-01 现场：产物里 `df-area` 零命中，A/B 两栏整块不见，
+        构建退 0、页面看着只是一段空正文。（同一段警告在 `bundle exec jekyll build` 的输出里，
+        别只盯退出码。）
+        {%- endcomment -%}
+        {%- assign df_sides = 'a,b' | split: ',' -%}
+        {%- for side in df_sides -%}
+        {%- assign S = side | upcase -%}
+        <section class="df-side df-side--{{ side }}" aria-labelledby="{{ tk.prefix }}-h-{{ side }}">
+            <h2 class="df-side__title" id="{{ tk.prefix }}-h-{{ side }}">{{ S }} 侧输入</h2>
+            <div class="tk-form df-doc" role="group" aria-labelledby="{{ tk.prefix }}-h-{{ side }}">
+                <div class="tk-field tk-field--wide">
+                    <label for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-text">{{ S }} 侧文本</label>
+                    {%- comment -%}
+                    这一族粘贴框**不带行号槽**（`DIFF_SPEC` 里那两格写的 `gutter: false`）：
+                    行号在这一页住在结果区的行块里，输入区的行号对"两份待比文本"没有意义——
+                    而且两侧行数不等时，两套行号会各自数一遍，读的人先要分辨哪一套是哪一侧的。
+                    门禁⑤ 那一格退出闸就是为这一档开的（段 5 §0.3）。
+                    {%- endcomment -%}
+                    <textarea class="df-area" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-text" rows="14"
+                              autocomplete="off" autocorrect="off" autocapitalize="off"
+                              spellcheck="false" placeholder="把第 {{ S }} 份内容贴在这里，或从文件管理器拖一个进来"></textarea>
+                    {%- comment -%}
+                    读数那一格由 `refreshGate` 整段重写成「N 行 · 大小」，静态值只是禁用脚本时的
+                    那一份真相（空输入：0 行 · 0.0 KB，与挂载后第一次读数逐字同形）。
+                    同侧那枚栏内复制按钮走的是 `copy` 节点族（`df-copy-…-a`），灰不灰由浏览器
+                    有没有 `navigator.clipboard` 决定，不靠这行字承诺。
+                    {%- endcomment -%}
+                    <p class="df-status" id="{{ tk.prefix }}-status-{{ wbp }}-{{ side }}"
+                       aria-live="polite">0 行 · 0.0 KB</p>
+                    <span class="tk-help">这一格只数行与字节，不对齐。按「重新对比」才算一次。</span>
+                    <div class="df-namerow">
+                        <label class="df-namerow__label" for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-name">文件名</label>
+                        {%- comment -%}
+                        那一格是**可编辑**的：它写进复制与下载得到的那一份 unified 文本的
+                        `--- a/xxx` 行，也显示在状态读数里。选文件时装配层会把真名填进来，
+                        但用户改它不会有任何一处报错——它只是那一份导出的署名。
+                        {%- endcomment -%}
+                        <input class="df-name" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-name" type="text"
+                               autocomplete="off" spellcheck="false" placeholder="例如 left.txt">
+                    </div>
+                    <div class="df-filerow">
+                        <label class="df-filerow__label" for="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-file">本机文件</label>
+                        {%- comment -%}
+                        故意不写 `accept`：这一页读的是字节再判编码（UTF-8 与 NUL 两道），
+                        扩展名过滤会把 `.log`、无扩展名的文件、以及用户自己知道的文本挡在门外，
+                        而"是不是文本"这件事本机那一次读取才答得上来。
+                        {%- endcomment -%}
+                        <input class="df-file" id="{{ tk.prefix }}-in-{{ wbp }}-{{ side }}-file" type="file">
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-btn-{{ wbp }}-file{{ side | upcase }}">选 {{ S }} 侧文件</button>
+                        <button class="tk-btn tk-btn--ghost" type="button"
+                                id="{{ tk.prefix }}-copy-{{ wbp }}-{{ side }}">复制这一栏</button>
+                    </div>
+                    <span class="tk-help">那一枚按钮打开的是旁边这台选择器；文件只在这一台机器上读，读完把正文填进上面的框。</span>
+                </div>
+            </div>
+        </section>
+        {%- endfor -%}
+
+        <section class="df-side df-side--bar" aria-labelledby="{{ tk.prefix }}-h-bar">
+            <h2 class="df-side__title" id="{{ tk.prefix }}-h-bar">对比与控制</h2>
+
+            {%- comment -%}
+            按钮文案与 `DIFF_ACTIONS[i].label` 逐字相同（门禁⑤「DOM」组那一族对账量的就是这两处
+            同字）。分组按 `group` 那五族走：run / fold / goto / file / copy，其中 file 那两枚
+            画在上面两栏里（id 不含栏位，位置跟着语义走更省事），copy 那两枚分在这里与上面。
+            折叠那三枚是 `context` 下拉的**快捷键**：写回同一枚 select、不另存一份状态（红线 6），
+            所以它们的文案与下拉那三档用同一批词，用户读到的是同一件事的两种按法。
+            {%- endcomment -%}
+            <div class="df-bar">
+                <div class="df-bar__group df-bar__group--mode" role="group" aria-label="口径与视图">
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-mode">口径</label>
+                        {%- comment -%}
+                        `<option>` 的 value 必须与 `DIFF_SPEC` 里那三格的 `options` 逐个对应
+                        （mode: text/json；layout: side/inline；context: diff/3/5/all）：
+                        文案归 HTML、取值归装配层。选错一档时 `selectOf` 那一句当场抛上去
+                        （红线 5 的第二条路），而不是安静地按另一档算。
+                        第一枚 `<option>` 就是**默认档**：`DEFAULTS` 是 mode=text、layout=side、
+                        context=3，而 `CONTEXT_VALUE` 的键序是 diff/3/5/all——照键序排下来的话
+                        第一档成了「只看差异」，禁 JS 读到的默认档与启 JS 算出来的默认档就此分家。
+                        所以那一格必须显式 `selected`。
+                        {%- endcomment -%}
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-mode">
+                            <option value="text">按文本逐行</option>
+                            <option value="json">按 JSON 值</option>
+                        </select>
+                    </span>
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-layout">视图</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-layout">
+                            <option value="side">并排两栏</option>
+                            <option value="inline">行内单栏</option>
+                        </select>
+                    </span>
+                    <span class="df-opt">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-context">上下文</label>
+                        <select id="{{ tk.prefix }}-in-{{ wbp }}-context">
+                            <option value="diff">只看差异</option>
+                            <option value="3" selected>上下文 3 行</option>
+                            <option value="5">上下文 5 行</option>
+                            <option value="all">全部展开</option>
+                        </select>
+                    </span>
+                </div>
+
+                {%- comment -%}
+                两枚模式说明挂在 `data-df-when` 上：装配层的 `syncGate` 只按
+                `DIFF_SPEC…switch.targets` 那一族翻 `hidden`，所以它在另一档里是整段消失，
+                不是留下一句没人答的话。`[hidden]` 那一行样式在 toolDiff.scss 里显式补过——
+                `.tk-help` 本身没有 display 声明，UA 默认顶得住，但那一条依赖的是"没人给它写
+                display"，写死更省事（JSON 页 `.jt-query[hidden]` 同一条口径）。
+                {%- endcomment -%}
+                <p class="tk-help df-mode" id="{{ tk.prefix }}-when-{{ wbp }}-text" data-df-when="text">
+                    文本档：两侧按行对齐，改动行再做行内逐字高亮，未变行按上面那一档折叠。
+                    粘贴框里贴什么读什么，不挑语言、不解析语法。
+                </p>
+                <p class="tk-help df-mode" id="{{ tk.prefix }}-when-{{ wbp }}-json" data-df-when="json">
+                    JSON 档：两侧各读一份，再按<strong>值</strong>逐格比，所以格式化、键顺序、缩进这些
+                    写法差异都不算改动；坏 JSON 会点名是第几行第几列，并让你切回文本档。
+                    这一档没有"第几处差异"与"上下文"，那六枚按钮跟着灰着。
+                </p>
+
+                <div class="df-bar__group" role="group" aria-label="对比动作">
+                    <button class="tk-btn" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-compare">重新对比</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-swap">交换两侧</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-clear">清空输入</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-reset">恢复默认档</button>
+                </div>
+
+                <div class="df-bar__group" role="group" aria-label="折叠与跳转">
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-expand">全部展开</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-fold">上下文三行</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-diffOnly">只看差异</button>
+                    <span class="df-bar__sep" aria-hidden="true"></span>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-firstDiff">第一处差异</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-prevDiff">上一处</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-nextDiff">下一处</button>
+                </div>
+
+                <div class="df-bar__group df-bar__group--opt" role="group" aria-label="归一化与导出">
+                    <span class="df-opt df-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-ws">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-ws" type="checkbox"> 忽略空白
+                        </label>
+                    </span>
+                    <span class="df-opt df-opt--check">
+                        <label for="{{ tk.prefix }}-in-{{ wbp }}-case">
+                            <input id="{{ tk.prefix }}-in-{{ wbp }}-case" type="checkbox"> 忽略大小写
+                        </label>
+                    </span>
+                    <span class="df-bar__sep" aria-hidden="true"></span>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-copyDiff">复制差异</button>
+                    <button class="tk-btn tk-btn--ghost" type="button"
+                            id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载 .diff</button>
+                </div>
+            </div>
+
+            <div class="tk-outwrap">
+                {%- comment -%}
+                这一栏的正文全部由装配层写进来（`paint` 是整页**唯一**一处 `innerHTML` 出口，
+                结论、读数、两块行流、折叠条与代价说明都从它走），骨架给的是**空的**那一格。
+                它同时是本页唯一的滚动容器：跳转那三枚算的是 `scrollTop = 视觉行数 × 行高`，
+                行高的权威在 `toolDiff.scss` 的 `--df-row-h`，由入口读一次注入（Z15 数那一格）。
+                所以这一格的高度必须写死在样式里而不是随内容长——没有滚动就没有上界，
+                那三枚按钮就永远跳不动（同 JSON 页 `.jt-tree` 那一段的理由）。
+                `aria-live="polite"` 与另三页同档：一次动作换一栏，不该打断用户正在读的东西。
+                {%- endcomment -%}
+                <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
+                   aria-live="polite">还没有比较</p>
+                <div class="tk-out df-out" id="{{ tk.prefix }}-out-{{ wbp }}-bar"
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+            </div>
+            <h2 class="df-side__title df-side__title--sr" id="{{ tk.prefix }}-h-out">差异结果</h2>
+        </section>
+    </div>
+
+    {%- comment -%}
+    下面那六句是**页内静态口径**：与结果区里那一列 `df-notes` 不重复，两处的职责不同——
+    这一列说的是"这一页在哪一档上打了折"（永远全量、禁脚本也读得到），结果区那一列由
+    `notesOf()` 只挑**这一次真的发生了**的那几句（degraded、inlineSkipped、ignored、
+    finalNewline 各按条件出现，末尾两句恒定）。把两处并成一处只有两种坏结果：
+    静态那一列被运行时覆盖，或运行时那一列变成永远全量。措辞同源但不是一个句子，
+    改这一列不必改 `DIFF_NOTES`，反之也一样。
+    {%- endcomment -%}
+    <section class="df-terms" aria-labelledby="{{ tk.prefix }}-h-terms">
+        <h2 class="tk-panel__title" id="{{ tk.prefix }}-h-terms">这一页在哪一档上打了折</h2>
+        <ol class="df-terms__list">
+            <li>行对齐用的是本站自实现的 Myers 最短编辑脚本，代价上限 2000：越线那一段按「整块删 + 整块增」给出，行数一行不会少，只是不再替你把最相似的行两两配起来。</li>
+            <li>行内逐字高亮另有一道预算（单对 4000 个 token、整篇三百万格）：越线的那些行只按整行着色，读数里写「未行内 N」告诉你少了多少。</li>
+            <li>折叠只是阅读形状：只看差异 / 上下文 3 行 / 5 行 / 全部展开四档改变"看到多少行"，不改变差异本身；复制与下载走的是你当前这一档。</li>
+            <li>勾了「忽略空白」或「忽略大小写」之后，"相同"是一个被归一化过的结论：那些行的原文仍有差别，只是没有计入差异统计，被抹平的行数单列在读数里。</li>
+            <li>「复制差异」与「下载 .diff」得到的是一份按阅读习惯排的 unified 形状文本，不承诺能被 <code>git apply</code> 接住——本站不校验上下文行，也不生成可打的补丁。</li>
+            <li>两份内容都只在这一台机器上读：粘贴、拖放、选本地文件三条路都不发请求、不上传；这一页也不读写 localStorage，关掉标签什么都不留下。</li>
+        </ol>
+    </section>
+</main>
+
+{%- comment -%}
+脚本两条：toolkitCore 把跨页共用的视图层与交互层挂成 window.Tk（这一页只吃 `view.esc` 那一格），
+入口只装配本页业务。两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，
+且必须排在正文之后——HTML 解析到这里时骨架节点已经存在，装配层第一件事就是去找那 33 格 id。
+`diffView.js` / `diffWorkbench.js` 已经打进 `toolDiff.min.js` 这一本里，**绝不再挂进 window.Tk**：
+两个入口 reach 同一模块，Rollup 切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
+{%- endcomment -%}
+<script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
+<script src="{{ site.baseurl }}/assets/js/toolDiff.min.js"></script>
+
+{% include footer.html %}
+
+{%- else -%}
+{%- comment -%}
+_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
+一个 Liquid 空值上：空正文会立刻被收录面门禁的「页面源」与「DOM」两组判据抓住。
+{%- endcomment -%}
+<main class="g-container tk-content" id="main">
+    <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
+</main>
+{% include footer.html %}
+{%- endif -%}
+```
+
+#### `dev/sass/toolDiff.scss`（整文件，692 行）
+
+全仓库 `--df-row-h` 的**唯一赋值处**，与 `toolJson.scss` 的 `--jt-row-h` 同一族：入口 `rowHeightPx()`
+读它一次注进 `env.rowHeight`，§Z 的 `scrollTop` 换算与样式画的行高共用那一个整数。
+这一格镜像独扛两条只有字节才看得见的口径：① 那一把尺如果被 px→vw 改写（postcss 黑名单少一串），
+入口读到的整数与浏览器画出的高度分两半，而 §Z 一条都不会红；② ≤640 那一档"不堆叠"的决定
+只有写在样式里才是决定——注释与 §0.6 那行都会过期，这一格是它能被复核的那一份。
+
+```scss
+/*** 文件对比页（/tools/diff.html）那一层的形状***/
+//
+// 一、这一本只管 `.df-*` 那一族，公共层 `.tk-*` 一律不在这里重写（§0.5：`toolkit.scss`
+// 本段一个字节都不加——它此刻被另一路会话改着，而且证件页首屏的余量只剩几个百分点，
+// 往共用层加一条就是把两页的预算一起改坏）。需要公共形状的地方直接用那些类名：
+// `.tk-content` `.tk-compliance` `.tk-notice` `.tk-btn` `.tk-btn--ghost` `.tk-field`
+// `.tk-help` `.tk-outwrap` `.tk-out`，本页新增的是骨架、两栏行流、行内高亮、折叠条、
+// 结论与读数、JSON 变更表这六族形状。
+//
+// 二、px 与视口：`postcss.config.js` 的黑名单里本段加了 `'.df-'` 那一串（Task 6 Step 3），
+// 本文件不改别的。这条黑名单对这一页不是风格问题而是**正确性**问题：
+// `--df-row-h` 是行块、折叠条与跳转换算唯一的那把尺，入口 `toolDiff.js` 读它一次、注入
+// `env.rowHeight`，装配层 `goTo()` 拿那个整数算 `scrollTop = 视觉行数 × 行高`。一旦这一格被
+// 换算成 vw，读回来的串就不是 `^\d+px$` 的形状，入口退回 24 而样式画的是另一个数——
+// 每按一次「下一处」差半行到一行，而构建、门禁①②③⑤⑥ 全都不会红。
+// 推论一：任何写了 px 的新规则，选择器文本里必须带 `.df-` 子串（黑名单按子串命中）。
+// 推论二：`@keyframes` 是唯一罩不住的地方（关键帧的"选择器"是 0%/to），所以**本层不写动画**。
+// 推论三是这一层真正的算术前提：`.df-row` / `.df-fold` 的每一"视觉行"必须**正好**占
+// `--df-row-h`，`margin`、`border` 与行盒之外的任何东西都会把那份换算读歪。所以那两族一律
+// `box-sizing: border-box` + `height` + 零 margin，需要描边处一律 `box-shadow: inset`（不占位）。
+// 唯一没被换算算进去的是结论与读数那两行（它们在行流之前，`goTo()` 不知道它们多高）：
+// 误差方向只会让目标块落在视口**更下面**，永远不是被顶出去，所以这一格取"保守可见"；
+// 把这两行压到各一行（`white-space` 默认允许折，折了也只是误差变大一点，不改变方向）。
+//
+// 三、配色只走 tokens.scss 的语义变量与 toolkit.scss 已经立好的三档状态色（`--tk-ok/warn/bad`
+// 在 `:root` 与 `body.night-mode` 各写一遍，夜间值由那一层给全），本层不写颜色字面量、
+// 也不写 `.night-mode` 分支。墨阶只用 `--ink` / `--ink-2` / `--ink-3`：§6.4 那条
+// "10.5–13px 的正文性文字不许取 `--ink-4`"在本层同样成立（那一档实测 3.78:1，够不到 AA）。
+// 删 / 增 / 改三档的**底色**用 `color-mix()` 从既有语义色里推（不新造色名，因此夜间自动跟着转），
+// 每条都先写一条纯色退路：不支持 `color-mix()` 的浏览器留住 `--surface-2` 那一档，
+// 底色仍在，只是分不出色相——而色相从来不是唯一那把尺，行左侧那道 3px 的 inset 竖条
+// 与 `+` / `-` 前缀（`.df-row__no` 之后由底色与竖条一起承担）在任何一档都画得出。
+//
+// 四、样式不认识 JS 的运行状态，只认识 ARIA、`hidden` 与节点在不在。本页的显隐只有一族：
+// `data-df-when` 那两段模式说明，由 `diffWorkbench.js` 的 `syncGate()` 翻 `hidden` 布尔属性。
+// `.df-mode[hidden]` 那一格**必须**显式写：作者样式恒胜 UA 的 `[hidden]{display:none}`，
+// 而 `.df-mode` 后面要挂 `margin` 与 `max-width`——不补这一条，切到 JSON 档时文本档那句
+// 说明会留在屏幕上，读起来像"两档同时成立"。
+// `.df-out` 的高度写死在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
+// 跳转靠的是这只容器自己的 `scrollTop`；不给高度就没有滚动条，`scrollTop` 恒 0，
+// 那三枚按钮按下去什么也不发生，而 §Z 的每一判一条都不红（假 DOM 里 `scrollTop` 是个普通属性）。
+//
+// 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 toolkit.scss 第四条。
+
+$df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+// ── 骨架：三栏工作台 ──────────────────────────────────────────────────────
+
+.df-workspace {
+    // 唯一那把尺。写在 `.df-workspace` 而不是 `:root`：`:root` 那条选择器文本里没有 `.df-`，
+    // px→vw 的黑名单够不到它（见文件头第二条）。行高**不随断点变**——入口只在启动时读一次，
+    // 中途换尺就是跳转换算与行块分家。
+    --df-row-h: 24px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px 24px;
+    align-items: start;
+    margin-top: 22px;
+}
+
+// 控制与结果那一栏横跨两列：输入要成对才比得起来，而结果区要的是整幅宽度。
+.df-side--bar {
+    grid-column: 1 / -1;
+}
+
+.df-side__title {
+    margin: 0 0 10px;
+    font-family: $df-meta;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+// 结果区那个 `<h2>` 是 `aria-labelledby` 的落点，不是版面：它排在 `.tk-outwrap` 之后，
+// 读屏要的是"这一块叫什么"，眼睛要的已经由上面那行读数给全了。
+.df-side__title--sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+// ── 输入侧：粘贴框、文件名、本机文件 ──────────────────────────────────────
+
+.df-doc {
+    margin-bottom: 0;
+}
+
+// 压过 `.tk-field textarea`（0,1,1）要靠 `.tk-field` 这一层前缀：作者样式之间比的还是特异性。
+.tk-field .df-area {
+    box-sizing: border-box;
+    min-height: 268px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    tab-size: 4;
+}
+
+// 读数那一格由 `refreshGate` 整段重写成「N 行 · 大小」，所以这一格不许有 ::before 之类
+// 的装饰文本——那半句会留在改写之后。
+.df-status {
+    margin: 0;
+    font-family: $df-meta;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// 那一行只有两格：一个短标签、一个可编辑的名字。名字格不许被 `.tk-field input` 撑成整幅宽度
+// （它写的是导出那一份的署名，不是路径），所以定宽到半栏。
+.df-namerow {
+    display: grid;
+    grid-template-columns: 5em minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+}
+
+.df-namerow__label,
+.df-filerow__label {
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.tk-field .df-name {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: $df-meta;
+    font-size: 12.5px;
+}
+
+.df-filerow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+// 原生选择框那一格：`.tk-field input` 给的是 `width:100%` + 表单字的那份内边距，
+// 套在 `type=file` 上会把两枚按钮挤出这一行。这里收回到"一行里的一格"。
+.tk-field .df-file {
+    box-sizing: border-box;
+    max-width: min(100%, 30em);
+    padding: 4px 6px;
+    font-family: $df-meta;
+    font-size: 12px;
+    background-color: var(--surface-2);
+    border-style: dashed;
+    border-color: var(--rule-2);
+    cursor: pointer;
+}
+
+// ── 控制栏四段 ────────────────────────────────────────────────────────────
+
+.df-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.df-bar__group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.df-bar__group--opt {
+    gap: 14px;
+}
+
+// 段与段之间那道竖线：`aria-hidden` 的那枚 `<span>`，只占位、不参与任何换算。
+.df-bar__sep {
+    flex: none;
+    width: 1px;
+    height: 18px;
+    background-color: var(--rule-2);
+}
+
+.df-opt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.df-opt label {
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+// 这三枚 select 不在 `.tk-field` 里（那是"一栏一控件"那一族的位置），所以公共层罩不到它们，
+// 形状要在这一格给全。
+.df-opt select {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.df-opt--check {
+    position: relative;
+}
+
+.df-opt--check > label {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.df-opt--check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--signal);
+}
+
+.df-opt--check .tk-help {
+    font-size: 11.5px;
+}
+
+// ── 两档模式说明（唯一由 `hidden` 收放的一族） ────────────────────────────
+
+.df-mode {
+    margin: 0;
+    max-width: 68ch;
+}
+
+.df-mode[hidden] {
+    display: none;
+}
+
+// ── 结果区 ────────────────────────────────────────────────────────────────
+
+.df-status--bar {
+    font-size: 11.5px;
+    letter-spacing: .4px;
+}
+
+// 本页唯一的滚动容器，也是 §Z 那句"整页只有一处 innerHTML"的那个落点。
+// 高度写死、两个方向都给滚动条：文件头第四条那两格前提都在这里。
+.df-out {
+    box-sizing: border-box;
+    width: 100%;
+    height: min(620px, 68vh);
+    padding: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-family: $df-meta;
+    background-color: var(--surface);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.df-notice {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+}
+
+// 结论与读数：各占一行、贴在行流左边缘。它们的**高度不进跳转那份换算**（文件头第二条末段），
+// 所以这一格的目标是让它们稳定地各只有一行：不留 margin、字号给到 13px。
+.df-verdict {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 13px;
+    line-height: var(--df-row-h);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.df-verdict--same {
+    color: var(--tk-ok);
+}
+
+.df-verdict--same-key-order {
+    color: var(--tk-warn);
+}
+
+// 「有一段对不齐」那一格是结论句的**限定语**，不是第二句结论：跟在后面、换一个更轻的字重，
+// 让它读起来像括号里的那半句。
+.df-verdict__warn {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--tk-warn);
+}
+
+.df-stats {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: var(--df-row-h);
+    color: var(--ink-3);
+}
+
+// ── 行流：并排两栏 / 行内一栏 ─────────────────────────────────────────────
+
+// 两个轨道各给一条 `minmax()` 下界、上界交给内容：`max-content` 让整块行流按最长那一行铺开，
+// 横滚因此归 `.df-out` 那一格（A 与 B 同一条滚动条、同一档横移位置）。这一格不许写成
+// `repeat(2, minmax(0, 1fr))` + `.df-col{overflow-x:auto}`：两栏各有各的滚动条时，
+// 用户要比对同一行两侧的写法就得两次双手操作；而 `1fr` 那一档下长行会**溢出到邻栏**
+// （轨道宽 = 客户宽的一半，溢出只画不裁），读起来是"B 栏压在了 A 栏的尾巴上"。
+// 撑破轨道的代价是横滚，被挤成竖排的代价是这一页根本读不了——取前者。
+.df-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, max-content));
+    gap: 0 12px;
+    width: max-content;
+    min-width: 100%;
+    padding: 0 12px;
+}
+
+// 行内档没有第二栏，那一格独占整幅。
+.df-lines {
+    width: max-content;
+    min-width: 100%;
+    padding: 0 12px;
+}
+
+.df-col {
+    min-width: 0;
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.df-row {
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+    height: var(--df-row-h);
+    padding-right: 8px;
+    font-size: 12.5px;
+    line-height: var(--df-row-h);
+    color: var(--ink-2);
+}
+
+.df-row__no {
+    flex: none;
+    width: 3.6em;
+    padding-right: .7em;
+    font-size: 11.5px;
+    text-align: right;
+    white-space: pre;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+// 正文那一格是 `<pre>`：代码行的缩进是内容不是排版，CSS 万一漏了 `white-space`，
+// 四格缩进就被并成一格了。行高锁在 `--df-row-h`、超出只裁不折，长行走 `.df-col` 的横滚。
+.df-row__txt {
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0;
+    padding: 0 4px 0 0;
+    font: inherit;
+    line-height: var(--df-row-h);
+    white-space: pre;
+    overflow: hidden;
+}
+
+.df-row__cr {
+    flex: none;
+    padding-left: 4px;
+    font-size: 11px;
+    color: var(--tk-warn);
+}
+
+.df-row--equal {
+    background-color: transparent;
+}
+
+.df-row--change {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--signal) 8%, transparent);
+    box-shadow: inset 3px 0 0 var(--signal);
+}
+
+.df-row--del {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--tk-bad) 9%, transparent);
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.df-row--ins {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--tk-ok) 9%, transparent);
+    box-shadow: inset 3px 0 0 var(--tk-ok);
+}
+
+// 缺席那一侧：它是"这一侧没有这一行"，不是第 0 行、也不是空行——所以给斜纹而不是空白。
+// 两栏各读同一份行流靠的就是这一格看得见，否则并排视图会读成"两边都有这行、只是没内容"。
+.df-row--fill {
+    background-color: var(--surface-2);
+    background-image: linear-gradient(
+        45deg,
+        transparent 5px,
+        var(--rule) 5px,
+        var(--rule) 6px,
+        transparent 6px,
+        transparent 11px
+    );
+    background-size: 11px 11px;
+}
+
+// 行内高亮：`renderInline` 只给 del / ins 两档套 span，等价段是裸文本。用 `box-shadow`
+// 而不是 `background`，那一格底色与行自己的档位底色能同屏。
+.df-inline--del,
+.df-inline--ins {
+    box-shadow: inset 0 -9px 0 var(--rule-2);
+    border-radius: var(--radius-s);
+}
+
+.df-inline--del {
+    color: var(--tk-bad);
+}
+
+.df-inline--ins {
+    color: var(--tk-ok);
+}
+
+// ── 折叠条：整条正好一个 `--df-row-h`，因为 `goTo()` 把它算作一个视觉行 ─────
+// `white-space: nowrap` 与 `overflow: hidden` 是给那份换算上的保险：这句话一旦折行，
+// 这一条就占两行高，而 `goTo()` 只把它算作一行——此后每一处跳转都少滚一行，且越往后差得越多。
+// 360 档实测那一句「省略 24 行 · 展开」在 11.5px 下约 96px，离这一格的宽度下界很远，
+// 所以"截成两个字"在这里不是风险，折行才是。
+.df-fold {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    height: var(--df-row-h);
+    margin: 0;
+    padding: 0 12px;
+    font-family: $df-meta;
+    font-size: 11.5px;
+    line-height: var(--df-row-h);
+    white-space: nowrap;
+    text-align: left;
+    overflow: hidden;
+    color: var(--signal-ink);
+    background-color: var(--surface-2);
+    border: 0;
+    border-radius: 0;
+    box-shadow: inset 0 1px 0 var(--rule), inset 0 -1px 0 var(--rule);
+    cursor: pointer;
+    // 粘住横滚的左沿：行流可以比这一格宽（那是这一页的常态），而"省略 24 行"那一句话
+    // 是**读屏的地图**，它跟着内容滚出视野之后，用户只剩一片空白可以滚。
+    position: sticky;
+    left: 0;
+}
+
+.df-fold:hover {
+    color: var(--signal);
+    box-shadow: inset 0 1px 0 var(--rule-2), inset 0 -1px 0 var(--rule-2), inset 0 0 0 1px var(--rule-2);
+}
+
+.df-fold:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: -2px;
+}
+
+// 尾条与头条是两档（Z7 量的就是这件事）：样式上的分别是"下面那道线不要"。
+.df-fold--tail {
+    box-shadow: inset 0 1px 0 var(--rule);
+}
+
+// ── 代价说明与 JSON 变更表 ────────────────────────────────────────────────
+
+.df-notes {
+    margin: 10px 0 0;
+    padding: 10px 12px 10px 30px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 1px 0 var(--rule);
+}
+
+.df-json__meta {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: var(--df-row-h);
+    color: var(--ink-3);
+}
+
+// 六列那张表：这一页的 JSON 档没有行流，读的是"哪一格变了"，所以列宽交给内容，
+// 横滚归 `.df-out`（`min-width:100%` 让它至少铺满那一栏）。
+.df-json {
+    box-sizing: border-box;
+    min-width: 100%;
+    margin: 8px 0 0;
+    font-family: $df-meta;
+    font-size: 12.5px;
+    border-collapse: collapse;
+}
+
+.df-json th,
+.df-json td {
+    padding: 5px 10px;
+    text-align: left;
+    vertical-align: top;
+    white-space: pre-wrap;
+    border-bottom: 1px solid var(--rule);
+}
+
+.df-json thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .4px;
+    color: var(--ink-3);
+    background-color: var(--surface);
+    box-shadow: inset 0 -1px 0 var(--rule-2);
+}
+
+.df-json__ptr {
+    color: var(--ink);
+}
+
+.df-json__kind,
+.df-json__owner {
+    white-space: nowrap;
+    color: var(--ink-3);
+}
+
+.df-json__depth {
+    width: 4em;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--ink-3);
+}
+
+.df-json__a,
+.df-json__b {
+    max-width: 42ch;
+    overflow-wrap: anywhere;
+    color: var(--ink-2);
+}
+
+// 四档变更各给一道左侧竖条：颜色之外还有位置这一格可读（表里那一列同时写着中文档名）。
+.df-json__row--add {
+    box-shadow: inset 3px 0 0 var(--tk-ok);
+}
+
+.df-json__row--remove {
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.df-json__row--change {
+    box-shadow: inset 3px 0 0 var(--tk-warn);
+}
+
+.df-json__row--type {
+    box-shadow: inset 3px 0 0 var(--signal);
+}
+
+// 「这一侧没有」与"值真的是 null"是两件事，视图层用 `absent` 那一格分开它们（Z18）。
+.df-json__none {
+    font-style: italic;
+    color: var(--ink-3);
+}
+
+.df-json__cut {
+    margin: 8px 0 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--tk-warn);
+}
+
+// ── 页脚那六句静态口径 ────────────────────────────────────────────────────
+
+.df-terms {
+    margin-top: 30px;
+}
+
+.df-terms__list {
+    margin: 10px 0 0;
+    padding-left: 22px;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--ink-3);
+}
+
+.df-terms__list li + li {
+    margin-top: 6px;
+}
+
+.df-terms__list code {
+    padding: 1px 4px;
+    font-family: $df-meta;
+    font-size: 12px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-s);
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两档与 toolkit.scss 同一口径（那一层的索引条在本页没有，退档退的是左右分栏）。
+// 901–1100 那一段**不在这里改**：两栏靠 `minmax(0, 1fr)` 自己收缩，十四枚按钮靠 `flex-wrap` 换行。
+// 但这一段必须实测（段 2 立的十档清单里的 901/920/940）：`min-width:0` 一漏，
+// 一行 5 MiB 的结果串会把整栏撑破，而 §7 那两格预算量的都是首屏字节、看不见它。
+// ≤900 竖排的是**那两条输入栏**（A 排在 B 之前，两份输入前后读本来就没有配对问题）；
+// `.df-side--bar` 一直占满 `1 / -1`，所以结果区在那一档之后仍是 §Z 的那一栏，视图层不受影响。
+
+@media (max-width: 900px) {
+    .df-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .tk-field .df-area {
+        min-height: 200px;
+    }
+
+    .df-out {
+        height: min(500px, 60vh);
+    }
+}
+
+// ≤640 那一档**不退成上下堆叠**（与段 5 计划 Task 7 Step 2 的原句不同，偏差记在计划 §0.6）。
+// 理由是那一格要的"堆叠"在视图层只有一种等价形状：把 `.df-cols` 的两条轨道改成一行——而 `side` 档的
+// 行流是「同一行在两栏各出现一次」（Z20 钉住：行块数 = 行数 × 2），竖排之后 A 的整份行流排在 B 之前，
+// 读的人要先自己上下配对，那一块就从"对比"退成了"两份文本"。窄屏的真退路是那一枚「视图」下拉里
+// 的**行内单栏**：`inline` 档由装配层把 change 摊成两行、只出一栏（Z20 同一判的第二半），
+// 它是行流层面的堆叠，不是样式层面的——所以样式这一层只把两栏压窄、把横滚留给 `.df-out`，
+// 让用户自己选档。样式里改 `grid-template-columns` 会造出一幅"下拉写着并排、画面是两栏竖排"的假象。
+@media (max-width: 640px) {
+    .df-cols {
+        gap: 0 8px;
+        padding: 0 8px;
+    }
+
+    .df-bar__group {
+        gap: 6px;
+    }
+
+    .df-bar__group .tk-btn {
+        flex: 1 1 auto;
+    }
+
+    .df-bar__group--opt {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .df-opt {
+        justify-content: space-between;
+    }
+
+    .df-opt select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .df-row {
+        font-size: 12px;
+    }
+
+    .df-row__no {
+        width: 3em;
+    }
+
+    .df-out {
+        height: min(420px, 54vh);
+    }
+}
+```
+
+#### `assets/img/tools/diff-tool.svg`（整文件，33 行）
+
+第四枚图标。门禁⑥「图标」那一组把 `stroke` / `fill` 里每个色值拿去比 `tokens.scss` 现读的八格底色，
+读的是**磁盘**那份；镜像在这里多扛一条：XML 注释禁连续两划那条硬规矩的第四个现场
+（2026-09-28 证件页那枚破图，判据补的就是这一档）。取色与前四枚同为 `#737B85`，理由同一档。
+
+```svg
+<!-- 顶栏「工具箱」下拉与 /tools.html 小节里「文件与文本对比工具」那一行的图标。
+     画成一条中缝分隔的左右两栏短行，两栏的行长短不一：这一页做的是「两份东西摆一起看哪几行不一样」，
+     图形要说的就是那几处不一样，所以不画放大镜、不画文件夹、不画箭头（那些读出来的是「搜索」或「同步」）。
+     三枚同族图标各占一种形状——卡片、尖括号加斜杠、花括号——这一枚是第四种，读图的人在下拉里
+     先读到名字，图形只负责把这一族页面互相区分开。
+
+     与另三枚同一条硬规矩：XML 注释里禁止出现连续两个连字符，一写整个文件就解析失败，
+     而 SVG 是被 <img> 引用的，解析失败在浏览器里直接是破图（2026-09-28 现场就是证件页那份
+     注释里写了带 var 前缀的令牌名，xmllint 报六处 parser error，下拉与产品页两处同时破图，
+     而收录面门禁当时退 0）。所以这段通篇把底色令牌写成 surface / surface-2，不写它们那两划
+     开头的形式；连中缝那一格的自定义属性也写成 df row h，不在这里写它的原名。
+
+     颜色与另三枚取同一个 #737B85，理由也同一档：这一族图标通过 <img src> 引用，
+     里面的 SVG 拿不到宿主页面的 CSS 自定义属性，currentColor 只能落回它自己文档的初始 color
+     （近黑），落在夜间 surface-2 上是 1.35:1，等于看不见。烘色则两档都能读，代价是
+     不跟主题变——下拉里这几枚本来也只是区分条目用。
+
+     #737B85 的取值口径同 assets/img/tools/idcard-tool.svg 那段注释：把 tokens.scss 里
+     四档纸色温的 surface 与 surface-2 共 8 格逐格算对比度，取"最差那组尽量高"的那一档，
+     WCAG 1.4.11 对图形对象要 3:1（这几处图标都带 alt=""，属装饰，实际门槛更低）。
+     复算不用手抄：跑 `node scripts/check-tools-surface.mjs`，它的「图标」那一组按条目现读
+     tokens.scss 凑底色集合、现算这八组比值，并把本文件的 stroke 与 fill 里每个色值都过一遍。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="#737B85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="文件与文本对比工具">
+    <path d="M12 4.5v15" stroke-width="1"/>
+    <path d="M3.5 8h5"/>
+    <path d="M3.5 12.5h5"/>
+    <path d="M3.5 17h2.6"/>
+    <path d="M15.5 8h5"/>
+    <path d="M15.5 12.5h2.6"/>
+    <path d="M15.5 17h5"/>
+</svg>
+```
+
+---
+
 
 ---
 
@@ -6001,8 +7335,11 @@ Modify `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md`（§7 �
 
 - [ ] **Step 1：清场**——`ps` / `lsoff` 证明没有遗留 runner 与占用端口（项目记忆那条
       "e2e 前先清遗留进程与端口"，本轮并行会话负载到过 500）。
-- [ ] **Step 2：十档视口 × 本页**（1a–1e 那五档沿用，另加对比页独有的两档：并排视图在 ≤640 必须
-      退成上下堆叠而不是横向挤压；折叠条在 360 档不得把"省略 N 行"截成两个字）。
+- [ ] **Step 2：十档视口 × 本页**（1a–1e 那五档沿用，另加对比页独有的两档：并排两栏在 ≤640 **保持并排**、
+      横向溢出只由 `.df-out` 那一个滚动容器承担，**不退成上下堆叠**（Task 6 Step 2 改道，理由记 §0.6，
+      原句"必须退成上下堆叠"已按此改口）——要各测一次：并排档在 360 档不出现"两栏被挤到读不出"，
+      「视图」下拉切到**行内单栏**那一档在 360 档能单栏读完，那才是窄屏的真退路；
+      折叠条在 360 档不得把"省略 N 行"截成两个字）。
 - [ ] **Step 3：本页专属的交互族**——真实鼠标点击要过命中测试（`elementFromPoint` 自证落点）、
       拖入文件与 `<input type=file>` 两路各跑一次（`DataTransfer` 造的那份不算，要真文件描述符）、
       非 UTF-8 与含 NUL 的两份样本必须被拒并给那句、超 5 MiB 的样本**先按 size 拒**（断言

@@ -1,0 +1,692 @@
+/*** 文件对比页（/tools/diff.html）那一层的形状***/
+//
+// 一、这一本只管 `.df-*` 那一族，公共层 `.tk-*` 一律不在这里重写（§0.5：`toolkit.scss`
+// 本段一个字节都不加——它此刻被另一路会话改着，而且证件页首屏的余量只剩几个百分点，
+// 往共用层加一条就是把两页的预算一起改坏）。需要公共形状的地方直接用那些类名：
+// `.tk-content` `.tk-compliance` `.tk-notice` `.tk-btn` `.tk-btn--ghost` `.tk-field`
+// `.tk-help` `.tk-outwrap` `.tk-out`，本页新增的是骨架、两栏行流、行内高亮、折叠条、
+// 结论与读数、JSON 变更表这六族形状。
+//
+// 二、px 与视口：`postcss.config.js` 的黑名单里本段加了 `'.df-'` 那一串（Task 6 Step 3），
+// 本文件不改别的。这条黑名单对这一页不是风格问题而是**正确性**问题：
+// `--df-row-h` 是行块、折叠条与跳转换算唯一的那把尺，入口 `toolDiff.js` 读它一次、注入
+// `env.rowHeight`，装配层 `goTo()` 拿那个整数算 `scrollTop = 视觉行数 × 行高`。一旦这一格被
+// 换算成 vw，读回来的串就不是 `^\d+px$` 的形状，入口退回 24 而样式画的是另一个数——
+// 每按一次「下一处」差半行到一行，而构建、门禁①②③⑤⑥ 全都不会红。
+// 推论一：任何写了 px 的新规则，选择器文本里必须带 `.df-` 子串（黑名单按子串命中）。
+// 推论二：`@keyframes` 是唯一罩不住的地方（关键帧的"选择器"是 0%/to），所以**本层不写动画**。
+// 推论三是这一层真正的算术前提：`.df-row` / `.df-fold` 的每一"视觉行"必须**正好**占
+// `--df-row-h`，`margin`、`border` 与行盒之外的任何东西都会把那份换算读歪。所以那两族一律
+// `box-sizing: border-box` + `height` + 零 margin，需要描边处一律 `box-shadow: inset`（不占位）。
+// 唯一没被换算算进去的是结论与读数那两行（它们在行流之前，`goTo()` 不知道它们多高）：
+// 误差方向只会让目标块落在视口**更下面**，永远不是被顶出去，所以这一格取"保守可见"；
+// 把这两行压到各一行（`white-space` 默认允许折，折了也只是误差变大一点，不改变方向）。
+//
+// 三、配色只走 tokens.scss 的语义变量与 toolkit.scss 已经立好的三档状态色（`--tk-ok/warn/bad`
+// 在 `:root` 与 `body.night-mode` 各写一遍，夜间值由那一层给全），本层不写颜色字面量、
+// 也不写 `.night-mode` 分支。墨阶只用 `--ink` / `--ink-2` / `--ink-3`：§6.4 那条
+// "10.5–13px 的正文性文字不许取 `--ink-4`"在本层同样成立（那一档实测 3.78:1，够不到 AA）。
+// 删 / 增 / 改三档的**底色**用 `color-mix()` 从既有语义色里推（不新造色名，因此夜间自动跟着转），
+// 每条都先写一条纯色退路：不支持 `color-mix()` 的浏览器留住 `--surface-2` 那一档，
+// 底色仍在，只是分不出色相——而色相从来不是唯一那把尺，行左侧那道 3px 的 inset 竖条
+// 与 `+` / `-` 前缀（`.df-row__no` 之后由底色与竖条一起承担）在任何一档都画得出。
+//
+// 四、样式不认识 JS 的运行状态，只认识 ARIA、`hidden` 与节点在不在。本页的显隐只有一族：
+// `data-df-when` 那两段模式说明，由 `diffWorkbench.js` 的 `syncGate()` 翻 `hidden` 布尔属性。
+// `.df-mode[hidden]` 那一格**必须**显式写：作者样式恒胜 UA 的 `[hidden]{display:none}`，
+// 而 `.df-mode` 后面要挂 `margin` 与 `max-width`——不补这一条，切到 JSON 档时文本档那句
+// 说明会留在屏幕上，读起来像"两档同时成立"。
+// `.df-out` 的高度写死在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
+// 跳转靠的是这只容器自己的 `scrollTop`；不给高度就没有滚动条，`scrollTop` 恒 0，
+// 那三枚按钮按下去什么也不发生，而 §Z 的每一判一条都不红（假 DOM 里 `scrollTop` 是个普通属性）。
+//
+// 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
+// @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
+// `@font-face` 归 index.min.css，缺字退 Georgia / SF Mono，中文由栈尾接手。同 toolkit.scss 第四条。
+
+$df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+// ── 骨架：三栏工作台 ──────────────────────────────────────────────────────
+
+.df-workspace {
+    // 唯一那把尺。写在 `.df-workspace` 而不是 `:root`：`:root` 那条选择器文本里没有 `.df-`，
+    // px→vw 的黑名单够不到它（见文件头第二条）。行高**不随断点变**——入口只在启动时读一次，
+    // 中途换尺就是跳转换算与行块分家。
+    --df-row-h: 24px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px 24px;
+    align-items: start;
+    margin-top: 22px;
+}
+
+// 控制与结果那一栏横跨两列：输入要成对才比得起来，而结果区要的是整幅宽度。
+.df-side--bar {
+    grid-column: 1 / -1;
+}
+
+.df-side__title {
+    margin: 0 0 10px;
+    font-family: $df-meta;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+// 结果区那个 `<h2>` 是 `aria-labelledby` 的落点，不是版面：它排在 `.tk-outwrap` 之后，
+// 读屏要的是"这一块叫什么"，眼睛要的已经由上面那行读数给全了。
+.df-side__title--sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+// ── 输入侧：粘贴框、文件名、本机文件 ──────────────────────────────────────
+
+.df-doc {
+    margin-bottom: 0;
+}
+
+// 压过 `.tk-field textarea`（0,1,1）要靠 `.tk-field` 这一层前缀：作者样式之间比的还是特异性。
+.tk-field .df-area {
+    box-sizing: border-box;
+    min-height: 268px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    tab-size: 4;
+}
+
+// 读数那一格由 `refreshGate` 整段重写成「N 行 · 大小」，所以这一格不许有 ::before 之类
+// 的装饰文本——那半句会留在改写之后。
+.df-status {
+    margin: 0;
+    font-family: $df-meta;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+}
+
+// 那一行只有两格：一个短标签、一个可编辑的名字。名字格不许被 `.tk-field input` 撑成整幅宽度
+// （它写的是导出那一份的署名，不是路径），所以定宽到半栏。
+.df-namerow {
+    display: grid;
+    grid-template-columns: 5em minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+}
+
+.df-namerow__label,
+.df-filerow__label {
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.tk-field .df-name {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: $df-meta;
+    font-size: 12.5px;
+}
+
+.df-filerow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+// 原生选择框那一格：`.tk-field input` 给的是 `width:100%` + 表单字的那份内边距，
+// 套在 `type=file` 上会把两枚按钮挤出这一行。这里收回到"一行里的一格"。
+.tk-field .df-file {
+    box-sizing: border-box;
+    max-width: min(100%, 30em);
+    padding: 4px 6px;
+    font-family: $df-meta;
+    font-size: 12px;
+    background-color: var(--surface-2);
+    border-style: dashed;
+    border-color: var(--rule-2);
+    cursor: pointer;
+}
+
+// ── 控制栏四段 ────────────────────────────────────────────────────────────
+
+.df-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.df-bar__group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.df-bar__group--opt {
+    gap: 14px;
+}
+
+// 段与段之间那道竖线：`aria-hidden` 的那枚 `<span>`，只占位、不参与任何换算。
+.df-bar__sep {
+    flex: none;
+    width: 1px;
+    height: 18px;
+    background-color: var(--rule-2);
+}
+
+.df-opt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.df-opt label {
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+// 这三枚 select 不在 `.tk-field` 里（那是"一栏一控件"那一族的位置），所以公共层罩不到它们，
+// 形状要在这一格给全。
+.df-opt select {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-m);
+}
+
+.df-opt--check {
+    position: relative;
+}
+
+.df-opt--check > label {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.df-opt--check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--signal);
+}
+
+.df-opt--check .tk-help {
+    font-size: 11.5px;
+}
+
+// ── 两档模式说明（唯一由 `hidden` 收放的一族） ────────────────────────────
+
+.df-mode {
+    margin: 0;
+    max-width: 68ch;
+}
+
+.df-mode[hidden] {
+    display: none;
+}
+
+// ── 结果区 ────────────────────────────────────────────────────────────────
+
+.df-status--bar {
+    font-size: 11.5px;
+    letter-spacing: .4px;
+}
+
+// 本页唯一的滚动容器，也是 §Z 那句"整页只有一处 innerHTML"的那个落点。
+// 高度写死、两个方向都给滚动条：文件头第四条那两格前提都在这里。
+.df-out {
+    box-sizing: border-box;
+    width: 100%;
+    height: min(620px, 68vh);
+    padding: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-family: $df-meta;
+    background-color: var(--surface);
+    border-radius: var(--radius-m);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.df-notice {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+}
+
+// 结论与读数：各占一行、贴在行流左边缘。它们的**高度不进跳转那份换算**（文件头第二条末段），
+// 所以这一格的目标是让它们稳定地各只有一行：不留 margin、字号给到 13px。
+.df-verdict {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 13px;
+    line-height: var(--df-row-h);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.df-verdict--same {
+    color: var(--tk-ok);
+}
+
+.df-verdict--same-key-order {
+    color: var(--tk-warn);
+}
+
+// 「有一段对不齐」那一格是结论句的**限定语**，不是第二句结论：跟在后面、换一个更轻的字重，
+// 让它读起来像括号里的那半句。
+.df-verdict__warn {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--tk-warn);
+}
+
+.df-stats {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: var(--df-row-h);
+    color: var(--ink-3);
+}
+
+// ── 行流：并排两栏 / 行内一栏 ─────────────────────────────────────────────
+
+// 两个轨道各给一条 `minmax()` 下界、上界交给内容：`max-content` 让整块行流按最长那一行铺开，
+// 横滚因此归 `.df-out` 那一格（A 与 B 同一条滚动条、同一档横移位置）。这一格不许写成
+// `repeat(2, minmax(0, 1fr))` + `.df-col{overflow-x:auto}`：两栏各有各的滚动条时，
+// 用户要比对同一行两侧的写法就得两次双手操作；而 `1fr` 那一档下长行会**溢出到邻栏**
+// （轨道宽 = 客户宽的一半，溢出只画不裁），读起来是"B 栏压在了 A 栏的尾巴上"。
+// 撑破轨道的代价是横滚，被挤成竖排的代价是这一页根本读不了——取前者。
+.df-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, max-content));
+    gap: 0 12px;
+    width: max-content;
+    min-width: 100%;
+    padding: 0 12px;
+}
+
+// 行内档没有第二栏，那一格独占整幅。
+.df-lines {
+    width: max-content;
+    min-width: 100%;
+    padding: 0 12px;
+}
+
+.df-col {
+    min-width: 0;
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.df-row {
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+    height: var(--df-row-h);
+    padding-right: 8px;
+    font-size: 12.5px;
+    line-height: var(--df-row-h);
+    color: var(--ink-2);
+}
+
+.df-row__no {
+    flex: none;
+    width: 3.6em;
+    padding-right: .7em;
+    font-size: 11.5px;
+    text-align: right;
+    white-space: pre;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+// 正文那一格是 `<pre>`：代码行的缩进是内容不是排版，CSS 万一漏了 `white-space`，
+// 四格缩进就被并成一格了。行高锁在 `--df-row-h`、超出只裁不折，长行走 `.df-col` 的横滚。
+.df-row__txt {
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0;
+    padding: 0 4px 0 0;
+    font: inherit;
+    line-height: var(--df-row-h);
+    white-space: pre;
+    overflow: hidden;
+}
+
+.df-row__cr {
+    flex: none;
+    padding-left: 4px;
+    font-size: 11px;
+    color: var(--tk-warn);
+}
+
+.df-row--equal {
+    background-color: transparent;
+}
+
+.df-row--change {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--signal) 8%, transparent);
+    box-shadow: inset 3px 0 0 var(--signal);
+}
+
+.df-row--del {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--tk-bad) 9%, transparent);
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.df-row--ins {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--tk-ok) 9%, transparent);
+    box-shadow: inset 3px 0 0 var(--tk-ok);
+}
+
+// 缺席那一侧：它是"这一侧没有这一行"，不是第 0 行、也不是空行——所以给斜纹而不是空白。
+// 两栏各读同一份行流靠的就是这一格看得见，否则并排视图会读成"两边都有这行、只是没内容"。
+.df-row--fill {
+    background-color: var(--surface-2);
+    background-image: linear-gradient(
+        45deg,
+        transparent 5px,
+        var(--rule) 5px,
+        var(--rule) 6px,
+        transparent 6px,
+        transparent 11px
+    );
+    background-size: 11px 11px;
+}
+
+// 行内高亮：`renderInline` 只给 del / ins 两档套 span，等价段是裸文本。用 `box-shadow`
+// 而不是 `background`，那一格底色与行自己的档位底色能同屏。
+.df-inline--del,
+.df-inline--ins {
+    box-shadow: inset 0 -9px 0 var(--rule-2);
+    border-radius: var(--radius-s);
+}
+
+.df-inline--del {
+    color: var(--tk-bad);
+}
+
+.df-inline--ins {
+    color: var(--tk-ok);
+}
+
+// ── 折叠条：整条正好一个 `--df-row-h`，因为 `goTo()` 把它算作一个视觉行 ─────
+// `white-space: nowrap` 与 `overflow: hidden` 是给那份换算上的保险：这句话一旦折行，
+// 这一条就占两行高，而 `goTo()` 只把它算作一行——此后每一处跳转都少滚一行，且越往后差得越多。
+// 360 档实测那一句「省略 24 行 · 展开」在 11.5px 下约 96px，离这一格的宽度下界很远，
+// 所以"截成两个字"在这里不是风险，折行才是。
+.df-fold {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    height: var(--df-row-h);
+    margin: 0;
+    padding: 0 12px;
+    font-family: $df-meta;
+    font-size: 11.5px;
+    line-height: var(--df-row-h);
+    white-space: nowrap;
+    text-align: left;
+    overflow: hidden;
+    color: var(--signal-ink);
+    background-color: var(--surface-2);
+    border: 0;
+    border-radius: 0;
+    box-shadow: inset 0 1px 0 var(--rule), inset 0 -1px 0 var(--rule);
+    cursor: pointer;
+    // 粘住横滚的左沿：行流可以比这一格宽（那是这一页的常态），而"省略 24 行"那一句话
+    // 是**读屏的地图**，它跟着内容滚出视野之后，用户只剩一片空白可以滚。
+    position: sticky;
+    left: 0;
+}
+
+.df-fold:hover {
+    color: var(--signal);
+    box-shadow: inset 0 1px 0 var(--rule-2), inset 0 -1px 0 var(--rule-2), inset 0 0 0 1px var(--rule-2);
+}
+
+.df-fold:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: -2px;
+}
+
+// 尾条与头条是两档（Z7 量的就是这件事）：样式上的分别是"下面那道线不要"。
+.df-fold--tail {
+    box-shadow: inset 0 1px 0 var(--rule);
+}
+
+// ── 代价说明与 JSON 变更表 ────────────────────────────────────────────────
+
+.df-notes {
+    margin: 10px 0 0;
+    padding: 10px 12px 10px 30px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--ink-3);
+    background-color: var(--surface-2);
+    box-shadow: inset 0 1px 0 var(--rule);
+}
+
+.df-json__meta {
+    margin: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: var(--df-row-h);
+    color: var(--ink-3);
+}
+
+// 六列那张表：这一页的 JSON 档没有行流，读的是"哪一格变了"，所以列宽交给内容，
+// 横滚归 `.df-out`（`min-width:100%` 让它至少铺满那一栏）。
+.df-json {
+    box-sizing: border-box;
+    min-width: 100%;
+    margin: 8px 0 0;
+    font-family: $df-meta;
+    font-size: 12.5px;
+    border-collapse: collapse;
+}
+
+.df-json th,
+.df-json td {
+    padding: 5px 10px;
+    text-align: left;
+    vertical-align: top;
+    white-space: pre-wrap;
+    border-bottom: 1px solid var(--rule);
+}
+
+.df-json thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .4px;
+    color: var(--ink-3);
+    background-color: var(--surface);
+    box-shadow: inset 0 -1px 0 var(--rule-2);
+}
+
+.df-json__ptr {
+    color: var(--ink);
+}
+
+.df-json__kind,
+.df-json__owner {
+    white-space: nowrap;
+    color: var(--ink-3);
+}
+
+.df-json__depth {
+    width: 4em;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--ink-3);
+}
+
+.df-json__a,
+.df-json__b {
+    max-width: 42ch;
+    overflow-wrap: anywhere;
+    color: var(--ink-2);
+}
+
+// 四档变更各给一道左侧竖条：颜色之外还有位置这一格可读（表里那一列同时写着中文档名）。
+.df-json__row--add {
+    box-shadow: inset 3px 0 0 var(--tk-ok);
+}
+
+.df-json__row--remove {
+    box-shadow: inset 3px 0 0 var(--tk-bad);
+}
+
+.df-json__row--change {
+    box-shadow: inset 3px 0 0 var(--tk-warn);
+}
+
+.df-json__row--type {
+    box-shadow: inset 3px 0 0 var(--signal);
+}
+
+// 「这一侧没有」与"值真的是 null"是两件事，视图层用 `absent` 那一格分开它们（Z18）。
+.df-json__none {
+    font-style: italic;
+    color: var(--ink-3);
+}
+
+.df-json__cut {
+    margin: 8px 0 0;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--tk-warn);
+}
+
+// ── 页脚那六句静态口径 ────────────────────────────────────────────────────
+
+.df-terms {
+    margin-top: 30px;
+}
+
+.df-terms__list {
+    margin: 10px 0 0;
+    padding-left: 22px;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--ink-3);
+}
+
+.df-terms__list li + li {
+    margin-top: 6px;
+}
+
+.df-terms__list code {
+    padding: 1px 4px;
+    font-family: $df-meta;
+    font-size: 12px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-s);
+}
+
+// ── 断点 ──────────────────────────────────────────────────────────────────
+// 900 / 640 两档与 toolkit.scss 同一口径（那一层的索引条在本页没有，退档退的是左右分栏）。
+// 901–1100 那一段**不在这里改**：两栏靠 `minmax(0, 1fr)` 自己收缩，十四枚按钮靠 `flex-wrap` 换行。
+// 但这一段必须实测（段 2 立的十档清单里的 901/920/940）：`min-width:0` 一漏，
+// 一行 5 MiB 的结果串会把整栏撑破，而 §7 那两格预算量的都是首屏字节、看不见它。
+// ≤900 竖排的是**那两条输入栏**（A 排在 B 之前，两份输入前后读本来就没有配对问题）；
+// `.df-side--bar` 一直占满 `1 / -1`，所以结果区在那一档之后仍是 §Z 的那一栏，视图层不受影响。
+
+@media (max-width: 900px) {
+    .df-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .tk-field .df-area {
+        min-height: 200px;
+    }
+
+    .df-out {
+        height: min(500px, 60vh);
+    }
+}
+
+// ≤640 那一档**不退成上下堆叠**（与段 5 计划 Task 7 Step 2 的原句不同，偏差记在计划 §0.6）。
+// 理由是那一格要的"堆叠"在视图层只有一种等价形状：把 `.df-cols` 的两条轨道改成一行——而 `side` 档的
+// 行流是「同一行在两栏各出现一次」（Z20 钉住：行块数 = 行数 × 2），竖排之后 A 的整份行流排在 B 之前，
+// 读的人要先自己上下配对，那一块就从"对比"退成了"两份文本"。窄屏的真退路是那一枚「视图」下拉里
+// 的**行内单栏**：`inline` 档由装配层把 change 摊成两行、只出一栏（Z20 同一判的第二半），
+// 它是行流层面的堆叠，不是样式层面的——所以样式这一层只把两栏压窄、把横滚留给 `.df-out`，
+// 让用户自己选档。样式里改 `grid-template-columns` 会造出一幅"下拉写着并排、画面是两栏竖排"的假象。
+@media (max-width: 640px) {
+    .df-cols {
+        gap: 0 8px;
+        padding: 0 8px;
+    }
+
+    .df-bar__group {
+        gap: 6px;
+    }
+
+    .df-bar__group .tk-btn {
+        flex: 1 1 auto;
+    }
+
+    .df-bar__group--opt {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .df-opt {
+        justify-content: space-between;
+    }
+
+    .df-opt select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .df-row {
+        font-size: 12px;
+    }
+
+    .df-row__no {
+        width: 3em;
+    }
+
+    .df-out {
+        height: min(420px, 54vh);
+    }
+}

@@ -10226,6 +10226,43 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
     - 与 TypeScript 接口、YAML、XML、CSV 互转，转回来也走同一块粘贴框
     - 输入只在本地解析：不发请求、不上传，默认不写 localStorage，勾了「记住上次输入」才写本机
   panels: []
+# ── 段 5：文件与文本对比页。形状与上面 JSON 那一条同档（`layout: workbench` + `panels: []` +
+#   `actions` / `spec.actions` 那两格），三处名字不同，都不是笔误：
+#   ① `prefix: df`——这一页第一次让**页内两栏共用一个前缀**：A 栏、B 栏与那一栏控制都住在同一块
+#      工作区里，33 格 id 全从 `df` 拼出（Z28 的换前缀自证量的就是这一格，改它整页 id 与四条
+#      `data-df-*` 的值一起换，门禁仍绿）；
+#   ② `spec` 指向 `diffWorkbench.js` 的 `DIFF_SPEC` / `DIFF_PANEL_IDS` / `DIFF_ACTIONS`——
+#      `actions: 14` 与那张表的长度由门禁⑤「DOM」逐条比对，页头统计与 tools.html 徽章印的都是它；
+#   ③ 这一页是四页里唯一**没有存储**的一条：不读不写 localStorage（勾「记住上次输入」那一档在本页
+#      根本没有），也是唯一带两只读文件的手的一页。所以它的合规那一行写的是「不读写 localStorage」，
+#      与 JSON 页那句「默认不写」不是同一句，改模板时别把它们并成一条。
+- slug: diff
+  url: /tools/diff.html
+  name: 文件与文本对比工具
+  tagline: 逐行差异 / 行内高亮 / 并排与行内两视图 / 按 JSON 值比对
+  title: 文本对比工具 · 两份文件差异与JSON比对
+  h1: 文件与文本对比工具
+  icon: /assets/img/tools/diff-tool.svg
+  status: ready
+  prefix: df
+  layout: workbench
+  actions: 14
+  spec:
+    module: dev/js/tools/diffWorkbench.js
+    table: DIFF_SPEC
+    ids: DIFF_PANEL_IDS
+    actions: DIFF_ACTIONS
+  desc: >-
+    一块工作台，两份输入并排摆着逐行对齐：改动行再做行内逐字高亮，未变的行按上下文三行、五行或只看差异
+    折叠成「省略 N 行」，点开就全部展开。视图有并排两栏与行内单栏两档，口径有按文本逐行与按 JSON 值两档，
+    后者忽略键序与缩进，给六列变更表。粘贴、选文件、拖放三条路都在浏览器里读，非 UTF-8 与超 5 MiB 当场拒并说明原因。
+  features:
+    - 并排两栏逐行对齐，改动行再做行内逐字高亮，未变行折叠成「省略 N 行」并可点开
+    - 行内单栏视图把一处改动摊成删与加两行，窄屏和长行读起来不用左右对照
+    - 按 JSON 值比对那一档忽略键序与缩进，给键、类型、旧值、新值那六列变更表与代价说明
+    - 粘贴、选文件、拖放三条路都只在本机读，非 UTF-8、含空字节、超 5 MiB 各有一句明确拒绝
+    - 不上传、不发请求、不读写 localStorage，结果可复制也可下载成 .diff 文件
+  panels: []
 ```
 
 **1b `assets/img/tools/idcard-tool.svg`**（11 行 / 762 字节）——`icon:` 字段指向它。走内联描边图形
@@ -13020,6 +13057,37 @@ function deriveBase(html) {
   }
 }
 
+/**
+ * 取 `tools.html` 里某一条 ready 条目**自己那一小节**：从 `<section … id="online-<slug>"`
+ * 起，到与它配平的那个 `</section>` 止（嵌套用计数，不靠缩进也不靠"下一个 class 同名标签"——
+ * 最后一节后面还跟着别的 `<section>`，按 class 找边界会一路吞到文末，等于没收窄）。
+ *
+ * 为什么要有"段内"这一层（段 5 Task 6 的现场）：徽章、面板锚点、纯文本要点这三条判原本都是
+ * 拿**整页** `test`/`includes` 在比，也就是"这一串在页面上出现过就算对"。第四条条目登记进来后，
+ * json 与 diff 两节的徽章是同一个字面量（都 `14 个动作`，各自 5 块面板那两节也同串），
+ * 于是"把 json 那一节的徽章改成 12"这一刀注入后整页仍能找到 `<li>14 个动作</li>`——
+ * 门禁绿，页面上印着假数字。牙齿台账（`check-tools-surface-teeth.mjs` 的
+ * 「徽章数字与数据源脱钩」）在第四格落地当场抓到这个假牙。
+ * 修法不是改判据比对的字符串、更不是放宽判据，而是**改判据的作用域**：数的是这一条自己那一节，
+ * 别人那一节再像也不算。条目从 3 涨到 4 之后，"页面上出现过"这类判据全部不再等价于"这一条对得上"。
+ *
+ * 找不到节返回 `null`，调用方先记"整节缺失"再交回，不再往下逐格比——不然一节不在会连带
+ * 报出五条"这格里找不到"，红字淹掉真正的那一句。
+ */
+function toolsSectionOf(toolsHtml, slug) {
+  const marker = `<section class="tool-section tool-section--online" id="online-${slug}"`;
+  const at = toolsHtml.indexOf(marker);
+  if (at < 0) return null;
+  let depth = 0;
+  const tags = /<\/?section\b[^>]*>/g;
+  tags.lastIndex = at;
+  for (let m = tags.exec(toolsHtml); m; m = tags.exec(toolsHtml)) {
+    depth += m[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) return toolsHtml.slice(at, tags.lastIndex);
+  }
+  return toolsHtml.slice(at);
+}
+
 function checkInclusion(t, builtHtml, pageUrlRel) {
   const canon = deriveBase(builtHtml);
   if (!canon) {
@@ -13056,14 +13124,16 @@ function checkInclusion(t, builtHtml, pageUrlRel) {
   }
 
   const toolsHtml = readSite('tools.html');
-  if (!new RegExp(`<section class="tool-section tool-section--online" id="online-${escRE(t.slug)}"`).test(toolsHtml)) {
+  const section = toolsSectionOf(toolsHtml, t.slug);
+  if (!section) {
     bad('收录', t.slug, 'tools.html 里没有这一条的 tool-section--online 小节');
+    return;
   }
-  if (!new RegExp(`href="${escRE(localPath)}"[^>]*>打开${escRE(t.h1)}</a>`).test(toolsHtml)) {
+  if (!new RegExp(`href="${escRE(localPath)}"[^>]*>打开${escRE(t.h1)}</a>`).test(section)) {
     bad('收录', t.slug, `tools.html 的该小节缺少指向 ${localPath} 的「打开${t.h1}」主按钮`);
   }
   for (const p of t.panels) {
-    if (!new RegExp(`href="${escRE(localPath)}#${escRE(p.slug)}"`).test(toolsHtml)) {
+    if (!new RegExp(`href="${escRE(localPath)}#${escRE(p.slug)}"`).test(section)) {
       bad('收录', t.slug, `tools.html 的面板清单里没有指向 #${p.slug}（${p.name}）的锚点链接`);
     }
   }
@@ -13074,7 +13144,7 @@ function checkInclusion(t, builtHtml, pageUrlRel) {
    *   · 非空 `panels` 还写 `features`：模板走锚点那一支，这一格**没有消费者**，改它页面不动。
    * 后者就是「徽章写死 0 块面板」那一族的病换个格子复发：数据源里躺着一份模板不读的清单。
    *
-   * 第三条判据在产物上：要点**逐条**都要能在 tools.html 找到。数据源那一头有货而循环没吐，
+   * 第三条判据在产物上：要点**逐条**都要能在**这一节里**找到。数据源那一头有货而循环没吐，
    * 形状是"小节少一块"——只判数据源等于默认模板一定会画出来，而这一页的模板改动（`for`/`else`）
    * 正是本段新写的，没有既有页面替它担保。
    */
@@ -13088,18 +13158,21 @@ function checkInclusion(t, builtHtml, pageUrlRel) {
   for (const f of feats) {
     if (typeof f !== 'string' || f.trim() === '') {
       bad('收录', t.slug, `features 里有一格不是非空字符串（${JSON.stringify(f)}），画出来是空条目`);
-    } else if (!toolsHtml.includes(`<li>${f}</li>`)) {
-      bad('收录', t.slug, `tools.html 里没有那条纯文本要点：「${f}」（循环没吐这一条，或模板被改成只走锚点那一支）`);
+    } else if (!section.includes(`<li>${f}</li>`)) {
+      bad('收录', t.slug, `tools.html 的该小节没有那条纯文本要点：「${f}」（循环没吐这一条，或模板被改成只走锚点那一支）`);
     }
   }
   /**
    * 第三格徽章 ↔ 数据源（§0.7 第 3 条的另一半）。「DOM」组核的是 `actions` 与
    * `JSON_ACTIONS.length` 相等，这一条核的是**模板把那个数画出来了**：两处漏一处，页面上
    * 就是「0 块面板」那一句假话，而构建不报错。panels 支同样判，那一格读 `panels.size`。
+   *
+   * 比对范围是 `section` 而不是整页（段 5 Task 6 的假牙现场）：两条 workbench 条目并排之后，
+   * 整页判"出现过"对其中任何一节被改坏都是绿的——见 `toolsSectionOf` 上方那段。
    */
   const badge = t.layout === 'workbench' ? `${t.actions} 个动作` : `${t.panels.length} 块面板`;
-  if (!new RegExp(`<li>${escRE(badge)}</li>`).test(toolsHtml)) {
-    bad('收录', t.slug, `tools.html 的第三格徽章里找不到「${badge}」——那一格按 layout 分派读数据源，模板分支或 yml 有一处被改过`);
+  if (!new RegExp(`<li>${escRE(badge)}</li>`).test(section)) {
+    bad('收录', t.slug, `tools.html 的该小节第三格徽章里找不到「${badge}」——那一格按 layout 分派读数据源，模板分支或 yml 有一处被改过`);
   }
 }
 
