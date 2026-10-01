@@ -1564,19 +1564,26 @@ body.has-toc .post-rail {
     }
 }
 
+// 「相关阅读 / 相关工具」两块卡共用的那条小标题口径（等宽、大写、宽字距）。
+// 提成 @mixin 而不是各写一遍：两处必须同档，两块卡挨着排，标题粗细差一档一眼就看出来。
+// 做法与本文件 :62 那颗 @mixin nav-pill 同源。
+@mixin related-kicker {
+    margin-bottom: 14px;
+    font-family: $font-meta;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
 .related-posts {
     margin: 0 auto 44px !important;
     padding-top: 26px;
     border-top: 1px solid var(--rule);
 
     .related-title {
-        margin-bottom: 14px;
-        font-family: $font-meta;
-        font-size: 11.5px;
-        font-weight: 500;
-        letter-spacing: 1.6px;
-        text-transform: uppercase;
-        color: var(--ink-3);
+        @include related-kicker;
     }
 }
 
@@ -1644,6 +1651,130 @@ body.has-toc .post-rail {
     &:hover .related-info {
         color: var(--ink-2);
     }
+}
+
+// 文末「相关工具」卡（_includes/relatedTools.html）。与紧邻的 .related-posts 是两种东西：
+// 那一族是文章行（纯文字 + 日期 + 一枚标签，靠一条底线分行），这一族指向站内工具页，
+// 带图标与一句摘要，所以画成有底的卡而不是再续一行报行——两块挨着排时，
+// 形状差一点才读得出「下面这些不是文章」。
+// 类名一律以 .related- 开头不是顺手：postcss.config.js 的像素转视口黑名单里有 '.related-'
+// 这一串（子串命中），本层的 px 是桌面固定值，一旦被换成 vw 就跟着视口等比缩放。
+//
+// 这一族**故意不进** editorial.js 那份 REVEAL_SELECTOR（紧邻的 .related-item 在名单里）：
+// 揭示态靠 .reveal 把 opacity 压到 0，等 IntersectionObserver 放行，而这一卡的职责是给
+// 读完的人递一个当场能用的工具——禁脚本、无 IO、以及不跑 JS 的抓取器都该直接看到它。
+// 顺带也就不用去改那份名单，verify-motion-batch4.mjs 按 `.related-item` 数元素的那几条
+// 判据不会因为多了这一族而漂。
+.related-tools {
+    margin: 0 auto 44px !important;
+    padding-top: 26px;
+    border-top: 1px solid var(--rule);
+
+    .related-tools-title {
+        @include related-kicker;
+    }
+}
+
+// 用 flex 列而不是 grid：单列 grid 的隐式轨道是 auto，装 nowrap 的长摘要时压不窄、
+// 会把卡撑出容器（同一份教训记在 §11 的 .lp- 那几行里）。
+.related-tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.related-tools-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    transition: background-color var(--dur-2) var(--ease-out),
+                border-color var(--dur-2) var(--ease-out),
+                box-shadow var(--dur-2) var(--ease-out);
+
+    &:hover {
+        background-color: var(--signal-soft);
+        border-color: var(--rule-2);
+        box-shadow: var(--shadow-1);
+    }
+}
+
+.related-tools-icon {
+    flex: none;
+    // box-sizing 必须显式写：全局没有 border-box 兜底，而 base.scss 那句 `img { height: auto }`
+    // 会拿属性里的 24×24 去顶 padding，content-box 下外框会变成 48px 而不是 36px。
+    box-sizing: border-box;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+    transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.related-tools-link:hover .related-tools-icon {
+    background-color: var(--surface);
+}
+
+.related-tools-text {
+    // min-width: 0 是这一层的关键：flex 子项的自动最小尺寸是 min-content，而 nowrap 的摘要
+    // 把 min-content 顶到整句自然宽，于是这一格再也缩不下去。
+    // 实测口径（1440 视口、把外层容器压到 375px、换成最长那枚 diff 摘要，自然宽 344px）：
+    //   写了这句 → 摘要盒 236px，右缘离卡边还有 44px，ellipsis 生效；
+    //   摘掉这句 → 摘要盒 344px，**溢出卡右缘 64px**，a 的 scrollWidth 比 clientWidth 多 94px。
+    // 注意摘掉后卡的盒子本身并不变宽（仍 345px）——症状是文字糊出卡外 + 链接能横向滚，
+    // 不是「卡被顶宽」；两种情况下 ellipsis 都不生效，那一行就是死代码。
+    // 截断只在文本列窄于 344px 时出现：容器 ≥ ~493px 时最长摘要也装得下，桌面档看不到。
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.related-tools-name {
+    font-family: $font-display;
+    font-size: 15.5px;
+    font-weight: 600;
+    line-height: 22px;
+    color: var(--ink);
+    // 与 .related-name 同一份理由：它是 <span>，base.scss 那句 a 的过渡传不进来也不继承。
+    transition: color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+}
+
+.related-tools-link:hover .related-tools-name {
+    color: var(--signal-ink);
+    // .18em 与首页报行、相关阅读行同一份量（§M12）
+    translate: .18em 0;
+}
+
+.related-tools-tagline {
+    overflow: hidden;
+    font-family: $font-meta;
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    line-height: 17px;
+    color: var(--ink-3);
+    text-overflow: ellipsis;
+    // 摘要原文是「格式化 / 校验 / 树视图 / 转 TS · YAML · XML · CSV」这种长串，
+    // 一行装不下就截断而不折成两行：这一卡的职责是让读者认出是哪个工具，
+    // 不是把 tagline 读完，而折行会让 1~3 枚卡的高度彼此不齐。
+    white-space: nowrap;
+}
+
+.related-tools-go {
+    flex: none;
+    font-size: 15px;
+    color: var(--ink-4);
+    transition: color var(--dur-2) var(--ease-out), translate var(--dur-2) var(--ease-out);
+}
+
+.related-tools-link:hover .related-tools-go {
+    color: var(--signal-ink);
+    translate: 3px 0;
 }
 
 /*** 6. 工具页 ***/
@@ -5839,7 +5970,12 @@ dialog.shelf[open] {
 @media (prefers-reduced-motion: reduce) {
     .demo-row:hover .demo-link,
     .feed-pick-link:hover .feed-pick-title,
-    .tools-list>li:hover a {
+    .tools-list>li:hover a,
+    // 文末「相关工具」卡的两处终态位移：标题 .18em、箭头 3px。
+    // 变色（--signal-ink）与卡底（--signal-soft）按上面那段 scale 的同一条理由**保留**：
+    // .01ms 之下它们是单帧状态变化，减掉反而让 reduce 用户少一个「这行能点」的回信。
+    .related-tools-link:hover .related-tools-name,
+    .related-tools-link:hover .related-tools-go {
         translate: none;
     }
 }

@@ -1,0 +1,62 @@
+{%- comment -%}
+  文末「相关工具」卡 —— 设计文档 §A1 的自动那一半。
+
+  为什么要有这一块：4 个站内工具页原先只有顶栏下拉与首页侧栏两个入口，博客正文里
+  一条内链都没有（§1 实测），79 篇文章的正文权重一分也没分给工具页。
+
+  判据在数据层不在模板层：`_data/onlineTools.yml` 每条的 `match_tags`，与本文
+  `page.tags`（front matter 里空格分隔那一串，Jekyll 会拆成数组）求交集，非空即命中。
+  那份 yml 的文件头记着为什么不用插件族那个单枚 `post_tag`，这里不抄第二遍。
+
+  五条口径，改动前先读：
+    · 只取 `status: ready` 的条目。planned 那档现在没有条目在用，但一旦有人往 yml 里
+      加一条"先进清单、后补正文"的占位，这里就会画出一枚指向 404 的卡。
+    · **命中为空就整块不渲染**，不留空壳、不做兜底推荐。兜底等于给每篇都硬塞 3 个
+      不相关工具，那是把内链权重稀释掉，比不加更糟（这条在 §A1 里点名要有牙）。
+    · 顺序 = `_data/onlineTools.yml` 的条目顺序，也就是顶栏下拉与 /tools.html 小节
+      用的同一份顺序。**不按命中枚数排**：现语料里命中最多的文章也只有 2 枚
+      （实测 79 篇分布 {0:51, 1:25, 2:3}），上限 3 根本截不到，按命中数排是一条
+      今天不可观测、日后却会漂的第二排序口径。
+    · 上限 3 枚同样写在这里而不是样式里：`slice: 0, 3` 是数据层截断，多出来的
+      连 DOM 都不进。
+    · 末尾那枚 endif 的减号是**两头都带**的，if 那枚只带前减号——这两处是量出来的，
+      不是顺手写的：if 只带前减号，块内那串换行才留得住（否则整个 section 糊成一行）；
+      endif 少写后减号，本文件最后那个换行就会漏进产物，无命中的那 51 篇各多 1 字节
+      （实测过一次：78 篇全变、51 篇 +1B，A/B 那条「改动的 html 正好是有卡那些」当场红）。
+
+  出参：无。本文件自带那层 if 容器，调用方一行 include 即可，不用在外面再包判断。
+  （这一行原先写着字面的 Liquid 标签，被 comment 块的解析器当成真标签读，构建直接红在
+  "Syntax Error in tag 'if'"——**Liquid 会解析 comment 体内的块标签**，所以注释里
+  不许出现花括号围起来的 tag / output。本文件是仓库里第一个踩到并留档的地方。）
+{%- endcomment -%}
+{%- assign related_tools = "" | split: "" -%}
+{%- for rtool in site.data.onlineTools -%}
+  {%- if rtool.status != 'ready' -%}{%- continue -%}{%- endif -%}
+  {%- for tag in page.tags -%}
+    {%- if rtool.match_tags contains tag -%}
+      {%- assign related_tools = related_tools | push: rtool -%}
+      {%- break -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+{%- assign related_tools = related_tools | slice: 0, 3 -%}
+{%- if related_tools.size > 0 %}
+<section class="post-footer-item related-tools" aria-label="与本文相关的站内工具">
+  <h3 class="related-tools-title">相关工具</h3>
+  <ul class="related-tools-list">
+    {% for rtool in related_tools %}
+    <li class="related-tools-item">
+      <a class="related-tools-link" href="{{ rtool.url | prepend: site.baseurl }}">
+        <img class="related-tools-icon" src="{{ rtool.icon | prepend: site.baseurl }}" alt="" width="24" height="24" loading="lazy" decoding="async">
+        <span class="related-tools-text">
+          <span class="related-tools-name">{{ rtool.name }}</span>
+          <span class="related-tools-tagline">{{ rtool.tagline }}</span>
+        </span>
+        {%- comment -%} 纯装饰的位移箭头，可及名已由左边的名称与摘要给出 {%- endcomment -%}
+        <span class="related-tools-go" aria-hidden="true">&rarr;</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{%- endif -%}

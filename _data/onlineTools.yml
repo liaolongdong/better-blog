@@ -46,6 +46,19 @@
 #            这一条，段 3 / 段 4 交付时各自**追加**自己那一条（不是来改这一条的 status）；
 #            planned 这一档现在没有条目在用，留着是因为"先进清单、后补正文"正是这条流水线
 #            最容易卡住人的地方——挡在数据层，不靠改模板
+#   match_tags 这一页与博客文章的**相关判据**：文章 front matter 那串空格分隔的 `tags`
+#            （Jekyll 会拆成数组）与本列表求交集，非空就在文末「相关工具」卡里出一枚。
+#            消费点只有 `_includes/relatedTools.html` 一处。
+#            为什么不复用插件族那个 `post_tag`：① `post_tag` 是**单枚**，而一页工具对应的是一族
+#            话题（JSON 那页实测命中 npm/pnpm/vite/webpack/TypeScript 十三条），单枚表达不了；
+#            ② `tools.html:45` 那一支只遍历 `site.data.tools`，在线工具那一族按设计**没有**
+#            `.tool-posts` 页脚（理由写在 tools.html:117-124），给它加 `post_tag` 等于立一格
+#            没人读的死配置；③ 方向也相反——`post_tag` 是「工具页 → 文章」，本字段是
+#            「文章 → 工具页」，后者才是设计文档 §1 量到的那条 0 内链缺口。
+#            取值口径：每一枚都必须在当前语料里**真实存在**（门禁按 site.tags 逐条对账，
+#            那道门见设计文档 §6，与本件同一批交付）。写一枚不存在的 tag 不会报错，
+#            只会让这一页悄悄少一条内链——本字段第一版就带过一枚 `正则`，全语料 0 命中，
+#            是量过才发现的。
 - slug: idcard
   url: /tools/idcard.html
   name: 证件与机构代码工具
@@ -54,6 +67,11 @@
   h1: 证件与机构代码工具
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
+  # 空清单是**结论**不是待办：79 篇里没有一篇讲身份证 / 统一社会信用代码 / 银行卡校验或
+  # 测试数据生成。拿宽 tag 去凑更糟——实测 `前端` 会命中 5 篇 AI Agent 长文，
+  # 那 5 枚内链是噪声（设计文档 §A1「无命中就不渲染」那条牙防的正是这个）。
+  # 日后真写了相关文章，把它的 tag 加进来即可，模板一行都不用动。
+  match_tags: []
   prefix: tk
   layout: panels
   spec:
@@ -109,6 +127,18 @@
   h1: 编码与摘要工具
   icon: /assets/img/tools/codec-tool.svg
   status: ready
+  match_tags:
+    - 前端小技巧
+    - JavaScript公用方法
+    - JavaScript语言精粹
+    - 原型和原型链
+    - 函数式编程
+    - ES2023
+    - JS新特性
+    - 浏览器缓存机制
+    - 网站seo
+    - seo优化
+    - 搜索引擎网站收录
   prefix: tk
   layout: panels
   spec:
@@ -171,6 +201,23 @@
   h1: JSON 格式与转换工具
   icon: /assets/img/tools/json-tool.svg
   status: ready
+  # `vite` 与 `Vite` 两枚都留着不是笔误：Liquid 的 `contains` 按字符串精确比，大小写不同就是
+  # 两枚 tag，而语料里两种写法各有 1 篇（2022-08-08 用小写、2023-05-08 用大写）。
+  # 归一化文章 front matter 是另一件事（设计文档 §A9），这一格不替它做决定。
+  match_tags:
+    - npm
+    - pnpm
+    - yarn
+    - node包管理工具
+    - TypeScript
+    - webpack
+    - vite
+    - Vite
+    - gulp
+    - 前端构建
+    - 工程化
+    - 项目搭建
+    - 私有仓库
   prefix: jt
   layout: workbench
   actions: 14
@@ -208,6 +255,20 @@
   h1: 文件与文本对比工具
   icon: /assets/img/tools/diff-tool.svg
   status: ready
+  # `github` 是这一组里最松的一枚，留在名单里但记在这里：它命中的两篇一篇是博客从 GitHub Pages
+  # 迁到 Coding（比对两站配置前后），一篇是 Actions 分钟数封顶（比对 workflow 改动），
+  # 两篇的读者都在改 YAML / 配置，而这一页正是逐行比对这些文件的工具。
+  # 日后若发现这一条的点击率明显低于同卡其他条目，第一个摘的就是它。
+  match_tags:
+    - git
+    - git常用命令
+    - reset
+    - revert
+    - 代码回退
+    - 代码回撤
+    - 版本投产
+    - 更新版本内容
+    - github
   prefix: df
   layout: workbench
   actions: 14
