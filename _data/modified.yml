@@ -1,0 +1,243 @@
+# 每篇文章「真实发生过内容修订」的时间。由 scripts/build-modified-data.mjs 生成，
+# **不要手改**：改了下次重算就被覆盖，而且 --verify 会当场判红。
+#
+# 消费点（口径只有一份，在 _includes/pageModified.html 里；下面三处都读它算出的 page_modified）：
+#   _includes/seoMeta.html   → <meta property="article:modified_time">
+#   _includes/jsonLd.html    → BlogPosting.dateModified（直接读 seoMeta 跨出来的 page_modified）
+#   sitemap.xml              → 文章 <lastmod>（推不出真值时退回 post.date，那时两者相等是真的）
+#
+# 字段：
+#   at           修订提交的 committer 时间（ISO 8601 带时区）
+#   commit       修订提交的短 sha，便于 `git show` 复核
+#   chars_delta  规范化后正文的字符增减，用来一眼分辨「改了个错别字」与「整段重写」
+#   published    该篇的发布日（front matter date 的日期部分）
+#
+# 缺条目 = 这篇没有可申报的修订，`dateModified` 与 `article:modified_time` 一并不输出。
+# 缺席比伪造好：引擎能看出 dateModified == datePublished，长期等于反复申报零翻新。
+# 口径与推导方式见脚本文件头，以及 _docs/superpowers/specs/2026-10-02-seo-aeo-structure-design.md §4。
+
+"/2016/08/28/JS-good-parts.html":
+  at: "2023-05-05T21:18:18+08:00"
+  commit: 488641d
+  chars_delta: +274
+  published: "2016-08-28"
+"/2017/06/06/git-common-command.html":
+  at: "2022-08-25T23:41:58+08:00"
+  commit: d787ace
+  chars_delta: +468
+  published: "2017-06-06"
+"/2017/08/25/common-tools.html":
+  at: "2020-07-27T14:14:32+08:00"
+  commit: 81bbe5a
+  chars_delta: +20
+  published: "2017-08-25"
+"/2017/09/09/wxpay.html":
+  at: "2026-05-17T23:07:38+08:00"
+  commit: 90f56b3
+  chars_delta: -7
+  published: "2017-09-09"
+"/2018/03/26/work-summarize.html":
+  at: "2020-10-19T15:28:04+08:00"
+  commit: 0fa91e8
+  chars_delta: +598
+  published: "2018-03-26"
+"/2018/06/06/wxshare-summarize.html":
+  at: "2019-06-13T17:07:17+08:00"
+  commit: 5138e50
+  chars_delta: +11
+  published: "2018-06-06"
+"/2018/10/25/study-materials.html":
+  at: "2023-04-05T11:40:08+08:00"
+  commit: b74ec46
+  chars_delta: +40
+  published: "2018-10-25"
+"/2018/11/01/alicloud-node-mongodb.html":
+  at: "2018-12-12T20:24:07+08:00"
+  commit: 160d572
+  chars_delta: +106
+  published: "2018-11-01"
+"/2018/11/16/alicloud-nginx.html":
+  at: "2019-07-24T14:31:46+08:00"
+  commit: 9fbb80a
+  chars_delta: +327
+  published: "2018-11-16"
+"/2018/11/25/react-next-ssr.html":
+  at: "2019-01-02T10:41:25+08:00"
+  commit: ae88ce9
+  chars_delta: -250
+  published: "2018-11-25"
+"/2018/12/05/move-githubblog-to-coding.html":
+  at: "2018-12-11T10:59:46+08:00"
+  commit: 3ed56e1
+  chars_delta: -4
+  published: "2018-12-05"
+"/2018/12/25/qqweiboshare.html":
+  at: "2019-07-22T16:30:26+08:00"
+  commit: 0c84fee
+  chars_delta: +1
+  published: "2018-12-25"
+"/2019/01/01/echarts-use-summarize.html":
+  at: "2019-07-22T16:30:26+08:00"
+  commit: 0c84fee
+  chars_delta: +1
+  published: "2019-01-01"
+"/2019/01/17/website-seo.html":
+  at: "2019-07-22T16:30:26+08:00"
+  commit: 0c84fee
+  chars_delta: +1
+  published: "2019-01-17"
+"/2019/01/24/build-private-package.html":
+  at: "2019-07-22T16:30:26+08:00"
+  commit: 0c84fee
+  chars_delta: +3
+  published: "2019-01-24"
+"/2019/01/24/publish-public-npm.html":
+  at: "2019-01-25T10:31:48+08:00"
+  commit: 4f60e64
+  chars_delta: +2
+  published: "2019-01-24"
+"/2019/01/28/use-gulp-build-project.html":
+  at: "2019-02-14T11:02:30+08:00"
+  commit: c34e0d0
+  chars_delta: +74
+  published: "2019-01-28"
+"/2019/02/25/you-dont-kown-js-tips.html":
+  at: "2020-10-12T17:54:18+08:00"
+  commit: b46bdc4
+  chars_delta: +135
+  published: "2019-02-25"
+"/2019/02/26/you-dont-kown-css-tips.html":
+  at: "2020-10-20T16:58:07+08:00"
+  commit: f4a8f30
+  chars_delta: +372
+  published: "2019-02-26"
+"/2019/03/04/mobile-debug-summary.html":
+  at: "2019-06-13T17:07:17+08:00"
+  commit: 5138e50
+  chars_delta: +637
+  published: "2019-03-04"
+"/2019/03/20/interview-programme-summarize.html":
+  at: "2023-04-07T23:48:15+08:00"
+  commit: ac519c6
+  chars_delta: -6540
+  published: "2019-03-20"
+"/2019/07/10/h5-shake-function.html":
+  at: "2019-07-22T17:16:37+08:00"
+  commit: 7c4a932
+  chars_delta: +9
+  published: "2019-07-10"
+"/2019/07/26/javascript-design-pattern.html":
+  at: "2019-08-28T17:51:42+08:00"
+  commit: a501297
+  chars_delta: +1609
+  published: "2019-07-26"
+"/2019/09/23/vscode-useful-plugins.html":
+  at: "2021-04-14T23:38:50+08:00"
+  commit: 2c2c705
+  chars_delta: +121
+  published: "2019-09-23"
+"/2020/10/25/h5-open-map-position.html":
+  at: "2023-04-13T23:43:39+08:00"
+  commit: 60579ef
+  chars_delta: +2
+  published: "2020-10-25"
+"/2021/03/23/linux-common-command.html":
+  at: "2023-04-21T22:04:57+08:00"
+  commit: 9f614fc
+  chars_delta: +1983
+  published: "2021-03-23"
+"/2021/03/23/vue-router-analysis.html":
+  at: "2021-04-14T23:15:23+08:00"
+  commit: 0fabd2c
+  chars_delta: +990
+  published: "2021-03-23"
+"/2022/08/08/webpack-move-vite.html":
+  at: "2026-09-25T20:59:48+08:00"
+  commit: 0081d73
+  chars_delta: -6
+  published: "2022-08-08"
+"/2023/02/25/common-arithmetic.html":
+  at: "2023-04-07T23:48:15+08:00"
+  commit: ac519c6
+  chars_delta: +5926
+  published: "2023-02-25"
+"/2023/04/12/aop-programming.html":
+  at: "2023-06-08T19:47:26+08:00"
+  commit: 35ee931
+  chars_delta: +1
+  published: "2023-04-12"
+"/2023/05/08/vue3-vite-study.html":
+  at: "2026-09-22T20:26:42+08:00"
+  commit: d3279d2
+  chars_delta: -22
+  published: "2023-05-08"
+"/2023/06/08/common-sort-algorithm.html":
+  at: "2023-06-13T22:12:12+08:00"
+  commit: 322f752
+  chars_delta: +0
+  published: "2023-06-08"
+"/2023/06/11/auto-update-release.html":
+  at: "2023-06-13T22:12:12+08:00"
+  commit: 322f752
+  chars_delta: -115
+  published: "2023-06-11"
+"/2023/06/14/npm-yarn-pnpm.html":
+  at: "2023-12-25T18:22:57+08:00"
+  commit: 5cc09db
+  chars_delta: +373
+  published: "2023-06-14"
+"/2023/12/24/git-revert-reset.html":
+  at: "2023-12-29T23:33:08+08:00"
+  commit: d3b503f
+  chars_delta: +49
+  published: "2023-12-24"
+"/2024/01/05/chrome-plugin-recommend.html":
+  at: "2026-05-28T15:16:30+08:00"
+  commit: e9a63b3
+  chars_delta: +100
+  published: "2024-01-05"
+"/2024/10/08/fe-env-switch.html":
+  at: "2026-08-27T16:05:59+08:00"
+  commit: 2548ae9
+  chars_delta: +65
+  published: "2024-10-08"
+"/2026/05/25/account-password-helper.html":
+  at: "2026-09-06T11:45:55+08:00"
+  commit: 1faccfe
+  chars_delta: +4
+  published: "2026-05-25"
+"/2026/05/31/AI-model-rating.html":
+  at: "2026-06-01T17:39:25+08:00"
+  commit: a53788b
+  chars_delta: -4
+  published: "2026-05-31"
+"/2026/06/05/ai-sdd.html":
+  at: "2026-09-22T20:26:42+08:00"
+  commit: d3279d2
+  chars_delta: -43
+  published: "2026-06-05"
+"/2026/06/06/ai-sdd-github.html":
+  at: "2026-06-09T13:00:23+08:00"
+  commit: 28bff0b
+  chars_delta: -1
+  published: "2026-06-06"
+"/2026/06/15/webmcp-vs-puppeteer.html":
+  at: "2026-06-16T09:25:50+08:00"
+  commit: fc3d351
+  chars_delta: +0
+  published: "2026-06-15"
+"/2026/06/28/account-password-helper-new.html":
+  at: "2026-09-06T11:45:55+08:00"
+  commit: 1faccfe
+  chars_delta: +122
+  published: "2026-06-28"
+"/2026/09/21/pnpm-task-settings.html":
+  at: "2026-09-25T23:33:02+08:00"
+  commit: 31ad389
+  chars_delta: +298
+  published: "2026-09-21"
+"/2026/09/22/claude-advisor-readme-row.html":
+  at: "2026-09-24T23:34:06+08:00"
+  commit: df383d8
+  chars_delta: +83
+  published: "2026-09-22"

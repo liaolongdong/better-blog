@@ -74,7 +74,20 @@ SERP 那一行剩下约 140 列全部交给引擎自己猜，猜出来的往往�
 {%- assign page_desc = site.description -%}
 {%- endif -%}
 <meta name="description" content="{{ page_desc | xml_escape }}">
-<meta name="keywords"  content="{{ site.keyword }}">
+{%- comment -%}
+keywords 按页取，不再全站沿用 site.keyword。
+
+旧写法每个页面都输出同一串——那不是「没有关键词信息」，是主动声明「这 119 个页面
+主题完全相同」，把 tags/categories 已经分好的那十来个主题簇又抹平了一次。
+Google 早已忽略这个 meta，但百度与 360 仍读（robots.txt 与四个站长验证都在，
+国内收录是本轮明确要保住的一档），差异化之后至少不再是负资产。
+
+没有 tags 的页面**不输出这个 meta**，不回退到 site.keyword：
+留一条全站同值的兜底，等于把刚拆掉的那处口径又立回去。
+{%- endcomment -%}
+{%- if page.tags and page.tags.size > 0 -%}
+<meta name="keywords"  content="{{ page.tags | join: ',' | xml_escape }}">
+{%- endif -%}
 {%- comment -%}
 canonical：站点是 GitHub Pages 项目页（baseurl=/better-blog），absolute_url 会带上
 site.url + baseurl，得到唯一正确的规范地址。缺了它，?from=feed、分页、锚点变体都会
@@ -136,36 +149,13 @@ Jekyll 侧拿不到图片真实尺寸，硬写 1200/630 就是在给爬虫一组
 <meta property="og:site_name" content="{{ site.title }}">
 <meta property="og:locale" content="{{ site.social.og_locale | default: 'zh_CN' }}">
 {%- comment -%}
-真实修订时间的唯一口径。两种写法都接受，取较新者：
-  · `last_modified_at: 'YYYY-MM-DD'` —— jekyll-last-modified-at 的既有字段名，保持兼容；
-  · `updated: ['2026-03-12 …', '2026-08-01 …']` —— 给后续「本文修订记录」用的列表，末项最新。
-
-以前 jsonLd.html 直接写 `page.last_modified_at | default: page.date`，而这个仓库
-0 篇文章声明过 last_modified_at —— 结果是 66 篇文章的 dateModified 恒等于 datePublished。
-那不是「没有更新信息」，是「伪造了一条更新信息」：引擎能看出两个时间一模一样，
-长期等于反复申报零翻新，比不声明更伤新鲜度信号。
-
-所以这里的规则是「没有真值就不说」：page_modified 为空时，下面的 article:modified_time
-与 JSON-LD 的 dateModified 一并不输出。哪天某篇真的补了 updated，它自然就开始说话。
-变量在 include 之间共享（coverSrc.html 的 coverSrc 也是这么跨出去的），
+修订时间的口径全部收在 _includes/pageModified.html 里（三个来源取较新者 + 同日守卫），
+这里只调用它。抽出去的理由是 sitemap.xml 的 <lastmod> 要用同一条链：原先它另写了一行
+`post.date`，等于全站每篇都申报「最后修改日 = 发布日」，和这里避免的假新鲜度是同一类。
+出参 page_modified 在 include 之间共享（coverSrc.html 的 coverSrc 也是这么跨出去的），
 jsonLd.html 直接读它，不在两处各自解析一遍 front matter。
 {%- endcomment -%}
-{%- assign page_modified = page.last_modified_at -%}
-{%- if page.updated and page.updated.size > 0 -%}
-{%- assign _upd_last = page.updated | last -%}
-{%- assign _upd_date = _upd_last | date: '%Y-%m-%d' -%}
-{%- assign _mod_date = page_modified | date: '%Y-%m-%d' -%}
-{%- if page_modified == nil or _upd_date > _mod_date -%}
-{%- assign page_modified = _upd_last -%}
-{%- endif -%}
-{%- endif -%}
-{%- comment -%} 修订时间与发布时间同日视为未修订，避免产出 2019=2019 这种假新鲜度。 {%- endcomment -%}
-{%- comment -%} 空串在 Liquid 里是 truthy，所以这里必须显式比一次 ''，只写 if page_modified 挡不住。 {%- endcomment -%}
-{%- if page_modified and page_modified != '' -%}
-{%- assign _pm_day = page_modified | date: '%Y-%m-%d' -%}
-{%- assign _pd_day = page.date | date: '%Y-%m-%d' -%}
-{%- if _pm_day == _pd_day -%}{%- assign page_modified = nil -%}{%- endif -%}
-{%- endif -%}
+{%- include pageModified.html p=page -%}
 {%- if page.layout == 'post' %}
 <meta property="article:published_time" content="{{ page.date | date_to_xmlschema }}">
 {%- if page_modified %}

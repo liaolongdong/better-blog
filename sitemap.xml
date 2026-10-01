@@ -71,9 +71,18 @@ noindex 的文章不进站点地图：一边在页面里写「别收」，一边
 以后真要摘某一篇出去时（比如写了公司内部项目）只用改 front matter，不必两头记。
 {%- endcomment -%}
 {% for post in site.posts %}{% unless post.noindex %}
+{%- comment -%}
+<lastmod> 走 pageModified.html 那条链，不再直接写 post.date。
+原先写 `post.date` 等于向引擎申报「全站每一篇的最后修改日都等于它的发布日」，
+这和 seoMeta.html 里避免的 dateModified==datePublished 是同一类假新鲜度，只是换了个载体。
+链推不出真值时（这篇确实没有可申报的修订）退回 post.date —— 那时「最后修改 = 发布」是真的，
+不是伪造；也顺带保住「每条 <url> 都带 lastmod」这个既有形状。
+调用放在 <url> 外面并用 -%} 收尾：include 体内的换行会漏进 XML 缩进里。
+{%- endcomment -%}
+{%- include pageModified.html p=post -%}
     <url>
         <loc>{{ post.url | absolute_url }}</loc>
-        <lastmod>{{ post.date | date: '%Y-%m-%d' }}</lastmod>
+        <lastmod>{% if page_modified %}{{ page_modified | date: '%Y-%m-%d' }}{% else %}{{ post.date | date: '%Y-%m-%d' }}{% endif %}</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.8</priority>
 {%- comment -%}

@@ -1,0 +1,61 @@
+{%- comment -%}
+  真实修订时间的唯一口径。
+
+  为什么要抽成 include：这条链原先只活在 seoMeta.html 里，而 sitemap.xml 的 <lastmod>
+  另写了一行 `post.date`——等于全站每一篇都申报「最后修改日 = 发布日」。那是同一类
+  假新鲜度（seoMeta 里那段注释讲的就是它）。把链搬进 sitemap 就是第二处解析 front matter，
+  两处迟早漂；所以抽出来，两个消费点共用一份。约定照 coverSrc.html：include 与调用方
+  共享同一 Liquid 作用域，赋值对外可见。
+
+  入参：p —— 一个 page 或 post 对象（用到 .last_modified_at / .updated / .url / .date）
+  出参：page_modified —— 修订时间；**没有真值时为 nil**，调用方据此决定「不输出」
+
+  三个来源，取较新者：
+    · `last_modified_at: 'YYYY-MM-DD'` —— jekyll-last-modified-at 的既有字段名，保持兼容；
+    · `updated: ['2026-03-12 …', '2026-08-01 …']` —— 给「本文修订记录」用的列表，末项最新；
+    · `_data/modified.yml[p.url].at` —— 构建期从 git 历史推导后入库，见下。
+
+  前两个都要作者手写 front matter，而这个仓库 0 篇写过 last_modified_at、0 篇写过 updated，
+  所以那条链一直恒空——jsonLd.html 早年写 `page.last_modified_at | default: page.date`，
+  结果是 66 篇文章的 dateModified 恒等于 datePublished。那不是「没有更新信息」，
+  是「伪造了一条更新信息」：引擎能看出两个时间一模一样，长期等于反复申报零翻新。
+  手写口径继续留着（作者显式声明的修订记录更细、优先级也该更高），git 推导只是把
+  「确实改过正文」这件事自动补上。
+
+  第三个来源不是 `git log -1 --format=%cI`。那样会把两类不是修订的提交算进来，
+  两类都在本仓实测到过：
+    · 批改：`d1ecf84` 一次把 67 篇正文里与版面重复的 `# H1` 降成 `## H2`，指纹每篇都变，
+      却没有一篇是作者对那篇文章的修订。判据是「一个提交碰了 ≥10 篇 _posts 就算批改」。
+    · 空白与图片换编码：prettier 重排、行尾空格、`banner.png` → `banner.webp`，
+      读者看到的东西没变。
+  不挡这些，产物就是几十篇同时申报同一个近期日期，在引擎眼里与集体假装翻新无法区分——
+  比不声明更伤新鲜度信号。完整口径与实测依据见 scripts/build-modified-data.mjs 文件头。
+
+  `_data/modified.yml` 里缺条目 = 这篇没有可申报的修订，出参保持 nil，
+  下游的 article:modified_time 与 BlogPosting.dateModified 一并不输出。缺席比伪造好。
+
+  同日守卫：修订时间与发布日相同视为未修订，避免产出 2019=2019 这种假新鲜度。
+  注意空串在 Liquid 里是 truthy，所以判空必须显式比一次 ''，只写 if page_modified 挡不住。
+{%- endcomment -%}
+{%- assign page_modified = include.p.last_modified_at -%}
+{%- if include.p.updated and include.p.updated.size > 0 -%}
+  {%- assign _upd_last = include.p.updated | last -%}
+  {%- assign _upd_date = _upd_last | date: '%Y-%m-%d' -%}
+  {%- assign _mod_date = page_modified | date: '%Y-%m-%d' -%}
+  {%- if page_modified == nil or _upd_date > _mod_date -%}
+    {%- assign page_modified = _upd_last -%}
+  {%- endif -%}
+{%- endif -%}
+{%- assign _git_mod = site.data.modified[include.p.url] -%}
+{%- if _git_mod and _git_mod.at and _git_mod.at != '' -%}
+  {%- assign _gm_date = _git_mod.at | date: '%Y-%m-%d' -%}
+  {%- assign _mod_date2 = page_modified | date: '%Y-%m-%d' -%}
+  {%- if page_modified == nil or page_modified == '' or _gm_date > _mod_date2 -%}
+    {%- assign page_modified = _git_mod.at -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if page_modified and page_modified != '' -%}
+  {%- assign _pm_day = page_modified | date: '%Y-%m-%d' -%}
+  {%- assign _pd_day = include.p.date | date: '%Y-%m-%d' -%}
+  {%- if _pm_day == _pd_day -%}{%- assign page_modified = nil -%}{%- endif -%}
+{%- endif -%}
