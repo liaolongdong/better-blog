@@ -95,6 +95,26 @@ function badgeInSection(s, slug, from, to) {
 }
 
 /**
+ * 把 `tools.html` 里某一小节**连头带尾**删掉，用来打"整节不在"那一判。
+ * 边界算法与门禁那边的 `toolsSectionOf` 同一条（按 `<section>`/`</section>` 计数配平），
+ * 这是刻意的：两把尺同源，这一刀才证得了"门禁找的那一段就是页面上那一段"——
+ * 各写一套边界，早退那一格（找不到节只记一句、不再逐格比）就成了没人核过的分支。
+ */
+function dropSection(s, slug) {
+  const marker = `<section class="tool-section tool-section--online" id="online-${slug}"`;
+  const at = s.indexOf(marker);
+  if (at < 0) throw new Error(`tools.html 里没有 online-${slug} 那一节，这一刀作废`);
+  let depth = 0;
+  const tags = /<\/?section\b[^>]*>/g;
+  tags.lastIndex = at;
+  for (let m = tags.exec(s); m; m = tags.exec(s)) {
+    depth += m[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) return s.slice(0, at) + s.slice(tags.lastIndex);
+  }
+  throw new Error(`online-${slug} 那一节的 <section> / </section> 不配平，这一刀作废`);
+}
+
+/**
  * baseurl 从产物自己的 canonical 现推（与门禁 `deriveBase()` 同一种取法），不把 `/better-blog`
  * 写死：写死的后果是站点换挂载路径后这条变异静默不命中，而 `String.replace` 找不到目标时
  * **原样返回**，于是那一组变异变成"注入nothing、门禁仍绿"的假牙。
@@ -403,6 +423,15 @@ const jsonCases = [
     name: 'tools.html 的徽章数字与数据源脱钩（改模板不改 yml 的形状）',
     group: '收录',
     artifact: () => shadowEdit('tools.html', (s) => badgeInSection(s, 'json', '14 个动作', '12 个动作')),
+  },
+  {
+    // 判据改成"段内比"之后新增的一格分支：整节不在 → 只记一句「没有这一条的小节」然后交回，
+    // 不再逐格比（不然一节缺席会连带报出五条"这格里找不到"，红字淹掉真正那一句）。
+    // 这一刀钉的就是那个早退**本身有牙**，而不是把整个条目静默放过。
+    name: 'tools.html 少整节（JSON 那一小节连头带尾删掉）',
+    group: '收录',
+    expect: '没有这一条的 tool-section--online 小节',
+    artifact: () => shadowEdit('tools.html', (s) => dropSection(s, 'json')),
   },
   {
     name: 'tools.html 的纯文本要点少吐一条（循环吞掉某一格）',
