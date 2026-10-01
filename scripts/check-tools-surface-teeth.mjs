@@ -429,7 +429,7 @@ const jsonCases = [
   {
     name: '骨架私自多一枚按钮（装配层不会给它接线）',
     group: 'DOM',
-    expect: '多出这些控件/开关/按钮 id',
+    expect: '多出这些控件/开关/按钮/节点 id',
     artifact: () => shadowEdit('tools/json.html', (s) => s.replace(
       'id="jt-btn-workbench-ts">TypeScript</button>',
       'id="jt-btn-workbench-ts">TypeScript</button><button class="tk-btn" type="button" id="jt-btn-workbench-pretty">美化</button>',
@@ -451,10 +451,44 @@ const jsonCases = [
     // 数据源自洽那一句，就等于"分支失效也没人看见"，那一族的牙是假的。
     name: 'T-b：panelIds 退回 ymlPanels（workbench 支的清单来源被切断）',
     group: 'DOM',
-    expect: '多出这些控件/开关/按钮 id',
+    expect: '多出这些控件/开关/按钮/节点 id',
     src: () => mutateSrc('scripts/check-tools-surface.mjs', (s) => s.replace(
       'const panelIds = layout === \'workbench\' ? spec.ids : ymlPanels;',
       'const panelIds = ymlPanels;',
+    )),
+  },
+  // ── 段 5 Task 5 的三把刀：节点族从"写死四族"改成"每栏自己声明"（`cfg.nodes`）之后，这三条
+  //    各钉住新代码的一条边——少了它们，这一族的解耦就是"改了而没人核"（§0.3 那句老话的第三版）。
+  {
+    // 反向核**默认值**：没声明的页（这三条存量条目）仍按四族要。删掉产物那一格必须仍红——
+    // 若解耦时把默认清单写成了空数组，这一发就安静地绿了，而"tree 那一格没了"在页面上是
+    // "树视图永远出不来"，正是这一族地址最贵的一种病。
+    name: 'JSON 页产物缺 tree 那一格（没声明 nodes 的页仍按默认四族要）',
+    group: 'DOM',
+    expect: '产物里缺少这些 id：jt-tree-workbench-main',
+    artifact: () => shadowEdit('tools/json.html', (s) => s.replace('id="jt-tree-workbench-main"', 'id="jt-tree-workbench-mai"')),
+  },
+  {
+    // 声明里的词汇表：一族拼错，门禁就只会去要拼错的那名，而那一格谁都不会画；页面上是
+    // "少一格而什么都不报"。这一刀动的是 spec 的源，因为"声明"这件事只在源侧存在。
+    name: 'JSON 页 nodes 声明了一族拼错的「trec」',
+    group: 'DOM',
+    expect: 'nodes 声明了「trec」',
+    src: () => mutateSrc('dev/js/tools/jsonWorkbench.js', (s) => s.replace(
+      "        kind: 'workbench',\n        controls: [\n          { id: 'doc', type: 'area' },",
+      "        kind: 'workbench',\n        nodes: ['trec'],\n        controls: [\n          { id: 'doc', type: 'area' },",
+    )),
+  },
+  {
+    // 正向核**声明被消费**：把 main 栏收到只剩 `status`，产物上另外三族那三格就成了"骨架私自多长"。
+    // 这一刀钉的是"收窄声明会红"而不是"收窄声明静默通过"——后者才是解耦真正会引进的病：
+    // 装配层少要一格、骨架多长一格，两边各说各话而门禁仍绿。
+    name: 'JSON 页 nodes 收窄成一族（另外三格变成私自多长）',
+    group: 'DOM',
+    expect: '多出这些控件/开关/按钮/节点 id',
+    src: () => mutateSrc('dev/js/tools/jsonWorkbench.js', (s) => s.replace(
+      "        kind: 'workbench',\n        controls: [\n          { id: 'doc', type: 'area' },",
+      "        kind: 'workbench',\n        nodes: ['status'],\n        controls: [\n          { id: 'doc', type: 'area' },",
     )),
   },
 ];

@@ -504,6 +504,17 @@ function checkIcon(t) {
 // ── 组 5：DOM 契约（yml panels ↔ spec ↔ 产物里的 id / data 属性） ──────────────
 
 /**
+ * 工作台支的四族节点地址（段 4 §0.3 立的那四格）。
+ *
+ * 段 5 把"每栏都长这四族"改成"**每栏自己声明要哪几族**"（`cfg.nodes`），因为对比页的并排视图
+ * 只有一个结果区：两条输入栏各有一行闸门读数与一枚栏内复制，写死四族会让它去要六个按设计
+ * 就不存在的 id。没声明的页一律退回这份全量清单——**解耦只放宽新页，不放宽存量页**：
+ * 存量三页的产物里那四族本来都在，把默认值改成空数组会让"产物少了 jt-tree-workbench-main"
+ * 这种真缺陷安静地绿掉。牙齿台账里那条变异（JSON 页产物缺 tree 那一格）钉的就是这一条。
+ */
+const DEFAULT_NODE_FAMILIES = ['out', 'status', 'tree', 'copy'];
+
+/**
  * `layout` 的取值档（段 4 §0.3）。两个分支的差别只有一件事：**面板清单住在哪儿**。
  *   · `panels`（证件页、编码页）——清单在 yml 的 `panels:` 里，索引条、`data-*-ids`、
  *     tools.html 的面板锚点全部从它长出来；
@@ -587,7 +598,11 @@ function checkDomContract(t, builtHtml, spec) {
         // 行号槽只跟着 `type: area` 要：它是 `updateGate` 唯一另一处写 `textContent` 的地址，
         // 骨架漏掉这一格时装配层的 `node(GUTTER)` 取到 null 就**安静地什么都不画**——
         // 页面上没有异常，只是行号永远不出现。面板式那两页的视图层没有这一族 id，不加。
-        if (layout === 'workbench' && c.type === 'area') need.push(`${p}-gutter-${slug}-${c.id}`);
+        // `gutter: false` 是段 5 给这一判据开的退出闸：对比页的两个粘贴框按设计不带行号槽
+        // （行号在结果区的行块里，输入区的行号对"两份文本"没有意义），不写这一格的页按原样要。
+        if (layout === 'workbench' && c.type === 'area' && c.gutter !== false) {
+          need.push(`${p}-gutter-${slug}-${c.id}`);
+        }
         for (const attr of ['cascade', 'options', 'charsets']) {
           // 只有**字符串**才是标记：编码页的 spec 里 `options` 是 `<option>` 的取值白名单数组
           // （骨架的 `<option>` 文案归 HTML，运行时不读），与证件页那个 `options: 'banks'`
@@ -605,9 +620,20 @@ function checkDomContract(t, builtHtml, spec) {
        * 栏位名从 `panel.sides` 的键来，不在这里写死 `main`——那等于在同一支里立第二处口径，
        * 而装配层加一栏时这一格会**静默少要**。面板式那两页的视图层不产这四族 id，
        * 给存量页加这条判据会红在它压根没有的东西上（§0.3 那句 import 的病，反过来的版本）。
+       *
+       * 四族**由每一栏自己声明**（`cfg.nodes`，段 5）：对比页的 `a` / `b` 两栏只有 `status` 与
+       * `copy`，结果区只有一格住在 `bar`。没声明 = 用那份全量（存量三页按原样判），
+       * 声明了却写了词汇表外的一族 = 红——拼错一族在页面上是"骨架少长一格、装配层取到 null 就安静不画"。
        */
       if (layout === 'workbench') {
-        for (const fam of ['out', 'status', 'tree', 'copy']) need.push(`${p}-${fam}-${slug}-${side}`);
+        const fams = Array.isArray(cfg.nodes) ? cfg.nodes : DEFAULT_NODE_FAMILIES;
+        for (const fam of fams) {
+          if (!DEFAULT_NODE_FAMILIES.includes(fam)) {
+            bad('DOM', t.slug, `${slug}/${side} 栏的 nodes 声明了「${fam}」，而节点族只认 ${DEFAULT_NODE_FAMILIES.join(' / ')}（拼错一族的下场是产物少一格而门禁读不到）`);
+            continue;
+          }
+          need.push(`${p}-${fam}-${slug}-${side}`);
+        }
         for (const a of spec.actions || []) need.push(`${p}-btn-${slug}-${a.key}`);
       }
     }
@@ -621,10 +647,18 @@ function checkDomContract(t, builtHtml, spec) {
   // "按下去没反应的一枚按钮"的形状出现。面板式那两页的产物里本来还住着别的 id 家族
   // （-tab- / -panel- / -h- / -out- / -copy-），不给存量页加这条判据。
   if (layout === 'workbench') {
-    const orphan = new RegExp(`^${escRE(p)}-(?:in|when|btn)-`);
+    // 四族地址只有在这一页**自己声明过** `nodes` 时才纳入"私自多长"的判据：那三页没声明的
+    // 存量条目用的是这份判据建立之前的默认四族，它们的产物里 `-{fam}-` 那一格本来就被上面的
+    // `need` 要过，加进来不改变结论；而对比页是"每栏各要几族"的第一页，骨架私自多长一格
+    // （比如手打一枚 `df-copy-workbench-bar`）在这一页必须红——它正是这一族地址唯一的新病形状。
+    const declaresNodes = Object.values(spec.table).some((panel) => Object
+      .values((panel && panel.sides) || {})
+      .some((cfg) => cfg && Array.isArray(cfg.nodes)));
+    const roots = declaresNodes ? 'in|when|btn|out|status|tree|copy' : 'in|when|btn';
+    const orphan = new RegExp(`^${escRE(p)}-(?:${roots})-`);
     const want = new Set(need);
     const extras = [...ids].filter((id) => orphan.test(id) && !want.has(id));
-    if (extras.length) bad('DOM', t.slug, `产物里多出这些控件/开关/按钮 id，而 ${t.spec.table} 的 controls / switch.targets 与 ${t.spec.actions} 里没有声明：${extras.join(' ')}`);
+    if (extras.length) bad('DOM', t.slug, `产物里多出这些控件/开关/按钮/节点 id，而 ${t.spec.table} 的 controls / switch.targets / nodes 与 ${t.spec.actions} 里没有声明：${extras.join(' ')}`);
   }
 
   /**

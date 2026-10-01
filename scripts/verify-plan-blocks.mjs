@@ -204,6 +204,18 @@ const FILE_TARGETS = [
   // 红的只是字符串比对，看不出"当时那一版到底把行内容放在哪个标签里"。这一格镜像就是那一版的现场——
   // 尤其 `<pre class="{p}-row__txt">` 那一格：缩进是内容不是排版，选了它也就选了 §Z 的提取锚点。
   'dev/js/tools/diffView.js',
+  // 段 5 Task 5：装配层与入口落盘即登记，方向照旧（"有镜像才登记"，跟着磁盘走不跟着计划走）。
+  // 这两本合起来才是"环境只在入口"那句话的完整现场——Z14 与 Z15 从两头数同一批词：
+  // 装配层 0 命中、入口各恰好一处（`win.FileReader(` / `win.TextDecoder` / `win.Blob` /
+  // `URL.createObjectURL` / `URL.revokeObjectURL` / `win.navigator` / `setTimeout(` / `getComputedStyle`）。
+  // 只镜像一本的话，另一头漂了没人对账：入口单独看永远是绿的，而把 `getComputedStyle` 挪进装配层
+  // 这件事只会让 Z14 红，红了之后磁盘上也没有"当时那八件各在哪一行"的第二处可看。
+  'dev/js/tools/diffWorkbench.js',
+  // `toolDiff.js` 这一格另外还独扛两处**只活在这里**的事实：① 门禁⑤ 组 5 用正则从产物里定位的
+  // `CONTAINER_ID` / `NOTICE_ID` / `ATTR` 那三行必须是字面量（Z16 判原文），跟着前缀派生就找不到容器；
+  // ② 那三条"没有"——无顶层 `export`、无 `DOMContentLoaded`、`localStorage` 与 `Date.now(` 两本一起
+  // 归零——最后一条是"这一页不做记住上次输入，所以'输入不出本机'连一条退路都不必写"的字节见证。
+  'dev/js/toolDiff.js',
 ];
 
 /**

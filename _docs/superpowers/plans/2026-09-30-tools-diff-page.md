@@ -165,6 +165,16 @@ T-c 在骨架里私自多写一枚 `id="df-tree-diff-a"` 而 `nodes` 里没有 `
 | §1.1 `Row.inline` 那格写的是"一份 `[{t,text}]`（或 `null`）"，没说两侧各取哪几档 | 序列里 equal/del/ins **混着放**，视图层按侧**筛**：`INLINE_BY_SIDE = {a: ['equal','del'], b: ['equal','ins']}`；tone 不在那三档才抛 | "两侧各画一半"是渲染事实，不是数据事实：存一份混合序列，X20/X21 那种"两侧逐字符能各自拼回原文"的对拍才成立，各存一半就是两份真相。按侧筛而不是按侧取，装配层从此不必知道行内是怎么存的（Z5 钉两栏各自只高亮自己那半，并把两栏的产出串逐字符钉下来） |
 | §5.6「并排两栏逐行对齐」没写缺席那一侧长什么样 | 那一格画 `--fill`：**行还在**，但没有 `ln` 属性、没有行号、正文为空 | 少一行，两栏就从这一行起永久错位；画一个"看起来像 0"的行号是编造读数。`Row.a` / `Row.b` 的 `null` 是唯一真相，视图层把它翻译成"这一侧在这里什么都没有"（Z4 同时钉两栏块数相等与"不许给自己编行号"两半） |
 | 测试文件头部那张"用例分布"表（`§A` 的第二现场） | 补 §Z 那一行（`12`，前半）、合计 `410` → **`422`** | §Z 前半落进磁盘，那张表就过期了；重算口径照旧是 §A 注释里那条 awk（按行首 `^test(` 数每段），逐段读数 `…§Y: 18 / §Z: 12`，合计与 runner 的 `# tests 422` 对上才算对完账。那张表长在磁盘 §A 里，所以 `--fix` **又一次**把段 1 那份计划的 §A 镜像整块换成磁盘内容（`6526 → 6530 行`）——本提交因此再带一份段 1 计划的改动，只碰 §A 那一个块 |
+| §1.4 草图的 `controls: [{ id: 'text' }, { id: 'file' }, …]`（两栏同名） | 栏位**编进控件 id**：`a-text` / `b-file` / `b-name`，`fieldId(p, panel, id)` 那一格不加维 | 门禁⑤ 的控件 id 公式是全页共用的 `{p}-in-{面板}-{控件}`（`check-tools-surface.mjs` 里对 `panels` 支与 `workbench` 支是同一条），给这一页单开一维等于在门禁里立第二套地址口径——而 `panels` 支那两页会跟着一起改形。代价写进 Z17：`a` / `b` 两栏的控件必须以栏位起头，判据把这条口头约定钉成断言 |
+| §1.4 草图的 `a` / `b` 栏 `nodes: ['out','status','copy']`、`bar` 栏 `nodes: []` | 落地：两栏各 `['status','copy']`，`bar` 是 `['out','status']`，`nodes` 由**每一栏自己声明** | 并排视图只有一个结果区（住在 `bar`），两条输入栏各有状态行与栏内复制。写死四族会让这一页去要六个它根本没有的 id（`df-out-workbench-a` 之类），所以门禁⑤ 那一族改成"声明了就按声明要、没声明仍按默认四族"——**只放宽新页，存量三页一字不松**，那件事由门禁⑥ 的「JSON 页产物缺 tree 那一格」那把刀自证 |
+| §5.6「并排两栏逐行对齐」没写两栏是不是**各一个滚动容器** | 一栏一个 `div.{p}-col`，两块 `{p}-col` 同处**一个**结果区滚动容器里；草图里的 `toA` / `toB` 两枚因此不成立 | "同步滚动"这件事要有两个可滚元素才需要按钮去解；这里从头到尾只有一个滚动容器，加两枚按钮就是给一个不存在的问题做界面。跳转那三枚（`firstDiff` / `prevDiff` / `nextDiff`）读的是同一份 hunk 清单，`scrollTop` 由视觉行数换算（Z22） |
+| §1.4 草图的 `copyA` / `copyB` 两枚动作 | 栏内复制归 `copy` **节点族**（`copyId` → `df-copy-workbench-a`），不占 `DIFF_ACTIONS` 的名额 | 动作清单那十四枚是 yml `actions: 14` 与 tools.html 徽章数的同一个数（Z17、门禁⑤ 那条按钮文案对账）；把两枚"复制这一栏的输入"塞进去，徽章口径就要替它解释为什么和 yml 差二。归节点族则和 `out` / `status` 同一条派生式，骨架上它本来就得有一格 |
+| §5.6「未变行折叠」的 `context` 三档（`3` / `5` / `all`） | 落**四档**：`diff` / `3` / `5` / `all`，且 `expand` / `fold` / `diffOnly` 三枚按钮是那一枚下拉的**快捷键**（写回同一个 `select`，不另存状态） | "只看差异行"是这一页最高频的一档，没有它就得先理解"上下文"这个术语才能到达；`CONTEXT_VALUE.diff = 0`、`.all = Infinity`，两档都住在同一张解释表里。快捷键与下拉不复算第二份状态由 Z21 钉：三枚按钮各自写回下拉、并核对预期的行数与折叠条数 |
+| §W10 那条"`File` 计数按裸词"的写法 | 裸词 `File` 在本页两本里都是**合法名字**（`fileName` / `readFile` / `canReadFiles` 都归它），判据改成剥掉 `win.FileReader` 之后数 `win.File` 恰好一处，装配层则钉 `instanceof` 0 命中 | 宿主类型判断只许在入口那一格（`instanceof win.File`），这一档真正的红线是"本层不许问'这是不是文件'"。Z14 的词表因此比 §W10 多两枚（`FileReader`、`instanceof`）而 Z15 数的是**次数恰好**而不是"有没有" |
+| §R / §W 各自那本假 DOM 夹具 | §Z 造**第三本**（`zPage` / `zMount`，三栏 + 两栏输入的形状），不与前两本合并 | 三页的骨架形状本来就不同（证件页四面板、编码页两栏、JSON 页单工作区带树、本页两栏输入加一条控制栏），合并夹具要替不存在的格子造节点，代价是夹具里长出一堆页面根本没有的 `id`。这条欠账的性质与段 4 §0.6 记的那条同源：**同一族事实有三处夹具**，改门禁⑤ 的 id 公式时三处都要动 |
+| Z26 那条"骨架与 spec 漂移"的夹具，选哪一格 | 摘掉 `df-in-workbench-b-name`——它是装配层真读、且**不在启动期**被读的那一格 | 摘 `a-text` 会在 `mount` 的 `refreshGate` 就炸（那是启动路径，测不到"先算后画"）；摘 `out` 那一格会让 `paint` 直接抛（结论连状态行都到不了）。`b-name` 只在按「重新对比」时被 `readControls` 读一次，`report.missing` 报出它而不拦启动，Z26 要的就是这一档：缺格 → 按动作时抛 → **上一格结果不擦** |
+| 门禁⑥「 teeth 用例」原本计划里的四刀（含"把 `DEFAULT_NODE_FAMILIES` 去掉 `tree`"那一刀） | 只落三刀（产物缺 `tree`、`nodes: ['trec']`、`nodes: ['status']`），第四刀**不做** | 牙齿用例的结构是"注入变异 → 必须变红"，而弱化默认族只会让门禁**更绿**，那一刀注定点不红，写进去就是一把假牙。"声明被新页消费"这件事此刻没有第四页可证，交给 Task 6 的 diff 页产物那一刀（`nodes` 真被门禁⑤ 读走）。这是 §0.3(a) 那颗牙拆完之后自己露出来的空档，不是漏做 |
+| 测试文件头部那张"用例分布"表（`§A` 的第三现场） | §Z 那一行改成 `28`（前后两半合起来）、合计 `422` → **`438`** | 与前两格同一条口径、同一次连带：表长在磁盘 §A 里（现在 `1–901`），`--fix` **第三次**把段 1 那计划的 §A 块换成磁盘内容（`6530 → 6536 行`）。逐段读数由 awk 现算（`§X: 29 / §Y: 18 / §Z: 28`），与 runner 的 `# tests 438` 对上才算对完账 |
 
 （本表是空的才算正常；每加一行就要在 §5.6 或 §8.1 里回写一次，段 4 那份计划的 §0.6 是同一族先例。）
 
@@ -366,29 +376,53 @@ export function createDiffView(env) → { renderSide, renderInline, renderFoldBa
 
 ```text
 export const DIFF_PANEL_IDS = ['workbench'];
+export const SIDES = ['a', 'b', 'bar'];
+// 七枚 id helper：门禁⑤ 与 §Z 的三向对账只认这七个公式，装配层内不许手打 `df-` 串
+export const fieldId   = (p, panel, id)   => `${p}-in-${panel}-${id}`;
+export const buttonId  = (p, panel, key)  => `${p}-btn-${panel}-${key}`;
+export const outId     = (p, panel, side) => `${p}-out-${panel}-${side}`;
+export const statusId  = (p, panel, side) => `${p}-status-${panel}-${side}`;
+export const copyId    = (p, panel, side) => `${p}-copy-${panel}-${side}`;
+export const whenId    = (p, panel, key)  => `${p}-when-${panel}-${key}`;
+export const nodeId    = (p, panel, fam, side);   // 只认 out / status / copy 三族，第四族当场 RangeError
+export const controlIds = (p) → { fields, nodes, when, buttons };
+
 export const DIFF_SPEC = {
   workbench: { sides: {
-    a:   { kind: 'workbench', nodes: ['out', 'status', 'copy'],
-           controls: [{ id: 'text', type: 'area' }, { id: 'file', type: 'file' }, { id: 'name', type: 'text' }] },
-    b:   { kind: 'workbench', nodes: ['out', 'status', 'copy'],
-           controls: [{ id: 'text', type: 'area' }, { id: 'file', type: 'file' }, { id: 'name', type: 'text' }] },
-    bar: { kind: 'workbench', nodes: [],
+    a:   { kind: 'workbench', nodes: ['status', 'copy'],
+           controls: [{ id: 'a-text', type: 'area', gutter: false }, { id: 'a-file', type: 'file' },
+                      { id: 'a-name', type: 'text' }] },
+    b:   { kind: 'workbench', nodes: ['status', 'copy'],
+           controls: [{ id: 'b-text', type: 'area', gutter: false }, { id: 'b-file', type: 'file' },
+                      { id: 'b-name', type: 'text' }] },
+    bar: { kind: 'workbench', nodes: ['out', 'status'],
            controls: [ { id: 'mode',  type: 'select', options: ['text', 'json'] },
                        { id: 'layout', type: 'select', options: ['side', 'inline'] },
-                       { id: 'ws', type: 'checkbox' }, { id: 'case', type: 'checkbox' },
-                       { id: 'context', type: 'select', options: ['3', '5', 'all'] } ],
+                       { id: 'context', type: 'select', options: ['diff', '3', '5', 'all'] },
+                       { id: 'ws', type: 'checkbox' }, { id: 'case', type: 'checkbox' } ],
            switch: { by: 'mode', targets: [{ key: 'text', when: ['text'] }, { key: 'json', when: ['json'] }] } },
   } },
 };
-export const DIFF_ACTIONS = [ /* 14 枚：compare / swap / clear / copyDiff / download / copyA / copyB /
-  expand / fold / toA / toB / fileA / fileB / reset 一类的最终名单在 Task 5 定死后写进这里 */ ];
-export function createDiffWorkbench(env) → { mount() }
+// 十四枚，`key` 派生按钮 id、`group` 是那一族的登记处、`to` 只有折叠那三枚有（写回同一枚 context 下拉）
+export const DIFF_ACTIONS = [
+  { key: 'compare',   group: 'run',   label: '重新对比' },   { key: 'swap',    group: 'run',   label: '交换两侧' },
+  { key: 'clear',     group: 'run',   label: '清空输入' },   { key: 'reset',   group: 'run',   label: '恢复默认档' },
+  { key: 'expand',    group: 'fold',  label: '全部展开', to: 'all' },
+  { key: 'fold',      group: 'fold',  label: '上下文三行', to: '3' },
+  { key: 'diffOnly',  group: 'fold',  label: '只看差异', to: 'diff' },
+  { key: 'firstDiff', group: 'goto',  label: '第一处差异' }, { key: 'prevDiff', group: 'goto',  label: '上一处' },
+  { key: 'nextDiff',  group: 'goto',  label: '下一处' },     { key: 'fileA',   group: 'file',  label: '选 A 侧文件' },
+  { key: 'fileB',     group: 'file',  label: '选 B 侧文件' }, { key: 'copyDiff', group: 'copy', label: '复制差异' },
+  { key: 'download',  group: 'copy',  label: '下载 .diff' },
+];
+export function createDiffWorkbench(env) → { mount(), state(), view };   // view = 视图层那七件，原样暴露
 ```
 
-三条与 §W 同源的红线，§Z 逐条咬：**视图层零 import**；**环境只在入口**（`FileReader` / `File` /
+三条与 §W 同源的红线，§Z 逐条咬：**视图层零 import**；**环境只在入口**（`FileReader` / `instanceof` /
 `Date.now(` / `localStorage` / `window` / `getComputedStyle` / `querySelector` / `setTimeout(` /
-`URL.` / `navigator.` 在装配层源码里各 0 次——本页**不做**"记住上次输入"，所以 `localStorage`
-那一只连入口都不该出现，判据数的是**全页 0 命中**）；**id 只由 spec 派生**。
+`URL.` / `navigator.` 在装配层源码里各 0 次，入口那一侧按 Z15 数"各恰好一处"——
+但 `localStorage` 与 `Date.now(` 是**两本一起归零**，因为本页**不做**"记住上次输入"，
+那句"输入不出本机"因此连一条退路都不必写）；**id 只由 spec 派生**。
 
 ---
 
@@ -4103,6 +4137,710 @@ test('Z12 读数只认那七个名字，结论按模式各有词表且 blocked /
   assert.throws(() => v.renderVerdict({ mode: 'text', verdict: 'same', stats: s, degraded: 'yes' }), TypeError);
   assert.equal(v.renderVerdict({ mode: 'text', verdict: 'diff', stats: s }).includes(`${Z_P}-verdict--diff`), true, '结论档也进 class：样式只认那三个词');
 });
+
+// 装配层与入口（Task 5）落进**同一节**，所以这里不再立 `// ── §` 标记：`§Z` 那一格数的判据要连着
+// Z1–Z28 一起报，另起一节会让 §A 那张用例分布表少算一格（段 4 的 §U 是同一形状的先例）。
+//
+// 本节后半钉的是"这一页跑不跑得起来"，六条红线各自的形状：
+//   · **环境只在入口**（Z14、Z15）：词表比 §W10 多两枚——`FileReader` 与 `File` 这两只手归入口，
+//     装配层里 `FileReader` 0 次、`instanceof` 0 次（本层不判断宿主类型，收到了就当对象读形状）。
+//     `localStorage` 与 `Date.now(` 这一页**两本都不许出现**（本页不做"记住上次输入"，红线里
+//     那句"输入不出本机"因此不需要任何退路可写）；入口那八件各恰好一处，数的是出现次数。
+//   · **id 只由 `DIFF_SPEC` / `DIFF_ACTIONS` 派生**（Z16）：装配层源码里 `df-` 0 次、整格字面量 0 格，
+//     `controlIds(prefix)` 与骨架与 spec 三个方向对账；入口那三行地址（`CONTAINER_ID` / `NOTICE_ID`
+//     / `ATTR`）反过来**必须**是字面量——那是本页在 HTML 里的地址，门禁⑤ 组 5 靠正则找那三行。
+//   · **挂载期与输入路径一次计算都不做**（Z18）：二十次 `input` 之后注入的 `runGuarded` 计数为 0，
+//     结果区里一行 `df-row` 都不许有；防抖令牌只让最后一次真的读闸门（`state().gateReads` 数这件事）。
+//   · **两类失败分两条路**（Z26）：用户那一格不能用（空输入 / 坏 JSON / 超闸门）→ 一句话进状态行，
+//     上一格结果原样留着；spec 与骨架漂移（档位越界、节点缺席）→ 原样上抛交给 `runGuarded`，
+//     同样**不许擦掉上一格**（`compute` 一律先算后画，抛在画之前）。
+//   · **换前缀自证**（Z28）：`df` ↔ `zx` 整页 id 跟着换、门禁仍绿，照 §R16 / §W18 那一形状。
+//   · **import 边闭合**（Z13）：正向核装配层只 reach 那三本，反向核用排除式写法（M16 / N19）数"谁 reach"。
+
+const {
+  createDiffWorkbench: zCreateWb, DIFF_PANEL_IDS: Z_PANEL_IDS, DIFF_SPEC: Z_SPEC,
+  DIFF_ACTIONS: Z_ACTIONS, SIDES: Z_SIDE_NAMES, controlIds: zControlIds,
+  fieldId: zField, buttonId: zButton, copyId: zCopy, outId: zOut, whenId: zWhen, statusId: zStatus,
+} = await import('../dev/js/tools/diffWorkbench.js');
+
+const Z_PANEL = 'workbench';
+const Z_BAR = 'bar';
+const Z_ASSEMBLY = 'dev/js/tools/diffWorkbench.js';
+const Z_ENTRY = 'dev/js/toolDiff.js';
+const Z_CORE_REL = 'dev/js/tools/diff-core.js';
+const Z_JSON_REL = 'dev/js/tools/diff-json.js';
+
+/** spec 的 `type` → 骨架标签：比 §W 多一枚 `file`（选本地文件那一格），词汇表外当场抛 */
+const Z_TAGS = { text: 'input', area: 'textarea', select: 'select', checkbox: 'input', file: 'input' };
+const zTag = (type) => {
+  const tag = Z_TAGS[type];
+  if (!tag) throw new Error(`夹具：DIFF_SPEC 里出现了词汇表外的 type「${String(type)}」（认得 ${Object.keys(Z_TAGS).join(' / ')}）`);
+  return tag;
+};
+/** 节点族 → id：本层只认这三族，第四族（`tree`）在这一页没有对应的事实 */
+const zFamId = (prefix, fam, side) => {
+  if (fam === 'out') return zOut(prefix, Z_PANEL, side);
+  if (fam === 'status') return zStatus(prefix, Z_PANEL, side);
+  if (fam === 'copy') return zCopy(prefix, Z_PANEL, side);
+  throw new Error(`夹具：${side} 栏声明了节点族「${String(fam)}」，而这一页只有 out / status / copy 三族`);
+};
+/** 整格字面量那把尺与 §W 共用一本（`mark` 换成本页前缀） */
+const zHandIds = (rel, mark = `${Z_P}-`) => wHandTypedIds(rel, mark);
+
+/**
+ * 造一页对比骨架：提示行 + 容器 + 按 `DIFF_SPEC` 三栏长出的控件、显隐段、节点族，
+ * 再按 `DIFF_ACTIONS` 长出十四枚按钮。
+ *
+ * 为什么是**第三本**假 DOM（§I 的证件页那份、§W 的 JSON 那份之外）：`wPage` 吃的是 `JSON_SPEC` /
+ * `JSON_PANEL_IDS` 这两个全局名，它按 `sides.main` 一栏长；这一页的 spec 是三栏（a / b / bar）、
+ * 控件 id 里编了栏位、节点族由每栏自己声明，还要多两样本节独有的观察口（`files` 与 `el.click()` 的
+ * 落点日志）。把 `wPage` 改成能服务两页等于给 §W 那二十七判换地基——既有先例是 §R 与 §W 各留一份。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀（Z28 的 `zx` 那一档量的就是它）
+ * @param {Record<string, string|boolean>} [o.seed] `'控件 id → 初值'`
+ * @param {string[]} [o.drop] **不**要长的 id，造"骨架与 spec 漂移"那一类缺陷
+ * @returns {object} 节点表 + 观察口
+ */
+function zPage({ prefix = Z_P, seed = {}, drop = [] } = {}) {
+  const nodes = new Map();
+  const created = { list: [] };
+  const clicked = [];
+  const mk = (tag, id = '', attrs = {}) => {
+    const el = {
+      nodeType: 1, tagName: String(tag).toUpperCase(), id, hidden: false, disabled: false,
+      value: '', checked: false, innerHTML: '', files: undefined, scrollTop: 0, style: {},
+      attrs: new Map(), childNodes: [], listeners: new Map(), parentNode: null,
+      get textContent() { return this.childNodes.map((c) => c.textContent).join(''); },
+      set textContent(v) { this.childNodes = v === '' ? [] : [{ nodeType: 3, tagName: '#text', textContent: String(v) }]; },
+      getAttribute(n) { return this.attrs.has(n) ? this.attrs.get(n) : null; },
+      setAttribute(n, v) { this.attrs.set(n, String(v)); },
+      removeAttribute(n) { this.attrs.delete(n); },
+      appendChild(c) { this.childNodes.push(c); c.parentNode = this; return c; },
+      removeChild(c) {
+        const at = this.childNodes.indexOf(c);
+        if (at < 0) throw new Error('removeChild：这个节点不在里面');
+        this.childNodes.splice(at, 1);
+        c.parentNode = null;
+        return c;
+      },
+      addEventListener(t, fn) {
+        if (!this.listeners.has(t)) this.listeners.set(t, []);
+        this.listeners.get(t).push(fn);
+      },
+      dispatch(t, evt = {}) {
+        for (const fn of this.listeners.get(t) || []) fn(evt);
+        return evt;
+      },
+      // 真 DOM 的 `el.click()` 会派发一次真的 click：`fileA` / `fileB` 两枚按钮靠它打开选择器，
+      // 而**这一发要留痕**——判据问的是"装配层自己按了哪一枚"，派发过程本身不算答案。
+      click() { clicked.push(this.id); return this.dispatch('click', {}); },
+    };
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'hidden') el.hidden = v; else el.setAttribute(k, v);
+    }
+    if (id !== '') nodes.set(id, el);
+    return el;
+  };
+  const doc = {
+    getElementById: (id) => (nodes.has(id) ? nodes.get(id) : null),
+    createElement: (tag) => { const el = mk(tag); created.list.push(el); return el; },
+    body: mk('body'),
+  };
+  const gone = new Set(drop);
+  const want = (id) => (gone.has(id) ? null : mk('div', id));
+
+  want(`${prefix}-notice`);
+  const box = want(`${prefix}-workspace`);
+  if (box) {
+    box.setAttribute(`data-${prefix}-ids`, Z_PANEL_IDS.join(','));
+    box.setAttribute(`data-${prefix}-prefix`, prefix);
+    box.setAttribute(`data-${prefix}-label`, '文件对比');
+    box.setAttribute(`data-${prefix}-notice`, `${prefix}-notice`);
+  }
+  for (const [side, cfg] of Object.entries(Z_SPEC[Z_PANEL].sides)) {
+    for (const c of cfg.controls) {
+      const id = zField(prefix, Z_PANEL, c.id);
+      if (gone.has(id)) continue;
+      const el = mk(zTag(c.type), id);
+      if (c.type === 'select') {
+        for (const opt of c.options ?? []) {
+          const o = mk('option');
+          o.setAttribute('value', opt);
+          o.textContent = opt;
+          el.appendChild(o);
+        }
+      }
+      if (seed[c.id] !== undefined) {
+        if (c.type === 'checkbox' || c.type === 'file') el.checked = seed[c.id] === true;
+        else el.value = String(seed[c.id]);
+      }
+      if (c.type === 'file') el.setAttribute('accept', '.txt,.md,.json');
+    }
+    for (const tg of cfg.switch?.targets ?? []) {
+      const id = zWhen(prefix, Z_PANEL, tg.key);
+      if (gone.has(id)) continue;
+      const p = mk('p', id);
+      p.setAttribute(`data-${prefix}-when`, tg.when.join(' '));
+    }
+    for (const fam of cfg.nodes ?? []) {
+      const id = zFamId(prefix, fam, side);
+      if (gone.has(id)) continue;
+      if (fam === 'copy') {
+        const b = mk('button', id);
+        b.textContent = `复制 ${side} 侧`;
+      } else if (fam === 'out') mk('div', id);
+      else mk('p', id);
+    }
+  }
+  for (const a of Z_ACTIONS) {
+    const id = zButton(prefix, Z_PANEL, a.key);
+    if (gone.has(id)) continue;
+    mk('button', id).textContent = a.label;
+  }
+
+  const ctl = (id) => doc.getElementById(zField(prefix, Z_PANEL, id));
+  const at = (id) => doc.getElementById(id);
+  return {
+    doc, nodes, mk, box, created, clicked,
+    ctl,
+    set: (id, v) => { ctl(id).value = String(v); },
+    check: (id, v) => { ctl(id).checked = !!v; },
+    val: (id) => (ctl(id) ? ctl(id).value : null),
+    input: (id) => ctl(id).dispatch('input', {}),
+    change: (id) => ctl(id).dispatch('change', {}),
+    click: (key) => { const el = at(zButton(prefix, Z_PANEL, key)); return el.dispatch('click', {}); },
+    clickCopy: (side) => at(zCopy(prefix, Z_PANEL, side)).dispatch('click', {}),
+    area: (side) => ctl(`${side}-text`).value,
+    name: (side) => ctl(`${side}-name`).value,
+    out: () => { const el = at(zOut(prefix, Z_PANEL, Z_BAR)); return el ? String(el.innerHTML) : ''; },
+    /** 结果区那一格到底有没有被写过（空串与"没这一格"是两件事，Z26 判的就是这个区别） */
+    outWritten: () => (at(zOut(prefix, Z_PANEL, Z_BAR)) ? at(zOut(prefix, Z_PANEL, Z_BAR)).innerHTML !== '' : null),
+    scrollTop: () => { const el = at(zOut(prefix, Z_PANEL, Z_BAR)); return el ? el.scrollTop : null; },
+    line: () => { const el = at(zStatus(prefix, Z_PANEL, Z_BAR)); return el ? el.textContent : null; },
+    read: (side) => { const el = at(zStatus(prefix, Z_PANEL, side)); return el ? el.textContent : null; },
+    hidden: (key) => { const el = at(zWhen(prefix, Z_PANEL, key)); return el ? el.hidden === true : null; },
+    disabled: (id) => (at(id) ? at(id).disabled === true : null),
+    btnDisabled: (key) => at(zButton(prefix, Z_PANEL, key)).disabled === true,
+    label: (id) => (at(id) ? at(id).textContent : null),
+    /** 选文件：先给假 `files`，再派发 `change`（§W 那份夹具的 `files` 永远是 undefined，量不到这一路） */
+    pickFile: (side, file) => { const el = ctl(`${side}-file`); el.files = file ? [file] : []; return el.dispatch('change', {}); },
+    /** 拖放落点：每一侧的粘贴框自己 */
+    drop: (side, files) => ctl(`${side}-text`).dispatch('drop', { dataTransfer: { files }, preventDefault: () => {} }),
+    madeOf: (tag) => created.list.filter((el) => el.tagName === String(tag).toUpperCase()),
+  };
+}
+
+/**
+ * 接一页：`zPage` 长骨架，`createDiffWorkbench` 接装配层，注入的 `runGuarded` 既数调用也记"这一格抛了"。
+ *
+ * 与 `wMount` 的差别只有两处，且都是本页的形状：**不注入 `storage` 也不注入 `now`**（红线里那句
+ * "这一页不做记住上次输入"，夹具给了就是替实现撒谎），**多两只文件读手**（`readFile` / `decode`）。
+ * @param {object} o 选项
+ * @param {string} [o.prefix] 前缀
+ * @param {Record<string, string|boolean>} [o.seed] 控件初值
+ * @param {string[]} [o.drop] 骨架要缺的 id
+ * @param {number} [o.rowHeight] 注入行高，缺席就是实现自己的退路值
+ * @param {object|null} [o.dl] 下载三件的替身，`null` 代表不注入（下载按钮该置灰）
+ * @param {object|null} [o.clipboard] 假剪贴板，`null` 代表没有这只手
+ * @param {Function|null} [o.readFile] 读文件替身，`null` 代表不注入（选文件该置灰）
+ * @param {Function|null} [o.decode] 解码替身，`null` 代表不注入
+ * @returns {object} `{ page, wb, report, guarded, threw, timers, reads, copied, flush }`
+ */
+function zMount(o = {}) {
+  const prefix = o.prefix || Z_P;
+  const page = zPage({ prefix, seed: o.seed || {}, drop: o.drop || [] });
+  const guarded = [];
+  const threw = [];
+  const timers = [];
+  const reads = [];
+  const copied = [];
+  const dl = o.dl === undefined ? wDownload() : o.dl;
+  const wb = zCreateWb({
+    document: page.doc,
+    Tk: { view: W_VIEW, ui: J_UI },
+    prefix,
+    runGuarded: (id, fn) => {
+      guarded.push(id);
+      try { fn(page.doc.getElementById(id)); return true; } catch (err) {
+        threw.push([id, err && err.message]); return false;
+      }
+    },
+    later: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    navigator: { clipboard: o.clipboard === null ? undefined : (o.clipboard || { writeText: (t) => { copied.push(String(t)); return Promise.resolve(); } }) },
+    ...(o.rowHeight === undefined ? {} : { rowHeight: o.rowHeight }),
+    ...(dl === null ? {} : { BlobCtor: dl.BlobCtor, createObjectURL: dl.createObjectURL, revokeObjectURL: dl.revokeObjectURL }),
+    ...(o.readFile === null ? {} : { readFile: o.readFile || ((f) => { reads.push(f.name); return Promise.resolve(f.__bytes); }) }),
+    ...(o.decode === null ? {} : { decode: o.decode || ((b) => ({ ok: true, text: new TextDecoder('utf-8').decode(b) })) }),
+  });
+  const report = wb.mount();
+  return {
+    page, wb, report, guarded, threw, timers, reads, copied, dl,
+    flush: () => { const list = timers.splice(0); for (const t of list) t.fn(); },
+  };
+}
+
+/** 一个本地文件替身：`size` 给闸门看（拒收在**读之前**），`__bytes` 给注入的 `readFile` 交回 */
+const zFile = (name, text, over) => {
+  const bytes = new TextEncoder().encode(text);
+  return { name, size: over === undefined ? bytes.length : over, __bytes: bytes };
+};
+/** 排空微任务：文件那一路是 Promise，而 `later` 被夹具换成"只记账不执行"（同 §J 的 `jSettle`） */
+const zSettle = () => new Promise((r) => { setTimeout(r, 0); });
+
+/** 一份能折叠出两块的输入：40 行，头行与第 31 行各改一处 */
+const Z_A40 = Array.from({ length: 40 }, (_, i) => `L${i}`).join('\n');
+const Z_B40 = Z_A40.replace('L0', 'X0').replace('L30', 'Y30');
+
+test('Z13 import 边闭合：装配层只 reach 那三本，反向核数"谁 reach 这一本"', () => {
+  assert.deepEqual(wImports(Z_ASSEMBLY).slice().sort(), ['./diff-core.js', './diff-json.js', './diffView.js'].sort(),
+    '三本之外多一本 = 第二条跨模块的边；少一本 = 有一件事在本层自己重算了一遍（§0.4 那条构建红线的第二十八种写法）');
+  assert.deepEqual(wImports(Z_ENTRY), ['./tools/diffWorkbench.js'],
+    '入口只许 reach 装配层一本：视图层与两本算法由它带进来，入口再指一次就是两个入口 reach 同一模块 → 共享 chunk → 产物里 `import{` → 整页 SyntaxError 而构建退 0');
+  assert.deepEqual(wImports(Z_CORE_REL), [], `${Z_CORE_REL} 是纯算法，import 边一多 §X 的夹具就要替它造环境`);
+  assert.deepEqual(wImports(Z_JSON_REL), ['./diff-core.js'],
+    '那一本只借闸门与两个上限；把 json-core.js 接过来就是 §0.4 那条买断没谈妥（重复的是读侧，不是闸门）');
+  const reachersOf = (name) => wAllSources().filter((rel) => wImports(rel).some((p) => p.endsWith(`/${name}`)));
+  assert.deepEqual(reachersOf('diffView.js'), [Z_ASSEMBLY], '视图层被第二个入口 reach = 共享 chunk');
+  assert.deepEqual(reachersOf('diff-json.js'), [Z_ASSEMBLY], 'JSON 档的算法多了一个消费者：装配层就不再是唯一口径');
+  assert.deepEqual(reachersOf('diff-core.js').slice().sort(), [Z_ASSEMBLY, Z_JSON_REL].sort(),
+    '行级引擎的两本消费者就是这一对；第三本进来时 §X 的那二十九判要重算，而门禁不会替你说这句话');
+  assert.deepEqual(reachersOf('diffWorkbench.js'), [Z_ENTRY], '装配层只有本入口一个消费者');
+});
+
+test('Z14 装配层零环境词：词表比 §W10 多两枚，而 innerHTML 那一处出口仍然只有一处', () => {
+  const bare = wBare(Z_ASSEMBLY);
+  for (const word of ['window', 'globalThis', 'Date.now(', 'localStorage', 'navigator.', 'new Blob',
+    'URL.', 'getComputedStyle', 'querySelector', 'setTimeout(', 'FileReader', 'IntersectionObserver',
+    'requestAnimationFrame', 'fetch(', 'alert(', 'instanceof']) {
+    assert.equal(bare.includes(word), false,
+      `装配层不许碰 ${word}：那一样由入口递进来，本层碰一次就多一处"两台机器给两个答案"（红线 2）。`);
+  }
+  // `instanceof` 是 `File` 那一枚的替身：裸词 `File` 在本层是合法名字（`fileName` / `readFile` 都归它），
+  // 而这一格真正要钉的是"宿主类型判断不在本层"——那一档判断在入口的 `win.File` 上，Z15 数它恰好一处。
+  assert.equal(wCount(bare, 'innerHTML'), 1, '整页只许一处 innerHTML（与 §W10 同一条口径）：第二处就是第二个"把串当标记"的出口');
+  assert.equal(wCount(bare, 'createElement'), 1, '只有下载那一枚 `<a>` 需要造节点；再多一处就是第二条往 DOM 里塞东西的路');
+  assert.equal(bare.includes('diff-core.js'), false, 'import 路径在 wBare 之后应当消失；还在说明有第二处动态取模块的写法');
+});
+
+test('Z15 入口那八件各恰好一处，而 localStorage 与 Date.now( 两本一起归零', () => {
+  const src = wCode(Z_ENTRY);
+  const counts = [
+    ['win.FileReader(', 1, '选文件那一路的唯一一只读手'],
+    ['win.TextDecoder', 1, 'UTF-8 那一档的唯一一处判编码（fatal 在入口，装配层只收 {ok,text}）'],
+    ['win.Blob', 1, '下载三件的第一格：本层按工厂调用，不带 new'],
+    ['URL.createObjectURL', 1, '第二格'],
+    ['URL.revokeObjectURL', 1, '第三格（落在 finally，被拦下载也不泄）'],
+    ['win.navigator', 1, '只取 clipboard'],
+    ['setTimeout(', 1, '闸门读数的防抖'],
+    ['getComputedStyle', 1, '行高：样式给的环境量，读一次就注入一次'],
+  ];
+  for (const [word, want, why] of counts) {
+    assert.equal(wCount(src, word), want, `${word} 在入口里该恰好 ${want} 次（${why}），实测 ${wCount(src, word)} 次`);
+  }
+  // 计数口径：`win.FileReader` 里含着整格 `win.File`，不先剥掉它就会把同一只手数成两枚——
+  // 而判据说的是"类型判断恰好一处"，那才是 `instanceof win.File` 那一格。
+  const noReader = src.replace(/win\.FileReader/g, '');
+  assert.equal(wCount(noReader, 'win.File'), 1, 'File 的类型判断该恰好一处（剥掉 FileReader 那一只之后数）');
+  for (const rel of [Z_ENTRY, Z_ASSEMBLY]) {
+    assert.equal(wBare(rel).includes('localStorage'), false, `${rel}：这一页不做"记住上次输入"，那句"输入不出本机"不需要任何退路可写`);
+    assert.equal(wBare(rel).includes('Date.now('), false, `${rel}：没有要记的时间戳，时钟因此连入口都不该出现`);
+  }
+  assert.deepEqual(modNames(Z_ENTRY), [], '入口不许有顶层 export：iifeWrapPlugin 不补 use strict，留一条 export 就是整页语法错误');
+  assert.equal(/\bDOMContentLoaded\b/.test(src), false, '脚本排在正文之后，接 DOMContentLoaded 就是第二个启动时机');
+});
+
+test('Z16 id 与类名只由 spec、actions 与 prefix 派生：装配层 0 处手打，入口那三行地址反过来必须是字面量', () => {
+  assert.equal(wCount(wCode(Z_ASSEMBLY), `${Z_P}-`), 0,
+    '装配层里一处手打前缀，Z28 的换前缀自证就绿得没有牙（§W10 同一条口径）');
+  assert.deepEqual(zHandIds(Z_ASSEMBLY), [], '整格字面量口径：以 df- 起头的串在本文件一处都不该有');
+  assert.deepEqual(zHandIds(Z_ASSEMBLY, 'zx-'), [], '换档之后也不该有——手打的地方只会跟着"当前那一页"漂');
+  const ids = zControlIds(Z_P);
+  const flat = Object.values(ids).reduce((acc, list) => acc.concat(list), []);
+  assert.equal(new Set(flat).size, flat.length, `controlIds 里有重复 id：${flat.filter((x, i) => flat.indexOf(x) !== i).join(' ')}`);
+  for (const [side, cfg] of Object.entries(Z_SPEC[Z_PANEL].sides)) {
+    for (const c of cfg.controls) assert.equal(flat.includes(zField(Z_P, Z_PANEL, c.id)), true, `${side} 栏的控件 ${c.id} 没进清单`);
+    for (const fam of cfg.nodes ?? []) assert.equal(flat.includes(zFamId(Z_P, fam, side)), true, `${side} 栏的节点族 ${fam} 没进清单`);
+    for (const tg of cfg.switch?.targets ?? []) assert.equal(flat.includes(zWhen(Z_P, Z_PANEL, tg.key)), true, `显隐段 ${tg.key} 没进清单`);
+  }
+  assert.equal(flat.length, new Set(flat).size, '清单总长要等于去重后的总长（上面那两条一起说同一件事的两面）');
+  const page = zPage();
+  const report = zMount().report;
+  assert.deepEqual(report.missing, [], '骨架齐的时候不该报缺；报了就是 spec 与夹具两本漂了');
+  for (const id of flat) assert.equal(page.nodes.has(id), true, `${id} 在 controlIds 里，骨架却没长：门禁⑤ 会在产物上红，这里先红`);
+  const stray = [...page.nodes.keys()].filter((id) => new RegExp(`^${Z_P}-(?:in|when|btn|out|status|copy)-`).test(id) && !flat.includes(id));
+  assert.deepEqual(stray, [], `骨架私自多长了这些格（装配层永远不会去读它）：${stray.join(' ')}`);
+  // 入口那三行是**这一页在 HTML 里的地址**：门禁⑤ 组 5 用正则找它们，所以它们必须是字面量，
+  // 而且必须写成能被那串正则找到的形状（照 toolJson.js 的同源格式）。
+  const src = wCode(Z_ENTRY);
+  assert.equal(/^const CONTAINER_ID = 'df-workspace';$/m.test(src), true, '容器 id 那一行是页面骨架的地址，跟着前缀派生就找不到容器了');
+  assert.equal(/^const NOTICE_ID = 'df-notice';$/m.test(src), true);
+  assert.equal(/^const ATTR = \{ ids: 'data-df-ids', prefix: 'data-df-prefix', label: 'data-df-label', notice: 'data-df-notice' \};$/m.test(src), true,
+    '那四格属性名要与门禁⑤ 的 ATTR 正则逐字符一致');
+});
+
+test('Z17 对外面十一格、三栏的 nodes 声明与十四枚动作的三份名单', () => {
+  assert.deepEqual(Z_PANEL_IDS, ['workbench'], '这一页没有面板清单：门禁⑤ 拿它比 DIFF_SPEC 的键');
+  assert.deepEqual(Object.keys(Z_SPEC), Z_PANEL_IDS);
+  assert.deepEqual(Z_SIDE_NAMES, ['a', 'b', Z_BAR], '两栏输入 + 一条控制栏；第三栏（对齐视图）在这一页没有对应的事实');
+  assert.deepEqual(Object.keys(Z_SPEC[Z_PANEL].sides), Z_SIDE_NAMES);
+  for (const [side, cfg] of Object.entries(Z_SPEC[Z_PANEL].sides)) {
+    assert.deepEqual(cfg.nodes ?? ['没有声明'], ['out', 'status', 'tree', 'copy'].filter((f) => (cfg.nodes || ['out', 'status', 'tree', 'copy']).includes(f)),
+      `${side} 栏的节点族必须自己声明（收录面那颗牙按这一格拆）`);
+    assert.deepEqual(cfg.nodes, [...new Set(cfg.nodes)], `${side} 栏的节点族里有重复`);
+    for (const c of cfg.controls) {
+      assert.equal(Object.keys(Z_TAGS).includes(c.type), true, `${side}/${c.id} 的 type ${c.type} 在词汇表外`);
+      if (side === 'a' || side === 'b') {
+        assert.equal(c.id.startsWith(`${side}-`), true,
+          `${c.id} 没把栏位编进 id：门禁⑤ 的控件 id 公式是 {p}-in-{面板}-{控件}，没有栏位这一维（§0.6 记的偏差）`);
+      }
+      if (c.type === 'select') assert.ok(Array.isArray(c.options) && c.options.length > 0, `${c.id} 是下拉却没有取值白名单`);
+      if (c.gutter !== undefined) assert.equal(c.gutter, false, 'gutter 只有"关掉"这一档：这一页的 area 不带行号槽');
+    }
+  }
+  assert.deepEqual(Z_SPEC[Z_PANEL].sides[Z_BAR].switch.by, 'mode');
+  assert.deepEqual(Z_SPEC[Z_PANEL].sides[Z_BAR].switch.targets.map((t) => t.key), ['text', 'json']);
+  for (const tg of Z_SPEC[Z_PANEL].sides[Z_BAR].switch.targets) {
+    assert.deepEqual(tg.when, [...new Set(tg.when)].filter((w) => Z_SPEC[Z_PANEL].sides[Z_BAR].controls.find((c) => c.id === 'mode').options.includes(w)),
+      `显隐段 ${tg.key} 的档位里有 mode 认不得的词（静默永远隐藏）`);
+  }
+  assert.equal(Z_ACTIONS.length, 14, 'yml 的 actions 与 tools.html 的徽章数的是这一个数');
+  assert.deepEqual([...new Set(Z_ACTIONS.map((a) => a.key))].length, 14, '动作 key 重复 = 同一枚按钮接两根线');
+  for (const a of Z_ACTIONS) {
+    assert.equal(typeof a.label, 'string');
+    assert.ok(a.label.trim().length > 0, `${a.key} 的 label 是空的：门禁⑤ 比的是按钮文案与这一格同字`);
+    assert.ok(['run', 'fold', 'goto', 'file', 'copy'].includes(a.group), `${a.key} 的 group ${a.group} 不在那五族里`);
+  }
+  assert.deepEqual(Z_ACTIONS.filter((a) => a.group === 'fold').map((a) => a.key), ['expand', 'fold', 'diffOnly'],
+    '三枚快捷键都写回同一枚 context 下拉（单一口径），族名就是这件事的登记处');
+  assert.deepEqual(Z_ACTIONS.filter((a) => a.group === 'goto').map((a) => a.key), ['firstDiff', 'prevDiff', 'nextDiff']);
+  assert.deepEqual(Z_ACTIONS.filter((a) => a.group === 'file').map((a) => a.key), ['fileA', 'fileB']);
+  const v = zCreateWb({ Tk: { view: W_VIEW }, prefix: Z_P });
+  assert.deepEqual(Object.keys(v.view).sort(), ['renderFoldBar', 'renderInline', 'renderJsonTable', 'renderNotice', 'renderSide', 'renderStats', 'renderVerdict'],
+    '装配层用的还是 Z2 那七件：多一件就是第二条渲染路径，少一件是有一格没人画');
+  assert.deepEqual(Object.keys(v).sort(), ['mount', 'state', 'view'],
+    '对外只这三格：`mount` 接线、`state` 是给本节的观察口、`view` 是那七件生成器——多一格就是第二条能从页面上叫到的路');
+  assert.equal(typeof v.state().computes, 'number', '没有这两个计数器，"挂载期不计算"这件事在页面上根本读不出来');
+});
+
+// 装配层那六条红线各自的落点：Z18 挂载与输入、Z19 一次画全与导出同字、Z20 布局两档共一行流、
+// Z21 折叠四档与三枚快捷键、Z22 跳转的块换算、Z23 整理三枚、Z24 归一化的同现同灭、Z25 JSON 档那一表、
+// Z26 两类失败分两条路、Z27 文件三件、Z28 换前缀自证。
+test('Z18 挂载与输入两条路都不算一次比对：读数只随防抖落地那一次', () => {
+  const m = zMount();
+  assert.equal(m.page.out().includes(`${Z_P}-row`), false, '挂载就把结果区画成行块 = 挂载期算了一遍（红线 4）');
+  assert.deepEqual(m.guarded, [], '挂载期一次 runGuarded 都不该有：接线不是操作');
+  assert.equal(m.wb.state().computes, 0, 'computes 是「挂载期不计算」唯一的量具：页面读不出这件事，判据读得出');
+  assert.equal(m.wb.state().gateReads, 1, '挂载刷一次闸门读数：那一行「N 行 · KB」是这一页第一眼要给的东西');
+  assert.match(String(m.page.read('a')), /0 行/);
+  assert.match(String(m.page.read('b')), /0 行/);
+  assert.equal(m.timers.length, 0, '挂载不排防抖：那一发延时是留给输入的');
+  for (let k = 0; k < 20; k += 1) {
+    m.page.set('a-text', `line-${k}`);
+    m.page.input('a-text');
+  }
+  assert.equal(m.guarded.length, 0, 'input 那一发只排防抖、不进边界：进了就是二十次操作，而页面上什么也没算');
+  assert.equal(m.wb.state().computes, 0, '二十次输入一次比对都不该有：比对只在按那一枚按钮时发生');
+  assert.equal(m.page.out().includes(`${Z_P}-row`), false);
+  m.flush();
+  assert.equal(m.wb.state().gateReads, 2, '二十发延时只有最后那一发真的读数（防抖的牙就长在这两格里）');
+});
+
+test('Z19 一次对比画全：结论、读数、两栏行块、代价说明，而复制与下载读的是同一份 out', async () => {
+  const m = zMount({ seed: { 'a-text': 'alpha\nbeta\ngamma', 'b-text': 'alpha\nBETA\ngamma', 'a-name': 'left.txt', 'b-name': 'right.txt' } });
+  assert.equal(m.page.btnDisabled('copyDiff'), true, '还没有结果时那两枚该是灰的：按下去说一句「还没有」，不如让它按不动');
+  assert.equal(m.page.btnDisabled('download'), true);
+  m.page.click('compare');
+  const out = m.page.out();
+  assert.equal(m.wb.state().computes, 1);
+  for (const cls of [`${Z_P}-verdict`, `${Z_P}-stats`, `${Z_P}-row `, `${Z_P}-col--a`, `${Z_P}-col--b`, `${Z_P}-notes`]) {
+    assert.ok(out.includes(cls), `结果区少了 ${cls.trim()}：${out.slice(0, 120)}…`);
+  }
+  assert.equal(m.page.btnDisabled('copyDiff'), false, '比完了还灰着，就是「这一页没有导出」');
+  const st = m.wb.state();
+  assert.match(st.out, /^--- left\.txt\n\+\+\+ right\.txt\n@@ -1,3 \+1,3 @@\n/);
+  m.page.click('copyDiff');
+  await zSettle();
+  assert.deepEqual(m.copied, [st.out], '复制的是那一份 unified 文本，不是第二次拼串：两处口径迟早会漂');
+  m.page.click('download');
+  assert.equal(m.dl.blobs.length, 1);
+  assert.equal(m.dl.blobs[0].parts[0], st.out, '下载那一份与复制那一份必须逐字符同字');
+  assert.equal(m.dl.blobs[0].options.type, 'text/plain;charset=utf-8');
+  assert.equal(m.page.madeOf('a').length, 1, '整页只造那一枚 <a>：多一枚就是第二条往 DOM 里塞东西的路');
+  assert.equal(m.page.madeOf('a')[0].download, 'changes.diff');
+  assert.equal(m.dl.urls.made.length, 1);
+  assert.equal(m.dl.urls.revoked.length, 1, '对象 URL 要在 finally 里收回：被拦住的下载不该往内存里挂一条永久 URL');
+  m.page.clickCopy('a');
+  await zSettle();
+  assert.equal(m.copied[1], 'alpha\nbeta\ngamma', '栏内复制读的是那一侧的输入，不是结果区那一份');
+  assert.equal(m.wb.state().computes, 1, '复制与下载都不重算：它们只读已经算完的那一格');
+});
+
+test('Z20 布局两档读同一份行流：并排两栏各一份，行内把 change 摊成两行', () => {
+  const m = zMount({ seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  const hunks = dHunks(dLines(Z_A40, Z_B40, {}), 3);
+  const rowsTotal = hunks.reduce((acc, h) => acc + h.rows.length, 0);
+  const changes = hunks.reduce((acc, h) => acc + h.rows.filter((r) => r.kind === 'change').length, 0);
+  assert.ok(hunks.length >= 1 && changes >= 1, '夹具自己先要成立：这份输入得有可拆的 change 行');
+  m.page.click('compare');
+  const side = m.page.out();
+  assert.equal(wCount(side, `${Z_P}-row `), rowsTotal * 2, '并排档两栏各读同一份行流：行数必须正好翻倍');
+  assert.equal(wCount(side, `${Z_P}-col--a`), hunks.length);
+  assert.equal(wCount(side, `${Z_P}-col--b`), hunks.length);
+  assert.equal(wCount(side, `${Z_P}-lines`), 0);
+  m.page.set('layout', 'inline');
+  m.page.change('layout');
+  const inline = m.page.out();
+  assert.equal(m.wb.state().computes, 1, '切布局不重算：它换的是看法，不是算法');
+  assert.equal(wCount(inline, `${Z_P}-cols`), 0, '行内档不许还留着两栏那个壳');
+  assert.equal(wCount(inline, `${Z_P}-lines`), hunks.length);
+  assert.equal(wCount(inline, `${Z_P}-row `), rowsTotal + changes, '行内档把每个 change 摊成两行：A 那半读被删的高亮，B 那半读新增的高亮');
+  assert.equal(wCount(inline, `${Z_P}-row--change`), changes * 2, '摊出来的两行都还是 change 档：着色由半边的片段决定，不由行档决定');
+  m.page.set('layout', 'side');
+  m.page.change('layout');
+  assert.equal(m.page.out(), side, '切回来要逐字符同一份：两档共用行流，不是各拼一遍');
+});
+
+test('Z21 折叠四档真的改行集，三枚快捷键写回同一枚下拉', () => {
+  const CTX = { diff: 0, 3: 3, 5: 5, all: Infinity };
+  const m = zMount({ seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  m.page.click('compare');
+  const expect = (sel) => {
+    const list = dHunks(dLines(Z_A40, Z_B40, {}), CTX[sel]);
+    const last = list[list.length - 1] || { tailSkipped: 0 };
+    return {
+      rows: list.reduce((acc, h) => acc + h.rows.length, 0),
+      bars: list.filter((h) => h.skipped > 0).length + (last.tailSkipped > 0 ? 1 : 0),
+    };
+  };
+  const check = (key, sel) => {
+    m.page.click(key);
+    assert.equal(m.page.val('context'), sel, `${key} 没写回那枚下拉：状态就有两份口径了（红线 6）`);
+    const want = expect(sel);
+    const out = m.page.out();
+    assert.equal(wCount(out, `${Z_P}-row `), want.rows * 2, `${sel} 档的行集不对`);
+    assert.equal(wCount(out, `${Z_P}-fold--`), want.bars, `${sel} 档的折叠条数不对（期望 ${want.bars}）`);
+    assert.equal(m.wb.state().computes, 1, '换折叠档只换视图：行级那份 result 与折叠无关');
+  };
+  check('fold', '3');
+  assert.ok(expect('3').rows < 40, '夹具先要成立：默认档必须真的把中间那段收起来');
+  check('diffOnly', 'diff');
+  assert.ok(expect('diff').rows < expect('3').rows, '只看差异要比上下文三行更窄，否则这一档没有意义');
+  assert.ok(expect('diff').bars > 0, '只看差异那一档总要留下折叠条：两份四十行中间隔着三十来行呢');
+  check('expand', 'all');
+  assert.equal(expect('all').bars, 0, '全部展开之后不该有一条折叠条');
+  assert.equal(expect('all').rows, 40, '展开之后那四十行要一行不少');
+  const before = m.page.out();
+  m.page.set('context', '9');
+  m.page.change('context');
+  assert.equal(m.threw.length, 1, 'spec 之外的档位是漂移，不是用户写坏的格子：要原样上抛给边界');
+  assert.match(String(m.threw[0][1]), /只认/);
+  assert.equal(m.page.out(), before, '抛出去之前不许画：上一格的结果不能因为档位漂了就整块不见');
+});
+
+test('Z22 跳转三枚：scrollTop 按块换算、两端钳住、状态行报第几处', () => {
+  const m = zMount({ rowHeight: 40, seed: { 'a-text': Z_A40, 'b-text': Z_B40 } });
+  const list = dHunks(dLines(Z_A40, Z_B40, {}), 3);
+  assert.equal(list.length, 2, `夹具先要成立：这份输入要折叠出两块，实测 ${list.length}`);
+  m.page.click('compare');
+  assert.equal(m.page.scrollTop(), 0);
+  const u1 = list[0].skipped > 0 ? 1 : 0;
+  m.page.click('nextDiff');
+  assert.equal(m.page.scrollTop(), u1 * 40);
+  assert.equal(m.page.line(), `第 1 / ${list.length} 处差异`);
+  const u2 = list[0].rows.length + (list[0].skipped > 0 ? 1 : 0) + (list[1].skipped > 0 ? 1 : 0);
+  assert.ok(u2 > u1, '第二块要在第一块之下，否则这一判量不到「换算」这件事');
+  m.page.click('nextDiff');
+  assert.equal(m.page.scrollTop(), u2 * 40, '那一块的顶上：前面所有块占的视觉行，加上它自己那条折叠条');
+  assert.equal(m.page.line(), `第 2 / ${list.length} 处差异`);
+  m.page.click('nextDiff');
+  assert.equal(m.page.scrollTop(), u2 * 40, '最后一块之后再按不许滚出页尾：钳位就是这一格的意思');
+  m.page.click('prevDiff');
+  assert.equal(m.page.scrollTop(), u1 * 40);
+  m.page.click('prevDiff');
+  m.page.click('prevDiff');
+  assert.equal(m.page.line(), '第 1 / 2 处差异', '第一块之前同样钳住');
+  m.page.click('firstDiff');
+  assert.equal(m.page.line(), '第 1 / 2 处差异');
+  const same = zMount({ seed: { 'a-text': 'one\ntwo', 'b-text': 'one\ntwo' } });
+  same.page.click('compare');
+  same.page.click('nextDiff');
+  assert.equal(same.threw.length, 0, '没有差异块是用户那一档事实，不是骨架漂移');
+  assert.equal(same.guarded.length, 2, '一次比对 + 一次跳转：都过了边界，都没有抛');
+  assert.match(String(same.page.line()), /没有差异块/);
+});
+
+test('Z23 整理三枚：交换连文件名一起换、恢复默认档不碰输入、清空回空态并置灰', () => {
+  const m = zMount({ seed: { 'a-text': 'one\ntwo', 'b-text': 'one\nTWO', 'a-name': 'left.txt', 'b-name': 'right.txt' } });
+  m.page.click('swap');
+  assert.equal(m.page.area('a'), 'one\nTWO', '交换只换正文不换文件名，导出的那一份头就指错了边');
+  assert.equal(m.page.area('b'), 'one\ntwo');
+  assert.equal(m.page.name('a'), 'right.txt');
+  assert.equal(m.page.name('b'), 'left.txt');
+  assert.match(m.wb.state().out, /^--- right\.txt\n\+\+\+ left\.txt/);
+  assert.equal(m.wb.state().computes, 1, '交换自带一次对比：用户按的是「换个方向看」，不是「换个方向空着」');
+  m.page.set('context', '5');
+  m.page.change('context');
+  m.page.check('ws', true);
+  m.page.change('ws');
+  m.page.click('reset');
+  assert.equal(m.page.val('context'), '3', '恢复默认档管的是三枚下拉与两枚勾选');
+  assert.equal(m.page.ctl('ws').checked, false);
+  assert.equal(m.page.area('a'), 'one\nTWO', '这一枚不该把输入也清了：那是「清空输入」的活儿');
+  assert.equal(m.wb.state().mode, 'text');
+  m.page.click('clear');
+  assert.equal(m.page.area('a'), '');
+  assert.equal(m.page.name('a'), '');
+  assert.equal(m.page.disabled(`${Z_P}-in-workbench-a-file`), false, '清空输入不许顺手把文件那一格也禁用——那是「这台浏览器不给读」那一档');
+  assert.equal(m.page.btnDisabled('copyDiff'), true, '清空之后导出要重新灰回去');
+  assert.equal(m.page.out().includes(`${Z_P}-row`), false, '清空要回到空态那一句话，而不是留着上一份结果');
+});
+
+test('Z24 归一化两枚：stats.ignored 与那句说明同现同灭', () => {
+  const m = zMount({ seed: { 'a-text': 'hello world\nkeep', 'b-text': 'HELLO   WORLD\nkeep' } });
+  m.page.click('compare');
+  assert.equal(m.wb.state().produced.stats.ignored, 0, '没勾之前那一处是实打实的差异');
+  assert.equal(m.page.out().includes(J_VIEW.esc(X_NOTES.ignored)), false, '没发生的事不许写在页面上');
+  m.page.check('ws', true);
+  m.page.check('case', true);
+  m.page.change('ws');
+  assert.equal(m.wb.state().computes, 2, '勾一档必须重算一遍：拿旧结论配新档位，页面上那一句结论就是假的');
+  assert.ok(m.wb.state().produced.stats.ignored > 0, '归一化抹平的那几行要进 stats.ignored');
+  assert.match(m.page.out(), /归一化之后两份文本相同/);
+  assert.ok(m.page.out().includes(J_VIEW.esc(X_NOTES.ignored)), '结论被归一化过就必须明说：这一条是「同现」');
+  m.page.check('ws', false);
+  m.page.change('ws');
+  assert.equal(m.wb.state().produced.stats.ignored > 0, false, '取消之后没抹平任何东西，那一格要回到 0');
+  assert.equal(m.page.out().includes(J_VIEW.esc(X_NOTES.ignored)), false, '这一条是「同灭」：说明不许留在页上');
+});
+
+test('Z25 JSON 档：三档结论、六列变更表与那六句代价说明同屏', () => {
+  const m = zMount({ seed: { 'a-text': '{"a":1,"b":[1,2]}', 'b-text': '{"b":[1,3],"a":1,"c":true}' } });
+  m.page.click('compare');
+  assert.equal(m.page.out().includes(`${Z_P}-json`), false, '文本档不该有那张表');
+  m.page.set('mode', 'json');
+  m.page.change('mode');
+  assert.equal(m.wb.state().computes, 2, '换口径要重算：两张账表数的是不同的事');
+  const out = m.page.out();
+  assert.ok(out.includes(`${Z_P}-verdict--diff`), `结论档不对：${out.slice(0, 160)}`);
+  assert.ok(out.includes(`${Z_P}-json__meta`));
+  assert.ok(out.includes(`${Z_P}-json__row--add`), '新增那一格 c 要在表里');
+  assert.equal(wCount(out, `${Z_P}-notes`), 1);
+  for (const note of Object.values(Y_NOTES)) {
+    assert.ok(out.includes(J_VIEW.esc(note)), `那六句少了一句「${note.slice(0, 12)}…」：表与代价说明同屏是 Y18 第二半的承诺`);
+  }
+  for (const k of ['expand', 'fold', 'diffOnly', 'firstDiff', 'prevDiff', 'nextDiff']) {
+    assert.equal(m.page.btnDisabled(k), true, `JSON 档按格比对，${k} 没有意义，该置灰而不是按了报错`);
+  }
+  assert.equal(m.page.hidden('text'), true, '换到 JSON 档，文本档那一段说明要藏起来');
+  assert.equal(m.page.hidden('json'), false, '而 JSON 档那一段要露出来：显隐段与 mode 是同一件事的两面');
+  const order = zMount({ seed: { 'a-text': '{"a":1,"b":2}', 'b-text': '{"b":2,"a":1}', mode: 'json' } });
+  order.page.click('compare');
+  assert.match(order.page.out(), /按 JSON 值判为相同，但键的书写次序不同/);
+  assert.equal(order.page.out().includes('逐字符相同'), false, '键序不同那一档写成「逐字符相同」，就是把两件不同的事说成一件');
+  const identical = zMount({ seed: { 'a-text': '{"a":1}', 'b-text': '{"a":1}', mode: 'json' } });
+  identical.page.click('compare');
+  assert.match(identical.page.out(), /键的书写次序也一致/);
+});
+
+test('Z26 两类失败分两条路：用户的空格子进状态行，骨架的漂移原样上抛，上一格都不擦', () => {
+  const m = zMount();
+  const before = m.page.out();
+  m.page.click('compare');
+  assert.equal(m.guarded.length, 1, '一次按钮一次边界：那份计数是页面上那行红字的账本');
+  assert.equal(m.threw.length, 0, '两边都空是用户那一格的事实，不该记成「这一页坏了」');
+  assert.match(String(m.page.line()), /两边都还空着/);
+  assert.equal(m.page.out(), before, '坏消息走状态行那一格，结果区那一份原样留着');
+  m.page.set('b-text', 'x');
+  m.page.click('compare');
+  assert.match(String(m.page.line()), /A 侧还是空的/);
+  assert.equal(m.wb.state().computes, 0, '前两发都没算成：computes 只记真的算完的那一次');
+  m.page.set('a-text', 'y');
+  m.page.click('compare');
+  assert.equal(m.wb.state().computes, 1);
+  const painted = m.page.out();
+  assert.notEqual(painted, before);
+  m.page.set('a-text', Array.from({ length: X_LINES + 1 }, () => 'x').join('\n'));
+  m.page.click('compare');
+  assert.equal(m.threw.length, 0, '超闸门也是用户那一档，不是漂移');
+  assert.match(String(m.page.line()), /超出闸门/);
+  assert.match(String(m.page.line()), /上限 200,000 行/, '要把上限说在句子里：只说「超了」，用户读不出超到哪儿');
+  assert.equal(m.page.out(), painted, '超闸门那一份不能把上一格的结果擦掉');
+  const bad = zMount({ seed: { 'a-text': '{"a":}', 'b-text': '{"a":1}', mode: 'json' } });
+  const badBefore = bad.page.out();
+  bad.page.click('compare');
+  assert.equal(bad.threw.length, 0);
+  assert.match(String(bad.page.line()), /比不了/);
+  assert.match(String(bad.page.line()), /第 1 行/);
+  assert.equal(bad.page.out(), badBefore, '坏 JSON 那一发同样是擦不得的那一条');
+  const drift = zMount({ seed: { 'a-text': 'p\nq', 'b-text': 'p\nr' }, drop: [`${Z_P}-in-workbench-b-name`] });
+  assert.deepEqual(drift.report.missing, [`${Z_P}-in-workbench-b-name`], '缺格要在 mount 的清单里报出来，但不许拦启动');
+  const kept = drift.page.out();
+  drift.page.click('compare');
+  assert.equal(drift.threw.length, 1, 'spec 与骨架漂了要原样上抛：这一类是坏消息，不是用户的空格子');
+  assert.match(String(drift.threw[0][1]), /骨架/);
+  assert.equal(drift.page.out(), kept, '抛在画之前：这一条与上面那三条说的是同一句红线的第四种写法');
+});
+
+test('Z27 文件三件：拒在 read 之前、非 UTF-8 明说、拖放同一条路、缺手就置灰', async () => {
+  const m = zMount({ seed: { 'b-text': 'beta' } });
+  m.page.pickFile('a', zFile('old.txt', 'alpha\nbeta'));
+  await zSettle();
+  assert.deepEqual(m.reads, ['old.txt']);
+  assert.equal(m.page.area('a'), 'alpha\nbeta');
+  assert.equal(m.page.name('a'), 'old.txt', '文件名不跟着上屏，导出的那一份头就永远是个占位符');
+  assert.match(String(m.page.read('a')), /已读入/);
+  m.page.click('compare');
+  assert.match(m.wb.state().out, /^--- old\.txt/);
+  m.page.pickFile('a', zFile('huge.txt', 'x', X_BYTES + 4096));
+  await zSettle();
+  assert.equal(m.reads.length, 1, '超限那一份必须在读之前就拒掉：五 MiB 不该先整份进内存再说「不行」');
+  assert.match(String(m.page.read('a')), /超出闸门/);
+  const nope = zMount({ seed: { 'b-text': 'beta' }, decode: () => ({ ok: false, text: '' }) });
+  nope.page.pickFile('a', zFile('gbk.txt', '中文'));
+  await zSettle();
+  assert.match(String(nope.page.read('a')), /不是 UTF-8/);
+  assert.equal(nope.page.area('a'), '', '读不成就不许把半份内容留在框里');
+  // 两枚"读得成但根本不是文本"的样本：NUL 与替换字符。写成 fromCharCode 而不是字面转义，
+  // 是因为测试文件里躺一枚真的 NUL 字节会让不少工具（与本节那三把剥源码的尺）先把它吃掉。
+  const NUL = String.fromCharCode(0);
+  const FFFD = String.fromCharCode(0xFFFD);
+  const binaries = [['nul.txt', `a${NUL}b`], ['bad.txt', `a${FFFD}b`]];
+  for (const pair of binaries) {
+    const bin = zMount({ seed: { 'b-text': 'beta' } });
+    bin.page.pickFile('a', zFile(pair[0], pair[1]));
+    await zSettle();
+    assert.match(String(bin.page.read('a')), /不是 UTF-8/, `${pair[0]}：{ok:true} 而内容是二进制，那一档也要说出来`);
+  }
+  const d = zMount({ seed: { 'b-text': 'beta' } });
+  d.page.drop('a', [zFile('dropped.txt', 'q\nr')]);
+  await zSettle();
+  assert.deepEqual(d.reads, ['dropped.txt'], '拖放与选文件必须是同一条路：两条路迟早只修好一条');
+  assert.equal(d.page.name('a'), 'dropped.txt');
+  const none = zMount({ readFile: null });
+  assert.equal(none.page.btnDisabled('fileA'), true, '这台浏览器没有那两只读手，按钮就该灰着');
+  assert.equal(none.page.btnDisabled('fileB'), true);
+  assert.equal(none.page.disabled(`${Z_P}-in-workbench-a-file`), true, '输入框也要灰：拖放那条路同样读不了');
+  none.page.click('fileA');
+  assert.equal(none.reads.length, 0);
+});
+
+test('Z28 换前缀自证：整页地址跟着 prefix 走，而产物里一处 df- 都不剩', () => {
+  const Q = 'zx';
+  const m = zMount({ prefix: Q, seed: { 'a-text': 'p\nq\nr', 'b-text': 'p\nx\nr' } });
+  assert.deepEqual(m.report.missing, [], '前缀换了骨架就得整套跟着换：还按 df 找就一格也找不到');
+  m.page.click('compare');
+  const out = m.page.out();
+  assert.equal(out.includes('df-'), false, '结果区里剩一处 df-，换前缀这件事就只做了一半');
+  for (const cls of [`${Q}-verdict`, `${Q}-stats`, `${Q}-row `, `${Q}-col--a`, `${Q}-notes`]) {
+    assert.ok(out.includes(cls), `换档之后少了 ${cls}`);
+  }
+  assert.ok(out.includes(`data-${Q}-i=`) && out.includes(`data-${Q}-ln=`), '属性名也带前缀：只换类名不换属性，样式与脚本就分家了');
+  assert.notEqual(m.page.doc.getElementById(`${Q}-status-workbench-bar`), null);
+  assert.equal(m.page.doc.getElementById('df-status-workbench-bar'), null);
+  assert.match(String(m.page.line()), /比完了/);
+  assert.equal(wCount(out, `${Q}-row `), 6, '两栏各三份行块：这一格数的就是「整页跟着前缀走」');
+  assert.equal(wCount(out, `${Q}-fold--`), 0, '三行两份、上下文三行：一块到底，不该有折叠条');
+});
 ```
 
 ---
@@ -4113,21 +4851,1095 @@ test('Z12 读数只认那七个名字，结论按模式各有词表且 blocked /
 Modify `scripts/check-tools-surface.mjs`（§0.3(a) 那两处）、`scripts/check-tools-surface-teeth.mjs`（三刀 + 缺省档那一刀）、
 `scripts/toolkit-tests.mjs`（§Z 续写）。
 
-- [ ] **Step 1：写 §Z 后半判据（Z13–Z28）**——六条红线各自的形状：装配层零环境词（词表里
+- [x] **Step 1：写 §Z 后半判据（Z13–Z28）**——六条红线各自的形状：装配层零环境词（词表里
       **多两枚 `FileReader` / `File`**，全页 0 命中的那条要写成"入口恰好 1 次、装配层 0 次"）、
       id 只由 `DIFF_SPEC` / `DIFF_ACTIONS` 派生、挂载期一次计算都不做（输入 `input` 二十次之后
       注入的 `runGuarded` 计数为 0）、两类失败分两条路（用户空输入 → `FieldError` → 一句提示；
       spec 与骨架漂移 → 原样上抛且**不擦掉上一格结果**）、换前缀自证（`df` ↔ `zx` 一整页 id 跟着换、
       门禁仍绿，照 §R16 / §W18 那一形状）、`diff-json` 与 `diff-core` 各自只被本装配层 reach 一次
       （import 边闭合，防渗透的正向核 + 反向核照 M16 / N19 的排除式写法）。
-- [ ] **Step 2：写实现到绿**。
-- [ ] **Step 3：拆 `check-tools-surface.mjs` 那颗牙**——按 §0.3(a) 落 `cfg.nodes` 与
+      落笔分四块（Z13–Z17 已在 Task 4 那格落好，本格续 Z18–Z28 共十一判加 import 面那一条）。
+      **这一格踩的坑值得单独记**：前两回合各有一次"长内容工具调用中途断掉"，根因不在长度而在**内容**——
+      判据里那份二进制样本写成 `'\u0000'` 字面转义，工具参数在 JSON 层把它解成**真 NUL 字节**，
+      序列化当场截断（`Write` 那一次报的是 `params must have required property 'file_path'`，
+      看着像漏填参数，其实是同一件事）。改成 `String.fromCharCode(0)` 与 `String.fromCharCode(0xFFFD)`
+      构造样本即通，并把 319 行拆成四块追加；追加完用 `node -e` 数 NUL 字节（0）+ `node --check` 自证。
+      顺带一条假证据：`grep -c $'\x00' file` 里 shell 会吞掉 NUL，模式变空 → **匹配全文件**，
+      数出来的那个大数不是证据。
+- [x] **Step 2：写实现到绿**。`diffWorkbench.js` 落 **761 行**、`toolDiff.js` 落 **237 行**。
+      评审时删掉一处死参数：`bodyOf` 给 `renderVerdict` 传了 `normalized: stats.ignored > 0`，
+      而视图层那本按 `stats.ignored` 自己判（Z12 的词表口径），多传的这一格永远没人读——
+      留着等于在装配层立第二个"归一化过"的口径来源，与红线 6 同一条理由，所以删的不是注释是那一格。
+- [x] **Step 3：拆 `check-tools-surface.mjs` 那颗牙**——按 §0.3(a) 落 `cfg.nodes` 与
       `DEFAULT_NODE_FAMILIES`，扩孤儿判据到节点族（只对声明了 `nodes` 的条目生效）。
-- [ ] **Step 4：补牙齿四刀**（T-a / T-b / T-c + 缺省档那一刀），逐刀点燃并记进台账。
-- [ ] **Step 5：登记三本镜像**（`diffWorkbench.js` / `toolDiff.js` / 改过的 `check-tools-surface.mjs`）+ `--fix`。
-- [ ] **Step 6：门禁①②③⑤⑥**（⑤⑥ 此时还没有第四页，跑的是"存量三页不回归"那一档）。
+      磁盘 `773 → 807` 行，动的正是那三处：① 模块级新增 `DEFAULT_NODE_FAMILIES = ['out','status','tree','copy']`
+      （**默认值不变**，所以存量三页一字不松）；② 节点族那一族判据改成"这一栏自己声明了就按声明要"，
+      并给拼错的那一族（`nodes: ['trec']`）单独报一句，因为拼错一族的下场是产物少一格而门禁读不到；
+      ③ 行号槽加退出闸 `c.gutter !== false`（对比页两个粘贴框按设计不带行号）；④ 孤儿正则按
+      `declaresNodes` 决定根集是 `in|when|btn` 还是扩到四族，报错文案跟着改成"控件/开关/按钮/节点 id"。
+      跑存量三条 ready 条目：exit=0。
+- [x] **Step 4：补牙齿四刀**（T-a / T-b / T-c + 缺省档那一刀），逐刀点燃并记进台账。
+      计划原文要的那第四刀（"把 `DEFAULT_NODE_FAMILIES` 去掉 `tree`"）**做不了**：牙齿用例的结构是
+      注入变异 → 必须变红，而弱化默认族只会让门禁更绿，注进去就是一把假牙——落的是另外三刀
+      （产物缺 `tree` 那一格、`nodes: ['trec']`、`nodes: ['status']` 收窄），
+      差额与"声明被新页消费那一刀推到 Task 6"都记进 §0.6。
+      台账 `58 → 61`（`git show HEAD:` 里数 `name: '` 得 58，磁盘现在 61，差的正是本格那三刀），全跑：
+      **61/61 如期变红**，末尾两条自证照旧
+      （变异全部还原、复跑基线仍绿）。两处 `expect` 文案跟着 Step 3 改的新串同步
+      （`骨架私自多一枚按钮`、`T-b` 那两条现在等的是"多出这些控件/开关/按钮/**节点** id"）。
+- [x] **Step 5：登记镜像** + `--fix`。`FILE_TARGETS` 只新增两本（`diffWorkbench.js` / `toolDiff.js`）。
+      Step 5 原文里那第三本 `check-tools-surface.mjs` **不需要新登记**：它在段 2 就已在清单里，
+      本格的三处拆牙由 `--fix` 把段 2 计划那一块整块换过去（`12800–13572` ← 磁盘 807 行，
+      那份计划 `14194 → 14228` 行）。牙齿本 `check-tools-surface-teeth.mjs` 从来不在清单上（三页的三份都不在）。
+      同一格还连带改了**文件头那张用例分布表**（§Z 那行 `12` → `28`、合计 `422` → `438`），
+      它长在磁盘 §A 里，所以 `--fix` 第三次换段 1 那份计划的 §A 块（`6530 → 6536` 行）。
+      两块镜像由磁盘内容直接生成，`--fix` 之后裸跑：两本一次命中、逐字节全等。
+- [x] **Step 6：门禁①②③⑤⑥**（⑤⑥ 此时还没有第四页，跑的是"存量三页不回归"那一档）。
+      ① 全量 `# tests 438 / pass 438 / fail 0` 退 0（快循环用 `--test-name-pattern="^Z[12][0-9] "` 单跑 §Z）；
+      ② 裸跑退 0：`73` 块已落地镜像全等、`未落地 0 节`，js 块 `63 → 65`（段5 从 6 块长到 8 块）；
+      ③ **37/37** 退 0，末尾两条自证照旧（副本回到全绿；实验前后脏指纹一字不差，`34` 个脏项含另一路会话那批）；
+      ⑤ 退 0（存量三条 ready 条目、含 §0.3(a) 那颗牙拆完之后）；⑥ **61/61** 退 0 + 基线复绿。
+      门禁④ 本格不跑：`vite.config.js` 的 `input` 里还没有 `toolDiff`（Task 6 才接），
+      本格没有产物侧改动，硬跑只会量到段 4 那一份。
+      跑之前 `uptime`：本机 load `2.6`，没有那种"红要先归因给量具"的档位。
 - [ ] **Step 7：提交** `feat(tools): 段 5 Task 5 对比页装配层与入口——§Z 续到二十八判，收录面 nodes 拆牙`。
 
+
+### 落地镜像（门禁二核的就是这一块，`--fix` 会把它整块换成磁盘内容）
+
+Task 2/3/4 那三节立的规矩在这里照用：只有**整文件**与**整节**镜像允许 ` ```js ` 围栏（§0.6 的硬规矩），
+贴的时候直接由磁盘内容生成，事后跑一次 `--fix` 复验它已经全等。
+
+登记面这一格动了两处，也**只**动两处：`FILE_TARGETS` 新增 `dev/js/tools/diffWorkbench.js` 与
+`dev/js/toolDiff.js`（方向照旧，跟着磁盘走不跟着计划走）。Step 5 原文里那句"登记三本镜像"的第三本
+——改过的 `scripts/check-tools-surface.mjs`——**不需要新登记**：它在段 2 就已经在清单里，这一格那三处
+拆牙由 `--fix` 把段 2 计划里那一块整块换过去（磁盘 `773 → 807` 行）。而 `check-tools-surface-teeth.mjs`
+从来不在镜像清单上（三页的三份牙齿本都不在），它的现场是 Step 4 那三刀的红名与门禁⑥ 的 `61/61`
+两行读数，记在本节 Step 4 里。
+
+#### `dev/js/tools/diffWorkbench.js`（整文件，761 行）
+
+这一本是"控件与动作的对应关系只允许有一处"这句话唯一的落地现场：七枚 id helper、三栏的
+`DIFF_SPEC`（含每栏**自己声明**的 `nodes`）、十四枚 `DIFF_ACTIONS`、`controlIds(prefix)` 四个方向的对账，
+全部只有这一份写法。它镜像的理由与 `diffView.js` 同一类——钉它的判据**全是源码扫描型**：Z14 数环境词
+（词表比 §W10 多 `FileReader` 与 `instanceof` 两枚）与那一处 `innerHTML`、Z16 数以 `df-` 起头的
+**整格字面量** 0 命中、Z17 数三栏 `nodes` 与十四枚动作的族名。源码一漂，红的只是字符串比对，
+看不出"当时那一版把行高的退路写成 24 还是 30、把行内档的 `change` 拆成两发还是一发"，
+所以这一格镜像留的就是那一版的现场。
+
+```js
+/**
+ * 文件对比页的装配层（段 5 Task 5；§Z 后半）。把 `tools-diff.html` 里那一整块静态骨架接到两本纯模块
+ * （§X 的行级引擎、§Y 的 JSON 感知比对）与本页视图层（`diffView.js`）上，算完的结果一律交给视图层的
+ * 生成器拼串，再由**唯一的一处** `innerHTML` 出口写进结果区。
+ *
+ * 这一层存在的理由与 `jsonWorkbench.js` 同源，也只有一条：**控件与动作的对应关系只允许有一处**。
+ * 三栏控件、十四枚按钮、两行状态读数、两枚栏内复制、显隐段，如果"哪个 id 属于哪一格"同时写在 HTML 的
+ * `id=` 与 JS 的字符串里，改一处漏一处，而漏掉那一处只在页面上表现为"点了没反应"。所以这里用
+ * `DIFF_SPEC` / `DIFF_ACTIONS` 声明控件、开关与动作，所有 id 由那七枚 helper 派生；HTML 里的
+ * `data-df-when` 是写给人和样式看的标记，运行时不读它，它与 spec 是否一致由门禁⑤在构建产物上对账。
+ *
+ * 六条红线，§Z 后半的判据逐条对着咬：
+ *
+ * 1. **视图层零 import**：`diffView.js` 那条红线写在它自己文件头；本层只在构造期 `createDiffView` 一次，
+ *    并把那七件生成器原样暴露在 `view` 这一格上（Z17 数的就是它——多一件是第二条渲染路径，少一件是有
+ *    一格没人画）。
+ * 2. **环境只在入口**（Z14、Z15）：`window` / `globalThis` / `Date.now(` / `localStorage` / `navigator.`
+ *    / `new Blob` / `URL.` / `getComputedStyle` / `querySelector` / `setTimeout(` / `FileReader` /
+ *    `instanceof` 在本文件源码里一个都不许出现。时钟与存储这一页**根本不要**（不做"记住上次输入"，
+ *    于是那句"输入不出本机"连一条退路都不必写）；`FileReader`、`TextDecoder`、`Blob` 三件、`setTimeout`
+ *    与行高全从 `env` 递进来。
+ *    两只读手是本页独有的：`readFile(file) → Promise<Uint8Array>` 与 `decode(bytes) → {ok, text}`。
+ *    为什么"是不是文件""是不是 UTF-8"归入口而不是本层：`instanceof` 与 `TextDecoder` 都是宿主能力，
+ *    本层碰一次，§Z 的假 DOM 夹具就要多造一件假件，而那条"零环境词"的判据当场从判据退化成注释。
+ *    本层只认 `{name, size}` 这个形状，并在**读之前**用 `size` 拒掉超限那份——五 MiB 的文件不该
+ *    先整份进内存再说"不行"（Z27 数的就是 `readFile` 那一次有没有发生）。
+ * 3. **id 只由 spec 派生**（Z16）：那七枚 helper 是唯一的地址来源，`controlIds(prefix)` 与 `DIFF_SPEC`
+ *    与 `DIFF_ACTIONS` 三个方向对账；本文件不许手打以 `df-` 起头的地址串（数的是**整格字面量**，
+ *    单引号、双引号、模板串三种引号都算，注释里的不算）。
+ * 4. **挂载期一次计算都不做**（Z18）：`mount()` 只接线、画空态、按 `gate` 刷新一次闸门读数；比对只在
+ *    按动作时发生，所以二十次 `input` 之后注入的 `runGuarded` 计数必须是 0（`input` 那一发只排一次
+ *    防抖读数，不进边界），结果区里一行 `df-row` 都不许有。防抖靠**令牌**而不是 `clearTimeout`：
+ *    时钟由入口注入，本层不该再多要一只取消延时的手。
+ * 5. **两类失败分两条路**（Z26）：用户那一格不能用（两边都空 / 一侧空 / 坏 JSON / 超闸门 / 没选文件）
+ *    → `FieldError` → 一句话进控制栏的状态行，别的什么都不塌；模块或骨架自己抛的（spec 与骨架漂移出的
+ *    档位、缺席的节点）→ 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。两条路都**不许把上一格的
+ *    结果擦掉**——先算后画，抛一定发生在画之前。
+ * 6. **档位只有一个口径**（Z20、Z21）：折叠的四个档住在 `context` 那一枚下拉里，`expand` / `fold` /
+ *    `diffOnly` 三枚按钮是它的**快捷键**（写回同一枚 `select`，不复算第二份状态）；跳转的三枚读的是
+ *    同一份 hunk 清单；并排与行内两档视图读的是同一份行流，切布局本身不重算。
+ *
+ * 与 `jsonWorkbench.js` 的分工：那一本服务 JSON 页（单个工作区、粘贴框为主、外加只渲染可视行的树），
+ * 这一本服务对比页（两栏输入、一条控制栏、行级与 JSON 两种口径）。两本互不 import；`diffView.js`
+ * 在全仓库只许被本文件 reach（`jsonView.js` 与 `codecView.js` 同理各自只被自己的装配层 reach）——
+ * 两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，`iifeWrapPlugin` 包完就是整页
+ * SyntaxError 而构建 exit=0（§0.4 那条构建红线，Z13 正反两头核它）。
+ *
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 二十八判。
+ */
+import {
+  gate as coreGate, diffLines, hunksOf, unifiedText, DIFF_NOTES, CR_GLYPH,
+  MAX_INPUT_BYTES, MAX_INPUT_LINES,
+} from './diff-core.js';
+import { diffJson, DIFF_JSON_NOTES } from './diff-json.js';
+import { createDiffView } from './diffView.js';
+
+// ── 常量与派生 id ────────────────────────────────────────────────────────────
+
+/** 这一页只有一个工作区，没有面板清单：`spec.ids` 与 `DIFF_SPEC` 的键必须逐字相同（门禁⑤ :545） */
+export const DIFF_PANEL_IDS = ['workbench'];
+
+/**
+ * 栏位名。与编码页的 `main` / `diff`、JSON 页的 `main` 不同，这一页是**两栏输入 + 一条控制栏**：
+ * `a` 与 `b` 各带粘贴框、文件选择、文件名、状态读数与栏内复制；`bar` 带全部下拉与勾选、结果区
+ * 和那一行进度读数。第三栏（"对齐视图"）在这一页没有对应的事实，Z17 钉它不许出现。
+ */
+export const SIDES = ['a', 'b', 'bar'];
+
+/**
+ * 行高的**退路值**：权威在 `dev/sass/toolDiff.scss` 的 `--df-row-h` 那一格，由入口读一次再注入
+ * （`env.rowHeight`，红线 2）。跳转那一枚把"第几块"换算成 `scrollTop` 只认这一个整数——样式那本改
+ * 行高时不必改这里（入口读得到新值）；这里改而不改样式，只在"样式读不到"那一条路上生效。
+ */
+const ROW_HEIGHT = 24;
+
+/** 闸门读数（行 / 字节）随 `input` 刷新的防抖时长；真页面上由入口注入的那只延时承载 */
+const DEBOUNCE_MS = 200;
+
+/** 三枚档位下拉的默认值：骨架那格给空串时落在这里；非空而不在白名单里一律上抛（Z21 的 `'9'`） */
+const DEFAULTS = { mode: 'text', layout: 'side', context: '3' };
+
+/**
+ * 折叠档位的唯一解释表（红线 6）。`diff` 是"只看差异行"= 上下文 0 行；`all` 是"全部展开"= 上下文
+ * `Infinity`——`hunksOf` 在 `Infinity` 那一档把相邻差异块合成一块，折叠条因此自然归零，这正是"展开"
+ * 要的形状，本层不必再判一次"要不要收拢"。
+ */
+const CONTEXT_VALUE = { diff: 0, 3: 3, 5: 5, all: Infinity };
+
+/** `bar` 那一枚 `mode` 下拉的取值档：`switch.targets` 的 `when` 只能是它的子集（Z17） */
+const MODE_OPTIONS = ['text', 'json'];
+
+/** 布局两档：并排两栏读同一份行流；行内摊成一栏，`change` 那一行拆成两行各取一半高亮 */
+const LAYOUT_OPTIONS = ['side', 'inline'];
+
+/** 侧栏的显示名：状态行与报错文案里用它，`'a'` / `'b'` 这种内部名字不上屏 */
+const SIDE_NAME = { a: 'A 侧', b: 'B 侧', bar: '这一页' };
+
+/** 一 MiB 的字节数：超限文案里"上限"那一格要说的是这个数，不是 `MAX_INPUT_BYTES` 那串裸整数 */
+const MIB = 1048576;
+
+/** 用户那一格不能用的那类失败：走状态行那一句话，不进 `runGuarded` 的账（红线 5 的第一条路） */
+class FieldError extends Error {
+  /**
+   * @param {string} message 直接上屏的那一句话
+   */
+  constructor(message) {
+    super(message);
+    this.name = 'FieldError';
+  }
+}
+
+/** 控件 id：`{p}-in-{面板}-{控件}`。栏位编在**控件 id** 里（`a-text` / `b-file`），因为门禁⑤ 的这条
+ * 公式没有栏位那一维（§0.6 记的偏差） */
+export const fieldId = (p, panel, id) => `${p}-in-${panel}-${id}`;
+/** 动作按钮 id：`{p}-btn-{面板}-{key}` */
+export const buttonId = (p, panel, key) => `${p}-btn-${panel}-${key}`;
+/** 结果区 id：`{p}-out-{面板}-{栏}` */
+export const outId = (p, panel, side) => `${p}-out-${panel}-${side}`;
+/** 状态读数 id：`{p}-status-{面板}-{栏}` */
+export const statusId = (p, panel, side) => `${p}-status-${panel}-${side}`;
+/** 栏内复制按钮 id：`{p}-copy-{面板}-{栏}` */
+export const copyId = (p, panel, side) => `${p}-copy-${panel}-${side}`;
+/** 显隐段 id：`{p}-when-{面板}-{key}` */
+export const whenId = (p, panel, key) => `${p}-when-${panel}-${key}`;
+/**
+ * 节点族 → id。这一页只有 `out` / `status` / `copy` 三族，第四族 `tree` 在这里没有对应的事实
+ * （JSON 页那一族由 `jsonWorkbench.js` 自己解释）；`DIFF_SPEC` 里多写一族就是骨架私自长一格。
+ * @param {string} p 前缀
+ * @param {string} panel 面板
+ * @param {string} fam 族名
+ * @param {string} side 栏位
+ * @returns {string}
+ */
+export const nodeId = (p, panel, fam, side) => {
+  if (fam === 'out') return outId(p, panel, side);
+  if (fam === 'status') return statusId(p, panel, side);
+  if (fam === 'copy') return copyId(p, panel, side);
+  throw new RangeError(`DIFF_SPEC 的 ${side} 栏声明了节点族「${String(fam)}」：这一页只有 out / status / copy 三族`);
+};
+
+/**
+ * 控件与显隐开关的唯一声明处（门禁⑤ DOM 组比的就是这张表的 `controls` 与 `switch.targets`）。
+ * `nodes` 由每一栏**自己声明**：并排视图只有一个结果区（住在 `bar`），两条输入栏各有一行读数和一枚
+ * 栏内复制——写死四族会让这一页去要六个它根本没有的 id（收录面那颗牙因此按这一格拆）。
+ * `gutter: false` 是给门禁⑤ 的退出闸：那一格只对 `type: 'area'` 存在"行号槽"这一说，而对比页的
+ * 两个粘贴框按设计不带行号——行号在结果区的行块里，输入区的行号对"两份文本"没有意义。
+ */
+export const DIFF_SPEC = {
+  workbench: {
+    sides: {
+      a: {
+        kind: 'workbench',
+        nodes: ['status', 'copy'],
+        controls: [
+          { id: 'a-text', type: 'area', gutter: false },
+          { id: 'a-file', type: 'file' },
+          { id: 'a-name', type: 'text' },
+        ],
+      },
+      b: {
+        kind: 'workbench',
+        nodes: ['status', 'copy'],
+        controls: [
+          { id: 'b-text', type: 'area', gutter: false },
+          { id: 'b-file', type: 'file' },
+          { id: 'b-name', type: 'text' },
+        ],
+      },
+      bar: {
+        kind: 'workbench',
+        nodes: ['out', 'status'],
+        controls: [
+          { id: 'mode', type: 'select', options: MODE_OPTIONS },
+          { id: 'layout', type: 'select', options: LAYOUT_OPTIONS },
+          { id: 'context', type: 'select', options: Object.keys(CONTEXT_VALUE) },
+          { id: 'ws', type: 'checkbox' },
+          { id: 'case', type: 'checkbox' },
+        ],
+        switch: {
+          by: 'mode',
+          targets: [
+            { key: 'text', when: ['text'] },
+            { key: 'json', when: ['json'] },
+          ],
+        },
+      },
+    },
+  },
+};
+
+/**
+ * 工具栏那五段的动作清单：`key` 派生按钮 id，`group` 是这一枚归哪一族（Z17 按族名单核对），
+ * `to` 只有折叠那三枚有——它们是 `context` 下拉的**快捷键**，写回那一枚 `select` 而不另存一份状态。
+ * `label` 与骨架里 `<button>` 的文案逐字相同（门禁⑤ 比的就是这两处同字）。
+ */
+export const DIFF_ACTIONS = [
+  { key: 'compare', group: 'run', label: '重新对比' },
+  { key: 'swap', group: 'run', label: '交换两侧' },
+  { key: 'clear', group: 'run', label: '清空输入' },
+  { key: 'reset', group: 'run', label: '恢复默认档' },
+  { key: 'expand', group: 'fold', label: '全部展开', to: 'all' },
+  { key: 'fold', group: 'fold', label: '上下文三行', to: '3' },
+  { key: 'diffOnly', group: 'fold', label: '只看差异', to: 'diff' },
+  { key: 'firstDiff', group: 'goto', label: '第一处差异' },
+  { key: 'prevDiff', group: 'goto', label: '上一处' },
+  { key: 'nextDiff', group: 'goto', label: '下一处' },
+  { key: 'fileA', group: 'file', label: '选 A 侧文件' },
+  { key: 'fileB', group: 'file', label: '选 B 侧文件' },
+  { key: 'copyDiff', group: 'copy', label: '复制差异' },
+  { key: 'download', group: 'copy', label: '下载 .diff' },
+];
+
+/** 这一页只有一个面板，那七枚 helper 的中间那一格全是它 */
+const PANEL = DIFF_PANEL_IDS[0];
+
+/**
+ * 整页地址清单：门禁⑤ 与 §Z 的三个方向对账都读这一份。
+ * @param {string} p 前缀
+ * @returns {{fields: string[], nodes: string[], when: string[], buttons: string[]}}
+ */
+export const controlIds = (p) => {
+  const fields = [];
+  const nodes = [];
+  const when = [];
+  const buttons = [];
+  for (const slug of DIFF_PANEL_IDS) {
+    for (const side of Object.keys(DIFF_SPEC[slug].sides)) {
+      const cfg = DIFF_SPEC[slug].sides[side];
+      for (const c of cfg.controls || []) fields.push(fieldId(p, slug, c.id));
+      for (const fam of cfg.nodes || []) nodes.push(nodeId(p, slug, fam, side));
+      for (const tg of (cfg.switch || {}).targets || []) when.push(whenId(p, slug, tg.key));
+    }
+    for (const a of DIFF_ACTIONS) buttons.push(buttonId(p, slug, a.key));
+  }
+  return { fields, nodes, when, buttons };
+};
+
+// ── 装配 ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 接一页。
+ * @param {object} env 由 `toolDiff.js` 递进来的环境
+ * @param {object} env.document 真 `document`
+ * @param {object} env.Tk `window.Tk`（这一页只吃 `view.esc` 那一格）
+ * @param {string} env.prefix 前缀
+ * @param {Function} [env.runGuarded] `(id, fn) => boolean`：坏消息的边界，本层只管抛
+ * @param {Function} env.later `(fn, ms) => number`：防抖那一只延时
+ * @param {object} [env.navigator] 只借 `clipboard` 那一格
+ * @param {number} [env.rowHeight] 行高（样式给的环境量），非 `≥1` 的整数当场 `RangeError`
+ * @param {Function} [env.BlobCtor] 下载三件之一，按工厂调用（本层不写 `new Blob`）
+ * @param {Function} [env.createObjectURL] 下载三件之二
+ * @param {Function} [env.revokeObjectURL] 下载之三，一律落在 `finally`
+ * @param {Function} [env.readFile] `(file) => Promise<Uint8Array>`：缺席就是"这台浏览器不给读文件"
+ * @param {Function} [env.decode] `(bytes) => {ok: boolean, text: string}`：UTF-8 的判断在入口
+ * @returns {{mount: Function, state: Function, view: object}} `view` 是视图层那七件，原样暴露
+ */
+export function createDiffWorkbench(env) {
+  const tk = env.Tk || {};
+  /** 视图层只借转义那一只；`prefix` 与 `crGlyph` 由本层给（前者是页面地址、后者是 §X 的字形约定） */
+  const view = createDiffView({ esc: tk.view && tk.view.esc, prefix: env.prefix, crGlyph: CR_GLYPH });
+  const esc = tk.view && tk.view.esc;
+  if (env.rowHeight !== undefined && (!Number.isInteger(env.rowHeight) || env.rowHeight < 1)) {
+    throw new RangeError(`env.rowHeight 得是 ≥1 的整数像素（权威在样式那一格），这里是 ${String(env.rowHeight)}`);
+  }
+  /** 有读文件这两只手才谈得上"选本地文件"；缺了就把两枚按钮与两个 `input` 一起置灰（Z27 最后一档） */
+  const canReadFiles = typeof env.readFile === 'function' && typeof env.decode === 'function';
+  const canDownload = typeof env.BlobCtor === 'function'
+    && typeof env.createObjectURL === 'function' && typeof env.revokeObjectURL === 'function';
+  const nav = env.navigator;
+  const clip = nav ? nav.clipboard : undefined;
+  const rowHeight = env.rowHeight === undefined ? ROW_HEIGHT : env.rowHeight;
+
+  /**
+   * 这一页的全部状态。`out` 是"最近一次可比复制的文本"，复制与下载读的就是这一格（Z19 判两边同字）；
+   * `computes` 与 `gateReads` 是给 §Z 看的两个计数器，也是红线 4 唯一的量具——没有它们，
+   * "挂载期不计算"这件事在页面上根本读不出来。
+   */
+  const s = {
+    computes: 0, gateReads: 0, out: '', produced: null, result: null,
+    hunks: [], rows: [], at: 0,
+    textA: '', textB: '', nameA: '', nameB: '',
+    mode: DEFAULTS.mode, layout: DEFAULTS.layout, context: DEFAULTS.context,
+  };
+  const nodes = new Map();
+  let gateToken = 0;
+
+  /** 取节点：`mount` 建好索引之后一律读索引，缺席那一格要指名道姓地抛（Z26 的第二类失败） */
+  const node = (id) => {
+    if (!nodes.has(id)) {
+      throw new RangeError(`骨架里没有 id="${id}" 这一格：DIFF_SPEC 与 tools-diff.html 漂了，装配层要读它而页面没有`);
+    }
+    return nodes.get(id);
+  };
+  const field = (id) => node(fieldId(env.prefix, PANEL, id));
+  const btn = (key) => node(buttonId(env.prefix, PANEL, key));
+  const resultBox = () => node(outId(env.prefix, PANEL, 'bar'));
+  /** 状态行只走 `textContent`：那一格是句子，不是标记 */
+  const say = (side, text) => { node(statusId(env.prefix, PANEL, side)).textContent = text; };
+  /** 结果区唯一的写入口——红线里"整页只有一处 innerHTML"的那一处 */
+  const paint = (html) => { resultBox().innerHTML = html; };
+
+  /** 读一枚下拉：空串落默认档，非空而白名单外一律上抛（骨架或用户改出个 spec 不认的档位就是漂移） */
+  const selectOf = (id, options, fallback) => {
+    const raw = String(field(id).value || '');
+    if (raw === '') return fallback;
+    if (!options.includes(raw)) {
+      throw new RangeError(`${id} 的档位是「${raw}」，而 DIFF_SPEC 只认 ${options.join(' / ')}：骨架的 <option> 与 spec 漂了`);
+    }
+    return raw;
+  };
+  const flag = (id) => field(id).checked === true;
+
+  /** 把控件的当前状态读进 `s`：一次计算的第一步，也是"只读一次"的那一步 */
+  const readControls = () => {
+    s.textA = String(field('a-text').value || '');
+    s.textB = String(field('b-text').value || '');
+    s.nameA = String(field('a-name').value || '');
+    s.nameB = String(field('b-name').value || '');
+    s.mode = selectOf('mode', MODE_OPTIONS, DEFAULTS.mode);
+    s.layout = selectOf('layout', LAYOUT_OPTIONS, DEFAULTS.layout);
+    s.context = selectOf('context', Object.keys(CONTEXT_VALUE), DEFAULTS.context);
+    return { ws: flag('ws'), case: flag('case') };
+  };
+
+  /** 千分位只给"行数"这种大数用；`toLocaleString` 的 locale 写死，两台机器要给出同一个字符串 */
+  const n = (v) => Number(v).toLocaleString('en-US');
+  /** 字节读数：不到 1 MiB 说 KB（保留一位），到了就说 MB——五 MiB 的闸门用"5242880 字节"没人读得懂 */
+  const kb = (bytes) => (bytes >= MIB ? `${(bytes / MIB).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`);
+
+  /**
+   * 闸门读数：两栏各一行「N 行 · 大小」，超限那一档点名多了多少。
+   * 这一件事在挂载时跑一次、之后随 `input` 的防抖跑，**不算一次比对**（`computes` 不涨，Z18 判的就是
+   * 它）：`gate` 只数行与字节，两份 5 MiB 的文本贴进去也绝不该在这里跑一遍 Myers。
+   */
+  const refreshGate = () => {
+    const a = String(field('a-text').value || '');
+    const b = String(field('b-text').value || '');
+    const g = coreGate(a, b);
+    s.gateReads += 1;
+    for (const side of ['a', 'b']) {
+      const part = side === 'a' ? g.a : g.b;
+      const head = `${n(part.count)} 行 · ${kb(part.bytes)}`;
+      const blocked = !g.ok && (g.which === side || g.which === 'both');
+      if (!blocked) { say(side, head); continue; }
+      const overKey = g.reason === 'bytes' ? `bytes${side.toUpperCase()}` : `lines${side.toUpperCase()}`;
+      const over = g.over[overKey];
+      const limit = g.reason === 'bytes' ? `${MAX_INPUT_BYTES / MIB} MiB` : `${n(MAX_INPUT_LINES)} 行`;
+      say(side, `${head}｜这一侧超了闸门约 ${n(over)} ${g.reason === 'bytes' ? '字节' : '行'}（上限 ${limit}）`);
+    }
+  };
+  /** 防抖那枚令牌：只有最后排上的那一发真的读数（本层没有第二只取消延时的手） */
+  const scheduleGate = () => {
+    const token = ++gateToken;
+    env.later(() => { if (token === gateToken) refreshGate(); }, DEBOUNCE_MS);
+  };
+
+  /** JSON 档的可复制文本：一行一处变更，与表里那六列同序（复制与下载读的就是这一串） */
+  const jsonToText = (j) => j.changes
+    .map((c) => `${c.kind}\t${c.pointer === '' ? '/' : c.pointer}\t${c.owner}\t${c.aPreview ?? ''}\t${c.bPreview ?? ''}`)
+    .join('\n');
+
+  /** 换一次算一次：`compute` 只算不画，抛出去的一切都在画之前（红线 5） */
+  const compute = (opts) => {
+    if (s.mode === 'json') {
+      const j = diffJson(s.textA, s.textB);
+      if (j.verdict === 'invalid') {
+        const e = j.error || {};
+        throw new FieldError(`比不了：${SIDE_NAME[e.which] || '其中一侧'}第 ${e.line ?? '?'} 行第 ${e.column ?? '?'} 列${e.reason ? `——${e.reason}` : ''}。要按文本逐行比，切回「文本」档。`);
+      }
+      s.result = null;
+      s.hunks = [];
+      s.rows = [];
+      s.at = 0;
+      s.out = j.changes.length === 0 ? '' : jsonToText(j);
+      s.produced = j;
+      s.computes += 1;
+      return j;
+    }
+    if (s.textA === '' && s.textB === '') {
+      throw new FieldError('两边都还空着：贴进两份文本，或各选一个本地文件，再按「重新对比」。');
+    }
+    if (s.textA === '' || s.textB === '') {
+      throw new FieldError(`${SIDE_NAME[s.textA === '' ? 'a' : 'b']}还是空的，另一半没有可以跟它比的东西。`);
+    }
+    const result = diffLines(s.textA, s.textB, opts);
+    if (result.verdict === 'blocked') {
+      const which = result.blocked.which === 'both' ? '两边' : SIDE_NAME[result.blocked.which];
+      const over = result.blocked.over || {};
+      const delta = Math.max(over.bytesA ?? 0, over.bytesB ?? 0, over.linesA ?? 0, over.linesB ?? 0);
+      const limit = result.blocked.reason === 'bytes' ? `${MAX_INPUT_BYTES / MIB} MiB` : `${n(MAX_INPUT_LINES)} 行`;
+      throw new FieldError(`超出闸门：${which}多了约 ${n(delta)} ${result.blocked.reason === 'bytes' ? '字节' : '行'}（上限 ${limit}）。这一页不做"截断悄悄算"，把大的一份拆开再比。`);
+    }
+    s.result = result;
+    s.produced = result;
+    s.hunks = hunksOf(result, CONTEXT_VALUE[s.context]);
+    s.rows = s.hunks.reduce((acc, h) => acc.concat(h.rows), []);
+    s.at = 0;
+    s.out = unifiedText(result, { a: s.nameA, b: s.nameB, context: CONTEXT_VALUE[s.context] });
+    s.computes += 1;
+    return result;
+  };
+
+  /**
+   * 一份行流在这一档里占几个**视觉行**：并排两栏各一份，`rows.length` 就是一块的高度；行内把
+   * `change` 摊成两行。跳转那一枚算 `scrollTop` 用的是这个数，不是 `rows.length`——两档共用同一份
+   * 行流但不同高，这是切布局之后唯一会变的量。
+   * @param {object[]} rows 一块 hunk 的行
+   * @returns {number}
+   */
+  const linesOf = (rows) => (s.layout === 'inline'
+    ? rows.reduce((acc, r) => acc + (r.kind === 'change' ? 2 : 1), 0)
+    : rows.length);
+
+  /**
+   * 一块差异的正文。并排档两栏各读同一份行流（`renderSide(rows, 'a')` / `(rows, 'b')`，缺席那一侧
+   * 由视图层长成 `--fill`，不是少一行）；行内档把那份行流摊成一栏，`change` 那一行**拆成两行**、
+   * 各取一半高亮。两档共用同一份 `hunksOf` 产出，所以切布局不重算（Z20 判的就是这件事）。
+   *
+   * 行内那一档逐行调 `renderSide([row], side)`：视图层没有"整栏一次给两栏"的第二件，而本层也不许
+   * 自己拼行块（红线 1）。代价是 `data-df-i` 在行内档是每发各从 0 数——那一格是给视图层自己看
+   * 的形状标记，页面上定位读的是 `data-df-ln`（真行号）与折叠条前的兄弟计数。
+   * @param {object[]} rows 一块 hunk 的行
+   * @returns {string}
+   */
+  const block = (rows) => {
+    const p = env.prefix;
+    if (s.layout === 'inline') {
+      let body = '';
+      for (const r of rows) {
+        if (r.kind === 'change') body += view.renderSide([r], 'a') + view.renderSide([r], 'b');
+        else body += view.renderSide([r], r.kind === 'ins' ? 'b' : 'a');
+      }
+      return `<div class="${p}-lines">${body}</div>`;
+    }
+    const col = (side) => `<div class="${p}-col ${p}-col--${side}">${view.renderSide(rows, side)}</div>`;
+    return `<div class="${p}-cols">${col('a')}${col('b')}</div>`;
+  };
+
+  /** 代价说明那一列：只说真的发生了的那几句，最后一句是本页的口径承诺 */
+  const notesOf = (produced) => {
+    const list = [];
+    if (produced.degraded) list.push(DIFF_NOTES.degraded);
+    if (produced.stats.inlineSkipped > 0) list.push(DIFF_NOTES.inlineSkipped);
+    if (produced.stats.ignored > 0) list.push(DIFF_NOTES.ignored);
+    if (produced.a.finalNewline !== true || produced.b.finalNewline !== true) list.push(DIFF_NOTES.finalNewline);
+    list.push(DIFF_NOTES.gitApply);
+    list.push(DIFF_NOTES.noUpload);
+    return list;
+  };
+
+  /** 结果区正文：结论 → 读数 → 逐块（前折叠条 + 块）→ 尾折叠条 → 代价说明 */
+  const bodyOf = (produced) => {
+    const p = env.prefix;
+    if (s.mode === 'json') {
+      return view.renderVerdict({ mode: 'json', verdict: produced.verdict, stats: produced.stats })
+        + view.renderJsonTable({
+          changes: produced.changes, stats: produced.stats, notes: Object.values(DIFF_JSON_NOTES),
+          truncated: produced.truncated,
+        });
+    }
+    let html = view.renderVerdict({
+      mode: 'text', verdict: produced.verdict, stats: produced.stats, degraded: produced.degraded,
+    }) + view.renderStats(produced.stats);
+    s.hunks.forEach((h, k) => {
+      html += view.renderFoldBar({ skipped: h.skipped });
+      html += block(h.rows);
+      if (k === s.hunks.length - 1) html += view.renderFoldBar({ skipped: h.tailSkipped, tail: true });
+    });
+    const notes = notesOf(produced);
+    return html + `<ul class="${p}-notes">${notes.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  };
+
+  /**
+   * 档位、置灰与显隐的收尾——一切"状态变了而内容不必重算"的那一路共用这一发。
+   * 折叠与跳转那六枚在 JSON 档没有意义（那一档按格比对，没有"第几块"与"上下文"这一说），整排置灰
+   * 而不是"按了报错"；复制与下载在没有结果时同样置灰，比"按下去说一句空的"更省事。
+   */
+  const syncGate = () => {
+    const p = env.prefix;
+    const targets = DIFF_SPEC[PANEL].sides.bar.switch.targets;
+    for (const tg of targets) {
+      node(whenId(p, PANEL, tg.key)).hidden = !tg.when.includes(s.mode);
+    }
+    for (const a of DIFF_ACTIONS) {
+      if (a.group === 'fold' || a.group === 'goto') btn(a.key).disabled = s.mode === 'json';
+    }
+    const hasOut = s.out !== '';
+    for (const a of DIFF_ACTIONS) {
+      if (a.group === 'copy') btn(a.key).disabled = !hasOut;
+    }
+  };
+
+  /** 算 + 画 + 收尾；抛出去的东西由调用侧（`act`）决定走哪条路 */
+  const run = () => {
+    const opts = readControls();
+    const produced = compute(opts);
+    paint(bodyOf(produced));
+    resultBox().scrollTop = 0;
+    syncGate();
+    return produced;
+  };
+
+  /** 跳到第 `index` 块（0 起）：两端钳住，状态行报「第 i / n 处差异」 */
+  const goTo = (index) => {
+    if (s.mode === 'json') throw new FieldError('JSON 档按格比对，没有"第几处差异"这一说：切回「文本」档再跳。');
+    if (s.hunks.length === 0) throw new FieldError('两份内容没有差异块，跳转这一档用不上。');
+    const at = Math.min(Math.max(index, 0), s.hunks.length - 1);
+    let units = 0;
+    for (let k = 0; k < at; k += 1) units += linesOf(s.hunks[k].rows) + (s.hunks[k].skipped > 0 ? 1 : 0);
+    units += s.hunks[at].skipped > 0 ? 1 : 0;
+    resultBox().scrollTop = units * rowHeight;
+    s.at = at + 1;
+    say('bar', `第 ${s.at} / ${s.hunks.length} 处差异`);
+  };
+
+  /**
+   * 写剪贴板。这一页只有 `navigator.clipboard` 这一只手，缺了或浏览器拒了都明说，不退到
+   * `execCommand`（那一档在隐私模式下同样不保，而多一条路就多一处"两台机器给两个答案"）。
+   * @param {string} text 要写的正文
+   * @param {string} where 那一句里说"复制的是什么"
+   * @returns {Promise<void>}
+   */
+  const copy = (text, where) => {
+    if (text === '') throw new FieldError(`还没有${where}：先按「重新对比」，或把要复制的那一栏填上内容。`);
+    if (!clip || typeof clip.writeText !== 'function') {
+      throw new FieldError('这台浏览器不给网页写剪贴板：选中结果区那一段，用系统自己的复制。');
+    }
+    return Promise.resolve(clip.writeText(text)).then(
+      () => say('bar', `已复制${where}`),
+      () => say('bar', `复制${where}没被浏览器允许：选中结果区那一段，用系统自己的复制。`),
+    );
+  };
+
+  /** 下载那一份可复制文本：三件全从入口来，对象 URL 一律在 `finally` 里收回（被拦的下载不泄） */
+  const download = () => {
+    if (!canDownload) throw new FieldError('这台浏览器缺少下载所需的能力（Blob 或对象 URL）：改用「复制差异」。');
+    if (s.out === '') throw new FieldError('还没有可比对的结果：先按「重新对比」。');
+    const url = env.createObjectURL(env.BlobCtor([s.out], { type: 'text/plain;charset=utf-8' }));
+    try {
+      const a = env.document.createElement('a');
+      a.href = url;
+      a.download = s.mode === 'json' ? 'changes.json-diff.txt' : 'changes.diff';
+      a.click();
+    } finally {
+      env.revokeObjectURL(url);
+    }
+    say('bar', '已导出那一份差异');
+  };
+
+  /**
+   * 选本地文件那一路：**先按 `size` 拒，再读**（红线 2 里那一句"五 MiB 不该先整份进内存"）。
+   * 编码判断也不在本层：`decode` 交回 `{ok, text}`，本层只在文本里认 NUL 与替换字符那一档——
+   * `fatal` 已经拒掉了读不成的那些，这两枚补的是"读得成但根本不是文本"的那一类（把图片拖进来）。
+   * @param {'a'|'b'} side 栏
+   * @param {object} file `{name, size}` 形状的那个东西
+   * @returns {Promise<void>}
+   */
+  const loadFile = async (side, file) => {
+    if (!canReadFiles) throw new FieldError('这台浏览器不能在本机读文件：把文本贴进粘贴框也能比。');
+    if (!file || typeof file.name !== 'string' || typeof file.size !== 'number') {
+      throw new FieldError(`${SIDE_NAME[side]}没有读到文件：再从本机选一个，或把文本贴进粘贴框。`);
+    }
+    if (file.size > MAX_INPUT_BYTES) {
+      throw new FieldError(`${file.name} 超出闸门：比 ${MAX_INPUT_BYTES / MIB} MiB 多了 ${kb(file.size - MAX_INPUT_BYTES)}。这一页不做截断悄悄算，换个小的或拆开再比。`);
+    }
+    const bytes = await env.readFile(file);
+    const d = env.decode(bytes);
+    if (!d || d.ok !== true) throw new FieldError(`${file.name} 看起来不是 UTF-8 文本：存成 UTF-8 再选一次。`);
+    if (/[\u0000\uFFFD]/.test(d.text)) {
+      throw new FieldError(`${file.name} 看起来不是 UTF-8 文本（读到了 NUL 或替换字符）：先确认它的编码。`);
+    }
+    field(`${side}-text`).value = d.text;
+    field(`${side}-name`).value = file.name;
+    refreshGate();
+    say(side, `已读入 ${file.name}`);
+  };
+  /** 文件那一路的两条入口：`change` 与 `drop` 汇到同一发，两条路必须同一条（Z27 判的就是它） */
+  const takeFile = (side, source) => {
+    loadFile(side, source && source.length > 0 ? source[0] : null).catch((err) => {
+      if (err && err.name === 'FieldError') say(side, err.message);
+      else throw err;
+    });
+  };
+
+  /**
+   * 十四枚按钮的共同落点。里面**不套第二层 try**：坏消息要么变成状态行那一句话（`FieldError`），
+   * 要么原样上抛给注入的 `runGuarded`——本层自己吞掉一次抛出，那份计数就成了假账（Z26 数的正是
+   * `guarded` 与 `threw` 的差）。
+   * @param {string} key 动作 key
+   */
+  const dispatch = (key) => {
+    if (key === 'compare') { run(); say('bar', '比完了'); return; }
+    if (key === 'swap') {
+      const a = field('a-text'); const b = field('b-text');
+      const na = field('a-name'); const nb = field('b-name');
+      const t = a.value; a.value = b.value; b.value = t;
+      const nm = na.value; na.value = nb.value; nb.value = nm;
+      refreshGate();
+      run();
+      say('bar', '两侧换了个位置');
+      return;
+    }
+    if (key === 'clear') {
+      for (const side of ['a', 'b']) {
+        field(`${side}-text`).value = '';
+        field(`${side}-name`).value = '';
+        const pick = field(`${side}-file`);
+        pick.files = [];
+        pick.value = '';
+      }
+      s.out = ''; s.produced = null; s.result = null; s.hunks = []; s.rows = []; s.at = 0;
+      paint(view.renderNotice('把要比较的两份内容分别贴进来，或各选一个本地文件。'));
+      refreshGate();
+      syncGate();
+      say('bar', '输入已清空');
+      return;
+    }
+    if (key === 'reset') {
+      field('mode').value = DEFAULTS.mode;
+      field('layout').value = DEFAULTS.layout;
+      field('context').value = DEFAULTS.context;
+      field('ws').checked = false;
+      field('case').checked = false;
+      readControls();
+      syncGate();
+      say('bar', '档位回到默认（输入没动）');
+      return;
+    }
+    const fold = DIFF_ACTIONS.find((x) => x.key === key);
+    if (fold && fold.to !== undefined) {
+      field('context').value = fold.to;
+      retune('context');
+      return;
+    }
+    if (key === 'firstDiff') { goTo(0); return; }
+    if (key === 'prevDiff') { goTo(s.at - 2); return; }
+    if (key === 'nextDiff') { goTo(s.at); return; }
+    if (key === 'copyDiff') { copy(s.out, '那一份差异'); return; }
+    if (key === 'download') { download(); return; }
+    if (key === 'fileA') { takeFile('a', field('a-file').files); return; }
+    if (key === 'fileB') { takeFile('b', field('b-file').files); return; }
+    throw new RangeError(`「${key}」在 DIFF_ACTIONS 的清单上，本层却没有对应的行为：按钮长出来了而没人接`);
+  };
+  /** 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界 */
+  const act = (key) => {
+    const id = buttonId(env.prefix, PANEL, key);
+    const inner = () => {
+      try {
+        dispatch(key);
+      } catch (err) {
+        if (err && err.name === 'FieldError') say('bar', err.message);
+        else throw err;
+      }
+    };
+    if (typeof env.runGuarded === 'function') env.runGuarded(id, inner);
+    else inner();
+  };
+
+  /**
+   * 档位变了而内容不必重算：`mode` / `layout` / `context` 三枚下拉与折叠那三枚快捷键共用这一发。
+   * `mode` 换的是**口径**（文本 / JSON），必须重算——两张账表数的是不同的事；`layout` 与 `context`
+   * 只换视图，读的还是那份 `result`（Z20 与 Z21 各自钉住这一条）。
+   * @param {string} id 变了的那一枚
+   */
+  const retune = (id) => {
+    const opts = readControls();
+    if (id === 'mode') {
+      const produced = compute(opts);
+      paint(bodyOf(produced));
+      resultBox().scrollTop = 0;
+    } else if (id === 'context' && s.result) {
+      s.hunks = hunksOf(s.result, CONTEXT_VALUE[s.context]);
+      s.rows = s.hunks.reduce((acc, h) => acc.concat(h.rows), []);
+      s.at = 0;
+      paint(bodyOf(s.result));
+    } else if (s.produced) {
+      paint(bodyOf(s.produced));
+    }
+    syncGate();
+  };
+
+  return {
+    view,
+    /** 只读的最近状态：§Z 的判据用它数"算了几次 / 读了几次闸门"，页面不读它 */
+    state: () => ({ ...s }),
+    /**
+     * 接线。先建节点索引（缺席的那几格进 `missing` 报告，但**不拦启动**——缺哪一格是到按那一枚
+     * 按钮时才真的坏，让整页停在启动那一下等于把"还能用一半"也一起废掉），再画空态、刷一次读数。
+     * @returns {{missing: string[], panels: string[]}} 缺的地址与这一页的面板清单
+     */
+    mount: () => {
+      const list = controlIds(env.prefix);
+      const all = [...list.fields, ...list.nodes, ...list.when, ...list.buttons];
+      for (const id of all) {
+        const el = env.document.getElementById(id);
+        if (el) nodes.set(id, el);
+      }
+      const missing = all.filter((id) => !nodes.has(id));
+      /** 没有那两只读手：两枚 `file` 输入框与那两枚按钮一起置灰，而不是"按了才发现不能用" */
+      for (const side of SIDES) {
+        for (const c of DIFF_SPEC[PANEL].sides[side].controls) {
+          if (c.type === 'file' && nodes.has(fieldId(env.prefix, PANEL, c.id))) field(c.id).disabled = !canReadFiles;
+        }
+      }
+      for (const a of DIFF_ACTIONS) {
+        const el = nodes.get(buttonId(env.prefix, PANEL, a.key));
+        if (!el) continue;
+        if (a.group === 'file') el.disabled = !canReadFiles;
+        el.addEventListener('click', () => act(a.key));
+      }
+      for (const side of ['a', 'b']) {
+        const areaId = fieldId(env.prefix, PANEL, `${side}-text`);
+        if (nodes.has(areaId)) {
+          const area = nodes.get(areaId);
+          area.addEventListener('input', scheduleGate);
+          area.addEventListener('drop', (evt) => {
+            if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+            takeFile(side, evt && evt.dataTransfer ? evt.dataTransfer.files : null);
+          });
+        }
+        const pick = fieldId(env.prefix, PANEL, `${side}-file`);
+        if (nodes.has(pick)) nodes.get(pick).addEventListener('change', () => takeFile(side, nodes.get(pick).files));
+        const cp = copyId(env.prefix, PANEL, side);
+        if (nodes.has(cp)) {
+          nodes.get(cp).addEventListener('click', () => {
+            const inner = () => copy(String(field(`${side}-text`).value || ''), `${SIDE_NAME[side]}的正文`);
+            const wrapped = () => { try { inner(); } catch (err) { if (err && err.name === 'FieldError') say(side, err.message); else throw err; } };
+            if (typeof env.runGuarded === 'function') env.runGuarded(cp, wrapped);
+            else wrapped();
+          });
+        }
+      }
+      for (const id of ['mode', 'layout', 'context']) {
+        const fid = fieldId(env.prefix, PANEL, id);
+        if (nodes.has(fid)) {
+          nodes.get(fid).addEventListener('change', () => {
+            const inner = () => retune(id);
+            const wrapped = () => { try { inner(); } catch (err) { if (err && err.name === 'FieldError') say('bar', err.message); else throw err; } };
+            if (typeof env.runGuarded === 'function') env.runGuarded(fid, wrapped);
+            else wrapped();
+          });
+        }
+      }
+      for (const id of ['ws', 'case']) {
+        const fid = fieldId(env.prefix, PANEL, id);
+        if (nodes.has(fid)) {
+          nodes.get(fid).addEventListener('change', () => {
+            const inner = () => { run(); say('bar', '归一化档变了，重比了一遍'); };
+            if (typeof env.runGuarded === 'function') env.runGuarded(fid, inner);
+            else inner();
+          });
+        }
+      }
+      paint(view.renderNotice('把要比较的两份内容分别贴进来，或各选一个本地文件；文件在这台机器上读取，不上传。'));
+      say('bar', '还没有比较');
+      refreshGate();
+      syncGate();
+      return { missing, panels: DIFF_PANEL_IDS.slice() };
+    },
+  };
+}
+```
+
+#### `dev/js/toolDiff.js`（整文件，237 行）
+
+入口这一本的镜像是**两处只活在这里的事实**：① Z15 那八件各恰好一处的计数对象
+（`win.FileReader(` / `win.TextDecoder` / `win.Blob` / `URL.createObjectURL` / `URL.revokeObjectURL` /
+`win.navigator` / `setTimeout(` / `getComputedStyle`），装配层对同一批词是 0 命中——两头合起来
+才叫"环境只在入口"；② 门禁⑤ 组 5 用正则从产物里找的 `CONTAINER_ID` / `NOTICE_ID` / `ATTR`
+那三行**字面量**，它们不许跟着前缀派生（Z16 钉的就是这三行的原文）。同一格里还钉着三条"没有"：
+无顶层 `export`、无 `DOMContentLoaded`、`localStorage` 与 `Date.now(` 两本一起归零——最后这一条
+就是那句"输入不出本机"连一条退路都不必写的现场。
+
+```js
+/**
+ * 文件对比页入口（段 5 Task 5；§Z 后半）：只读骨架里那四格 `data-df-*`，把框架（`window.Tk`）、
+ * 装配层（`createDiffWorkbench`）与本页接起来。与 `toolJson.js` 同形，差异有四处——这一页只有
+ * 一块工作区（不经过 `createPanelDom`）、这一页**没有存储**（不做"记住上次输入"）、这一页多
+ * 两只读文件的手，以及 `runGuarded` 由这一本自己给。
+ *
+ * 六条口径：
+ *
+ * 1. **前缀有两副面孔，各归各管**。`CONTAINER_ID` / `NOTICE_ID` 里那个 `df` 是**本页自己的地址**
+ *    （`tools-diff.html` 的骨架写死它）；行为里用的前缀从 `data-df-prefix` 读，一路传给装配层，
+ *    控件 id 与显隐段才跟着换得动（Z28 的 `zx` 那一档量的就是这件事）。
+ * 2. **环境只在这一本读，每样恰好一次**（Z15 数的是出现次数）。`setTimeout`、剪贴板、下载那三件、
+ *    行高，加上本页独有的 `FileReader` 与 `TextDecoder`，全从这里注入；装配层那十六个词一个都不许
+ *    出现（Z14）。理由是同一份产物在两台机器、两个 CI runner 上只能给一个答案，而 §Z 的每一判
+ *    都指望它只有一个。
+ *    行高（`--df-row-h`）也在这一本读：它是**样式**给的环境量，读一次就注入一次（`env.rowHeight`），
+ *    装配层里因此不许出现 `getComputedStyle`——那一只假件一旦要进 §Z 的夹具，"不读环境"这条红线
+ *    就从判据退化成了注释。
+ * 3. **文件那两件事拆成两只手，而不是一只**。`readFile` 只管把字节搬进内存，`decode` 只管判编码：
+ *    装配层要在**读之前**按 `file.size` 拒掉超限那一份（五 MiB 不该先进内存再说"不行"），所以
+ *    `{name, size}` 这个形状必须能被它单独看到；把两件事并成一只 `readAsText`，那一档拒绝就
+ *    只能发生在读完之后。`decode` 用 `fatal: true`——非 UTF-8 要当场失败，不能让 `TextDecoder`
+ *    悄悄把坏字节换成 `U+FFFD` 再交上去（那样"读得成但不是文本"与"读不成"在页面上就成了同一档）。
+ *    `instanceof` 那一句留在这一本：那是**宿主类型判断**，装配层里出现一次就违反红线（Z14 词表里
+ *    那两枚 `FileReader` 与 `instanceof` 说的是同一件事）。
+ * 4. **`runGuarded` 由入口给**。装配层只负责"抛出来"，记不记、记在哪儿是页面这一侧的事：这一页没有
+ *    面板错误条（那块区域就是整页），所以坏消息写进 `#df-notice` 那一句，下一次跑成功就撤掉。
+ *    只有本层写过的句子本层才撤——那格提示行也用于启动失败，别把别人的话清成空白。
+ * 5. **启动失败不装死**。抛出之前尽力把那句话写进 `#df-notice`（只走 `textContent`），因为脚本 404
+ *    或被人挪到 `<head>` 这类事故，页面看起来跟"禁了脚本"一模一样：正文全在、按钮按不出东西。
+ * 6. **两条 `<script>` 的先后是硬前提**。`toolkitCore.min.js` 挂 `window.Tk`（这一页只吃 `view` 那一格），
+ *    入口在它之后；`assets/js/toolDiff.min.js` 里已经打进 `diffView.js` 与两本算法，绝不再挂进 `Tk`——
+ *    两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
+ *
+ * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，而它不补
+ * `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。产物名必须与页面里 `<script src>`
+ * 那一段逐字符一致（`toolDiff.min.js`）。启动方式与 `webLab.js` 同档——脚本排在正文之后，解析
+ * 到这一行时骨架节点已经存在，不接 `DOMContentLoaded`。
+ */
+import { createDiffWorkbench, DIFF_PANEL_IDS } from './tools/diffWorkbench.js';
+
+/** 容器 id：`tools-diff.html` 里 `id="{{ df.prefix }}-workspace"` 在 `prefix: df` 下的落值 */
+const CONTAINER_ID = 'df-workspace';
+/** 提示行 id：坏消息与启动失败共用这一格 */
+const NOTICE_ID = 'df-notice';
+
+/** 骨架上那四格数据的属性名（前缀 `df` 同上，是本页的地址，不是行为里的前缀） */
+const ATTR = { ids: 'data-df-ids', prefix: 'data-df-prefix', label: 'data-df-label', notice: 'data-df-notice' };
+
+/**
+ * 取提示行节点：容器在就读 `data-df-notice`，容器不在或那一格空着就回落到 `NOTICE_ID`。
+ * 两条路径都要过"它得像个节点"这一关，因为写它的是失败兜底，不能自己再抛一次。
+ * @param {object} doc 只提供 `getElementById`
+ * @param {object|null} box 容器节点，可能不存在
+ * @returns {object|null} 节点或 `null`
+ */
+function noticeNode(doc, box) {
+  const fromAttr = box && typeof box.getAttribute === 'function'
+    ? String(box.getAttribute(ATTR.notice) || '').trim() : '';
+  const id = fromAttr !== '' ? fromAttr : NOTICE_ID;
+  const el = id ? doc.getElementById(id) : null;
+  return el && typeof el.setAttribute === 'function' ? el : null;
+}
+
+/**
+ * `data-df-ids` → 面板清单。逗号分隔、允许空格、丢掉空项。
+ * @param {string} raw 属性原文
+ * @returns {string[]} 至少一项，空数组由调用侧判成错误
+ */
+function parseIds(raw) {
+  return String(raw || '').split(',').map((s) => s.trim()).filter((s) => s !== '');
+}
+
+/**
+ * 抛出来的东西形状千奇百怪（`throw 'x'`、`throw {message: 42}`），页面上只能有一行可读的句子：
+ * 优先取 `message`，取不到就 `String()` 一次；空 `message` 退回名字。
+ * @param {unknown} err 捕获到的东西
+ * @returns {string}
+ */
+function messageOf(err) {
+  const m = err && typeof err.message === 'string' ? err.message : '';
+  if (m !== '') return m;
+  const name = err && typeof err.name === 'string' ? err.name : '';
+  if (name !== '') return name;
+  return String(err);
+}
+
+/**
+ * 把本地文件读成字节。**只做搬运**：编码一句不判（那是 `decode` 的事），大小一句不提（那是装配层
+ * 在调用之前就办完的事）。`instanceof` 这一格是本页唯一的宿主类型判断——`DataTransfer.files` 与
+ * `input.files` 给的都是真 `File`，而有人从别处塞进来一个 `{name, size}` 的假对象时，宁可在这一本
+ * 当场说清"这不是一个文件"，也不要让 `FileReader` 在下一行抛一句读不出主语的 `TypeError`。
+ * @param {object} win 真 `window`
+ * @param {unknown} file 那一个候选
+ * @returns {Promise<Uint8Array>}
+ */
+function fileReaderOf(win) {
+  return (file) => new Promise((resolve, reject) => {
+    if (!(file instanceof win.File)) {
+      reject(new TypeError('这不是本机的一份文件（拖放被浏览器的隐私设置拦住，或那一格给的不是文件）'));
+      return;
+    }
+    const fr = new win.FileReader();
+    fr.onload = () => resolve(new Uint8Array(fr.result));
+    fr.onerror = () => reject(new Error(`读不了「${file.name}」：这一页不上传，坏的是本地那一次的读取`));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * UTF-8 那一道闸。`fatal: true` 是这一格的全部意义：非 UTF-8 当场抛，而不是悄悄换成 `U+FFFD` 交上去
+ * ——那样"这份文件读不成"与"这份文件是文本但编码不对"在页面上就成了同一档，而装配层给用户的
+ * 那句"存成 UTF-8 再选一次"正是靠这两档的分别才说得出口。
+ * @param {object} win 真 `window`
+ * @param {Uint8Array} bytes 读回来的字节
+ * @returns {{ok: boolean, text: string}}
+ */
+function decodeOf(win) {
+  return (bytes) => {
+    try {
+      return { ok: true, text: new win.TextDecoder('utf-8', { fatal: true }).decode(bytes) };
+    } catch {
+      return { ok: false, text: '' };
+    }
+  };
+}
+
+/**
+ * 装配一遍。抛出去的东西由 `start` 负责先写进页面、再原样抛回控制台。
+ * @param {object} doc 真 `document`
+ * @param {object} win 真 `window`（要 `FileReader` / `TextDecoder` / `Blob` / `navigator`）
+ * @param {object} tk `window.Tk`（这一页只吃 `view` 那一格）
+ * @returns {object} `createDiffWorkbench().mount()` 的那两份清单
+ */
+function boot(doc, win, tk) {
+  const box = doc.getElementById(CONTAINER_ID);
+  if (!box || typeof box.getAttribute !== 'function') {
+    throw new RangeError(
+      `页面里没有 id="${CONTAINER_ID}" 的容器（或它读不到属性）：两条 <script> 必须排在正文之后，见 tools-diff.html 末尾那段注释`);
+  }
+  const ids = parseIds(box.getAttribute(ATTR.ids));
+  if (ids.length === 0) {
+    throw new RangeError(
+      `容器 ${CONTAINER_ID} 的 ${ATTR.ids} 是空的：这一页的面板清单只有 ${DIFF_PANEL_IDS.join(' / ')}，_data/onlineTools.yml 的 panels 是不是漏了 slug？`);
+  }
+  const unknown = ids.filter((id) => DIFF_PANEL_IDS.indexOf(id) < 0);
+  if (unknown.length > 0) {
+    throw new RangeError(
+      `容器 ${CONTAINER_ID} 的 ${ATTR.ids} 里有装配层不认识的面板：${unknown.join(' / ')}；这一页只有 ${DIFF_PANEL_IDS.join(' / ')}。`);
+  }
+  const prefix = String(box.getAttribute(ATTR.prefix) || '').trim() || 'df';
+  const label = String(box.getAttribute(ATTR.label) || '').trim();
+  const notice = noticeNode(doc, box);
+  if (!tk || !tk.view || typeof tk.view.esc !== 'function') {
+    throw new RangeError(
+      'window.Tk 没挂上来（或 view.esc 缺了）：toolkitCore.min.js 要么 404，要么排在本入口之后，顺序见 tools-diff.html 末尾');
+  }
+
+  /** 提示行：`null` 撤回到"没话要说"。只走 `textContent`——入口这一层不拼任何标记 */
+  const setNotice = (text) => {
+    if (!notice) return;
+    if (text === null) { notice.hidden = true; notice.textContent = ''; return; }
+    notice.hidden = false;
+    notice.textContent = text;
+  };
+  /** 口径 4：只有本层写坏过的那一句才由本层撤，别把启动失败那句话清成空白 */
+  let broken = false;
+  const blockName = label === '' ? CONTAINER_ID : label;
+  const runGuarded = (id, fn) => {
+    try {
+      fn(doc.getElementById(id));
+      if (broken) { broken = false; setNotice(null); }
+      return true;
+    } catch (err) {
+      broken = true;
+      setNotice(`${blockName}里的一次操作没能跑完：${messageOf(err)}。其余部分照常可用。`);
+      return false;
+    }
+  };
+
+  /**
+   * 行号那一格的行高（`--df-row-h`）：**权威在样式里，这一本只读一次**（段 5 计划 Task 5 的口径 2）。
+   * `dev/sass/toolDiff.scss` 在容器上写 `--df-row-h`，跳转那一枚换算 `scrollTop` 与样式那边的行块
+   * 高度要的是同一个整数；读不到、或读出来不是「≥1 的整数像素」就退回 24——那个 24 就是装配层
+   * `ROW_HEIGHT` 的值，两边同源靠的是 `env.rowHeight` 那一道闸门（给了非法值当场 `RangeError`），
+   * 不是靠注释约定。
+   * @returns {number} 整数像素
+   */
+  const rowHeightPx = () => {
+    let raw = '';
+    try { raw = String(win.getComputedStyle(box).getPropertyValue('--df-row-h') || '').trim(); } catch { raw = ''; }
+    const m = /^(\d+)px$/.exec(raw);
+    const v = m ? Number(m[1]) : NaN;
+    return Number.isInteger(v) && v >= 1 ? v : 24;
+  };
+
+  const wb = createDiffWorkbench({
+    document: doc,
+    Tk: tk,
+    prefix,
+    runGuarded,
+    navigator: win.navigator,
+    later: (fn, ms) => setTimeout(fn, ms),
+    rowHeight: rowHeightPx(),
+    readFile: fileReaderOf(win),
+    decode: decodeOf(win),
+    // 这三件必须给**工厂**，不能给裸构造器：装配层按 `env.BlobCtor(parts, options)` 的写法调用它
+    //（Z14 的红线之一「本层不写 `new Blob`」），而 `Blob` 是 WebIDL 接口，不带 `new` 直接调在浏览器里
+    // 必抛 `TypeError: Failed to construct 'Blob'`。§Z 的假 DOM 给的是箭头函数，所以那二十七判一条
+    // 都抓不到这件事——真浏览器里点「下载 .diff」就是那一行红字，而页面上没有任何一次下载发生过。
+    BlobCtor: (parts, options) => new win.Blob(parts, options),
+    createObjectURL: (b) => URL.createObjectURL(b),
+    revokeObjectURL: (u) => URL.revokeObjectURL(u),
+  });
+  return wb.mount();
+}
+
+/**
+ * 启动一次，并把失败写进页面上那句话。
+ * @param {object} doc 真 `document`
+ * @param {object} win 真 `window`
+ * @returns {object|undefined} 成功时是 `mount()` 的两份清单，失败时 `undefined`（但仍会抛）
+ */
+function start(doc, win) {
+  try {
+    return boot(doc, win, win.Tk);
+  } catch (err) {
+    const el = noticeNode(doc, doc.getElementById(CONTAINER_ID));
+    if (el) {
+      el.hidden = false;
+      el.textContent = `这一页的交互层没能启动：${messageOf(err)}。正文仍然读得到，只是按钮与下拉不会有反应。`;
+    }
+    throw err;
+  }
+}
+
+start(document, window);
+```
 ---
 
 ## Task 6：页面源 + `toolDiff.scss` + 第四枚图标 + yml 登记（收录面）

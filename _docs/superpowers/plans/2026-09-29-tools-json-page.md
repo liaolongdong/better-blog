@@ -8475,17 +8475,20 @@ const wBare = (rel) => read(rel)
 const wCode = (rel) => read(rel)
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 /**
- * 摘出**以 `jt-` 开头**的字符串字面量（评审 P0-1：旧口径只数 `'jt-`，模板串与双引号里的地址一概漏网，
- * 而装配层派生地址时写错的那一格恰恰是 `` `jt-…` `` 这种形状）。
- * 只挑"整格以 `jt-` 起头"的那些：`<pre class="jt-out__body">` 那种是排版，第一个字符是 `<`，
+ * 摘出**以 `mark` 起头**的字符串字面量（评审 P0-1：旧口径只数 `'jt-`，模板串与双引号里的地址一概漏网，
+ * 而装配层派生地址时写错的那一枚恰恰是 `` `jt-…` `` 这种形状）。
+ * 只挑"整格以 `mark` 起头"的那些：`<pre class="jt-out__body">` 那种是排版，第一个字符是 `<`，
  * 与本条红线（地址只由那八枚 helper 派生）无关。
+ * 第二格 `mark` 是给 §Z 复用的：那一页的前缀是 `df`，而**同一件事只该有一把尺**——再造一本
+ * `zHandTypedIds` 就是"两本里有一本漂了也没人红"的那种形状（X4 第一轮抓到的同族病）。
  * @param {string} rel 源码路径
+ * @param {string} [mark] 要挑的地址前缀，默认 JSON 页的 `jt-`
  * @returns {string[]} 命中的字面量原文
  */
-const wHandTypedIds = (rel) => {
+const wHandTypedIds = (rel, mark = 'jt-') => {
   const hits = [];
   wCode(rel).replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, (s) => {
-    if (/^['"`]jt-/.test(s)) hits.push(s);
+    if (s.slice(1, 1 + mark.length) === mark) hits.push(s);
     return "''";
   });
   return hits;
