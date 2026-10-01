@@ -2487,6 +2487,17 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.deepEqual(parseHash('#panel-uscc', TOOLKIT), { id: null, unknown: true },
     '认的是 `{prefix}-panel-slug` 这一种形状，前缀不留空：`#panel-uscc` 不是本页会产生的 hash，' +
     '给它开门等于在同一处立第二套口径（两条锚点都由页面自己写，没有第三种来源）');
+  /**
+   * 剥尾段那一刀对**任何裸 slug 必须是恒等**：`stripPanelPrefix` 只在"标记前面还有东西"时动手。
+   * 这一族唯一的失效形状是"面板 slug 自己含 `-panel-`"（那会儿裸形先被剥掉一截、只剩尾段去查白名单），
+   * 而 slug 全部来自 `_data/onlineTools.yml`——多出那样一枚是数据改动，不该由用户的深链先撞上。
+   * 所以这里拿现成的 `TOOLKIT` 逐个走一遍裸形：真出现了那一枚，红在这里。
+   * 它不是给 `parseHash` 加宽容（加 fallback 去"先整串再尾段"会在产物里养一条永不生效的分支），
+   * 而是把"两种形状"这条口径的前提钉住。
+   */
+  for (const id of TOOLKIT) {
+    assert.deepEqual(parseHash(`#${id}`, TOOLKIT), { id, unknown: false }, `裸 slug ${id} 必须原样解得开`);
+  }
   const anchored = createPanelWorkspace({ ids: TOOLKIT, hash: '#idcard-panel-random' });
   assert.equal(anchored.active(), 'random', '开局是锚点形状也要落到那块面板');
   assert.equal(anchored.unknownHash(), false);
