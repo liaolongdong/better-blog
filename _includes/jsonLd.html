@@ -16,6 +16,12 @@
   · Person + sameAs 是「廖小新 / Better / 小新」这一个检索实体的锚（正名与别名
     的口径在 _config.yml），品牌词搜索时决定右侧知识面板拿不拿得到东西。
 一律用 | jsonify 输出字符串字段，避免标题里的引号、破折号把 JSON 打断。
+
+【本文件不是全站 JSON-LD 的全部】
+列表类的 ItemList 不在这里，在 jsonLdList.html，由 index.html 与 series.html
+各自在 </main> 之后引入。分家的唯一理由是字节：这一支全落在 <head>，而 ItemList
+的大小与条目数成正比（合集页 34 条 = +10,956 B），放 head 会把那一页的头部顶高 174%。
+审计全站结构化数据时两处都要看。
 {%- endcomment -%}
 {%- assign site_home = '/' | absolute_url -%}
 {%- assign page_url = page.url | absolute_url -%}

@@ -65,5 +65,15 @@ permalink: /series.html
     </section>
     {% endfor %}
 </main>
+{%- comment -%}
+每个合集一块 ItemList（10 块 / 34 条），@id 挂在上面各个 section 的 slug 锚点上。
+放在 body 末尾而不是 head：实测 +10,956 B raw / +947 B gz，进 head 会把这一页的
+头部从 6,284 B 顶到 17,240 B（+174%），而 head 的字节另有记账。
+收录范围与取舍写在 jsonLdList.html 文件头。
+（注释里不写花括号标签——Liquid 4 会把注释体内的块标签当块解析，
+一路吃到 endcomment 才报错，构建直接失败；这条坑记在 sitemap.xml 的注释里。
+末尾 %} 不带减号的理由记在 index.html 同一处。）
+{%- endcomment -%}
+{%- include jsonLdList.html list='series' %}
 
 {% include footer.html %}

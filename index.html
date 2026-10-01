@@ -226,6 +226,14 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
     </aside>
 
 </main>
+{%- comment -%}
+最新 8 篇的 ItemList。放在 body 末尾而不是 head，理由与收录范围写在 jsonLdList.html 文件头。
+下面这一行的 %} 后面不能带减号：带了就会把 footer 之前那两个换行一起吃掉，
+/page2/ … /page10/ 这九个复用同一份模板的页面会各差 2 个字节——
+功能上无所谓，但 A/B 产物 diff 会从「2 页 + feed 时间戳」变成 12 行，
+以后每次核验都要重新归因一遍。
+{%- endcomment -%}
+{%- include jsonLdList.html list='home' %}
 
 {% include footer.html %}
 

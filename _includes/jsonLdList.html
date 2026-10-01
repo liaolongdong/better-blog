@@ -1,0 +1,123 @@
+{%- comment -%}
+归档页的 ItemList（列表类结构化数据）。
+
+入参：list —— 'home'（首页信息流）| 'series'（合集页）
+出参：无，直接输出 script 块
+
+【为什么不在 jsonLd.html 里】
+那一支的所有块都落在 <head>，而 ItemList 的字节量与条目数成正比，不像
+BlogPosting / CollectionPage 那样是常数。JSON-LD 写在 <body> 里对 Google 与
+AI 爬虫同样有效——它们读的是整份文档里所有 script[type="application/ld+json"]，
+不区分在头在尾（Google 结构化数据文档给的两个位置就是 head 与 body）。
+所以这一族由页面在 </main> 之后 include，head 一个字节都不占。
+
+实测（2026-10-02，79 篇渲染、A/B 两棵产物树对量，gzip -9）：
+
+  页面           head 前 → 后      文档 raw 增量   文档 gz 增量   gz 涨幅
+  index.html     7,660 → 7,660      +1,876 B        +341 B       +2.2%
+  series.html    6,284 → 6,284     +10,956 B        +947 B       +7.7%
+
+head 六页逐字节相同（连 /page2/…/page10/、categories、tags 也量了）。
+raw 涨得多、gz 涨得少，是因为 JSON-LD 的键名高度重复：series 那 10 块压到 1/11.6。
+线上传的是 gz，所以真正的代价是首页 +341 B、合集页 +947 B。
+（head 的字节另有记账，见 2026-09-25 那份 spec §7 的 ~838B 余量口径，
+A6 的 manifest + theme-color 还要吃掉 ~228B——那笔账不该被这一族挤占。）
+
+【收录范围与取舍：只发「说得出新事实」的列表】
+判据不是「哪几页有列表」，而是**这一块声明的东西，可见 HTML 是不是已经说过了**，
+外加一条 gzip 涨幅的天花板。按这两条，categories.html / tags.html 不发：
+
+  · 它们的分组标题与组内文章链接本来就全在 HTML 里（实测 categories 102 条详情页链接、
+    tags 270 条），组内顺序就是倒序时间——爬虫顺着 <a> 与 <time> 全能自己得出，
+    ItemList 一个新事实都不提供；
+  · 代价却是量出来的最大那两笔：categories +30,205 B raw / +5,080 B gz（页面 gz 涨 30%），
+    tags +117,858 B raw / +7,790 B gz（涨 35%）；
+  · Google 对裸 ItemList 也没有富媒体摘要（富结果只认 BreadcrumbList 这个子类型，
+    以及 Movie / Recipe / Course 的轮播），所以那两页是「纯支出、零回报」。
+
+反过来，留下的两块各自说了一件 HTML 说不出的事：
+  · 首页：80 篇里只有 8 篇可见，itemListOrder: Descending 把「这 8 条是全站最新」
+    这个事实显式化——可见 DOM 里没有这句话；
+  · 合集：顺序是**阅读顺序**而不是时间顺序（_data/series.yml 文件头写明「不按时间」），
+    可见 <ol> 只有编号，爬虫无法区分「策展的阅读顺序」与「随便排的」；
+    description 又把 s.lede 这条「这个合集在讲什么」挂到了实体上。
+
+【与可见内容必须一致】
+两处都只声明页面上真看得见的那些条目：首页是 paginator.posts 的 8 条（不是
+site.posts 的 79 条——声明页面上没有的内容是 Google 明确处理的 cloaking），
+合集页跳过 _data/series.yml 里对不上文章的 slug（可见列表那种情况渲染的是
+.series-missing 提示，不是一条链接）。
+{%- endcomment -%}
+{%- if include.list == 'home' -%}
+{%- comment -%}
+只在 paginator.page == 1 输出。理由与 jsonLd.html:119-125 那道门同源：
+jekyll-paginate 复用同一份 index.html 生成 /page2/ … /pageN/，不加门就会吐 N 份
+指向同一批实体、却各自声称自己代表首页信息流的声明。实测这一门挡住了 9 个翻页视图。
+{%- endcomment -%}
+{%- if paginator.page == 1 -%}
+{%- comment -%}
+刻意不写 description：它与 <meta name="description"> 必须同口径，而那个值由
+seoMeta.html:55-74 的三级回落算出来（seo_description → 截断正文 → site.description），
+且只在 head 渲染期存在——Jekyll 先渲染页面正文再渲染 layout，正文里读不到
+seoMeta 赋的 page_desc。在这里另算一遍就是第二处口径，正是本仓反复避免的事。
+首页的站点级描述已经由 jsonLd.html 的 WebSite 块声明过了，ItemList 不必重复。
+{%- endcomment -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "最新文章",
+  "inLanguage": "zh-CN",
+  "itemListOrder": "https://schema.org/ItemListOrderDescending",
+  "numberOfItems": {{ paginator.posts.size }},
+  "itemListElement": [
+{%- for p in paginator.posts %}
+    {"@type":"ListItem","position":{{ forloop.index }},"name":{{ p.title | jsonify }},"url":"{{ p.url | absolute_url }}"}{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+  ]
+}
+</script>
+{%- endif -%}
+{%- elsif include.list == 'series' -%}
+{%- comment -%}
+一个合集一块，对着可见 DOM 的那 10 个 section（id 就是各自的 slug）各一份，
+@id 直接挂在那个 section 的锚点上——机器读到的实体与人看到的区块一一对应。
+
+刻意不写 isPartOf：series.html 的 CollectionPage 由 jsonLd.html 的 page.title 那一支发出，
+而那个块没有 @id，所以这里无论写 isPartOf 的哪种形态都会新造一个匿名节点——
+要么与已有的 CollectionPage 并存成两份，要么 @id 指向一个从未声明过的地址。
+两种都是 jsonLd.html 文件头点过名的噪音。@id 里已经带着 series.html 这个 URL，
+归属关系不需要再说一遍。省下的 ~90 B × 10 块也顺带落袋。
+
+同样刻意不写 itemListOrder：schema.org 只有 Ascending / Descending / Unordered 三个值，
+而合集的顺序是「阅读顺序」（_data/series.yml 文件头写明「不按时间」），三个值都不对。
+写 Unordered 会与下面逐条给出的 position 自相矛盾，写 Descending 是假话。
+所以照本仓 page_modified 那条「没有真值就不说」的口径，让这个字段缺席，
+顺序全部由 position 承载。
+{%- endcomment -%}
+{%- for s in site.data.series -%}
+{%- assign _rows = '' | split: '' -%}
+{%- for u in s.order -%}
+{%- assign _sp = site.posts | where: 'url', u | first -%}
+{%- if _sp -%}{%- assign _rows = _rows | push: _sp -%}{%- endif -%}
+{%- endfor -%}
+{%- if _rows.size > 0 %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "@id": "{{ '/series.html' | absolute_url }}#{{ s.slug }}",
+  "name": {{ s.title | jsonify }},
+  "description": {{ s.lede | jsonify }},
+  "inLanguage": "zh-CN",
+  "numberOfItems": {{ _rows.size }},
+  "itemListElement": [
+{%- for p in _rows %}
+    {"@type":"ListItem","position":{{ forloop.index }},"name":{{ p.title | jsonify }},"url":"{{ p.url | absolute_url }}"}{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+  ]
+}
+</script>
+{%- endif -%}
+{%- endfor -%}
+{%- endif -%}

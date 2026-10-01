@@ -260,12 +260,57 @@ QR / 颜色 / UUID / JWT / cron / 单位换算 / markdown 也全在这一类里�
 
 ### A7｜归档页 ItemList
 
-`categories.html` / `tags.html` / `series.html` / `index.html` 加 `ItemList`，
-`itemListElement` 为 `ListItem` + `position` + `name` + `url`。
+**范围比原计划窄：四页收成两页。** 原文写的是 `categories.html` / `tags.html` /
+`series.html` / `index.html` 都加 `ItemList`。落地前量了一遍，那两页是纯支出：
 
-首页必须**只在 `paginator.page == 1` 时输出**——照抄 `jsonLd.html:107-114` 那道门的写法与理由：
-jekyll-paginate 生成的 `/page2/ … /pageN/` 复用同一份 `index.html`，不加门就会吐 9 份
+| 页面 | 可见详情页链接 | 若发 ItemList：raw 增量 | gz 增量 | 该页 gz 涨幅 | 说得出新事实吗 |
+| --- | --- | --- | --- | --- | --- |
+| index.html | 8（共 79 篇） | +1,876 B | **+341 B** | +2.2% | 是：`itemListOrder: Descending` = 「这 8 条是全站最新」 |
+| series.html | 34 | +10,956 B | **+947 B** | +7.7% | 是：阅读顺序不按时间，可见 `<ol>` 只有编号 |
+| categories.html | 102 | +30,205 B | +5,080 B | **+30%** | 否：分组标题与组内链接全在 HTML，组内序就是倒序时间 |
+| tags.html | 270 | +117,858 B | +7,790 B | **+35%** | 否：同上，152 组 |
+
+后两页的分组与顺序爬虫顺着 `<a>` 和 `<time>` 全能自己得出，`ItemList` 一个新事实都不加；
+而 Google 对裸 `ItemList` 也没有富媒体摘要（富结果只认 `BreadcrumbList` 这个子类型，
+以及 Movie / Recipe / Course 的轮播）。所以判据定为
+**「这一块声明的东西，可见 HTML 是不是已经说过了」+ 一条 gz 涨幅天花板**，
+两页都出局。原计划里「155 个标签 ≈ 12 KB」那句是估的，实测是 422 条 / 118 KB raw，
+比估的还差一个量级——这类账必须量，不能推。
+
+**放 `<body>` 末尾，不放 `<head>`。** 新增 `_includes/jsonLdList.html`，
+由 `index.html` / `series.html` 各自在 `</main>` 之后引入。
+`jsonLd.html` 那一支的块全在 head，而 ItemList 的大小与条目数成正比、不是常数；
+放 head 会把 series.html 的头部从 6,284 B 顶到 17,240 B（+174%），
+挤占 §7 那 ~838 B 余量里 A6 还要用的 ~228 B。
+JSON-LD 在 body 里对 Google 与 AI 爬虫同样有效（它读整份文档的
+`script[type="application/ld+json"]`，不区分头尾）。实测六页 head 逐字节不变。
+
+首页必须**只在 `paginator.page == 1` 时输出**——照抄 `jsonLd.html:119-125` 那道门的写法与理由：
+jekyll-paginate 生成的 `/page2/ … /page10/` 复用同一份 `index.html`，不加门就会吐 10 份
 互相竞争的实体声明。现有代码已经躲开这个坑，别把它重新踩进去。
+
+合集页刻意**不写** `itemListOrder`（schema.org 只有 Ascending / Descending / Unordered，
+「策展的阅读顺序」三个都不对，写哪个都是假话）和 `isPartOf`
+（series.html 的 CollectionPage 没有 `@id`，写哪种形态都会新造一个匿名节点）。
+两处都照本仓 `page_modified` 那条「没有真值就不说」的口径缺席。
+
+**已验（A/B 两棵产物树，22 条产物级断言全绿）**：`@type` 普查 `ItemList` 0 → 11，
+其余六类一个不动；11 块全部 `JSON.parse` 通过；首页 8 条与可见 `<article>` 同序同值，
+合集 34 条与可见 `.series-link` 同序同值，`position` 全部从 1 连续，`numberOfItems` 与数组等长，
+每条 `url` 绝对且在产物里存在；`/page2/…/page10/` 零块；变更面只有 index / series
+（+ `feed.xml` 时间戳、`sw.js` 的 BUILD 号）。
+
+**三颗牙（变异实测，均先自证变异命中再断言）**：
+
+| 变异 | 产物后果 | 被哪条断言抓 |
+| --- | --- | --- |
+| `paginator.page == 1` → `>= 1` | 10 个翻页视图各吐 1 块首页 ItemList（原为 1） | 2.1 / 2.2 |
+| `_data/series.yml` 首条插入对不上文章的 slug | 可见 `<ol>` 变 9 个 `<li>`（8 链接 + 1 缺失提示） | 变异命中的自证 |
+| 同上 + 摘掉 `{%- if _sp -%}` 守卫 | 第一块变 9 条，position 1 是 `{"name":null,"url":""}` | 4.1 / 5.4 / 5.5 |
+
+第二颗牙单独跑（只改数据、不动代码）时，8 条 positions 仍是 1..8、坏 slug 一条不进 JSON-LD——
+这正是 `jsonLd.html:73-77` 记过的 BreadcrumbList `_crumb_pos` 撞位那一类坑，
+跳过条目会让后续 position 留洞。
 
 **SearchAction 本轮不做**：`index-all.html` 零 `<script>`、不支持 `?q=`（§1），
 而 `SearchAction` 的 `target.urlTemplate` 指向一个不支持查询的 URL 是无效结构化数据。
@@ -375,9 +420,13 @@ png fallback 其实已无必要——但**保留一轮**，A/B 实测确认无�
 
 ```
 git 历史 ──┐
-           ├─ scripts/build-modified-data.mjs ─→ _data/modified.yml ─┬→ seoMeta.html  (page_modified → article:modified_time)
-_posts/*.md┘                                                          ├→ jsonLd.html   (dateModified，读 page_modified)
-                                                                      └→ sitemap.xml:76 (lastmod)
+           ├─ scripts/build-modified-data.mjs ─→ _data/modified.yml ─┬→ pageModified.html ─┬→ seoMeta.html (page_modified → article:modified_time)
+_posts/*.md┘                                                          │                     ├→ jsonLd.html  (dateModified)
+                                                                      │                     └→ sitemap.xml  (lastmod，缺条目回落 post.date)
+                                                                      └（口径只有这一处，见 pageModified.html 文件头）
+
+paginator.posts ─→ _includes/jsonLdList.html list='home'   ─→ index.html  </main> 之后（仅 paginator.page == 1）
+site.data.series ─→ _includes/jsonLdList.html list='series' ─→ series.html </main> 之后（每合集一块，@id 挂 section 锚点）
 
 _data/onlineTools.yml ─(+post_tag / match_tags / tool_slug 由页面 front matter 提供)
         │
@@ -409,8 +458,9 @@ assets/img/**/*.png (>512KB, 非 og/)
 | keywords | 有 tags 的页面输出 tags；无 tags 的页面**不输出**该 meta；任何页面都不再输出 `site.keyword` |
 | modified | `_data/modified.yml` 每个 key 都对应真实 post.url；每个 `at` ≥ 该篇 `date`；`--verify` 模式重算指纹比对，防 yml 腐烂 |
 | 诚实性 | 规范化前后哈希相同的提交**不许**进 yml（「一次全站 prettier 不许把 80 篇顶到今天」那颗牙） |
-| JSON-LD | 四个工具页各有 WebApplication，其 `name` == 渲染出的可见 `<h1>`；归档页有 ItemList 且 `itemListElement` 数量 == 页面可见条目数 |
-| 分页门 | `/page2/ … /pageN/` **不输出** WebSite / Blog / Person / ItemList |
+| JSON-LD | 四个工具页各有 WebApplication，其 `name` == 渲染出的可见 `<h1>`；`index.html` 有 1 块 ItemList 且与可见 `<article>` 同序同值，`series.html` 的块数 == 可见 `<section>` 数、每块与对应 `<ol>` 同序同值 |
+| ItemList 位置 | 11 块全部在 `</head>` 之后（body 末尾），六页 head 字节与不发 ItemList 时逐字节相同；`categories.html` / `tags.html` **零块** |
+| 分页门 | `/page2/ … /page10/` **不输出** WebSite / Blog / Person / ItemList |
 | head | `<head>` 里同步 `<script src>` 数 == 1（只有 jQuery）；`seoScript` 三条都带 `defer` |
 | manifest | 文件存在、JSON 可解析、`start_url` 与 `site.baseurl` 一致（防 baseurl 漂移）、图标文件真实存在 |
 | picture | 每个 `<picture>` 的 `<source srcset>` 文件在产物里真实存在；LCP 候选图有 `fetchpriority=high` 且**无** `loading=lazy` |
