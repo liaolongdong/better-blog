@@ -1,0 +1,22 @@
+# 安装面图标（manifest + iOS 主屏）的取值表。
+# 由 scripts/build-manifest-icons.mjs 生成，请勿手改：改了 favicon.svg 之后
+# 跑 `node scripts/build-manifest-icons.mjs` 重画并刷新这张表，--check 会揪出没刷新的提交。
+# manifest.json 与 head.html 的 apple-touch-icon 都从这里取地址，不在第二处写死路径。
+source: favicon.svg
+source_sha256: 1d2b05c210fbdaa56edd34d76b70e70c10ad850461b084c3cab836eeb869d7dc
+icons:
+  - path: /assets/img/icons/icon-180.png
+    sizes: 180x180
+    use: apple-touch
+    bytes: 3553
+    sha256: cb6f3ff7c820ff2225716d2a44e8f4c13fbfe31363894127da9e66affc95778a
+  - path: /assets/img/icons/icon-192.png
+    sizes: 192x192
+    use: manifest
+    bytes: 3800
+    sha256: f50368f66c2907c269149380526a23810e3065f7a3aa6430f34a4fa0866f65f3
+  - path: /assets/img/icons/icon-512.png
+    sizes: 512x512
+    use: manifest
+    bytes: 11185
+    sha256: a67b9d9a845a5c43e0441542bd52597655e7233820fd4173d21bd427b6e85ca0

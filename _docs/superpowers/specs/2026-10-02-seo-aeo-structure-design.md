@@ -23,6 +23,11 @@ A4 / A8 / A9 归子项目 4 而不是本文档，因为它们都要批量改 `_p
 
 ## 1. 起点事实（全部复核过，不是转述）
 
+> 本表的行号是**动手之前**那份文件的行号，是「起点」快照。落地之后行号会漂，
+> 漂了的地方由 §4 各件自己的小节按新行号引，不回改这张表。
+> 例：表里「`seoMeta.html:77` 全站输出同一个 `site.keyword`」，A5 之后 `:77` 已经是
+> 解释这件事的注释块开头，那行 meta 换成了按页取值并落到 `:89`。
+
 | 事实 | 复核方式 |
 | --- | --- |
 | 博客正文 → 工具页内链 **0 条** | grep `_posts` 对 `tools/(idcard\|codec\|json\|diff)\.html\|/tools\.html` 零命中 |
@@ -31,7 +36,7 @@ A4 / A8 / A9 归子项目 4 而不是本文档，因为它们都要批量改 `_p
 | `sitemap.xml:76` 文章 `<lastmod>` 用 `post.date` | grep |
 | `keywords` meta 全站输出同一个 `site.keyword` | `seoMeta.html:77` |
 | `jsonLd.html` 的 `@type` 全集不含 `WebApplication` / `FAQPage` / `ItemList` | grep `@type` |
-| `<head>` 有 4 个同步阻塞 `<script src>`：jQuery + 三个统计推送 | `headAssets.html:92`、`seoScript.html:2-4`，经 `head.html:19` / `postHead.html:19` 进 head |
+| `<head>` 有 4 个同步阻塞 `<script src>`：jQuery + 三个统计推送 | `headAssets.html:92`、`seoScript.html:2-4`，经 `head.html` / `postHead.html` 末尾那两行 `{% include headAssets.html %}` / `{% include seoScript.html %}` 进 head |
 | 全站 **0 处** `srcset` / `<picture>` / `fetchpriority` | grep `_includes` 零命中 |
 | `assets/img` 共 57.9MB：png 48.1MB(125) / webp 6.3MB(87) / jpg 3.4MB(44) | `stat` 求和 |
 | **23 张 >512KB 的 png 占 37.9MB = 79%** | `stat` + `sort -rn` |
@@ -280,7 +285,7 @@ QR / 颜色 / UUID / JWT / cron / 单位换算 / markdown 也全在这一类里�
 **放 `<body>` 末尾，不放 `<head>`。** 新增 `_includes/jsonLdList.html`，
 由 `index.html` / `series.html` 各自在 `</main>` 之后引入。
 `jsonLd.html` 那一支的块全在 head，而 ItemList 的大小与条目数成正比、不是常数；
-放 head 会把 series.html 的头部从 6,284 B 顶到 17,240 B（+174%），
+放 head 会把 series.html 的头部从 6,283 B 顶到 17,239 B（+174%，口径见 §6），
 挤占 §7 那 ~838 B 余量里 A6 还要用的 ~228 B。
 JSON-LD 在 body 里对 Google 与 AI 爬虫同样有效（它读整份文档的
 `script[type="application/ld+json"]`，不区分头尾）。实测六页 head 逐字节不变。
@@ -320,25 +325,83 @@ jekyll-paginate 生成的 `/page2/ … /page10/` 复用同一份 `index.html`，
 
 `sw.js` 已经能跑，差的就是这一个文件；补上就拿到「可安装」这个能力位。
 
-- 新增 `manifest.webmanifest`（Jekyll 页面，permalink 写死，理由同 `sitemap.xml`：
-  写死才能进站点地图、才能让路径与 baseurl 一致）
-- `name` / `short_name` / `start_url: {{ '/index.html' | absolute_url }}` / `display: standalone`
-  / `scope` / `background_color: #FAF9F6`（= `--paper`）/ `theme_color`
-- 图标 192 / 512 PNG：本机 `sips` 不认 SVG、无 imagemagick，
-  但 `scripts/og-images.mjs` 已经证明 **headless Chrome 截图**这条路可行 → 复用它的手法，
-  新增 `scripts/build-manifest-icons.mjs`，产物入库
-- `head.html` / `postHead.html` 各加 `<link rel="manifest">` 与 light/dark 两条 `theme-color`
+**落地形态（与设计稿的三处偏离，都是实测逼出来的）**：
 
-**head 字节记账（§1 的 ~838B 余量）**：manifest link ≈ 70B，theme-color 两条 ≈ 140B，
-合计 ≈ 210B。B1 defer 三个 `src` 属性不省字节（`defer` 是 +6B×3 = +18B），
-所以这一件是**净增 ~228B**，余量降到 ~610B。这笔账必须在实测里复核，不能默认。
+1. 文件名是 `manifest.json` 不是 `manifest.webmanifest`。理由是 MIME 确定性：
+   GitHub Pages 的 MIME 表在部署前无从核实，`.webmanifest` 一旦没被认成
+   `application/manifest+json`，浏览器**静默忽略整个 manifest**——没有报错、没有日志，
+   表现只是「装不上」。`.json` 一定被认成 `application/json`，而 Chrome/Safari/Firefox
+   对 manifest 的 MIME 判定接受 `application/json`。用确定的降级换不确定的正确。
+2. **不进 sitemap**。设计稿写的「写死 permalink 才能进站点地图」这条理由不成立：
+   本站 `sitemap.xml` 是白名单驱动（枚举 `site.posts` + 固定几页），不是「扫全部产物」，
+   所以 manifest 天然不在里面，也不需要动它。而且**不该**在——与 `llms.txt` 同一条理由：
+   sitemap 是给爬虫的 HTML 页面清单，塞非 HTML 资源进去是噪声。
+3. `start_url` = `scope` = `{{ '/' | absolute_url }}`（规范首页 `…/better-blog/`），
+   不是 `/index.html`。带 `index.html` 的 start_url 会让安装后的地址栏和 canonical 不一致，
+   等于自己造一个重复 URL。
+
+**图标（新增 `scripts/build-manifest-icons.mjs`，产物入库）**：
+
+三枚 PNG——180（apple-touch）/ 192 / 512（manifest）。`apple-touch-icon` 是设计稿之外补的：
+**iOS 完全不读 manifest**，主屏图标只认这一个 link，不给它的表现是「添加到主屏幕」
+截一张网页图当图标。
+
+- 出图走 headless Chrome 截图（`scripts/og-images.mjs` 已证明这条路可行）。
+  本机 `sips` 不认 SVG、无 imagemagick/rsvg。
+- 两个实测陷阱写进了脚本文件头：① Chrome 的 `--screenshot` 在 `--headless` 与
+  `--headless=new` 两种模式下**都不自己退出**，所以「轮询到文件 + 主动 kill」是设计而不是兜底；
+  ② 用 data-URI 塞 SVG 会渲染成**碎图占位符**，而尺寸、字节、sha256 全都「正常」——
+  只有把 PNG 打开看才发现。改成把 SVG 标记直接内联进包装 HTML。
+- 地址不写死在模板里：`_data/manifestIcons.yml` 是唯一的地址+字节+sha256 台账，
+  head 用 `where: 'use', 'apple-touch'` 查表。`--check` 模式**不需要 Chrome**，
+  纯读盘对账（源 SVG 的 sha256、每枚的字节/sha256/IHDR 尺寸/colorType、尺寸集合恰好三枚）。
+
+**head 字节记账（实测，不是估算）**：
+
+设计稿估的是 ~228B，实测**每页 head 净增 315B**——估算漏了 apple-touch-icon 那条 link（~90B）。
+五页抽样全部 +315，文档 gzip 增量 +81…+147B（head 口径见 §6，gzip 走 `cat f | gzip -9` shell 口径）：
+
+| 页面 | head（base → new） | 文档 gz（base → new） |
+| --- | --- | --- |
+| `index.html` | 7,659 → 7,974（+315） | 15,535 → 15,616（+81） |
+| `2026/09/17/gods-eye-view-keyless.html` | 10,201 → 10,516（+315） | 31,577 → 31,664（+87） |
+| `series.html` | 6,283 → 6,598（+315） | 13,299 → 13,385（+86） |
+| `tools/json.html` | 7,982 → 8,297（+315） | 11,728 → 11,875（+147） |
+| `404.html` | 5,386 → 5,701（+315） | 9,542 → 9,624（+82） |
+
+§1 那 ~838B 余量因此降到 **~523B**。A7 的 ItemList 全部落在 body，head 零增量（见 A7 那张表），
+所以余量只剩 A1 的 relatedTools 卡（在 body）与后续切片可能用到——head 这一层目前无人排队。
 
 **已知不完美**：`theme-color` 的 `media="(prefers-color-scheme: …)"` 只能跟系统，
 跟不了 `.night-mode` 这个手动 class（`daytimeMode` localStorage 键）。接受它，
 并在模板注释里写明这是平台限制而不是遗漏。
 
-**不碰 `sw.js` 与 `check-sw.mjs`**（另一会话在飞，见 §2）。manifest 是个 ~400B 的静态文件，
-不进 SW 预缓存清单也不影响功能，只是首次安装多一个网络往返。
+**一个 Liquid 空白陷阱（已翻车并修掉）**：这四个控制标签必须「只带前减号、不带后减号」。
+后减号会把紧随其后的换行加缩进一起吃掉，于是产物里 `<link rel="manifest">` 直接糊在
+`rel="shortcut icon"` 那个 `>` 后面，四条标签挤成一行。功能上无害（浏览器不看换行），
+但产物不可读，而且和 §A7 那条「A/B 差异面要干净」的口径冲突。约束写在两份 head 的注释里。
+
+**覆盖范围（普查断言，不是抽查）**：137 个 html 产物 = 走布局的 **102** 个 + 范围外 35 个。
+范围外的是 `demo/**` 33 个原样拷贝的静态演示页、另一会话的 `offline.html`、
+以及 `googlebed27dc19e414568.html`（Google 站点校验文件，一个字节都不能动）——
+三类都不走 `_includes/head.html`，也都不该有安装面。「不该有」写成了断言：
+范围外的集合必须恰好等于 `demo/**` ∪ 那两个白名单文件，否则以后新加一个绕过布局的
+顶层页面会静默漏网。判据用 `<meta name="base-url"` 这个指纹——它由 `head.html:10` 与
+`postHead.html:10` **各自**输出（两份 head 是复制关系不是 include 关系，所以 A6 必须改两处）。
+
+**不碰 `sw.js` 与 `check-sw.mjs`**（另一会话在飞，见 §2）。manifest 是个 832B 的静态文件，
+不进 SW 预缓存清单也不影响功能，只是首次安装多一个网络往返。已实测：A6 之后
+`node scripts/check-sw.mjs --site=/tmp/a7/_site` 仍是**恰好 1 条红**，且是他们那篇在飞文章的
+封面（`gitdiagram-keyless-mcp-4-bad-edges/banner.webp`），与 A6 无关。
+
+**已验**：44 条断言全绿（HTTP 级起真服务核 MIME/可达性/sha256、JSON 形状、head 接线、
+102 页普查、A/B 差异面）。差异面断言的结论是「改动 104 个文件 = 102 页 + `feed.xml` + `sw.js`
+两个构建期易漂文件，新增 2 项 = `manifest.json` + 图标目录，删除 0 个」。
+
+两颗牙都咬住了（变异先自证落地，再断言变红）：把 `about.html` 的安装面三条整段抹掉 →
+普查断言 6.2 与差异面断言 9.3 **同时**变红，且原树未被连带改到（真拷贝不是硬链影子）。
+`--check` 那三颗牙见 A6 落地时记录：截断图标 1 字节 → 2 条红；篡改 `source_sha256` → 1 条红；
+把声明尺寸 `512x512` 改成 `512x513` → 3 条红。
 
 ### A1｜文末「相关工具」卡（自动那一半）
 
@@ -438,6 +501,15 @@ assets/img/**/*.png (>512KB, 非 og/)
         └─ scripts/build-image-variants.mjs ─→ *.webp
                                     │
                           _plugins/image_dims.rb ─→ <picture> 注入 + fetchpriority
+
+favicon.svg ─→ scripts/build-manifest-icons.mjs ─┬→ assets/img/icons/icon-{180,192,512}.png（入库）
+   （headless Chrome 截图；--check 模式不需要 Chrome）  └→ _data/manifestIcons.yml（地址+字节+sha256 台账）
+                                                            │
+                       ┌────────────────────────────────────┴───────────────────┐
+                       ↓                                                        ↓
+             manifest.json（只取 use=manifest 的 192/512）        head.html:32-38 / postHead.html:24-30
+                       ↑                                        （查 use=apple-touch 取 180，两条 theme-color）
+             permalink: /manifest.json，不进 sitemap
 ```
 
 ## 6. 验收口径
@@ -462,7 +534,9 @@ assets/img/**/*.png (>512KB, 非 og/)
 | ItemList 位置 | 11 块全部在 `</head>` 之后（body 末尾），六页 head 字节与不发 ItemList 时逐字节相同；`categories.html` / `tags.html` **零块** |
 | 分页门 | `/page2/ … /page10/` **不输出** WebSite / Blog / Person / ItemList |
 | head | `<head>` 里同步 `<script src>` 数 == 1（只有 jQuery）；`seoScript` 三条都带 `defer` |
-| manifest | 文件存在、JSON 可解析、`start_url` 与 `site.baseurl` 一致（防 baseurl 漂移）、图标文件真实存在 |
+| manifest | 文件存在、JSON 可解析、`start_url` == `scope` == 规范首页 `https://liaolongdong.github.io/better-blog/`（防 baseurl 漂移）、`short_name` ≤ 12 字符、`display: standalone`、两个色值 == `tokens.scss` 的 `--paper` 明暗两档、icons 恰好 192+512 两枚且 HTTP 200 / `image/png` / 字节与 sha256 都对得上 `_data/manifestIcons.yml`；**不进 sitemap** |
+| 安装面接线 | 走布局的 102 页每页恰好 1 条 `rel="manifest"` + 1 条 `apple-touch-icon`（指向 180 那枚）+ 2 条 `theme-color`（明暗各一、值对），且 manifest link 排在第一个 `rel="stylesheet"` 之前；范围外的 35 个产物（`demo/**` 33 + `offline.html` + Google 校验文件）**一条都不许有**，且这个范围外集合必须恰好等于 `demo/**` ∪ 那两个白名单文件 |
+| 图标台账 | `build-manifest-icons.mjs --check` 不需要 Chrome：源 SVG 的 sha256、每枚的字节/sha256/IHDR 宽高/colorType==6、尺寸集合恰好 {180,192,512} |
 | picture | 每个 `<picture>` 的 `<source srcset>` 文件在产物里真实存在；LCP 候选图有 `fetchpriority=high` 且**无** `loading=lazy` |
 
 A/B 实测三个数：**LCP、head 字节、图片字节**。
@@ -470,12 +544,27 @@ A/B 实测三个数：**LCP、head 字节、图片字节**。
 口径写死，跨口径比对禁止：
 
 - 字节用 `cat f | gzip -9` 的 shell 口径，**不用 zlib API**（两者数字不同，本仓已定过这条）
+- **head 字节**：`<head>` 起、`</head>` 止，含这两个标签本身、不含其后的换行；
+  取法是 `re.search(r'<head>.*?</head>', s, re.S).group(0)` 再按 UTF-8 求长。
+  这条必须写死——同一页在三种口径下分别是 6,270 / 6,283 / 6,284（不含标签 / 含标签 /
+  含标签再带 `sed` 行尾那个换行），差 14 B 就足以让两节引用的数字互相打脸。
+  A7 那节早先引的 6,284 是 `sed` 口径，已按本条改成 6,283。
 - LCP 用 headless Chrome trace，量之前先清遗留进程与端口（孤儿 runner 会污染测量）
 - `setDeviceMetricsOverride` 并自证 `innerWidth`（headless 默认视口不是桌面尺寸，
   否则量到的 `display:none` 是假缺陷）
 - Jekyll 快照用 `--baseurl ""`（否则样式全 404）；CDP 开 `setCacheDisabled`
-- 起本地服务用 `port=0` 且只认子进程 stderr 里的端口（固定调试端口会连上遗留 Chrome）
+- 起本地服务用 `port=0` 且**只认子进程自己报出来的那个端口**（固定调试端口会连上遗留 Chrome）。
+  两个坑各挂死过一轮，都写在这里：① python `http.server` 把「Serving HTTP on … port N」
+  用 `print` 报到 **stdout 不是 stderr**；② stdout 接管道时子进程是块缓冲的，
+  那 60 个字节躺在缓冲区里永远不刷，必须给子进程加 `-u`。
+  读端口的那一行之前不要有任何会永久阻塞的调用，且起服务后要挂 `atexit` 兜底 kill
+  （两轮挂死共留了 5 个孤儿 server；本机是共享的，清理只能按 pid，不许宽匹配 pkill）
 - 先断言 `curl` 到的产物 md5 == 磁盘 md5（旧 http.server 占端口会让 A/B 量到旧产物）
+- A/B 的两棵树之间要断言**差异面**，不只断言目标指标：改动集必须 ⊆ 预期集，
+  新增集必须 ⊆ 预期集，删除集必须为空。`feed.xml`（带时间戳）与 `sw.js`
+  （另一会话的插件在构建期生成）是两次独立构建之间天然会漂的两个文件，进白名单。
+  归一化 `diff -rq` 的 `Only in` 行时别用 `lstrip('./')`——`../_site/x` 会被啃成 `_site/x`，
+  自己写的归一化会骗过自己那条断言
 
 收口跑**全量**既有门禁，不是只对改动文件跑：
 `toolkit-tests.mjs`（439）+ `check-tools-surface[-teeth]`（74）+ `verify-nav-touch` +

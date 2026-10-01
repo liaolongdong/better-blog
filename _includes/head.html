@@ -14,6 +14,28 @@
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
+    {%- comment %}
+    安装面三件套：manifest + iOS 主屏图标 + 明暗两档 theme-color。
+    · apple-touch-icon 单独一枚：iOS 完全不读 manifest，主屏图标只认这一个 link，
+      不给它的表现是「添加到主屏幕」截一张网页图当图标。180 那枚由
+      scripts/build-manifest-icons.mjs 与 192/512 一起出，地址查 _data/manifestIcons.yml，
+      不在第二处写死路径。
+    · theme-color 两档只能跟系统偏好（media 查询），跟不了 .night-mode 这个手动 class：
+      浏览器地址栏配色发生在页面脚本之前，没有任何钩子能在用户切档时改 meta。
+      这是平台限制不是遗漏，postHead.html 同一处也写着。
+    · 两个 hex 与 tokens.scss 的 --paper 明暗两值必须同值；SCSS 在 Liquid 里读不到，
+      所以这里写死、由 scripts/check-seo.mjs 拿 tokens.scss 对账（防两处漂移）。
+    · 下面四个 Liquid 控制标签一律「只带前减号、不带后减号」：后减号会把紧随其后的
+      换行加缩进一起吃掉，四条标签就会全糊到上一行 favicon 后面（已经这么翻过一次车，
+      产物里 `<link rel="manifest">` 直接贴在 `rel="shortcut icon"` 的 `>` 上）。
+    {%- endcomment %}
+    <link rel="manifest" href="{{ site.baseurl }}/manifest.json">
+    {%- assign _apple_icon = site.data.manifestIcons.icons | where: 'use', 'apple-touch' | first %}
+    {%- if _apple_icon %}
+    <link rel="apple-touch-icon" href="{{ _apple_icon.path | prepend: site.baseurl }}">
+    {%- endif %}
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#12141A">
     {% include seoMeta.html %}
     {% include headAssets.html %}
     {% include seoScript.html %}

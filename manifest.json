@@ -1,0 +1,37 @@
+---
+# 理由同 sitemap.xml：permalink 写死，路径才与 baseurl 对齐、才不会被
+# 「没显式声明 permalink 的页面拿到无扩展名 page.url」那一类坑咬到。
+permalink: /manifest.json
+---
+{%- comment -%}
+Web App Manifest。sw.js 已经能跑，差的就是这一个文件；补上才拿到「可安装」这个能力位。
+
+文件名用 manifest.json 而不是 manifest.webmanifest：后者要 CDN 认
+application/manifest+json 这个 MIME 才生效，而 GitHub Pages 的 MIME 表在部署前
+验不了——猜错的表现是安装面静默失效，连一条控制台报错都不给。manifest.json
+在任何静态托管上都是 application/json，Chrome 照单全收。零风险的那头。
+
+icons 的地址不在这里写第二遍：_data/manifestIcons.yml 是
+scripts/build-manifest-icons.mjs 的唯一出口，head.html 的 apple-touch-icon
+也查同一张表。where: 'use', 'manifest' 把只服务 iOS 主屏的 180 那枚挡在外面。
+
+刻意不写 orientation：锁定竖屏对一个要读长文与表格的站是减分项，
+横屏看代码块本来就是正当用法，让设备自己决定。
+{%- endcomment -%}
+{
+  "name": {{ site.title | jsonify }},
+  "short_name": "Better",
+  "description": {{ site.description | jsonify }},
+  "lang": "zh-CN",
+  "start_url": "{{ '/' | absolute_url }}",
+  "scope": "{{ '/' | absolute_url }}",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FAF9F6",
+  "icons": [
+{%- assign _icons = site.data.manifestIcons.icons | where: 'use', 'manifest' -%}
+{%- for ic in _icons %}
+    { "src": "{{ ic.path | absolute_url }}", "sizes": "{{ ic.sizes }}", "type": "image/png", "purpose": "any" }{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+  ]
+}

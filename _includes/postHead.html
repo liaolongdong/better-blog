@@ -14,6 +14,20 @@
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">
     <link rel="shortcut icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
+    {%- comment %}
+    安装面三件套，与 head.html 同一段、同一条理由（iOS 不读 manifest、theme-color
+    跟不了手动档、两个 hex 由 check-seo.mjs 拿 tokens.scss 对账），详见 head.html 那段注释。
+    这两份 head 是复制关系，任何一边漏了的表现都不一样：文章页缺 manifest 是
+    「从文章页添加到主屏幕」拿不到图标，缺 theme-color 是深色读者的地址栏白一块。
+    控制标签「只带前减号」那条约束也一样，理由写在 head.html。
+    {%- endcomment %}
+    <link rel="manifest" href="{{ site.baseurl }}/manifest.json">
+    {%- assign _apple_icon = site.data.manifestIcons.icons | where: 'use', 'apple-touch' | first %}
+    {%- if _apple_icon %}
+    <link rel="apple-touch-icon" href="{{ _apple_icon.path | prepend: site.baseurl }}">
+    {%- endif %}
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#12141A">
     {% include seoMeta.html %}
     {% include headAssets.html %}
     {% include seoScript.html %}
