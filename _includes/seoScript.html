@@ -1,5 +1,21 @@
+{%- comment -%}
+三条一律 defer：它们都是统计与站长推送，没有任何必须阻塞解析的理由，而同步加载时
+每一个都要在首屏前占住解析器（三个源都是跨域的第三方域：hm.baidu.com、
+zz.bdstatic.com、qihucdn.com——本仓 2026-09-23 已经因为 cdn.staticfile.org 的 15s 超时
+把 jQuery 与 normalize 收回自托管，见 headAssets.html 文件头那条注释，同一类风险）。
+
+用 defer 而不是 async：defer 保持三条之间的相对顺序，baiduStatistics 定义的 _hmt
+与两个 push 脚本之间若存在先后依赖仍然是安全的；async 不保证顺序。
+
+jQuery 不在这三条里，也**不能**跟着一起 defer——headAssets.html:50 记着那条决定：
+它必须早于任何用 $ 的脚本（dev/js/index.js 就是其一），加 defer 会改到执行次序。
+
+soPush.js 原本是 document.write 注入的第三方片段，那份写法配 defer 会整站白屏
+（defer 脚本在解析完成后执行，此时 document.write 触发隐式 document.open() 清空文档），
+已改写成与 baiduPush.js 同构的 createElement，理由记在该源文件头部。
+{%- endcomment -%}
 <!-- seo相关脚本 start -->
-<script src="{{ site.baseurl }}/assets/js/baiduStatistics.min.js"></script>
-<script src="{{ site.baseurl }}/assets/js/baiduPush.min.js"></script>
-<script src="{{ site.baseurl }}/assets/js/soPush.min.js"></script>
+<script defer src="{{ site.baseurl }}/assets/js/baiduStatistics.min.js"></script>
+<script defer src="{{ site.baseurl }}/assets/js/baiduPush.min.js"></script>
+<script defer src="{{ site.baseurl }}/assets/js/soPush.min.js"></script>
 <!-- seo相关脚本 end -->
