@@ -712,12 +712,16 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 逐笔读数见段 5 计划 Task 9 末那一格。
 
 **2026-10-01 判定已收到并落地：修 B（上面那句"登记为待判"到此为止）**
-落地的是那一形 `#{{ tool.prefix }}-panel-{{ p.slug }}`。代价这次不是补丁副本，是**两棵树各自真 `bundle exec jekyll build` 现产**：
+落地的是那一形 `#{{ tool.prefix }}-panel-{{ p.slug }}`。代价这次不是补丁副本，是**提交态两棵导出树各自真 `bundle exec jekyll build`**
+（`base` = `git archive ab64361`、`work` = `git archive cbcae59`，各 `ln -s` 活树 `vendor`、各跑一次真 `npx vite build`，两边 `exit=0`）：
 `_site/tools.html` 原文 50,500 → **50,590（+90B）**、L9 **12,985 → 12,993（+8B）**、L6 **13,027 → 13,036（+9B）**——
 三个数与上一格在副本上量出来的那几个**一字不差**，这条链路上第一次"预测 == 落地"。
 `base` 那一发的 `tools.html` md5 `ca57384c…` 正是修 A 那一格记的数（两发之间没有第三刀），`work` 是 **`2d6e9bf8…`**；
-`_site/tools/{idcard,codec,json,diff}.html` 四枚 `18e596d5… / 1501a4cf… / d1065a3f… / c9e1e854…` 逐枚 `cmp` 读**相同**，
-这一轮动的只有一件。`dev/**` 一字未动 ⇒ JS/CSS 必须零差，那条等式去提交态那一格拿。
+`_site/tools/{idcard,codec,json,diff}.html` 四枚 `18e596d5… / 1501a4cf… / d1065a3f… / c9e1e854…` 逐枚 `cmp` 读**相同**、
+`index.html` `d3b50f13…` 相同，**`_site` 全树差异只有两件**：`tools.html`（这一刀）与 `feed.xml`（构建时间戳）。
+`dev/**` 一字未动那条等式也在这一发拿上了：`assets/` 37 件（25 js + 12 css）`diff -rq` **无输出**，两棵树同一枚
+raw **853,662** / L6 **269,965** / L9 **269,180** / 逐件内容 md5 的合集 **`8ea256e4…`** / `import{` **0**——
+这五个数与修 A 那一格记的**一字不差**，"只改判据与牙齿、产物零差"那条口径第二次拿到等式。
 §7 那八行没有一行挪动——`tools.html` 不在 `scripts/verify-tools-browser.mjs:2702` 的 `ROWS` 里，与上一格同一口径。
 
 **代码侧三件**：`tools.html`（那一行 `href` 加它上面那段注释改口）、`scripts/check-tools-surface.mjs`
@@ -733,8 +737,9 @@ json/diff 两页 +0B。JS 一件不用改、地址栏口径也不分叉。但有
 ——逐枚是落地页那十枚（`idcard` 的 `idcard`/`uscc`/`bankcard`/`mobile`/`random`、`codec` 的
 `timestamp`/`base64`/`url`/`digest`/`regex`）加 `demo/vueRouterDemo/hashRouter.html` 故意写的两枚假路由（`/home`、`/about`）；
 `work` 落空 **2** 枚，只剩那两枚假路由——**工具页与落地页这 20 枚到此全部归零**（同页 10 枚归修 A、跨页 10 枚归本格）。
-两把读数的分母是同一串 2,329 枚：`base` 扫 135 份、`work` 扫 136 份，多那一份是并行会话挂在活树上的 `offline.html`，
-它带的片段链接数为 0（两份总数相同就是这件事的自证），所以那 12 → 2 不是"两份产物不同"量出来的，是这一刀量出来的。
+两把读数的分母是同一串 2,329 枚：提交态那两棵导出树各扫 **135** 份，所以 12 → 2 不是"两份产物不同"量出来的，是这一刀量出来的。
+（活树那一发扫到 136 份、总数仍是 2,329——多的那一份是并行会话挂在活树上的 `offline.html`，它带的片段链接数为 0，
+这一句留在这里是为了让"135 还是 136"跨格读成矛盾时有一句可对账。）
 两处与上一格的读数不同，都说清免得读成矛盾：① 上一格"带片段的 href 全站 2,344 枚"、本格 2,329 枚，
 那 15 枚之差**本轮未归因**（没去复现上一格那把尺，本格只保证自己这一把的判据逐字可复算）；
 ② 上一格说站内同页还剩 4 枚、含那 2 枚中文 TOC，本格判它们**落得下去**——`_site/2023/06/07/common-search-algorithm.html`
