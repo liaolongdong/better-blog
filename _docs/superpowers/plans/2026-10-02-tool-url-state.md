@@ -128,7 +128,7 @@ git commit -F /tmp/sp2/msg-1.txt
 - Modify: `dev/js/toolJson.js:159-177`
 - Modify: `dev/js/tools/jsonWorkbench.js`
 
-- [ ] **Step 1：入口把环境给它（红线：环境只在入口读）**
+- [x] **Step 1：入口把环境给它（红线：环境只在入口读）**
 
 `toolJson.js` 的 `createJsonWorkbench({…})` 里加两格，紧跟 `navigator` 那格之后：
 
@@ -137,7 +137,7 @@ git commit -F /tmp/sp2/msg-1.txt
     history: win.history,
 ```
 
-- [ ] **Step 2：装配层建键表**
+- [x] **Step 2：装配层建键表**
 
 键表由 `JSON_SPEC` 现产，不写第二份清单——`options` 与 `dflt` 都从那张表读，`dflt` 取 `options[0]`（骨架钉的是「第一枚 `<option>` 就是默认档」，与 `:808-809` 那两处 `?? 'two'` / `?? 'off'` 同源）。`jt-query` / `jt-doc` / `jt-memorize` 明确不在表里。
 
@@ -149,7 +149,7 @@ git commit -F /tmp/sp2/msg-1.txt
 
 （`query` 是 `type: 'text'`，这一行 filter 天然把它挡在外面；写出来是为了让读代码的人在原地看见「它是文本、所以不在这里」。）
 
-- [ ] **Step 3：进站那一次读，落在挂载三笔之前**
+- [x] **Step 3：进站那一次读，落在挂载三笔之前**
 
 `wireAll()` 尾部那三笔（`:939-943`）之前插一段：`Tk.url` 缺席就整段跳过；读到的值逐键写进控件，
 **只写控件、不解析**（红线 4「挂载期一次计算都不做」在 `:26`）。
@@ -170,7 +170,7 @@ git commit -F /tmp/sp2/msg-1.txt
 「不认识字段」忽略——这一步是门禁⑥ 能同时反查「键名由前缀 + 控件拼出」与「名单里没有裸控件名」
 两件事的前提。`got.ignored` 不写提示行（spec §3：地址栏不是缺陷）。
 
-- [ ] **Step 4：四个同步点**
+- [x] **Step 4：四个同步点**
 
 `view` 的 change 处理末尾、`query` 的 change（新增一枚，只同步、不计算）、`indent` 与 `sort` 各新增一枚**只写地址栏**的 change 监听、`reset` 那族不涉及（JSON 页没有 reset 按钮动这三格）。抽一个局部量：
 
@@ -188,7 +188,7 @@ git commit -F /tmp/sp2/msg-1.txt
 
 `doc` 与 `memorize` 那条路上一个字节都不许调它。
 
-- [ ] **Step 5：重建 + 一条 smoke**
+- [x] **Step 5：重建 + 一条 smoke**
 
 ```bash
 npx vite build && bundle exec jekyll build
@@ -197,7 +197,18 @@ node -e "const h=require('fs').readFileSync('_site/tools/json.html','utf8');cons
 
 Expected: `true`；`grep -c 'import{' assets/js/toolJson.min.js` = 0。
 
-- [ ] **Step 6：提交**（`dev/js/toolJson.js`、`dev/js/tools/jsonWorkbench.js` + `--fix` 换掉的镜像 + 计划勾选）
+- [x] **Step 6：提交**（`dev/js/toolJson.js`、`dev/js/tools/jsonWorkbench.js` + `--fix` 换掉的镜像 + 计划勾选）
+
+**落地补记（这一格与正文有三处不同，都是原地能查到的理由）**
+
+1. `syncUrl` 里取值走装配层已有的 `valueOf(k.control) ?? k.dflt`，不另抄正文那段 `node(...).value` 的读法：
+   这一页的档位读数口径本来就在 `valueOf`（空串与缺控件一律落默认档），量具与实现各读一套就是两个口径。
+2. **`query` 那一枚 change 监听没加**——它不在名单里，给它挂一根同步只会让每次输入都触发一次「值没变、
+   什么都不写」的空转。地址栏跟着它走的是别的档位的 change，U6 与牙齿 T8 正是用那条路验它不进镜像。
+3. `view` 那一路的同步排在 `if (viewValue() !== 'tree') return;` **之前**：那句早退会把同步一起吞掉，
+   切回 `text`（=默认档、键该删掉的那一档）就永远删不掉。另外构造期给 `env.location` / `env.history`
+   各加了一道点名检查（给了但形状不对就抛），`Tk.url` 缺席则整段静默跳过——这一页缺那两格时行为与
+   今天逐字节一样，只是不同步地址栏。
 
 ---
 
@@ -207,9 +218,9 @@ Expected: `true`；`grep -c 'import{' assets/js/toolJson.min.js` = 0。
 - Modify: `dev/js/toolDiff.js:200-214`
 - Modify: `dev/js/tools/diffWorkbench.js`
 
-- [ ] **Step 1：入口注入 `location` / `history`**（与 Task 2 Step 1 同一形状）
+- [x] **Step 1：入口注入 `location` / `history`**（与 Task 2 Step 1 同一形状）
 
-- [ ] **Step 2：键表从 `DIFF_SPEC` + `DEFAULTS` 现产**
+- [x] **Step 2：键表从 `DIFF_SPEC` + `DEFAULTS` 现产**
 
 ```js
   const URL_KEYS = [
@@ -224,18 +235,33 @@ Expected: `true`；`grep -c 'import{' assets/js/toolJson.min.js` = 0。
 
 `dflt` 用 `DEFAULTS`（`:81`，「重置」那一段用的也是它），不另立一份——这一格与 JSON 页取 `options[0]` 不同，是因为这一页本来就有一份写死的默认表，取 `options[0]` 反而造出第二个口径。
 
-- [ ] **Step 3：进站读，落在 `refreshGate()` 之前**（`mount:806` 那一句之前）；值写进 `field(id)`，select 用 `.value`、check 用 `.checked = true`（只有 `found` 里有才置真，缺席不动）。仍然一次计算都不做：`readControls()` 不在这条路上跑，第一次比对照旧是用户按「比较」。
+- [x] **Step 3：进站读，落在 `refreshGate()` 之前**（`mount:806` 那一句之前）；值写进 `field(id)`，select 用 `.value`、check 用 `.checked = true`（只有 `found` 里有才置真，缺席不动）。仍然一次计算都不做：`readControls()` 不在这条路上跑，第一次比对照旧是用户按「比较」。
 
-- [ ] **Step 4：三个同步点**
+- [x] **Step 4：三个同步点**
 
 `syncUrl` 同 Task 2 那一段（check 那两枚读 `field(id).checked === true`）；调用点三处：
 `retune()` 末尾（一次覆盖 `mode` / `layout` / `context` 三个下拉与折叠那三枚快捷键，`:645-649` 走的就是 `retune`）、
 `ws` / `case` 的 change 处理里（`:794-803`，`run()` 之后）、
 `reset` 那一段（`:635-641`，`readControls()` 之后——不按这一条，地址栏会留在重置前那一档，刷新就复活）。
 
-- [ ] **Step 5：重建 + smoke**（同 Task 2 Step 5，产物名换 `toolDiff.min.js` / `_site/tools/diff.html`）
+- [x] **Step 5：重建 + smoke**（同 Task 2 Step 5，产物名换 `toolDiff.min.js` / `_site/tools/diff.html`）
 
-- [ ] **Step 6：提交**
+- [x] **Step 6：提交**
+
+**落地补记（这一格有四处不同，第 3 条是量具替产品揪出来的缺陷，不是量具的账）**
+
+1. `URL_KEYS` 从 `DIFF_SPEC[PANEL].sides.bar.controls` 现产（`select` 与 `checkbox` 两类都在这串里），
+   不抄正文那三段手写 `['mode','layout','context'].map(...)`：名单与控件同源，加一枚档位控件时
+   只改一张表，不会有一张留在原地。`dflt` 仍取 `DEFAULTS`（正文这条照搬）。
+2. 进站读与 `syncUrl` 取值都走 `nodes` 那一只 Map，不走会 `RangeError` 的 `node()`：骨架缺哪一格
+   就是缺，这一页不该因为地址栏那一发而抛。构造期同样加了 `env.location` / `env.history` 的点名检查。
+3. **`retune()` 与 `ws`/`case` 那两处的同步排在 `finally`，不是正文说的「末尾」**。U3 拿空输入连打
+   20 发时红出来的：`readControls()` 在 `compute()` 之前就把新档写进了 `s.*`，控件也已经是新一档，
+   而两边空着或 JSON 档读到非法内容时 `compute()` 必抛 `FieldError`——写在末尾就跟着一起跳过，
+   屏幕上下拉指着「JSON」而链接里写着「text」，刷新即回弹。镜像跟的是控件，不是那一次计算的成败。
+   门禁因此多一格：`U3 diff·抛了也要镜像`（先自证状态行真的报了错，前提不成立就退 2）。
+4. 折叠那三枚按钮不叫 `fold-all`：骨架里是 `df-btn-workbench-expand` / `-fold` / `-diffOnly`
+   （`DIFF_ACTIONS` 的 `key`），程序化写回 `context` 的那一发走 `dispatch('expand')` → `retune`。
 
 ---
 
@@ -244,9 +270,9 @@ Expected: `true`；`grep -c 'import{' assets/js/toolJson.min.js` = 0。
 **Files:**
 - Create: `scripts/verify-tool-url.mjs`
 
-- [ ] **Step 1：把 SP3 那本量具的四段脚手架逐字抄进来**（`scripts/verify-search-deeplink.mjs` 的抢端口 + `md5` 自证 + 负载闸 + `until()` 轮询那四段），三处改动：环境变量名 `TU_SITE_DIR`（沿用 `verify-tools-browser.mjs:66-74` 那条「指到仓库 `_site` 就退 2」的隔离门）、页面清单换成 `tools/json.html` 与 `tools/diff.html` 两枚 + 四页名单、收尾行文案。
+- [x] **Step 1：把 SP3 那本量具的四段脚手架逐字抄进来**（`scripts/verify-search-deeplink.mjs` 的抢端口 + `md5` 自证 + 负载闸 + `until()` 轮询那四段），三处改动：环境变量名 `TU_SITE_DIR`（沿用 `verify-tools-browser.mjs:66-74` 那条「指到仓库 `_site` 就退 2」的隔离门）、页面清单换成 `tools/json.html` 与 `tools/diff.html` 两枚 + 四页名单、收尾行文案。
 
-- [ ] **Step 2：写 U1（进站按参数落定）与 U2（非法值忽略且不抹）**
+- [x] **Step 2：写 U1（进站按参数落定）与 U2（非法值忽略且不抹）**
 
 U1 的判据形状是逐键两读：`location.search` 与那枚控件的 `.value`（对比页 check 读 `.checked`）。合法值从产物里现取，不写死——
 
@@ -259,31 +285,51 @@ const OPTS = await evalJs(`(() => {
 
 每键取 `OPTS` 里**非默认**的那一档打进去（`dflt` 由 Node 侧从 `_site` 的骨架里数第一枚 `<option>`，与 `check-tools-surface` 的骨架读法同源，不抄装配层的表）。U2 打 `?${k}=不存在的档&keep=1&utm_source=x`，断言三件：控件仍是骨架给的那一档、`keep=1` 与 `utm_source=x` 逐字节在、`search` 里那枚非法值**没被抹掉**（那是别人的参数）。
 
-- [ ] **Step 3：U3（只用 replace）——`history.length` 增量**
+- [x] **Step 3：U3（只用 replace）——`history.length` 增量**
 
 抄 SP3 那一条的形状（`verify-search-deeplink.mjs` 的 J2）：连改 20 次档位前后各读一次 `history.length`，断言差 0。**不要**用 `getEntriesByType('navigation')`——那个条目数每文档恒 1，`pushState` 不往里加（SP3 spec §11.4 第 3 条记的就是这枚计划级假牙）。
 
-- [ ] **Step 4：U4（除自己的键以外一字不动）与 U5（程序化路径也跟）**
+- [x] **Step 4：U4（除自己的键以外一字不动）与 U5（程序化路径也跟）**
 
 U4：进站带 `?keep=1&utm_source=x`，动一次档位后 `URLSearchParams` 逐键读回两键同值，且新键排在末尾。
 U5：对比页点「全部展开」（`df-btn-workbench-fold-all`，走 `:645-649` 那条程序化写回）→ 地址栏要出现 `df-context=all`；点「重置」→ 该键要消失。这两子格抓的是「挂在 change 上就算全了」那个假口径。
 
-- [ ] **Step 5：U6（输入不进地址栏）四页全判**
+- [x] **Step 5：U6（输入不进地址栏）四页全判**
 
 往每页的第一枚 `textarea` / 主输入格打一枚唯一 token（`ZQX` + 随机 6 位），然后按该页一个会重绘的动作，断言 `location.href` 不含它。JSON 页额外打 `jt-in-workbench-query`（它**是**输入，且明确不在名单里），对比页两栏各打一次。证件页与编码页同样判——它们这一轮不加新键，这一格是给它们上的**回归锁**。
 
-- [ ] **Step 6：U7（落回默认删键 + `hash` 共存）**
+- [x] **Step 6：U7（落回默认删键 + `hash` 共存）**
 
 `?df-context=all#section-2` 进站 → 点重置 → `search` 里没有 `df-context`、`location.hash === '#section-2'`（这一子格钉的是「`sync` 不许把 hash 洗掉」，锚点与档位要能共存，见 spec §1.8）。
 
-- [ ] **Step 7：跑绿**
+- [x] **Step 7：跑绿**
 
 ```bash
 node scripts/toolkit-tests.mjs >/dev/null && TU_SITE_DIR=/tmp/sp2-teeth/_site node scripts/verify-tool-url.mjs
 ```
 Expected: `✓ 工具页地址栏验证：全绿（N 条）`（先建一份 `_site` 副本到 `/tmp/sp2-teeth/_site`）。
 
-- [ ] **Step 8：提交**
+- [x] **Step 8：提交**
+
+**落地补记（量具自己的五条口径，正文那七步没写到的都在这儿）**
+
+1. **实跑 26 条判据，不是正文预期的 N 条**：U1 十格（八枚键逐键两读 + 两页各一枚空地址栏基线）、
+   U2 三格、U3 三格（两页各一次 20 发 + `抛了也要镜像`）、U4 两格、U5 两格、U6 四格、U7 一格，
+   另加 U0 前置一格（`Tk.url` 三面在不在）。
+2. **房规第 4 条是本格特有的**：键名清单逐字写死自 spec §2（`jt-view jt-indent jt-sort` /
+   `df-mode df-layout df-context df-ws df-case`），可选值与默认档从 `_site` 的骨架现读。两处都不许抄
+   装配层那张表——这一本量具要判的正是「名单与控件是不是同一批」。默认档因此取 `<option selected>`
+   而不是第一枚：`df-in-workbench-context` 四档里钉默认的是第二枚（`3`），照第一枚推会把 `diff`
+   当成默认档，U5/U7 那两条「落回默认删键」从基准起就错。
+3. **正文里的两枚 fixture 在这两页不存在**，已换成骨架里真有的落点：`#section-2` → `#main`
+   （U7 的 hash 共存只要求 hash 真在链接里，用真锚点还顺带证明它不是凭空造的）；
+   `df-btn-workbench-fold-all` → `df-btn-workbench-expand`（见 Task 3 补记第 4 条）。
+4. **U3 那一发是空输入打的**，而且加了第二道读数：页内 `pushState` 计数器。`history.length` 差 0
+   单独用会恒真——一次都没写也是差 0，所以同一条判据先要求「地址栏里确实有自己那几枚键」；
+   计数器则直接点名那一只手，与 length 各自独立（正文点名的那条「不要用 navigation timing 条目」照办）。
+5. **量具自己抛退 2**（`uncaughtException` / `unhandledRejection` 各挂一只）：Node 默认让未捕获异常退 1，
+   而 1 在本族口径里是「产物有红点」，一句 stack trace 会被读成门量出了缺陷。U0 那一格因此走 `bad()`
+   而不是 `die()`——`Tk` 整只不在也是产物账，退 2 会替它开脱。
 
 ---
 
