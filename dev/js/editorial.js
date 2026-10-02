@@ -616,49 +616,125 @@
         // 「这一次渲染是不是面板刚打开」——只有这一次给行挂入场动画，
         // 之后每敲一个字的重绘都直接出结果，否则打字看着像在闪。
         var freshNext = false;
+        // 输入法组合态。标志位为主、事件上的 isComposing 为辅：Firefox 在「组合中按 Enter」
+        // 这一路历史上不发 isComposing，只靠事件属性会漏；keyCode 229 是老 Chrome 的形状。
+        var composing = false;
 
-        function open(trigger) {
+        // 面板打开那一刻记下的入口地址（pathname + search + hash，不含本次输入）。
+        // null 表示面板没开，syncUrl 于是任何事都不做。
+        var entryUrl = null;
+
+        /**
+         * 打开面板。
+         * @param {HTMLElement|null} trigger 触发元素（关闭后把焦点还给它）
+         * @param {string} [preset] 预填的查询词。深链进站必须一次到位：先开后塞值会渲染两次，
+         *   第二次把 .is-fresh 的错峰入场摘掉，观感就是「闪一下才出结果」。
+         */
+        function open(trigger, preset) {
             lastTrigger = trigger || null;
+            entryUrl = location.pathname + location.search + location.hash;
             panel.hidden = false;
             document.body.classList.add('cmdk-open');
-            input.value = '';
+            input.value = preset || '';
             freshNext = true;
-            window.setTimeout(function () { input.focus(); }, 0);
-            render('');
+            window.setTimeout(function () {
+                input.focus();
+            }, 0);
+            render(input.value);
         }
 
         function close() {
             panel.hidden = true;
             document.body.classList.remove('cmdk-open');
+            syncUrl('');
+            entryUrl = null;
             if (lastTrigger) lastTrigger.focus();
         }
 
         /**
-         * 给单条结果打分：标题命中权重最高，其次标签、分类、摘要。
+         * 把当前查询写进地址栏。只用 replaceState：一条面板不该产生历史条目。
+         *
+         * 整段包 try 的理由不是「万一不支持」。boot()（本文件末尾）把 20 个 init 平铺直叙
+         * 排下来、没有逐条守护，initPalette 抛出会连带掐死后面 14 项；而 Safari 对
+         * replaceState 有明确限流（30 秒内超过 100 次直接抛），快打字加粘贴撞得上。
+         * 一次限流抛异常的代价，不该是「这一页的目录、书架、灯箱全没了」。
+         * @param {string} value 已 trim 的查询词，空串表示删掉 q
+         */
+        function syncUrl(value) {
+            if (entryUrl === null) return;
+            try {
+                var u = new URL(entryUrl, location.href);
+                if (value) u.searchParams.set('q', value);
+                else u.searchParams.delete('q');
+                window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+            } catch (e) {
+                /* 限流/解析失败：这一轮 URL 不跟，检索照常 */
+            }
+        }
+
+        /** 查询切成词：连续空白算一个分隔符。单词查询切出来就是它自己。 */
+        function toTerms(query) {
+            return query.split(/\s+/).filter(Boolean);
+        }
+
+        /**
+         * 给单条结果打分：多个词之间是 AND —— 任一词在四个字段里都拿不到分，整条出局。
+         *
+         * 单词时走的仍是原来那条 `weights[i] - Math.min(idx, weights[i] - 1)` 的字段求和，
+         * 一分没变：J6 拿 HEAD 产物对账，结果集与顺序必须逐条相等。
+         * hits 允许出现重复下标（多词各命中同一字段时），消费点只做 indexOf(3) 判断，不去重。
          * @param {Object} item 检索条目
-         * @param {string} q 已小写化的查询词
+         * @param {string[]} terms 已小写化的词表
          * @returns {{score: number, hits: number[]}} score 为 0 表示不匹配
          */
-        function score(item, q) {
+        function score(item, terms) {
             var fields = [item.title || '', item.tags || '', item.category || '', item.excerpt || ''];
             var weights = [100, 40, 20, 8];
             var total = 0;
             var hits = [];
-            for (var i = 0; i < fields.length; i++) {
-                var idx = fields[i].toLowerCase().indexOf(q);
-                if (idx >= 0) {
-                    total += weights[i] - Math.min(idx, weights[i] - 1);
-                    hits.push(i);
+            for (var t = 0; t < terms.length; t++) {
+                var termScore = 0;
+                for (var i = 0; i < fields.length; i++) {
+                    var idx = fields[i].toLowerCase().indexOf(terms[t]);
+                    if (idx >= 0) {
+                        termScore += weights[i] - Math.min(idx, weights[i] - 1);
+                        hits.push(i);
+                    }
                 }
+                if (!termScore) return { score: 0, hits: [] };
+                total += termScore;
             }
             return { score: total, hits: hits };
         }
 
-        /** 用 <mark> 包住第一个命中片段，帮助用户确认「为什么这条被搜到」。 */
-        function mark(text, q) {
-            var idx = text.toLowerCase().indexOf(q);
-            if (idx < 0) return esc(text);
-            return esc(text.slice(0, idx)) + '<mark>' + esc(text.slice(idx, idx + q.length)) + '</mark>' + esc(text.slice(idx + q.length));
+        /** 把用户输入当正则字面量使用之前必须转义，否则一个 `(` 就把构造打断。 */
+        function escRe(s) {
+            return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        /**
+         * 用 <mark> 包住每个词的每一次命中，帮用户确认「为什么这条被搜到」。
+         *
+         * 文本仍是一段一段 esc() 之后再拼（与旧版同一条转义链），词只进正则不进 HTML。
+         * 词表按长度降序排：并列的 | 分支取先匹配到的那一支，长词不排前面，
+         * 「搜索引擎」就会在同一起点上输给「搜索」。
+         * @param {string} text 原文
+         * @param {string[]} terms 小写词表
+         * @returns {string} 已转义的 HTML 片段
+         */
+        function mark(text, terms) {
+            var s = String(text);
+            if (!terms.length) return esc(s);
+            var re = new RegExp('(' + terms.slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|') + ')', 'gi');
+            var out = '';
+            var last = 0;
+            var m;
+            while ((m = re.exec(s)) !== null) {
+                if (!m[0]) { re.lastIndex++; continue; }
+                out += esc(s.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+                last = m.index + m[0].length;
+            }
+            return out + esc(s.slice(last));
         }
 
         function setActive(next) {
@@ -683,8 +759,8 @@
 
         function render(query) {
             var token = ++seq;
-            var q = query.trim().toLowerCase();
-            if (!q) {
+            var terms = toTerms(query.trim().toLowerCase());
+            if (!terms.length) {
                 results.innerHTML = '';
                 matches = [];
                 activeIndex = -1;
@@ -699,7 +775,7 @@
                 if (token !== seq) return;
                 var scored = [];
                 for (var i = 0; i < data.length; i++) {
-                    var s = score(data[i], q);
+                    var s = score(data[i], terms);
                     if (s.score > 0) scored.push({ item: data[i], hits: s.hits, score: s.score });
                 }
                 scored.sort(function (a, b) { return b.score - a.score; });
@@ -720,8 +796,8 @@
                     if (item.tags) meta.push(esc(item.tags.split(/\s+/).filter(Boolean).slice(0, 2).join(' · ')));
                     return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
                         + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
-                        + '<span class="cmdk-item-title">' + mark(item.title || '', q) + '</span>'
-                        + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), q) + '</span>'
+                        + '<span class="cmdk-item-title">' + mark(item.title || '', terms) + '</span>'
+                        + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), terms) + '</span>'
                         + '<span class="cmdk-item-meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</span>'
                         + '</a></li>';
                 }).join('');
@@ -783,6 +859,9 @@
                 return;
             }
             if (panel.hidden) return;
+            // 组合中的 Esc / ↑ / ↓ / Enter 整组归输入法。放在 panel.hidden 之后，所以 ⌘K 与 `/`
+            // 这两个全局入口不受影响。
+            if (composing || e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Escape') { e.preventDefault(); close(); }
             else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
@@ -792,10 +871,34 @@
             }
         });
 
-        input.addEventListener('input', function () { render(input.value); });
+        input.addEventListener('compositionstart', function () { composing = true; });
+        input.addEventListener('compositionend', function () {
+            // 收尾必须自己补一遍 render + syncUrl：整场组合里 input 监听是被拦着的，
+            // 不补的话屏幕上留的是上一个词的结果、地址栏停在进站那个词上。
+            composing = false;
+            render(input.value);
+            syncUrl(input.value.trim());
+        });
+        input.addEventListener('input', function () {
+            // 候选词还没落定就不重绘：拼音串每跳一次重排一次，打字看着像在闪。
+            if (composing) return;
+            render(input.value);
+            syncUrl(input.value.trim());
+        });
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Tab') e.preventDefault();
         });
+
+        // 深链进站。放在所有监听器之后：这一次 open 于是走的是与手动打开完全同一条路径，
+        // 错峰入场、setActive(0)、aria-activedescendant 一并生效，不是「看起来像但少了几步」。
+        // 读 URLSearchParams 也包 try——同上，一条查询串不许带走 boot() 里后面 14 项能力。
+        var preset = '';
+        try {
+            preset = (new URL(location.href).searchParams.get('q') || '').trim();
+        } catch (e) {
+            preset = '';
+        }
+        if (preset) open(null, preset);
     }
 
     /* ------------------------------------------------------------------
