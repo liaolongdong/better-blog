@@ -242,8 +242,13 @@ export const controlIds = (p) => {
  * 接一页。
  * @param {object} env 由 `toolDiff.js` 递进来的环境
  * @param {object} env.document 真 `document`
- * @param {object} env.Tk `window.Tk`（这一页只吃 `view.esc` 那一格）
+ * @param {object} env.Tk `window.Tk`（这一页只吃 `view.esc` 那一格；第五只 `url` 若在场就用来
+ *   把档位同步进地址栏，缺席整段跳过——地址栏是镜像不是来源，不在构造期点名）
  * @param {string} env.prefix 前缀
+ * @param {{search: string, pathname: string, hash?: string}} [env.location] 只为地址栏那三格，
+ *   给了但 `search` / `pathname` 不是字符串就在构造期点名；缺席就整段不同步
+ * @param {{replaceState: Function}} [env.history] 同上，且只调 `replaceState`——改档位不是新历史，
+ *   后退不该先退回上一个档位
  * @param {Function} [env.runGuarded] `(id, fn) => boolean`：坏消息的边界，本层只管抛
  * @param {Function} env.later `(fn, ms) => number`：防抖那一只延时
  * @param {object} [env.navigator] 只借 `clipboard` 那一格
@@ -263,6 +268,15 @@ export function createDiffWorkbench(env) {
   if (env.rowHeight !== undefined && (!Number.isInteger(env.rowHeight) || env.rowHeight < 1)) {
     throw new RangeError(`env.rowHeight 得是 ≥1 的整数像素（权威在样式那一格），这里是 ${String(env.rowHeight)}`);
   }
+  // 地址栏那两格是**可选面**：缺席就整段不同步，给了却是残件就是有人在传一只假 `location`。
+  // 与 JSON 页那两条同形（只在给了的时候点名，不逼每一页都给）。
+  if (env.location !== undefined && env.location !== null
+    && (typeof env.location.search !== 'string' || typeof env.location.pathname !== 'string')) {
+    throw new TypeError('createDiffWorkbench：给了 env.location 但 search/pathname 不是字符串，档位进地址栏会静默不生效');
+  }
+  if (env.history !== undefined && env.history !== null && typeof env.history.replaceState !== 'function') {
+    throw new TypeError('createDiffWorkbench：给了 env.history 但没有 replaceState，档位进地址栏会静默不生效');
+  }
   /** 有读文件这两只手才谈得上"选本地文件"；缺了就把两枚按钮与两个 `input` 一起置灰（Z27 最后一档） */
   const canReadFiles = typeof env.readFile === 'function' && typeof env.decode === 'function';
   const canDownload = typeof env.BlobCtor === 'function'
@@ -270,6 +284,15 @@ export function createDiffWorkbench(env) {
   const nav = env.navigator;
   const clip = nav ? nav.clipboard : undefined;
   const rowHeight = env.rowHeight === undefined ? ROW_HEIGHT : env.rowHeight;
+  /**
+   * 档位 ↔ 地址栏那三只（SP2 Task 1）。`urlMod` / `loc` / `hist` 缺任何一只就**整段不同步**——
+   * 这一页的行为与加这一格之前逐字节一样：地址栏是结果的镜像，不是来源，镜像的画布缺席
+   * 不该影响被画的那件事。（`location` 与 `history` 只在入口 `toolDiff.js` 里读一次真宿主，
+   * 这一层不写 `window.`，与上面 `nav` 那一条红线同源。）
+   */
+  const urlMod = tk.url && typeof tk.url.sync === 'function' ? tk.url : null;
+  const loc = env.location && typeof env.location.search === 'string' ? env.location : null;
+  const hist = env.history && typeof env.history.replaceState === 'function' ? env.history : null;
 
   /**
    * 这一页的全部状态。`out` 是"最近一次可比复制的文本"，复制与下载读的就是这一格（Z19 判两边同字）；
@@ -321,6 +344,43 @@ export function createDiffWorkbench(env) {
     s.layout = selectOf('layout', LAYOUT_OPTIONS, DEFAULTS.layout);
     s.context = selectOf('context', Object.keys(CONTEXT_VALUE), DEFAULTS.context);
     return { ws: flag('ws'), case: flag('case') };
+  };
+
+  /**
+   * 进地址栏的那五枚档位（`df-mode` / `df-layout` / `df-context` / `df-ws` / `df-case`）。
+   * 键表从 `DIFF_SPEC[PANEL].sides.bar.controls` 现产，不写第二份清单：这一页的档位控件**正好就是**
+   * `bar` 那一串的五枚（`a-text` / `b-file` 那六枚挂在 side `a` / `b` 上，天然进不来）。
+   * `dflt` 取 `DEFAULTS`（「重置」那一段用的也是它）而不是 `options[0]`——这一页本来就有一份写死的
+   * 默认表，绕开它反而造出第二个口径。每格带两个名字：`name` 是地址栏里那枚键，`control` 是裸控件
+   * id（拼真实 DOM id 用）；`Tk.url` 只认 `name` / `kind` / `options` / `dflt`，多出的按不认识处理。
+   */
+  const URL_KEYS = DIFF_SPEC[PANEL].sides.bar.controls
+    .filter((c) => c.type === 'select' || c.type === 'checkbox')
+    .map((c) => (c.type === 'select'
+      ? { name: `${env.prefix}-${c.id}`, control: c.id, kind: 'select', options: c.options, dflt: DEFAULTS[c.id] }
+      : { name: `${env.prefix}-${c.id}`, control: c.id, kind: 'check', dflt: false }));
+
+  /**
+   * 把当前五枚档位同步进地址栏。一次计算都不做：这一发不碰 `readControls()`、不碰 `run()`，
+   * 读数口径与它们同源（select 空串落 `DEFAULTS`，与 `selectOf` 同一条；check 只认 `=== true`，
+   * 与 `flag` 同一条）。`sync` 自己已把 `replaceState` 的抛点收敛成 `false`，外面这层 `try`
+   * 守的是别的抛法，抛上来的下场只该是"这一次没写进地址栏"。
+   */
+  const syncUrl = () => {
+    if (!urlMod || !loc || !hist) return;
+    const values = {};
+    try {
+      for (const k of URL_KEYS) {
+        const el = nodes.get(fieldId(env.prefix, PANEL, k.control));
+        if (!el) { values[k.name] = k.dflt; continue; }
+        if (k.kind === 'check') values[k.name] = el.checked === true;
+        else {
+          const raw = String(el.value || '');
+          values[k.name] = raw === '' ? k.dflt : raw;
+        }
+      }
+      urlMod.sync(loc, hist, URL_KEYS, values);
+    } catch { /* 镜像写不上就不写，这一页的行为不该跟着变 */ }
   };
 
   /** 千分位只给"行数"这种大数用；`toLocaleString` 的 locale 写死，两台机器要给出同一个字符串 */
@@ -640,6 +700,7 @@ export function createDiffWorkbench(env) {
       field('case').checked = false;
       readControls();
       syncGate();
+      syncUrl();
       say('bar', '档位回到默认（输入没动）');
       return;
     }
@@ -677,23 +738,35 @@ export function createDiffWorkbench(env) {
    * 档位变了而内容不必重算：`mode` / `layout` / `context` 三枚下拉与折叠那三枚快捷键共用这一发。
    * `mode` 换的是**口径**（文本 / JSON），必须重算——两张账表数的是不同的事；`layout` 与 `context`
    * 只换视图，读的还是那份 `result`（Z20 与 Z21 各自钉住这一条）。
+   *
+   * 地址栏那一发排在 `finally`：`readControls()` 在 `try` **之前**就把新档写进了 `s.*`，控件也已经是
+   * 新的一档，而 `compute()` 会在「两边都还空着」与「JSON 档读到非法 JSON」那两种形状先抛
+   * `FieldError`。把同步放在最后一行会让它跟着一起跳过去——屏幕上下拉明明指着「JSON」，链接里却
+   * 还写着「text」，刷新之后档位悄悄回弹。镜像跟的是控件，不是那一次计算的成败。
    * @param {string} id 变了的那一枚
    */
   const retune = (id) => {
     const opts = readControls();
-    if (id === 'mode') {
-      const produced = compute(opts);
-      paint(bodyOf(produced));
-      resultBox().scrollTop = 0;
-    } else if (id === 'context' && s.result) {
-      s.hunks = hunksOf(s.result, CONTEXT_VALUE[s.context]);
-      s.rows = s.hunks.reduce((acc, h) => acc.concat(h.rows), []);
-      s.at = 0;
-      paint(bodyOf(s.result));
-    } else if (s.produced) {
-      paint(bodyOf(s.produced));
+    try {
+      if (id === 'mode') {
+        const produced = compute(opts);
+        paint(bodyOf(produced));
+        resultBox().scrollTop = 0;
+      } else if (id === 'context' && s.result) {
+        s.hunks = hunksOf(s.result, CONTEXT_VALUE[s.context]);
+        s.rows = s.hunks.reduce((acc, h) => acc.concat(h.rows), []);
+        s.at = 0;
+        paint(bodyOf(s.result));
+      } else if (s.produced) {
+        paint(bodyOf(s.produced));
+      }
+      syncGate();
+    } finally {
+      // 地址栏跟着这一发：三个下拉的 `change` 与折叠那三枚快捷键（`dispatch` 里写回 `context`
+      // 之后调的就是 `retune`）共用这一个出口，一处不漏。值一次都不多写——档位没真变时
+      // `nextSearch` 自己返回 null，`sync` 跟着返回 false，一次 `replaceState` 都不发生。
+      syncUrl();
     }
-    syncGate();
   };
 
   /**
@@ -795,10 +868,34 @@ export function createDiffWorkbench(env) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {
           nodes.get(fid).addEventListener('change', () => {
-            const inner = () => { run(); say('bar', '归一化档变了，重比了一遍'); };
+            const inner = () => {
+              // 与 `retune` 同一条口径：`run()` 在「两边都还空着」时先抛，控件却已经换档，
+              // 地址栏那一发必须跟着控件走，所以排在 `finally`。
+              try {
+                run();
+                say('bar', '归一化档变了，重比了一遍');
+              } finally {
+                syncUrl();
+              }
+            };
             if (typeof env.runGuarded === 'function') env.runGuarded(fid, inner);
             else inner();
           });
+        }
+      }
+      // 进站那一次读，落在下面这几笔**之前**：地址栏里的档位因此与用户亲手拨到同一档走的是同一条路
+      //（那一次 `refreshGate()` / `syncGate()` 读到的就是它），不新增第二份口径。这里只写控件、
+      // 不比对——`readControls()` 不在这条路上，`s.computes` 不涨（Z18 判的正是这一格）；
+      // `got.ignored` 不写提示行（spec §3：地址栏不是缺陷）。
+      if (urlMod && loc) {
+        const got = urlMod.parse(loc.search, URL_KEYS);
+        for (const k of URL_KEYS) {
+          if (got.found[k.name] === undefined) continue;
+          const fid = fieldId(env.prefix, PANEL, k.control);
+          if (!nodes.has(fid)) continue;
+          const el = nodes.get(fid);
+          if (k.kind === 'check') el.checked = got.found[k.name] === true;
+          else el.value = got.found[k.name];
         }
       }
       paint(view.renderNotice('把要比较的两份内容分别贴进来，或各选一个本地文件；文件在这台机器上读取，不上传。'));
