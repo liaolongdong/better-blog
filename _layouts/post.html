@@ -201,7 +201,7 @@
         （单次调用里它是第一张图，LCP 候选必须保持 eager）。
         {%- endcomment -%}
         {%- capture hero_img -%}<img src="{{ coverSrc }}" alt="{{ page.title | escape }} 头图">{%- endcapture -%}
-        {{ hero_img | add_image_dims }}
+        {{ hero_img | add_image_dims: 'lcp' }}
       </div>
     </figure>
     {% endif %}
@@ -211,11 +211,18 @@
     <div class="g-container post-grid">
     {%- comment -%} id="main" 是 _includes/header.html 那条「跳到主要内容」的落点 {%- endcomment -%}
     <div class="post-main" id="main">
+      {%- comment -%}
+      正文这一趟要不要领 fetchpriority="high"：有封面时 LCP 候选是上面那颗头图
+      （头图那次调用已经领了），正文首图在折叠线以下，再领一枚 high 只会稀释提示；
+      没封面时正文首图就是 LCP 候选，领的是它。判据在滤镜里，这里只传档位。
+      {%- endcomment -%}
+      {%- assign body_dims_mode = '' -%}
+      {%- unless page.cover -%}{%- assign body_dims_mode = 'lcp' -%}{%- endunless -%}
       <article class="markdown-body" id="post-body"
                data-chars="{{ post_chars }}"
                data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"
                data-cat="{{ page.categories | first }}">
-        {{ post_body | add_baseurl_to_images | add_image_dims }}
+        {{ post_body | add_baseurl_to_images | add_image_dims: body_dims_mode }}
       </article>
 
       {%- comment -%}
@@ -347,6 +354,15 @@
     </section>
     {% endif %}
 
+    {%- comment -%}
+    这两颗缩略图过一次「只换源」档（swap）：同目录有 webp 兄弟就把 src 换过去，
+    width/height、lazy、提权一概不加。理由是 dev/js/index.js 的 postCover() 要用
+    img 的高度（260 的容器高）来决定走 width:auto 还是 margin-top 那条分支，
+    而 CSS 里它们起手是 display:none，量到 0；补上尺寸属性会让它量到 592，
+    分支就此翻边——那是视觉改动，不是本批要动的东西。
+    值得单独开一档：banner-3 这类封面在文章页的「下一篇」位上是 1580KB，
+    换成 webp 之后是 50KB，而它是运行时真会被 fadeIn 显示出来的图。
+    {%- endcomment -%}
     <section class="post-footer-item read-next">
       {% if page.next.url %}
       {% include coverSrc.html cover=page.next.cover %}
@@ -358,7 +374,8 @@
         </section>
         {% if page.next.cover %}
         <div class="filter"></div>
-        <img src="{{ coverSrc }}" alt="">
+        {%- capture rn_img -%}<img src="{{ coverSrc }}" alt="">{%- endcapture -%}
+        {{ rn_img | add_image_dims: 'swap' }}
         {% endif %}
      </div>
       {% endif %}
@@ -373,7 +390,8 @@
           </section>
           {% if page.previous.cover %}
           <div class="filter"></div>
-          <img src="{{ coverSrc }}" alt="">
+          {%- capture pv_img -%}<img src="{{ coverSrc }}" alt="">{%- endcapture -%}
+          {{ pv_img | add_image_dims: 'swap' }}
           {% endif %}
       </div>
       {% endif %}

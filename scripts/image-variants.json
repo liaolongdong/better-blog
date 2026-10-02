@@ -1,0 +1,125 @@
+{
+  "encoder": "ffmpeg libwebp -quality 82 -compression_level 6 -preset drawing",
+  "variants": {
+    "assets/img/account-password-helper/01-infographic-pain-points.png": {
+      "sha256": "b764a42ac7de4c254595bc673b501708dbc2aaa04c040a9ecc7e5d62972d57b8",
+      "webp": "assets/img/account-password-helper/01-infographic-pain-points.webp",
+      "pngBytes": 5389777,
+      "webpBytes": 202266
+    },
+    "assets/img/account-password-helper/02-comparison-tools.png": {
+      "sha256": "6bdf98d41685761c78ab755bd1a6c7b6417f3d14007e1e80947088a755c64cb1",
+      "webp": "assets/img/account-password-helper/02-comparison-tools.webp",
+      "pngBytes": 2132130,
+      "webpBytes": 195278
+    },
+    "assets/img/account-password-helper/03-infographic-features.png": {
+      "sha256": "949133646fbf694548bd3da1e512cda2a0bcdd4a9fd6645f5ab0e5d7145927b3",
+      "webp": "assets/img/account-password-helper/03-infographic-features.webp",
+      "pngBytes": 1928048,
+      "webpBytes": 198418
+    },
+    "assets/img/account-password-helper/04-flowchart-workflow.png": {
+      "sha256": "f50a2740e4e428a016be86158ea9ece1fc901db2724cb6ad59d27949f883e945",
+      "webp": "assets/img/account-password-helper/04-flowchart-workflow.webp",
+      "pngBytes": 1790318,
+      "webpBytes": 161192
+    },
+    "assets/img/account-password-helper/05-framework-architecture.png": {
+      "sha256": "65fa6056306207b74722f09f79ce9c80a51f20993a6b68177566726157aadb10",
+      "webp": "assets/img/account-password-helper/05-framework-architecture.webp",
+      "pngBytes": 7479363,
+      "webpBytes": 369962
+    },
+    "assets/img/ai-sdd/banner-1.png": {
+      "sha256": "f9627fdd678290863c255ae676e8b34bef091a0d74f178bda7fae665b4866703",
+      "webp": "assets/img/ai-sdd/banner-1.webp",
+      "pngBytes": 1378814,
+      "webpBytes": 47184
+    },
+    "assets/img/ai-sdd/banner-3.png": {
+      "sha256": "a1748ebebac17dc1f553965473510105add98a51f2c0d6f931548fa7119b4b1c",
+      "webp": "assets/img/ai-sdd/banner-3.webp",
+      "pngBytes": 1617929,
+      "webpBytes": 50982
+    },
+    "assets/img/ai-sdd/four-frameworks.png": {
+      "sha256": "a40e9b6e382066c5ee30c5b0be33ca3a814bebe6686a12fe24ca44b95ce5ae3e",
+      "webp": "assets/img/ai-sdd/four-frameworks.webp",
+      "pngBytes": 627275,
+      "webpBytes": 33208
+    },
+    "assets/img/ai-sdd/kiro-architecture.png": {
+      "sha256": "0357fd37cfe90019c5e5efca138f04fd49ec33f456f0e76508cefd5d6cd4952b",
+      "webp": "assets/img/ai-sdd/kiro-architecture.webp",
+      "pngBytes": 1128038,
+      "webpBytes": 44724
+    },
+    "assets/img/chrome-plugin-img/Axure.png": {
+      "sha256": "b62b21dfe0a45ff500bc0bd1d0fb3fcb5ab8323058453a78ed7ad1ddb95211a2",
+      "webp": "assets/img/chrome-plugin-img/Axure.webp",
+      "pngBytes": 908980,
+      "webpBytes": 66552
+    },
+    "assets/img/chrome-plugin-img/console-importer.png": {
+      "sha256": "c45bca2df3c0981e52227f32a2db902e71191cea867dc0fa73c1399837882b40",
+      "webp": "assets/img/chrome-plugin-img/console-importer.webp",
+      "pngBytes": 565743,
+      "webpBytes": 116626
+    },
+    "assets/img/chrome-plugin-img/fe-helper.png": {
+      "sha256": "8f6a2b042ba3a5fdaa186d1861a7122f7598b8e778948a594ac80df6a37eb9db",
+      "webp": "assets/img/chrome-plugin-img/fe-helper.webp",
+      "pngBytes": 1475224,
+      "webpBytes": 237576
+    },
+    "assets/img/chrome-plugin-img/full-page-screen-capture.png": {
+      "sha256": "9d74fc6c43a180da90cc9de346ffa3d42da05792bf6e288989ec7beadfcdf304",
+      "webp": "assets/img/chrome-plugin-img/full-page-screen-capture.webp",
+      "pngBytes": 634561,
+      "webpBytes": 114064
+    },
+    "assets/img/chrome-plugin-img/google-translate.png": {
+      "sha256": "5ecc7eff7366351ca357d69c8ee85eb8ba8bc12b42d90a126980ce4d4cc506ea",
+      "webp": "assets/img/chrome-plugin-img/google-translate.webp",
+      "pngBytes": 1288723,
+      "webpBytes": 173700
+    },
+    "assets/img/chrome-plugin-img/tampermonkey.png": {
+      "sha256": "9aa2bdd07070e4d69ddb2910e6c3d1d0d545e944cd24cd705e46a6a9efd1e4e6",
+      "webp": "assets/img/chrome-plugin-img/tampermonkey.webp",
+      "pngBytes": 786982,
+      "webpBytes": 121652
+    },
+    "assets/img/chrome-plugin-img/zh-en-translate.png": {
+      "sha256": "d06bf2a7fbc65f85fd373cd277baf9f5d89de71d3be2766e47c101821f6de629",
+      "webp": "assets/img/chrome-plugin-img/zh-en-translate.webp",
+      "pngBytes": 857257,
+      "webpBytes": 140280
+    },
+    "assets/img/postCover/06-sidepanel-fill.png": {
+      "sha256": "e294e76c36862e10d00c4e1b3dca8d4b5c13327f19d71b77c9470e96229e4ba5",
+      "webp": "assets/img/postCover/06-sidepanel-fill.webp",
+      "pngBytes": 599146,
+      "webpBytes": 183516
+    },
+    "assets/img/postCover/h5_ios_debug.png": {
+      "sha256": "70e21d38c7f7199ab27d90f522dddcc736af2057dc9abef406970c54fa8eb931",
+      "webp": "assets/img/postCover/h5_ios_debug.webp",
+      "pngBytes": 574305,
+      "webpBytes": 545750
+    },
+    "assets/img/posts/fe-env-switch-arch.png": {
+      "sha256": "a2da163be07bf3f82d02fb14bc22838eab6713af43f542143b9ac755be910bed",
+      "webp": "assets/img/posts/fe-env-switch-arch.webp",
+      "pngBytes": 724116,
+      "webpBytes": 163572
+    },
+    "assets/img/web-mcp/webmcp-vs-banner-1.png": {
+      "sha256": "cdf6ae9d09cbbee3290ac44896c649060f6a744806f5774de201b7e47be559c9",
+      "webp": "assets/img/web-mcp/webmcp-vs-banner-1.webp",
+      "pngBytes": 2787452,
+      "webpBytes": 265196
+    }
+  }
+}

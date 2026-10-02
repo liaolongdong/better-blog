@@ -152,7 +152,25 @@ module Jekyll
 
   # Liquid 滤镜
   module ImageDimsFilter
-    # 给内容里的 <img> 补 width/height，并给非首图补 loading=lazy
+    SRC_RE = /\bsrc\s*=\s*(["'])(.*?)\1/i.freeze
+
+    # 给内容里的 <img> 补 width/height、给非首图补 loading=lazy，并做两件事：
+    #
+    # 1. 构建期格式换源——同目录存在 .webp 兄弟就把 src 从 .png 换过去
+    #    （scripts/build-image-variants.mjs 的产物）。为什么不做 <picture>：
+    #    dev/js/editorial.js 那条揭示选择器是 `#post-body p:has(> img[loading="lazy"])`，
+    #    `>` 是直接子级，把 img 包进 <picture> 之后这条再也匹配不到，已上线的揭示动效
+    #    会**静默**消失，而 editorial.js 不在本批可动范围；webp 的基线（Safari 14+，
+    #    2020-09）让 <source type="image/webp"> 那层回退在这里值约等于 0。
+    #    换源不改变 DOM 形状，所以 motion 批 IV 与 article-check 的判据全部继续有效。
+    # 2. mode 传 'lcp' 时，给这一次调用里的第一张 eager 图补 fetchpriority="high"。
+    #    调用方自己知道哪一次是 LCP 候选（文章页有封面时是头图那次，没封面时是正文那次），
+    #    滤镜没有这个上下文，所以由 _layouts/post.html 显式传进来。
+    # 3. mode 传 'swap' 时只做换源，别的什么都不动。给「上一篇/下一篇」的封面缩略图用的：
+    #    dev/js/index.js 的 postCover() 拿 img.height() 和容器高 260 比大小来决定
+    #    走 width:auto 还是 margin-top 那条分支，而 CSS 里那两颗 img 起手是 display:none，
+    #    量到的是 0。补上 width/height 属性会让它突然量到 592，分支就此翻边——
+    #    那是视觉改动，不在本批范围，所以这里只肯换 src 那一截。
     #
     # 只处理「解析得到站内文件」的图：外链（http/https/协议相对）、data: URI、
     # 以及模板里拼出来的动态 src 一律原样放过——构建期读不到它们的尺寸。
@@ -162,20 +180,30 @@ module Jekyll
     #
     # @param content [String] 渲染后的 HTML（须已 over add_baseurl_to_images，
     #   这样 src 才带 baseurl、能还原成磁盘路径）
+    # @param mode [String, nil] 'lcp' 给首张 eager 图补提权；'swap' 只换源
     # @return [String]
-    def add_image_dims(content)
+    def add_image_dims(content, mode = nil)
       return content if content.nil? || content.empty?
 
       site = @context.registers[:site]
       baseurl = site.config['baseurl'].to_s
       source = site.source
+      lcp = mode.to_s == 'lcp'
+      swap_only = mode.to_s == 'swap'
       seen = 0
 
       content.gsub(%r{<img\b[^>]*?/?>}i) do |tag|
         attrs = +''
         has_w = tag.match?(/\bwidth\s*=/i)
         has_h = tag.match?(/\bheight\s*=/i)
-        src = tag[/\bsrc\s*=\s*(["'])(.*?)\1/i, 2]
+        m = tag.match(SRC_RE)
+        src = m && m[2]
+
+        webp = m && webp_sibling(m[2], baseurl, source)
+        if webp
+          tag = tag[0, m.begin(0)] + "src=#{m[1]}#{webp}#{m[1]}" + tag[m.end(0)..]
+        end
+        next tag if swap_only
 
         dims = nil
         if src && !src.strip.empty? && !src.match?(%r{\A(?:https?:)?//|data:|\{\{|\{%|\$\{}) && !(has_w && has_h)
@@ -194,10 +222,11 @@ module Jekyll
           end
         end
 
+        eager = !tag.match?(/\bloading\s*=/i)
+        attrs << ' fetchpriority="high"' if lcp && seen.zero? && eager && !tag.match?(/\bfetchpriority\s*=/i)
+
         seen += 1
-        if dims && seen > 1 && !tag.match?(/\bloading\s*=/i)
-          attrs << ' loading="lazy" decoding="async"'
-        end
+        attrs << ' loading="lazy" decoding="async"' if dims && seen > 1 && eager
 
         next tag if attrs.empty?
 
@@ -209,6 +238,29 @@ module Jekyll
     end
 
     private
+
+    # 同目录 .webp 兄弟存在时，返回「把 src 里的 .png 换成 .webp」后的新 src，否则 nil。
+    #
+    # 返回的是 src 本身而不是磁盘相对路径，因为 src 带着 baseurl 前缀，而这一串要原样
+    # 写回 HTML。写成站内相对路径会在项目站点（baseurl=/better-blog）上变成 404：
+    # 实测过，27 个换源后的 src 全部少了那一段前缀。
+    #
+    # @param src [String] img 的原始 src
+    # @param baseurl [String]
+    # @param source [String] 仓库根
+    # @return [String, nil]
+    def webp_sibling(src, baseurl, source)
+      return nil if src.nil? || src.strip.empty?
+      return nil if src.match?(%r{\A(?:https?:)?//|data:|\{\{|\{%|\$\{})
+
+      path = local_path(src, baseurl)
+      return nil unless path&.end_with?('.png')
+
+      webp = File.join(source, path.sub(/\.png\z/, '.webp'))
+      return nil unless File.file?(webp)
+
+      src.sub(/\.png(?=([?#]|\z))/i, '.webp')
+    end
 
     # 把 src 还原成相对仓库根目录的路径；不是站内根相对路径就返回 nil
     # @param src [String]

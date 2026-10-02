@@ -508,37 +508,61 @@ jekyll-paginate 生成的 `/page2/ … /page10/` 复用同一份 `index.html`，
 
 改的是性能基线，所以前后各量一次 head 阻塞脚本数与 LCP，写进 §6。
 
-### B2｜PNG→webp 转码 + 构建期 `<picture>` 注入
+### B2｜PNG→webp 转码 + 构建期换源（as built，与原设计有一处机制替换）
 
-**精准打击，不做全量**：§1 的分布显示 23 张 >512KB 的 png 占 79% 字节。
-只转这 23 张就拿到八成收益，blast radius 小一个数量级（23 张 vs 125 张）。
-阈值 512KB 写进脚本常量，可复算。
+**范围**：`assets/**/*.png` 里 >512KB 的 23 张候选，实际转 20 张，省下 **29.8MB**。
+另外 3 张（`assets/img/ai-sdd/banner-{2,4,5}.png`，合计约 4.9MB）在 `_posts` / `_data` /
+`_layouts` / `_includes` 四类源文件里零命中——是死资产，不转，也不删（删文件不在本批授权范围）。
+阈值 512KB 是脚本常量 `SIZE_FLOOR`，可复算。
 
-- 新增 `scripts/build-image-variants.mjs`，用本机 `cwebp`（已在）转同名 `.webp`
-  到同目录。质量档 `-q 82 -m 6` 起步，A/B 实测后定档
-- **跳过** `assets/img/og/`：OG 图有独立流水线与签名（`_data/og_images.yml` 的 `sig`），
-  动它会连带 `og:check`
-- 增量：记每张源图的 sha256，只有源变了才重转，避免每次构建全量转 48MB
-- **注入点在 `_plugins/image_dims.rb`**：它已经在构建期读图片头拿 width/height 并加
-  `loading=lazy decoding=async`。在同一处把有 webp 变体的 `<img src=x.png>` 包成
+**四处与批准稿不一样的地方，逐条说明**：
 
-```html
-<picture>
-  <source srcset="{baseurl}/assets/img/x.webp" type="image/webp">
-  <img src="{baseurl}/assets/img/x.png" width=… height=… loading=lazy decoding=async alt=…>
-</picture>
-```
+1. **编码器不是 `cwebp`**。本机 `cwebp 1.5.0` 编译时没带 libpng（`Unsupported file type`），
+   而这一批全是 png。换成 `ffmpeg -c:v libwebp -quality 82 -compression_level 6 -preset drawing`，
+   参数字面写进脚本常量 `ENCODER` 与台账的 `encoder` 栏——两处不一致时台账作废重转，
+   `--check` 会单独报这一条。
+2. **机制从「注入 `<picture>`」换成「构建期直改 `src`」**。原稿要在 `<img>` 外面包一层
+   `<picture><source type="image/webp">`，落地前发现它与一件已上线的东西硬冲突：
+   `dev/js/editorial.js` 的揭示选择器是 `#post-body p:has(> img[loading="lazy"])`，
+   `>` 是直接子级，img 一旦进了 `<picture>` 这条再也匹配不到，正文里几十张图的升起动效
+   会**静默**消失（不报错、不变红，只是没了）。而 `editorial.js` 与 `verify-motion-batch4.mjs`
+   都在本批禁改清单里。webp 的基线支持（Safari 14+，2020-09）让 `<source>` 那层回退在这里
+   值约等于 0，所以选了换源：**DOM 形状不变**，motion 批 IV 与 `article-check` 的判据全部继续有效。
+3. **多开了一档 `'swap'`，给「上一篇/下一篇」的封面缩略图**。那两颗 `<img>` 原本不过滤镜，
+   而它们引用的恰恰是最大的那几张（`banner-3` 1580KB→50KB），运行时又真会被 `fadeIn` 显示出来。
+   只肯换源、不补 `width/height`：`dev/js/index.js` 的 `postCover()` 用 `img.height()`
+   与容器高 260 比大小来决定走 `width:auto` 还是 `margin-top` 那条分支，而 CSS 里它们起手是
+   `display:none`，量到 0；补上尺寸属性会让它突然量到 592，分支就此翻边——那是视觉改动，不在本批。
+   真浏览器两侧都量过：缩略图 `width 469.758px / marginLeft -32.379px / natural 2880×1594`，
+   base 与 new 逐字相同，只有 src 的后缀不同。
+4. **CI 不跑转换**：`.github/workflows/jekyll.yml` 里没有转码步骤，也不该加（CI 装 ffmpeg
+   属于另一件事）。`.webp` 与那本 `scripts/image-variants.json` 台账**一起进仓库**
+   （仓库本来就有 87 张已跟踪的 webp，`*.webp` 不在 ignore 里）。所以约束是「改了大图就得本地重跑一次」，
+   而 `node scripts/build-image-variants.mjs --check` 就是盯着这条的门。
 
-**正文继续写 `.png`，80 篇 md 零改动** —— 这样就绕开了 `article-check` 的 60 条断言
-与 prettier 重排 ```js 围栏改 chars 计数这两个坑。
+**核验中抓到并修掉的两个自己的缺陷**：
 
-- LCP 提权：现有「一次连续图片里第一张不 lazy」的逻辑保留，并对它额外加 `fetchpriority="high"`
-- **降级而非死链**：webp 不存在 → 不注入 `<source>`，只留原 `<img>`，并打印警告
+- 换源后的 src 丢了 `baseurl` 前缀，产物里 27 个 `<img>` 会变成 `/better-blog` 站点上的 404。
+  是 `verify-b2.py` 的 A8 那条抓的（`webp_sibling` 原本返回仓库相对路径，而那个返回值要直接写回 HTML）。
+  修法：返回「把 src 结尾那一处 `.png` 换掉」之后的 src 本身，前缀原样留着。
+- `check()` 里那条编码器比对是**死码**：`loadManifest()` 在参数漂移时已经把台账当作废返回
+  `{ variants: {} }`，于是后面读到的 `manifest.encoder` 恒等于脚本常量。症状是参数一改就冒出
+  20 条「有 webp 兄弟却不在台账里」，把方向指错。修法：在 `check()` 开头单独读一次原始 JSON 比对，
+  并把那条不可达的删掉。是牙齿 t12 抓的。
 
-**仓库体积的诚实账**：短期会涨（png 与 webp 并存）。2026 年 webp 全球支持 >97%，
-png fallback 其实已无必要——但**保留一轮**，A/B 实测确认无视觉回退后，
-再单独一刀把 png 从发布产物排除（`_config.yml` 的 `exclude`），那时仓库净减。
-二段式，不在本轮同时做。
+**字节账**（`_site` 产物里逐张按 src 解析到磁盘文件求和，base=HEAD 树 / new=工作树覆盖）：
+发生换源的 11 页，本地图引用字节 **62.8MB → 14.8MB（省 48.0MB）**；最重的一页
+`2026/06/28/account-password-helper-new.html` 20.25MB → 1.98MB。
+
+**验证**：产物级 `verify-b2.py` **2397 条断言全绿**（两棵 `git archive HEAD` 快照树对建，
+除 `_plugins/image_dims.rb` 与 `_layouts/post.html` 两处覆盖 + 20 张 webp 之外两树逐字节相同）；
+滤镜单元级 `unit-dims.rb` **24 条**（外链 / 协议相对 / `data:` / 模板变量 / 带 query /
+目录名含 `.png` / 已有尺寸 / 自闭合 / 单引号九种形状）；牙齿 `teeth-b2.py` **33 条 / 13 颗**
+（8 颗滤镜变异 + 5 颗转换器变异，每颗都先自证变异落地、且要求指定那条判据变红而不是别的）。
+其中一条全局判据值得单记：**全站 135 页去掉标签后的可见文本零变化**，这一批只动属性。
+
+**明确不做**：把 png 从发布产物里排除（`_config.yml` 的 `exclude`）。那是二段式的第二刀，
+要连带 `assets/img/og/` 那条独立流水线一起决定，且会动 `_config.yml`（另一会话正 staged 着它）。
 
 ### B3｜CSS 按页拆包 —— 本轮不做
 
@@ -571,11 +595,14 @@ _data/onlineTools.yml ─(+post_tag / match_tags / tool_slug 由页面 front mat
         ├→ _includes/jsonLdTool.html  (WebApplication)
         └→ _includes/relatedTools.html ─→ _layouts/post.html (wrap-up 附近)
 
-assets/img/**/*.png (>512KB, 非 og/)
+assets/img/**/*.png (>512KB, 非 og/, 且被四类源文件引用)
         │
-        └─ scripts/build-image-variants.mjs ─→ *.webp
-                                    │
-                          _plugins/image_dims.rb ─→ <picture> 注入 + fetchpriority
+        ├─ scripts/build-image-variants.mjs ─→ 同名 *.webp（入库）
+        │            └─ scripts/image-variants.json（sha256 + 双边字节 + encoder 台账；--check 是门）
+        │
+        └──────────→ _plugins/image_dims.rb ─→ 构建期把 src 的 .png 换成 .webp
+                     （三档：缺省只补尺寸/lazy；'lcp' 给首张 eager 图补 fetchpriority=high；
+                       'swap' 只换源——给 read-next 缩略图，避免 postCover 量到高度翻分支）
 
 favicon.svg ─→ scripts/build-manifest-icons.mjs ─┬→ assets/img/icons/icon-{180,192,512}.png（入库）
    （headless Chrome 截图；--check 模式不需要 Chrome）  └→ _data/manifestIcons.yml（地址+字节+sha256 台账）
@@ -594,7 +621,10 @@ favicon.svg ─→ scripts/build-manifest-icons.mjs ─┬→ assets/img/icons/i
 新增：
 
 - `scripts/check-seo.mjs` + `scripts/check-seo-teeth.mjs`
-- `scripts/check-image-variants.mjs` + `scripts/check-image-variants-teeth.mjs`
+- 图片这一路的门分两半：台账一致性直接复用 `build-image-variants.mjs --check`
+  （它自己就是「不转、只核对」的模式，不再另造一个 `check-image-variants.mjs`），
+  牙齿放 `scripts/check-image-variants-teeth.mjs`；滤镜那三档行为放
+  `scripts/check-image-dims.mjs`（用桩站点直调滤镜，毫秒级，形状想造多少造多少）+ 同名 `-teeth`
 
 每颗牙自证「变异就会变红」，照 `check-tools-surface-teeth.mjs` 那 74 颗的既有形态。
 
@@ -612,7 +642,7 @@ favicon.svg ─→ scripts/build-manifest-icons.mjs ─┬→ assets/img/icons/i
 | manifest | 文件存在、JSON 可解析、`start_url` == `scope` == 规范首页 `https://liaolongdong.github.io/better-blog/`（防 baseurl 漂移）、`short_name` ≤ 12 字符、`display: standalone`、两个色值 == `tokens.scss` 的 `--paper` 明暗两档、icons 恰好 192+512 两枚且 HTTP 200 / `image/png` / 字节与 sha256 都对得上 `_data/manifestIcons.yml`；**不进 sitemap** |
 | 安装面接线 | 走布局的 102 页每页恰好 1 条 `rel="manifest"` + 1 条 `apple-touch-icon`（指向 180 那枚）+ 2 条 `theme-color`（明暗各一、值对），且 manifest link 排在第一个 `rel="stylesheet"` 之前；范围外的 35 个产物（`demo/**` 33 + `offline.html` + Google 校验文件）**一条都不许有**，且这个范围外集合必须恰好等于 `demo/**` ∪ 那两个白名单文件 |
 | 图标台账 | `build-manifest-icons.mjs --check` 不需要 Chrome：源 SVG 的 sha256、每枚的字节/sha256/IHDR 宽高/colorType==6、尺寸集合恰好 {180,192,512} |
-| picture | 每个 `<picture>` 的 `<source srcset>` 文件在产物里真实存在；LCP 候选图有 `fetchpriority=high` 且**无** `loading=lazy` |
+| 换源（B2） | 产物里**零** `<picture>`（这条是揭示动效的保险，不是风格偏好）；每个换过去的 src 都带 baseurl 且在磁盘上真实存在；除 src 与至多一枚 `fetchpriority=high` 之外标签逐字不变；`p > img[loading=lazy]` 命中数两树逐页相等；`fetchpriority` 只在文章页、每页至多一枚、有封面落在头图 / 无封面落在正文首图、且那一枚不带 `loading`；read-next 缩略图除 src 外不长出任何属性；`--check` 台账对得上（缺文件 / 字节漂 / sha 漂 / 编码器漂 / 有候选没转，五种各一颗牙） |
 
 A/B 实测三个数：**LCP、head 字节、图片字节**。
 
