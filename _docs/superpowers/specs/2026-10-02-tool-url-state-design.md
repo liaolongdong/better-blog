@@ -63,6 +63,15 @@
 往链接里塞一枚同名参数就把这一页的档位改掉；不取整条 DOM id（`jt-in-workbench-view`）：分享出去的
 串要人能读、要短。前缀是 yml 里已有的声明位，不新造表。
 
+**代码落点 = `dev/js/tools/url-state.js`，经 `toolkitCore.js` 挂成 `window.Tk` 的第五只。**
+段 4 与段 5 那两份计划各写过一行「本段不许往 `window.Tk` 上加第五只」（
+`2026-09-29-tools-json-page.md:55`、`2026-09-30-tools-diff-page.md:57`），那两行的理由是同一条红线：
+两个入口同时 `import` 同一模块 → Rollup 提共享 chunk → `iife-wrap` 之后整页 SyntaxError。
+**它们的禁令是本段范围，不是这一格的永久结论**——按它们自己给的方向，跨页共用的东西正是走 `Tk`：
+`url-state.js` 零 import、只有具名导出，唯一 reach 它的是 `toolkitCore.js` 一处，所以这一格扩面不踩那条红线。
+配套的三处清单必须同批改，否则门立即刻红：`toolkit-tests.mjs` 的 J12、O13(c)、Q2 三处都按
+`Object.keys(window.Tk)` 钉死了挂面（Q2 那一句写的就是「别在这儿偷偷加」）。
+
 **白名单只装枚举值**。`jt-query`、`jt-doc`、`df-a-text`、`df-b-text`、`jt-memorize` 明确不在名单里——
 这一句是这一刀唯一的全页不变量，四页一起判：往任何输入格里打一枚唯一 token，动完之后
 `location.href` 里不许出现它（面板页同样判，尽管这一轮不给它们加新键）。

@@ -5482,7 +5482,7 @@ test('O12 copyInto 的"没东西可复制"早退：剪贴板、临时框、按�
   assert.doesNotThrow(() => copyInto());
 });
 
-test('O13 抽离不留第二份实现：装配层经 `Tk.ui` 拿，缺它就构造期抛；core 挂第四只', async () => {
+test('O13 抽离不留第二份实现：装配层经 `Tk.ui` 拿，缺它就构造期抛；core 的挂面就是清单那五只', async () => {
   // (a) `createWorkbench` 的闸门：缺 `Tk.ui.copyInto` 必须当场点名，
   //     而不是等用户第一次点复制按钮时才从回调里抛出去（那时结果是"按了没反应"）。
   const bare = { document: oPage().doc, Tk: { view: J_VIEW }, runGuarded: () => true };
@@ -5502,19 +5502,20 @@ test('O13 抽离不留第二份实现：装配层经 `Tk.ui` 拿，缺它就构�
   }
   assert.equal(/ui\.copyInto\(/.test(wb), true, 'doCopy 必须真的改口去调 Tk.ui.copyInto，不然 (a) 那道闸门白加');
 
-  // (c) `toolkitCore.js` 挂第四只，且它是唯一 import `ui.js` 的地方。
+  // (c) `toolkitCore.js` 挂第四只与第五只，且它是唯一 import `ui.js` / `url-state.js` 的地方。
   //     这里重开一次 `globalThis.window` 再按新 query 载 core——同一个 query 会被模块缓存
-  //     挡住，那样读到的是 J12 那一次的注册结果，本节就没真的验到"四只"这一格。
+  //     挡住，那样读到的是 J12 那一次的注册结果，本节就没真的验到"五只"这一格。
   const core = read('dev/js/toolkitCore.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.equal(/from '\.\/tools\/ui\.js'/.test(core), true, 'core 要 import 它才挂得上');
+  assert.equal(/from '\.\/tools\/url-state\.js'/.test(core), true, '同一格的第二半：`url` 也必须是 core 唯一 import 的那本');
   assert.equal(/window\.Tk\s*=\s*\{[^}]*\bui\b[^}]*\}/.test(core), true, 'window.Tk 里必须有 ui 这一格');
   globalThis.window = {};
   try {
     const mod = await import('../dev/js/toolkitCore.js?o13');
     assert.deepEqual(Object.keys(mod), [], 'core 仍是入口形状：一条 export 都不许有');
     const tk = globalThis.window.Tk;
-    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'ui', 'view'],
-      'Tk 面就是这四只：J12 那份清单与这里必须同步改，两处不同步说明有人在偷偷扩面');
+    assert.deepEqual(Object.keys(tk).sort(), ['createPanelDom', 'createPanelWorkspace', 'ui', 'url', 'view'],
+      'Tk 面就是这五只：J12 那份清单与这里必须同步改，两处不同步说明有人在偷偷扩面');
     assert.equal(tk.ui.copyInto, copyInto, '挂上去的必须是本节判的那一只，不是页面上另长出来的一份');
     assert.equal(tk.ui.legacyCopy, legacyCopy);
   } finally {
@@ -6354,7 +6355,7 @@ test('Q1 导出面恰好四个名字，CODEC_META 十三档的文案与 tone 逐
     'warn 三档都是"东西给你了但要说清楚"：还原有损耗 / 只有部分能用 / 到上限了');
 });
 
-test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都不许有，toolkitCore 也不许多出第五只', () => {
+test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都不许有，toolkitCore 也不许多出第六只', () => {
   const code = qCode();
   assert.equal(/\bimport\b/.test(qImportScan()), false,
     '它一旦被第二本 import，"只有一个入口 reach 它"这条前提就没了，产物立刻变成带 `import{` 的废文件');
@@ -6365,8 +6366,8 @@ test('Q2 零 import 与不进 Tk 都靠源码文本：本文件一条 import 都
   assert.equal(/codecView/.test(core), false,
     '把只有编码页要的视图层挂进共用的 toolkitCore，等于让证件页替五块它没有的面板付 gzip（§7 余量只剩 4,173B）');
   assert.deepEqual(core.match(/window\.Tk\s*=\s*\{([^}]*)\}/)[1].split(',').map((s) => s.trim()),
-    ['createPanelWorkspace', 'createPanelDom', 'view', 'ui'],
-    'Tk 仍是四只：这一格扩面了，O13 与 J12 那两份清单要跟着改，别在这儿偷偷加');
+    ['createPanelWorkspace', 'createPanelDom', 'view', 'ui', 'url'],
+    'Tk 仍是五只：这一格扩面了，O13 与 J12 那两份清单要跟着改，别在这儿偷偷加');
 });
 
 test('Q3 转义只有一处出口：注入的 esc 是唯一插值路径，第二只 esc / 第二张实体表 / 第二个破折号都不许有', () => {
@@ -6656,7 +6657,6 @@ test('Q16 模型里放不进 HTML 的东西：fieldsTable 收到对象/数组/Na
   assert.equal(/<td>—<\/td>/.test(html), true, 'null 是"这一格没值"，显示 EMPTY_CELL');
   assert.equal(html.includes('<td class="tk-mono">0</td>'), true, '0 不是空值，不许被当成空');
 });
-
 ```
 
 #### `dev/js/tools/codecWorkbench.js`（整文件）

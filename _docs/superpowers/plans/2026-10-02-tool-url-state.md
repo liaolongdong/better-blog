@@ -29,7 +29,7 @@
 - Create: `scripts/tool-url-state-tests.mjs`
 - Modify: `dev/js/toolkitCore.js`
 
-- [ ] **Step 1：先写单测，让它红**
+- [x] **Step 1：先写单测，让它红**
 
 `scripts/tool-url-state-tests.mjs` 用 `node:test` + `node:assert/strict`，直接 `import … from '../dev/js/tools/url-state.js'`。为什么不在 `scripts/toolkit-tests.mjs` 里加一节：那本按 `// ── §([B-Z]\d*) ` 切段（`verify-plan-blocks.mjs:276`），每一段都要在五份计划里有一枚逐字节全等的镜像块；新起一段就得往段 5 那份 diff 页的计划里贴一整块不属于它的代码。独立一本、不挂镜像，是把「新增」与「既有镜像账」分开的最便宜形状。
 
@@ -42,37 +42,37 @@ const KEYS = [
   { name: 'df-ws', kind: 'check', dflt: false },
 ];
 test('U0-1 读：白名单内的值才回来', () => {
-  const r = read('?utm_source=x&jt-view=tree&jt-indent=tab', KEYS);
+  const r = parse('?utm_source=x&jt-view=tree&jt-indent=tab', KEYS);
   assert.deepEqual(r.found, { 'jt-view': 'tree', 'jt-indent': 'tab' });
   assert.deepEqual(r.ignored, []);
 });
 test('U0-2 读：白名单外的值点名进 ignored，且不回来任何值', () => {
-  const r = read('?jt-view=dark', KEYS);
+  const r = parse('?jt-view=dark', KEYS);
   assert.deepEqual(r.found, {});
   assert.deepEqual(r.ignored, ['jt-view']);
 });
 test('U0-3 读：空串与缺席同档（都算「这一格没人说话」）', () => {
-  assert.deepEqual(read('?jt-view=', KEYS).found, {});
-  assert.deepEqual(read('', KEYS).found, {});
+  assert.deepEqual(parse('?jt-view=', KEYS).found, {});
+  assert.deepEqual(parse('', KEYS).found, {});
 });
 test('U0-4 读：check 只认 '1'，'0' 与 'yes' 都进 ignored', () => {
-  assert.equal(read('?df-ws=1', KEYS).found['df-ws'], true);
-  assert.deepEqual(read('?df-ws=0', KEYS).ignored, ['df-ws']);
-  assert.deepEqual(read('?df-ws=yes', KEYS).ignored, ['df-ws']);
+  assert.equal(parse('?df-ws=1', KEYS).found['df-ws'], true);
+  assert.deepEqual(parse('?df-ws=0', KEYS).ignored, ['df-ws']);
+  assert.deepEqual(parse('?df-ws=yes', KEYS).ignored, ['df-ws']);
 });
 test('U0-5 读：畸形 search 不抛（URLSearchParams 自己会解，但空键名那类要给 {}）', () => {
-  assert.deepEqual(read('=?&=&jt-view=tree', KEYS).found, { 'jt-view': 'tree' });
+  assert.deepEqual(parse('=?&=&jt-view=tree', KEYS).found, { 'jt-view': 'tree' });
 });
 ```
 
 同步侧七判：`sync(loc, hist, KEYS, values)` 在「我的键一个都没变」时**必须返回 false 且一次 `replaceState` 都不发生**（用假 `history` 数调用次数）；值落回默认要把键删掉（`{ 'jt-view':'text' }` 从 `?jt-view=tree` 出来是 `utm` 保留、`jt-view` 消失）；别人的键逐键保留且**顺序不变**（`?z=9&utm_source=x` 之后仍是这个顺序，我新增的排末尾）；只用 `replaceState`、不许碰 `pushState`（假 history 里只给 `replaceState`，给了 `pushState` 就是测试夹具的错）；`history.state` 原样带走（`{a:1}` 要能在第三次入参里读回）；写出的 URL = `pathname + '?' + search + hash`，`hash` 在带 `#section-3` 时不许丢；`replaceState` 抛（Safari 限流的形状）时 `sync` 返回 false 而不是上抛。
 
-- [ ] **Step 2：跑起来确认它红**
+- [x] **Step 2：跑起来确认它红**
 
 Run: `node scripts/tool-url-state-tests.mjs`
 Expected: `Cannot find module …/dev/js/tools/url-state.js`，exit ≠ 0。
 
-- [ ] **Step 3：写实现**
+- [x] **Step 3：写实现**
 
 `dev/js/tools/url-state.js`（零 import，与 `view.js` / `ui.js` 同一档）：
 
@@ -80,16 +80,17 @@ Expected: `Cannot find module …/dev/js/tools/url-state.js`，exit ≠ 0。
 export function parse(search, keys) { /* URLSearchParams 解一遍，found 只收白名单 */ }
 export function nextSearch(search, keys, values) { /* 只 set/delete 自己的键；等价则 null */ }
 export function sync(location, history, keys, values) { /* 调 nextSearch，null 就返回 false */ }
-export default { parse, nextSearch, sync };
 ```
+
+（落地时把这一行删了：`export default { parse, nextSearch, sync }`。理由是 `import * as url` 会把 `default` 一起挂进 `Tk`，而 `view.js` / `ui.js` 两本同形先例都只有具名导出——J12 现在按 `Object.keys(window.Tk.url)` 数这三格，多一格就红。）
 
 三条实现口径钉死在代码里：`nextSearch` 从**现有** `search` 起建 `URLSearchParams`（别人的键因此原样保留、原样有序），只在 `changed` 为真时返回串；`sync` 里 `history.replaceState(history.state ?? null, '', …)` 那一格与 `dev/js/tools/panel-dom.js:165` 同形；整个 `sync` 包 `try { … } catch { return false }`。
 
-- [ ] **Step 4：跑绿**
+- [x] **Step 4：跑绿**
 
 Run: `node scripts/tool-url-state-tests.mjs` → `pass 12 / fail 0`。
 
-- [ ] **Step 5：挂进 `Tk`**
+- [x] **Step 5：挂进 `Tk`**
 
 `dev/js/toolkitCore.js`：第 30 行后加 `import * as url from './tools/url-state.js';`，末行改成
 `window.Tk = { createPanelWorkspace, createPanelDom, view, ui, url };`
@@ -101,7 +102,15 @@ Expected: `✓ …（未落地 0 节）`——`toolkitCore.js` 的镜像换成�
 Run: `npx vite build && node scripts/check-tools-surface.mjs --site=_site`
 Expected: exit=0（组 5 的 `import{` 计数仍为 0）。
 
-- [ ] **Step 6：提交**
+**落地补记（这一格比计划多改了三处，都是门自己要求的）**：`window.Tk` 的挂面在 `toolkit-tests.mjs`
+里被钉死了三次——J12（`Object.keys(tk)` 四只清单）、O13(c)（同一份清单 + `core` 必须 import 那本）、
+Q2（按源码文本数 `window.Tk = {…}` 里的名字，标题写着「不许多出第五只」）。加第五只必然三处同红，
+所以三处一起改口五只（Q2 的标题改「第六只」），并给 J12 补一条 `Object.keys(tk.url)` 恰为
+`['nextSearch','parse','sync']`、给 O13(c) 补一条 `core` 必须 `import` `url-state.js`。
+镜像账跟着换：`verify-plan-blocks.mjs --fix` 重写段 2 两块（`toolkitCore.js` 整本 + §J）与
+段 3 两块（§O、§Q）。`toolkit-tests.mjs` 439 pass / 0 fail。尺寸不进这一格的账，归 Task 7。
+
+- [x] **Step 6：提交**
 
 ```bash
 git add dev/js/tools/url-state.js scripts/tool-url-state-tests.mjs dev/js/toolkitCore.js \
@@ -341,7 +350,7 @@ Expected: `✓ …（未落地 0 节）`（`check-tools-surface.mjs` 的镜像�
 
 head 树 = 纯 `d717c17` 导出树重建（写死提交号，不用 `HEAD~N`）；new 树 = 本工作树内容 rsync 出去重建。两棵树的 `assets/js/toolJson.min.js` 与工作树产物分别对 md5。
 
-- [ ] **Step 2：① 九枚键逐个进站对账**（同一份 `verify-tool-url.mjs` 跑两棵树；head 树全部落默认档、new 树按参数落定），合法 / 非法各一遍，读数从产物骨架现取。
+- [ ] **Step 2：① 八枚键逐个进站对账**（同一份 `verify-tool-url.mjs` 跑两棵树；head 树全部落默认档、new 树按参数落定），合法 / 非法各一遍，读数从产物骨架现取。
 
 - [ ] **Step 3：② 地址栏卫生**：连改 20 次档位的 `history.length` 增量（0）、最长 URL 实测字节数、`keep` / `utm_source` 两键逐字节存活。
 
