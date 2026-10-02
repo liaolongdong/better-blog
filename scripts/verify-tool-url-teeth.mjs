@@ -195,7 +195,9 @@ const MUTS = [
     id: 'T6', name: 'retune 的同步整个摘掉（finally 里那一发不再写）',
     expect: '[U5] 点「全部展开」',
     cascade: ['[U3] diff·抛了也要镜像', '[U4] diff 的新键排末尾'],
-    from: 'Ae()}finally{M()}}', to: 'Ae()}finally{}}',
+    // 锚点里的 `Te` = `syncGate()`、`M` = `syncUrl()`（terser 今天的局部名，非稳定标识）。
+    // 重新构建后必须逐枚重数——命中数 ≠ 1 由 `apply` 拦成退 2，不会静默放行。
+    from: 'Te()}finally{M()}}', to: 'Te()}finally{}}',
     why: 'U5 那格专判程序化写回：「全部展开」把 `context` 直接写成 all、不经过用户的那次 change 事件，'
       + '只挂 change 监听的口径漏的就是这一条路。连带两条都是同一处出口的账：U3 的「抛了也要镜像」'
       + '走的是 mode 那一发（也在 retune 里），U4 的 diff 那一发拨的是 df-layout（同样走 retune）——'
@@ -205,7 +207,7 @@ const MUTS = [
     id: 'T7', name: 'reset 那一段的同步摘掉（重置之后地址栏留在重置前那一档）',
     expect: '[U5] 「恢复默认档」把键删干净',
     cascade: ['[U7] 重置删键'],
-    from: ',Ae(),M(),void T("bar","档位回到默认', to: ',Ae(),void T("bar","档位回到默认',
+    from: ',Te(),M(),void T("bar","档位回到默认', to: ',Te(),void T("bar","档位回到默认',
     why: 'U5 与 U7 各有一格判「重置即删键」，两格读的是同一个出口，必然一起红。'
       + '这一刀与 T6 分开是有必要的：T6 摘的是三个下拉共用的那一个出口，这一刀摘的是「落回默认要删键」'
       + '这一半——只有它红的时候，说明 change 那条路是通的、程序化那两条路里只有重置断了',
@@ -232,7 +234,7 @@ const MUTS = [
   {
     id: 'T10', name: 'retune 的同步从 finally 挪回 try 末尾（算砸了就跳）',
     expect: '[U3] diff·抛了也要镜像',
-    from: 'Ae()}finally{M()}}', to: 'Ae(),M()}finally{}}',
+    from: 'Te()}finally{M()}}', to: 'Te(),M()}finally{}}',
     why: '这一刀是 Task 3 落地时改掉的那处真缺陷的反证：`readControls()` 在 try 之前就把新档写进了状态、'
       + '控件也已经是新的一档，而 `compute()` 会在「两边都还空着」与「JSON 档读到非法 JSON」先抛'
       + '——同步排在最后一行就跟着一起跳过去，屏幕指着「JSON」而链接写着「text」，刷新即回弹。'

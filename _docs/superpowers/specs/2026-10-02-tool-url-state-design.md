@@ -146,6 +146,205 @@ DOM id），另加一条负判据——`doc` / `query` / `a-text` / `b-text` / `
 **A/B 三个数**（口径写死可复算）：① 八枚键逐个进站（`jt-view jt-indent jt-sort` +
 `df-mode df-layout df-context df-ws df-case`），head 树（本轮改动之前那一份产物）一律落
 默认档、new 树按参数落定，合法 / 非法各一遍；② 地址栏卫生：连改 20 次档位后 `history.length`
-增量 = 0、最长 URL 实测值、`?keep=1&utm_source=x` 三个参数一字未动；③ 首屏代价按 Pages 口径
+增量 = 0、最长 URL 实测值、`?z=9&keep=1&utm_source=x` 三对一字未动；③ 首屏代价按 Pages 口径
 （fast3g + gzip，5 轮/侧取中位数，SW 接管过的轮次不计）量带参 vs 不带参的 `load` /
 DOMContentLoaded / 首次动作耗时——预期 ≈0，量出来证明它不劣化，而不是假定它不劣化。
+
+## 6. 交付实录（2026-10-03）
+
+A/B 的量具是一次性的（`/tmp/sp2-ab/{build.sh,hygiene.mjs,ab-load.mjs}`，**没入库**——入库的是口径，
+脚本里的每一处判据下面都照原样写成了可复算的句子）。骨架照 `verify-tool-url.mjs`：一棵 `_site` 挂
+`http.createServer`（`cache-control: no-store`、`/better-blog` 前缀剥掉再落盘）、端口从 `listen(0)`
+抢、开局把三本 min 产物的磁盘 md5 与服务器吐的那份对账，视口 `1280×900` 且 `innerWidth` 自证。
+
+### 6.1 两棵干净树与差异面
+
+head 树 = `git archive d717c17` 导出到 `/tmp/sp2-ab/head`（提交号写死，不用 `HEAD~N`）；new 树 =
+本工作树内容 `rsync`（排除 `_site node_modules vendor .git .jekyll-cache .sass-cache`）到
+`/tmp/sp2-ab/new`。两棵各自软链主仓的 `node_modules` 与 `vendor`，各跑一遍 `npx vite build` +
+`npx vite build --config vite.demo.config.js` + `bundle exec jekyll build`。差异面先断言再量数：
+
+| 产物 | head | new | 说明 |
+| --- | --- | --- | --- |
+| `_site/tools/json.html` | `8e88c934…` | `8e88c934…` | 一字未动 |
+| `_site/tools/diff.html` | `49717c82…` | `49717c82…` | 一字未动（这一刀全在 JS 层） |
+| `assets/js/toolkitCore.min.js` | 19,200 B | 20,232 B | +1,032 B（挂上 `Tk.url`） |
+| `assets/js/toolJson.min.js` | 126,716 B | 127,958 B | +1,242 B |
+| `assets/js/toolDiff.min.js` | 51,541 B | 53,150 B | +1,609 B（含折叠档位键序那一修） |
+
+工作树自己的产物在 Task 6 之后是**陈的**（`toolDiff.min.js` 三棵里唯一对不上），重建之后四格与
+new 树逐字节全等——「跑门的那棵树 == 提交的那棵树」这条在本期是靠 md5 证的，不是靠推断。
+
+### 6.2 ① 八枚键逐个进站对账
+
+同一条命令跑两棵：`TU_SITE_DIR=<树>/_site node scripts/verify-tool-url.mjs`，读数全部从**产物骨架**
+现取（日志第二行：`键表（骨架现读）：json 名单 3 枚 = jt-view jt-indent jt-sort；骨架里另有 1 枚按
+spec 不进地址栏（jt-memorize）`）。
+
+- **head 树**：`rc=1`、17 条红点。U1 那一组**八枚键全红**（`?jt-view=tree` 进站 3,044ms 后控件实读
+  `text`……），而 U1 里另两条「空地址栏基线」是绿的——两棵树的默认档基准同字，所以红出来的差异面
+  恰好只有「参数有没有被采纳」这一件事。
+- **new 树**：`rc=0`、26 条全绿，U1 十项（八枚键逐键两读 + 两页空地址栏基线）全绿。
+- **非法值那一遍**（U2 三条）两棵都绿，但两棵的绿不是同一件事：head 一次都没往地址栏写过，
+  「不采纳、也不抹」自动成立；new 那一棵是实测——`?jt-view=treeish&keep=1&utm_source=x` 非法值不采纳、
+  控件停回默认档 `text`，而那一串地址栏**一个字节没动**。恒真的那一侧记在这里，是为了不让它
+  将来冒充「改前也过」。
+
+### 6.3 ② 地址栏卫生
+
+`node /tmp/sp2-ab/hygiene.mjs` 的 A 段（同一棵 new 树、同一只 headless Chrome、端口从 `listen(0)`
+抢、开局三本产物磁盘↔服务器 md5 对账）：
+
+- **连改 20 次档位**（构造口径：名单按 `i % 名单长度` 轮着点，值按 `options[(i+1) % 长度]` 轮——
+  **含落回默认那一档**，删键那一路跟着一起量；勾选框按奇偶交替打）：json `history.length 2 → 2`、
+  diff `5 → 5`，增量 **0**；页内 `pushState`
+  计数两页都 **0**（计数器是打在 `history.pushState` 上的，不靠 `getEntriesByType('navigation')`
+  ——那个条目每文档恒 1，SP3 spec §11.4 记过这枚假牙）。地址栏当时写着 `?jt-indent=tab&jt-view=tree`
+  / `?df-layout=inline&df-context=5&df-ws=1`：确实写过，所以「增量 0」不是「一次都没写」的另一种说法
+  （这一格由门禁 U3 的前置盯着，红过一次就是这个形状）。
+- **最长地址栏**（每枚键取骨架里 `value` 串最长的非默认档）：JSON 页
+  `?jt-view=tree&jt-indent=four&jt-sort=shallow` = **44 B**、对比页
+  `?df-mode=json&df-layout=inline&df-context=diff&df-ws=1&df-case=1` = **64 B**（含前导 `?`；
+  量的是 `location.search` 本体，与 origin 无关——整条含本机 origin 分别 94 B / 114 B）。
+- **别人的参数**：带 `?z=9&keep=1&utm_source=x` 进站、拨满 3 枚 / 5 枚档位之后，把非本页前缀的
+  几对还原出来仍是 `z=9&keep=1&utm_source=x`，与进站**逐字节全等**，自己那几枚排在末尾
+  （门禁 U4 是同一件事的自动版，两页各一条）。
+
+### 6.4 ③ 首屏代价
+
+节流口径 `Network.emulateNetworkConditions`：RTT 150 ms / 下 1.6 Mbps / 上 750 kbps；
+`Network.setCacheDisabled`；5 轮/侧取中位数。
+
+**带参 vs 不带参**（同一棵 new 树——资源面逐字节相同，差的只是文档请求那一串 query）：
+
+| 页 | 侧 | load | DOMContentLoaded | 可交互 | 首次动作 |
+| --- | --- | --- | --- | --- | --- |
+| json | 不带参数 | 3,461 | 3,451 | 3,306 | 22 |
+| json | 带 43 B 参数 | 3,423 | 3,419 | 3,304 | 12 |
+| diff | 不带参数 | 3,170 | 3,160 | 3,155 | 28 |
+| diff | 带 63 B 参数 | 3,163 | 3,157 | 3,148 | 27 |
+
+Δ 依次是 json `−38 / −32 / −2 / −10` ms、diff `−7 / −3 / −7 / −1` ms。**结论只能写到「量不出代价」
+为止**：json 不带参数那一侧五轮是 `3,445…3,477`、带参数那一侧是 `3,397…3,473`，两侧区间重叠，
+负的 Δ 是抖动不是收益。「首次动作」的口径 = 从派发 `change` 到地址栏 `search` 含上新值，5 ms 一轮询，
+含两次 CDP 往返，所以两侧同涨同落。「带参数」那一侧每轮先逐键核对**控件确实停在参数档**才继续，
+量的是同一个状态而不是两次不同的东西。
+
+**两棵交替**（head vs new，量的是这一刀真实新增的字节）：`node /tmp/sp2-ab/ab-load.mjs`，两棵各
+5 轮、交替采样。资源字节 json **+2,274 B**、diff **+2,641 B**——本地不压缩直传，逐字节等于 6.1
+那张表里两本 bundle 的裸字节差（1,032 + 1,242 / 1,032 + 1,609），这一格是自证不是估算。load Δ
+json **−18 ms**、diff **+8 ms**，都落在那一轮的离群值撑出的抖动带里（`head|json` 第 5 轮 6,561 ms、
+`new|diff` 第 5 轮 6,277 ms，当时本机 1 分钟负载 20+，其余轮次 3,125…3,473）。
+
+**gzip 口径**（`cat f | gzip -9 | wc -c`，不是 zlib API）：toolkitCore 7,075 → 7,444（+369）、
+toolJson 43,445 → 43,801（+356）、toolDiff 19,842 → 20,337（+495）。落到线上是 JSON 页 **+725 B**、
+对比页 **+864 B**，按 fast3g 1.6 Mbps 换算 **+3.6 ms / +4.3 ms**——比这套量具自己的分辨率（轮间
+30–100 ms）小一个量级，所以 ③ 的三个数说的都是同一件事：**这一刀的首屏代价量不出来**。
+
+这三笔 gzip 增量另有**一处后果不归这里判**：在线工具站点那份 spec（`2026-09-25-blog-online-tools-design.md`）的 §7 表按「最坏读数 ÷ 0.95 向上取 1024 倍」
+回算台账，`11c` 因此在收口那一跑红了两行——红的是**档位对不上算式**（算式给 59,392 / 34,816，台账写
+58,368 / 33,792），不是"某个百分比判据跌破"；两行的余量按最坏读数算是 2,894 ÷ 58,368 = **4.96%** 与
+1,460 ÷ 33,792 = **4.31%**，`11c` 把它们打成 `5.0%` 与 `4.3%`（明细串只 round 到一位小数，所以那一格
+会出现"看着像 5.0% 却判红"的形状——判据拿的是档位，不是这串打印值）。处置照的仍是那把尺自己给的数：
+**JSON 那行升到 59,392B、对比那行升到 34,816B**，首屏那两行不动（件集里的 CSS 与 HTML 逐件 0 差）。
+逐件账、`11c` 的红点原文与「为什么四行里只动两行」都记在 `2026-09-25-blog-online-tools-design.md` §7 那一格（2026-10-03 那一段），
+这里只留指针——**这一刀的性能结论是「首屏量不出代价」，不是「字节没长」**，两件事必须分开写。
+
+**SW 接管**：四页产物里 `serviceWorker` 出现 **0** 次（`for p in json diff idcard codec; do
+grep -c serviceWorker _site/tools/$p.html; done` → 4×0），两轮共 40 次导航里
+`navigator.serviceWorker.controller` 全为 `null`，剔除 **0** 轮。这一格照量照记，
+是因为口径答应了它。
+
+### 6.5 与计划的偏离（四处，每一处都写回了计划那道任务的「落地补记」）
+
+1. **判据④换了实现形状**。计划给的是「数产物 `assets/js/tool{Json,Diff}.min.js` 里那枚名单数组的
+   字面量长度」，退路是「数装配层源码里 `URL_KEYS` 的条目数」。落的是**集合对账**：名单与骨架现读的
+   候选逐键比集合，红的时候两侧各多谁要点名。理由是前者在产物里根本没有那枚字面量可数（terser 把
+   数组摊进了调用串），而条数口径躲不过「换掉一键、同时多塞一键」这种漂移。参数**顺序**不在静态门
+   这一侧管，由浏览器门 U4 钉（新键必须排末尾）。
+2. **牙齿五刀而不是四刀**。判据①（前缀 + 控件拼不出真实 DOM id）单独立了一刀，并把 `expect` 逐字
+   钉死——改骨架 id 会同时红 DOM 那一组，不钉字面就归因不到这一刀。
+3. **门禁第一跑就红在一处真缺陷**，照房规修代码而不是改门禁：`CONTEXT_VALUE` 是对象字面量，
+   `Object.keys` 把整数样的键（`3` / `5`）提到前面，白名单读成 `3/5/diff/all`，而骨架从上到下是
+   `diff/3/5/all`。改法是档位写成成对数组 `CONTEXT_TIERS`、`CONTEXT_OPTIONS` 由它派生；
+   `tools-diff.html` 里那条 Liquid 注释原先断言「照键序排下来第一档是「只看差异」」也是错的，一并改口。
+4. **`loadSpec` 多出第 5 个可选指针 `defaults`**（计划没这一格）。判据②要量「默认档换了而名单没换」
+   那条最阴的漂，必须同时读得到装配层的 `DEFAULTS` 与骨架上带 `selected` 的那一枚 option，
+   所以 `diffWorkbench.js` 把 `DEFAULTS` 导出（此前它只在页内用），`_data/onlineTools.yml` 的 diff
+   条目 `spec` 多一行 `defaults: DEFAULTS`。
+
+### 6.6 量具自己踩的坑（四条，都是下一轮会再踩的）
+
+1. **跑门的树不等于提交的树**：A/B 第一版 new 树与工作树的 `toolDiff.min.js` 对不上——Task 6 改完
+   源码没重建。三格产物里只有这一格暴露，另外两格恰好没被那一刀碰到。收口前必须逐格 md5 认树。
+2. **一次性量具少了 WebSocket 的分发**：`Conn` 构造里只登记了 `pending`，没挂 `message` 监听，
+   `Target.createTarget` 的回包落进虚空——进程活着、日志一行不吐，10 分钟才看出来。门禁本家那只
+   `S()` 一直带 30s 计时器，临时脚本抄骨架就得把计时器一起抄，现已补 15s CDP / 5s ws 两道超时。
+3. **后台完成通知会提前说谎**：牙齿台账那一道收到过一条「exit 0」通知，而 `pgrep` 还在、日志只有
+   一行。认进程与日志，不认通知。
+4. **同一件事的两种口径差 1 字节**：A 段报的「最长地址栏 44 B / 64 B」含前导 `?`（量的是
+   `location.search`），B 段标签里的「带参数（43 B / 63 B）」不含。不是两处数，是同一串两种数法，
+   所以 6.3 / 6.4 各自在原地写明了自己那一种。
+
+### 6.7 未做与移交
+
+1. **没 push**。分支 `sp2-tool-url-state`（base `d717c17`）上的提交都在本地，push 需要单独授权。
+2. **`check-tools-surface.mjs` / `check-tools-surface-teeth.mjs` 不合 prettier**：两本在 `HEAD`
+   就已经不合规，格式化会把 76 个逐字节镜像一起打断。这是**预期**的红灯，不是本期欠账；
+   仓里的 lint 门不含这两本。
+3. **B3（逐页 CSS 拆分）不在这一刀里**：那是 SP1 那一路的性能项，七项决策里定的是先不做，本期也没顺手动它。
+4. **`verify-tool-url-teeth.mjs` 的十枚锚点取自压缩产物**：重新构建之后 terser 会换一轮局部名，
+   必须先重数锚点再跑（命中数 ≠ 1 由 `apply` 拦成退 2，不会静默放行）。**本期这一条不是纸面风险，是实测踩到的**：
+   收口第一遍它就在 T6 退 2（`"Ae()}finally{M()}}" 在副本里命中 0 处（判线 =1）——锚点对不上今天的产物`），
+   重数之后三枚锚点改口（`Ae` → `Te`，见 6.8 最后一条），复跑 13/13 点燃。
+5. `_site` 与 `assets/js/*.min.js` 都是 gitignore 的构建输出，提交面里只有源码、门禁脚本、计划与 spec。
+6. **§7 那张字节表里有两行跟着这一刀升了档**（JSON 58,368 → 59,392、对比 33,792 → 34,816），
+   台账与逐件账都在 `2026-09-25-blog-online-tools-design.md` §7 的 2026-10-03 那一格；**这不是"本期改了那四页工具的功能"，是本期产物变长之后
+   `11c` 那条回算判据自己红的**，处置口径见 6.4 末段。
+
+### 6.8 门禁台账（十三道，逐道退码 + 它自己打出来的那一句）
+
+三遍跑完的，不是一遍：第一遍 06:40–06:45 过八道（`check-seo` 在负载 20.89 上等过 90 秒按房规**拒测**，
+不算绿也不算红）；第二遍 06:50–06:58 补那五道，其中两道非绿；第三遍 07:05–07:12 只重跑那两道。
+脚本 `/tmp/sp2-ab/{sweep.sh,sweep2.sh,sweep3.sh}`（一次性、不入库），每道各自过负载闸门，退码逐行落
+`/tmp/sp2-ab/sweep*.summary`，`cmd >> log 2>&1; rc=$?` 现取——管道不吞退码。
+
+| 道 | 命令 | 退码 | 它自己打出来的那一句（逐字） |
+| --- | --- | --- | --- |
+| 单测·共用层 | `node scripts/toolkit-tests.mjs` | 0 | `# tests 439 / # pass 439 / # fail 0`（`duration_ms 19167`） |
+| 单测·地址栏纯函数 | `node scripts/tool-url-state-tests.mjs` | 0 | `# tests 12 / # pass 12 / # fail 0`（`U0-1`…`U0-12`） |
+| 计划镜像 | `node scripts/verify-plan-blocks.mjs` | 0 | `✓ 全部已落地镜像与磁盘逐字节全等（未落地 0 节）`——76 个已落地镜像合计 1,653,388B |
+| 计划镜像的牙 | `node scripts/verify-plan-blocks-teeth.mjs` | 0 | `41/41 通过`（末尾两行是「副本回到全绿」与「工作树脏指纹前后一致」） |
+| 图标尺寸 | `ruby scripts/check-image-dims.rb "$PWD"` | 0 | `image-dims: ok（36/36 条断言，台账 20 对…）` |
+| 图标尺寸的牙 | `node scripts/check-image-dims-teeth.mjs` | 0 | `牙齿台账：27/27 刀变异如期变红` + `每一刀都在临时副本上，工作树一字未动；复跑基线仍绿` |
+| 收录面 | `node scripts/check-tools-surface.mjs --site=/tmp/sp2-ab/new/_site` | 0 | `✓ 收录面 4 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`，导航-全站核到 101 页 |
+| 收录面的牙 | `node scripts/check-tools-surface-teeth.mjs` | 0 | `牙齿台账：79/79 组变异如期变红` + `全部变异已还原，复跑基线仍绿` |
+| SEO | `node scripts/check-seo.mjs --root=… --site=…/_site` | 0 | `✓ SEO 门禁 10 组全绿…；JSON-LD 205 块全部可解析`（135 页 / 78 篇文章页 / 修订台账 45 条）·**第一遍拒测**（load 20.89） |
+| SEO 的牙 | `node scripts/check-seo-teeth.mjs --root=… --site=…/_site` | 0 | `牙齿台账：137/137 组变异如期变红（用时 157.1s）`（分账：keywords 7 / modified 10 / JSON-LD 30 / ItemList 18 / manifest 24 / 接线 9 / head 7 / 相关工具 15 / 换源 9 / 分页门 2 / 语料 6） |
+| 地址栏（浏览器） | `TU_SITE_DIR=…/new/_site node scripts/verify-tool-url.mjs` | 0 | `✓ 工具页地址栏验证：全绿（26 条）`——分组 U0 1 / U1 10 / U2 3 / U3 3 / U4 2 / U5 2 / U6 4 / U7 1 |
+| 地址栏的牙 | `TU_SITE_DIR=/tmp/sp2-teeth/_site node scripts/verify-tool-url-teeth.mjs` | 2 → **0** | 第一遍 `✗ T6 …空刀："Ae()}finally{M()}}" 在副本里命中 0 处（判线 =1）——锚点对不上今天的产物`；重数锚点后 `✓ 地址栏牙齿：13/13 点燃`（十刀 + `S1`/`S2`/`S3` 三项自检） |
+| 工具页（浏览器） | `TK_SITE_DIR=…/new/_site node scripts/verify-tools-browser.mjs` | 1 → **0** | 第一遍 `# 合计 115 项，红 1 项：11c`；两行档位升完之后 `# 合计 115 项，红 0 项（收轮时本机 1 分钟负载 8.2…）` |
+
+**跑门的那棵树 = 提交的那棵树，这条是靠 md5 证的不是靠嘴**：读产物的四道（收录面 / SEO / 地址栏 / 工具页）
+一律指 `/tmp/sp2-ab/new/_site`，那三本 min 产物与工作树逐字节同 md5（`toolkitCore.min.js=9596db40`、
+`toolJson.min.js=e81d3afd`、`toolDiff.min.js=461c4609`，三枚都是 8 位前缀，与 `verify-tool-url.mjs`
+自己打的「端点自证」那一行同一串），牙齿那一道的副本 `/tmp/sp2-teeth/_site` 也按同样三枚对过账。
+
+**两道非绿的一行账**：
+
+1. **地址栏牙齿退 2**。三枚锚点里写的是 `syncGate` 上一轮的局部名（`Ae`），Task 6 那刀（`CONTEXT_TIERS`）
+   重建之后 terser 把它换成了 `Te`，`retune` 的 `finally` 那一处与 `reset` 那一段因此各差一个名字，
+   第十刀与第六刀共用同一枚 `from`。改法只有「重数」这一条路：把 T6 / T7 / T10 的 `from` 换成
+   `Te()}finally{M()}}`、`,Te(),M(),void T("bar","档位回到默认`，逐枚现数命中 =1 才落笔，
+   并在 T6 上方留一行注释点名「`Te` = `syncGate()`、`M` = `syncUrl()`，是今天的局部名、不是稳定标识」。
+   **退 2 而不是退 1 是对的**：这一格是量具哑了，不是产品坏了；`S1` 那条自检（空刀必须抛 `status=2`）
+   正是为了让这种事永远出不了 ✓。
+2. **工具页退 1 在 `11c`**。红的是 §7 那张表的档位对不上回算式（`11c` 判的是
+   `budget ≥ ceil(最坏读数 / 0.95 / 1024) * 1024`，明细串里那句「台账写 58368B、余 2894B=5.0%」
+   是打印值 round 到一位小数，实际 4.96%——判据拿的是档位，不是这串数）。处置见 6.4 末段与
+   `2026-09-25-blog-online-tools-design.md` §7 那一格。**其余六行的件集一个字节都没动**：九件在 head 与 new 两棵树上 md5 一字不差
+   （`assets/css/toolkit.min.css`、`assets/css/tool{Json,Diff}.min.css`、`tools/{json,diff,idcard,codec}.html`、
+   `assets/js/tool{Idcard,Codec}.min.js`），本期动的只有那三本 JS bundle。那三行本来就挂着的
+   「⚠低于5%」（证件 JS+CSS 4.6%、证件首屏 1.3%、编码 JS+CSS 3.6%）因此与本期无关，
+   而升档之后 JSON 与对比那两行的 ⚠ 反而消掉了（6.7% / 7.3%）。
+

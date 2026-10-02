@@ -452,22 +452,64 @@ Expected: `✓ …（未落地 0 节）`（`check-tools-surface.mjs` 的镜像�
 
 ### Task 7：A/B 三个数
 
-- [ ] **Step 1：两棵干净树**
+- [x] **Step 1：两棵干净树**
 
 head 树 = 纯 `d717c17` 导出树重建（写死提交号，不用 `HEAD~N`）；new 树 = 本工作树内容 rsync 出去重建。两棵树的 `assets/js/toolJson.min.js` 与工作树产物分别对 md5。
 
-- [ ] **Step 2：① 八枚键逐个进站对账**（同一份 `verify-tool-url.mjs` 跑两棵树；head 树全部落默认档、new 树按参数落定），合法 / 非法各一遍，读数从产物骨架现取。
+- [x] **Step 2：① 八枚键逐个进站对账**（同一份 `verify-tool-url.mjs` 跑两棵树；head 树全部落默认档、new 树按参数落定），合法 / 非法各一遍，读数从产物骨架现取。
 
-- [ ] **Step 3：② 地址栏卫生**：连改 20 次档位的 `history.length` 增量（0）、最长 URL 实测字节数、`keep` / `utm_source` 两键逐字节存活。
+- [x] **Step 3：② 地址栏卫生**：连改 20 次档位的 `history.length` 增量（0）、最长 URL 实测字节数、`keep` / `utm_source` 两键逐字节存活。
 
-- [ ] **Step 4：③ 首屏代价**（Pages 口径：fast3g + gzip，5 轮/侧取中位数，SW 接管过的轮次不计）：带三枚参数 vs 不带参数的 `load` / DOMContentLoaded / 首次动作耗时。预期 ≈0，量出来证明它不劣化。
+- [x] **Step 4：③ 首屏代价**（Pages 口径：fast3g + gzip，5 轮/侧取中位数，SW 接管过的轮次不计）：带三枚参数 vs 不带参数的 `load` / DOMContentLoaded / 首次动作耗时。预期 ≈0，量出来证明它不劣化。
 
-- [ ] **Step 5：全量门禁回归**（`toolkit-tests` / `tool-url-state-tests` / `check-seo` / `check-seo-teeth` / `check-image-dims` / `check-tools-surface` + 其牙齿 / `verify-plan-blocks` / `verify-tool-url` + 其牙齿 / `verify-tools-browser`），逐条记退出码，管道不许吞退出码（`cmd > log 2>&1; echo exit=$?`）。负载超阈值时按房规拒测、不算绿也不算是红。
+- [x] **Step 5：全量门禁回归**（`toolkit-tests` / `tool-url-state-tests` / `check-seo` / `check-seo-teeth` / `check-image-dims` / `check-tools-surface` + 其牙齿 / `verify-plan-blocks` / `verify-tool-url` + 其牙齿 / `verify-tools-browser`），逐条记退出码，管道不许吞退出码（`cmd > log 2>&1; echo exit=$?`）。负载超阈值时按房规拒测、不算绿也不算是红。
+
+**落地补记（这一格与正文有六处不同，第 5、6 条是跑门本身跑出来的）**
+
+1. **Step 2 没有另写对照脚本**：正文要的「同一份 `verify-tool-url.mjs` 跑两棵树」照字面落，
+   两棵各跑一遍，退码与红点清单都记进 spec 6.2（head `rc=1` / 17 条红点、U1 八枚键全红；
+   new `rc=0` / 26 条全绿）。26 这个数不是抄门自己报的那句，是数 `^  ✓` 的行按组拆过一遍
+   （U0 1 / U1 10 / U2 3 / U3 3 / U4 2 / U5 2 / U6 4 / U7 1）——两个来源同数才算对上。
+2. **Step 3 的一次性脚本只做门没做的两件事**：20 次档位改动本来就在浏览器门 U3 里，A 段不重做，
+   补的是①「确实写过」的反空转前置（连改 20 次之后地址栏里一枚自己的键都没有时，
+   `history.length` 差 0 只是「一次都没写」的另一种说法，那一格会恒真）与②别人那三枚参数的
+   **逐字节**对账——比对用「按原序重序列化一遍」而不是字节切片（切片那种写法在 `?` 前缀与转义上
+   会自己骗自己）。`history.length` 用真读数差值，页内 `pushState` 计数另算一只。
+3. **Step 4 的「SW 接管过的轮次不计」实测剔除 0 轮**：四页产物里 `serviceWorker` 出现 0 次
+   （`grep -c` 逐页 4×0），两轮共 40 次导航 `navigator.serviceWorker.controller` 全为 `null`。
+   这一格照量照记，是因为口径答应了它，不是因为它有牙。三个数最后只能写成「量不出代价」——
+   json 两侧五轮区间重叠（不带 3,445…3,477 / 带 3,397…3,473），负的 Δ 是抖动不是收益。
+4. **A/B 的量具一律不入库**，入库的是口径与数字（房规先例就是被这一格改的那本：
+   `2026-09-25-blog-online-tools-design.md` §7 末尾「浏览器侧那一档留成**可复跑的一次量具**…量具目录在
+   gitignore 的 `node_modules/` 下」，以及 §7 那一格复算量具写的「一次性、不入仓库」）：
+   `/tmp/sp2-ab/{build.sh,hygiene.mjs,ab-load.mjs,sweep.sh,sweep2.sh,sweep3.sh}` 六本一次性，
+   骨架照 `verify-tool-url.mjs`（一棵 `_site` 挂 `http.createServer` + `no-store`、端口从 `listen(0)` 抢、
+   开局按 md5 认磁盘与服务器同一份、视口 1280×900 且 `innerWidth` 自证）逐条抄。
+5. **跑门的那棵树必须先证等于提交的那棵树**：第一版 new 树的 `toolDiff.min.js` 与工作树不同 md5
+   （Task 6 那刀改完源码没重建），三格产物里只有这一格暴露——A/B 与五道读产物的门若指着一份陈旧产物，
+   量的就不是本期落的那一刀。收口前逐格 md5 认树，证据串写进 spec 6.8。
+6. **Step 5 分三遍跑完**：第一遍 `check-seo` 在负载 20.89 上等过 90 秒按房规拒测，第二遍补五道时
+   `verify-tool-url-teeth` 退 2（锚点对不上重建后的产物）、`verify-tools-browser` 退 1
+   （§7 那张表的 JSON / 对比两行档位被这 1.2KB 顶穿），改完才有第三遍的两道 ✓。
+   十三道的退码与每道自己打出来的那一句都在 spec 6.8。
 
 ---
 
 ### Task 8：交付实录与提交
 
-- [ ] **Step 1：把 §7 交付实录写进 spec**（落地清单逐行号、门禁台账逐道退出码、A/B 三个数、与计划的偏离、量具自己踩的坑、未做与移交）。台账里的每个数都要能照着命令复算；复算不了的就改成「实测形状」而不是硬编数字。
+- [x] **Step 1：把 §7 交付实录写进 spec**（落地清单逐行号、门禁台账逐道退出码、A/B 三个数、与计划的偏离、量具自己踩的坑、未做与移交）。台账里的每个数都要能照着命令复算；复算不了的就改成「实测形状」而不是硬编数字。
 
-- [ ] **Step 2：`git add` 按 pathspec 逐文件，提交，`git diff --cached --name-only` 复核**。**不 push**。
+- [x] **Step 2：`git add` 按 pathspec 逐文件，提交，`git diff --cached --name-only` 复核**。**不 push**。
+
+**落地补记（两处与正文不同，第一条是编号、第二条是这一刀真正多出的那笔账）**
+
+1. **实录落在 spec 的 §6 而不是 §7**：这份 spec 起草时 §5 就是「验收：门禁化 + A/B 实测」，§6 起才是
+   交付实录（正文那句「§7 交付实录」是照着 SP1 那份的编号写的，SP1 的 §7 是性能预算、§8 才是实录）。
+   六个小节按正文要的五块内容落：6.1 两棵树与差异面、6.2–6.4 A/B 三个数、6.5 与计划的偏离、
+   6.6 量具踩的坑、6.7 未做与移交、6.8 门禁台账。
+2. **这一刀多出一笔不在计划里的账，而且是判据自己红出来的**：`verify-tools-browser.mjs` 的 `11c`
+   按「最坏读数 ÷ 0.95 向上取 1024 倍」回算 SP1 §7 那张表，本期的 +1.2KB 裸字节（gzip 后
+   +369 / +356 / +495）把 JSON 与对比那两行 JS+CSS 顶到了 5% 余量之下，第一跑退 1。
+   处置是**照同一条算式把两行档位升上去**（58,368 → 59,392、33,792 → 34,816），
+   不动那条 5% 的线、不摘 `fresh` 标记——计划里没有这一格，但它是本期产物字节变更的必然结果，
+   账记在 `2026-09-25-blog-online-tools-design.md` §7（2026-10-03 那一格）与本 spec 6.4 末段、6.8 第 2 条。
