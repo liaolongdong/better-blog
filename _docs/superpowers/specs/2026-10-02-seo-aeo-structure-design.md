@@ -688,3 +688,193 @@ A/B 实测三个数：**LCP、head 字节、图片字节**。
 - 不碰 A4 / A8 / A9：归子项目 4
 - 不碰 `verify-motion-batch4.mjs` 的删除状态：那是另一会话的事
 - 不碰 `sw.js` / `check-sw.mjs`：同上
+
+## 8. 交付实录（SP1，2026-10-02）
+
+### 8.1 提交段
+
+基线 `259af88` → `ac778ed`，11 个提交，全部落在本仓 `main`，**未推送**（推送不在本轮授权范围内）。
+
+| 提交 | 内容 |
+| --- | --- |
+| `6d72f96` | A5 keywords 逐页取 `tags`（`site.keyword` 那条全站同串从此不再输出）+ A3 `dateModified` 从 git 历史导入 `_data/modified.yml`，指纹门控 |
+| `f802771` | B1 三条统计/站长推送脚本改 `defer`；`soPush.js` 顺带拆掉 `document.write` |
+| `34ef81a` | A2 四个工具页 WebApplication JSON-LD |
+| `89e87a5` | A7 首页与合集页 ItemList（落 body 末尾，head 逐字节不动） |
+| `d0fa3aa` | A6 安装面：`manifest.json` + 180/192/512 三枚图标 + 明暗两档 `theme-color` |
+| `6f6a005` | A1 文末「相关工具」卡（自动那一半） |
+| `120e0fe` | B2 图片换源：20 枚 >512KB 的 png 转同名 webp，构建期直改 `src` |
+| `a08ca6e` | `check-seo.mjs` 十组判据 + `check-seo-teeth.mjs` 137 颗牙 |
+| `e359977` | 修 `_plugins/image_dims.rb` 的 viewBox 退路（写下来就没生效过） |
+| `161eff2` | 滤镜单元门禁 `check-image-dims.rb`（36 断言）+ 27 刀；台账牙齿 15 刀；堵两处「静默空转」+ 一处编码器标签漂移 |
+| `ac778ed` | 段2 计划镜像跟着 `_data/onlineTools.yml` 落齐——收口回归揪出的是 `6f6a005` 自己挖的坑 |
+
+### 8.2 门禁台账（收口第二遍，逐道退出码）
+
+第二遍相对第一遍改了两件事：`nav-touch` / `motion-batch4` 的入口换成**快照自己的** `scripts/`
+（它们各自有「服务的字节 == 磁盘」的同源自证，指工作树就会被并发会话的 watcher 打假红），
+`seo-teeth` 显式指到导出树（同一条理由）。台账全部引门禁自己打印的那一行：
+
+| 道 | 命令 | 打印出来的账 | rc |
+| --- | --- | --- | --- |
+| toolkit | `node scripts/toolkit-tests.mjs` | `# tests 439 / # pass 439 / # fail 0` | 0 |
+| seo | `node scripts/check-seo.mjs --root=$S --site=$S/_site` | 10 组全绿；135 页 / 78 篇文章页 / 101 页带安装面；ready 工具 4 条、修订台账 45 条、换源台账 20 条；JSON-LD 205 块全部可解析 | 0 |
+| seo 牙 | `node scripts/check-seo-teeth.mjs --root=$S --site=$S/_site` | `137/137 组变异如期变红（748.1s）`，还原后基线仍绿 | 0 |
+| 图标台账 | `node scripts/build-manifest-icons.mjs --check` | 3 枚通过（不需要 Chrome） | 0 |
+| 图片台账 | `node scripts/build-image-variants.mjs --check` | `ok（20 条，省下 29.8MB）` | 0 |
+| 图片台账牙 | `node scripts/check-image-variants-teeth.mjs` | `15/15 刀变异如期变红` | 0 |
+| 滤镜单元 | `ruby scripts/check-image-dims.rb "$PWD"` | `ok（36/36 条断言，台账 20 对）` | 0 |
+| 滤镜单元牙 | `node scripts/check-image-dims-teeth.mjs` | `27/27 刀变异如期变红` | 0 |
+| 工具收录面 | `node scripts/check-tools-surface.mjs --site=$S/_site` | 4 条 ready 条目 × 5 组判据全绿 | 0 |
+| 工具收录面牙 | `node scripts/check-tools-surface-teeth.mjs` | `74/74 组变异如期变红` | 0 |
+| 计划镜像 | `node scripts/verify-plan-blocks.mjs` | 76 个已落地镜像（1,636,297B）逐字节全等，未落地 0 节 | 0 |
+| 计划镜像牙 | `node scripts/verify-plan-blocks-teeth.mjs` | `41/41 通过` | 0 |
+| 触屏下拉 | `node $S/scripts/verify-nav-touch.mjs` | 判据 77 条 红 0 · 牙齿 10/10 | 0（见 §8.7） |
+| 揭示动效 | `node $S/scripts/verify-motion-batch4.mjs` | 收口这一遍被负载挡下，见 §8.7 | 2 → 前一遍 0（93 通过） |
+
+`article-check.mjs` 这一遍不适用：它是**逐篇正文**的门（`node scripts/article-check.mjs <正文.md>`），
+本期没有新增或改写任何一篇正文，A1 那张卡是布局/include 层的。
+
+### 8.3 A/B 实测三个数
+
+两棵树同一次构建脚本产出：`before` = `git archive 259af88`、`after` = `git archive ac778ed`，
+各自软链工作树的 `node_modules` 与 `vendor`（两者都不入库，导出树里没有），
+再各跑 `npx vite build` + `bundle exec jekyll build --baseurl ""`。
+
+差异面先断言（不只断言目标指标）：`diff -rq` 得到 Only-in-before **0** 条、
+Only-in-after **22** 条 = 20 枚 webp + `assets/img/icons/` + `manifest.json`，
+`Files … differ` **123** 条 = 119 个 html + `index.min.css`（新增 `.related-tools` 那一族）
++ `soPush.min.js`（拆 `document.write`）+ `feed.xml` + `sitemap.xml`（后两枚是构建时间戳，白名单）。
+
+**① 图片字节**——台账那 20 对在两棵树里的实际磁盘字节：
+
+- `33.07 MB → 3.27 MB`，Δ **−29.80 MB（−90.1%）**
+- 最大单枚 `05-framework-architecture.png`：`7.13 MB → 0.35 MB`
+- 候选口径照脚本写死：扫 `assets/` 全树的 `.png`、排除 `assets/img/og/`、单枚 >512KB，共 **23** 枚；其中 **3** 枚
+  （`ai-sdd/banner-{2,4,5}.png`，合计 **4.83 MB**）在 `_posts/_data/_layouts/_includes` 里没有任何引用点，
+  按「死资产不转」留着——不转也不删，删除是另一个决定
+
+**② head 字节**——口径按 §6 写死：`<head>` 起、`</head>` 止、含这两个标签本身、不含其后换行；
+压缩一律 `cat f | gzip -9 | wc -c`（不是 zlib API）。两侧都有 head 的页 **134** 个（两树各 135 个 html，
+唯一没有 `<head>` 的那页是 Google 校验文件 `googlebed27dc19e414568.html`）：
+
+| 口径 | before | after | Δ | 均/页 |
+| --- | --- | --- | --- | --- |
+| 裸字节合计 | 1,018,026 | 1,043,940 | **+25,914** | +193.4 B |
+| `gzip -9` 合计 | 399,463 | 401,618 | **+2,155** | +16.1 B |
+
+- 变大的页 101/134；一字未增 **15** 页，另有 **18** 页裸字节反而**变小**（各 −160 B）。
+  这 15 + 18 = **33** 页逐页点过名，合起来恰好就是 `demo/**` 那 33 个产物：它们在安装面范围外
+  （`接线` 组判定的正是「范围外一条都不许有」），其中 18 个还因为 A5 不再输出那条全站同串的
+  `site.keyword` 而净减 160 B。`/pageN` 不在「未增」里——它们照样领安装面那三行。
+- 最大单页增幅 `tools/diff.html` **+1,693 B**（A2 的 WebApplication + A6 三行 + A5 keywords 叠在一页）
+- **37 页压缩后反而更小**：新增的是与页面里已有串高度重复的 meta/JSON-LD，gzip 几乎不收钱——
+  「+193 B/页」和「+16 B/页」是同一件事的两个口径，wire 上真正多出来的是后者
+- A7 的 ItemList 按设计落 body 末尾，对 head 的贡献实测为 0（`ItemList 位置` 组 18 颗牙盯这条）
+
+**③ LCP**——headless Chrome（`--remote-debugging-port=0` + `--proxy-server=direct://` +
+`--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1`），两棵各起一个 `port=0` 的本地服务，
+只认自己那次的端口；`Network.setCacheDisabled`；观察器经 `Page.addScriptToEvaluateOnNewDocument`
+注入（`buffered:true`），每格取**中位数**，两棵**交替**采样；
+视口 `desktop 1280×800` / `mobile 390×844`（dpr 1，`innerWidth` 逐档自证 = 1280 / 390）；
+未节流每格 7 次，fast3g（RTT 150ms / 下 1.6Mbps / 上 750kbps）只在桌面、每格 3 次。
+每格样本带一枚 nonce（`?probe=节流档.轮.页序.棵`），读回来的文档 `location.search` 不含这枚 nonce 就整轮退 2。
+
+| 视口/网络 | 页面 | before 中位 | after 中位 | Δ |
+| --- | --- | --- | --- | --- |
+| desktop fast3g | `2026/06/05/ai-sdd.html` | 20,780 | 3,956 | **−16,824（−81.0%）** |
+| desktop fast3g | `2026/06/15/webmcp-vs-puppeteer.html` | 21,976 | 3,532 | **−18,444（−83.9%）** |
+| desktop fast3g | `2026/05/25/account-password-helper.html` | 9,700 | 6,148 | **−3,552（−36.6%）** |
+| desktop fast3g | `tools.html`（对照，两棵同源同字节） | 3,868 | 3,676 | −192 |
+| desktop fast3g | `index.html` | 2,424 | 2,476 | +52 |
+| desktop 未节流 | 三篇封面页 | 1,540 / 1,288 / 1,332 | 1,132 / 960 / 1,188 | −408 / −328 / −144 |
+| mobile 未节流 | 首页 / 三篇封面 / 对照 | 196 / 1,216 / 452 / 600 / 320 | 180 / 996 / 484 / 572 / 292 | −16 / −220 / +32 / −28 / −28 |
+
+- **只有 fast3g 那一档能报**。未节流两档里本地服务不是瓶颈，每格 7 次的离散区间两侧大幅重叠
+  （例：`ai-sdd` desktop before `276…6172` / after `216…2224`），而**对照页**同一档就有
+  desktop +124 / mobile −28 的摆动——所以未节流那两档只能说「没变差」，不能说「快了 400ms」。
+- `index.html` 的 LCP 元素是 `SPAN`（文字），换源管不到它；对照页 `tools.html` 两棵的 LCP 资源
+  逐字节相同（102,261/102,056），它的 Δ 就是这套量具的噪声底。
+- 自证四道全 **0/170**：`fromDiskCache`/`fromServiceWorker` 旗子亮的样本、CDP 报的字节与磁盘字节差
+  >300B 的样本、没拿到 LCP 条目的样本、`readyState` 未落 `complete` 的样本；
+  服务端到的 `index.html` md5 == 磁盘（before 77,078B / after 78,997B）。
+
+### 8.4 与原设计的偏离（三处，都不是顺手）
+
+1. **门禁文件名**：§6 的门禁清单里早先写的是 `scripts/check-image-dims.mjs`，落成 `scripts/check-image-dims.rb`
+   （牙齿侧仍是 `check-image-dims-teeth.mjs`）。被测对象是 Ruby 滤镜，Node 要直调它只有两条路：
+   起 bundler（把门禁绑死在 `vendor/bundle` 上），或 shell 出去跑 `ruby`（Node 只是层壳）。
+   纯 Ruby、不 `require 'bundler'`，启动 ~0.2s，夹具走 `Dir.mktmpdir`，形状想造多少造多少。
+2. **webp 编码器**：本机没有 `cwebp`，改用 `ffmpeg -c:v libwebp -quality 82 -compression_level 6 -preset drawing`。
+   编码器串进台账顶层 `encoder` 字段，`--check` 逐条比的就是它；「编码器漂」那颗牙盯这条。
+3. **B2 的机制替换**（`<picture>` → 构建期直改 `src`）已记在 §4 的 B2 标题里，这里只补一句为什么它不是风格偏好：
+   产物里**零 `<picture>`** 是一条判据，因为 `dev/js/index.js` 的 `postCover()` 按量到的高度分支，
+   而 `<source>` 换源会让它量到另一张图。
+
+### 8.5 过程里揪出并修掉的缺陷（12 处）
+
+门禁侧 8 处（都在 `a08ca6e`，写牙的过程把它们一颗颗撞出来的）：
+崩溃时结果不落盘、IHDR 长度没校验就当 PNG 读、`match_tags` 当标量比、`start_url` 用 `.includes` 而非全等、
+manifest `href` 拿字面串比、缺页与 sitemap 两处判据空转、`paperTokens` 同块重复失明、
+`dev/js` 推送脚本的路径与注释里的假阳性。
+
+产品与工具侧 4 处：
+
+- `e359977`：`image_dims.rb` 的 viewBox 退路——`root[/re/]` 返回**整段命中串**而非 `MatchData`，
+  `box[3]` 取到的是那串里的第 4 个字符，`to_f` 恒 0.0，这支退路从写下来就没生效过。
+- `161eff2`：台账里编码器标签与实际调用串漂移（改一边不改另一边的老毛病）。
+- `161eff2`：两处「静默空转」——候选清单为空、或候选无一被引用时，`--check` 会绿灯着什么都不核对。
+- `ac778ed`：`6f6a005` 往被计划镜像逐字节盯住的 `_data/onlineTools.yml` 追加了 61 行，
+  收口回归的 `plan-blocks` 因此红——**红的是我自己那一刀**，第一遍还差点把另外两道的 exit 2 一起算成产物问题。
+
+### 8.6 量具自己踩的四个坑（都写进了代码注释）
+
+1. CDP `Runtime.evaluate` 的形状是 `{result:{value:…}}`；直接解构 `{value}` 得到 `undefined`，
+   于是「等 `readyState` 落 complete」那一圈每格都跑满上限——看着像页面慢，其实是量具没读到值。
+2. 裸 CDP 类只把请求塞进 `pending`、没挂 `message` 监听把报文认 id 递回去：
+   第一条 `Target.createTarget` 的 Promise 永不落地，整个测量**静默挂死**到闹钟响，一行输出都不出。
+3. `Page.navigate` 之后第一次读 `document.readyState` 拿到的还是**上一份**文档（已 `complete`），
+   循环立刻跳出，读的是上一页的观察器数组——所以每格必须有 nonce，且读回来的 `location.search` 必须含它。
+4. 每一次 CDP 调用套 30s 上限 + `uncaughtException` 收尸；导出树必须软链 `node_modules` 与 `vendor`
+   （`.bundle/config` 把 `BUNDLE_PATH` 指到 `vendor/bundle`，而 `vendor/` 不入库）。
+
+### 8.7 两道 Chrome 门禁在收口这一遍的实情
+
+这一遍的负载不是空的：`sysctl -n vm.loadavg` 读到 30–47，另有会话的 watcher，
+以及两个属于兄弟仓、卡了 1 小时 40 分以上的 `--dump-dom` Chrome（pid `74201` / `75008`，
+按 pid 记着没动它们——本机共享，不许宽匹配 `pkill`）。
+
+- `nav-touch`：HEAD 快照连跑 3 次 = 绿 / 红 1 条 / 绿，全绿那两次是 `判据 77 条 红 0 · 牙齿 10/10`。
+  中间那次红的是「页面零报错」，内容是 `InvalidStateError: Transition was aborted because of invalid state.
+  Viewport size changed`——改视口时撞上一次在飞的 View Transition，属时序而非产物。
+  另有一次牙齿（`退回旧的两段式`）探针抛 `null.tagName`。**归因不靠猜**：同一份
+  `verify-nav-touch.mjs`（`git diff --name-only 259af88..HEAD -- scripts/verify-nav-touch.mjs` 为空，
+  两棵树里的两份 `diff -q` 也相同）跑在 `259af88` 导出树（同样 vite + jekyll、同样 `has-sub` 那枚标记在位）上，
+  连跑 4 次 = 挂 / 挂 / 全绿 / 全绿，挂的位置同样是 `probeDesktop` 那一行。所以这道门禁的桌面档探针本身 flaky，
+  与本期差异无关，移交触屏档那一格的所有者；收口以全绿那一次计。
+- `motion-batch4`：连试 4 次全部 exit 2，且是它自己那条设计好的拒绝——
+  `采样密度不足：300ms 只读到 48 / 73 / 34 / 35 帧`，写明「机器此刻不空……不看产物，等空了重跑」。
+  它拒绝假红是对的；本期这一遍**没有拿到**它的绿，前一遍空机时拿到过 `93 通过`（那份输出没落盘，
+  所以这里只算「前一遍绿、这一遍被负载拒」，不合并成一句「全绿」）。
+
+### 8.8 未做与移交
+
+- 一处**刻意留下的没牙**：`check-image-dims.rb` 把台账对数打在那行 `ok（36/36 条断言，台账 20 对）` 里，
+  但没有把它钉成 20。空台账那条有牙（`harness '台账里没有一条转出 webp 的条目，S4 无货可对'`，退 2 不是退 0）；
+  「台账从 20 对缩到 5 对」这种漂不归它盯，归 `build-image-variants.mjs --check` 那 11 处判据——
+  候选层与引用层都在那儿对账，这里再钉一个魔法数只会让两道门互相甩锅
+- 子项目 3：D2 View Transition 形变、D3 ⌘K 升级、SearchAction（`index-all.html` 现在不支持 `?q=`）
+- 子项目 2：C1 新工具、C2 工具页 `post_tag`、C3 可分享 URL 态、C4 隐私条、C5 历史/批量/快捷键、
+  FAQPage、Software App 富结果需要的真实评分源
+- 子项目 4：A4 `seo_description` 回填（约 39 篇）、A8 构建期 TOC、A9 合集近义项归并（约 43 组）、
+  刀3 那 5–8 条正文内手工工具链
+- `_config.yml:27` 的 `site.keyword` 现在是死配置（没有任何页面再输出它），删不删是另一个决定，`package.json` 本轮在禁改清单里
+- 未入站的那篇 `_posts/2026-10-01-gitdiagram-keyless-mcp-4-bad-edges.md`（`??` 状态，另一会话的）
+  引了两枚磁盘上不存在的 webp（`assets/img/gitdiagram-keyless-mcp-4-bad-edges/{01-comparison-edges,banner}.webp`，
+  该目录此刻只有 `prompts/`），发出去就是 404——归写帖的那一格
+- `<picture>` → `src` 换源、`cwebp` → `ffmpeg`、3 枚死 png 不转不删，这三条都在 §8.4 / §8.3 记过，别再当「实现走样」重提
+- 已知未修的既有缺口：`editorial.scss:1643` 那条 `.related-link:hover .related-name` 除了换色还带
+  `translate: .18em 0`，而 `@media (prefers-reduced-motion: reduce)`（:3854 起）是**逐条点名**的写法、
+  没有兜底那句，所以这一族的横移在减弱动效档照样跑。它是本期之前就有的（`.related-posts` 那一族），
+  本期没碰；要修属于动效那一格的范围，不该塞进这一串提交里
+
