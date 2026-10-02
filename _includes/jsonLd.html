@@ -137,7 +137,15 @@ about.html 是 Person.@id 指向的那一页，所以它除了 CollectionPage �
   "alternateName": {{ site.seo_title | jsonify }},
   "url": "{{ site_home }}",
   "inLanguage": "zh-CN",
-  "description": {{ site.description | jsonify }}
+  "description": {{ site.description | jsonify }},
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "{{ site_home }}?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
 }
 </script>
 <script type="application/ld+json">
