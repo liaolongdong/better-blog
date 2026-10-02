@@ -163,6 +163,10 @@ function boot(doc, win, tk) {
     runGuarded,
     storage: store,
     navigator: win.navigator,
+    // 红线：宿主全局只在入口读一次，装配层不写 `window.`。这两格供「档位进地址栏」
+    //（SP2 Task 1 的 `Tk.url`）；不给它们，这一页的行为与今天逐字节一样——只是不同步地址栏。
+    location: win.location,
+    history: win.history,
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
     rowHeight: rowHeightPx(),
