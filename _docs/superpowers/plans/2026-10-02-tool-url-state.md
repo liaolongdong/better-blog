@@ -394,23 +394,59 @@ Expected: `✓ 工具页地址栏验证：全绿（N 条）`（先建一份 `_si
 - Modify: `scripts/check-tools-surface.mjs`
 - Modify: `scripts/check-tools-surface-teeth.mjs`
 
-- [ ] **Step 1：四条判据**
+- [x] **Step 1：四条判据**
 
 1. 名单逐键能由「前缀 + 控件」拼出真实 DOM id：`_site/tools/json.html` 与 `diff.html` 里必须存在 `id="{prefix}-in-workbench-{control}"`；前缀取 `_data/onlineTools.yml` 的 `prefix`（不另写一份）。
 2. 每枚 select 的 `options` 与骨架里那串 `<option value="…">` **同序同字**，且 `dflt` 那一格：JSON 页 `options[0]` 必须就是骨架第一枚 option，对比页 `DEFAULTS[id]` 必须就是带 `selected` 的那一枚（骨架 `context` 的 `selected` 在 `value="3"` 上）。这一条钉的是「默认档换了而名单没换 → 分享链接静默变档」那条最阴的漂。
 3. 负判据：`doc` / `query` / `a-text` / `b-text` / `memorize` 五格出现在名单里就红。
 4. 名单之外不许有键：门禁读产物 `assets/js/tool{Json,Diff}.min.js` 里那枚名单数组的字面量长度与表一致（这一条若太脆就退而求其次：断言两本装配层源码里 `URL_KEYS` 的条目数与表一致，口径写进注释）。
 
-- [ ] **Step 2：跑门确认红**（还没改 `GROUPS`）→ **Step 3：把组加进 `GROUPS` 与汇总行** → **Step 4：跑绿**。
+- [x] **Step 2：跑门确认红**（还没改 `GROUPS`）→ **Step 3：把组加进 `GROUPS` 与汇总行** → **Step 4：跑绿**。
 
-- [ ] **Step 5：牙齿补四刀**（名单少一键 / `options` 顺序反了 / 负判据那五格塞一个进去 / 默认档取错那一枚 option），落在 `check-tools-surface-teeth.mjs` 的 `cases` 末尾，group 一律写 `'urlState'`。
+- [x] **Step 5：牙齿补四刀**（名单少一键 / `options` 顺序反了 / 负判据那五格塞一个进去 / 默认档取错那一枚 option），落在 `check-tools-surface-teeth.mjs` 的 `cases` 末尾，group 一律写 `'urlState'`。
 
-- [ ] **Step 6：`--fix` 换镜像 + 提交**
+- [x] **Step 6：`--fix` 换镜像 + 提交**
 
 ```bash
 node scripts/verify-plan-blocks.mjs --fix && node scripts/verify-plan-blocks.mjs
 ```
 Expected: `✓ …（未落地 0 节）`（`check-tools-surface.mjs` 的镜像被换掉，计划文件跟着进这次提交）。
+
+**落地补记（这一组落地时门禁先红在产物之外的一处真漂移，五条口径与正文不同）**
+
+1. **Step 2 那一跑是真的红了，而红点不在门禁的账上**：`[地址栏名单] diff：df-context 的白名单
+   [3/5/diff/all] 与骨架 option [diff/3/5/all] 不同序`。根因在装配层那句
+   `options: Object.keys(CONTEXT_VALUE)`——JS 把整数样式的键提到前面，`{ diff: 0, 3: 3, 5: 5, all: Infinity }`
+   的键序实测是 `3/5/diff/all`，而 `tools-diff.html` 里那段注释写的是「`CONTEXT_VALUE` 的键序是
+   diff/3/5/all」，把这条语言规则记反了。今天两处都只按**成员**用（`selectOf` 是白名单校验、
+   地址栏的 `dflt` 取 `DEFAULTS`），没有可见后果；但「表里的第一枚」正是 JSON 页那条默认档口径的
+   取值处，这一页一旦照那种写法取 `options[0]`，拿到的是 `3` 而不是书写上的第一档 `diff`。
+   按「门禁揪出的是代码缺陷就改代码」处置：档位改成成对数组 `CONTEXT_TIERS` 声明一次（顺序 = 骨架
+   `<option>` 顺序），`CONTEXT_VALUE` 与 `CONTEXT_OPTIONS` 都从它派生，注释同步改口。
+2. **组名打印成 `[地址栏名单]`，不是 spec 里那个代号 `urlState`**：其余五组红点都是中文
+   （页面源/收录/导航/图标/DOM），混一枚英文代号是给读红点的人添堵。可追溯性靠两处保住——
+   表与常量的名字仍是 `URL_STATE` / `URL_INPUTS` / `URL_FILTER`，注释里点明「spec 里这一组代号
+   `urlState`」，grep 那个代号仍然只命中这一族。牙齿台账里 `group` 因此写 `'地址栏名单'`。
+3. **判据 ④ 用集合口径，不走正文那条「读产物里名单数组的字面量长度」**：产物是压缩产物，
+   `URL_KEYS` 的每一项是 `${prefix}-${c.id}` 现拼，字面量在 bundle 里根本不存在，硬要读只能读
+   `.filter(...)` 那句——那正是判据 ③ 的第二支（`URL_FILTER` 逐字钉），两条判据撞同一处文本
+   就成了重复计数。集合相等（成员同、枚数同）比"条目数一致"强：少一键、多一键、控件改名三种
+   都能红，且红点里直接打印两边各多出来的是谁。参数在地址栏里的**先后**不归这里，归
+   `verify-tool-url.mjs` 的 U4「新键排末尾」。
+4. **`spec` 加了第五格 `defaults`（选读）**：对比页的默认档有**两个声明处**——骨架那一枚
+   `selected` 与 `DEFAULTS.context`。门禁要比对就得两处都读得到，而"这一页的默认表挂在哪本模块
+   的哪个导出上"本来就是这一页的事实，跟着 `spec` 走（`defaults: DEFAULTS`），不在门禁里另立
+   slug→常量 的对照表。JSON 页没写这一格，就按装配层同一条口径取 `options[0]`。
+5. **牙齿是五把而不是四把**：正文那四把覆盖了判据 ②③④（`options` 顺序、那句过滤、默认档），
+   判据 ①（键名拼得出真实 DOM id）没有自己的刀。补的那一把打在**影子产物**上——把
+   `json.html` 里那枚 select 的 id 改名，红点必须点名「拼出的控件 #jt-in-workbench-indent 不在产物里」；
+   这一刀会连带 DOM 组一起红（那一组也按表要这枚 id），所以 `expect` 逐字钉住组 6 那一句，
+   否则台账会把隔壁那组的红记成本组有牙。台账因此 74 → **79/79**，且还原后基线复跑仍绿。
+   四把在源、一把在产物：组 6 读的是三处源声明，产物只提供两格事实（控件在不在、option 串与
+   `selected`），变异因此跟着声明处落。
+6. **这两本 `check-*.mjs` 没有过 prettier**：`git show HEAD` 那两份同样 `--check` 不过（HEAD 起
+   就没排过），而它们的全文镜像是 `verify-plan-blocks.mjs` 逐字节核对的对象——一排版就打散
+   76 格镜像。这条不是漏跑：Task 8 全量回归时按同一口径复核一次，别把它当红灯修。
 
 ---
 

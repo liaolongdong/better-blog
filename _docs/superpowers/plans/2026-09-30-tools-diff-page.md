@@ -5152,15 +5152,32 @@ const ROW_HEIGHT = 24;
 /** 闸门读数（行 / 字节）随 `input` 刷新的防抖时长；真页面上由入口注入的那只延时承载 */
 const DEBOUNCE_MS = 200;
 
-/** 三枚档位下拉的默认值：骨架那格给空串时落在这里；非空而不在白名单里一律上抛（Z21 的 `'9'`） */
-const DEFAULTS = { mode: 'text', layout: 'side', context: '3' };
+/**
+ * 三枚档位下拉的默认值：骨架那格给空串时落在这里；非空而不在白名单里一律上抛（Z21 的 `'9'`）。
+ * 导出它的唯一消费者是收录面门禁的组 6——那一组要把这一格与骨架上带 `selected` 的那枚 option 对撞
+ * （「默认档换了而名单没换」那条最阴的漂，只有两处都读得到才量得动）；页内代码一直就近用它。
+ */
+export const DEFAULTS = { mode: 'text', layout: 'side', context: '3' };
 
 /**
  * 折叠档位的唯一解释表（红线 6）。`diff` 是"只看差异行"= 上下文 0 行；`all` 是"全部展开"= 上下文
  * `Infinity`——`hunksOf` 在 `Infinity` 那一档把相邻差异块合成一块，折叠条因此自然归零，这正是"展开"
  * 要的形状，本层不必再判一次"要不要收拢"。
+ *
+ * 写成**成对的数组**而不是对象字面量，是因为原先那一句 `Object.keys(CONTEXT_VALUE)` 排出来的顺序
+ * 不是书写顺序：JS 把整数样式的键提到最前面，实测得到 `3/5/diff/all`，而骨架里 `<option>` 从上到下
+ * 是 `diff/3/5/all`（收录面门禁组 6 第一跑就红在这一格）。今天两处都只按**成员**用（`selectOf` 是
+ * 白名单校验、地址栏那几枚键的 `dflt` 取 `DEFAULTS`），不同序没有可见后果；但"表里的第一枚"
+ * 正是 JSON 页那条默认档口径的取值处——一旦这一页也照那种写法取 `options[0]`，拿到的会是 `3`
+ * 而不是书写上的第一档 `diff`。顺序在这里声明一次，两处消费者都从它派生。
  */
-const CONTEXT_VALUE = { diff: 0, 3: 3, 5: 5, all: Infinity };
+const CONTEXT_TIERS = [['diff', 0], ['3', 3], ['5', 5], ['all', Infinity]];
+
+/** 档位串 → 上下文行数（`Infinity` = 全部展开，见上面那张表） */
+const CONTEXT_VALUE = Object.fromEntries(CONTEXT_TIERS);
+
+/** 下拉的取值顺序 = 骨架 `<option>` 的顺序 = 这张表的书写顺序 */
+const CONTEXT_OPTIONS = CONTEXT_TIERS.map(([k]) => k);
 
 /** `bar` 那一枚 `mode` 下拉的取值档：`switch.targets` 的 `when` 只能是它的子集（Z17） */
 const MODE_OPTIONS = ['text', 'json'];
@@ -5248,7 +5265,7 @@ export const DIFF_SPEC = {
         controls: [
           { id: 'mode', type: 'select', options: MODE_OPTIONS },
           { id: 'layout', type: 'select', options: LAYOUT_OPTIONS },
-          { id: 'context', type: 'select', options: Object.keys(CONTEXT_VALUE) },
+          { id: 'context', type: 'select', options: CONTEXT_OPTIONS },
           { id: 'ws', type: 'checkbox' },
           { id: 'case', type: 'checkbox' },
         ],
@@ -5417,7 +5434,7 @@ export function createDiffWorkbench(env) {
     s.nameB = String(field('b-name').value || '');
     s.mode = selectOf('mode', MODE_OPTIONS, DEFAULTS.mode);
     s.layout = selectOf('layout', LAYOUT_OPTIONS, DEFAULTS.layout);
-    s.context = selectOf('context', Object.keys(CONTEXT_VALUE), DEFAULTS.context);
+    s.context = selectOf('context', CONTEXT_OPTIONS, DEFAULTS.context);
     return { ws: flag('ws'), case: flag('case') };
   };
 
@@ -6564,9 +6581,10 @@ tool: diff
                         文案归 HTML、取值归装配层。选错一档时 `selectOf` 那一句当场抛上去
                         （红线 5 的第二条路），而不是安静地按另一档算。
                         第一枚 `<option>` 就是**默认档**：`DEFAULTS` 是 mode=text、layout=side、
-                        context=3，而 `CONTEXT_VALUE` 的键序是 diff/3/5/all——照键序排下来的话
-                        第一档成了「只看差异」，禁 JS 读到的默认档与启 JS 算出来的默认档就此分家。
-                        所以那一格必须显式 `selected`。
+                        context=3，而折叠档位那四枚串的书写顺序是 diff/3/5/all（`CONTEXT_OPTIONS`，
+                        与这里逐一对应）——照书写顺序排下来第一档是「只看差异」，与 `DEFAULTS.context`
+                        不同一枚。所以那一格必须显式 `selected`：禁 JS 读到的默认档与启 JS 算出来的
+                        默认档靠这一枚对齐，收录面门禁组 6「地址栏名单」拿 `DEFAULTS` 对撞的也是它。
                         {%- endcomment -%}
                         <select id="{{ tk.prefix }}-in-{{ wbp }}-mode">
                             <option value="text">按文本逐行</option>

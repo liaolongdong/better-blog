@@ -191,9 +191,10 @@ tool: diff
                         文案归 HTML、取值归装配层。选错一档时 `selectOf` 那一句当场抛上去
                         （红线 5 的第二条路），而不是安静地按另一档算。
                         第一枚 `<option>` 就是**默认档**：`DEFAULTS` 是 mode=text、layout=side、
-                        context=3，而 `CONTEXT_VALUE` 的键序是 diff/3/5/all——照键序排下来的话
-                        第一档成了「只看差异」，禁 JS 读到的默认档与启 JS 算出来的默认档就此分家。
-                        所以那一格必须显式 `selected`。
+                        context=3，而折叠档位那四枚串的书写顺序是 diff/3/5/all（`CONTEXT_OPTIONS`，
+                        与这里逐一对应）——照书写顺序排下来第一档是「只看差异」，与 `DEFAULTS.context`
+                        不同一枚。所以那一格必须显式 `selected`：禁 JS 读到的默认档与启 JS 算出来的
+                        默认档靠这一枚对齐，收录面门禁组 6「地址栏名单」拿 `DEFAULTS` 对撞的也是它。
                         {%- endcomment -%}
                         <select id="{{ tk.prefix }}-in-{{ wbp }}-mode">
                             <option value="text">按文本逐行</option>

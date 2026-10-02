@@ -731,7 +731,84 @@ const diffCases = [
   },
 ];
 
-const cases = [...idcardCases, ...codecCases, ...jsonCases, ...diffCases];
+/**
+ * 组 6「地址栏名单」的五把刀（SP2 Task 6）。
+ *
+ * 这一族的四把在**源**、一把在**影子产物**，与前五组相反（前五组大多打在产物上）——因为组 6 读的
+ * 是三处源声明（门禁的 `URL_STATE` 名单、装配层那张表、装配层那句过滤），产物只提供两格事实
+ * （控件在不在、`<option>` 串与 `selected`）。所以变异也照声明处落：每把刀只改一处，
+ * 让它红的那一句必须与「那一处漂移」一一对应。
+ *
+ * 为什么这一族必须有自己的刀而不是靠 `verify-tool-url.mjs` 那 26 格浏览器判据：那一个量的是
+ * **运行时行为**，要起 Chrome、要产物；而这里五处声明对不上时，页面今天照样能用（读不到的键
+ * 永远落回默认档），坏的是**分享出去的链接**。静态门禁一秒跑完，才有资格当提交前的闸。
+ */
+const urlStateCases = [
+  {
+    // 判据 ④：名单里有、表里不是档位。翻 `sort` 的 `type` 是最外科的一刀——DOM 组按表要 id，
+    // id 仍在产物里；`options` 与骨架仍同序，所以只有「名单与表不等」这一句会红。
+    name: '把 sort 的 type 从 select 改成 text（名单里那一枚不再是档位）',
+    group: '地址栏名单',
+    expect: '名单里有而表里不是档位',
+    src: () => mutateSrc('dev/js/tools/jsonWorkbench.js', (s) => {
+      const out = s.replace("{ id: 'sort', type: 'select', options: ['off', 'shallow', 'deep'] },", "{ id: 'sort', type: 'text', options: ['off', 'shallow', 'deep'] },");
+      if (out === s) throw new Error('JSON 页的 sort 那一格不在源里，这一刀作废');
+      return out;
+    }),
+  },
+  {
+    // 判据 ② 的前半格：白名单与骨架 option 不同序。`dflt` 那半格会跟着红（options[0] 变成 four
+    // 而骨架默认是 two），两句都在同一组里，点名前半格才证得了「同序」那一支也在工作。
+    name: 'indent 的 options 顺序反了（表 four/two/tab，骨架 two/four/tab）',
+    group: '地址栏名单',
+    expect: '不同序或不同字',
+    src: () => mutateSrc('dev/js/tools/jsonWorkbench.js', (s) => {
+      const out = s.replace("options: ['two', 'four', 'tab']", "options: ['four', 'two', 'tab']");
+      if (out === s) throw new Error('JSON 页 indent 的 options 那一串不在源里，这一刀作废');
+      return out;
+    }),
+  },
+  {
+    // 判据 ③ 的第二支（连接器那句钉）。放宽这句 = `query` 进名单 = 用户敲进去的检索词进地址栏，
+    // 而表、骨架、DOM 契约四处全都看不出差别——只有这一句钉得住。
+    name: '放宽 JSON 页那句过滤（去掉 c.id !== "query"，检索词进地址栏）',
+    group: '地址栏名单',
+    expect: '的 URL_KEYS 过滤不再是',
+    src: () => mutateSrc('dev/js/tools/jsonWorkbench.js', (s) => {
+      const out = s.replace(".filter((c) => c.type === 'select' && c.id !== 'query')", ".filter((c) => c.type === 'select')");
+      if (out === s) throw new Error('JSON 页 URL_KEYS 那句过滤不在源里，这一刀作废');
+      return out;
+    }),
+  },
+  {
+    // 判据 ② 的后半格：默认档两个声明处分家。骨架 `context` 带 selected 的是 3，`DEFAULTS` 写 5
+    // ——页面上默认档仍是 3（HTML 说了算），而「落回默认」写进地址栏的是 5，分享出去静默多两行上下文。
+    // 这一刀只动 `DEFAULTS`，DOM 组、③ 那句钉、④ 那条集合都不读它，所以红点只有一句。
+    name: 'DEFAULTS.context 改成 5（骨架 selected 仍是 3）',
+    group: '地址栏名单',
+    expect: '的默认档：装配层那一份是 "5"',
+    src: () => mutateSrc('dev/js/tools/diffWorkbench.js', (s) => {
+      const out = s.replace("layout: 'side', context: '3' };", "layout: 'side', context: '5' };");
+      if (out === s) throw new Error('对比页 DEFAULTS 那一格不在源里，这一刀作废');
+      return out;
+    }),
+  },
+  {
+    // 判据 ①：键名拼得出的那枚控件不在产物里。影子产物里改 id 必然连带 DOM 组一起红（那一组也
+    // 按表要这枚 id），所以 `expect` 点名的就是「拼出的控件不在产物里」这一句——只判「红了」
+    // 会把它记成组 6 有牙，而实际红的是隔壁那组。
+    name: '骨架里 indent 那枚 select 的 id 改了名（键名与控件脱节）',
+    group: '地址栏名单',
+    expect: '拼出的控件 #jt-in-workbench-indent 不在产物里',
+    artifact: () => shadowEdit('tools/json.html', (s) => {
+      const out = s.replace('id="jt-in-workbench-indent"', 'id="jt-in-workbench-indentx"');
+      if (out === s) throw new Error('json.html 产物里没有那枚 select 的 id，这一刀作废');
+      return out;
+    }),
+  },
+];
+
+const cases = [...idcardCases, ...codecCases, ...jsonCases, ...diffCases, ...urlStateCases];
 
 let pass = 0;
 const problems = [];

@@ -143,7 +143,8 @@
 DOM id），另加一条负判据——`doc` / `query` / `a-text` / `b-text` / `memorize` 五格出现在名单里
 就是红。牙齿补相应刀数。
 
-**A/B 三个数**（口径写死可复算）：① 9 枚键逐个进站，head 树（本轮改动之前那一份产物）一律落
+**A/B 三个数**（口径写死可复算）：① 八枚键逐个进站（`jt-view jt-indent jt-sort` +
+`df-mode df-layout df-context df-ws df-case`），head 树（本轮改动之前那一份产物）一律落
 默认档、new 树按参数落定，合法 / 非法各一遍；② 地址栏卫生：连改 20 次档位后 `history.length`
 增量 = 0、最长 URL 实测值、`?keep=1&utm_source=x` 三个参数一字未动；③ 首屏代价按 Pages 口径
 （fast3g + gzip，5 轮/侧取中位数，SW 接管过的轮次不计）量带参 vs 不带参的 `load` /
