@@ -38,14 +38,18 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const MANIFEST = path.join(ROOT, 'scripts', 'image-variants.json');
 const SIZE_FLOOR = 512 * 1024;
 const EXCLUDE_DIR = 'assets/img/og/';
-const ENCODER = 'ffmpeg libwebp -quality 82 -compression_level 6 -preset drawing';
+// 编码参数只在这一格写一遍，ENCODER 由它现算：原先两处各写一份，改参数的人只要忘了改
+// 字符串那一格，--check 就会对着旧参数自证（台账里那一栏仍是旧串，判据全绿），而
+// --check 正是这一层唯一那道门。现在改任何一个数字，台账那一栏必然对不上并红出来。
+const WEBP_ARGS = ['libwebp', '-quality', '82', '-compression_level', '6', '-preset', 'drawing'];
+const ENCODER = `ffmpeg ${WEBP_ARGS.join(' ')}`;
 
 /** 源文件扫描面：引用只可能出现在这四类里（正文、数据、布局、include）。 */
 const REF_GLOBS = [
   ['_posts', (f) => f.endsWith('.md')],
   ['_data', (f) => f.endsWith('.yml')],
   ['_layouts', (f) => f.endsWith('.html')],
-  ['_includes', (f) => f.endsWith('.html')]
+  ['_includes', (f) => f.endsWith('.html')],
 ];
 
 function sha256(file) {
@@ -63,13 +67,14 @@ function walk(dir, keep, out = []) {
 
 /** @returns {Set<string>} 被至少一个源文件引用的 png 相对路径（/assets/... 或裸文件名两种写法都认） */
 function referencedPngs(candidates) {
-  const sources = REF_GLOBS.flatMap(([dir, keep]) => walk(dir, keep)).map((rel) =>
-    fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+  const sources = REF_GLOBS.flatMap(([dir, keep]) => walk(dir, keep)).map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   const joined = sources.join('\n');
-  return new Set(candidates.filter((rel) => {
-    const bare = path.posix.basename(rel);
-    return joined.includes(`/${rel}`) || joined.includes(bare);
-  }));
+  return new Set(
+    candidates.filter((rel) => {
+      const bare = path.posix.basename(rel);
+      return joined.includes(`/${rel}`) || joined.includes(bare);
+    }),
+  );
 }
 
 function candidates() {
@@ -80,12 +85,7 @@ function candidates() {
 }
 
 function encode(pngRel, webpAbs) {
-  execFileSync('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error', '-y',
-    '-i', path.join(ROOT, pngRel),
-    '-c:v', 'libwebp', '-quality', '82', '-compression_level', '6', '-preset', 'drawing',
-    webpAbs
-  ], { stdio: 'pipe' });
+  execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', path.join(ROOT, pngRel), '-c:v', ...WEBP_ARGS, webpAbs], { stdio: 'pipe' });
 }
 
 function loadManifest() {
@@ -103,7 +103,9 @@ function build() {
   const referenced = referencedPngs(cand);
   const dead = cand.filter((rel) => !referenced.has(rel));
   const manifest = loadManifest();
-  let converted = 0, skipped = 0, nogain = 0;
+  let converted = 0,
+    skipped = 0,
+    nogain = 0;
 
   for (const rel of cand) {
     if (!referenced.has(rel)) continue;
@@ -134,8 +136,7 @@ function build() {
     if (!cand.includes(key)) delete manifest.variants[key]; // 阈值/引用面变了，旧条目不留尸
   }
   fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + '\n');
-  console.log(`转 ${converted}，未变跳过 ${skipped}，无收益 ${nogain}，死资产不转 ${dead.length}` +
-    (dead.length ? `：${dead.join(', ')}` : ''));
+  console.log(`转 ${converted}，未变跳过 ${skipped}，无收益 ${nogain}，死资产不转 ${dead.length}` + (dead.length ? `：${dead.join(', ')}` : ''));
 }
 
 function check() {
@@ -151,6 +152,15 @@ function check() {
   const raw = fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8')) : { encoder: ENCODER };
   if (raw.encoder !== ENCODER) {
     bad(`台账编码器「${raw.encoder}」与脚本「${ENCODER}」不符（参数变了即全部作废，重跑不带 --check 的那条命令）`);
+  }
+
+  // 空集必须红出来，不能让「下面每一判都没有循环对象」冒充全绿：
+  // 阈值写成 0 以上的大数、排除目录写成 ''（`!rel.startsWith('')` 恒真）、REF_GLOBS 少一项，
+  // 三种写法都会让对账整块静默空转，而台账里明明还躺着条目。
+  if (Object.keys(manifest.variants).length && !cand.length) {
+    bad(`候选清单是空的（assets 下大于 ${SIZE_FLOOR / 1024}KB、且不在 ${EXCLUDE_DIR || '(空排除目录)'} 的 png 一枚都没扫到），而台账里有 ${Object.keys(manifest.variants).length} 条——阈值或排除目录被写坏了，这一层的对账此刻一条都没跑`);
+  } else if (cand.length && !referenced.size) {
+    bad(`${cand.length} 枚候选里没有一枚被引用（扫描面 ${REF_GLOBS.map(([d]) => d).join('/')}），台账却要靠引用关系才成立——这一层的对账此刻一条都没跑`);
   }
 
   for (const rel of cand) {
@@ -178,9 +188,7 @@ function check() {
   const total = Object.values(manifest.variants)
     .filter((v) => v.webpBytes)
     .reduce((s, v) => s + (v.pngBytes - v.webpBytes), 0);
-  console.log(fails.length
-    ? `--- image-variants: ${fails.length} RED ---\n` + fails.map((f) => '  RED ' + f).join('\n')
-    : `--- image-variants: ok（${Object.keys(manifest.variants).length} 条，省下 ${(total / 1048576).toFixed(1)}MB）---`);
+  console.log(fails.length ? `--- image-variants: ${fails.length} RED ---\n` + fails.map((f) => '  RED ' + f).join('\n') : `--- image-variants: ok（${Object.keys(manifest.variants).length} 条，省下 ${(total / 1048576).toFixed(1)}MB）---`);
   process.exit(fails.length ? 1 : 0);
 }
 
