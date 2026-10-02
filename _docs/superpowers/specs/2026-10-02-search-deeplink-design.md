@@ -189,3 +189,94 @@ urlTemplate 少 `?q=`／占位符写成 `{q}`／把首页那份 WebSite 复制�
 - D2（共享元素形变）：等 §7 那条 `getAnimations({subtree:true})` 实验给结论，且并发会话的动效门禁落定之后再排。
 - 本分支回灌 main 只能等对方把 `dev/js/editorial.js`（主工作树里是 ` M`，挂着他们的 SW 段）与 `toolkit.scss` 提交之后 fast-forward。
 - `index-all.html` 那句「无脚本」与产物不符（它带 `#cmdk` 和三份 bundle），本轮不动，记在这里。
+
+## 11. 交付实录（SP3，2026-10-02）
+
+### 11.1 落地清单
+
+行号取本轮提交那一棵树（`dev/js/editorial.js` 3,207 行；两份新门禁分别 668 / 406 行）。
+
+| 项 | 位置 | 这一格防的是什么 |
+| --- | --- | --- |
+| E1 深链 | `dev/js/editorial.js:633`（`open(trigger, preset)`）、`:663`（`syncUrl`）、`:895-901`（读 `?q=`，位置在所有监听器之后） | 分享出去的链接别人打开得是「已经搜过」那一态 |
+| D3a 组合输入 | `:621`（`composing`）、`:864`（按键门）、`:875-887`（`compositionend` 补渲染 + `input` 门） | 组合中按 Enter 打开第一条结果并跳走 |
+| D3b 多词 | `:676`（`toTerms`）、`:690`（`score` 收词表）、`:711-738`（`escRe` 与逐词逐处 `mark`） | 「两个词」退化成「整串找不到」，以及高亮只包第一处 |
+| E2 SearchAction | `_includes/jsonLd.html:141-148` | 声明一个没人接的地址 |
+| 门禁一（静态） | `scripts/check-seo.mjs:1143`（组 11）、`:1183`（`GROUPS` 由 10 个变 11 个）＋ `scripts/check-seo-teeth.mjs` 补 4 刀 | urlTemplate 与本页 `url` 走散；声明漏到翻页视图 |
+| 门禁二（浏览器） | `scripts/verify-search-deeplink.mjs`（新增，J1–J7 / 25 判据）＋ `scripts/verify-search-deeplink-teeth.mjs`（新增，13 刀 + 3 自检） | 判据空转、判据写反、变异没落地 |
+
+### 11.2 门禁台账（逐道退出码）
+
+10 道非 Chrome 门禁全 `exit=0`（命令都在本工作树跑；除牙齿那两本对着 `/tmp/sp3-ab/*` 的快照副本，其余读的就是本树 `_site`）：
+
+- `node scripts/toolkit-tests.mjs`：439 pass / 0 fail。
+- `node scripts/check-seo.mjs --root=. --site=_site`：11 组全绿，JSON-LD 205 块全部可解析（135 页 / 78 篇文章页 / 101 页带安装面）。
+- `node scripts/check-seo-teeth.mjs --root=/tmp/sp3-ab/new --site=/tmp/sp3-ab/new/_site`：`141/141`（用时 276.4s）。分账 `语料 6 / keywords 7 / modified 10 / JSON-LD 30 / 分页门 2 / ItemList 18 / manifest 24 / 接线 9 / head 7 / 相关工具 15 / 换源 9 / searchAction 4`。
+- `ruby scripts/check-image-dims.rb` 36/36 断言；`check-image-dims-teeth.mjs` 27/27；`check-image-variants-teeth.mjs` 15/15。
+- `check-tools-surface.mjs --site=_site` 4 条 ready × 5 组全绿；其牙齿 74/74。
+- `verify-plan-blocks.mjs` 76 节已落地镜像逐字节全等（未落地 0 节）；其牙齿 41/41。
+
+2 道 Chrome 门禁（收口这一遍，1 分钟负载 11.6 的窗口）：
+
+- `node scripts/verify-search-deeplink.mjs --site=/tmp/sp3-ab/new/_site --head=/tmp/sp3-ab/head/_site` → `全绿（25 条）`。不带 `--head=` 时 J6 那一组（8 个单词的逐条对账）不成立，收尾行按实测打印 `跳过 1 条：J6 单词回归（需要 --head=<上一棵产物的路径>，本轮没有可比的树）`——跳的是这一组，不是 8 条读数，绿与红的计数里都不含它。
+- `SDL_SITE_DIR=/tmp/sp3-teeth/_site node scripts/verify-search-deeplink-teeth.mjs` → 16 项里 15 项在一遍里点燃，M10 撞上一次负载拒绝，单刀补跑点燃 → **16/16**。
+
+负载闸门不是装饰：这一遍 M10 那轮报的是 `✗ 环境没起来：1 分钟负载 21.2 > 16 且等了 90s 没落下来`，harness 退 2，套件把它记成「环境/空刀」而不算点燃（上一遍 M9 同一次）。那种轮子交上去就是假数。
+
+### 11.3 A/B 实测三个数
+
+基线树 `/tmp/sp3-ab/head/_site` 是纯 `0bc51a1` 导出树重新构建（写死提交号，不用 `HEAD~N`：落地途中提交数会变）；新树 `/tmp/sp3-ab/new/_site` 由本工作树工作区内容 rsync 出去构建，其 `assets/js/editorial.min.js` 与工作树那枚 md5 相同（`dc9e7fca407f…`，43,501B）。
+
+**① 单词结果集与顺序**（J6，同一脚本跑两棵树，比 URL 序列与条数）：8 个词逐条等序 —— `搜索 4 / 性能 5 / 面试 5 / 浏览器 12 / 插件 6 / diff 3 / 缓存 2 / nginx 2`（条数由 Node 侧从 `search.json` 独立数出，不是抄产物）。
+
+**② 多词**。旧实现是「整串 `indexOf`」，两个词之间一个空格就 0 命中：
+
+| 查询 | head | new |
+| --- | --- | --- |
+| `浏览器 插件` | 0 | 3 |
+| `插件 浏览器` | 0 | 3 |
+| `性能 缓存` | 0 | 1 |
+| `输入法 中文` | 0 | 1 |
+| `diff 工具` | 0 | 0 |
+| `zzz不存在词 搜索` | 0 | 0 |
+
+后两行是控制组：AND 不是「多词就一定有结果」的橡皮图章。`工具` 单词在两棵树都是 21 条命中、面板都只展示 20 行——top-20 截断规则没被这次改动碰过。
+
+**③ 深链进站的首屏代价**。口径：fast3g（Lighthouse 那档：下 1.6Mbps、上 750Kbps、RTT 150ms）；本地服务对 `text/*` 与 `application/json` 压 gzip，与 GitHub Pages 一致；5 轮/侧取中位数；Service Worker 全程未接管（接管过的轮次不计入）；时间相对 `navigationStart`。
+
+| 读数 | 不带 `q` | 带 `q=搜索` |
+| --- | --- | --- |
+| `search.json` | 0 次 / 0 B | 1 次 / 18,899 B（其中正文 18,599 B） |
+| `load` | 1912ms | 1915ms（+3ms） |
+| DOMContentLoaded | 1894ms | 1887ms（−7ms） |
+| TTFB | 19ms | 17ms |
+| 第一个结果行 | 这一态不存在 | 2355ms（语料于 2350ms 落地） |
+
+读法：`load` 基本不动（+3ms，落在 5 轮 1896–1961ms 的极差里），因为语料是 `initPalette` 里 JS 发起的 `fetch`，不阻塞 `load` 事件——这一条是实测出来的，不是从规范推的（早前一版量具把「JS 发起的 fetch 挡不住 load」当成前提用，结果读出过 `load=null`）。真实代价长成「第一行落在 2355ms」的形状，其中 2350ms 是 fast3g 下 18.9KB 的下载时刻，行的渲染跟在后一帧。所以这句要说准：深链没有把首屏拖慢，它把「结果出现」这一件事从「用户手动开面板再打字」提前到了「进站即开始」。
+
+**字节账**：`editorial.min.js` 42,568 → 43,501B（raw +933 / gzip +354）；`index.html` 81,181 → 81,434B（raw +253 / gzip +94，只有首页，来自 E2）。口径 `wc -c` 与 `gzip -c | wc -c` 各跑两棵树的同名产物，FNAME 头两侧同长故抵消。
+
+### 11.4 与 spec / plan 的偏离（5 处，都是量具先红出来的）
+
+1. **测试词**。spec §8.2 与 plan 的 J1 都写 `?q=转场`，而「转场」在这份 78 条的 `search.json` 里 0 命中——用它当深链判据等于拿空态验「开面板 + 出结果」，M1 那种「进站根本不 `open`」的破法也能绿。换成 `搜索`（4 命中），并在脚本开局加一条「测试词在这份语料里有 N 条命中」的自证，数不出来就 `exit 2`。J2 仍打 `动效`（也 0 命中），因为那一格量的是地址栏跟不跟，与结果集无关——顺带证明 `syncUrl` 不挂在「渲染成功」之后。
+2. **`?q=` 空串那一格 spec 有（§3 第二段）、门禁原先没有**，本轮补了 J1 的第二形态与 M13 这一刀。不是洁癖：E2 的 `urlTemplate` 就是 `?q={search_term_string}`，空值是爬虫真会请求到的形状。判据是三条一起读——面板仍 `hidden`、输入框仍空、这一趟 `search.json` 请求 0 次；反面判据的「活着」不靠宽限时间，靠 `editorial.min.js` 是普通阻塞脚本 + `goto()` 等到 `readyState=complete` 才返回。
+3. **J2「只准 replace」在 plan 里是枚计划级假牙**：写的是 `performance.getEntriesByType('navigation').length !== 1`，而那个条目数每个文档恒为 1、`pushState` 根本不往里加——这一格会永远绿，且永远抓不住「后退要先退回上一个词才退得出面板」。改成开面板前后各读一次 `history.length` 比差，M5 才有地方红。
+4. **J3 补了一条反恒真前置**：关闭那一刻地址栏里必须真的有 `q`。否则「`syncUrl` 完全没实现」也能让 J3 全绿——没有 q 就没什么可抹。
+5. **E2 的四条牙齿与 spec §8.1 同名不同形**：第 2 条打成「键名换成 `?query=`」而不是「少 `?q=`」，第 3 条打成「`query-input` 改成 `term`」而不是「占位符写成 `{q}`」。理由是占位符改名会同时打断两条判据、红得没有指向；换 `query-input` 的键名只测「两处一致性」那一条。
+
+另两处是 plan 自己的命令写错：`node scripts/check-image-dims.rb` 应为 `ruby scripts/check-image-dims.rb`（那是 Ruby）；plan 与 §8.4 都提到 `prettier --write dev/js/*.js`，本仓房规是 `dev/js/` 不过 prettier（只有 `check-*.mjs` 与 markdown 过），且仓里没有 prettier 配置文件——本轮实际只对 `check-seo.mjs` / `check-seo-teeth.mjs` 跑过 `--check`，两枚 exit=0。
+
+### 11.5 量具自己踩的坑（4 个，都已落成代码里的守卫或注释）
+
+1. **terser 每改一次源码就把局部名重排一轮**（这一版 `open→x`、`close→L`、`render→I`、`syncUrl→C`、`composing→p`、`entryUrl→v`）。变异锚点因此只能打**构建产物里的结构串**，且命中数必须恰好 1——不等于 1 就抛 `exit 2`。「空刀」不算点燃。
+2. **「有行或空态」不等于「落定」**。J7 实测抓到过一次 0 行：空态先亮了一下，判据拿着还没填内容的结果去和语料对账，红得像是 AND 少切了一刀（那是量具的账，不是产物的）。改成 `settlePanel()` 两道闸：ResourceTiming 里出现 `search.json`（只在响应落地之后才进缓冲区）+ 之后行数与空态连着两次读一样（间隔 120ms）。
+3. **判「结果集合」的 J5/J6/J7 不许从深链进站**。M1 那一刀原本连带红 10 格，归因就死了；这三组改走「手动开面板 + 打字」之后，深链一族只红在 J1（J4 复用深链铺前置是刻意的，牙齿里按 `cascade` 登记）。13 刀里 6 刀带登记连带（M1/M2→J4 前置、M3→J3 反恒真、M4→J3 还原、M10→J5 五格同因、M11→J7 两词都要有高亮），其余 7 刀各红一条；没写进 `cascade` 的红仍然算「红错地方」。
+4. **影子副本会被上一轮的残留骗过**。牙齿这一本 bake 的是副本现有内容、不自己重拷：实测把套件杀在 M10 之后，副本比 `_site` 少 29 字节、md5 从 `dc9e7fca407f` 变成 `273c92133215`，而「基线自证」那一行仍可能照绿。现在开跑先比副本与 `ROOT/_site` 的 md5，不一致就 `exit 2` 并给出重拷命令。
+
+### 11.6 未做与移交
+
+- 摘要片段的选择规则没变（`hits` 含 3 就展示 excerpt，否则展示 title），所以 §5 那条「某个词只命中了标题时，它在这一行的可见片段里可能不高亮」仍然成立。
+- `syncUrl` 里那句 `if (entryUrl === null) return;` 没有对应的刀：今天没有可观测路径（唯一可能在关着时被调用的 `close()` 先 `syncUrl('')` 再置 null）。给它配一刀就是造假牙。
+- D2 共享元素形变仍按 §7 退出，等那条 `getAnimations({subtree:true})` 实验给结论。
+- 全部提交只在 `sp3-motion-search` 这条分支上，未 push。
+
