@@ -138,11 +138,14 @@ module Jekyll
         h = root[/\bheight\s*=\s*["']?\s*(\d+(?:\.\d+)?)\s*(px)?["']?/i, 1]
         return [w.to_f.round, h.to_f.round] if w && h && w.to_f > 0 && h.to_f > 0
 
-        box = root[/\bviewBox\s*=\s*["']\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)/i]
+        # 这里必须拿 MatchData，不能拿 `root[/re/]`：后者返回的是「整段命中的字符串」，
+        # 对它有 box[3] 取到的是第 4 个字符（'viewBox="0 0 88 31' 里那一格是 'w'），
+        # to_f 得 0.0，于是 viewBox 这一整支退路从写下来就没生效过。
+        box = root.match(/\bviewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([-\d.]+)[\s,]+([-\d.]+)/i)
         return nil unless box
 
-        vw = box[3].to_f
-        vh = box[4].to_f
+        vw = box[1].to_f
+        vh = box[2].to_f
         vw > 0 && vh > 0 ? [vw.round, vh.round] : nil
       rescue StandardError
         nil
