@@ -195,9 +195,9 @@ include 与调用方共享同一 Liquid 作用域），`seoMeta.html` 与 `sitem
 @type: WebApplication
 name:            tk.h1            ← 与页面可见 H1 同值（Google 要求一致）
 alternateName:   tk.name
-description:     tk.desc
+description:     本页 seo_description → description → tk.desc（见下面那段「description 的取值也改掉了」）
 url / inLanguage / applicationCategory: DeveloperApplication
-browserRequirements: "Requires JavaScript. 计算全部在本机浏览器内完成，输入不上传。"
+browserRequirements: "Requires JavaScript."（隐私口径刻意不进这一格，理由见下）
 offers:          { @type: Offer, price: 0, priceCurrency: CNY }
 featureList:     tk.features 或 tk.panels[].name
 isPartOf:        { @id: <site_home>#blog }
@@ -219,6 +219,13 @@ WebApplication 作为**追加**的一个 JSON-LD 块。
 `tools.html` 小节标题用，那两处渲染的就是同一串），无条件发出去等于把同一个值写两遍，
 而 schema.org 的 `alternateName` 语义是「另一个叫法」。改成**只在 `_tk.name != _tk.h1` 时才发**，
 第五个工具真取了不同的 name 时它自己就开始说话。
+
+**description 的取值也改掉了**（`393ba83`，收口后补的那一刀）：原先无条件取 `tk.desc`，而
+`seoMeta.html` 发进 `<meta name="description">` 的链是 `seo_description > description > subtitle >
+site.description`，`tk.desc` 根本不在链上——四页的 `tk.desc`（yml 里那条工作台/面板正文说明）实测
+都比本页自己写的 `seo_description` 长一截，卡片摘要与 meta 摘要因此各说一句话。改成
+`page.seo_description | default: page.description | default: _tk.desc`，与 meta 的链前两级逐字同序，
+页面两格都没写才退到 `tk.desc`。「零新文案」这条不变：两个来源都是本来就有的。
 
 **Google 的评分要求：查过文档，本轮刻意不满足。** Software App 富媒体结果把「评分或评价」
 列为**必要**属性——`aggregateRating` 与 `review` 至少要有一个（`developers.google.cn` 的
@@ -693,7 +700,7 @@ A/B 实测三个数：**LCP、head 字节、图片字节**。
 
 ### 8.1 提交段
 
-基线 `259af88` → `ac778ed`，11 个提交，全部落在本仓 `main`，**未推送**（推送不在本轮授权范围内）。
+基线 `259af88` 起 13 个提交（下表 13 行，含写这一节本身的 `bb9a8a5`；把这几行落盘的提交是第 14 个），全部落在本仓 `main`，**未推送**（推送不在本轮授权范围内）。
 
 | 提交 | 内容 |
 | --- | --- |
@@ -708,6 +715,8 @@ A/B 实测三个数：**LCP、head 字节、图片字节**。
 | `e359977` | 修 `_plugins/image_dims.rb` 的 viewBox 退路（写下来就没生效过） |
 | `161eff2` | 滤镜单元门禁 `check-image-dims.rb`（36 断言）+ 27 刀；台账牙齿 15 刀；堵两处「静默空转」+ 一处编码器标签漂移 |
 | `ac778ed` | 段2 计划镜像跟着 `_data/onlineTools.yml` 落齐——收口回归揪出的是 `6f6a005` 自己挖的坑 |
+| `bb9a8a5` | 这一节（交付实录） |
+| `393ba83` | `jsonLdTool.html` 的 description 改取本页 `seo_description`：修复当时漏在暂存之外，`ac778ed` 的干净检出跑 seo 道是 4 条红（见 §8.5） |
 
 ### 8.2 门禁台账（收口第二遍，逐道退出码）
 
@@ -731,6 +740,13 @@ A/B 实测三个数：**LCP、head 字节、图片字节**。
 | 计划镜像牙 | `node scripts/verify-plan-blocks-teeth.mjs` | `41/41 通过` | 0 |
 | 触屏下拉 | `node $S/scripts/verify-nav-touch.mjs` | 判据 77 条 红 0 · 牙齿 10/10 | 0（见 §8.7） |
 | 揭示动效 | `node $S/scripts/verify-motion-batch4.mjs` | 收口这一遍被负载挡下，见 §8.7 | 2 → 前一遍 0（93 通过） |
+
+**这一行有一句要补的实话**：`seo` 与 `seo 牙` 那两道的绿，其被测样本里必然带着工作树那处**没进暂存**的修复
+（`jsonLdTool.html` 的 description 取值）——这条不是归因，是反推：判据「WebApplication.description 与
+meta description 不同口径」真实存在，而 `ac778ed` 那一版模板撞上它就是红，所以绿只可能发生在带修复的样本上。
+把 `git archive HEAD` 导出树的模板换回 `ac778ed` 版重建再跑，rc=1、红 4 条（json/diff/idcard/codec 各一条），
+反推成立。这条欠账已由 `393ba83` 补上；补完后在导出树（`393ba83` 的内容 + 由它自己重建的 `_site`）重跑：
+10 组全绿、135 页、JSON-LD 205 块全部可解析；牙齿 **137/137 组变异如期变红（492.6s）**，还原后复跑基线仍绿。
 
 `article-check.mjs` 这一遍不适用：它是**逐篇正文**的门（`node scripts/article-check.mjs <正文.md>`），
 本期没有新增或改写任何一篇正文，A1 那张卡是布局/include 层的。
@@ -756,20 +772,24 @@ Only-in-after **22** 条 = 20 枚 webp + `assets/img/icons/` + `manifest.json`�
 
 **② head 字节**——口径按 §6 写死：`<head>` 起、`</head>` 止、含这两个标签本身、不含其后换行；
 压缩一律 `cat f | gzip -9 | wc -c`（不是 zlib API）。两侧都有 head 的页 **134** 个（两树各 135 个 html，
-唯一没有 `<head>` 的那页是 Google 校验文件 `googlebed27dc19e414568.html`）：
+唯一没有 `<head>` 的那页是 Google 校验文件 `googlebed27dc19e414568.html`）。
+**这一节引的是含 `393ba83` 的重测值**（after 树换过模板后以同一条 `--baseurl ""` 重建）；
+`ac778ed` 那一版是裸 `1,043,940 / +25,914 / +193.4 B`、gzip `401,618 / +2,155 / +16.1 B`，
+差的就是四页 WebApplication 摘要由 `tk.desc` 换成本页 `seo_description` 的那几行
+（json −173 B、diff −229 B、codec −78 B、idcard +2 B，全站 gzip 再省 598 B）：
 
 | 口径 | before | after | Δ | 均/页 |
 | --- | --- | --- | --- | --- |
-| 裸字节合计 | 1,018,026 | 1,043,940 | **+25,914** | +193.4 B |
-| `gzip -9` 合计 | 399,463 | 401,618 | **+2,155** | +16.1 B |
+| 裸字节合计 | 1,018,026 | 1,043,462 | **+25,436** | +189.8 B |
+| `gzip -9` 合计 | 399,463 | 401,020 | **+1,557** | +11.6 B |
 
 - 变大的页 101/134；一字未增 **15** 页，另有 **18** 页裸字节反而**变小**（各 −160 B）。
   这 15 + 18 = **33** 页逐页点过名，合起来恰好就是 `demo/**` 那 33 个产物：它们在安装面范围外
   （`接线` 组判定的正是「范围外一条都不许有」），其中 18 个还因为 A5 不再输出那条全站同串的
   `site.keyword` 而净减 160 B。`/pageN` 不在「未增」里——它们照样领安装面那三行。
-- 最大单页增幅 `tools/diff.html` **+1,693 B**（A2 的 WebApplication + A6 三行 + A5 keywords 叠在一页）
+- 最大单页增幅 `tools/diff.html` **+1,464 B**（A2 的 WebApplication + A6 三行 + A5 keywords 叠在一页）
 - **37 页压缩后反而更小**：新增的是与页面里已有串高度重复的 meta/JSON-LD，gzip 几乎不收钱——
-  「+193 B/页」和「+16 B/页」是同一件事的两个口径，wire 上真正多出来的是后者
+  「+190 B/页」和「+12 B/页」是同一件事的两个口径，wire 上真正多出来的是后者
 - A7 的 ItemList 按设计落 body 末尾，对 head 的贡献实测为 0（`ItemList 位置` 组 18 颗牙盯这条）
 
 **③ LCP**——headless Chrome（`--remote-debugging-port=0` + `--proxy-server=direct://` +
@@ -798,6 +818,9 @@ Only-in-after **22** 条 = 20 枚 webp + `assets/img/icons/` + `manifest.json`�
 - 自证四道全 **0/170**：`fromDiskCache`/`fromServiceWorker` 旗子亮的样本、CDP 报的字节与磁盘字节差
   >300B 的样本、没拿到 LCP 条目的样本、`readyState` 未落 `complete` 的样本；
   服务端到的 `index.html` md5 == 磁盘（before 77,078B / after 78,997B）。
+- `393ba83` 之后只有 ② 重测。① 不动：它量的是磁盘上的图片字节，与这一行 JSON-LD 无关。③ 不动：
+  五个量测页里没有那四个工具页，而 `index.html`（78,997B）与对照页 `tools.html`（49,665B）在这
+  一笔前后重建两次、产物字节一格未变——JSON-LD 本来也不参与渲染。
 
 ### 8.4 与原设计的偏离（三处，都不是顺手）
 
@@ -811,14 +834,14 @@ Only-in-after **22** 条 = 20 枚 webp + `assets/img/icons/` + `manifest.json`�
    产物里**零 `<picture>`** 是一条判据，因为 `dev/js/index.js` 的 `postCover()` 按量到的高度分支，
    而 `<source>` 换源会让它量到另一张图。
 
-### 8.5 过程里揪出并修掉的缺陷（12 处）
+### 8.5 过程里揪出并修掉的缺陷（13 处）
 
 门禁侧 8 处（都在 `a08ca6e`，写牙的过程把它们一颗颗撞出来的）：
 崩溃时结果不落盘、IHDR 长度没校验就当 PNG 读、`match_tags` 当标量比、`start_url` 用 `.includes` 而非全等、
 manifest `href` 拿字面串比、缺页与 sitemap 两处判据空转、`paperTokens` 同块重复失明、
 `dev/js` 推送脚本的路径与注释里的假阳性。
 
-产品与工具侧 4 处：
+产品与工具侧 5 处：
 
 - `e359977`：`image_dims.rb` 的 viewBox 退路——`root[/re/]` 返回**整段命中串**而非 `MatchData`，
   `box[3]` 取到的是那串里的第 4 个字符，`to_f` 恒 0.0，这支退路从写下来就没生效过。
@@ -826,6 +849,13 @@ manifest `href` 拿字面串比、缺页与 sitemap 两处判据空转、`paperT
 - `161eff2`：两处「静默空转」——候选清单为空、或候选无一被引用时，`--check` 会绿灯着什么都不核对。
 - `ac778ed`：`6f6a005` 往被计划镜像逐字节盯住的 `_data/onlineTools.yml` 追加了 61 行，
   收口回归的 `plan-blocks` 因此红——**红的是我自己那一刀**，第一遍还差点把另外两道的 exit 2 一起算成产物问题。
+- `393ba83`：**修复躺在工作树、没进暂存**，于是「门绿」与「提交的树绿」不是一回事。`jsonLdTool.html`
+  那处 description 取值改正在 10:42 就落进了工作树，`a08ca6e`（12:24）写的判据「WebApplication.description
+  与 meta description 不同口径」因此一直是绿的；可 `34ef81a` 带进仓库的还是 `_tk.desc` 那一版。
+  事后把 `git archive HEAD` 导出树的模板换回 `ac778ed` 版重建再跑同一道门：rc=1、红 4 条，复现成立。
+  当时那一遍读的到底是哪一棵，我不再归因（能确定的只有 §8.2 那句反推：绿的那一份样本必然带着修复）——
+  但这条不需要归因就能定性：**判据没撒谎，撒谎的是「跑门的树 ≠ 提交的树」**。
+  往后的收口要把「导出树重建 + 重跑」当成 seo 道的一次自证，而不是只把 `--root=` 指到导出树。
 
 ### 8.6 量具自己踩的四个坑（都写进了代码注释）
 
