@@ -70,3 +70,6 @@ OPTIMIZATION_COMPLETE.md
 # 设计/动效类 skill 的落盘上下文（实测为 spark-output/context/motion-plan.json），
 # 一次性生成物，不是站点内容
 spark-output/
+# 隔离工作树（git worktree）的落点：并发会话在同一条 main 上暂存时，新特性在自己的
+# 工作树里出提交，两边永不互吞。这目录里是一整份仓库副本，入库只会污染检出。
+.worktrees/
