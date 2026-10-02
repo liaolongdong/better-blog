@@ -10,7 +10,12 @@
   name           ← tk.h1，与页面上看得见的 <h1 class="masthead-title"> 同值
                    （四页都实测过渲染结果与 yml 逐字一致；Google 要求 name 与可见标题相符）
   alternateName  ← tk.name，**仅当它与 h1 不同才发**（四个工具当前都相同，见下面那段注释）
-  description    ← tk.desc（与 meta description 同源，避免「摘要与卡片不符」）
+  description    ← 本页自己的 seo_description（也就是 seoMeta.html 发进 meta description 的
+                   那一串，逐字同源）；只有页面没写 seo_description 时才退回 tk.desc。
+                   原先无条件用 tk.desc 是不成立的「与 meta description 同源」：tk.desc 是
+                   yml 里那条工作台/面板的正文说明（它的口径写在 onlineTools.yml 字段表，
+                   「页内静态文案，禁用脚本也读得到」），四页实测都比 seo_description 长一截，
+                   于是卡片摘要与 meta 摘要各说一句话——正是这句注释声称要避开的事。
   featureList    ← tk.features；那一格为空时退回 tk.panels[].name
                    （json / diff 两页是 workbench 形状，只有 features；
                      idcard / codec 两页是 panels 形状，只有 panels——两种形状都不能漏）
@@ -62,7 +67,8 @@ alternateName 只在它真的与 name 不同时才发。四个工具在 yml 里 
 {%- if _tk.name and _tk.name != _tk.h1 %}
   "alternateName": {{ _tk.name | jsonify }},
 {%- endif %}
-  "description": {{ _tk.desc | jsonify }},
+{%- assign _wdesc = page.seo_description | default: page.description | default: _tk.desc -%}
+  "description": {{ _wdesc | jsonify }},
   "url": "{{ page.url | absolute_url }}",
   "inLanguage": "zh-CN",
   "applicationCategory": "DeveloperApplication",
