@@ -309,9 +309,21 @@ CSS：body.has-toc .toc-static { display: none; }
 
 ### 5.2 牙齿（每组都要能红，红在登记的那一格）
 
-沿用 SP1/SP2 那两届的形状：变异只打在 `/tmp` 的**产物或源码副本**上，工作树一字不动；
-每把刀登记 `{id, name, from, to, expect, [cascade], [why]}`，锚点命中数 ≠ 1 由 `apply` 退 2（不是退 1、
-更不是退 0），因此**改名/重构导致的锚点漂移不可能静默通过**。本批至少这 15 把：
+沿用 SP1 那一届的形状：变异只打在 `/tmp` 的**产物或源码副本**上，工作树一字不动。
+**本仓的牙齿台账有两副形状，别记错**（读脚本现证：`grep -n "name: '" scripts/check-seo-teeth.mjs`
+与 `sed -n '106,110p' scripts/verify-tools-browser-teeth.mjs`）：
+
+- `check-seo-teeth.mjs`（本批 M1–M14 落的地方）的一条是 `{name, group, expect, mut}`，**没有**
+  `id / from / to / cascade` 这些字段；落点唯一性由 `mut` 里的 `subOnce` / `patchFirst` / `cutLine`
+  **抛异常**保证（找不到或不止一处都抛），主循环把抛异常记成「变异脚本自己崩了」并整族退 1；
+  `expect` 是门禁那行判定的**逐字片段**，且必须红在 `[group]` 这一组里，红在别组也算假牙。
+  退出码在这本里各有所指：**1 = 有红（含变异没落地），2 = 门禁自己崩了**（`check-seo.mjs:66-70` 的
+  `uncaughtException` 兜底），所以「锚点漂了」不会伪装成「判定红在指定组」。
+- `verify-tools-browser-teeth.mjs`（浏览器那一族，本批只有 A8 的动效回归会间接碰到）的一条才是
+  `{id, kind, name, expect, pages, targets, from, to, why}`，`apply` 在目标串找不到时**退 2**。
+
+本批 M1–M14 全部进第一本（`check-seo-teeth.mjs`），M15 也是——它打的是源侧 tags 行，判据在 `词表` 组。
+为了让台账可按 M 号 grep，**案例的 `name` 一律以 `M<number> ` 开头**。
 
 | 刀 | 打在哪 | 该红的判据 |
 | --- | --- | --- |
@@ -390,9 +402,18 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
   同时**自证禁 JS 那一侧真的读得到目录**：读产物副本摘掉 `<script>` 之后，
   `grep -c 'class="toc-static"' == 1` 且静态条目里每一枚 `href` 都能在**同一份 HTML**里找到同名 `id`
   （`grep -o 'id="…"'` 集合包含），这才是 G4 的本体，不是「有块」。
-- **6.4 台账**：十三道门禁（SP1 那 8 道 + `verify-plan-blocks` / `toolkit-tests` / `image-dims` /
-  `tool-url` 一族在本批的实际可跑集）逐道记 `命令 / 退码 / 它自己打出来的那一句`，
-  非绿的每一处都要有归因；跑门的那棵树 = 提交的那棵树，用三本产物的 md5 认树。
+- **6.4 台账**：全集不数「道」这一说——**列出来才算数**。本分支 `git ls-files scripts` 现证可跑的
+  判据脚本是这 14 本（`node scripts/X` / `ruby scripts/X`，逐条跑）：
+  `check-seo.mjs`、`check-seo-teeth.mjs`、`check-tools-surface.mjs`、`check-tools-surface-teeth.mjs`、
+  `check-image-dims.rb`、`check-image-dims-teeth.mjs`、`check-image-variants-teeth.mjs`、
+  `verify-plan-blocks.mjs`、`verify-plan-blocks-teeth.mjs`、`verify-tools-browser.mjs`、
+  `verify-tools-browser-teeth.mjs`、`verify-codec-browser.mjs`（+ 它的 teeth）、`verify-idcard-browser.mjs`、
+  `toolkit-tests.mjs`，另加三道同样要跑、但形状不同的：`node scripts/og-images.mjs --check`（台账自证）、
+  `verify-motion-batch4.mjs` 与 `verify-nav-touch.mjs`（这两本受负载门管辖，1 分钟负载 > 16 时按拒测记，
+  既不算绿也不算红）。**`verify-tool-url.mjs` 不在本分支**（它随 SP2 的 `sp2-tool-url-state`，
+  尖 `bab6051` 未合），所以本批台账里没有它；SP2 先合的话，合并后重跑时它自动进集。
+  逐道记 `命令 / 退码 / 它自己打出来的那一句`，非绿的每一处都要有归因；
+  跑门的那棵树 = 提交的那棵树，用三本产物的 md5 认树。
 
 ## 7. 风险与移交
 
