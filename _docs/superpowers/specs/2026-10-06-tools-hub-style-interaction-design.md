@@ -28,6 +28,8 @@
 ### 0.1 并发状态（本轮排查期间实测，开工前必须重看一遍）
 
 - HEAD 在我这轮排查中从 `6f6a005` 变成 `2b9464c`，`origin/master..main` 从 6 条涨到 **17 条**。
+  （这一节记的是**排查那一刻**的并发快照；本 spec 自己那笔提交是 `c751be8`，只含这一本文件，
+  带 pathspec 出提交，没有把下面那两格索引里的删除卷走。）
 - `dev/sass/toolkit.scss` 有一段**只活在索引里**的删除：M29 那组「状态变了」动效（`.tk-panel` 入场、
   `.tk-state` 药丸、`.tk-panel__error` 抖动 + 两个 `@keyframes`），`+4/−75` 行。**磁盘已经回到 HEAD**——
   `grep -c M29` 三处读数：`git show :dev/sass/toolkit.scss` = **0**（索引）、工作树 = **2**、`git show HEAD:` = **2**。
@@ -310,7 +312,8 @@ var tucked = readTucked() || TUCK_BY_DEFAULT;
 - 不给下拉加 ↑↓ 键盘导航与新的 Esc 交互。
 - 不引入卡片容器（圆角 + 阴影 + 内边距那一套）来"现代化"工具箱页——全站是分隔线体系。
 - 不动 §7 任何一格的数字，不重开"30KB 那格两种读法"那笔待判账。
-- 不 push。推送单独取授权（`origin/master..main` 现为 17 条，且推 `master` 等于上线）。
+- 不 push。推送单独取授权，且条数**现算别引旧数**：`git rev-list --count origin/master..HEAD`
+  （写这一句时是 18 条，含本 spec 的 `c751be8`；本文件的后续修订还会再加）。推 `master` 等于上线。
 
 ## 7. 簇 2 预告（另开一份 spec）
 
