@@ -7,7 +7,7 @@ seo_description: WebMCP 的挂载点收敛成单独一处：测试用的那个�
 date: 2026-09-29
 categories: AI
 cover: /assets/img/webmcp-modelcontext-mount/banner.webp
-tags: WebMCP Chrome Agent
+tags: webmcp chrome Agent
 ---
 
 # WebMCP 只剩 document.modelContext 这个挂载点

@@ -5,7 +5,7 @@ subtitle: 一次 POST 就回一张 mermaid，代价是别抄它画的线
 seo_short_title: GitDiagram 免鉴权 MCP 实测
 seo_description: 不带 key 的一次 POST 换回一张 mermaid 架构图，代价是它给出的连线里有几条在源码里查不到，看图可以，别抄它画的线。
 date: 2026-10-01
-categories: 开源工具 TypeScript
+categories: [开源实测, TypeScript]
 cover: /assets/img/gitdiagram-keyless-mcp-4-bad-edges/banner.webp
 tags: GitDiagram MCP TypeScript Mermaid 架构图
 ---

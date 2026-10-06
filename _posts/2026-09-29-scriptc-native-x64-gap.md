@@ -5,7 +5,7 @@ subtitle: 二进制里真没有 Node，但 x64 的运行时包在 npm 上只发�
 seo_short_title: scriptc 编译 TypeScript 原生二进制
 seo_description: 把 TypeScript 直接编成原生二进制这条路能走多远：产物里确实没有 Node 运行时，但 Intel Mac 那一档的运行时包在 npm 上没发全。
 date: 2026-09-29
-categories: 开源工具 TypeScript
+categories: [开源实测, TypeScript]
 cover: /assets/img/scriptc-native-x64-gap/banner.webp
 tags: scriptc TypeScript 原生编译 Vercel
 ---

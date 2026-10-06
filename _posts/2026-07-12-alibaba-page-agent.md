@@ -7,7 +7,7 @@ seo_description: 阿里开源的 Page Agent 怎么绕开截图与 OCR：把 DOM 
 date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/page-agent/banner.webp
-tags: AI Agent 前端 开源 阿里巴巴 page-agent GUI Agent
+tags: AI Agent 前端 开源 阿里巴巴 page-agent GUI
 ---
 
 ![Page Agent Banner](/assets/img/page-agent/banner.webp)

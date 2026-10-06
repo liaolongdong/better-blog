@@ -12,7 +12,8 @@ permalink: /categories.html
 {% include header.html %}
 
 {%- comment -%}
-site.categories 按插入顺序迭代（Jekyll 只对 tags 做字母序），43 个分类会乱成一团。
+site.categories 迭代出来的是「front matter 里第一次出现」的顺序，既不是字母序也不是篇数序
+（tags.html 直接吃它，第一枚是 jekyll），14 个分类这样排会乱成一团。
 这里把「补零计数 + 分类名」拼成一个字符串排序再倒序，得到「文章最多的主题排最前」；
 补零到 5 位是为了让 2 位数与 5 位数在字符串序下也正确，读回时用定长 slice 拆。
 {%- endcomment -%}

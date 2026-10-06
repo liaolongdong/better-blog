@@ -7,7 +7,7 @@ seo_description: Meta 开源的 Astryx：组件与主题如何做到 StyleX 驱�
 date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/astryx/banner.webp
-tags: AI React 设计系统 开源 Meta Astryx StyleX 前端组件库
+tags: AI react 设计系统 开源 Meta Astryx StyleX 前端组件库
 ---
 
 ![Astryx Banner](/assets/img/astryx/banner.webp)
