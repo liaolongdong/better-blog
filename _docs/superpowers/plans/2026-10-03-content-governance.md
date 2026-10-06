@@ -2912,9 +2912,15 @@ git diff --name-only "$U" HEAD | grep -vc '^_docs/superpowers/'   # 期望 0
 **10.7 不 push（spec §7.5 钉死：本批全部提交只落在这条分支）**
 
 ```bash
-git log origin/main..HEAD --oneline | wc -l     # 这个数抄进 §9.1，并写明「未推」
-git branch --show-current                        # 必须是 sp4-content-governance
+git log --oneline "$U"..HEAD | wc -l   # $U 就是 10.6 那个 merge-base（本批起草时实测 `2b9464c`）；这个数抄进 §9.1，并写明「未推」
+git branch -r --contains HEAD          # 必须一行都不输出——这才是「未推」的硬证据
+git branch --show-current              # 必须是 sp4-content-governance
 ```
+
+**别写 `origin/main..HEAD`**：本仓库远端只有 `master`（`git ls-remote --heads origin` 三条里没有 `main`，
+`origin/HEAD` 指向 `origin/master`），那条命令在这里不是返回 0，而是 `fatal: ambiguous argument 'origin/main..HEAD':
+unknown revision`——把它当成「未推 0 条」读会正好反了。相对远端的核验一律用 `git branch -r --contains HEAD`：
+空输出 = 这条分支的尖没有任何远端分支包含，与本地 `main`/`master` 谁新谁旧无关。
 
 推送要单独拿授权，本任务不做，也**不许**把它当成「顺手收尾」。§9.8 的移交清单里第一条就是
 「等一个明确的 push 指令」，SP2（尖 `bab6051`）与 SP3（尖 `8122f9c`）两条未合分支的合并次序也写在那里。
