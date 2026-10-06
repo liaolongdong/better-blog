@@ -50,7 +50,7 @@ tags: Vite 安全 dev-server
 
 停在六线的人看第二条公告。泄露那条在六线不成立，这个查询 grep 五个 chunk 零命中，所以六线要动的是另外两条，升 `previous` 指的那版就行。
 
-拿 `npm audit` 或 Dependabot 当门禁的人，这轮它们是瞎的，公告页是唯一告警面。这个博客自己 `package.json` 装的正是 6.4.3，落在第二条区间里，今天换 6.4.4。
+拿 `npm audit` 或 Dependabot 当门禁的人，这轮它们是瞎的，公告页是唯一告警面。这个博客的 lockfile 锁在 6.4.3，正好落在第二条区间里。
 
 ## 我实测到的
 
