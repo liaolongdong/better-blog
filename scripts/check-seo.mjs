@@ -9,7 +9,8 @@
  *     控制台只在用户点「安装」那一下才给一行字；
  *   - `head.html` 与 `postHead.html` 是复制关系，任何一边漏一条 link 都不报错，
  *     而两页坏的样子完全不同（文章页缺 manifest = 从文章页加主屏拿不到图标）。
- * 一本脚本、九组判据，跑一次就把「这条链今天到底还连着吗」问完；分九本只会让
+ * 一本脚本、一组一组的判据（组数由文件末尾的 `GROUPS` 决定，`node scripts/check-seo.mjs --list`
+ * 打印当前口径），跑一次就把「这条链今天到底还连着吗」问完；分九本只会让
  * 「今天没空跑第九本」变成常态。
  *
  * 判据口径两条硬规矩（沿用 check-tools-surface.mjs）：
@@ -23,7 +24,7 @@
  *   node scripts/check-seo.mjs --site=/tmp/x/site     # 指定产物目录（隔离快照、影子目录）
  *   node scripts/check-seo.mjs --root=/tmp/x/repo     # 指定源目录（牙齿台账与干净检出树）
  *   node scripts/check-seo.mjs --verify               # 追加重算 _data/modified.yml 指纹
- *   node scripts/check-seo.mjs --list                 # 只打印九组判据与当前口径
+ *   node scripts/check-seo.mjs --list                 # 只打印各组判据（组数随 GROUPS）与当前口径
  *   node scripts/check-seo.mjs --stale-ok             # 跳过新鲜度门（牙齿台账专用，见下）
  *
  * 失败形状：每条 `[组名] 条目：说明`，末尾给总数，退出码 1。
@@ -161,7 +162,7 @@ function readSources() {
 }
 
 const SOURCES = readSources();
-/** 五本 yml 里任何一本读不出来都没法继续：后面十组判据全部以它们为口径 */
+/** 五本 yml 里任何一本读不出来都没法继续：后面各组判据全部以它们为口径 */
 for (const [key, file] of [
   ['config', '_config.yml'],
   ['onlineTools', '_data/onlineTools.yml'],
@@ -171,7 +172,7 @@ for (const [key, file] of [
 ]) {
   const v = SOURCES[key];
   if (v && v.__error__) {
-    console.error(`✗ SEO 门禁：${file} 解析失败（${v.__error__}），十组判据的口径全部失效，先修这一本再跑`);
+    console.error(`✗ SEO 门禁：${file} 解析失败（${v.__error__}），各组判据的口径全部失效，先修这一本再跑`);
     process.exit(1);
   }
 }
@@ -1140,9 +1141,64 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
   }
 }
 
+// ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
+//
+// 这一组判的是「这一篇有没有自己那句话」。取值链在 `_includes/seoMeta.html:55-76`：
+// `page.seo_description` → `page.description` → `page.subtitle` → `site.description`，
+// 再加一道 `.size < 25` 的地板。今天 80 篇里 41 篇是手写的、38 篇的 meta 就是副标题原文、
+// 1 篇（`subtitle` 只有 5 个字符的那篇）落到了全站那句话上——三个数在 §6.1 台账里逐笔对账。
+//
+// 为什么源侧五格加产物侧一格：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」。
+// 缺后者，改坏取值链不会有任何一道门红（现有 10 组里 `JSON-LD` 那条 `decode(...) !== v.description`
+// 判的是工具页 WebApplication，不覆盖文章页）。
+
+/** 一篇稿子的正文（front matter 之后）。摘要里出现的每一段数字都要在这段里逐字找得到。 */
+function srcBodyOf(file) {
+  return readSrc(`_posts/${file}`).replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+}
+
+{
+  const FUTURE = '2100-10-25-practice-demo.md';
+  const MIN = 60;
+  const MAX = 140;
+  const SITE_DESC = String(config.description ?? '').trim();
+  const mdFiles = fs
+    .readdirSync(path.join(ROOT, '_posts'))
+    .filter((f) => f.endsWith('.md'))
+    .sort();
+  const inCorpus = new Set(posts.map((p) => p.file));
+  const notProduced = mdFiles.filter((f) => !inCorpus.has(f));
+  // ① 的后半：文件数 = 语料数 + 1，且多出来的那一篇有名有姓。谁再拿未来日期把稿子推出语料，红的是这一条。
+  if (notProduced.length !== 1 || notProduced[0] !== FUTURE) {
+    bad('描述', '_posts', `「_posts 文件数 ${mdFiles.length} = 产出语料 ${inCorpus.size} + 豁免」不成立：多出来的是 ${JSON.stringify(notProduced)}，而豁免只认 ${FUTURE}（不产出的稿子没有 meta 可回填，但也不能靠改日期绕开这一组）`);
+  }
+  const seenDesc = new Map();
+  for (const p of posts) {
+    const d = String(p.fm.seo_description ?? '').trim();
+    const sub = String(p.fm.subtitle ?? '').trim();
+    if (!d) {
+      bad('描述', p.file, '缺 seo_description——这一篇的 meta description 现在由 subtitle／site.description 兜底，卡片说的不是这一篇的事');
+      continue;
+    }
+    const len = [...d].length;
+    if (len < MIN || len > MAX) bad('描述', p.file, `摘要长度 ${len} 个 code point，越出 [${MIN}, ${MAX}]（地板是 seoMeta 那道 .size < 25 的 2.4 倍）`);
+    if (d === sub) bad('描述', p.file, '摘要与本篇 subtitle 逐字相同——回填等于没做，meta 与卡片还在读同一句副标题');
+    if (d === SITE_DESC) bad('描述', p.file, '摘要与 site.description 相同——那是关于全站的一句话，不是关于这一篇的');
+    const body = srcBodyOf(p.file);
+    for (const num of d.match(/\d+/g) || []) {
+      if (!body.includes(num)) bad('描述', p.file, `摘要里的数字「${num}」在本篇正文里逐字找不到——摘要不许带正文没有的数字`);
+    }
+    if (seenDesc.has(d)) bad('描述', p.file, `摘要与 ${seenDesc.get(d)} 逐字相同——两篇共用一句话，搜索引擎分不出这两页`);
+    else seenDesc.set(d, p.file);
+    const meta = /<meta name="description"\s+content="([^"]*)"/.exec(readSite(p.rel));
+    if (!meta) bad('描述', p.rel, '产物里这一页没有 meta description——取值链在这一页上断了');
+    else if (decode(meta[1]) !== d) bad('描述', p.rel, `产物 meta 与源侧 seo_description 不同值（meta=「${decode(meta[1]).slice(0, 48)}」），接线被动过`);
+  }
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +
