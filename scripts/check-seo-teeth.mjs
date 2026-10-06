@@ -2037,6 +2037,81 @@ const cases = [
     expect: '接线被动过',
     mut: () => S.sitePatch(descTarget().rel, /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, ' 牙齿"'), 'meta description'),
   },
+  {
+    name: 'M5 给一篇已有 chrome 的帖子再加一枚 Chrome',
+    group: '词表',
+    expect: '只在大小写上不同',
+    mut: () => S.srcSubLine('_posts/2024-01-05-chrome-plugin-recommend.md', /^tags: chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件$/m, 'tags: chrome Chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件', 'tags 行'),
+  },
+  {
+    name: 'M6 在一篇的 categories 里加一个白名单外的词',
+    group: '词表',
+    expect: '不在白名单里',
+    mut: () => {
+      const rel = `_posts/${T.catted.file}`;
+      const line = lineOf(y(rel), /^categories:[ \t].*$/m, 'categories 行');
+      // 方括号单值（`[随笔]`）在行尾追加会变成 `[随笔] 牙齿分类`——实测 Psych::SyntaxError，
+      // 那篇整个掉出语料，② 看不到这枚词；所以按形状分两路，只在裸标量上往行尾追加。
+      const to = /\[[^\]]*\]/.test(line) ? line.replace(/\]/, ', 牙齿分类]') : `${line} 牙齿分类`;
+      S.srcSubLine(rel, /^categories:[ \t].*$/m, to, 'categories 行');
+    },
+  },
+  {
+    name: 'M7 把 categories: [A, B] 改成空格分隔',
+    group: '词表',
+    expect: '空格分隔的多值',
+    mut: () => {
+      const rel = `_posts/${
+        first(
+          POSTS.filter((q) => /^categories:[ \t]*\[[^\]]*,/.test(lineOf(y(`_posts/${q.file}`), /^categories:[ \t].*$/m, 'categories 行'))),
+          '带方括号多值 categories 的靶子',
+        ).file
+      }`;
+      const line = lineOf(y(rel), /^categories:[ \t]*\[.*\]$/m, 'categories 行');
+      S.srcSubLine(
+        rel,
+        /^categories:[ \t]*\[.*\]$/m,
+        line
+          .replace(/^(\s*categories:[ \t]*)\[/, '$1')
+          .replace(/\]/, '')
+          .replace(/,\s*/g, ' '),
+        'categories 行',
+      );
+    },
+  },
+  {
+    name: 'M8 给一篇副本的 tags 行补一个 \\r',
+    group: '词表',
+    expect: '行尾',
+    mut: () => {
+      const rel = `_posts/${T.tagged.file}`;
+      const line = lineOf(y(rel), /^tags:[ \t].*$/m, 'tags 行');
+      S.srcSubLine(rel, /^tags:[ \t].*$/m, `${line}\r`, 'tags 行');
+    },
+  },
+  {
+    name: 'M10 把一篇 tags 里已有的一枚原样重写第二遍',
+    group: '词表',
+    expect: '出现两遍',
+    mut: () => {
+      const rel = `_posts/${T.tagged.file}`;
+      const line = lineOf(y(rel), /^tags:[ \t].*$/m, 'tags 行');
+      const one = line.replace(/^tags:[ \t]*/, '').split(/\s+/)[0];
+      S.srcSubLine(rel, /^tags:[ \t].*$/m, `${line} ${one}`, 'tags 行');
+    },
+  },
+  {
+    name: 'M9 把一篇的 date 从 2026 改成 2100（推出语料）',
+    group: '描述',
+    expect: '多出来的是',
+    mut: () => S.srcSubLine('_posts/2026-10-02-nextjs-rebind-ssrf-advisory-lag.md', /^date:[ \t]2026-10-02$/m, 'date: 2100-01-01', 'date 行'),
+  },
+  {
+    name: 'M15 在一篇持有 git 标签的帖子里把 git 改成 Git',
+    group: '词表',
+    expect: '命中集与台账不一致',
+    mut: () => S.srcSubLine('_posts/2023-12-24-git-revert-reset.md', /^tags: git reset revert 代码回退 代码回撤$/m, 'tags: Git reset revert 代码回退 代码回撤', 'tags 行'),
+  },
 ];
 
 function editManifest(mutate, where) {
