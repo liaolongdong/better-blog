@@ -3,6 +3,7 @@ layout: post
 title: 谷歌开源的 ax：三样预装两样空，这才是真正的 v1alpha1
 subtitle: 文档说 runner 会在沙箱里备好 Git、MCP 和 skill 三样东西；我把 628 个提交翻了一遍，字段最远只走到 CLI 的表头，剩下两样一样没人读、一样只建了个空目录
 seo_short_title: 谷歌 ax 的 Workspace：三样预装两样空
+seo_description: 谷歌那份 agent 沙箱库：文档说预装三样东西，翻完提交记录只有一样走到了 CLI 表头，剩下两样分别是没人读和只建了个空目录。
 date: 2026-09-24
 categories: [AI, 开源实测]
 cover: /assets/img/google-ax-workspace-materialization/banner.webp

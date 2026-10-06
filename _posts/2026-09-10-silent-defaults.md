@@ -3,6 +3,7 @@ layout: post
 title: 谁才是 9 月最不动声色的改动？三桩实测排完，第一名是我自己
 subtitle: DeepSeek 换了模型名底下的人，miniflare 的 latest 变成 alpha，Tailwind Plus 关了注册门。三件事没有一个给过 5xx，我把它们一个个跑完之后，排序和我想的不一样
 seo_short_title: 9 月三个不动声色的默认值改动实测
+seo_description: 三桩没有任何报错的默认值改动：模型名换了、latest 指向 alpha、注册入口关了。各自怎么被发现、影响面多大，跑完之后我把优先级重排了一遍。
 date: 2026-09-10
 categories: [前端工程化, 开源实测]
 cover: /assets/img/silent-defaults/banner.webp

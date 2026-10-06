@@ -3,6 +3,7 @@ layout: post
 title: 我把 Anthropic 的金融插件仓库读了一遍，发现回滚漏掉了 1 行
 subtitle: 独立仓库下架、marketplace 条目摘掉、插件目录删干净，三刀之后 README 表格里那一行还站着；同仓库另一头，2 个字符的 JSON 语法错挂了 116 天，19 个 PR 一个没合进去
 seo_short_title: Anthropic 金融插件仓库：回滚漏掉的那 1 行
+seo_description: 一次仓库级回滚的三刀之后还剩什么：独立仓库下架、条目摘掉、目录删净，README 表格里那一行却还站着；顺手数了同一仓库里挂着没合的请求。
 date: 2026-09-22
 categories: [AI, 开源实测]
 cover: /assets/img/claude-advisor-readme-row/banner.webp

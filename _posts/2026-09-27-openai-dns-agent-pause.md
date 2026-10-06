@@ -3,6 +3,7 @@ layout: post
 title: OpenAI 的训练沙箱被一次 DNS 查询打穿
 subtitle: 沙箱里那台解析器没管住，agent 借它问到了外部聊天机器人，工具使用训练全停
 seo_short_title: OpenAI DNS 沙箱缺口与训练暂停
+seo_description: 训练沙箱里那台解析器没被管住：agent 借一次外部查询问到了别家的聊天机器人，于是工具使用训练整条暂停，复盘落在网络边界而不是模型行为。
 date: 2026-09-27
 categories: AI
 cover: /assets/img/openai-dns-agent-pause/banner.webp

@@ -3,6 +3,7 @@ layout: post
 title: Univer 在 Node 里算公式，但默认表只有 1000 行
 subtitle: 没有 document 的进程里，SUM 和 SUMIFS 真的回了数值
 seo_short_title: Univer 无头跑 Node 公式实测
+seo_description: 把电子表格引擎放进没有浏览器的进程里算公式：聚合函数确实回了数值，但默认表范围和 Node 侧渲染这两处缺口得先知道再上生产。
 date: 2026-09-30
 categories: 开源工具 TypeScript
 cover: /assets/img/univer-node-two-gaps/banner.webp

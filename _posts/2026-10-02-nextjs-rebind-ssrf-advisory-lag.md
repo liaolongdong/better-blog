@@ -3,6 +3,7 @@ layout: post
 title: Next.js 堵住了能打回环的 SSRF，可七条公告两天还没进库
 subtitle: 同一发请求，旧版取回内网那张图，16.3.8 只给 504
 seo_short_title: Next.js 16.3.8 安全发版实测
+seo_description: 同一发打回环的请求，旧版取回了内网那张图、新版只给一个错误状态：这个洞堵上的同一次发版里，安全公告却还有一批没进公告库。
 date: 2026-10-02
 categories: AI
 cover: /assets/img/nextjs-rebind-ssrf-advisory-lag/banner.webp

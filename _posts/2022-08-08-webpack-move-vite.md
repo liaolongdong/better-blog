@@ -2,6 +2,7 @@
 layout: post
 title: webpack 打包项目迁移到 Vite 的实践记录
 subtitle: 把行E通门户与管理台的前端构建从 webpack 换到 Vite —— 记录迁移动机、团队分工与冷启动瓶颈的来龙去脉
+seo_description: 把行E通门户与管理台的前端构建从 webpack 换到 Vite 的实操记录：冷启动为什么要等几分钟、Vite 靠依赖与源码二分绕开它，以及团队怎么分工落地。
 date: 2022-08-08
 categories: [前端工程化]
 tags: webpack vite 前端构建 工程化

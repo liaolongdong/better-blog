@@ -3,6 +3,7 @@ layout: post
 title: WebMCP 只剩 document.modelContext 这个挂载点
 subtitle: Cloudflare 在 9 月 28 日摘掉测试用的那个名字，我把五种 Chrome 配置都跑了一遍
 seo_short_title: WebMCP 挂载点收敛到 document
+seo_description: WebMCP 的挂载点收敛成单独一处：测试用的那个名字被官方摘掉之后，在几种 Chrome 配置里各能不能拿到它，逐档给结论与复现开关。
 date: 2026-09-29
 categories: AI
 cover: /assets/img/webmcp-modelcontext-mount/banner.webp

@@ -3,6 +3,7 @@ layout: post
 title: 界面一校验就没了？json-render 用 19 条规则想终结它，但漏了一层
 subtitle: spec 过一遍 catalog.validate()，元素上的 on 和顶层的 state 消失，success 仍是 true
 seo_short_title: json-render 校验会静默删字段
+seo_description: 界面一跑校验就消失：spec 过一遍验证之后，元素上的事件绑定与顶层状态被静默删掉，返回却仍然是成功，这一层该由谁来守。
 date: 2026-09-26
 categories: [AI, 开源实测]
 cover: /assets/img/json-render-silent-strip/banner.webp

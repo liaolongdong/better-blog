@@ -3,6 +3,7 @@ layout: post
 title: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 subtitle: 如何优雅的实现一套前端项目环境无缝切换多套后端环境
 seo_short_title: 一套前端项目切换多套后端环境
+seo_description: 一套前端产物无缝切多套后端的做法：把接口前缀从编译期常量改成运行期读取，配合 dev-server 代理与 nginx 改写，不必为每个环境各打一次包。
 date: 2024-10-08
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png

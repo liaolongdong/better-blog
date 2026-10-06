@@ -3,6 +3,7 @@ layout: post
 title: livenerf 的 30 天基线跑到第 6 天，它的锁校验是红的
 subtitle: 设计参数我能从仓库重算，声称的日更曲线一条都看不到
 seo_short_title: livenerf 面板锁与面板不一致
+seo_description: 一条声称日更的评测基线到底有没有在跑：设计参数能从仓库重算出来，声称的曲线却一条都没露出来，本地跑它的锁校验那一格是红的。
 date: 2026-09-30
 categories: AI
 cover: /assets/img/livenerf-panel-lock-mismatch/banner.webp

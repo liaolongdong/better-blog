@@ -3,6 +3,7 @@ layout: post
 title: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
 subtitle: 使用原生JS实现QQ好友、QQ空间、新浪微博、腾讯微博分享功能
 seo_short_title: 原生 JS 实现 QQ 与微博分享功能
+seo_description: 不引任何 SDK，用原生 JS 拼出 QQ 好友、QQ 空间、新浪微博与腾讯微博的分享链接，各站的参数命名差异与回调返回码逐条列出。
 date: 2018-12-25
 categories: [H5与微信]
 cover: '/assets/img/postCover/share_cover.png'

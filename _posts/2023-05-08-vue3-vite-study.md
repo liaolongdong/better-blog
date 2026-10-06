@@ -2,6 +2,7 @@
 layout: post
 title: Vue3 + Vite 项目研究与对比
 subtitle: Vue3 与 Vue2 逐项对比（性能、Diff、TS 支持、包体积、API），外加 Vite 与 webpack 的构建模型差异
+seo_description: Vue3 与 Vue2 在性能、Diff 策略、TS 支持、包体积和 API 风格上的逐项对照，另有一节专门讲 Vite 与 webpack 的构建模型差在哪。
 date: 2023-05-08
 categories: [Vue, 前端工程化]
 tags: Vue3 Vue2 Vite webpack 前端框架

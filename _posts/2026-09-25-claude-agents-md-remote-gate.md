@@ -3,6 +3,7 @@ layout: post
 title: 🚨 别再死磕 CLAUDE.md 了！AGENTS.md 那扇门是远程装的
 subtitle: issue #95690 说读 AGENTS.md 要先过一道远端 flag，官方在 HN 上回了句已修；我把 npm、GitHub release、文档三个时钟对齐一遍，v2.1.281 那 176 条发布说明里 AGENTS.md 命中 0 次。第二件：google/ax 第二天多了 1,314 颗星，读取点从 4 行变 8 行，装配那一侧还是 0
 seo_short_title: Claude Code 的 AGENTS.md 门上那道远程开关
+seo_description: AGENTS.md 这扇门不是本地开关：它由远端配置决定装不装得上，于是同一个文件在不同机器上的行为差异，要往配置分发那一层去找原因。
 date: 2026-09-25
 categories: [AI, 开源实测]
 cover: /assets/img/claude-agents-md-remote-gate/banner.webp

@@ -3,6 +3,7 @@ layout: post
 title: 36K Star 的仓库自己先翻车！pnpm 的「并发组」来了——7 个版本挨个跑
 subtitle: 它给自己仓库的 25 条 task 加了并发组，于是 pnpm 11 的用户在那个 checkout 里连 pnpm --version 都跑不动了
 seo_short_title: pnpm 并发组实测：7 个版本挨个跑一遍
+seo_description: 把 pnpm 的并发组这个新特性在多个版本上挨个跑一遍：给自己仓库的任务加了分组之后，为什么同一份 checkout 里连版本命令都跑不动，边界落在哪一档。
 date: 2026-09-21
 categories: [前端工程化, 开源实测]
 cover: /assets/img/pnpm-task-settings/banner.webp

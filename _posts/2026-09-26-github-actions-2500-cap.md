@@ -3,6 +3,7 @@ layout: post
 title: 别再问 Actions 的失败数怎么数了，2500 是哨兵不是答案
 subtitle: 接口交回来的是个整数哨兵，也没有截断标记；把日期窗口拆开再相加，2758 才是我量到的下界
 seo_short_title: GitHub Actions 计数改成 2500 封顶实测
+seo_description: Actions 失败数接口返回的那个整数是封顶值而不是答案：没有截断标记时怎么用日期窗口拆开再相加，以及这样量出来的为什么只能叫下界。
 date: 2026-09-26
 categories: [AI, 开源实测]
 cover: /assets/img/github-actions-2500-cap/banner.webp

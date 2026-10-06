@@ -3,6 +3,7 @@ layout: post
 title: 2026年5月最新AI大模型排行榜：国产模型集体突围，谁才是真正的王者？
 subtitle: 2026年5月最新AI大模型排行榜：国产模型集体突围，谁才是真正的王者？
 seo_short_title: 2026 年 5 月 AI 大模型排行榜
+seo_description: 按这一期口径重排的 AI 大模型排行榜：国产模型在哪些项上追平、哪些项仍被拉开，榜单之外补了一段真正选型时会遇到的取舍。
 date: 2026-05-30
 categories: [AI]
 cover: /assets/img/postCover/AI_2026_llm_ranking.png
