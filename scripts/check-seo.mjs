@@ -1141,6 +1141,23 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
   }
 }
 
+// ── 组 12：词表（SP4 A9）· 词表白名单两份（钉死在这里，不跟随现状）────────────────
+//
+// 这两行不是「从现状自动生成」的数据，而是从**归一后**的现状生成、逐条钉进脚本的常量表：
+// 新增/改名必须显式改脚本——词表漂移正是这一组要治的病，不该由「自动跟随」放过。
+// 用 `split(' ')` 的前提是「本站 front matter 表达不了一枚含空格的标签」；谁真塞进去，
+// 这两行的规模立刻不是 151/14，紧跟其后的那条自证先红，轮不到八条判据去猜。
+const TAGS_OK = new Set(
+  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Astryx Bend CSS Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 blog chrome chrome浏览器插件 coding.net dev-server echarts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端工作总结 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 博客 原型和原型链 原生编译 域名解析 学习笔记 安全 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 架构图 查找算法 沙箱 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
+    ' ',
+  ),
+);
+const CATS_OK = new Set('AI CSS Chrome插件 H5与微信 JavaScript React TypeScript Vue 前端工程化 工具与效率 开源实测 服务器与部署 算法与面试 随笔'.split(' '));
+
+if (TAGS_OK.size !== 151 || CATS_OK.size !== 14) {
+  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 151 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
+}
+
 // ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
 //
 // 这一组判的是「这一篇有没有自己那句话」。取值链在 `_includes/seoMeta.html:55-76`：
@@ -1196,9 +1213,189 @@ function srcBodyOf(file) {
   }
 }
 
+// ── 组 12：词表（SP4 A9）· 八条判据（⑧ 的命中集台账与 match_tags 读取在正上方）───
+//
+// 五条量源侧 front matter（①②③④⑥）、两条拿产物对账（⑤ 三侧读数、⑦ 锚点不悬空）、
+// 一条量文末工具卡的命中集（⑧）。白名单与命中集都是钉死的常量，改动必须显式动手。
+
+// ⑧ 文末工具卡的命中集台账。口径与 _includes/relatedTools.html:36 的逐字 contains 一致：
+// 「这篇的 tags 里出现过 match_tags 里的那枚串」——大小写敏感，所以改名会带跑卡。
+// 这份快照不跟随现状：改名把卡带跑了，红的是这一条（spec §5.1 词表 ⑧）。
+const TOOL_HIT_OK = [
+  ['2016/08/28/JS-good-parts.html', 'JavaScript语言精粹'],
+  ['2017/06/06/git-common-command.html', 'git,git常用命令'],
+  ['2017/08/25/common-tools.html', 'JavaScript公用方法'],
+  ['2018/12/05/move-githubblog-to-coding.html', 'git,github'],
+  ['2019/01/17/website-seo.html', 'seo优化,搜索引擎网站收录,网站seo'],
+  ['2019/01/24/build-private-package.html', 'npm,私有仓库'],
+  ['2019/01/24/publish-public-npm.html', 'npm'],
+  ['2019/01/28/use-gulp-build-project.html', 'gulp,项目搭建'],
+  ['2019/02/25/you-dont-kown-js-tips.html', '前端小技巧'],
+  ['2019/02/26/you-dont-kown-css-tips.html', '前端小技巧'],
+  ['2020/04/08/browser-cache.html', '浏览器缓存机制'],
+  ['2020/08/03/inaword-understand-prototype.html', '原型和原型链'],
+  ['2022/08/08/webpack-move-vite.html', 'vite,webpack,前端构建,工程化'],
+  ['2023/04/30/functional-programming.html', '函数式编程'],
+  ['2023/05/08/vue3-vite-study.html', 'vite,webpack'],
+  ['2023/06/11/auto-update-release.html', '更新版本内容,版本投产'],
+  ['2023/06/14/npm-yarn-pnpm.html', 'node包管理工具,npm,pnpm,yarn'],
+  ['2023/12/24/git-revert-reset.html', 'git,reset,revert,代码回撤,代码回退'],
+  ['2023/12/29/2023-js-new-features.html', 'ES2023,JS新特性'],
+  ['2026/09/10/nextjs-avif-trap.html', 'npm,前端小技巧'],
+  ['2026/09/10/silent-defaults.html', 'npm,前端小技巧'],
+  ['2026/09/21/pnpm-task-settings.html', 'npm,pnpm,前端小技巧'],
+  ['2026/09/25/claude-agents-md-remote-gate.html', 'pnpm'],
+  ['2026/09/26/github-actions-2500-cap.html', 'github'],
+  ['2026/09/26/json-render-silent-strip.html', 'npm'],
+  ['2026/09/29/scriptc-native-x64-gap.html', 'TypeScript'],
+  ['2026/09/30/univer-node-two-gaps.html', 'TypeScript'],
+  ['2026/10/01/gitdiagram-keyless-mcp-4-bad-edges.html', 'TypeScript'],
+];
+
+const TOOL_MATCH_TAGS = new Set();
+for (const block of readSrc('_data/onlineTools.yml').split(/(?=^- slug: )/m)) {
+  const m = /^ {2}match_tags:[ \t]*\n((?: {4}- [^\n]*\n?)*)/m.exec(block);
+  if (!m) continue;
+  for (const line of m[1].split('\n')) {
+    const one = /^ {4}- (.+)$/.exec(line);
+    if (one) TOOL_MATCH_TAGS.add(one[1].trim().replace(/^['"]|['"]$/g, ''));
+  }
+}
+if (TOOL_MATCH_TAGS.size !== 33) {
+  bad('词表', '_data/onlineTools.yml', `match_tags 读出 ${TOOL_MATCH_TAGS.size} 枚，与钉死的 33 不符——这份 yml 的形状动了，⑧ 的口径随之失效（33 枚跨 codec / json / diff 三页，idcard 那页是空数组）`);
+}
+
+{
+  // ① 大小写撞键为零：无条件判据，不设豁免名单（那对靠改名解决，spec §4.2 动作 2）
+  const fold = new Map();
+  for (const p of posts) {
+    for (const t of p.tags) {
+      const k = t.trim().toLowerCase();
+      if (!fold.has(k)) fold.set(k, new Set());
+      fold.get(k).add(t);
+    }
+  }
+  for (const [k, variants] of [...fold].sort()) {
+    if (variants.size > 1) bad('词表', 'tags', `${k} 有 ${variants.size} 枚只在大小写上不同的标签：${[...variants].sort().join(' / ')}——归档页会长出两个锚点，读者以为它们是两件事`);
+  }
+
+  // ② tags ⊆ 白名单、categories ⊆ 白名单（逐枚，所以一篇两个错就是两条）
+  for (const p of posts) {
+    for (const t of p.tags) if (!TAGS_OK.has(t)) bad('词表', p.file, `标签「${t}」不在白名单里——词表漂移，新增一枚要显式改脚本`);
+    for (const c of p.cats) if (!CATS_OK.has(c)) bad('词表', p.file, `分类「${c}」不在白名单里——分类漂移，新增一枚要显式改脚本`);
+  }
+
+  // ③ 多分类必须写 [A, B]：front matter 里的 categories 行是裸标量且值中含空白 = 红
+  for (const p of posts) {
+    const raw = readSrc(`_posts/${p.file}`).replace(/^﻿/, '');
+    const blk = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+    if (!blk) continue; // 形状不对由 语料 组负责，这一组不重复判
+    const line = /^categories:[ \t]*(.*)$/m.exec(blk[1]);
+    if (!line) continue;
+    const val = line[1].trim();
+    if (val && !val.startsWith('[') && /\S\s+\S/.test(val)) {
+      bad('词表', p.file, `categories 写了空格分隔的多值「${val}」——多分类必须写成 [A, B]，方括号之外 YAML 与 Jekyll 的拆法不同，归档页读数会撒谎`);
+    }
+  }
+
+  // ④ 行尾干净：_posts 下任何 .md 含 \r 即红（整站口径，不止产出语料）
+  for (const f of fs
+    .readdirSync(path.join(ROOT, '_posts'))
+    .filter((x) => x.endsWith('.md'))
+    .sort()) {
+    if (fs.readFileSync(path.join(ROOT, '_posts', f)).includes(0x0d)) {
+      bad('词表', `_posts/${f}`, '文件里有 \\r 行尾——按字节读的行尾粘连会在不按 /\\s+/ 拆的读取器里造出幽灵标签，门禁这一把尺认得它，grep 与浏览器不认');
+    }
+  }
+
+  // ⑤ 三侧读数相等：语料并集 == 白名单 == 产物计数器；另加「文件集 == 语料 + 那 2 枚」
+  const corpusTags = new Set();
+  const corpusCats = new Set();
+  for (const p of posts) {
+    for (const t of p.tags) corpusTags.add(t);
+    for (const c of p.cats) corpusCats.add(c);
+  }
+  const counterOf = (rel, re) => {
+    const m = re.exec(readSite(rel));
+    return m ? Number(m[1]) : null;
+  };
+  const prodTags = counterOf('tags.html', /<li><strong>(\d+)<\/strong><span>个标签/);
+  const prodCats = counterOf('categories.html', /<li><strong>(\d+)<\/strong><span>个分类/);
+  if (corpusTags.size !== TAGS_OK.size || prodTags !== TAGS_OK.size) {
+    bad('词表', 'tags.html', `tags 三侧读数不等：语料 ${corpusTags.size} / 白名单 ${TAGS_OK.size} / 产物 ${prodTags}——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`);
+  }
+  if (corpusCats.size !== CATS_OK.size || prodCats !== CATS_OK.size) {
+    bad('词表', 'categories.html', `categories 三侧读数不等：语料 ${corpusCats.size} / 白名单 ${CATS_OK.size} / 产物 ${prodCats}——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`);
+  }
+  const fileTags = new Set();
+  for (const f of fs.readdirSync(path.join(ROOT, '_posts')).filter((x) => x.endsWith('.md'))) {
+    const blk = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readSrc(`_posts/${f}`).replace(/^﻿/, ''));
+    if (!blk) continue;
+    const tm = /^tags:[ \t]*(.*)$/m.exec(blk[1]);
+    if (!tm) continue;
+    for (const tok of tm[1]
+      .replace(/^\[|\]$/g, '')
+      .split(/[,\s]+/)
+      .filter(Boolean))
+      fileTags.add(tok);
+  }
+  const extra = [...fileTags].filter((t) => !corpusTags.has(t)).sort();
+  if (fileTags.size !== corpusTags.size + 2 || extra.join(',') !== '前端面试,手写题') {
+    bad('词表', '_posts', `文件集 tags 读数 ${fileTags.size} ≠ 语料 ${corpusTags.size} + 那 2 枚；语料外多出的是 ${extra.join(',')}（那 2 枚逐字写成 前端面试 / 手写题，属于不产出的教学样本 2100-10-25-practice-demo.md）`);
+  }
+
+  // ⑥ 同帖重复为零 + 每枚标签的桶大小 == 持有它的文件数
+  for (const p of posts) {
+    if (new Set(p.tags).size !== p.tags.length) {
+      const dup = [...new Set(p.tags.filter((t, i) => p.tags.indexOf(t) !== i))];
+      bad('词表', p.file, `标签在同一篇里出现两遍：${dup.join(' / ')}——site.tags 的那一桶会多占一格，归档页的「N 篇」就开始撒谎`);
+    }
+  }
+  const bucket = new Map();
+  const holders = new Map();
+  for (const p of posts) {
+    for (const t of p.tags) bucket.set(t, (bucket.get(t) || 0) + 1);
+    for (const t of new Set(p.tags)) holders.set(t, (holders.get(t) || 0) + 1);
+  }
+  for (const [t, n] of [...bucket].sort()) {
+    if (n !== holders.get(t)) bad('词表', 'tags', `标签「${t}」的桶是 ${n} 篇，实际持有它的文件只有 ${holders.get(t)} 篇——同一篇重复挂了这枚标签`);
+  }
+
+  // ⑦ 归档页不悬空：每一枚 chip 的 href="#X" 在同页有 cat-section id="X"
+  for (const [rel, why] of [
+    ['tags.html', '标签'],
+    ['categories.html', '分类'],
+  ]) {
+    const html = readSite(rel);
+    const ids = new Set([...html.matchAll(/<section class="cat-section" id="([^"]*)"/g)].map((m) => decode(m[1])));
+    for (const m of html.matchAll(/<a class="cat-chip" href="#([^"]*)"/g)) {
+      const target = decode(m[1]);
+      if (!ids.has(target)) bad('词表', rel, `${why}「${target}」的锚点跳空：chip 写了 href="#${target}"，同页却没有 id="${target}" 的那一节`);
+    }
+  }
+
+  // ⑧ 命中集不变：台账逐行对得上，且不长出台账之外的命中行
+  const hitOf = (p) =>
+    [...new Set(p.tags)]
+      .filter((t) => TOOL_MATCH_TAGS.has(t))
+      .sort()
+      .join(',');
+  const ledger = new Map(TOOL_HIT_OK);
+  for (const [rel, want] of TOOL_HIT_OK) {
+    const p = posts.find((q) => q.rel === rel);
+    if (!p) continue; // 这一篇不在语料里，由 描述 ① / 语料 组负责，这里不重复判
+    const got = hitOf(p);
+    if (got !== want) bad('词表', rel, `文末工具卡的命中集与台账不一致：台账「${want}」，现在「${got}」——改名把这页的卡带跑了，match_tags 是逐字 contains，大小写敏感`);
+  }
+  for (const p of posts) {
+    const got = hitOf(p);
+    if (got && !ledger.has(p.rel)) bad('词表', p.rel, `这页现在命中了工具卡（${got}），台账里却没有这一行——match_tags 或这页的 tags 有一边被动过`);
+  }
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +
