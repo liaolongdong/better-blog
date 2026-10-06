@@ -688,6 +688,21 @@ function webpLocal() {
   throw new Error('产物里没有任何 img 指向存在的 .webp，换源那一族没有可打的靶子');
 }
 
+/**
+ * 描述组（M1–M4、M16）的靶子：摘要存在、长度留有余量、产物页在，且整篇源文件里
+ * 找不到 M4 要塞的那串数字——否则那一刀落下去门禁有理由不红，而被记成「假牙」。
+ */
+const DIGITS_M4 = '41793';
+const descTarget = () =>
+  first(
+    POSTS.filter((q) => {
+      const d = String(q.fm.seo_description || '').trim();
+      const sub = String(q.fm.subtitle || '').trim();
+      return d.length >= 60 && d.length <= 130 && sub && has(q.rel) && !y(`_posts/${q.file}`).includes(DIGITS_M4);
+    }),
+    '描述组的靶子（有摘要、有副标题、产物在、正文不含那串牙齿数字）',
+  );
+
 // ── 案例 ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -1983,6 +1998,44 @@ const cases = [
       if (!src) throw new Error('取不到已提权 img 的 src');
       S.siteAfter(rel, open, `\n<img src="${src}" alt="牙齿">`, '正文首张图之前插一枚 eager 图');
     },
+  },
+  // ── 描述（SP4 A4：M1–M4、M16）──
+  {
+    name: 'M1 摘掉某篇的 seo_description 行',
+    group: '描述',
+    expect: '缺 seo_description',
+    mut: () => S.srcCutLine(`_posts/${descTarget().file}`, /^seo_description:[ \t].*$/m, '摘要行'),
+  },
+  {
+    name: 'M2 把某篇摘要长度改成 45 个 code point',
+    group: '描述',
+    expect: '越出 [60, 140]',
+    mut: () => S.srcSubLine(`_posts/${descTarget().file}`, /^seo_description:[ \t].*$/m, `seo_description: ${'牙齿'.repeat(22)}串`, '摘要行'),
+  },
+  {
+    name: 'M3 把某篇摘要写成它的 subtitle',
+    group: '描述',
+    expect: '与本篇 subtitle 逐字相同',
+    mut: () => {
+      const q = descTarget();
+      S.srcSubLine(`_posts/${q.file}`, /^seo_description:[ \t].*$/m, `seo_description: ${String(q.fm.subtitle).trim()}`, '摘要行');
+    },
+  },
+  {
+    name: 'M4 在某篇摘要里塞一个正文没有的数字',
+    group: '描述',
+    expect: '在本篇正文里逐字找不到',
+    mut: () => {
+      const rel = `_posts/${descTarget().file}`;
+      const line = lineOf(y(rel), /^seo_description:[ \t].*$/m, '摘要行');
+      S.srcSubLine(rel, /^seo_description:[ \t].*$/m, `${line} ${DIGITS_M4}`, '摘要行');
+    },
+  },
+  {
+    name: 'M16 产物 meta 与源侧摘要不是同一个值',
+    group: '描述',
+    expect: '接线被动过',
+    mut: () => S.sitePatch(descTarget().rel, /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, ' 牙齿"'), 'meta description'),
   },
 ];
 
