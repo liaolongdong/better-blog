@@ -98,6 +98,8 @@ receive a response. This project is provided AS IS, without warranty.
 
 `json.loads` 头一句给 `Expecting ',' delimiter: line 47 column 5 (char 1100)`，只补这一个逗号，下一句变成 `Expecting ',' delimiter: line 52 column 1 (char 1173)`。我拿 difflib 反算最小修法：char 1100 插逗号、char 1101 插大括号，1,172 变 1,174，12 个 server 全解析出来。说白了，这个文件从头到尾没被任何一台机器 parse 过一次。
 
+换个人复核这件事不必装 python：把那份 `.mcp.json` 粘进 [JSON 格式与转换工具]({{ '/tools/json.html' | prepend: site.baseurl }})，缺逗号的落点同样是行加列，并且那一处在输入框里被选中；补一个逗号再粘一次，看下一个报错往哪儿挪。
+
 这 2 个字符来自 [120a31dc](https://github.com/anthropics/financial-services/commit/120a31dcede4affa1d771cbf286a63ee331f92a4)，2026-05-29T16:31:43Z，标题 `Adding Box to MCP Integrations (#187)`，整个 commit +4 / −0，对 `.mcp.json` 那段 patch：
 
 ```

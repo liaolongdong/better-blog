@@ -49,6 +49,8 @@ README 那 839 行我通读过一遍。Quick Start 第 3 步只是把 spec 塞�
 
 star 我这一轮抓了两次，中间涨 1 颗，现在 18,303。TypeScript 周榜排第 15，那一行写着本周涨 2,103。这篇不讲它的 SSR 渲染，也不碰 devtools 和 codegen 两个包，我用不上。
 
+上面那份 spec 是不是合法 JSON、`on` 掉在 `props` 里还是掉在元素层，不用为它起一次编辑器：粘进 [JSON 格式与转换工具]({{ '/tools/json.html' | prepend: site.baseurl }})，格式化之后开树视图逐层展开，坏输入也给到行与列。
+
 ## 校验那一刀切在了哪层
 
 zod 那一份 schema 里没有 `on`。扒开 `packages/react/src/schema.ts`，元素对象只声明六个键。前三个是 `type`、`props`、`children`，后三个 `slots`、`visible`、`repeat`。顶层只有 `root` 和 `elements`。

@@ -82,6 +82,8 @@ git remote -v
 git show-ref <branch-name> # 使用之前先执行 `git fetch --all` 拉取最新资源到本地
 ```
 
+`git diff` 比的是工作区与暂存区；两份不在同一个仓库里的文本它比不了，贴进 [文件与文本对比工具]({{ '/tools/diff.html' | prepend: site.baseurl }}) 逐行走一遍，并排和行内两种视图都给。
+
 ### git代码提交操作
 
 ```bash

@@ -709,6 +709,24 @@ const descTarget = () =>
  * 一条 = 一个 { name, group, expect, mut }。
  * `mut` 只准动副本，动完由主循环还原；`expect` 是门禁那句判定的逐字片段。
  */
+/** 把变异只打进正文区间。取 `#post-body` 开到它后面第一个 `</article>`——这一段真区间
+ *  一定包含在内（正文里若嵌了 `<article>`，真区间更长），所以命中它的变异必定命中正文。 */
+function subInBody(html, from, to, where) {
+  const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
+  const close = html.indexOf('</article>', at);
+  if (at < 0 || close <= at) throw new Error(`${where}：切不到正文区间`);
+  const span = html.slice(at, close);
+  const n = span.split(from).length - 1;
+  if (n !== 1) throw new Error(`${where}：正文里 ${from} 出现 ${n} 次，不是恰好一处`);
+  return html.slice(0, at) + span.replace(from, to) + html.slice(close);
+}
+const bodyToolLink = (rel) => {
+  const html = fs.readFileSync(siteAbs(rel), 'utf8');
+  const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
+  const close = html.indexOf('</article>', at);
+  return at >= 0 && close > at ? /href="(\/better-blog\/tools\/[a-z0-9-]+\.html)"/.exec(html.slice(at, close)) : null;
+};
+
 const cases = [
   // ── 语料 ──
   {
@@ -2111,6 +2129,19 @@ const cases = [
     group: '词表',
     expect: '命中集与台账不一致',
     mut: () => S.srcSubLine('_posts/2023-12-24-git-revert-reset.md', /^tags: git reset revert 代码回退 代码回撤$/m, 'tags: Git reset revert 代码回退 代码回撤', 'tags 行'),
+  },
+  {
+    name: 'M12 正文里的工具内链指向产物中不存在的一页',
+    group: '内链',
+    expect: '产物里没有 tools/nope.html',
+    mut: () => {
+      const q = first(
+        POSTS.filter((r) => has(r.rel) && bodyToolLink(r.rel)),
+        '正文里有工具内链的产物',
+      );
+      const href = bodyToolLink(q.rel)[1];
+      siteEdit(q.rel, (s) => subInBody(s, href, href.replace(/\/tools\/[a-z0-9-]+\.html$/, '/tools/nope.html'), `M12 ${q.rel}`));
+    },
   },
 ];
 

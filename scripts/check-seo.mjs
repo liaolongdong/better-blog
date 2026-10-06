@@ -1393,9 +1393,47 @@ if (TOOL_MATCH_TAGS.size !== 33) {
   }
 }
 
+// ── 组 13：内链（SP4 刀3）─────────────────────────────────────────────────────
+//
+// 判的是「正文里那几枚指向站内工具页的手工链」。四条全部落在产物侧：源侧写的是
+// `{{ '/tools/json.html' | prepend: site.baseurl }}`，只有产物里那一枚 href 才知道
+// baseurl 有没有拼上、那一页还在不在。项目站的 baseurl 是 /better-blog，
+// 漏拼的相对写法在本地 `_site` 里看起来是好的、上线就是 404，所以这一格按整串相等判。
+//
+// 为什么只数 `#post-body` 以内：文末「相关工具」卡（`_includes/relatedTools.html`）每一篇
+// 自动带 2–4 枚 /tools/ 链接，把它算进来这一组永远是绿的——spec §5.1 那句
+// 「把自动卡当手工链交差」防的正是这个。`postBodyRegion`（83 行）取的是元素**内**区间，
+// 卡片排在 `</article>` 之后，天然被排除（实测：加链之前全语料正文里的 /tools/ 链 = 0 枚）。
+{
+  const INLINK_RE = /<a\b[^>]*href="([^"]*?\/tools\/([a-z0-9-]+)\.html)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const EMPTY_TEXT = new Set(['点这里', '点此', '工具', '详情', '查看详情', '了解更多', '链接', 'here', 'link', 'click here']);
+  let inBodyLinks = 0;
+  for (const p of posts) {
+    const html = readSite(p.rel);
+    const reg = postBodyRegion(html);
+    if (!reg) continue; // 「稿子在、产物里没有」在 语料 组已经红过，这里不重复报，也不假绿
+    const found = [...html.slice(reg.start, reg.end).matchAll(INLINK_RE)];
+    if (!found.length) continue;
+    inBodyLinks += found.length;
+    if (found.length > 2) bad('内链', p.rel, `正文里有 ${found.length} 枚工具内链，超过每篇 2 枚的地板——文末自动卡本来就有，正文再堆只是噪声（spec §4.3）`);
+    for (const m of found) {
+      const href = m[1];
+      const slug = m[2];
+      const text = decode(m[3].replace(/<[^>]+>/g, ''))
+        .replace(/\s+/g, ' ')
+        .trim();
+      const want = `${BASEURL}/tools/${slug}.html`;
+      if (EMPTY_TEXT.has(text)) bad('内链', p.rel, `指向 ${href} 的内链文字是「${text}」——链接文字必须说清点开了能做什么（spec §4.3 第一条）`);
+      if (href !== want) bad('内链', p.rel, `正文内链的 href 是「${href}」，不等于 baseurl 拼出来的「${want}」——相对写法或漏 baseurl 在项目站上是 404`);
+      else if (!hasSite(`tools/${slug}.html`)) bad('内链', p.rel, `正文内链指向 ${href}，产物里没有 tools/${slug}.html——这一条是 404`);
+    }
+  }
+  if (inBodyLinks < 5) bad('内链', '_posts', `正文里的工具内链一共 ${inBodyLinks} 枚，少于地板 5 枚（spec §4.3 要 5–8 条，每条都要能指出它接的是正文里的哪一句话）`);
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +

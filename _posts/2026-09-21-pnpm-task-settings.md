@@ -110,6 +110,8 @@ exit=1
 
 那 58 行 `packages:` 点名了一串这儿不存在的子目录，所以不能原样放进临时目录。我只动了这一格：1,312 字节换成 18，得到 19,372 字节、25 处 `concurrencyGroup` 一处不少，不加 `packageManager`。11.25.0 和 11.27.0 `exit=1`，报的还是那两行；11.27.1 过；12.5.0 和 12.5.1 过。我又拿本机的全局 launcher（10.12.1）把 pin 指到 11.25.0 跑 `pnpm --version`，同样 `exit=1`。所以这不是沙箱里的构造，普通桌面机上敲一个 `--version` 就红。
 
+改前改后那两份 yaml 只差这一格，逐行看比把 686 行读完快：A 栏放原样、B 栏放改过的，[文件与文本对比工具]({{ '/tools/diff.html' | prepend: site.baseurl }}) 会把动过那一行标出行内差异，1,312 字节换成 18 这件事一眼就看完。
+
 那份文件里有一段注释我很喜欢，抄在这儿，因为它是这件事里少数想过一层的证据：
 
 > Every entry names a script the root manifest alone defines. A name a workspace package also defines must not appear here: the entry would drop that task's default `dependsOn: ['^<name>']` ordering, and each project's run of it would take a slot of the group, serializing a recursive run.

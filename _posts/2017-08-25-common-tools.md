@@ -48,6 +48,8 @@ console.log(formatDate(1506664038876, 1)); // 2017-09-29 13:47
 console.log(formatDate(1506664038876, 2)); // 2017-09-29 13:47:18
 ```
 
+同一串毫秒数，手边没有 JS 环境时不用等编译器：[时间戳转换]({{ '/tools/codec.html' | prepend: site.baseurl }}) 把 10 位按秒、13 位按毫秒两种解释一起给，UTC 与本地两种写法也一起给，上面那三个 `console.log` 的结果可以在那里对出来。
+
 ## 过去了多长时间（几秒前、几分钟前、几小时前）
 
 ```javascript
