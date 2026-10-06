@@ -58,8 +58,7 @@
 | 12 | tags 词表（**Jekyll 视角，唯一权威**）：`site.tags.size = **155**`，其中 **122 枚只挂 1 篇**（`site.tags.count { |_, v| v.size == 1 }`）；折大小写之后的**大小写撞键正好 5 组**，且每组都点得出持有文件（见 §4.2 动作 2 的表）：`Chrome`(1) / `chrome`(2)、`Coding`(1) / `coding`(1)、`React`(1) / `react`(1)、`Vite`(1) / `vite`(1)、`WebMCP`(1) / `webmcp`(3)；`黑科技` 是一枚**正常标签**（挂 3 篇），`_posts/2019-02-25-you-dont-kown-js-tips.md` 整文件虽是 CRLF，Jekyll 读它的 tags 仍是 `["JavaScript","前端小技巧","黑科技"]`，全站控制字符命中 `[]` | 探针（`Jekyll::Site#read` 后打印，落 `/tmp/sp4-probe2.json`）：`{posts:80, tags:155, categories:17, singleton_tags:122, ctrl_tags:[], 黑科技:3}`；CRLF 认文件用 `grep -lU $'\r' _posts/*.md`（只命中那 1 篇），行尾字节用 `od -c` |
 | 13 | **正则读数与 Jekyll 读数今天就已经分叉**：同一把按空白拆分的尺，扫 **81 个文件**得 `157` 枚 / `124` 枚只挂 1 篇；扫**产出页面的 80 篇**得 `155` / `122`。差的两枚是 `前端面试` 与 `手写题`——它们**只存在于那篇不产出的未来帖**里（`2100-10-25-practice-demo.md:12` `tags: JavaScript 前端面试 手写题`）。这正是 §0 第 3 条说的缺陷源：**「文件集」与「语料集」不是同一个集合**，白名单与所有计数必须钉在语料集上 | node 读取器 `list = v.startsWith("[") ? v.slice(1,-1).split(",") : v.split(/\s+/)`，分别对 81 与 80 个文件去重计数并打印差集 → `["前端面试","手写题"]` |
 | 14 | categories 形状混用：**19 篇 `[A, B]` + 54 篇 `[A]` + 4 篇空格分隔标量 + 4 篇裸标量**（合计 81）；空格分隔的 `开源 编程语言` / `开源工具 TypeScript` 会被拆成多枚（`document.rb:459-461` `merge_categories!` 里 `other["categories"].split`），于是 `site.categories`（**17 枚**）里同时有 `开源`、`编程语言`、`TypeScript`、`React`、`CSS`、`Vue` 这些由空格标量得到的键；`_posts/2100-10-25-practice-demo.md:6` 的注释自己写明「空格分隔会被拆成多个分类」，同一行还写了另一半——「tags 相反，要空格分隔」 | `grep -h '^categories:' _posts/*.md` 按四种形状分桶 + 探针读 `site.categories.keys` |
-| 15 | 改标签有**第二个消费者，而且它会改交互**：`_data/onlineTools.yml` 的 `match_tags` 钉死了 9 条逐字标签串（`前端小技巧` / `JavaScript公用方法` / `JavaScript语言精粹` / `npm` / `pnpm` / `yarn` / `git` / `git常用命令` / `reset`），文末「相关工具」卡拿 `page.tags` 与它求交集（`_includes/relatedTools.html:36` `rtool.match_tags contains tag`，**大小写敏感的逐字比较**）——也就是说**改一枚标签名有可能让某篇文章的工具卡出现或消失**。这份 yml 还被 `scripts/verify-plan-blocks.mjs` 按**整文件字节镜像**看着。实测：A9 要动的 **6 枚标签 token**（`Chrome`、`React`、`Vite`、`WebMCP` 四枚大写侧 + `coding` 改名 +
-`Agent` 那枚重复）**一枚都不在 9 条里**，所以命中集应当不变——但「应当」要有判据（§5.1 组 `词表` 第 ⑧ 条） | `grep -n 'match_tags' -A3 _data/onlineTools.yml` + 读 `relatedTools.html:34-40` + SP1 那届的镜像事实 |
+| 15 | 改标签有**第二个消费者，而且它会改交互**：`_data/onlineTools.yml` 的 `match_tags` 一共钉着 **33 枚**逐字标签串（四页 ready 各：`idcard` 0 / `codec` 11 / `json` 13 / `diff` 9——**起草时写的「9 条」只是 `diff` 那一页的块**），文末「相关工具」卡拿 `page.tags` 与它求交集（`_includes/relatedTools.html:36` `rtool.match_tags contains tag`，**大小写敏感的逐字比较**；外层遍历 ready 工具、内层遍历本篇 tags、第一个命中即 `break`，整段在 `:33-39`）——也就是说**改一枚标签名有可能让某篇文章的工具卡出现或消失**。这份 yml 还被 `scripts/verify-plan-blocks.mjs` 按**整文件字节镜像**看着。实测：A9 要动的 6 枚 token 里 **`Vite` 恰好在这 33 枚里**（`json` 那一串同时含 `vite` 与 `Vite` 两枚），而 `_posts/2023-05-08-vue3-vite-study.md` 今天命中的正是 `Vite` 那一枚；其余 5 枚（`Chrome`、`React`、`WebMCP`、`coding`、`Agent`）一枚都不在。所以「命中集必然不变」这句话不成立，准确的口径是：**命中哪一页不变（还是 `json` 那张卡），但该篇命中的逐字串从 `Vite` 变成 `vite`**——**28 篇有卡的文章里只有这一行**会变。这一条必须有判据：§5.1 组 `词表` 第 ⑧ 条钉一份「A9 落地后的 28 行 `rel <- 逐字命中串`」快照，快照本身就是「改名会不会带跑卡」的常设守卫 | 探针 `/tmp/sp4-match.cjs`（源码附在计划 Task 1 Step 8）：`unionTokens:33`、`readyTools` 逐页枚数、`postsWithHit:28`、`changedCount:1`，那唯一一行 `json:Vite` → `json:vite` |
 | 16 | 改分类有**第三处后果**：`scripts/og-images.mjs:92` 取 `categories` 的**首个**进 OG 卡面文字，产物 `_data/og_images.yml` 是提交进仓库的 | 读脚本 |
 | 17 | tags 里**重复的那一枚会被计入归档页读数**：`2026-07-12-alibaba-page-agent.md:11` 的 `tags` 里 `Agent` 出现两次（`AI Agent 前端 开源 阿里巴巴 page-agent GUI Agent`），而 `populate_tags`（`document.rb:449-453`）只有 `flatten!`、**没有 `uniq!`**（对比 `populate_categories` `document.rb:441-444` 有 `categories.uniq!`）；`Site#post_attr_hash`（`site.rb:255-264`）是 `p.data[post_attr]&.each { |t| hash[t] << p }`，**没有「同一篇不重复入桶」的护栏**。实测 `site.tags["Agent"].size` = **13**，去重后是 **12**——`tags.html:42` 与 `:50` 打的就是这个 13。同一串重复还会原样进 `<meta name="keywords">`（`seoMeta.html:89` `page.tags \| join: ','`，无 `uniq`） | 探针 `{agent_total:13, agent_uniq_docs:12}` + 读上述源码 |
 | 18 | 摘要类判据今天只存在于工具页那一侧：`scripts/check-tools-surface.mjs:192-201`（`DESC_MIN_COLS = 50` / `DESC_MAX_COLS = 158`，`:71-72`）判的是 `_data/onlineTools.yml` 的条目，`_posts` 一条都不判 | 读脚本 |
@@ -75,8 +74,10 @@
 **目标**
 
 - G1 每一篇**产出的**文章页的 `<meta name="description">` 都是这一篇自己的，不再是 `subtitle` 兜底。
-  今天 80 篇里 **41 篇是手写的、39 篇是副标题原文**（那 39 篇的 `subtitle` 全部 ≥25 字符，
-  所以一道都没落到 `site.description` 上）。验收数：**手写摘要 41 → 80**。
+  今天 80 篇里 **41 篇是手写的、39 篇不是**，而那 39 篇的分解是 **38 篇取本篇 `subtitle`（HTML 反解口径；
+  只比原始字节是 35 篇）+ 1 篇取 `site.description`**（`2026-09-25-claude-agents-md-remote-gate.md`，
+  `subtitle` 5 字符撞在 `.size < 25` 的地板上）。**起草时这里写的「那 39 篇全部 ≥25 字符、一道都没落到
+  `site.description` 上」是错的**，§6.1 那格跟着从 `0 → 0` 改成 `1 → 0`。验收数不变：**手写摘要 41 → 80**。
 - G2 tags / categories 的**大小写撞键归零**（今天 5 组：4 组合并、1 组经查不是同一件事、改用分拆）、
   **同帖重复归零**（今天 1 处：`Agent` 把 `tags.html` 的那一格撑成 13，真实 12），词表钉成一份
   可枚举的白名单，且白名单建在**「产出页面的语料」而不是「磁盘文件集」** 上；并且
@@ -90,8 +91,11 @@
 **非目标**（每一格都写为什么不做）
 
 - 不做「把 155 枚标签压到 N 枚」的语义大合并：`微信JSAPI支付` / `微信H5支付` / `微信公众号支付`
-  是三个不同的坑，`Vue2` / `Vue3`、`代码回退` / `revert` / `reset` 是三种不同的东西，合并会**丢信息**，
-  而这三族恰好都落在 `match_tags`（§1 事实 15）能看到的地方。只合「同一件事的两种写法」，见 §4.2。
+  是三个不同的坑，`Vue2` / `Vue3`、`代码回退` / `revert` / `reset` 是三种不同的东西，合并会**丢信息**。
+  **起草时接着写的「而这三族恰好都落在 `match_tags` 能看到的地方」只对了一族**（33 枚逐子摊开实测：
+  `代码回退` / `revert` / `reset` 三枚都在 `diff` 那一串的 9 枚里；`Vue2`、`Vue3` 与三枚 `微信…支付`
+  **一枚都不在**，`json` 那 13 枚里有 `vite` 与 `Vite` 两枚但没有 Vue 系）。
+  所以「不许语义大合并」这条的理由是**信息**，不是「门禁看得见」——只合「同一件事的两种写法」，见 §4.2。
 - 不把 tags 里那枚 `开源`（挂 **18 篇**）跟着 categories 一起改成 `开源实测`：`开源实测` **根本不在 tags 词表里**
   （探针：`site.tags.keys` 无此键），它是分类名。tags 与 categories 是两个各判各的词表空间，
   动作 3 只动 categories 那一簇；顺手改 tags 会白移动 18 个锚点（tag `开源` 挂 18 篇，category `开源` 只挂 1 篇，
@@ -198,7 +202,7 @@ Jekyll 早就把它拆成 `Vibe` 与 `Coding` 两枚了（§1 事实 11），它
 把它们合成一枚 `coding`，等于让「平台」与「Vibe 编码方式」共用一个归档页，
 正是 §2 非目标第 1 条禁止的那种丢信息合并。所以这一组的做法是**把平台那枚改准**（`coding.net`，
 与那一页正文用词一致），`Coding` 原样留着——两枚键各挂 1 篇，语义不再混。
-`coding.net` 不在 `match_tags` 钉的 9 条里（§1 事实 15），也不与任何现有键撞小写。
+`coding.net` 不在 `match_tags` 钉的 **33 枚**里（§1 事实 15 全集逐枚可点），也不与任何现有键撞小写。
 
 **爆炸半径**：合并侧的组 1 与组 4 的「大写那一侧」是同一篇
 （`2026-09-29-webmcp-modelcontext-mount.md` 的 tags 行是 `WebMCP Chrome Agent`），一刀同时改掉两枚，
@@ -218,8 +222,12 @@ Jekyll 早就把它拆成 `Vibe` 与 `Coding` 两枚了（§1 事实 11），它
   在 Jekyll 里等价，把它钉成判据属于制造 diff 噪声；判据钉的是**多分类不许用空格分隔**
   （那是 §1 事实 14 里那篇教学样本自己警告过的坑）。
 - 连带后果（必须同一刀内处理，不许留下「图与 front matter 不一致」）：
-  - `_data/og_images.yml` 里这 4 篇的 `category` 进卡面文字 → 重跑 `node scripts/og-images.mjs`，
-    然后 `node scripts/og-images.mjs --check` 自证。
+  - `_data/og_images.yml` 这一条**不触发**（起草时写着「重跑生成器」，实测不成立）：卡面文字只画在
+    **没有 `cover`** 的文章上，而这 4 篇全部带 front matter `cover`（各 `grep -c '^cover:'` = 1），
+    且它们一枚都不在这张表里（`grep -c 'bend\|scriptc\|univer\|gitdiagram' _data/og_images.yml` = 0；
+    该表 68 条，YAML 读出的键数）。所以这一刀**不重跑生成器、不碰那份并发会话正持有的文件**；
+    自证改成改前改后各跑一次只读的 `node scripts/og-images.mjs --check`，退码与摘要行必须一模一样。
+    **生成模式（不带 `--check`）会重写这份产物**，一次都不许跑。
   - `categories.html` 的锚点少 **3 枚**（`#开源`、`#开源工具`、`#编程语言`）。分类的消费面实测是
     **6 个文件**：`_layouts/post.html:49-56`（面包屑）、`_includes/jsonLd.html:83,86-87`（第 2 条面包屑，
     带 `#分类` 的 `item` URL）、`_includes/seoMeta.html:165`（`article:section`）、
@@ -299,8 +307,8 @@ CSS：body.has-toc .toc-static { display: none; }
 
 | 组 | 判据（每一条都是可执行的、非「应当」） | 红了意味着 |
 | --- | --- | --- |
-| `描述` | ① **产出语料的 80 篇**逐篇都有 `seo_description`，且等式钉死：`_posts/*.md` 文件数 == `site.posts.size` + 1，那 1 篇**逐字写成 `2100-10-25-practice-demo.md`**（谁再藏一篇未来帖进来，红的是这一条而不是被绕开）；② 长度 ∈ [60,140] 字符（按 code point 数，不是字节）；③ 值 ≠ 本篇 `subtitle`、≠ `site.description`；④ 摘要里每段连续数字都在本篇正文逐字出现；⑤ 全站取值互不相同（80 条去重后仍 80） | 卡片摘要退回副标题 / 凭空数字 / 两篇共用一句话 / 用未来日期绕门禁 |
-| `词表` | ① **大小写撞键为零**：对产出语料的 tags 并集，任何两枚在「trim + 小写」后不得相等——**无条件判据，不设豁免名单**（组 5 那对靠改名解决，不靠豁免，见 §4.2 动作 2）；② tags ⊆ 白名单、categories ⊆ 白名单（两份常量表逐条钉进脚本，归一后规模 **151 / 14**）；③ 多分类必须写 `[A, B]`（`categories:` 里出现空格分隔的多词 = 红）；④ 行尾干净：`grep -lU $'\r' _posts/*.md` 必须为空；⑤ **两侧读数相等**：门禁正则（按 `/\s+/` 拆，与 Jekyll 同规则）在**语料集**上的 tags / categories 去重数 == 白名单长度 == 产物里 `tags.html:24` / `categories.html:32` 打的那两个数，另加一条独立等式「文件集读数 == 语料集读数 + 那 2 枚（`前端面试`、`手写题`）」；⑥ **同帖重复为零**：每篇 tags 去重后长度 == 原长度，且每枚 tag 的 `site.tags[t].size` == 持有它的文件数（现状唯一红点是 `Agent`：13 vs 12）；⑦ 归档页不悬空：`_site/tags.html` 与 `categories.html` 里每一枚 `href="#X"` 在同页都有对应落点；⑧ **命中集不变**：A9 动过的每一篇，按 `relatedTools.html:36` 那个逐字 `contains` 口径算出的 `page.tags ∩ match_tags` 集合，**改前与改后逐篇相等**（实现时用 `git show HEAD:<篇>` 的 tags 与工作树各算一次并打印对照表） | 又长出大小写双键 / 词表漂移 / 幽灵标签 / 正则与 Jekyll 分叉 / 归档页锚点跳空 / 文末工具卡被改名带跑 |
+| `描述` | ① **产出语料的 80 篇**逐篇都有 `seo_description`，且等式钉死：`_posts/*.md` 文件数 == `site.posts.size` + 1，那 1 篇**逐字写成 `2100-10-25-practice-demo.md`**（谁再藏一篇未来帖进来，红的是这一条而不是被绕开）；② 长度 ∈ [60,140] 字符（按 code point 数，不是字节）；③ 值 ≠ 本篇 `subtitle`、≠ `site.description`；④ 摘要里每段连续数字都在本篇正文逐字出现；⑤ 全站取值互不相同（80 条去重后仍 80。这一格**今天就是绿的**，价值全在防未来，而且**它没有牙**，见 §5.2 表尾）；⑥ **产物侧接线**（本计划相对 spec 的净增项）：每一篇带 `seo_description` 的产出文章页，`_site` 里那条 `<meta name="description">` 的 `content` 经 HTML 实体反解之后必须**等于**源侧的值 | 卡片摘要退回副标题 / 凭空数字 / 两篇共用一句话 / 用未来日期绕门禁 / **源侧写了摘要而产物没接上（取值链断）** |
+| `词表` | ① **大小写撞键为零**：对产出语料的 tags 并集，任何两枚在「trim + 小写」后不得相等——**无条件判据，不设豁免名单**（组 5 那对靠改名解决，不靠豁免，见 §4.2 动作 2）；② tags ⊆ 白名单、categories ⊆ 白名单（两份常量表逐条钉进脚本，归一后规模 **151 / 14**）；③ 多分类必须写 `[A, B]`（`categories:` 里出现空格分隔的多词 = 红）；④ 行尾干净：`grep -lU $'\r' _posts/*.md` 必须为空；⑤ **两侧读数相等**：门禁正则（按 `/\s+/` 拆，与 Jekyll 同规则）在**语料集**上的 tags / categories 去重数 == 白名单长度 == 产物里 `tags.html:24` / `categories.html:32` 打的那两个数，另加一条独立等式「文件集读数 == 语料集读数 + 那 2 枚（`前端面试`、`手写题`）」；⑥ **同帖重复为零**：每篇 tags 去重后长度 == 原长度，且每枚 tag 的 `site.tags[t].size` == 持有它的文件数（现状唯一红点是 `Agent`：13 vs 12）；⑦ 归档页不悬空：`_site/tags.html` 与 `categories.html` 里每一枚 `href="#X"` 在同页都有对应落点；⑧ **命中集不变**：ready 四页的 `match_tags` 共 33 枚（§1 事实 15），按 `relatedTools.html:36` 那句逐字 `contains` 加 `:38` 的 `break` 这个口径算，今天有卡的是**恰好 28 篇**、每篇一枚「逐字命中串」。这一格钉的是 **A9 落地之后**的 28 行「`rel` 对应逐字命中串」快照，实现一律走「脚本内钉一份快照 + 与当前源读数对账」——**不许用 `git show HEAD:<篇>` 取改前值**，因为牙齿台账把源抄进 `/tmp` 副本时 `.git` 在 `SKIP` 集里，门禁在副本上读不到 git。它首跑该红的正是唯一会变的那一行：`2023-05-08-vue3-vite-study` 的命中串 `Vite` → `vite`（命中哪一页不变，仍是 `json` 那张卡；Task 5 首跑红这一条、Task 6 治完转绿） | 又长出大小写双键 / 词表漂移 / 幽灵标签 / 正则与 Jekyll 分叉 / 归档页锚点跳空 / 文末工具卡被改名带跑 |
 | `内链` | ① 正文里指向 `/tools/*.html` 的手工链接条数 ≥ 5；② 每条的 href 在 `_site` 里有对应文件（带 baseurl 时拼出来的那一条 200）；③ 每篇最多 2 枚；④ 链接文字不等于「点这里/工具/详情」这类空词 | 404 的正文内链 / 把自动卡当手工链交差 |
 | `目录` | ① 每一篇产物：静态条目的 `href` 去掉 `#` 后与本页 `<h2 id>`/`<h3 id>` 序列**逐个相等**（顺序也相等）；② `h2+h3 < 2` 的产物里必须**没有** `.toc-static`（按 §1 事实 19，这一格只有 `2018-12-25-qqweiboshare.html` 一篇）；③ `h2+h3 ≥ 2` 的产物里条目数 == heading 数 ≥ 2，且这样的产物**恰好 79 篇**；④ JS 那一族的三个 id/class（`#toc-list` / `.toc-link` / `.toc-fab`）仍在（防 A8 把旧路径删掉）；⑤ `body.has-toc .toc-static` 那条隐藏规则在产物 CSS 里逐字可见（防「两份列表同时显示」） | 目录与正文脱节（点了跳错节）/ 双份列表其中一份坏了 / 双份同时可见 |
 
@@ -313,7 +321,7 @@ CSS：body.has-toc .toc-static { display: none; }
 **本仓的牙齿台账有两副形状，别记错**（读脚本现证：`grep -n "name: '" scripts/check-seo-teeth.mjs`
 与 `sed -n '106,110p' scripts/verify-tools-browser-teeth.mjs`）：
 
-- `check-seo-teeth.mjs`（本批 M1–M14 落的地方）的一条是 `{name, group, expect, mut}`，**没有**
+- `check-seo-teeth.mjs`（本批 M1–M16 落的地方，Task 9/10 再补 M17/M18）的一条是 `{name, group, expect, mut}`，**没有**
   `id / from / to / cascade` 这些字段；落点唯一性由 `mut` 里的 `subOnce` / `patchFirst` / `cutLine`
   **抛异常**保证（找不到或不止一处都抛），主循环把抛异常记成「变异脚本自己崩了」并整族退 1；
   `expect` 是门禁那行判定的**逐字片段**，且必须红在 `[group]` 这一组里，红在别组也算假牙。
@@ -322,7 +330,10 @@ CSS：body.has-toc .toc-static { display: none; }
 - `verify-tools-browser-teeth.mjs`（浏览器那一族，本批只有 A8 的动效回归会间接碰到）的一条才是
   `{id, kind, name, expect, pages, targets, from, to, why}`，`apply` 在目标串找不到时**退 2**。
 
-本批 M1–M14 全部进第一本（`check-seo-teeth.mjs`），M15 也是——它打的是源侧 tags 行，判据在 `词表` 组。
+本批 M1–M16 全部进第一本（`check-seo-teeth.mjs`）。**一条案例只有一个 `group`**：主循环判绿的三条硬条件是
+退出码不是 0/2、输出里出现 `[该 group]`、输出里出现该条的 `expect` 片段——**一把跨两组的变异只按登记的那一组计数**，
+所以 M9（同时点着 `描述` ① 与 `词表` ⑤）在台账里只有一格，`分账` 那行读到的也是「案例按登记组分桶」，
+不许有人把它当成「18 把 = 18 格判据」。
 为了让台账可按 M 号 grep，**案例的 `name` 一律以 `M<number> ` 开头**。
 
 | 刀 | 打在哪 | 该红的判据 |
@@ -335,20 +346,25 @@ CSS：body.has-toc .toc-static { display: none; }
 | M6 | 在某篇 `categories:` 里加一个白名单外的词 | `词表` ② |
 | M7 | 把某篇的 `categories: [A, B]` 改成空格分隔 | `词表` ③ |
 | M8 | 给某篇副本的 `tags:` 行补一个 `\r`（CRLF 化） | `词表` ④ |
-| M9 | 把某篇的 `date` 从 2026 改成 `2100-01-01`（把它推出语料） | `描述` ① + `词表` ⑤（`cascade`，这条等的就是「文件集 = 语料 + 豁免」那把尺） |
+| M9 | 把某篇的 `date` 从 2026 改成 `2100-01-01`（把它推出语料） | `描述` ① 与 `词表` ⑤ **同一把都会红**（这条等的就是「文件集 == 语料 + 豁免」那把尺）；案例只登记一条，`group` 取 `词表`、`expect` 取 ⑤ 那句——一本里一条只有一个 `group`，跨过去的另一格不进 `分账` |
 | M10 | 把某篇 `tags:` 里已有的一枚原样重写第二遍（造同帖重复） | `词表` ⑥ |
 | M11 | 在 `_site` 某篇产物里删一条静态目录 `<li>` / 改一个 href | `目录` ① |
 | M12 | 把一条正文工具内链的 href 改成 `/tools/nope.html` | `内链` ② |
 | M13 | 摘掉整块 `.toc-static`（换成 `<div class="toc-static"></div>`） | `目录` ①③ |
 | M14 | 删掉 CSS 里 `body.has-toc .toc-static { display: none }` 那一条规则 | `目录` ⑤ |
-| M15 | 在某篇**持有 `git` 标签**的副本里把 `git` 改成 `Git`（不在 A9 的改动面上，纯造变异） | `词表` ⑧（`cascade` ①）——这一把量的是「改名会带跑文末工具卡」 |
+| M15 | 在某篇**持有 `git` 标签**的副本里把 `git` 改成 `Git`（不在 A9 的改动面上，纯造变异） | `词表` ⑧——这一把量的是「改名会带跑文末工具卡」；同一把也会点着 ①（`git` 与 `Git` 成了一对新撞键，两格同在 `词表` 组），所以 `expect` 必须取 ⑧ 那句，才算钉住「带跑卡」而不是「长出双键」 |
+| M16 | 打在**产物**某篇的 `<meta name="description">` 上（源侧一字不动，只改产物里那一个字符） | `描述` ⑥——①–⑤ 的牙全打在源侧，唯有这一把能证明「接线那一格真的在产物侧工作」 |
 
-`内链` ①（条数 ≥ 5）不设牙齿：它是**计数**判据，计数判据的牙齿等价于「删一条就少一条」，
-被 `内链` ② 的牙齿覆盖；这一格口径照 §6.4 写进台账，不假装它有牙。
+**三格明说没有牙**（完整无牙矩阵在计划 Task 10 Step 8.6，共 7 格：`描述` ⑤、`词表` ⑦、`内链` ①③④、`目录` ②④）：
+`内链` ①（条数 ≥ 5）是**计数**判据，计数判据的牙齿等价于「删一条就少一条」，已被 `内链` ② 的牙覆盖；
+`描述` ⑤（全站取值互不相同）要点着它必须造一次「两篇共用同一句话」的重复，M1–M16 里没有那样一把
+（M3 改成本篇 `subtitle` 不产生重复，M9 把一篇推出语料也不产生重复），而它**今天就是绿的**（`uniqDesc` 实测 80），
+所以它的价值全在防未来——台账里不许挂着「有守卫」的名义过去，也不许写成「≥80」把现状说成有病。
+口径照 §6.4 写进台账，不假装它有牙。
 
 ### 5.3 不新增门禁脚本，改动的文件逐一点名
 
-**门禁侧**：`check-seo.mjs`（加 4 组）、`check-seo-teeth.mjs`（加 M1–M15）。
+**门禁侧**：`check-seo.mjs`（加 4 组）、`check-seo-teeth.mjs`（加 M1–M16）。
 **产品侧**：`_plugins/toc.rb`（新）、`_layouts/post.html`（静态块 + 改写 :276-281 那段注释）、
 `dev/sass/common/editorial.scss`（`.toc-static` 一族 + `body.has-toc` 那条隐藏）、
 `categories.html`（过期注释改口）。
@@ -360,12 +376,20 @@ CSS：body.has-toc .toc-static { display: none; }
 `2026-09-30-univer-node-two-gaps.md`、`2026-10-01-gitdiagram-keyless-mcp-4-bad-edges.md`（categories），
 外加刀3 的那 5–8 篇正文。**刀3 与 A9 有交集**（`2026-09-29-webmcp-modelcontext-mount.md` 一类），
 同一篇的两处改动可以同刀提交，但**判据各自独立**，不能因为一红就顺手把另一条也关掉。
-`_data/og_images.yml` 由 `node scripts/og-images.mjs` 重新生成（只该动那 4 篇的卡面分类）。
+`_data/og_images.yml` **本批不重跑、不碰**（§4.2 动作 3 那条已改口：这 4 篇全部带 `cover`，一枚都不进这张表；
+该表实测 68 条），自证只跑只读的 `node scripts/og-images.mjs --check`，改前改后各一次，退码与摘要行必须一模一样。
 `_data/onlineTools.yml` **只有当某枚被 `match_tags` 钉住的标签要改名时**才动。
-那 9 条钉死的串是 `前端小技巧 / JavaScript公用方法 / JavaScript语言精粹 / npm / pnpm / yarn /
-git / git常用命令 / reset`；动作 2 要动的 5 枚（`Chrome` / `React` / `Vite` / `WebMCP` 四枚大写侧，
-加 `coding` → `coding.net` 那一枚改名侧）一枚都不在里面，动作 3 改的是 categories、`match_tags` 读的是
-tags，动作 4 删的是重复的 `Agent`——所以**预期不动这份 yml**。
+33 枚全集按页摊开（探针 `/tmp/sp4-match.cjs`，与 §1 事实 15 同源）：`codec` 11 枚 —— `前端小技巧`、
+`JavaScript公用方法`、`JavaScript语言精粹`、`原型和原型链`、`函数式编程`、`ES2023`、`JS新特性`、
+`浏览器缓存机制`、`网站seo`、`seo优化`、`搜索引擎网站收录`；`json` 13 枚 —— `npm`、`pnpm`、`yarn`、
+`node包管理工具`、`TypeScript`、`webpack`、`vite`、`Vite`、`gulp`、`前端构建`、`工程化`、`项目搭建`、`私有仓库`；
+`diff` 9 枚 —— `git`、`git常用命令`、`reset`、`revert`、`代码回退`、`代码回撤`、`版本投产`、`更新版本内容`、`github`；
+`idcard` 是 `match_tags: []`。**起草时那句「9 条钉死的串」只是 `diff` 那一页的块。**
+动作 2 要动的 5 枚里，`Chrome` / `React` / `WebMCP` 三枚大写侧与改名侧 `coding` 一枚都不在这 33 枚里，
+**唯独 `Vite` 在**——而 `json` 那一串里 `vite` 与 `Vite` 两枚并存，所以改名不会换卡，只会换那一行的逐字命中串
+（§1 事实 15）。`_data/onlineTools.yml` 因此**一个字节都不改**：改它等于改卡面配置，而这一刀要证的恰恰是
+卡面配置不必跟着改（判据 `词表` ⑧ 钉的是快照，不是这份 yml）。
+动作 3 改的是 categories 而 `match_tags` 只读 tags，动作 4 删的是重复的 `Agent`——这两条同样不碰这份 yml。
 一旦确实需要动，`scripts/verify-plan-blocks.mjs --fix` 必须在同一刀内跑，
 并让 `verify-plan-blocks-teeth.mjs` 照旧全绿。
 
@@ -381,11 +405,22 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
   `bundle exec jekyll build`（不带 `--baseurl ""`，与线上一致用默认 `/better-blog`），
   然后**先自证产物是新的**：`_site/2026/07/12/alibaba-page-agent.html` 的 keywords 必须是该篇自己的
   tags 串而不是全站串。做不到这一步的读数一律作废。
-- **6.1 摘要覆盖率**（不是 A/B，是「前后」，全部从 `_site` 产物读）：每篇文章页恒有 1 条
-  `<meta name="description">`；**取值与本篇 `subtitle` 逐字相同的篇数 39 → 0**；
-  **取值与 `site.description` 相同的篇数 0 → 0**（今天就已经是 0，那 39 篇的 `subtitle` 全部 ≥25 字符，
-  唯一 <25 的是那篇不产出的教学样本，它 `subtitle` 24 字符——写进台账是为了防「地板论」被误当成现状）；
-  **手写的篇数 41 → 80**；产物里 meta description 的**去重条数**从 N 升到 ≥ 80（N 现场量）。
+- **6.1 摘要覆盖率**（不是 A/B，是「前后」，全部从 `_site` 产物读；下面每个数都是 2026-10-06 在
+  Task 1 重建之后的产物上现场量的，量具与逐字输出见计划 Task 1 Step 3 / Step 8）：每篇文章页恒有 1 条
+  `<meta name="description">`（`pages 80 / missing 0`）；
+  **取值与本篇 `subtitle` 相同的篇数 38 → 0**（口径 = HTML 实体反解之后；只比 `content` 的原始字节是 **35 → 0**，
+  差的 3 篇是 subtitle 里带 `"`、meta 里写成 `&quot;` 的 `2026-06-05-ai-sdd`、`2026-07-12-facebook-astryx`、
+  `2026-07-12-impeccable-ai-design`。两个口径都要写，因为「逐字」与「反解」在别处会指向不同的格子）；
+  **取值与 `site.description` 相同的篇数 1 → 0**——**起草时这一格写的是 `0 → 0`，错。**
+  现状有 1 篇落到全站描述：`2026-09-25-claude-agents-md-remote-gate.md`，它的 `subtitle: issue` 只有 5 个字符，
+  被 `seoMeta.html:73` 那道 `.size < 25` 的地板拦掉了。所以「那 39 篇的 `subtitle` 全部 ≥25 字符」这句不成立：
+  39 篇里没有 `seo_description` 的读数是 **38 篇取 subtitle + 1 篇取 site.description**，
+  唯一 <25 的那篇不是不产出的教学样本，而是这一篇（教学样本 `2100-10-25-practice-demo` 的 `subtitle` 24 字符，
+  但它压根不进 `site.posts`）。这一格因此是**现状有病、要治**的一格，不再是「防地板论被误当成现状」；
+  **手写的篇数 41 → 80**；产物里 meta description 的**去重条数 80 → 80**——
+  N 现场量 = 80，**今天就是绿的**，这一格的价值全在防未来，不在修现状。
+  而**它没有牙**：要点着它必须造一次「两篇共用同一句话」的重复，M1–M18 里没有那样一把
+  （M3 改成本篇 `subtitle`、M9 把一篇推出语料，都不产生重复），这一格进无牙矩阵与移交清单。
 - **6.2 词表规模**（`tags.html:24,32` 与 `categories.html:32,41` 打的数是面向读者的读数）：
   `site.tags.size` **155 → 151**、只挂 1 篇的标签 **122 → 116**、大小写撞键 **5 → 0**；
   `site.categories.size` **17 → 14**、只挂 1 篇的分类 **4 → 2**、`开源实测` 的桶 **17 → 21**；
@@ -451,10 +486,34 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
   **tags 大小写撞键 4 合并 + 1 分拆、同帖重复 1 处、categories 一簇 4 篇、CRLF 卫生 1 篇**；
   全部数字按 Jekyll 读数写（`155 → 151`、`122 → 116`、`17 → 14`、`4 → 2`、`Agent 13 → 12`），
   过期注释（`categories.html:14` 的「43 个分类」）顺手改口。
-- **纠自己三次**：① 起草时 shell 管道数出的「158 枚 / 124 枚单篇 / 1 枚 `黑科技\r` 幽灵标签」里，
+- **纠自己八次**：① 起草时 shell 管道数出的「158 枚 / 124 枚单篇 / 1 枚 `黑科技\r` 幽灵标签」里，
   `\r` 那枚是行尾粘连造出来的假键（§0 第 3 条），158 是「文件集」读数、不是词表读数；
   ② 摘要兜底那格从「81 − 41 = 40 篇走 `site.description`」改成实测的
-  「39 篇走 `subtitle`、0 篇走 `site.description`」；③ 回填数从 40 改成 39（教学样本不产出页面）。
+  「39 篇走 `subtitle`、0 篇走 `site.description`」——**这半句又被 ④ 推翻**：39 篇的分解是 38 + 1；
+  ③ 回填数从 40 改成 39（教学样本不产出页面）。
+  ④ **§6.1 的 `site.description` 那格从 `0 → 0` 改成 `1 → 0`**：执行 Task 1 时现场量产物，落到全站描述的
+  有 1 篇——`2026-09-25-claude-agents-md-remote-gate.md`，它的 `subtitle: issue` 只有 5 字符，撞在
+  `seoMeta.html:73` 的 `.size < 25` 地板上；「那 39 篇 subtitle 全部 ≥25 字符」不成立，
+  而且「唯一 <25 的是那篇不产出的教学样本」也错（教学样本 24 字符，但它不进 `site.posts`）。
+  同一次量产物顺带把「等于 subtitle」拆成三个口径：逐字 `35`、HTML 反解后 `38`、靠转义才相等的 `3` 篇逐一点名。
+  ⑤ **§1 事实 15 的「`match_tags` 钉死 9 条」改成 33 枚**（`idcard` 0 / `codec` 11 / `json` 13 / `diff` 9，
+  9 只是 `diff` 那一页的块）；连带三处跟着改：§2 非目标里「那三族恰好都落在 `match_tags`」只对一族
+  （`代码回退`/`revert`/`reset` 三枚都在，`Vue2`/`Vue3` 与三枚 `微信…支付` 一枚都不在）、
+  §4.2 组 5 那句「`coding.net` 不在 9 条里」改成 33 枚、§5.3 把 33 枚逐子摊开写明。
+  **更要紧的后果**：A9 要动的 `Vite` 恰好在 `json` 那一串里（同串 `vite` 与 `Vite` 并存），
+  所以「一枚都不在里面、命中集必然不变」是错的，准确的口径是「命中哪一页不变、命中串从 `Vite` 变 `vite`」，
+  28 篇有卡的文章里恰好只有这一行会变。
+  ⑥ **动作 3 的「重跑 `node scripts/og-images.mjs`」整条取消**：那 4 篇全部带 `cover`，
+  而卡面文字只画在无 `cover` 的文章上（`grep -c 'bend\|scriptc\|univer\|gitdiagram' _data/og_images.yml` = 0，
+  表 68 条）——不重跑、不碰那份并发会话正持有的文件，自证换成只读 `--check` 前后各一次。
+  ⑦ **新增 `描述` ⑥（产物侧接线）与牙 M16**：现有 10 组里没有任何一组管文章页 meta description 的来源，
+  A4 回填完之后改坏 `seoMeta.html` 的取值链不会让任何一道门红——那正是 SP1 §7 修过的同类缺陷形状；
+  ①–⑤ 的牙全打源侧，只有打在产物上的 M16 能证明那一格真的在产物侧工作。
+  ⑧ **`词表` ⑧ 的实现口径从 `git show HEAD:<篇>` 改成「脚本内钉 A9 落地后的 28 行快照」**：
+  牙齿台账把源抄进 `/tmp` 副本时 `.git` 在 `SKIP` 集里，门禁在副本上读不到 git，那条实现根本跑不动。
+  同一趟读脚本顺手钉两件事：这本牙齿的一条案例**只有一个 `group`**（判绿的三条硬条件里没有「独占」那条，
+  所以跨组的一把只按登记的那一组进 `分账`），且 §5.2 表格里原先写的 `cascade` **是这个脚本没有的字段**，
+  M9 / M13 / M15 三格的说法跟着改成实测形状。
 - **`Coding` / `coding` 不合并**是本档唯一一次「看着像重复、实测不是同一件事」的掉头：
   合并会把「coding.net 平台」和「Vibe 编码方式」塞进同一枚标签，违反 §2 非目标第 1 条，
   所以取改名（`coding` → `coding.net`）而不是并——换来判据 ① 保持无条件、不需要豁免名单。
@@ -466,7 +525,7 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
   并发会话正持有的 `dev/js/editorial.js`；覆盖面按实测是 **79 篇有、1 篇（`qqweiboshare`）必须没有**；
   两份 DOM 的字节价格进 §6.3 实测量化，不估算。
 - 新判据全部落在 `check-seo.mjs` 的 4 个新组（`描述` / `词表` / `内链` / `目录`），牙齿进
-  `check-seo-teeth.mjs`（M1–M15）；不新建门禁脚本。
+  `check-seo-teeth.mjs`（Task 1 定到 M1–M16；A8 的静默截断那处再补 M17/M18，见 §9 交付实录）；不新建门禁脚本。
 - **产物读数的来源被钉死**：主工作树那份 `_site` 早于 SP1 的 A5（§1 事实 20 有实证），
   所以 §6 的每一个数都必须在 `.worktrees/sp4-content-governance` 里现场 `bundle exec jekyll build`
   之后取，并先做一次「keywords 是逐页串」的自证。

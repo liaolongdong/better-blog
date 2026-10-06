@@ -82,19 +82,19 @@ node /tmp/sp4-61.cjs
 
 `/tmp/sp4-fm.rb` 与 `/tmp/sp4-61.cjs` 的完整源码附在本步末尾（`node` 脚本必须叫 `.cjs`：`/tmp` 下 `.mjs`/无扩展名会被当成 ESM，`require` 直接 `ReferenceError`）。
 
-预期输出（本计划起草时现场量到的，逐字）：
+预期输出（执行 Task 1 时现场重测，逐字；起草时这一行少一个格、`eqSubtitle` 也记错了口径，见本节末尾）：
 
 ```
-{"pages":80,"hand":41,"eqSubtitle":35,"escaped":3,"siteDesc":1,"missing":0,"uniqDesc":80}
+{"pages":80,"hand":41,"eqSubtitle":35,"eqSubtitleUnescaped":38,"escaped":3,"siteDesc":1,"missing":0,"uniqDesc":80,"floorShort":["2026-09-25-claude-agents-md-remote-gate.md"]}
 ```
 
-以及 `2026-09-25-claude-agents-md-remote-gate.md` 那一行点名（它的 `subtitle: issue` 只有 5 个字符，落到 `seoMeta.html:73` 那道 `.size < 25` 的地板上）。
+`floorShort` 那一格点名的就是 `2026-09-25-claude-agents-md-remote-gate.md`（它的 `subtitle: issue` 只有 5 个字符，落到 `seoMeta.html:73` 那道 `.size < 25` 的地板上，于是取的是 `site.description`）。
 
 - [ ] **Step 4：把 spec 的四处错口径改成实测值**
 
 逐处改（每处都是「spec 写的」→「实测的」，改由见括号里的命令）：
 
-1. **§6.1 / §1 事实 1 / §4.1 规则 2 之后那句「那 39 篇的 `subtitle` 全部 ≥25 字符」——错。** 实测：**39 篇取 `subtitle`（其中 3 篇的引号在 meta 里被转义成 `&quot;`，逐字相等只有 35 篇），1 篇取 `site.description`**（`2026-09-25-claude-agents-md-remote-gate.md`，`subtitle` 5 字符 < 25 地板）。所以 §6.1 那两格改成「与 subtitle 相同的篇数 **38 → 0**」「与 `site.description` 相同的篇数 **1 → 0**」。量具：Step 3 的脚本。
+1. **§6.1 / §1 事实 1 / §4.1 规则 2 之后那句「那 39 篇的 `subtitle` 全部 ≥25 字符」——错。** 实测：今天没有 `seo_description` 的正好 39 篇，其中 **38 篇的 meta description 取本篇 `subtitle`**（逐字相等 `35` 篇，另有 3 篇是 `&quot;` 反解之后才相等），**1 篇取 `site.description`**（`2026-09-25-claude-agents-md-remote-gate.md`，`subtitle` 5 字符 < 25 地板）。所以 §6.1 那两格改成「与 subtitle 相同的篇数 **38 → 0**」「与 `site.description` 相同的篇数 **1 → 0**」（口径 = HTML 反解之后，`eqSubtitleUnescaped` 那一格）。量具：Step 3 的脚本。
 2. **§6.1 末格「去重条数从 N 升到 ≥80」里的 N 现场量 = 80。** 今天 80 篇的 meta description **已经互不相同**，所以这一格是 `80 → 80`，**它今天就是绿的**；它的价值全在防未来，不在修现状。必须这样写进台账，不接受「≥80」这种把现状说成有病的说法。**顺带把一句说过头的话收回来**：这一格（`描述` ⑤）**没有牙**——要点着它必须造一次「两篇共用同一句话」的重复，M1–M18 里没有那样一把（M3 把摘要改成本篇 `subtitle`，不产生重复；M9 是把一篇推出语料，也不产生重复）。这一格进 Task 10 Step 8.6 的无牙矩阵与 §9.8 移交，台账里不许挂着「有守卫」的名义过去。
 3. **§1 事实 15「`match_tags` 钉死了 9 条逐字标签串」——错，实测 33 枚**（`node /tmp/sp4-match.cjs` 与按块解析 yml 的 JS 探针各打一次，两头都是 33；**四个工具页里三个有串**——codec 11 / json 13 / diff 9，idcard 是 `match_tags: []`；9 条那一串只是 diff 那一页的块）。更关键的后果：A9 要动的 `Vite` **恰好在这 33 枚里**（`json` 页同一串里 `vite` 与 `Vite` 两枚都在），`2023/05/08/vue3-vite-study.html` 今天的命中集就是 `{Vite, webpack}`。所以「一枚都不在里面、命中集必然不变」这句话不成立，改成：**命中哪一页的状态不变（还是 `json` 那张卡），但该篇命中的逐字串从 `Vite` 变成 `vite`**——28 篇命中行里**只有这一行**会变。因此 §5.1 组 `词表` 第 ⑧ 条实现成「钉一份 **A9 落地后**的快照（28 行 `rel <- 逐字命中串`）」，于是 Task 5 首跑时 ⑧ 恰好红这一条、Task 6 治完转绿，快照本身成为「改名会不会带跑卡」的常设守卫。量具：`node /tmp/sp4-snap.cjs`（同一份口径：`relatedTools.html:36` 的逐字 `contains`；它还打「A9 会改变命中集的行数 = 1」）。
 4. **§4.2 动作 3 与 §5.3 的「重跑 `node scripts/og-images.mjs`」这一步——不需要。** 实测：动作 3 改 categories 的 4 篇**全部带 front matter `cover`**（`grep -m1 '^cover:' _posts/2026-09-2{7,9}* _posts/2026-09-30-univer* _posts/2026-10-01-gitdiagram*`），而带 cover 的这 4 篇**压根不在 `_data/og_images.yml` 里**（`grep -c 'bend\|scriptc\|univer\|gitdiagram' _data/og_images.yml` = 0；该表 68 条）。卡面文字只画在 34 篇无 cover 的文章上。所以这一刀**不重跑生成器、不碰那份并发会话正持有的文件**；自证改成前后各跑一次 `node scripts/og-images.mjs --check`，退码与摘要行必须一模一样。
@@ -110,10 +110,18 @@ node /tmp/sp4-61.cjs
 - [ ] **Step 6：自检——spec 里没有留下被推翻的旧数**
 
 ```bash
-grep -n '39 → 0\|0 → 0\|9 条逐字\|重跑 `node scripts/og-images.mjs`' _docs/superpowers/specs/2026-10-03-content-governance-design.md
+grep -n '39 → 0\|0 → 0\|9 条逐字\|9 条钉死\|重跑 `node scripts/og-images.mjs`' \
+  _docs/superpowers/specs/2026-10-03-content-governance-design.md \
+  | grep -v '起草时\|改成\|错\|取消'
+grep -c '纠自己八次' _docs/superpowers/specs/2026-10-03-content-governance-design.md
 ```
 
-预期：`No matches found`（旧口径一处不留）。
+第一条**期望空输出**（残留 0 行）。**起草时这里写的是「`No matches found`」，那条判据自己不可能成立**：
+§8 决策记录与 §6.1 的改口句子必须原样引用被推翻的旧数（`0 → 0`、「9 条钉死」、「重跑 `og-images.mjs`」），
+否则读 spec 的人不知道哪一版被废了。所以判据是两段的：**第一层 grep 出的每一行都必须带着改口的标志词**
+（`起草时` / `改成` / `错` / `取消` 至少一个），第二层把它们滤掉之后必须什么都不剩。
+Task 1 执行时的真实读数：第一层 5 行（G1、§5.3、§6.1、§8 ④、§8 ⑥），滤掉之后 0 行。
+第二条期望 `1`（那一行小标题已从「纠自己三次」跟着走到八次；Task 10 还要加 ⑨⑩⑪，标题那时再改）。
 
 - [ ] **Step 7：提交**
 
@@ -146,14 +154,13 @@ end
 File.write(ARGV[1], out.to_json)
 ```
 
-`/tmp/sp4-61.cjs`（产物侧读数；`escaped` 那一格是为了把「meta 里引号被转义」与「真的不等于 subtitle」分开）：
+`/tmp/sp4-61.cjs`（产物侧读数；三格分开计，把「逐字相等」「反解后相等」「靠转义才相等」钉成三个互不相同的数）：
 
 ```js
 const fs = require('fs');
 const path = require('path');
 const ROOT = '/Users/liaolongdong/code/liaolongdong.github.io/.worktrees/sp4-content-governance';
 const fm = JSON.parse(fs.readFileSync('/tmp/sp4-fm.json', 'utf8'));
-const cfgRaw = fs.readFileSync(path.join(ROOT, '_config.yml'), 'utf8');
 // _config.yml 的 description 是带引号的 plain scalar，必须走 YAML，正则取会连引号一起进来
 const siteDesc = JSON.parse(require('child_process').execFileSync('ruby', ['-e', 'require "yaml";require "json";puts({:d=>YAML.load_file(ARGV[0])["description"]}.to_json)', path.join(ROOT, '_config.yml')], { encoding: 'utf8' })).d;
 const relOf = (f) => {
@@ -164,7 +171,7 @@ const relOf = (f) => {
   return `${day.replace(/-/g, '/')}/${m[4]}.html`;
 };
 const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-let pages = 0, hand = 0, verbatim = 0, escaped = 0, site = 0, missing = 0, floorShort = [];
+let pages = 0, hand = 0, raw = 0, unescapedEq = 0, escaped = 0, site = 0, missing = 0, floorShort = [];
 const descs = [];
 for (const [file, data] of Object.entries(fm)) {
   const rel = relOf(file);
@@ -175,19 +182,82 @@ for (const [file, data] of Object.entries(fm)) {
   const html = fs.readFileSync(p, 'utf8');
   const m = /<meta name="description"\s+content="([^"]*)"/.exec(html);
   if (!m) { missing++; continue; }
-  const desc = unesc(m[1]);
+  const metaRaw = m[1];
+  const desc = unesc(metaRaw);
   descs.push(desc);
   if (data.seo_description) hand++;
   const sub = String(data.subtitle || '');
-  if (desc === sub) verbatim++;
-  else if (m[1] === html.match(new RegExp('<meta name="description"\\s+content="([^"]*)"'))?.[1] && false) escaped++;
+  if (metaRaw === sub) raw++;
+  if (desc === sub) unescapedEq++;
+  if (metaRaw !== sub && desc === sub) escaped++;
   if (sub && [...sub].length < 25 && !data.seo_description) floorShort.push(file);
   if (desc === String(siteDesc)) site++;
 }
-console.log(JSON.stringify({ pages, hand, eqSubtitle: verbatim, escaped: descs.length - verbatim - site, siteDesc: site, missing, uniqDesc: new Set(descs).size, floorShort }));
+console.log(JSON.stringify({ pages, hand, eqSubtitle: raw, eqSubtitleUnescaped: unescapedEq, escaped, siteDesc: site, missing, uniqDesc: new Set(descs).size, floorShort }));
 ```
 
-**这版脚本 `escaped` 那一格是「既不是逐字等于 subtitle、也不是 site.description」的余数**，本例应当是 3；那 3 篇（`2026-06-05-ai-sdd`、`2026-07-12-facebook-astryx`、`2026-07-12-impeccable-ai-design`）的 subtitle 带 `"`，meta 里是 `&quot;`，反解之后与 subtitle 相等。跑之前把中间那行 `else if (... && false) escaped++;` 删掉——它留着只是为了说明为什么不能用「先反解再比」与「先比再计数」两套混着写。
+**三格的口径**：`eqSubtitle` 只比 `content` 的原始字节（改前 `35`），`eqSubtitleUnescaped` 比 HTML 反解之后（`38`），
+`escaped` 是「反解才相等」的那三篇（`2026-06-05-ai-sdd`、`2026-07-12-facebook-astryx`、`2026-07-12-impeccable-ai-design`，
+subtitle 里带 `"`，meta 里是 `&quot;`）——恒等式 `eqSubtitleUnescaped = eqSubtitle + escaped` 成立，`38 = 35 + 3`。
+**起草时这一版把 `escaped` 写成了「既不等于 subtitle 也不等于 site.description」的余数**，那个口径在这里量出来是 `41`（正好等于 `hand`），
+与台账 §9.2 那格的 `3` 对不上，所以改成上面三格分开计；台账引用的是 `eqSubtitle` 与 `escaped`，不受影响。
+
+`/tmp/sp4-match.cjs`（Step 4 第 3 条那个「33 枚 / 28 行 / 恰好 1 行变」的量具，`node /tmp/sp4-match.cjs`，前置是 Step 3 的 `/tmp/sp4-fm.json`）：
+
+```js
+const fs = require('fs');
+const cp = require('child_process');
+const ROOT = '/Users/liaolongdong/code/liaolongdong.github.io/.worktrees/sp4-content-governance';
+const tools = JSON.parse(cp.execFileSync('ruby', ['-ryaml', '-rjson', '-e', 'puts YAML.load_file(ARGV[0]).to_json', ROOT + '/_data/onlineTools.yml'], { encoding: 'utf8', maxBuffer: 1 << 26 }));
+const ready = tools.filter((t) => t.status === 'ready');
+const perTool = ready.map((t) => ({ slug: t.slug, n: (t.match_tags || []).length }));
+const union = new Set();
+ready.forEach((t) => (t.match_tags || []).forEach((k) => union.add(k)));
+const fm = JSON.parse(fs.readFileSync('/tmp/sp4-fm.json', 'utf8'));
+const tagsOf = (d) => {
+  const raw = d.tags;
+  if (Array.isArray(raw)) return raw.map(String);
+  if (raw === undefined || raw === null) return [];
+  return String(raw).split(/\s+/).filter(Boolean);
+};
+const hit = (tg, map) => {
+  const rows = [];
+  for (const t of ready) {
+    const mt = t.match_tags || [];
+    for (const tag of tg.map(map)) if (mt.includes(tag)) { rows.push({ slug: t.slug, tag }); break; }
+  }
+  return rows;
+};
+const id = (x) => x;
+const rename = (x) => ({ Chrome: 'chrome', React: 'react', Vite: 'vite', WebMCP: 'webmcp' }[x] || x);
+let withHit = 0; const before = {}; const after = {};
+for (const [file, d] of Object.entries(fm)) {
+  if (!/^\d{4}-\d{2}-\d{2}-.+\.md$/.test(file)) continue;
+  const tg = tagsOf(d);
+  const b = hit(tg, id), a = hit(tg, rename);
+  if (b.length) withHit++;
+  before[file] = b.map((r) => `${r.slug}:${r.tag}`).sort().join(',');
+  after[file] = a.map((r) => `${r.slug}:${r.tag}`).sort().join(',');
+}
+const changed = Object.keys(before).filter((k) => before[k] !== after[k]);
+console.log(JSON.stringify({ readyTools: perTool, unionTokens: union.size, hasViteUpper: union.has('Vite'), hasViteLower: union.has('vite'), postsWithHit: withHit, changedCount: changed.length, changedRows: changed.map((k) => ({ file: k, before: before[k], after: after[k] })) }));
+const t1 = tagsOf(fm['2023-05-08-vue3-vite-study.md']);
+console.log('VUE3VITE', JSON.stringify({ tags: t1, before: hit(t1, id), after: hit(t1, rename), jsonMatch: (ready.find((t) => t.slug === 'json').match_tags || []).filter((k) => t1.includes(k)) }));
+```
+
+逐字读数（2026-10-06 现场）：
+
+```
+{"readyTools":[{"slug":"idcard","n":0},{"slug":"codec","n":11},{"slug":"json","n":13},{"slug":"diff","n":9}],"unionTokens":33,"hasViteUpper":true,"hasViteLower":true,"postsWithHit":28,"changedCount":1,"changedRows":[{"file":"2023-05-08-vue3-vite-study.md","before":"json:Vite","after":"json:vite"}]}
+VUE3VITE {"tags":["Vue3","Vue2","Vite","webpack","前端框架"],"before":[{"slug":"json","tag":"Vite"}],"after":[{"slug":"json","tag":"vite"}],"jsonMatch":["webpack","Vite"]}
+```
+
+**两把自证**：① `hit` 里那一行必须是 `tg.map(map)` 而不是 `map(tg)`——写成后者，`rename` 收到的是整个数组，
+`{…}[数组]` 是 `undefined`，`|| x` 原样返回数组，改名**静默不生效**，`changedCount` 假 0
+（这一版探针的第一次运行就是这么错的，是 `VUE3VITE` 那行 before/after 一模一样才暴露的）；
+② 一个 tool 命中与否要按 `relatedTools.html:33-39` 的形状数（`:36` 是那句逐字 `contains`、`:38` 是 `break`）：
+外层遍历 ready 工具、内层遍历本篇 tags、**第一个命中的 tag 就 `break`**——所以「命中串」是「本篇顺序里第一个落进 `match_tags` 的那枚」，
+不是全部命中集合（同一篇里 `webpack` 也在 `json` 的串中，但它排在 `Vite` 后面，不进这一行）。
 
 ---
 
@@ -393,7 +463,7 @@ node scripts/check-seo.mjs | tail -3
 ruby /tmp/sp4-fm.rb _posts /tmp/sp4-fm.json && node /tmp/sp4-61.cjs
 ```
 
-预期：`hand: 80`、`eqSubtitle: 0`、`siteDesc: 0`、`missing: 0`、`uniqDesc: 80`、`floorShort: []`。**这六格一个都不许是「大约」**：`hand` 少了说明有一篇的键名或值被 YAML 吃掉（最常见是值里带了 `: `），`uniqDesc` 少于 80 会被 ⑤ 直接判红。
+预期：`hand: 80`、`eqSubtitle: 0`、`eqSubtitleUnescaped: 0`、`escaped: 0`、`siteDesc: 0`、`missing: 0`、`uniqDesc: 80`、`floorShort: []`。**这些格一个都不许是「大约」**：`hand` 少了说明有一篇的键名或值被 YAML 吃掉（最常见是值里带了 `: `），`uniqDesc` 少于 80 会被 ⑤ 直接判红。
 
 - [ ] **Step 8：提交（两笔：内容一笔，方便回退单篇）**
 
@@ -2355,8 +2425,9 @@ node /tmp/gate/sp4-band.cjs      # 在工作树根目录跑（脚本里的 R = '
 | --- | --- | --- | --- | --- |
 | 产出文章页 | `pages` | `80` | 必须仍 `80` | 少一篇 = A4 把某篇挤出了语料（牙 M9 守的就是这格） |
 | 手写摘要的篇数 | `hand` | `41` | 必须 `80` | 39 篇回填的总账，与 描述 ① 互为影子 |
-| meta 与本篇 `subtitle` 逐字相同 | `eqSubtitle` | `35`（把 `&quot;` 反解后是 `38`） | 必须 `0` | 非 0 即「回填等于没做」，与 描述 ③ 同一条 |
-| 其中引号被转义、逐字不等 | `escaped` | `3`（`2026-06-05-ai-sdd`、`2026-07-12-facebook-astryx`、`2026-07-12-impeccable-ai-design`） | `—` | **改后这一格失去意义**：它是「既不等于 subtitle 也不等于 site.description」的余数，回填后恒等于 `pages`。台账里写 `—` 并留着改前的 `3`，别把它当缺陷数 |
+| meta 与本篇 `subtitle` 逐字相同 | `eqSubtitle` | `35` | 必须 `0` | 非 0 即「回填等于没做」，与 描述 ③ 同一条 |
+| 反解 HTML 之后与 `subtitle` 相同 | `eqSubtitleUnescaped` | `38` | 必须 `0` | §6.1 那格「与 subtitle 相同的篇数」用的就是这一格（含转义那 3 篇）；恒等式 `38 = 35 + 3` |
+| 其中引号被转义、逐字不等 | `escaped` | `3`（`2026-06-05-ai-sdd`、`2026-07-12-facebook-astryx`、`2026-07-12-impeccable-ai-design`） | 必须 `0` | 这三篇的 meta 反解之后恰好等于 subtitle；回填成 `seo_description` 之后它就不该再等于 subtitle，所以改后为 `0` 是正证，不是「这一格失去意义」。**起草时这一格被写成了「既不等于 subtitle 也不等于 site.description」的余数**（那个口径量出来是 `41`，恒等于 `hand`），Task 1 Step 8 已把它拆成上面三格 |
 | meta 等于 `site.description` | `siteDesc` | `1`（`2026-09-25-claude-agents-md-remote-gate`，根因见 Step 1） | 必须 `0` | Step 2 修根因、Task 3 修摘要，两条都落才可能为 0 |
 | 缺 meta 的篇 | `missing` | `0` | `0` | 非 0 说明取值链在某页断了，与 描述 ⑥ 同一条 |
 | meta 去重条数 | `uniqDesc` / `uniq` | `80` | `80` | **今天就是 80，这一格不移动**（spec 原文的「N → ≥80」把现状说成有病，Task 1 Step 4 第 2 条已改口）。价值全在防未来，而**这一格没有牙**（造一次重复才点得着它，见 Step 8.6 的无牙矩阵）——这句要连着写进 §6.1，别只留一个「防未来」 |
@@ -2783,13 +2854,15 @@ git rev-parse HEAD > /tmp/gate/t10-head.txt
    与 Task 4 Step 2 的 `expect` 口径同一句话。M4 那一行的举例数字 `21` 后面补一句
    `（执行时取 `41793`：`21` 太容易作为 `2021` / `16.3.21` 的子串存在于正文，那一刀会落空）`。
 
-**9.4 §5.3 与 §8 各一处：`M1–M15` 的字面串清零**
+**9.4 §5.x 与 §8 里所有「M1–M1x」的字面串改成全集**
 
 ```bash
-grep -n "M1–M15\|M1–M14" _docs/superpowers/specs/2026-10-03-content-governance-design.md
+grep -n "M1–M1[0-9]" _docs/superpowers/specs/2026-10-03-content-governance-design.md
 ```
 
-两处（`:351` 门禁侧那句、`:469` §8 那句）都改成 `M1–M18`，改完再跑一次这条 grep，**必须无输出**。
+**按行数不按起草时记的那两行**——Task 1 已经把牙齿形状那条注、§5.3 门禁侧、§8 的落码句各改过一次口
+（它们当时写的是 `M1–M14` / `M1–M15`，Task 1 统一落到 `M1–M16`）。本步把 grep 出来的每一处
+描述「本批全集」的字面串都改成 `M1–M18`，改完再跑这条 grep，**必须只剩 `M1–M18` 一种形状**（不许残留 14/15/16）。
 
 **9.5 §8 决策记录加三行，并把标题改成实数**
 
@@ -2846,14 +2919,19 @@ ls _docs/superpowers/plans/*.md _docs/superpowers/specs/*.md | wc -l
 计划镜像那道门必红一片。所以这一步只**手写**对齐：新增的表格行照 §5.2 现有行那样单空格 `| a | b |`，
 不去补列宽、不动别人的行。
 
-**10.2 旧口径清零（三条 grep，全部期望无输出）**
+**10.2 旧口径清零（三条 grep；前两条一条直空、一条滤完空）**
 
 ```bash
 D=_docs/superpowers/specs/2026-10-03-content-governance-design.md
-grep -n 'M1–M15\|M1–M14\|纠自己三次' "$D"
-grep -n '39 → 0\|那 39 篇的 `subtitle` 全部 ≥25\|9 条逐字\|重跑 `node scripts/og-images.mjs`' "$D"
+grep -n 'M1–M14\|M1–M15\|M1–M16\|纠自己三次\|纠自己八次' "$D"   # 期望无输出（9.4 与 9.5 已把它们推到全集）
+grep -n '39 → 0\|那 39 篇的 `subtitle` 全部 ≥25\|9 条逐字\|9 条钉死\|重跑 `node scripts/og-images.mjs`' "$D" \
+  | grep -v '起草时\|改成\|错\|取消'                          # 期望空
 grep -cE '^\| M[0-9]+ \|' "$D"        # 期望 18：M1…M18 一行不少一行不多
 ```
+
+第二条**不是「一处不出现」，而是「出现的每一行都必须带着改口标志词」**——Task 1 Step 6 实测过这条：
+§6.1 与 §8 得原样引用被推翻的旧数才能说明哪一版废了，硬要求「零命中」的那条判据自己站不住。
+这一条在 Task 1 Step 6 已经跑过一遍（当时第一层 5 行、滤完 0 行），这里复跑是看 Task 5–9 有没有把旧数抄回来。
 
 第三条**不是**「无输出」那一类，它是一个必须等于 18 的数。不等于 18 就是表少写/多写了一行，
 按 `grep -nE '^\| M' "$D"` 逐行点名找出来，别改正则去凑。
