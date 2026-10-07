@@ -3,6 +3,7 @@ layout: post
 title: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 subtitle: 超好用的 chrome 浏览器插件推荐（外语阅读困难者福音）
 seo_short_title: 超好用的 Chrome 浏览器插件推荐
+seo_description: 一组日常真的在用的 Chrome 插件清单，按外语阅读、开发者调试与内容处理三类整理，每枚写清算能做什么、免费版把门卡在哪里。
 date: 2024-01-05
 categories: [Chrome插件]
 # cover: /assets/img/postCover/gulp_cover.png

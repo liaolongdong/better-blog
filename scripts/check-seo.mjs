@@ -9,7 +9,8 @@
  *     控制台只在用户点「安装」那一下才给一行字；
  *   - `head.html` 与 `postHead.html` 是复制关系，任何一边漏一条 link 都不报错，
  *     而两页坏的样子完全不同（文章页缺 manifest = 从文章页加主屏拿不到图标）。
- * 一本脚本、九组判据，跑一次就把「这条链今天到底还连着吗」问完；分九本只会让
+ * 一本脚本、一组一组的判据（组数由文件末尾的 `GROUPS` 决定，`node scripts/check-seo.mjs --list`
+ * 打印当前口径），跑一次就把「这条链今天到底还连着吗」问完；分九本只会让
  * 「今天没空跑第九本」变成常态。
  *
  * 判据口径两条硬规矩（沿用 check-tools-surface.mjs）：
@@ -23,7 +24,7 @@
  *   node scripts/check-seo.mjs --site=/tmp/x/site     # 指定产物目录（隔离快照、影子目录）
  *   node scripts/check-seo.mjs --root=/tmp/x/repo     # 指定源目录（牙齿台账与干净检出树）
  *   node scripts/check-seo.mjs --verify               # 追加重算 _data/modified.yml 指纹
- *   node scripts/check-seo.mjs --list                 # 只打印九组判据与当前口径
+ *   node scripts/check-seo.mjs --list                 # 只打印各组判据（组数随 GROUPS）与当前口径
  *   node scripts/check-seo.mjs --stale-ok             # 跳过新鲜度门（牙齿台账专用，见下）
  *
  * 失败形状：每条 `[组名] 条目：说明`，末尾给总数，退出码 1。
@@ -161,7 +162,7 @@ function readSources() {
 }
 
 const SOURCES = readSources();
-/** 五本 yml 里任何一本读不出来都没法继续：后面十组判据全部以它们为口径 */
+/** 五本 yml 里任何一本读不出来都没法继续：后面各组判据全部以它们为口径 */
 for (const [key, file] of [
   ['config', '_config.yml'],
   ['onlineTools', '_data/onlineTools.yml'],
@@ -171,7 +172,7 @@ for (const [key, file] of [
 ]) {
   const v = SOURCES[key];
   if (v && v.__error__) {
-    console.error(`✗ SEO 门禁：${file} 解析失败（${v.__error__}），十组判据的口径全部失效，先修这一本再跑`);
+    console.error(`✗ SEO 门禁：${file} 解析失败（${v.__error__}），各组判据的口径全部失效，先修这一本再跑`);
     process.exit(1);
   }
 }
@@ -1140,7 +1141,403 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
   }
 }
 
-// ── 组 11：searchAction（站内搜索的机器可读声明） ─────────────────────────────
+// ── 组 12：词表（SP4 A9）· 词表白名单两份（钉死在这里，不跟随现状）────────────────
+//
+// 这两行不是「从现状自动生成」的数据，而是从**归一后**的现状生成、逐条钉进脚本的常量表：
+// 新增/改名必须显式改脚本——词表漂移正是这一组要治的病，不该由「自动跟随」放过。
+// 用 `split(' ')` 的前提是「本站 front matter 表达不了一枚含空格的标签」；谁真塞进去，
+// 这两行的规模立刻不是 151/14，紧跟其后的那条自证先红，轮不到八条判据去猜。
+const TAGS_OK = new Set(
+  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Astryx Bend CSS Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 blog chrome chrome浏览器插件 coding.net dev-server echarts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端工作总结 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 博客 原型和原型链 原生编译 域名解析 学习笔记 安全 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 架构图 查找算法 沙箱 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
+    ' ',
+  ),
+);
+const CATS_OK = new Set('AI CSS Chrome插件 H5与微信 JavaScript React TypeScript Vue 前端工程化 工具与效率 开源实测 服务器与部署 算法与面试 随笔'.split(' '));
+
+if (TAGS_OK.size !== 151 || CATS_OK.size !== 14) {
+  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 151 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
+}
+
+// ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
+//
+// 这一组判的是「这一篇有没有自己那句话」。取值链在 `_includes/seoMeta.html:55-76`：
+// `page.seo_description` → `page.description` → `page.subtitle` → `site.description`，
+// 再加一道 `.size < 25` 的地板。起草时（SP4 动手之前）80 篇里 41 篇是手写的、38 篇的 meta 就是副标题原文、
+// 1 篇（`subtitle` 被 YAML 吃掉半句、只剩 5 个字符的那篇）落到了全站那句话上——三个数在 §6.1 台账里逐笔对账。
+//
+// 为什么源侧六格加产物侧一格：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」；
+// 第六格（⑦）管「写了 A 读到 B」这一类静默截断——取值链读到的从来不是你以为的那句话。
+// 缺后者，改坏取值链不会有任何一道门红（现有 10 组里 `JSON-LD` 那条 `decode(...) !== v.description`
+// 判的是工具页 WebApplication，不覆盖文章页）。
+
+/** 一篇稿子的正文（front matter 之后）。摘要里出现的每一段数字都要在这段里逐字找得到。 */
+function srcBodyOf(file) {
+  return readSrc(`_posts/${file}`).replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+}
+
+{
+  const FUTURE = '2100-10-25-practice-demo.md';
+  const MIN = 60;
+  const MAX = 140;
+  const SITE_DESC = String(config.description ?? '').trim();
+  const mdFiles = fs
+    .readdirSync(path.join(ROOT, '_posts'))
+    .filter((f) => f.endsWith('.md'))
+    .sort();
+  const inCorpus = new Set(posts.map((p) => p.file));
+  const notProduced = mdFiles.filter((f) => !inCorpus.has(f));
+  // ① 的后半：文件数 = 语料数 + 1，且多出来的那一篇有名有姓。谁再拿未来日期把稿子推出语料，红的是这一条。
+  if (notProduced.length !== 1 || notProduced[0] !== FUTURE) {
+    bad('描述', '_posts', `「_posts 文件数 ${mdFiles.length} = 产出语料 ${inCorpus.size} + 豁免」不成立：多出来的是 ${JSON.stringify(notProduced)}，而豁免只认 ${FUTURE}（不产出的稿子没有 meta 可回填，但也不能靠改日期绕开这一组）`);
+  }
+  const seenDesc = new Map();
+  for (const p of posts) {
+    const d = String(p.fm.seo_description ?? '').trim();
+    const sub = String(p.fm.subtitle ?? '').trim();
+    if (!d) {
+      bad('描述', p.file, '缺 seo_description——这一篇的 meta description 现在由 subtitle／site.description 兜底，卡片说的不是这一篇的事');
+      continue;
+    }
+    const len = [...d].length;
+    if (len < MIN || len > MAX) bad('描述', p.file, `摘要长度 ${len} 个 code point，越出 [${MIN}, ${MAX}]（地板是 seoMeta 那道 .size < 25 的 2.4 倍）`);
+    if (d === sub) bad('描述', p.file, '摘要与本篇 subtitle 逐字相同——回填等于没做，meta 与卡片还在读同一句副标题');
+    if (d === SITE_DESC) bad('描述', p.file, '摘要与 site.description 相同——那是关于全站的一句话，不是关于这一篇的');
+    const body = srcBodyOf(p.file);
+    for (const num of d.match(/\d+/g) || []) {
+      if (!body.includes(num)) bad('描述', p.file, `摘要里的数字「${num}」在本篇正文里逐字找不到——摘要不许带正文没有的数字`);
+    }
+    if (seenDesc.has(d)) bad('描述', p.file, `摘要与 ${seenDesc.get(d)} 逐字相同——两篇共用一句话，搜索引擎分不出这两页`);
+    else seenDesc.set(d, p.file);
+    const meta = /<meta name="description"\s+content="([^"]*)"/.exec(readSite(p.rel));
+    if (!meta) bad('描述', p.rel, '产物里这一页没有 meta description——取值链在这一页上断了');
+    else if (decode(meta[1]) !== d) bad('描述', p.rel, `产物 meta 与源侧 seo_description 不同值（meta=「${decode(meta[1]).slice(0, 48)}」），接线被动过`);
+  }
+  // ⑦ front matter 写了 A、Jekyll 读到 B 的静默截断（YAML 把「 #」当行尾注释吃掉）
+  {
+    const KEYS7 = ['title', 'subtitle', 'seo_description', 'seo_short_title', 'description'];
+    for (const p of posts) {
+      const src = readSrc(`_posts/${p.file}`);
+      const fmText = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!fmText) continue;
+      for (const line of fmText[1].split(/\r?\n/)) {
+        const m = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):[ \t]+(.*)$/);
+        if (!m) continue;
+        const [, k, written] = m;
+        if (!KEYS7.includes(k)) continue;
+        if (/^["'|>[&*]/.test(written)) continue; // 显式引号/块标量/锚点不是这一格管的形式
+        const w = written.replace(/[ \t]+$/, '');
+        const got = p.fm[k];
+        if (got == null || typeof got !== 'string') {
+          bad('描述', p.file, `${k} 写了「${w.slice(0, 40)}」但 Jekyll 没读到这个键——plain scalar 里的「 #」会被当行尾注释`);
+          continue;
+        }
+        if (got !== w) bad('描述', p.file, `${k} 被静默截断：写了「${w.slice(0, 40)}」，Jekyll 读到「${got.slice(0, 40)}」——plain scalar 里的「 #…」会被当行尾注释，加引号即可`);
+      }
+    }
+  }
+}
+
+// ── 组 12：词表（SP4 A9）· 八条判据（⑧ 的命中集台账与 match_tags 读取在正上方）───
+//
+// 五条量源侧 front matter（①②③④⑥）、两条拿产物对账（⑤ 三侧读数、⑦ 锚点不悬空）、
+// 一条量文末工具卡的命中集（⑧）。白名单与命中集都是钉死的常量，改动必须显式动手。
+
+// ⑧ 文末工具卡的命中集台账。口径与 _includes/relatedTools.html:36 的逐字 contains 一致：
+// 「这篇的 tags 里出现过 match_tags 里的那枚串」——大小写敏感，所以改名会带跑卡。
+// 这份快照不跟随现状：改名把卡带跑了，红的是这一条（spec §5.1 词表 ⑧）。
+const TOOL_HIT_OK = [
+  ['2016/08/28/JS-good-parts.html', 'JavaScript语言精粹'],
+  ['2017/06/06/git-common-command.html', 'git,git常用命令'],
+  ['2017/08/25/common-tools.html', 'JavaScript公用方法'],
+  ['2018/12/05/move-githubblog-to-coding.html', 'git,github'],
+  ['2019/01/17/website-seo.html', 'seo优化,搜索引擎网站收录,网站seo'],
+  ['2019/01/24/build-private-package.html', 'npm,私有仓库'],
+  ['2019/01/24/publish-public-npm.html', 'npm'],
+  ['2019/01/28/use-gulp-build-project.html', 'gulp,项目搭建'],
+  ['2019/02/25/you-dont-kown-js-tips.html', '前端小技巧'],
+  ['2019/02/26/you-dont-kown-css-tips.html', '前端小技巧'],
+  ['2020/04/08/browser-cache.html', '浏览器缓存机制'],
+  ['2020/08/03/inaword-understand-prototype.html', '原型和原型链'],
+  ['2022/08/08/webpack-move-vite.html', 'vite,webpack,前端构建,工程化'],
+  ['2023/04/30/functional-programming.html', '函数式编程'],
+  ['2023/05/08/vue3-vite-study.html', 'vite,webpack'],
+  ['2023/06/11/auto-update-release.html', '更新版本内容,版本投产'],
+  ['2023/06/14/npm-yarn-pnpm.html', 'node包管理工具,npm,pnpm,yarn'],
+  ['2023/12/24/git-revert-reset.html', 'git,reset,revert,代码回撤,代码回退'],
+  ['2023/12/29/2023-js-new-features.html', 'ES2023,JS新特性'],
+  ['2026/09/10/nextjs-avif-trap.html', 'npm,前端小技巧'],
+  ['2026/09/10/silent-defaults.html', 'npm,前端小技巧'],
+  ['2026/09/21/pnpm-task-settings.html', 'npm,pnpm,前端小技巧'],
+  ['2026/09/25/claude-agents-md-remote-gate.html', 'pnpm'],
+  ['2026/09/26/github-actions-2500-cap.html', 'github'],
+  ['2026/09/26/json-render-silent-strip.html', 'npm'],
+  ['2026/09/29/scriptc-native-x64-gap.html', 'TypeScript'],
+  ['2026/09/30/univer-node-two-gaps.html', 'TypeScript'],
+  ['2026/10/01/gitdiagram-keyless-mcp-4-bad-edges.html', 'TypeScript'],
+];
+
+const TOOL_MATCH_TAGS = new Set();
+for (const block of readSrc('_data/onlineTools.yml').split(/(?=^- slug: )/m)) {
+  const m = /^ {2}match_tags:[ \t]*\n((?: {4}- [^\n]*\n?)*)/m.exec(block);
+  if (!m) continue;
+  for (const line of m[1].split('\n')) {
+    const one = /^ {4}- (.+)$/.exec(line);
+    if (one) TOOL_MATCH_TAGS.add(one[1].trim().replace(/^['"]|['"]$/g, ''));
+  }
+}
+if (TOOL_MATCH_TAGS.size !== 33) {
+  bad('词表', '_data/onlineTools.yml', `match_tags 读出 ${TOOL_MATCH_TAGS.size} 枚，与钉死的 33 不符——这份 yml 的形状动了，⑧ 的口径随之失效（33 枚跨 codec / json / diff 三页，idcard 那页是空数组）`);
+}
+
+{
+  // ① 大小写撞键为零：无条件判据，不设豁免名单（那对靠改名解决，spec §4.2 动作 2）
+  const fold = new Map();
+  for (const p of posts) {
+    for (const t of p.tags) {
+      const k = t.trim().toLowerCase();
+      if (!fold.has(k)) fold.set(k, new Set());
+      fold.get(k).add(t);
+    }
+  }
+  for (const [k, variants] of [...fold].sort()) {
+    if (variants.size > 1) bad('词表', 'tags', `${k} 有 ${variants.size} 枚只在大小写上不同的标签：${[...variants].sort().join(' / ')}——归档页会长出两个锚点，读者以为它们是两件事`);
+  }
+
+  // ② tags ⊆ 白名单、categories ⊆ 白名单（逐枚，所以一篇两个错就是两条）
+  for (const p of posts) {
+    for (const t of p.tags) if (!TAGS_OK.has(t)) bad('词表', p.file, `标签「${t}」不在白名单里——词表漂移，新增一枚要显式改脚本`);
+    for (const c of p.cats) if (!CATS_OK.has(c)) bad('词表', p.file, `分类「${c}」不在白名单里——分类漂移，新增一枚要显式改脚本`);
+  }
+
+  // ③ 多分类必须写 [A, B]：front matter 里的 categories 行是裸标量且值中含空白 = 红
+  for (const p of posts) {
+    const raw = readSrc(`_posts/${p.file}`).replace(/^﻿/, '');
+    const blk = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+    if (!blk) continue; // 形状不对由 语料 组负责，这一组不重复判
+    const line = /^categories:[ \t]*(.*)$/m.exec(blk[1]);
+    if (!line) continue;
+    const val = line[1].trim();
+    if (val && !val.startsWith('[') && /\S\s+\S/.test(val)) {
+      bad('词表', p.file, `categories 写了空格分隔的多值「${val}」——多分类必须写成 [A, B]，方括号之外 YAML 与 Jekyll 的拆法不同，归档页读数会撒谎`);
+    }
+  }
+
+  // ④ 行尾干净：_posts 下任何 .md 含 \r 即红（整站口径，不止产出语料）
+  for (const f of fs
+    .readdirSync(path.join(ROOT, '_posts'))
+    .filter((x) => x.endsWith('.md'))
+    .sort()) {
+    if (fs.readFileSync(path.join(ROOT, '_posts', f)).includes(0x0d)) {
+      bad('词表', `_posts/${f}`, '文件里有 \\r 行尾——按字节读的行尾粘连会在不按 /\\s+/ 拆的读取器里造出幽灵标签，门禁这一把尺认得它，grep 与浏览器不认');
+    }
+  }
+
+  // ⑤ 三侧读数相等：语料并集 == 白名单 == 产物计数器；另加「文件集 == 语料 + 那 2 枚」
+  const corpusTags = new Set();
+  const corpusCats = new Set();
+  for (const p of posts) {
+    for (const t of p.tags) corpusTags.add(t);
+    for (const c of p.cats) corpusCats.add(c);
+  }
+  const counterOf = (rel, re) => {
+    const m = re.exec(readSite(rel));
+    return m ? Number(m[1]) : null;
+  };
+  const prodTags = counterOf('tags.html', /<li><strong>(\d+)<\/strong><span>个标签/);
+  const prodCats = counterOf('categories.html', /<li><strong>(\d+)<\/strong><span>个分类/);
+  if (corpusTags.size !== TAGS_OK.size || prodTags !== TAGS_OK.size) {
+    bad('词表', 'tags.html', `tags 三侧读数不等：语料 ${corpusTags.size} / 白名单 ${TAGS_OK.size} / 产物 ${prodTags}——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`);
+  }
+  if (corpusCats.size !== CATS_OK.size || prodCats !== CATS_OK.size) {
+    bad('词表', 'categories.html', `categories 三侧读数不等：语料 ${corpusCats.size} / 白名单 ${CATS_OK.size} / 产物 ${prodCats}——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`);
+  }
+  const fileTags = new Set();
+  for (const f of fs.readdirSync(path.join(ROOT, '_posts')).filter((x) => x.endsWith('.md'))) {
+    const blk = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readSrc(`_posts/${f}`).replace(/^﻿/, ''));
+    if (!blk) continue;
+    const tm = /^tags:[ \t]*(.*)$/m.exec(blk[1]);
+    if (!tm) continue;
+    for (const tok of tm[1]
+      .replace(/^\[|\]$/g, '')
+      .split(/[,\s]+/)
+      .filter(Boolean))
+      fileTags.add(tok);
+  }
+  const extra = [...fileTags].filter((t) => !corpusTags.has(t)).sort();
+  if (fileTags.size !== corpusTags.size + 2 || extra.join(',') !== '前端面试,手写题') {
+    bad('词表', '_posts', `文件集 tags 读数 ${fileTags.size} ≠ 语料 ${corpusTags.size} + 那 2 枚；语料外多出的是 ${extra.join(',')}（那 2 枚逐字写成 前端面试 / 手写题，属于不产出的教学样本 2100-10-25-practice-demo.md）`);
+  }
+
+  // ⑥ 同帖重复为零 + 每枚标签的桶大小 == 持有它的文件数
+  for (const p of posts) {
+    if (new Set(p.tags).size !== p.tags.length) {
+      const dup = [...new Set(p.tags.filter((t, i) => p.tags.indexOf(t) !== i))];
+      bad('词表', p.file, `标签在同一篇里出现两遍：${dup.join(' / ')}——site.tags 的那一桶会多占一格，归档页的「N 篇」就开始撒谎`);
+    }
+  }
+  const bucket = new Map();
+  const holders = new Map();
+  for (const p of posts) {
+    for (const t of p.tags) bucket.set(t, (bucket.get(t) || 0) + 1);
+    for (const t of new Set(p.tags)) holders.set(t, (holders.get(t) || 0) + 1);
+  }
+  for (const [t, n] of [...bucket].sort()) {
+    if (n !== holders.get(t)) bad('词表', 'tags', `标签「${t}」的桶是 ${n} 篇，实际持有它的文件只有 ${holders.get(t)} 篇——同一篇重复挂了这枚标签`);
+  }
+
+  // ⑦ 归档页不悬空：每一枚 chip 的 href="#X" 在同页有 cat-section id="X"
+  for (const [rel, why] of [
+    ['tags.html', '标签'],
+    ['categories.html', '分类'],
+  ]) {
+    const html = readSite(rel);
+    const ids = new Set([...html.matchAll(/<section class="cat-section" id="([^"]*)"/g)].map((m) => decode(m[1])));
+    for (const m of html.matchAll(/<a class="cat-chip" href="#([^"]*)"/g)) {
+      const target = decode(m[1]);
+      if (!ids.has(target)) bad('词表', rel, `${why}「${target}」的锚点跳空：chip 写了 href="#${target}"，同页却没有 id="${target}" 的那一节`);
+    }
+  }
+
+  // ⑧ 命中集不变：台账逐行对得上，且不长出台账之外的命中行
+  const hitOf = (p) =>
+    [...new Set(p.tags)]
+      .filter((t) => TOOL_MATCH_TAGS.has(t))
+      .sort()
+      .join(',');
+  const ledger = new Map(TOOL_HIT_OK);
+  for (const [rel, want] of TOOL_HIT_OK) {
+    const p = posts.find((q) => q.rel === rel);
+    if (!p) continue; // 这一篇不在语料里，由 描述 ① / 语料 组负责，这里不重复判
+    const got = hitOf(p);
+    if (got !== want) bad('词表', rel, `文末工具卡的命中集与台账不一致：台账「${want}」，现在「${got}」——改名把这页的卡带跑了，match_tags 是逐字 contains，大小写敏感`);
+  }
+  for (const p of posts) {
+    const got = hitOf(p);
+    if (got && !ledger.has(p.rel)) bad('词表', p.rel, `这页现在命中了工具卡（${got}），台账里却没有这一行——match_tags 或这页的 tags 有一边被动过`);
+  }
+}
+
+// ── 组 13：内链（SP4 刀3）─────────────────────────────────────────────────────
+//
+// 判的是「正文里那几枚指向站内工具页的手工链」。四条全部落在产物侧：源侧写的是
+// `{{ '/tools/json.html' | prepend: site.baseurl }}`，只有产物里那一枚 href 才知道
+// baseurl 有没有拼上、那一页还在不在。项目站的 baseurl 是 /better-blog，
+// 漏拼的相对写法在本地 `_site` 里看起来是好的、上线就是 404，所以这一格按整串相等判。
+//
+// 为什么只数 `#post-body` 以内：文末「相关工具」卡（`_includes/relatedTools.html`）每一篇
+// 自动带 2–4 枚 /tools/ 链接，把它算进来这一组永远是绿的——spec §5.1 那句
+// 「把自动卡当手工链交差」防的正是这个。`postBodyRegion`（83 行）取的是元素**内**区间，
+// 卡片排在 `</article>` 之后，天然被排除（实测：加链之前全语料正文里的 /tools/ 链 = 0 枚）。
+{
+  const INLINK_RE = /<a\b[^>]*href="([^"]*?\/tools\/([a-z0-9-]+)\.html)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const EMPTY_TEXT = new Set(['点这里', '点此', '工具', '详情', '查看详情', '了解更多', '链接', 'here', 'link', 'click here']);
+  let inBodyLinks = 0;
+  for (const p of posts) {
+    const html = readSite(p.rel);
+    const reg = postBodyRegion(html);
+    if (!reg) continue; // 「稿子在、产物里没有」在 语料 组已经红过，这里不重复报，也不假绿
+    const found = [...html.slice(reg.start, reg.end).matchAll(INLINK_RE)];
+    if (!found.length) continue;
+    inBodyLinks += found.length;
+    if (found.length > 2) bad('内链', p.rel, `正文里有 ${found.length} 枚工具内链，超过每篇 2 枚的地板——文末自动卡本来就有，正文再堆只是噪声（spec §4.3）`);
+    for (const m of found) {
+      const href = m[1];
+      const slug = m[2];
+      const text = decode(m[3].replace(/<[^>]+>/g, ''))
+        .replace(/\s+/g, ' ')
+        .trim();
+      const want = `${BASEURL}/tools/${slug}.html`;
+      if (EMPTY_TEXT.has(text)) bad('内链', p.rel, `指向 ${href} 的内链文字是「${text}」——链接文字必须说清点开了能做什么（spec §4.3 第一条）`);
+      if (href !== want) bad('内链', p.rel, `正文内链的 href 是「${href}」，不等于 baseurl 拼出来的「${want}」——相对写法或漏 baseurl 在项目站上是 404`);
+      else if (!hasSite(`tools/${slug}.html`)) bad('内链', p.rel, `正文内链指向 ${href}，产物里没有 tools/${slug}.html——这一条是 404`);
+    }
+  }
+  if (inBodyLinks < 5) bad('内链', '_posts', `正文里的工具内链一共 ${inBodyLinks} 枚，少于地板 5 枚（spec §4.3 要 5–8 条，每条都要能指出它接的是正文里的哪一句话）`);
+}
+
+// ── 组 14：目录（A8 构建期静态目录，spec §4.4 / §5.1 组 目录）─────────────────────
+
+const TOC_NAV = /<nav class="toc-static" aria-label="文章目录（静态）">([\s\S]*?)<\/nav>/;
+const TOC_HEAD = /<(h[23])\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+const TOC_ATTR_ID = /\bid=["']([^"']*)["']/i;
+const TOC_LI = /<li class="toc-static-item toc-(h[23])"><a class="toc-static-link" href="#([^"]*)">/g;
+const TOC_MIN = 2; // 与 editorial.js:250-251 同一口径
+const TOC_PAGES_OK = 79; // §1 事实 19：80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2
+const TOC_JS_MARKERS = [
+  ['dev/js/editorial.js 里的 "toc-link"', "'toc-link'"],
+  ['dev/js/editorial.js 里的 "toc-list"', "'toc-list'"],
+  ['dev/js/editorial.js 里的 ".toc-fab"', "'.toc-fab'"],
+];
+
+let tocBlockPages = 0;
+for (const { rel, text } of postPages) {
+  const region = postBodyRegion(text);
+  if (!region) continue; // 「这一页没有 #post-body」由语料组报，这里不重复占一格
+  const body = text.slice(region.start, region.end);
+  const heads = [];
+  let k = -1;
+  for (const m of body.matchAll(TOC_HEAD)) {
+    k += 1;
+    const idm = TOC_ATTR_ID.exec(m[2]);
+    heads.push({ level: m[1].toLowerCase(), id: idm ? idm[1] : `section-${k + 1}` });
+  }
+  const navAt = text.search(TOC_NAV);
+  if (heads.length < TOC_MIN) {
+    if (navAt >= 0) bad('目录', rel, `② 正文只有 ${heads.length} 个 h2/h3（< ${TOC_MIN}），产物里却有静态目录块——阈值与 JS 分叉了，读者会看到一个空框`);
+    continue;
+  }
+  if (navAt < 0) {
+    bad('目录', rel, `① 正文有 ${heads.length} 个 h2/h3，产物里却没有 <nav class="toc-static"> 块`);
+    continue;
+  }
+  // 计数器只数「产物里真的有块」的页：数在 navAt 之前会把「该有块」当成「有块」，
+  // ③ 那条在今天读成 79==79 恒绿，A8 一行没落地也不会红——那是一把假牙。
+  tocBlockPages += 1;
+  const items = [...TOC_NAV.exec(text)[1].matchAll(TOC_LI)].map((m) => ({ level: m[1], id: m[2] }));
+  if (items.length !== heads.length) bad('目录', rel, `③ 静态条目 ${items.length} 条 vs 正文标题 ${heads.length} 个`);
+  for (let i = 0; i < Math.max(items.length, heads.length); i++) {
+    const a = items[i];
+    const b = heads[i];
+    if (!a || !b || a.id !== b.id || a.level !== b.level) {
+      bad('目录', rel, `① 序列不一致：第 ${i + 1} 条静态条目是 ${a ? `${a.level}#${a.id}` : '（缺）'}，正文第 ${i + 1} 个标题是 ${b ? `${b.level}#${b.id}` : '（缺）'}`);
+      break;
+    }
+  }
+  const hasJsAt = text.indexOf('has-js');
+  if (hasJsAt < 0 || hasJsAt > navAt) bad('目录', rel, '⑤ 的门控半边：.toc-static 之前没有那段给 <html> 挂 has-js 的内联脚本——静态块会先画一帧再收起，读者看到一次塌陷');
+}
+if (tocBlockPages !== TOC_PAGES_OK) bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，应为 ${TOC_PAGES_OK} 篇（80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2）`);
+
+for (const [what, needle] of TOC_JS_MARKERS) {
+  if (!readSrc('dev/js/editorial.js').includes(needle)) bad('目录', 'dev/js/editorial.js', `④ 找不到 ${what}——A8 不许把 JS 那一族删掉`);
+}
+if (postPages.length) {
+  for (const needle of ['id="toc-list"', 'class="toc-list"', 'class="toc-fab"']) {
+    if (!postPages[0].text.includes(needle)) bad('目录', postPages[0].rel, `④ 文章页产物里没有 ${needle}：JS 目录的三个落点少了一个`);
+  }
+}
+
+{
+  const css = readSite('assets/css/index.min.css');
+  let hit = null;
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const sels = m[1].split(',').map((s) => s.trim());
+    if (!sels.some((s) => /(^|\s)body\.has-toc \.toc-static$/.test(s))) continue;
+    if (!/display:\s*none/.test(m[2])) {
+      bad('目录', 'assets/css/index.min.css', `⑤ body.has-toc .toc-static 那条规则里没有 display:none（实际声明块 ${m[2].slice(0, 60)}）`);
+      hit = null;
+      break;
+    }
+    const depth = (css.slice(0, m.index).match(/\{/g) || []).length - (css.slice(0, m.index).match(/\}/g) || []).length;
+    if (depth !== 0) bad('目录', 'assets/css/index.min.css', `⑤ 隐藏规则落在了 @media 里（深度 ${depth}）——只在某个断点生效，别的断点仍是两份同显`);
+    if (!sels.some((s) => /(^|\s)html\.has-js \.toc-static$/.test(s))) bad('目录', 'assets/css/index.min.css', '⑤ 隐藏规则的选择器集里没有 html.has-js .toc-static——JS 起来那一帧之前没人收起静态块');
+    hit = sels;
+    break;
+  }
+  if (!hit) bad('目录', 'assets/css/index.min.css', '⑤ 找不到 body.has-toc .toc-static 这条规则——静态块与 JS 抽屉会同时显示');
+}
+
+// ── 组 15：searchAction（站内搜索的机器可读声明，SP3 E2）───────────────────────
 {
   const g = 'searchAction';
   const HOME = 'index.html';
@@ -1180,7 +1577,7 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
 
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', 'searchAction'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链', '目录', 'searchAction'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +

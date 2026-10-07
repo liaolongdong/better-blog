@@ -3,6 +3,7 @@ layout: post
 title: 别再问我 Next 该升到哪版：16.3.3 关掉 AVIF，6 天 3 小时后 16.3.4 又打开
 subtitle: 我把三个版本的 image-optimizer.js 拉到本地对着看，发现决定 AVIF 到底有没有在跑的那行字，不在 Next 的版本号里
 seo_short_title: Next 16.3.3 关掉 AVIF，16.3.4 又打开
+seo_description: 把三个版本的 image-optimizer.js 拉到本地逐行对照：决定 AVIF 到底有没有在跑的那行字不在版本号里，而在开关默认值与升级时序的缝隙上。
 date: 2026-09-10
 categories: [前端工程化, 开源实测]
 cover: /assets/img/nextjs-avif-trap/banner.webp
@@ -12,6 +13,8 @@ tags: npm next JavaScript 前端小技巧 开源
 ![Next.js 镜像优化器中 AVIF 开关被关掉又打开的示意图](/assets/img/nextjs-avif-trap/banner.webp)
 
 16.3.4 里的 `image-optimizer.js`，和 16.3.2 的那份字节级一模一样。我 `shasum -a 256` 打的，两份都是 `e9dae780db97eb11cbed0c5b1c872dc249fedfe9`，只有 16.3.3 是另一个值。
+
+这一步不必非得敲 CLI：[编码与摘要工具]({{ '/tools/codec.html' | prepend: site.baseurl }}) 的摘要面板直接选本地文件，SHA-256 与 MD5、SHA-1/384/512 在同一格里，两份文件各算一次就把「字节级一模一样」这句话结掉了。
 
 先说清前提，免得你按我的步骤跑出一堆对不上的数。我自己的项目是 Vue 3 + wxt + Vite 写的浏览器插件，手上没有跑在 Next 上的站，下面所有判断来自 `/tmp/aviftest` 下的 11 个临时空目录：6 个装 next（16.3.2 / 16.3.3 / 16.3.4 / 15.5.25 ×3），5 个只装 sharp（0.35.3 / 0.35.4 / 0.34.5 ×3），不来自线上。还有这台机器的 `/usr/local/bin/node` 是 v16.16.0，PATH 里得手动切到 nvm 的 v22.19.0，不然 `next start` 连不起来——我第一遍就没切，白折腾一趟。
 

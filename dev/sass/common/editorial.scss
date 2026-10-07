@@ -1500,6 +1500,57 @@ body.has-toc .post-rail {
     font-weight: 500;
 }
 
+// A8 构建期静态目录（_plugins/toc.rb → post.html :214）。无 JS 时它是读者唯一的目录；
+// JS 起来（或内联脚本先一步认出「有 JS」）就整块收起，绝不同时看到两份。
+// 色与字号逐字跟着 JS 那一族的 .toc-title / .toc-link：--ink-3 落在 --paper 上实测 4.85:1，
+// 13px 稳过 AA，不给这一刀添新的对比度账。
+.toc-static {
+    padding: 12px 16px;
+    margin: 0 0 24px;
+    font-size: 13px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+}
+
+.toc-static-title {
+    margin-bottom: 8px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.toc-static-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.toc-static-item {
+    line-height: 20px;
+}
+
+.toc-static-link {
+    color: var(--ink-3);
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.toc-h3 > .toc-static-link {
+    padding-left: 12px;
+    font-size: 12px;
+}
+
+// 两条收起条件：has-js 在静态块之前由内联脚本挂上（首帧就不占位，不塌），has-toc 是兜底。
+// 写进同一条规则 = 产物 CSS 里一个选择器集，组 目录 ⑤ 判的是「两条都在这一条里」。
+body.has-toc .toc-static,
+html.has-js .toc-static {
+    display: none;
+}
+
 // 只做 .code-copy 的定位上下文，不贡献任何间距：它包的是 pre，落在
 // common.scss 的 .markdown-body .highlight（overflow:auto，自成 BFC）里面，
 // 所以这里写 margin 就是在滚动容器内部垫高一截——实测容器 180px、代码本身 162px。

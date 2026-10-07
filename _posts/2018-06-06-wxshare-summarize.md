@@ -3,6 +3,7 @@ layout: post
 title: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 subtitle: '微信分享到微信好友、朋友圈、QQ好友、QQ空间总结以及常见问题汇总'
 seo_short_title: 微信分享到好友、朋友圈、QQ 的总结
+seo_description: 分享到好友、朋友圈、QQ 好友与 QQ 空间四个出口各要什么参数，签名失效、缩略图不显示与域名校验这三类常见问题按原因归一次类。
 date: 2018-06-06
 categories: [H5与微信]
 cover: '/assets/img/postCover/wxshare_cover.png'

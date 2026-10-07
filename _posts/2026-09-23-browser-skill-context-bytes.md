@@ -3,6 +3,7 @@ layout: post
 title: 谁才是省上下文冠军？2026年9月4条浏览器入口实测排名出炉，结果让人意外
 subtitle: 同一台 macOS 上量四条让 agent 开我浏览器的入口，最少的那一份常驻 6,804 字节，它背后 42 个方法和 56,289 字节参数表一条都不进上下文；最贵的 25,766 字节，是同一套 MCP 工具两个版本之间涨上去的
 seo_short_title: 四条浏览器入口的上下文字节实测排名
+seo_description: 四条让 agent 操作浏览器的入口在同一台机器上各占多少上下文：常驻字节、按需字节，以及背后那份参数表要等到什么时候才真的进上下文。
 date: 2026-09-23
 categories: [AI, 开源实测]
 cover: /assets/img/browser-skill-context-bytes/banner.webp

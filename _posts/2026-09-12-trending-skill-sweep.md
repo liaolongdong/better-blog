@@ -3,6 +3,7 @@ layout: post
 title: 我把 37 个 SKILL.md 挨个数了一遍，发现 14 个不会被自动加载
 subtitle: i-have-adhd 一周涨 13,164 星，而我唯一逐文件数完的那个排在第三
 seo_short_title: 37 个 SKILL.md 逐个统计：14 个不自动加载
+seo_description: 逐个统计一批仓库里的 SKILL.md：哪些真的会被自动加载、哪些写了却永远不进上下文，判据按清单口径给，不采信 README 自己的说法。
 date: 2026-09-12
 categories: [AI, 开源实测]
 cover: /assets/img/trending-skill-sweep/banner.webp

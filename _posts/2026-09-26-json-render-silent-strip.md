@@ -3,6 +3,7 @@ layout: post
 title: 界面一校验就没了？json-render 用 19 条规则想终结它，但漏了一层
 subtitle: spec 过一遍 catalog.validate()，元素上的 on 和顶层的 state 消失，success 仍是 true
 seo_short_title: json-render 校验会静默删字段
+seo_description: 界面一跑校验就消失：spec 过一遍验证之后，元素上的事件绑定与顶层状态被静默删掉，返回却仍然是成功，这一层该由谁来守。
 date: 2026-09-26
 categories: [AI, 开源实测]
 cover: /assets/img/json-render-silent-strip/banner.webp
@@ -47,6 +48,8 @@ tags: AI 开源 前端 npm
 README 那 839 行我通读过一遍。Quick Start 第 3 步只是把 spec 塞进 `<Renderer>`，中间没有校验那一步。这玩意儿已经不是玩具：仓库里 33 个包目录，29 个可发布，版本号全是 0.21.0。npm 上 core 上周被装一百六十多万次，react 八十七万次。
 
 star 我这一轮抓了两次，中间涨 1 颗，现在 18,303。TypeScript 周榜排第 15，那一行写着本周涨 2,103。这篇不讲它的 SSR 渲染，也不碰 devtools 和 codegen 两个包，我用不上。
+
+上面那份 spec 是不是合法 JSON、`on` 掉在 `props` 里还是掉在元素层，不用为它起一次编辑器：粘进 [JSON 格式与转换工具]({{ '/tools/json.html' | prepend: site.baseurl }})，格式化之后开树视图逐层展开，坏输入也给到行与列。
 
 ## 校验那一刀切在了哪层
 

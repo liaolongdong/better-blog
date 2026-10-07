@@ -3,6 +3,7 @@ layout: post
 title: 36K Star 的仓库自己先翻车！pnpm 的「并发组」来了——7 个版本挨个跑
 subtitle: 它给自己仓库的 25 条 task 加了并发组，于是 pnpm 11 的用户在那个 checkout 里连 pnpm --version 都跑不动了
 seo_short_title: pnpm 并发组实测：7 个版本挨个跑一遍
+seo_description: 把 pnpm 的并发组这个新特性在多个版本上挨个跑一遍：给自己仓库的任务加了分组之后，为什么同一份 checkout 里连版本命令都跑不动，边界落在哪一档。
 date: 2026-09-21
 categories: [前端工程化, 开源实测]
 cover: /assets/img/pnpm-task-settings/banner.webp
@@ -108,6 +109,8 @@ exit=1
 自己造的 fixture 说服力有限，我把 pnpm 仓库 main 分支真实的 `pnpm-workspace.yaml` 拿了回来。`raw.githubusercontent.com` 那次超时（30 秒 0 字节），改用 contents API 加 `Accept: application/vnd.github.raw+json` 才拿到，`14:56:52Z` 的事：20,666 字节、`wc -l` 686 行、`concurrencyGroup:` 出现 25 次，底下跟着 `concurrencyGroups: { cargo: 1, typescript: 1 }`。
 
 那 58 行 `packages:` 点名了一串这儿不存在的子目录，所以不能原样放进临时目录。我只动了这一格：1,312 字节换成 18，得到 19,372 字节、25 处 `concurrencyGroup` 一处不少，不加 `packageManager`。11.25.0 和 11.27.0 `exit=1`，报的还是那两行；11.27.1 过；12.5.0 和 12.5.1 过。我又拿本机的全局 launcher（10.12.1）把 pin 指到 11.25.0 跑 `pnpm --version`，同样 `exit=1`。所以这不是沙箱里的构造，普通桌面机上敲一个 `--version` 就红。
+
+改前改后那两份 yaml 只差这一格，逐行看比把 686 行读完快：A 栏放原样、B 栏放改过的，[文件与文本对比工具]({{ '/tools/diff.html' | prepend: site.baseurl }}) 会把动过那一行标出行内差异，1,312 字节换成 18 这件事一眼就看完。
 
 那份文件里有一段注释我很喜欢，抄在这儿，因为它是这件事里少数想过一层的证据：
 

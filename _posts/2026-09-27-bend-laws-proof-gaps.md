@@ -3,8 +3,9 @@ layout: post
 title: Bend 2 实测：68 行声明配 484 行证明
 subtitle: 68 行 law 配 484 行证明，我改坏一行，bend PROOF.bend 退出码 1
 seo_short_title: Bend 2 的 LAWS.bend 与证明门
+seo_description: 把声明与证明分文件放会漏掉什么：逐条比对 law 声明与对应的证明体，改坏一行之后证明门的退出码变红，缺口恰好在那一格被暴露出来。
 date: 2026-09-27
-categories: 开源 编程语言
+categories: [开源实测]
 cover: /assets/img/bend-laws-proof-gaps/banner.webp
 tags: Bend 类型系统 开源 AI编程
 ---

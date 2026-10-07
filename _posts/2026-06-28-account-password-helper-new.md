@@ -3,6 +3,7 @@ layout: post
 title: 别再手输账号密码了：我开发了一个一键自动登录的插件
 subtitle: 别再手输账号密码了：我开发了一个一键自动登录的插件
 seo_short_title: 一键自动登录的 Chrome 插件
+seo_description: 一键自动登录插件的开发记录：填充时机怎么挑、各家页面的表单选择器怎么兼容，以及任何凭据都不上传这条边界落在存储与授权的哪一层。
 date: 2026-06-28
 categories: [Chrome插件]
 cover: /assets/img/account-password-helper/account_password_helper_banner.webp

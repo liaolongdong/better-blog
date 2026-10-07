@@ -3,6 +3,7 @@ layout: post
 title: 我把 Anthropic 的金融插件仓库读了一遍，发现回滚漏掉了 1 行
 subtitle: 独立仓库下架、marketplace 条目摘掉、插件目录删干净，三刀之后 README 表格里那一行还站着；同仓库另一头，2 个字符的 JSON 语法错挂了 116 天，19 个 PR 一个没合进去
 seo_short_title: Anthropic 金融插件仓库：回滚漏掉的那 1 行
+seo_description: 一次仓库级回滚的三刀之后还剩什么：独立仓库下架、条目摘掉、目录删净，README 表格里那一行却还站着；顺手数了同一仓库里挂着没合的请求。
 date: 2026-09-22
 categories: [AI, 开源实测]
 cover: /assets/img/claude-advisor-readme-row/banner.webp
@@ -96,6 +97,8 @@ receive a response. This project is provided AS IS, without warranty.
 ```
 
 `json.loads` 头一句给 `Expecting ',' delimiter: line 47 column 5 (char 1100)`，只补这一个逗号，下一句变成 `Expecting ',' delimiter: line 52 column 1 (char 1173)`。我拿 difflib 反算最小修法：char 1100 插逗号、char 1101 插大括号，1,172 变 1,174，12 个 server 全解析出来。说白了，这个文件从头到尾没被任何一台机器 parse 过一次。
+
+换个人复核这件事不必装 python：把那份 `.mcp.json` 粘进 [JSON 格式与转换工具]({{ '/tools/json.html' | prepend: site.baseurl }})，缺逗号的落点同样是行加列，并且那一处在输入框里被选中；补一个逗号再粘一次，看下一个报错往哪儿挪。
 
 这 2 个字符来自 [120a31dc](https://github.com/anthropics/financial-services/commit/120a31dcede4affa1d771cbf286a63ee331f92a4)，2026-05-29T16:31:43Z，标题 `Adding Box to MCP Integrations (#187)`，整个 commit +4 / −0，对 `.mcp.json` 那段 patch：
 

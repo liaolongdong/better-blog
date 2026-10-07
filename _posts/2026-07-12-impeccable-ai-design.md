@@ -3,6 +3,7 @@ layout: post
 title: 用 AI 写的前端页面总是"一眼 AI 味"？Impeccable 用 46 条规则彻底终结这个问题
 subtitle: 一个让 AI 编程助手学会"审美"的开源设计系统，4.5 万 Star 背后的设计哲学
 seo_short_title: Impeccable 用 46 条规则去掉 AI 页面 AI 味
+seo_description: Impeccable 用一份规则集把 AI 生成页面的通病挡掉：为什么模型写出的前端一眼认得出来，这些规则压的是配色、间距还是组件层次。
 date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/impeccable/banner.webp

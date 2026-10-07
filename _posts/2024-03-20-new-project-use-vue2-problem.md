@@ -3,6 +3,7 @@ layout: post
 title: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
 subtitle: vue2不维护了，新项目或者改版重构的项目继续使用vue2会有什么问题？
 seo_short_title: 新项目继续用 vue2 会有什么影响
+seo_description: vue2 停止维护之后，新项目或改版重构继续沿用它要付的代价：生态断供、构建链老化、组合式能力缺失，以及招聘与长期维护那一侧。
 date: 2024-03-20
 categories: [Vue]
 # cover: /assets/img/postCover/gulp_cover.png

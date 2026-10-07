@@ -688,12 +688,56 @@ function webpLocal() {
   throw new Error('产物里没有任何 img 指向存在的 .webp，换源那一族没有可打的靶子');
 }
 
+/**
+ * 描述组（M1–M4、M16）的靶子：摘要存在、长度留有余量、产物页在，且整篇源文件里
+ * 找不到 M4 要塞的那串数字——否则那一刀落下去门禁有理由不红，而被记成「假牙」。
+ */
+const DIGITS_M4 = '41793';
+const descTarget = () =>
+  first(
+    POSTS.filter((q) => {
+      const d = String(q.fm.seo_description || '').trim();
+      const sub = String(q.fm.subtitle || '').trim();
+      return d.length >= 60 && d.length <= 130 && sub && has(q.rel) && !y(`_posts/${q.file}`).includes(DIGITS_M4);
+    }),
+    '描述组的靶子（有摘要、有副标题、产物在、正文不含那串牙齿数字）',
+  );
+
 // ── 案例 ──────────────────────────────────────────────────────────────────────
 
 /**
  * 一条 = 一个 { name, group, expect, mut }。
  * `mut` 只准动副本，动完由主循环还原；`expect` 是门禁那句判定的逐字片段。
  */
+/** 把变异只打进正文区间。取 `#post-body` 开到它后面第一个 `</article>`——这一段真区间
+ *  一定包含在内（正文里若嵌了 `<article>`，真区间更长），所以命中它的变异必定命中正文。 */
+function subInBody(html, from, to, where) {
+  const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
+  const close = html.indexOf('</article>', at);
+  if (at < 0 || close <= at) throw new Error(`${where}：切不到正文区间`);
+  const span = html.slice(at, close);
+  const n = span.split(from).length - 1;
+  if (n !== 1) throw new Error(`${where}：正文里 ${from} 出现 ${n} 次，不是恰好一处`);
+  return html.slice(0, at) + span.replace(from, to) + html.slice(close);
+}
+const bodyToolLink = (rel) => {
+  const html = fs.readFileSync(siteAbs(rel), 'utf8');
+  const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
+  const close = html.indexOf('</article>', at);
+  return at >= 0 && close > at ? /href="(\/better-blog\/tools\/[a-z0-9-]+\.html)"/.exec(html.slice(at, close)) : null;
+};
+
+/**
+ * 目录组（M11/M13/M14/M17）的靶子：一篇「产物里有静态块」的页面。
+ * 不写死文件名——写死一篇就可能撞上那篇没有块的（2018-12-25-qqweiboshare），
+ * 那一刀落在不存在的块上会被记成「假牙」，其实是靶子选错了。
+ */
+const tocTarget = () =>
+  first(
+    POSTS.filter((q) => has(q.rel) && fs.readFileSync(siteAbs(q.rel), 'utf8').includes('class="toc-static"')),
+    '目录组的靶子（产物里带静态目录块的文章页）',
+  );
+
 const cases = [
   // ── 语料 ──
   {
@@ -1984,8 +2028,164 @@ const cases = [
       S.siteAfter(rel, open, `\n<img src="${src}" alt="牙齿">`, '正文首张图之前插一枚 eager 图');
     },
   },
+  // ── 描述（SP4 A4：M1–M4、M16）──
+  {
+    name: 'M1 摘掉某篇的 seo_description 行',
+    group: '描述',
+    expect: '缺 seo_description',
+    mut: () => S.srcCutLine(`_posts/${descTarget().file}`, /^seo_description:[ \t].*$/m, '摘要行'),
+  },
+  {
+    name: 'M2 把某篇摘要长度改成 45 个 code point',
+    group: '描述',
+    expect: '越出 [60, 140]',
+    mut: () => S.srcSubLine(`_posts/${descTarget().file}`, /^seo_description:[ \t].*$/m, `seo_description: ${'牙齿'.repeat(22)}串`, '摘要行'),
+  },
+  {
+    name: 'M3 把某篇摘要写成它的 subtitle',
+    group: '描述',
+    expect: '与本篇 subtitle 逐字相同',
+    mut: () => {
+      const q = descTarget();
+      S.srcSubLine(`_posts/${q.file}`, /^seo_description:[ \t].*$/m, `seo_description: ${String(q.fm.subtitle).trim()}`, '摘要行');
+    },
+  },
+  {
+    name: 'M4 在某篇摘要里塞一个正文没有的数字',
+    group: '描述',
+    expect: '在本篇正文里逐字找不到',
+    mut: () => {
+      const rel = `_posts/${descTarget().file}`;
+      const line = lineOf(y(rel), /^seo_description:[ \t].*$/m, '摘要行');
+      S.srcSubLine(rel, /^seo_description:[ \t].*$/m, `${line} ${DIGITS_M4}`, '摘要行');
+    },
+  },
+  {
+    name: 'M16 产物 meta 与源侧摘要不是同一个值',
+    group: '描述',
+    expect: '接线被动过',
+    mut: () => S.sitePatch(descTarget().rel, /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, ' 牙齿"'), 'meta description'),
+  },
+  {
+    name: 'M5 给一篇已有 chrome 的帖子再加一枚 Chrome',
+    group: '词表',
+    expect: '只在大小写上不同',
+    mut: () => S.srcSubLine('_posts/2024-01-05-chrome-plugin-recommend.md', /^tags: chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件$/m, 'tags: chrome Chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件', 'tags 行'),
+  },
+  {
+    name: 'M6 在一篇的 categories 里加一个白名单外的词',
+    group: '词表',
+    expect: '不在白名单里',
+    mut: () => {
+      const rel = `_posts/${T.catted.file}`;
+      const line = lineOf(y(rel), /^categories:[ \t].*$/m, 'categories 行');
+      // 方括号单值（`[随笔]`）在行尾追加会变成 `[随笔] 牙齿分类`——实测 Psych::SyntaxError，
+      // 那篇整个掉出语料，② 看不到这枚词；所以按形状分两路，只在裸标量上往行尾追加。
+      const to = /\[[^\]]*\]/.test(line) ? line.replace(/\]/, ', 牙齿分类]') : `${line} 牙齿分类`;
+      S.srcSubLine(rel, /^categories:[ \t].*$/m, to, 'categories 行');
+    },
+  },
+  {
+    name: 'M7 把 categories: [A, B] 改成空格分隔',
+    group: '词表',
+    expect: '空格分隔的多值',
+    mut: () => {
+      const rel = `_posts/${
+        first(
+          POSTS.filter((q) => /^categories:[ \t]*\[[^\]]*,/.test(lineOf(y(`_posts/${q.file}`), /^categories:[ \t].*$/m, 'categories 行'))),
+          '带方括号多值 categories 的靶子',
+        ).file
+      }`;
+      const line = lineOf(y(rel), /^categories:[ \t]*\[.*\]$/m, 'categories 行');
+      S.srcSubLine(
+        rel,
+        /^categories:[ \t]*\[.*\]$/m,
+        line
+          .replace(/^(\s*categories:[ \t]*)\[/, '$1')
+          .replace(/\]/, '')
+          .replace(/,\s*/g, ' '),
+        'categories 行',
+      );
+    },
+  },
+  {
+    name: 'M8 给一篇副本的 tags 行补一个 \\r',
+    group: '词表',
+    expect: '行尾',
+    mut: () => {
+      const rel = `_posts/${T.tagged.file}`;
+      const line = lineOf(y(rel), /^tags:[ \t].*$/m, 'tags 行');
+      S.srcSubLine(rel, /^tags:[ \t].*$/m, `${line}\r`, 'tags 行');
+    },
+  },
+  {
+    name: 'M10 把一篇 tags 里已有的一枚原样重写第二遍',
+    group: '词表',
+    expect: '出现两遍',
+    mut: () => {
+      const rel = `_posts/${T.tagged.file}`;
+      const line = lineOf(y(rel), /^tags:[ \t].*$/m, 'tags 行');
+      const one = line.replace(/^tags:[ \t]*/, '').split(/\s+/)[0];
+      S.srcSubLine(rel, /^tags:[ \t].*$/m, `${line} ${one}`, 'tags 行');
+    },
+  },
+  {
+    name: 'M9 把一篇的 date 从 2026 改成 2100（推出语料）',
+    group: '描述',
+    expect: '多出来的是',
+    mut: () => S.srcSubLine('_posts/2026-10-02-nextjs-rebind-ssrf-advisory-lag.md', /^date:[ \t]2026-10-02$/m, 'date: 2100-01-01', 'date 行'),
+  },
+  {
+    name: 'M15 在一篇持有 git 标签的帖子里把 git 改成 Git',
+    group: '词表',
+    expect: '命中集与台账不一致',
+    mut: () => S.srcSubLine('_posts/2023-12-24-git-revert-reset.md', /^tags: git reset revert 代码回退 代码回撤$/m, 'tags: Git reset revert 代码回退 代码回撤', 'tags 行'),
+  },
+  {
+    name: 'M12 正文里的工具内链指向产物中不存在的一页',
+    group: '内链',
+    expect: '产物里没有 tools/nope.html',
+    mut: () => {
+      const q = first(
+        POSTS.filter((r) => has(r.rel) && bodyToolLink(r.rel)),
+        '正文里有工具内链的产物',
+      );
+      const href = bodyToolLink(q.rel)[1];
+      siteEdit(q.rel, (s) => subInBody(s, href, href.replace(/\/tools\/[a-z0-9-]+\.html$/, '/tools/nope.html'), `M12 ${q.rel}`));
+    },
+  },
+  {
+    name: 'M11 删掉某篇静态目录的第一条 <li>',
+    group: '目录',
+    expect: '序列不一致',
+    mut: () => S.siteCutRe(tocTarget().rel, /<li class="toc-static-item toc-h[23]"><a class="toc-static-link" href="#[^"]*">[^<]*<\/a><\/li>/),
+  },
+  {
+    name: 'M13 摘掉整块静态目录（留一个空 div）',
+    group: '目录',
+    expect: '却没有 <nav class="toc-static"> 块',
+    mut: () => S.sitePatch(tocTarget().rel, /<nav class="toc-static"[\s\S]*?<\/nav>/, () => '<div class="toc-static"></div>', '静态目录块'),
+  },
+  {
+    name: 'M14 删掉 CSS 里收起 .toc-static 的那条规则',
+    group: '目录',
+    expect: '找不到 body.has-toc .toc-static',
+    mut: () => S.siteCutRe('assets/css/index.min.css', /[^{}]*\.toc-static[^{}]*\{[^{}]*display:\s*none[^{}]*\}/),
+  },
+  {
+    name: 'M17 摘掉静态块之前那段 has-js 内联脚本',
+    group: '目录',
+    expect: '没有那段给 <html> 挂 has-js 的内联脚本',
+    mut: () => S.siteCutRe(tocTarget().rel, /<script>document\.documentElement\.className \+= ' has-js';<\/script>/),
+  },
+  {
+    name: 'M18 把某篇 subtitle 写成不带引号的 plain scalar，尾巴带一个「 #9」',
+    group: '描述',
+    expect: '被静默截断',
+    mut: () => S.srcSubLine(`_posts/${descTarget().file}`, /^subtitle:[ \t]+[^\r\n]*$/m, 'subtitle: 前端工程 #9 牙齿', '副标题行'),
+  },
 
-  // ── searchAction ──
+  // ── searchAction（SP3 E2）──
   {
     name: 'potentialAction 整块删掉（SearchAction 没了，门禁不该继续点头）',
     group: 'searchAction',
