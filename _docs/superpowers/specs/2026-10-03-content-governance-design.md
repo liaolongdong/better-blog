@@ -866,8 +866,57 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
    删掉它 `config.keyword` 变 `undefined`、needle 变成字面量 `undefined`，那条扫描会去点 221 个产物文件
    （实测：照 `check-seo.mjs` 那套扫法——`_site` 下 `.html/.xml/.txt/.json/.js/.css/.md` 且 <4MB，数 `.includes('undefined')` 的命中）
    报「原串仍出现在…」——红是红了，量的却已经不是这件事。本批不碰 `_config.yml`。
-10. **SP2 / SP3 两条分支的合并次序**：SP3 尖 `8122f9c`、SP2 尖 `bab6051` 都未合。
+10. **SP2 / SP3 两条分支的合并次序**：起草这一节时 SP3 尖 `8122f9c`、SP2 尖 `bab6051` 都未合。
+    **执行时改口**：三批已在隔离工作树 `it-sp234` 里按 SP3 → SP2 → SP4 真合过（merge `0cf36dc` / `80674e5` / `415b4b6`），
+    全量门禁链跑在合并树上，重测读数见 §9.9；但这条分支**既没并进 `main`、也没推**，所以 §6.4 全量在 `main` 尖之上仍是未做项。
     SP2 先合的话，`verify-tool-url.mjs` 自动进本批台账（表 A 多一行、`收录面牙` 那行的数会跟着涨，
-    那是 SP2 的 `urlState` 组带来的，不是 SP4 动的）；合并后必须重跑 §6.4 全量。
+    那是 SP2 的 `urlState` 组带来的，不是 SP4 动的）。
 11. **B3 每页 CSS 拆分**（第 6 项决策 deferred）与 **A8 的 CSS 侧只写了「JS 开着就收起」**：
     静态块与 JS 目录并存的那一档（`has-js` 但 `editorial.js` 抛错）没有实测过，属于 B3 落地时才需要回答的问题。
+
+### 9.9 集成轮：三批并入 main 尖之后重测（2026-10-08）
+
+**这一节防的是哪一种错**：§9.3 那五个数只在 SP4 那一批的工作树上量过，`new` = `ae55ad9`（不含 SP3/SP2）。
+SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等式三格都可能变，而「变没变」不能拿 §9.3 的数外推。
+本轮先重测**不依赖时钟**的那几格；§6.3 那张中位数表在合并树上的读数另起一段，没跑成之前不占位。
+
+**两棵树**：`head` = `git archive 2b9464c6758d2e769f8ca0cbba06b87030dd175c` 导出 + 软链主仓 `vendor`/`node_modules`
++ `npx --no-install vite build && bundle exec jekyll build`（默认 baseurl）；
+`new` = 工作树 `it-sp234`——SP3 `0cf36dc` → SP2 `80674e5` → SP4 `415b4b6` 三个 merge 落在 main 尖 `8eee1f8` 之上，
+`_site` 由 `415b4b6` 那套源在 19:30:35 建出，之后的 `2662572` 只动 `_docs` 两本（§6.0 那把新鲜度门不扫 `_docs`）。
+该分支 47 提交 ahead、main-unique 0、`git branch -r --contains HEAD` 打空——**未推**。
+
+**基线自证**：重导出来的 head 树那两篇是 `472,790 / 83,055` B、gzip `62,273 / 26,703` B，
+与 §9.3 表的 head 列**逐字相同**（gzip 口径仍是 `cat f | gzip -9 | wc -c`）——基线没跑偏，这一节和 §9.3 是同一把尺，数可以横着比。
+
+**合并树这侧**：同两篇 `483,043 / 85,240` B、gzip `63,621 / 26,980` B，与 §9.3 的 new 列也**逐字相同**
+（md5 `55b7049f0bac86c10dae77e73750fcfe` / `c9af9dfb39441d99937dc28f8c44d0bc`）。
+机制也核到了：`ae55ad9`（SP4 尖）到 `415b4b6`（合并尖）在模板侧只动了 `_includes/jsonLd.html` 一本（+9 −1，SP3 的 SearchAction），
+而 `grep -rl '"SearchAction"' _site` 在合并树产物上只有 `_site/index.html` 一条——文章页拿不到那一段，所以这两篇没变是结构上的必然，
+「A8 那 +10,253 / +2,185 B 的开销在合并态仍是这个价」由字节相等直接背书，不必等时间数。
+
+**恒等式在合并树重算**（还是 `sp4-identity.cjs` 那把尺，cwd 摆在 `it-sp234`）：
+`{"pages":80,"items":886,"navBytes":138660,"scriptBytes":5200,"measured":143860,"formula":143860,"diff":0}`。
+和 §9.3 那格（79 篇 / 881 条目 / 143,022）差 **1 篇 / 5 条目 / +838 B**——多的那篇是
+`_site/2026/10/06/vite-wasm-query-fs-bypass.html`（main 上 `0002356` 那篇 Vite wasm 实测文）。
+在那篇产物上直接量：`<nav class="toc-static">…</nav>` 整段 **773 B**、内含 5 枚 `toc-static-item`，
+它自己那句 `<script>document.documentElement.className += ' has-js';</script>` **65 B**，
+`773 + 65 = 838` 与差额逐位对上——恒等式在合并态仍是 `diff = 0`，不是「差一点」。
+
+**G4 在合并树重跑**（`sp4-nojs.cjs`：摘掉全部 `<script>` 后逐篇断言 ①②）：
+`{"articlePages":81,"withBlock":80,"failures":0,"bad":[]}`；
+`grep -L 'class="toc-static"'` 在合并树的产物上只有一条 `_site/2018/12/25/qqweiboshare.html`——
+§9.3 钉的那句「`h2`+`h3` 为 0 的那篇必须没有块」在合并态仍是唯一例外，覆盖面 79 → 80 全部由篇数增加解释。
+
+**夹具反证重跑**（`mkfixtures.cjs` 产的那三本，00:01:05 / 00:01:15 两轮）。六条**断言**全中：
+`fake-head` cls `0.00000` / shifts `0` / `navHAt0 null`；`fake-new` cls 非零且 `navHAt0 122.6 → navHAtToc 0`
+（「先画出来再收起」仍在）；`fake-new2` cls `0.00000` / `navHAt0 0`；`fake-head` action 首命中 `toc-link @ 1069.8`（> 400）；
+`fake-new2` action 首命中 `toc-static-link @ 243.2`（< 400）；六行 `innerWidth` 全是 1280。
+但 §9.3 那句「六条期望值」里的**量级数**（`fake-new` `0.07426` / `navHAt0 82`、`action` 侧 `0.00301`、`441.7` / `317.1`）这轮对不上，
+两个原因都是真的：`mkfixtures.cjs` 头部写明这三本夹具是 **Task 9 回写之后重建**的，那几个数属于重建前 7c 那版，
+当前 scratch 里已无那一轮的日志；且本轮同机另有两摊重活（1 分钟负载 7.9 → 13.1，`fake-head` 的 `responseStart` 冲到 582.9 ms，
+早已越出 §9.3 那道 100 ms 地板）。**所以这一格改成按「断言可复算、量级数随夹具版本与负载走」记**——
+`0.07426` 这类数别再当可复算值引用，要引用就引上面那六条断言和它们的形状。
+
+**同一把尺下的负载纪律**：本轮 A/B 开跑前加了道门（`it-run-ab.sh`：1 分钟负载 > 8 就每 60 s 复评，90 分钟仍不达标就 exit 4 记「拒测」）。
+起草那一轮 §9.3 的带是 4.81–6.75；带外量出来的四个时间数按 §6.3 的口径不能当交付数，所以宁可空着这一格，也不拿 21 负载下的读数冒充带内读数。
