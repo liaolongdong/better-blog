@@ -2178,6 +2178,12 @@ const cases = [
     expect: '没有那段给 <html> 挂 has-js 的内联脚本',
     mut: () => S.siteCutRe(tocTarget().rel, /<script>document\.documentElement\.className \+= ' has-js';<\/script>/),
   },
+  {
+    name: 'M18 把某篇 subtitle 写成不带引号的 plain scalar，尾巴带一个「 #9」',
+    group: '描述',
+    expect: '被静默截断',
+    mut: () => S.srcSubLine(`_posts/${descTarget().file}`, /^subtitle:[ \t]+[^\r\n]*$/m, 'subtitle: 前端工程 #9 牙齿', '副标题行'),
+  },
 ];
 
 function editManifest(mutate, where) {

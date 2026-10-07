@@ -1162,10 +1162,11 @@ if (TAGS_OK.size !== 151 || CATS_OK.size !== 14) {
 //
 // 这一组判的是「这一篇有没有自己那句话」。取值链在 `_includes/seoMeta.html:55-76`：
 // `page.seo_description` → `page.description` → `page.subtitle` → `site.description`，
-// 再加一道 `.size < 25` 的地板。今天 80 篇里 41 篇是手写的、38 篇的 meta 就是副标题原文、
-// 1 篇（`subtitle` 只有 5 个字符的那篇）落到了全站那句话上——三个数在 §6.1 台账里逐笔对账。
+// 再加一道 `.size < 25` 的地板。起草时（SP4 动手之前）80 篇里 41 篇是手写的、38 篇的 meta 就是副标题原文、
+// 1 篇（`subtitle` 被 YAML 吃掉半句、只剩 5 个字符的那篇）落到了全站那句话上——三个数在 §6.1 台账里逐笔对账。
 //
-// 为什么源侧五格加产物侧一格：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」。
+// 为什么源侧六格加产物侧一格：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」；
+// 第六格（⑦）管「写了 A 读到 B」这一类静默截断——取值链读到的从来不是你以为的那句话。
 // 缺后者，改坏取值链不会有任何一道门红（现有 10 组里 `JSON-LD` 那条 `decode(...) !== v.description`
 // 判的是工具页 WebApplication，不覆盖文章页）。
 
@@ -1210,6 +1211,29 @@ function srcBodyOf(file) {
     const meta = /<meta name="description"\s+content="([^"]*)"/.exec(readSite(p.rel));
     if (!meta) bad('描述', p.rel, '产物里这一页没有 meta description——取值链在这一页上断了');
     else if (decode(meta[1]) !== d) bad('描述', p.rel, `产物 meta 与源侧 seo_description 不同值（meta=「${decode(meta[1]).slice(0, 48)}」），接线被动过`);
+  }
+  // ⑦ front matter 写了 A、Jekyll 读到 B 的静默截断（YAML 把「 #」当行尾注释吃掉）
+  {
+    const KEYS7 = ['title', 'subtitle', 'seo_description', 'seo_short_title', 'description'];
+    for (const p of posts) {
+      const src = readSrc(`_posts/${p.file}`);
+      const fmText = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!fmText) continue;
+      for (const line of fmText[1].split(/\r?\n/)) {
+        const m = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):[ \t]+(.*)$/);
+        if (!m) continue;
+        const [, k, written] = m;
+        if (!KEYS7.includes(k)) continue;
+        if (/^["'|>[&*]/.test(written)) continue; // 显式引号/块标量/锚点不是这一格管的形式
+        const w = written.replace(/[ \t]+$/, '');
+        const got = p.fm[k];
+        if (got == null || typeof got !== 'string') {
+          bad('描述', p.file, `${k} 写了「${w.slice(0, 40)}」但 Jekyll 没读到这个键——plain scalar 里的「 #」会被当行尾注释`);
+          continue;
+        }
+        if (got !== w) bad('描述', p.file, `${k} 被静默截断：写了「${w.slice(0, 40)}」，Jekyll 读到「${got.slice(0, 40)}」——plain scalar 里的「 #…」会被当行尾注释，加引号即可`);
+      }
+    }
   }
 }
 
