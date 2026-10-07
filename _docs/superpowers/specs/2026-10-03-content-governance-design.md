@@ -829,7 +829,13 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
    与 §9.5 第 4 条同类（过期注释/过期文案），但它不在本批四刀范围内。
 8. **`og-images.mjs` 两个「表条数」口径差**：`--check` 打 **68**（校验看的是该有的卡片），
    生成模式打 **80**（生成看的是全部文章）。§6.1 与 §9.7 引的是 `--check` 那个 68，别混。
-9. **`_config.yml:27` 的 `site.keyword`** 是死配置（A5 之后没人读它），本批不碰 `_config.yml`。
+9. **`_config.yml:27` 的 `site.keyword`** 是死配置——但死的是「渲染」不是「读取」，**别顺手删这一行**：
+   没有任何模板输出它（`grep -rn "site\.keyword" _includes _layouts` 只剩 `seoMeta.html` 里两句说明文字），
+   而 `check-seo.mjs` 的 `keywords` 组拿它当**禁串 needle**（`String(config.keyword)` 扫产物，判据文本
+   `site.keyword 原串仍出现在`，牙是 `check-seo-teeth.mjs` 那把 `site.keyword 原串在产物里回潮`）。
+   删掉它 `config.keyword` 变 `undefined`、needle 变成字面量 `undefined`，那条扫描会去点 221 个产物文件
+   （实测：照 `check-seo.mjs` 那套扫法——`_site` 下 `.html/.xml/.txt/.json/.js/.css/.md` 且 <4MB，数 `.includes('undefined')` 的命中）
+   报「原串仍出现在…」——红是红了，量的却已经不是这件事。本批不碰 `_config.yml`。
 10. **SP2 / SP3 两条分支的合并次序**：SP3 尖 `8122f9c`、SP2 尖 `bab6051` 都未合。
     SP2 先合的话，`verify-tool-url.mjs` 自动进本批台账（表 A 多一行、`收录面牙` 那行的数会跟着涨，
     那是 SP2 的 `urlState` 组带来的，不是 SP4 动的）；合并后必须重跑 §6.4 全量。
