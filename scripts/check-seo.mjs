@@ -1140,9 +1140,47 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
   }
 }
 
+// ── 组 11：searchAction（站内搜索的机器可读声明） ─────────────────────────────
+{
+  const g = 'searchAction';
+  const HOME = 'index.html';
+  if (!hasSite(HOME)) {
+    bad(g, '首页产物', '_site 里没有 index.html，这一组无从判起');
+  } else {
+    // 全站恰好一份，且落在首页。WebSite 只在 page.url == '/' 那一支发出去（jsonLd.html:124），
+    // 翻页视图跟着各声明一遍等于给爬虫 N 个互相竞争的规范声明。
+    const holders = [];
+    for (const rel of htmlFiles) {
+      for (const b of jsonLdBlocks(readSite(rel))) {
+        if (b.error || !b.value || !b.value.potentialAction) continue; // 解析失败由组 3 判红，不重复报
+        holders.push({ rel, v: b.value });
+      }
+    }
+    if (holders.length !== 1) {
+      bad(g, '全站份数', `potentialAction 出现在 ${holders.length} 份文档（要恰好 1 份，且是首页）`);
+    } else {
+      const { rel, v } = holders[0];
+      if (rel !== HOME) bad(g, rel, `potentialAction 落在这一页，首页才是 WebSite 的落点`);
+      const pa = v.potentialAction;
+      const t = Array.isArray(pa['@type']) ? pa['@type'] : [pa['@type']];
+      if (!t.includes('SearchAction')) bad(g, rel, `potentialAction.@type 是 ${JSON.stringify(pa['@type'])}，不是 SearchAction`);
+      if (!pa.target || pa.target['@type'] !== 'EntryPoint') bad(g, rel, 'target 不是 EntryPoint');
+      else if (pa.target.urlTemplate !== `${v.url}?q={search_term_string}`) {
+        bad(g, rel, `urlTemplate 与本页 WebSite.url 不同口径：${JSON.stringify(pa.target.urlTemplate)} ≠ ${JSON.stringify(v.url)}?q={search_term_string}`);
+      }
+      if (pa['query-input'] !== 'required name=search_term_string') bad(g, rel, `query-input=${JSON.stringify(pa['query-input'])}`);
+      // 诚实性交叉检查：这一页必须真的能接住 ?q=。面板或脚本不在，SearchAction 就是空头支票——
+      // SP1 停掉它正是因为这个地址当时没人读。
+      const homeText = readSite(HOME);
+      if (!/id="cmdk"/.test(homeText)) bad(g, HOME, '声明了 SearchAction 却没有 #cmdk，?q= 无人接收');
+      if (!/editorial\.min\.js/.test(homeText)) bad(g, HOME, '声明了 SearchAction 但这一页不加载 editorial.min.js，面板打不开');
+    }
+  }
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', 'searchAction'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +

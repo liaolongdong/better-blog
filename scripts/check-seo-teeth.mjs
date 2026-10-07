@@ -1984,6 +1984,40 @@ const cases = [
       S.siteAfter(rel, open, `\n<img src="${src}" alt="牙齿">`, '正文首张图之前插一枚 eager 图');
     },
   },
+
+  // ── searchAction ──
+  {
+    name: 'potentialAction 整块删掉（SearchAction 没了，门禁不该继续点头）',
+    group: 'searchAction',
+    expect: 'potentialAction 出现在 0 份文档',
+    mut: () =>
+      editJson(
+        'index.html',
+        '"@type": "WebSite"',
+        (o) => {
+          delete o.potentialAction;
+        },
+        'SearchAction 整块',
+      ),
+  },
+  {
+    name: 'urlTemplate 与本页 WebSite.url 不同口径（键名换成 ?query=）',
+    group: 'searchAction',
+    expect: 'urlTemplate 与本页 WebSite.url 不同口径',
+    mut: () => S.siteSub('index.html', '?q={search_term_string}', '?query={search_term_string}', 'urlTemplate'),
+  },
+  {
+    name: '占位符名字与 query-input 不一致（模板留 search_term_string，声明改成 term）',
+    group: 'searchAction',
+    expect: 'query-input=',
+    mut: () => S.siteSub('index.html', 'required name=search_term_string', 'required name=term', 'query-input'),
+  },
+  {
+    name: '首页那份带 potentialAction 的 WebSite 被复制到翻页视图',
+    group: 'searchAction',
+    expect: 'potentialAction 出现在 2 份文档',
+    mut: () => S.siteAfter(T.page2, '</body>', ldBlocks(p('index.html'), '"@type": "WebSite"')[0][0], '翻页视图多出 SearchAction'),
+  },
 ];
 
 function editManifest(mutate, where) {
