@@ -1274,6 +1274,7 @@ const TOOL_HIT_OK = [
   ['2026/09/29/scriptc-native-x64-gap.html', 'TypeScript'],
   ['2026/09/30/univer-node-two-gaps.html', 'TypeScript'],
   ['2026/10/01/gitdiagram-keyless-mcp-4-bad-edges.html', 'TypeScript'],
+  ['2026/10/06/vite-wasm-query-fs-bypass.html', 'vite'],
 ];
 
 const TOOL_MATCH_TAGS = new Set();
@@ -1462,7 +1463,6 @@ const TOC_HEAD = /<(h[23])\b([^>]*)>([\s\S]*?)<\/\1>/gi;
 const TOC_ATTR_ID = /\bid=["']([^"']*)["']/i;
 const TOC_LI = /<li class="toc-static-item toc-(h[23])"><a class="toc-static-link" href="#([^"]*)">/g;
 const TOC_MIN = 2; // 与 editorial.js:250-251 同一口径
-const TOC_PAGES_OK = 79; // §1 事实 19：80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2
 const TOC_JS_MARKERS = [
   ['dev/js/editorial.js 里的 "toc-link"', "'toc-link'"],
   ['dev/js/editorial.js 里的 "toc-list"', "'toc-list'"],
@@ -1470,6 +1470,7 @@ const TOC_JS_MARKERS = [
 ];
 
 let tocBlockPages = 0;
+let tocNeededPages = 0;
 for (const { rel, text } of postPages) {
   const region = postBodyRegion(text);
   if (!region) continue; // 「这一页没有 #post-body」由语料组报，这里不重复占一格
@@ -1486,12 +1487,13 @@ for (const { rel, text } of postPages) {
     if (navAt >= 0) bad('目录', rel, `② 正文只有 ${heads.length} 个 h2/h3（< ${TOC_MIN}），产物里却有静态目录块——阈值与 JS 分叉了，读者会看到一个空框`);
     continue;
   }
+  tocNeededPages += 1;
   if (navAt < 0) {
     bad('目录', rel, `① 正文有 ${heads.length} 个 h2/h3，产物里却没有 <nav class="toc-static"> 块`);
     continue;
   }
-  // 计数器只数「产物里真的有块」的页：数在 navAt 之前会把「该有块」当成「有块」，
-  // ③ 那条在今天读成 79==79 恒绿，A8 一行没落地也不会红——那是一把假牙。
+  // 两个计数器分开数：`tocNeededPages` 数「正文达标、该有块」，`tocBlockPages` 只数「产物里真的有块」。
+  // 若把达标与否和有无块合成一个数，③ 就自反了（自己等于自己），A8 一行没落地也不会红——那是一把假牙。
   tocBlockPages += 1;
   const items = [...TOC_NAV.exec(text)[1].matchAll(TOC_LI)].map((m) => ({ level: m[1], id: m[2] }));
   if (items.length !== heads.length) bad('目录', rel, `③ 静态条目 ${items.length} 条 vs 正文标题 ${heads.length} 个`);
@@ -1506,7 +1508,8 @@ for (const { rel, text } of postPages) {
   const hasJsAt = text.indexOf('has-js');
   if (hasJsAt < 0 || hasJsAt > navAt) bad('目录', rel, '⑤ 的门控半边：.toc-static 之前没有那段给 <html> 挂 has-js 的内联脚本——静态块会先画一帧再收起，读者看到一次塌陷');
 }
-if (tocBlockPages !== TOC_PAGES_OK) bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，应为 ${TOC_PAGES_OK} 篇（80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2）`);
+if (tocBlockPages !== tocNeededPages)
+  bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，正文 h2/h3 ≥ ${TOC_MIN} 个的有 ${tocNeededPages} 篇——差的 ${tocNeededPages - tocBlockPages} 篇由 ① 逐页点名（期望值按产物现算，不钉常数：这一组今天报的 79 是起草时语料的读数，新增一篇达标稿它就该跟着长，钉住它等于给每篇新文章判一次假红）`);
 
 for (const [what, needle] of TOC_JS_MARKERS) {
   if (!readSrc('dev/js/editorial.js').includes(needle)) bad('目录', 'dev/js/editorial.js', `④ 找不到 ${what}——A8 不许把 JS 那一族删掉`);

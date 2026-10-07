@@ -3,10 +3,11 @@ layout: post
 title: 一个查询串让 Vite 漏出工作区外文件的头四个字节
 subtitle: 五条维护线不到两小时各发一版，三条公告同日挂出
 seo_short_title: Vite wasm 查询泄露实测
+seo_description: 一条带 ?vite-wasm-instance 的查询会跳过 server.fs 的边界检查，错误页吐回工作区外文件开头的 4 个字节；五条维护线在不到两小时里各发一版，三条公告同日挂出，都没有 CVE 编号
 date: 2026-10-06
-categories: AI 前端
+categories: [AI, 前端工程化]
 cover: /assets/img/vite-wasm-query-fs-bypass/banner.webp
-tags: Vite 安全 dev-server
+tags: vite 安全 dev-server
 ---
 
 # 一个查询串让 Vite 漏出工作区外文件的头四个字节
