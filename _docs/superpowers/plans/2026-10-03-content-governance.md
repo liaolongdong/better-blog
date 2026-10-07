@@ -54,7 +54,7 @@ node scripts/check-seo-teeth.mjs --root=/tmp/gate/head --site=/tmp/gate/head/_si
 **Files:**
 - Modify: `_docs/superpowers/specs/2026-10-03-content-governance-design.md`（§1 事实 15、§4.3、§5.1 组 `描述`、§5.2 表尾、§5.3、§6.1、§6.2、§8）
 
-- [ ] **Step 1：重建本分支产物**
+- [x] **Step 1：重建本分支产物**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io/.worktrees/sp4-content-governance
@@ -63,7 +63,7 @@ npx vite build && bundle exec jekyll build
 
 预期：最后一行形如 `Done in ...` 与 `Auto-regeneration: disabled … Liquid Exception` 之外无异常，且 `_site/index.html` 的 mtime 是刚刚（`ls -l _site/index.html`）。
 
-- [ ] **Step 2：§6.0 自证——产物读的是逐页 keywords，不是全站串**
+- [x] **Step 2：§6.0 自证——产物读的是逐页 keywords，不是全站串**
 
 **必须用门禁那把容忍空白的正则**（`/<meta name="keywords"\s+content="…"/`）。写成 `content=` 紧挨着的那一形在这一篇上会读出「（无 keywords）」，那是一条假缺陷：
 
@@ -73,7 +73,7 @@ grep -o '<meta name="keywords"[^>]*content="[^"]*"' _site/2026/07/12/alibaba-pag
 
 预期：`content` 里含 `page-agent`、`GUI`、`阿里巴巴` 这一篇自己的 tags 串，**不含** `廖小新,Better` 那一串全站关键字。做不到就把 Task 1 停下——后面所有产物数都会跟着说谎。
 
-- [ ] **Step 3：量 §6.1 的三个数（现状口径，逐字进台账）**
+- [x] **Step 3：量 §6.1 的三个数（现状口径，逐字进台账）**
 
 ```bash
 ruby /tmp/sp4-fm.rb _posts /tmp/sp4-fm.json   # 把 81 篇 front matter 解析成一份 JSON（脚本体见下；它自己把读入钉成 `mode: "rb:UTF-8"`，所以这里不需要 `-EUTF-8`——本机实测：同一份中文文本，带与不带都是 rc 0）
@@ -90,7 +90,7 @@ node /tmp/sp4-61.cjs
 
 `floorShort` 那一格点名的就是 `2026-09-25-claude-agents-md-remote-gate.md`（它的 `subtitle: issue` 只有 5 个字符，落到 `seoMeta.html:73` 那道 `.size < 25` 的地板上，于是取的是 `site.description`）。
 
-- [ ] **Step 4：把 spec 的四处错口径改成实测值**
+- [x] **Step 4：把 spec 的四处错口径改成实测值**
 
 逐处改（每处都是「spec 写的」→「实测的」，改由见括号里的命令）：
 
@@ -99,7 +99,7 @@ node /tmp/sp4-61.cjs
 3. **§1 事实 15「`match_tags` 钉死了 9 条逐字标签串」——错，实测 33 枚**（`node /tmp/sp4-match.cjs` 与按块解析 yml 的 JS 探针各打一次，两头都是 33；**四个工具页里三个有串**——codec 11 / json 13 / diff 9，idcard 是 `match_tags: []`；9 条那一串只是 diff 那一页的块）。更关键的后果：A9 要动的 `Vite` **恰好在这 33 枚里**（`json` 页同一串里 `vite` 与 `Vite` 两枚都在），`2023/05/08/vue3-vite-study.html` 今天的命中集就是 `{Vite, webpack}`。所以「一枚都不在里面、命中集必然不变」这句话不成立，改成：**命中哪一页的状态不变（还是 `json` 那张卡），但该篇命中的逐字串从 `Vite` 变成 `vite`**——28 篇命中行里**只有这一行**会变。因此 §5.1 组 `词表` 第 ⑧ 条实现成「钉一份 **A9 落地后**的快照（28 行 `rel <- 逐字命中串`）」，于是 Task 5 首跑时 ⑧ 恰好红这一条、Task 6 治完转绿，快照本身成为「改名会不会带跑卡」的常设守卫。量具：`node /tmp/sp4-snap.cjs`（同一份口径：`relatedTools.html:36` 的逐字 `contains`；它还打「A9 会改变命中集的行数 = 1」）。
 4. **§4.2 动作 3 与 §5.3 的「重跑 `node scripts/og-images.mjs`」这一步——不需要。** 实测：动作 3 改 categories 的 4 篇**全部带 front matter `cover`**（`grep -m1 '^cover:' _posts/2026-09-2{7,9}* _posts/2026-09-30-univer* _posts/2026-10-01-gitdiagram*`），而带 cover 的这 4 篇**压根不在 `_data/og_images.yml` 里**（`grep -c 'bend\|scriptc\|univer\|gitdiagram' _data/og_images.yml` = 0；该表 68 条）。卡面文字只画在 34 篇无 cover 的文章上。所以这一刀**不重跑生成器、不碰那份并发会话正持有的文件**；自证改成前后各跑一次 `node scripts/og-images.mjs --check`，退码与摘要行必须一模一样。
 
-- [ ] **Step 5：把 spec 的两处判据补齐（本计划相对 spec 的净增项，逐条给理由）**
+- [x] **Step 5：把 spec 的两处判据补齐（本计划相对 spec 的净增项，逐条给理由）**
 
 1. **§5.1 组 `描述` 加第 ⑥ 条**：产物侧的接线——每一篇有 `seo_description` 的产出文章页，`_site` 里那条 `<meta name="description">` 解码后必须**等于**源侧的值。理由：现有 10 组里没有任何一组管文章页 meta description 的来源（`JSON-LD` 组那条 `681` 行判的是工具页 WebApplication），A4 回填完之后，改坏 `seoMeta.html` 的取值链不会让任何一道门红——那正是 SP1 修过的同类缺陷的形状。
 2. **§5.2 牙齿表加 M16**：打在**产物**某篇的 meta description 上（源侧一字不动），该红的就是 `描述` ⑥。①–⑤ 的牙都打源侧，唯有这一把能证明「接线那一格真的在产物侧工作」。
@@ -107,7 +107,7 @@ node /tmp/sp4-61.cjs
 
 改完把这五处（Step 4 四处 + Step 5 两处合并成一处口径）在 spec §8 决策记录里各加一行，编号接在现有 ①②③ 之后落成 **④⑤⑥⑦⑧**，并把那一行的小标题「**纠自己三次**」同步改成「**纠自己八次**」——标题不改，读 spec 的人会以为只有三处。别只改表格不留痕。Task 10 在这之后还要加 ⑨⑩⑪，标题跟着走。
 
-- [ ] **Step 6：自检——spec 里没有留下被推翻的旧数**
+- [x] **Step 6：自检——spec 里没有留下被推翻的旧数**
 
 ```bash
 grep -n '39 → 0\|0 → 0\|9 条逐字\|9 条钉死\|重跑 `node scripts/og-images.mjs`' \
@@ -123,7 +123,7 @@ grep -c '纠自己八次' _docs/superpowers/specs/2026-10-03-content-governance-
 Task 1 执行时的真实读数：第一层 5 行（G1、§5.3、§6.1、§8 ④、§8 ⑥），滤掉之后 0 行。
 第二条期望 `1`（那一行小标题已从「纠自己三次」跟着走到八次；Task 10 还要加 ⑨⑩⑪，标题那时再改）。
 
-- [ ] **Step 7：提交**
+- [x] **Step 7：提交**
 
 ```bash
 git add -- _docs/superpowers/specs/2026-10-03-content-governance-design.md
@@ -134,7 +134,7 @@ git log --format='%h %s' -1
 
 `git diff --cached --name-only` 预期只有那一个文件。提交信息主题：`docs(spec): §6.1/事实15/og 三处口径改成实测值，并补 描述⑥ 与 M16`。
 
-- [ ] **Step 8：附——Step 3 那两个量具的完整源码**
+- [x] **Step 8：附——Step 3 那两个量具的完整源码**
 
 `/tmp/sp4-fm.rb`（把 `_posts` 的 front matter 解析成 JSON；与门禁内嵌那段同一口径）：
 
@@ -268,7 +268,7 @@ VUE3VITE {"tags":["Vue3","Vue2","Vite","webpack","前端框架"],"before":[{"slu
 **Files:**
 - Modify: `scripts/check-seo.mjs`（在 `// ── 跑 ──` 那一行之前插入新组；`GROUPS` 数组尾部加 `'描述'`；头部注释 13 / 26 行与 164 / 174 行的「九组／十组」改成随 `GROUPS.length` 的说法）
 
-- [ ] **Step 1：把三条「读数口径」写在插入位置上方**
+- [x] **Step 1：把三条「读数口径」写在插入位置上方**
 
 ```js
 // ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ VUE3VITE {"tags":["Vue3","Vue2","Vite","webpack","前端框架"],"before":[{"slu
 // 判的是工具页 WebApplication，不覆盖文章页）。
 ```
 
-- [ ] **Step 2：写正文读取器（④ 的尺）**
+- [x] **Step 2：写正文读取器（④ 的尺）**
 
 ```js
 /** 一篇稿子的正文（front matter 之后）。摘要里出现的每一段数字都要在这段里逐字找得到。 */
@@ -292,7 +292,7 @@ function srcBodyOf(file) {
 }
 ```
 
-- [ ] **Step 3：写六条判据**
+- [x] **Step 3：写六条判据**
 
 ```js
 {
@@ -334,7 +334,7 @@ function srcBodyOf(file) {
 
 `config`（ruby 解析过的 `_config.yml`）、`posts`（`{file, rel, fm, tags, cats, day}`，只含产出页面）、`readSite` / `hasSite` / `readSrc` / `decode` / `bad` 都是这本脚本里已有的东西；`decode` 在 `298` 行，它把实体反解回字符，所以 `&quot;` 不会伪装成「不同值」。
 
-- [ ] **Step 4：`GROUPS` 与头部口径跟着走**
+- [x] **Step 4：`GROUPS` 与头部口径跟着走**
 
 ```js
 const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述'];
@@ -342,7 +342,7 @@ const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'man
 
 头部那四处「九组／十组」的字面量一起改掉：`12` 行与 `26` 行改成「一本脚本、`${GROUPS.length}` 组判据」的说法（注释里不能插值，就写成「组数由 `GROUPS` 决定，`--list` 打印当前口径」），`164` 行与 `174` 行那句「十组判据」改成「后面各组判据」。**这一处不是修辞**：`--list` 是 `GROUPS` 的消费者（`1151-1155` 行），头部写着固定组数就是过期注释，而 `categories.html:14` 那句「43 个分类」已经证明过期注释会被下游当事实抄。
 
-- [ ] **Step 5：格式化并跑门**
+- [x] **Step 5：格式化并跑门**
 
 ```bash
 npx --no-install prettier --single-quote --print-width 320 --write scripts/check-seo.mjs
@@ -357,7 +357,7 @@ node scripts/check-seo.mjs 2>&1 | grep -c '^\[描述\]\|缺 seo_description'
 
 预期 `39`。**如果不是 39，停下**：多出来的红要逐条归因（最常见的是 ⑥ 的 `decode` 口径没对上，或者 `posts` 里混进了不产出的那一篇）。
 
-- [ ] **Step 6：提交（此时门禁是红的，这是刻意状态）**
+- [x] **Step 6：提交（此时门禁是红的，这是刻意状态）**
 
 ```bash
 git add -- scripts/check-seo.mjs
@@ -378,7 +378,7 @@ git commit -F /tmp/gate/sp4-t2.txt
 **Files:**
 - Modify: `_posts/` 下 39 个 `.md`（每个只加一行）——清单见下
 
-- [ ] **Step 1：第一批 10 篇（2017–2024）**
+- [x] **Step 1：第一批 10 篇（2017–2024）**
 
 逐字插入下列行（左列是文件名，右列是那一整行内容）：
 
@@ -395,7 +395,7 @@ git commit -F /tmp/gate/sp4-t2.txt
 | `2026-05-25-account-password-helper.md` | `seo_description: 本地存储的账号密码管理插件：多账号一键切换省掉复制粘贴，凭据不出本机，填充逻辑怎么写、不同站点怎么适配，与浏览器自带钥匙串各管哪一段。` |
 | `2026-06-28-account-password-helper-new.md` | `seo_description: 一键自动登录插件的开发记录：填充时机怎么挑、各家页面的表单选择器怎么兼容，以及任何凭据都不上传这条边界落在存储与授权的哪一层。` |
 
-- [ ] **Step 2：第二批 10 篇（AI / 开源实测前半）**
+- [x] **Step 2：第二批 10 篇（AI / 开源实测前半）**
 
 | `_posts/` 文件 | 插入的整行 |
 | --- | --- |
@@ -410,7 +410,7 @@ git commit -F /tmp/gate/sp4-t2.txt
 | `2026-09-10-agent-visual-toolchain.md` | `seo_description: 四个 AI 出图项目在同一台机器上的实跑结果：品牌表缺项、init 顺手 clone 整仓这两处卡住的地方逐条点名，最后跑通的那一条走的是浏览器调试协议。` |
 | `2026-09-10-nextjs-avif-trap.md` | `seo_description: 把三个版本的 image-optimizer.js 拉到本地逐行对照：决定 AVIF 到底有没有在跑的那行字不在版本号里，而在开关默认值与升级时序的缝隙上。` |
 
-- [ ] **Step 3：第三批 10 篇（开源实测后半）**
+- [x] **Step 3：第三批 10 篇（开源实测后半）**
 
 | `_posts/` 文件 | 插入的整行 |
 | --- | --- |
@@ -425,7 +425,7 @@ git commit -F /tmp/gate/sp4-t2.txt
 | `2026-09-25-claude-agents-md-remote-gate.md` | `seo_description: AGENTS.md 这扇门不是本地开关：它由远端配置决定装不装得上，于是同一个文件在不同机器上的行为差异，要往配置分发那一层去找原因。` |
 | `2026-09-26-github-actions-2500-cap.md` | `seo_description: Actions 失败数接口返回的那个整数是封顶值而不是答案：没有截断标记时怎么用日期窗口拆开再相加，以及这样量出来的为什么只能叫下界。` |
 
-- [ ] **Step 4：第四批 9 篇（2026-09-26 之后）**
+- [x] **Step 4：第四批 9 篇（2026-09-26 之后）**
 
 | `_posts/` 文件 | 插入的整行 |
 | --- | --- |
@@ -439,7 +439,7 @@ git commit -F /tmp/gate/sp4-t2.txt
 | `2026-10-01-gitdiagram-keyless-mcp-4-bad-edges.md` | `seo_description: 不带 key 的一次 POST 换回一张 mermaid 架构图，代价是它给出的连线里有几条在源码里查不到，看图可以，别抄它画的线。` |
 | `2026-10-02-nextjs-rebind-ssrf-advisory-lag.md` | `seo_description: 同一发打回环的请求，旧版取回了内网那张图、新版只给一个错误状态：这个洞堵上的同一次发版里，安全公告却还有一批没进公告库。` |
 
-- [ ] **Step 5：自证「只加了一行、正文一字未动」**
+- [x] **Step 5：自证「只加了一行、正文一字未动」**
 
 ```bash
 git diff --numstat -- _posts | awk '$1!=1 || $2!=0 {print "异常：", $0}'; echo "扫描完"
@@ -448,7 +448,7 @@ git diff --stat -- _posts | tail -2
 
 预期：第一行**没有任何「异常：」输出**（每个文件恰好 +1 / −0），第二行是 `39 files changed, 39 insertions(+)`。若某篇显示 +2/−1，说明那一篇原本没有 `seo_short_title` 而你把行插到了别处，或者动了正文——按 Step 1–4 的表重插。
 
-- [ ] **Step 6：重建并跑门**
+- [x] **Step 6：重建并跑门**
 
 ```bash
 npx vite build && bundle exec jekyll build
@@ -457,7 +457,7 @@ node scripts/check-seo.mjs | tail -3
 
 预期：`✓ SEO 门禁 11 组全绿（… / 换源 / 描述）；JSON-LD <N> 块全部可解析`，退码 0。
 
-- [ ] **Step 7：§6.1 的后读数（产物侧，逐格进台账）**
+- [x] **Step 7：§6.1 的后读数（产物侧，逐格进台账）**
 
 ```bash
 ruby /tmp/sp4-fm.rb _posts /tmp/sp4-fm.json && node /tmp/sp4-61.cjs
@@ -465,7 +465,7 @@ ruby /tmp/sp4-fm.rb _posts /tmp/sp4-fm.json && node /tmp/sp4-61.cjs
 
 预期：`hand: 80`、`eqSubtitle: 0`、`eqSubtitleUnescaped: 0`、`escaped: 0`、`siteDesc: 0`、`missing: 0`、`uniqDesc: 80`、`floorShort: []`。**这些格一个都不许是「大约」**：`hand` 少了说明有一篇的键名或值被 YAML 吃掉（最常见是值里带了 `: `），`uniqDesc` 少于 80 会被 ⑤ 直接判红。
 
-- [ ] **Step 8：提交（两笔：内容一笔，方便回退单篇）**
+- [x] **Step 8：提交（两笔：内容一笔，方便回退单篇）**
 
 ```bash
 git add -- _posts/2017-09-09-wxpay.md _posts/2018-06-06-wxshare-summarize.md _posts/2018-12-25-qqweiboshare.md _posts/2022-08-08-webpack-move-vite.md _posts/2023-05-08-vue3-vite-study.md _posts/2024-01-05-chrome-plugin-recommend.md _posts/2024-03-20-new-project-use-vue2-problem.md _posts/2024-10-09-fe-env-switch.md _posts/2026-05-25-account-password-helper.md _posts/2026-06-28-account-password-helper-new.md
@@ -491,7 +491,7 @@ node scripts/check-seo.mjs | tail -1
 **Files:**
 - Modify: `scripts/check-seo-teeth.mjs`（`cases` 数组收尾的 `];` 之前追加 5 条案例；`const cases = [` 在 `:697`，收尾 `];` 紧贴 `function editManifest`（Task 1 之后行号会漂，**按锚点定位**））
 
-- [ ] **Step 1：追加靶子函数**
+- [x] **Step 1：追加靶子函数**
 
 插在 `const cases = [` 这一行的**正上方**：
 
@@ -516,7 +516,7 @@ const descTarget = () =>
 靶子不写死文件名：M2 要把整行摘要换掉、M4 要在尾巴追加，写死一篇就可能撞上「这一篇恰好没有摘要」；
 筛不到时 `first()` 抛，主循环记成「变异脚本自己崩了」而不是「假牙」——这两种结局在台账里是不同的话。
 
-- [ ] **Step 2：追加 5 条案例**
+- [x] **Step 2：追加 5 条案例**
 
 ```js
   {
@@ -570,7 +570,7 @@ const descTarget = () =>
 4. **`expect` 是被门禁逐字打出来的片段**：改了 `check-seo.mjs` 里的措辞就要同步改这里，
    否则「红了但没有一句含 …」这种失败看起来像判据坏了，其实是台账过期。
 
-- [ ] **Step 3：逐条单跑，确认五把刀各红在自己那一格**
+- [x] **Step 3：逐条单跑，确认五把刀各红在自己那一格**
 
 ```bash
 for n in M1 M2 M3 M4 M16; do node scripts/check-seo-teeth.mjs --only="$n" > /tmp/gate/t4-$n.out 2>&1; printf '%s exit=%s\n' "$n" "$?"; done
@@ -581,7 +581,7 @@ grep -h '牙齿台账\|✗' /tmp/gate/t4-M*.out
 「假牙（注入后仍绿）」「红了但没红在本组」「红了但没有一句含 expect」「变异脚本自己崩了」——
 每一条都要按原话归因，**不许**改 `expect` 迁就，也不许改判据措辞来「对上」。
 
-- [ ] **Step 4：全量牙齿回归**
+- [x] **Step 4：全量牙齿回归**
 
 ```bash
 node scripts/check-seo.mjs > /dev/null 2>&1; echo "gate exit=$?"
@@ -593,7 +593,7 @@ tail -3 /tmp/gate/t4-all.out
 `teeth exit=0`、汇总行 `牙齿台账：N/N 组变异如期变红`，分账行里出现 `描述 5`。
 N 是追加前的条数 + 5，用 `grep -c "^    name: '" scripts/check-seo-teeth.mjs` 前后各数一次自证。
 
-- [ ] **Step 5：格式化 + 提交**
+- [x] **Step 5：格式化 + 提交**
 
 ```bash
 npx --no-install prettier --single-quote --print-width 320 --write scripts/check-seo-teeth.mjs
@@ -615,7 +615,7 @@ git commit -F /tmp/gate/sp4-t4.txt
 - Modify: `scripts/check-seo.mjs`（在 `描述` 块之后追加 `词表` 块；`GROUPS` 数组尾部登记 `'词表'`）
 - 只读参照：`_site/tags.html`、`_site/categories.html`（计数器与 chip 形状）、`_data/onlineTools.yml`（**本任务不修改**）
 
-- [ ] **Step 1：钉两份白名单常量（逐字如下，不要手敲）**
+- [x] **Step 1：钉两份白名单常量（逐字如下，不要手敲）**
 
 插在 `描述` 组代码块的正上方。这两行是「一行一枚都不换行」的字符串形态，
 **prettier 拆不开它**（字符串字面量内部的空格不是折点），所以落盘形状与计划里的形状一致、
@@ -640,7 +640,7 @@ if (TAGS_OK.size !== 151 || CATS_OK.size !== 14) {
 }
 ```
 
-- [ ] **Step 2：钉 ⑧ 的命中集台账（28 行）与 `match_tags` 的读取**
+- [x] **Step 2：钉 ⑧ 的命中集台账（28 行）与 `match_tags` 的读取**
 
 台账取的是 **A9 之后**的形状，所以 Task 5 首次跑门禁时 ⑧ 恰好红 1 条（`vue3-vite-study` 那行），
 Task 6 治完它自己转绿。28 行逐字来自探针输出，**一行都不许手敲**：
@@ -709,7 +709,7 @@ if (TOOL_MATCH_TAGS.size !== 33) {
 28 行的 rel 全部形如 `YYYY/MM/DD/slug.html`（**显示层会把三段年月日折叠成 `YYYY-MM-DD`**，
 所以粘贴后必须 `grep -c '/'` 自证，别拿肉眼看到的形状当真）。
 
-- [ ] **Step 3：八条判据**
+- [x] **Step 3：八条判据**
 
 ```js
 {
@@ -834,7 +834,7 @@ if (TOOL_MATCH_TAGS.size !== 33) {
 （这个坑是本计划自己踩出来的：两个块各自 `{}` 作用域，名字不共享，写跨块引用会得到
 `ReferenceError` → 门禁退 2，而牙齿脚本把退 2 记成「门禁自己崩了」，看起来像判据的问题。）
 
-- [ ] **Step 4：登记组名**
+- [x] **Step 4：登记组名**
 
 ```bash
 grep -n "const GROUPS = \[" scripts/check-seo.mjs
@@ -843,7 +843,7 @@ grep -n "const GROUPS = \[" scripts/check-seo.mjs
 在该数组尾部追加 `'词表'`（顺序 `…, '换源', '描述', '词表'`）。`--list` 打的就是这份数组，
 漏登记会让新组的红不进汇总行。
 
-- [ ] **Step 5：跑门禁，按逐条口径核对首红 25**
+- [x] **Step 5：跑门禁，按逐条口径核对首红 25**
 
 ```bash
 node scripts/check-seo.mjs > /tmp/gate/sp4-t5.out 2>&1; echo "exit=$?"
@@ -867,7 +867,7 @@ for k in '只在大小写上不同' '不在白名单里' '空格分隔的多值'
 对不上就是实现走样了：按 `grep -c` 的每一格找差异，**不许**改这张表去迁就代码，
 也不许改判据措辞让 `grep` 的关键字命中得更顺手（关键字是判据消息的子串，改措辞要两头一起改）。
 
-- [ ] **Step 6：确认 `描述` 组仍 0 红**
+- [x] **Step 6：确认 `描述` 组仍 0 红**
 
 ```bash
 node scripts/check-seo.mjs > /tmp/gate/sp4-t5b.out 2>&1; grep -c '\[描述\]' /tmp/gate/sp4-t5b.out
@@ -875,7 +875,7 @@ node scripts/check-seo.mjs > /tmp/gate/sp4-t5b.out 2>&1; grep -c '\[描述\]' /t
 
 预期 `0`。管道会吞退出码，所以 `exit=` 只认直接重定向那一次。
 
-- [ ] **Step 7：格式化 + 提交**
+- [x] **Step 7：格式化 + 提交**
 
 ```bash
 npx --no-install prettier --single-quote --print-width 320 --write scripts/check-seo.mjs
@@ -900,7 +900,7 @@ git commit -F /tmp/gate/sp4-t5.txt
 - Modify（行尾）：`_posts/2019-02-25-you-dont-kown-js-tips.md`
 - Modify（注释改口）：`categories.html:15`
 
-- [ ] **Step 1：动作 1+2 —— 四枚合并 + 一枚改名（逐字 before → after）**
+- [x] **Step 1：动作 1+2 —— 四枚合并 + 一枚改名（逐字 before → after）**
 
 下面九行是本仓库现证的原文与目标，**逐字**替换（每篇只动 `tags:` 那一行，行号一并给出是为了定位）。
 
@@ -920,7 +920,7 @@ git commit -F /tmp/gate/sp4-t5.txt
 合并会把「coding.net 平台」和「Vibe 编码方式」塞进同一枚标签（spec §8 那一次掉头）。
 所以 ① 的五对里 `coding{coding/Coding}` 是靠**改名**消掉的，不是靠豁免名单。
 
-- [ ] **Step 2：动作 4 —— 同帖重复一枚**
+- [x] **Step 2：动作 4 —— 同帖重复一枚**
 
 | 文件 | 行 | 逐字原文 | 逐字改后 |
 | --- | --- | --- | --- |
@@ -929,7 +929,7 @@ git commit -F /tmp/gate/sp4-t5.txt
 删的是**行尾那枚** ` Agent`（前面那枚留着）。改后 `site.tags["Agent"]` 从 13 降到 12，
 且 12 == 持有它的文件数——这一格是动作 4 唯一的读数变化。
 
-- [ ] **Step 3：动作 3 —— categories 一簇四篇（空格分隔改方括号，词汇并进 `开源实测`）**
+- [x] **Step 3：动作 3 —— categories 一簇四篇（空格分隔改方括号，词汇并进 `开源实测`）**
 
 | 文件 | 行 | 逐字原文 | 逐字改后 |
 | --- | --- | --- | --- |
@@ -942,7 +942,7 @@ git commit -F /tmp/gate/sp4-t5.txt
 **方括号形态只用在多分类上**：单分类仍是裸标量（全站其余篇都这样），③ 的判据也只查
 「裸标量里含空白」，不会因为这篇用了方括号就要求别篇跟进。
 
-- [ ] **Step 4：CRLF 卫生 —— 整篇换行归 LF**
+- [x] **Step 4：CRLF 卫生 —— 整篇换行归 LF**
 
 ```bash
 grep -c $'\r' _posts/2019-02-25-you-dont-kown-js-tips.md      # 改前：426
@@ -963,7 +963,7 @@ diff /tmp/gate/old-lf.md _posts/2019-02-25-you-dont-kown-js-tips.md && echo 'IDE
 预期打印 `IDENTICAL 去掉 CR 之后逐字节相同`。**这一条是整个动作里唯一的「内容没变」证明**，
 缺了它，426 行的 diff 就只能靠肉眼。
 
-- [ ] **Step 5：`categories.html:15` 那句过期注释改口**
+- [x] **Step 5：`categories.html:15` 那句过期注释改口**
 
 原文（`categories.html:15`， Liquid 注释里）：
 
@@ -990,7 +990,7 @@ site.categories 迭代出来的是「front matter 里第一次出现」的顺序
 > 再把产物那 155 枚按码点排一遍，排头是 `AI` 而不是 `jekyll`，且逐位不相等——字母序这半句同样不成立。
 > 所以替换文本改成只写量得到的事实，行数从一行变两行（这一刀 `categories.html` 打的是 `2 1`）。
 
-- [ ] **Step 6：重建 + 门禁转绿 + §6.2 的读数**
+- [x] **Step 6：重建 + 门禁转绿 + §6.2 的读数**
 
 内容文件**不过 prettier**（`prettier` 会重写帖子里的 ```js 围栏、给代码补分号，
 `article-check` 的字符数会被动，见 `[prettier 会重写帖子里的 ```js 围栏]`）。
@@ -1029,7 +1029,7 @@ console.log("归档节数与计数器是否相等:", t.length === cnt("tags.html
 `155 / 122`、`17 / 4`、`开源实测 17`、`Agent 13`、`篇文章 80`，与 spec §6.2 的左边一一对得上）。
 台账里前后两列必须来自**同一把尺**，不要一格用 Jekyll 现读、一格用产物读数。
 
-- [ ] **Step 7：自证「没有连带影响」——三处**
+- [x] **Step 7：自证「没有连带影响」——三处**
 
 ```bash
 node scripts/og-images.mjs --check; echo "og exit=$?"
@@ -1056,7 +1056,7 @@ node scripts/verify-tools-browser.mjs > /tmp/gate/sp4-t6-tools.out 2>&1; echo "t
 > 不算绿也不算红。命中集此刻有两层静态证据顶着（门禁 ⑧ 的 28 行逐行对上、`vue3-vite-study` 那行随改名转绿），
 > 浏览器侧复跑挪进 Task 10 的收口清单，低负载时补跑一次。
 
-- [ ] **Step 8：提交**
+- [x] **Step 8：提交**
 
 ```bash
 git add -- _posts/2026-09-29-webmcp-modelcontext-mount.md _posts/2026-07-12-facebook-astryx.md _posts/2023-05-08-vue3-vite-study.md _posts/2018-12-05-move-githubblog-to-coding.md _posts/2026-07-12-alibaba-page-agent.md
@@ -1082,7 +1082,7 @@ git commit -F /tmp/gate/sp4-t6.txt
 七把刀全部打在**源侧 front matter**上（`词表` 组八条判据里有七条读的是源，只有 ⑦ 读产物，
 而 ⑦ 的形状在 A9 之后不可能自然长出悬空——它没有牙，台账里照 §5.2 的口径写明「计数/形状判据，不设牙齿」）。
 
-- [ ] **Step 1：追加 7 条案例**
+- [x] **Step 1：追加 7 条案例**
 
 ```js
   {
@@ -1177,7 +1177,7 @@ git commit -F /tmp/gate/sp4-t6.txt
 > 那四句口径之外再补一句**顺序**口径：prettier 必须跑在全量台账**之前**（Step 3 原文把它排在台账之后）。
 > 台账逐条 spawn 真的 `scripts/check-seo.mjs`，而格式化改的正是这个文件；跑完之后只剩提交，不再碰它。
 
-- [ ] **Step 2：逐条单跑**
+- [x] **Step 2：逐条单跑**
 
 ```bash
 for n in M5 M6 M7 M8 M9 M10 M15; do node scripts/check-seo-teeth.mjs --only="$n" > /tmp/gate/t7-$n.out 2>&1; printf '%s exit=%s\n' "$n" "$?"; done
@@ -1186,7 +1186,7 @@ grep -h '✗\|牙齿台账：' /tmp/gate/t7-M*.out
 
 预期七条各 `1/1`、`exit=0`。任何一条 `exit=1` 都要按那四句话归因，**不许**为了过而改 `expect`。
 
-- [ ] **Step 3：全量牙齿回归 + 提交**
+- [x] **Step 3：全量牙齿回归 + 提交**
 
 ```bash
 node scripts/check-seo.mjs > /dev/null 2>&1; echo "gate exit=$?"
@@ -1216,7 +1216,7 @@ git commit -F /tmp/gate/sp4-t7.txt
 - Modify: `scripts/check-seo-teeth.mjs`（M12）
 - 只读参照：`_data/onlineTools.yml`（四页的 `tagline` / `features` 是链接文字的口径上限，**本任务不修改**）
 
-- [ ] **Step 1：写四条判据（插在 `词表` 块之后、`const GROUPS = [` 之前）**
+- [x] **Step 1：写四条判据（插在 `词表` 块之后、`const GROUPS = [` 之前）**
 
 ```js
 // ── 组 13：内链（SP4 刀3）─────────────────────────────────────────────────────
@@ -1262,7 +1262,7 @@ git commit -F /tmp/gate/sp4-t7.txt
 - `INLINK_RE` 要求 href **正好**落在 `/tools/<slug>.html`，带片段的 `tools/json.html#digest` 一枚都不算（本站现在没有这种写法；日后有人加，得先加判据再加链，不能静默漂过）。
 - `tools.html`（工具索引页）不在 `/tools/` 之下，所以不算这一组的内链——它是导航，不是「点开能做某件事的那页」。
 
-- [ ] **Step 2：登记组名并跑门，确认恰好红 1**
+- [x] **Step 2：登记组名并跑门，确认恰好红 1**
 
 ```js
 const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链'];
@@ -1280,7 +1280,7 @@ node scripts/check-seo.mjs 2>&1 | grep '^\[内链\]'
 > 永远匹配不到——红线在产物输出里长成 `✗ [内链] …`，行首是 `✗ ` 而不是 `[`。落码时用 `'\[内链\]'`
 > 并把门输出先重定向进文件再数（管道会吞退出码）；实测先红 1 条、读数 `0`，与这段预期一致。
 
-- [ ] **Step 3：落六条链（逐篇「锚点 / 工具 / 链接文字」，锚点串已实测在 `_posts/*.md` 里唯一）**
+- [x] **Step 3：落六条链（逐篇「锚点 / 工具 / 链接文字」，锚点串已实测在 `_posts/*.md` 里唯一）**
 
 六条的写法只有一个形状（spec §4.3 的 (c)），Liquid 拼 baseurl，链接文字说清点开能做什么：
 
@@ -1345,7 +1345,7 @@ node scripts/check-seo.mjs 2>&1 | grep '^\[内链\]'
 （`2017-08-25-common-tools.md` 的 `formatPhone` / `formatBankNo`）做的是「每四位插一个分隔符」，
 不是校验。按 §4.3 那句「写不出接点的就不配放」，宁缺。这一格连同理由进 §6.4 台账。
 
-- [ ] **Step 4：重建 + 门绿，并把六条链的产物形状逐条自证**
+- [x] **Step 4：重建 + 门绿，并把六条链的产物形状逐条自证**
 
 ```bash
 npx vite build && bundle exec jekyll build
@@ -1393,7 +1393,7 @@ node /tmp/gate/sp4-inlink-proof.cjs
 >    （标题锚点），按「之后」判必然负。改成每行显式给期望方向（`before` / `after`），
 >    只校 `|距离| < 1600` 与方向符号。改后六行全 `OK`，`文字` 那列与表逐字相等。
 
-- [ ] **Step 5：给 `内链` 组装牙（M12）**
+- [x] **Step 5：给 `内链` 组装牙（M12）**
 
 `内链` ①（计数 ≥5）按 spec §5.2 末尾那段**不设牙**：计数判据的牙等价于「删一条少一条」，
 被 ② 的牙（M12）覆盖。台账里照这一句写，不假装它有牙。
@@ -1455,7 +1455,7 @@ node scripts/check-seo-teeth.mjs --only=M12
 
 预期：`M12` 那行绿，摘要里 `内链 1`。
 
-- [ ] **Step 6：全绿、格式化、提交**
+- [x] **Step 6：全绿、格式化、提交**
 
 ```bash
 node scripts/check-seo.mjs > /tmp/gate/sp4-t8-gate.out 2>&1; echo "gate exit=$?"
@@ -1503,7 +1503,7 @@ git commit -F /tmp/gate/sp4-t8.txt
 - Modify: `scripts/check-seo.mjs`（组 14 `目录` + `GROUPS` 加一项）
 - Modify: `scripts/check-seo-teeth.mjs`（M11 / M13 / M14 / M17）
 
-- [ ] **Step 1：探针站实测挂点（先证明钩子看得见渲染后的 HTML，再写真代码）**
+- [x] **Step 1：探针站实测挂点（先证明钩子看得见渲染后的 HTML，再写真代码）**
 
 spec §4.4 把挂点留给「计划第一步的探针」。建一个一次性小站（真构建约 1 s，比在主干上试快两个数量级）：
 
@@ -1575,7 +1575,7 @@ grep -o '<li[^>]*><a href="#[^"]*"' _out/2026/01/01/a.html
 
 `--limit_posts` 不是 `jekyll build` 的命令行开关（是 site 选项），别指望用它缩小探针范围。
 
-- [ ] **Step 2：`目录` 组五条判据进 `check-seo.mjs`（这一步结束时门红 81 条）**
+- [x] **Step 2：`目录` 组五条判据进 `check-seo.mjs`（这一步结束时门红 81 条）**
 
 插在 `// ── 跑 ──` 那一行（`:1143`，Task 8 之后行号已漂，按锚点找）的**正上方**：
 
@@ -1687,7 +1687,7 @@ grep -c '^✗ 目录' /tmp/gate/t9-red.txt; grep '^✗ 目录' /tmp/gate/t9-red.
 > 2. **`grep -c '^✗ 目录'` 与它后面那条同形命令永远给 0**——红线形状是 `✗ [组] 条目：消息`，组名带方括号。
 >    要写 `grep -c '^✗ \[目录\]'`（Task 8 那条回写是同一个坑，这次连计划里的验证命令一起改口）。
 
-- [ ] **Step 3：新建 `_plugins/toc.rb`**
+- [x] **Step 3：新建 `_plugins/toc.rb`**
 
 整本文件（探针里那份的实现，模块名换正式名）：
 
@@ -1751,7 +1751,7 @@ end
 **上面这段少一处就白写**：`gsub` 的 block 里必须同时做「补 id」和「收条目」，两件事共用同一个 `index`，
 否则补出来的 `section-N` 与目录里的 href 会错位一格。
 
-- [ ] **Step 4：`_layouts/post.html` 接线（两处）**
+- [x] **Step 4：`_layouts/post.html` 接线（两处）**
 
 **(a) 静态块。** 锚点这一行（`:213`）：
 
@@ -1788,7 +1788,7 @@ CLS = 0.00000（JS 开着就从来没占过位）。删掉它 = 把 §6.3 的 CL
     {%- endcomment -%}
 ```
 
-- [ ] **Step 5：`dev/sass/common/editorial.scss` 新增 `.toc-static` 一族**
+- [x] **Step 5：`dev/sass/common/editorial.scss` 新增 `.toc-static` 一族**
 
 插在 `.toc-item.is-active>.toc-link { … }` 那块（`:1497-1501`）的正下方、`.code-wrap` 那段注释之前，**顶层**（不能进任何 `@media`，⑤ 有深度判据）：
 
@@ -1853,7 +1853,7 @@ node -e 'const c=require("./postcss.config.js");const b=c.plugins["postcss-px-to
 
 三行都必须是 `true`，否则这一族的间距会跟着视口缩放（`.toc-h3` 靠 `.toc-` 命中）。
 
-- [ ] **Step 6：重建 + 五处产物自证 + 门转绿**
+- [x] **Step 6：重建 + 五处产物自证 + 门转绿**
 
 ```bash
 cd /Users/liaolongdong/code/liaolongdong.github.io/.worktrees/sp4-content-governance
@@ -1913,7 +1913,7 @@ console.log("entries="+hrefs.length,"每条都在正文 id 集合里="+hrefs.eve
 > （比原计划那句「每条都在正文 id 集合里」强一档：href 序列与 h2/h3 的 id 序列连顺序一起钉住）。
 > Task 10 Step 的 G4 那两条命令（`:2692-2693`）用的是 `indexOf` 切片，没有这个坑。
 
-- [ ] **Step 7：A/B 脚手架 + 冒烟（2 轮/侧，正式五个数在 Task 10）**
+- [x] **Step 7：A/B 脚手架 + 冒烟（2 轮/侧，正式五个数在 Task 10）**
 
 脚手架全文落 `/tmp/gate/sp4-ab.mjs`（不进仓库——它要读的是两棵树的 `_site`，§6.4 的台账集不含它）。
 **这段代码是先在夹具上跑通过的**，三条反证见下面 Step 7c；照抄时别把 `${MODE === 'action' ? …}` 那三元改成「更整洁」的写法，
@@ -2241,7 +2241,7 @@ node /tmp/gate/sp4-ab.mjs --site=_site                  --label=new   --mode=act
 | CLS(new) 明显 > 0 | 静态块之前那段 `has-js` 内联脚本不见了或排在 `<nav>` 之后；隐藏规则被写进了 `@media`；`navHAt0` 读出来不是 0 |
 | `firstActionAt` 两篇都是 `null` | 静态块里的 href 指不到正文 id（点了不跳），或探针的正则在页面里抓不到 `.toc-static-link`（`class` 拼写与 `TOC_LI` 必须逐字一致） |
 
-- [ ] **Step 8：给 `目录` 组装牙（M11 / M13 / M14 / M17）**
+- [x] **Step 8：给 `目录` 组装牙（M11 / M13 / M14 / M17）**
 
 四把牙点的是 `目录` ①③⑤，**这一组里 ②（阈值之下必须无块）和 ④（JS 那一族三个落点仍在）没有牙**：
 ② 的靶子是全站唯一那篇 `qqweiboshare`，给它塞块等于造一个现实中不会出现的形状；④ 读的是
@@ -2312,7 +2312,7 @@ node scripts/check-seo-teeth.mjs > /tmp/gate/t9-teeth-all.out 2>&1; echo "teeth 
 预期四条各一行 `牙齿台账：1/1 组变异如期变红` 且 `exit=0`；全量 `gate exit=0`、`teeth exit=0`，
 分账行里出现 `目录 4`，`grep -c "^    name: '" scripts/check-seo-teeth.mjs` 前后各数一次自证条数。
 
-- [ ] **Step 9：格式化 + 提交**
+- [x] **Step 9：格式化 + 提交**
 
 ```bash
 npx --no-install prettier --single-quote --print-width 320 --write scripts/check-seo.mjs scripts/check-seo-teeth.mjs
@@ -2358,7 +2358,7 @@ git commit -F /tmp/gate/sp4-t9.txt
 - Modify: `scripts/check-seo-teeth.mjs`（M18）
 - Modify: `_docs/superpowers/specs/2026-10-03-content-governance-design.md`（§5.1 `描述` 补第 ⑦ 条、§5.1 `目录` ⑤ 补门控半边、§5.2 补 M17/M18 两行并把「M1–M14/M1–M15」两处改口、§6.1 那两格的读数复核、§8 加 ⑨⑩⑪、新增 §9 交付实录）
 
-- [ ] **Step 1：扫一遍「front matter 写了、Jekyll 没读到」——起草时实测命中 1 处，有名有姓**
+- [x] **Step 1：扫一遍「front matter 写了、Jekyll 没读到」——起草时实测命中 1 处，有名有姓**
 
 这一类的形状是：值写成不带引号的 plain scalar，里面有一个空格紧跟 `#`，YAML 从那里起当行尾注释吃掉。落到本仓库的可见后果是 `_includes/seoMeta.html:55-76` 那条取值链读到一个短得多的值，`seoMeta.html:80` 那道 `.size < 25` 的地板再把整页摘要换成全站那句话。
 
@@ -2410,7 +2410,7 @@ grep -o '<meta name="description"[^>]*content="[^"]\{0,30\}' _site/2026/09/25/cl
 
 预期第一行 `<p class="post-masthead-lede">issue</p>`（正文导语只剩一个英文单词），第二行的 `content` 是 `Better（中文署名廖小新）的前端与 AI 博客：…`——也就是 `site.description`。§6.1 台账里那格「与 `site.description` 相同的篇数 1 → 0」的「1」就是这一篇，Task 1 Step 4 已把 spec 的 `0 → 0` 改成 `1 → 0`；本步把这「1」的根因消掉，而不是让它永远挂在台账里当现状。
 
-- [ ] **Step 2：改掉那一处（1 行），重建，产物自证**
+- [x] **Step 2：改掉那一处（1 行），重建，产物自证**
 
 `_posts/2026-09-25-claude-agents-md-remote-gate.md` 第 4 行，整行替换（值本身一字不改，只是包进双引号——已核过这一串里没有 `"`、没有 `'`、没有 `\`、没有半角 `: `，所以双引号是无损包裹；`：` 是全角，不是 YAML 的映射指示符）：
 
@@ -2432,7 +2432,7 @@ grep -o '<meta name="description"[^>]*content="[^"]\{0,40\}' _site/2026/09/25/cl
 
 **这一处改动会动到三个已有数**，Step 5 的台账按改后重测：① 这一篇的 meta 来源从「`site.description`」变成「本篇 `seo_description`」（Task 3 之后本来就是这样，本步没改 meta）；② `_layouts/post.html:467` 分享 widget 的 `description` 从 `"issue"` 变成整句；③ 产物 HTML 在这一篇上长了约 172 字节（导语从 5 字符到 177 字符），**不影响 §6.3 的 Δ 恒等式**——那一式只算 `.toc-static` 那块，两棵树都要在**本步之后**重建再量，否则 Δ 里混进这一处。
 
-- [ ] **Step 3：`描述` 组补第 ⑦ 条（源侧到 YAML 的忠实度）**
+- [x] **Step 3：`描述` 组补第 ⑦ 条（源侧到 YAML 的忠实度）**
 
 插在 Task 2 那段 `for (const p of posts) { ... }` 循环的**右花括号之后、本组块的收尾 `}` 之前**。判据打在产出语料（`posts` 已滤掉不产出的那一篇）上，键只认五个字符串键：
 
@@ -2470,7 +2470,7 @@ node scripts/check-seo.mjs > /tmp/gate/t10-gate.out 2>&1; echo "exit=$?"; tail -
 
 预期 `exit=0`、末行 `✓ SEO 门禁 14 组全绿（keywords / … / 换源 / 描述 / 词表 / 内链 / 目录）；JSON-LD <N> 块全部可解析`（那一句的门禁原文形状是 `` `✓ SEO 门禁 ${GROUPS.length} 组全绿（…）；JSON-LD ${blockTotal} 块全部可解析` ``，`check-seo.mjs:1162` 现证，**中间没有冒号**——别按记忆里的写法核它）。Step 2 已把唯一一处修掉，所以这一格落下去就是绿的；它的价值在 Step 4 的牙与防未来。**若这里红一条**，说明 Step 2 那处还有别的键中招——按红的那条再补一行引号，别放宽判据。
 
-- [ ] **Step 4：给第 ⑦ 条装牙（M18）**
+- [x] **Step 4：给第 ⑦ 条装牙（M18）**
 
 `cases` 数组收尾 `];` 之前追加（沿用 Task 4 的 `descTarget()`，它已保证靶子有摘要、产物在）：
 
@@ -2499,7 +2499,7 @@ grep -c "^    name: '" scripts/check-seo-teeth.mjs
 
 ---
 
-- [ ] **Step 5：§6.1 摘要覆盖率台账（用 Task 1 那把尺，改前列已现场钉死）**
+- [x] **Step 5：§6.1 摘要覆盖率台账（用 Task 1 那把尺，改前列已现场钉死）**
 
 **不许另起第三把尺**——§6.1 的每一格都由 Task 1 Step 8 附的 `/tmp/sp4-fm.rb` + `/tmp/sp4-61.cjs` 打出来，改前改后跑的是同一段代码。重建之后跑：
 
@@ -2558,7 +2558,7 @@ node /tmp/gate/sp4-band.cjs      # 在工作树根目录跑（脚本里的 R = '
 | 长度 ∈[60,140] code point | `inBand60to140` | `53`（`min 25 / median 76 / max 124`） | 必须 `80` | 80 条摘要都进带内且都成了 meta，才算 A4 真的接上了线 |
 | 落地板的篇（`subtitle` <25 且无摘要） | `floorShort` | `["_posts/2026-09-25-claude-agents-md-remote-gate.md"]` | 必须 `[]` | 与 `siteDesc=0` 是同件事的两面 |
 
-- [ ] **Step 6：§6.2 词表台账（面向读者的读数只有 `tags.html` / `categories.html` 打的那几个）**
+- [x] **Step 6：§6.2 词表台账（面向读者的读数只有 `tags.html` / `categories.html` 打的那几个）**
 
 命令与改前实测（起草时七条逐条跑过，全部对得上 spec §4.2 的「改前」列）：
 
@@ -2591,7 +2591,7 @@ grep -A3 '<section class="cat-section" id="开源实测"' _site/categories.html 
 
 ---
 
-- [ ] **Step 7：§6.3 A/B 三个数（正式那一遍，5 轮/侧取中位数）**
+- [x] **Step 7：§6.3 A/B 三个数（正式那一遍，5 轮/侧取中位数）**
 
 **负载门先行**：`sysctl -n vm.loadavg` 的第一个数（1 分钟）**> 16 就今天不跑**——既不算绿也不算红，改到负载低的时段再跑，台账里那一格写「拒测（1 分钟负载 X.YY）」。这一条不是洁癖：起草时唯一一轮真页冒烟落在负载 19.9 上，`responseStart` 读到 1460.7 ms（静态服务本地端口正常应 <100 ms），那一轮**只能证明量具接得上，不能用作交付数**。
 
@@ -2799,7 +2799,7 @@ grep -n '无 JS' _layouts/post.html | head -3
 
 预期那一句「无 JS 环境也拿不到半截列表」的字面串**不再出现**（spec §4.4 最后一条：留着就是下一届会照着做相反判断的缺陷）。
 
-- [ ] **Step 8：§6.4 台账——18 道全量回归跑在导出树里，逐道记「命令 / 退码 / 它自己打出来的那一句」**
+- [x] **Step 8：§6.4 台账——18 道全量回归跑在导出树里，逐道记「命令 / 退码 / 它自己打出来的那一句」**
 
 spec §6.4 要求的是**列出来才算数**：不数「道」的总数，逐道抄门禁自己的输出，非绿的每一处都要有归因。
 本步是这一批最后一次跑全量（Task 1–9 的红→绿账在这里合并），跑完之后 Step 9 才写 §9，Step 10 才提交。
@@ -3003,7 +3003,7 @@ git rev-parse HEAD > /tmp/gate/t10-head.txt
 `$U`（8.1 打出来的那个 40 位）、两份 md5、`git status --porcelain` 的空输出，一起进 §9.2。
 少任何一样，这张台账就退回到「我跑过我说过」的形状。
 
-- [ ] **Step 9：把这一批的账写回 spec（§5.1/§5.2 五处改口 + §8 ⑨⑩⑪ + 新增 §9 交付实录）**
+- [x] **Step 9：把这一批的账写回 spec（§5.1/§5.2 五处改口 + §8 ⑨⑩⑪ + 新增 §9 交付实录）**
 
 **9.1 §5.1 组 `描述` 那一格补第 ⑦ 条**
 
@@ -3095,7 +3095,7 @@ Task 1 Step 5 已把 ④–⑧ 落进去、标题改成「纠自己八次」。�
 每个数带口径（哪个树、哪个 baseurl、几轮中位）；§9.5 那几处缺陷**按发现顺序写而不是按严重度排**，
 读的人要能顺着时间线复核。
 
-- [ ] **Step 10：收口自证 + 提交（这两份文档不跑 prettier）**
+- [x] **Step 10：收口自证 + 提交（这两份文档不跑 prettier）**
 
 **10.1 一条先说清的「不做」**
 
