@@ -1676,6 +1676,17 @@ grep -c '^✗ 目录' /tmp/gate/t9-red.txt; grep '^✗ 目录' /tmp/gate/t9-red.
 后两条命令分别给出 `81` 与 `2`。**这里的 79 是从产物现数的**——Step 1 之前如果 `_site` 是旧物，这个数就不是 79，
 所以本步骤必须在 Task 1 的重建之后跑。④ 与 ② 此刻应当零红（JS 那一族还在、还没有页面多长出块）。
 
+> **执行时回写（2026-10-07，提交 `d3869d3`）两处，都在上面这段代码与它的预期之间：**
+>
+> 1. **`:1614` 那行 `tocBlockPages += 1` 的位置让它自己管的 ③ 变成一把假牙。** 它排在
+>    `if (navAt < 0)`（`:1615`）之前，数的是「这篇**该有**块」而不是「产物里**有**块」：A8 一行没落地时
+>    79 篇全走 ① 那支、计数器照加不误，③ 读成 `79 == 79` 恒绿。实测红灯因此是 **80 条**
+>    （`/tmp/gate/t9-red.txt` 末行 `✗ SEO 门禁：80 条不通过`），而不是这里预期的 81。
+>    把这一行挪到守卫之后（现 `check-seo.mjs:1469-1471`，带注释说明为什么不能挪回去），
+>    红灯正好 **81 = 79×① + ③ + ⑤**、非 ① 恰为 **2**，与这里的预期逐字对上。
+> 2. **`grep -c '^✗ 目录'` 与它后面那条同形命令永远给 0**——红线形状是 `✗ [组] 条目：消息`，组名带方括号。
+>    要写 `grep -c '^✗ \[目录\]'`（Task 8 那条回写是同一个坑，这次连计划里的验证命令一起改口）。
+
 - [ ] **Step 3：新建 `_plugins/toc.rb`**
 
 整本文件（探针里那份的实现，模块名换正式名）：
@@ -1892,6 +1903,15 @@ const ids=[...s.matchAll(/<h[23]\b[^>]*\bid="([^"]*)"/g)].map(m=>m[1]);
 console.log("entries="+hrefs.length,"每条都在正文 id 集合里="+hrefs.every(h=>ids.includes(h)),"顺序相等="+JSON.stringify(hrefs)===JSON.stringify(ids));
 '
 ```
+
+> **执行时回写（2026-10-07，提交 `d3869d3`）：这一段按原文跑会直接崩，且它只查了一篇。**
+>
+> `s.matchAll(/<nav class="toc-static"[\s\S]*?<\/nav>/g)[0][0]` 里 `matchAll` 返回的是**迭代器**，
+> `[0]` 是 `undefined`，`undefined[0]` 抛 `TypeError` —— 要写 `[...s.matchAll(…)][0][0]`。
+> 执行时改成 `/tmp/gate/t9-hrefs3.js`：先断言「该页 nav 块恰好一枚」，再把比较范围从「一篇的中位子集」
+> 换成**全 80 篇逐字同序比对**，读数是 `文章页=80 有块=79 逐字顺序相等=79 只子集=0 不符=0`
+> （比原计划那句「每条都在正文 id 集合里」强一档：href 序列与 h2/h3 的 id 序列连顺序一起钉住）。
+> Task 10 Step 的 G4 那两条命令（`:2692-2693`）用的是 `indexOf` 切片，没有这个坑。
 
 - [ ] **Step 7：A/B 脚手架 + 冒烟（2 轮/侧，正式五个数在 Task 10）**
 
@@ -2187,6 +2207,30 @@ node /tmp/gate/sp4-ab.mjs --site=_site                  --label=new   --mode=act
 - **`firstActionSel`：new 侧必须是 `toc-static-link`**，head 侧必须是 `toc-link`；new 侧的 `firstActionAt` 若晚于 head 侧，
   说明内联脚本没在前、静态块被 `has-js` 收起得太早，或 `page.toc` 压根没进版式——同样进排错表。
 
+> **执行时回写（2026-10-07，提交 `d3869d3`）三处，都在 Step 7：**
+>
+> 1. **7c 那三个夹具的源码不在计划里**（只有 2152-2153 两行描述），按描述重建到 `/tmp/gate/absite/`：
+>    `.toc-static` 一族的规则逐条从产物 `index.min.css` 里抽（不是手抄），正文三段各 2400px，
+>    400ms 后挂 `body.has-toc` 并 `position:fixed` 补一枚 `.toc-link`（fixed 是为了让 fake-head 那条
+>    「cls=0」不被注入自身弄脏）。因此六条期望值里带「实测」的**三个数**（`navHAt0=82`、`441.7`、`317.1`）
+>    不可能逐字复现——**六条方向全部成立**，这就是脚手架不撒谎的证据：
+>    `fake-head` cls=0.00000 / shifts=0 / navH0=null；`fake-new` cls=0.06872>0 / navH0=122.6 / navH@toc=0；
+>    `fake-new2` cls=0.00000 / navH0=0；action 侧 `fake-head` 是 `toc-link`@462.9（>400）、
+>    `fake-new2` 是 `toc-static-link`@65（<400）；`innerWidth` 每行 1280。
+> 2. **静态服务器那段（`:1941`）给所有响应打 `text/html`，Chrome 因此拒收样式表**（"Refused to apply style sheet"），
+>    两侧都在**无 CSS 状态**下量：`navH0` 读出 1710 / 272（那是 85 条与 13 条目录项的裸布局高度），
+>    而 CLS 恒 0.00000——看着像「零位移」的理想结果，其实是实验被量具做空了。按扩展名给 MIME
+>    （css→`text/css`、js→`text/javascript`、字体与图片各归各）之后才有真数：
+>    new 侧 `navH0=0`，两侧 CLS 才第一次可比。**Task 10 跑正式五个数之前必须先确认这一条已修**，
+>    并把这条写进 §9.6 的量具踩坑。
+> 3. **`PG=2019-07-26-javascript-design-pattern.html,…`（`:2177`）是显示层折叠后的形状**，盘上真形是
+>    `2019/07/26/javascript-design-pattern.html`；照手打的样子传给脚本会得到 `ENOENT`（本刀实测两次）。
+>    执行时改成 `find`/`readdir` 现数现拼、落到 `/tmp/gate/t9-pg.txt`，命令里 `PG=$(cat /tmp/gate/t9-pg.txt)`。
+>    同一段里的导出树还缺一样：`git archive` 不带 `node_modules`，在那棵目录里跑 `npx vite build`
+>    会去网上抓 `vite@8.3.3`（本仓锁 6.4.3）、`failed to load config`、**exit=1**，而紧跟其后的
+>    `bundle exec jekyll build` 照样 exit=0，产出一棵**没有 CSS/JS 的 `_site`**。
+>    软链主仓的 `node_modules` 并改用 `npx --no-install vite build` 才是基线该有的样子。
+
 **这一刀排错表**（每一步都是「先看什么」，按顺序）：
 
 | 症状 | 第一处要看 |
@@ -2289,6 +2333,18 @@ git commit -F /tmp/gate/sp4-t9.txt
 
 `git diff --cached --name-only` 必须正好这 5 行。提交信息主题：
 `feat(blog): A8 构建期静态目录——79 篇产物正文之前有目录，JS 起来首帧即收起（目录组五条判据 + 四把牙）`。
+
+> **执行时回写（2026-10-07，提交 `d3869d3`）：Step 9 那第二条 prettier 命令落不下去，两文件都按原样提交。**
+>
+> - `_layouts/post.html` 是 Liquid，prettier 的 HTML 解析器在 `{% if series_of_post %}`（`:328`）处
+>   **报错并不写文件**（`[error]` 打了 20 多行、退出码却是 0）——这一刀那四行 Liquid 是手写的，
+>   形状已由产物自证（`<script>…has-js…</script>` 与 `<nav class="toc-static">` 同一行、中间零空白，
+>   见 C 块那条 href 全量比对的 79/79）。
+> - `dev/sass/common/editorial.scss` 全篇是 4 空格缩进、`.18s` 这种省零写法，prettier 一跑就是
+>   **整份重排（305KB 差异，含上一批刀子的行）**。已按格式化前的逐字节副本还原，
+>   `git diff --numstat` 只留 `51 / 0`。本仓没有 scss 的 prettier 约定（`package.json` 无 stylelint 脚本），
+>   新增那 51 行按文件既有约定写（4 空格、属性顺序照 neighbors），不进 prettier。
+> - 两个脚本照常过 prettier：`unchanged` / `unchanged`，前后 `node --check` 与门、台账各重跑一遍。
 
 ---
 
