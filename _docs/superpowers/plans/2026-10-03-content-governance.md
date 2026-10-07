@@ -2618,6 +2618,38 @@ done
 node -e 'const fs=require("fs");const med=(a)=>[...a].sort((x,y)=>x-y)[Math.floor(a.length/2)];const g=(f)=>fs.readFileSync(f,"utf8").trim().split("\n").map(JSON.parse);for(const[k,f]of Object.entries({headCls:"/tmp/gate/t10-head-cls.jsonl",newCls:"/tmp/gate/t10-new-cls.jsonl",headAct:"/tmp/gate/t10-head-act.jsonl",newAct:"/tmp/gate/t10-new-act.jsonl"})){if(!fs.existsSync(f)){console.log(k+" 缺文件");continue;}for(const p of [...new Set(g(f).map(r=>r.page))]){const rs=g(f).filter(r=>r.page===p);console.log(k+" "+p+" n="+rs.length+" load="+med(rs.map(r=>r.timings&&r.timings.load))+" dcl="+med(rs.map(r=>r.timings&&r.timings.dcl))+" inter="+med(rs.map(r=>r.lastLongTaskEnd))+" cls="+med(rs.map(r=>r.cls))+" hasToc="+med(rs.map(r=>r.hasTocAt))+" act="+med(rs.map(r=>r.firstActionAt))+" sel="+JSON.stringify(rs.map(r=>r.firstActionSel).sort()[Math.floor(rs.length/2)]))}}'
 ```
 
+> **执行时回写（2026-10-07，随 §9 那笔文档提交）四处，都在 Step 7：**
+> 1. **上面那个 `for r in 1 2 3 4 5` 的循环按原文跑，盘上只有第 5 轮。** 四次调用共用
+>    `--out=/tmp/gate/t10-<side>-<mode>.jsonl`，而 `sp4-ab.mjs:233` 是 `fs.writeFileSync`（**覆盖写不是追加**），
+>    于是「5 轮中位数」在盘上退化成「1 轮」，而汇总脚本照算、照绿、`n=` 那一格会打出 1——
+>    这一条差点蒙过去的唯一原因是它把 `n=` 打了出来。改成每轮一份
+>    `t10-<side>-<mode>-r<round>.jsonl`（20 个文件、10 行/侧/模式）之后才算真的跑了 5 轮；
+>    残缺那份留着当证据（`*.overwrite-defect.jsonl` + 那一遍的驱动日志）。
+> 2. **落点从 `/tmp/gate` 换到 `$TMPDIR/sp4t10/gate`。** 这一轮 `/tmp/gate` 整目录不在了
+>    （这台机器上 `/tmp` 会被清，Task 9 的夹具与脚手架一起没）。夹具按 Step 7c 那段文档**照着重建**，
+>    重建后先跑六条期望值、全中，再量真页面——顺序不许倒。
+> 3. **判读规则 1 的第二小句（`new` 侧 `shifts` 里不许出现「`hasTocAt` 之后仍有非零位移」）在两棵树上同时红。**
+>    `2019/07/26/javascript-design-pattern.html` 那一枚 0.04317 的位移在 `head`/`new`、`cls`/`action`
+>    四种组合里都是 5/5 轮出现、时刻都在 `hasTocAt` 之后（约 6.4–7.1 s），来源是本批没碰过的
+>    `dev/js/editorial.js` 揭示动效（`navHAtToc = 0`：静态块在收起那一刻不产生位移）。
+>    第一小句（`new − head` ≤ 0.02）按 **Δ = 0.000000000** 成立。**这一格按 Δ 记，把那处既有位移写成偏离并移交**
+>    （spec §9.4 第 6 条、§9.8 第 2 条），不假装规则 1 整条绿了——Task 9 Step 5 那条 `html.has-js .toc-static`
+>    首帧隐藏买到的正是「`navHAt0 = 0`、且 `hasTocAt` 那一刻不产生新位移」，它管不到别的动效。
+> 4. **`firstActionSel = toc-static-link` 量的是 DOM 里存在可跳锚点，不是真鼠标命中**（JS 开着时静态块是
+>    `display:none`，探针每 50 ms 试探的是 `<a>` 存在 + `scrollY`/`location.hash` 真的动了）。
+>    规则 2 照原文判（成立），但台账里那一格要带这句限定，否则读者以为「首屏已经能用鼠标点目录」。
+
+**Step 7b 的两处实测注脚**（恒等式本身成立，`diff = 0`；补这两条是因为 Δ 表按原文照抄会误导）：
+
+- **gzip 那一列的口径是 `cat f | gzip -9 | wc -c`。** 用 `gzip -9 -c f | wc -c` 会多算 gzip 头部的 FNAME 字段
+  （`len(basename)+1` 字节，本机实测 12 = 11 + 1），起草时那两格 62,273 / 26,703 是按前者量的。
+- **`head` 基线是 `2b9464c`（整批之前），不是「本刀之前」**，所以单篇 Δ 里除 A8 的目录块还含 A4/刀3 的改动：
+  `javascript-design-pattern` 恰好只有目录块（Δ 10,253 = nav 10,188 + 脚本 65，残差 **0**），
+  `ai-sdd` 的 Δ 2,185 = 1,757 + **428**，那 428 B 逐行对过是 A4 描述回填改到的 4 行
+  （`meta description` / `og:description` / `twitter:description` / JSON-LD `description`）。
+  **量具没有骗人，是基线选得宽**——这一句要跟着数一起写，否则「恒等式残差 428」看起来像 bug。
+
+
 数怎么取（口径逐字，写进 §9 时不许含糊）：
 
 | 数 | 取法 | 为什么是这个口径 |
@@ -2795,6 +2827,24 @@ cd /tmp/gate/t10 && npx vite build && bundle exec jekyll build
 否则台账量的产物和 Task 1 自证的产物不是同一份）。**不带 `--baseurl ""`**：与线上一致用默认
 `/better-blog`，而牙齿台账里若干锚点带的就是这一串（带空 baseurl 会让那些刀静默不命中 → 假牙）。
 
+> **执行时回写（2026-10-07，随 §9 那笔文档提交）三处，都在 8.1：**
+> 1. **落点同 Step 7 第 2 条一起换到 `$TMPDIR/sp4t10/gate/t10`**，`mkdir` 不带 `-p`（与 Task 9 (7d) 那两处导树
+>    同一个规矩：让「已存在」当场停下，换名再导，绝不 `rm -rf` 共享落点）。上面那段写的是 `mkdir -p`，
+>    与本计划自己的另一处口径不一致，执行时按不带 `-p` 走。
+> 2. **`npx vite build` 要写成 `npx --no-install vite build`**——不带 `--no-install` 时 npx 可能去联网取
+>    另一版本，台账量的就不是这棵树自己的构建工具（Task 9 (7d) 的回写里已经钉过一次）。
+> 3. **导出树要 `git init` 一次，否则 8.3 里 `计划镜像牙` 那道跑不动。**
+>    `verify-plan-blocks-teeth.mjs:268` 的 `dirtyFingerprint()` 要拍 `git status --porcelain`
+>    （实验前后各一张、必须一模一样），而 `git archive` 出来的树**没有 `.git`** → rc=1，
+>    且因为 stdout 是空的、按 `> file 2>/dev/null` 收 stdout 的台账只抄到一行空白，看不出它为什么没跑。
+>    修法是只在这棵临时树里 `git init -q` + `git add -A` + 一次性提交（`user.name`/`user.email` 用 `-c` 现给），
+>    跑完 `git status --porcelain` 仍是 0 行——牙齿自己证明它没留脏。**不改主仓、不改工作树。**
+> 4. **符号 `$U` 在本任务里指两个不同的 revision，别再复用这一个名字。** 8.1 这里
+>    `U=$(git rev-parse HEAD)` 是「台账跑的那棵树」（本轮 = `ae55ad9`），而 Step 7 与 10.7 里的
+>    `$U` 是 `git merge-base HEAD main`（本轮 = `2b9464c`，A/B 的 `head` 基线、未推计数 `git log --oneline <U>..HEAD` 的起点）。
+>    8.5 那句「拿 `$U` 那棵基线导出树」用的是后者。执行时写成 `UH=$(git rev-parse HEAD)`（导树的）
+>    与 `UM=$(git merge-base HEAD main)`（基线的），两个都落进台账（§9.2 记 `UH`，§9.1/§9.3 记 `UM`）。
+
 **8.2 认树：三本产物的 md5 + 页数对账**
 
 ```bash
@@ -2843,6 +2893,27 @@ find "$S/_site" -name '*.html' | wc -l
 | 编解码浏览器 | `node scripts/verify-codec-browser.mjs` | `合计 <N> 项，红 0 项` | 0（环境起不来按 2 记并归因，见 8.5） |
 | 编解码浏览器牙 | `node scripts/verify-codec-browser-teeth.mjs` | `合计 <N> 个注入，点燃 <N> 个` | 0 |
 | 身份证浏览器 | `node scripts/verify-idcard-browser.mjs` | `<N>/<N> 通过` | 0 |
+
+> **执行时回写（2026-10-07，随 §9 那笔文档提交）三处，都在 8.3：**
+> 1. **表 A 里那三道浏览器门禁的命令缺 `TK_SITE_DIR`，按原文跑一律退 2。**
+>    `verify-tools-browser.mjs`、它的 teeth、`verify-codec-browser-teeth.mjs` 这三部都要环境变量，
+>    且 `verify-tools-browser.mjs:1045` 那条 `0a` 判据要求它指向**「那个根的 `_site`」之外**的副本——
+>    **导出树里的 `$S/_site` 也算**（它拒的是 `path.join(ROOT, '_site')`，与是不是主仓无关）。
+>    实跑给三份**互不相同**的副本：`cp -R "$S/_site" <目录>/_site`，**不能用 `cp -al`**——
+>    牙齿是原地改写文件，硬链共享 inode 会连被测树一起改掉。
+>    `verify-codec-browser.mjs`（本格）不需要：它默认读 `ROOT/_site` 且只读。
+> 2. **`seo 牙` 那一行的形状列写错了组：实跑是 `描述 7 / 词表 6`，不是 `描述 6 / 词表 7`。**
+>    差的还是 M9：它一把跨 `描述` ① + `词表` ⑤，而一条案例只有一个 `group`、`分账` 按登记的那组计数，
+>    `check-seo-teeth.mjs` 里 M9 的 `group:` 是 `描述`（Task 10 Step 8.6 那句「不写后一处，17 格算不出来」
+>    讲的同一件事，形状列却没跟着改）。总数 155 与 `grep -c "^    name: '"` 的 155 相等这一条照旧成立。
+> 3. **「末行逐字形状」这一列对三部浏览器门禁不适用**：它们的 stdout 最后一行是噪声
+>    （`verify-codec-browser.mjs` 末尾是 `# Chrome pid=…；站外噪声…97 条`，
+>    `verify-tools-browser.mjs` 末尾是 `# 分组：…` 那一长行，teeth 末尾是「红项读数留在哪个目录」）。
+>    台账要的是它们各自那句**汇总行**（`合计 115 项，红 0 项` / `合计 9 项（六刀 + 三自检），点燃 9 项` /
+>    `合计 37 项，红 0 项` / `合计 5 个注入，点燃 5 个`），所以取法是 `> file 2>/dev/null` 之后 **grep 汇总行**，
+>    不是 `tail -1`；退码仍认命令自己的 `$?`。
+>    另一句实话：`verify-codec-browser-teeth.mjs` 自己的注入编号也是 `M1…M5`，
+>    与 `check-seo-teeth.mjs` 的 M1–M18 **不是同一套**，台账里别写成同一个 M。
 
 **推导口径三条**：
 
@@ -3059,6 +3130,18 @@ grep -cE '^\| M[0-9]+ \|' "$D"        # 期望 18：M1…M18 一行不少一行�
 
 第三条**不是**「无输出」那一类，它是一个必须等于 18 的数。不等于 18 就是表少写/多写了一行，
 按 `grep -nE '^\| M' "$D"` 逐行点名找出来，别改正则去凑。
+
+> **执行实录（Task 10，2026-10-07）——第一条的「期望无输出」站不住，两条改成同一套判据。**
+> 实跑：第一条命中 **1 行**（`696`，§9.4 偏离表第 2 行的「起草时写的」列，里面写的正是
+> `M1–M14（定稿时）→ M1–M15 → M1–M16`）；第二条命中 **5 行**，按这里给的四个标志词滤完剩
+> **1 行**（`418`，§6.1 那句「那 39 篇的 `subtitle` 全部 ≥25 字符」，紧跟的字面是「这句不成立」）。
+> 两处都**不是**把旧数当现状陈述——恰恰是那两节必须原样抄下被推翻的旧口径，否则读者看不出哪一版废了。
+> 所以判据改成这一条（对两条 grep 用**同一个**标志词集，且**以命令输出为准**回写到这里，
+> 没有就近改数）：`grep … "$D" | grep -vc '定稿时\|不成立\|起草时\|改成\|错\|取消'` 两条都必须为 **0**。
+> 实跑结果：第一条 1 → 滤后 **0**；第二条 5 → 滤后 **0**。相比起草时那份，标志词集多了
+> `定稿时`（偏离表的列名措辞）与 `不成立`（§6.1 的推翻措辞）两个——**这不是把滤网放宽来放过命中**，
+> 起草时那四个词本来就没打算盖住表格列名和「这句不成立」这两种真实写法，是网眼漏的，补上才对得上意图。
+> 第三条实跑 `18`，与期望相符，未动。
 
 **10.3 与文档有关的门禁复跑一遍**
 
