@@ -889,10 +889,11 @@ SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等�
 + `npx --no-install vite build && bundle exec jekyll build`（默认 baseurl）；
 `new` = 工作树 `it-sp234`——SP3 `0cf36dc` → SP2 `80674e5` → SP4 `415b4b6` 三个 merge 落在 main 尖 `8eee1f8` 之上，
 `_site` 由 `415b4b6` 那套源在 19:30:35 建出，之后的 `2662572` 只动 `_docs` 两本（§6.0 那把新鲜度门不扫 `_docs`）。
-未推硬证是 `git branch -r --contains HEAD` 打空。**ahead / main-unique 这组数只记构造**
-（`git rev-list --left-right --count main...HEAD`）：起草这一格时是 `0 47`（那 47 == `8eee1f8..2662572`），
-本节末段 `341f0e2` 重测是 **`1 50`**——多出的三笔是本节三笔 doc 提交，那 **1 笔 main-unique 是新落 `main` 的 `db9c6c5`**，
-它把「三批并入 main 尖」这句里的 main 尖从 `8eee1f8` 挪走了，逐读数的影响见本节最后一段。
+未推硬证是 `git branch -r --contains HEAD` 打空。**ahead / main-unique 只记构造、不记数**：
+构造是 `git rev-list --left-right --count main...HEAD`（左列 main-unique、右列 ahead），而**每落一笔本节自己的 doc 提交右列就 +1**，
+所以这里只钉两个能用 rev 复算的锚点——`8eee1f8..2662572` = **47**（起草这一格时的来源）、`8eee1f8..341f0e2` = **50**。
+左列现在是 **1**，那一笔是新落 `main` 的 `db9c6c5`——它把「三批并入 main 尖」这句里的 main 尖从 `8eee1f8` 挪走了，
+对各格读数的影响见本节最后一段。
 
 **基线自证**：重导出来的 head 树那两篇是 `472,790 / 83,055` B、gzip `62,273 / 26,703` B，
 与 §9.3 表的 head 列**逐字相同**（gzip 口径仍是 `cat f | gzip -9 | wc -c`）——基线没跑偏，这一节和 §9.3 是同一把尺，数可以横着比。
