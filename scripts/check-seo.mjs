@@ -1509,7 +1509,7 @@ for (const { rel, text } of postPages) {
   if (hasJsAt < 0 || hasJsAt > navAt) bad('目录', rel, '⑤ 的门控半边：.toc-static 之前没有那段给 <html> 挂 has-js 的内联脚本——静态块会先画一帧再收起，读者看到一次塌陷');
 }
 if (tocBlockPages !== tocNeededPages)
-  bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，正文 h2/h3 ≥ ${TOC_MIN} 个的有 ${tocNeededPages} 篇——差的 ${tocNeededPages - tocBlockPages} 篇由 ① 逐页点名（期望值按产物现算，不钉常数：这一组今天报的 79 是起草时语料的读数，新增一篇达标稿它就该跟着长，钉住它等于给每篇新文章判一次假红）`);
+  bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，正文 h2/h3 ≥ ${TOC_MIN} 个的有 ${tocNeededPages} 篇——差的 ${tocNeededPages - tocBlockPages} 篇由 ① 逐页点名（期望值按产物现算，不钉常数：起草那一版语料的达标读数是 79，新增一篇达标稿它就该跟着长，钉住它等于给每篇新文章判一次假红）`);
 
 for (const [what, needle] of TOC_JS_MARKERS) {
   if (!readSrc('dev/js/editorial.js').includes(needle)) bad('目录', 'dev/js/editorial.js', `④ 找不到 ${what}——A8 不许把 JS 那一族删掉`);
