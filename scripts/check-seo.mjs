@@ -1431,9 +1431,91 @@ if (TOOL_MATCH_TAGS.size !== 33) {
   if (inBodyLinks < 5) bad('内链', '_posts', `正文里的工具内链一共 ${inBodyLinks} 枚，少于地板 5 枚（spec §4.3 要 5–8 条，每条都要能指出它接的是正文里的哪一句话）`);
 }
 
+// ── 组 14：目录（A8 构建期静态目录，spec §4.4 / §5.1 组 目录）─────────────────────
+
+const TOC_NAV = /<nav class="toc-static" aria-label="文章目录（静态）">([\s\S]*?)<\/nav>/;
+const TOC_HEAD = /<(h[23])\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+const TOC_ATTR_ID = /\bid=["']([^"']*)["']/i;
+const TOC_LI = /<li class="toc-static-item toc-(h[23])"><a class="toc-static-link" href="#([^"]*)">/g;
+const TOC_MIN = 2; // 与 editorial.js:250-251 同一口径
+const TOC_PAGES_OK = 79; // §1 事实 19：80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2
+const TOC_JS_MARKERS = [
+  ['dev/js/editorial.js 里的 "toc-link"', "'toc-link'"],
+  ['dev/js/editorial.js 里的 "toc-list"', "'toc-list'"],
+  ['dev/js/editorial.js 里的 ".toc-fab"', "'.toc-fab'"],
+];
+
+let tocBlockPages = 0;
+for (const { rel, text } of postPages) {
+  const region = postBodyRegion(text);
+  if (!region) continue; // 「这一页没有 #post-body」由语料组报，这里不重复占一格
+  const body = text.slice(region.start, region.end);
+  const heads = [];
+  let k = -1;
+  for (const m of body.matchAll(TOC_HEAD)) {
+    k += 1;
+    const idm = TOC_ATTR_ID.exec(m[2]);
+    heads.push({ level: m[1].toLowerCase(), id: idm ? idm[1] : `section-${k + 1}` });
+  }
+  const navAt = text.search(TOC_NAV);
+  if (heads.length < TOC_MIN) {
+    if (navAt >= 0) bad('目录', rel, `② 正文只有 ${heads.length} 个 h2/h3（< ${TOC_MIN}），产物里却有静态目录块——阈值与 JS 分叉了，读者会看到一个空框`);
+    continue;
+  }
+  if (navAt < 0) {
+    bad('目录', rel, `① 正文有 ${heads.length} 个 h2/h3，产物里却没有 <nav class="toc-static"> 块`);
+    continue;
+  }
+  // 计数器只数「产物里真的有块」的页：数在 navAt 之前会把「该有块」当成「有块」，
+  // ③ 那条在今天读成 79==79 恒绿，A8 一行没落地也不会红——那是一把假牙。
+  tocBlockPages += 1;
+  const items = [...TOC_NAV.exec(text)[1].matchAll(TOC_LI)].map((m) => ({ level: m[1], id: m[2] }));
+  if (items.length !== heads.length) bad('目录', rel, `③ 静态条目 ${items.length} 条 vs 正文标题 ${heads.length} 个`);
+  for (let i = 0; i < Math.max(items.length, heads.length); i++) {
+    const a = items[i];
+    const b = heads[i];
+    if (!a || !b || a.id !== b.id || a.level !== b.level) {
+      bad('目录', rel, `① 序列不一致：第 ${i + 1} 条静态条目是 ${a ? `${a.level}#${a.id}` : '（缺）'}，正文第 ${i + 1} 个标题是 ${b ? `${b.level}#${b.id}` : '（缺）'}`);
+      break;
+    }
+  }
+  const hasJsAt = text.indexOf('has-js');
+  if (hasJsAt < 0 || hasJsAt > navAt) bad('目录', rel, '⑤ 的门控半边：.toc-static 之前没有那段给 <html> 挂 has-js 的内联脚本——静态块会先画一帧再收起，读者看到一次塌陷');
+}
+if (tocBlockPages !== TOC_PAGES_OK) bad('目录', '_site', `③ 带静态目录块的产物是 ${tocBlockPages} 篇，应为 ${TOC_PAGES_OK} 篇（80 篇产出语料里只有 2018/12/25/qqweiboshare.html 的 h2+h3 < 2）`);
+
+for (const [what, needle] of TOC_JS_MARKERS) {
+  if (!readSrc('dev/js/editorial.js').includes(needle)) bad('目录', 'dev/js/editorial.js', `④ 找不到 ${what}——A8 不许把 JS 那一族删掉`);
+}
+if (postPages.length) {
+  for (const needle of ['id="toc-list"', 'class="toc-list"', 'class="toc-fab"']) {
+    if (!postPages[0].text.includes(needle)) bad('目录', postPages[0].rel, `④ 文章页产物里没有 ${needle}：JS 目录的三个落点少了一个`);
+  }
+}
+
+{
+  const css = readSite('assets/css/index.min.css');
+  let hit = null;
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const sels = m[1].split(',').map((s) => s.trim());
+    if (!sels.some((s) => /(^|\s)body\.has-toc \.toc-static$/.test(s))) continue;
+    if (!/display:\s*none/.test(m[2])) {
+      bad('目录', 'assets/css/index.min.css', `⑤ body.has-toc .toc-static 那条规则里没有 display:none（实际声明块 ${m[2].slice(0, 60)}）`);
+      hit = null;
+      break;
+    }
+    const depth = (css.slice(0, m.index).match(/\{/g) || []).length - (css.slice(0, m.index).match(/\}/g) || []).length;
+    if (depth !== 0) bad('目录', 'assets/css/index.min.css', `⑤ 隐藏规则落在了 @media 里（深度 ${depth}）——只在某个断点生效，别的断点仍是两份同显`);
+    if (!sels.some((s) => /(^|\s)html\.has-js \.toc-static$/.test(s))) bad('目录', 'assets/css/index.min.css', '⑤ 隐藏规则的选择器集里没有 html.has-js .toc-static——JS 起来那一帧之前没人收起静态块');
+    hit = sels;
+    break;
+  }
+  if (!hit) bad('目录', 'assets/css/index.min.css', '⑤ 找不到 body.has-toc .toc-static 这条规则——静态块与 JS 抽屉会同时显示');
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链', '目录'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +

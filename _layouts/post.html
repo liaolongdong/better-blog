@@ -211,6 +211,9 @@
     <div class="g-container post-grid">
     {%- comment -%} id="main" 是 _includes/header.html 那条「跳到主要内容」的落点 {%- endcomment -%}
     <div class="post-main" id="main">
+    {%- if page.toc -%}
+    {%- capture toc_static_items -%}{%- for item in page.toc -%}<li class="toc-static-item toc-{{ item.level }}"><a class="toc-static-link" href="#{{ item.id }}">{{ item.text | escape }}</a></li>{%- endfor -%}{%- endcapture -%}<script>document.documentElement.className += ' has-js';</script><nav class="toc-static" aria-label="文章目录（静态）"><p class="toc-static-title">本文目录</p><ol class="toc-static-list">{{ toc_static_items }}</ol></nav>
+    {%- endif -%}
       {%- comment -%}
       正文这一趟要不要领 fetchpriority="high"：有封面时 LCP 候选是上面那颗头图
       （头图那次调用已经领了），正文首图在折叠线以下，再领一枚 high 只会稀释提示；
@@ -274,10 +277,12 @@
     </div>
 
     {%- comment -%}
-    目录由 dev/js/editorial.js 从 #post-body 的 h2/h3 构建，构不出条目时不给
-    body 加 .has-toc，此处即保持隐藏，不会出现空白框或无 JS 环境的残缺列表。
+    下面这一族是 dev/js/editorial.js §1 的目录：条目由 JS 从 #post-body 的 h2/h3 现建，
+    建不出（不足 2 节）就不给 body 加 .has-toc，这一栏保持隐藏，不会出现空白框。
     窄屏（<1240px）右侧栏位放不下，这一栏改由左下角「目录」按钮唤起的底部抽屉呈现：
-    用的是同一份 DOM 和同一套高亮逻辑，不复制列表，无 JS 环境也拿不到半截抽屉。
+    同一份 DOM、同一套高亮逻辑，不复制列表。
+    「无 JS 也读得到目录」由 :214 那块静态目录（_plugins/toc.rb + .toc-static）负责——
+    它是构建期从渲染后的正文里出的条目，JS 一起来就被 CSS 收起，两份不同时可见（判据在组 目录）。
     {%- endcomment -%}
     <button class="toc-fab" type="button" aria-expanded="false" aria-controls="post-rail">
       <span class="toc-fab-glyph" aria-hidden="true">≡</span>目录

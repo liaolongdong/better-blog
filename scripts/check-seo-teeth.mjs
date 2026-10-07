@@ -727,6 +727,17 @@ const bodyToolLink = (rel) => {
   return at >= 0 && close > at ? /href="(\/better-blog\/tools\/[a-z0-9-]+\.html)"/.exec(html.slice(at, close)) : null;
 };
 
+/**
+ * 目录组（M11/M13/M14/M17）的靶子：一篇「产物里有静态块」的页面。
+ * 不写死文件名——写死一篇就可能撞上那篇没有块的（2018-12-25-qqweiboshare），
+ * 那一刀落在不存在的块上会被记成「假牙」，其实是靶子选错了。
+ */
+const tocTarget = () =>
+  first(
+    POSTS.filter((q) => has(q.rel) && fs.readFileSync(siteAbs(q.rel), 'utf8').includes('class="toc-static"')),
+    '目录组的靶子（产物里带静态目录块的文章页）',
+  );
+
 const cases = [
   // ── 语料 ──
   {
@@ -2142,6 +2153,30 @@ const cases = [
       const href = bodyToolLink(q.rel)[1];
       siteEdit(q.rel, (s) => subInBody(s, href, href.replace(/\/tools\/[a-z0-9-]+\.html$/, '/tools/nope.html'), `M12 ${q.rel}`));
     },
+  },
+  {
+    name: 'M11 删掉某篇静态目录的第一条 <li>',
+    group: '目录',
+    expect: '序列不一致',
+    mut: () => S.siteCutRe(tocTarget().rel, /<li class="toc-static-item toc-h[23]"><a class="toc-static-link" href="#[^"]*">[^<]*<\/a><\/li>/),
+  },
+  {
+    name: 'M13 摘掉整块静态目录（留一个空 div）',
+    group: '目录',
+    expect: '却没有 <nav class="toc-static"> 块',
+    mut: () => S.sitePatch(tocTarget().rel, /<nav class="toc-static"[\s\S]*?<\/nav>/, () => '<div class="toc-static"></div>', '静态目录块'),
+  },
+  {
+    name: 'M14 删掉 CSS 里收起 .toc-static 的那条规则',
+    group: '目录',
+    expect: '找不到 body.has-toc .toc-static',
+    mut: () => S.siteCutRe('assets/css/index.min.css', /[^{}]*\.toc-static[^{}]*\{[^{}]*display:\s*none[^{}]*\}/),
+  },
+  {
+    name: 'M17 摘掉静态块之前那段 has-js 内联脚本',
+    group: '目录',
+    expect: '没有那段给 <html> 挂 has-js 的内联脚本',
+    mut: () => S.siteCutRe(tocTarget().rel, /<script>document\.documentElement\.className \+= ' has-js';<\/script>/),
   },
 ];
 
