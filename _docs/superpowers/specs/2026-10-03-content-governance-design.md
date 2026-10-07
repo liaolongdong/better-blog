@@ -162,6 +162,10 @@ Jekyll 读出的 tags 上、重新分桶数一遍得到的（复算方式：对 
 并入的目标那枚 `开源实测` 的桶 **17 → 21**，正是这四篇并进去的增量）、
 只挂 1 篇的分类 **4 → 2**（改前那 4 枚逐字是 `React`、`开源`、`编程语言`、`CSS`，消失的是 `开源` 与
 `编程语言` 两枚，`React` 与 `CSS` 留下；`开源工具` 本来就挂 3 篇，不是单篇。
+**改前那两个数（17 枚键、单篇 4 枚）是起草那一版语料的读数**：同一把尺量 main 尖 `8eee1f8` 是
+**18 枚键、单篇 5 枚**（第五枚 `前端`，出处与机制见 §4.2 动作 3 那条最小站实测），
+所以本刀在 main 尖之上实际让归档落点消失的是四枚而不是三枚（三枚是被并进来的旧键，第四枚 `前端` 是被改名换掉的）；**改后的 14 枚键、单篇 2 枚（`React`、`CSS`）
+是现值**，源侧按上面那套口径重算过，产物侧 `categories.html` 的 `cat-section` 落点也是 14 枚，两侧相等。
 探针 `/tmp/sp4-probe3.json` 打了 17 枚键的完整直方图：`AI 23 / 开源实测 17 / 前端工程化 15 /
 JavaScript 10 / H5与微信 6 / 算法与面试 5 / 服务器与部署 4 / 工具与效率 4 / Chrome插件 4 /
 TypeScript 3 / Vue 3 / 开源工具 3 / 随笔 2 / React 1 / 开源 1 / 编程语言 1 / CSS 1`——
@@ -225,10 +229,23 @@ Jekyll 早就把它拆成 `Vibe` 与 `Coding` 两枚了（§1 事实 11），它
   - `_data/og_images.yml` 这一条**不触发**（起草时写着「重跑生成器」，实测不成立）：卡面文字只画在
     **没有 `cover`** 的文章上，而这 4 篇全部带 front matter `cover`（各 `grep -c '^cover:'` = 1），
     且它们一枚都不在这张表里（`grep -c 'bend\|scriptc\|univer\|gitdiagram' _data/og_images.yml` = 0；
-    该表 68 条，YAML 读出的键数）。所以这一刀**不重跑生成器、不碰那份并发会话正持有的文件**；
+    该表 68 条，YAML 读出的键数）。
+    **合并到 main 尖之后这一条仍然不触发，但覆盖面从 4 篇变 5 篇**：这一刀在 `8eee1f8` 之上多治一篇
+    `2026-10-06-vite-wasm-query-fs-bypass.md`（起草后才落进 main，见下一条），它也带 `cover`
+    （`^cover:` = 1）、也不在那张表里（needle 加上 `vite-wasm` 之后 `grep -c` 仍是 0）；
+    本树只读 `node scripts/og-images.mjs --check` 退码 0，摘要行逐字是
+    「自检通过：表 68 条，卡片 34 张全部在磁盘上、尺寸 1200x630、无孤儿文件。」，与起草时同形。
+    所以这一刀**不重跑生成器、不碰那份并发会话正持有的文件**；
     自证改成改前改后各跑一次只读的 `node scripts/og-images.mjs --check`，退码与摘要行必须一模一样。
     **生成模式（不带 `--check`）会重写这份产物**，一次都不许跑。
-  - `categories.html` 的锚点少 **3 枚**（`#开源`、`#开源工具`、`#编程语言`）。分类的消费面实测是
+  - `categories.html` 的锚点少 **3 枚**（`#开源`、`#开源工具`、`#编程语言`）——这 3 枚是起草那一版语料的读数，
+    在 main 尖 `8eee1f8` 之上是 **4 枚**：多的那枚是 `#前端`，来自起草后才落进 main 的
+    `2026-10-06-vite-wasm-query-fs-bypass.md:categories: AI 前端`。机制是 Jekyll 把那枚标量按 `/\s+/`
+    拆成 `AI` 与 `前端` 两枚键（最小站探针实测 `KEY=[AI] N=2 / KEY=[前端] N=2 / SIZE=2`，
+    与 `categories: [AI, 前端]` 等价，就是本节开头说的「在 Jekyll 里等价」那条）。
+    口径（两棵树都能重算）：逐篇取 `^categories:` 行，标量按 `/\s+/` 拆、`[A, B]` 按逗号拆，取并集比对；
+    产物侧落点集 = `categories.html` 里 `<section class="cat-section" id="X">` 的那些 `id`
+    （本树 14 枚，与算式逐字相等）。分类的消费面实测是
     **6 个文件**：`_layouts/post.html:49-56`（面包屑）、`_includes/jsonLd.html:83,86-87`（第 2 条面包屑，
     带 `#分类` 的 `item` URL）、`_includes/seoMeta.html:165`（`article:section`）、
     `tags.html:58-63`（标签归档里每篇挂的分类 chip，`:61` 直接链 `categories.html#X`）、
@@ -454,11 +471,19 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
 
 ## 7. 风险与移交
 
-1. **A9 一共让 8 枚锚点消失，另有 1 枚新锚点长出来**，而这些旧地址在站外可能被分享过
+1. **A9 一共让 8 枚锚点消失，另有 1 枚新锚点长出来**（这 8 枚是起草那一版语料的总数；
+   在 main 尖 `8eee1f8` 之上是 **9 枚**——categories 侧从 3 枚变 4 枚，多的那枚是 `#前端`，见 §4.2 动作 3），
+   而这些旧地址在站外可能被分享过
    （例如 `tags.html#Chrome`、`categories.html#开源工具`）。
-   逐枚点名：tags 侧被并掉 4 枚（`Chrome`、`React`、`Vite`、`WebMCP`，各只挂 1 篇）、
-   改名 1 枚（`#coding` 消失、新增 `#coding.net`，挂 1 篇）、categories 侧消失 3 枚（`开源`、`开源工具`、`编程语言`）；
-   4 + 1 + 3 = 8，动作 4 一枚都不动。站内**没有**手写的旧锚点需要跟改——所有指向 `tags.html#X` / `categories.html#X`
+   逐枚点名：tags 侧被并掉 4 枚（`Chrome`、`React`、`Vite`、`WebMCP`；起草语料里各只挂 1 篇，
+   main 尖上 `Vite` 挂 **2** 篇——`2023-05-08-vue3-vite-study` 与 `2026-10-06-vite-wasm-query-fs-bypass`，另三枚仍是 1 篇）、
+   改名 1 枚（`#coding` 消失、新增 `#coding.net`，挂 1 篇）、categories 侧消失 3 枚（`开源`、`开源工具`、`编程语言`），
+   main 尖之上再 +1 枚 `前端`；
+   4 + 1 + 3 = 8（起草语料）／4 + 1 + 4 = 9（main 尖），动作 4 一枚都不动。
+   消失只发生在**它自己那一页**：`前端`、`开源` 两枚从 `categories.html` 没了落点，同名键在 `tags.html`
+   仍有落点（实测两页各自的 `<section class="cat-section" id="X">` 集：tags 151 枚、categories 14 枚，
+   上面点名的 9 枚在对应页命中 0、留存侧 `chrome`/`react`/`vite`/`webmcp`/`coding.net` 各命中 1）。
+   站内**没有**手写的旧锚点需要跟改——所有指向 `tags.html#X` / `categories.html#X`
    的链接都是**构建期从 front matter 现拼**的（`index.html:91,156,216`、`tags.html:61`），
    会自动跟着走；真正会断的是站外旧链接，而站内没有重定向机制
    （`jekyll-redirect-from` 不在 `_config.yml:277-280` 的插件里，全站 front matter 无 `redirect_from`）。
@@ -707,6 +732,7 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
 | 13 | A/B 量具用**计划镜像块**而不是 Task 9 那版重建 | 两处形状不同 | 按计划 :1923-2155 逐字镜像出来的脚本缺 Task 9 回写的那条 MIME 修复；补的是一处有据的补丁（按扩展名给 `content-type`），不是重写。补丁生效的正证：new 侧 `navHAt0 = 0`（若 CSS 全 404，读到的是裸布局高度而不是 0），且六条夹具期望值全中 |
 | 14 | §6.4 那句「14 本」按文件是 **15** | 14 | `verify-codec-browser.mjs（+ 它的 teeth）` 被并进了同一行；台账按文件出 15 个文件、14 行（§8 ⑨） |
 | 15 | `目录` ③ 的期望值从**钉死 79 篇**改成**按产物现算**（集成轮，提交 `ddcf682`） | 「这样的产物**恰好 79 篇**」（§5.1 那一行原文） | 长出第一篇达标新帖就把常数顶红：达标 80、带块 80，**产物没错、常数是错的**。改判 `tocBlockPages !== tocNeededPages`，红话把差值交回 ① 逐页点名；牙没动（`目录` 那 4 把的 `expect` 里没有一处 `79`，复跑仍 159/159）。§5.1 与计划 Task 9 Step 2 回写第 3 条跟着改口，§1 事实 19 那个 79 仍是起草读数、不改 |
+| 16 | 这一刀在 main 尖上的覆盖面是 **5 篇**而不是计划那张表的 4 篇（集成轮） | 计划 Task 6 Step 3 逐字列 4 篇 `categories:` 改法 | `8eee1f8` 比起草语料多一篇 `2026-10-06-vite-wasm-query-fs-bypass.md`，它的 `categories: AI 前端`（空格分隔多分类，撞 `词表` ③）与 `tags: Vite 安全 dev-server`（大写侧撞 `vite`，撞 ①）正是本刀要治的形状，不跟着治则 `词表` 组直接红，所以它被并进同一刀。连带四个只在起草语料上成立的读数必须在 main 尖之上重读，本档已按重读值改口：`site.categories.size` 改前 **17 → 18**、只挂 1 篇的分类改前 **4 → 5**（第五枚 `前端`）、categories 侧消失的归档落点 **3 → 4 枚**、§7.1 的消失锚点总数 **8 → 9 枚**；`Vite` 的持有 1 → **2 篇**。改后的现值不受影响（tags 落点 151、categories 落点 14、`开源实测` 桶 21，两侧实测相等） |
 
 ### 9.5 揪出并修掉的缺陷（按发现顺序）
 
@@ -823,7 +849,11 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
    **已暂存未提交**（并发会话持有）。
 5. **`check-seo.mjs` 自己的 front matter 读取器**应换成 `scripts/lib/post-meta.mjs`（同一处逻辑两份实现，
    M18 那一族的判据以后要跟着两份改）。
-6. **`tags.html` 的 8 枚消失锚点**（§7.1）：A9 让 8 枚标签的 `id` 不再存在、新长出 1 枚。
+6. **归档页消失的锚点**（§7.1）：起草那一版语料读到的是「`tags.html` 8 枚」，**这个 8 不是 tags 一页的数**——
+   它是 tags 侧 5 枚 + categories 侧 3 枚的合计。逐枚点名：`tags.html` 少 `Chrome`、`React`、`Vite`、`WebMCP`、`coding`
+   （留存侧是 `chrome`、`react`、`vite`、`webmcp`、`coding.net`，其中 `coding.net` 是新增的那 1 枚）、
+   `categories.html` 少 `开源`、`开源工具`、`编程语言`；在 main 尖 `8eee1f8` 之上 categories 侧还要 +1 枚 `前端`，
+   合计 **9 枚消失 / 1 枚新长**。两页的落点集在产物上实测过（tags 151、categories 14）。
    站外分享过的旧地址没有 301 可用（Pages 静态站），这一格只能是**已知风险**，不是待办。
 7. **`index-all.html` 那句「无脚本」claim**：那页写着不依赖 JS，而它自己的 `?q=` 检索是要 JS 的。
    与 §9.5 第 4 条同类（过期注释/过期文案），但它不在本批四刀范围内。

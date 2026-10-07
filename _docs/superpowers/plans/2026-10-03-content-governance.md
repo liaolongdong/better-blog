@@ -897,12 +897,20 @@ git commit -F /tmp/gate/sp4-t5.txt
 **Files:**
 - Modify（tags 侧 5 篇）：`_posts/2026-09-29-webmcp-modelcontext-mount.md`、`_posts/2026-07-12-facebook-astryx.md`、`_posts/2023-05-08-vue3-vite-study.md`、`_posts/2018-12-05-move-githubblog-to-coding.md`、`_posts/2026-07-12-alibaba-page-agent.md`
 - Modify（categories 侧 4 篇）：`_posts/2026-09-29-scriptc-native-x64-gap.md`、`_posts/2026-09-30-univer-node-two-gaps.md`、`_posts/2026-10-01-gitdiagram-keyless-mcp-4-bad-edges.md`、`_posts/2026-09-27-bend-laws-proof-gaps.md`
+- **执行时回写（集成轮，2026-10-07）**：这两行的覆盖面在 main 尖 `8eee1f8` 之上各加一篇
+  `_posts/2026-10-06-vite-wasm-query-fs-bypass.md`——它起草后才落进 main，形状正是本刀要治的两种
+  （`categories: AI 前端` 空格分隔多分类撞 ③、`tags: Vite 安全 dev-server` 的大写侧与存量 `vite` 撞 ①），
+  不治则 `词表` 组直接红。两张表因此各加一行（见下），「九行」变**十一行**。
+  连带读数在 main 尖之上重算：categories 侧消失的归档落点 3 枚 → **4 枚**（多的那枚 `#前端`）、
+  `Vite` 的持有 1 篇 → **2 篇**、`site.categories.size` 改前 17 → **18**、只挂 1 篇的分类改前 4 → **5**；
+  改后现值不变（tags 落点 151、categories 落点 14）。spec §9.4 第 16 行记的是同一件事。
 - Modify（行尾）：`_posts/2019-02-25-you-dont-kown-js-tips.md`
 - Modify（注释改口）：`categories.html:15`
 
 - [x] **Step 1：动作 1+2 —— 四枚合并 + 一枚改名（逐字 before → after）**
 
 下面九行是本仓库现证的原文与目标，**逐字**替换（每篇只动 `tags:` 那一行，行号一并给出是为了定位）。
+**（集成轮回写：连下面第三张表，两张表合计从九行变十一行——多出的两行是 `2026-10-06` 那篇的 tags 侧与 categories 侧。）**
 
 > **执行时回写（2026-10-06，提交 `e3a8cea`）**：这三张表里的行号已经旧了——Task 3 给 39 篇各插了一行
 > `seo_description`，于是 `tags:` 从 9 挪到 10、`categories:` 从 7 挪到 8（`2018-12-05` 那篇是 12，没变）。
@@ -915,6 +923,7 @@ git commit -F /tmp/gate/sp4-t5.txt
 | `2026-07-12-facebook-astryx.md` | 9 | `tags: AI React 设计系统 开源 Meta Astryx StyleX 前端组件库` | `tags: AI react 设计系统 开源 Meta Astryx StyleX 前端组件库` |
 | `2023-05-08-vue3-vite-study.md` | 7 | `tags: Vue3 Vue2 Vite webpack 前端框架` | `tags: Vue3 Vue2 vite webpack 前端框架` |
 | `2018-12-05-move-githubblog-to-coding.md` | 12 | `tags: git github coding blog 博客` | `tags: git github coding.net blog 博客` |
+| `2026-10-06-vite-wasm-query-fs-bypass.md` | 10 | `tags: Vite 安全 dev-server` | `tags: vite 安全 dev-server` |
 
 `Coding` 那枚**不动**：它挂在别的篇上，与 `coding.net`（平台）不是同一件事，
 合并会把「coding.net 平台」和「Vibe 编码方式」塞进同一枚标签（spec §8 那一次掉头）。
@@ -937,8 +946,12 @@ git commit -F /tmp/gate/sp4-t5.txt
 | `2026-09-30-univer-node-two-gaps.md` | 7 | `categories: 开源工具 TypeScript` | `categories: [开源实测, TypeScript]` |
 | `2026-10-01-gitdiagram-keyless-mcp-4-bad-edges.md` | 7 | `categories: 开源工具 TypeScript` | `categories: [开源实测, TypeScript]` |
 | `2026-09-27-bend-laws-proof-gaps.md` | 7 | `categories: 开源 编程语言` | `categories: [开源实测]` |
+| `2026-10-06-vite-wasm-query-fs-bypass.md` | 8 | `categories: AI 前端` | `categories: [AI, 前端工程化]` |
 
 `开源` / `开源工具` / `编程语言` 三枚分类从此消失，`开源实测` 的桶 17 → 21。
+**（集成轮回写：在 main 尖 `8eee1f8` 之上消失的是四枚，第四枚是 `前端`——它由上面新加的那行换掉，
+Jekyll 把 `categories: AI 前端` 按 `/\s+/` 拆成 `AI` 与 `前端` 两枚键；`AI` 那枚留下，`前端` 从此在
+`categories.html` 没有落点。`开源实测` 桶 17 → 21 不变，因为第五篇并进的是 `前端工程化` 不是 `开源实测`。）**
 **方括号形态只用在多分类上**：单分类仍是裸标量（全站其余篇都这样），③ 的判据也只查
 「裸标量里含空白」，不会因为这篇用了方括号就要求别篇跟进。
 
