@@ -204,8 +204,9 @@
   icon: /assets/img/tools/json-tool.svg
   status: ready
   # `vite` 与 `Vite` 两枚都留着不是笔误：Liquid 的 `contains` 按字符串精确比，大小写不同就是
-  # 两枚 tag，而语料里两种写法各有 1 篇（2022-08-08 用小写、2023-05-08 用大写）。
-  # 归一化文章 front matter 是另一件事（设计文档 §A9），这一格不替它做决定。
+  # 两枚 tag。语料里的现状是 `vite` 有 3 篇持有（2022-08-08 / 2023-05-08 / 2026-10-06）、`Vite`
+  # 一篇都没有——2023-05-08 那枚大写是 SP4·A9（e3a8cea）并进小写的。留着 `Vite` 是给「语料再长出
+  # 一枚大写」兜底；要删它，得连带动 `scripts/check-seo.mjs` 里 `TOOL_MATCH_TAGS.size !== 33` 那格。
   match_tags:
     - npm
     - pnpm
