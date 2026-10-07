@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 收录面自证器：`_data/onlineTools.yml` 里每条 `status: ready` 的工具页，必须在
- * 「页面本身 / 三处收录点 / 顶栏导航 / 图标 / DOM 契约」这五层上互相对得上。
+ * 「页面本身 / 三处收录点 / 顶栏导航 / 图标 / DOM 契约 / 地址栏名单」这六层上互相对得上。
  *
  * 为什么要有这个脚本（设计文档 §4.4 第 8 条、§8.2）：这一族事实分散在五个地方，而它们
  * 全部**不会因为写错而报错**——
@@ -11,6 +11,9 @@
  *     warning 就**把整个循环渲染成空**，sitemap 少一条收录、下拉少一行，构建退出码仍是 0；
  *   - 页面骨架改了一个控件 id，装配层的 spec 没跟着改：构建与页面全绿，
  *     红的是运行时——而且只红那一块面板，没人点就没人知道。
+ *   - 进地址栏的那几枚档位（组 6）：键名、控件、骨架 `<option>`、默认档四者分散在三个文件，
+ *     错任何一处都是"分享出去的链接静默变一档 / 用户敲进去的内容写进了链接"，
+ *     而构建、页面、运行时三处都不报错。
  * 前三次收口都是"跑一遍看看"，所以把"看看"写成判据。
  *
  * 用法：
@@ -19,7 +22,7 @@
  *   node scripts/check-tools-surface.mjs --list          # 只打印将要核对的条目与检查项
  *
  * 失败形状（退 1，不静默）：每条失败打印 `[组名] 条目：说明`，末尾给总数。
- * 通过形状：`✓ 收录面 N 条 ready 条目 × 5 组判据全绿`。
+ * 通过形状：`✓ 收录面 N 条 ready 条目 × 6 组判据全绿`。
  *
  * 两道防止"门禁自己变哑"的设计：
  *   1. `_site` 不存在或不新鲜时**报错而不是跳过**——跳过会让它在没构建的机器上永远绿。
@@ -175,7 +178,23 @@ async function loadSpec(t) {
       actions = mod[s.actions];
     }
   }
-  return { table, ids, actions };
+  /**
+   * 第五格 `defaults`：**按条目选读**，只有「默认档不取 `options[0]`」的那一页要写。
+   * 它是那份写死的默认表在那本模块里的导出名（对比页的 `DEFAULTS`——「恢复默认档」用的也是它）。
+   * 组 6 拿它去对撞骨架里带 `selected` 的那一枚 option：这一页的默认档有两个声明处
+   * （HTML 那一枚 `selected`、装配层 `DEFAULTS` 里那一格），而「改了默认档没改另一处」在页面上
+   * 是完全安静的——分享出去的链接静默变一档，构建与运行时都不报错。
+   * 没写这一格（JSON 页）就按 `options[0]` 判，与装配层同一条口径，不在这里另立。
+   */
+  let defaults = null;
+  if (s.defaults) {
+    if (!mod[s.defaults] || typeof mod[s.defaults] !== 'object') {
+      bad('DOM', t.slug, `${s.module} 没有导出对象 ${s.defaults}（spec.defaults 指名了它，取不到就核不了默认档）`);
+    } else {
+      defaults = mod[s.defaults];
+    }
+  }
+  return { table, ids, actions, defaults };
 }
 
 // ── 组 1：页面源文件与 yml 的 title / permalink / 检索文案 ─────────────────────
@@ -867,6 +886,157 @@ function resetAccumulators() {
   wantWhen.clear();
 }
 
+// ── 组 6：地址栏名单（spec §2 的第二处声明；spec 里这一组代号 `urlState`） ──────
+
+/**
+ * 哪些档位进地址栏，是这一族**唯一能被分享出去**的状态，所以它必须有两处互相独立的声明可对撞：
+ * 装配层那侧从 `SPEC` 现产 `URL_KEYS`（页面里不写第二份清单），门禁这一侧按 spec §2 逐字列一遍。
+ * 拿表去比表（同一处声明读两遍）等于什么都没判——「档位控件增删改名而名单没跟着改」的下场是
+ * 分享链接静默少一档或多一档，构建、页面、运行时三处都不报错，与 §8.2 那族写死数字同病。
+ *
+ * 这里写的是**裸控件 id**（`view`）而不是地址栏里那枚键（`jt-view`）：键名 = `prefix` + id，
+ * 而 `prefix` 住在 yml。抄一次 `jt-view` 就把同一件事写成三处，改前缀时这里必然过期。
+ *
+ * `layout: panels` 那两页按设计不在表里（它们进地址栏的是 `#hash`，不是档位）。表里凭空多一条
+ * 非 workbench 的条目、或 workbench 页少了自己那一行，两种都是判据空转，见函数里那两格反向闸。
+ */
+const URL_STATE = {
+  json: ['view', 'indent', 'sort'],
+  diff: ['mode', 'layout', 'context', 'ws', 'case'],
+};
+
+/**
+ * 负名单：spec §2「输入不进地址栏」那五格。用户敲进去的东西一旦进地址栏，分享出去的链接
+ * 就把内容本身发给了别人——这几格里躺着的是他人贴来的 JSON、源码或两份待对比的文件。
+ * 它们与 `URL_STATE` 的键同形（都是控件 id），所以「同一枚控件既是档位又是输入」这种
+ * 自相矛盾的名单写法，会在 `checkUrlState` 的两个方向上各红一次。
+ */
+const URL_INPUTS = ['doc', 'query', 'a-text', 'b-text', 'memorize'];
+
+/**
+ * 名单与控件之间唯一的连接器是装配层 `URL_KEYS` 那一句过滤，而它**今天长什么样**是可静态读的，
+ * 于是逐字钉住：放宽它 = 输入进地址栏（JSON 页那枚 `query` 就是这么被排除的），
+ * 收紧它 = 名单少一键。判据 ④ 比的是「表 ↔ 名单」，捏不到这句自己——表没变而过滤变了，
+ * 只有这一格抓得住，所以它不是 ④ 的重复。改这句的人必须同时改这里，两处一起改才是有意为之。
+ */
+const URL_FILTER = {
+  json: "c.type === 'select' && c.id !== 'query'",
+  diff: "c.type === 'select' || c.type === 'checkbox'",
+};
+
+/** 组 6 的计数器：负名单那五格有没有真的存在于某一页的表里（不在就空转，收口时全站审一次） */
+const urlInputSeen = new Set();
+
+/**
+ * 从产物里那一枚 `<select>` 读出 option 序列与「浏览器自己认为的默认档」。
+ *
+ * 默认档取带 `selected` 的那一枚，没有 `selected` 才是第一枚——这跟装配层 `selectOf` 与
+ * 浏览器的行为同一条，也是 `verify-tool-url.mjs` 房规第 4 条同一条口径。两处都取「第一枚」
+ * 会漏掉对比页：那一页 `context` 四档里钉默认的是第二枚（`3`）。
+ *
+ * @returns {{values: string[], dflt: string|null}|null} 取不到那枚 select 就返回 null
+ */
+function optionFacts(builtHtml, id) {
+  const open = new RegExp(`<select\\b[^>]*\\bid="${escRE(id)}"[^>]*>`).exec(builtHtml);
+  if (!open) return null;
+  const tail = builtHtml.slice(open.index + open[0].length);
+  const end = tail.indexOf('</select>');
+  if (end < 0) return null;
+  const values = [];
+  let selected = null;
+  for (const m of tail.slice(0, end).matchAll(/<option\b([^>]*)>/g)) {
+    const v = /\bvalue="([^"]*)"/.exec(m[1]);
+    const value = v ? v[1] : '';
+    values.push(value);
+    if (selected === null && /\bselected\b/.test(m[1])) selected = value;
+  }
+  return { values, dflt: selected ?? (values.length ? values[0] : null) };
+}
+
+function checkUrlState(t, builtHtml, spec) {
+  const layout = resolveLayout(t, t.panels.map((x) => x.slug));
+  const want = URL_STATE[t.slug];
+  if (!want) {
+    // 正向闸：workbench 页没在表里 → 这一页的地址栏名单判据一行都不跑，绿是空转的绿
+    if (layout === 'workbench') bad('地址栏名单', t.slug, `${t.slug} 是 workbench 而 URL_STATE 没有这一行——名单判据在这一页空转（加一页必须同时在这里登记自己那一串键）`);
+    return;
+  }
+  if (layout !== 'workbench') bad('地址栏名单', t.slug, `URL_STATE 有这一行但 layout=${layout}——那一支进地址栏的是 #hash，没有档位名单这回事`);
+  if (!spec) return;
+  const p = t.prefix;
+
+  const tableOf = new Map();
+  const candidates = [];
+  for (const panel of spec.ids) {
+    const sides = spec.table[panel]?.sides || {};
+    for (const side of Object.keys(sides)) {
+      for (const c of sides[side].controls || []) {
+        if (tableOf.has(c.id)) bad('地址栏名单', t.slug, `控件 ${c.id} 在两栏各出现一次——键名 ${p}-${c.id} 会互相覆盖，地址栏里只剩最后一次写入`);
+        tableOf.set(c.id, { panel, cfg: c });
+        if (URL_INPUTS.includes(c.id)) urlInputSeen.add(c.id);
+        if ((c.type === 'select' || c.type === 'checkbox') && !URL_INPUTS.includes(c.id)) candidates.push(c.id);
+      }
+    }
+  }
+
+  // ③ 负判据的第一支：名单自己不许含输入格（第二支是 URL_FILTER 那句钉，表变不了这一格）
+  for (const id of want) {
+    if (URL_INPUTS.includes(id)) bad('地址栏名单', t.slug, `${p}-${id} 出现在名单里——它是用户敲进来的内容，进地址栏等于把输入内容写进可分享的链接`);
+  }
+  // ③ 第二支：连接器那句过滤逐字钉住
+  const m = hasSrc(t.spec.module) ? /const URL_KEYS =([\s\S]*?);/.exec(readSrc(t.spec.module)) : null;
+  if (!m) {
+    bad('地址栏名单', t.slug, `${t.spec.module} 里读不到「const URL_KEYS =」那一句——名单与控件之间的连接器不见了，判据 ③ 无从钉`);
+  } else if (!m[1].includes(URL_FILTER[t.slug])) {
+    bad('地址栏名单', t.slug, `${t.spec.module} 的 URL_KEYS 过滤不再是 ${JSON.stringify(URL_FILTER[t.slug])}——这句是「输入不进地址栏」与「档位全进地址栏」的唯一执行处，改它必须连门禁这里一起改`);
+  }
+
+  const ids = new Set([...builtHtml.matchAll(/\bid="([^"]+)"/g)].map((x) => x[1]));
+  for (const id of want) {
+    const ref = tableOf.get(id);
+    if (!ref) continue;
+    const domId = `${p}-in-${ref.panel}-${id}`;
+    // ① 名单逐键拼得出真实 DOM id
+    if (!ids.has(domId)) bad('地址栏名单', t.slug, `名单里 ${p}-${id} 拼出的控件 #${domId} 不在产物里——进站读它永远落回默认档，改档位也不会写回去`);
+    if (ref.cfg.type === 'checkbox') continue;
+    // ② 白名单与骨架 option 同序同字，且默认档两端同一枚
+    const fact = optionFacts(builtHtml, domId);
+    const opts = ref.cfg.options;
+    if (!fact) {
+      bad('地址栏名单', t.slug, `${p}-${id} 在产物里不是 <select>（装配层按 select 收它，白名单与真实可选值两头对不上）`);
+      continue;
+    }
+    if (!Array.isArray(opts)) {
+      bad('地址栏名单', t.slug, `${t.spec.table} 里 ${id} 是 select 却没有 options 数组——URL_KEYS 构造期就抛，这一页整块挂`);
+      continue;
+    }
+    if (opts.join(' ') !== fact.values.join(' ')) {
+      bad('地址栏名单', t.slug, `${p}-${id} 的白名单 [${opts.join('/')}] 与骨架 option [${fact.values.join('/')}] 不同序或不同字——分享链接里的值一端认、另一端不认`);
+    }
+    const dflt = spec.defaults ? spec.defaults[id] : opts[0];
+    if (dflt === undefined) {
+      bad('地址栏名单', t.slug, `${t.spec.defaults} 里没有 ${id} 那一格——装配层的 dflt 取到 undefined，落回默认时写进地址栏的是空值`);
+    } else if (dflt !== fact.dflt) {
+      bad('地址栏名单', t.slug, `${p}-${id} 的默认档：装配层那一份是 ${JSON.stringify(dflt)}，骨架里带 selected 的是 ${JSON.stringify(fact.dflt)}——「改了默认档而另一处没改」在页面上完全安静，分享出去的链接静默变一档`);
+    }
+  }
+
+  // ④ 名单之外不许有键（集合口径：成员同、枚数同；参数在地址栏里的先后归 verify-tool-url.mjs）
+  if (candidates.join(' ') !== want.join(' ')) {
+    const onlyTable = candidates.filter((x) => !want.includes(x));
+    const onlyList = want.filter((x) => !candidates.includes(x));
+    const why = [onlyTable.length && `${t.spec.table} 里有而名单没有 [${onlyTable.join('/')}]（新一档没登记，或输入格没进负名单）`,
+      onlyList.length && `名单里有而表里不是档位 [${onlyList.join('/')}]（控件改名或摘掉了，键名指向一个不存在的档位）`].filter(Boolean).join('；');
+    bad('地址栏名单', t.slug, `名单 [${want.join('/')}] 与「表里的 select/checkbox 减掉输入那一族」[${candidates.join('/')}] 不等：${why}`);
+  }
+}
+
+/** 负名单的反恒真守护：五格里任何一枚在某页的表里出现过，这一族判据才真的在数东西 */
+function auditUrlInputs() {
+  const unseen = URL_INPUTS.filter((id) => !urlInputSeen.has(id));
+  if (unseen.length) bad('地址栏名单', '全站', `负名单里的 [${unseen.join('/')}] 在任何一页的装配层表里都不存在——「输入不进地址栏」正在判一个压根没有的控件，这一格已经空转`);
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
 console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
@@ -874,7 +1044,7 @@ if (LIST_ONLY) {
   for (const t of ready) {
     console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，layout ${t.layout ?? '（缺省=panels）'}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
   }
-  console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM');
+  console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM / 地址栏名单');
   process.exit(0);
 }
 
@@ -896,9 +1066,11 @@ for (const t of ready) {
   checkNav(built, t);
   checkIcon(t);
   checkDomContract(t, built, specs.get(t.slug));
+  checkUrlState(t, built, specs.get(t.slug));
 }
 
 auditNavSiteWide();
+auditUrlInputs();
 
 /** 反向一条：planned 条目不该出现在任何收录面上（"先进清单、后补正文"最容易漏的就是这里） */
 for (const t of toolsData.filter((x) => x.status !== 'ready')) {
@@ -913,4 +1085,4 @@ if (fails.length) {
   console.log(`✗ 收录面门禁：${fails.length} 条不通过`);
   process.exit(1);
 }
-console.log(`✓ 收录面 ${ready.length} 条 ready 条目 × 5 组判据全绿（页面源/收录/导航/图标/DOM）`);
+console.log(`✓ 收录面 ${ready.length} 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`);

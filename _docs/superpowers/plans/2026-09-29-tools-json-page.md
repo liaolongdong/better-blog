@@ -7408,8 +7408,10 @@ class FieldError extends Error {
  * @param {object} env 依赖注入。四本纯模块与 `jsonView` 是直接 `import` 的（只有一个入口 reach 它们），
  *   框架层（`view` / `ui`）与宿主环境全部从 `env` 进来。
  * @param {object} env.document 要有 `getElementById` 与 `createElement`（树行是自己 `createElement` 出来的）
- * @param {{view: object, ui: {copyInto: Function}}} env.Tk `window.Tk` 里的那两格：`view` 出转义与占位串，
- *   `ui.copyInto` 兜底复制。缺 `view.esc` 或缺 `ui.copyInto` 都在构造期点名（W12）
+ * @param {{view: object, ui: {copyInto: Function}, url?: object}} env.Tk `window.Tk` 里的那几格：
+ *   `view` 出转义与占位串，`ui.copyInto` 兜底复制。缺 `view.esc` 或缺 `ui.copyInto` 都在构造期点名（W12）。
+ *   第五只 `url`（SP2 Task 1 那本档位 ↔ 地址栏的纯函数）**不在构造期点名**：地址栏是镜像不是来源，
+ *   缺它这一页照样能用，只是档位不再进地址
  * @param {(id: string, fn: (el: object) => void) => boolean} env.runGuarded 把一次动作包进去；
  *   非函数就抛（按钮回调不许自己 `try/catch` 出第二套错误口径）
  * @param {string} [env.prefix] 前缀，默认 `jt`；给了但不是非空字符串就抛（W12）
@@ -7422,6 +7424,10 @@ class FieldError extends Error {
  * @param {(b: object) => string} [env.createObjectURL] `URL.createObjectURL` 的别名
  * @param {(u: string) => void} [env.revokeObjectURL] `URL.revokeObjectURL` 的别名
  * @param {object} [env.navigator] 只为 `clipboard`；没有就走 `execCommand` 兜底
+ * @param {{search: string, pathname: string, hash?: string}} [env.location] 只为地址栏那三格，
+ *   给了但 `search` / `pathname` 不是字符串就在构造期点名；缺席就整段不同步（这一页没地址栏状态照样能用）
+ * @param {{replaceState: Function}} [env.history] 同上，且只调 `replaceState`——改档位不是新历史，
+ *   后退不该先退回上一个档位
  * @returns {{renderers: Record<string, Function>, actions: Record<string, Function>,
  *   state: () => object, mount: () => {missing: string[], rendered: string[]}}}
  */
@@ -7461,6 +7467,15 @@ export function createJsonWorkbench(env = {}) {
     && (typeof e.prefix !== 'string' || e.prefix === '')) {
     throw new TypeError(`createJsonWorkbench：env.prefix 应是非空字符串或缺席（落 jt），收到 ${String(e.prefix)}`);
   }
+  // 地址栏那两格是**可选面**：缺席就整段不同步，给了却是残件就是有人在传一只假 `location`。
+  // 与 `storage` 那一条同形——只在你给了的时候点名，不逼每一页都给。
+  if (e.location !== undefined && e.location !== null
+    && (typeof e.location.search !== 'string' || typeof e.location.pathname !== 'string')) {
+    throw new TypeError('createJsonWorkbench：给了 env.location 但 search/pathname 不是字符串，档位进地址栏会静默不生效');
+  }
+  if (e.history !== undefined && e.history !== null && typeof e.history.replaceState !== 'function') {
+    throw new TypeError('createJsonWorkbench：给了 env.history 但没有 replaceState，档位进地址栏会静默不生效');
+  }
 
   const doc = e.document;
   const view = e.Tk.view;
@@ -7477,6 +7492,15 @@ export function createJsonWorkbench(env = {}) {
   const clipboard = nav && nav.clipboard ? nav.clipboard : null;
   const canBlob = typeof e.BlobCtor === 'function'
     && typeof e.createObjectURL === 'function' && typeof e.revokeObjectURL === 'function';
+  /**
+   * 档位 ↔ 地址栏那三只（SP2 Task 1）。`urlMod` / `loc` / `hist` 缺任何一只就**整段不同步**——
+   * 这一页的行为与加这一格之前逐字节一样：地址栏是结果的镜像，不是来源，镜像的画布缺席
+   * 不该影响被画的那件事。（`history` 与 `location` 只在入口 `toolJson.js` 里读一次真宿主，
+   * 这一层不写 `window.`，与上面 `nav` 那一条红线同源。）
+   */
+  const urlMod = e.Tk.url && typeof e.Tk.url.sync === 'function' ? e.Tk.url : null;
+  const loc = e.location && typeof e.location.search === 'string' ? e.location : null;
+  const hist = e.history && typeof e.history.replaceState === 'function' ? e.history : null;
   const onKey = `${prefix}.memory.on`;
   const inKey = `${prefix}.memory.input`;
   /**
@@ -8094,6 +8118,31 @@ export function createJsonWorkbench(env = {}) {
 
   // ── 接线与挂载 ──────────────────────────────────────────────────────────
 
+  /**
+   * 进地址栏的那三枚档位（`jt-view` / `jt-indent` / `jt-sort`）。键表由 `JSON_SPEC` 现产，
+   * 不写第二份清单：`options` 与 `dflt` 都从那张表读，`dflt` 取 `options[0]`——骨架钉的是
+   * 「第一枚 `<option>` 就是默认档」，与 `valueOf` 里那两处 `?? 'two'` / `?? 'off'` 同源。
+   * `query` 是 `type: 'text'`，那行 filter 天然把它挡在外面（它是用户敲进来的检索词，不是档位）；
+   * `doc` 与 `memorize` 同样不在名单里，理由在 spec §1.9 与 §2 的白名单那一段。
+   * 每格因此带两个名字：`name` 是地址栏里那枚键，`control` 是 `JSON_SPEC` 里的裸控件 id（拼真实 DOM id 用）。
+   */
+  const URL_KEYS = JSON_SPEC[PANEL].sides[SIDE].controls
+    .filter((c) => c.type === 'select' && c.id !== 'query')
+    .map((c) => ({ name: `${prefix}-${c.id}`, control: c.id, kind: 'select', options: c.options, dflt: c.options[0] }));
+
+  /**
+   * 把当前三枚档位同步进地址栏。只读控件、只写地址栏，**一次计算都不做**（W16 红线 4）；
+   * 读数走 `valueOf` 那一只（空串与缺控件一律落默认档），这里不再写第二套取值口径。
+   * `sync` 自己已经把 `replaceState` 的抛点收敛成 `false`，外面这一层 `try` 守的是别的抛法，
+   * 抛上来的下场只该是"这一次没写进地址栏"。
+   */
+  const syncUrl = () => {
+    if (!urlMod || !loc || !hist) return;
+    const values = {};
+    for (const k of URL_KEYS) values[k.name] = valueOf(k.control) ?? k.dflt;
+    try { urlMod.sync(loc, hist, URL_KEYS, values); } catch { /* 镜像写不上就不写，这一页的行为不该跟着变 */ }
+  };
+
   const wireAll = () => {
     // 六枚控件
     for (const cfg of JSON_SPEC[PANEL].sides[SIDE].controls) {
@@ -8110,6 +8159,9 @@ export function createJsonWorkbench(env = {}) {
       } else if (cfg.id === 'view') {
         el.addEventListener('change', () => {
           applySwitch();
+          // 同步排在 `applySwitch()` 之后、下面那三条早退**之前**：`viewValue() !== 'tree'` 那句
+          // `return` 会把同步一起吞掉，切回 text（=默认档、键该删掉的那一档）就永远删不掉。
+          syncUrl();
           if (viewValue() !== 'tree') return;
           // 切到树只重画**上一次算出来的那一份**，而且必须确认那一次吃的就是当前这段文本
           // （红线 4：这一格事件里不许解析）。评审 P1-4 量的正是旧口径那句 `lastValueReady`——
@@ -8122,6 +8174,10 @@ export function createJsonWorkbench(env = {}) {
         el.addEventListener('input', scheduleSearch);
       } else if (cfg.id === 'memorize') {
         el.addEventListener('change', persistToggle);
+      } else if (cfg.id === 'indent' || cfg.id === 'sort') {
+        // 这两枚下拉原本一根 `change` 监听都没有（它们只在按动作时被 `valueOf` 读一次）。
+        // 这一根只为地址栏存在：不解析、不动结果区、不动闸门，红线 4 在这条路上照样成立。
+        el.addEventListener('change', syncUrl);
       }
     }
     // 十四枚动作按钮（`copy` 与 `download` 也在这一串里，走的就是 `computeAndPaint` 那两个早退）
@@ -8147,6 +8203,18 @@ export function createJsonWorkbench(env = {}) {
     const mem = node(fieldId(prefix, PANEL, 'memorize'));
     if (mem && !store) mem.disabled = true;
     syncCopy();
+
+    // 进站那一次读，落在下面三笔**之前**：`?jt-view=tree` 因此走的是与用户亲手切到树完全同一条
+    // 路径（`applySwitch()` 读的是控件当前值），不新增第二份显隐口径。这里**只写控件、不解析**，
+    // 挂载期一次计算都不做那条红线照样成立；`got.ignored` 不写提示行（spec §3：地址栏不是缺陷）。
+    if (urlMod && loc) {
+      const got = urlMod.parse(loc.search, URL_KEYS);
+      for (const k of URL_KEYS) {
+        if (got.found[k.name] === undefined) continue;
+        const el = node(fieldId(prefix, PANEL, k.control));
+        if (el) el.value = got.found[k.name];
+      }
+    }
 
     // 挂载期的三笔：显隐 → 恢复（填回但不算）→ 空态 + 一次闸门读数
     applySwitch();
@@ -8361,6 +8429,10 @@ function boot(doc, win, tk) {
     runGuarded,
     storage: store,
     navigator: win.navigator,
+    // 红线：宿主全局只在入口读一次，装配层不写 `window.`。这两格供「档位进地址栏」
+    //（SP2 Task 1 的 `Tk.url`）；不给它们，这一页的行为与今天逐字节一样——只是不同步地址栏。
+    location: win.location,
+    history: win.history,
     now: () => Date.now(),
     later: (fn, ms) => setTimeout(fn, ms),
     rowHeight: rowHeightPx(),

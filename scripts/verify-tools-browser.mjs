@@ -2691,8 +2691,12 @@ GROUP = '11) §7 字节 11a–11c';
  * 新立的四行（JSON 两行 + 对比两行）的 `budget` 是**按本次实测量立出来的**（不是设计期拍的数），
  * 推导过程由 11c 现算：取 L6/L9 里**较大的那一档**当最坏读数（压缩级抖动必须被余量吸收，
  * §7 第一段那条理由），再要求「(预算 − 最坏) ÷ 预算 ≥ 5%」（段 3 计划 §0.4 立的线），
- * 最后向上取到 1024 的整数倍。立出来的四个数：JSON JS+CSS **58,368B（57KB）**、JSON 首屏 **17,408B（17KB）**、
- * 对比 JS+CSS **33,792B（33KB）**、对比首屏 **18,432B（18KB）**。
+ * 最后向上取到 1024 的整数倍。立出来的四个数：JSON JS+CSS **59,392B（58KB）**、JSON 首屏 **17,408B（17KB）**、
+ * 对比 JS+CSS **34,816B（34KB）**、对比首屏 **18,432B（18KB）**。
+ * 前两个数在 2026-10-03 各升了一档（58,368 → 59,392、33,792 → 34,816）：SP2 那一刀把档位镜像挂进
+ * 地址栏，`toolkitCore` +369B / `toolJson` +356B / `toolDiff` +495B（gzip，逐件对旧产物现量），
+ * 最坏读数因此是 JSON 55,474B、对比 32,332B——**升档是那条算式自己算出来的结果，不是把线改低**：
+ * 55,474 ÷ 0.95 = 58,394 → 59,392；32,332 ÷ 0.95 = 34,034 → 34,816。推导与读数记在 SP2 spec §6。
  *
  * 对比页的「首屏」件集跟着 **JSON 那一行**的形状走（`toolkit.min.css` + 页面自己的 `toolDiff.min.css`
  * + 页 HTML），不跟证件/编码那两行的旧形状走：那两行没算页面 CSS，是因为它们**没有**页面级 CSS
@@ -2704,9 +2708,9 @@ const ROWS = [
   { row: '证件页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/idcard.html'], budget: 16384 },
   { row: '编码页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolCodec.min.js'], budget: 32768 },
   { row: '编码页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/codec.html'], budget: 17408 },
-  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 58368, fresh: true },
+  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 59392, fresh: true },
   { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 17408, fresh: true },
-  { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 33792, fresh: true },
+  { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 34816, fresh: true },
   { row: '对比页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolDiff.min.css', 'tools/diff.html'], budget: 18432, fresh: true },
 ];
 /** §7 表里 JSON 那一行设计期拍的 120KB：它只服务一件事——判要不要触发"YAML 降到仅序列化"那一档 */

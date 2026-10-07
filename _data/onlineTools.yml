@@ -33,8 +33,10 @@
 #   spec     本页装配层那张形状表在仓库里的**位置**：`module` 是 dev/js 下的相对路径，
 #            `table` 与 `ids` 是那本模块导出的两个常量名（面板清单 ↔ 每块面板的栏位与控件），
 #            `actions` 是第三格、只给 `layout: workbench` 那一条用（动作清单的导出名，
-#            门禁拿它的长度对上面那格 `actions`）。
-#            只有 `scripts/check-tools-surface.mjs` 的「DOM」那一组消费它，模板一律不读。
+#            门禁拿它的长度对上面那格 `actions`）；`defaults` 是第四格、只给「默认档不取
+#            `options[0]`」的那一条用（对比页的 `DEFAULTS`，门禁⑥「地址栏名单」拿它对撞骨架里
+#            带 `selected` 的那一枚 option）。
+#            只有 `scripts/check-tools-surface.mjs` 的「DOM」与「地址栏名单」两组消费它，模板一律不读。
 #            为什么写在这里而不是写死在门禁里（段 3 §0.3）：那门禁原先无条件 import 证件页的
 #            `WORKBENCH_SPEC` / `PANEL_IDS`，却拿它去比每一条 ready 条目——第二条 ready 条目
 #            一登记就必红，且红在它压根没犯的错上。指针是事实的一部分，跟着条目走；
@@ -277,6 +279,7 @@
     table: DIFF_SPEC
     ids: DIFF_PANEL_IDS
     actions: DIFF_ACTIONS
+    defaults: DEFAULTS
   desc: >-
     一块工作台，两份输入并排摆着逐行对齐：改动行再做行内逐字高亮，未变的行按上下文三行、五行或只看差异
     折叠成「省略 N 行」，点开就全部展开。视图有并排两栏与行内单栏两档，口径有按文本逐行与按 JSON 值两档，
