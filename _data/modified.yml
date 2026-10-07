@@ -22,14 +22,14 @@
   chars_delta: +274
   published: "2016-08-28"
 "/2017/06/06/git-common-command.html":
-  at: "2022-08-25T23:41:58+08:00"
-  commit: d787ace
-  chars_delta: +468
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +125
   published: "2017-06-06"
 "/2017/08/25/common-tools.html":
-  at: "2020-07-27T14:14:32+08:00"
-  commit: 81bbe5a
-  chars_delta: +20
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +158
   published: "2017-08-25"
 "/2017/09/09/wxpay.html":
   at: "2026-05-17T23:07:38+08:00"
@@ -231,13 +231,28 @@
   commit: 1faccfe
   chars_delta: +122
   published: "2026-06-28"
+"/2026/09/10/nextjs-avif-trap.html":
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +149
+  published: "2026-09-10"
 "/2026/09/21/pnpm-task-settings.html":
-  at: "2026-09-25T23:33:02+08:00"
-  commit: 31ad389
-  chars_delta: +298
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +150
   published: "2026-09-21"
 "/2026/09/22/claude-advisor-readme-row.html":
-  at: "2026-09-24T23:34:06+08:00"
-  commit: df383d8
-  chars_delta: +83
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +153
   published: "2026-09-22"
+"/2026/09/26/json-render-silent-strip.html":
+  at: "2026-10-07T00:12:31+08:00"
+  commit: 7ac2723
+  chars_delta: +151
+  published: "2026-09-26"
+"/2026/10/06/vite-wasm-query-fs-bypass.html":
+  at: "2026-10-06T23:49:03+08:00"
+  commit: 8eee1f8
+  chars_delta: -17
+  published: "2026-10-06"
