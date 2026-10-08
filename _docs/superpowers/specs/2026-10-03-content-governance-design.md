@@ -577,7 +577,7 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
 ### 9.1 提交段
 
 基线 `2b9464c`（本分支与 `main` 的 merge-base）起 **19** 个提交，全部落在 `sp4-content-governance`，
-**未推送**——硬证是 `git branch -r --contains HEAD` 无输出（本仓远端只有 `master`，所以**不能**用
+**当时未推送**——硬证是 `git branch -r --contains HEAD` 无输出（本仓远端只有 `master`，所以**不能**用
 `origin/main..HEAD` 那一套，它会把「不存在」读成「没东西可推」）。四刀的落点按刀分：
 
 | 提交 | 内容 |
@@ -604,6 +604,14 @@ RTT 150 ms / 下 1.6 Mbps / 上 750 kbps + `Network.setCacheDisabled`，`--headl
 
 （把本节落盘的提交是第 20 个。四笔「计划回写」不是顺手记录：每一笔都是执行时撞上**计划自己写错**，
 按「以命令输出为准并回写本文件」的规矩改计划，逐条内容见 §9.4。）
+
+**上面那句「当时未推送」的改口（2026-10-08，推送那一轮见 §9.10）**：这句在**分支名**层面仍成立——远端到现在也没有
+`sp4-content-governance` 这根 ref；但在**提交可达**层面已经不成立，`sp4-content-governance` 尖 `aa73231`
+（本节写那 19 笔的账时它是 19，收口后共 **21** 笔：第 20 笔 `fce2c03` 落本节、第 21 笔 `aa73231` 把计划的 70 个步骤格勾回 `[x]`——
+`git show --stat aa73231` 是 `70 insertions(+), 70 deletions(-)`，`git show aa73231 | grep -c '^-- \[ \]'` = **70**；
+勾完计划全文只剩 **1** 处 `[ ]`，是第 3 行那句 checkbox 语法的模板说明，不是步骤格）
+已随合并分支进远端。两条硬证：`git branch -r --contains sp4-content-governance` 回 `origin/it-sp234`（此前打空）、
+`git rev-list --count origin/it-sp234..aa73231` = **0**。那张表仍只列到 `ae55ad9`（第 19 笔），是当时的账，不补行。
 
 ### 9.2 门禁台账（18 道全跑在导出树，逐道引它自己打印的那一行）
 
@@ -904,6 +912,9 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
 10. **SP2 / SP3 两条分支的合并次序**：起草这一节时 SP3 尖 `8122f9c`、SP2 尖 `bab6051` 都未合。
     **执行时改口**：三批已在隔离工作树 `it-sp234` 里按 SP3 → SP2 → SP4 真合过（merge `0cf36dc` / `80674e5` / `415b4b6`），
     全量门禁链跑在合并树上，重测读数见 §9.9；但这条分支**既没并进 `main`、也没推**，所以 §6.4 全量在 `main` 尖之上仍是未做项。
+    **2026-10-08 推送后改口（那一轮见 §9.10）**：「也没推」那半已反转——`it-sp234` 现在是远端分支，尖 `8c2fc25`；
+    「没并进 `main`」那半仍成立，硬证是 `git merge-base --is-ancestor main HEAD` 退 **1**、`git branch -r --contains main` 打空
+    （`main` 尖 `695bbf8` 比 `8eee1f8` 多的那两笔不在本分支上），所以 §6.4 在 `main` 尖之上仍是未做项。
     SP2 先合的话，`verify-tool-url.mjs` 自动进本批台账（表 A 多一行、`收录面牙` 那行的数会跟着涨，
     那是 SP2 的 `urlState` 组带来的，不是 SP4 动的）。
 11. **B3 每页 CSS 拆分**（第 6 项决策 deferred）与 **A8 的 CSS 侧只写了「JS 开着就收起」**：
@@ -918,6 +929,17 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
     两条的修法都不在本批范围：①要给那五项源补输入、②要给 `restoreAll` 加回原 mtime（`fs.utimesSync`），
     都会动门禁本体，得单独一轮配牙齿自证。**本批的替代做法已写死**：收口用内容级断言（`git diff --quiet HEAD -- <建树输入>`）
     而不是 mtime，且若要用 mtime 门就按「牙齿在前、重建居中、`--verify` 收尾」排序。
+13. **`verify-plan-blocks-teeth.mjs` 的收口自证有一句写死的尾缀会过度声称**（§9.10 那遍撞见的）：
+    `:702` 那行 `+ '（含另一路会话的那批，一律未被触碰）'` 是**无条件拼接**，而它前面的计数（`:268-269` 的 `git status --porcelain`，
+    `cwd: REPO`）读的是**当前这棵工作树**。在 `main` 那棵树里跑，那句话与读数相配；在隔离工作树（例如 `it-sp234`）里跑，
+    树上只有 `?? vendor` 一项，另一路会话的脏路径根本不在计数里，那句尾缀就说多了。
+    **断言没有假绿**（前后三项全等是真判据），坏的只是那句解释。修法要么把尾缀改成按实际路径集合条件拼接，要么直接删掉、只留计数与指纹。
+    便宜的是这一句改起来**不撞任何牙**：`grep -n "脏指纹\|收口自证" scripts/verify-plan-blocks-teeth.mjs | grep -i expect` 退 **1**（零命中），
+    全仓**代码**里 `一律未被触碰` 只在 `:702` 出现一次（其余 7 处都在 `_docs` 的历史计划里，是当年那几遍的引文）。
+    **那 7 处引文正好是病根的来源**：它们在 `main` 那棵工作树上打的是 `脏项 18 个`（`plans/2026-09-27-tools-codec-page.md:2535`）、
+    `31 个`（同文件 `:9687`）、`32 个`（`plans/2026-09-29-tools-json-page.md:6753`）、`26 个`（`plans/2026-09-30-tools-diff-page.md:7802`）——
+    那一棵树上确实有并发会话的一大批脏路径，那句尾缀那时与读数相配；换成隔离工作树后计数只剩 1 项，串却没跟着条件化。
+    但本轮是一轮只动 `_docs` 的推送轮，改门禁的打印仍要另起一轮、连带复跑这本牙的 41 项。
 
 ### 9.9 集成轮：三批并入 main 尖之后重测（2026-10-08）
 
@@ -968,7 +990,9 @@ SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等�
 所以它绿的那一格说的是重跑之前的产物状态）。门禁自带的旁路 `STALE_OK`（`:282` 那个 `&& !STALE_OK`）本轮**没用**。
 上面那几个 ISO 时刻都是**当时读数、今天原样重跑必变**；能原样复算的只有那两串散列（sha256 与 md5）和这两条内容级断言。
 本节往后的提交只动 `_docs`，而 `_docs` 不出版（`_site/_docs` 不存在），不再触发重建。
-未推硬证是 `git branch -r --contains HEAD` 打空。**ahead / main-unique 只记构造、不记数**：
+未推硬证当时是 `git branch -r --contains HEAD` 打空——**这一条在 §9.10 的推送之后反转**：同一命令现在回 `origin/it-sp234`，
+而那一格「本节往后的提交只动 `_docs`」仍然成立——本轮那三笔（`c3a286b` / `56dbe05` / `8c2fc25`）
+`git diff --name-only <c>^..` 各自只有本 spec 一本，`_site` 里没有它们。**ahead / main-unique 只记构造、不记数**：
 构造是 `git rev-list --left-right --count main...HEAD`（左列 main-unique、右列 ahead），而**每落一笔本节自己的 doc 提交右列就 +1**，
 所以这里只钉两个能用 rev 复算的锚点——`8eee1f8..2662572` = **47**（起草这一格时的来源）、`8eee1f8..341f0e2` = **50**。
 左列同理**不钉「现在是 N」**——并发会话在往 `main` 上落笔，落一笔这列就 +1；能复算的锚点是
@@ -1135,3 +1159,97 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 真要并 main，顺序是：两篇的分类各归进现存 14 枚之一（或显式扩 `CATS_OK` 并在 `:1146` 那段注释里补扩表理由）、
 四枚越表 tag 进 `TAGS_OK` 还是改词、两篇各补一条 60–140 字的 `seo_description`——**然后才重建、才让 §6.0 那道新鲜度门点着它们**，
 而本节上面每一格读数在新树上都要重读一遍，不许拿本轮的数充当合并后的数。
+
+### 9.10 推送轮：先按 §9.8 第 12 条那个自洽顺序重跑，再只推 `it-sp234`（2026-10-08）
+
+**授权面先钉死**，免得下一轮把这一格当「已合并」的凭据：那一句是「代码评审和自测验证没问题就帮我提交代码并推送到远程」，
+兑现的是 commit + push 到远端分支 `it-sp234`；**回并 `main` / `master` 与部署都未授权，本轮也没做**。
+
+**跑门的树**：`.worktrees/it-sp234`，HEAD `8c2fc25c7553b3983f4ceda950c04a83723221c3`，`git status --porcelain` 只有 `?? vendor` 一行。
+两条内容级断言在开跑前与收工后各读一次，两遍都退 0：
+`git diff --quiet HEAD -- _data _includes _layouts _posts _config.yml assets dev scripts` = 0（牙齿族确实把内容还原了），
+`git status --porcelain` 前后同为一行。跑前 load(1m) **3.78**、跑后 **4.36**。
+
+**排法就是 §9.8 第 12 条末句写死的那一条**：重建 → 牙齿族 → 再重建 → 只读门禁收尾（`--verify` 放最后）。
+先前两本 ledger 都把 `seo` 排在最前，所以它绿的那一格说的是「重跑之前」的产物状态；这一遍把它挪到第二次重建之后，
+它这一格的 0 才是「牙齿族已经碰过真源 mtime、且正要推的这棵 HEAD」的读数。第一次重建不是多余的：
+`check-seo-teeth.mjs:18-20` 自己写着「真仓库的 `_site` 常落后于源，直接拿它当基线会一路假红」，
+而它把 `SITE_IN` 整本抄进 `SHADOW` 当变异前的产物基线（`:73` 那行 `fs.cpSync`）。
+驱动 `/tmp/gate/it-push-ledger3.sh`，日志 `/tmp/gate/it-push-ledger3.log`。
+
+**14 步逐道引它自己打印的那一行，rc 全 0**（用列表不用表：判决串要逐字照抄，进表就得为对齐调空格，而 `_docs` 不过 prettier）：
+
+- 重建① `bundle exec jekyll build`：`done in 4.318 seconds`（同轮还打 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`，那篇不产出，与 §9.1 那格「缺的那篇」同一件事）。
+- SEO牙 `check-seo-teeth.mjs --root=… --site=…/_site`：`分账：语料 6 / keywords 7 / modified 10 / JSON-LD 30 / 分页门 2 / ItemList 18 / manifest 24 / 接线 9 / head 7 / 相关工具 15 / 换源 9 / 描述 7 / 词表 6 / 内链 1 / 目录 4 / searchAction 4`，
+  `牙齿台账：159/159 组变异如期变红（用时 125.2s）`，末行 `✓ 全部变异已还原，复跑基线仍绿`。
+- 收录面牙 `check-tools-surface-teeth.mjs`：`牙齿台账：79/79 组变异如期变红`，末行 `✓ 全部变异已还原，复跑基线仍绿`。
+- 图尺寸牙 `check-image-dims-teeth.mjs`：`牙齿台账：27/27 刀变异如期变红`，末行 `✓ 每一刀都在临时副本上，工作树一字未动；复跑基线仍绿`。
+- 变体牙 `check-image-variants-teeth.mjs`：`牙齿台账：15/15 刀变异如期变红`，末行 `✓ 每一刀都落在临时副本上，工作树只读；桩树的三种「不该进台账」形状（无引用 / og 目录 / 低于阈值）在基线里都没误红`。
+- 计划镜像牙 `verify-plan-blocks-teeth.mjs`：最末一行 `41/41 通过`；它上面依次是
+  `✓ 收口自证：副本回到全绿且工作树未被这些实验碰过 — 副本 exit=0`、
+  `✓ 收口自证：实验前后工作树的脏指纹一模一样（路径、内容 diff、未跟踪清单三项全等） — 脏项 1 个前后一致，diff 指纹 17e299e169e1b6ee（含另一路会话的那批，一律未被触碰）`、
+  `副本落点：/var/folders/_n/dxmh7qf92210fsxd3d1jr1mm0000gn/T/vpb2-awl84o——全绿，已删`。
+  **那半句「（含另一路会话的那批，一律未被触碰）」在这一遍是过度声称**：它是 `verify-plan-blocks-teeth.mjs:702` 那行**无条件拼接的固定串**，
+  而 `dirtyFingerprint()`（`:268-269`）取的是 `git status --porcelain` 在**本棵工作树**的读数——这一棵树只有 `?? vendor` 那 1 项，
+  并发会话那批脏路径在 `main` 那棵工作树里，从来没进过这一行的计数。断言本身（前后三项全等）是真的，写死的这句尾缀不是读数，记进 §9.8 第 13 条。
+- 重建② 同上 `done in 4.116 seconds`。
+- `check-seo.mjs --verify`：`✓ SEO 门禁 15 组全绿（keywords / modified / JSON-LD / 分页门 / ItemList / manifest / 接线 / head / 相关工具 / 换源 / 描述 / 词表 / 内链 / 目录 / searchAction）；JSON-LD 211 块全部可解析`——**这就是 §9.9 那格欠的那道读数**。
+- `check-tools-surface.mjs`：`✓ 收录面 4 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`。
+- `check-image-dims.rb`：`--- image-dims: ok（36/36 条断言，台账 20 对，桩目录 /var/folders/…/image-dims-fx20261008-18780-16bqmt2）---`。
+- `verify-plan-blocks.mjs`：`✓ 全部已落地镜像与磁盘逐字节全等（未落地 0 节）`。
+- `toolkit-tests.mjs`：`# pass 439`、`# fail 0`、`# skipped 0`、`# duration_ms 10730.655834`。
+- `tool-url-state-tests.mjs`：`# pass 12`、`# fail 0`、`# skipped 0`。
+- `og-images.mjs --check`：`自检通过：表 68 条，卡片 34 张全部在磁盘上、尺寸 1200x630、无孤儿文件。`（前面两行是 `81 篇文章：34 篇无 cover 需要卡片，47 篇走 front matter cover。` 与跳过那篇未来日期的）。
+
+**牙齿数的涨幅正好对上 §9.8 第 10 条那句预测，且两处差都能拆到组**：§9.2 那本 SP4-only 台账记的是 `155/155`（用时 166.6s）与收录面牙 `74/74`，
+这一遍是 `159/159` 与 `79/79`。
+- SEO牙的 `+4` 按 `分账` 那行逐段相加可复算：`6+7+10+30+2+18+24+9+7+15+9+7+6+1+4` = **155**，再加末尾那枚 `searchAction 4` = **159**；
+  §9.2 抄进去的那串止于 `目录 4`，也就是说差的正是 SP3 的 `searchAction` 一组。§9.4 第 15 条当时已写过「复跑仍 159/159」，与这一遍同数。
+- 收录面牙的 `+5` 有文件级证据：`git show ae55ad9:scripts/check-tools-surface-teeth.mjs | grep -c "name: '"` = **74**，
+  合并树上的同一本 = **79**；两份 `name:` 清单各自 `sort` 后 `comm -13` 一减，多出来的正是 5 条，逐字是
+  `DEFAULTS.context 改成 5（骨架 selected 仍是 3）`、
+  `indent 的 options 顺序反了（表 four/two/tab，骨架 two/four/tab）`、
+  `把 sort 的 type 从 select 改成 text（名单里那一枚不再是档位）`、
+  `放宽 JSON 页那句过滤（去掉 c.id !== "query"，检索词进地址栏）`、
+  `骨架里 indent 那枚 select 的 id 改了名（键名与控件脱节）`；
+  反向 `comm -23` 打空（SP4 那侧没有一条在合并树上消失）。它们的共同标记是 `→ [地址栏名单]`，来源提交 `fcbe88b`，
+  而 `check-tools-surface-teeth.mjs:735` 那行注释自己写着「组 6「地址栏名单」的五把刀（SP2 Task 6）」。
+  所以预测里那句「`收录面牙` 那行的数会跟着涨」兑现，而**承载它的是第六组「地址栏名单」**——预测当时写的是「SP2 的 `urlState` 组」，组名以脚本为准。
+- `27/27`（滤镜单元）与 `15/15`（换源台账）一字没涨——它们与 SP2/SP3 无关，这条不涨本身就是上面那条预测的对照组。
+
+**那 6 道浏览器门禁这一遍没跑，理由按字节核过而不是按推理**：`git diff --name-only 56dbe05..8c2fc25` 只有本 spec 一本，
+`git diff --stat 56dbe05..HEAD -- _data _includes _layouts _plugins _posts assets dev scripts _config.yml package.json` 空输出退 0，
+所以浏览器门禁的被测物（产物那几本 + `scripts/verify-*.mjs` 的量具本身）与 `56dbe05` 那一轮逐字节相同——
+那一轮是 `/tmp/gate/it-push-browser.log`，6 道 rc=0、读数与判据数已记在 §9.9 那张表里。
+唯一读 `_docs` 的门是 `verify-plan-blocks`，而它点名的是 5 本 `plans/*.md`（`scripts/verify-plan-blocks.mjs:54-64`），不含本 spec，且它在这一遍重跑退 0。
+
+**推的那一刀**：`git -c http.version=HTTP/1.1 -c http.postBuffer=1 push -u origin it-sp234` → `* [new branch] it-sp234 -> it-sp234`，退 0。
+不带这两个参数时，同一条 `ls-remote` 先失败过一次 `LibreSSL SSL_read: error:02FFF03C…:Operation timed out, errno 60`——
+是**先核实现场再换参数重试**，不是把网络抖动当结论。三条落地硬证：
+
+1. `git ls-remote --heads origin it-sp234` → `8c2fc25c7553b3983f4ceda950c04a83723221c3	refs/heads/it-sp234`，与本地 HEAD 同串；
+2. `git branch -r --contains HEAD` 由打空转为 `origin/it-sp234`（§9.1、§9.8 第 10 条、§9.9 那三处「未推」的改口就是认这一条）；
+3. `git rev-list --left-right --count @{u}...HEAD` = `0	0`。
+
+**推的批量**：`origin/master..HEAD` = **77** 笔、`HEAD..origin/master` = **0**（合并基正是 `origin/master` 尖 `259af88`），
+`git diff --name-status origin/master..HEAD` = **139** 本（清单落档 `/tmp/gate/it-push-files.txt`，可逐本重看）。
+推之前拿宽口径筛过一遍凭据形状 `grep -Ein 'env|secret|token|credential|pem|key$|vendor'`——**它不是零命中，而是 2 命中、退 0**：
+`_posts/2024-10-09-fe-env-switch.md` 与 `assets/img/posts/fe-env-switch-arch.webp`，命中的都是文件名里那截 `env`，
+即「前端环境变量切换」那篇老文和它的配图，不是凭据文件。换成锚定式
+`grep -Ein '(^|/)\.env|id_rsa|\.pem$|credential|private[_-]key'` 才退 **1**（零命中）。
+`vendor` 那枚 needle 在 139 本里也没命中——它始终只是工作树里那根未跟踪软链，没进过任何一次暂存。
+**这两条 grep 的差别要记下**：宽口径的「命中」在这里是假阳性，但它恰恰是「扫过的证据」；把它写成「零命中」就是把愿望当读数。
+
+**部署面（本轮没有发布，这一条是硬的）**：`.github/workflows/jekyll.yml:3-6` 的触发是 `on.push.branches: ["master"]` 加 `workflow_dispatch`，
+推 `it-sp234` 落在那份白名单之外，Pages 那一条不会被这次推送触发。顺带纠一处 §9.1 的旧口径：
+「本仓远端只有 `master`」在**命名面**上不准——推后远端 ref 清单是
+`origin/Feature-opt`、`origin/HEAD`、`origin/feature-dev`、`origin/it-sp234`、`origin/master`，
+准确的说法是**远端没有 `main`**（所以那几格改用 `git branch -r --contains` 是对的，改动不必回滚）。
+
+**一次读数事故的记录（哪些落档、哪些没落，说清楚）**：push 之前先要确认「远端可达且这根分支不存在」，才敢走新建分支而不是覆盖。
+第一条 `ls-remote` 当时失败在一次 TLS 读超时（`LibreSSL SSL_read … Operation timed out, errno 60`）——
+**这串错误只在当时的终端输出里，没写进任何文件，事后原样复跑未必复现**，所以它不算可复算的读数，只算一次现场观察。
+落档的是其后两条：带 `-c http.version=HTTP/1.1` 复跑，`/tmp/gate/it-lsremote1.txt` 与 `/tmp/gate/it-lsremote1.err` **各 0 字节、命令退 0**
+（可达且该分支不存在）；推送后 `/tmp/gate/it-verify-push.txt` 存了那一条 ref 行。
+中间还有一次口径事故：`${PIPESTATUS[0]}` 是 bash 的数组，本机 shell 是 zsh（要 `$pipestatus[1]`），
+于是 `ls-remote … | head -5` 之后的那行 `rc=` 打印成空——**管道 + 语言用错会让退码不可读**，改成落文件再 `echo "rc=$?"` 才认出 0。
