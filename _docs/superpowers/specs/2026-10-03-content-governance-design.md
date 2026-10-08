@@ -887,13 +887,22 @@ SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等�
 
 **两棵树**：`head` = `git archive 2b9464c6758d2e769f8ca0cbba06b87030dd175c` 导出 + 软链主仓 `vendor`/`node_modules`
 + `npx --no-install vite build && bundle exec jekyll build`（默认 baseurl）；
-`new` = 工作树 `it-sp234`——SP3 `0cf36dc` → SP2 `80674e5` → SP4 `415b4b6` 三个 merge 落在 main 尖 `8eee1f8` 之上，
-`_site` 由 `415b4b6` 那套源在 19:30:35 建出，之后的 `2662572` 只动 `_docs` 两本（§6.0 那把新鲜度门不扫 `_docs`）。
+`new` = 工作树 `it-sp234`——SP3 `0cf36dc` → SP2 `80674e5` → SP4 `415b4b6` 三个 merge 落在 main 尖 `8eee1f8` 之上。
+**产物按「那一刻的源」认，不按 merge 尖认**：`_site/index.html` 的 mtime 是 `2026-10-07 19:30:35`，而 `git log` 里那一时刻的 HEAD 是
+`6b9746c`（18:12:25，只动 `_docs` 两本，`git show --name-only` 可复算），所以这一节读的是 `6b9746c` 那套源建出的产物。
+`git diff --name-only 415b4b6..HEAD` 有 **4** 个非 `_docs` 文件（`_data/modified.yml`、`_data/onlineTools.yml`、
+`_posts/2026-10-06-vite-wasm-query-fs-bypass.md`、`scripts/check-seo.mjs`），其中三个都在 `6b9746c` **之前**落
+（`ddcf682` 17:31:59、`b2c05e2` 17:33:58、`644008a` 17:56:06）——它们已经在那套源里，不存在「漏读」。
+`6b9746c` 之后到 HEAD 是 **9** 笔（`git rev-list --count 6b9746c..HEAD`），唯一非 `_docs` 的是 `c2690b9`（19:53:11）
+动了 `scripts/check-seo.mjs` 一行的红话措辞，而**门禁脚本不是建树输入**；其余 8 笔全在 `_docs`。
+新鲜度在本轮收尾时重核过：`find _data _includes _layouts _posts _config.yml -maxdepth 1 -newermt '2026-10-07 19:30:36'` **打空**
+（§6.0 那把门扫的就是这五项），所以下面每一格的读数对 HEAD 的建树输入仍是现读的，不必重建。
 未推硬证是 `git branch -r --contains HEAD` 打空。**ahead / main-unique 只记构造、不记数**：
 构造是 `git rev-list --left-right --count main...HEAD`（左列 main-unique、右列 ahead），而**每落一笔本节自己的 doc 提交右列就 +1**，
 所以这里只钉两个能用 rev 复算的锚点——`8eee1f8..2662572` = **47**（起草这一格时的来源）、`8eee1f8..341f0e2` = **50**。
-左列现在是 **1**，那一笔是新落 `main` 的 `db9c6c5`——它把「三批并入 main 尖」这句里的 main 尖从 `8eee1f8` 挪走了，
-对各格读数的影响见本节最后一段。
+左列同理**不钉「现在是 N」**——并发会话在往 `main` 上落笔，落一笔这列就 +1；能复算的锚点是
+「这一段起草时左列 = 1（`db9c6c5`，00:23:21），本节收尾重读 = 2（再加 `695bbf8`，00:53:52）」，构造是 `git rev-list --count 8eee1f8..main`。
+这两笔都把「三批并入 main 尖」这句里的 main 尖从 `8eee1f8` 挪走了，对各格读数的影响见本节最后一段。
 
 **基线自证**：重导出来的 head 树那两篇是 `472,790 / 83,055` B、gzip `62,273 / 26,703` B，
 与 §9.3 表的 head 列**逐字相同**（gzip 口径仍是 `cat f | gzip -9 | wc -c`）——基线没跑偏，这一节和 §9.3 是同一把尺，数可以横着比。
@@ -988,21 +997,37 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 `load / DCL / 可交互` 三格本轮只到「同量级、判不出方向」的强度**。§6.3 那张表的交付数仍是起草那一版语料 + 4.81–6.75 那条带的读数，
 要在合并态替换它，得等一条与那条带重合的安静时间——**这一轮的读数不许被抄成 §6.3 的新值**。
 
-**收尾时 `main` 又动了**：并发会话落了 `db9c6c5`（`_posts/2026-10-07-wikimedia-openai-agent-edits.md`，维基媒体那篇实测文）。
-本节上面每一个数都不受影响——两棵树都按 rev 钉死（`head` = `2b9464c` 导出、`new` = `415b4b6` 那套源建的 `_site`），
-`db9c6c5` 不在任何一棵里。**受影响的是「下一次并 main 会跑成什么样」**，所以那篇的 front matter 逐枚对过
+**收尾时 `main` 动了两笔**：并发会话先落 `db9c6c5`（00:23:21，`_posts/2026-10-07-wikimedia-openai-agent-edits.md`，维基媒体那篇），
+本节这一格起草时又读到 `695bbf8`（00:53:52，`_posts/2026-10-07-gdp-ts-proof-forgery-3-gaps.md`，gdp-ts 伪造 proof 那篇）。
+本节上面每一个数都不受影响——两棵树都按 rev 钉死（`head` = `2b9464c` 导出、`new` = `6b9746c` 那套源建的 `_site`，口径见上面「两棵树」那一格），
+`db9c6c5` 与 `695bbf8` 都不在任何一棵里。**受影响的是「下一次并 main 会跑成什么样」**，所以两篇的 front matter 逐枚对过
 `scripts/check-seo.mjs:1151` / `:1155` 那两份钉死的白名单常量（`split(/\s+/)` 同一把尺，先自证 parse 出来是 **151 / 14**，
 与 `:1157` 那道规模自证一致）：
 
-- `tags: Agent robots.txt 维基媒体 OpenAI`——`Agent` 与 `OpenAI` 在表内，**`robots.txt` 与 `维基媒体` 不在** → `词表` ② 两条红；
-- `categories: AI 前端`——**空格分隔的多值**（`词表` ③ 红一条），而 `前端` 不在那 14 枚分类里（② 再红一条）。
-  这里有一枚必须说清的陷阱：**`前端` 是一枚合法 tag，两份集合是两回事**，拿 tag 侧的 `has` 去放行分类侧就是放水；
-- **没有 `seo_description`** → `描述` ① 红那一条（`_posts` 文件数 == `site.posts.size` + 1 那把等式两边各 +1、仍成立，
-  红的是「逐篇都有摘要」那半句）；实测形状：本分支 `ls _posts/*.md` = **82**、带摘要 = **81**（缺的那篇是不产出的 `2100-10-25-practice-demo.md`），
-  `git ls-tree -r main -- _posts` = **83** → 并进之后是 83 文件 / 82 产出 / 81 带摘要，**第一个缺点子的就是这篇新文**；
-- 那篇正文 `h2` = 5、`h3` = 0 → 会带 `.toc-static` 块，恒等式那格从 **80 篇 / 886 条目** 往 **81 / 891** 走，G4 的 `withBlock` 随之 +1。
+| 判据位 | `db9c6c5` 维基媒体那篇 | `695bbf8` gdp-ts 那篇 |
+| --- | --- | --- |
+| `词表` ② tag 越表 | `tags: Agent robots.txt 维基媒体 OpenAI`——`Agent`、`OpenAI` 在表内，**`robots.txt`、`维基媒体`** 越表 | `tags: gdp-ts TypeScript 权限校验 Vercel`——`TypeScript`、`Vercel` 在表内，**`gdp-ts`、`权限校验`** 越表 |
+| `词表` ③ 分类多值 | `categories: AI 前端` 空格分隔 | `categories: 开源工具 TypeScript` 空格分隔 |
+| `词表` ② 分类越表 | **`前端`** 不在那 14 枚里 | **`开源工具`** 不在那 14 枚里（表内那枚叫 `开源实测`） |
+| `描述` ① 逐篇有摘要 | 无 `seo_description` | 无 `seo_description` |
+| 恒等式（目录条目增量） | 源侧 `## ` 起手的 5 个、`### ` 起手 0 个 | 源侧 `## ` 起手的 6 个、`### ` 起手 0 个 |
 
-**这四条是源侧对账，不是跑门**：门没在含 `db9c6c5` 的树上跑过，一个红点都没实测，所以它们记在「下一次并 main 的预账」这一格，
-不记成 §9.2 台账的一部分。真要并 main，顺序是：先定那篇的分类怎么写（`[AI, 前端]` 并把 `前端` 显式加进 `CATS_OK`，或归进现存 14 枚之一）、
-两枚新 tag 进 `TAGS_OK` 还是改词、补一条 60–140 字的 `seo_description`——**然后才重建、才让 §6.0 那道新鲜度门点着它**，
+三处不能含混：
+
+1. **两份集合是两回事**：`前端` 是一枚合法 tag，拿 tag 侧的命中去放行分类侧就是放水；`TypeScript` 反过来在 tag、分类两张表里都有，
+   所以 gdp-ts 那篇只越表一枚。
+2. **`描述` 那格的形状按合并后的集合现算**，不拿本轮的 82 / 81 顶位：本分支 `ls _posts/*.md` = **82**、带 `seo_description:` 的 = **81**
+   （缺的那篇是不产出的 `2100-10-25-practice-demo.md`）；`git ls-tree -r --name-only main -- _posts` 里的 md = **84**
+   （比 `db9c6c5` 那一格记的 83 又多一笔）→ 并 main 后是 **84 文件 / 83 产出 / 81 带摘要**，缺点子的从「那一篇」变成**两篇**。
+   顺带一条防误读：`git grep -l seo_description: main -- _posts` = **41**，那是 main 还没吃进 SP4 那 39 篇回填的既有事实，不是新的红。
+3. 恒等式那格往 **82 篇 / 897 条目** 走（886 + 5 + 6），G4 的 `withBlock` +2。**这条是推算不是读数**——源侧标题数 → 产物条目数那把尺
+   只在已测的两页上对过（`_posts/2026-06-05-ai-sdd.md` 源侧 9 == 产物 `items` 9、`_posts/2019-07-26-javascript-design-pattern.md`
+   源侧 18+58=76 == 产物 76；产物那两数就是上面「恒等式在合并树重算」那一格同一把尺（`sp4-identity.cjs`）打出的 `picked` 两行
+   ——`_site/2019/07/26/javascript-design-pattern.html` items=76、`_site/2026/06/05/ai-sdd.html` items=9），两篇新文自己没在任何含它们的树上量过；
+   剔除围栏内同形行的那把尺也在这两篇上跑过，围栏内 `## `/`### ` 均为 0。
+
+**这些是源侧对账，不是跑门**：门没在含 `db9c6c5` / `695bbf8` 的树上跑过，一个红点都没实测，所以只记在「下一次并 main 的预账」这一格，
+不记成 §9.2 台账的一部分；「每篇各点到 4 个判据位」也是按 §5.1 的逐枚粒度推的，没跑门就不钉成红线条数。
+真要并 main，顺序是：两篇的分类各归进现存 14 枚之一（或显式扩 `CATS_OK` 并在 `:1146` 那段注释里补扩表理由）、
+四枚越表 tag 进 `TAGS_OK` 还是改词、两篇各补一条 60–140 字的 `seo_description`——**然后才重建、才让 §6.0 那道新鲜度门点着它们**，
 而本节上面每一格读数在新树上都要重读一遍，不许拿本轮的数充当合并后的数。
