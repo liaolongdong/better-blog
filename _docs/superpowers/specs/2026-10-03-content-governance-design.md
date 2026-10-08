@@ -912,7 +912,10 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
 10. **SP2 / SP3 两条分支的合并次序**：起草这一节时 SP3 尖 `8122f9c`、SP2 尖 `bab6051` 都未合。
     **执行时改口**：三批已在隔离工作树 `it-sp234` 里按 SP3 → SP2 → SP4 真合过（merge `0cf36dc` / `80674e5` / `415b4b6`），
     全量门禁链跑在合并树上，重测读数见 §9.9；但这条分支**既没并进 `main`、也没推**，所以 §6.4 全量在 `main` 尖之上仍是未做项。
-    **2026-10-08 推送后改口（那一轮见 §9.10）**：「也没推」那半已反转——`it-sp234` 现在是远端分支，尖 `8c2fc25`；
+    **2026-10-08 推送后改口（那一轮见 §9.10）**：「也没推」那半已反转——`it-sp234` 现在是远端分支。
+    但**别把任何一串 SHA 当「现在的尖」读**：本节每落一笔只动 `_docs` 的提交，分支尖就跟着移动一次，
+    能复算的锚点只有「跑门那一遍的树是 `8c2fc25`」（构造：`git rev-list --count origin/it-sp234..8c2fc25` 会随本节后续提交增长，
+    而 `git branch -r --contains 8c2fc25` 恒回 `origin/it-sp234`）；
     「没并进 `main`」那半仍成立，硬证是 `git merge-base --is-ancestor main HEAD` 退 **1**、`git branch -r --contains main` 打空
     （`main` 尖 `695bbf8` 比 `8eee1f8` 多的那两笔不在本分支上），所以 §6.4 在 `main` 尖之上仍是未做项。
     SP2 先合的话，`verify-tool-url.mjs` 自动进本批台账（表 A 多一行、`收录面牙` 那行的数会跟着涨，
@@ -1231,6 +1234,10 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 2. `git branch -r --contains HEAD` 由打空转为 `origin/it-sp234`（§9.1、§9.8 第 10 条、§9.9 那三处「未推」的改口就是认这一条）；
 3. `git rev-list --left-right --count @{u}...HEAD` = `0	0`。
 
+那三条都是**第一刀（推到 `8c2fc25` 为止）当时的读数**：本节随后自己落成的每一笔只动 `_docs` 的提交，推上去之后
+`ls-remote` 与 `@{u}...HEAD` 那两格读的就不是这两串了。恒成立的构造只有一条——`git branch -r --contains 8c2fc25` 必回
+`origin/it-sp234`（跑门那一遍的那棵树在远端可达），这也是 §9.9 末段「记『本节末段 = 某数』会被下一笔本节提交自己作废」那条规矩在这一格的写法。
+
 **推的批量**：`origin/master..HEAD` = **77** 笔、`HEAD..origin/master` = **0**（合并基正是 `origin/master` 尖 `259af88`），
 `git diff --name-status origin/master..HEAD` = **139** 本（清单落档 `/tmp/gate/it-push-files.txt`，可逐本重看）。
 推之前拿宽口径筛过一遍凭据形状 `grep -Ein 'env|secret|token|credential|pem|key$|vendor'`——**它不是零命中，而是 2 命中、退 0**：
@@ -1253,3 +1260,10 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 （可达且该分支不存在）；推送后 `/tmp/gate/it-verify-push.txt` 存了那一条 ref 行。
 中间还有一次口径事故：`${PIPESTATUS[0]}` 是 bash 的数组，本机 shell 是 zsh（要 `$pipestatus[1]`），
 于是 `ls-remote … | head -5` 之后的那行 `rc=` 打印成空——**管道 + 语言用错会让退码不可读**，改成落文件再 `echo "rc=$?"` 才认出 0。
+
+**推完之后本节又落了两笔只动 `_docs` 的笔**，所以 §9.8 第 10 条与上面那一格都把「分支尖」写成了构造而不是某个数。
+这两笔墨的自测是现读的：`git diff --quiet HEAD -- _data _includes _layouts _posts _config.yml assets dev scripts` 退 **0**、
+`git status --porcelain` 只有 `?? vendor` 一行，然后 `node scripts/check-seo.mjs --verify` 在含这两笔的当前尖上复跑仍退 **0**
+（`/tmp/gate/it-seo-after-cd0534a.out`）。它不必先重建：`_docs` 既不在 `check-seo.mjs:280` 那五项源清单里，也不进 `_site`——
+这正是 §9.8 第 12 条①那个覆盖面缺口的**另一面**：同一处缺口，这一轮让 `--verify` 免于被文档笔墨顶红，那一轮让 `demo.json` 与 `_plugins/*.rb`
+的改动逃过点名。缺口本身不因为这次没伤人就修好了。
