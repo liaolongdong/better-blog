@@ -850,6 +850,24 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
 因为 `traceAfter` 是按名挑字段往 `out` 里塞的（`out.push({ t: Date.now() - t0, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h })`），
 上游多读的那几格不经过这一行就到不了判据。**加一路读数要改两处**，而它不会红、只会静默给你 `undefined`。
 
+**push 前补的账：另外六道 Chrome 门禁此前在合并树上没有读数**（§6.4 那两张表是起草那棵树的，§9.7 只补了揭示动效一道）。
+这一遍跑在 `56dbe05`、同一份重建后的 `_site` 上，开工前 1 分钟负载 **2.23**（阈值 16），六道退码全 0，判定行按它们自己打印的抄：
+
+| 道 | 命令 | 它自己打印的那一行 | rc |
+| --- | --- | --- | --- |
+| 工具页浏览器 | `TK_SITE_DIR=<快照A/_site> node scripts/verify-tools-browser.mjs` | `# 合计 115 项，红 0 项（收轮时本机 1 分钟负载 4.9——绝对毫秒那几格的账）` | 0 |
+| 工具页浏览器牙 | `TK_SITE_DIR=<快照B/_site> node scripts/verify-tools-browser-teeth.mjs` | `合计 9 项（六刀 + 三自检），点燃 9 项，未点燃 0 项` | 0 |
+| 编解码浏览器 | `node scripts/verify-codec-browser.mjs` | `合计 37 项，红 0 项` | 0 |
+| 编解码浏览器牙 | `TK_SITE_DIR=<快照C/_site> node scripts/verify-codec-browser-teeth.mjs` | `合计 5 个注入，点燃 5 个，未点燃 0 个` | 0 |
+| 身份证浏览器 | `node scripts/verify-idcard-browser.mjs` | `13/13 通过` | 0 |
+| 触屏下拉 | `node scripts/verify-nav-touch.mjs` | `✓ 移动端下拉点按门禁：判据 77 条 红 0 条 · 牙齿 10/10 组变异如期点名` | 0 |
+
+三点口径：① 三份 `_site` 快照是 `mktemp -d` 各拷一份（971 个文件），因为 `0a` 那条判据要求 `TK_SITE_DIR` 指向**仓库之外**的
+隔离快照，三份互不复用是防并行会话把彼此的夹具端掉；② **合并树侧此前无读数的正是管 SP2/SP3 那两族的面**
+（工具页 URL 态、⌘K/`?q=` 检索、触屏下拉），而这一遍的 `115 / 9 / 37 / 5 / 13 / 77+10` 与 §6.4 起草侧**同数**，
+说明三批合起来没有碰坏任何一条判据；③ 揭示动效那一道不在这一遍里重跑——它在合并树上的 93/0 记在上面那张三行表，
+而这一遍六道的 `rc=0` 是命令自己的退出码，不是驱动脚本的（管道会吞退码）。
+
 ### 9.8 未做与移交
 
 1. **7 格无牙的账**（§5.2 末段那张矩阵，价钱逐格写在计划 Task 10 Step 8.6）：`描述` ⑤（要造一次重复）、
@@ -890,6 +908,16 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
     那是 SP2 的 `urlState` 组带来的，不是 SP4 动的）。
 11. **B3 每页 CSS 拆分**（第 6 项决策 deferred）与 **A8 的 CSS 侧只写了「JS 开着就收起」**：
     静态块与 JS 目录并存的那一档（`has-js` 但 `editorial.js` 抛错）没有实测过，属于 B3 落地时才需要回答的问题。
+12. **§6.0 那把新鲜度门有两个静默面，本轮只记录不修**（细节见 §9.9「两棵树」那格末段）：
+    ① **覆盖面**——`check-seo.mjs:280` 的五项源清单不含 `demo.json` 与 `_plugins/*.rb`，而这两类**确实是建树输入**
+    （`_plugins/demo_data.rb:14-17` 在构建期读仓库根 `demo.json` 喂 `site.data.demoLists`，而 `_plugins` 那四本分别是
+    Markdown 图片补 baseurl、`demo.json` 注入 Liquid、正文 `<img>` 补固有尺寸与懒加载、构建期静态目录——**产物形状由它们决定**）；改它们不会让 `--verify` 报「源比产物新」，红线只能靠人记得重建。
+    ② **腐烂面**——牙齿族（`check-seo-teeth` / `check-tools-surface-teeth` / `verify-plan-blocks-teeth`）是
+    `mutateSrc` 就地写真源、`restoreAll` 写回备份，**内容还原而 mtime 不还原**，所以任何一次牙齿跑完，
+    这道 mtime 门在下一轮开头就必然退 1（本轮实测两次：`01:29:07` → 重跑门后 `01:45:39`，同一个 `_data/onlineTools.yml`）。
+    两条的修法都不在本批范围：①要给那五项源补输入、②要给 `restoreAll` 加回原 mtime（`fs.utimesSync`），
+    都会动门禁本体，得单独一轮配牙齿自证。**本批的替代做法已写死**：收口用内容级断言（`git diff --quiet HEAD -- <建树输入>`）
+    而不是 mtime，且若要用 mtime 门就按「牙齿在前、重建居中、`--verify` 收尾」排序。
 
 ### 9.9 集成轮：三批并入 main 尖之后重测（2026-10-08）
 
@@ -912,22 +940,33 @@ SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等�
 这一段真正的**形状**是固定的，且与笔数无关：逐笔 `git show --name-only --format= <sha>` 数非 `_docs` 的行，
 只有 `c2690b9`（19:53:11）那一笔碰了非 `_docs`（`scripts/check-seo.mjs` 一行的红话措辞，而**门禁脚本不是建树输入**），
 其余每一笔全在 `_docs`。
-新鲜度这一格在 push 前重核时**先把自己作废**：原先这里写的是
-`find _data _includes _layouts _posts _config.yml -maxdepth 1 -newermt '<产物 mtime>'` **打空**，
-而 `-maxdepth 1` 只列这四项目**自身**、从不进目录，这条断言从来没比过任何文件的时间，「打空」不证明任何事。
-换成与 §6.0 那把门同口径的递归版（`check-seo.mjs:263-283`：`_data/*.yml`、`_includes/*.html`、`_layouts/*.html`、
-`_posts/*.md` 各自递归取最新 mtime，再并入 `_config.yml`，与 `_site` 侧最新 mtime 比）。
-递归版一跑就抓到东西：`node scripts/check-seo.mjs --verify` 退 **1**，红话是「源比产物新
-（源侧最新 `2026-10-08T01:29:07.179Z`，产物最新 `2026-10-07T11:30:36.879Z`）」，源侧那一个是 `_data/onlineTools.yml`
+新鲜度这一格在 push 前被 `check-seo.mjs --verify` 自己顶红过一次，来历要说清（**我第一版的解释是错的，已推翻**）。
+原先这里写的是 `find _data _includes _layouts _posts _config.yml -maxdepth 1 -newermt '<产物 mtime>'` **打空**。
+我一度判定这条是「空断言」，理由是 `-maxdepth 1` 只列目录项自身、从不进目录——**这句不成立**：
+`find _data -maxdepth 1` 实测除 `_data` 自身外还列出 `sns_label.yml` / `og_images.yml` / `modified.yml` /
+`manifestIcons.yml` / `onlineTools.yml` / `picks.yml` / `tools.yml`，而 `_data` `_includes` `_layouts` `_posts`
+四本是**全扁平**的（`find _data _includes _layouts _posts -mindepth 1 -type d` = **0** 行），
+所以它覆盖的文件集与递归版（`check-seo.mjs:256-285`：`newestIn` 在 `:257`、五项清单在 `:280`、比对在 `:282`、
+`process.exit(1)` 在 `:284`）在这一棵树上**等同**。当年的「打空」是**那一刻的真读数**，不是没跑。
+真正的问题是它是**时刻读数**，而这套链自己会把时刻顶旧：`check-seo-teeth.mjs` / `check-tools-surface-teeth.mjs` /
+`verify-plan-blocks-teeth.mjs` 这一族牙齿是**就地改仓库源文件**的（`mutateSrc` = `fs.writeFileSync(真路径, 变异内容)`，
+退出时 `restoreAll()` 把备份写回去），**内容还原了、mtime 还原不了**。
+于是本轮就撞上：`node scripts/check-seo.mjs --verify` 退 **1**，红话是「源比产物新
+（源侧最新 `2026-10-08T01:29:07.179Z`，产物最新 `2026-10-07T11:30:36.879Z`）」，源侧那一个正是被牙齿写过又还原的 `_data/onlineTools.yml`
 ——它工作区的 sha256 与 `git show HEAD:_data/onlineTools.yml` **逐字节相同**
 （`6e4adc556264f834eba6fddec10efc1d23d451e0d81533e1dee7e5f0a77166e2`），被摸的是 mtime 不是内容。
 按门禁自己的处方重建（`bundle exec jekyll build`：退 0、`done in 11.722 seconds`，照旧
 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`）后 `diff -rq` 新旧 `_site`：
 971 个文件里只有 `feed.xml` 差一行 `<updated>`（差的正是这次构建的时刻本身），`index.html` 的 md5 重建前后同为
 `654e6d9b49b07963e85bbd5d6dd96f86`，`check-seo.mjs --verify` 转退 **0**。
-所以这一格的结论按硬证重写：**下面每一格的读数对 HEAD 的建树输入仍是现读的**，但依据不再是那条空断言，
-而是两条有牙的——内容级「构建输入与 HEAD 逐字节相同」（`git status --porcelain` 除 `?? vendor` 外只剩 `_docs` 这一本，
-提交后为空），产物级「重建是空操作」（除 `feed.xml` 时刻行外零差异）。
+**这条机理随后自证了一次**：把那 12 道非浏览器门禁重跑一遍之后，同一条 `-maxdepth 1 -newermt` 不再打空、
+而是回 `_data/onlineTools.yml`，递归版读到 `2026-10-08T01:45:39.078Z`——**跑门本身就把新鲜度又顶旧了一次**。
+所以这一格的结论按硬证重写：**下面每一格的读数对 HEAD 的建树输入仍是现读的**，但依据换成两条不随时刻腐烂的——
+内容级「构建输入与 HEAD 逐字节相同」（`git diff --quiet HEAD -- _data _includes _layouts _posts _config.yml assets dev scripts`
+退 0，且 `git status --porcelain` 除 `?? vendor` 外只剩 `_docs` 这一本），产物级「重建是空操作」（除 `feed.xml` 时刻行外零差异）。
+要用那条 mtime 门只有一个自洽排法：**牙齿族在前、重建居中、`--verify` 收尾**（本轮两把 ledger 都把 `seo` 排在最前，
+所以它绿的那一格说的是重跑之前的产物状态）。门禁自带的旁路 `STALE_OK`（`:282` 那个 `&& !STALE_OK`）本轮**没用**。
+上面那几个 ISO 时刻都是**当时读数、今天原样重跑必变**；能原样复算的只有那两串散列（sha256 与 md5）和这两条内容级断言。
 本节往后的提交只动 `_docs`，而 `_docs` 不出版（`_site/_docs` 不存在），不再触发重建。
 未推硬证是 `git branch -r --contains HEAD` 打空。**ahead / main-unique 只记构造、不记数**：
 构造是 `git rev-list --left-right --count main...HEAD`（左列 main-unique、右列 ahead），而**每落一笔本节自己的 doc 提交右列就 +1**，
@@ -1003,6 +1042,10 @@ SP3、SP2 也合进来之后，A8 那笔目录开销、G4 的覆盖面、恒等�
 这道门等了 **14 次复评**才开——19.39 / 21.50 / 60.37 / 51.16 / 27.35 / 28.19 / 15.85 / 47.51 / 21.93 / 11.52 / 11.95 / 11.24 / 8.94 / 8.83，
 而它前面还有两次没跑成的尝试：`it-run-ab.log` 三行（00:03:37 起，门限 7：39.89 / 49.34 / 27.15）、`it-run-ab2.log` 一行（00:05:49，门限 8：24.36）；
 **产出下面那一表的只有 `it-run-ab3.log` 这一本**。五轮各自的 1 分钟负载是 **5.50 / 8.78 / 6.43 / 8.87 / 6.41**（同日志的 `=== round` 行，末行 `runner exit=0`）。
+**「开跑前判一次」要说清判的是哪一道**：`LOAD_MAX` 只在 `:18-27` 那个 while 里判，`break` 之后不再管，
+所以放行读数 5.50 约束的是**开工那一刻**，五轮里出现 8.78 / 8.87 高于 8 并不违规；
+但每轮开头另有一道硬线（`:43-45`：`HARD=${HARD:-16}`，超了就打「中止：负载 X > 16」并 `exit 5`），
+本轮五笔最高 8.87，离那道 16 还远，所以**没有任何一轮被中止**——原句只说「门只在开跑前判一次」会让人以为轮内不设防，这里补全。
 **这一轮的门限（8）比 §9.3 起草那把尺更严，而两轮本就不在同一条线上**：§9.3 那五轮里末轮记着 **18.59**（`run-ab2.log` 的 `=== round` 行），
 按本轮这道门直接就是拒测；本轮的 8.78 / 8.87 两轮若是起草那把无门的尺则照跑。
 §9.3 那条「`respStart` 中位 ≤ 62.3 ms、地板 100 ms」本轮
