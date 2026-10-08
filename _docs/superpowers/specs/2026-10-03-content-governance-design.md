@@ -943,6 +943,11 @@ ai-sdd 的 −562.6 是「head 有 2/5 轮跑到长任务、new 只剩 1/5」的
     `31 个`（同文件 `:9687`）、`32 个`（`plans/2026-09-29-tools-json-page.md:6753`）、`26 个`（`plans/2026-09-30-tools-diff-page.md:7802`）——
     那一棵树上确实有并发会话的一大批脏路径，那句尾缀那时与读数相配；换成隔离工作树后计数只剩 1 项，串却没跟着条件化。
     但本轮是一轮只动 `_docs` 的推送轮，改门禁的打印仍要另起一轮、连带复跑这本牙的 41 项。
+14. **§9.9 那张「下一次并 main 的预账」少对了一个判据位，后果要到下一遍跑门才撞**：那张表逐枚对的是 `词表` 组的前几条（tag 越表、分类越表、多值形状）与 `描述`（缺摘要），
+    外加恒等式，**没有对 `词表` 组第⑧判「命中集不变」**（`check-seo.mjs:1410-1426`）。gdp-ts 那篇的 `tags` 里那枚 `TypeScript` 正落在 `TOOL_MATCH_TAGS`（钉死 33 枚，`:1297`）里，
+    合并后那页必然「命中了却没登记」，于是 §9.11 的 13 条里多出一条谁都没预告过的红。
+    **可复用的规矩**：凡预告「并 main 会红成什么样」，除那几格之外要再走一格——把新帖的 tag 逐枚对 `TOOL_MATCH_TAGS` 查命中，
+    命中一枚就要预账一条 `TOOL_HIT_OK`。这一格本轮已照做（补的那行在 `check-seo.mjs:1285`），欠的是预告，不是判据。
 
 ### 9.9 集成轮：三批并入 main 尖之后重测（2026-10-08）
 
@@ -1274,3 +1279,138 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 与当时本地 HEAD 同串。当时不靠这条重试也能定案：`git rev-list --left-right --count @{u}...HEAD` 已是 `0	0`、
 `git branch -r --contains 8c2fc25` 已回 `origin/it-sp234`，而这两条读的都是 push 自己写回的远端跟踪 ref。
 **下一轮别把「核验命令抖一次」读成「推送失败」**，也别反过来拿它当推送成功的凭据——凭据是 push 自己那行 `8c2fc25..ba52cae` 与退 0。
+
+### 9.11 并 `main` 之后：两篇新帖按 SP4 口径补齐，全量门禁重跑，推 `master`（2026-10-08）
+
+**授权面先钉死**：本轮那一句是「帮我提交代码并推送」，紧接在 §9.10 收口后我说的「回并到 `master`（= 触发部署）或先开 PR，需要你授权」之后；
+选项问句给的是**补齐两篇再发**，所以兑现的是「补齐 → 全量门禁 → 推 `master`」这一条链。
+推 `master` 会触发 Pages（`.github/workflows/jekyll.yml:3-6` 的 `on.push.branches: ["master"]`）——这是本轮唯一一次、也是被点名那一次的发布授权；
+`it-sp234` 那根分支的推送不在本轮（§9.10 已推过，`origin/it-sp234` 此刻仍停在 `9e18178`）。
+
+**先红 13 条，逐字照抄**（`/tmp/gate/it-diag-seo.out` 第 2–14 行 + 末行；那棵树正是 `git merge main` 之后、动过任何字之前；驱动 `/tmp/gate/it-master-diag.sh`）：
+
+- `✗ [描述] 2026-10-07-gdp-ts-proof-forgery-3-gaps.md：缺 seo_description——这一篇的 meta description 现在由 subtitle／site.description 兜底，卡片说的不是这一篇的事`
+- `✗ [描述] 2026-10-07-wikimedia-openai-agent-edits.md：缺 seo_description——…`（同一句式的另一篇）
+- `✗ [词表] …标签「gdp-ts」不在白名单里——词表漂移，新增一枚要显式改脚本`——同句式的另三条分别是 `权限校验`、`robots.txt`、`维基媒体`
+- `✗ [词表] …分类「开源工具」不在白名单里——分类漂移，新增一枚要显式改脚本`、`✗ [词表] …分类「前端」不在白名单里——…`
+- `✗ [词表] …categories 写了空格分隔的多值「开源工具 TypeScript」——多分类必须写成 [A, B]，方括号之外 YAML 与 Jekyll 的拆法不同，归档页读数会撒谎`（另一篇同句式，值是「AI 前端」）
+- `✗ [词表] tags.html：tags 三侧读数不等：语料 155 / 白名单 151 / 产物 155——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`
+- `✗ [词表] categories.html：categories 三侧读数不等：语料 16 / 白名单 14 / 产物 16——…`
+- `✗ [词表] 2026/10/07/gdp-ts-proof-forgery-3-gaps.html：这页现在命中了工具卡（TypeScript），台账里却没有这一行——match_tags 或这页的 tags 有一边被动过`
+- 末行 `✗ SEO 门禁：13 条不通过`
+
+**13 = 描述 2 + 词表 11**：词表那 11 条按形状是越表 tag 4、越表分类 2、多值形状 2、三侧读数 2、命中台账 1
+（最后那条走的是 `词表` 组第⑧判「命中集不变」，`check-seo.mjs:1425`，组名前缀仍是 `[词表]`，读的却是文末卡那张 `TOOL_HIT_OK`）。
+末那格的真实字节是 `2026/10/07/…`（拿 `od -c` 自证过），本节的 `YYYY/MM/DD/` 一律写斜杠形——显示层会把它折成连字符形，
+**照着屏幕上那一形往脚本里粘就是静默 MISS**（这一轮我自己踩了一次：用折形去替台账行，node 那段先 MISS 再 `process.exit(3)`，文件一字未变）。
+
+**处理分工有三条是 §9.9 末段预先写死的**（那一格当时明说「这些是源侧对账，不是跑门」，所以这一遍是照单执行，不是临场发明）：
+两篇各补一条 60–140 字的 `seo_description`、分类归进现存 14 枚之一、四枚越表 tag 进 `TAGS_OK`。
+**第四条——文末卡台账补行——是这一遍门自己点出来的，§9.9 那张对账表欠了一格**：它逐枚对的判据位是 `词表` 组的前几条（tag 越表、分类越表、多值形状）与 `描述` 组（缺摘要），
+外加恒等式，**没对 `词表` 第⑧判「命中集不变」**，而 `tags: … TypeScript …` 这一枚恰好在 `TOOL_MATCH_TAGS` 里，所以合并后必然多一条「命中了却没登记」的红。
+**下一轮再并 main，预账里要把「新帖的 tag 有没有一枚落在 `TOOL_MATCH_TAGS`」列为独立一格**（记进 §9.8 第 14 条）。
+**扩表与归一分两路走**，理由写进 `scripts/check-seo.mjs:1157` 上方那段注释，不留成「某轮悄悄把白名单放大了」：
+
+- tag 那四枚是**新名词**：`gdp-ts` 是仓库名（与既存的 `GitDiagram`／`Univer` 同类），`权限校验`／`robots.txt`／`维基媒体` 是这两篇的主题词，
+  现存 151 枚里没有一枚能当它们的同义写法 → 只能显式扩：`TAGS_OK` 151 → **155**，与钉死它的那行 `:1164`（`if (TAGS_OK.size !== 155 || CATS_OK.size !== 14)`）一起改。
+- 分类那两处是**同一件事的两种写法**：`开源工具` 与现存 `开源实测` 是一回事，`前端` 本来就是 tag 而不是分类 → 归一不扩表，`CATS_OK` 仍 14 枚，
+  于是 `categories.html` 那一格从 `16 / 14 / 16` 回到三侧全等。多值改写成方括号 `[开源实测, TypeScript]`，理由见 §4.2 那格「空格分隔那形 YAML 与 Jekyll 拆法不同」。
+- 描述那两条各 **94 / 103 个码点**（地板 60、天花板 140），摘要里出现的数字 `2 5 0 3 2 9` 与 `1407` 在各自正文里逐字找得到，且两条都不等于本篇 `subtitle`——这四侧都是 `描述` 组的判据，不是我自己加的规矩。
+- 台账补的那行落在 `scripts/check-seo.mjs:1285`：`['2026/10/07/gdp-ts-proof-forgery-3-gaps.html', 'TypeScript'],`，`TOOL_HIT_OK` 29 → **30** 行（现算：`awk '/TOOL_HIT_OK/,/^\];/' | grep -c "\['20"` = 30，全斜杠形）。
+
+**改完先只重跑被影响那一道**（`node scripts/check-seo.mjs --verify`，`/tmp/gate/it-fix-seo1.out`）：退 **0**，
+`✓ SEO 门禁 15 组全绿（keywords / modified / JSON-LD / 分页门 / ItemList / manifest / 接线 / head / 相关工具 / 换源 / 描述 / 词表 / 内链 / 目录 / searchAction）；JSON-LD 215 块全部可解析`。
+
+**跑门的那棵树**：`.worktrees/it-sp234`，最终 HEAD `b0d5af7`（parents `cc3ed20` = 并 `main` 那笔、`9e18178`）。
+非浏览器那 14 步是在 `cc3ed20` + 那三个文件仍未提交的状态下跑的，而 `git diff --name-only cc3ed20 b0d5af7` 正是这三本（两篇帖 + `check-seo.mjs`）——
+提交没改一个字，所以那一遍的读数对「要推的这棵 HEAD」成立。这与 §9.10 末段那个「只动 `_docs` 的笔墨不必重跑」不是同一论证：
+那一遍靠覆盖面论证（`_docs` 不在 `check-seo.mjs:280` 那五项源清单里），这一遍靠**内容逐字节相同**，而且牙齿族会把真源改一遍再还原，所以必须整链重跑。
+
+**14 步逐道引它自己打印的那一行，rc 全 0**（驱动 `/tmp/gate/it-master-ledger.sh`，日志 `/tmp/gate/it-master-ledger.log`，各道 stdout 落 `/tmp/gate/it-master-<step>.out`；
+排法仍是 §9.8 第 12 条末句那条：重建 → 牙齿族 → 再重建 → 只读门禁收尾）：
+
+- 重建① `bundle exec jekyll build`：`done in 4.201 seconds`。
+- SEO牙 `check-seo-teeth.mjs`：`分账：语料 6 / keywords 7 / modified 10 / JSON-LD 30 / 分页门 2 / ItemList 18 / manifest 24 / 接线 9 / head 7 / 相关工具 15 / 换源 9 / 描述 7 / 词表 6 / 内链 1 / 目录 4 / searchAction 4`、
+  `牙齿台账：159/159 组变异如期变红（用时 117.4s）`，末行 `✓ 全部变异已还原，复跑基线仍绿`。
+- 收录面牙 `check-tools-surface-teeth.mjs`：`牙齿台账：79/79 组变异如期变红`，末行同那句「复跑基线仍绿」；它点名的五把新刀仍打在第 6 组（`→ [地址栏名单]`）。
+- 图尺寸牙 `check-image-dims-teeth.mjs`：`牙齿台账：27/27 刀变异如期变红`，末行 `✓ 每一刀都在临时副本上，工作树一字未动；复跑基线仍绿`。
+- 变体牙 `check-image-variants-teeth.mjs`：`牙齿台账：15/15 刀变异如期变红`，末行 `✓ 每一刀都落在临时副本上，工作树只读；桩树的三种「不该进台账」形状（无引用 / og 目录 / 低于阈值）在基线里都没误红`。
+- 计划镜像牙 `verify-plan-blocks-teeth.mjs`：`41/41 通过`，上面两行收口自证是
+  `✓ 收口自证：副本回到全绿且工作树未被这些实验碰过 — 副本 exit=0`、
+  `✓ 收口自证：实验前后工作树的脏指纹一模一样（路径、内容 diff、未跟踪清单三项全等） — 脏项 4 个前后一致，diff 指纹 0ef5df2a155f47c3（含另一路会话的那批，一律未被触碰）`，
+  副本落点 `…/vpb2-SrdioI——全绿，已删`。
+- 重建② `done in 10.546 seconds`（比①慢 6.3s，同轮仍打 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`，那篇不产出，与 §9.1「缺的那篇」同一件事）。
+- `check-seo.mjs --verify`：就是上面抄的那一行 **15 组全绿 / JSON-LD 215**。
+- `check-tools-surface.mjs`：`✓ 收录面 4 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`。
+- `check-image-dims.rb`：`--- image-dims: ok（36/36 条断言，台账 20 对，桩目录 …/image-dims-fx20261008-69818-152ka6w）---`。
+- `verify-plan-blocks.mjs`：`✓ 全部已落地镜像与磁盘逐字节全等（未落地 0 节）`。
+- `toolkit-tests.mjs`：`# pass 439`、`# fail 0`。
+- `tool-url-state-tests.mjs`：`# pass 12`、`# fail 0`。
+- `og-images.mjs --check`：`83 篇文章：34 篇无 cover 需要卡片，49 篇走 front matter cover。`、`自检通过：表 68 条，卡片 34 张全部在磁盘上、尺寸 1200x630、无孤儿文件。`
+
+**四处数的来历都能复算，不是「大概变了」**：
+
+- `159 / 79 / 27 / 15 / 41` 与 §9.10 那一遍**一字未动**——这轮改的是内容与白名单，没动任何一本量具（`git diff --name-only cc3ed20..b0d5af7` 只有三本）。
+  尤其 `分账` 那行的 `描述 7 / 词表 6` 没跟着 `TAGS_OK` 从 151 涨到 155：牙齿钉的是判据的形状，不是词表的规模。
+- `JSON-LD 211 → 215`：并进来的两篇文章页各带 2 块（`grep -c 'application/ld+json' _site/2026/10/07/gdp-ts-proof-forgery-3-gaps.html` = 2，另一篇同 = 2），
+  全站现算 `grep -ro 'application/ld+json' _site --include='*.html' | wc -l` = **215**，与门禁那一格的数同串——这条不是推的，是量出来的。
+- `og` 那行的 `81 → 83 篇`：`34`（无 cover、要卡片）与 `68`/`34`（表条数/卡片张数）都没动，涨的是「走 front matter cover」那半句 `47 → 49`，
+  因为这两篇都写了 `cover:`。
+- 「15 组全绿」这个组数与 §9.10 同数（这轮没加组、没加判据），这一轮真正的变化只有**同一棵树从 13 红到 0 红**——上面那两行 `--verify` 就是它的两端。
+
+**跑门前后那两道树等价断言都退 1，这是诚实读数而不是门坏了**：那一遍 `check-seo.mjs` 与两篇帖还没提交，「工作树 == HEAD」在这一遍本来就不成立。
+这一遍要断言的不是退 0，而是**前后两遍逐字节相同**：`git status --porcelain` 前后同为
+` M _posts/2026-10-07-gdp-ts-proof-forgery-3-gaps.md | M _posts/2026-10-07-wikimedia-openai-agent-edits.md | M scripts/check-seo.mjs | ?? vendor` 这 4 项、
+`HEAD` 两遍都是 `cc3ed20793df5dc87d2aa4c910c12c154a5763ac`、diff 指纹 `0ef5df2a155f47c3` 前后一致——牙齿族确实把真源还原了。
+**提交一定等这一遍过完再做**：牙齿族运行期间它们在改真源，那个窗口里 commit 会把变异内容吞进仓库。
+
+**`verify-plan-blocks-teeth.mjs` 那句无条件尾缀这一遍假得更彻底**：`（含另一路会话的那批，一律未被触碰）`——这一棵树的 4 个脏项**全是本轮我自己的**（两篇帖 + `check-seo.mjs` + `?? vendor`），
+并发会话那批脏路径在 `main` 那棵工作树里，一个都没进过这个计数。§9.10 记的是「主树真、这树假」，这一遍连「这棵树里有另一路会话的东西」都不成立。
+断言本身（前后三项全等）仍是真的，写死的尾缀不是读数；修法仍归 §9.8 第 13 条那条交接项，**push 轮不动量具**——改判据会在同一轮里既改被测物又改尺子。
+
+**Chrome 那 11 道这一轮必须跑，因为 §9.10 跳过它们的理由没了**：那一遍的理由是「`git diff --stat 56dbe05..HEAD -- <八项建树输入>` 空输出退 0，被测物逐字节相同」；
+这一遍 `git diff --name-only cc3ed20..b0d5af7` 里就有两本 `_posts/*.md`——`_posts` 既在 `check-seo.mjs:280` 那五项建树源清单里，也在本节 `assert_tree` 那八项 pathspec 里，更是浏览器门读的那些文章页的源头。
+跑前 `git status --porcelain` = `?? vendor` 一行（`b0d5af7` 已提交，工作树干净），跑后是 `M _docs/…本档…` + `?? vendor`，那笔只动 `_docs`，
+而 `git diff --quiet HEAD -- _data _includes _layouts _posts _config.yml assets dev scripts` 在 12:16 前后现读仍退 **0**——浏览器牙齿族把那三本 `_site` 副本改完了还原，真源一字未动。
+
+驱动一 `/tmp/gate/it-master-browser.sh`（日志 `/tmp/gate/it-master-browser.log`，各道 stdout 落 `/tmp/gate/it-mbr-<step>.out`），
+开跑 load(1m) **4.15**、收工 **12.58**；`TK_SITE_DIR` 那两道的判据要求指向仓库之外，所以先 `mktemp -d` 建 A/B/C 三份 `_site` 副本（各 **977** 本文件）。
+**8 道退 0，逐道引它自己打印的那一行**：
+
+- `nav-touch`：`✓ 移动端下拉点按门禁：判据 77 条 红 0 条 · 牙齿 10/10 组变异如期点名`。
+- `motion-batch4`：`# 通过 93 项，红 0 项`。
+- `tools-browser`：`# 合计 115 项，红 0 项（收轮时本机 1 分钟负载 11.1——绝对毫秒那几格的账）`。
+- `tools-browser-teeth`：`合计 9 项（六刀 + 三自检），点燃 9 项，未点燃 0 项`，红项读数留在 `…/tools-teeth-logs-qurXeY`（它自己写着「不删，供后来的人复核」）。
+- `codec-browser`：`合计 37 项，红 0 项`，旁边那行 `# Chrome pid=85863（本轮自己 spawn 的那一台）；站外噪声（被排除、不进判据）97 条`。
+- `codec-browser-teeth`：`合计 5 个注入，点燃 5 个，未点燃 0 个`。
+- `idcard-browser`：`13/13 通过`。
+- `search-deeplink`：`✓ 搜索深链验证：全绿（17 条）｜跳过 1 条：J6 单词回归（需要 --head=<上一棵产物的路径>，本轮没有可比的树）｜产物 …/it-sp234/_site`。
+  **这一道读的是仓库自己的 `_site`**（它没有 `*_SITE_DIR` 那道隔离门），所以新鲜度我单独自证过：`_site/index.html` mtime `11:53:21`，
+  而它要反映的三本源是 `11:45:21` / `11:47:15`——重建②在改动之后，那一格读的不是旧产物。`J6` 那跳是本轮真跳，不是掩盖。
+
+**同一遍里有三道退 2，是我驱动写错，不是站点红**：`toolurl` 打 `✗ 环境没起来：没给 TU_SITE_DIR。本格只认隔离快照（仓库 _site 是 pnpm dev 与并行会话共用的输出，读到旧产物就一路全绿了）`，
+`toolurlteeth` 与 `deeplinkteeth` 打同族的 `✗ 必须用 … 指到一份产物副本`。这三本要的是 `TU_SITE_DIR` / `SDL_SITE_DIR`（`verify-tool-url.mjs:50-54`、`:44-49`、`verify-search-deeplink-teeth.mjs:45-54`），
+我那一版驱动只传了 `TK_SITE_DIR`。**补跑另起三份新副本**（D/E/F，各 977 本）而不是复用 A/B/C——A/B/C 刚被 `toolsbtteeth` / `codecteeth` 那两本牙齿注入过。
+驱动二 `/tmp/gate/it-master-browser2.sh`（日志 `it-master-browser2.log`）：开跑 load **8.61**，三道全退 **0**：
+
+- `toolurl`：`✓ 工具页地址栏验证：全绿（26 条）｜产物 /var/folders/…/it-mbD-LNo0n9/_site`。
+- `toolurlteeth`：`✓ 地址栏牙齿：13/13 点燃｜日志 …/tu-teeth-logs-Zq395w`，它上面那行 `写坏后复原=三本 md5 全等；人为错位被抓出 1 件（assets/js/toolJson.min.js）`。
+- `deeplinkteeth`：`✓ 深链牙齿：16/16 点燃｜日志 …/sdl-teeth-logs-mSEH7K`，同族那行 `写坏后复原=md5 全等；人为错位被抓出 1 件（assets/js/editorial.min.js）`。
+
+**负载那一格记清楚，免得下一轮误读**：两本带自拒的门（`verify-tool-url.mjs:61-70` 那圈负载闸门——`for (;;)` 配 `:65` 的 `if (os.loadavg()[0] <= 16) break`，等满 90s 落不下来就自己退 2 并打「宁可不交」；以及 `verify-motion-batch4.mjs` 按采样密度 exit 2）这一轮分别在 load **8.32**（`toolurl`，驱动二那一遍）与 **10.45**（`motion`）起跑，没触发等也没拒；
+中途现读到的最高值是 **17.06**（12:12 前后，正卡在 `toolurlteeth` 收尾与 `deeplinkteeth` 起跑之间），也就是**没有任何一道是在 >16 的状态下被放行判绿的**，
+但「跑完 11 道」这件事本身把本机推到了自拒阈值之上——**同机并行跑 A/B 或再开一轮浏览器门，这个数就是下一轮该先看的那格**。
+
+**推的那一刀**：`GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 -c http.postBuffer=1 push origin HEAD:master`，
+推之前先零联网确认它一定是快进：`git merge-base --is-ancestor origin/master HEAD` 退 **0**、`git rev-list --count HEAD..origin/master` = **0**、
+`git rev-list --count origin/master..HEAD` = **84**（本节这一笔只动 `_docs` 落下去之后是 **85**）。
+**推的就是这一棵测过的树**：`_docs` 不进 `_site`（`_config.yml:206` 那份 `exclude` 里没有它，但现量 `ls -d _site/_docs` = `No such file or directory`——
+Jekyll 不把下划线开头的非特殊目录当站点内容读），所以这一笔不会改变部署内容，也就没有「部署的那棵树 ≠ 跑门的那棵树」。
+凭据按 §9.10 那条规矩只认三样，且都写成构造而不是抄来的数：**push 自己那行 stdout**（原样归档在 `/tmp/gate/it-push-master.txt`，逐字可重看）、
+`git rev-parse origin/master` 与当时本地 HEAD 同串、`git rev-list --count origin/master..HEAD` = **0**；
+再加一条可达性硬证 `git branch -r --contains b0d5af7` 必含 `origin/master`（跑 14 步那一遍的内容尖，从此在远端可达）。
+**`ls-remote` 抖一次既不能当失败证据也不能当成功证据**（§9.10 那格那两条 0 字节 / 退 128 的读数就是这一条的来源）。
+
+**没跑的那一格照记**：Pages 那一次 workflow run 本轮**没有实测**——本机无 `gh` CLI，而核对 Actions 要拿凭据打 API，本轮的口径是不打印、不外带任何凭据形状的东西。
+部署条件本身有硬证：`.github/workflows/jekyll.yml:3-6` 的 `on.push.branches: ["master"]`，而这一刀推的正是 `master`。
+**要确认发布真落地，下一轮该看的是 Actions 那条 run 与线上 `/better-blog/` 那两篇新页**，不是本节这句话。
