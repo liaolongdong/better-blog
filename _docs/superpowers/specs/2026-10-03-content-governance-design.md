@@ -1267,3 +1267,10 @@ jdp 的 head 侧没守住（中位 **116.8 ms**，五行 `44.6 / 318.2 / 4.3 / 1
 （`/tmp/gate/it-seo-after-cd0534a.out`）。它不必先重建：`_docs` 既不在 `check-seo.mjs:280` 那五项源清单里，也不进 `_site`——
 这正是 §9.8 第 12 条①那个覆盖面缺口的**另一面**：同一处缺口，这一轮让 `--verify` 免于被文档笔墨顶红，那一轮让 `demo.json` 与 `_plugins/*.rb`
 的改动逃过点名。缺口本身不因为这次没伤人就修好了。
+
+**这条网络会抖，抖不等于没推上去**：第二刀（`8c2fc25..ba52cae`）推成功之后紧接着那条 `ls-remote` 退 **128**
+（`fatal: unable to access …: Empty reply from server`，`/tmp/gate/it-verify-push2.txt` 存着这行），
+同一条命令第二次调用就通了——`/tmp/gate/it-verify-push3.txt` 是 `ba52cae159e38bc617bb478653ab980e14afafe6	refs/heads/it-sp234`，
+与当时本地 HEAD 同串。当时不靠这条重试也能定案：`git rev-list --left-right --count @{u}...HEAD` 已是 `0	0`、
+`git branch -r --contains 8c2fc25` 已回 `origin/it-sp234`，而这两条读的都是 push 自己写回的远端跟踪 ref。
+**下一轮别把「核验命令抖一次」读成「推送失败」**，也别反过来拿它当推送成功的凭据——凭据是 push 自己那行 `8c2fc25..ba52cae` 与退 0。
