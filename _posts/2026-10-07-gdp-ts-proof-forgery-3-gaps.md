@@ -3,8 +3,9 @@ layout: post
 title: 五种伪造 proof 的写法，它自己只拦两种
 subtitle: 三条已公开的缺口我都复现了，授权钉在类型上没那么牢
 seo_short_title: gdp-ts 伪造 proof 实测
+seo_description: 五种伪造 proof 的写法我都试了，tsc 全过编译，它自带的 strict 档只报 2 条。编译期确实挡得住 5 个错法，README 那句约 0.3 毫秒我在本机测成 2.9 毫秒。
 date: 2026-10-07
-categories: 开源工具 TypeScript
+categories: [开源实测, TypeScript]
 cover: /assets/img/gdp-ts-proof-forgery-3-gaps/banner.webp
 tags: gdp-ts TypeScript 权限校验 Vercel
 ---

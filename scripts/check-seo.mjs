@@ -1146,16 +1146,23 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
 // 这两行不是「从现状自动生成」的数据，而是从**归一后**的现状生成、逐条钉进脚本的常量表：
 // 新增/改名必须显式改脚本——词表漂移正是这一组要治的病，不该由「自动跟随」放过。
 // 用 `split(' ')` 的前提是「本站 front matter 表达不了一枚含空格的标签」；谁真塞进去，
-// 这两行的规模立刻不是 151/14，紧跟其后的那条自证先红，轮不到八条判据去猜。
+// 这两行的规模立刻不是 155/14，紧跟其后的那条自证先红，轮不到八条判据去猜。
+//
+// 2026-10-08 并 main 那一轮把 tag 白名单从 151 扩到 155：`_posts/2026-10-07-gdp-ts-proof-forgery-3-gaps.md`
+// 带进 `gdp-ts`、`权限校验`，`_posts/2026-10-07-wikimedia-openai-agent-edits.md` 带进 `robots.txt`、`维基媒体`。
+// 这四枚不是漂移出来的别名——`gdp-ts` 是仓库名（与已在表的 `GitDiagram`、`Univer` 同类），
+// `权限校验`／`robots.txt`／`维基媒体` 各指一件现存词覆盖不了的事，改词等于把那篇的检索面抹掉。
+// 同两篇的 categories 反过来是**归一**而非扩表：`开源工具`→`开源实测`、`前端`→去掉（它本来就是 tag），
+// 所以 CATS_OK 仍是 14 枚（spec §9.11 记的就是这个分工）。
 const TAGS_OK = new Set(
-  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Astryx Bend CSS Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 blog chrome chrome浏览器插件 coding.net dev-server echarts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端工作总结 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 博客 原型和原型链 原生编译 域名解析 学习笔记 安全 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 架构图 查找算法 沙箱 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
+  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Astryx Bend CSS Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 blog chrome chrome浏览器插件 coding.net dev-server echarts gdp-ts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert robots.txt scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端工作总结 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 博客 原型和原型链 原生编译 域名解析 学习笔记 安全 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 架构图 查找算法 沙箱 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 权限校验 维基媒体 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
     ' ',
   ),
 );
 const CATS_OK = new Set('AI CSS Chrome插件 H5与微信 JavaScript React TypeScript Vue 前端工程化 工具与效率 开源实测 服务器与部署 算法与面试 随笔'.split(' '));
 
-if (TAGS_OK.size !== 151 || CATS_OK.size !== 14) {
-  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 151 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
+if (TAGS_OK.size !== 155 || CATS_OK.size !== 14) {
+  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 155 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
 }
 
 // ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
@@ -1275,6 +1282,7 @@ const TOOL_HIT_OK = [
   ['2026/09/30/univer-node-two-gaps.html', 'TypeScript'],
   ['2026/10/01/gitdiagram-keyless-mcp-4-bad-edges.html', 'TypeScript'],
   ['2026/10/06/vite-wasm-query-fs-bypass.html', 'vite'],
+  ['2026/10/07/gdp-ts-proof-forgery-3-gaps.html', 'TypeScript'],
 ];
 
 const TOOL_MATCH_TAGS = new Set();
