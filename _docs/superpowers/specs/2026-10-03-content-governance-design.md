@@ -1502,3 +1502,33 @@ FAIL  tags / categories 不是列表  categories 写成了 YAML 列表，必须�
 `:383` 那格从「写成列表就红」翻成「**裸标量且值含空白**才红」，与 `check-seo.mjs:1328-1339` 同式（两本门从此判同一件事）；
 `scripts/fixtures/article-check/mutation-check.mjs` 的 M10 钉的是 `tags / categories 不是列表` 这个门名，跟着改，改完必须重跑那颗牙齿看它仍点燃——否则就是 §9.8 那条「假牙」的老病。
 `_drafts/WRITING_PROTOCOL.md`（未跟踪、只在主工作树）那两句要同批改，否则文档与两本门会剩下一处不一致。
+
+### 9.13 并 `origin/master` 后推 master——合并提交这一格才是「跑门的树 = 提交的树」真正受审的地方（2026-10-09）
+
+**为什么必须多一枚合并提交**：§9.12 为了不碰并发会话的 ref 走了 cherry-pick，于是 `origin/master`（`aa61b30`）在图上**不是** `b717f6c` 的祖先——
+现算 `git merge-base --is-ancestor origin/master HEAD` 回 **rc=1**，`rev-list --count` 两侧 `ahead=5 behind=1`，`merge-base` = `68cc992`。
+此时直接推就是 non-fast-forward，而 force-push 禁。所以推前先 `git merge -F /tmp/sp4m-merge-msg.txt origin/master`（`Merge made by the 'recursive' strategy`，零冲突），尖 **`5e0fc2b`**，双亲 `b717f6c` + `aa61b30`。
+
+**合并没有换掉任何一个字节，这一条不靠「应该没变」**：
+`git rev-parse b717f6c^{tree}` 与 `git rev-parse HEAD^{tree}` 同为 **`b13458910488ffbf05ee8868008187d1ee3fe6d2`**，`git diff --quiet b717f6c HEAD` 回 **rc=0**。
+树对象 SHA 相等意味着 §9.12 那一整条门禁链读过的每一个字节都还在原位——**合并后不需要复跑**，复跑反而只证明同一件事第二次。
+合并前还有一道前置比对：`git diff --name-only b717f6c aa61b30` 只有 12 本，全是来自 `1be11cc` 的两篇新帖、§9.12 那本 spec、`check-seo.mjs` 那 4 处（都在我们这侧），`aa61b30` 触及的 12 本路径零差异。
+
+**推出去的是什么**：`git diff --name-only origin/master HEAD` = **12 本 / 409 增 / 4 删**（逐本清单落 `/tmp/sp4m-pushset.txt`），
+其中 `_config.yml`／`package.json`／`dev/sass/toolkit.scss`／`dev/js/editorial.js`／`sw.js`／`offline.html`／`_data/og_images.yml`／`scripts/check-sw*` 这些禁改路径 **grep 零命中**，`search1.json` **零命中**。
+
+**推送与三重核验**（口径逐条给命令，因为这一轮的结论全是「服务端现读」型的）：
+`GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 -c http.postBuffer=1 push origin HEAD:master` → rc=**0**，回显 `aa61b30..5e0fc2b`（**两点、无 `+`**，即真是快进）。
+① 服务端 ref：`ls-remote origin refs/heads/master` = `5e0fc2b5caed224a850769d5755f5ddea4312dde`，与本地 `rev-parse HEAD` 全等——**不能用本地的 `origin/master` 当这一步的证据，那一格是 push 自己写进去的**。
+（顺带一条：同一条命令链里先跑的 `git fetch` 打了 `Empty reply from server` 却因管道而 rc=0，`ls-remote` 才说得出真话——**认服务端，不认 fetch 的退出码**。）
+② 部署：Actions `runs?head_sha=5e0fc2b…` 命中 **1** 条，run `37918314855` / **#49** `Deploy Jekyll site to Pages`，`event=push`，`completed` / **`success`**，`updated_at=2026-10-09T10:34:32Z`。
+③ 线上页面（逐条单独 curl，一次一个 URL）：两篇新帖 `200`、**70749B / 74351B**，与本仓 `_site` 里刚跑过门的那两份**长度全等**；逐字节比对的差异每篇恰好 **2 个偏移**（`4580`/`6310` 与 `4530`/`6305`），两处都是 `+08:00` 对 `+00:00` 的那一位数字——CI 在 UTC 建，与 §9.11 记的时区口径同一条，**不是内容差**。
+`meta description` 线上与源 frontmatter **逐字相等**（129 / 102 个码点），haiku 那篇 `keywords` 是 `Claude,Anthropic,TypeScript`。
+`tags.html` 现读 **156** 个 `<section class="cat-section">`、`categories.html` **14** 个，且 `id` 序列与本地那一侧 `idsEqual=true`；`Anthropic` 有栏且挂着 haiku，**`SDK` 无栏**（归一生效），ascii 同时挂在 `开源实测` 与 `前端工程化` 两栏下（`[A, B]` 生效）。两枚新 banner 线上 `200`、**45446B / 122928B**，与推送 diff 里那两行 `Bin` 的字节数全等。
+
+**两处本轮自己的读数错，都得记**：
+- 第一版线上探针按猜的形状抓标签（`rel="tag"` 与 `/categories/<x>/`），两篇都回**空数组**——不是页面缺标签，是**定位器没命中过**。改成抓 `href` 含 `tags.html#` 的形状才对上。**空结果必须先证定位器命中过，才能读成「不存在」**（§9.12 末段那条 `grep -c` 陷阱的线上版）。
+- 线上正文只有**一枚**分类 chip，看着像 `[A, B]` 没生效。实际 `_layouts/post.html:56` 本来就是 `{{ page.categories | first }}`，`:51` 还有一行注释钉住这个写法——**单 chip 是既有口径，不是这一轮的回归**；两栏都在的证据在归档页（上面那条两栏同时命中）。
+
+**并发会话未受影响**：`main` 仍在 `1be11cc`，`diff --cached --name-only` **15** 条、`status --porcelain` **26** 项，逐项与 §9.12 开工前一致，全程没动它的 ref 与工作树。
+**凭据**：API 用的 token 从 `osxkeychain` 经 `git credential fill` 取，只写进 `umask 077` 的 curl `--config` 文件、由 `curl --config` 消费，全程未打印任何一位，用完 `rm -f`（自证 `[ -f ]` 回 `gone`）；对 API 只做了 `runs` 列表这一种**只读**调用。
