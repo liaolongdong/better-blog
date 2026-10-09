@@ -3,10 +3,11 @@ layout: post
 title: Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK
 subtitle: 模型 ID 在旧 SDK 就能原样发出，带类型的工具块要等新版。
 seo_short_title: Claude Haiku 5.5 实测
+seo_description: Anthropic 换掉它的便宜小模型：只把 model 字符串换成 claude-haiku-5-5，0.131.0 在本机 stub 上就原样发出、回包也照样解析。要带类型的浏览器工具块才需要升 0.132.0，旧版那个 import 报 TS2724。
 date: 2026-10-09
 categories: AI
 cover: /assets/img/haiku-5-5-model-id-vs-sdk-typing/banner.webp
-tags: Claude Anthropic SDK
+tags: Claude Anthropic TypeScript
 ---
 
 # Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK
