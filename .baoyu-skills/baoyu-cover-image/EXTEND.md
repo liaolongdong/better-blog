@@ -27,5 +27,5 @@ watermark:
 
 调用方式（cron 任务里）：
   baoyu-cover-image --quick --aspect 16:9 --text none
-生成后需手动搬运并转 webp，详见 _drafts/WRITING_PROTOCOL.md §13。
+生成后需手动搬运并转 webp，详见 _drafts/WRITING_PROTOCOL.md §8.2（旧 §13，v2 已重编号）。
 -->

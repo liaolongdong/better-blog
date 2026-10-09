@@ -40,13 +40,18 @@
     - Chrome MV3
     - MIT 开源
     - 零网络请求
+    - 已上架应用商店
   features:
     - 14 种格式、48+ 条转换路径，批量拖拽一次出全部
     - 纯本地转换，断网可用，敏感文件不经过任何服务器
     - 输出预设与历史记录，重复转换任务一键复用
     - 转换结果可预览可再编辑，不用来回切应用
   links:
-    store: ''
+    # 2026-10-07 条目已上线（item ID 见 transfer-any-file 的 .github/CHROMEWEBSTORE.md 顶部「现网状态」）。
+    # 这一格填上之后，商店那颗 CTA 从 .cta-muted 的说明文字变成真按钮，tools.html 的 a.cta 从 8 颗变 9 颗。
+    # 用带标题 slug 的长地址而不是短 ID：cross-origin-proxy 有一条「所有商店链接共用同一个扩展 ID」的断言，
+    # 它按 detail/<32 位> 认自家链接，兄弟产品的 ID 会被它算成自己的。slug 跟着现网中文名走，标题变了要重取。
+    store: https://chromewebstore.google.com/detail/%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F%E4%BB%BB%E6%84%8F%E8%BD%AC%E6%8D%A2%E5%8A%A9%E6%89%8B-%E2%80%94-%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2%E6%97%A0%E4%B8%8A%E4%BC%A0/blkdmpkcaceicinkhindniepbbbaekkb
     demo: https://liaolongdong.github.io/transfer-any-file/
     repo: https://github.com/liaolongdong/transfer-any-file
   post_tag: Transfer Any File
