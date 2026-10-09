@@ -39,10 +39,12 @@ const MUT = [
   ['M7 全文超 2000', (s) => s.replace('## 使用示例', '这一节被人为拉长以试长度门。'.repeat(95) + '\n\n## 使用示例'), '全文篇幅'],
   ['M8 加粗 5 处', (s) => s.replace('## 快速上手', '**甲** **乙** **丙** **丁** **戊**\n\n## 快速上手'), '加粗数'],
   ['M9 全文低于 1000', (s) => s.replace(/^## 使用示例[\s\S]*?(?=^## 和同类比)/m, ''), '全文下限'],
-  ['M10 categories 写成列表', (s) => s.replace('categories: AI 开源实测', 'categories: [AI, 开源实测]'), 'tags / categories 不是列表'],
+  ['M10 categories 多值不带方括号', (s) => s.replace('categories: [AI, 开源实测]', 'categories: AI 开源实测'), 'categories 多分类写成列表'],
   ['M11 删结尾项目地址', (s) => s.replace(/^项目地址：.*\n/m, ''), '结尾项目地址'],
   /** href 换成 manifest 里另一条真实登记过的 URL：只该触发「自洽」，不该触发「URL 反查」 */
   ['M12 项目地址换地址', (s) => s.replace(/^项目地址：\[([^\]]+)\]\([^)]*\)/m, (m, a) => `项目地址：[${a}](https://github.com/mmorett/pdf2txt/issues/318)`), '项目地址链接自洽'],
+  /** 删掉站点门要求的那一枚键：9 键那格必须变红，否则「协议 §8.1 与 SP4 同形」这件事就没有牙齿守着 */
+  ['M13 删 seo_description 行', (s) => s.replace(/^seo_description: .*\n/m, ''), 'frontmatter'],
 ];
 
 let bad = 0;

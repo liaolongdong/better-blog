@@ -66,8 +66,8 @@ const L = {
   outlookChars: 250,
 };
 
-/** frontmatter 必须正好这 8 个键、按此顺序（协议 §8.1）。 */
-const KEYS = ['layout', 'title', 'subtitle', 'seo_short_title', 'date', 'categories', 'cover', 'tags'];
+/** frontmatter 必须正好这 9 个键、按此顺序（协议 §8.1 / SP4 描述 ①——seo_description 是站点门要求的那一枚）。 */
+const KEYS = ['layout', 'title', 'subtitle', 'seo_short_title', 'seo_description', 'date', 'categories', 'cover', 'tags'];
 
 /** 一级黑名单里正则判不了的部分（带语境限定），只报 WARN（协议 §7.1）。 */
 const JUDGMENT_WORDS = ['闭环', '心智', '颗粒度', '方法论', '对齐', '下沉', '落地', '赋能', '抓手', '打通', '串起来', '拉齐', '智能', '优雅', '降维打击', '跑通', '组合拳', '护城河'];
@@ -356,7 +356,7 @@ const expectedCount = outline.length;
 
 /* ------------------------------------------------------------ 检查：元 */
 
-gate(JSON.stringify(fmKeys) === JSON.stringify(KEYS), 'frontmatter', `8 键顺序正确`, `键名或顺序不对：实际 [${fmKeys.join(', ')}]，必须 [${KEYS.join(', ')}]（§8.1）`);
+gate(JSON.stringify(fmKeys) === JSON.stringify(KEYS), 'frontmatter', `9 键顺序正确`, `键名或顺序不对：实际 [${fmKeys.join(', ')}]，必须 [${KEYS.join(', ')}]（§8.1）`);
 
 const base = path.basename(file, '.md');
 const m = base.match(/^(\d{4}-\d{2}-\d{2})-([a-z0-9][a-z0-9-]*)$/);
@@ -371,16 +371,13 @@ gate(c(fm.seo_short_title) <= L.shortTitle, 'seo_short_title', `${c(fm.seo_short
 gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(fm.seo_short_title ?? ''), 'seo_short_title 无 emoji', 'ok', 'seo_short_title 里出现了 emoji（§4.5）');
 gate(c(fm.subtitle) <= L.subtitle, 'subtitle 长度', `${c(fm.subtitle)} 字符`, `subtitle ${c(fm.subtitle)} > ${L.subtitle}，首页 h3 无 truncate / line-clamp 会折成数行（§4.5）`);
 gate((fm.tags ?? '').trim() !== '' && (fm.categories ?? '').trim() !== '', 'tags / categories', fm.tags, 'tags 或 categories 为空');
-/** §8.1：这两个键是空格分隔字符串。写成 YAML 列表时 Jekyll 不报错，但模板按字符串渲染会整段吐空。 */
+/** 与站点门同式（check-seo.mjs:1328-1339 的词表 ③）：多分类必须写成 [A, B]，裸标量且值中含空白才红。
+ *  这一格只管 categories——tags 两种形状 Jekyll 都拆得对（check-seo.mjs:207 的 asList 注释就是这条口径），
+ *  而 categories 只有方括号那一形能让归档页两栏都挂上，空格分隔的多值会让归档页读数撒谎。 */
 const fmLines = fmText.split('\n');
-const asList = ['tags', 'categories'].filter((k) => {
-  const i = fmLines.findIndex((l) => new RegExp(`^${k}\\s*:`).test(l));
-  if (i < 0) return false;
-  const val = fmLines[i].replace(new RegExp(`^${k}\\s*:\\s*`), '');
-  if (/^\[/.test(val)) return true;
-  return val === '' && /^\s*-\s/.test(fmLines[i + 1] ?? '');
-});
-gate(asList.length === 0, 'tags / categories 不是列表', 'ok', `${asList.join(' / ')} 写成了 YAML 列表，必须是空格分隔字符串（§8.1）`);
+const catLine = fmLines.find((l) => /^categories\s*:/.test(l));
+const catVal = (catLine ?? '').replace(/^categories\s*:\s*/, '').trim();
+gate(!(catVal !== '' && !catVal.startsWith('[') && /\S\s+\S/.test(catVal)), 'categories 多分类写成列表', 'ok', `categories 写了空格分隔的多值「${catVal}」——多分类必须写成 [A, B]，方括号之外 YAML 与 Jekyll 的拆法不同，归档页读数会撒谎（§8.1）`);
 
 /* -------------------------------------------------------- 检查：结构顺序 */
 

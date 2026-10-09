@@ -1532,3 +1532,29 @@ FAIL  tags / categories 不是列表  categories 写成了 YAML 列表，必须�
 
 **并发会话未受影响**：`main` 仍在 `1be11cc`，`diff --cached --name-only` **15** 条、`status --porcelain` **26** 项，逐项与 §9.12 开工前一致，全程没动它的 ref 与工作树。
 **凭据**：API 用的 token 从 `osxkeychain` 经 `git credential fill` 取，只写进 `umask 077` 的 curl `--config` 文件、由 `curl --config` 消费，全程未打印任何一位，用完 `rm -f`（自证 `[ -f ]` 回 `gone`）；对 API 只做了 `runs` 列表这一种**只读**调用。
+
+### 9.14 把 §9.12 末段那处移交项做掉——两本门从此判同一件事（2026-10-09，`ac-align`）
+
+**为什么这轮必须动它，而不是再移交一次**：`scripts/article-check.mjs` 在仓内**零消费者**（`grep -rn "article-check" scripts/ .github/ _config.yml` 只命中它自己的牙齿 `scripts/fixtures/article-check/mutation-check.mjs`；`.github/workflows/` 只有 `jekyll.yml`，`grep -n "scripts/"` 零命中），但**两本每日 cron 都跑它且被协议禁止修改它**，所以 §9.12 那两格红不是文档不一致，而是**每晚 22:05 都会再产出一批需要人工按 SP4 口径返工的稿子**。修在 master 上不影响今晚的读数——cron 读的是 `main` 工作树的**工作副本**，落地那一格见本节末。
+
+**三处一起动才自洽（形状正是 §9.12 末段给的修法，一字未改）**：
+1. `:70` 的 `KEYS` 在 `seo_short_title` 之后插 `seo_description`（8→9 键），`:266` 那格的通过文案跟着从「8 键顺序正确」改「9 键顺序正确」；
+2. `:375-383` 那格从「写成列表就红」**整个换成** `check-seo.mjs:1328-1339` 词表 ③ 的同一式子——`红 ⟺ 值非空 ∧ 不以 [ 开头 ∧ /\S\s+\S/`，门名 `categories 多分类写成列表`。**只管 `categories`**：`tags` 两种形状 Jekyll 都拆得对（`check-seo.mjs:207` 那句 `asList` 注释就是这条口径），而 `categories` 只有方括号那一形能让归档页两栏都挂上；
+3. 夹具补 `seo_description` 并把 `categories` 改成 `[AI, 开源实测]`，牙齿 **M10 反向**（原钉「写成列表」，现在钉「多值不带方括号」）并新增 **M13 删 `seo_description` 行 → `frontmatter`**——不留牙齿的话，「§8.1 与 SP4 同形」这件事就是 §9.8 那族「假牙」老病。
+
+**牙齿（改完必跑，这就是它的账）**：`node scripts/fixtures/article-check/mutation-check.mjs` rc=**0**，`正向 合规夹具 exit=0 结论: PASS（PASS 66 / WARN 0 / FAIL 0）` + `结论: 正向 PASS + 13 项变异各自触发预期门禁`。判据数仍是 **66**：这一格是一换一，不是加格。
+
+**同一命令形状下的语料 A/B**（`node <那本门> _posts/2026-*.md --job A`，37 本，逐本 rc 落 `/tmp/aac-*/corpus-{old,new}.txt`；旧侧是 `git show HEAD:scripts/article-check.mjs`，md5 `ab4d060af3ccfff57d9f78654fde151d`）：
+`^FAIL  frontmatter` **37 → 0**、`^FAIL  tags / categories 不是列表`／`^FAIL  categories 多分类写成列表` **31 → 0**、exit0 **0 → 6**（`bend-laws`／`scriptc`／`univer`／`gitdiagram`／`gdp-ts`／`ascii-rest`，就是按 v2 骨架写的那几本）。
+**剩余 31 本的红与本轮无关**：全在正文骨架格上（`展望有锚` 31、`单节篇幅` 31、`H2 名单与顺序` 31、`H2 数` 26、`句子长度` 24、`全文篇幅` 24…），那是 v2 骨架之前写的稿子，本轮既没判它们、也没放松任何判据。
+**本轮自己数错的一格，形状与 §9.12 那条 `grep -c` 陷阱同族**：第一遍我拿 `--job A` 去判今天 cron 的两篇，`haiku` 报 5 红（`H2 数`/`H2 名单与顺序`/`单节篇幅`/`展望有锚`/`结尾项目地址`）——换成 `--job B` 是 `PASS 60 / FAIL 0`。**那篇本来就是 B 类**，`--job` 不是我该当常数的那一格；差点把「我用错形状」报成「cron 又写了不合格的稿」。
+
+**文档四处同步（一处不漏，`_drafts/` 未跟踪、只在主工作树）**：§8.1 本体（9 键、`seo_description` 行、`categories` 那行改「单分类可裸标量；多分类必须 `[A, B]`」、新写「tags 仍空格分隔单 token」与「两本门用同一式子，语义与数字预算只在 `check-seo.mjs`，本文档不重抄」）；§10.1 三处（「8 键 frontmatter」→ 9 键、「`tags`/`categories` 不是 YAML 列表」→ 「`categories` 的多分类必须写成 `[A, B]`」、12→13 两处、M10 改口 + M13 补行）；`persona.md:25` 与 `:191` 的 **8 键 → 9 键**——**persona 是两本 cron 的必读输入**，那里留着「8 键」等于把键数注回去、把这轮修复抵消掉。复扫式子 `8 键|不是 YAML 列表|不是列表|12 种变异|12 项各自|tags / categories` 在 `_drafts/` 下 **0 命中**。
+**§10.1 里那句「本轮第一版就是这样把 12 项全『测过』的」我留着没改**：那是 2026-09-27 那一遍的历史读数，改成 13 就是把当时的事写成现在的事。
+
+**一条已知共享盲点，不藏**：块列表形（`categories:` 空值 + 下一行 `- AI`）这一格从此**不红**——因为 `check-seo.mjs` 的词表 ③ 也不红（`val &&` 那半句先短路）。这是「两本门用同一式子」的**必然结果**，不是这轮引入的漏口；要补得两边一起补，且 `check-seo.mjs` 那侧属于站点门，越权。
+
+**门禁链读数（`ac-align`，基 `e900f62`，与 §9.13 那棵的唯一差异就是上面三本 `scripts/`）**：重建① `vite ✓ built in 4.01s` / `jekyll done in 5.391s`（仍 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`）；牙齿六颗全 rc=0——`check-seo-teeth 159/159（95.7s）`、`收录面 79/79`、`图尺寸 27/27`、`变体 15/15`、`计划镜像 41/41`（收口自证 `脏项 4 个前后一致，diff 指纹 1672d25ac541aeac`）、上面那颗文章门牙；重建② `done in 4.268s`；只读七本全退 **0**，逐道引它自己那行：`15 组全绿 … JSON-LD 219 块全部可解析`、`收录面 4 条 ready × 6 组判据全绿`、`image-dims: ok（36/36，台账 20 对）`、`全部已落地镜像与磁盘逐字节全等（未落地 0 节）`、`# pass 439 / # fail 0`、`# pass 12 / # fail 0`、`自检通过：表 68 条，卡片 34 张 …`。
+**Chrome 那 11 道这一轮没跑，理由不靠推断、靠产物级 A/B**：`diff -r --brief .worktrees/sp4-postmerge/_site .worktrees/ac-align/_site` 只回 **1 行**——`feed.xml differ`，**零 `Only in`**。两棵树的 `_site` 文件集相同、逐字节只差那份 feed 的生成时刻，而 11 道 Chrome 门读的都是 `_site` 副本；`feed.xml` 归 `check-seo`／`check-tools-surface` 那两本（都在上面，且都绿）。§9.13 那一遍对这同一份产物的 11 道读数因此仍然成立。
+
+**落地这一格分两处，第二处是本节唯一的「动别人的工作树」**：master 拿到的是格式化版；`main` 工作树里那本仍是并发会话暂存的 `61306177f41c9553c37df7259c38d7c8`（与 master 的 `ab4d060…` 行为等价，§9.12 已用「同一 37 本跑出逐字节相同的 2777 行」定过性）。**今晚的 cron 跑的是工作副本**，所以只把 `scripts/article-check.mjs` 这一本按修复内容改到 `main` 的工作树，**索引一字不动**（它的暂存仍是对话方那版，`git show :scripts/article-check.mjs` 随时可取回），那格的 status 因此从 `A ` 变 `AM`；夹具与牙齿那两本不在 cron 的读取路径上，不在 `main` 落，避免把一个成三件的改动在三处各留半份。

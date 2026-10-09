@@ -3,8 +3,9 @@ layout: post
 title: 一份 24 页的扫描件，它吐给我 8192 个字符
 subtitle: 这类工具先把页数换算成 token，选型看这一步
 seo_short_title: PDF 转文本工具实测
+seo_description: 它把 24 页的扫描件压到 8192 个字符，漏读没了，代价是版式全丢、两份并排的文档读起来会串行——选型前先用自己手上最脏的那份跑一次，量它吐进上下文的字符数。
 date: 2026-09-27
-categories: AI 开源实测
+categories: [AI, 开源实测]
 cover: /assets/img/pdf2txt-fixture/cover.webp
 tags: PDF 上下文 开源
 ---
