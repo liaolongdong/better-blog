@@ -34,5 +34,5 @@ custom_styles: []
 注意：该 skill 的 Step 3 是硬性确认门。cron 任务的 prompt 里已写入
 「直接生成，不用确认，按默认出图」作为显式 opt-out，等价于用户当场说这句话。
 
-搬运与转 webp 的命令见 _drafts/WRITING_PROTOCOL.md §13。
+搬运与转 webp 的命令见 _drafts/WRITING_PROTOCOL.md §8.2（出图管线，2026-09-27 v2 重编号，旧 §13）。
 -->

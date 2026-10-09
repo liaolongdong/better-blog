@@ -12,6 +12,8 @@
     "build:site": "pnpm build && bundle exec jekyll build",
     "og:images": "node scripts/og-images.mjs",
     "og:check": "node scripts/og-images.mjs --check",
+    "wechat:draft": "node scripts/wechat-draft.mjs",
+    "wechat:draft:latest": "node scripts/wechat-draft.mjs --latest --dry-run",
     "deploy": "bash deploy-github.sh",
     "deploy:ali": "bash deploy-ali.sh"
   },

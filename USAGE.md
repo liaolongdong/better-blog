@@ -462,9 +462,13 @@ grep -ho '<title>[^<]*</title>' /tmp/seo-check/*.html /tmp/seo-check/20*/*/*/*.h
 #    CollectionPage 等于所有带 page.title 的站点页与归档页（含 index-all.html，也含 /tools/ 下
 #    每一页 status: ready 的在线工具页——这一族不在 site.nav 里，靠 sitemap 那条数据源点名收录，
 #    所以它的 CollectionPage 只跟着页面走，别拿导航项数目去推）。
-#    2026-09-27 现场：BlogPosting 72 + BreadcrumbList 72 + CollectionPage 27 + WebSite/Blog 各 1
-#    + Person 2 = 175 块（noindex 的 404 页不声明结构化数据）。这两个数是会跟着投稿走的，
-#    照上面那条口径重算，别把 175 当成常数判
+#    2026-09-30 现场（段 4 Task 7 重量，`_data/onlineTools.yml` 三条 ready 都已落地）：
+#    BlogPosting 76 + BreadcrumbList 76 + CollectionPage 29 + WebSite/Blog 各 1 + Person 2
+#    = 185 块（noindex 的 404 页不声明结构化数据）。CollectionPage 那 29 块分三段：/tools/ 下的
+#    idcard、codec、json 三页，demo/ 目录里那 18 份（含两处 index.html 与两份额外页），
+#    以及站点页与归档页 8 份（about / categories / demo.html / index-all / series / tags /
+#    tools.html / weblab）。
+#    这两个数是会跟着投稿走的，照上面那条口径重算，别把 185 当成常数判
 #    下面顺带核两件事：作者实体的 name 是否全站只有一个值（同一 @id 出现两个 name 就是噪音），
 #    以及文章的 author 是否 @id 与 name 都在——只留 @id，Rich Results 校验器报缺 author.name。
 python3 - <<'PY'
