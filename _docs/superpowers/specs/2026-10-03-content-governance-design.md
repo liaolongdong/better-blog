@@ -1414,3 +1414,91 @@ Jekyll 不把下划线开头的非特殊目录当站点内容读），所以这�
 **没跑的那一格照记**：Pages 那一次 workflow run 本轮**没有实测**——本机无 `gh` CLI，而核对 Actions 要拿凭据打 API，本轮的口径是不打印、不外带任何凭据形状的东西。
 部署条件本身有硬证：`.github/workflows/jekyll.yml:3-6` 的 `on.push.branches: ["master"]`，而这一刀推的正是 `master`。
 **要确认发布真落地，下一轮该看的是 Actions 那条 run 与线上 `/better-blog/` 那两篇新页**，不是本节这句话。
+
+### 9.12 并 `main` 第二轮：`1be11cc` 的两篇 10-09 新帖与「工具与文档」那一半，合成一棵线性树重跑全链（2026-10-09）
+
+**形状换了，因为 `main` 这一回不是一枚干净的提交尖**：并发会话在它的工作树里持着 **15 条暂存项**，`git status --porcelain` 仓库根现读 **26 项**（其中 `scripts/article-check.mjs` 一族是 `A`）。
+§9.11 那一遍的 `git merge main` 依赖「`main` 的 HEAD 就是它的全部内容」，这一遍同一批路径还在被逐分钟改写，所以既不动那棵工作树、也不碰它的 ref，改在别处合成：
+`git worktree add .worktrees/sp4-postmerge -b sp4-postmerge 1be11cc` → `git cherry-pick aa61b30` → 尖 **`6be5fa1`**。
+**「并进来」没有第二份内容**：那 12 本路径在 `6be5fa1` 与 `aa61b30` 那棵（`.worktrees/put-tools-docs`）之间 `diff -r` 零差异、逐本 md5 相等。
+
+**先红 7 条，逐字照抄**——不是从我上一遍的笔记抄的，是**把三本文件退回 `6be5fa1` 的原版、重建、再跑一次门**拿到的读数
+（`git show 6be5fa1:<path> > <path>`，只写工作树不动索引；日志 `/tmp/sp4m-before-seo.out`，末行就是下面抄的那句 `7 条不通过`，退码 **1** 是当场现读的那格）：
+
+- `✗ [描述] 2026-10-09-ascii-rest-208-files.md：缺 seo_description——这一篇的 meta description 现在由 subtitle／site.description 兜底，卡片说的不是这一篇的事`（同句式另一篇是 `2026-10-09-haiku-5-5-model-id-vs-sdk-typing.md`）
+- `✗ [词表] 2026-10-09-haiku-5-5-model-id-vs-sdk-typing.md：标签「Anthropic」不在白名单里——词表漂移，新增一枚要显式改脚本`
+- `✗ [词表] …：标签「SDK」不在白名单里——…`
+- `✗ [词表] 2026-10-09-ascii-rest-208-files.md：categories 写了空格分隔的多值「开源实测 前端工程化」——多分类必须写成 [A, B]，方括号之外 YAML 与 Jekyll 的拆法不同，归档页读数会撒谎`
+- `✗ [词表] tags.html：tags 三侧读数不等：语料 157 / 白名单 155 / 产物 157——门禁的拆法与 Jekyll 的拆法有一处动了，或者词表动了而白名单没跟着改`
+- `✗ [词表] 2026/10/09/ascii-rest-208-files.html：这页现在命中了工具卡（npm,vite,前端构建），台账里却没有这一行——match_tags 或这页的 tags 有一边被动过`
+- 末行 `✗ SEO 门禁：7 条不通过`
+
+**7 = 描述 2 + 词表 5**，形状与 §9.11 那 13 条同族（越表 tag 2、多值形状 1、三侧读数 1、命中台账 1），**没有一条是新判据**——`词表` 组第⑧判这一遍又一次自己点出「命中了却没登记」，
+§9.11 为此写的 §9.8 第 14 条（预账里把「新帖的 tag 有没有一枚落在 `TOOL_MATCH_TAGS`」列为独立一格）这一遍兑现了：`npm`／`vite`／`前端构建` 三枚都在 `TOOL_MATCH_TAGS` 里，所以 `ascii.rest` 那篇必然命中。
+
+**处理仍是 §9.11 那两条分工，扩表与归一分两路**：
+
+- 描述那两条各 **129 / 102 个码点**（口径：`node -e` 取 `seo_description:` 之后那一行的值、`[...v].length`；地板 60、天花板 140）。
+  摘要里的数字 token 是 `5`／`0`／`131`／`132`／`2724`（haiku，按 `/\d+/g` 逐枚）与 `208`／`209`／`1`（ascii），
+  `描述` 组③要求逐字回正文、④要求不等于本篇 `subtitle`——这两侧都是门在判，绿即证。
+- 扩表 **1 枚**：`Anthropic` 进 `TAGS_OK`，155 → **156**，与钉死它的那行 `:1169`（`if (TAGS_OK.size !== 156 || CATS_OK.size !== 14)`）和 `:1149` 那句「规模立刻不是 156/14」一起改；理由写在 `:1158-1161`：表里已有 `OpenAI`／`Meta`／`阿里巴巴` 三枚厂商名，缺的正是这一枚，拿产品名 `Claude` 替它等于把「按厂商找」那条路砍掉。
+- 归一 **1 枚**：`SDK` → `TypeScript`（那篇的类型故事具体到 `TS2724` 与声明数，落到现存词比裸一个 `SDK` 更可检索），于是 `TAGS_OK` 只涨一枚，`tags.html` 的三侧从 `157 / 155 / 157` 回到全等——现算 `grep -o '<section class="cat-section" id="[^"]*"' _site/tags.html | wc -l` = **156**，`categories.html` 同式 = **14**。
+- 多值形状 1 条：`开源实测 前端工程化` 改写成 `[开源实测, 前端工程化]`，两枚都在现存 14 枚里，所以 `CATS_OK` 一字未动。
+- 命中台账 **2 行**：`TOOL_HIT_OK` 30 → **32**（`awk '/TOOL_HIT_OK/,/^\];/' scripts/check-seo.mjs | grep -c "\['20"` = 32），落在 `:1291-1292`。
+  这两行是真**斜杠形** `2026/10/09/…`（`grep -n "2026.10.09" scripts/check-seo.mjs | od -c` 自证：同一屏里 `:1158` 那条注释的文件名是连字符形、这两行的路径是斜杠形），
+  **§9.11 末段那条显示层折叠陷阱这一轮又踩了一次**：头两回 `Edit` 拿屏幕上那形（折成连字符）去替，old_string 匹配不上，第三次先 `od -c` 再落笔。
+
+**换回后的三本 md5 与退回前的快照逐项相等**（`/tmp/sp4m-after/`：`b664cb850f38253c5d47319863a9c02e` / `88eb99532b62a95598f9adacb1e1a615` / `1c3c3a29b9440974dc10ad1fb5d00a1b`），随后重建一次、`check-seo.mjs --verify` 退 **0**——「跑门的那棵树 = 提交的那棵树」这一条靠字节相等，不靠「应该没变」。
+
+**本节往 `scripts/check-seo.mjs` 里指的行号是这一遍的现号，而 §9.8／§9.11 那些是它们写下时的号**——这一遍在那本脚本里插了 7 行（`:1157` 起 +5、`:1286` 起 +7），所以旧段落的指针现在一律读低。
+锚点可复算：§9.11 写「台账补的那行落在 `:1285`」，现在 `grep -n "gdp-ts-proof-forgery-3-gaps.html" scripts/check-seo.mjs` = **1290**。**读旧段落里的行号时先这么挪一下，或按代码文本 `grep` 定位，别照着号数改**。
+
+**全链台账**（排法仍按 §9.8 第 12 条末句：重建 → 牙齿族 → 再重建 → 只读门禁 → Chrome 道；各道 stdout 落 `/tmp/sp4m-*.log`）：
+
+- 重建① `npx --no-install vite build`：`✓ built in 4.84s`；`bundle exec jekyll build`：`done in 3.716 seconds`，仍打 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`（那篇不产出，与 §9.1「缺的那篇」同一件事）。
+- SEO牙 `check-seo-teeth.mjs`：`分账：语料 6 / keywords 7 / modified 10 / JSON-LD 30 / 分页门 2 / ItemList 18 / manifest 24 / 接线 9 / head 7 / 相关工具 15 / 换源 9 / 描述 7 / 词表 6 / 内链 1 / 目录 4 / searchAction 4`、`牙齿台账：159/159 组变异如期变红（用时 93.7s）`、`✓ 全部变异已还原，复跑基线仍绿`。
+  **`词表 6` 没跟着 `TAGS_OK` 从 155 涨到 156**——与 §9.11 同一论证：牙齿钉的是判据的形状，不是词表的规模。
+- 收录面牙 `79/79`、图尺寸牙 `27/27`、变体牙 `15/15`、计划镜像牙 `41/41`（它那行收口自证：`脏项 4 个前后一致，diff 指纹 7d58b5b38a8c1457`）。
+- **文章门牙 `node scripts/fixtures/article-check/mutation-check.mjs`**：`正向 合规夹具 exit=0 结论: PASS（PASS 66 / WARN 0 / FAIL 0）`、`结论: 正向 PASS + 12 项变异各自触发预期门禁`——这颗牙齿是 `aa61b30` 带进来的新件，第一次在合并树上点燃。
+- 重建② `done in 4.142 seconds`；只读门禁 7 本全退 **0**，逐道引它自己打印的那一行：
+  `check-seo.mjs --verify`：`SEO 门禁：产物 _site/（143 页 / 85 篇文章页 / 109 页带安装面），ready 工具 4 条，修订台账 48 条，换源台账 20 条，含 --verify 重算` + `✓ SEO 门禁 15 组全绿（…）；JSON-LD 219 块全部可解析`（`grep -ro 'application/ld+json' _site --include='*.html' | wc -l` = **219**，与那一格同串；比 §9.11 的 215 涨 4，是这两篇各带 2 块）。
+  `check-tools-surface.mjs`：`✓ 收录面 4 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`。
+  `check-image-dims.rb`：`--- image-dims: ok（36/36 条断言，台账 20 对，桩目录 …/image-dims-fx20261009-64426-1qocwst）---`。
+  `verify-plan-blocks.mjs`：`✓ 全部已落地镜像与磁盘逐字节全等（未落地 0 节）`。`toolkit-tests.mjs`：`# pass 439`、`# fail 0`。`tool-url-state-tests.mjs`：`# pass 12`、`# fail 0`。
+  `og-images.mjs --check`：`85 篇文章：34 篇无 cover 需要卡片，51 篇走 front matter cover。`、`自检通过：表 68 条，卡片 34 张全部在磁盘上、尺寸 1200x630、无孤儿文件。`（§9.11 是 `83 / 49`，涨的仍是「走 cover」那半句）。
+- Chrome 11 道全退 **0**，`TK_SITE_DIR` / `TU_SITE_DIR` / `SDL_SITE_DIR` / `MOTION_SITE` / `NAV_SITE` 各指一份 `mktemp -d` 出来的新 `_site` 副本，牙齿那几道不复用入场那一份：
+  `nav-touch`：`✓ 移动端下拉点按门禁：判据 77 条 红 0 条 · 牙齿 10/10 组变异如期点名`。`motion-batch4`：`# 通过 93 项，红 0 项`。
+  `tools-browser`：`# 合计 115 项，红 0 项（收轮时本机 1 分钟负载 4.4——绝对毫秒那几格的账）`。`tools-browser-teeth`：`合计 9 项（六刀 + 三自检），点燃 9 项，未点燃 0 项`。
+  `codec-browser`：`合计 37 项，红 0 项`，旁边 `# Chrome pid=92768（本轮自己 spawn 的那一台）；站外噪声（被排除、不进判据）97 条`。`codec-browser-teeth`：`合计 5 个注入，点燃 5 个，未点燃 0 个`。
+  `idcard-browser`：`13/13 通过`。`tool-url`：`✓ 工具页地址栏验证：全绿（26 条）｜产物 /tmp/sp4m-tu-16hJ/site`。
+  `tool-url-teeth`：`✓ 地址栏牙齿：13/13 点燃`，上面那行 `写坏后复原=三本 md5 全等；人为错位被抓出 1 件（assets/js/toolJson.min.js）`。
+  `search-deeplink`：`✓ 搜索深链验证：全绿（17 条）｜跳过 1 条：J6 单词回归（需要 --head=<上一棵产物的路径>，本轮没有可比的树）｜产物 /tmp/sp4m-dl2-raOB/site`。`deeplink-teeth`：`✓ 深链牙齿：16/16 点燃`。
+- 负载这一格分两种证据：**落进日志的只有 `tools-browser` 自己打印的那句「收轮时本机 1 分钟负载 4.4」**；入场 `sysctl -n vm.loadavg` 现读 **3.37**、收工 **2.68** 是操作时的读数，没写进 `/tmp/sp4m-*.log` 任何一份，所以下一轮别拿它当可复算的产物，要复算就自己现读一遍。两本带自拒闸的门（`verify-tool-url.mjs:61-70` 的 `<= 16`、`verify-motion-batch4.mjs` 按采样密度 exit 2）这一遍都没触发等待也没拒——§9.11 里「跑完 11 道把本机推到 17.06」那一格这一遍没重演。
+
+**两处诚实读数，不是掩盖**：
+
+1. `verify-motion-batch4.mjs` 这一遍 `# 通过 93 项，红 0 项`，而 §9.7 记下的是同一道门在 `⌘K 面板·退场` 上按负载红过（5.57 / 4.33 红、2.59 绿）。
+   这一遍落在低负载档，**恰好是那条量具归因的一个正例**：那一格判据是 100 ms 采样窗里的 opacity 取值数，不是站点坏了。§9.7 末尾那条交接（换成 `el.getAnimations()`）仍挂着，本轮不动量具。
+2. `verify-search-deeplink.mjs` 第一次跑我把副本传成 `--site <path>`（空格形式），而它的 `opt()`（`:40-43`）只认 `--name=value`，于是那一遍读的是本工作树自己的 `_site`。
+   结论没受影响（那一格是重建②的产物、比三本源新），但「只认隔离副本」对它没生效，所以**补跑了一遍 `--site=` 形式**，就是上面抄的那行。`J6` 那一跳是本轮真跳。
+
+**这一轮揪出的新移交项：`article-check.mjs` 的 §8.1 与 SP4 互斥，而且不是这两篇的事**。
+把 37 本 `_posts/2026-*.md` 逐本跑这篇文章门（`for f in _posts/2026-*.md; do node scripts/article-check.mjs "$f"; done`，逐本读数落 `/tmp/sp4m-ac13.txt`）：
+**24 本在 `任务归属` 那格早退**（`:351` 打那一行、`:352` 立刻 `process.exit(1)`，所以它们走不到正文），**剩下 13 本全部报同一条红**：
+
+```
+FAIL  frontmatter  键名或顺序不对：实际 [layout, title, subtitle, seo_short_title, seo_description, date, categories, cover, tags]，必须 [layout, title, subtitle, seo_short_title, date, categories, cover, tags]（§8.1）
+FAIL  tags / categories 不是列表  categories 写成了 YAML 列表，必须是空格分隔字符串（§8.1）
+```
+
+**两条红的覆盖面不一样，`13 / 13` 只归第一条**：`键名或顺序不对` 命中 **13 本（全）**；`不是列表` 命中 **7 本**（`bend-laws`／`scriptc`／`univer`／`gitdiagram`／`vite-wasm`／`gdp-ts`／`ascii-rest`），另 6 本 `PASS`——它们是单分类、写的本来就是裸标量。
+（现算式：逐本跑完后 `grep -c "^FAIL  frontmatter  键名或顺序不对"` 与 `grep -c "^FAIL  tags / categories 不是列表"`，日志 `/tmp/sp4m-ac-correct.txt` = `fmFAIL_sum=13 listFAIL_sum=7 posts=13`。）
+**我自己第一遍数错过，错因值得记下来**：那版计数器写的是 `grep -c "不是列表"`，而 `PASS  tags / categories 不是列表  ok` 这一行里也有这五个字，于是 13 本全被数成红——**门名出现在 PASS 行上，是这一族计数判据的通用陷阱**，下一遍要带 `^FAIL  ` 前缀。
+订正后的结论仍是成立的，只是量级从「两格」变成「一格恒红 + 一格按形状红」：这篇协议门**能走到正文的每一篇，都被它自己的 `frontmatter` 那一格判死**。根因是两处口径各自成立但互斥：
+`_drafts/WRITING_PROTOCOL.md:336` 写「只用这 8 个键、按此顺序」、`:351` 写「`tags`/`categories` 是空格分隔字符串，不是 YAML 列表」，
+而 SP4 的 `描述` ① 要求每篇带 `seo_description`、`词表` ③ 要求多分类写成 `[A, B]`；语料站在 SP4 那一边——`_posts/*.md` 86 本里 **85 本带 `seo_description:`**、**80 本用 `^categories: [`**。
+**本轮没动它，三条理由**：它是并发会话刚 `A` 进索引的文件（我改了会在它那笔提交里被静默回退）；它不在 §6.4 那 14 道台账里，而 `.github/workflows/` 只有 `jekyll.yml`、不含任何门禁步骤（`grep -n "scripts/" .github/workflows/*.yml` 零命中），所以它的红不拦部署；改判据会在同一轮里既改被测物又改尺子（§9.11 为同一理由不动 `verify-plan-blocks-teeth` 那句假尾缀）。
+**修法形状给接手的人，三处一起动才自洽**：`scripts/article-check.mjs:70` 的 `KEYS` 在 `seo_short_title` 后插 `seo_description`；
+`:383` 那格从「写成列表就红」翻成「**裸标量且值含空白**才红」，与 `check-seo.mjs:1328-1339` 同式（两本门从此判同一件事）；
+`scripts/fixtures/article-check/mutation-check.mjs` 的 M10 钉的是 `tags / categories 不是列表` 这个门名，跟着改，改完必须重跑那颗牙齿看它仍点燃——否则就是 §9.8 那条「假牙」的老病。
+`_drafts/WRITING_PROTOCOL.md`（未跟踪、只在主工作树）那两句要同批改，否则文档与两本门会剩下一处不一致。
