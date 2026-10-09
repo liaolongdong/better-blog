@@ -1557,4 +1557,21 @@ FAIL  tags / categories 不是列表  categories 写成了 YAML 列表，必须�
 **门禁链读数（`ac-align`，基 `e900f62`，与 §9.13 那棵的唯一差异就是上面三本 `scripts/`）**：重建① `vite ✓ built in 4.01s` / `jekyll done in 5.391s`（仍 `Skipping: _posts/2100-10-25-practice-demo.md has a future date`）；牙齿六颗全 rc=0——`check-seo-teeth 159/159（95.7s）`、`收录面 79/79`、`图尺寸 27/27`、`变体 15/15`、`计划镜像 41/41`（收口自证 `脏项 4 个前后一致，diff 指纹 1672d25ac541aeac`）、上面那颗文章门牙；重建② `done in 4.268s`；只读七本全退 **0**，逐道引它自己那行：`15 组全绿 … JSON-LD 219 块全部可解析`、`收录面 4 条 ready × 6 组判据全绿`、`image-dims: ok（36/36，台账 20 对）`、`全部已落地镜像与磁盘逐字节全等（未落地 0 节）`、`# pass 439 / # fail 0`、`# pass 12 / # fail 0`、`自检通过：表 68 条，卡片 34 张 …`。
 **Chrome 那 11 道这一轮没跑，理由不靠推断、靠产物级 A/B**：`diff -r --brief .worktrees/sp4-postmerge/_site .worktrees/ac-align/_site` 只回 **1 行**——`feed.xml differ`，**零 `Only in`**。两棵树的 `_site` 文件集相同、逐字节只差那份 feed 的生成时刻，而 11 道 Chrome 门读的都是 `_site` 副本；`feed.xml` 归 `check-seo`／`check-tools-surface` 那两本（都在上面，且都绿）。§9.13 那一遍对这同一份产物的 11 道读数因此仍然成立。
 
-**落地这一格分两处，第二处是本节唯一的「动别人的工作树」**：master 拿到的是格式化版；`main` 工作树里那本仍是并发会话暂存的 `61306177f41c9553c37df7259c38d7c8`（与 master 的 `ab4d060…` 行为等价，§9.12 已用「同一 37 本跑出逐字节相同的 2777 行」定过性）。**今晚的 cron 跑的是工作副本**，所以只把 `scripts/article-check.mjs` 这一本按修复内容改到 `main` 的工作树，**索引一字不动**（它的暂存仍是对话方那版，`git show :scripts/article-check.mjs` 随时可取回），那格的 status 因此从 `A ` 变 `AM`；夹具与牙齿那两本不在 cron 的读取路径上，不在 `main` 落，避免把一个成三件的改动在三处各留半份。
+**落地这一格分两处，第二处动了并发会话那棵工作树**：master 拿到的是格式化版；`main` 工作树里那三本仍是并发会话暂存的旧形状（`article-check.mjs` 的 md5 `61306177f41c9553c37df7259c38d7c8`，与 master 的 `ab4d060…` 行为等价，§9.12 已用「同一 37 本跑出逐字节相同的 2777 行」定过性）。**今晚的 cron 跑的是工作副本，不是 master**，所以这轮把 `scripts/article-check.mjs` + 它的夹具 + 它的牙齿**三本一起**按修复内容落到 `main` 的工作树——**索引一字未动**（`git show :<path> | md5` 三本仍各自等于暂存那版，`6130…`/`6d08…`/`c9a4…`，落盘前后各测一次），三格 status 因此从 `A ` 变 `AM`。**这一句是本节的改口**：我最初写的是「只落 `article-check.mjs` 一本、夹具与牙齿不在 `main` 落」，实测后推翻——只落一本会让 `main` 那棵树自己的牙齿必红（旧夹具无 `seo_description`，新 `KEYS` 那格先红在正向夹具上），而这三本是一个契约的三件，落半份比不落更难解释。落点前先 `cp` 出三份备份（`/tmp/ac-align-backup/*.before`，md5 逐本对过）。
+
+**落地后的读数，两棵树分开测（同一命令形状 `--job A`、同一 86 本全语料）**：
+
+| 树 | 门 | `frontmatter` 红 | `tags / categories 不是列表`／`categories 多分类写成列表` 红 | exit0 |
+|---|---|---|---|---|
+| `master` 内容（`ac-align`） | 旧 `ab4d060…` | **86 / 86** | 80 | 0 |
+| `master` 内容 | 新 | **46** | 0 | 6 |
+| `main` 工作树（落后 7 枚） | 旧 `6130…` | 84 | 79 | 1 |
+| `main` 工作树 | 新 | 48 | 1 | 5 |
+
+**四条要从这张表里读准**：① 旧门在 master 的内容上是 **86 本全红**——它不是「偶尔红」，是**从来没有能力放行任何一篇**；② `master` 侧 **NEW 红而 OLD 不红 = 0 本**（逐本名取集合差 `comm -13` 现算），即这轮**没加一条红**，转绿 **40 本**；③ 仍红的 46 本全是 2016–2024 遗留形状（带 `author`、缺 `cover`、缺 `subtitle`…），旧门同样判红，属 §9.11 那格「只合已收完的那半」的范围外，且 cron 只对新稿跑这本门；④ `main` 比 `master` 多红的正是 **`2026-10-09-ascii-rest` 与 `2026-10-09-haiku`** 两本——它们是本轮那两篇 cron 稿在 `main` 里的**未返工原状**（`categories: 开源实测 前端工程化` 裸空格、无 `seo_description`），`master` 上 §9.12 已修，所以这 2 格红是**内容落后 7 枚**的证据，不是新门的误判。`main` 侧那 1 格 `categories` 红同理（同一本 ascii-rest）。
+**落地点在 `main` 的树上自证**：`node scripts/fixtures/article-check/mutation-check.mjs` rc=**0**，`正向 合规夹具 exit=0 结论: PASS（PASS 66 / WARN 0 / FAIL 0）` + `结论: 正向 PASS + 13 项变异各自触发预期门禁`。
+
+**这张表背后有两个测量坑，形状与 §9.12 那条 `grep -c` 陷阱同族，都记下来**：
+1. 第一版把备份文件 `article-check.mjs.before` 直接当门跑，Node 报 `ERR_UNKNOWN_FILE_EXTENSION ".before"`，**86 本全崩**，而我那遍的计数器读出 `fmFAIL=0` ——**差一步就把「量具没跑起来」报成「旧门零红」**。认出它的只有旁边那格 `exit0=0`；补了 `errors=$(grep -c 'ERR_UNKNOWN')` 这一自检后才动手。**空读数必须先证工具真跑过。**
+2. 另一遍我在循环里漏打 `===== $f` 标记，于是那 86 本的日志**无法按本子归因**，`comm` 集合差算出来是假的（那一遍报的「NEW 红而 OLD 不红 = 46」就是把空集合当基线的产物）。重跑带标记之后，真值是 **0**。
+3. 顺带一条同族的：`ls -d /tmp/aac-old-XXXXXX` 不匹配 `mktemp -d` 生成的随机后缀，于是 `$D` 空 → `[ -f /article-check.mjs ]` 假 → `&&` 链整段短路，后面用 `;` 接的统计照样跑并打出全零读数。**`&&` 前缀 + `;` 后缀的链，短路不会传染到统计那半**，这类链要么整条 `&&`，要么把读数写进同一个子 shell。
