@@ -1,0 +1,455 @@
+# 站点离线层设计：Service Worker 让站内文字在断网时仍可读
+
+日期：2026-09-28　·　读数回填：2026-10-10（BUILD 202610100208）　·　站点版本：2.1.0（`_config.yml:41`）　·　状态：已实现并通过三道门禁，待用户审阅
+
+一句话：给 `better-blog` 加一层 Service Worker，把「全站文字 + 最近若干张封面」装进浏览器，
+断网时已装过的页面照常读、没装过的页面给一张**自足的**离线兜底页；注册代码搭全站公共件
+`editorial.min.js` 上车，页面 HTML 一个字节都不涨。
+
+---
+
+## 1. 目标与非目标
+
+**目标**
+
+1. 离线可读的面是**整站文字**：首页、导航里的每一页、全部文章、`index-all`、状态为 ready 的免安装工具页。
+2. 再加封面图：文章列表与卡片在断网时不许出现「有字没图」的半残形状，但只为它花固定预算，不追求全量。
+3. 在线时的行为**一点都不能变**：读者永远读到最新版；`scripts/verify-idcard-browser.mjs` 5a 那格量到的首屏阻塞集字节不许因为多了一层 SW 而变成 0。
+4. 每一处「写错了也不会报错」的散落事实都要有判据盯着，判据自己必须能变红（见 §8）。
+5. 隐私与体积上的自律：不缓存任何跨源响应，不给 `saveData` 用户后台拉 5.03MiB。
+
+**非目标（明确不做）**
+
+- 不做「整站图片全量离线」。正文内联图只随正常浏览进桶，封面按预算贪心装，两者都不承诺「任意一篇文章的头图一定在」。
+- 不缓存跨源资源（`at.alicdn` 图标 CSS、`busuanzi`、百度统计、奇虎推送脚本、Waline 接口）。opaque 响应既量不准体积也无法随发版失效。
+- 不做离线订阅、不做 Background Sync、不做 PWA 安装提示与 manifest 那一套。这一层只回答「断网还能不能读」。
+- 不给 `/demo/` 下那 18 个实验页与 `/page2/`…`/page10/` 那 9 个翻页视图做离线承诺（理由见 §5.4，与 `sitemap.xml` 同源）。
+- 不改构建链路、不新增 `<head>` 阻塞件、不引入任何第三方 SW 库（Workbox 那类）。
+
+---
+
+## 2. 调研结论（全部实测，命令可复算）
+
+2.1 **作用域由脚本自己的 URL 目录决定**，这是这一层唯一「位置错了就全废」的约束。站点是项目页，
+    产物挂在 `{{ site.baseurl }}` = `/better-blog` 下（`_config.yml:34`），所以 `sw.js` 必须落在仓库根、
+    输出到 `/better-blog/sw.js`，注册时显式带 `scope: (BASE_URL || '') + '/'`。放到 `assets/js/` 下
+    注册会成功、页面照常跑，但作用域只有 `/better-blog/assets/js/`，「全站离线」这句话静默地不成立。
+    这一条由判据 7 抓（见 §8.1）。
+
+2.2 **站内 css/js 是同名不带指纹的**：`index.min.css` 改了还叫 `index.min.css`。没有版本号就没有失效依据，
+    所以缓存桶按构建时刻命名——`BUILD = {{ site.time | date: "%Y%m%d%H%M" }}`，产物里是 12 位数字。
+    代价必须写明白：`_site/sw.js` 因此**不是**逐字节可复现的产物，任何拿 md5 比对产物的自检都必须把
+    这一个文件排除在外。本轮所有门禁一律比**集合与条数**，不比字节。
+
+2.3 **注册代码有现成的车可以搭**。`editorial.min.js` 全站每一页都加载（43,778B 原文 / 14,526B gzip，
+    在 §7 的 15,360B 预算内），它已经在 `window.SITE_BASEURL` 上拿好了 baseurl
+    （`_includes/head.html:11`、`_includes/postHead.html:11`）。把注册写进它，页面 HTML 零新增字节、
+    不添阻塞请求、baseurl 不出现第三份抄本。
+
+2.4 **localhost 注册是一个量具陷阱，不是安全性问题**。localhost 是安全上下文，`jekyll serve` 下 SW 会
+    照常接管页面；而 `verify-idcard-browser.mjs` 的 5a 用 `renderBlockingStatus` + `transferSize` 量首屏
+    阻塞集，SW 代发的资源 `transferSize` 恒为 0（本轮 S9 现量：`editorial.min.js transferSize=0
+    encodedBodySize=43778`）。那一格会红成「本地字节不达标」，而红的是量具，不是实现。
+    处置：注册带第 3 道闸门，本地默认不注册，做离线核验时用 `?swdev=1` 显式开门。
+
+2.5 **文档清单的口径已经在 `sitemap.xml` 里立着了**：首页 + `site.nav`（除 `/`）+ ready 的免安装工具页 +
+    `index-all.html` + 全部非 noindex 文章，两边都排除 `/demo/` 与翻页视图。这一层直接跟它对齐，
+    判据 3 逐条对账，于是「离线面」和「收录面」不可能分家。
+    本轮实测两边都是 99 条（`grep -o '<loc>[^<]*</loc>' _site/sitemap.xml | wc -l` = 99；注意别用
+    `grep -c "page"` 这类宽匹配去数——`<image:loc>` 与文章 slug 里的 `page` 都会混进来）。
+
+2.6 **CDP 的离线开关管不到 SW 自己发出的请求**（本轮踩实，写进核验脚本的注释）。
+    `Network.emulateNetworkConditions({offline:true})` 只作用于页面会话，SW 的 `fetch()` 照样成功，
+    于是「断网读兜底页」会被量成「断网读到真页面」。这一层的断网必须靠**拔服务**实现：
+    关掉静态监听、销毁已挂住的 keep-alive socket，并且每一轮先自证那台服务真的拒绝连接
+    （自证不过就 exit 2、整轮读数作废）。
+
+2.7 **`requestIdleCallback` 与并发节流是后台行为的下限**：补全排在 activate 之后，只用空闲时段、
+    每批 4 条、批间隔 300ms，`saveData` 或 `effectiveType` 命中 `2g` 时整轮不做。
+
+---
+
+## 3. 决策记录
+
+三条候选路线，拍板的是 A。
+
+| 方案 | 注册落点与清单来源 | 优点 | 代价 | 结论 |
+|---|---|---|---|---|
+| **A** | 注册进已有的公共件 `editorial.js`；`sw.js` 是带空 front matter 的 Jekyll 页面，四份清单由 Liquid 从 `site.nav` / `site.data.onlineTools` / `site.posts` 生成 | 页面 HTML 零新增字节；清单**只有一处定义**，加文章不用维护清单；作用域天然正确 | `_site/sw.js` 不可逐字节复现；`sw.js` 里写 Liquid，需要一次「产物里不许残留 `{{`」的自检 | **采用** |
+| B | 手写一份静态 `sw.js`，清单靠部署前脚本生成 JSON 再 fetch | 产物纯静态、可 md5 比对 | 多一次运行时请求（离线首访就依赖它）；生成脚本 + JSON + sw.js 三处要对齐，漂移面变大 | 否决 |
+| C | 用 Workbox 及其构建插件 | API 齐全（路由、预检、提示更新） | 给 Jekyll + Vite 链路添一条 npm 依赖与一步构建；而这一层的策略只有四种，`sw.js` 连注释 556 行、其中 235 行是口径与判据的注释（Liquid 块 99 + JSDoc/行注释 136），实现约 320 行 | 否决 |
+
+另外三件在实现过程中改过决定的事，留档以免有人以为写错了：
+
+- **HTML 用 network-first 而不是 stale-while-revalidate**。SWR 会让改版后的第一次访问读到上一版，
+  而这一层的价值主张是「离线时读得到」，不是「在线时快一点」。代价要说清：文章页每次打开都付一次
+  网络往返，离线时才回落到缓存。这一条同时保住了 §2.4 那个量具口径。
+- **兜底页以 503 返回而不是 200**。这条响应如果被抓取器当成真内容收下，就是一篇没有正文的重复页；
+  503 在它眼里是「暂时不可用」，索引与排名都不受影响。兜底页自己也带 `noindex, nofollow`，两半是同一件事。
+- **封面的两道预算闸走「跳过」而不是「抛错」**。预算到线之后队列里剩下的每一张都会撞上这条，
+  记成失败会把 `fillErr` 这个**故障**计数器刷成几十条正常行为，核验里「补全失败 0 次」那条判据当场作废。
+  本轮正是靠真跑一遍才发现口径串了。
+
+---
+
+## 4. 架构与文件清单
+
+```
+sw.js                      ← 新增，仓库根，带空 front matter；Jekyll 渲染成 _site/sw.js
+offline.html               ← 新增，permalink: /offline.html，自足的兜底页（无外部 css/js、无脚本）
+dev/js/editorial.js        ← 改：末尾加 initOffline() 四道闸门，boot() 里排最后一条
+scripts/check-sw.mjs       ← 新增：构建期门禁，7 组判据
+scripts/check-sw-teeth.mjs ← 新增：牙齿台账，22 条变异确认每条判据真的有牙
+scripts/verify-sw-offline.mjs ← 新增：真 Chrome + CDP 断网核验，10 格
+```
+
+`sw.js` 内部按四个时刻排：`install`（预缓存骨架 18 件，`cache: 'reload'`）→ `activate`（删旧桶、
+`clients.claim()`、排空闲补全）→ `fetch`（按 §5.1 分流）→ `message`（`BB_PING`/`BB_PONG` 自检回包，
+把清单条数、失败数、补全落定信号与记账体积回给核验脚本）。
+
+清单是四份而不是三份，理由在豁免表：`DEFERRED_URLS` 不是「以后再说」，是**显式豁免表**，
+让「为什么这一件故意不在骨架里」这件事有地方写、也让门禁不许有人偷偷把新公共件藏进空白处。
+
+**源与产物不是同一串字节**：`sw.js` 源文件 28,262B，`_site/sw.js` 是 27,379B——6 段
+`{%- comment -%}` 口径注释只活在源侧，Liquid 渲染时整段剥掉（`grep -c endcomment sw.js _site/sw.js`
+= 6 与 0）。两个方向的好处都用上了：改**这 6 段**注释不动产物字节、不触发体积判据（`/** */` 那种
+JS 注释不在此列，它们照进产物，本轮改口径注释就把产物从 27,043B 一路推到 27,379B）；产物里也不该出现
+`{{` 或 `{%`（§10 那条自检核的就是这个）。本文 §6 的所有字节数都量在**产物**上。
+这两个数是**净值**，别当单调关系读，账能对上：剥掉的 6 段注释是固定的 8,341B；四份清单在源侧是 Liquid
+循环、到产物里展开成逐条字面地址，产物里这四段共 9,362B，抵掉源侧那些循环模板的 1,904B，净 +7,458B。
+−8,341 + 7,458 = **−883B**，正是这两个数的差。而 +7,458 那一项随文章数与封面数涨、−8,341 那一项不涨：
+2026-09-28 那一轮净差还是 2,369B，本轮只剩 883B——照这个涨法产物迟早反超源文件，届时这一行的两个数
+要一起重写。
+
+---
+
+## 5. 缓存策略规格
+
+### 5.1 分流表（`fetch` 事件，非 GET / 跨源 / 透传名单一律先 `return` 不拦）
+
+| 请求 | 策略 | 落哪个桶 |
+|---|---|---|
+| `mode === 'navigate'` 或 `destination === 'document'` | network-first | doc |
+| `style` / `script` / `font` / `worker` | cache-first | shell |
+| `image` | cache-first | img |
+| `*.json`（站内唯一的运行期 fetch 是 `search.json`） | cache-first | doc |
+| 其余 | 不拦，交回浏览器默认 | — |
+| 跨源（`at.alicdn`、busuanzi、统计、Waline） | 不拦 | — |
+
+### 5.2 回落链与兜底形状
+
+`networkFirst` 网络失败后依次：doc 桶按 `ignoreSearch` 命中 → 全局 `caches.match(OFFLINE_URL)` →
+`throw`。端出兜底页时**重包成 503**，Content-Type 沿用原响应。兜底页在骨架桶里，所以那一步用全局查找
+而不是 doc 桶——它在「doc 桶没有这一条」时被用到，如果只查 doc 桶就永远找不到自己。
+
+兜底页三条刻意的「什么都没有」：不 include 任何公共件（样式全写在内联 `<style>`，因为它出现的场景恰恰是
+「骨架可能也没缓存上」）、不写 JavaScript、不进 `sitemap.xml` 与 `index-all`。页面上的地址清单跟
+`site.nav` + ready 工具 + `site.posts` 前 12 篇走，与文档清单同一判据，所以不会出现「点了必然再落回兜底页」的链接
+（判据 6 专门盯这一条）。
+
+### 5.3 写入与淘汰
+
+- 只写 `res.ok && res.type === 'basic'` 的响应，opaque 一律不进桶。
+- 文档桶按**规范地址**写（`canonicalOf` 削掉查询串与片段），命中侧配 `ignoreSearch`。不这么做的话
+  `?from=wechat`、`?spm=`、utm 那几族分享参数会把同一篇文章存成三四份，140 条上限被白白吃掉。
+- 淘汰是**尽力而为的 FIFO**，不是严格 LRU：`Cache.keys()` 的返回顺序规范没有保证，Chrome 与 Firefox
+  实测是写入序。它的职责是「别让桶无限长」，判据里也只按这个口径断言，不承诺命中次序。
+- 上限：doc 140 条 / 16,777,216B，img 320 条 / 25,165,824B（`sw.js` 里写成 `16 * 1024 * 1024` 与
+  `24 * 1024 * 1024`，注释中简称为 16MB / 24MB，指的始终是 MiB）。`entries` 比清单条数留了余量，是因为桶里除清单条目外还会进
+  正文内联图与 `search.json` 那一族。
+
+### 5.4 不进离线面的两类地址，理由与 `sitemap.xml` 一字不差
+
+`/demo/` 那批实验页走自己的 `demoHead` 骨架、各带一套资源；`/page2/`…`/page11/` 这 10 个翻页视图与首页同源、
+属重复语料。两类都不在 `sitemap.xml` 里，而判据 3 要求文档清单 ≡ sitemap 的 HTML 集合，所以它们也不在离线面里。
+捞进来的实测价钱：`_site/demo` 里 33 个 HTML 逐件相加 **231,336B**，整个 demo 目录（146 个文件，含各自那套资源）
+`du -sk` 报 **1,956KB**——两把尺子别混用：同样这 146 个文件按字节相加只有 1,618KB，差的 338KB 是磁盘块对齐的
+开销而不是内容。这 33 个中有 **18** 个的源文件带 front matter、经 Jekyll 渲染（`sitemap.xml:26-27` 那句
+"18 个 Jekyll 渲染页"就是数这个，另 15 个是纯静态页不经它）。真正的代价不是字节，是**对账失去意义**——
+判据 3 要从"相等"改成"⊇"才能维持，而那条判据的价值恰恰在"相等"。
+**已知的、有意的后果**：断网时点 `/page3/` 得到的是那张 503 兜底页。核验 S6 就是把这一形状钉成判据。
+（另一处待办：`sitemap.xml:29` 那句还写着"/page2/ … /page9/ 共 8 个翻页视图"，产物里已经是 10 个；那是并发会话的文件，本轮不动。）
+
+### 5.5 空闲补全
+
+activate 之后分批把 `DOC_URLS ++ COVER_URLS` 拉进桶里，让「整站文字离线可读」在首访后几分钟内真的成立。
+四个约束都是刻意的：只用 `requestIdleCallback`（没有就退 `setTimeout`，绝不与首屏抢带宽）、每批 4 条隔 300ms、
+**已在桶里的跳过**（于是同一个 BUILD 桶里第二次跑补全应当是零请求，「回访不重复下载」因此可判据而不是口头保证）、
+以及封面的两道预算闸（单张 > 400KB 先看 `content-length` 快路断掉、再在读到真实体积后按总预算关；
+取不到 `content-length` 时快路整段跳过、读后判兜住，两道是「快路 + 保底」不是重复）。
+
+补全的读数经 `BB_PONG` 回传：`filled` / `fillErr` / `fillWhy` / `skipped` / `coverBytes` / `done` / `stop`。
+`done` 与 `stop` 是**落定信号**——没有它们，核验只能在「文档桶满了」的那一刻抄一份读数，
+而封面排在队列后半段：2026-09-28 那一轮的两次中途采样分别抄到 12 张与 5 张，差的全是采样时刻，不是补全结果。
+（2026-10-10 复跑只抄**落定**值，不再中途采样，所以这一格没有新读数可换——它记的是「为什么必须有 `done`」。）
+
+---
+
+## 6. 实测读数与复算命令
+
+**读数口径**：构建 = `bundle exec jekyll build`，产物 `_site`，`BUILD=202610100208`，时间 2026-10-10。
+下表在当天 00:53、01:55、02:08 三次构建各跑一遍，除 `sw.js` 产物那一行外**逐字相同**：那三次之间既有
+`site.time` 漂，也有本轮回填口径注释的改动，而 `/** */` 那种 JS 注释是照进产物的，所以 `sw.js` 那一行
+走了两步 27,043B → 27,080B → 27,379B（四份清单的字节数三次全同、一格没动）。结论不变：`BUILD`
+这一格随构建漂、清单字节数只随内容漂，改内容后照 §6 末尾那条命令重出。
+`sw.js` 那一行还得按 **±1B** 读：`BUILD` 位数不变时它的**原文**字节是稳的（换 `BUILD=202610100219`
+重建，仍量到 27,379B），但那几个数字换了会改压缩结果——同一份内容的 gzip，`…0208` 量到 10,259B、
+`…0219` 量到 10,260B。别把这 1B 当回归。
+原文字节 = `fs.statSync().size`（= 解码后体积，也就是 Cache Storage 真正存的东西）；
+gzip 字节 = **逐件** `cat f | gzip -9 | wc -c` 再相加——浏览器分件传输，跨件共字典拿不到，
+`cat a b c | gzip -9` 会得到一个比真实传输更小的假余量。
+
+| 清单 | 条数 | 原文 | 逐件 gzip9 | 说明 |
+|---|---|---|---|---|
+| 骨架 `SHELL_URLS` | 18 | 382,584B | 158,820B | 含 `offline.html` 本身与两枚 favicon |
+| 豁免 `DEFERRED_URLS` | 4 | 54,174B | 21,637B | 文章页专属两件 + 装饰件一件 + 带查询串的字体 |
+| 文档 `DOC_URLS` | 99 | 9,526,945B | 2,495,929B | 首页 1 + 导航 7 + ready 工具 4 + 全站索引 1 + 文章 86，构成见下 |
+| 封面 `COVER_URLS` | 51 | 7,836,541B | 7,767,536B | 去重后；gzip 只省 1% —— 位图不靠压缩省字节 |
+| `sw.js` 产物 | — | 27,379B | 10,259B | 上限 16,384B（§7） |
+| `offline.html` 产物 | — | 6,277B | 2,644B | 自足，无外部引用 |
+| `editorial.min.js` | — | 43,778B | 14,526B | 上限 15,360B，余 834B |
+
+文档清单 99 条的构成（`node` 读产物清单按 `/YYYY/MM/DD/` 切分，可复算）：文章 **86** 条 + 站点页 **13** 条。
+那 13 条是 `/`（首页）、`tools.html`、`categories.html`、`series.html`、`tags.html`、`demo.html`、
+`weblab.html`、`about.html`（这 8 条来自 `site.nav` 的 8 项，其中首页那项 `url: '/'` 由模板 `unless` 掉，
+所以导航实际贡献 7 条 + 首页 1 条）、`tools/idcard.html`、`tools/codec.html`、`tools/json.html`、
+`tools/diff.html`（`onlineTools.yml` 里 `status: ready` 的那 4 条，2026-09-28 那轮只有 idcard 一条）
+与 `index-all.html`。
+`_posts` 有 87 个文件，`2100-10-25-practice-demo.md` 因日期在未来被 Jekyll 跳过（构建日志里那行
+`Skipping: ... has a future date`），87 − 1 = 86 对得上；无 noindex 文章（`grep -l '^noindex: true' _posts/*.md` 命中 0 条）。
+
+**一条读数陷阱**（本轮核验时被咬过一次，写在这儿给复算的人）：三段日期地址在终端与部分渲染层里会被
+**折叠**成 `/2016-06-18/hello-jekyll.html` 这种带连字符的样子，产物里的真实字节是
+`/better-blog/2016/06/18/hello-jekyll.html`（`_config.yml:292` 的 `permalink: /:year/:month/:day/:title.html`）。
+据此拼路径去 `ls` 会得到"No such file"，再往下就误判成死链。自证只有两条可靠：`u.split('/').length` 数段数
+（这条是 6），或者 `printf '%s' "$u" | od -c`。本文与 `sw.js` 注释里写地址一律按真实字节写。
+
+**封面贪心落点**（照清单原序**逐条试**：超单张上限的跳、塞不进剩余预算的也跳，但**不停**——后面更小的
+照样还有机会进桶；`coverEach=409,600B`、`coverBytes=2,621,440B`）：
+
+- 入桶 **33 张 / 2,618,873B**，占预算 99.9%、剩 2,567B，不越线。
+- 跳「超单张上限」3 张：清单位次 33（1,617,929B）、34（1,378,814B）、37（599,146B）——早期三篇用的是整页大图。
+- 跳「塞不进剩余预算」15 张：位次 35（236,853B）、36（122,566B）、38（125,695B）、39（21,508B）、
+  40（54,606B）、41（359,542B）、42（24,005B）、44（86,335B）、45（43,330B）、46（134,895B）、
+  47（51,701B）、48（81,403B）、49（93,737B）、50（18,854B）、51（166,749B）。
+- **入桶位次不是连续的一段**，别把上面两份名单当成抄错：装进去的是 1–32 再加 **43**。前 32 张吃掉
+  2,607,014B、剩 14,426B；位次 35–42 都塞不进这个缺口所以被跳，而 43（`share_cover.png`，11,859B）
+  塞得进，于是它进了桶，只剩 2,567B，44 往后全塞不进。这正是「跳过而不停止」的形状——早先本文与
+  `sw.js` 注释都写成「到线就停」，与实现不符，2026-10-10 回填时按真跑改正（改的是文档，不是算法）。
+- 这串数是**算法与运行时两处一致的**：2026-10-10 `verify-sw-offline.mjs` 真跑落定后读到同一组
+  「33/51 张 · 2,618,873B · 跳过 18 张 · 失败 0 次」。两者不一致时以真跑为准，改本文与 `sw.js` 注释，不改算法去凑数。
+
+**满装一次的总价**：骨架 158,820B + 文档 2,495,929B + 封面 2,618,873B = **5,273,622B（5.03MiB）** 走网络，
+落进 Cache Storage 是 382,584 + 9,526,945 + 2,618,873 = **12,528,402B（11.95MiB）** 解码后体积，
+两条都在 §5.3 的桶上限之内。省流量模式与 2g 链路整轮不做（`mayFill`）。
+本文所有 MiB 一律这样换算（1MiB = 1,048,576B），不混用十进制 MB。
+
+**复算命令**：`bundle exec jekyll build` 之后跑下面这份，它输出的就是上面整张表
+（本文写作时它的输出与表内逐格一致；脚本不落进仓库，粘贴即可跑，因为它只读 `_site`、不写任何东西）。
+
+```javascript
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const { execFileSync } = require('child_process');
+const SITE = path.resolve('_site');
+const src = fs.readFileSync(path.join(SITE, 'sw.js'), 'utf8');
+const box = { exports: {} };
+vm.runInNewContext(
+  src.slice(0, src.indexOf('function isPassthrough')) +
+    '\nmodule.exports={BASE,BUILD,SHELL_URLS,DEFERRED_URLS,DOC_URLS,COVER_URLS,LIMIT};',
+  { module: box, exports: box.exports });
+const M = box.exports;
+const rel = (u) => (u.startsWith(M.BASE) ? u.slice(M.BASE.length) : u);
+const file = (u) => { const r = rel(u).replace(/^\/+/, ''); return path.join(SITE, r === '' ? 'index.html' : r); };
+const gz = (p) => +execFileSync('sh', ['-c', `cat '${p}' | gzip -9 | wc -c`], { encoding: 'utf8' }).trim();
+console.log(`BUILD=${M.BUILD}`);
+for (const [name, list] of [['骨架', M.SHELL_URLS], ['豁免', M.DEFERRED_URLS], ['文档', M.DOC_URLS], ['封面', M.COVER_URLS]]) {
+  let raw = 0, g = 0;
+  for (const u of list) { raw += fs.statSync(file(u)).size; g += gz(file(u)); }
+  console.log(`${name} ${list.length} 条：原文 ${raw.toLocaleString('en-US')}B / gzip9 ${g.toLocaleString('en-US')}B`);
+}
+let bytes = 0, taken = 0, skipCap = [], skipBudget = [];
+M.COVER_URLS.forEach((u, i) => {
+  const s = fs.statSync(file(u)).size;
+  if (s > M.LIMIT.coverEach) { skipCap.push(`${i+1}(${s.toLocaleString('en-US')}B)`); return; }
+  if (bytes + s > M.LIMIT.coverBytes) { skipBudget.push(`${i+1}(${s.toLocaleString('en-US')}B)`); return; }
+  bytes += s; taken += 1;
+});
+console.log(`封面贪心：入桶 ${taken} 张 / ${bytes.toLocaleString('en-US')}B（预算 ${M.LIMIT.coverBytes.toLocaleString('en-US')}B，占 ${(bytes/M.LIMIT.coverBytes*100).toFixed(1)}%）`);
+console.log(`  跳超单张上限 ${skipCap.length} 张：${skipCap.join(', ')||'无'}`);
+console.log(`  跳塞不进预算 ${skipBudget.length} 张：${skipBudget.join(', ')||'无'}`);
+for (const f of ['sw.js', 'offline.html', 'assets/js/editorial.min.js']) {
+  const p = path.join(SITE, f);
+  console.log(`${f}：${fs.statSync(p).size.toLocaleString('en-US')}B / gzip9 ${gz(p).toLocaleString('en-US')}B`);
+}
+// doc composition breakdown
+const posts = M.DOC_URLS.filter((u) => /\/\d{4}\/\d{2}\/\d{2}\//.test(u));
+console.log(`文档构成：文章 ${posts.length} 条 + 站点页 ${M.DOC_URLS.length - posts.length} 条`);
+console.log(`站点页清单：${M.DOC_URLS.filter((u)=>!posts.includes(u)).map(rel).join(' ')}`);
+```
+
+---
+
+## 7. 体积预算与口径
+
+gzip 一律按 `_docs/superpowers/specs/2026-09-25-blog-online-tools-design.md` §7 开头钉的 shell 口径
+`cat f | gzip -9 | wc -c`（走 stdin，不写 `gzip -9 -c f`——后者把文件名塞进 gzip header 的 FNAME 字段，
+每件多 16–19B）。`zlib.gzipSync` 与它不同，跨口径比较视同没量。这一条在 `check-sw.mjs` 里同样生效。
+
+| 项 | 上限 | 实测 | 余量 | 超了怎么办 |
+|---|---|---|---|---|
+| `_site/sw.js` | 16,384B | 10,259B | 6,125B（±1B，见 §6） | 它带整站文档清单，会随文章数增长。这条余量的依据算得出：清单条目文本（四份 URL 数组的字面字节）在产物里占 8,423B / 27,379B（30.8%），文档+封面那 8,423B 涨到 3 倍是多 16,846B 原文，按整文件 37.5% 的 gzip 比折算是 +6,312B → 约 **16,571B，已经越过 16,384B 这条线**。也就是「清单再涨两倍」这一格余量已经**不够**了：2026-09-28 那轮同样折算只到 +5,264B → 约 14,990B，还稳稳在线内；文章从 74 篇涨到 86 篇、ready 的免安装工具从 1 个涨到 4 个，把这一格从「够」推成了「不够」。**折算是估算，不是实测**，真到那一格要按 §6 的口径重量。超了说明清单该由数据源生成，**不是**把内容抄进 `sw.js` |
+| `editorial.min.js`（全站公共件，离线层搭它上车） | 15,360B | 14,526B | 834B | 公共件涨到这一格，先谈要不要拆，再谈往里加。注册那 20 行不是拆的理由。**余量只剩 834B**（09-28 那轮是 1,585B），这一格已经比 `sw.js` 那格紧，任何往公共件里加东西的改动都要先量它 |
+| 骨架桶（安装期一次付完） | 无硬上限，按 §6 记录 | 158,820B gzip | — | 往骨架加一件 = 给**每一位读者**多塞一份他这次可能用不到的字节。新增公共件只有两条路：进骨架、或进 `DEFERRED_URLS` 并写明理由，两条都要过判据 2 |
+| 空闲补全（后台，非阻塞） | 无硬上限，按 §6 记录 | 5,273,622B（5.03MiB） | — | 预算闸在 `LIMIT` 上调，不在判据上调；调完重跑 §6 那份复算 |
+
+`page HTML` 那一格是**零新增字节**：注册不在 HTML 里，判据 7 会扫全部产物页面，任何页面出现
+`serviceWorker` 字样就红。这条判据存在的理由是「有人会把注册写成一段内联脚本」——那正是往每一页首屏
+加东西的最短路径。
+
+---
+
+## 8. 验证方案（做什么才算「过」）
+
+三道，分工不重叠：**改完还对不对** → **判据自己有没有牙** → **真机上到底读不读得出字**。
+
+### 8.1 `scripts/check-sw.mjs`（构建期门禁，7 组判据）
+
+失败形状是 `[组名] 条目：说明`，末尾给总数与核过的条数；`_site/sw.js` 不存在直接退 1，不给「跳过=绿」留门。
+
+| 组 | 盯的散落事实 | 为什么要盯 |
+|---|---|---|
+| 1 清单地址 | 每条都带 baseurl、都能在 `_site` 找到文件、清单内部不重复、清单不许为空 | 少拼一次前缀：构建绿、页面绿，装进来的是一条 404，读者离线时才发现 |
+| 2 骨架完整性 | 每页都发的同源 css/js ⊆ 骨架 ∪ 豁免；两表互不相交；豁免表不许藏死条目；骨架不许预缓存没人引用的件 | 加一份公共 CSS 忘了骨架：在线一切正常，离线时那一页排版塌掉，且只在「这一版没进 HTTP 缓存」的那台设备上塌 |
+| 3 文档集合 | `DOC_URLS` ≡ `sitemap.xml` 里的 HTML 地址（双向 + 条数） | 离线面与收录面分家的唯一征兆是「某篇离线不可读」，而没人会去试 |
+| 4 透传名单 | feed / sitemap / llms 那一族不在任何预缓存清单里 | 缓存一份旧 feed 比不缓存更糟：feed 自己声明「我是最新版」，喂缓存版等于对外发过期语料 |
+| 5 桶名 | `BUILD` 是 12 位构建时刻、三个桶名互不相同且各自带 baseurl 与 BUILD | 桶名不含 BUILD，发版后它不失效；两桶重名，文档与图片写进同一个桶 |
+| 6 兜底页 | 自足（无外链样式/脚本）、带 `noindex`、链向的地址必须在文档清单里、不进 sitemap | 它出现的场景就是「别的东西都可能没缓存」，一处外部引用就是一处必败请求 |
+| 7 注册面 | 注册只在 `editorial.min.js` 里（`serviceWorker` / `sw.js` / `swdev` 三枚锚点齐、`isSecureContext` 必须与 `swdev` **同段共现**）、`assets/js/sw.js` 不许存在、产物 HTML 零 `serviceWorker` 字样、两件体积上限 | 位置错 = 作用域错；本地闸门没摘掉 = 吃掉 5a 量具；内联注册 = 往每一页首屏加字节 |
+
+第 7 组那条共现判据是本轮补的：`isSecureContext` 在 `editorial.min.js` 里本来就有两处用途
+（剪贴板那处与离线注册这处），光判「串在不在」的牙齿是假的——摘掉注册那道的探测，门禁照样绿。
+2026-09-28 的牙齿台账就是这么抓出这个盲区的（变异只删掉一处，门禁毫无反应）。
+现在以 `swdev` 为中心取 ±300 字符，段内必须同时出现 `isSecureContext` 与 `serviceWorker`。
+偏移是现量的（`serviceWorker` 在 40,526 与 40,709 两处、`isSecureContext` 在 2,075 与 40,561 两处、
+`swdev` 只在 40,609）：注册那一段三点相距各不到 90 字符，剪贴板那枚 `isSecureContext` 到**最近**一枚
+`serviceWorker` 也有 38,451 字符，窗口既罩得住前者也够不着后者。这三个偏移随公共件内容漂，
+`check-sw.mjs` 那段注释里带着一条现算它们的 `node -e` 命令，改 `editorial.js` 后先复算再谈窗口。
+
+### 8.2 `scripts/check-sw-teeth.mjs`（牙齿台账，22 条变异）
+
+每条判据配一个**故意做错**的版本，要求它「如期变红且红在对的组」。全绿输出是
+`牙齿台账：22/22 条变异如期变红且红在对的组` + 一条收尾复核「真 `_site` 基线仍绿，源侧变异已全部还原」。
+三个实现约束值得记下来，因为它们决定这份台账能不能信：
+
+1. 变异跑在一份 `_site` 的**影子副本**上（79MB / 960 文件，`fs.cpSync` 一次），源侧变异
+   （`_includes` 与产物 JS）走 `mutateSrc` + 退出钩子还原，改不动就抛错而不是静默。
+2. **变异必须先自证字节真的变了**。判据没红，可能不是判据没牙，是变异根本没落地——这两种红法在
+   台账里必须能分开。
+3. 基线量两遍（真 `_site` 与未改过的影子 `_site`），收尾再复跑一遍真基线。少了这一遍，
+   「22 条全红」可能只是「影子目录建坏了」。
+
+### 8.3 `scripts/verify-sw-offline.mjs`（真 Chrome + CDP，断网 10 格）
+
+为什么门禁绿了还要跑它：`check-sw` 核的是清单与口径，它全绿也可能整个 SW 一次都没装上来——
+注册闸门写反、`networkFirst` 三段回落链写错、补全中途停住，都不会有构建错误。
+
+| 格 | 断言 | 本轮读数（2026-10-10 复跑一次 10/10，BUILD 202610100208、端口 65079；2026-09-28 那轮是三次 10/10、BUILD 202609281939、端口 63628） |
+|---|---|---|
+| S1 | scope 恰为 baseurl 根且 `state === 'activated'` | `scope=http://127.0.0.1:65079/better-blog/` · `activated` · controller 就位 |
+| S2 | `BB_PONG` 的四份条数与 `check-sw` 同源、install 失败 0 | `{"shell":18,"doc":99,"cover":51,"deferred":4}` · 失败 0 · build 202610100208 · 版本 2.1.0 |
+| S3 | 骨架桶条数 === 清单条数 | 18 / 18（桶 `/better-blog-shell-202610100208`） |
+| S4 | 补全**落定**（`done`）而非过半、文档桶满、封面逐条 `cache.match` 数与预算记账 | 文档 99/99 · 封面 33/51 · 记账 2,618,873B / 预算 2,621,440B · 写入 132 · 跳过 18 · 失败 0 |
+| S5 | 断网读一篇**从未点过**的旧文章：标题与产物一致、正文有体量 | `/2016/06/18/hello-jekyll.html` 正文 1,636 字，标题逐字一致 |
+| S6 | 断网读未收录地址：503 + 兜底页有字，不是 200 空页 | 状态 503 · h1「这个页面现在打不开」· 兜底页正文 750 字 |
+| S7 | 断网时 `feed.xml` 直连失败（透传名单生效，缓存不许替订阅源说话） | `ERR TypeError` |
+| S8 | 断网时文章头图可读（`naturalWidth > 0`） | `assets/img/chrome-155-jpeg-xl-decode/banner.webp` → 1600 |
+| S9 | 在线回访时 SW 代发资源 `transferSize === 0` | `editorial.min.js` transferSize 0 / encodedBodySize 43,778 |
+| S10 | 注销后三个桶全部清干净 | 残留桶 0 个 |
+
+断网是**拔服务**实现的，且每一轮先自证：向那台服务请求一个不存在的地址，必须失败，否则整轮读数作废、
+`exit 2`（2026-09-28 那轮第一次跑就是这样——它抓到了「CDP offline 管不到 SW」这个假绿的形状）。
+失败形状：任一格 ✗ 即 exit 1。
+
+S4 那句「图桶另有 N 件是正文图随浏览进的」里的 N 会随那一轮浏览器实际请求到正文里的哪张图漂
+（2026-09-28 同一天量到 1 与 0 两种，2026-10-10 这轮是 0），它不是判据；判据是**记账字节 ≤ 预算**与
+**跳过 18 张**这两条与 §6 贪心复算一致。
+S5 的 1,636 字两轮完全相同（那篇旧文没动过）；S6 的兜底页字数会随它列的「最近 12 篇」标题长短漂，
+所以它是「有字」的形状判据，不是定值判据。
+
+**「加载超时」的真因与摘法**（2026-09-28 量出来的，不是猜的）：`goto` 等 `readyState === 'complete'`，
+而 complete 要等页面上每一件子资源收场，本站 head 里那几枚站外统计信标也算在内。同一台机器四种配置：
+
+| 配置 | navigate → complete | 最慢的一件 |
+|---|---|---|
+| 什么都不摘 | 11,090ms | `http://s.360.cn/so/zz.gif` 一件占 10,181ms |
+| 只给统计域名写 `--host-resolver-rules=MAP 域名 127.0.0.1` | 15 秒预算用满，没落定 | 同一枚 360 信标 10,374ms |
+| 同上但指到**会秒回 404 的本地端口**（判别实验，见下段） | 15 秒同样没落定 | 同一枚照样 10,306ms，而本地服务 **0 条命中** |
+| `--proxy-server=direct://` + `--host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"` | **1,583ms**（SW 接管后的回访 216ms） | 站点自己的 `realtime-draggable.min.js` 826ms |
+
+第 2、3 两行是这一节最值得记的坑，而它钉在一个**判别实验**上（第 3 行），不是推测：把 `s.360.cn` 用
+`--host-resolver-rules=MAP s.360.cn 127.0.0.1:<端口>` 指到这一族自己那台**任何路径都秒回 404** 的
+静态服务上，那台服务收到的非本站请求是 **0 条**——请求根本没走本地解析；而资源时间线里那一件照样
+10,306ms（transferSize 0），`complete` 在 15 秒内没落定。也就是说这台机器开着系统代理
+（127.0.0.1:65532）时，**走代理的请求由代理解析域名，Chrome 本地的 resolver rules 一条都不参与**，
+而 Chrome 不抱怨、参数照单收下，看起来像生效了。所以摘干净必须连 `--proxy-server=direct://` 一起给
+（强制直连之后解析回到本地，`~NOTFOUND` 是"解析不出来"而不是"连上去等人回话"，因此是秒失败），
+`EXCLUDE 127.0.0.1` 保住这一族自己的静态服务。十格判据没有一格断言统计脚本或阅读量，cross-origin 请求 SW 本来也一律不缓存
+（`sw.js` 的 opaque 分支），摘掉的是环境噪声不是判据。
+`goto` 失败时现在还会把挂着不返回的地址打出来（`stallReport`：`performance` 里 `responseEnd === 0`
+的那些），下一次再红由它点名，不必回头猜"是不是并发"——上一版这里写的"与 `check-sw-teeth.mjs`
+不要并发跑"是被证伪的归因：19:39 那次超时没有任何并发，摘掉统计信标之后 24 秒预算用不到 2 秒。
+
+一条**没验过**的线索留在这儿，别当结论用：S4 的补全走 `requestIdleCallback`，机器被持续满载时
+它理论上会被饿着。这一格本轮只在"有别的 headless 遗留进程"与"干净"两种环境下跑过，都过；
+真要主张"并发会红 S4"，得先跑出一份满载环境的红。
+
+---
+
+## 9. 已知代价与风险
+
+| 事 | 现在的处置 | 什么时候要重新决定 |
+|---|---|---|
+| `_site/sw.js` 不可逐字节复现 | 门禁只比集合与条数；体积比 gzip 上限、不比 md5 | 任何将来加的「产物可复现」类判据都必须显式排除这一个文件 |
+| 翻页视图离线得 503 | 有意的（§5.4），S6 钉成判据 | 若哪天决定给 `/pageN/` 离线承诺，判据 3 要改成「文档清单 ⊇ sitemap」而不是「相等」 |
+| 文章页每次在线访问多一次往返（network-first） | 有意的（§3），换来「改版后绝不读到旧版」 | 想改成 SWR 前先重写 §7 那两格与 5a 的口径 |
+| 超大封面（3 张 > 400KB）离线不承诺 | 跳过，仍随正常浏览按需进桶 | 想全量装：抬 `coverEach`/`coverBytes`，重跑 §6 复算并把新落点写回本文与 `sw.js` 注释 |
+| 骨架清单靠判据 2 而非人工记忆保持完整 | 加公共件时红的是门禁 | 若模板改成用变量拼资源地址，判据 2 的正则会抓空——它会自己报「一个同源引用都没抓到」 |
+| 与 `verify-idcard-browser.mjs` 的耦合 | 两层：注册闸门（localhost 上不 `?swdev=1` 就不装）把它与离线层隔开；两份脚本**共用同一组站外降噪参数**（`direct://` + `MAP * ~NOTFOUND, EXCLUDE 127.0.0.1`，各自都要留 `EXCLUDE 127.0.0.1` 才不打死自己的静态服务） | 那个脚本改成在非 localhost 域名上跑 → 闸门这一道要重新设计；任一边的降噪参数被单独改动 → 另一边可能重新撞上「加载超时」（§8.3 那四种配置的读数就是为这件事留的） |
+| 首访那一轮补全要 5.03MiB | `mayFill` 挡掉 `saveData`/2g；只用空闲时段；4 条并发 | 涨到 10MiB 量级时要考虑把补全拆成「文章优先、站点页随后」 |
+
+---
+
+## 10. 交付状态
+
+已完成并验过：`sw.js`（四份清单 + 三种策略 + 补全 + 自检回包）、`offline.html`、
+`editorial.js` 的 `initOffline()` 四道闸门、三道门禁（§8.1 全绿 / §8.2 22/22 / §8.3 10/10，读数见 §6、§8.3）。
+`bundle exec jekyll build` 后产物里 `_site/sw.js` 无 Liquid 残留（`{{`/`{%` 命中 0）。
+
+上面那三行数在 2026-09-28 晚（BUILD 202609281939）各重跑过一遍，逐条仍然成立：`check-sw` 报
+「145 条清单地址 × 7 组判据全绿」，`check-sw-teeth` 报「22/22 条变异如期变红且红在对的组」+ 收尾复核，
+`verify-sw-offline` 报「10/10 格通过」。**同一轮里顺带修掉的**：`verify-idcard-browser.mjs` 在改前一次真跑里
+直接对 `/tools/idcard.html` 报 `加载超时`（REAL_EXIT=1），按 §8.3 那组降噪参数改完之后 **13/13 通过**
+（5a 读数：阻塞集本地 222,395B / 7 件 + 外链当场 0B）。它与这一族现在共用同一组站外参数，见 §9 那一行。
+`toolkit-tests` 268 全过、`check-tools-surface-teeth` 21/21、`og:check` 自检通过。
+`check-tools-surface` 与 `verify-plan-blocks` 这两道本轮是红的（各 1 条 / 2 个目标），
+红的都在并发会话那两份在途文件里（`_data/onlineTools.yml`、`scripts/check-tools-surface.mjs`，
+`git status` 现量都是工作区已改未提交），与离线层无关，本轮不碰。
+
+**2026-10-10 又跑了一轮**（BUILD 202610100208，跑在导出树上、`vendor` 与 `node_modules` 都是软链、
+`npx --no-install`），为的是给 §6/§7 这轮回填的每个数一份当期真跑依据：`check-sw` 报
+「**172** 条清单地址 × 7 组判据全绿（骨架 18 · 豁免 4 · 文档 99 · 封面 51）」，`verify-sw-offline` 报
+「10/10 格通过」（含断网自证 `down(TypeError)` 那一步），`verify-idcard-browser` 报「13/13 通过」、
+5a 读数「阻塞集本地 **233,544B / 4 件** + 外链当场 0B」。
+这一轮**只重跑了上面这三道加 `check-sw-teeth`**：`toolkit-tests`、`check-tools-surface`、`og:check`、
+`check-seo` 的读数仍属 2026-09-28 那一轮，本轮没有新数据，不把它们算进「仍然成立」。
+
+未做，且刻意留在这里不做：
+1. 页面上没有任何「本站可离线」的可见提示。这一层是无声的收益；真要加提示，措辞得走工具页那套
+   对外口径（`2026-09-25-blog-online-tools-design.md` §5.5「合规与对外文案口径」），不能在本层自己立一套。
+2. 没有 `manifest` / 安装提示 / 图标掩码那套 PWA 交付面。
+3. CHANGELOG 与版本号：本仓库的 CHANGELOG 只有已发布版本条目、没有「未发布」一节，
+   版本与 CHANGELOG 的活儿归发布节点，本轮不动。
+4. 本文的数字随内容漂移（尤其文档清单那 99 条与封面 51 张）。它们由 §6 那份复算命令钉住，
+   改内容不必改文档，改**预算或策略**才需要。2026-10-10 这轮回填正是因为文章从 74 篇涨到 86 篇、
+   ready 的免安装工具从 1 个涨到 4 个，把 §6 那张表、§7 的余量与 §8.3 的读数一起推走了——
+   漂移是常态，所以复算命令必须一直能原地重出整张表。

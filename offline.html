@@ -1,0 +1,112 @@
+---
+permalink: /offline.html
+---
+{%- comment -%}
+离线兜底页：只有 Service Worker 在"网络失败且这个地址也没进缓存"时把它端出来（sw.js 的
+networkFirst 那条路径），人不会主动导航到这里，所以它不需要出现在导航、站点地图或全站索引里。
+它也不写 noindex 之外的机器读者信号——下面那行 `<meta name="robots" content="noindex">` 是手写的，
+因为这个页面不带 layout，`_includes/seoMeta.html` 那一整套（canonical、og、JSON-LD）都不会渲染。
+
+三条刻意的"什么都没有"：
+
+1. **不 include 任何公共件。** 没有 header.html、没有 footer.html、不引 index.min.css，样式全写在这
+   一份 `<style>` 里。这一页存在的唯一场景是"骨架可能也没缓存上"，多引一份外部资源就多一次必败请求；
+   它必须在自己出现的那一刻就有字可读。这也意味着它不带导航、不带搜索框——那些都是 JS 与外部 CSS 的
+   产物，此刻正是它们不可信的时候。
+2. **不写 JavaScript。** 页面上只有普通链接。链接指向的地址如果已经在文档桶里，离线点开照样有正文；
+   如果不在，浏览器会再取一次离线兜底（也就是这一页本身），不会出现"点了没反应"的第三种状态。
+3. **不进 sitemap.xml、不进 index-all 的「站点页面」一节。** 那两处的收录口径是"人能导航到的地址"，
+   而这一页是人走不到、只有断网时才会被端出来的。它带 noindex，被抓取器当成内容页收到只会多一份
+   没有正文的重复语料（sw.js 里那条"兜底页用 503 而不是 200 返回"是同一件事的另一半）。
+
+下面那两个循环是单一数据源：条目取自 `site.nav` 与 `_data/onlineTools.yml`（只 status: ready），
+发版加页时这一页自己跟上，不养第二份清单。最近文章取 `site.posts` 前 12 篇——离线补全按
+新→旧 的顺序装文档桶，前 12 篇恰好是补全跑起来后最先可读的那一批，列更长的意义是"看着全"而不是"真能点开"。
+{%- endcomment -%}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="color-scheme" content="light dark">
+    <title>当前离线 · Better（廖小新）</title>
+    <style>
+        /* 系统字体栈：这一页不许等待任何 web font，网络断了字体也断了。 */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 32px 20px 56px;
+            font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            color: #1f2328;
+            background: #fbfbf9;
+        }
+        main { max-width: 640px; margin: 0 auto; }
+        h1 { font-size: 24px; line-height: 1.4; margin: 0 0 8px; letter-spacing: .01em; }
+        p { margin: 0 0 16px; }
+        .note { color: #57606a; font-size: 14px; }
+        h2 {
+            font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+            color: #57606a; margin: 32px 0 12px; padding-top: 16px; border-top: 1px solid #e2e2dd;
+        }
+        ul, ol { list-style: none; margin: 0; padding: 0; }
+        li { margin: 0 0 2px; }
+        a { color: #0969da; text-decoration: none; border-bottom: 1px solid transparent; }
+        a:hover { border-bottom-color: currentColor; }
+        /* 两列只在够宽时成立；窄屏回到单列，不为了密度牺牲点按区域。 */
+        .two-col { columns: 2; column-gap: 24px; }
+        .two-col li { break-inside: avoid; }
+        @media (max-width: 520px) { .two-col { columns: 1; } }
+        @media (prefers-color-scheme: dark) {
+            body { color: #e6edf3; background: #0d1117; }
+            .note, h2 { color: #9198a1; }
+            h2 { border-top-color: #262c36; }
+            a { color: #79c0ff; }
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            a { transition: border-bottom-color .15s ease; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>这个页面现在打不开</h1>
+    <p>设备当前无法连接 <code>{{ site.url | replace: 'https://', '' }}</code>。站点里<b>之前访问过或被后台补全过的内容仍然可读</b>——
+        下面这些地址都在离线的这台设备上，联网之后任意页面会自动恢复成最新版本。</p>
+    <p class="note">这一页由浏览器的离线缓存提供，服务器没有收到这次请求。</p>
+
+    <h2>站点入口</h2>
+    {%- comment -%}
+    入口清单直接跟 site.nav 走，连「首页」那条也不特殊处理：nav 里第一项就是 /，
+    在这里再写一条反而会出现两个「首页」。
+    {%- endcomment -%}
+    <ul class="two-col">
+        {%- for item in site.nav %}
+        <li><a href="{{ item.url | relative_url }}">{{ item.label }}</a></li>
+        {%- endfor %}
+        <li><a href="{{ '/index-all.html' | relative_url }}">全站索引</a></li>
+    </ul>
+
+    {%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+    {%- if ready_online.size > 0 %}
+    <h2>免安装工具</h2>
+    <ul class="two-col">
+        {%- for tool in ready_online %}
+        <li><a href="{{ tool.url | relative_url }}">{{ tool.h1 }}</a></li>
+        {%- endfor %}
+    </ul>
+    {%- endif %}
+
+    <h2>最近的 12 篇</h2>
+    <ol>
+        {%- for post in site.posts limit: 12 %}
+        <li>
+            <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+            <span class="note">{{ post.date | date: '%Y-%m-%d' }}</span>
+        </li>
+        {%- endfor %}
+    </ol>
+</main>
+</body>
+</html>

@@ -3087,9 +3087,10 @@
         // 只挑 a：.cta-muted（「商店上架中」那颗）本身是 span，不是一次动作，
         // 给它磁吸等于给一块说明文字发出「按我」的信号。
         // 消费者核对过（浏览器里 querySelectorAll('a.cta').length 实量，不是数模板行）：
-        // tools.html 8 颗、404.html 3 颗、首页 0 颗——首页没有主按钮，这条动效就不会
-        // 在流量最大的那一页上挂监听。tools 页还有第 9 个 .cta 是 span.cta-muted，
-        // 选择器 a.cta 天然不含它。
+        // tools.html 9 颗（三款插件各自 store / demo / repo 都齐了）、404.html 3 颗、首页 0 颗——首页
+        // 没有主按钮，这条动效就不会在流量最大的那一页上挂监听。2026-10-07 之前 tools.html 是 8 颗：
+        // 那第 9 个 .cta 是 transfer-any-file 那格的 span.cta-muted（`links.store == ''` 的占位），
+        // 选择器 a.cta 天然不含它；那一款上架之后这一支在 tools.html 上不再渲染，占位逻辑留给以后的新工具。
         for (var i = 0; i < hosts.length; i++) hosts[i].setAttribute('data-magnet', '');
 
         var PULL = .25;   // 位移 ＝ 指针偏离中心的距离 × 这个系数
@@ -3176,6 +3177,36 @@
         document.addEventListener('focusin', release, { passive: true });
     }
 
+    // ———— 离线层：注册 Service Worker（SW 本体在仓库根 sw.js）————
+    /**
+     * 注册站点离线层。四道闸门，一道都不能少：
+     *  1. 能力探测。不支持 SW 的浏览器里 `navigator.serviceWorker` 是 undefined，
+     *     不探测就是每页一条 TypeError——这个文件全站加载，别给它开第一个报错点。
+     *  2. 安全上下文。SW 只在 https 与 localhost 下可用，http 下 register 直接 reject；
+     *     判 window.isSecureContext 而不是判协议，是因为 file:// 也非安全上下文，
+     *     而有人会把产物直接双击打开看。
+     *  3. 本地默认不注册。localhost 是安全上下文，`jekyll serve` 下 SW 会照常接管页面，
+     *     而 scripts/verify-idcard-browser.mjs 的 5a 用 transferSize 量首屏阻塞集字节，
+     *     SW 代发的资源 transferSize 恒为 0，那一格会量成"本地字节不达标"——量的不是实现，
+     *     是量具被自己新加的一层吃掉了。做离线验证时带 `?swdev=1` 显式打开这条路。
+     *  4. 地址由 window.SITE_BASEURL 拼。sw.js 必须待在站点根（作用域上限就是脚本自己的
+     *     目录），而这一段在 <head> 里早就有（_includes/head.html:11 与 postHead.html:11），
+     *     在这里重抄一份 baseurl 就是养第三份抄本。
+     * @returns {void}
+     */
+    function initOffline() {
+        if (!('serviceWorker' in navigator)) return;
+        if (!window.isSecureContext) return;
+        var host = location.hostname;
+        var devOn = /[?&]swdev=1(?:&|$)/.test(location.search);
+        if ((host === 'localhost' || host === '127.0.0.1' || host === '[::1]') && !devOn) return;
+        navigator.serviceWorker
+            .register(BASE_URL + '/sw.js', { scope: (BASE_URL || '') + '/' })
+            // 注册失败等于这次访问没有离线层，页面本身照常运行；刻意不写日志——
+            // 这个文件里一个 console 都没有，第一条日志就该是有人先想清楚了它给谁看。
+            .catch(function () {});
+    }
+
     function boot() {
         initTheme();
         initToc();
@@ -3197,6 +3228,9 @@
         initShelf();
         initWrapUp();
         initMagneticCta();
+        // 排在最后一条：注册本身是异步的，但它会在这一帧之后立刻发一个请求，
+        // 让首屏的其余同步工作先跑完，别让离线层和它们抢同一个 tick。
+        initOffline();
     }
 
     if (document.readyState === 'loading') {

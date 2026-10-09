@@ -71,16 +71,31 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 't10-chrome-'));
-// 只 MAP 字体那一个 host：这一格现场试过把 360 推送链上的 `js.passport.qihucdn.com`、
-// `s8.qhres2.com` 一起 MAP 到 127.0.0.1（想用"全都失败"把阻塞字节变成确定数），结果
-// `document.readyState` 在 ~9.6s 内再也到不了 complete，第 2 组导航直接 `加载超时` 崩在这一步——
-// 同步 <script> 的连接被拒后 Chrome 带退避重试，比让它真连上还慢。
-// 所以外链的不确定性不在这里消，在判据里消：**5a 的可复算读数与断言只算本地块**，
-// 外链件原样列出来但不进判据（同一份产物两轮的外链合计实测 6,869B 与 6,897B，本地恒 222,121B）。
+/**
+ * 站外一律不给它解析成功：`--proxy-server=direct://` + `MAP * ~NOTFOUND, EXCLUDE 127.0.0.1`。
+ *
+ * 这一段是 2026-09-28 改的，改的是**下面那条旧结论的归因**。旧注释说"把 360 那族一起 MAP 到
+ * 127.0.0.1 之后 readyState 在 ~9.6s 内到不了 complete，因为同步 <script> 连接被拒后 Chrome
+ * 带退避重试"——归因错了，所以那条"别在这里消不确定性"的结论也跟着错。判别实验（同一台机器、
+ * 同一份产物）：把 `s.360.cn` 用 `MAP s.360.cn 127.0.0.1:<端口>` 指到本脚本自己那台**任何路径都
+ * 秒回 404** 的静态服务上，那台服务收到的非本站请求是 **0 条**，而时间线里那一件照样 10,306ms、
+ * `complete` 15 秒不落定。也就是说这台机器开着系统代理（127.0.0.1:65532）时，**走代理的请求由
+ * 代理解析域名，Chrome 本地的 resolver rules 一条都不参与**——它不报错，看起来像生效了。
+ * 只有把代理一起摘掉（`direct://`），规则才开始说话；`~NOTFOUND` 是"解析不出来"而不是
+ * "连上去等人回话"，所以是秒失败。`EXCLUDE 127.0.0.1` 保住这一格自己的静态服务。
+ *
+ * 换到这一族的实测：`verify-sw-offline.mjs` 首屏 navigate → complete 从 11,090ms（其中站外信标
+ * 一件占 10,181ms）降到 **1,583ms**；这一格改前的一次真跑直接在 `/tools/idcard.html` 上报
+ * `加载超时`（REAL_EXIT=1），改后 **13/13 通过**，5a 读数是「阻塞集本地 233,544B / 4 件 +
+ * 外链当场 0B」（2026-10-10 复跑）——外链从此恒为 0，不再是那对 6,869B / 6,897B 的浮动量。
+ *
+ * 下面这条判据口径**保持不变**：可复算的数只算本地块（名字以 `/` 开头那些）。它现在更稳了，
+ * 但它防的是"把外链字节当成本地字节一起比"，那一层防护和这里降噪是两件事，不合并。
+ */
 const chrome = spawn(CHROME, ['--headless', '--remote-debugging-port=0',
   `--user-data-dir=${profile}`, '--disable-gpu', '--no-first-run',
   '--disable-background-networking', '--window-size=1280,900',
-  '--host-resolver-rules=MAP at.alicdn.com 127.0.0.1'],
+  '--proxy-server=direct://', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'],
   { stdio: ['ignore', 'ignore', 'pipe'] });
 // 端点只认这行 stderr：它出自上面那个 pid，所以不可能连到别人启动的浏览器。
 // 子进程中途退出 / 20 秒内没吐出这行，都算这一轮没起来，直接退 2，不做任何"降级继续"。
@@ -292,8 +307,8 @@ const rl = await evalJs(`(() => {
   const nav = performance.getEntriesByType('navigation')[0] || {};
   const blocking = res.filter((r) => r.rb === 'blocking');
   // 名字以 "/" 开头 = 本机产物（origin+baseurl 已被剥掉）；剩下的是外链，它们的 transferSize
-  // **按当场成败浮动**（同一份产物两轮实测 222,121B 与 229,019B，差的正是 at.alicdn 6,244 +
-  // qhres2 654），所以"可复算的那个数"只算本地块，外链单独列出来但不进判据。
+  // **按当场成败浮动**（摘掉外链之前，同一份产物两轮实测 222,121B 与 229,019B，差的正是
+  // at.alicdn 6,244 + qhres2 654），所以"可复算的那个数"只算本地块，外链单独列出来但不进判据。
   const isLocal = (b) => b.name[0] === '/';
   const local = blocking.filter(isLocal);
   const remote = blocking.filter((b) => !isLocal(b));
@@ -313,7 +328,7 @@ const rl = await evalJs(`(() => {
 // 公共件，这一格管的是"证件页专属的那三件有没有被搬进 <head>"。
 // `accountedFor` 兜另一种红法：资源表空/导航失败时三件都"不在阻塞集里"，前两个条件会**一起真**，
 // 于是这一格假绿。所以这里要求量到的东西成得了像：HTML 上千字节、本地阻塞件不少于 3 件、
-// 本地合计不少于 50KB（现量 7 件 / 222,121B；全站公共那一族要掉到 50KB 以下，等于 §7 的阻塞集
+// 本地合计不少于 50KB（现量 4 件 / 233,544B；全站公共那一族要掉到 50KB 以下，等于 §7 的阻塞集
 // 基线整段要重写，那时这一格变红是应该的）。
 const MINE = ['toolkit.min.css', 'toolkitCore.min.js', 'toolIdcard.min.js'];
 const mineInBlocking = rl.blocking
