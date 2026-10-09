@@ -3,10 +3,11 @@ layout: post
 title: Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK
 subtitle: 模型 ID 在旧 SDK 就能原样发出，带类型的工具块要等新版。
 seo_short_title: Claude Haiku 5.5 实测
+seo_description: 模型 ID 在旧版 0.131.0 就能原样发出，缺的是响应侧工具块的类型。公告那句 75% 拆成 90% 和 50% 两档，落不进十万 token 那档的只省一半。
 date: 2026-10-09
 categories: AI
 cover: /assets/img/haiku-5-5-model-id-vs-sdk-typing/banner.webp
-tags: Claude Anthropic SDK
+tags: Claude AI 类型系统
 ---
 
 # Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK
