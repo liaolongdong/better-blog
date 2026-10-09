@@ -8371,3 +8371,26 @@ harness 也会报成"该红没红"而不是偷偷绿，真正的代价是**误�
 `vite.config.js:177-182` 的 input 只从 `dev/` 取、产物里搜不到 teeth 文件名），所以重建一次双树只会重产同一批字节。
 于是提交态的 ⑤⑥ 读数**沿用同一工作树那两发的** ⑤ 退 0、⑥ **74/74** 退 0 + 变异全还原，
 这一句是"哪一格是现产、哪一格是替代"的对账，不是把退 0 抄成两处。
+
+### 推送与线上对账（2026-10-01 晚，修 B 那一族四发出门）
+
+`git -c http.version=HTTP/1.1 -c http.postBuffer=1 push origin HEAD:master` → `ab64361..259af88`，四条
+（`cbcae59` 代码、`817e73a` 自证回填、`04da5d1` 评审回合、`259af88` 提交态回身），作者逐条读回都是同一人，
+`git diff --name-only origin/master..HEAD` 的文件全集正好六格（`tools.html`、两本 `scripts/`、两本计划、spec），
+**没有夹带另一路会话那一批发**。出门前 `ls-remote` 第一发撞 `Empty reply from server`、重试即过（那条老毛病又应验）。
+
+**Pages 那一发**：run `36886885416`，head `259af88`，`completed / success`（`updated_at` 2026-10-01T15:48:20Z）。
+
+**线上对账要按形状认，不能按 md5 认**：读 `https://liaolongdong.github.io/better-blog/tools.html` 得
+**51,068B / md5 `587819cf…`**，与本机 `_site/tools.html` 是**同一枚**；但它**不等于**上面 §7 那一格记的
+提交态读数 **50,590 / `2d6e9bf8…`**。差的不是我这刀：`/compare/259af88...96506e0` 读到 `status=ahead`、
+`behind_by=0`——另一路会话在我这发之后又往 `master` 上推了 **95** 发（现指 `96506e0`），Pages 最新那发
+（head `96506e0`）同样 `completed / success`，所以线上此刻是"修 B 的锚点修复 **加上**他们那一批改动"的合成那一枚。
+判"修 B 到底上没上线"用的是**锚点形状**：线上 `grep -o 'tools/[a-z]*\.html#tk-panel-[a-z]*'` 命中 **10** 枚、
+裸形 `tools/idcard.html#uscc"` 命中 **0** 枚。**这一句同时也是那条欠账的第一次真机侧证据**——
+落地页那十枚现在指到目标页真有的 id，而页面是 CI 从 `master` 建出来的那份。
+
+**下一发的门径（这一句按现算，别当常数引）**：2026-10-01 落笔时读到「本地 `main` 落后远端 **95** 发、下一次推送不是快进」；
+2026-10-09 复核时那 95 发已被另一路会话分两轮并进来，`git rev-list --left-right --count HEAD...origin/master` 读
+**1 / 8**（本地独有 `642eb34`，远端独有多到 `96506e0`）——**结论没变、数字变了**：仍不是快进，
+`fetch` + `merge` 是动共享状态的动作，按规矩留给人点头，不由实现侧自己合。
