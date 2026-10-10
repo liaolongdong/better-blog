@@ -31,7 +31,7 @@
 - **不 push**。push、建 PR、触发 Actions 都属于对外动作，需要用户单独授权（一次授权只对那一次有效）。
 - 不 `--no-verify`、不 `amend`、不 `reset --hard`、不对共享工作树用裸 `git stash`。
 - 本机 git 是 **2.23.0**（`git --version` 现量）。已知两处失效写法：`git merge-tree --write-tree` 不支持；`git rev-parse --short A B` 多 rev 会假 fatal，要逐个调。
-- 不碰（并发会话的领地，一律只读不提）：`_config.yml`、`package.json`、`USAGE.md`、`scripts/article-check.mjs`、`scripts/lib/post-meta.mjs`、`scripts/wechat-draft.mjs`、`scripts/check-tools-surface.mjs`、`_data/onlineTools.yml`、`_data/og_images.yml`、`_data/tools.yml`、`dev/sass/toolkit.scss`、`dev/sass/common/editorial.scss`、`dev/js/tools/*`、`sitemap.xml`、`_includes/header.html`、`tools.html`、`index-all.html`、`llms.txt`、`README.md`、`scripts/verify-motion-batch4.mjs`、`scripts/verify-nav-touch.mjs`、`search1.json`。
+- 不碰（并发会话的领地，一律只读不提）：`_config.yml`、`package.json`、`USAGE.md`、`scripts/article-check.mjs`、`scripts/lib/post-meta.mjs`、`scripts/wechat-draft.mjs`、`scripts/check-tools-surface.mjs`、`_data/onlineTools.yml`、`_data/og_images.yml`、`_data/tools.yml`、`dev/sass/toolkit.scss`、`dev/sass/common/editorial.scss`、`dev/js/tools/*`、`sitemap.xml`、`_includes/header.html`、`tools.html`、`index-all.html`、`llms.txt`、`README.md`、`scripts/verify-motion-batch4.mjs`、`scripts/verify-nav-touch.mjs`、`search1.json`。 **（这份领地清单到文末「追加二轮」那节作废：除 `_config.yml` 那 21 行占位仍留在本地，其余 17 条要么随 `git merge --ff-only` 对齐自动落地、要么已由那两枚提交提出。）**
 - 报告一律中文；**每一个数字都必须是自己跑出来的**，不许引用 spec 里的旧数充当本轮读数。退出码只认日志里 `echo` 出来的那一个，不许用 `cmd | tail` 之后的 `$?`（管道吞退出码）。
 - gzip 口径只有一个：`cat f | gzip -9 | wc -c`（走 stdin；`gzip -9 -c f` 会把文件名塞进 FNAME 字段，每件多 16–19B；`zlib.gzipSync` 与它不同口径，跨口径比较视同没量）。
 - `_site/sw.js` **不是逐字节可复现的产物**（桶名里带 `BUILD = site.time`）。任何「产物一致性」比对都必须把这个文件排除在外，一律比集合与条数。
@@ -649,3 +649,103 @@ origin 修过 front matter 的那两篇 +2,182B → 9,526,692B，离表里的数
 不补 PWA manifest 与图标，这两条 spec §10 早就写成了非目标；③ `wechat-draft.mjs` 那两处（`EXTEND.example.md:13`
 披露出口 IP 段、子进程输出未脱敏就落日志）仍在 `_drafts/evidence/wechat-draft-two-fixes.patch` 里等着——那个文件
 是并发会话的在途工作，索引里躺着它，本轮不能替它提交。
+
+## 追加二轮 · 剩余未提交代码落地（同日，`85e23f6`）
+
+**触发**：并发会话收工之后，把主工作树剩下的未提交内容落地，并保证「提交的那棵树 = 跑门的那棵树」。
+
+### 落地前那份清单的三条分界
+
+18 条目按「工作树字节 vs `origin/master`」一分为三，分界决定了要不要提：
+
+- **10 条工作树字节本来就等于 `origin/master`**（`.baoyu-skills` 那三份 `EXTEND*.md`、`_data/tools.yml`、
+  `package.json`、`scripts/article-check.mjs` 与其 `fixtures/article-check/` 三份夹具、`scripts/lib/post-meta.mjs`）
+  ——它们是上游那 8 个提交已经发过的内容，本地再提一遍只会造出重复与返工，**对齐之后自动变成干净的已跟踪文件，一格不必提**。
+- **3 条是真正本地的工作**：`USAGE.md` 那 45 行公众号草稿同步入档（对 origin 纯增，0 删）、`scripts/wechat-draft.mjs`
+  的两处缺陷修复、`_data/og_images.yml` 缺的那一行登记。
+- **1 条不许提**：`_config.yml` 那 21 行 `authorWorkTimeLine` 占位履历，它自己的注释写着
+  「换掉或删掉之前不要提交、不要上线」，上一行是「虚假履历会直接被当成陈述抓取」。**留在本地未入索引，不是漏掉。**
+
+### 被丢弃的那一段：只在索引里的「摘掉动效批 IV」
+
+`USAGE.md`、`dev/sass/toolkit.scss`、`scripts/verify-motion-batch4.mjs` 这三条索引项构成一组**工作树从未跟上**
+的删除，形状是「把动效批 IV（M24–M29）从仓库里摘掉」：索引里的 `USAGE.md`（`e8f821f`，60,384B）相对 HEAD 是
+**删 76 行 / 加 1 行**（1,073 行 → 998 行），动效批 IV 那一节连同关键帧注释那 4 行的改写一起没；
+`toolkit.scss`（`330fb30`，22,585B）是**删 75 行 / 加 4 行**——文末 M29 那组三条动画与两个关键帧整块没，
+第 5 条口径注释从 10 行收回 4 行；而 `verify-motion-batch4.mjs` 在索引里是**空 blob**（整份删除），
+磁盘上却是 `4811665` = HEAD = origin。`git status` 那三行的 `MM` / `MM` / `D`+`??` 就是这个形状的读数。
+
+按原样提交会一次交出三件后果：站点少 3 条动效、台账少一道 93 判据的 Chrome 门禁、文档指着一个不存在的脚本。
+所以处置是 `git restore --staged -- <这三条>`（只动索引、不动工作树），动效批 IV 一格未减。
+**整份原始索引与工作树状态都存档在 `_drafts/evidence/stale-index-2026-10-10/`**（`index-vs-HEAD.patch` 3,201 行
+= 那 15 条暂存的全量、`worktree-vs-HEAD.patch` 3,117 行、`status-before.txt`、逐文件哈希的 `MANIFEST-wt.txt`，
+外加一份写明怎么恢复的 `NOTE.md`）；两枚旧 blob 当场核实仍可从对象库取出（`git cat-file -s` 读到 60,384B 与 22,585B），
+所以这一记丢弃是可逆的，不是替别人做决定。
+
+### 对齐落地
+
+`main`（`9181e2e`）是 `ac-align`（`c3d95ab` = origin/master + 离线层那 7 个提交，haiku 那一处冲突按 origin 侧收）
+的祖先，所以按上一轮定的「试 ff main，挡了就停」走 `git merge --ff-only`。第一次被 12 条挡住（5 条工作树已改 +
+7 条未跟踪），git 在 `Updating 9181e2e..c3d95ab` 那行之前就 abort、HEAD 一格未动。其中 4 条（`.baoyu-skills` 那两份
+`EXTEND.md`、`_data/tools.yml`、`package.json`）工作树字节已等于 origin，`git checkout HEAD --` 退回是零损失——
+ff 会把同一批字节写回来；`USAGE.md` 与 `scripts/wechat-draft.mjs` 同样先退回、ff 之后各自换回本地那一版（换回前
+先核实落地的那两份正是 `49b0a1a` 与 `41289c8`）；剩下 6 条未跟踪移进快照目录。**现在 `main` = `85e23f6`，
+比 `origin/master` 领先 9 个提交、落后 0。**
+
+本文第 34 行那份「不碰（并发会话的领地，一律只读不提）」清单到本轮作废——那个会话的在途工作只剩
+`_config.yml` 那 21 行占位。上面「没做的事」③ 那句「`wechat-draft.mjs` 是并发会话的在途工作，本轮不能替它提交」
+同样过期：脚本本轮提交了，但那两处缺陷（`EXTEND.example.md:13` 点名出口 IP 段、子进程输出未脱敏就落日志）
+仍按「继续等，不动它」留在 `_drafts/evidence/wechat-draft-two-fixes.patch`。`USAGE.md` 这次入档那节里有一句
+同样写明了出口 IP 在哪两段之间轮换——那是原作者原文，本轮没替它改口，要收就连那两处一起收。
+
+### 两枚提交与它们的牙齿
+
+- `7e26441 fix(wechat)`：`missingPrereqs()` 原本在内层循环里 `return`，**任一**枚凭据键有值就报「前置齐了」；
+  摘要截断那行日志写死 `[...fm.subtitle]`，而上面取的是 `subtitle || description || summary` 三级回落。
+  两处都做了牙齿实测（`HOME` 隔离到探针目录、喂假凭据与一篇没有 `subtitle` 的夹具、全程不联网）：
+  只写 `WECHAT_APP_ID` 的那份 `.env`——修前退 **0** 并报「前置齐了」，修后退 **3** 并点名「没找到 `WECHAT_APP_SECRET`」；
+  两枚都在时两版都退 0（不退化）。`description` 140 字而没有 `subtitle` 的那一篇——修前是
+  `TypeError: fm.subtitle is not iterable`（崩在那句本来只想说「截断了」的日志上），修后打出
+  「摘要超过 120 字，已截断（原文 140 字）」并继续走到下一道真检查（夹具没封面，退 1 在封面上，是夹具的形状不是回归）。
+  其余 8 处 hunk 全是排版折行，逐 hunk 对过语义等价；`node --check` 通过。
+- `85e23f6 fix(og)`：`_data/og_images.yml` 补 `/2026-09-23/browser-skill-context-bytes.html` 那一行
+  （09-22 与 09-24 两个邻居都在表里，值就是它 front matter 自己点名的那张 banner）。两处中性：
+  `_includes/seoMeta.html:105` 那三级链第一级就有 cover，生成卡那一级轮不到；`sw.js` 的两份清单都不读这张表
+  （`DOC_URLS` 取 `site.nav` + `onlineTools(ready)` + `site.posts`，`COVER_URLS` 只取 `post.cover`）。
+  表 68 → 69 条，`og:check` 前后都退 0——不是被门禁逼的，是表的自洽。
+
+### 读数（跑门的树 = `git archive HEAD` = 提交态，1,257 个文件）
+
+导出树里 `sw.js` / `USAGE.md` / `scripts/wechat-draft.mjs` / `_data/og_images.yml` / `_config.yml` 五份逐字节
+等于 `git show HEAD:`，且导出树里 `_config.yml` 读到的是 `authorWorkTimeLine: []`——那 21 行占位不在会上线的树上，
+这一格是自证不是假设。`npx --no-install vite build` 与 `bundle exec jekyll build` 均 exit 0，`_site/sw.js` 32,189B，
+`BUILD=202610101711`（重跑那一轮是 `…1722`）。
+
+| 门禁 | 退出码 | 读数 |
+|---|---|---|
+| `check-sw` | 0 | 172 条 × 7 组全绿（骨架 18 · 豁免 4 · 文档 99 · 封面 51），sw.js 12,360B gzip / editorial.min.js 14,526B gzip |
+| `check-sw-teeth` | 0 | 22 条变异全红在对的组 + 双基线仍绿 + 源侧变异按 blob 还原 |
+| `check-seo` | 0 | **15 组全绿**、JSON-LD 221 块全部可解析——上一轮那 3 条同名红随对齐一并归零 |
+| `check-seo-teeth` | 0 | 自带影子副本，基线 exit 0，全部变异各自因预期那道门变红 |
+| `toolkit-tests` | 0 | 439/439（`1..439`） |
+| `og:check` | 0 | 表 69 条 / 卡片 34 张 / 1200×630 / 无孤儿文件 |
+| `check-tools-surface` + 牙齿 | 0 / 0 | 安装面判据全绿、变异全红 |
+| `verify-plan-blocks` | 0 | 五份计划里的镜像块与磁盘全等（本轮新增这一节不含围栏块） |
+| `tool-url-state-tests` / `verify-tool-url` | 0 / 0 | 工具页 URL 状态族 |
+| `verify-search-deeplink` | 0 | 搜索深链族 |
+| `check-image-dims.rb` + 牙齿 | 0 / 0 | 图片尺寸契约 |
+| `verify-sw-offline` | 0 | **10/10**：`counts={"shell":18,"doc":99,"cover":51,"deferred":4}` install 失败 0 · 骨架桶 18/18 · 文档桶 99/99 · 封面入桶 33/51（2,618,873B / 预算 2,621,440B）· 写入 132 · 跳过 18 · 补全失败 0 · **运行期写桶失败 0** · 断网读旧文 1,636 字标题相符 · 未收录地址 **503** 而非 200 · `feed.xml` 直连 `ERR TypeError` · 头图 `chrome-155-jpeg-xl-decode/banner.webp` naturalWidth=1600 · S9 `transferSize=0` · 注销后残留桶 0 |
+| `verify-idcard-browser` | 0 | 13/13，5a 阻塞集本地 **233,544B / 4 件**（与加固那一轮逐格相同），六组对比度 5.11–6.02 全过 4.5，摘脚本后面板 5 / 索引 5 仍在、正文 144.8% |
+| `mutation-check`（article-check 的牙齿） | 0 | 正向 PASS + 13 项变异各自触发预期门禁——这族是随对齐进来的新门禁，本轮第一次在本仓跑 |
+
+`sw.js` gzip 这一轮读到 12,360B，spec §7 引的是 12,359B：那是 `BUILD` 那 12 位数字带来的摆动，§7 的余量格
+早写了「±1B，见 §6」，所以不算漂移、不改文档。
+
+**没跑的检查**（记账，不外推成「没问题」）：`verify-motion-batch4`（动效批 IV 那 93 判据）、`verify-nav-touch`
+（触屏档 77 判据）、`verify-tools-browser`、`verify-codec-browser` 本轮未跑。理由要说得准：这四道覆盖的是
+`dev/js/tools/*`、`dev/sass/*` 与工具页，而**上游那 8 个提交与本轮三枚文件对这些路径一格未动**
+（`git diff --name-only 9181e2e origin/master` 那 31 条里没有它们）；另外这两道 Chrome 门禁在负载下会假红或
+主动 `exit 2`，要跑得单独腾出一台空机器，不该挤在这一串后面。`wechat-draft.mjs` 的**真跑**（联网建草稿）也没跑，
+本轮只到 `--check-config` 与夹具级 dry-run。
+
+**本轮不推送**：推送要单独点头。`_config.yml` 那 21 行占位仍在本地工作树，未入任何提交。
