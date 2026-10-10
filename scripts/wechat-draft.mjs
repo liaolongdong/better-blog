@@ -575,7 +575,9 @@ const out = lineSink((s) => process.stdout.write(s), (s) => (stdout += s));
 const err = lineSink((s) => process.stderr.write(s));
 child.stdout.on('data', (b) => out.push(b.toString()));
 child.stderr.on('data', (b) => err.push(b.toString()));
-child.on('exit', (code) => {
+// 用 close 而不是 exit：stderr 从 inherit 改成管道之后，exit 时最后一帧可能还在路上，
+// 而下面失败分支会 process.exit()——那会把没抄完的输出和 media_id 那行 JSON 一起截掉。
+child.on('close', (code) => {
   out.flush();
   err.flush();
   if (code !== 0) {
