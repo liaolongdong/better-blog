@@ -82,7 +82,10 @@ const flag = (key) => argv.includes(`--${key}`);
  * @param {string[]} parts
  * @returns {string}
  */
-const shq = (parts) => parts.map((p) => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(p) && p.length > 0 ? p : `'${p.replace(/'/g, `'\\''`)}'`)).join(' ');
+const shq = (parts) =>
+  parts
+    .map((p) => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(p) && p.length > 0 ? p : `'${p.replace(/'/g, `'\\''`)}'`))
+    .join(' ');
 
 const log = (...a) => console.log('[wechat-draft]', ...a);
 const warn = (...a) => console.warn('[wechat-draft] ⚠', ...a);
@@ -151,7 +154,11 @@ function resolveSkillDir(explicit) {
   const cands = [];
   if (explicit) cands.push(explicit);
   if (process.env.BAOYU_WECHAT_SKILL_DIR) cands.push(process.env.BAOYU_WECHAT_SKILL_DIR);
-  cands.push(path.join(home, '.agents/skills/baoyu-post-to-wechat'), path.join(home, '.qoder-cn/skills/baoyu-post-to-wechat'), path.join(home, '.claude/skills/baoyu-post-to-wechat'));
+  cands.push(
+    path.join(home, '.agents/skills/baoyu-post-to-wechat'),
+    path.join(home, '.qoder-cn/skills/baoyu-post-to-wechat'),
+    path.join(home, '.claude/skills/baoyu-post-to-wechat'),
+  );
   for (const c of cands) {
     if (fs.existsSync(path.join(c, 'scripts', 'wechat-api.ts'))) return path.resolve(c);
   }
@@ -177,7 +184,8 @@ if (!title) die(`${path.relative(ROOT, postFile)} 的 front matter 没有 title�
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) die(`${path.relative(ROOT, postFile)} 的 date 不是 YYYY-MM-DD，无法拼 permalink`);
 // _config.yml 没开 future，日期在未来的稿子压根不进站点，permalink 指过去就是死链；
 // 而 news 草稿的「阅读原文」一旦点开是 404，比不发更难堪。这里先挡住。
-if (new Date(`${date}T00:00:00`) > new Date()) die(`${path.relative(ROOT, postFile)} 的 date ${date} 在未来，Jekyll 不会构建它，线上没有这个地址，不同步`);
+if (new Date(`${date}T00:00:00`) > new Date())
+  die(`${path.relative(ROOT, postFile)} 的 date ${date} 在未来，Jekyll 不会构建它，线上没有这个地址，不同步`);
 
 const site = readSiteBase(CONFIG_FILE);
 if (!site.origin) die(`_config.yml 里没读到 url，无法拼「阅读原文」的绝对地址`);
@@ -269,7 +277,10 @@ function resolveCoverSource(body) {
     if (fs.existsSync(c) && fs.statSync(c).size > 0) return c;
     if (fs.existsSync(c)) warn(`封面是空文件，换下一个候选：${c}`);
   }
-  die(`找不到可用封面（试过 ${cands.join(' → ') || '无'}）。news 类型草稿必须有 thumb_media_id，` + `而正文里没有可当封面的本地图。`);
+  die(
+    `找不到可用封面（试过 ${cands.join(' → ') || '无'}）。news 类型草稿必须有 thumb_media_id，` +
+      `而正文里没有可当封面的本地图。`,
+  );
 }
 
 /**
@@ -291,7 +302,11 @@ function transcodeCover(src, dest) {
       continue;
     }
     const bytes = fs.statSync(dest).size;
-    const probe = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', dest], { encoding: 'utf8' });
+    const probe = spawnSync(
+      'ffprobe',
+      ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', dest],
+      { encoding: 'utf8' },
+    );
     const codec = (probe.stdout || '').trim();
     last = { step, bytes, codec };
     if (codec === 'mjpeg' && bytes <= COVER_MAX_BYTES) return last;
@@ -349,15 +364,21 @@ function missingPrereqs() {
     const idf = val('remote_publish_identity_file');
     if (idf && !fs.existsSync(idf)) miss.push(`EXTEND.md 指定的私钥文件不存在：${idf}`);
   }
+  // 两枚键都要有值才算就绪。早先这里在内层循环里 `return`，于是**任一**枚有值就报齐了：
+  // 只写了 WECHAT_APP_ID 的 .env 会直接过检，真跑时才在微信侧报凭据错——而这一函数的职责
+  // 正是把那种失败提前成一句人话。两个路径合起来收（项目内与 home 各写一枚也算齐）。
+  const found = new Set();
   for (const env of [path.join(ROOT, '.baoyu-skills', '.env'), path.join(os.homedir(), '.baoyu-skills', '.env')]) {
     if (!fs.existsSync(env)) continue;
     const t = fs.readFileSync(env, 'utf8');
     for (const k of ['WECHAT_APP_ID', 'WECHAT_APP_SECRET']) {
       const m = new RegExp(`^${k}[ \\t]*=[ \\t]*(\\S*)`, 'm').exec(t);
-      if (m && m[1]) return miss.length ? miss : [];
+      if (m && m[1]) found.add(k);
     }
   }
-  miss.push('没找到 WECHAT_APP_ID / WECHAT_APP_SECRET（写进 .baoyu-skills/.env 或 ~/.baoyu-skills/.env）');
+  if (found.size === 2) return miss;
+  const lacking = ['WECHAT_APP_ID', 'WECHAT_APP_SECRET'].filter((k) => !found.has(k));
+  miss.push(`没找到 ${lacking.join(' / ')}（写进 .baoyu-skills/.env 或 ~/.baoyu-skills/.env）`);
   return miss;
 }
 
@@ -372,8 +393,12 @@ const dryRun = flag('dry-run');
 const rawBody = readBody(postFile);
 const dropped = dropLeadingTitle(rawBody);
 const images = rewriteImages(dropped.body);
-const { digest, truncated } = buildDigest(fm.subtitle || fm.description || fm.summary);
-if (truncated) log(`摘要超过 ${DIGEST_MAX} 字，已截断（原文 ${[...fm.subtitle].length} 字）`);
+const digestSource = fm.subtitle || fm.description || fm.summary;
+const { digest, truncated } = buildDigest(digestSource);
+// 报字数要报**真正被截断的那一份**。早先这里写死 [...fm.subtitle]，而上面那行是会回落到
+// description／summary 的：没有 subtitle 的那一篇一旦走到截断分支就是 TypeError（不可迭代），
+// 崩在一条本来只是想说「截断了」的日志上。
+if (truncated) log(`摘要超过 ${DIGEST_MAX} 字，已截断（原文 ${[...(digestSource || '')].length} 字）`);
 if (!digest) warn('没有 subtitle，摘要将交给 skill 取正文首段截断——公众号卡片看着会糙一点');
 
 const coverSrc = resolveCoverSource(images.body);
@@ -385,26 +410,57 @@ const coverJpg = path.join(slugDir, 'cover.jpg');
 const coverInfo = transcodeCover(coverSrc, coverJpg);
 
 // 暂存正文里出现的每个本地图片都必须在磁盘上，否则 skill 会在上传那步逐个抛错。
-const missing = [...images.body.matchAll(/!\[[^\]]*\]\((\/[^)\s]+)/g)].map((m) => m[1]).filter((p) => p.startsWith(`${ROOT}/`) && !fs.existsSync(p));
+const missing = [...images.body.matchAll(/!\[[^\]]*\]\((\/[^)\s]+)/g)]
+  .map((m) => m[1])
+  .filter((p) => p.startsWith(`${ROOT}/`) && !fs.existsSync(p));
 if (missing.length) die(`正文有 ${missing.length} 张图在磁盘上找不到：\n  ${missing.join('\n  ')}`);
 
 const stagedMd = path.join(slugDir, 'article.md');
 // 注意别用 .filter(Boolean) 收尾：末尾那个空元素是「闭合 --- 之后的换行」，
 // 被 filter 吃掉就会写出 `---![图片]` 这种畸形 front matter（skill 侧靠正则容错才没炸）。
-const fmLines = ['---', `title: "${title.replace(/"/g, "'")}"`, digest ? `description: "${digest.replace(/"/g, "'")}"` : null, author ? `author: "${author}"` : null, `cover: "${coverJpg}"`, `contentSourceUrl: "${link.url}"`, `date: ${date}`, '---', ''].filter((l) => l !== null);
+const fmLines = [
+  '---',
+  `title: "${title.replace(/"/g, "'")}"`,
+  digest ? `description: "${digest.replace(/"/g, "'")}"` : null,
+  author ? `author: "${author}"` : null,
+  `cover: "${coverJpg}"`,
+  `contentSourceUrl: "${link.url}"`,
+  `date: ${date}`,
+  '---',
+  '',
+].filter((l) => l !== null);
 fs.writeFileSync(stagedMd, `${fmLines.join('\n')}${images.body}`, 'utf8');
 
-const hash = crypto.createHash('sha256').update(rawBody).update(fs.readFileSync(coverSrc)).digest('hex').slice(0, 16);
+const hash = crypto
+  .createHash('sha256')
+  .update(rawBody)
+  .update(fs.readFileSync(coverSrc))
+  .digest('hex')
+  .slice(0, 16);
 
 const state = loadState();
 const prev = state[link.seg];
 if (prev && prev.hash === hash && !flag('force')) {
-  log(`${link.seg} 已同步过（${prev.syncedAt}${prev.mediaId ? `，media_id ${prev.mediaId}` : ''}），内容未变，跳过。要重来加 --force`);
+  log(
+    `${link.seg} 已同步过（${prev.syncedAt}${prev.mediaId ? `，media_id ${prev.mediaId}` : ''}），内容未变，跳过。要重来加 --force`,
+  );
   process.exit(0);
 }
 if (prev && prev.hash !== hash) log(`${link.seg} 内容有变（${prev.hash} → ${hash}），这次会新建一条草稿，旧的那条要自己去草稿箱删`);
 
-const cmd = [...bunCmd(), apiScript, stagedMd, '--theme', theme, '--title', title, '--cover', coverJpg, '--source-url', link.url];
+const cmd = [
+  ...bunCmd(),
+  apiScript,
+  stagedMd,
+  '--theme',
+  theme,
+  '--title',
+  title,
+  '--cover',
+  coverJpg,
+  '--source-url',
+  link.url,
+];
 if (digest) cmd.push('--summary', digest);
 if (author) cmd.push('--author', author);
 if (flag('keep-links')) cmd.push('--no-cite');
@@ -421,7 +477,13 @@ log(`暂存   ${path.relative(ROOT, stagedMd)}`);
 if (dryRun) {
   log('--dry-run：到此为止，没有联网、没有建草稿');
   log(`下一步真跑就是这条：${shq(cmd)}`);
-  console.log(JSON.stringify({ ok: true, dryRun: true, seg: link.seg, stagedMd, coverJpg, permalink: link.url, digest, command: shq(cmd) }, null, 2));
+  console.log(
+    JSON.stringify(
+      { ok: true, dryRun: true, seg: link.seg, stagedMd, coverJpg, permalink: link.url, digest, command: shq(cmd) },
+      null,
+      2,
+    ),
+  );
   process.exit(0);
 }
 
@@ -438,7 +500,18 @@ if (missingCfg.length) {
 // 真跑前先让 skill 自己过一遍元信息（它的 --dry-run 不联网、不读凭据），
 // 字段没对上就在这里报出来，不必等 SSH 隧道建起来才发现。
 const b = bunCmd();
-const preArgs = [...b, apiScript, stagedMd, '--theme', theme, '--title', title, '--cover', coverJpg, '--dry-run'];
+const preArgs = [
+  ...b,
+  apiScript,
+  stagedMd,
+  '--theme',
+  theme,
+  '--title',
+  title,
+  '--cover',
+  coverJpg,
+  '--dry-run',
+];
 const pre = spawnSync(preArgs[0], preArgs.slice(1), { cwd: ROOT, encoding: 'utf8' });
 if (pre.status !== 0) {
   warn(`skill 侧预检没通过（多半是 bun 首次拉取失败），跳过预检继续真跑：${(pre.stderr || '').trim().split('\n').pop()}`);
