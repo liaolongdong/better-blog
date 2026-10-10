@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1792" height="1024" viewBox="0 0 1792 1024" role="img" aria-label="">
+  <defs>
+    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="#E6DFD0" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1792" height="1024" fill="#F4F1EA"/>
+  <rect width="1792" height="1024" fill="url(#grid)" opacity="0.5"/>
+
+  <!-- cloud outline only, no fill; bottom edge runs y=420 from x=600 to x=1420 -->
+  <path d="M600 420C556 420 540 384 574 358C552 316 592 272 644 284C664 232 736 214 786 250C826 200 910 196 954 242C1014 202 1104 218 1132 272C1204 252 1278 278 1292 322C1364 312 1428 348 1420 396C1452 404 1458 420 1420 420Z"
+        fill="none" stroke="#2F4A63" stroke-width="2.4" stroke-linejoin="round"/>
+
+  <!-- handover cord: shell right side -> cloud left underside, one knot at the midpoint -->
+  <path d="M322 828C420 812 470 620 600 428" fill="none" stroke="#2F4A63" stroke-width="1.7"/>
+  <circle cx="449" cy="694" r="5.5" fill="#2F4A63"/>
+
+  <!-- workbench -->
+  <path d="M90 856H340" stroke="#2F4A63" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M110 856L122 968" stroke="#2F4A63" stroke-width="1.8"/>
+  <path d="M320 856L308 968" stroke="#2F4A63" stroke-width="1.8"/>
+
+  <!-- gear -->
+  <circle cx="170" cy="812" r="30" fill="none" stroke="#2F4A63" stroke-width="14" stroke-dasharray="9 11"/>
+  <circle cx="170" cy="812" r="12" fill="none" stroke="#2F4A63" stroke-width="2"/>
+
+  <!-- half-open shell, interior left empty -->
+  <rect x="216" y="812" width="104" height="44" rx="10" fill="none" stroke="#2F4A63" stroke-width="1.8"/>
+  <g transform="rotate(-18 216 812)">
+    <rect x="216" y="790" width="104" height="20" rx="7" fill="none" stroke="#2F4A63" stroke-width="1.6"/>
+  </g>
+
+  <!-- rope A: shortest, 6 knots, blank label tag -->
+  <path d="M627 420V650" stroke="#2F4A63" stroke-width="1.8"/>
+  <circle cx="627" cy="453" r="5" fill="#2F4A63"/>
+  <circle cx="627" cy="486" r="5" fill="#2F4A63"/>
+  <circle cx="627" cy="519" r="5" fill="#2F4A63"/>
+  <circle cx="627" cy="551" r="5" fill="#2F4A63"/>
+  <circle cx="627" cy="584" r="5" fill="#2F4A63"/>
+  <circle cx="627" cy="617" r="5" fill="#2F4A63"/>
+  <rect x="569" y="650" width="116" height="54" rx="9" fill="#FBF8F1" stroke="#2F4A63" stroke-width="1.7"/>
+
+  <!-- rope B: twice as long, 12 knots, blank label tag with hairline warm-gold edge -->
+  <path d="M932 420V880" stroke="#2F4A63" stroke-width="1.8"/>
+  <circle cx="932" cy="455" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="491" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="526" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="562" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="597" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="632" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="668" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="703" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="738" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="774" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="809" r="5" fill="#2F4A63"/>
+  <circle cx="932" cy="845" r="5" fill="#2F4A63"/>
+  <rect x="874" y="880" width="116" height="54" rx="9" fill="#FBF8F1" stroke="#D9A441" stroke-width="1.5"/>
+
+  <!-- rope C: dashed, hangs off the gear, ends in an empty hook, no label tag -->
+  <path d="M135 806C112 818 100 838 100 862V946" fill="none" stroke="#7FA8C4" stroke-width="1.7" stroke-dasharray="5 7"/>
+  <path d="M100 946C100 968 124 972 128 956" fill="none" stroke="#D9A441" stroke-width="2.4" stroke-linecap="round"/>
+</svg>
