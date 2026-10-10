@@ -102,11 +102,14 @@ const die = (msg) => {
  * 终端输出会被 cron 的 transcript 与 agent 日志收走，skill 侧一句「报错里带上 URL」
  * 就足以让凭据跟着进历史。值换成 <redacted>，`键=` 的形状留着，诊断不受影响。
  * 只认「键 = 值」这一形状：光秃秃出现在句子里的 token 抓不住，那是 skill 侧该守的口径。
+ * 键名前面故意不加 `\b`：真实那枚叫 `WECHAT_APP_SECRET`，下划线连着 `S` 就没有词边界，
+ * 加了 `\b` 反倒把它放过（实测：旧写法对 `WECHAT_APP_SECRET=<值>` 一条不打码）。
+ * 而 `secretary=`、`my_secret_token=` 这类仍不匹配——要求键名后面紧跟 `=` 或 `:`。
  *
  * @param {string} text 子进程输出的若干行
  * @returns {string} 值换成 <redacted> 的同一条
  */
-const SECRET = /(\baccess_token|\bappsecret|\bsecret)(["']?\s*[=:]\s*["']?)[A-Za-z0-9_%.\-]{8,}/gi;
+const SECRET = /(access_token|secret)(["']?\s*[=:]\s*["']?)[A-Za-z0-9_%.\-]{8,}/gi;
 const redact = (text) => text.replace(SECRET, (_m, key, sep) => `${key}${sep}<redacted>`);
 
 /**
