@@ -649,6 +649,9 @@ origin 修过 front matter 的那两篇 +2,182B → 9,526,692B，离表里的数
 不补 PWA manifest 与图标，这两条 spec §10 早就写成了非目标；③ `wechat-draft.mjs` 那两处（`EXTEND.example.md:13`
 披露出口 IP 段、子进程输出未脱敏就落日志）仍在 `_drafts/evidence/wechat-draft-two-fixes.patch` 里等着——那个文件
 是并发会话的在途工作，索引里躺着它，本轮不能替它提交。
+**（③ 到文末「追加三轮」那节收掉：那两处已在 `aa3b45f`～`8f5c9a4` 四枚提交里落地。顺带纠正这格记账——
+那个 patch 装的是 `missingPrereqs()` 内层 `return` 与 `fm.subtitle` 那两处，正是 `7e26441` 已提交的东西，
+从来不含出口 IP 与脱敏这两处；它和同名那份 `.md` 现在只是 `7e26441` 的存档，不是在途工作。）**
 
 ## 追加二轮 · 剩余未提交代码落地（同日，`85e23f6`）
 
@@ -697,6 +700,8 @@ ff 会把同一批字节写回来；`USAGE.md` 与 `scripts/wechat-draft.mjs` �
 同样过期：脚本本轮提交了，但那两处缺陷（`EXTEND.example.md:13` 点名出口 IP 段、子进程输出未脱敏就落日志）
 仍按「继续等，不动它」留在 `_drafts/evidence/wechat-draft-two-fixes.patch`。`USAGE.md` 这次入档那节里有一句
 同样写明了出口 IP 在哪两段之间轮换——那是原作者原文，本轮没替它改口，要收就连那两处一起收。
+**（这一段里「留在 patch 里」那格是错的记账，见上一节末尾的订正；「要收就连那两处一起收」这个决定在
+「追加三轮」里执行了——两处缺陷与 `USAGE.md` 那句点名 IP 的原文都改了口。）**
 
 ### 两枚提交与它们的牙齿
 
@@ -749,3 +754,92 @@ ff 会把同一批字节写回来；`USAGE.md` 与 `scripts/wechat-draft.mjs` �
 本轮只到 `--check-config` 与夹具级 dry-run。
 
 **本轮不推送**：推送要单独点头。`_config.yml` 那 21 行占位仍在本地工作树，未入任何提交。
+**（这句到「追加三轮」末尾作废：那一点头在 2026-10-10 18:00 之后给了，16 个提交已推 `origin/master`。）**
+
+## 追加三轮 · 公众号那两处在途缺陷 + 推送（同日，`8f5c9a4`）
+
+**触发**：上一条里那句「要收就连那两处一起收」被点名执行——用户给的正是两件事：① 那两处缺陷（`EXTEND.example.md:13`
+点名出口 IP 段、`wechat-draft.mjs` 把 skill 的子进程输出原样转出去），② 推送；口径是「验证没问题就推送」。
+
+### 四枚提交，按牙齿强度排
+
+1. **`8f5c9a4`（最硬的一枚：它修的是我上一枚的牙）**。`aa3b45f` 那版正则写成
+   `(\baccess_token|\bappsecret|\bsecret)(["']?\s*[=:]\s*["']?)[A-Za-z0-9_%.\-]{8,}`，摘掉 `\b` 之前它漏两格：
+   `WECHAT_APP_SECRET=…` 与 `APP_SECRET: "…"` ——**`_` 是单词字符，键名前面那个 `\b` 恰好在真实那枚凭据键上
+   不成立**，而它是最该被拦住的那一枚。判据自检（`/tmp/bb-regex-table.mjs`，六条真实形状 × 新旧两版并排）：
+   旧 **2/6 漏**、新 **0/6 漏**，中性行（含 `errcode 40164`、`192.0.2.1`）两版都不误伤。`appsecret` 那个分支一并删掉：
+   `secret` 本就覆盖它，留着只多一处会过期的枚举。值的下限 `{8,}` 是刻意的——真 token 32 字符起，而 `access_token=short`
+   这种短形状不进替换，换来的是不误伤正文里的同名文档串。
+2. **`aa3b45f`**：`SECRET`/`redact()`（`scripts/wechat-draft.mjs:112-113`）+ `lineSink()`（同文件 `:123`）——
+   按行缓冲再替换，键名被拆进两帧也咬得住；三个出口（skill 侧预检的 `warn`/`log`、子进程 stdout、stderr）都从
+   「原样转出去」改成「过 `redact` 再转」。同枚里两处文档不再点名 IP 段。
+3. **`86a94ba`**：子进程收尾从 `child.on('exit')` 换成 `on('close')`。
+4. **`c373224`**：注释里那句「脚本开头承诺『从不打印凭据』」是本机没有的约束——`grep -n 凭据` 数到 0 处，
+   改成真实理由（这条链常由无人值守的写作任务调，终端输出会被 cron 的 transcript 收走）。
+
+### 牙齿：注入变红实验，不是「绿了」
+
+`sh /tmp/bb-redact-probe.sh`（只在 `/tmp` 里动：`git archive HEAD` 导出树 + 假 `bun` 夹具 + `HOME` 隔离，
+真 `.env` 与真 `EXTEND.md` 全程不读不印）。假 `bun` 往 stdout/stderr 吐七种真实泄漏形状（含 `?access_` 与
+`token=` 跨两帧、和一行 env 回显），靶子是 `45159d0` 版 vs `8f5c9a4` 版：
+
+```
+before: FAKETOKEN=7 redacted=0 media_id行=3 「草稿已进箱」=1 尾行标记=1
+after : FAKETOKEN=0 redacted=7 media_id行=3 「草稿已进箱」=1 尾行标记=1
+```
+
+同一轮还自证了**没把功能改坏**：两轮都退 0、都从输出里解析到 `media_id`、`.wechat-sync/index.json` 落的
+`hash` 两轮同为 `74adf5bfe7b5b97b`（去重那层照旧工作）。
+
+**一处负结果，如实记着**：`86a94ba` 那枚我先假设「管道化之后 `exit` 会截掉不带换行的尾行」，探针
+`sh /tmp/bb-close-probe.sh` 在安静机器上两版各跑三次，**尾行标记 6/6 全送达、泄漏 6/6 全为 0**——这个危害
+复现不出来（Node 给 stdio 的句柄设了 `ref=false`，事件循环自然等得到最后一帧）。所以那一改是语义正确性
+（`close` 才是「流读完」），不是缺陷修复，提交信息里也这么写；它不是靠「红→绿」立住的，别按那条读。
+探针输出里另一格值得记：`process.exit()` 抢在尾帧换行之前，那半行会与我随后写的失败说明**同行拼接**——
+形状难看，不丢字节。
+
+### 这两处改动对站点是中性的一层证据
+
+- `USAGE.md` 在 `_config.yml:228`（导出树读数）的 `exclude` 里，不进产物；`.baoyu-skills/` 既不在 `_config.yml`
+  也不在 `_site/`；`wechat-draft.mjs` 的消费者只有 `package.json` 的 `wechat:draft` / `wechat:draft:latest`。
+- 产物侧扫那两段前缀：`_site` 展开 988 个文件，`grep -r -c` 零命中（rc=1）。
+- **公开半径**：`git grep` 三层对照——HEAD 零命中；`origin/master` 只剩 `EXTEND.example.md:13-14` 那两行
+  （推送之前就已公开，本轮是向前修，历史里那两行要抹得改写历史，得单独点头）；`USAGE.md` 那句点名 IP 的原文
+  是 `7e26441` 带进来的、还在本地领先的 16 个提交里，**`origin/master` 的 `USAGE.md` 没有它**（rc=1），
+  而 `aa3b45f` 已把它改成「不固定、会轮换」——所以这一次推送不会把那段前缀新公开出去。
+  本地盘上另有三份旧 `EXTEND.example.md` 躺在 `.worktrees/*`（`.gitignore:75` 之内），不属于任何会上线的树。
+
+### 读数（跑门的树 = `git archive HEAD` = 提交态，1,257 个文件）
+
+导出树里 `scripts/wechat-draft.mjs` / `USAGE.md` / `EXTEND.example.md` / `sw.js` / `_config.yml` /
+`_data/og_images.yml` 六份逐字节等于 `git show HEAD:`，`_config.yml` 读到 `authorWorkTimeLine: []`
+（那 21 行占位不在会上线的树上）。`HEAD=8f5c9a4`、vite 与 jekyll 均 exit 0、`_site/sw.js` 32,189B、
+`BUILD = '202610101819'`。
+
+| 门禁 | 退出码 | 读数 |
+|---|---|---|
+| `check-sw` | 0 | 172 条 × 7 组全绿（骨架 18 · 豁免 4 · 文档 99 · 封面 51），sw.js 12,360B gzip / editorial.min.js 14,526B gzip |
+| `check-sw-teeth` | 0 | 22 条变异全红在对的组 + 双基线仍绿 + 源侧变异按 blob 还原 |
+| `check-seo`（第一遍） | **1** | 「源比产物新」——`check-sw-teeth` 还原源侧变异把 mtime 顶到了构建之后，这道门按设计拒跑，不是内容红灯 |
+| `check-seo`（重建后） | 0 | 145 页 / 86 篇文章页 / 110 页带安装面；**15 组全绿**、JSON-LD 221 块全部可解析 |
+| `check-seo-teeth` | 0 | 影子副本基线 exit 0，全部变异各自因预期那道门变红 |
+| `toolkit-tests` | 0 | `# pass 439` / `# fail 0` |
+| `og:check` | 0 | 表 69 条 / 卡片 34 张 / 1200×630 / 无孤儿文件 |
+| `check-tools-surface` + 牙齿 | 0 / 0 | 4 条 ready × 6 组全绿、导航核到 110 页；变异全红 |
+| `verify-plan-blocks` | 0 | 五份计划的镜像块与磁盘逐字节全等（含本轮这节之前的所有围栏块） |
+| `tool-url-state-tests` / `verify-tool-url` | 0 / 0 | 工具页 URL 状态族，地址栏 26 条全绿 |
+| `verify-search-deeplink` | 0 | 搜索深链族 |
+| `check-image-dims.rb` + 牙齿 | 0 / 0 | 图片尺寸契约 |
+| `verify-sw-offline` | 0 | **10/10**：`counts={"shell":18,"doc":99,"cover":51,"deferred":4}` install 失败 0 · 骨架桶 18/18 · 文档桶 99/99 · 封面入桶 33/51（2,618,873B / 预算 2,621,440B）· 写入 132 · 跳过 18 · 补全失败 0 · **运行期写桶失败 0** · 断网读旧文 1,636 字标题相符 · 未收录地址 **503** 而非 200 · `feed.xml` 直连 `ERR TypeError` · 头图 `naturalWidth=1600` · S9 `transferSize=0` · 注销后残留桶 0 |
+| `verify-idcard-browser` | 0 | 13/13，5a 阻塞集本地 **233,544B / 4 件**，六组对比度 5.11–6.02 全过 4.5，摘脚本后面板 5 / 索引 5 仍在、正文 144.3% |
+
+**没跑的检查**：`verify-motion-batch4`、`verify-nav-touch`、`verify-tools-browser`、`verify-codec-browser`——
+理由与上一轮同一条且更硬：本轮四枚只碰 `scripts/wechat-draft.mjs` 与两份文档，
+`git diff --name-only 45159d0..HEAD` 只有三个文件，`dev/js/tools/*`、`dev/sass/*`、工具页一格未动。
+`wechat-draft.mjs` 的**真跑**（联网建草稿）同样没跑：探针喂的是假凭据与假 `bun`，一次网络都没发出去，
+`media_id` 是夹具里那枚 `PROBE_FAKE_MEDIA_ID_9000`。
+
+### 推送
+
+读数取在 `8f5c9a4` 那一棵树（比 `origin/master` 领先 16、落后 0）；本节入档再往前一枚，**推的是 17 枚**——
+那一枚只动本文这一个文件，不改任何门禁覆盖的产物。快进推送，非 force。
