@@ -10,8 +10,8 @@
 #      **不做 `~` 展开**，必须写绝对路径。
 
 # 同步方式：草稿箱，不是发表。remote-api = 本机渲染与转码，只有对 api.weixin.qq.com
-# 的 HTTPS 请求走 SSH 隧道借那台主机的出口 IP（本机出口 IP 在 121.35.0.0/16 与
-# 61.141.204.x 之间轮换，直连必报 errcode 40164）。
+# 的 HTTPS 请求走 SSH 隧道借那台主机的出口 IP（本机这侧的出口 IP 不固定、会轮换，
+# 而白名单只认固定地址，所以直连必报 errcode 40164）。
 default_publish_method: remote-api
 
 # 正文主题与主色：default 是站点正文最接近的一套；不写 default_color 时用主题自带色。

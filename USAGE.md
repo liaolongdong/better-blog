@@ -299,7 +299,7 @@ node scripts/wechat-draft.mjs --latest --dry-run      # 取 _posts 里 date 最�
 | --- | --- |
 | 凭据 | `.baoyu-skills/.env`（已 gitignore，`chmod 600`）或 `~/.baoyu-skills/.env` 里的 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` |
 | 隧道主机 | `.baoyu-skills/baoyu-post-to-wechat/EXTEND.md` 的 `remote_publish_host`，填那台固定公网 IP（模板见同目录 `EXTEND.example.md`） |
-| 微信 IP 白名单 | 公众号设置 → 基本设置 → IP 白名单，加的是**那台主机的 IP**。本机出口 IP 在 121.35 与 61.141 之间轮换，直连必报 `errcode 40164`，所以所有调用都走 `ssh -N -D` 隧道出去 |
+| 微信 IP 白名单 | 公众号设置 → 基本设置 → IP 白名单，加的是**那台主机的 IP**。本机这侧的出口 IP 不固定、会轮换，落在白名单之外，直连必报 `errcode 40164`，所以所有调用都走 `ssh -N -D` 隧道出去 |
 | 免密 SSH | `ssh -i ~/.ssh/id_ed25519 root@<IP> 'echo ok'` 必须不问密码就通，且 EXTEND.md 的 `remote_publish_identity_file` 指向的正是那把被授权的私钥 |
 
 `--check-config` 查的全是静态项：EXTEND.md 在不在、`remote_publish_host` 和 `default_author` 空不空、
@@ -320,6 +320,9 @@ node scripts/wechat-draft.mjs --latest --dry-run      # 取 _posts 里 date 最�
 `--force` 是跳过这层去重用的，日常别加。退出码：0 = 草稿已进箱（输出里带 `media_id`），3 = 前置未齐（没联网），
 1 = 真失败，此时把错误原文抄上来，里面的 `errcode` 是唯一线索（40164 = 发起调用的那台 IP 不在白名单，
 说明隧道没生效；48001 = 该 API 未对这个公众号开放）。
+抄上来之前那份输出会过一道打码：`access_token=` / `secret=` 后面的值换成 `<redacted>`（按行缓冲后再替换，
+所以键名被拆进两帧也不会漏），URL 的形状、`errcode`、`errmsg` 都还在，而 bearer token 不会落进终端日志
+和收走这份日志的 cron transcript。
 
 ## 📁 开发工作流程
 

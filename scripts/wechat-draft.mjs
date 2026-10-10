@@ -94,6 +94,51 @@ const die = (msg) => {
   process.exit(1);
 };
 
+/**
+ * 打码子进程输出里的凭据。
+ *
+ * 微信 CGI 把 bearer token 放在查询串上（`?access_token=…`、取 token 的 `?secret=…`），
+ * 而下面两处是把 skill 的 stdout/stderr 原样转出去的——这条链路的终端输出会被 cron 的
+ * transcript 和 agent 日志收走，skill 侧一句「报错里带上 URL」就让脚本开头承诺
+ * 「从不打印凭据」的那条约束静默失效。值本身仍留 `键=` 的形状，诊断不受影响。
+ * 只认「键 = 值」这一形状：光秃秃出现在句子里的 token 抓不住，那是 skill 侧该守的口径。
+ *
+ * @param {string} text 子进程输出的若干行
+ * @returns {string} 值换成 <redacted> 的同一条
+ */
+const SECRET = /(\baccess_token|\bappsecret|\bsecret)(["']?\s*[=:]\s*["']?)[A-Za-z0-9_%.\-]{8,}/gi;
+const redact = (text) => text.replace(SECRET, (_m, key, sep) => `${key}${sep}<redacted>`);
+
+/**
+ * 逐行打码转发的出口。按行缓冲而不是逐帧替换，是因为 token 横跨两帧时
+ * 半截串不满足值的形状，会把整枚 token 原样漏出去。
+ *
+ * @param {(s: string) => void} write 真正的写出（process.stdout / process.stderr）
+ * @param {(s: string) => void} [keep] 打码后再存一份，供事后解析（media_id）
+ * @returns {{ push: (chunk: string) => void, flush: () => void }}
+ */
+function lineSink(write, keep) {
+  let pending = '';
+  const emit = (line, trailingNewline) => {
+    const safe = redact(line);
+    write(safe + (trailingNewline ? '\n' : ''));
+    if (keep) keep(safe);
+  };
+  return {
+    push(chunk) {
+      pending += chunk;
+      const lines = pending.split('\n');
+      pending = lines.pop();
+      for (const line of lines) emit(line, true);
+    },
+    flush() {
+      if (!pending) return;
+      emit(pending, false);
+      pending = '';
+    },
+  };
+}
+
 if (flag('help') || (!opt('post') && !flag('latest') && !flag('check-config'))) {
   console.log(`用法：node scripts/wechat-draft.mjs --post _posts/xxx.md [--dry-run]
           node scripts/wechat-draft.mjs --latest [--dry-run]
@@ -514,19 +559,25 @@ const preArgs = [
 ];
 const pre = spawnSync(preArgs[0], preArgs.slice(1), { cwd: ROOT, encoding: 'utf8' });
 if (pre.status !== 0) {
-  warn(`skill 侧预检没通过（多半是 bun 首次拉取失败），跳过预检继续真跑：${(pre.stderr || '').trim().split('\n').pop()}`);
+  warn(
+    `skill 侧预检没通过（多半是 bun 首次拉取失败），跳过预检继续真跑：${redact(
+      (pre.stderr || '').trim().split('\n').pop(),
+    )}`,
+  );
 } else {
-  log('skill 侧预检通过：' + (pre.stdout || '').trim().replace(/\s+/g, ' ').slice(0, 200));
+  log('skill 侧预检通过：' + redact((pre.stdout || '').trim().replace(/\s+/g, ' ')).slice(0, 200));
 }
 
 log('执行 skill：wechat-api.ts → cgi-bin/draft/add（只建草稿，不发表）');
-const child = spawn(cmd[0], cmd.slice(1), { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] });
+const child = spawn(cmd[0], cmd.slice(1), { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
 let stdout = '';
-child.stdout.on('data', (b) => {
-  stdout += b.toString();
-  process.stdout.write(b);
-});
+const out = lineSink((s) => process.stdout.write(s), (s) => (stdout += s));
+const err = lineSink((s) => process.stderr.write(s));
+child.stdout.on('data', (b) => out.push(b.toString()));
+child.stderr.on('data', (b) => err.push(b.toString()));
 child.on('exit', (code) => {
+  out.flush();
+  err.flush();
   if (code !== 0) {
     console.error(
       `[wechat-draft] ✗ 建草稿失败（exit ${code}）。常见原因：` +
