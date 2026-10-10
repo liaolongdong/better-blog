@@ -98,9 +98,9 @@ const die = (msg) => {
  * 打码子进程输出里的凭据。
  *
  * 微信 CGI 把 bearer token 放在查询串上（`?access_token=…`、取 token 的 `?secret=…`），
- * 而下面两处是把 skill 的 stdout/stderr 原样转出去的——这条链路的终端输出会被 cron 的
- * transcript 和 agent 日志收走，skill 侧一句「报错里带上 URL」就让脚本开头承诺
- * 「从不打印凭据」的那条约束静默失效。值本身仍留 `键=` 的形状，诊断不受影响。
+ * 而下面两处是把 skill 的 stdout/stderr 原样转出去的：这条链路常由无人值守的写作任务调，
+ * 终端输出会被 cron 的 transcript 与 agent 日志收走，skill 侧一句「报错里带上 URL」
+ * 就足以让凭据跟着进历史。值换成 <redacted>，`键=` 的形状留着，诊断不受影响。
  * 只认「键 = 值」这一形状：光秃秃出现在句子里的 token 抓不住，那是 skill 侧该守的口径。
  *
  * @param {string} text 子进程输出的若干行
