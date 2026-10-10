@@ -259,12 +259,23 @@ function bucketFor(req) {
   }
 }
 
+/** 字节账的复查间隔（毫秒）：口径见 `trim()` 的注释——一趟全桶读不为 60 秒内的第二次调用重跑。 */
+const TRIM_RECHECK_MS = 60 * 1000;
+/** 各桶上一次做完字节账的时刻。只活在 SW 这次存活期里，重启后第一趟照旧量一次。 */
+const lastByteCheck = Object.create(null);
+
 /**
  * 取桶并按上限淘汰。
  *
  * Cache.keys() 的返回顺序规范没有保证，Chrome 与 Firefox 实测是写入序，所以这里的淘汰是
  * **尽力而为的 FIFO**，不是严格 LRU：它的职责是"别让桶无限长"，不是"精确留住最近最常用的
  * 那几条"。判据里也只按这个口径断言上限，不承诺命中次序。
+ *
+ * 两道上限的代价不一样，所以节奏也不一样。条数闸只看 `keys()`（不取响应体），每次都跑；
+ * 字节闸要为**每一条**跑一次 `cache.match` 再把体读成 blob，图片桶满员时是 320 条 /
+ * 25,165,824B 整桶过一遍内存，而它在每次写桶之后都被调——一篇带 10 张内联图的文章就是
+ * 10 趟全桶读。所以字节账按 `TRIM_RECHECK_MS` 收窄：被放慢的只有"越线后多久淘汰"这一件事
+ * （最晚晚 60 秒），"桶不会无限长"那条下限仍然每次成立。
  * @param {string} name 桶名
  * @param {object} cap 上限（entries / bytes 两个数）
  * @returns {Promise<void>}
@@ -272,24 +283,69 @@ function bucketFor(req) {
 async function trim(name, cap) {
   const cache = await caches.open(name);
   const keys = await cache.keys();
-  if (keys.length <= cap.entries) {
-    let over = 0;
-    const sizes = [];
-    for (const req of keys) {
-      const res = await cache.match(req);
-      const bytes = res ? (await res.blob()).size : 0;
-      sizes.push(bytes);
-      over += bytes;
-    }
-    if (over <= cap.bytes) return;
-    for (let i = 0; i < keys.length && over > cap.bytes; i += 1) {
+  if (keys.length > cap.entries) {
+    for (let i = 0; i < keys.length - cap.entries; i += 1) {
       await cache.delete(keys[i]);
-      over -= sizes[i];
     }
     return;
   }
-  for (let i = 0; i < keys.length - cap.entries; i += 1) {
+  const now = Date.now();
+  if (now - (lastByteCheck[name] || 0) < TRIM_RECHECK_MS) return;
+  lastByteCheck[name] = now;
+  let over = 0;
+  const sizes = [];
+  for (const req of keys) {
+    const res = await cache.match(req);
+    const bytes = res ? (await res.blob()).size : 0;
+    sizes.push(bytes);
+    over += bytes;
+  }
+  if (over <= cap.bytes) return;
+  for (let i = 0; i < keys.length && over > cap.bytes; i += 1) {
     await cache.delete(keys[i]);
+    over -= sizes[i];
+  }
+}
+
+/**
+ * 写桶与淘汰排在 `event.waitUntil()` 上，而不是飘在后台。
+ *
+ * 两条都是这一版改掉的真实形状：
+ *   1. 飘着的 `cache.put()` 没人接 —— `respondWith` 的那条 promise 一落定，浏览器就允许终止
+ *      SW，没写完的条目静默丢掉（下一次照样未命中，白跑一趟网络）；写满配额时 put 抛的
+ *      QuotaExceededError 则变成 unhandled rejection，在 SW 控制台里躺一条没人看的错。
+ *      改成 waitUntil + catch 之后，失败至少留下计数（`__bbPutErr` / `__bbPutWhy`，经 BB_PONG
+ *      回传），"离线层偷偷写不进桶"从看不见的事变成可读数的事。
+ *   2. 骨架桶不跑 trim —— 它的全部条目来自构建期清单，桶名又随 BUILD 走（activate 删旧桶），
+ *      运行期只会补上同一批 css/js/font，本来就没有可淘汰的东西；而兜底页 `offline.html`
+ *      正住在这个桶里，一旦 trim 按某个 entries 上限从头部删起，删掉的可能是读者的兜底页本身。
+ *      早先这里传的是 `LIMIT.doc`（文档桶的 140 条 / 16MB），那是"恰好够不着"而不是"设计如此"。
+ * @param {Cache} cache 目标桶
+ * @param {string|Request} key 入桶地址
+ * @param {Response} body 待写入的响应（调用方交出的那一份）
+ * @param {string} name 桶名，用于选淘汰上限与认骨架桶
+ * @param {object|null} cap 该桶上限；null 表示这个桶不参与淘汰
+ * @param {ExtendableEvent} event 承载这次写入的事件
+ * @returns {void}
+ */
+function storeInto(cache, key, body, name, cap, event) {
+  /** 写桶这一族的失败只记账、不往上抛：它不该决定一次导航能不能成。 */
+  const note = (err) => {
+    self.__bbPutErr = (self.__bbPutErr || 0) + 1;
+    if (!self.__bbPutWhy) self.__bbPutWhy = String(err && err.message ? err.message : err);
+  };
+  const job = cap
+    ? cache.put(key, body).then(() => trim(name, cap))
+    : cache.put(key, body);
+  const tracked = job.catch(note);
+  // try/catch 是给 `waitUntil` 自己兜的，不是给 `put` 兜的（那条 catch 就是上面 `tracked`）：这一族
+  // 历史实现里有过"事件派发完再调就抛"的形状，而这里**每个被拦的请求**都走一遍——一次抛错就把
+  // `respondWith` 的 promise 一起拒了，那一页直接打不开。写不进缓存只是慢一点，页面打不开是这一层
+  // 最不该犯的错，两条路必须隔开。
+  try {
+    event.waitUntil(tracked);
+  } catch (err) {
+    note(err);
   }
 }
 
@@ -297,16 +353,18 @@ async function trim(name, cap) {
  * 缓存优先：命中直接回，未命中回源并写桶。
  * @param {Request} req 请求
  * @param {string} name 桶名
+ * @param {FetchEvent} event 当前 fetch 事件，写桶排在它的 waitUntil 上
  * @returns {Promise<Response>} 响应
  */
-async function cacheFirst(req, name) {
+async function cacheFirst(req, name, event) {
   const cache = await caches.open(name);
   const hit = await cache.match(req);
   if (hit) return hit;
   const res = await fetch(req);
   if (res && res.ok && res.type === 'basic') {
-    cache.put(req, res.clone());
-    trim(name, name === BUCKET.img ? LIMIT.img : LIMIT.doc);
+    // 骨架桶传 null：它不参与淘汰（理由见 storeInto 的第 2 条）。
+    const cap = name === BUCKET.shell ? null : (name === BUCKET.img ? LIMIT.img : LIMIT.doc);
+    storeInto(cache, req, res.clone(), name, cap, event);
   }
   return res;
 }
@@ -319,16 +377,16 @@ async function cacheFirst(req, name) {
  * 没有正文的重复页；503 在它眼里是"暂时不可用"，索引与排名都不受影响。
  * @param {Request} req 请求
  * @param {object} cap 该桶上限（entries / bytes 两个数）
+ * @param {FetchEvent} event 当前 fetch 事件，刷新缓存排在它的 waitUntil 上
  * @returns {Promise<Response>} 响应
  */
-async function networkFirst(req, cap) {
+async function networkFirst(req, cap, event) {
   const cache = await caches.open(BUCKET.doc);
   const key = canonicalOf(req.url);
   try {
     const res = await fetch(req);
     if (res && res.ok && res.type === 'basic') {
-      cache.put(key, res.clone());
-      trim(BUCKET.doc, cap);
+      storeInto(cache, key, res.clone(), BUCKET.doc, cap, event);
     }
     return res;
   } catch (err) {
@@ -520,40 +578,51 @@ self.addEventListener('fetch', (event) => {
   if (isPassthrough(url)) return;
 
   if (req.mode === 'navigate' || req.destination === 'document') {
-    event.respondWith(networkFirst(req, LIMIT.doc));
+    event.respondWith(networkFirst(req, LIMIT.doc, event));
     return;
   }
   const name = bucketFor(req);
   if (!name) return;
-  event.respondWith(cacheFirst(req, name));
+  event.respondWith(cacheFirst(req, name, event));
 });
 
 self.addEventListener('message', (event) => {
   // 自检脚本用这条问"当前是哪一次构建的 SW、装砸了几件、清单各有多少条"，避免把断言写在
   // 页面上靠肉眼读。四个条数是给离线验证那一步现用的：回填的桶数与清单条数对不上，
   // 就说明补全中途停了（配额、离线、或整批失败），那一轮"整站离线"的结论不成立。
-  if (event.data && event.data.type === 'BB_PING') {
-    event.source.postMessage({
-      type: 'BB_PONG',
-      build: BUILD,
-      version: SITE_VERSION,
-      failed: self.__bbFailed || 0,
-      filled: self.__bbFilled || 0,
-      fillErr: self.__bbFillErr || 0,
-      fillWhy: self.__bbFillWhy || '',
-      // done / stop / skipped 这三个是补全的"落定信号"：核验脚本要等 done 或 stop 才抄读数，
-      // 否则抄到的是队列走到一半的瞬时值（封面排在文档后面，一半状态最容易被误当成结果）。
-      done: !!self.__bbFillDone,
-      stop: self.__bbFillStop || '',
-      skipped: self.__bbSkipped || 0,
-      coverBytes: self.__bbCoverBytes || 0,
-      buckets: Object.values(BUCKET),
-      counts: {
-        shell: SHELL_URLS.length,
-        doc: DOC_URLS.length,
-        cover: COVER_URLS.length,
-        deferred: DEFERRED_URLS.length,
-      },
-    });
-  }
+  //
+  // 两道探测排在回包之前，都是给这一条回包自己的：作用域保证了同源页面才够得着这个 SW，
+  // 但 `event.source` 可以是空（非窗口上下文发来的消息），少了那句判据就是
+  // `null.postMessage` 的一条 TypeError；`event.origin` 那道则把"这条回包只交给同源"
+  // 写成代码里的事实，而不是靠作用域模型的推论——回包内容（构建号、整站清单条数、
+  // 补全读数）本来就是站点的发布元数据。
+  if (!event.data || event.data.type !== 'BB_PING') return;
+  if (event.origin !== self.location.origin) return;
+  if (!event.source) return;
+  event.source.postMessage({
+    type: 'BB_PONG',
+    build: BUILD,
+    version: SITE_VERSION,
+    failed: self.__bbFailed || 0,
+    filled: self.__bbFilled || 0,
+    fillErr: self.__bbFillErr || 0,
+    fillWhy: self.__bbFillWhy || '',
+    // 写桶这一族的失败计数：与 fillErr 分开记，因为那一条只覆盖空闲补全，而运行期写桶
+    // （浏览文章、抓资源）撞配额时以前是**什么读数都没有**的——unhandled rejection 不进任何桶。
+    putErr: self.__bbPutErr || 0,
+    putWhy: self.__bbPutWhy || '',
+    // done / stop / skipped 这三个是补全的"落定信号"：核验脚本要等 done 或 stop 才抄读数，
+    // 否则抄到的是队列走到一半的瞬时值（封面排在文档后面，一半状态最容易被误当成结果）。
+    done: !!self.__bbFillDone,
+    stop: self.__bbFillStop || '',
+    skipped: self.__bbSkipped || 0,
+    coverBytes: self.__bbCoverBytes || 0,
+    buckets: Object.values(BUCKET),
+    counts: {
+      shell: SHELL_URLS.length,
+      doc: DOC_URLS.length,
+      cover: COVER_URLS.length,
+      deferred: DEFERRED_URLS.length,
+    },
+  });
 });

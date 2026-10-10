@@ -309,10 +309,13 @@ const docN = await sizeOf(docName);
 const imgN = await sizeOf(imgName);
 const coverN = await coverHits();
 check('S4 空闲补全跑完', !!pong2.done && !pong2.stop && docN >= MF.DOC_URLS.length
-  && coverN >= 1 && (pong2.fillErr || 0) === 0,
+  && coverN >= 1 && (pong2.fillErr || 0) === 0 && (pong2.putErr || 0) === 0,
   `落定=${pong2.done ? '队列走完' : (pong2.stop || '没落定（超时）')} · 文档桶 ${docN}/${MF.DOC_URLS.length}`
   + ` · 封面入桶 ${coverN}/${MF.COVER_URLS.length} 张（记账 ${pong2.coverBytes}B / 预算 2,621,440B，图桶另有 ${imgN - coverN} 件是正文图随浏览进的）`
-  + ` · 写入 ${pong2.filled} 条 · 跳过 ${pong2.skipped} 张 · 失败 ${pong2.fillErr || 0} 次${pong2.fillWhy ? `（首条：${pong2.fillWhy}）` : ''}`);
+  + ` · 写入 ${pong2.filled} 条 · 跳过 ${pong2.skipped} 张 · 补全失败 ${pong2.fillErr || 0} 次${pong2.fillWhy ? `（首条：${pong2.fillWhy}）` : ''}`
+  // 运行期写桶（networkFirst / cacheFirst 那两处）撞配额或体被提前读走时，以前在读数上是
+  // 完全隐形的——它只往 SW 控制台丢一条 unhandled rejection。putErr 把这一族变成可判据的数。
+  + ` · 运行期写桶失败 ${pong2.putErr || 0} 次${pong2.putWhy ? `（首条：${pong2.putWhy}）` : ''}`);
 
 /* ── 断网：S5 起 ─────────────────────────────────────────────── */
 // 页面的 offline 状态用 CDP 设（参数名是 downloadThroughput / uploadThroughput，写成 *Threshold
