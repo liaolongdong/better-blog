@@ -21,11 +21,17 @@ import path from 'node:path';
 
 /* ---------------------------------------------------------------- 配置 */
 
-/** 各任务的固定 H2 名单，逐字比对（协议 §2 / §3）。 */
+/**
+ * 各任务的 H2 **角色词**（协议 §2 / §3 的 v3.1 口径）：逐字锁死、顺序锁死，
+ * 冒号后面那半句由本篇自拟——固定名单让连续几篇文章看起来是同一篇的复制。
+ */
 const OUTLINE = {
-  A: ['背景：它为什么出现', '它解决什么痛点', '快速上手', '使用示例', '和同类比：强在哪、差在哪', '未来展望：什么条件下我会用它'],
-  B: ['发生了什么', '已确认的，和还没确认的', '对谁有什么影响', '我实测到的', '接下来盯什么，我的判断'],
+  A: ['背景', '它解决什么痛点', '快速上手', '使用示例', '和同类比', '未来展望'],
+  B: ['发生了什么', '已确认的', '对谁有什么影响', '我实测到的', '接下来盯什么'],
 };
+
+/** 自拟那半句里禁掉的形状：§7.1 那八个标题腔 + 疑问句收尾（谜题标题是 §7.5 要点名修的对象）。 */
+const H2_CLAUSE_BAN = ['一场', '从 0 到 1', '全面解析', '深度剖析', '一文说清', '保姆级', '硬核', '终极指南'];
 
 /** 数值上限，全部对应协议 §4.1 / §4.4 / §4.5。 */
 const L = {
@@ -62,6 +68,7 @@ const L = {
   title: [15, 35],
   shortTitle: 28,
   subtitle: 45,
+  h2Clause: [4, 20],
   outlookRatio: 0.12,
   outlookChars: 250,
 };
@@ -344,11 +351,11 @@ const fmKeys = [...fmText.matchAll(/^([A-Za-z_][\w]*)\s*:/gm)].map((m) => m[1]);
 const h2All = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
 let job = (flag('job') || '').toUpperCase();
 if (!job) {
-  const first = h2All[0] ?? '';
-  job = OUTLINE.B.includes(first) ? 'B' : OUTLINE.A.includes(first) ? 'A' : '';
+  const firstRole = (h2All[0] ?? '').split('：')[0].trim();
+  job = OUTLINE.B.includes(firstRole) ? 'B' : OUTLINE.A.includes(firstRole) ? 'A' : '';
 }
 if (!job) {
-  process.stderr.write('FAIL  任务归属  首个 H2 不在任一套固定骨架里，且未给 --job；H2 名单必须逐字等于协议 §2/§3\n');
+  process.stderr.write('FAIL  任务归属  首个 H2 的角色词不在任一套固定骨架里，且未给 --job；H2 必须写成 `角色词：自拟半句`（角色词逐字等于协议 §2/§3）\n');
   process.exit(1);
 }
 const outline = OUTLINE[job];
@@ -406,11 +413,25 @@ gate(blockChars >= L.blockMin && blockChars <= L.blockMax, '结论块字数', `$
   gate(!ugly, '结论块不含上浮证据', 'ok', '结论块里出现了秒级时间戳 / 字节数 / hash / 行号（§4.2）');
 }
 
-/* H2 名单与顺序。 */
+/* H2 角色词与顺序：角色词逐字锁死，冒号后那半句由本篇自拟（§2/§3 的 v3.1 口径）。 */
 gate(h2All.length === expectedCount, 'H2 数', `${h2All.length} 个`, `Job ${job} 固定 ${expectedCount} 节，实际 ${h2All.length} 节（§2/§3）`);
-const outlineOk = h2All.length === expectedCount && h2All.every((t, i) => t === outline[i]);
-gate(outlineOk, 'H2 名单与顺序', '逐字一致', `H2 必须逐字等于 §${job === 'A' ? '2' : '3'} 固定名单。\n      期望 [${outline.join(' / ')}]\n      实际 [${h2All.join(' / ')}]`);
-gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(h2All.join('')), 'H2 无 emoji', 'ok', 'H2 标题里出现了 emoji——v2 不做 emoji 轮换，标题必须逐字照抄（§7.3）');
+const h2Parts = h2All.map((t) => {
+  const k = t.indexOf('：');
+  return { role: (k < 0 ? t : t.slice(0, k)).trim(), clause: k < 0 ? '' : t.slice(k + 1).trim() };
+});
+const rolesOk = h2Parts.length === expectedCount && h2Parts.every((p, i) => p.role === outline[i]);
+gate(rolesOk, 'H2 角色词与顺序', '逐字一致', `每节必须写成 \`## {角色词}：{本篇自拟半句}\`，角色词逐字等于 §${job === 'A' ? '2' : '3'} 名单并按此序。\n      期望 [${outline.join(' / ')}]\n      实际 [${h2Parts.map((p) => p.role).join(' / ')}]`);
+const badClause = [];
+h2Parts.forEach((p, i) => {
+  const n = c(p.clause);
+  const banned = H2_CLAUSE_BAN.find((w) => p.clause.includes(w));
+  if (!p.clause) badClause.push(`${i + 1}·${p.role}：缺自拟半句`);
+  else if (n < L.h2Clause[0] || n > L.h2Clause[1]) badClause.push(`${i + 1}·${p.role}：${p.clause}=${n} 字（限 ${L.h2Clause[0]}–${L.h2Clause[1]}）`);
+  else if (/[？?]$/.test(p.clause)) badClause.push(`${i + 1}·${p.role}：${p.clause}＝疑问句收尾`);
+  else if (banned) badClause.push(`${i + 1}·${p.role}：${p.clause}＝含「${banned}」`);
+});
+gate(badClause.length === 0, 'H2 自拟半句', `${h2Parts.filter((p) => p.clause).length}/${expectedCount} 节带半句`, `${badClause.length} 节的自拟半句不合格：${badClause.join('、')}。那半句要写本篇里真出现过的事实或读数，不许悬念式提问，不许用标题腔（§2/§3、§7.1）`);
+gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(h2All.join('')), 'H2 无 emoji', 'ok', 'H2 标题里出现了 emoji——v2 不做 emoji 轮换，角色词必须逐字照抄（§7.3）');
 
 /* -------------------------------------------------------- 检查：块与尺寸 */
 
@@ -598,8 +619,9 @@ gate(overSent.length === 0, '单句精确数字', `最多 ${maxPerSent} 个/句`
 
 /* ------------------------------------------------- 检查：展望节 §6 */
 
-const outlookTitle = job === 'A' ? '未来展望：什么条件下我会用它' : '接下来盯什么，我的判断';
-const outlookRaw = body.split(/^## /m).find((s) => s.startsWith(outlookTitle)) ?? '';
+/** 展望节按位置取（最后一节），不再按标题字符串找——v3.1 之后那半句是自拟的。 */
+const outlookRaw = (body.split(/^## /m).slice(1)[expectedCount - 1] ?? '').trim();
+const outlookTitle = (outlookRaw.split('\n')[0] ?? '').trim();
 /** §2 正文顺序里「结尾两行」不属于任何一节，不能算进展望的预算。 */
 const outlookSeg = outlookRaw.replace(/^(项目地址：|在线演示：)[\s\S]*$/m, '');
 const oc = c(outlookSeg.slice(outlookTitle.length));
