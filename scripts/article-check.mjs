@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 无人值守博客文章的确定性验收门禁（配套 `_drafts/WRITING_PROTOCOL.md` v2）。
+ * 无人值守博客文章的确定性验收门禁（配套 `_drafts/WRITING_PROTOCOL.md` v3）。
  *
  * 存在的原因：v1 的 40 项自检靠运行 agent 自报，实测 8 篇里 6 篇正文超上限两倍却报「达标」
  * （它统计的是汉字数，而页面读时算的是非空白字符）。这一版把**所有能确定性判定的条款**搬进脚本，
@@ -29,9 +29,9 @@ const OUTLINE = {
 
 /** 数值上限，全部对应协议 §4.1 / §4.4 / §4.5。 */
 const L = {
-  charsTotal: 2000,
+  charsTotal: 2400,
   charsFloor: 1000,
-  section: 450,
+  section: 500,
   blockMin: 60,
   blockMax: 120,
   codeBlocks: 2,
@@ -419,7 +419,7 @@ gate(totalChars <= L.charsTotal, '全文篇幅', `${totalChars} 字符 / 页面�
 gate(totalChars >= L.charsFloor, '全文下限', `${totalChars} 字符`, `全文 ${totalChars} < ${L.charsFloor}：材料撑不起一篇，按 §10 放弃本期，别用形容词把它填满`);
 
 /** 每节的字符上限，与 §2 / §3 骨架表逐行对齐。 */
-const SECTION_CAP = { A: [250, 300, 350, 400, 400, 250], B: [350, 400, 450, 350, 300] };
+const SECTION_CAP = { A: [300, 350, 400, 450, 450, 300], B: [400, 450, 450, 400, 350] };
 const sectionCaps = SECTION_CAP[job] ?? [];
 const sections = (() => {
   const parts = body.split(/^## /m).slice(1);
@@ -603,7 +603,7 @@ const outlookRaw = body.split(/^## /m).find((s) => s.startsWith(outlookTitle)) ?
 /** §2 正文顺序里「结尾两行」不属于任何一节，不能算进展望的预算。 */
 const outlookSeg = outlookRaw.replace(/^(项目地址：|在线演示：)[\s\S]*$/m, '');
 const oc = c(outlookSeg.slice(outlookTitle.length));
-/** §6 的展望预算跟着骨架表那一格走：A=250、B=300，再叠一层「≤ 全文 12%」。 */
+/** §6 的展望预算跟着骨架表那一格走：A=300、B=350，再叠一层「≤ 全文 12%」。 */
 const outlookCap = sectionCaps[sectionCaps.length - 1];
 gate(oc <= outlookCap && oc <= totalChars * L.outlookRatio, '展望篇幅', `${oc} 字符 / 占 ${((oc / totalChars) * 100).toFixed(1)}%`, `展望 ${oc} 字符（上限 ${outlookCap} 且 ≤ 全文 12%，本期为 ${Math.floor(totalChars * L.outlookRatio)}）`);
 const anchors = (outlookSeg.match(/(?:#\d+|ROADMAP|CHANGELOG|milestone|dist-tag|beta|next|canary|v?\d+\.\d+)/gi) ?? []).length;
