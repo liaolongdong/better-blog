@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 无人值守博客文章的确定性验收门禁（配套 `_drafts/WRITING_PROTOCOL.md` v3）。
+ * 无人值守博客文章的确定性验收门禁（配套 `_drafts/WRITING_PROTOCOL.md` v3.2）。
  *
  * 存在的原因：v1 的 40 项自检靠运行 agent 自报，实测 8 篇里 6 篇正文超上限两倍却报「达标」
  * （它统计的是汉字数，而页面读时算的是非空白字符）。这一版把**所有能确定性判定的条款**搬进脚本，
@@ -66,6 +66,10 @@ const L = {
   capacity: 2,
   lineOrHash: 2,
   title: [15, 35],
+  /** §4.5.0 第一眼：标题前半的显示宽度上限（汉字 1、拉丁与数字 0.5）。 */
+  frontHalfWidth: 20,
+  /** §4.5.2：manifest 末尾必须落盘的候选行数。 */
+  titleCandidates: 5,
   shortTitle: 28,
   subtitle: 45,
   h2Clause: [4, 20],
@@ -374,6 +378,19 @@ if (m) {
 }
 
 gate(c(fm.title) >= L.title[0] && c(fm.title) <= L.title[1], 'title 长度', `${c(fm.title)} 字符`, `title ${c(fm.title)} 不在 ${L.title[0]}–${L.title[1]}（§4.5）`);
+/** §4.5.0「第一眼」：首页卡片标题不截断（实测 computed `overflow:visible`、`-webkit-line-clamp:none`、
+ *  `white-space:normal`），窄屏那一档容器 460px / 字号 22px / 单个汉字 21.81px → 第一行 21 个汉字位。
+ *  所以约束不是「会不会被裁」而是「第一行装不装得下前半句」——前半折行，第一眼就只剩一串名词。
+ *  显示宽度口径：东亚宽字符（含全角标点）算 1，其余（拉丁、数字、空格、半角标点）算 0.5。 */
+const isWide = (ch) => {
+  const p = ch.codePointAt(0);
+  return (p >= 0x1100 && p <= 0x115f) || (p >= 0x2e80 && p <= 0xa4cf) || (p >= 0xac00 && p <= 0xd7a3) || (p >= 0xe000 && p <= 0xf8ff) || (p >= 0xff00 && p <= 0xff60) || (p >= 0xffe0 && p <= 0xffe6);
+};
+const dispW = (s) => [...(s ?? '')].reduce((a, ch) => a + (isWide(ch) ? 1 : 0.5), 0);
+const sepAt = (fm.title ?? '').search(/[，：；]/);
+gate(sepAt > 0, '标题二段式', '有分隔符', `标题里没有「，」「：」「；」任何一个——本站标题的形状是前半抛具体物、后半兑现落差，没有后半，读者不知道这篇给他什么（§4.5.0）`);
+const frontHalf = sepAt < 0 ? (fm.title ?? '') : (fm.title ?? '').slice(0, sepAt);
+gate(dispW(frontHalf) <= L.frontHalfWidth, '标题前半屏宽', `${dispW(frontHalf).toFixed(1)} 个汉字位`, `前半「${frontHalf}」= ${dispW(frontHalf).toFixed(1)} 个汉字位 > ${L.frontHalfWidth}——窄屏卡片第一行只有 21 个位，前半折行等于第一眼没有钩子（§4.5.0）`);
 gate(c(fm.seo_short_title) <= L.shortTitle, 'seo_short_title', `${c(fm.seo_short_title)} 字符`, `seo_short_title ${c(fm.seo_short_title)} > ${L.shortTitle}（§4.5）`);
 gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(fm.seo_short_title ?? ''), 'seo_short_title 无 emoji', 'ok', 'seo_short_title 里出现了 emoji（§4.5）');
 gate(c(fm.subtitle) <= L.subtitle, 'subtitle 长度', `${c(fm.subtitle)} 字符`, `subtitle ${c(fm.subtitle)} > ${L.subtitle}，首页 h3 无 truncate / line-clamp 会折成数行（§4.5）`);
@@ -661,6 +678,29 @@ if (manifestPath && fs.existsSync(manifestPath)) {
   const urls = [...new Set(raw.match(/https?:\/\/[^\s)>\]"'(]+/g) ?? [])];
   const missingUrls = urls.filter((u) => !man.includes(u.replace(/\/$/, '')));
   gate(missingUrls.length === 0, 'URL 反查 manifest', `${urls.length} 条全部已登记`, `${missingUrls.length} 条 URL 不在 manifest：${missingUrls.join(' ').slice(0, 120)}（禁止按规律拼 URL）`);
+  /** §4.5.2 五候选落盘：三候选打分在 v3 是人工门，实测拦不住「一次成型」——报告里写得出
+   *  「打过分」这句话，磁盘上却没有痕迹。10-12 / 10-13 四篇的 evidence 各用一种自由格式
+   *  （`候选 1｜…`、`1. \`…\` → 2/2/2`、`A | … | 2/2/2 ← 选用`），且**每一条候选都是满分**，
+   *  等于没打分。这一道门同时钉格式、数量、类型多样性、选用即最高分、以及「至少一条被淘汰」。 */
+  const candLines = man.split('\n').filter((l) => /^\s*候选\s+\d+\s*〈/.test(l));
+  const candTypes = new Set(candLines.map((l) => (l.match(/〈([^〉]+)〉/) ?? ['', ''])[1]));
+  const scoresOf = (l) => {
+    const g = [...(l.match(/缺口\s*(\d)\s*后果\s*(\d)\s*易懂\s*(\d)\s*前半\s*(\d)/) ?? [])].slice(1).map(Number);
+    return g.length === 4 ? g.reduce((a, x) => a + x, 0) : -1;
+  };
+  const candScored = candLines.map(scoresOf).filter((t) => t >= 0);
+  const pickedLine = (man.split('\n').find((l) => /^\s*选用\s*=/.test(l)) ?? '').trim();
+  const pickedNo = (pickedLine.match(/=\s*(\d+)/) ?? ['', ''])[1];
+  const pickedScore = scoresOf(candLines.find((l) => new RegExp(`^\\s*候选\\s*0*${pickedNo}\\b`).test(l)) ?? '');
+  const maxScore = Math.max(-1, ...candScored);
+  const ties = candScored.filter((t) => t === maxScore).length;
+  const shapeBad = candLines.length - candScored.length;
+  gate(
+    candLines.length >= L.titleCandidates && shapeBad === 0 && candTypes.size >= 3 && pickedLine !== '' && pickedScore === maxScore && ties === 1 && candScored.some((t) => t <= 7),
+    '标题候选落盘',
+    `${candLines.length} 行候选 / ${candTypes.size} 类钩子 / 选用 ${pickedNo || '无'}＝${pickedScore >= 0 ? pickedScore : '?'} 分（最高 ${maxScore}）`,
+    `manifest 末尾要 ≥${L.titleCandidates} 行 \`候选 NN 〈钩子类型〉 标题全文｜缺口 a 后果 b 易懂 c 前半 d\`，四项分数都得是 0–2 的数（格式不合格 ${shapeBad} 行）、钩子类型 ≥3 种、有一行 \`选用 = NN（总分 x）\` 且 **NN 是唯一的最高分**、并且**至少一条总分 ≤7**——五条全满分说明打分是事后补的；只写一条标题等于没做 §4.5.2。`,
+  );
 } else {
   warns.push('未提供 --manifest：数字 / 编号 / URL 的反查没跑。这一项在 v1 就是「自报达标」的漏口，别当成过了');
 }
