@@ -21,7 +21,7 @@ tags: AI编程 开源 仓库 Impeccable
 
 它是给 AI 编程助手用的设计检测器。2025-11-16 开源，Apache-2.0，10-13 14:08 抓到 star 80,596。它管的是助手写出来那一层，不是你手写的组件库。
 
-紫渐变、发光阴影、Inter 这些通病被写成 59 条规则，交给一个 Rust 引擎在文件改动之后跑。npm 包版本号 4.5.2，引擎二进制 0.1.14，两套号不同轨。
+紫渐变、发光阴影、Inter 这些通病被写成 59 条规则，交给一个 Rust 引擎在文件改动之后跑。npm 包版本号 4.5.2，引擎二进制 0.1.14，两套号不同轨。这套规则逐条列在[官网规则页](https://impeccable.style/slop)。
 
 ## 它解决什么痛点：人眼扫 CSS 没有第二种做法
 
@@ -29,7 +29,7 @@ Rust 引擎之前，这活只有两种做法。第一种是 review 时人眼扫�
 
 第二种我自己天天在干：把版式偏好写成提示词，模型该用 Inter 还是用 Inter，全看它那天读没读到。提示词管不住已经生成出来的代码。
 
-impeccable 换的是执行这一步：规则落在字符串和语法树上，同一份文件扫十次结果一样。
+impeccable 换的是执行这一步：规则落在字符串和语法树上，同一份文件扫十次结果一样。规则数组的源码是 [registry.rs](https://github.com/pbakaus/impeccable/blob/245ad82def45831dc56a21b683c7a1ff530b06cc/crates/foundation/src/registry.rs)。
 
 ## 快速上手：install 没写文件，npm 装成了
 
