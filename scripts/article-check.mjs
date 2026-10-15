@@ -22,59 +22,76 @@ import path from 'node:path';
 /* ---------------------------------------------------------------- 配置 */
 
 /**
- * 各任务的 H2 **角色词**（协议 §2 / §3 的 v3.1 口径）：逐字锁死、顺序锁死，
- * 冒号后面那半句由本篇自拟——固定名单让连续几篇文章看起来是同一篇的复制。
+ * v4：H2 不再是逐字锁死的角色词名单。每篇按选题自己定 3–8 节、自己起节名。
+ * 四个必须被覆盖的语义角色由内容门分别守着，不靠节名：
+ *   主张 → 结论块两行（§4.2）｜证据 → 真实截图 + manifest 反查（§5.2/§8.2.0）
+ *   动作 → 结论块第二行「现在该做什么」（§4.2）｜边界 → `边界在场`（§5.5）
+ * 节名本身由两道门咬：`H2 带具体物`（不可移植）与 `无跨篇复用行`（不与最近 5 篇逐字相同）。
  */
-const OUTLINE = {
-  A: ['背景', '它解决什么痛点', '快速上手', '使用示例', '和同类比', '未来展望'],
-  B: ['发生了什么', '已确认的', '对谁有什么影响', '我实测到的', '接下来盯什么'],
-};
+const BOUNDARY_MARKERS = ['没验到', '我没测', '没碰到', '没跑', '不知道谁', '没能复现', '没找到来源', '没来源', '没做实测'];
 
 /** 自拟那半句里禁掉的形状：§7.1 那八个标题腔 + 疑问句收尾（谜题标题是 §7.5 要点名修的对象）。 */
 const H2_CLAUSE_BAN = ['一场', '从 0 到 1', '全面解析', '深度剖析', '一文说清', '保姆级', '硬核', '终极指南'];
 
+/** 具体物 = 数字、拉丁专名、引号里的原话、反引号里的命令。没有具体物的节名/标题可以移植到任何一篇。 */
+const CONCRETE = /\d[\d.,]{1,}|[A-Za-z][A-Za-z0-9@\/._+-]{1,}|「[^」]+」|`[^`]+`/;
+
 /** 数值上限，全部对应协议 §4.1 / §4.4 / §4.5。 */
 const L = {
-  charsTotal: 2400,
-  charsFloor: 1000,
-  section: 500,
+  charsTotal: 4500,
+  charsFloor: 1500,
+  /** 单节上限：绝对值与占比取小的那一个（v4 取消逐节预算表）。 */
+  sectionMax: 1800,
+  sectionRatio: 0.45,
   blockMin: 60,
   blockMax: 120,
-  codeBlocks: 2,
-  codeLines: 10,
+  codeBlocks: 4,
+  codeLines: 14,
   codeLineLen: 72,
-  codeChars: 450,
-  tables: 1,
-  tableCols: 3,
-  tableRows: 5,
-  cellChars: 14,
-  lists: 3,
-  listItems: 4,
-  itemChars: 40,
-  images: 3,
-  paraChars: 120,
+  codeChars: 900,
+  tables: 3,
+  tableCols: 4,
+  tableRows: 8,
+  cellChars: 20,
+  lists: 4,
+  listItems: 6,
+  itemChars: 60,
+  /** §4.1 插图下限：v3.2 只卡上限（3 张），实测两篇新稿「封面 + 1 枚纯 AI 示意」也全绿。
+   *  这一格与 `真实截图在场` 一起在 Task 8 落地成门——常量不配门就是写了个没人读的数。 */
+  imagesMin: 3,
+  images: 7,
+  /** 段落 120→200、句子 60→100：09-10 手写稿按本脚本口径段均 116.0 字（16 段超 120）、
+   *  句均 41.0 字（111 句里 24 句超 60，最长 250）——旧上限把最好的写法判红。 */
+  paraChars: 200,
   paraShortMin: 1,
-  sentChars: 60,
-  firstSentChars: 30,
-  bold: 4,
-  hr: 1,
-  quotes: 2,
-  quoteLines: 3,
-  preciseTotal: 10,
-  precisePerSent: 2,
-  secondTimestamps: 1,
-  capacity: 2,
-  lineOrHash: 2,
+  sentChars: 100,
+  firstSentChars: 40,
+  bold: 6,
+  hr: 2,
+  quotes: 3,
+  quoteLines: 4,
+  preciseTotal: 20,
+  precisePerSent: 3,
+  secondTimestamps: 2,
+  capacity: 4,
+  lineOrHash: 4,
   title: [15, 35],
-  /** §4.5.0 第一眼：标题前半的显示宽度上限（汉字 1、拉丁与数字 0.5）。 */
   frontHalfWidth: 20,
-  /** §4.5.2：manifest 末尾必须落盘的候选行数。 */
   titleCandidates: 5,
   shortTitle: 28,
   subtitle: 45,
-  h2Clause: [4, 20],
-  outlookRatio: 0.12,
-  outlookChars: 250,
+  /** §2 v4：节数与节名形状。 */
+  h2Min: 3,
+  h2Max: 8,
+  h2Len: [6, 30],
+  h2ConcreteRatio: 0.67,
+  /** §4.6 承接：断链容差；≥7 节放宽到 2。 */
+  carryTol: 1,
+  /** 跨篇复用行的最小 unit 长度与比对篇数。 */
+  reuseMin: 8,
+  historyPosts: 5,
+  outlookRatio: 0.18,
+  outlookChars: 700,
 };
 
 /** frontmatter 必须正好这 9 个键、按此顺序（协议 §8.1 / SP4 描述 ①——seo_description 是站点门要求的那一枚）。 */
@@ -351,19 +368,11 @@ for (const line of fmText.split('\n')) {
 }
 const fmKeys = [...fmText.matchAll(/^([A-Za-z_][\w]*)\s*:/gm)].map((m) => m[1]);
 
-/* 任务归属：显式优先，否则用首个 H2 猜。 */
+/* 任务归属：显式 --job 优先；没传就用「正文是否链向某个 GitHub 仓库」判，不再 exit 1。 */
 const h2All = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
 let job = (flag('job') || '').toUpperCase();
-if (!job) {
-  const firstRole = (h2All[0] ?? '').split('：')[0].trim();
-  job = OUTLINE.B.includes(firstRole) ? 'B' : OUTLINE.A.includes(firstRole) ? 'A' : '';
-}
-if (!job) {
-  process.stderr.write('FAIL  任务归属  首个 H2 的角色词不在任一套固定骨架里，且未给 --job；H2 必须写成 `角色词：自拟半句`（角色词逐字等于协议 §2/§3）\n');
-  process.exit(1);
-}
-const outline = OUTLINE[job];
-const expectedCount = outline.length;
+if (job !== 'A' && job !== 'B') job = /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+/.test(body) ? 'A' : 'B';
+if (!flag('job')) warns.push(`未传 --job，按正文 GitHub 链接推断为 Job ${job}——cron 里必须显式传`);
 
 /* ------------------------------------------------------------ 检查：元 */
 
@@ -391,6 +400,7 @@ const sepAt = (fm.title ?? '').search(/[，：；]/);
 gate(sepAt > 0, '标题二段式', '有分隔符', `标题里没有「，」「：」「；」任何一个——本站标题的形状是前半抛具体物、后半兑现落差，没有后半，读者不知道这篇给他什么（§4.5.0）`);
 const frontHalf = sepAt < 0 ? (fm.title ?? '') : (fm.title ?? '').slice(0, sepAt);
 gate(dispW(frontHalf) <= L.frontHalfWidth, '标题前半屏宽', `${dispW(frontHalf).toFixed(1)} 个汉字位`, `前半「${frontHalf}」= ${dispW(frontHalf).toFixed(1)} 个汉字位 > ${L.frontHalfWidth}——窄屏卡片第一行只有 21 个位，前半折行等于第一眼没有钩子（§4.5.0）`);
+gate(CONCRETE.test(fm.title ?? ''), '标题含具体物', fm.title ?? '', `标题里没有任何具体物（数字 / 拉丁专名 / 引号原话）：${fm.title}——读者看标题说不出「这篇讲的是哪个东西」就不算突出重点（§4.5）`);
 gate(c(fm.seo_short_title) <= L.shortTitle, 'seo_short_title', `${c(fm.seo_short_title)} 字符`, `seo_short_title ${c(fm.seo_short_title)} > ${L.shortTitle}（§4.5）`);
 gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(fm.seo_short_title ?? ''), 'seo_short_title 无 emoji', 'ok', 'seo_short_title 里出现了 emoji（§4.5）');
 gate(c(fm.subtitle) <= L.subtitle, 'subtitle 长度', `${c(fm.subtitle)} 字符`, `subtitle ${c(fm.subtitle)} > ${L.subtitle}，首页 h3 无 truncate / line-clamp 会折成数行（§4.5）`);
@@ -430,25 +440,27 @@ gate(blockChars >= L.blockMin && blockChars <= L.blockMax, '结论块字数', `$
   gate(!ugly, '结论块不含上浮证据', 'ok', '结论块里出现了秒级时间戳 / 字节数 / hash / 行号（§4.2）');
 }
 
-/* H2 角色词与顺序：角色词逐字锁死，冒号后那半句由本篇自拟（§2/§3 的 v3.1 口径）。 */
-gate(h2All.length === expectedCount, 'H2 数', `${h2All.length} 个`, `Job ${job} 固定 ${expectedCount} 节，实际 ${h2All.length} 节（§2/§3）`);
-const h2Parts = h2All.map((t) => {
-  const k = t.indexOf('：');
-  return { role: (k < 0 ? t : t.slice(0, k)).trim(), clause: k < 0 ? '' : t.slice(k + 1).trim() };
-});
-const rolesOk = h2Parts.length === expectedCount && h2Parts.every((p, i) => p.role === outline[i]);
-gate(rolesOk, 'H2 角色词与顺序', '逐字一致', `每节必须写成 \`## {角色词}：{本篇自拟半句}\`，角色词逐字等于 §${job === 'A' ? '2' : '3'} 名单并按此序。\n      期望 [${outline.join(' / ')}]\n      实际 [${h2Parts.map((p) => p.role).join(' / ')}]`);
-const badClause = [];
-h2Parts.forEach((p, i) => {
-  const n = c(p.clause);
-  const banned = H2_CLAUSE_BAN.find((w) => p.clause.includes(w));
-  if (!p.clause) badClause.push(`${i + 1}·${p.role}：缺自拟半句`);
-  else if (n < L.h2Clause[0] || n > L.h2Clause[1]) badClause.push(`${i + 1}·${p.role}：${p.clause}=${n} 字（限 ${L.h2Clause[0]}–${L.h2Clause[1]}）`);
-  else if (/[？?]$/.test(p.clause)) badClause.push(`${i + 1}·${p.role}：${p.clause}＝疑问句收尾`);
-  else if (banned) badClause.push(`${i + 1}·${p.role}：${p.clause}＝含「${banned}」`);
-});
-gate(badClause.length === 0, 'H2 自拟半句', `${h2Parts.filter((p) => p.clause).length}/${expectedCount} 节带半句`, `${badClause.length} 节的自拟半句不合格：${badClause.join('、')}。那半句要写本篇里真出现过的事实或读数，不许悬念式提问，不许用标题腔（§2/§3、§7.1）`);
-gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(h2All.join('')), 'H2 无 emoji', 'ok', 'H2 标题里出现了 emoji——v2 不做 emoji 轮换，角色词必须逐字照抄（§7.3）');
+/* ---- v4 结构门：节数自选，但节名必须不可移植、必须与最近几篇不同字 ---- */
+gate(h2All.length >= L.h2Min && h2All.length <= L.h2Max, 'H2 数', `${h2All.length} 个`, `本篇 ${h2All.length} 节，v4 允许 ${L.h2Min}–${L.h2Max} 节按选题自选（§2）`);
+const noConcrete = h2All.filter((t) => !CONCRETE.test(t));
+const needConcrete = Math.max(1, Math.ceil(h2All.length * L.h2ConcreteRatio));
+gate(h2All.length - noConcrete.length >= needConcrete, 'H2 带具体物', `${h2All.length - noConcrete.length}/${h2All.length} 节（需 ≥${needConcrete}）`, `这些节名可移植到任何一篇：${noConcrete.map((t) => `「${t}」`).join('、')}。多数节名必须含本篇独有的数字 / 专名 / 命令 / 原话（§2）`);
+const badH2 = [];
+for (const t of h2All) {
+  const n = c(t);
+  const banned = H2_CLAUSE_BAN.find((w) => t.includes(w));
+  if (n < L.h2Len[0] || n > L.h2Len[1]) badH2.push(`${t.slice(0, 18)}=${n} 字（限 ${L.h2Len[0]}–${L.h2Len[1]}）`);
+  else if (/[？?]$/.test(t)) badH2.push(`${t.slice(0, 18)}＝疑问句收尾`);
+  else if (banned) badH2.push(`${t.slice(0, 18)}＝含「${banned}」`);
+}
+gate(badH2.length === 0, 'H2 形状', `${h2All.length} 节全部合格`, `${badH2.length} 节不合格：${badH2.join('、')}。节名 6–30 字、不许悬念式提问收尾、不许标题腔（§2 / §7.1）`);
+gate(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(h2All.join('')), 'H2 无 emoji', 'ok', 'H2 标题里出现了 emoji（§7.3）');
+/** `plain` 原来定义在 `:596`，这里要先用它，所以上移：把那段定义整块删掉、放在这一行。 */
+const plain = hideCode(body)
+  .replace(/`[^`]*`/g, '')
+  .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1');
+const boundary = BOUNDARY_MARKERS.filter((w) => plain.includes(w));
+gate(boundary.length >= 1, '边界在场', boundary.join('、') || '无', `全篇没有一处「没验到 / 没跑 / 我不知道谁在说真话」这类边界自陈——一条都没有说明这篇没有边界（§5.5 / §7.6 第 1 条）`);
 
 /* -------------------------------------------------------- 检查：块与尺寸 */
 
@@ -456,15 +468,12 @@ const totalChars = c(body);
 gate(totalChars <= L.charsTotal, '全文篇幅', `${totalChars} 字符 / 页面约 ${Math.ceil(totalChars / 400)} 分钟`, `全文 ${totalChars} > ${L.charsTotal} 非空白字符（§4.1）。只能删，不能砍结论块与诚实空白`);
 gate(totalChars >= L.charsFloor, '全文下限', `${totalChars} 字符`, `全文 ${totalChars} < ${L.charsFloor}：材料撑不起一篇，按 §10 放弃本期，别用形容词把它填满`);
 
-/** 每节的字符上限，与 §2 / §3 骨架表逐行对齐。 */
-const SECTION_CAP = { A: [300, 350, 400, 450, 450, 300], B: [400, 450, 450, 400, 350] };
-const sectionCaps = SECTION_CAP[job] ?? [];
-const sections = (() => {
-  const parts = body.split(/^## /m).slice(1);
-  return h2All.map((title, i) => ({ title, i, chars: c(parts[i] ?? ''), cap: Math.min(L.section, sectionCaps[i] ?? L.section) }));
-})();
-const overSection = sections.filter((s) => s.chars > s.cap);
-gate(overSection.length === 0, '单节篇幅', `各节 ${sections.map((s) => s.chars).join('/')}，上限 ${sectionCaps.join('/')}`, `${overSection.length} 节超自己的上限：${overSection.map((s) => `${s.i + 1}·${s.title}=${s.chars}/${s.cap}`).join('、')}（§2/§3 骨架表）`);
+/** v4：取消逐节预算表（它把六节压成一样重）。单节只受「绝对上限」与「占全文比例上限」双重约束。 */
+const secParts = body.split(/^## /m).slice(1);
+const sections = h2All.map((title, i) => ({ title, i, chars: c(secParts[i] ?? '') }));
+const secCeil = Math.min(L.sectionMax, Math.max(400, Math.floor(totalChars * L.sectionRatio)));
+const overSection = sections.filter((s) => s.chars > secCeil);
+gate(overSection.length === 0, '单节篇幅', `各节 ${sections.map((s) => s.chars).join('/')}，单节上限 ${secCeil}`, `${overSection.length} 节超上限：${overSection.map((s) => `${s.i + 1}·${s.title}=${s.chars}/${secCeil}`).join('、')}。全文 ${totalChars}，单节 ≤${L.sectionMax} 且 ≤${(L.sectionRatio * 100).toFixed(0)}%（§4.1）`);
 
 /* 代码块 */
 const codeBlocks = [...body.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((x) => x[1]);
@@ -529,6 +538,12 @@ const imgLines = lines.map((l, i) => ({ l, i })).filter((x) => /^\s*!\[/.test(x.
 gate(imgLines.length <= L.images, '插图数', `${imgLines.length} 张（含封面）`, `图片 ${imgLines.length} > 封面 + ${L.images - 1} 张插图（§4.1）`);
 const adjacent = imgLines.slice(1).filter((x, i) => x.i - imgLines[i].i <= 2);
 gate(adjacent.length === 0, '两图不相邻', 'ok', `第 ${adjacent.map((x) => x.i + 1).join('、')} 行与前一张图相邻，中间必须夹 ≥1 段正文`);
+gate(imgLines.length >= L.imagesMin, '插图下限', `${imgLines.length} 张（含封面）`, `全文只有 ${imgLines.length} 张图，v4 要求 ≥${L.imagesMin}——「必要时配图辅助理解」是用户的第 2 条要求，两图文等于没配（§4.1 / §8.2）`);
+/** 真实截图：只判「文件名含 screenshot」这一件形状上可判的事。
+ *  文件在不在磁盘上由 scripts/build-image-variants.mjs --check 与 jekyll build 管；
+ *  alt 说的是不是那张图里发生了什么，仍归 §10.2 第 7 项人工读。 */
+const shots = imgLines.filter((x) => /screenshot/i.test(x.l)).length;
+gate(shots >= 1, '真实截图在场', `${shots} 张`, `没有一枚文件名含 screenshot 的图，实有：${imgLines.map((x) => x.l.trim().slice(0, 44)).join(' | ')}——纯 AI 示意图证不了这篇真跑过（§8.2.0）`);
 
 /* 加粗 / 分隔线 / 引语 */
 const bolds = [...body.matchAll(/\*\*([^*\n]+)\*\*/g)];
@@ -575,6 +590,28 @@ const sents = splitSents(prose.join('\n'))
 gate(sents.filter((n) => n > L.sentChars).length === 0, '句子长度', `最长 ${Math.max(0, ...sents)}`, `${sents.filter((n) => n > L.sentChars).length} 句超 ${L.sentChars} 字（最长 ${Math.max(...sents.filter((n) => n > L.sentChars))}）`);
 gate(sents.filter((n) => n <= 6).length >= 1, '存在极短句', `≤6 字句 ${sents.filter((n) => n <= 6).length} 个`, '一个 ≤6 字短句都没有（「能跑。」「没了。」这类）');
 
+/* ---- v4：§7.7 的 1/4/5 条进门（判据逐字照协议 §7.7 那张表，不自己另发明阈值）---- */
+const tail = plain.match(/，(从而|使得|让.{0,8}(?:更|越)|为.{0,10}提供|体现了|印证了)/g) ?? [];
+gate(tail.length === 0, '句尾分析尾巴', `${tail.length} 处`, `这些句子结尾在替读者做总结：${tail.map((x) => `「…${x.slice(1, 26)}」`).join('、')}。事实说完就收句，要判断就单独成句（§7.7 第 1 条）`);
+const runs3 = listRuns.filter((r) => r.length === 3 && Math.max(...r.map((l) => c(l))) - Math.min(...r.map((l) => c(l))) <= 8);
+gate(runs3.length < 3, '并列整齐病', `3 项等长列表 ${runs3.length} 处`, `${runs3.length} 个列表恰好 3 项且三项字数相差 ≤8（协议阈值：≥3 处即模板痕迹）：改成长短不齐的两项或四项（§7.7 第 4 条）`);
+const selfEcho = [];
+{
+  const cjk = (s) => (s.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) ?? []).join('');
+  const g3 = (s) => new Set([...Array(Math.max(0, s.length - 2))].map((_, k) => s.slice(k, k + 3)));
+  for (let i = 0; i < secParts.length; i++) {
+    const flat = hideCode(secParts[i]).split('\n').slice(1).map((l) => l.trim()).filter((l) => l && !/^[#|>!`-]/.test(l)).join('')
+      .replace(/`[^`]*`/g, '').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/https?:\/\/\S+/g, '');
+    const sents2 = flat.split(/[。！？]/).map((x) => cjk(x.trim())).filter((x) => x.length >= 6);
+    if (sents2.length < 2) continue;
+    const a = g3(sents2[0]), b = g3(sents2[sents2.length - 1]);
+    if (!a.size || !b.size) continue;
+    const inter = [...b].filter((x) => a.has(x)).length / Math.min(a.size, b.size);
+    if (inter >= 0.4) selfEcho.push(`${(secParts[i].split('\n')[0] ?? '').trim().slice(0, 16)}`);
+  }
+}
+gate(selfEcho.length === 0, '节内自我复述', `命中 ${selfEcho.length} 节`, `这些节把首句又用末句说了一遍（中文 3-gram 重合 ≥40%，已剔代码 / 链接 / 专名）：${selfEcho.join(' / ')}。删末句（§7.7 第 5 条：末句只是首句换个说法）`);
+
 /* 每节第一句 ≤30 字 */
 const badFirst = [];
 for (const title of h2All) {
@@ -591,11 +628,61 @@ for (const title of h2All) {
 }
 gate(badFirst.length === 0, '节内结论前置', 'ok', `${badFirst.length} 节首句超 ${L.firstSentChars} 字：${badFirst.join('、')}（§4.3）`);
 
+/* ---- v4：节与节之间必须有具体物流转（治「六张卡片」而非「一条线」）---- */
+const TOK = /\d[\d.,]{1,}|[A-Za-z][A-Za-z0-9@\/._+-]{2,}/g;
+const toks = (s) => new Set([...(s.match(TOK) ?? [])].map((x) => x.toLowerCase()));
+const firstLineOf = (seg) => {
+  const ls = seg.split('\n');
+  const title = ls[0] ?? '';
+  const prose = hideCode(ls.slice(1).join('\n'))
+    .split('\n')
+    .filter((l) => !/^\s*(!\[|\||>)/.test(l.trim()))
+    .join(' ')
+    .trim();
+  return `${title} ${(prose.split(/[。！？]/)[0] ?? '').slice(0, 80)}`;
+};
+const carry = [];
+for (let i = 1; i < secParts.length; i++) {
+  const prev = toks(hideCode(secParts[i - 1]));
+  if (!prev.size) continue;
+  const cur = toks(firstLineOf(secParts[i]));
+  if (![...cur].some((t) => prev.has(t))) carry.push(((secParts[i].split('\n')[0] ?? '').trim()).slice(0, 22));
+}
+const carryTol = secParts.length >= 7 ? 2 : L.carryTol;
+gate(carry.length <= carryTol, '节间承接', `可判 ${secParts.length - 1} 处，断链 ${carry.length}（容差 ${carryTol}）`, `这些节的首句没接住上一节出现过的任何一个具体物（数字 / 命令 / 报错 / 专名）：${carry.join(' / ')}。实测：09-10 手写稿断 1 处，10-14 那篇断 4 处（§4.6）`);
+
+/* ---- v4：不许与最近发布的文章共用任何整句（含节名）——固定骨架时代的病根 ---- */
+const normUnit = (s) => s.replace(/\s+/g, '').replace(/[`*#_]/g, '');
+const unitsOf = (text) => {
+  const b = text.replace(/^---[\s\S]*?---\n/, '').replace(/^```[\s\S]*?^```/gm, '');
+  return new Set(
+    b
+      .split('\n')
+      .filter((l) => !/^\s*(!\[|>\s*一句话结论|>\s*现在该做什么|项目地址：|在线演示：|\|)/.test(l.trim()))
+      .flatMap((l) => normUnit(l).split(/[。！？]/))
+      .filter((u) => u.length >= L.reuseMin),
+  );
+};
+const histDir = process.env.ARTICLE_CHECK_HISTORY || '_posts';
+const selfName = path.basename(file);
+/* 窗口取「排在本篇之前的最后 N 篇」，不是「文件名最后 N 篇」：`_posts` 里有一枚
+ * `2100-10-25-practice-demo.md`，按文件名取尾部会让它恒占一格、把真正的邻居挤出窗口；
+ * 而新稿在 cron 里是「今天」这篇，取之前 N 篇正好等于最近发布的 N 篇。 */
+const hist = fs.existsSync(histDir)
+  ? fs
+      .readdirSync(histDir)
+      .filter((f) => /^\d{4}-\d{2}-\d{2}-.*\.md$/.test(f) && f !== selfName && f < selfName)
+      .sort()
+      .slice(-L.historyPosts)
+  : [];
+const pool = new Map();
+for (const f of hist) for (const u of unitsOf(fs.readFileSync(path.join(histDir, f), 'utf8'))) if (!pool.has(u)) pool.set(u, f);
+const reused = [...unitsOf(raw)].filter((u) => pool.has(u));
+gate(reused.length === 0, '无跨篇复用行', `比对 ${hist.length} 篇，复用 0`, `这些整句（≥${L.reuseMin} 字）与排在本篇之前的 ${hist.length} 篇逐字相同：${reused.map((u) => `「${u.slice(0, 26)}」← ${pool.get(u)}`).join('、')}。同一枚节名或句子连着几篇复用，读者会读成上一篇的复制——v3.0 的固定骨架就是这么长出 6 篇同名的「背景：它为什么出现」（§2）`);
+if (hist.length < 3) warns.push(`比对样本只有 ${hist.length} 篇（ARTICLE_CHECK_HISTORY=${histDir}）：复用行门的窗口不足，这一项不算真跑过`);
+
 /* ------------------------------------------------------- 检查：词与句式 */
 
-const plain = hideCode(body)
-  .replace(/`[^`]*`/g, '')
-  .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1');
 const hitHard = HARD_WORDS.filter((w) => plain.includes(w));
 gate(hitHard.length === 0, '一级黑名单', '命中 0', `命中 ${hitHard.length} 个：${hitHard.join('、')}（§7.1，逐个换成数字/路径/命令，或整句删）`);
 const hitPat = HARD_PATTERNS.filter(([re]) => re.test(plain)).map(([, n]) => n);
@@ -637,14 +724,14 @@ gate(overSent.length === 0, '单句精确数字', `最多 ${maxPerSent} 个/句`
 /* ------------------------------------------------- 检查：展望节 §6 */
 
 /** 展望节按位置取（最后一节），不再按标题字符串找——v3.1 之后那半句是自拟的。 */
-const outlookRaw = (body.split(/^## /m).slice(1)[expectedCount - 1] ?? '').trim();
+const outlookRaw = (secParts[secParts.length - 1] ?? '').trim();
 const outlookTitle = (outlookRaw.split('\n')[0] ?? '').trim();
 /** §2 正文顺序里「结尾两行」不属于任何一节，不能算进展望的预算。 */
 const outlookSeg = outlookRaw.replace(/^(项目地址：|在线演示：)[\s\S]*$/m, '');
 const oc = c(outlookSeg.slice(outlookTitle.length));
-/** §6 的展望预算跟着骨架表那一格走：A=300、B=350，再叠一层「≤ 全文 12%」。 */
-const outlookCap = sectionCaps[sectionCaps.length - 1];
-gate(oc <= outlookCap && oc <= totalChars * L.outlookRatio, '展望篇幅', `${oc} 字符 / 占 ${((oc / totalChars) * 100).toFixed(1)}%`, `展望 ${oc} 字符（上限 ${outlookCap} 且 ≤ 全文 12%，本期为 ${Math.floor(totalChars * L.outlookRatio)}）`);
+/** §6 的收尾节预算：绝对上限 `L.outlookChars` 与「≤ 全文 `L.outlookRatio`」取小的那一个。 */
+const outlookCap = Math.min(L.outlookChars, Math.floor(totalChars * L.outlookRatio));
+gate(oc <= outlookCap, '展望篇幅', `${oc} 字符 / 占 ${((oc / totalChars) * 100).toFixed(1)}%`, `收尾节 ${oc} 字符 > ${outlookCap}（≤${L.outlookChars} 且 ≤ 全文 ${(L.outlookRatio * 100).toFixed(0)}%，本期为 ${Math.floor(totalChars * L.outlookRatio)}）——展望写成第二大节就是把重点挪走了（§6）`);
 const anchors = (outlookSeg.match(/(?:#\d+|ROADMAP|CHANGELOG|milestone|dist-tag|beta|next|canary|v?\d+\.\d+)/gi) ?? []).length;
 const cond = /如果/.test(outlookSeg);
 gate(anchors >= 2 || cond, '展望有锚', `锚点 ${anchors} 个，条件句 ${cond}`, '展望既无 ≥2 个可核对锚点（编号 / ROADMAP / CHANGELOG / dist-tag / 版本号），也没有「如果 A 在 B 前没做 C 我就 D」的条件句（§6）');
@@ -678,28 +765,28 @@ if (manifestPath && fs.existsSync(manifestPath)) {
   const urls = [...new Set(raw.match(/https?:\/\/[^\s)>\]"'(]+/g) ?? [])];
   const missingUrls = urls.filter((u) => !man.includes(u.replace(/\/$/, '')));
   gate(missingUrls.length === 0, 'URL 反查 manifest', `${urls.length} 条全部已登记`, `${missingUrls.length} 条 URL 不在 manifest：${missingUrls.join(' ').slice(0, 120)}（禁止按规律拼 URL）`);
-  /** §4.5.2 五候选落盘：三候选打分在 v3 是人工门，实测拦不住「一次成型」——报告里写得出
-   *  「打过分」这句话，磁盘上却没有痕迹。10-12 / 10-13 四篇的 evidence 各用一种自由格式
-   *  （`候选 1｜…`、`1. \`…\` → 2/2/2`、`A | … | 2/2/2 ← 选用`），且**每一条候选都是满分**，
-   *  等于没打分。这一道门同时钉格式、数量、类型多样性、选用即最高分、以及「至少一条被淘汰」。 */
+  /** §4.5.2 v4：五候选必须五种不同形状，并且必须写清「淘汰那条为什么输」。
+   *  v3.2 的 0/1/2 四项打分在四篇真稿里全是满分，那种「打分」与没打分无法区分，已删除。 */
   const candLines = man.split('\n').filter((l) => /^\s*候选\s+\d+\s*〈/.test(l));
   const candTypes = new Set(candLines.map((l) => (l.match(/〈([^〉]+)〉/) ?? ['', ''])[1]));
-  const scoresOf = (l) => {
-    const g = [...(l.match(/缺口\s*(\d)\s*后果\s*(\d)\s*易懂\s*(\d)\s*前半\s*(\d)/) ?? [])].slice(1).map(Number);
-    return g.length === 4 ? g.reduce((a, x) => a + x, 0) : -1;
-  };
-  const candScored = candLines.map(scoresOf).filter((t) => t >= 0);
   const pickedLine = (man.split('\n').find((l) => /^\s*选用\s*=/.test(l)) ?? '').trim();
+  const droppedLine = (man.split('\n').find((l) => /^\s*淘汰\s*=/.test(l)) ?? '').trim();
   const pickedNo = (pickedLine.match(/=\s*(\d+)/) ?? ['', ''])[1];
-  const pickedScore = scoresOf(candLines.find((l) => new RegExp(`^\\s*候选\\s*0*${pickedNo}\\b`).test(l)) ?? '');
-  const maxScore = Math.max(-1, ...candScored);
-  const ties = candScored.filter((t) => t === maxScore).length;
-  const shapeBad = candLines.length - candScored.length;
+  const droppedNo = (droppedLine.match(/=\s*(\d+)/) ?? ['', ''])[1];
+  const pickedText = (candLines.find((l) => new RegExp(`^\\s*候选\\s*0*${pickedNo}\\b`).test(l)) ?? '').replace(/^候选\s*\d+\s*〈[^〉]*〉\s*/, '').split('｜')[0].trim();
+  const droppedWhy = c((droppedLine.match(/〈([^〉]+)〉/) ?? ['', ''])[1]);
   gate(
-    candLines.length >= L.titleCandidates && shapeBad === 0 && candTypes.size >= 3 && pickedLine !== '' && pickedScore === maxScore && ties === 1 && candScored.some((t) => t <= 7),
+    candLines.length >= L.titleCandidates &&
+      candTypes.size >= L.titleCandidates &&
+      pickedNo !== '' &&
+      droppedNo !== '' &&
+      droppedNo !== pickedNo &&
+      droppedWhy >= 12 &&
+      pickedText !== '' &&
+      pickedText === fm.title,
     '标题候选落盘',
-    `${candLines.length} 行候选 / ${candTypes.size} 类钩子 / 选用 ${pickedNo || '无'}＝${pickedScore >= 0 ? pickedScore : '?'} 分（最高 ${maxScore}）`,
-    `manifest 末尾要 ≥${L.titleCandidates} 行 \`候选 NN 〈钩子类型〉 标题全文｜缺口 a 后果 b 易懂 c 前半 d\`，四项分数都得是 0–2 的数（格式不合格 ${shapeBad} 行）、钩子类型 ≥3 种、有一行 \`选用 = NN（总分 x）\` 且 **NN 是唯一的最高分**、并且**至少一条总分 ≤7**——五条全满分说明打分是事后补的；只写一条标题等于没做 §4.5.2。`,
+    `${candLines.length} 行候选 / ${candTypes.size} 种形状 / 选用 ${pickedNo || '无'}、淘汰 ${droppedNo || '无'}（理由 ${droppedWhy} 字）`,
+    `manifest 末尾要 ≥${L.titleCandidates} 行 \`候选 NN 〈钩子类型〉 标题全文\`，**五种类型必须互不相同**（实得 ${candTypes.size} 种），外加 \`选用 = NN\` 与 \`淘汰 = MM〈为什么淘汰，≥12 字〉\` 两行、NN≠MM，且 \`选用\` 那条的标题全文必须逐字等于 frontmatter 的 title。10-12/10-13 四篇的 0/1/2 打分全是满分，等于没打分——v4 改判形状与淘汰理由（§4.5.2）`,
   );
 } else {
   warns.push('未提供 --manifest：数字 / 编号 / URL 的反查没跑。这一项在 v1 就是「自报达标」的漏口，别当成过了');
@@ -707,7 +794,7 @@ if (manifestPath && fs.existsSync(manifestPath)) {
 
 /* -------------------------------------------------------------- 输出 */
 
-process.stdout.write(`article-check  ${file}  job=${job}  outline=${expectedCount} 节\n` + `chars ${totalChars}（汉字 ${(body.match(/[一-鿿]/g) ?? []).length}）→ 页面约 ${Math.ceil(totalChars / 400)} 分钟；上限 ${L.charsTotal}\n`);
+process.stdout.write(`article-check  ${file}  job=${job}  h2=${h2All.length} 节\n` + `chars ${totalChars}（汉字 ${(body.match(/[一-鿿]/g) ?? []).length}）→ 页面约 ${Math.ceil(totalChars / 400)} 分钟；上限 ${L.charsTotal}\n`);
 for (const p of passes) process.stdout.write(`PASS  ${p}\n`);
 for (const w of warns) process.stdout.write(`WARN  ${w}\n`);
 for (const f of fails) process.stdout.write(`FAIL  ${f}\n`);
