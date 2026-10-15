@@ -120,6 +120,24 @@
       "webp": "assets/img/web-mcp/webmcp-vs-banner-1.webp",
       "pngBytes": 2787452,
       "webpBytes": 265196
+    },
+    "assets/img/local-first-password-manager/01-infographic-core-value.png": {
+      "sha256": "a17abee280c78e783e3bc615257a0d6f01bbe3477d279f8cdd52fd8d43a8e989",
+      "webp": "assets/img/local-first-password-manager/01-infographic-core-value.webp",
+      "pngBytes": 2140296,
+      "webpBytes": 88620
+    },
+    "assets/img/local-first-password-manager/03-infographic-dev-features.png": {
+      "sha256": "2fc2f315b61ddf4e9f5149cdf8aa7a30bc1dacd58de6e8f23326d2415e6e4f9e",
+      "webp": "assets/img/local-first-password-manager/03-infographic-dev-features.webp",
+      "pngBytes": 2183462,
+      "webpBytes": 107894
+    },
+    "assets/img/webcrypto-encryption-in-practice/02-flowchart-security-pipeline.png": {
+      "sha256": "93690d951016d4526ff36263e74fc7585d4a316d371eb03f037a1c409f942f2c",
+      "webp": "assets/img/webcrypto-encryption-in-practice/02-flowchart-security-pipeline.webp",
+      "pngBytes": 2086380,
+      "webpBytes": 57306
     }
   }
 }

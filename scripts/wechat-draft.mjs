@@ -31,11 +31,12 @@
  *   node scripts/wechat-draft.mjs --latest [--dry-run]                      # 取 _posts 里 date 最新的一篇
  *   附加：--theme default|grace|simple|modern  --author 廖小新  --force  --keep-links  --skill <dir>
  *
- * 前置（一次性，由维护者本人在微信后台与服务器上配）：
- *   .baoyu-skills/baoyu-post-to-wechat/EXTEND.md 的 remote_publish_host 等键已填真实值；
+ * 前置（凭据与白名单由维护者本人在微信后台配）：
  *   .baoyu-skills/.env 里有 WECHAT_APP_ID / WECHAT_APP_SECRET；
- *   那台 SSH 主机的公网 IP 已加进公众号「IP 白名单」。
- *   这三处任一没配，--dry-run 照样能跑完，真跑会在那里报错并说明缺什么。
+ *   EXTEND.md 的 default_author 有值；公众号「IP 白名单」里有**发起调用那一侧的出口 IP**——
+ *   `default_publish_method: api` 就是本机当时的出口 IP（本机出口会换，每次跑前对一次），
+ *   选了 `remote-api` 才需要 `remote_publish_host` 与那把免密可通的私钥，加主机 IP 一次就稳。
+ *   任一没配时 --dry-run 照样能跑完，真跑会在那里报错并说明缺什么。
  */
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -161,7 +162,13 @@ if (flag('check-config')) {
     for (const m of miss) console.error(`  · ${m}`);
     process.exit(3);
   }
-  log('前置齐了：EXTEND.md 的 host/author/私钥、.env 里的凭据都在位');
+  const method = publishMethod();
+  log(
+    `前置齐了：方式 ${method}、EXTEND.md 的 author、.env 里的两枚凭据都在位` +
+      (method === 'remote-api'
+        ? '（隧道主机与私钥也在）'
+        : '（本机直连：微信看的是本机当前出口 IP，跑之前确认它在公众号 IP 白名单里，否则报 40164）'),
+  );
   process.exit(0);
 }
 
@@ -388,11 +395,40 @@ function saveState(state) {
 }
 
 /**
+ * 读 EXTEND.md 的一枚键。文件不存在返回 null，键没写或值为空返回空串——
+ * 空值等于没配，是 skill 侧解析器（wechat-extend-config.ts）的口径。
+ *
+ * @param {string} k 键名
+ * @returns {string|null} 值；EXTEND.md 不在时为 null
+ */
+function extendVal(k) {
+  const extend = path.join(ROOT, '.baoyu-skills', 'baoyu-post-to-wechat', 'EXTEND.md');
+  if (!fs.existsSync(extend)) return null;
+  const m = new RegExp(`^${k}:[ \\t]*(.*)$`, 'm').exec(fs.readFileSync(extend, 'utf8'));
+  return m ? m[1].trim().replace(/^["']|["']$/g, '') : '';
+}
+
+/**
+ * 真跑要走哪条路。skill 侧的分支是 `useRemote = args.remote || method === "remote-api"`
+ * （wechat-api.ts 里那一条），这里必须与它一致：早先的前置检查**不看方式**、无条件要求
+ * `remote_publish_host`，于是 `api` 直连明明够用却被一条用不上的缺项挡成 exit 3
+ * （2026-10-15 就是这样——手上没有隧道主机时，那个字段永远不会被填）。
+ *
+ * @returns {string} `remote-api` 或本机直连的 `api`（缺省与 EXTEND.md 无值都按 api）
+ */
+function publishMethod() {
+  return extendVal('default_publish_method') || 'api';
+}
+
+/**
  * 真跑需要的外部条件是否齐了。只报缺失，绝不打印任何密钥值。
  *
  * 为什么要有这一步：无人值守的写作任务可以直接调本脚本，但凭据与 IP 白名单由本人在
- * 微信后台与服务器上配。缺的时候脚本应该明确说「缺什么、配好后跑哪条」并以独立退出码收场，
+ * 微信后台配。缺的时候脚本应该明确说「缺什么、配好后跑哪条」并以独立退出码收场，
  * 而不是把 SSH 隧道那层的英文报错甩给日志，更不能退化成自动去试 browser 方式。
+ *
+ * 按方式分家：两枚凭据与署名两条路都要；host 与私钥只有 remote-api 要（api 直连时
+ * 微信看的是本机出口 IP，这件事离线检查判不了，只能在 40164 那步由人补白名单）。
  *
  * @returns {string[]} 缺失项；空数组代表就绪
  */
@@ -407,10 +443,13 @@ function missingPrereqs() {
       const m = new RegExp(`^${k}:[ \\t]*(.*)$`, 'm').exec(t);
       return m ? m[1].trim().replace(/^["']|["']$/g, '') : '';
     };
-    if (!val('remote_publish_host')) miss.push('EXTEND.md 的 remote_publish_host 还是空的（填那台主机的公网 IP）');
     if (!val('default_author')) miss.push('EXTEND.md 的 default_author 是空的（这篇要用「廖小新」署名）');
-    const idf = val('remote_publish_identity_file');
-    if (idf && !fs.existsSync(idf)) miss.push(`EXTEND.md 指定的私钥文件不存在：${idf}`);
+    if (publishMethod() === 'remote-api') {
+      if (!val('remote_publish_host'))
+        miss.push('EXTEND.md 的 remote_publish_host 还是空的（remote-api 要借那台主机的出口 IP；没有主机就把 default_publish_method 改成 api）');
+      const idf = val('remote_publish_identity_file');
+      if (idf && !fs.existsSync(idf)) miss.push(`EXTEND.md 指定的私钥文件不存在：${idf}`);
+    }
   }
   // 两枚键都要有值才算就绪。早先这里在内层循环里 `return`，于是**任一**枚有值就报齐了：
   // 只写了 WECHAT_APP_ID 的 .env 会直接过检，真跑时才在微信侧报凭据错——而这一函数的职责
@@ -586,10 +625,15 @@ child.on('close', (code) => {
   if (code !== 0) {
     console.error(
       `[wechat-draft] ✗ 建草稿失败（exit ${code}）。常见原因：` +
-        `\n  · errcode 40164：那台 SSH 主机的公网 IP 不在公众号 IP 白名单里` +
+        `\n  · errcode 40164：` +
+        (publishMethod() === 'remote-api'
+          ? '那台 SSH 主机的公网 IP 不在公众号 IP 白名单里'
+          : '本机当前出口 IP 不在公众号 IP 白名单里——报错那行的 `invalid ip` 就是要去后台加的那枚地址') +
         `\n  · errcode 48001：账号没有草稿箱接口权限` +
         `\n  · Access token 相关：.baoyu-skills/.env 里的 WECHAT_APP_ID / WECHAT_APP_SECRET 不对` +
-        `\n  · ssh exited early：EXTEND.md 的 remote_publish_host/user/identity_file 没填对`,
+        (publishMethod() === 'remote-api'
+          ? `\n  · ssh exited early：EXTEND.md 的 remote_publish_host/user/identity_file 没填对`
+          : ''),
     );
     process.exit(code ?? 1);
   }

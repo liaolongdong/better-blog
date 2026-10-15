@@ -293,19 +293,23 @@ node scripts/wechat-draft.mjs --post _posts/2026-09-25-x.md             # 真同
 node scripts/wechat-draft.mjs --latest --dry-run      # 取 _posts 里 date 最新的一篇
 ```
 
-真跑需要四件前置：
+真跑要走哪条路由 `.baoyu-skills/baoyu-post-to-wechat/EXTEND.md` 的 `default_publish_method` 决定
+（skill 侧就是 `wechat-api.ts` 里 `useRemote` 那一条分支）：`api` 是本机直连，`remote-api` 借一台
+固定公网 IP 的主机出去。本仓库 2026-10-15 起用 `api`——手上没有那样的主机，`remote_publish_host`
+永远填不上。前置清单：
 
-| 前置 | 位置 |
-| --- | --- |
-| 凭据 | `.baoyu-skills/.env`（已 gitignore，`chmod 600`）或 `~/.baoyu-skills/.env` 里的 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` |
-| 隧道主机 | `.baoyu-skills/baoyu-post-to-wechat/EXTEND.md` 的 `remote_publish_host`，填那台固定公网 IP（模板见同目录 `EXTEND.example.md`） |
-| 微信 IP 白名单 | 公众号设置 → 基本设置 → IP 白名单，加的是**那台主机的 IP**。本机这侧的出口 IP 不固定、会轮换，落在白名单之外，直连必报 `errcode 40164`，所以所有调用都走 `ssh -N -D` 隧道出去 |
-| 免密 SSH | `ssh -i ~/.ssh/id_ed25519 root@<IP> 'echo ok'` 必须不问密码就通，且 EXTEND.md 的 `remote_publish_identity_file` 指向的正是那把被授权的私钥 |
+| 前置 | 位置 | 哪种方式要 |
+| --- | --- | --- |
+| 凭据 | `.baoyu-skills/.env`（已 gitignore，`chmod 600`）或 `~/.baoyu-skills/.env` 里的 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | 两种都要 |
+| 署名 | 同目录 `EXTEND.md` 的 `default_author`（模板见 `EXTEND.example.md`） | 两种都要 |
+| 微信 IP 白名单 | 公众号设置 → 基本设置 → IP 白名单，加的是**发起调用那一侧的出口 IP**。`api` 就是本机当时的出口 IP，本机出口不固定（实测换过 121.35.0.0/16、61.141.204.x、223.104.79.57 三段），所以每次真跑前要对一次；`remote-api` 就加那台主机的 IP，加一次就稳 | 两种都要 |
+| 隧道主机 | `EXTEND.md` 的 `remote_publish_host`，填那台主机的固定公网 IP | 只 `remote-api` |
+| 免密 SSH | `ssh -i ~/.ssh/id_ed25519 root@<IP> 'echo ok'` 必须不问密码就通，且 `remote_publish_identity_file` 指向的正是那把被授权的私钥 | 只 `remote-api` |
 
-`--check-config` 查的全是静态项：EXTEND.md 在不在、`remote_publish_host` 和 `default_author` 空不空、
-`remote_publish_identity_file` 指的那个私钥文件存不存在、两份 `.env` 里读不读得到凭据；齐了退 0，
-缺了退 3 并且**一条命令都不发**。白名单加没加对、SSH 真不真的免密，它查不出来，
-只会在真跑时以 `errcode 40164` 或 "ssh exited early" 暴露。
+`--check-config` 查的全是静态项：EXTEND.md 在不在、`default_author` 空不空、两份 `.env` 里读不读得到凭据；
+**只有方式选了 `remote-api` 才再查 `remote_publish_host` 与那把私钥文件**（早先它不看方式、无条件要 host，
+于是没有主机的 `api` 直连明明够用却被一条用不上的缺项挡成 exit 3）。齐了退 0，缺了退 3 并且**一条命令都不发**。
+白名单加没加对它查不出来，只会在真跑时以 `errcode 40164` 暴露——报错那行 `invalid ip` 后面那枚就是要加的地址。
 
 这一层包装补的是「文章入参」和「草稿入参」对不上的四处，直调 skill 会在这四处静默失败或报难懂的错：
 正文里的 `/assets/...` 是站点根路径，skill 按本机绝对路径直读会报 `Image not found`，这里改写成仓库内真实路径，
@@ -318,8 +322,8 @@ node scripts/wechat-draft.mjs --latest --dry-run      # 取 _posts 里 date 最�
 
 重复同步靠 `.wechat-sync/index.json` 按内容哈希挡（草稿箱没有幂等键，重跑一次就多一条草稿）。
 `--force` 是跳过这层去重用的，日常别加。退出码：0 = 草稿已进箱（输出里带 `media_id`），3 = 前置未齐（没联网），
-1 = 真失败，此时把错误原文抄上来，里面的 `errcode` 是唯一线索（40164 = 发起调用的那台 IP 不在白名单，
-说明隧道没生效；48001 = 该 API 未对这个公众号开放）。
+1 = 真失败，此时把错误原文抄上来，里面的 `errcode` 是唯一线索（40164 = 发起调用的那枚出口 IP 不在白名单，
+`api` 直连时就照报错行 `invalid ip` 后面那枚去后台加；48001 = 该 API 未对这个公众号开放）。
 抄上来之前那份输出会过一道打码：`access_token=` / `secret=` 后面的值换成 `<redacted>`（按行缓冲后再替换，
 所以键名被拆进两帧也不会漏），URL 的形状、`errcode`、`errmsg` 都还在，而 bearer token 不会落进终端日志
 和收走这份日志的 cron transcript。

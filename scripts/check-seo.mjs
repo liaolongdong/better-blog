@@ -1159,15 +1159,23 @@ const APPLE = manifestData.icons.find((i) => i.use === 'apple-touch');
 // 带进 `Anthropic`——表里已经有 `OpenAI`、`Meta`、`阿里巴巴` 三枚厂商名，缺的正是这一facet，
 // 拿 `Claude`（产品名）替它等于把「按厂商找」那条路砍掉。同一篇的 `SDK` 是**归一**不是扩表：
 // 那篇的类型故事具体到 TS2724 与声明数，落到现存的 `TypeScript` 上比裸一个 `SDK` 更可检索。
+// 2026-10-15 把 tag 白名单从 156 扩到 171：插件仓库 `docs/blog/zh/` 那 5 篇搬进 `_posts/`（首篇
+// `2026-08-28-local-first-password-manager.md`），带进本站没有的 15 枚。这批不是漂移出来的别名：
+// `WebCrypto`、`ManifestV3`、`ServiceWorker`、`Chrome扩展` 各指一门现存词覆盖不了的技术面，
+// `密码管理器`、`浏览器扩展`、`开源项目`、`本地优先`、`多环境测试`、`域名匹配`、`性能优化`、`交互设计`、
+// `前端开发`、`前端工程化`、`加密` 同理——去掉任何一枚，那 5 页在归档页上就只能挂到语义更宽的旧词上。
+// 原文里 `Manifest V3`／`Service Worker`／`Web Crypto` 三枚带空格，本站 front matter 表达不了一枚含空格的
+// 标签（`split(' ')` 与归档页计数那处的 `/[,\s]+/` 都会把它劈成两枚），所以落成去空格形式，语义不变。
+// categories 全部落在既有的 `Chrome插件`，CATS_OK 仍是 14 枚（spec §9.11 记的就是这个分工）。
 const TAGS_OK = new Set(
-  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Anthropic Astryx Bend CSS Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 blog chrome chrome浏览器插件 coding.net dev-server echarts gdp-ts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert robots.txt scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端工作总结 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 博客 原型和原型链 原生编译 域名解析 学习笔记 安全 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 架构图 查找算法 沙箱 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 权限校验 维基媒体 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
+  'AI AI大模型2026年综合实力排行榜单 AI大模型排行榜单 AI大模型测评 AI编程 AOP Agent Anthropic Astryx Bend CSS Chrome扩展 Claude Coding Cypress DNS Development ES2023 GUI GitDiagram H5分享 H5实现摇一摇 H5打开地图导航app Impeccable JS新特性 JavaScript JavaScript公用方法 JavaScript语言精粹 MCP ManifestV3 Mermaid Meta Mongodb Next.js Node OpenAI Playwright Puppeteer SDD SSRF ServiceWorker Spec-Driven StyleX TypeScript UI Univer Vercel Vibe Vue2 Vue3 WebCrypto blog chrome chrome浏览器插件 coding.net dev-server echarts gdp-ts git github git常用命令 gulp headless jekyll linux linux命令 livenerf next nginx nodeJS node包管理工具 npm page-agent pnpm proxy react reset revert robots.txt scriptc seo优化 ssr vite vscode常用插件 vue vue-router webmcp webpack yarn 一键填充 云服务器ECS 仓库 代理 代码回撤 代码回退 交互设计 公式引擎 函数式编程 前端 前端学习资料 前端小技巧 前端开发 前端工作总结 前端工程化 前端构建 前端框架 前端环境切换工具 前端组件库 前端设计 前端面试常见编程题汇总 加密 博客 原型和原型链 原生编译 域名匹配 域名解析 多环境测试 学习笔记 安全 密码管理器 实现可拖拽悬浮按钮 工具 工程化 常见的排序算法 常见的算法 开源 开源项目 微信H5支付 微信JSAPI支付 微信公众号 微信公众号支付 微信分享 微信支付 性能优化 技巧 插件 搜索引擎网站收录 更新版本内容 服务端渲染 本地优先 架构图 查找算法 沙箱 浏览器扩展 浏览器插件 浏览器缓存机制 版本投产 生活 私有仓库 移动端的那些坑 移动端调试技巧 算法 类型系统 权限校验 维基媒体 组件库 网站seo 自动登录 规范驱动开发 设计模式 设计系统 评测 谷歌浏览器插件 账号密码管理助手 超好用的chrome浏览器插件 配置https 阿里云服务器部署 阿里巴巴 面向切面编码 项目搭建 黑科技'.split(
     ' ',
   ),
 );
 const CATS_OK = new Set('AI CSS Chrome插件 H5与微信 JavaScript React TypeScript Vue 前端工程化 工具与效率 开源实测 服务器与部署 算法与面试 随笔'.split(' '));
 
-if (TAGS_OK.size !== 156 || CATS_OK.size !== 14) {
-  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 156 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
+if (TAGS_OK.size !== 171 || CATS_OK.size !== 14) {
+  bad('词表', 'scripts/check-seo.mjs', `白名单常量自身规模 ${TAGS_OK.size} / ${CATS_OK.size}，与钉死的 171 / 14 不符——词表被改动时这条先红，别轮到八条判据去猜是谁动的手`);
 }
 
 // ── 组 11：描述（SP4 A4）─────────────────────────────────────────────────────
