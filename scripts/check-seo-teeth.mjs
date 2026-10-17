@@ -262,12 +262,17 @@ const CONF_TEXT = y('_config.yml');
  * 五本源的解析一律走门禁那把 ruby 尺子，不在这里正则抠 YAML：`tags` 既可能是空格分隔串
  * 也可能是列表，`icon` / `path` 带不带引号两种写法都合法，而牙齿的钥匙必须是「解析出来的值」
  * 与「源里的字面量」同时对得上——自己写 YAML 子集解析器，第一次遇到引号变体就是假牙。
+ * Psych 版本差异与 check-seo.mjs 同一口径：CI 的 Ruby 3.1（Psych 4）里 YAML.load 是
+ * safe_load，front matter 的 Date 会被拒；仓库自有源统一 unsafe_load，Psych 3 退回 load。
  */
 function readSourcesLikeGate() {
   const script = `
     require "yaml"; require "json"
+    def yload_str(s)
+      YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(s) : YAML.load(s)
+    end
     def yload(p)
-      YAML.load_file(p)
+      yload_str(File.read(p, mode: "rb:UTF-8"))
     rescue StandardError => e
       { "__error__" => e.class.to_s }
     end
@@ -290,7 +295,7 @@ function readSourcesLikeGate() {
         next
       end
       begin
-        out["posts"][File.basename(f)] = YAML.load(m[1]) || {}
+        out["posts"][File.basename(f)] = yload_str(m[1]) || {}
       rescue StandardError
         out["posts"][File.basename(f)] = { "__error__" => "bad-yaml" }
       end

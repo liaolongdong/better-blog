@@ -113,12 +113,19 @@ function postBodyRegion(text) {
  * 也可能是带时区的串——这些正是 YAML 的边界，手写的子集解析器迟早和 Liquid 读到不一样的东西。
  * 脚本体保持纯 ASCII：`ruby -e` 的输入按 locale 解码，字面量里放中文会整段崩成
  * "invalid multibyte char"，而崩掉的形状是"读不到任何一篇稿子"。
+ * 读法必须跨 Psych 版本：CI 的 Ruby 3.1 带 Psych 4，YAML.load 已收紧成 safe_load，
+ * front matter 里不带引号的 date 会解析成 Date 后被判 DisallowedClass（本地 Ruby 2.6
+ * 的 Psych 3 仍是宽松语义，所以本地全绿、CI 全红）。源都是仓库自有文件，统一走
+ * unsafe_load；Psych 3 没有这个方法，退回 YAML.load。
  */
 function readSources() {
   const script = `
     require "yaml"; require "json"
+    def yload_str(s)
+      YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(s) : YAML.load(s)
+    end
     def yload(p)
-      YAML.load_file(p)
+      yload_str(File.read(p, mode: "rb:UTF-8"))
     rescue StandardError => e
       { "__error__" => e.class.to_s }
     end
@@ -141,7 +148,7 @@ function readSources() {
         next
       end
       begin
-        out["posts"][File.basename(f)] = YAML.load(m[1]) || {}
+        out["posts"][File.basename(f)] = yload_str(m[1]) || {}
       rescue StandardError
         out["posts"][File.basename(f)] = { "__error__" => "bad-yaml" }
       end
