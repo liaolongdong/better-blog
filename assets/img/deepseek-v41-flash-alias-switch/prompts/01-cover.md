@@ -1,0 +1,7 @@
+# Cover prompt A — same tag, different machine
+
+Editorial conceptual illustration, 16:9 aspect ratio, no text. A single large industrial shipping crate sits centered on a plain warm off-white paper background, occupying roughly 40–60% of the vertical frame. A blank manila shipping tag is tied to its handle. One side panel is open, revealing a completely different machine inside than the faded stencil silhouette printed on the outside. Deep ink blue and burnt orange screenprint palette with subtle paper grain, strong graphic silhouettes, generous negative space on all sides, readable at 320px. Not a photograph. No purple gradients, no glowing orbs, no isometric cubes, no red/yellow breaking-news colors, no explosions, no text, no watermark.
+
+# Cover prompt B — the nameplate stays, the engine changes
+
+Editorial still-life illustration, 16:9 aspect ratio, no text. Overhead view of a workbench: a blank metal nameplate sits on top of an engine block, four screws laid in a neat row beside it, and a pair of work gloves is lifting the old engine part away. The nameplate is polished and unchanged; the engine underneath is clearly a different casting. Warm paper background, ink blue and burnt orange screenprint texture, hard directional light, strong silhouettes, subject centered in the middle 40–60% band, lots of negative space, readable at 320px. No purple gradients, no glowing spheres, no isometric cubes, no breaking-news colors, no text, no watermark.
