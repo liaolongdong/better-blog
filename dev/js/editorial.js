@@ -580,12 +580,15 @@
 
     /**
      * 转义 HTML。查询词、链接文本与摘要都来自数据或用户，必须按文本处理。
+     * 五个字符而不是四个：单引号和 `dev/js/tools/view.js` 的 escapeHtml 保持同一把尺，
+     * 现在拼出来的属性都带双引号所以咬不到，但哪天写成单引号属性或裸值就是注入点。
+     * 两把尺一致，比"当前恰好够用"便宜，也省得每次改都要重新论证一遍。
      * @param {string} str
      * @returns {string}
      */
     function esc(str) {
-        return String(str).replace(/[&<>"]/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        return String(str).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
     }
 

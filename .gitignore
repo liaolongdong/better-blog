@@ -73,3 +73,6 @@ spark-output/
 # 隔离工作树（git worktree）的落点：并发会话在同一条 main 上暂存时，新特性在自己的
 # 工作树里出提交，两边永不互吞。这目录里是一整份仓库副本，入库只会污染检出。
 .worktrees/
+# Qoder 本地生成的仓库知识卡与 wiki（.qoder/repowiki，实测 2.0MB 中文档 + .DS_Store）。
+# 每次重新生成整棵树都变，入库会把提交历史淹在机器产物里；站点内容不碰。
+.qoder/

@@ -61,6 +61,10 @@ export function legacyCopy(doc, text) {
   try {
     const box = doc.createElement('textarea');
     box.setAttribute('readonly', 'readonly');
+    // 挂到 `body` 末尾再 `select()`，浏览器会把视口滚到那一格、并在页尾闪出一个真输入框——
+    // 位置写死在屏外，用户看到的只是按钮改了口。用 `setAttribute` 而不是 `box.style.x =`：
+    // §O 的假 DOM 只记属性表（`getAttribute`），不造 `style` 那层对象。
+    box.setAttribute('style', 'position:fixed;left:-9999px;top:0;opacity:0;');
     box.value = text;
     doc.body.appendChild(box);
     // 只有真挂上去的那一个才需要摘：`appendChild` 自己抛时 `ta` 仍是 null，

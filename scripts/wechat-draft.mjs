@@ -32,16 +32,19 @@
  *   附加：--theme default|grace|simple|modern  --author 廖小新  --force  --keep-links  --skill <dir>
  *
  * 前置（凭据与白名单由维护者本人在微信后台配）：
- *   .baoyu-skills/.env 里有 WECHAT_APP_ID / WECHAT_APP_SECRET；
- *   EXTEND.md 的 default_author 有值；公众号「IP 白名单」里有**发起调用那一侧的出口 IP**——
- *   `default_publish_method: api` 就是本机当时的出口 IP（本机出口会换，每次跑前对一次），
- *   选了 `remote-api` 才需要 `remote_publish_host` 与那把免密可通的私钥，加主机 IP 一次就稳。
+ *   `default_publish_method: api|remote-api` 时——`.baoyu-skills/.env` 里有 WECHAT_APP_ID /
+ *   WECHAT_APP_SECRET；EXTEND.md 的 default_author 有值；公众号「IP 白名单」里有**发起调用那一侧的
+ *   出口 IP**（本机出口会换，每次跑前对一次）；选了 `remote-api` 才需要 `remote_publish_host`
+ *   与那把免密可通的私钥。
+ *   `default_publish_method: browser` 时——不读凭据、不要 IP 白名单，改成要求一台用专属 profile
+ *   启动、且已登录 mp.weixin.qq.com 的 Chrome（2026-10-17 起的默认方式，理由见 §8.4 与 runBrowser）。
  *   任一没配时 --dry-run 照样能跑完，真跑会在那里报错并说明缺什么。
  */
 
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -164,10 +167,12 @@ if (flag('check-config')) {
   }
   const method = publishMethod();
   log(
-    `前置齐了：方式 ${method}、EXTEND.md 的 author、.env 里的两枚凭据都在位` +
-      (method === 'remote-api'
-        ? '（隧道主机与私钥也在）'
-        : '（本机直连：微信看的是本机当前出口 IP，跑之前确认它在公众号 IP 白名单里，否则报 40164）'),
+    method === 'browser'
+      ? '前置齐了：方式 browser。跑的时候要用一台已登录 mp.weixin.qq.com 的 Chrome（专属 profile 里登录态是持久的）；不读 .env 凭据、不看 IP 白名单'
+      : `前置齐了：方式 ${method}、EXTEND.md 的 author、.env 里的两枚凭据都在位` +
+        (method === 'remote-api'
+          ? '（隧道主机与私钥也在）'
+          : '（本机直连：微信看的是本机当前出口 IP，跑之前确认它在公众号 IP 白名单里，否则报 40164）'),
   );
   process.exit(0);
 }
@@ -248,6 +253,7 @@ const link = postPermalink({ file: postFile, fm, site });
 
 const skillDir = resolveSkillDir(opt('skill'));
 const apiScript = path.join(skillDir, 'scripts', 'wechat-api.ts');
+const articleScript = path.join(skillDir, 'scripts', 'wechat-article.ts');
 
 /* ------------------------------------------------------------------ *
  * 2. 正文：删重复标题、改写图片路径（只在代码围栏外动手）
@@ -425,9 +431,10 @@ function publishMethod() {
  *
  * 为什么要有这一步：无人值守的写作任务可以直接调本脚本，但凭据与 IP 白名单由本人在
  * 微信后台配。缺的时候脚本应该明确说「缺什么、配好后跑哪条」并以独立退出码收场，
- * 而不是把 SSH 隧道那层的英文报错甩给日志，更不能退化成自动去试 browser 方式。
+ * 而不是把 SSH 隧道那层的英文报错甩给日志。
  *
- * 按方式分家：两枚凭据与署名两条路都要；host 与私钥只有 remote-api 要（api 直连时
+ * 按方式分家：`browser`（2026-10-17 起的默认）只要 EXTEND.md 与署名，凭据与 IP 白名单不参与；
+ * 两枚凭据与署名是 api / remote-api 两条路都要；host 与私钥只有 remote-api 要（api 直连时
  * 微信看的是本机出口 IP，这件事离线检查判不了，只能在 40164 那步由人补白名单）。
  *
  * @returns {string[]} 缺失项；空数组代表就绪
@@ -454,6 +461,8 @@ function missingPrereqs() {
   // 两枚键都要有值才算就绪。早先这里在内层循环里 `return`，于是**任一**枚有值就报齐了：
   // 只写了 WECHAT_APP_ID 的 .env 会直接过检，真跑时才在微信侧报凭据错——而这一函数的职责
   // 正是把那种失败提前成一句人话。两个路径合起来收（项目内与 home 各写一枚也算齐）。
+  // 浏览器方式根本不调 CGI，凭据与 IP 白名单都不是它的前置，别拿它挡路。
+  if (publishMethod() === 'browser') return miss;
   const found = new Set();
   for (const env of [path.join(ROOT, '.baoyu-skills', '.env'), path.join(os.homedir(), '.baoyu-skills', '.env')]) {
     if (!fs.existsSync(env)) continue;
@@ -467,6 +476,89 @@ function missingPrereqs() {
   const lacking = ['WECHAT_APP_ID', 'WECHAT_APP_SECRET'].filter((k) => !found.has(k));
   miss.push(`没找到 ${lacking.join(' / ')}（写进 .baoyu-skills/.env 或 ~/.baoyu-skills/.env）`);
   return miss;
+}
+
+/* ------------------------------------------------------------------ *
+ * 4.9 浏览器方式的前置整备（EXTEND.md: default_publish_method: browser）
+ * ------------------------------------------------------------------ */
+
+/** skill 那套 Chrome 专属 profile，口径与 baoyu-chrome-cdp 的默认值一致。 */
+function chromeProfileDir() {
+  const env = process.env.BAOYU_CHROME_PROFILE_DIR || process.env.WECHAT_BROWSER_PROFILE_DIR;
+  if (env) return path.resolve(env);
+  return path.join(os.homedir(), 'Library', 'Application Support', 'baoyu-skills', 'chrome-profile');
+}
+
+/**
+ * 已经开着的那个 Chrome 的调试端口；没有就返回 0，交给 skill 自己起。
+ * profile 里的 `DevToolsActivePort` 在本机经常不存在（2026-10-17 实测），所以 `ps` 那一跳不能省。
+ * @returns {number}
+ */
+function findCdpPort() {
+  const f = path.join(chromeProfileDir(), 'DevToolsActivePort');
+  const fromFile = fs.existsSync(f) ? Number(fs.readFileSync(f, 'utf8').split('\n')[0]) : 0;
+  if (fromFile > 0) return fromFile;
+  const ps = spawnSync('ps', ['aux'], { encoding: 'utf8', timeout: 8000 });
+  const line = (ps.stdout || '')
+    .split('\n')
+    .find((l) => l.includes(chromeProfileDir()) && l.includes('--remote-debugging-port='));
+  return Number((line || '').match(/--remote-debugging-port=(\d+)/)?.[1] || 0);
+}
+
+/** CDP 的 HTTP 接口够用就行（/json/list、/json/close、/json/new），不必建 WebSocket。 */
+const cdpHttp = (port, p, method = 'GET') =>
+  new Promise((resolve, reject) => {
+    const r = http.request({ host: '127.0.0.1', port, path: p, method, timeout: 5000 }, (res) => {
+      let b = '';
+      res.on('data', (d) => (b += d));
+      res.on('end', () => resolve(b));
+    });
+    r.on('timeout', () => r.destroy(new Error('CDP 端口无响应')));
+    r.on('error', reject);
+    r.end();
+  });
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 保证「有且只有一个带 token 的后台首页标签」。
+ *
+ * 为什么在调 skill 之前要先动标签页：`wechat-article.ts` 挑可复用标签时只认 URL 里有没有
+ * `mp.weixin.qq.com`，而排在前面的候选可能是①上一次失败留下的编辑器标签、②正在做登录跳转、
+ * URL 还没带上 `token=` 的首页。选中这两种它都会误判成「已登录」，然后在 40 秒后报
+ * `Home page menu did not load`（2026-10-17 连踩两次）。首页拿 token 有时要一分多钟，这里给 90 秒。
+ *
+ * @param {number} port
+ * @returns {Promise<boolean>} 真的有一个带 token 的首页标签
+ */
+async function ensureLoggedInHome(port) {
+  const pages = async () =>
+    JSON.parse(await cdpHttp(port, '/json/list'))
+      .filter((t) => t.type === 'page' && t.url.includes('mp.weixin.qq.com'));
+  const isHome = (t) => t.url.includes('/cgi-bin/home');
+  const close = async (t) => {
+    try {
+      await cdpHttp(port, `/json/close/${t.id}`);
+    } catch {
+      /* 关不掉就算了，下面按端口重查一次 */
+    }
+  };
+  let home = (await pages()).find((t) => isHome(t) && t.url.includes('token='));
+  if (!home) {
+    for (const t of await pages()) if (!(isHome(t) && t.url.includes('token='))) await close(t);
+    await cdpHttp(
+      port,
+      `/json/new?${encodeURIComponent('https://mp.weixin.qq.com/cgi-bin/home?t=home/index&lang=zh_CN')}`,
+      'PUT',
+    );
+    for (let i = 0; i < 60 && !home; i++) {
+      await sleep(1500);
+      home = (await pages()).find((t) => isHome(t) && t.url.includes('token='));
+    }
+    if (!home) return false;
+  }
+  for (const t of await pages()) if (t.id !== home.id) await close(t);
+  return true;
 }
 
 /* ------------------------------------------------------------------ *
@@ -552,6 +644,15 @@ if (digest) cmd.push('--summary', digest);
 if (author) cmd.push('--author', author);
 if (flag('keep-links')) cmd.push('--no-cite');
 
+// 浏览器那条要的命令（wechat-article.ts 只吃具名参数，没有 --cover/--source-url：
+// 封面由正文第一张图顶上，「阅读原文」这个字段它压根没有）。
+const browserCmd = [...bunCmd(), articleScript, '--markdown', stagedMd, '--theme', theme];
+if (digest) browserCmd.push('--summary', digest);
+const byName = author || extendVal('default_author');
+if (byName) browserCmd.push('--author', byName);
+if (flag('keep-links')) browserCmd.push('--no-cite');
+const plannedCmd = publishMethod() === 'browser' ? browserCmd : cmd;
+
 log(`文章   ${path.relative(ROOT, postFile)}`);
 log(`标题   ${title}`);
 log(`摘要   ${[...digest].length ? `${[...digest].length} 字` : '（交给 skill 自动生成）'}`);
@@ -563,10 +664,20 @@ log(`暂存   ${path.relative(ROOT, stagedMd)}`);
 
 if (dryRun) {
   log('--dry-run：到此为止，没有联网、没有建草稿');
-  log(`下一步真跑就是这条：${shq(cmd)}`);
+  log(`下一步真跑就是这条（方式 ${publishMethod()}）：${shq(plannedCmd)}`);
   console.log(
     JSON.stringify(
-      { ok: true, dryRun: true, seg: link.seg, stagedMd, coverJpg, permalink: link.url, digest, command: shq(cmd) },
+      {
+        ok: true,
+        dryRun: true,
+        seg: link.seg,
+        method: publishMethod(),
+        stagedMd,
+        coverJpg,
+        permalink: link.url,
+        digest,
+        command: shq(plannedCmd),
+      },
       null,
       2,
     ),
@@ -574,7 +685,70 @@ if (dryRun) {
   process.exit(0);
 }
 
-// 走到这里就是「要真跑」。前置未齐时不碰网络、不试 browser 兜底，
+// 浏览器方式：从已登录的后台标签把草稿存进草稿箱。
+// 2026-10-17 从 api 切过来，理由是本机公网出口 IP 在一个池子里轮换（同一晚 14.153.1.0 → 116.30.0.5），
+// api 那条每次都要人先去后台加一枚 IP、下一跑又换，`errcode 40164` 已经是常态失败。
+// 代价：这条链路没有 `--source-url`，草稿里不带「阅读原文」；发布仍然只到草稿箱，由本人点。
+if (publishMethod() === 'browser') {
+  if (!fs.existsSync(articleScript)) die(`浏览器方式要用 skill 的 wechat-article.ts，没找到：${articleScript}`);
+
+  // 这两条是标签页时序造成的假失败，整备一次再试一次；第三次不试（照 §8.4 的红线）。
+  const transient = /Home page menu did not load|New tab not found|Editor did not load/;
+  let outText = '';
+  let res = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const port = findCdpPort();
+    if (port) {
+      log(`复用 Chrome 调试端口 ${port}：先把后台首页标签整干净`);
+      if (!(await ensureLoggedInHome(port))) {
+        die('没拿到带 token 的公众号后台首页：登录态失效。需要人工在 Chrome 里扫码登录 mp.weixin.qq.com 后重跑（暂存件已在 .wechat-sync/ 里）');
+      }
+    } else {
+      log('没有运行中的 Chrome，交给 skill 起一个（首次会要扫码登录）');
+    }
+    log(`第 ${attempt} 次执行：wechat-article.ts --submit（只进草稿箱，不发表）`);
+    res = spawnSync(browserCmd[0], browserCmd.slice(1), {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 20 * 60 * 1000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    outText = redact(`${res.stdout || ''}\n${res.stderr || ''}`);
+    console.log(outText.split('\n').filter(Boolean).slice(-14).join('\n'));
+    if (res.status === 0) break;
+    if (attempt < 2 && transient.test(outText)) {
+      warn('像是标签页时序问题，整备后再来一次');
+      continue;
+    }
+    break;
+  }
+
+  if (res.error) console.error(`[wechat-draft] ✗ 子进程没跑起来：${res.error.message}`);
+  if (res.status !== 0) {
+    console.error(`[wechat-draft] ✗ 浏览器建草稿失败（exit ${res.status}）。常见三种：`);
+    if (/Login timeout|Not logged in/.test(outText))
+      console.error('  · 登录态没了：人工在 Chrome 里扫码登录 mp.weixin.qq.com，再重跑同一条命令');
+    if (/Home page menu did not load/.test(outText))
+      console.error('  · 首页菜单没加载：先确认后台首页标签开着（URL 带 token=），再重跑');
+    if (/New tab not found/.test(outText))
+      console.error('  · 点「文章」没开新标签：多半是首页还在跳转，等十秒重跑');
+    process.exit(res.status ?? 1);
+  }
+  const appmsgid = /appmsgid: (\d+)/.exec(outText)?.[1];
+  state[link.seg] = {
+    hash,
+    title,
+    mediaId: appmsgid,
+    method: 'browser',
+    syncedAt: new Date().toISOString().slice(0, 19),
+  };
+  saveState(state);
+  log(`✓ 草稿已进箱${appmsgid ? `（appmsgid ${appmsgid}）` : ''}。发布请在 mp.weixin.qq.com「内容管理 → 草稿箱」里点。`);
+  log('浏览器方式不带「阅读原文」；要那条链接就把 EXTEND.md 的 default_publish_method 改回 api，并补上当前出口 IP 白名单。');
+  process.exit(0);
+}
+
+// 走到这里就是 api / remote-api 那条「要真跑」。前置未齐时不碰网络，
 // 只把缺什么和配好后该跑哪条说清楚，用 3 号退出码与真失败（1）区分开。
 const missingCfg = missingPrereqs();
 if (missingCfg.length) {

@@ -181,7 +181,10 @@
                 margin-top: 3px;
                 font-size: 18px;
                 font-weight: normal;
-                color: $color-brand;
+                // 18px 常规字重够不到 WCAG 的「大字号」豁免（要 ≥24px，或 ≥18.66px 且加粗），
+                // 所以这一格吃 4.5:1 那条线。$color-brand 现在指 --ink-4，实测四档纸面上
+                // 只有 3.57–3.81:1，全部够不到；提到 --ink-3 是 4.81–6.50:1，四档都过。
+                color: $color-f-dark;
                 line-height: 26px;
             }
 

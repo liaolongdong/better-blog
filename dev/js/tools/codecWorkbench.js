@@ -852,14 +852,19 @@ export function createCodecWorkbench(env = {}) {
       : (!found.matched ? 'nomatch' : (found.hitLimit ? 'capped' : 'matched'));
     const repl = valueOf('regex', 'repl');
     let replaced = '';
+    // 预览这一路的拒收原因（替换串超长、最坏情况估过线）只有 `previewReplace` 判得到，`found`
+    // 那一本账里没有。不接出来，页面上就是"替换框空着且一个字没说"——读者只能猜是替换没生效。
+    let replRefused = '';
     if (found.executed && repl !== null) {
       const p = previewReplace(pattern, rawFlags, text, repl, opts);
       if (p.executed) replaced = p.out;
+      else if (p.reason) replRefused = p.reason;
     }
     return {
       model: {
         verdict,
-        reason: found.reason,
+        // `|| null` 是原样保住旧形状：没有话可说时这一格是 `null`，不是空串。
+        reason: [found.reason, replRefused].filter(Boolean).join('；') || null,
         input: text,
         capped: found.capped,
         findings: found.findings,

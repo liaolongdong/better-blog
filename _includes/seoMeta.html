@@ -91,12 +91,17 @@ Google 早已忽略这个 meta，但百度与 360 仍读（robots.txt 与四个�
 {%- comment -%}
 canonical：站点是 GitHub Pages 项目页（baseurl=/better-blog），absolute_url 会带上
 site.url + baseurl，得到唯一正确的规范地址。缺了它，?from=feed、分页、锚点变体都会
-被当成独立页面抓，权重分散。noindex 只在 404 这类页面打开。
+被当成独立页面抓，权重分散。
+
+写 noindex 的页面**不发 canonical**。canonical 的语义是"这页内容住在这个地址"，抓取器读到
+它就把权重汇聚过来；noindex 的语义正好相反。两行一起发是当着抓取器的面互相拆台——实测
+404.html 的产物里这两行紧邻，canonical 指向的就是那个坏页自己，等于把它推荐成规范地址。
+所以这一版把 canonical 挪进 else 分支：noindex 页只留 robots 那一行，其余页照常两条。
 {%- endcomment -%}
-<link rel="canonical" href="{{ page.url | absolute_url }}">
 {%- if page.noindex %}
 <meta name="robots" content="noindex, follow">
 {% else %}
+<link rel="canonical" href="{{ page.url | absolute_url }}">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 {%- endif -%}
 <!-- 图片加载出现403错误（该设置会禁用掉百度统计功能） -->

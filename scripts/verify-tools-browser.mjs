@@ -2698,6 +2698,12 @@ GROUP = '11) §7 字节 11a–11c';
  * 最坏读数因此是 JSON 55,474B、对比 32,332B——**升档是那条算式自己算出来的结果，不是把线改低**：
  * 55,474 ÷ 0.95 = 58,394 → 59,392；32,332 ÷ 0.95 = 34,034 → 34,816。推导与读数记在 SP2 spec §6。
  *
+ * 对比首屏那一档在 2026-10-16 同样按算式升了一次（18,432 → 19,456）：`_site/tools/diff.html` 从
+ * L9 12,576B 涨到 12,960B（+384B gzip，逐件对旧读数现量；`toolkit.min.css` 2,306B 与
+ * `toolDiff.min.css` 2,185B 没动），最坏读数因此是 17,134 → 17,518B。17,518 ÷ 0.95 = 18,440
+ * → 取 1024 倍 = **19,456B**，对最坏读数余 1,938B = 10.0%——**旧的 18,432B 已被这条算式判红**
+ * （18,432 < 18,440），改的是档不是线：11c 那条「档 ≥ 最坏 ÷ 0.95」一个字没动。
+ *
  * 对比页的「首屏」件集跟着 **JSON 那一行**的形状走（`toolkit.min.css` + 页面自己的 `toolDiff.min.css`
  * + 页 HTML），不跟证件/编码那两行的旧形状走：那两行没算页面 CSS，是因为它们**没有**页面级 CSS
  * （`toolIdcard.min.css` / `toolCodec.min.css` 不在它们的 JS+CSS 行里，页内样式全在 toolkit 那份里）。
@@ -2711,7 +2717,7 @@ const ROWS = [
   { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 59392, fresh: true },
   { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 17408, fresh: true },
   { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 34816, fresh: true },
-  { row: '对比页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolDiff.min.css', 'tools/diff.html'], budget: 18432, fresh: true },
+  { row: '对比页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolDiff.min.css', 'tools/diff.html'], budget: 19456, fresh: true },
 ];
 /** §7 表里 JSON 那一行设计期拍的 120KB：它只服务一件事——判要不要触发"YAML 降到仅序列化"那一档 */
 const DESIGN_YAML_CAP = 122880;

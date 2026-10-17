@@ -47,7 +47,7 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   "headline": {{ page.title | jsonify }},
   "description": {{ page_desc | jsonify }},
   "inLanguage": "zh-CN",
-  "image": "{{ og_image }}",
+  "image": {{ og_image | jsonify }},
   "datePublished": "{{ page.date | date_to_xmlschema }}",
 {%- if page_modified %}
   "dateModified": "{{ page_modified | date_to_xmlschema }}",

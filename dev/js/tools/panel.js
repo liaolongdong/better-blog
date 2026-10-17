@@ -141,7 +141,14 @@ export function createPanelWorkspace({
       const step = MOVE[action];
       if (!step) return { active, changed: false };
       const i = ids.indexOf(active);
-      return settle(ids[step(i, ids.length)]);
+      const next = ids[step(i, ids.length)];
+      // 空操作不置 `touched`（与 `select` 的口径**故意不同**，那条见上面第 126-134 行）：
+      // 只有一块面板的工作区里按方向键、或在第一块按 `Home`，状态机一次都没换面板。
+      // `panel-dom.js` 的 `onKey` 靠 `changed` 挡住了当场那一次 `sync()`，可它挡不住**之后**
+      // 任何一次 `sync()`——装配层每跑完一块面板（`run()`）都会 `sync()`，那时 `paintHash()`
+      // 就把谁也没选过的 `#第一块` 写进地址栏。`select` 那边不能这样省，因为点击是真动作。
+      if (next === active) return { active, changed: false };
+      return settle(next);
     },
     applyHash(raw) {
       const parsed = parseHash(raw, ids);

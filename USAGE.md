@@ -703,9 +703,12 @@ PY
 #     它同时补上前面的两处空：title 与 front matter 是否同源、SERP 列数区间——第 9 条的 glob
 #     只走文章与首页，/tools/ 那一族此前没人核。
 #     它读的是仓库根的 `_site/`（不是本文件的 /tmp/seo-check），所以顺序照旧：先 build、再跑它。
-#     加它之前先量过牙齿：36 组变异逐组注入，必须按预期的那一组变红（21 组证件页 + 15 组
-#     编码页，台账分别在段 2 计划 Task 9 与段 3 计划 Task 7；跑法是
-#     `node scripts/check-tools-surface-teeth.mjs`，它自己会先自证基线绿、末尾再验还原）。
+#     加它之前先量过牙齿：变异逐组注入，每一组必须红在它预期的那一组，读数就是台账末尾
+#     那行 `牙齿台账：79/79 组变异如期变红`（2026-10-16 本机一份 _site 的分布：DOM 29 /
+#     收录 18 / 页面源 8 / 图标 8 / 导航 7 / 地址栏名单 5 / 导航-全站 3 / 收录-反向 1。
+#     这里曾写 36 组 = 21 证件页 + 15 编码页，那是段 2 计划 Task 9 与段 3 计划 Task 7 时的
+#     存量，此后不断加刀没人回来改这一行——数字以那行台账现读为准，别把上面这份分布当判据）。
+#     跑法是 `node scripts/check-tools-surface-teeth.mjs`，它自己会先自证基线绿、末尾再验还原。
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-tools-surface.mjs
 ```
 

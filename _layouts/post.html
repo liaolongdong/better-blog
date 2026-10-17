@@ -470,7 +470,7 @@
       // 整个 socialShare 调用随之语法错误（3 篇带引号的标题实测如此）。
       title: {{ page.title | jsonify }}, // 分享标题 默认读取 document.title 或者 <meta name="title" content="页面标题" />
       description: {{ page.subtitle | jsonify }}, // 分享描述 默认读取head标签：<meta name="description" content="页面描述" />
-      image: window.location.origin + '{{ shareCover }}', // 分享缩略图图片, 默认取网页中第一个img标签
+      image: window.location.origin + {{ shareCover | default: "" | jsonify }}, // 分享缩略图图片, 默认取网页中第一个img标签
       sites: [
         {% for i in site.social-share-items %}
           '{{ i }}'

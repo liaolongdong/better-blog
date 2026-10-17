@@ -48,18 +48,19 @@
  *                CRLF 与末行换行、行内 token 与预算、配对与五个统计量、unified 与折叠（段 5 Task 2）
  *   §Y JSON 感知比对 18 —— `diff-json.js`：与 `json-core` 的**对拍**（Y1，三件同结论）、键顺序无关、
  *                类型变化单列、Pointer 同规则、预览截断不切代理对、数组按索引、两个预算闸门（段 5 Task 3）
- *   §Z 对比页视图层与装配层 29 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
+ *   §Z 对比页视图层与装配层 31 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
  *                行内高亮各半边 Z5，CRLF 符号与折叠条同源 Z6、Z7，转义与属性位 Z8、Z9，JSON 表六列与
- *                代价说明同屏 Z10，坏输入一句话 Z11，读数与结论的词表 Z12）；后半 Task 5 续写的 16 判
+ *                代价说明同屏 Z10，坏输入一句话 Z11，读数与结论的词表 Z12）；后半续写的 19 判
  *                钉 `diffWorkbench.js` / `toolDiff.js`：import 面与 reach 唯一（Z13）、装配层零环境词
  *                与那一处 `innerHTML`（Z14）、入口那八件各恰好一处（Z15）、id 只由 spec 派生（Z16）、
  *                三栏 nodes 与十四枚动作的名单（Z17）、挂载期零计算（Z18）、复制与下载同字（Z19）、
  *                两档布局共一份行流（Z20）、折叠四档单一口径（Z21）、跳转与钳位（Z22）、
  *                交换/恢复默认/清空（Z23）、归一化只进判等（Z24）、JSON 档整屏（Z25）、
  *                两类失败分两条路（Z26）、文件读手的拒读时机（Z27）、换前缀整页自证（Z28）；
- *                Task 6 补 Z29（折叠条那枚按钮真的能点开，且点开的就是「全部展开」）。
+ *                Task 6 补 Z29（折叠条那枚按钮真的能点开，且点开的就是「全部展开」）；
+ *                2026-10-17 存量评审补 Z30、Z31（深链档位进站就落定、文件那一路的第二类失败记进边界账本）。
  *                **节名不另起，先例是 §U**——另起一节会让下面那张表少算一格
- *   合计 439。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   合计 441。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -2562,6 +2563,18 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(bare.toHash(), '', '没有用户动作就不该往地址栏写东西');
   bare.select('uscc');
   assert.equal(bare.toHash(), '#uscc', '点过之后才开始写 hash');
+  // 空操作的 `move` **不**置 `touched`，与上面 `select` 那条口径故意不同：那一格说的是"点击是真动作，
+  // 没换也算动手"。这一格说的是另一件事——只有一块面板的工作区里按方向键，状态机一次面板都没换，
+  // 而装配层每跑完一块面板（`run()` → `sync()` → `paintHash()`）都会补写一次地址栏；`touched`
+  // 若被那一发置真，写进去的就是谁也没选过的 `#第一块`。
+  const solo = createPanelWorkspace({ ids: ['idcard'] });
+  assert.equal(solo.toHash(), '', '一块面板的工作区开局不写 hash');
+  assert.deepEqual(solo.move('next'), { active: 'idcard', changed: false }, '一块面板时方向键是空操作');
+  assert.equal(solo.toHash(), '', '空操作之后仍不写 hash：那一发没换面板，凭什么往地址栏加一段');
+  assert.deepEqual(solo.move('last'), { active: 'idcard', changed: false }, 'Home / End 那一形同理');
+  assert.equal(solo.toHash(), '', '两次空操作累计也不写');
+  assert.equal(solo.select('idcard'), true, '而点击仍然是真动作（上面那条口径不因这一格作废）');
+  assert.equal(solo.toHash(), '#idcard', '点击之后才开始写：这一格与上面三格是同一件事的两面');
   // 构造期的 `hash` 闸门：非串是装配层写错，抛 `TypeError` 点名 options.hash。
   // 与上面第 8 格（`parseHash(null, ids)` 安静返回"没有 hash"）**口径故意不同**：
   // `parseHash` 是纯工具、也会被 `applyHash` 拿去吃实时 `location.hash`，那里抛等于把
@@ -7257,6 +7270,12 @@ test('M18 跨块大输入与闸门边界同档：1 MiB 的 MD5 与 Node 逐字�
 // 起草时把 `(-|--)\s*$` 当作 F2 样本，实测 28 字符 0.0ms：组上没有量词就没有放大，样本已换成 `(-|--)+`
 // （24→4.0ms、28→40.1ms，斐波那契档）。`(\d{1,3}|\d)+` 起草时列在"不得误判"，实测 16 字符 823ms、
 // 20 字符 4319ms，已移进 N11 的真阳性族。
+// 平铺族是后来补的一刀：`(a|b|ab)*c` 24 字符 >2.5s（`ab` 整支与 `a`+`b` 两种切法），而同一形状的
+// 有限外层 `(a|b|ab){5}c` 各档 ≤7ms——所以它按 F2 的老口径走"无界 high / 有限 medium"。
+// medium 的帽也按这一族分开：F3 的相邻同源在顶层是多项式（`a*a*a*a*a` 128 字符 9ms），
+// F4 与平铺 F2 是组合爆炸（`(a+){5}b` 32 字符 76ms、48 字符 1.8s；`(a+){10}b` 24 字符 1.6s；
+// 组体内的同源 `(x+x+)+y` 24 字符 1.4s，这一条改判 high）。指数档的帽取 16：长度 16 的切分方案
+// 最多 2^15 档，实测每一档都在 21ms 以内。
 const { REGEX_CAVEAT, ALLOWED_FLAGS, MAX_PATTERN_CHARS, MAX_INPUT_BYTES: RE_INPUT_BYTES, MAX_MATCHES,
   MEDIUM_MAX_INPUT_CHARS, TIME_BUDGET_MS, byteLen: nByteLen, normalizeFlags, compile, riskScan,
   findMatches, previewReplace } = await import('../dev/js/tools/regex.js');
@@ -7484,29 +7503,36 @@ test('N11 静态检测 F1：组外无界重复 + 组内没有钉死边界的定�
   assert.equal(riskScan('a(b(c+)+d)e').level, 'high', '嵌套三层里的 F1 也要抓到');
   assert.equal(riskScan('(a+)').level, 'none', '组外没有量词就没有放大');
 });
-test('N12 静态检测 F2：分支互为整数倍重复 + 组外无界，报 high；同长不重叠不报', () => {
+test('N12 静态检测 F2：分支互为整数倍重复 / 分支能互相平铺 + 组外无界，报 high；同长不重叠不报', () => {
   const high = ['(a|a)*', '(a|aa)+', '(aa|aaaa)*', '(ab|abab)+', '(x|xx|xxx)*', '(-|--)+',
-    '(\\d|\\d\\d)+', '(?:a|aa){3}'];
-  assert.equal(high.length, 8, 'F2 族同样要有条数：这一族的阈值实测在 24–64 字符之间，缺一条就没人守');
+    '(\\d|\\d\\d)+', '(?:a|aa){3}', '(a|b|ab)+', '(a|b|ab)*c', '(foo|bar|foobar)+', '(I|am|Iam)+'];
+  assert.equal(high.length, 12, 'F2 族同样要有条数：这一族的阈值实测在 24–64 字符之间，缺一条就没人守');
   for (const src of high) {
     const r = riskScan(src);
     assert.equal(r.findings.some((f) => f.rule === 'F2'), true,
-      `${src} 的分支互为整数倍，应点名 F2：${JSON.stringify(r.findings)}`);
+      `${src} 的分支互为整数倍或能互相平铺，应点名 F2：${JSON.stringify(r.findings)}`);
+  }
+  // 后四条是**平铺族**：三支的重复单元互不相同，`sameUnit` 那把尺子量不到，靠 `tilesBranches` 补。
+  // 实测 `(a|b|ab)*c` 24 字符 >2.5s（`ab` 既能整支命中又能拆成 `a`+`b`，同一段文本两种切法）。
+  for (const src of ['(a|b|ab)+', '(a|b|ab)*c', '(foo|bar|foobar)+', '(I|am|Iam)+']) {
+    assert.equal(riskScan(src).level, 'high', `${src} 组外无界，平铺族也要抬到 high 而不只是点名`);
   }
   assert.equal(riskScan('(?:a|aa){3}').level, 'medium', '组外是有限重复 → medium 而非 high');
+  assert.equal(riskScan('(a|b|ab){5}c').level, 'medium', '平铺族的外层有限重复同样只到 medium');
+  assert.equal(riskScan('(a|b|ab){5}c').maxInputChars, 16, '平铺族是组合爆炸，走 16 那一档不是 128');
   const safe = ['(a|b)*', '(ab|abc)+', '(test|testing)+', '(\\w|\\d)+', '([a-z]|[0-9])+', '(a|ab)*',
-    '(x|xx)', '(a|aa)'];
+    '(x|xx)', '(a|aa)', '(in|on|upon)+', '((a)(b))+', '(a|an|the)+'];
   for (const src of safe) {
     const r = riskScan(src);
     assert.equal(r.findings.some((f) => f.rule === 'F2'), false,
-      `${src} 的分支不构成整数倍包含或组外无重复，不该报 F2：${JSON.stringify(r.findings)}`);
+      `${src} 的分支既不构成整数倍包含、也拆不平铺（或组外无重复），不该报 F2：${JSON.stringify(r.findings)}`);
   }
   assert.equal(riskScan('(a|a)').level, 'none', '形状本身不犯忌，组外的无界重复才是');
 });
 test('N13 静态检测不许误杀：类里的括号、转义、被定宽元素钉住的组尾、单一无界量词', () => {
   const none = ['[(]', '[)]', '([)]+)', '[(a+)+]', '(?:[([]{2,})', 'a+b+', '(a+)b', '(a+)?',
     '(a+){1}', '(a{3})+', '(\\d{1,3},)*', '(\\d+,)+\\d+', '([a-z]+\\s)+', '(a\\s*)+', '^[a-z]+$',
-    'x?', '(a|b|ab)+', '[\\]]+\\(', '\\(a\\+\\)\\+', '(?:\\d{1,3}\\.){4}', '([a-z]+)([0-9]+)',
+    'x?', '[\\]]+\\(', '\\(a\\+\\)\\+', '(?:\\d{1,3}\\.){4}', '([a-z]+)([0-9]+)',
     '((a)(b))+', 'a{100,}', '(x+a+)+', '([a-z]+[0-9]+)+', 'a*a?b', '(?<name>[a-z]+)', '[]a[]',
     '[^]]*', '(a)', '\\d{4}-\\d{4}', '(?:[\\d.]+)', '^[\\w.-]+@[\\w.-]+\\.[a-z]{2,}$',
     '(?:[ab]+c)+', '(a|b)*[^a-z]*'];
@@ -7515,16 +7541,24 @@ test('N13 静态检测不许误杀：类里的括号、转义、被定宽元素�
     assert.equal(r.level, 'none', `${src} 不该被判风险，实际 ${r.level} ${JSON.stringify(r.findings)}`);
     assert.equal(r.parsed, true, `${src} 分词器要能走完，走不完等于检测器自己哑了`);
   }
-  assert.equal(none.length, 35, '假阳性红线要有条数：漏一条等于那一档形状没人守');
-  assert.equal(riskScan('([)]+)').level, 'none', '类里的 ) 不算闭组：这条是 35 个样本里最容易失守的一处');
+  assert.equal(none.length, 34, '假阳性红线要有条数：漏一条等于那一档形状没人守');
+  assert.equal(riskScan('([)]+)').level, 'none', '类里的 ) 不算闭组：这条是 34 个样本里最容易失守的一处');
   assert.equal(riskScan('(?:[([]{2,})+').level, 'high', '形似样本的另一半：类里两个字符 + {2,} + 组外 + 是真阳性');
   const med = ['a*a*a*a*a', '.*.*.*', '(a+){3}', '(a+){4}', '\\w*\\w*', '[a-z]*[a-z]*', 'a+a+'];
   for (const src of med) assert.equal(riskScan(src).level, 'medium', `${src} 应是 medium`);
   assert.equal(riskScan('a*a*a*a*a').findings[0].rule, 'F3', '串联同源的无界量词点 F3');
+  // medium 的输入帽分两档：相邻同源（F3）在**顶层**只是多项式，128 那一档；
+  // 一旦它待在被重复的组体里就被翻着来，实测 `(x+x+)+y` 24 字符 1.4s，所以抬成 high 而不是给帽。
+  assert.equal(riskScan('a*a*a*a*a').maxInputChars, 128, 'F3 在顶层走 128 那一档');
+  assert.equal(riskScan('(x+x+)+y').level, 'high', '同源相邻无界量词进了被重复的组体就是组合爆炸');
+  assert.equal(riskScan('(x+x+){5}y').level, 'high', '外层有限但组体仍被翻着来：{5} 也抬到 high');
+  assert.equal(riskScan('(a+){5}b').maxInputChars, 16, 'F4 是指数档，帽是 16 不是 128');
   assert.equal(riskScan('(?').level, 'none', '非法语法交给 compile 报原话，静态检测不越权报错');
   assert.equal(riskScan('[a').parsed, false, '走不完就标 parsed:false，不许把半成品当"没风险"');
+  assert.equal(riskScan('(a|b)').maxInputChars, null, 'none 这一档不设帽：没有可疑形状就没有输入上限');
+  assert.equal(riskScan('(a+)+').maxInputChars, null, 'high 也不设帽：根本不执行，谈上限没有意义');
 });
-test('N14 high 根本不进引擎；medium 把输入压到 128 字符，越线拒', () => {
+test('N14 high 根本不进引擎；medium 按规则压输入，多项式 128、组合爆炸 16，越线拒', () => {
   const r = findMatches('(a+)+$', '', 'a'.repeat(30));
   assert.equal(r.ok, false); assert.equal(r.level, 'high');
   assert.equal(r.executed, false, '这一格的牙齿就是"引擎一次都没被调用"');
@@ -7548,6 +7582,19 @@ test('N14 high 根本不进引擎；medium 把输入压到 128 字符，越线�
   assert.equal(previewReplace('(a|aa)*', 'g', 'a'.repeat(30), 'x').executed, false,
     '替换预览走同一道静态闸门');
   assert.equal(previewReplace('a*a*a*a*a', '', 'a'.repeat(MEDIUM_MAX_INPUT_CHARS + 1), 'x').ok, false);
+  // 16 那一档（F2 平铺族 / F4 指数族）单独钉一头：给它 128 的帽就是给它一把挂死的钥匙。
+  // 实测 `(a+){5}b` 32 字符 76ms、48 字符 1.8s；`(a+){10}b` 24 字符 1.6s；`(a|b|ab){5}c` 各档都 ≤7ms
+  // 但同形状的无界版 `(a|b|ab)*c` 24 字符 >2.5s——有限与无界只差一档，帽却差一个量级。
+  const amp = findMatches('(a+){5}b', '', 'a'.repeat(16));
+  assert.equal(amp.level, 'medium'); assert.equal(amp.executed, true, '正好 16 放行');
+  assert.match(amp.reason, /不超过 16 字符/);
+  const ampLong = findMatches('(a+){5}b', '', 'a'.repeat(17));
+  assert.equal(ampLong.ok, false); assert.equal(ampLong.executed, false);
+  assert.match(ampLong.reason, /17 字符/, '拒的时候要报实测字符数');
+  assert.match(ampLong.reason, /16/, '句子要给帽');
+  const tiled = findMatches('(a|b|ab){5}c', '', 'ab'.repeat(9));
+  assert.equal(tiled.ok, false, '平铺族的 18 字符输入走 16 那一档，拦下');
+  assert.equal(riskScan('(a|b|ab)*c').level, 'high', '同一形状把外层换成 * 就根本不进引擎');
 });
 test('N15 替换预览与 native 逐字节一致，$ 的四种写法各有硬账', () => {
   const cases = [['(a+)(b+)', 'g', 'xx aabb yy', '[$1|$2<$1>$$&$`$\'|$0]'],
@@ -7574,6 +7621,20 @@ test('N15 替换预览与 native 逐字节一致，$ 的四种写法各有硬账
   assert.equal(previewReplace('(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)', 'g', 'abcdefghijk', '$11').out, 'k',
     '$11 在 11 个组时是第 11 组，不是 $1 后接字符 1');
   assert.equal(previewReplace('a', 'g', 'abc', 123).out, '123bc', '替换串走文本档归一，不抛');
+  // 产物大小 native 不管：`/g` 的命中格数不受 `MAX_MATCHES` 那一档约束（那是列表的上限，不是引擎的），
+  // 所以这一格按最坏情况先估一次再拒——估不出来就不许进 replace。
+  const fatRepl = previewReplace('a', 'g', 'aaa', 'x'.repeat(4097));
+  assert.equal(fatRepl.ok, false); assert.equal(fatRepl.executed, false);
+  assert.equal(fatRepl.out, '', '替换串越线不给半截产物');
+  assert.match(fatRepl.reason, /4097/); assert.match(fatRepl.reason, /4096/);
+  const sliceBomb = previewReplace('a', 'g', 'a'.repeat(1048576), 'x$`');
+  assert.equal(sliceBomb.ok, false,
+    '一 MiB 输入 + 全局 + $` 切片：每格最多多抄一遍输入，最坏估到 10^12 字符，这一档必须拒');
+  assert.match(sliceBomb.reason, /最坏情况/);
+  assert.equal(sliceBomb.chars, 1048576, '拒的时候照样回显输入长度，别让用户猜是哪一格太大');
+  const sliceOk = previewReplace('(a)', 'g', 'a'.repeat(1000), '[$`$\'|x]');
+  assert.equal(sliceOk.ok, true, '同样带 $`，但输入只有 1000 字符，估算 10^6 档，放行');
+  assert.equal(sliceOk.out, 'a'.repeat(1000).replace(/(a)/g, '[$`$\'|x]'), '放行就照 native 原样给');
 });
 test('N16 两档入参：文本档归一不抛，options 档走 TypeError 并报出形状', () => {
   for (const v of [null, undefined, 123, true, ['a'], { toString: () => 'x' }, new Date(0)]) {
@@ -7629,6 +7690,8 @@ test('N18 CAVEAT 里承诺的每一个数都得是导出的那个常数', async 
     [/500 字符/, () => MAX_PATTERN_CHARS === 500],
     [/前 1000 个/, () => MAX_MATCHES === 1000],
     [/128 字符/, () => MEDIUM_MAX_INPUT_CHARS === 128],
+    [/16 字符/, () => riskScan('(a+){5}b').maxInputChars === 16
+      && findMatches('(a+){5}b', '', 'a'.repeat(17)).executed === false],
     [/g i m s u y d/, () => ALLOWED_FLAGS === 'gimsuyd'],
     [/疑似灾难性回溯/, () => riskScan('(a+)+').level === 'high'],
     [/一次都不执行/, () => findMatches('(a+)+', '', 'aaa').executed === false],
@@ -7637,7 +7700,7 @@ test('N18 CAVEAT 里承诺的每一个数都得是导出的那个常数', async 
     assert.equal(claim.test(REGEX_CAVEAT), holds(),
       `文案与实现分叉：${claim}（文案里有=${claim.test(REGEX_CAVEAT)}，实现做得到=${holds}）`);
   }
-  assert.equal(rows.length, 8, '对账表自己要有条数：漏一行等于那一档的承诺没人核');
+  assert.equal(rows.length, 9, '对账表自己要有条数：漏一行等于那一档的承诺没人核');
   assert.ok(REGEX_CAVEAT.length > 80 && REGEX_CAVEAT.length <= 260,
     `口径句长度不在档内（实际 ${REGEX_CAVEAT.length} 字）：${REGEX_CAVEAT}`);
   const { BASE64_CAVEAT, URL_CAVEAT } = await import('../dev/js/tools/codec.js');
@@ -7848,6 +7911,8 @@ test('O6 legacyCopy 成功：readonly 框挂 body → select → execCommand("co
   assert.equal(page.selLog[0].value, '110101199003070018', '复制的必须是传进去的那份文本');
   assert.equal(page.selLog[0].getAttribute('readonly'), 'readonly',
     '不写 readonly，select() 就把用户的页面变成一次真编辑（光标跳走、原有选区丢掉）');
+  assert.equal(/position:\s*fixed/.test(String(page.selLog[0].getAttribute('style') || '')), true,
+    '临时框要钉在屏外：它是挂在 body 末尾、又被 select() 选中的那一条，不设位置就是页尾闪出一个真输入框、视口跟着往下跳');
   assert.equal(oBoxes(page).length, 1);
   assert.equal(page.doc.body.childNodes.length, 0, '用完必须从 body 上摘掉：留在页里就是一个能被 Tab 走到的隐形输入框');
 });
@@ -9179,6 +9244,33 @@ test('R12 正则栏：六档结论、静态形状拦在引擎之前、上限格�
   const noRepl = rMount({ seed: { 'regex:pattern': 'a', 'regex:text': 'aaa' } });
   noRepl.page.click('regex', 'main');
   assert.equal(noRepl.page.html('regex', 'main').includes('替换预览'), false, '替换格空着不是"全删掉"');
+
+  // 替换预览那两道闸门（替换串超长、最坏情况估过线）只有 `previewReplace` 判得到，`findMatches`
+  // 那一本账里没有。原因必须上屏——否则页面上是"预览框空着且一个字没说"，读者只能猜替换没生效。
+  // 文案取自模块，不在这节重抄（同上面 badPattern 那把尺子）。
+  const tooLongRepl = 'x'.repeat(4097);
+  const refused = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'g', 'regex:text': 'aaa', 'regex:repl': tooLongRepl } });
+  refused.page.click('regex', 'main');
+  const refusedHtml = refused.page.html('regex', 'main');
+  assert.equal(refusedHtml.includes(previewReplace('a', 'g', 'aaa', tooLongRepl).reason), true,
+    '替换串超长的拒收原因要进提示行');
+  assert.equal(refusedHtml.includes('替换预览'), false, '整体拒绝就不给半截产物');
+
+  // 估过线那一条是另一句话（`` $` `` 把前导切片整份抄进产物，长度按输入放大），同样不许哑
+  const exploding = 'a'.repeat(3000);
+  const blow = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'g', 'regex:text': exploding, 'regex:repl': '$`' } });
+  blow.page.click('regex', 'main');
+  assert.equal(blow.page.html('regex', 'main').includes(previewReplace('a', 'g', exploding, '$`').reason), true,
+    '最坏情况估过线的拒收原因同样要上屏');
+
+  // 两句共存：上限那句来自 `findMatches`，替换拒收那句来自 `previewReplace`。拼成一句时前者不许被顶掉——
+  // 顶掉了读者只看到次数到限，会以为替换照常做了。
+  const both = rMount({ seed: { 'regex:pattern': 'a', 'regex:flags': 'g', 'regex:text': 'a'.repeat(10), 'regex:limit': '3', 'regex:repl': tooLongRepl } });
+  both.page.click('regex', 'main');
+  const bothHtml = both.page.html('regex', 'main');
+  assert.equal(bothHtml.includes(findMatches('a', 'g', 'a'.repeat(10), { maxMatches: 3 }).reason), true,
+    '命中上限那句不许被替换那一句顶掉');
+  assert.equal(bothHtml.includes(previewReplace('a', 'g', 'a'.repeat(10), tooLongRepl, { maxMatches: 3 }).reason), true);
 
   // 次数上限：往下调才算得出"已到上限"，那一句话必须带上生效的那个数。
   // flags 必须给 'g'：不开全局，`a` 打 `aaaaaaaaaa` 永远只有 1 处，"已到上限"这一档根本长不出来。
@@ -14776,6 +14868,9 @@ const {
   fieldId: zField, buttonId: zButton, copyId: zCopy, outId: zOut, whenId: zWhen, statusId: zStatus,
 } = await import('../dev/js/tools/diffWorkbench.js');
 
+/** 档位 ↔ 地址栏那一本**真模块**（零 import、纯函数）：深链那一路给 `Tk.url` 用的就是它 */
+const Z_URL = await import('../dev/js/tools/url-state.js');
+
 const Z_PANEL = 'workbench';
 const Z_BAR = 'bar';
 const Z_ASSEMBLY = 'dev/js/tools/diffWorkbench.js';
@@ -14974,7 +15069,11 @@ function zPage({ prefix = Z_P, seed = {}, drop = [] } = {}) {
  * @param {object|null} [o.clipboard] 假剪贴板，`null` 代表没有这只手
  * @param {Function|null} [o.readFile] 读文件替身，`null` 代表不注入（选文件该置灰）
  * @param {Function|null} [o.decode] 解码替身，`null` 代表不注入
- * @returns {object} `{ page, wb, report, guarded, threw, timers, reads, copied, flush }`
+ * @param {string} [o.search] 进站地址栏（给了才挂 `location` / `history` / `Tk.url` 那三只——
+ *   深链那一路自此才有实现可走；不给就是"这台浏览器没有地址栏同步"，与今天逐字节一样）
+ * @param {Function} [o.readFileThrows] 让注入的 `readFile` 抛这一颗**非** `FieldError` 的错，
+ *   量"文件那一路的第二类失败"记不记进 `runGuarded` 的账（Z31）
+ * @returns {object} `{ page, wb, report, guarded, threw, timers, reads, copied, dl, urlWrites, flush }`
  */
 function zMount(o = {}) {
   const prefix = o.prefix || Z_P;
@@ -14984,11 +15083,19 @@ function zMount(o = {}) {
   const timers = [];
   const reads = [];
   const copied = [];
+  /** 地址栏那一只手的落点：`o.search` 给了才有意义（不给就不注入 `location`，整段同步关闭） */
+  const urlWrites = [];
   const dl = o.dl === undefined ? wDownload() : o.dl;
   const wb = zCreateWb({
     document: page.doc,
-    Tk: { view: W_VIEW, ui: J_UI },
+    // `url` 只在给了 `search` 的那一发挂：那一本是真的 `url-state.js`（零 import 的纯模块），
+    // 所以深链那一路量的是页面上同一条读法，不是夹具自己编的第二份解析。
+    Tk: { view: W_VIEW, ui: J_UI, ...(o.search === undefined ? {} : { url: Z_URL }) },
     prefix,
+    ...(o.search === undefined ? {} : {
+      location: { search: o.search, pathname: '/tools/diff.html', hash: '' },
+      history: { state: null, replaceState: (state, title, url) => { urlWrites.push(url); } },
+    }),
     runGuarded: (id, fn) => {
       guarded.push(id);
       try { fn(page.doc.getElementById(id)); return true; } catch (err) {
@@ -14999,12 +15106,12 @@ function zMount(o = {}) {
     navigator: { clipboard: o.clipboard === null ? undefined : (o.clipboard || { writeText: (t) => { copied.push(String(t)); return Promise.resolve(); } }) },
     ...(o.rowHeight === undefined ? {} : { rowHeight: o.rowHeight }),
     ...(dl === null ? {} : { BlobCtor: dl.BlobCtor, createObjectURL: dl.createObjectURL, revokeObjectURL: dl.revokeObjectURL }),
-    ...(o.readFile === null ? {} : { readFile: o.readFile || ((f) => { reads.push(f.name); return Promise.resolve(f.__bytes); }) }),
+    ...(o.readFile === null ? {} : { readFile: o.readFile || ((f) => { reads.push(f.name); return o.readFileThrows ? Promise.reject(o.readFileThrows(f)) : Promise.resolve(f.__bytes); }) }),
     ...(o.decode === null ? {} : { decode: o.decode || ((b) => ({ ok: true, text: new TextDecoder('utf-8').decode(b) })) }),
   });
   const report = wb.mount();
   return {
-    page, wb, report, guarded, threw, timers, reads, copied, dl,
+    page, wb, report, guarded, threw, timers, reads, copied, dl, urlWrites,
     flush: () => { const list = timers.splice(0); for (const t of list) t.fn(); },
   };
 }
@@ -15154,7 +15261,8 @@ test('Z17 对外面十一格、三栏的 nodes 声明与十四枚动作的三份
 
 // 装配层那六条红线各自的落点：Z18 挂载与输入、Z19 一次画全与导出同字、Z20 布局两档共一行流、
 // Z21 折叠四档与三枚快捷键、Z22 跳转的块换算、Z23 整理三枚、Z24 归一化的同现同灭、Z25 JSON 档那一表、
-// Z26 两类失败分两条路、Z27 文件三件、Z28 换前缀自证。
+// Z26 两类失败分两条路、Z27 文件三件、Z28 换前缀自证、Z29 折叠条真的能点开、
+// Z30 深链档位进站就落定、Z31 文件那一路的第二类失败记进边界账本。
 test('Z18 挂载与输入两条路都不算一次比对：读数只随防抖落地那一次', () => {
   const m = zMount();
   assert.equal(m.page.out().includes(`${Z_P}-row`), false, '挂载就把结果区画成行块 = 挂载期算了一遍（红线 4）');
@@ -15525,4 +15633,37 @@ test('Z29 折叠条真的能点开：那一发就是「全部展开」，不重�
   q.page.clickFold(6);
   assert.equal(q.page.val('context'), 'all', '而本页自己的属性名要认得：整页跟着前缀走');
   assert.equal(wCount(q.page.out(), 'zx-fold--'), 0, '认到之后那一发要真的展开，不是只写下拉不重画');
+});
+
+test('Z30 深链档位进站就落定：?df-mode=json 当场灰掉折叠与跳转，且不动地址栏', () => {
+  const plain = zMount();
+  assert.equal(plain.page.btnDisabled('nextDiff'), false, '基准：文本档下跳转那一排是可按的');
+  assert.equal(plain.guarded.length, 0, '基准：挂载期一次都不走 runGuarded');
+  const m = zMount({ search: '?df-mode=json' });
+  assert.equal(m.page.val('mode'), 'json', '地址栏那一档要落到控件里（真浏览器里 U1 量的同一件事）');
+  // 这一判的靶心是**两份读数的同步**：`syncGate()` 置灰时读的是 `s.mode`，不读控件。
+  // 深链只写控件而不写这一份，`?df-mode=json` 开出来的页面就停在「下拉是 json、按钮还能按」，
+  // 用户按下去才在 `goTo` 里撞上「JSON 档按格比对」那句——坏消息本该由置灰替用户挡在前面。
+  assert.equal(m.wb.state().mode, 'json', '控件与 `s` 必须是同一档：否则上面那条置灰判的就是空集');
+  assert.equal(m.page.btnDisabled('nextDiff'), true, '跳转那一排进站就该灰着');
+  assert.equal(m.page.btnDisabled('fold'), true, '折叠那一排同样');
+  assert.equal(m.guarded.length, 0, '深链读数不是操作：挂载期仍一次都不走边界（与 Z18 同一格）');
+  assert.equal(m.timers.length, 0, '也不为该发排延时');
+  assert.deepEqual(m.urlWrites, [], '进站那一次读不许顺手洗地址栏：地址栏是结果的镜像，不是来源');
+  assert.deepEqual(m.threw, [], '骨架齐时深链进站不该有任何一次抛出');
+});
+
+test('Z31 文件那一路的第二类失败：读手自己抛时记进边界账本，不当成没人认领的拒绝', async () => {
+  const m = zMount({
+    seed: { 'b-text': 'beta' },
+    readFileThrows: () => new Error('磁盘被拔了'),
+  });
+  m.page.pickFile('a', zFile('x.txt', 'alpha'));
+  await zSettle();
+  assert.equal(m.threw.length, 1, '非 FieldError 就是骨架/环境那一类：Z26 的第二条路，账本得记它');
+  assert.equal(m.threw[0][0], `${Z_P}-in-workbench-a-file`, '记的那一格要落在文件输入框所在的块，与点按钮那一路同源');
+  assert.match(String(m.threw[0][1]), /磁盘被拔了/);
+  assert.equal(m.reads.length, 1, '一次选文件只读一次：边界记账不许顺带重读');
+  assert.equal(String(m.page.read('a')).includes('磁盘被拔了'), false,
+    '那一类不冒充成状态行里的一句话：状态行说的那一格是"这一侧现在什么状况"，环境坏了归块级红字（`runGuarded` 那句「这一区的一次操作没能跑完」）');
 });

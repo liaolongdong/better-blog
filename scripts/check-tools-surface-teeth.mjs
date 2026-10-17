@@ -64,11 +64,28 @@ const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'surface-teeth-'));
 const SHADOW = path.join(SCRATCH, '_site');
 const backups = new Map();
 
+/**
+ * 一刀下去必须真的改动字节。`String.replace` 找不到目标时是**原样返回**的，于是
+ * 「变异没命中」和「门禁确实抓不住这一形」在台账里长成同一种绿。各条变异里那句
+ * `if (next === s) throw` 就是为它写的，可那句靠每一刀的作者记得写；这一层是兜底，
+ * 漏写时红在这里说的是「这一刀没命中」，而不是把脚手架的失效算成门禁的牙口。
+ * @param {string} label 报障用的位置（源文件路径或影子产物路径）
+ * @param {string} before 改前全文
+ * @param {(s: string) => string} fn 那一刀
+ * @returns {string} 改后全文
+ */
+function mutated(label, before, fn) {
+  const after = fn(before);
+  if (after === before) throw new Error(`${label}：这一刀没改动任何字节，变异等于没注入`);
+  return after;
+}
+
 /** 就地改仓库源文件：先备份，改完注册还原 */
 function mutateSrc(rel, fn) {
   const p = path.join(ROOT, rel);
-  if (!backups.has(rel)) backups.set(rel, fs.readFileSync(p));
-  fs.writeFileSync(p, fn(fs.readFileSync(p, 'utf8')));
+  const before = fs.readFileSync(p, 'utf8');
+  if (!backups.has(rel)) backups.set(rel, before);
+  fs.writeFileSync(p, mutated(rel, before, fn));
 }
 function restoreAll() {
   for (const [rel, buf] of backups) fs.writeFileSync(path.join(ROOT, rel), buf);
@@ -79,6 +96,14 @@ process.on('exit', () => {
   fs.rmSync(SCRATCH, { recursive: true, force: true });
 });
 process.on('SIGINT', () => { restoreAll(); process.exit(130); });
+// SIGTERM 单独接：默认 disposition 是直接终止，**不跑 `exit` 那一发**，于是源侧那几刀改过的文件
+// 留在被变异的状态上。这一脚本改的是仓库自己的源（不是影子副本），并发会话读到的是
+// 一树假源码——比"门禁没跑完"糟得多。143 = 128 + 15，与 SIGINT 那 130 同一套约定。
+// 实测口径（2026-10-17，本脚本全同步、零 await，门禁一发接一发走 `spawnSync`）：注册了这个监听，
+// SIGTERM 就不再当场杀人，而是排队到当前这段同步跑完才交给 JS——所以真被 kill 时看到的是
+// "这一轮跑完、`exit` 钩子先还原、码 0"，看不到 143。这里换掉的只有一件事：不注册时那一发是
+// 当场死、还原轮不到（同目录的合成脚本对照跑过，落盘停在 MUTATED 状态）。
+process.on('SIGTERM', () => { restoreAll(); process.exit(143); });
 
 /** 影子产物：每轮从真 _site 重拷，变异只落在副本上（SCRATCH 每次进程一份，不与他人共用） */
 function freshShadow(mutator) {
@@ -89,7 +114,8 @@ function freshShadow(mutator) {
 }
 const shadowEdit = (rel, fn) => {
   const p = path.join(SHADOW, rel);
-  fs.writeFileSync(p, fn(fs.readFileSync(p, 'utf8')));
+  const before = fs.readFileSync(p, 'utf8');
+  fs.writeFileSync(p, mutated(`影子 ${rel}`, before, fn));
 };
 
 /**
@@ -214,12 +240,22 @@ const idcardCases = [
   {
     name: '父项缺 aria-current="true"',
     group: '导航',
-    artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('class="nav-link" href="/better-blog/tools.html" aria-current="true"', 'class="nav-link" href="/better-blog/tools.html"')),
+    artifact: () => shadowEdit('tools/idcard.html', (s) => {
+      const B = baseFromArtifact();
+      const next = s.replace(`class="nav-link" href="${B}tools.html" aria-current="true"`, `class="nav-link" href="${B}tools.html"`);
+      if (next === s) throw new Error('导航父项那枚 aria-current="true" 没命中，这一刀作废');
+      return next;
+    }),
   },
   {
     name: '下拉当前项缺 aria-current="page"',
     group: '导航',
-    artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('href="/better-blog/tools/idcard.html" aria-current="page"', 'href="/better-blog/tools/idcard.html"')),
+    artifact: () => shadowEdit('tools/idcard.html', (s) => {
+      const B = baseFromArtifact();
+      const next = s.replace(`href="${B}tools/idcard.html" aria-current="page"`, `href="${B}tools/idcard.html"`);
+      if (next === s) throw new Error('下拉当前项那枚 aria-current="page" 没命中，这一刀作废');
+      return next;
+    }),
   },
   {
     name: '图标退回 currentColor',
@@ -337,7 +373,8 @@ const idcardCases = [
     group: '收录',
     expect: '跨页锚点',
     artifact: () => shadowEdit('tools.html', (s) => {
-      const next = s.replace('href="/better-blog/tools/idcard.html#tk-panel-uscc"', 'href="/better-blog/tools/idcard.html#uscc"');
+      const B = baseFromArtifact();
+      const next = s.replace(`href="${B}tools/idcard.html#tk-panel-uscc"`, `href="${B}tools/idcard.html#uscc"`);
       if (next === s) throw new Error('落地页那一枚跨页锚点没命中，修 B 的变异作废');
       return next;
     }),
@@ -352,8 +389,9 @@ const idcardCases = [
     group: '收录',
     expect: '的面板清单里没有指向',
     artifact: () => shadowEdit('tools.html', (s) => {
-      const next = s.replace('href="/better-blog/tools/idcard.html#tk-panel-uscc">统一社会信用代码</a>',
-        'href="/better-blog/tools/idcard.html#tk-panel-random">统一社会信用代码</a>');
+      const B = baseFromArtifact();
+      const next = s.replace(`href="${B}tools/idcard.html#tk-panel-uscc">统一社会信用代码</a>`,
+        `href="${B}tools/idcard.html#tk-panel-random">统一社会信用代码</a>`);
       if (next === s) throw new Error('落地页那一枚成对的 href+锚文本没命中，错位变异作废');
       return next;
     }),

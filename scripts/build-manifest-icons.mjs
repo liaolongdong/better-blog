@@ -131,10 +131,18 @@ async function shoot(chrome, htmlPath, outPath, px) {
                 const size = fs.statSync(outPath).size;
                 if (size > 0 && size === last) return; // 连续两轮同字节 = 写完了
                 last = size;
+            } else if (proc.exitCode !== null) {
+                // 它自己退了却没留下文件（不认的后缀、参数写错、沙箱拒读……）：再等满 40 秒只是把
+                // 一次快失败伪装成一次挂死。stdio 是 'ignore'，它那句原因我们收不到，所以这里
+                // 只报"退出码 + 文件不在"这两件事实，不替它编原因。
+                throw new Error(`${px}px 那发的 Chrome 已退出（码 ${proc.exitCode}）而 ${outPath} 不在：这一发是它自己拒的，不是慢`);
             }
             await sleep(POLL_MS);
         }
-        die(`${px}px 截图 ${SHOT_TIMEOUT_MS / 1000}s 内没落盘（${outPath}）`);
+        // 抛，而不是 `die()`：`process.exit()` 在那一句就走人，下面那发 `finally` 根本轮不到——
+        // 而 Chrome 是 `detached` 起的**进程组**，没被 SIGKILL 的它会在超时后一直挂着，
+        // 连带那棵 `--user-data-dir` 临时目录一起留在 /tmp 里。抛出交给 `main().catch` 去打印退场。
+        throw new Error(`${px}px 截图 ${SHOT_TIMEOUT_MS / 1000}s 内没落盘（${outPath}）`);
     } finally {
         killAll();
         fs.rmSync(profile, { recursive: true, force: true });
@@ -260,14 +268,27 @@ async function main() {
     for (const { px, use } of SIZES) {
         const html = path.join(os.tmpdir(), `manifest-icon-${px}.html`);
         const out = path.join(outDir, `icon-${px}.png`);
+        // 先落到一枚暂存名，**校验通过才写回正式名**：旧写法是先 `rmSync(out)` 再截图，于是
+        // 超时 / IHDR 不符 / Chrome 起不来这三条路都会把仓库里那枚好图标删掉却留不下新的——
+        // `--check` 那道门读的是 `_data/manifestIcons.yml` 里的 sha256，表没被改写，所以它红的是
+        // "图标不在磁盘上"，而真正丢掉的东西是上一次构建的产物。暂存名必须以 `.png` 收尾：
+        // Chrome 的 `--screenshot` 按后缀挑编码器，给它 `.png.staged` 它当场拒（"Unsupported
+        // screenshot image file type"），这一坑是 2026-10-17 实测撞出来的。它也从不存在（下面先 rm
+        // 一次），所以"截图没落盘"照样抛 ENOENT，绝不会把旧图当新图签收。
+        const staged = path.join(outDir, `icon-${px}.staged.png`);
         fs.writeFileSync(html, wrapHtml(svg, px), 'utf8');
-        fs.rmSync(out, { force: true });
-        await shoot(chrome, html, out, px);
-        fs.rmSync(html, { force: true });
-
-        const buf = fs.readFileSync(out);
+        fs.rmSync(staged, { force: true });
+        let buf;
+        try {
+            await shoot(chrome, html, staged, px);
+            buf = fs.readFileSync(staged);
+        } finally {
+            fs.rmSync(html, { force: true });
+            fs.rmSync(staged, { force: true });
+        }
         const d = pngDims(buf);
         if (d.w !== px || d.h !== px) die(`${px}px 那枚的 IHDR 是 ${d.w}x${d.h}`);
+        fs.writeFileSync(out, buf);
         icons.push({
             path: `/${OUT_DIR}/icon-${px}.png`,
             sizes: `${px}x${px}`,

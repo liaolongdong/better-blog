@@ -44,8 +44,10 @@
         {% endif %}
         // 访客配置
         login: 'enable',
-        // 记录路径与列表页 data-path 保持一致（含 baseurl），保证阅读量可正确回显
-        path: '{{ site.baseurl }}{{ page.url }}',
+        // 记录路径与列表页 data-path 保持一致（含 baseurl），保证阅读量可正确回显。
+        // jsonify 而不是手写引号：路径里出现半角引号会把这条 JS 字面量截断，
+        // 整个 walineConfig 随之语法错误，评论区直接不初始化。
+        path: {{ site.baseurl | append: page.url | jsonify }},
     };
     const walinePageview = {% if site.waline.pageview %}true{% else %}false{% endif %};
 

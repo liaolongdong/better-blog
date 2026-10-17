@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # 构建工具链（vite / sass / postcss / terser / concurrently）。全是 devDependencies，
+  # 不进产物；它们的价值是拿到上游的安全修复，代价是每次都要重跑一遍门禁。
+  # 不设 allow/ignore：Dependabot 的安全更新会受这两者约束，一旦按"只升小版本"过滤，
+  # 一个必须跨大版本才能修的 critical 就会被静默跳过——那正是最需要它出现的场合。
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      build-tooling:
+        patterns:
+          - '*'
+
+  # workflow 里的动作全部跟的是可变的大版本标签（@v4/@v5），没钉 commit SHA：
+  # 钉 SHA 对一个人的博客是长期的维护负担（每次上游发版都要人肉换一串哈希），
+  # 换成本条生态后由 Dependabot 提 PR 来跟。这一项就是那个负担的替代闸。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

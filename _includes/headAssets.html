@@ -59,6 +59,25 @@ crossorigin 不能省：字体请求恒为 CORS 模式，即便同源，缺这�
 {%- endcomment -%}
 <link rel="preload" href="{{ site.baseurl }}/assets/fonts/newsreader-latin-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/normalize.min.css">
+{%- comment -%}
+preconnect：这两个域是 <head> 里仅剩的两处外链，都挡在渲染路径上，提示把 DNS+TCP+TLS
+那一段从请求序列里提前拆出来并行掉。
+
+  · at.alicdn —— 紧随其后的图标 CSS，阻塞渲染，它到位前社交图标是空白方块。
+  · cdn.jsdelivr —— 文章页的 waline.css（阻塞样式表）和 waline.js（`import` 出来的
+    module）。两条都要：module 与字体一样走 CORS 模式，不带 `crossorigin` 的那条提示
+    预热的是另一种连接的槽位，跟真正那条请求对不上，等于白热一次（同上面 preload 字体
+    那条 crossorigin 的理由）。
+
+统计那一族（hm.baidu / zz.bdstatic / busuanzi / cloudflareinsights）**不给**提示：
+它们由 defer 的本地脚本在解析结束后才 createElement 出来，那时首屏早就画完，预热省下的
+时间落在用户看不见的地方；而 preconnect 是无条件发起的连接，等于替读者多开一条到第三方
+的套接字，这个代价看得见。未被复用的提示 10 秒内丢弃，所以非文章页上那条 jsdelivr
+提示不是一笔长期欠账。
+{%- endcomment -%}
+<link rel="preconnect" href="https://at.alicdn.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://at.alicdn.com/t/font_271755_rdxzzo2kqwk.css">
 {%- comment -%}
 github-markdown / prism / share 只在文章页下发（P0-12 里能确定兑现的那一部分）。

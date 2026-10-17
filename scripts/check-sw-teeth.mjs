@@ -94,6 +94,11 @@ process.on('exit', () => {
   fs.rmSync(SCRATCH, { recursive: true, force: true });
 });
 process.on('SIGINT', () => { restoreAll(); process.exit(130); });
+// 同 §check-tools-surface-teeth 那一发：SIGTERM 的默认动作是直接终止，不跑 `exit` 监听，
+// 而那几刀改的是仓库自己的源文件——留下来就是一树假源码。本脚本全同步（零 await、门禁走
+// `spawnSync`），2026-10-17 实测：变异进行中收到 SIGTERM，那一轮仍会跑完、由 `exit` 钩子还原、
+// 退码 0（监听注册过的信号不杀人，只排队）；换掉的是"当场死、还原轮不到"那一种。
+process.on('SIGTERM', () => { restoreAll(); process.exit(143); });
 
 /**
  * baseurl 从产物自己的 canonical 现推，不写死 `/better-blog`：写死之后站点一改挂载路径，

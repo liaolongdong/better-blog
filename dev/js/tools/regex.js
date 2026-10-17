@@ -4,8 +4,9 @@
  * 这一格最坏的一条路是**粘进来一个回溯炸开的正则，面板卡在 exec 里再也回不来**。JS 没有可打断的
  * 回溯步数计数器，V8 也不给单次 exec 中止钩子，所以"防炸页"只能全部做在执行**之前**，落成四档闸门：
  *   ① 模式长度（`MAX_PATTERN_CHARS`）与语法：语法一律交给 native 报原话，分词器不越权重发明错误；
- *   ② 静态可疑形状 `riskScan`：F1 嵌套无界量词、F2 分支互为重复、F3 相邻同源无界、F4 同 F1/F2 但外层有限。
- *      判成 high 的一次都不执行，判成 medium 的只对不超过 `MEDIUM_MAX_INPUT_CHARS` 字符的输入求解（超过就拒、不截断）；
+ *   ② 静态可疑形状 `riskScan`：F1 嵌套无界量词、F2 分支互为重复或能互相平铺、F3 相邻同源无界、
+ *      F4 同 F1/F2 但外层有限。判成 high 的一次都不执行；判成 medium 的按**规则**给输入上限
+ *      （F3 的相邻同源是多项式，压到 `MEDIUM_MAX_INPUT_CHARS`；F2/F4 是组合爆炸，压到 16），越线拒、不截断；
  *   ③ 输入字节（`MAX_INPUT_BYTES`，与 `codec.js` / `digest.js` 同一把 UTF-8 尺子，超了整体拒、不截断）；
  *   ④ 匹配次数（`MAX_MATCHES`）与档间时间预算（`TIME_BUDGET_MS`，靠**注入的时钟**，本模块绝不自己读表）。
  * 四档的牙都在 §N 里逐条钉着，写成"注释里有、代码里没有"会被抓到。
@@ -24,13 +25,17 @@
  * `(a+)+$` 22 字符 839ms、28 字符 >2s；`(x|xx)+$` 32 字符 203ms、40 字符 6.4s；
  * `(\d{1,3}|\d)+$` 16 字符 823ms、20 字符 4.3s；而 `(x+a+)+$` 20 字符 0.0ms——
  * 分词器的 F1 规则（单个可变长度元素 / 含可空元素且无定宽元素）就是照这批数据切的。
+ * 平铺那一族同样实测过：`(a|b|ab)*c` 24 字符 >2.5s（同一段文本有 `ab` 与 `a`+`b` 两种切法），
+ * 而 `(a+){5}b` 32 字符 76ms、48 字符 1.8s，`(a+){10}b` 24 字符就 1.6s——长度 16 的切分方案最多
+ * 2^15 种，这就是 medium 分两档的依据。
  */
 
 /** 面板口径说明，原样显示（与 `BASE64_CAVEAT` / `TIME_CAVEAT` / `DIGEST_CAVEAT` 同一角色，逐条对账由 N18 守着） */
 export const REGEX_CAVEAT =
   '正则语义以引擎为准，flags 白名单 g i m s u y d，重复位归一后回显。模式超过 500 字符、输入超过 1 MiB（1048576 字节）'
   + '都整体拒绝、不截断；命中最多列前 1000 个，超出会明说还有没列出的、不静默截断。'
-  + '嵌套无界量词这类疑似灾难性回溯的形状一次都不执行并点名构造，中等可疑的形状只对不超过 128 字符的输入求解。';
+  + '嵌套无界量词这类疑似灾难性回溯的形状一次都不执行并点名构造；中等可疑的形状按规则压输入，'
+  + '相邻同源那一档只解不超过 128 字符的，分支互相拆着命中那一档只解不超过 16 字符的。';
 
 /** flags 白名单就这七位：`v` / `U` 一类会改语义的档位不收，加了要有新判据 */
 export const ALLOWED_FLAGS = 'gimsuyd';
@@ -40,8 +45,23 @@ export const MAX_PATTERN_CHARS = 500;
 export const MAX_INPUT_BYTES = 1048576;
 /** 匹配次数硬上限：options 只能往下调，不许越过这一档 */
 export const MAX_MATCHES = 1000;
-/** 中等可疑形状允许求解的最大输入字符数（数的是字符，不是字节） */
+/** 中等可疑形状里 F3 那一档允许的最大输入字符数（数的是字符，不是字节）：相邻同源是多项式放大 */
 export const MEDIUM_MAX_INPUT_CHARS = 128;
+/**
+ * 中等可疑形状里 F2 / F4 那一档的输入上限：这一族的切分方案数随长度指数走
+ * （长度 16 已是 2^15 档），实测 `(a+){10}b` 24 字符 1.6s、`(x+x+)+y` 24 字符 1.4s，
+ * 128 字符对这一档就是挂死，所以另立一档。
+ */
+const MEDIUM_AMPLIFY_MAX_INPUT_CHARS = 16;
+/** 每条规则各自的输入档：medium 的上限由命中的规则决定，不是一个数包打所有形状 */
+const MEDIUM_CHARS = {
+  F1: MEDIUM_AMPLIFY_MAX_INPUT_CHARS, F2: MEDIUM_AMPLIFY_MAX_INPUT_CHARS,
+  F3: MEDIUM_MAX_INPUT_CHARS, F4: MEDIUM_AMPLIFY_MAX_INPUT_CHARS,
+};
+/** 替换串长度上限：模式有 500 字符那一档，替换串此前没人管，粘一 MB 进来就是 1 MB × 命中数 */
+const MAX_REPLACEMENT_CHARS = 4096;
+/** 替换产物上限（字符）：按最坏情况估，命中数取"每个位置都命中"，超了这一格整体拒、不给半截 */
+const MAX_OUTPUT_CHARS = 8388608;
 /** 档间时间预算：只在调用方注入时钟时才会被检查，默认 50 毫秒 */
 export const TIME_BUDGET_MS = 50;
 
@@ -359,6 +379,43 @@ const sameUnit = (a, b) => a.unit.length === b.unit.length && a.unit.every((k, i
 const overlaps = (a, b) => a.lo <= b.hi && b.lo <= a.hi;
 const multipleOf = (a, b) => (a.hi % b.lo === 0 && a.hi >= b.lo) || (b.hi % a.lo === 0 && b.hi >= a.lo);
 
+/** 分支的定宽原子串：`(a|b|ab)` 里 `ab` 那一支是 `['a','b']`；带量词的支算不清，交 null */
+function fixedKeys(seq) {
+  if (seq.length === 0) return null;
+  if (!seq.every((e) => e.min === e.max && e.min >= 1)) return null;
+  return seq.map((e) => e.atom.source);
+}
+
+/**
+ * 平铺判定：有没有哪一支能被别的分支（同一支可重复用）切成两段以上。
+ * `(a|b|ab)*c` 就是靠这一条才被抓到的——`ab` 既能整支命中、又能拆成 `a`+`b`，同一段文本两种切法；
+ * 上面那把 `sameUnit` 的尺子量不到它（三支的重复单元互不相同：`['a']`、`['b']`、`['a','b']`）。
+ * 只数定宽支，所以 `(a|ab)*`（`b` 不是分支）与 `(test|testing)+`（`ing` 不是分支）都不沾；
+ * 反过来 `(foo|bar|foobar)+`、`(I|am|Iam)+` 会中——它们确实同一段文本有两种切法。
+ * 段的比较用原子串而不是字符：`.` 与 `[a-z]` 各算一个原子，本模块不去猜谁的字符集盖住谁。
+ */
+function tilesBranches(alts) {
+  const lists = alts.map(fixedKeys);
+  if (lists.some((keys) => keys === null)) return false;   // 有一支不是定宽：切法算不清，宁可漏报
+  const key = (arr) => JSON.stringify(arr);
+  const parts = new Set(lists.map(key));
+  for (const keys of lists) {
+    if (keys.length < 2) continue;
+    const cuts = new Array(keys.length + 1).fill(-1);      // -1 = 这一段前缀切不开；否则是最少段数
+    cuts[0] = 0;
+    for (let p = 0; p < keys.length; p += 1) {
+      if (cuts[p] < 0) continue;
+      for (let q = p + 1; q <= keys.length; q += 1) {
+        if (p === 0 && q === keys.length) continue;         // 整支等于自己，那不算"拆开"
+        if (!parts.has(key(keys.slice(p, q)))) continue;
+        if (cuts[q] < 0 || cuts[q] > cuts[p] + 1) cuts[q] = cuts[p] + 1;
+      }
+    }
+    if (cuts[keys.length] >= 2) return true;
+  }
+  return false;
+}
+
 const HINTS = {
   F1: '嵌套的无界量词会随输入指数放大：给内层量词收紧出上限（例如 {1,3}），或把这段重复拆成两步匹配',
   F2: '分支之间能互相拆着命中同一段文本：把分支改写成互不重叠的形状，或给外层量词收紧上限',
@@ -372,13 +429,18 @@ const HINTS = {
  */
 const finding = (rule, at, level) => ({ rule, at, hint: HINTS[rule], level });
 
-/** 对一个组节点做判定：外层量词决定这形状是 high 还是 medium */
-function scanGroup(node, min, max, findings) {
+/**
+ * 对一个组节点做判定：外层量词（或它被更外层再重复一次）决定这形状是 high 还是 medium。
+ * `looped` 是"这个组的体本身已经处在某个重复里"——`(x+x+){5}y` 外层有限，可它自己还要被外面翻着来，
+ * 多项式那一档就被抬成组合爆炸，所以这一档跟无界同等对待。
+ */
+function scanGroup(node, min, max, findings, looped) {
   if (max <= 1) return;                                 // `(a+)?`、`(a+){1}`、`(a+)`：没有放大
   const unbounded = max === UNBOUNDED;
+  const amplify = unbounded || looped === true;
   for (const alt of node.alts) {
     if (amplifies(alt)) {
-      findings.push(unbounded ? finding('F1', node.at, 'high') : finding('F4', node.at, 'medium'));
+      findings.push(unbounded ? finding('F1', node.at, 'high') : finding('F4', node.at, amplify ? 'high' : 'medium'));
     }
   }
   const shapes = node.alts.map(shapeOfAlternative).filter((s) => s !== null);
@@ -389,31 +451,38 @@ function scanGroup(node, min, max, findings) {
       const b = shapes[q];
       if (a.irregular || b.irregular || !sameUnit(a, b)) continue;
       if (overlaps(a, b) || multipleOf(a, b)) {
-        findings.push(finding('F2', node.at, unbounded ? 'high' : 'medium'));
+        findings.push(finding('F2', node.at, amplify ? 'high' : 'medium'));
         reported = true;
       }
     }
   }
+  if (!reported && tilesBranches(node.alts)) {
+    findings.push(finding('F2', node.at, amplify ? 'high' : 'medium'));
+  }
 }
 
-function scanSequence(seq, findings) {
+function scanSequence(seq, findings, looped) {
   for (let k = 0; k + 1 < seq.length; k += 1) {
     const a = seq[k];
     const b = seq[k + 1];
     if (a.max !== UNBOUNDED || b.max !== UNBOUNDED) continue;
-    if (a.atom.source === b.atom.source) findings.push(finding('F3', b.at, 'medium'));
+    // 相邻同源本身只是多项式（`a*a*a*a*a` 128 字符 9ms）；一旦它待在一个被重复的组体里，
+    // 多项式就被翻着来——`(x+x+)+y` 24 字符 1.4s，这一档抬成 high 而不是给个 128 的帽。
+    if (a.atom.source === b.atom.source) findings.push(finding('F3', b.at, looped === true ? 'high' : 'medium'));
   }
   for (const e of seq) {
     if (e.atom.kind !== 'group') continue;
-    scanGroup(e.atom, e.min, e.max, findings);
-    for (const alt of e.atom.alts) scanSequence(alt, findings);
+    scanGroup(e.atom, e.min, e.max, findings, looped);
+    const bodyLooped = looped === true || e.max > 1;      // 组体处在任何重复里（自己的外层量词或更外层）
+    for (const alt of e.atom.alts) scanSequence(alt, findings, bodyLooped);
   }
 }
 
 /**
  * 静态可疑形状检测：不看输入、不进引擎，只回答"这个形状会不会在回溯里炸开"。
  * 走不完分词就返回 `parsed:false` 且 `level:'none'`——语法判定是 `compile` 的活，这里不越权报错，
- * 但也不把半成品当"没风险"交出去（N13 钉这一档）。
+ * 但也不把半成品当"没风险"交出去（N13 钉这一档）。`maxInputChars` 是 medium 那一档的输入帽，
+ * 由命中的规则取最严的一档算出来；high 与 none 都是 null——前者根本不执行、后者不设帽。
  */
 export function riskScan(pattern) {
   const src = toText(pattern);
@@ -422,17 +491,22 @@ export function riskScan(pattern) {
     return { level: 'none', findings: [], parsed: false, reason: '模式没能走完分词，语法判定交给编译那一档' };
   }
   const found = [];
-  for (const alt of tree.alts) scanSequence(alt, found);
+  for (const alt of tree.alts) scanSequence(alt, found, false);
   const deduped = [];
   for (const f of found) {
     if (!deduped.some((g) => g.rule === f.rule && g.at === f.at)) deduped.push(f);
   }
   const level = deduped.some((f) => f.level === 'high') ? 'high' : deduped.length > 0 ? 'medium' : 'none';
   const rules = [...new Set(deduped.map((f) => f.rule))].join('/');
+  // medium 的输入帽由命中的规则决定：多条命中取最严的那一档（min），一条命中就用它自己那档
+  const maxInputChars = level === 'medium'
+    ? Math.min(...deduped.map((f) => MEDIUM_CHARS[f.rule]))
+    : null;
   return {
     level,
     findings: deduped,
     parsed: true,
+    maxInputChars,
     reason: deduped.length === 0 ? null : `可疑形状 ${rules}：${deduped[0].hint}`,
   };
 }
@@ -469,9 +543,9 @@ function cell(m, hasIndices) {
 function gate(pattern, flags, body, cap) {
   const src = toText(pattern);
   const base = {
-    ok: false, reason: null, pattern: src, flags: '', level: null, findings: [], executed: false,
-    matches: [], count: 0, capped: cap, hitLimit: false, timedOut: false, elapsedMs: null,
-    bytes: undefined, chars: body.length, regex: null,
+    ok: false, reason: null, pattern: src, flags: '', level: null, findings: [], maxInputChars: null,
+    executed: false, matches: [], count: 0, capped: cap, hitLimit: false, timedOut: false,
+    elapsedMs: null, bytes: undefined, chars: body.length, regex: null,
   };
   if (src.length > MAX_PATTERN_CHARS) {
     return { ...base, reason: `模式 ${src.length} 字符，超过 ${MAX_PATTERN_CHARS} 字符上限，整体拒绝、不截断` };
@@ -482,6 +556,7 @@ function gate(pattern, flags, body, cap) {
   base.level = risk.level;
   base.findings = risk.findings;
   base.flags = made.flags;
+  base.maxInputChars = risk.maxInputChars;
   if (risk.level === 'high') {
     const rules = [...new Set(risk.findings.map((f) => f.rule))].join('/');
     return { ...base, reason: `模式含疑似灾难性回溯的形状 ${rules}，引擎一次都不执行：${risk.findings[0].hint}` };
@@ -490,14 +565,17 @@ function gate(pattern, flags, body, cap) {
   if (bytes > MAX_INPUT_BYTES) {
     return { ...base, bytes, reason: `输入 ${bytes} 字节，超过 ${MAX_INPUT_BYTES} 字节（1 MiB）上限，整体拒绝、不截断` };
   }
-  if (risk.level === 'medium' && body.length > MEDIUM_MAX_INPUT_CHARS) {
+  if (risk.level === 'medium' && body.length > risk.maxInputChars) {
     return {
       ...base, bytes,
-      reason: `模式含可疑形状（${risk.findings.map((f) => f.rule).join('/')}），这一档只对不超过 ${MEDIUM_MAX_INPUT_CHARS} 字符的输入求解，实际 ${body.length} 字符、不截断`,
+      reason: `模式含可疑形状（${risk.findings.map((f) => f.rule).join('/')}），这一档只对不超过 ${risk.maxInputChars} 字符的输入求解，实际 ${body.length} 字符、不截断`,
     };
   }
   return { ...base, bytes, regex: made.regex };
 }
+
+/** medium 放行时挂在结果里的那句话：两个出口共用，写歪一处就等于口径分了叉 */
+const mediumNote = (shot) => `模式含可疑形状（${shot.findings.map((f) => f.rule).join('/')}），这一档只对不超过 ${shot.maxInputChars} 字符的输入求解`;
 
 const emptyFind = (body, cap) => ({
   ok: false, reason: null, pattern: '', flags: '', level: null, findings: [], executed: false,
@@ -542,7 +620,7 @@ export function findMatches(pattern, flags, text, options) {
   }
 
   const notes = [];
-  if (shot.level === 'medium') notes.push(`模式含可疑形状（${shot.findings.map((f) => f.rule).join('/')}），这一档只对不超过 ${MEDIUM_MAX_INPUT_CHARS} 字符的输入求解`);
+  if (shot.level === 'medium') notes.push(mediumNote(shot));
   if (timedOut) notes.push(`超过档间时间预算 ${budget} 毫秒，只列前 ${matches.length} 格`);
   if (hitLimit) notes.push(`命中超过匹配次数上限 ${cap}，只列前 ${cap} 个，后面还有没列出的、不静默截断`);
 
@@ -557,24 +635,35 @@ export function findMatches(pattern, flags, text, options) {
 /**
  * 替换预览：吃同一套闸门，产物直接由 native `String.prototype.replace` 给出——
  * `$` 的每一种写法都以引擎为准（N15 逐条对拍），本模块绝不自己展开替换串。
+ * 但产物大小 native 不管：`/g` 下命中的格数不受 `MAX_MATCHES` 那一档约束（那是列表面板的上限，
+ * 不是引擎的），所以这里按**最坏情况**先估一次——每个位置都命中、每格都换成 `repl`——
+ * 估出来的长度过线就整体拒、不给半截产物。`` $` `` 与 `$'` 会把前导/后随切片整个抄进产物，
+ * 每一格最多多出 `body.length` 个字符，估算是把它们算进 `repl` 的等效长度里的。
  */
 export function previewReplace(pattern, flags, text, replacement, options) {
   const opts = readOptions(options, 'previewReplace');
   const cap = effectiveCap(opts.maxMatches);
   const repl = toText(replacement);
   const body = toText(text);
+  const refusal = (shot, reason) => ({
+    ok: false, reason, pattern: shot.pattern, flags: shot.flags, level: shot.level,
+    findings: shot.findings, executed: false, out: '', changed: false,
+    bytes: shot.bytes, chars: shot.chars, capped: cap,
+  });
   const shot = gate(pattern, flags, body, cap);
-  if (shot.regex === null) {
-    return {
-      ok: false, reason: shot.reason, pattern: shot.pattern, flags: shot.flags, level: shot.level,
-      findings: shot.findings, executed: false, out: '', changed: false,
-      bytes: shot.bytes, chars: shot.chars, capped: cap,
-    };
+  if (shot.regex === null) return refusal(shot, shot.reason);
+  if (repl.length > MAX_REPLACEMENT_CHARS) {
+    return refusal(shot, `替换串 ${repl.length} 字符，超过 ${MAX_REPLACEMENT_CHARS} 字符上限，整体拒绝、不给半截产物`);
   }
-  const out = body.replace(shot.regex, repl);
+  const re = shot.regex;
+  const expand = repl.includes('$`') || repl.includes("$'") ? repl.length + body.length : repl.length;
+  const worst = (re.global || re.sticky ? (body.length + 1) * expand : expand) + body.length;
+  if (worst > MAX_OUTPUT_CHARS) {
+    return refusal(shot, `替换产物按最坏情况估到 ${worst} 字符，超过 ${MAX_OUTPUT_CHARS} 字符上限（输入 ${body.length} 字符 × 替换串 ${repl.length} 字符），整体拒绝、不给半截产物`);
+  }
+  const out = body.replace(re, repl);
   return {
-    ok: true, reason: shot.level === 'medium'
-      ? `模式含可疑形状（${shot.findings.map((f) => f.rule).join('/')}），这一档只对不超过 ${MEDIUM_MAX_INPUT_CHARS} 字符的输入求解` : null,
+    ok: true, reason: shot.level === 'medium' ? mediumNote(shot) : null,
     pattern: shot.pattern, flags: shot.flags, level: shot.level, findings: shot.findings,
     executed: true, out, changed: out !== body, bytes: shot.bytes, chars: shot.chars, capped: cap,
   };

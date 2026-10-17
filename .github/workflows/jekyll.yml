@@ -17,9 +17,21 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 超时是挂死保险，不是按预算定的。2026-10-16 本机（node v22.19.0）按这条 job 的顺序走了一遍：
+    # 两次 vite 27s + jekyll 33s + 下面那一串门禁 447s（9 道，最重的 check-seo-teeth 一道
+    # 201s / 159 组变异），合计约 8.5 分钟；CI 上还要再加一次 pnpm install 与冷缓存，
+    # 那一段本机没量。30 分钟的意思是：跑得完，且一个卡住的步不会占着队列超过半小时。
+    # 2026-10-17 又并进来六道生成器的 `--check`（只读盘、不启浏览器），本机实测六道合计 1s，
+    # 对上面的预算没有影响，所以这一格不跟着改。
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 这条 workflow 只需要读源码：构建产物是 upload-pages-artifact 直接吃目录，
+          # 没有任何一步要 git push。把 token 从本地 git config 里拿掉，被攻陷的构建步
+          # 手里就只剩一个读权限的匿名凭证，写不到仓库设置、也推不了分支。
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -66,6 +78,74 @@ jobs:
         env:
           JEKYLL_ENV: production
 
+      - name: Site gates
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          # 一次跑完全部、末尾汇总，而不是 set -e 停在第一条：一条 CI 就该把这次改动
+          # 弄红了哪几道全说完，否则修一条红一条，门禁变成拉锯。
+          # 这里不带管道，`$?` 就是那条门禁自己的退出码。
+          #
+          # 门禁不需要在这里额外断言挂载路径：三道 check-* 的前缀都是现读的——check-sw 取产物
+          # sw.js 顶部那段常量里的 BASE，scripts/check-tools-surface.mjs 从 canonical 反推
+          # baseurl（:281 那条还比 canonical 与页面 permalink 是否同源，baseurl 或 url 有一处
+          # 被改过就红）。构建时的 `--baseurl` 与站点配置一旦不一致，红会来自那些判据，
+          # 而不是来自这里另立的一道闸。
+          FAILS=()
+          GATES=0
+          gate() {
+            local name=$1
+            shift
+            GATES=$((GATES + 1))
+            echo "::group::$name"
+            node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$@"
+            local rc=$?
+            echo "::endgroup::"
+            if [ $rc -ne 0 ]; then
+              echo "✗ $name 退出码 $rc"
+              FAILS+=("$name")
+            fi
+          }
+
+          gate 'toolkit-tests'            --test scripts/toolkit-tests.mjs
+          gate 'tool-url-state-tests'     --test scripts/tool-url-state-tests.mjs
+          gate 'sw-lifecycle-tests'       --test scripts/sw-lifecycle-tests.mjs
+          gate 'check-sw'                         scripts/check-sw.mjs
+          gate 'check-tools-surface'              scripts/check-tools-surface.mjs
+          gate 'check-seo'                        scripts/check-seo.mjs
+          # 三道 teeth 必须排在 check-seo 之后：它们就地改源再原样还原，还原把那批源文件的
+          # mtime 推到当下，而 check-seo 有一道「源比产物新就拒跑」的闸（scripts/check-seo.mjs:283）。
+          # 这个顺序的代价 2026-10-16 本机量过：9 道全绿跑完之后，在同一棵树里再单跑一次
+          # check-seo 就 exit=1，报「源侧最新 22:44:28 / 产物最新 22:40:39」——前一个时刻正是
+          # teeth 还原源文件的时刻，后一个是 jekyll 建完的时刻。teeth 自己跑的是各自那道门禁，
+          # 不受这一条影响。
+          gate 'check-sw-teeth'                   scripts/check-sw-teeth.mjs
+          gate 'check-tools-surface-teeth'        scripts/check-tools-surface-teeth.mjs
+          gate 'check-seo-teeth'                  scripts/check-seo-teeth.mjs
+
+          # 六道生成器自检，全走 `--check`：只读盘比对、一个字节都不写（2026-10-17 本机核过：
+          # 跑完六条 `git status` 里没有新生成的改动）。放在三道 teeth 之后是为了不跟它们抢源文件，
+          # 而不是因为它们会被 mtime 影响——这一组自己不动 mtime。
+          # 补这一段的原因：`assets/js`、`assets/css` 的产物已 gitignore，CI 每次现建，
+          # 而 `dev/js/tools/*-data.js`、`scripts/image-variants.json`、`_data/manifestIcons.yml`
+          # 这些**入库的**派生文件没有一道门守着。手改了数据脚本没重跑生成器，站点照旧构建成功，
+          # 线上加载的是旧快照，红不会在任何地方亮——只有这里能亮。
+          gate 'check-manifest-icons'              scripts/build-manifest-icons.mjs --check
+          gate 'check-region-data'                 scripts/build-region-data.mjs --check
+          gate 'check-prefix-data'                 scripts/build-prefix-data.mjs --check
+          gate 'check-id-fixture'                  scripts/build-id-fixture.mjs --check
+          gate 'check-image-variants'              scripts/build-image-variants.mjs --check
+          gate 'check-og-images'                   scripts/og-images.mjs --check
+
+          if [ ${#FAILS[@]} -gt 0 ]; then
+            echo "门禁红 ${#FAILS[@]} / ${GATES} 道：${FAILS[*]}（产物是刚构建的这一份，不会是被缓存的旧 _site）"
+            exit 1
+          fi
+          # 道数由 gate() 自己数，不在这行写死一个数字：写死了，加一道门就得记得回来改它，
+          # 忘了就是一句在绿的时候说谎的话（"N 道全绿" 的 N 与真跑的道数不同源）。
+          echo "✓ ${GATES} 道门禁全绿：上传的这份产物与被验的这份是同一份"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
@@ -75,6 +155,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    # 这一侧只做「取产物、推上去」，红在这里就是 Actions 自己出问题，不值得等 30 分钟。
+    timeout-minutes: 10
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

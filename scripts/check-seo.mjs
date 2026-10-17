@@ -1298,6 +1298,7 @@ const TOOL_HIT_OK = [
   ['2026/10/07/gdp-ts-proof-forgery-3-gaps.html', 'TypeScript'],
   ['2026/10/09/haiku-5-5-model-id-vs-sdk-typing.html', 'TypeScript'],
   ['2026/10/09/ascii-rest-208-files.html', 'npm,vite,前端构建'],
+  ['2026/10/16/diagram-design-981-faces.html', 'github,前端小技巧'],
 ];
 
 const TOOL_MATCH_TAGS = new Set();

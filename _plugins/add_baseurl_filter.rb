@@ -6,73 +6,12 @@ module Jekyll
     # 为内容中的所有图片路径添加 baseurl
     def add_baseurl_to_images(content)
       baseurl = @context.registers[:site].config['baseurl'] || ''
-      
-      # 先处理 Markdown 图片语法: ![alt](path)
-      content = content.gsub(/!\[([^\]]*)\]\(([^)]+)\)/) do
-        alt = $1
-        path = $2
-        
-        # 跳过外部 URL（http://、https://、//、data: 等）
-        if path.start_with?('http://', 'https://', '//', 'data:')
-          "![#{alt}](#{path})"
-        else
-          # 移除开头的 ./ 和 ../ 前缀，统一转换为绝对路径
-          # 例如: ./../assets/img/xxx.png -> /assets/img/xxx.png
-          # 例如: ../assets/img/xxx.png -> /assets/img/xxx.png
-          # 例如: ./assets/img/xxx.png -> /assets/img/xxx.png
-          while path.start_with?('./') || path.start_with?('../')
-            if path.start_with?('./')
-              path = path[2..-1]  # 移除 ./
-            elsif path.start_with?('../')
-              path = path[3..-1]  # 移除 ../
-            end
-          end
-          
-          # 确保路径以 / 开头
-          path = '/' + path unless path.start_with?('/')
-          
-          # 为相对路径添加 baseurl，但如果已经包含 baseurl 则跳过
-          if path.start_with?(baseurl)
-            "![#{alt}](#{path})"
-          else
-            "![#{alt}](#{baseurl}#{path})"
-          end
-        end
-      end
-      
-      # 再处理 HTML img 标签中的 src 属性
-      content = content.gsub(/<img\s+([^>]*?)src=["']([^"']*?)["']([^>]*?)>/i) do
-        before_src = $1
-        src = $2
-        after_src = $3
-        
-        # 跳过外部 URL（http://、https://、//、data: 等）
-        if src.start_with?('http://', 'https://', '//', 'data:')
-          "<img #{before_src}src=\"#{src}\"#{after_src}>"
-        else
-          # 处理相对路径：移除开头的 ./ 和 ../ 前缀
-          original_src = src
-          while src.start_with?('./') || src.start_with?('../')
-            if src.start_with?('./')
-              src = src[2..-1]  # 移除 ./
-            elsif src.start_with?('../')
-              src = src[3..-1]  # 移除 ../
-            end
-          end
-          
-          # 确保路径以 / 开头
-          src = '/' + src unless src.start_with?('/')
-          
-          # 只为以 / 开头的相对路径添加 baseurl（排除绝对路径、协议相对路径和已包含 baseurl 的路径）
-          if src.start_with?('/') && !src.start_with?('//') && !src.start_with?(baseurl)
-            "<img #{before_src}src=\"#{baseurl}#{src}\"#{after_src}>"
-          else
-            "<img #{before_src}src=\"#{src}\"#{after_src}>"
-          end
-        end
-      end
-      
-      content
+
+      # 代码块先扣出来再改写。kramdown 把围栏里的 `![alt](path)` 原样排成正文字符，
+      # 下面两条 gsub 一样会命中它 —— 于是「示例代码里的路径」被悄悄加上 baseurl，
+      # 读者照抄下来反而是错的。扣出的片段一个字节不改，改写完成后原位回填。
+      held, blocks = hold_code(content)
+      unhold_code(rewrite_image_paths(held, baseurl), blocks)
     end
 
     # 去掉正文开头与文章标题重复的 H1
@@ -110,6 +49,74 @@ module Jekyll
              .gsub(/&(?:[a-zA-Z]+|#\d+);/, '')
              .gsub(/\s+/, '')
              .length
+    end
+
+    private
+
+    # 按出现顺序扣出 <pre> / <code> 区间，返回 [占位文本, 片段数组]
+    def hold_code(content)
+      blocks = []
+      held = content.gsub(%r{<(?:pre|code)\b[^>]*>.*?</(?:pre|code)>}mi) do |block|
+        blocks << block
+        "@@jekyll-baseurl-held-#{blocks.length - 1}@@"
+      end
+      [held, blocks]
+    end
+
+    def unhold_code(content, blocks)
+      content.gsub(/@@jekyll-baseurl-held-(\d+)@@/) { blocks[Regexp.last_match(1).to_i] }
+    end
+
+    # 两条改写：Markdown 图片语法 + HTML img 标签的 src
+    def rewrite_image_paths(content, baseurl)
+      content = content.gsub(/!\[([^\]]*)\]\(([^)]+)\)/) do
+        alt = $1
+        path = resolve_path($2, baseurl)
+        "![#{alt}](#{path})"
+      end
+
+      # `src\s*=\s*` 而不是 `src=`：`<img src = "x">` 是合法 HTML，写死等号会整条不命中，
+      # 那张图因此带着没前缀的路径上线，在 /better-blog 下 404。
+      content = content.gsub(/<img\s+([^>]*?)src\s*=\s*["']([^"']*?)["']([^>]*?)>/i) do
+        before_src = $1
+        src = resolve_path($2, baseurl)
+        after_src = $3
+        "<img #{before_src}src=\"#{src}\"#{after_src}>"
+      end
+
+      content
+    end
+
+    # 单条图片路径的归一：外链原样返回；./ ../ 折成绝对路径；缺前缀的补 baseurl
+    def resolve_path(raw, baseurl)
+      # 跳过外部 URL（http://、https://、//、data: 等）
+      return raw if raw.start_with?('http://', 'https://', '//', 'data:')
+
+      # 移除开头的 ./ 和 ../ 前缀，统一转换为绝对路径
+      # 例如: ./../assets/img/xxx.png -> /assets/img/xxx.png
+      # 例如: ../assets/img/xxx.png -> /assets/img/xxx.png
+      # 例如: ./assets/img/xxx.png -> /assets/img/xxx.png
+      path = raw
+      while path.start_with?('./') || path.start_with?('../')
+        if path.start_with?('./')
+          path = path[2..-1]  # 移除 ./
+        elsif path.start_with?('../')
+          path = path[3..-1]  # 移除 ../
+        end
+      end
+
+      # 确保路径以 / 开头
+      path = '/' + path unless path.start_with?('/')
+
+      # 为相对路径添加 baseurl，但如果已经包含 baseurl 则跳过
+      already_prefixed?(path, baseurl) ? path : "#{baseurl}#{path}"
+    end
+
+    # 「已经带过 baseurl」要认到 `/` 这一格边界：baseurl 是 /better-blog 时，
+    # /better-blog-assets/a.png 是另一条路径，不是带过前缀的同一条 —— 只比 start_with?
+    # 会把它当成带过而漏掉前缀，图照样 404。
+    def already_prefixed?(path, baseurl)
+      baseurl.empty? || path == baseurl || path.start_with?("#{baseurl}/")
     end
   end
 end

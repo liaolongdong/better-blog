@@ -31,10 +31,11 @@
  *    按动作时发生，所以二十次 `input` 之后注入的 `runGuarded` 计数必须是 0（`input` 那一发只排一次
  *    防抖读数，不进边界），结果区里一行 `df-row` 都不许有。防抖靠**令牌**而不是 `clearTimeout`：
  *    时钟由入口注入，本层不该再多要一只取消延时的手。
- * 5. **两类失败分两条路**（Z26）：用户那一格不能用（两边都空 / 一侧空 / 坏 JSON / 超闸门 / 没选文件）
+ * 5. **两类失败分两条路**（Z26、Z31）：用户那一格不能用（两边都空 / 一侧空 / 坏 JSON / 超闸门 / 没选文件）
  *    → `FieldError` → 一句话进控制栏的状态行，别的什么都不塌；模块或骨架自己抛的（spec 与骨架漂移出的
- *    档位、缺席的节点）→ 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。两条路都**不许把上一格的
- *    结果擦掉**——先算后画，抛一定发生在画之前。
+ *    档位、缺席的节点、注入的读手自己抛）→ 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。
+ *    文件那一路是 async，所以这一条边界接在 `.catch` 上（Z31）——只写 `throw` 的那一发是没人认领的拒绝。
+ *    两条路都**不许把上一格的结果擦掉**——先算后画，抛一定发生在画之前。
  * 6. **档位只有一个口径**（Z20、Z21）：折叠的四个档住在 `context` 那一枚下拉里，`expand` / `fold` /
  *    `diffOnly` 三枚按钮是它的**快捷键**（写回同一枚 `select`，不复算第二份状态）；跳转的三枚读的是
  *    同一份 hunk 清单；并排与行内两档视图读的是同一份行流，切布局本身不重算。
@@ -45,8 +46,9 @@
  * 两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，`iifeWrapPlugin` 包完就是整页
  * SyntaxError 而构建 exit=0（§0.4 那条构建红线，Z13 正反两头核它）。
  *
- * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 二十九判
- * （原写二十八，`Z29`「折叠条真的能点开」是 Task 6 落第四页骨架时补的那一发——2026-10-01 段 5 Task 9 对账改口）。
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 三十一判
+ * （原写二十八，`Z29`「折叠条真的能点开」是 Task 6 落第四页骨架时补的那一发——2026-10-01 段 5 Task 9 对账改口；
+ * `Z30`「深链档位进站就落定」与 `Z31`「文件那一路的第二类失败」是 2026-10-17 存量评审补的两刀）。
  */
 import {
   gate as coreGate, diffLines, hunksOf, unifiedText, DIFF_NOTES, CR_GLYPH,
@@ -654,9 +656,15 @@ export function createDiffWorkbench(env) {
   };
   /** 文件那一路的两条入口：`change` 与 `drop` 汇到同一发，两条路必须同一条（Z27 判的就是它） */
   const takeFile = (side, source) => {
-    loadFile(side, source && source.length > 0 ? source[0] : null).catch((err) => {
-      if (err && err.name === 'FieldError') say(side, err.message);
-      else throw err;
+    const fid = fieldId(env.prefix, PANEL, `${side}-file`);
+    // 边界接在 `.catch` 上而不是包成同步 `try`：`loadFile` 是 async，`FieldError` 也从拒绝里回来。
+    // 非 `FieldError` 那一发（注入的 `readFile` 自己抛、宿主那只 `Blob` 缺了……）若只写 `throw`，
+    // 它从 `.catch` 里变成一次没人认领的拒绝——页面上既没红字也没状态行，而红线 5 要的是
+    // "这一类交给 `runGuarded` 记这一块坏了"，与按按钮那一路同一条（Z26）。
+    return loadFile(side, source && source.length > 0 ? source[0] : null).catch((err) => {
+      if (err && err.name === 'FieldError') { say(side, err.message); return; }
+      if (typeof env.runGuarded === 'function') { env.runGuarded(fid, () => { throw err; }); return; }
+      throw err;
     });
   };
   /**
@@ -913,6 +921,13 @@ export function createDiffWorkbench(env) {
           const el = nodes.get(fid);
           if (k.kind === 'check') el.checked = got.found[k.name] === true;
           else el.value = got.found[k.name];
+          // `syncGate()` 读的是 `s.mode`（JSON 档要把折叠与跳转那一排整排置灰），不是控件那一格。
+          // 深链写完控件却不同步这一份，`?df-mode=json` 进站时那一排该灰的没灰——用户按下去才在
+          // `goTo` 里撞上「JSON 档按格比对」。这里只跟着**真的写成功**的那一发走（上面 `continue`
+          // 掉的缺席控件不算），值本身已由 `parse` 过白名单，与 `selectOf` 读的是同一份 `options`。
+          // 不在这里调 `readControls()`：它读全五枚加两栏正文，骨架漂了会在挂载期就抛，而 Z26 要的
+          // 是"缺格报在清单里、抛在按动作那一次"。
+          if (k.control === 'mode') s.mode = got.found[k.name];
         }
       }
       paint(view.renderNotice('把要比较的两份内容分别贴进来，或各选一个本地文件；文件在这台机器上读取，不上传。'));

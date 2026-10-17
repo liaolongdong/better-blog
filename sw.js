@@ -20,7 +20,8 @@ URL 目录**决定，放在 `assets/js/` 下就只能控制 `/better-blog/assets
    origin 不等则**不调 respondWith**，交回浏览器默认行为。
 3. **缓存桶按 BUILD 命名。** 站内 css/js 都是同名不带指纹的文件（`index.min.css` 改了还叫
    `index.min.css`），没有版本号就没法让旧缓存失效。`BUILD` 取构建时刻，于是每次部署
-   sw.js 的字节都变 → 浏览器按字节比对判定"有新版本"→ 新桶建立、旧桶在 activate 里删干净。
+   sw.js 的字节都变 → 浏览器按字节比对判定"有新版本"→ 新桶建立、旧桶在 activate 里删干净
+   （唯一例外：骨架部分失败时留最新一代旧桶，见 activate 与 SW21/SW22）。
    代价要说清楚：`_site/sw.js` 因此**不是**逐字节可复现的产物，任何拿 md5 比对产物的
    自检都必须把这一个文件排除在外（见 scripts/check-sw.mjs 的判据 6）。
 {%- endcomment -%}
@@ -137,6 +138,20 @@ const DOC_URLS = [
   '{{ post.url | prepend: site.baseurl }}',
 {%- endunless %}{% endfor %}
 ];
+
+/**
+ * 不参与文档桶淘汰的那一段：首页、导航与「免安装工具」里的入口页、全站索引。
+ *
+ * 必须钉住：fillIdle 按 DOC_URLS 原序写入，"最早写入"恰好等于"最要紧"那一批，而 trim 从头部
+ * 淘汰——翻满 CAPS.doc.entries 那 140 条后被挤出去的正是首页与工具箱，断网点首页就落到
+ * 回落链最后一格（兜底页 + 503，形状同 verify-sw-offline.mjs 的 S6）。
+ *
+ * 边界取 index-all：它排在 site.posts 循环之前，位置就是入口段末尾（产物实测 ENTRY_CUT=12，
+ * 钉住 13 枚）。这条边界站不站得住由 sw-lifecycle-tests.mjs 的 SW15/SW16 看着——沙箱会摘掉
+ * Liquid 循环，只有源文本判得了。读不到位置时退回"只钉首页"，不是"谁的钉都不钉"。
+ */
+const ENTRY_CUT = DOC_URLS.indexOf(BASE + '/index-all.html');
+const PIN_URLS = ENTRY_CUT === -1 ? [BASE + '/'] : DOC_URLS.slice(0, ENTRY_CUT + 1);
 
 {%- comment -%}
 封面清单：只收「文章 front matter 里点名的那张本地封面」，顺序跟 `site.posts` 一致
@@ -270,7 +285,8 @@ const lastByteCheck = Object.create(null);
  *
  * Cache.keys() 的返回顺序规范没有保证，Chrome 与 Firefox 实测是写入序，所以这里的淘汰是
  * **尽力而为的 FIFO**，不是严格 LRU：它的职责是"别让桶无限长"，不是"精确留住最近最常用的
- * 那几条"。判据里也只按这个口径断言上限，不承诺命中次序。
+ * 那几条"。判据里也只按这个口径断言上限，不承诺命中次序。唯一豁免是入口页那一族
+ * （见 PIN_URLS）——它们按写入序恰好排在最前面，不豁免就会被自己挤出去。
  *
  * 两道上限的代价不一样，所以节奏也不一样。条数闸只看 `keys()`（不取响应体），每次都跑；
  * 字节闸要为**每一条**跑一次 `cache.match` 再把体读成 blob，图片桶满员时是 320 条 /
@@ -284,9 +300,21 @@ const lastByteCheck = Object.create(null);
 async function trim(name, cap) {
   const cache = await caches.open(name);
   const keys = await cache.keys();
+  // 入口页那一族不参与淘汰（理由见 PIN_URLS）。只有文档桶会涨到上限，骨架桶不进这里。
+  // 清单存的是根往下的路径，`Request.url` 是绝对地址，两边要同一把尺才对得上：相对路径直接喂
+  // `new URL()` 是当场 TypeError，而那条抛错会被 `storeInto` 收进 `__bbPutErr` 不上屏——
+  // 代价是整个文档桶的淘汰静默停摆，比"忘了豁免"更糟。
+  const pin = name === BUCKET.doc
+    ? new Set(PIN_URLS.map((u) => canonicalOf(new URL(u, self.location.href).href)))
+    : null;
+  const keep = (req) => (pin ? pin.has(canonicalOf(req.url)) : false);
   if (keys.length > cap.entries) {
-    for (let i = 0; i < keys.length - cap.entries; i += 1) {
-      await cache.delete(keys[i]);
+    let need = keys.length - cap.entries;
+    for (const req of keys) {
+      if (need <= 0) break;
+      if (keep(req)) continue;
+      await cache.delete(req);
+      need -= 1;
     }
     return;
   }
@@ -303,6 +331,7 @@ async function trim(name, cap) {
   }
   if (over <= cap.bytes) return;
   for (let i = 0; i < keys.length && over > cap.bytes; i += 1) {
+    if (keep(keys[i])) continue;
     await cache.delete(keys[i]);
     over -= sizes[i];
   }
@@ -415,9 +444,16 @@ self.addEventListener('install', (event) => {
         SHELL_URLS.map((u) => cache.add(new Request(u, { cache: 'reload' }))),
       );
       const failed = settled.filter((r) => r.status === 'rejected');
+      if (failed.length === settled.length) {
+        // 整批全失败 = 这一趟连不上源站，不是"清单里少了一件"。唯一的正确动作是让 install 失败：
+        // 新版本被丢弃、旧 SW 继续掌权、三个桶原样留着。早先写的是"绝不让 install 整个失败"，
+        // 怕反了——skipWaiting 之后 activate 会删掉非本 BUILD 的桶，一次源站抖动就把读者攒下的
+        // 离线层清零，而同一个 BUILD 里没有第二次 install 补回来（实测 175 条 → 0 条）。
+        throw new Error(`骨架预缓存 ${failed.length} 条全部失败，放弃这次接管以保住旧离线层`);
+      }
       if (failed.length) {
-        // 装不上就少装几件，绝不让 install 整个失败——install 被拒等于这次发版没有离线层。
-        // 清单里某条地址不存在是构建期就该抓住的事，判据 1 归 scripts/check-sw.mjs 管。
+        // 部分失败照旧放行：装不上就少装几件，清单里某条地址不存在是构建期就该抓住的事，
+        // 判据 1 归 scripts/check-sw.mjs 管。
         self.__bbFailed = failed.length;
       }
       await self.skipWaiting();
@@ -429,8 +465,21 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const live = Object.values(BUCKET);
-      const stale = (await caches.keys()).filter((k) => live.indexOf(k) === -1);
-      await Promise.all(stale.map((k) => caches.delete(k)));
+      // 只清自己这一族的桶：`caches.keys()` 给的是**整个 origin** 的桶，只按"不在 live 列表里"
+      // 判会把同域名下别的应用自建的桶一起删——实测过一次共存桶被这行连带清空。
+      const own = [BASE + '-shell-', BASE + '-doc-', BASE + '-img-'];
+      const isOwn = (k) => own.some((p) => k.indexOf(p) === 0);
+      const stale = (await caches.keys()).filter((k) => live.indexOf(k) === -1 && isOwn(k));
+      // 骨架**部分**失败时留最新那一代旧桶：离线回落 `caches.match(OFFLINE_URL)` 是全桶查找，
+      // 这次没装上 offline.html 的话，旧桶一删读者就从"有兜底页"掉成浏览器自带的报错页——
+      // 与上面"整批全失败就否掉接管"是同一条判断的两半。只留一代（后缀是 BUILD 那 12 位时刻，
+      // 字典序即时间序），下次装干净的发版把它一起删掉，不会越攒越多。
+      const gen = (k) => k.slice(k.lastIndexOf('-') + 1);
+      const gens = stale.map(gen).sort();
+      const keepGen = self.__bbFailed ? gens[gens.length - 1] : null;
+      const doomed = stale.filter((k) => gen(k) !== keepGen);
+      self.__bbKeptStale = stale.length - doomed.length;
+      await Promise.all(doomed.map((k) => caches.delete(k)));
       await self.clients.claim();
       fillIdle();
     })(),
@@ -440,8 +489,8 @@ self.addEventListener('activate', (event) => {
 /**
  * 该不该做后台补全：省流量模式与慢链路一律跳过。
  *
- * 补全的量级是整站文字（101 条 HTML，9,680,423B 原文 / 逐件 gzip -9 后 2,542,479B 实传）加最近
- * 若干张封面（预算 2.5MB），明确打了 saveData 标记的用户不该被这一下打断。
+ * 补全的量级是整站文字（条数与实传字节由 scripts/check-sw.mjs 每次构建现报）加最近若干张封面
+ * （预算 2.5MB），明确打了 saveData 标记的用户不该被这一下打断。
  * @returns {boolean} true 表示可以进行补全
  */
 function mayFill() {
@@ -452,19 +501,31 @@ function mayFill() {
 }
 
 /**
+ * 空闲补全的进度账，活在模块作用域里而不是那一次调用的闭包里。
+ *
+ * 为什么挪出来：补全排的是 `requestIdleCallback` / `setTimeout`，没有 `waitUntil` 牵着它，
+ * SW 说终止就终止，而一趟跑不完是常态。原先游标与封面记账在闭包里，进程一没就没人续——
+ * 同一个 BUILD 里第二次进站 `activate` 不再跑，那半截离线层**永远**停在原地。
+ * `running` 是这一族唯一的互斥：`activate` 与每次导航都会叫 `fillIdle()`，判据在这一个格上。
+ * @type {{running: boolean, cursor: number, coverBytes: number}}
+ */
+const fill = { running: false, cursor: 0, coverBytes: 0 };
+
+/**
  * 空闲补全：activate 之后分批把文档与封面拉进桶里，让"整站文字离线可读"在首访后几分钟内
  * 真的成立，而不是等读者一本一本点开。
  *
- * 三个约束都是刻意的：只用 requestIdleCallback（没有就退回 setTimeout，绝不与首屏抢带宽）、
- * 每批 4 条并隔 300ms（Pages 侧连接数与移动网络的拥塞窗口）、已在桶里的跳过（同一个 BUILD
- * 桶内第二次跑这份补全应当是零请求，这让"回访不重复下载"变成可判据的事而不是口头保证）。
+ * 四个约束都是刻意的：只用 requestIdleCallback（没有就退回 setTimeout，绝不与首屏抢带宽）、
+ * 每批 4 条并隔 300ms（Pages 侧连接数与移动网络的拥塞窗口）、已在桶里的跳过（这让"回访不重复
+ * 下载"变成可判据的事）、可重入（跑完或整批失败停下才放开 `running`，其余任何时候再叫直接返回；
+ * 续跑从 `cursor` 停下的地方接着走，所以"跳过已缓存"同时是幂等证明）。
  * @returns {void}
  */
 function fillIdle() {
-  if (!mayFill()) return;
+  if (!mayFill() || fill.running || self.__bbFillDone) return;
+  fill.running = true;
+  self.__bbFillPasses = (self.__bbFillPasses || 0) + 1;
   const queue = DOC_URLS.concat(COVER_URLS);
-  let cursor = 0;
-  let coverBytes = 0;
   const idle =
     typeof self.requestIdleCallback === 'function'
       ? (cb) => self.requestIdleCallback(cb, { timeout: 5000 })
@@ -473,20 +534,21 @@ function fillIdle() {
   /** 跑一批：取未缓存的地址并发请求，装完再排下一批。 */
   const step = async () => {
     const batch = [];
-    while (batch.length < LIMIT.fillBatch && cursor < queue.length) {
-      const url = queue[cursor];
-      cursor += 1;
+    while (batch.length < LIMIT.fillBatch && fill.cursor < queue.length) {
+      const url = queue[fill.cursor];
+      fill.cursor += 1;
       const isCover = coverIndex(url) !== -1;
-      if (isCover && coverBytes >= LIMIT.coverBytes) continue;
+      if (isCover && fill.coverBytes >= LIMIT.coverBytes) continue;
       const cache = await caches.open(isCover ? BUCKET.img : BUCKET.doc);
       if (await cache.match(url)) continue;
       batch.push({ url, isCover });
     }
     if (!batch.length) {
-      if (cursor < queue.length) { idle(step); return; }
+      if (fill.cursor < queue.length) { idle(step); return; }
       // 队列走到底（包括"封面预算到线后一路跳过"那种走完）：这一条是给核验用的落定信号。
       // 没有它，核验脚本只能"看到文档桶满了就抄一份读数"，而封面排在队列后半段——
       // 2026-09-28 两次真跑分别抄到 12 张与 5 张，差的全是采样时刻，不是补全结果。
+      fill.running = false;
       self.__bbFillDone = true;
       return;
     }
@@ -514,19 +576,19 @@ function fillIdle() {
         }
         const bytes = (await res.clone().blob()).size;
         if (isCover) {
-          // 总预算这道闸排在"读到真实体积之后、写桶之前"。判据与 `coverBytes +=` 之间没有 await，
+          // 总预算这道闸排在"读到真实体积之后、写桶之前"。判据与 `fill.coverBytes +=` 之间没有 await，
           // 于是同一批 4 条并发读到的记账值是串行走的——超线那张直接被跳过而不是挤进去，
           // 入桶体积恒 ≤ 这条线（早先这里写的是"最坏多带一张过线"，是拿"先装后判"的旧形状写的，
           // 改 skips 之后那句话已经不成立，2026-09-28 核对时一并改掉）。
-          if (bytes > LIMIT.coverEach || coverBytes + bytes > LIMIT.coverBytes) {
+          if (bytes > LIMIT.coverEach || fill.coverBytes + bytes > LIMIT.coverBytes) {
             if (res.body) await res.body.cancel();
             self.__bbSkipped = (self.__bbSkipped || 0) + 1;
             return;
           }
-          coverBytes += bytes;
+          fill.coverBytes += bytes;
           // 记账体积一并露出去：设计文档 §6 要的是"这一版预算下真装进去多少字节"，
           // 只报桶里的条数不够——预算这条闸本身就是按字节关的，读数也得按字节给。
-          self.__bbCoverBytes = coverBytes;
+          self.__bbCoverBytes = fill.coverBytes;
         }
         // 先拿到桶再 put：`await caches.open(x).put(...)` 里的 `.put` 落在**那个 Promise** 上，
         // 拿到的是 TypeError——2026-09-28 真机跑出来的第一个红就是这个形状（补全静默停在第 0 条，
@@ -547,11 +609,33 @@ function fillIdle() {
       if (!self.__bbFillWhy) self.__bbFillWhy = String(rejected[0].reason && rejected[0].reason.message ? rejected[0].reason.message : rejected[0].reason);
     }
     if (rejected.length === batch.length && batch.every((b) => !b.isCover)) {
-      // 整批文档全失败通常意味着已经离线了，继续排下去只是空转。
+      // 整批文档全失败通常意味着已经离线了，继续排下去只是空转。放开 `running` 是刻意的：
+      // 停的是这一趟，不是这件事——读者走出隧道再点开下一页，导航那一格会把补全重新排队。
+      fill.running = false;
       self.__bbFillStop = `${batch.length} 条文档整批失败：${String(rejected[0].reason && rejected[0].reason.message ? rejected[0].reason.message : rejected[0].reason)}`;
       return;
     }
     idle(step);
+  };
+
+  /**
+   * 续跑那一趟的开头：封面预算从桶里重算，不靠内存。`fill.coverBytes` 跟着上一次 SW 生命周期
+   * 一起没了，桶里那些字节还在——不重算等于每被终止一次就多一份 2.5MB 配额，"入桶体积恒 ≤
+   * 这条线"那句不变量只活在单趟之内。游标为 0 时不读桶：那时桶里本就不该有清单内的封面。
+   * @returns {Promise<void>}
+   */
+  const start = async () => {
+    if (fill.cursor > 0) {
+      const img = await caches.open(BUCKET.img);
+      let bytes = 0;
+      for (const url of COVER_URLS) {
+        const res = await img.match(url);
+        if (res) bytes += (await res.blob()).size;
+      }
+      fill.coverBytes = bytes;
+      self.__bbCoverBytes = bytes;
+    }
+    return step();
   };
 
   /**
@@ -563,7 +647,7 @@ function fillIdle() {
     return COVER_URLS.indexOf(url);
   }
 
-  idle(step);
+  idle(fill.cursor > 0 ? start : step);
 }
 
 self.addEventListener('fetch', (event) => {
@@ -579,6 +663,9 @@ self.addEventListener('fetch', (event) => {
   if (isPassthrough(url)) return;
 
   if (req.mode === 'navigate' || req.destination === 'document') {
+    // 导航是这一层唯一确定的"读者在场"信号：上一趟要是被终止在半路，这里把补全重新排队。
+    // 排在 respondWith 之前但不 await 它——补全只进 idle 队列，首屏那条响应一点不让。
+    fillIdle();
     event.respondWith(networkFirst(req, LIMIT.doc, event));
     return;
   }
@@ -618,6 +705,12 @@ self.addEventListener('message', (event) => {
     stop: self.__bbFillStop || '',
     skipped: self.__bbSkipped || 0,
     coverBytes: self.__bbCoverBytes || 0,
+    // passes=2 说明上一趟中途停过、这一趟是续上来的；cursor 说"走到哪"，running 说"有没有人在走"。
+    passes: self.__bbFillPasses || 0,
+    cursor: fill.cursor,
+    running: fill.running,
+    // 因骨架没装干净而留下的旧桶只数（见 activate）；核验脚本用它判"留没留对"。
+    keptStale: self.__bbKeptStale || 0,
     buckets: Object.values(BUCKET),
     counts: {
       shell: SHELL_URLS.length,
