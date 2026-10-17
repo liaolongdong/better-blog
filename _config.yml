@@ -33,6 +33,12 @@ url: 'https://liaolongdong.github.io' # your host
 # (CI's actions/configure-pages injects the same base_path at build time.)
 baseurl: '/better-blog'
 
+# 构建时区。Ledger（_data/modified.yml）里的修订时间带 +08:00，Liquid 的 date 滤镜却按
+# 构建机的 TZ 渲染：本地是 +08:00，CI 是 UTC，同一时刻会被写成两种偏移（跨零点的还会
+# 差一天），check-seo 的 modified 组于是本地绿、CI 红。固定成作者时区后，任何机器构建
+# 都是同一份输出；Jekyll 会在构建期间设置 TZ。
+timezone: Asia/Shanghai
+
 # 站点版本号。唯一的口径是 git tag：tag 打在 master 上（Pages 的 Workflow 只监听 master），
 # 与线上产物同源，所以这里的值必须等于 master 上最新的 tag。
 # 三处要一起改：本字段、package.json 的 version、CHANGELOG.md 的新条目——
