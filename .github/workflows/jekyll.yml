@@ -147,7 +147,7 @@ jobs:
           echo "✓ ${GATES} 道门禁全绿：上传的这份产物与被验的这份是同一份"
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
 
   deploy:
     environment:
