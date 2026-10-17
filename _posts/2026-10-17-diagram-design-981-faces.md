@@ -4,7 +4,7 @@ title: README 说载 3 个字体族，我数出 981 个 @font-face
 subtitle: 模板里那条 link 声明 981 个切片、8 个族，README 只提了 3 个名字，画廊还藏着第二条
 seo_short_title: 981 个字体切片里没有一个给简体
 seo_description: 把 cathrynlavery/diagram-design 那条 Google Fonts link 抓回来按 gstatic 路径数一遍：981 个 @font-face，928 个给韩文与繁体，简体 0 个。仓库里还躺着第二条 link。
-date: 2026-10-16
+date: 2026-10-17
 categories: [CSS, 开源实测]
 cover: /assets/img/diagram-design-981-faces/banner.webp
 tags: CSS headless 设计系统 github 开源 前端小技巧
@@ -104,7 +104,7 @@ python3 skills/diagram-design/scripts/self_check.py --offline \
 
 作者把代价写在 body 明面：样式表从 `~229 KB` 涨到 `~353 KB`，纯拉丁的图也一起涨。我实测两条 link 的 gzip 响应是 `233,142` 与 `357,011`，`@font-face` 从 981 条变 1,385 条，新增的 404 条全在 SC 两族里。跟他按 KiB 折算的读数差 1.3% 与 1.4%，逐字相等我没能复现。
 
-先例走的是同一条路。[cathrynlavery/diagram-design#175](https://github.com/cathrynlavery/diagram-design/issues/175) 开在 9 月 3 日，[cathrynlavery/diagram-design#186](https://github.com/cathrynlavery/diagram-design/pull/186) 在 9 月 6 日合入，前后 3 天 9 小时。#249 开在 9 月 24 日，我核对的这一刻还开着，21 天，`mergeable=true` 但状态是 unstable。
+先例走的是同一条路。[cathrynlavery/diagram-design#175](https://github.com/cathrynlavery/diagram-design/issues/175) 开在 9 月 3 日，[cathrynlavery/diagram-design#186](https://github.com/cathrynlavery/diagram-design/pull/186) 在 9 月 6 日合入，前后 3 天 9 小时。#249 开在 9 月 24 日，我核对的这一刻还开着，23 天 10 小时，`mergeable=true` 但状态是 unstable。
 
 维护者留了两条意见。第一条说视觉证据不成立，那张 `simplified-labels-light.png` 是一张纯拉丁的图，里面没有一个汉字。第二条说还有 3 条 Greptile 线程没关。作者 10 月 10 日回：五点加那一点可选的都改了，之前那张附件确实是一版拉丁渲染，是我贴错了；然后问能不能在新 head 上复审——PR 作者自己发不起正式 review 请求。
 
@@ -118,6 +118,6 @@ python3 skills/diagram-design/scripts/self_check.py --offline \
 
 我没能验到的：`lint-render.py` 我没跑，它要 Playwright 那套渲染工装，本机这次没装。style-guide.md 第 123 行那句 `every shipped template and example is already checked in system-font mode` 我照原文引，没证实也没推翻。同一张面板里，4 个 40px 汉字在 TC 栈、`serif`、`PingFang SC` 三种 family 下都量出 160.0，等宽说明那次没有任何 web 字体参与排版——那张图证的是 CSS 层的命中，不是简体字长什么样。
 
-#249 的 head 停在 `28b8a84`，仓库版本在 plugin.json 的 `2.6.103` 上。如果它到我下期抓 trending 之前还没合，我回来量的还是 981 和 0 这两个数；合了我就把两条 link 的差值重算一遍给你。
+#249 的 head 停在 `28b8a84`，仓库版本在 `.claude-plugin/plugin.json` 的 `2.6.110` 上。如果它到我下期抓 trending 之前还没合，我回来量的还是 981 和 0 这两个数；合了我就把两条 link 的差值重算一遍给你。
 
 项目地址：[https://github.com/cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design)
