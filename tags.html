@@ -37,13 +37,24 @@ section 的 id 就是文章页底部 /tags.html#标签 这类入链的落点—�
 </section>
 
 <main class="g-container archive-content" id="main">
+    {%- comment -%}
+    归档页也按热度排，理由与首页话题栏同一条（见 _plugins/hot_tags_filter.rb 文件头：
+    site.tags 的 key 顺序是「最早文章上首次出现的标签」在前，不排序就是 2016 年在最上面）。
+    必须先 assign 再 for——Liquid 5 的 for 不接受内联管道，写错了会静默丢掉 filter。
+    {%- endcomment -%}
+    {%- assign hotTags = site.tags | hot_tags -%}
     <nav class="cat-index" aria-label="标签索引">
-        {% for tag in site.tags %}
+        {% for tag in hotTags %}
         <a class="cat-chip" href="#{{ tag[0] }}">{{ tag[0] }}<em>{{ tag[1].size }}</em></a>
         {% endfor %}
     </nav>
 
-    {% for tag in site.tags %}
+    {%- comment -%}
+    区块顺序与上面的索引条同序（都是 hot_tags），读者点索引条才不用反向找。
+    改的只是渲染顺序，section 的 id 仍是标签名本身，所以 /tags.html#标签 这类
+    全站入链一处都不受影响——顺序可以随便换，id 不能。
+    {%- endcomment -%}
+    {% for tag in hotTags %}
     <section class="cat-section" id="{{ tag[0] }}">
         <header class="cat-head">
             <h2 class="cat-name">{{ tag[0] }}</h2>

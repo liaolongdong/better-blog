@@ -85,9 +85,19 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
 
     <div class="article-list">
         <div class="feed-toolbar">
-            <span class="feed-label">最新</span>
+            {%- comment -%}
+            标签写「热门」不写「最新」：这一栏是话题入口，不是时间线，且它下面的信息流
+            本来就是按时间倒序，用「最新」来标一排标签反而两头都不对。排序交给 hot_tags
+            （_plugins/hot_tags_filter.rb），理由写在那个文件头。
+            必须先 assign 再 for：Liquid 5 的 for 标签不接受内联管道，那样写构建会报
+            Expected end_of_string but found pipe，然后静默丢掉整个 filter、退化成未排序的
+            旧顺序——报错是 Warning 级，门禁不红，页面照发，只是排序没了。
+            所以排序在这行落地一次，下面信息流话题栏与右栏标签云两处共用。
+            {%- endcomment -%}
+            {%- assign siteTopics = site.tags | hot_tags -%}
+            <span class="feed-label">热门</span>
             <nav class="feed-topics" aria-label="热门话题">
-                {% for tag in site.tags limit: 6 %}
+                {% for tag in siteTopics limit: 6 %}
                 <a class="feed-topic" href="{{ '/tags.html#' | append: tag[0] | prepend: site.baseurl }}">{{ tag[0] }}<em>{{ tag[1].size }}</em></a>
                 {% endfor %}
             </nav>
@@ -143,13 +153,16 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
                       {% include metaIcon.html name='date' size=15 %}
                       <span class="meta-text">{% include postDate.html date=post.date %}</span>
                     </time>
-                    {% if site.waline.enable and site.waline.pageview %}
-                    <span class="post-meta-item pageview-item" title="阅读量">
-                      {% include metaIcon.html name='view' size=15 %}
-                      <span class="u-sr-only">阅读量</span>
-                      <span class="waline-pageview-count" data-path="{{ post.url | prepend: site.baseurl }}">-</span>
-                    </span>
-                    {% endif %}
+                    {%- comment -%}
+                    首页卡片不显示阅读量。2026-10-17 实测：这台 Waline Worker 的
+                    GET /api/article 对任何 path 恒返回 {"time":0}——包括打开后明明显示
+                    32 次阅读的那篇，只有 POST 自增那一侧是好的。所以列表页原来那段
+                    「逐条单路径只读查询」的脚本，注定给 8 张卡片各填一个 0，
+                    既是假信息（新文章和零阅读无法区分），又每次首页加载多打 8 个
+                    必然失败的 XHR。文章页的阅读量保留：它取的是 POST 自增的响应，数字是真的。
+                    要恢复这一栏，前提是先修好 Worker 的读路径，别在数据源没修好的时候
+                    把 0 重新贴回首页。
+                    {%- endcomment -%}
                     {% if post.tags.size > 0 %}
                     <div class="post-tags">
                         {% for tag in post.tags  %}
@@ -209,7 +222,7 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
             {% if site.recommend-tags and site.tags.size>0 %}
             <section class="tags-card">
                 <h2 class="card-title">标签</h2>
-                {% for tag in site.tags %}
+                {% for tag in siteTopics %}
                     {% if forloop.index > site.recommend-condition-size %}
                         {% break %}
                     {% endif %}
@@ -236,23 +249,3 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
 {%- include jsonLdList.html list='home' %}
 
 {% include footer.html %}
-
-{% if site.waline.enable and site.waline.pageview %}
-<!-- Waline 阅读量统计（首页列表页）：逐条单路径只读查询，规避后端多路径批量查询缺陷 -->
-<script>
-    (function () {
-        var serverURL = '{{ site.waline.serverURL }}';
-        document.querySelectorAll('.waline-pageview-count').forEach(function (node) {
-            var path = node.getAttribute('data-path');
-            if (!path) return;
-            fetch(serverURL + '/api/article?path=' + encodeURIComponent(path) + '&type=time')
-                .then(function (res) { return res.json(); })
-                .then(function (resp) {
-                    var item = resp && resp.data && resp.data[0];
-                    node.textContent = item && typeof item.time === 'number' ? item.time : 0;
-                })
-                .catch(function () { node.textContent = '0'; });
-        });
-    })();
-</script>
-{% endif %}

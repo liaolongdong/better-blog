@@ -13,7 +13,9 @@ permalink: /categories.html
 
 {%- comment -%}
 site.categories 迭代出来的是「front matter 里第一次出现」的顺序，既不是字母序也不是篇数序
-（tags.html 直接吃它，第一枚是 jekyll），14 个分类这样排会乱成一团。
+（tags.html 原来也直接吃这个顺序，2026-10-17 起改走 _plugins/hot_tags_filter.rb；
+ 分类这一页沿用下面的内联排法，两边同为「篇数多的在前」，并列时的次级口径不要求一致），
+ 14 个分类这样排会乱成一团。
 这里把「补零计数 + 分类名」拼成一个字符串排序再倒序，得到「文章最多的主题排最前」；
 补零到 5 位是为了让 2 位数与 5 位数在字符串序下也正确，读回时用定长 slice 拆。
 {%- endcomment -%}
