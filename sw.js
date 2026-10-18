@@ -507,7 +507,9 @@ function mayFill() {
  * SW 说终止就终止，而一趟跑不完是常态。原先游标与封面记账在闭包里，进程一没就没人续——
  * 同一个 BUILD 里第二次进站 `activate` 不再跑，那半截离线层**永远**停在原地。
  * `running` 是这一族唯一的互斥：`activate` 与每次导航都会叫 `fillIdle()`，判据在这一个格上。
- * @type {{running: boolean, cursor: number, coverBytes: number}}
+ * 内层记录类型与外层大括号之间必须留一个空格：两对连写的左花括号会被 Jekyll 当成
+ * Liquid 表达式整段吞掉，产物里这行注释只剩半个词。
+ * @type { {running: boolean, cursor: number, coverBytes: number}}
  */
 const fill = { running: false, cursor: 0, coverBytes: 0 };
 

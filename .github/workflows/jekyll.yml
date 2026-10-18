@@ -74,9 +74,24 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build with Jekyll
-        run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+        run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}" 2>&1 | tee /tmp/jekyll-build.log
         env:
           JEKYLL_ENV: production
+
+      - name: Liquid 渲染自证
+        shell: bash
+        run: |
+          # 构建日志里出现 Liquid Warning/Error，意味着**产物不等于源**：那一处被 Liquid 当成
+          # 表达式解析掉了，而 jekyll 自己照样 exit 0。sw.js 里 `@type` 那行注释就是这么整段
+          # 消失的（2026-10-18 评审现场），而 SW 承载着全站离线层，静默吞掉没有任何门禁会替说。
+          # 排在所有站点门禁之前：渲染不忠实时，后面那些读产物的判据都是在读一份不确定的东西。
+          n=$(grep -cE 'Liquid Warning|Liquid error' /tmp/jekyll-build.log || true)
+          if [ "$n" -ne 0 ]; then
+            grep -nE 'Liquid Warning|Liquid error' /tmp/jekyll-build.log
+            echo "✗ 构建日志里有 $n 条 Liquid 警告/错误，产物与源不一致（坐标见上）"
+            exit 1
+          fi
+          echo "✓ 构建日志无 Liquid 警告/错误，产物与源同一份"
 
       - name: Site gates
         shell: bash
@@ -111,6 +126,11 @@ jobs:
           gate 'toolkit-tests'            --test scripts/toolkit-tests.mjs
           gate 'tool-url-state-tests'     --test scripts/tool-url-state-tests.mjs
           gate 'sw-lifecycle-tests'       --test scripts/sw-lifecycle-tests.mjs
+          # 计划里那些**整文件镜像**与磁盘逐字节全等（只读源、不碰产物，所以排在构建后的那几道之前）。
+          # 这条门 2026-10-17 就写好了，却没进这张清单——于是 `544e558` 那一族改了五个 tools/*.js 与
+          # toolkit-tests 三节而没回写计划，11 处漂移红在本机、CI 全绿，读计划的人照一份不存在的实现改。
+          gate 'verify-plan-blocks'              scripts/verify-plan-blocks.mjs
+          gate 'verify-plan-blocks-teeth'        scripts/verify-plan-blocks-teeth.mjs
           gate 'check-sw'                         scripts/check-sw.mjs
           gate 'check-tools-surface'              scripts/check-tools-surface.mjs
           gate 'check-seo'                        scripts/check-seo.mjs

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
-import { readdirSync, copyFileSync, mkdirSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { readdirSync, copyFileSync, mkdirSync, existsSync } from 'fs';
 
 /**
  * 入口名前缀的匹配正则，用于在输出阶段剥掉前缀。
@@ -86,6 +86,46 @@ function copyPreMinifiedPlugin() {
 }
 
 /**
+ * 补回被 Vite 8 从 CSS `url()` 里剥掉的 `../`。
+ *
+ * Vite 8 把构建期解析不到的相对地址按「与 CSS 同级」再基址：源里写的
+ * `url(../fonts/x.woff2)` 出来是 `url(fonts/x.woff2)`。而本仓库的约定是这类地址
+ * 相对**产物**而非源文件（dev/sass/common/tokens.scss:191），浏览器按 CSS 自身位置
+ * 解析，剥掉 `../` 就落到 assets/css/fonts/ 上——四道 @font-face 与两枚链接悬停
+ * 下划线全 404。判据只用文件系统：`assets/<url>` 在而 `assets/css/<url>` 不在才补，
+ * 因此不碰 data:/http:/绝对地址，也不碰本该同级的地址。
+ * 兜住这条改动的是 scripts/check-sw.mjs 的骨架完整性判据（vite 8 升级就是它先报红的）。
+ * @returns {import('vite').Plugin} Vite 插件
+ */
+function restoreRelativeAssetUrlPlugin() {
+  const outDir = resolve(__dirname, 'assets');
+  const URL_RE = /url\((['"]?)([^'")]+)\1\)/g;
+  /** 相对且不带前导点的地址，才可能是被剥掉 `../` 的那一类。 */
+  const isBareRelative = (url) => !/^([/\\a-zA-Z][-+a-z]*:|\/\/|\.|#)/.test(url);
+  /** 去掉查询串与片段再落盘判定：`x.svg#iconfont` 与 `x.eot?#iefix` 都按文件本体判。 */
+  const barePath = (url) => url.replace(/[?#].*$/, '');
+
+  return {
+    name: 'restore-relative-asset-url',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      for (const [fileName, item] of Object.entries(bundle)) {
+        if (item.type !== 'asset' || !fileName.endsWith('.css') || typeof item.source !== 'string') {
+          continue;
+        }
+        const cssDir = resolve(outDir, dirname(fileName));
+        item.source = item.source.replace(URL_RE, (match, quote, url) => {
+          if (!isBareRelative(url)) return match;
+          const file = barePath(url);
+          if (existsSync(resolve(cssDir, file))) return match;
+          return existsSync(resolve(outDir, file)) ? `url(${quote}../${url}${quote})` : match;
+        });
+      }
+    }
+  };
+}
+
+/**
  * 获取 dev/js 目录下的业务 JS 入口（排除 .min.js 产物）。
  * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
  */
@@ -148,7 +188,7 @@ function getDevLibCssEntries() {
 }
 
 export default defineConfig({
-  plugins: [iifeWrapPlugin(), copyPreMinifiedPlugin()],
+  plugins: [iifeWrapPlugin(), copyPreMinifiedPlugin(), restoreRelativeAssetUrlPlugin()],
   // CSS 配置
   css: {
     preprocessorOptions: {
