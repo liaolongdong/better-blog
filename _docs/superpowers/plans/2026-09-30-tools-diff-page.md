@@ -4211,6 +4211,9 @@ const {
   fieldId: zField, buttonId: zButton, copyId: zCopy, outId: zOut, whenId: zWhen, statusId: zStatus,
 } = await import('../dev/js/tools/diffWorkbench.js');
 
+/** 档位 ↔ 地址栏那一本**真模块**（零 import、纯函数）：深链那一路给 `Tk.url` 用的就是它 */
+const Z_URL = await import('../dev/js/tools/url-state.js');
+
 const Z_PANEL = 'workbench';
 const Z_BAR = 'bar';
 const Z_ASSEMBLY = 'dev/js/tools/diffWorkbench.js';
@@ -4409,7 +4412,11 @@ function zPage({ prefix = Z_P, seed = {}, drop = [] } = {}) {
  * @param {object|null} [o.clipboard] 假剪贴板，`null` 代表没有这只手
  * @param {Function|null} [o.readFile] 读文件替身，`null` 代表不注入（选文件该置灰）
  * @param {Function|null} [o.decode] 解码替身，`null` 代表不注入
- * @returns {object} `{ page, wb, report, guarded, threw, timers, reads, copied, flush }`
+ * @param {string} [o.search] 进站地址栏（给了才挂 `location` / `history` / `Tk.url` 那三只——
+ *   深链那一路自此才有实现可走；不给就是"这台浏览器没有地址栏同步"，与今天逐字节一样）
+ * @param {Function} [o.readFileThrows] 让注入的 `readFile` 抛这一颗**非** `FieldError` 的错，
+ *   量"文件那一路的第二类失败"记不记进 `runGuarded` 的账（Z31）
+ * @returns {object} `{ page, wb, report, guarded, threw, timers, reads, copied, dl, urlWrites, flush }`
  */
 function zMount(o = {}) {
   const prefix = o.prefix || Z_P;
@@ -4419,11 +4426,19 @@ function zMount(o = {}) {
   const timers = [];
   const reads = [];
   const copied = [];
+  /** 地址栏那一只手的落点：`o.search` 给了才有意义（不给就不注入 `location`，整段同步关闭） */
+  const urlWrites = [];
   const dl = o.dl === undefined ? wDownload() : o.dl;
   const wb = zCreateWb({
     document: page.doc,
-    Tk: { view: W_VIEW, ui: J_UI },
+    // `url` 只在给了 `search` 的那一发挂：那一本是真的 `url-state.js`（零 import 的纯模块），
+    // 所以深链那一路量的是页面上同一条读法，不是夹具自己编的第二份解析。
+    Tk: { view: W_VIEW, ui: J_UI, ...(o.search === undefined ? {} : { url: Z_URL }) },
     prefix,
+    ...(o.search === undefined ? {} : {
+      location: { search: o.search, pathname: '/tools/diff.html', hash: '' },
+      history: { state: null, replaceState: (state, title, url) => { urlWrites.push(url); } },
+    }),
     runGuarded: (id, fn) => {
       guarded.push(id);
       try { fn(page.doc.getElementById(id)); return true; } catch (err) {
@@ -4434,12 +4449,12 @@ function zMount(o = {}) {
     navigator: { clipboard: o.clipboard === null ? undefined : (o.clipboard || { writeText: (t) => { copied.push(String(t)); return Promise.resolve(); } }) },
     ...(o.rowHeight === undefined ? {} : { rowHeight: o.rowHeight }),
     ...(dl === null ? {} : { BlobCtor: dl.BlobCtor, createObjectURL: dl.createObjectURL, revokeObjectURL: dl.revokeObjectURL }),
-    ...(o.readFile === null ? {} : { readFile: o.readFile || ((f) => { reads.push(f.name); return Promise.resolve(f.__bytes); }) }),
+    ...(o.readFile === null ? {} : { readFile: o.readFile || ((f) => { reads.push(f.name); return o.readFileThrows ? Promise.reject(o.readFileThrows(f)) : Promise.resolve(f.__bytes); }) }),
     ...(o.decode === null ? {} : { decode: o.decode || ((b) => ({ ok: true, text: new TextDecoder('utf-8').decode(b) })) }),
   });
   const report = wb.mount();
   return {
-    page, wb, report, guarded, threw, timers, reads, copied, dl,
+    page, wb, report, guarded, threw, timers, reads, copied, dl, urlWrites,
     flush: () => { const list = timers.splice(0); for (const t of list) t.fn(); },
   };
 }
@@ -4589,7 +4604,8 @@ test('Z17 对外面十一格、三栏的 nodes 声明与十四枚动作的三份
 
 // 装配层那六条红线各自的落点：Z18 挂载与输入、Z19 一次画全与导出同字、Z20 布局两档共一行流、
 // Z21 折叠四档与三枚快捷键、Z22 跳转的块换算、Z23 整理三枚、Z24 归一化的同现同灭、Z25 JSON 档那一表、
-// Z26 两类失败分两条路、Z27 文件三件、Z28 换前缀自证。
+// Z26 两类失败分两条路、Z27 文件三件、Z28 换前缀自证、Z29 折叠条真的能点开、
+// Z30 深链档位进站就落定、Z31 文件那一路的第二类失败记进边界账本。
 test('Z18 挂载与输入两条路都不算一次比对：读数只随防抖落地那一次', () => {
   const m = zMount();
   assert.equal(m.page.out().includes(`${Z_P}-row`), false, '挂载就把结果区画成行块 = 挂载期算了一遍（红线 4）');
@@ -4961,6 +4977,39 @@ test('Z29 折叠条真的能点开：那一发就是「全部展开」，不重�
   assert.equal(q.page.val('context'), 'all', '而本页自己的属性名要认得：整页跟着前缀走');
   assert.equal(wCount(q.page.out(), 'zx-fold--'), 0, '认到之后那一发要真的展开，不是只写下拉不重画');
 });
+
+test('Z30 深链档位进站就落定：?df-mode=json 当场灰掉折叠与跳转，且不动地址栏', () => {
+  const plain = zMount();
+  assert.equal(plain.page.btnDisabled('nextDiff'), false, '基准：文本档下跳转那一排是可按的');
+  assert.equal(plain.guarded.length, 0, '基准：挂载期一次都不走 runGuarded');
+  const m = zMount({ search: '?df-mode=json' });
+  assert.equal(m.page.val('mode'), 'json', '地址栏那一档要落到控件里（真浏览器里 U1 量的同一件事）');
+  // 这一判的靶心是**两份读数的同步**：`syncGate()` 置灰时读的是 `s.mode`，不读控件。
+  // 深链只写控件而不写这一份，`?df-mode=json` 开出来的页面就停在「下拉是 json、按钮还能按」，
+  // 用户按下去才在 `goTo` 里撞上「JSON 档按格比对」那句——坏消息本该由置灰替用户挡在前面。
+  assert.equal(m.wb.state().mode, 'json', '控件与 `s` 必须是同一档：否则上面那条置灰判的就是空集');
+  assert.equal(m.page.btnDisabled('nextDiff'), true, '跳转那一排进站就该灰着');
+  assert.equal(m.page.btnDisabled('fold'), true, '折叠那一排同样');
+  assert.equal(m.guarded.length, 0, '深链读数不是操作：挂载期仍一次都不走边界（与 Z18 同一格）');
+  assert.equal(m.timers.length, 0, '也不为该发排延时');
+  assert.deepEqual(m.urlWrites, [], '进站那一次读不许顺手洗地址栏：地址栏是结果的镜像，不是来源');
+  assert.deepEqual(m.threw, [], '骨架齐时深链进站不该有任何一次抛出');
+});
+
+test('Z31 文件那一路的第二类失败：读手自己抛时记进边界账本，不当成没人认领的拒绝', async () => {
+  const m = zMount({
+    seed: { 'b-text': 'beta' },
+    readFileThrows: () => new Error('磁盘被拔了'),
+  });
+  m.page.pickFile('a', zFile('x.txt', 'alpha'));
+  await zSettle();
+  assert.equal(m.threw.length, 1, '非 FieldError 就是骨架/环境那一类：Z26 的第二条路，账本得记它');
+  assert.equal(m.threw[0][0], `${Z_P}-in-workbench-a-file`, '记的那一格要落在文件输入框所在的块，与点按钮那一路同源');
+  assert.match(String(m.threw[0][1]), /磁盘被拔了/);
+  assert.equal(m.reads.length, 1, '一次选文件只读一次：边界记账不许顺带重读');
+  assert.equal(String(m.page.read('a')).includes('磁盘被拔了'), false,
+    '那一类不冒充成状态行里的一句话：状态行说的那一格是"这一侧现在什么状况"，环境坏了归块级红字（`runGuarded` 那句「这一区的一次操作没能跑完」）');
+});
 ```
 
 ---
@@ -5106,10 +5155,11 @@ Task 2/3/4 那三节立的规矩在这里照用：只有**整文件**与**整节
  *    按动作时发生，所以二十次 `input` 之后注入的 `runGuarded` 计数必须是 0（`input` 那一发只排一次
  *    防抖读数，不进边界），结果区里一行 `df-row` 都不许有。防抖靠**令牌**而不是 `clearTimeout`：
  *    时钟由入口注入，本层不该再多要一只取消延时的手。
- * 5. **两类失败分两条路**（Z26）：用户那一格不能用（两边都空 / 一侧空 / 坏 JSON / 超闸门 / 没选文件）
+ * 5. **两类失败分两条路**（Z26、Z31）：用户那一格不能用（两边都空 / 一侧空 / 坏 JSON / 超闸门 / 没选文件）
  *    → `FieldError` → 一句话进控制栏的状态行，别的什么都不塌；模块或骨架自己抛的（spec 与骨架漂移出的
- *    档位、缺席的节点）→ 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。两条路都**不许把上一格的
- *    结果擦掉**——先算后画，抛一定发生在画之前。
+ *    档位、缺席的节点、注入的读手自己抛）→ 原样上抛，交给注入的 `runGuarded` 记"这一块坏了"。
+ *    文件那一路是 async，所以这一条边界接在 `.catch` 上（Z31）——只写 `throw` 的那一发是没人认领的拒绝。
+ *    两条路都**不许把上一格的结果擦掉**——先算后画，抛一定发生在画之前。
  * 6. **档位只有一个口径**（Z20、Z21）：折叠的四个档住在 `context` 那一枚下拉里，`expand` / `fold` /
  *    `diffOnly` 三枚按钮是它的**快捷键**（写回同一枚 `select`，不复算第二份状态）；跳转的三枚读的是
  *    同一份 hunk 清单；并排与行内两档视图读的是同一份行流，切布局本身不重算。
@@ -5120,8 +5170,9 @@ Task 2/3/4 那三节立的规矩在这里照用：只有**整文件**与**整节
  * 两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，`iifeWrapPlugin` 包完就是整页
  * SyntaxError 而构建 exit=0（§0.4 那条构建红线，Z13 正反两头核它）。
  *
- * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 二十九判
- * （原写二十八，`Z29`「折叠条真的能点开」是 Task 6 落第四页骨架时补的那一发——2026-10-01 段 5 Task 9 对账改口）。
+ * 复算：`node --test scripts/toolkit-tests.mjs` 里的 §Z 三十一判
+ * （原写二十八，`Z29`「折叠条真的能点开」是 Task 6 落第四页骨架时补的那一发——2026-10-01 段 5 Task 9 对账改口；
+ * `Z30`「深链档位进站就落定」与 `Z31`「文件那一路的第二类失败」是 2026-10-17 存量评审补的两刀）。
  */
 import {
   gate as coreGate, diffLines, hunksOf, unifiedText, DIFF_NOTES, CR_GLYPH,
@@ -5729,9 +5780,15 @@ export function createDiffWorkbench(env) {
   };
   /** 文件那一路的两条入口：`change` 与 `drop` 汇到同一发，两条路必须同一条（Z27 判的就是它） */
   const takeFile = (side, source) => {
-    loadFile(side, source && source.length > 0 ? source[0] : null).catch((err) => {
-      if (err && err.name === 'FieldError') say(side, err.message);
-      else throw err;
+    const fid = fieldId(env.prefix, PANEL, `${side}-file`);
+    // 边界接在 `.catch` 上而不是包成同步 `try`：`loadFile` 是 async，`FieldError` 也从拒绝里回来。
+    // 非 `FieldError` 那一发（注入的 `readFile` 自己抛、宿主那只 `Blob` 缺了……）若只写 `throw`，
+    // 它从 `.catch` 里变成一次没人认领的拒绝——页面上既没红字也没状态行，而红线 5 要的是
+    // "这一类交给 `runGuarded` 记这一块坏了"，与按按钮那一路同一条（Z26）。
+    return loadFile(side, source && source.length > 0 ? source[0] : null).catch((err) => {
+      if (err && err.name === 'FieldError') { say(side, err.message); return; }
+      if (typeof env.runGuarded === 'function') { env.runGuarded(fid, () => { throw err; }); return; }
+      throw err;
     });
   };
   /**
@@ -5988,6 +6045,13 @@ export function createDiffWorkbench(env) {
           const el = nodes.get(fid);
           if (k.kind === 'check') el.checked = got.found[k.name] === true;
           else el.value = got.found[k.name];
+          // `syncGate()` 读的是 `s.mode`（JSON 档要把折叠与跳转那一排整排置灰），不是控件那一格。
+          // 深链写完控件却不同步这一份，`?df-mode=json` 进站时那一排该灰的没灰——用户按下去才在
+          // `goTo` 里撞上「JSON 档按格比对」。这里只跟着**真的写成功**的那一发走（上面 `continue`
+          // 掉的缺席控件不算），值本身已由 `parse` 过白名单，与 `selectOf` 读的是同一份 `options`。
+          // 不在这里调 `readControls()`：它读全五枚加两栏正文，骨架漂了会在挂载期就抛，而 Z26 要的
+          // 是"缺格报在清单里、抛在按动作那一次"。
+          if (k.control === 'mode') s.mode = got.found[k.name];
         }
       }
       paint(view.renderNotice('把要比较的两份内容分别贴进来，或各选一个本地文件；文件在这台机器上读取，不上传。'));

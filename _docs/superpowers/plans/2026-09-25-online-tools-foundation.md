@@ -301,18 +301,19 @@ git commit -m "feat(tools): 冻结区划码表两份数据源快照与归属清�
  *                CRLF 与末行换行、行内 token 与预算、配对与五个统计量、unified 与折叠（段 5 Task 2）
  *   §Y JSON 感知比对 18 —— `diff-json.js`：与 `json-core` 的**对拍**（Y1，三件同结论）、键顺序无关、
  *                类型变化单列、Pointer 同规则、预览截断不切代理对、数组按索引、两个预算闸门（段 5 Task 3）
- *   §Z 对比页视图层与装配层 29 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
+ *   §Z 对比页视图层与装配层 31 —— 前半 `diffView.js` 12 判（零 import 与前缀派生 Z1、Z3，两栏行数相等 Z4，
  *                行内高亮各半边 Z5，CRLF 符号与折叠条同源 Z6、Z7，转义与属性位 Z8、Z9，JSON 表六列与
- *                代价说明同屏 Z10，坏输入一句话 Z11，读数与结论的词表 Z12）；后半 Task 5 续写的 16 判
+ *                代价说明同屏 Z10，坏输入一句话 Z11，读数与结论的词表 Z12）；后半续写的 19 判
  *                钉 `diffWorkbench.js` / `toolDiff.js`：import 面与 reach 唯一（Z13）、装配层零环境词
  *                与那一处 `innerHTML`（Z14）、入口那八件各恰好一处（Z15）、id 只由 spec 派生（Z16）、
  *                三栏 nodes 与十四枚动作的名单（Z17）、挂载期零计算（Z18）、复制与下载同字（Z19）、
  *                两档布局共一份行流（Z20）、折叠四档单一口径（Z21）、跳转与钳位（Z22）、
  *                交换/恢复默认/清空（Z23）、归一化只进判等（Z24）、JSON 档整屏（Z25）、
  *                两类失败分两条路（Z26）、文件读手的拒读时机（Z27）、换前缀整页自证（Z28）；
- *                Task 6 补 Z29（折叠条那枚按钮真的能点开，且点开的就是「全部展开」）。
+ *                Task 6 补 Z29（折叠条那枚按钮真的能点开，且点开的就是「全部展开」）；
+ *                2026-10-17 存量评审补 Z30、Z31（深链档位进站就落定、文件那一路的第二类失败记进边界账本）。
  *                **节名不另起，先例是 §U**——另起一节会让下面那张表少算一格
- *   合计 439。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
+ *   合计 441。**段序里没有 §P**：那一格从来没落地过（不是"后来删掉了"），编码页从 §O 直接跳到 §Q。
  *   这张表不许手抄，重算口径固定为「按行首 `^test(` 数每段条数」：
  *     awk '/^\/\/ ── §/{if(s)print s": "n; s=$3; n=0} /^test\(/{n++} END{if(s)print s": "n}' scripts/toolkit-tests.mjs
  *   （§A 有两道横幅，各 6 条，合计 12 —— 第二条是 Task 8 那批闸门。）
@@ -5643,6 +5644,18 @@ test('D4 hash 双向：解析容错、未知不下沉、无 hash 不写 hash', (
   assert.equal(bare.toHash(), '', '没有用户动作就不该往地址栏写东西');
   bare.select('uscc');
   assert.equal(bare.toHash(), '#uscc', '点过之后才开始写 hash');
+  // 空操作的 `move` **不**置 `touched`，与上面 `select` 那条口径故意不同：那一格说的是"点击是真动作，
+  // 没换也算动手"。这一格说的是另一件事——只有一块面板的工作区里按方向键，状态机一次面板都没换，
+  // 而装配层每跑完一块面板（`run()` → `sync()` → `paintHash()`）都会补写一次地址栏；`touched`
+  // 若被那一发置真，写进去的就是谁也没选过的 `#第一块`。
+  const solo = createPanelWorkspace({ ids: ['idcard'] });
+  assert.equal(solo.toHash(), '', '一块面板的工作区开局不写 hash');
+  assert.deepEqual(solo.move('next'), { active: 'idcard', changed: false }, '一块面板时方向键是空操作');
+  assert.equal(solo.toHash(), '', '空操作之后仍不写 hash：那一发没换面板，凭什么往地址栏加一段');
+  assert.deepEqual(solo.move('last'), { active: 'idcard', changed: false }, 'Home / End 那一形同理');
+  assert.equal(solo.toHash(), '', '两次空操作累计也不写');
+  assert.equal(solo.select('idcard'), true, '而点击仍然是真动作（上面那条口径不因这一格作废）');
+  assert.equal(solo.toHash(), '#idcard', '点击之后才开始写：这一格与上面三格是同一件事的两面');
   // 构造期的 `hash` 闸门：非串是装配层写错，抛 `TypeError` 点名 options.hash。
   // 与上面第 8 格（`parseHash(null, ids)` 安静返回"没有 hash"）**口径故意不同**：
   // `parseHash` 是纯工具、也会被 `applyHash` 拿去吃实时 `location.hash`，那里抛等于把
@@ -5902,7 +5915,14 @@ export function createPanelWorkspace({
       const step = MOVE[action];
       if (!step) return { active, changed: false };
       const i = ids.indexOf(active);
-      return settle(ids[step(i, ids.length)]);
+      const next = ids[step(i, ids.length)];
+      // 空操作不置 `touched`（与 `select` 的口径**故意不同**，那条见上面第 126-134 行）：
+      // 只有一块面板的工作区里按方向键、或在第一块按 `Home`，状态机一次都没换面板。
+      // `panel-dom.js` 的 `onKey` 靠 `changed` 挡住了当场那一次 `sync()`，可它挡不住**之后**
+      // 任何一次 `sync()`——装配层每跑完一块面板（`run()`）都会 `sync()`，那时 `paintHash()`
+      // 就把谁也没选过的 `#第一块` 写进地址栏。`select` 那边不能这样省，因为点击是真动作。
+      if (next === active) return { active, changed: false };
+      return settle(next);
     },
     applyHash(raw) {
       const parsed = parseHash(raw, ids);
