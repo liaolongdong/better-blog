@@ -89,6 +89,8 @@ tool: json
     其余部分照常可用。
     {%- endcomment -%}
     <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    <p class="tk-kbd"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 在粘贴框里直接格式化</p>
+    <p class="jt-busy" id="{{ tk.prefix }}-busy" role="status" aria-live="polite"></p>
 
     <div class="jt-workspace" id="{{ tk.prefix }}-workspace"
          data-jt-ids="workbench" data-jt-prefix="{{ tk.prefix }}"
@@ -99,9 +101,8 @@ tool: json
 
         表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
         ?jt-in-workbench-doc=…，而那一串里装的正是用户粘进来的内容——这一页最不该发生的事。
-        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll），所以这一页**不写**
-        .tk-kbd 那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行，
-        编码页那一句在这是不成立的），写一句不存在的捷径比不写更坏。
+        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll）；粘贴框里另接
+        Ctrl / ⌘ + Enter 走「格式化」，裸 Enter 仍是换行。上面那句 .tk-kbd 说的就是这一条。
         {%- endcomment -%}
 
         <section class="jt-side jt-side--in" aria-labelledby="{{ tk.prefix }}-h-in">
@@ -128,6 +129,10 @@ tool: json
                     {%- endcomment -%}
                     <p class="jt-status" id="{{ tk.prefix }}-status-{{ wbp }}-main">字节 0 · 行 1</p>
                     <span class="tk-help">粘什么读什么：这一格只数字节与行，不解析。按上面任意一枚按钮才算一次。</span>
+                    <span class="jt-inline-actions">
+                        <button class="jt-sample-link" type="button" id="{{ tk.prefix }}-sample">载入示例 JSON</button>
+                        <button class="jt-sample-link" type="button" id="{{ tk.prefix }}-clear">清空</button>
+                    </span>
                 </div>
             </div>
         </section>
@@ -144,13 +149,13 @@ tool: json
             {%- endcomment -%}
             <div class="jt-bar">
                 <div class="jt-bar__group" role="group" aria-label="文本动作">
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
                     <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-format">格式化</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
                 </div>
                 <div class="jt-bar__group jt-bar__group--opt" role="group" aria-label="输出选项">
                     <span class="jt-opt">
@@ -200,6 +205,8 @@ tool: json
                 </div>
             </div>
 
+            <a class="jt-jump" href="#{{ tk.prefix }}-out-{{ wbp }}-main">结果已更新 · 查看 ↓</a>
+
             {%- comment -%}
             搜索那一组挂在 `data-jt-when="tree"` 上：装配层的 `applySwitch` 只按
             `JSON_SPEC…switch.targets` 那一族翻 `hidden`，所以它在「文本」档里是整段消失，
@@ -225,7 +232,7 @@ tool: json
                 一次动作换一栏，不该打断用户正在读的东西。
                 {%- endcomment -%}
                 <div class="tk-out" id="{{ tk.prefix }}-out-{{ wbp }}-main"
-                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out" tabindex="-1"></div>
             </div>
 
             {%- comment -%}
@@ -243,7 +250,7 @@ tool: json
                  role="region" aria-label="结构树" aria-labelledby="{{ tk.prefix }}-h-out"></div>
 
             <p class="tk-help jt-foot">树的展开与折叠用点击（行上的三角），键盘可用的是每一格右侧那个
-                Pointer 按钮——它是真 `<button>`，Tab 得到、回车按得动。行高与行号槽同一把尺，
+                Pointer 按钮——它是真 <code>&lt;button&gt;</code>，Tab 得到、回车按得动。行高与行号槽同一把尺，
                 写在样式里，改它不需要动脚本。</p>
         </section>
     </div>

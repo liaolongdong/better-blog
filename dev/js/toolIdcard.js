@@ -66,6 +66,104 @@ function parseIds(raw) {
   return String(raw || '').split(',').map((s) => s.trim()).filter((s) => s !== '');
 }
 
+/** 旧面板 hash → 面板与面板内类型；只有旧 slug 还带着“具体是哪一种” */
+const HASH_KIND = {
+  bankcard: ['idcard', 'bank'],
+  mobile: ['idcard', 'mobile'],
+  orgcode: ['uscc', 'orgcode'],
+  creditcode: ['uscc', 'creditcode'],
+  license: ['uscc', 'license'],
+};
+
+/** 旧面板 hash → 新面板；只影响“认哪一块”，写回地址栏的仍是裸面板 slug */
+const HASH_ALIASES = {
+  bankcard: 'idcard',
+  mobile: 'idcard',
+  orgcode: 'uscc',
+  creditcode: 'uscc',
+  license: 'uscc',
+};
+
+/** 类型下拉的值 → 所属面板；`?kind=` 与切类型后的地址回写都按这张表认门 */
+const KIND_TO_PANEL = {
+  idcard: 'idcard',
+  bank: 'idcard',
+  mobile: 'idcard',
+  uscc: 'uscc',
+  orgcode: 'uscc',
+  creditcode: 'uscc',
+  license: 'uscc',
+};
+
+/** `#tk-panel-bankcard` / `#bankcard` → `bankcard`，与 panel.js 的 stripPanelPrefix 同形 */
+function hashKey(raw) {
+  const s = String(raw || '').trim().replace(/^#/, '');
+  const at = s.toLowerCase().lastIndexOf('-panel-');
+  return (at < 0 ? s : s.slice(at + 7)).toLowerCase();
+}
+
+/**
+ * `?kind=bank` → `bank`；只认字符串形态的 `location.search`，假 DOM 没有这一格就当场收手。
+ * @param {object} win 真 `window`
+ * @returns {string} 小写值，没有就空串
+ */
+function queryKind(win) {
+  const search = win && win.location && typeof win.location.search === 'string'
+    ? win.location.search : '';
+  if (search === '' || typeof URLSearchParams !== 'function') return '';
+  return String(new URLSearchParams(search).get('kind') || '').trim().toLowerCase();
+}
+
+/**
+ * 把类型写回地址栏的 `?kind=`：换一次类型刷一次页面，刷新后仍停在那一档。
+ * 只改查询串，hash 与其余参数原样保留；假 DOM 没有 `location.href` 时不动 `history`。
+ * @param {object} win 真 `window`
+ * @param {string} kind 新类型
+ */
+function syncKindQuery(win, kind) {
+  const loc = win && win.location;
+  const hist = win && win.history;
+  if (!loc || typeof loc.href !== 'string' || typeof URL !== 'function'
+    || !hist || typeof hist.replaceState !== 'function') return;
+  const url = new URL(loc.href);
+  url.searchParams.set('kind', kind);
+  hist.replaceState(hist.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+/**
+ * 进页面时定档：旧 hash（`#bankcard` 这类）优先，其次才是 `?kind=`。
+ * 必须在 createWorkbench 之前写完——它挂载期读的就是这个值，不会先画一遍默认类型再跳。
+ * @param {object} doc 真 document
+ * @param {object} win 真 window
+ * @param {string} prefix 行为前缀
+ * @param {string} hash 进页面时的地址栏 hash
+ */
+function applyInitialKind(doc, win, prefix, hash) {
+  const legacy = HASH_KIND[hashKey(hash)];
+  const kind = legacy ? legacy[1] : queryKind(win);
+  const panel = legacy ? legacy[0] : KIND_TO_PANEL[kind];
+  if (!kind || !panel) return;
+  const el = doc.getElementById(`${prefix}-in-${panel}-kind`);
+  if (el) el.value = kind;
+}
+
+/**
+ * 用户切类型后把值写进查询串；只在值确实属于该面板时写，避免别的控件冒用同一 id。
+ * @param {object} doc 真 document
+ * @param {object} win 真 window
+ * @param {string} prefix 行为前缀
+ */
+function bindKindQuery(doc, win, prefix) {
+  for (const panel of ['idcard', 'uscc']) {
+    const el = doc.getElementById(`${prefix}-in-${panel}-kind`);
+    if (!el || typeof el.addEventListener !== 'function') continue;
+    el.addEventListener('change', () => {
+      const kind = String(el.value || '').trim().toLowerCase();
+      if (KIND_TO_PANEL[kind] === panel) syncKindQuery(win, kind);
+    });
+  }
+}
+
 /**
  * 装配一遍。抛出去的东西由 `start` 负责先写进页面、再原样抛回控制台。
  * @param {object} doc 真 `document`
@@ -93,11 +191,13 @@ function boot(doc, win, tk) {
       'window.Tk 没挂上来：toolkitCore.min.js 要么 404，要么排在本入口之后，顺序见 tools-idcard.html 末尾');
   }
 
+  applyInitialKind(doc, win, prefix, win.location.hash);
   const workspace = tk.createPanelWorkspace({
     ids,
     prefix,
     hash: win.location.hash,
     label: label === '' ? undefined : label,
+    aliases: HASH_ALIASES,
   });
   /** 口径 2 的那个占位：谁真调到它，就是有人在 `mount()` 之前按了按钮 */
   const guard = {
@@ -122,7 +222,9 @@ function boot(doc, win, tk) {
     notice,
   });
   guard.run = dom.run;
-  return dom.mount();
+  const lists = dom.mount();
+  bindKindQuery(doc, win, prefix);
+  return lists;
 }
 
 /**

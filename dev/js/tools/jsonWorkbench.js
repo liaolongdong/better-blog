@@ -206,6 +206,7 @@ class FieldError extends Error {
  * @param {Storage|null} [env.storage] `localStorage`；`null` 或没有这三个方法就是"这台浏览器不给存"
  * @param {() => number} [env.now] 注入时钟；缺席就是缺席（记住输入的 `at` 落 0，不拿宿主时间补一个假数字）
  * @param {(fn: () => void, ms: number) => number} [env.later] `setTimeout` 的别名；缺席就不防抖（`input` 那一路 no-op）
+ * @param {(fn: () => void) => void} [env.afterPaint] 大输入动作前让出一帧的调度器；缺席时大输入也同步执行
  * @param {number} [env.rowHeight] 行高；给了但不是 ≥1 整数就 `RangeError`，缺席落 `ROW_HEIGHT`
  * @param {(parts: Array<unknown>, options?: object) => object} [env.BlobCtor] 造 Blob 的**工厂**
  *   （不是裸的 `Blob` 构造器——本层按函数调用它，不带 `new`）；与下两格缺一就不让下载按钮可用
@@ -274,6 +275,7 @@ export function createJsonWorkbench(env = {}) {
   const store = (e.storage && typeof e.storage.getItem === 'function') ? e.storage : null;
   const clock = typeof e.now === 'function' ? e.now : null;
   const later = typeof e.later === 'function' ? e.later : null;
+  const afterPaint = typeof e.afterPaint === 'function' ? e.afterPaint : null;
   const rowHeight = (e.rowHeight === undefined || e.rowHeight === null) ? ROW_HEIGHT : e.rowHeight;
   // 红线 2：这一层不写 `navigator.`——取一份局部名再摸它的 clipboard。
   const nav = e.navigator === undefined ? null : e.navigator;
@@ -395,6 +397,9 @@ export function createJsonWorkbench(env = {}) {
       const btn = node(id);
       if (btn) btn.disabled = current.out === '' || !copyable;
     }
+    // 下载与复制吃同一份 current.out：清空/空态时它也该灰着，别让一枚按下去什么都不做的按钮留在页面上。
+    const dl = node(buttonId(prefix, PANEL, 'download'));
+    if (dl) dl.disabled = current.out === '' || !canBlob;
   };
 
   /**
@@ -891,17 +896,53 @@ export function createJsonWorkbench(env = {}) {
     paintResult(kind, 'ok', title, r.text, { notes });
   };
 
-  const runAction = (key) => () => runGuarded(buttonId(prefix, PANEL, key), () => {
-    try {
-      computeAndPaint(key);
-    } catch (err) {
-      if (err && err.isField === true) { paintLine('hint', 'idle', err.message); return; }
-      // 内部不变量坏了：原样上抛交给注入的 `runGuarded`，但**不许在这里改任何已画的东西**
-      //（红线 5 的那半边——评审 F 组量的就是"抛之前先擦了上一格"这条路，`computeAndPaint`
-      //  一律先算后画，坏在算的时候就没有一次 `paint` 发生过）。
-      throw err;
+  /** 超过这个字符数才值得先画“计算中…”再算；小输入保持原来的同步路径 */
+  const HEAVY_CHARS = 256 * 1024;
+
+  /**
+   * 大输入的动作先让出一帧：状态行写“计算中…”、动作按钮置灰，再进同一条
+   * `runGuarded` 通道。小输入不绕这一圈，键盘与测试看到的仍是同步结果。
+   */
+  const runHeavy = (key, run) => {
+    const docNode = node(fieldId(prefix, PANEL, 'doc'));
+    const chars = docNode ? String(docNode.value || '').length : 0;
+    if (key === 'copy' || key === 'download' || chars < HEAVY_CHARS || typeof afterPaint !== 'function') {
+      run();
+      return;
     }
-  });
+    const btns = JSON_ACTIONS
+      .filter((a) => a.key !== 'copy' && a.key !== 'download')
+      .map((a) => node(buttonId(prefix, PANEL, a.key)))
+      .filter((b) => b !== null);
+    const prev = btns.map((b) => b.disabled);
+    const busy = node(`${prefix}-busy`);
+    for (const b of btns) b.disabled = true;
+    updateGate('计算中…');
+    if (busy) busy.textContent = '计算中…';
+    afterPaint(() => {
+      try {
+        run();
+      } finally {
+        btns.forEach((b, i) => { b.disabled = prev[i]; });
+        if (busy) busy.textContent = '';
+        updateGate();
+      }
+    });
+  };
+
+  const runAction = (key) => () => {
+    runHeavy(key, () => runGuarded(buttonId(prefix, PANEL, key), () => {
+      try {
+        computeAndPaint(key);
+      } catch (err) {
+        if (err && err.isField === true) { paintLine('hint', 'idle', err.message); return; }
+        // 内部不变量坏了：原样上抛交给注入的 `runGuarded`，但**不许在这里改任何已画的东西**
+        //（红线 5 的那半边——评审 F 组量的就是"抛之前先擦了上一格"这条路，`computeAndPaint`
+        //  一律先算后画，坏在算的时候就没有一次 `paint` 发生过）。
+        throw err;
+      }
+    }));
+  };
 
 
   // ── 接线与挂载 ──────────────────────────────────────────────────────────
@@ -972,6 +1013,39 @@ export function createJsonWorkbench(env = {}) {
     for (const a of JSON_ACTIONS) {
       const btn = node(buttonId(prefix, PANEL, a.key));
       if (btn) btn.addEventListener('click', runAction(a.key));
+    }
+    // 粘贴框的 Ctrl / ⌘ + Enter 等价于按「格式化」；裸 Enter 不拦，它在 textarea 里必须是换行。
+    const docArea = node(fieldId(prefix, PANEL, 'doc'));
+    if (docArea) {
+      docArea.addEventListener('keydown', (evt) => {
+        if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;
+        if (typeof evt.preventDefault === 'function') evt.preventDefault();
+        runAction('format')();
+      });
+    }
+    // 空态里那条「载入示例」不是动作表里的第十四/十五枚：它只做两件事——写一份合法 JSON、
+    // 走一次与「格式化」完全相同的动作通道。id 由 prefix 派生，门禁的 `{p}-btn-*` 清单不认识它。
+    const sampleBtn = node(`${prefix}-sample`);
+    if (sampleBtn) {
+      sampleBtn.addEventListener('click', () => {
+        if (!docArea) return;
+        docArea.value = '{"name":"Ada","tags":["json","tool"],"ok":true}';
+        updateGate();
+        runAction('format')();
+      });
+    }
+    const clearBtn = node(`${prefix}-clear`);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!docArea) return;
+        docArea.value = '';
+        // 清空是用户对"这一份输入"的删除：记住开关若开着，本机那份也要跟着走，
+        // 否则刷新后会把刚清掉的内容又填回来。存储拒绝写入是正常环境，不让它影响清空本身。
+        try { if (store) store.removeItem(inKey); } catch { /* 删不掉就是这份还在，页面已清空 */ }
+        updateGate();
+        paintLine('empty', 'idle', '还没有算过。粘贴进来，再按上面任意一个动作。');
+        docArea.focus();
+      });
     }
     // 两枚复制各自的原文案都要先记下（评审 P2-9）。工具栏那一枚的线在上面那一串里已经挂过，
     // 这里只补结果栏那一枚；`copyLabels` 若只记一处，另一枚的 `original` 就退成**点击当时**的

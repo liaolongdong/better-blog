@@ -156,6 +156,9 @@ function boot(doc, win, tk) {
     return Number.isInteger(n) && n >= 1 ? n : 24;
   };
 
+  // 入口只保留这一处 `setTimeout(`：防抖与“让出一帧”共用同一个调度别名。
+  const defer = (fn, ms = 0) => setTimeout(fn, ms);
+
   const wb = createJsonWorkbench({
     document: doc,
     Tk: tk,
@@ -168,7 +171,8 @@ function boot(doc, win, tk) {
     location: win.location,
     history: win.history,
     now: () => Date.now(),
-    later: (fn, ms) => setTimeout(fn, ms),
+    later: defer,
+    afterPaint: (fn) => defer(fn, 0),
     rowHeight: rowHeightPx(),
     // 这一格必须给**工厂**，不能给裸构造器：装配层按 `env.BlobCtor(parts, options)` 的写法调用它
     //（§W10 的红线 2「本层不写 `new Blob`」），而 `Blob` 是 WebIDL 接口，不带 `new` 直接调在浏览器里

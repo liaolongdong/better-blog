@@ -3727,6 +3727,9 @@ test('G15 单类与三元组共用同一套闸门：错误文案点的是出事�
 //  （`hHead` / `hBody` / `hLabels` / `hWideLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
 const { BATCH_KINDS, EMPTY_CELL, READ_KINDS, STATE_META, batchBlock, checksTable, detailTable, echoLines, esc, listTable, noteLines, parseBlock, stateBadge, suggestLine
 } = await import('../dev/js/tools/view.js');
+const { parseOrgCode, generateOrgCodes } = await import('../dev/js/tools/orgcode.js');
+const { parseCreditCode, generateCreditCodes } = await import('../dev/js/tools/creditcode.js');
+const { parseFinLicense, generateFinLicenses } = await import('../dev/js/tools/finlicense.js');
 
 
 
@@ -3840,6 +3843,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: ['代码', '区划', '主体标识', '校验位'],
     bank: ['卡号', '发卡行', '卡种', '登记位数'],
     mobile: ['号码', '号段', '运营商'],
+    orgcode: ['代码', '本体代码', '校验位'],
+    creditcode: ['代码', '区划', '机构类别', '结算账户标识', '校验位'],
+    license: ['机构编码', '类型', '组织类别', '地址', '顺序'],
     name: ['姓名', '姓', '名', '名字数'],
     address: ['地址', '区划码'],
     email: ['邮箱', '域'],
@@ -3850,6 +3856,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: ['区划', '登记管理部门码', '机构类别码', '主体标识', '组织机构代码', '组织机构代码校验位', '校验位', '校验算式'],
     bank: ['位数', '命中前缀', '发卡行', '卡种', '表内登记位数', 'Luhn', 'Luhn 算式', '行别来源'],
     mobile: ['位数', '号段', '运营商', '展示格式', '号段来源'],
+    orgcode: ['本体代码', '字符集', '校验位', '校验算式', '展示形式'],
+    creditcode: ['区划', '准入登记类别', '机构类别段', '结算账户标识', '校验位', '校验算式'],
+    license: ['机构类型', '机构代码', '组织类别', '发证机关代码', '地址代码', '顺序代码', '校验位'],
   };
   assert.deepEqual(Object.keys(WANT_LABELS), BATCH_KINDS.slice(), '列契约的 kind 集合没跟 BATCH_KINDS 同步');
   assert.deepEqual(Object.keys(WANT_DETAIL), READ_KINDS.slice(), '明细契约的 kind 集合没跟 READ_KINDS 同步');
@@ -3859,6 +3868,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: generateUsccCodes({ count: 12, rng }),
     bank: hBanks(12),
     mobile: generateMobiles({ count: 12, rng }),
+    orgcode: generateOrgCodes({ count: 12, rng }),
+    creditcode: generateCreditCodes({ count: 12, rng }),
+    license: generateFinLicenses({ count: 12, rng }),
     name: generateNames({ count: 12, rng }),
     address: generateAddresses({ count: 12, rng }),
     email: generateEmails({ count: 12, rng }),
@@ -3887,7 +3899,8 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
   // 压成一个字宽的竖条——2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
   // 那比横向滚难读得多（滚这条退路 `.tk-out` 早就给了）。哪几列带它，同样是列契约的一部分。
   const WANT_WIDE = {
-    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], name: [],
+    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], orgcode: [],
+    creditcode: ['区划'], license: ['地址'], name: [],
     address: ['地址'], email: [], profile: ['地址'],
   };
   assert.deepEqual(Object.keys(WANT_WIDE), Object.keys(WANT_LABELS), 'wide 契约的 kind 集合没跟生成表同步');
@@ -3899,6 +3912,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: parseUscc('91350100M000100Y43'),
     bank: parseBankCard('6222-0219-9003-0700-15'),
     mobile: parseMobile('13800138000'),
+    orgcode: parseOrgCode('M000100Y-4'),
+    creditcode: parseCreditCode('G1011010711628240R'),
+    license: parseFinLicense('B0001H111000001'),
   };
   for (const [kind, result] of Object.entries(reads)) {
     const html = detailTable(kind, result);
@@ -3939,13 +3955,16 @@ test('H5 不判定那一档只有三种真实形状，一律不给"不通过"', 
 });
 
 test('H6 kind 与列定义一一对应：读侧与生成侧不能互相串门，未知 kind 抛', () => {
-  assert.deepEqual(READ_KINDS, ['idcard', 'uscc', 'bank', 'mobile']);
-  assert.deepEqual(BATCH_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile']);
+  assert.deepEqual(READ_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license']);
+  assert.deepEqual(BATCH_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license', 'name', 'address', 'email', 'profile']);
   for (const kind of READ_KINDS) {
     const r = kind === 'idcard' ? parseIdCard('110101199003070011')
       : kind === 'uscc' ? parseUscc('91350100M000100Y43')
         : kind === 'bank' ? parseBankCard('6222-0219-9003-0700-15')
-          : parseMobile('13800138000');
+          : kind === 'mobile' ? parseMobile('13800138000')
+            : kind === 'orgcode' ? parseOrgCode('M000100Y-4')
+              : kind === 'creditcode' ? parseCreditCode('G1011010711628240R')
+                : parseFinLicense('B0001H111000001');
     assert.ok(detailTable(kind, r).includes('<table'), `${kind} 的明细表没出货`);
   }
   for (const kind of ['name', 'address', 'email', 'profile']) {
@@ -3955,6 +3974,26 @@ test('H6 kind 与列定义一一对应：读侧与生成侧不能互相串门，
     assert.throws(() => listTable(bad, []), TypeError, `listTable 居然收下了 kind=${JSON.stringify(bad)}`);
     assert.throws(() => detailTable(bad, { info: {} }), TypeError, `detailTable 居然收下了 kind=${JSON.stringify(bad)}`);
   }
+});
+
+test('H6b 新增三类机构码：真实样例、错误分支与生成自检', () => {
+  // 组织机构代码：GB 11714 的真实样例（统一社会信用代码内层主体标识）与错误校验位
+  assert.equal(parseOrgCode('M000100Y-4').state, 'valid');
+  assert.equal(parseOrgCode('M000100Y-5').state, 'checkdigit');
+  assert.equal(parseOrgCode('M000100Y').state, 'malformed');
+  // 机构信用代码：公开样例 G1011010711628240R 复核通过；换末位只改校验位
+  assert.equal(parseCreditCode('G1011010711628240R').state, 'valid');
+  assert.equal(parseCreditCode('G1011010711628240S').state, 'checkdigit');
+  assert.equal(parseCreditCode('G101101071162824').state, 'malformed');
+  // 金融许可证：真实样例结构通过；该编码没有公开校验位，未知地址段落 unlisted
+  assert.equal(parseFinLicense('B0001H111000001').state, 'valid');
+  assert.equal(parseFinLicense('S0070H336040001').state, 'valid');
+  assert.equal(parseFinLicense('B0001H999000001').state, 'unlisted');
+  assert.equal(parseFinLicense('B0001H11100000').state, 'malformed');
+  const rng = seededRandom(20261019);
+  for (const row of generateOrgCodes({ count: 5, rng })) assert.equal(parseOrgCode(row.code).state, 'valid');
+  for (const row of generateCreditCodes({ count: 5, rng })) assert.equal(parseCreditCode(row.code).state, 'valid');
+  for (const row of generateFinLicenses({ count: 5, rng })) assert.equal(parseFinLicense(row.code).state, 'valid');
 });
 
 test('H7 view.js 零 import、不碰 DOM：跨页共享层的体积红线由判据守着', () => {
@@ -4163,7 +4202,7 @@ const { createPanelDom } = await import('../dev/js/tools/panel-dom.js');
  * 是表单控件的事，绑定层只碰属性表与 `hidden`；两节共用一份工厂，是为了不让假 DOM 长第二套。
  */
 function iPage({
-  ids = TOOLKIT, prefix = 'tk', hash = '', dropTab = [], dropPanel = [], withTablist = true,
+  ids = TOOLKIT, prefix = 'tk', hash = '', search = '', dropTab = [], dropPanel = [], withTablist = true,
 } = {}) {
   const nodes = new Map();
   const focusLog = [];
@@ -4231,7 +4270,7 @@ function iPage({
     copyOk: true,
     execCommand: (name) => { commandLog.push(name); return doc.copyOk === true; },
   };
-  const location = { hash };
+  const location = { hash, search };
   const history = {
     state: null,
     replaceState(state, title, url) {
@@ -4714,15 +4753,14 @@ const J_SEED = 20260927;
 /** 骨架里主按钮与复制按钮的文案。装配层只负责"改口之后改回原文"，句子本身是夹具替身 */
 const J_MAIN_LABEL = { gen: '生成', read: '判定' };
 const J_COPY_LABEL = {
-  'idcard:gen': '复制这批号码', 'idcard:read': '复制判定有效的号码',
+  'idcard:gen': '复制这批号码', 'idcard:read': '复制判定有效的结果',
   'uscc:gen': '复制这批代码', 'uscc:read': '复制判定有效的代码',
-  'bankcard:gen': '复制这批卡号', 'bankcard:read': '复制判定有效的卡号',
-  'mobile:gen': '复制这批号码', 'mobile:read': '复制判定有效的号码',
   'random:gen': '复制这批结果',
 };
 
-/** spec 的 `type` → 骨架用的标签；缺省那一档全是 `<select>`（静态的也好、待填充的也好） */
-const jTag = (type) => (type === 'area' ? 'textarea' : type === 'number' || type === 'date' ? 'input' : 'select');
+/** spec 的 `type` → 骨架用的标签；`type: 'text'` 是显式单行框，缺省那一档全是 `<select>` */
+const jTag = (type) => (type === 'area' ? 'textarea'
+  : type === 'number' || type === 'date' || type === 'text' ? 'input' : 'select');
 
 /** 字符串在另一串里出现几次（`split` 计数，不用正则：句子里满是正则元字符） */
 const jCount = (hay, needle) => hay.split(needle).length - 1;
@@ -4737,7 +4775,7 @@ const jCount = (hay, needle) => hay.split(needle).length - 1;
  * @param {string[]} [o.drop] **不**要长的 id（造"骨架缺一格"那一类缺陷）
  * @returns {object} §I 的那份 page，外加 `ctl` / `btn` / `html` / `set` / `change` 等观察口
  */
-function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
+function jPage({ prefix = 'tk', hash = '', search = '', seed = {}, drop = [] } = {}) {
   // `tk-tab-*` / `tk-panel-*` 这两类骨架节点由 §I 的 `iPage` 长出，摘掉它们的活也在那儿；
   // 本节只把 id 翻译成它的两张清单，其余 id 才归下面的 spec 循环管。
   const slugOf = (id, word) => {
@@ -4748,7 +4786,7 @@ function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
   };
   const dropTab = drop.map((id) => slugOf(id, 'tab')).filter((s) => s !== null);
   const dropPanel = drop.map((id) => slugOf(id, 'panel')).filter((s) => s !== null);
-  const page = iPage({ ids: PANEL_IDS, prefix, hash, dropTab, dropPanel });
+  const page = iPage({ ids: PANEL_IDS, prefix, hash, search, dropTab, dropPanel });
   const gone = new Set(drop);
   const mk = page.mk;
   const doc = page.doc;
@@ -4765,10 +4803,20 @@ function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
         // 没有空占位的那一条，它的第一项 `name` 就是浏览器的默认选中值。
         // 占位项的"值"走**属性**——`firstValueOf()` 与 `fill()` 读的都是属性，真 DOM 同一条路。
         if (jTag(c.type) === 'select') {
-          const ph = mk('option');
-          ph.setAttribute('value', c.id === 'kind' ? 'name' : '');
-          ph.textContent = '占位';
-          el.appendChild(ph);
+          if (cfgSide.kindFrom === c.id && cfgSide.kindMap) {
+            for (const kindKey of Object.keys(cfgSide.kindMap)) {
+              const op = mk('option');
+              op.setAttribute('value', kindKey);
+              op.textContent = kindKey;
+              el.appendChild(op);
+            }
+            el.value = Object.keys(cfgSide.kindMap)[0];
+          } else {
+            const ph = mk('option');
+            ph.setAttribute('value', '');
+            ph.textContent = '占位';
+            el.appendChild(ph);
+          }
         }
         const key = `${panel}:${c.id}`;
         if (seed[key] !== undefined) el.value = String(seed[key]);
@@ -4889,12 +4937,16 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
     assert.equal(c[1], '1', '机构类别代码没选，模块的默认字符应当是 1');
   }
   // 空着的位数 → 行别登记位数，卡号长度落在 13–19 且每一条都过 Luhn
-  for (const n of bare.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+  const bankBare = jMount({ pick: { 'idcard:kind': 'bank' } });
+  bankBare.page.click('idcard', 'gen');
+  for (const n of bankBare.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.length >= PAN_MIN && n.length <= PAN_MAX, true, `${n}：位数越界`);
     assert.equal(parseBankCard(n).state, 'valid', `${n}：空位数生成的卡号不自洽`);
   }
   // 空着的号段 / 运营商 → 11 位且首位形状合法；空着的字数 → 名字 2 或 3 字
-  for (const n of bare.wb.copyTextOf('mobile', 'gen').split('\n')) {
+  const mobileBare = jMount({ pick: { 'idcard:kind': 'mobile' } });
+  mobileBare.page.click('idcard', 'gen');
+  for (const n of mobileBare.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.match(n, /^1[3-9]\d{9}$/, `${n}：号段形状不对`);
   }
   for (const nm of bare.wb.copyTextOf('random', 'gen').split('\n')) {
@@ -4906,7 +4958,7 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
   const set = jMount({
     pick: {
       'idcard:sex': 'male', 'idcard:province': '11', 'uscc:registry': 'A', 'uscc:category': '2',
-      'bankcard:length': 16, 'mobile:segment': '138', 'random:givelen': '2',
+      'random:givelen': '2',
     },
   });
   assert.deepEqual(set.report.broken, []);
@@ -4919,10 +4971,14 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
     assert.equal(c[0], 'A', `${c}：第 1 位不是选中的 A`);
     assert.equal(c[1], '2', `${c}：第 2 位不是选中的 2`);
   }
-  for (const n of set.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+  const setCards = jMount({ pick: { 'idcard:kind': 'bank', 'idcard:length': 16 } });
+  setCards.page.click('idcard', 'gen');
+  for (const n of setCards.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.length, 16, `${n}：指定了 16 位却画成 ${n.length} 位`);
   }
-  for (const n of set.wb.copyTextOf('mobile', 'gen').split('\n')) {
+  const setMobile = jMount({ pick: { 'idcard:kind': 'mobile', 'idcard:segment': '138' } });
+  setMobile.page.click('idcard', 'gen');
+  for (const n of setMobile.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.slice(0, 3), '138', `${n}：指定了 138 段`);
   }
   for (const nm of set.wb.copyTextOf('random', 'gen').split('\n')) {
@@ -5056,9 +5112,8 @@ test('J4 #random 四档 kind：该现身的现身、该带上的键带上，非�
   const m = jMount();
   const shown = () => ['givelen', 'addr', 'domain']
     .map((k) => `${k}=${m.page.whenNode('random', k).hidden ? 'hidden' : 'shown'}`).join(' ');
-  // kind 一格在骨架里没有空占位项，浏览器默认选中 `name` → 假 DOM 里读作 ''，
-  // 装配层退到 `firstValueOf()`：这一格正是那个退路存在的理由。
-  assert.equal(m.page.ctl('random', 'kind').value, '');
+  // kind 一格在骨架里没有空占位项，浏览器默认选中 `name`
+  assert.equal(m.page.ctl('random', 'kind').value, 'name');
   assert.equal(shown(), 'givelen=shown addr=hidden domain=hidden', '默认档是「姓名」');
   assert.match(m.page.html('random', 'gen'), /tk-batch--name/);
 
@@ -5132,7 +5187,7 @@ test('J5 读侧：原始行号、空行只占号不占位、50 行上限、空�
   assert.notEqual(bad, good, '夹具自证：这一条只改了校验位');
   const m = jMount();
   // 挂载期那一格是提示，不是空着
-  assert.match(m.page.html('idcard', 'read'), /<p class="tk-hint">把号码粘进来/);
+  assert.match(m.page.html('idcard', 'read'), /<p class="tk-hint">把身份证号粘进来/);
   assert.equal(m.page.copy('idcard', 'read').disabled, true);
   m.page.click('idcard', 'read');
   assert.match(m.page.html('idcard', 'read'), /粘贴框里还没有号码/);
@@ -5210,7 +5265,7 @@ test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五�
   };
 
   // ① 发卡行：常用那 20 行是裸选项（包进组会让读屏先念一句"选项 空"），其余 240 行才分组
-  const bank = shape('bankcard', 'bank');
+  const bank = shape('idcard', 'bank');
   assert.equal(bank.head.tagName, 'OPTION', '骨架那条占位项必须是第一个子节点');
   assert.equal(bank.head.getAttribute('value'), '', '占位项没有值，选中它等于没选');
   assert.equal(bank.bare, 1 + TOP_BANKS.length, '占位项 + 常用行那 20 条都不该被包进 <optgroup>');
@@ -5221,18 +5276,18 @@ test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五�
   assert.equal(new Set(bank.values.slice(1)).size, BANK_OPTIONS.length, '260 个行别码不该有重复或遗漏');
 
   // ② 卡种四条、邮箱域三条、运营商五条：顺序跟着模块那张表走，测试不替它重排
-  const ctype = shape('bankcard', 'type');
+  const ctype = shape('idcard', 'type');
   assert.deepEqual(ctype.values, ['', ...Object.keys(CARD_TYPES)]);
   assert.deepEqual(ctype.labels.slice(1), Object.values(CARD_TYPES));
   const domain = shape('random', 'domain');
   assert.deepEqual(domain.values, ['', ...EMAIL_DOMAINS], '邮箱域这一格没有第二条路');
-  const carrier = shape('mobile', 'carrier');
+  const carrier = shape('idcard', 'carrier');
   assert.deepEqual(carrier.groups, [], '运营商这一格不该有 <optgroup>：五条并列');
   assert.deepEqual(carrier.labels.slice(1), CARRIERS.map((c) => `${c.carrier}（${c.count} 个号段）`),
     '括号里那个数就是 §F0 钉住的号段数，让用户先看见池子有多大');
 
   // ③ 号段按运营商分五组：成员数与 `CARRIERS` 的 count 逐格对上；平铺那份比对 §F 从号段表独立数出的 `LISTED`——与被测取数链不同源，才看得出装配层掉段
-  const seg = shape('mobile', 'segment');
+  const seg = shape('idcard', 'segment');
   assert.deepEqual(seg.groups, CARRIERS.map((c) => c.carrier));
   assert.deepEqual(seg.sizes, CARRIERS.map((c) => c.count));
   assert.deepEqual([...seg.values.slice(1)].sort(), [...LISTED].sort(), '56 段一段都不能少');
@@ -5278,8 +5333,8 @@ test('J8 一块塌下去别块照旧：跨面板隔离，与数量格那两句�
     if (id === 'uscc') continue;
     assert.equal(iBanner(page, id), null, `${id} 跟着隔壁一起塌了`);
   }
-  // 别块该照旧生成：四块各点一次，一张表都不许少
-  for (const id of ['idcard', 'bankcard', 'mobile', 'random']) {
+  // 别块该照旧生成：两块各点一次，一张表都不许少
+  for (const id of ['idcard', 'random']) {
     assert.equal(m.wb.run(id, 'gen'), true, `${id} 被隔壁的失败拖坏了`);
     assert.match(page.html(id, 'gen'), /共 5 条/);
   }
@@ -5314,23 +5369,26 @@ test('J8 一块塌下去别块照旧：跨面板隔离，与数量格那两句�
 
   // 位数那一格同一档：越界要说清是哪一格、范围是多少，不许静默当成"没填"（那一档等于
   // 把用户明确填的 20 变成"按行别登记位数随机"，屏幕上还一切正常）。走的是 `intOf` 同一条路。
+  page.set('idcard', 'kind', 'bank');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'count', '5');
   for (const [raw, line] of [
     ['20', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「20」`],
     ['12', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「12」`],
     ['13.5', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「13.5」`],
   ]) {
-    page.set('bankcard', 'length', raw);
-    page.click('bankcard', 'gen');
-    const h = page.html('bankcard', 'gen');
+    page.set('idcard', 'length', raw);
+    page.click('idcard', 'gen');
+    const h = page.html('idcard', 'gen');
     assert.match(h, new RegExp(`^<p class="tk-hint">${line}。`), `位数「${raw}」这一档的文案对不上`);
     assert.equal(h.includes('tk-count'), false, `位数「${raw}」一条都没生成，别报"共 N 条"`);
     assert.deepEqual(page.ws.brokenIds(), [], `位数「${raw}」是用户填错了，不是这块面板坏了`);
-    assert.equal(page.copy('bankcard', 'gen').disabled, true);
+    assert.equal(page.copy('idcard', 'gen').disabled, true);
   }
   // 清空即回到"按行别登记位数"：这句话管的是越界，不是"填了就不许改回去"
-  page.set('bankcard', 'length', '');
-  page.click('bankcard', 'gen');
-  assert.match(page.html('bankcard', 'gen'), /共 5 条/, '清掉位数之后这块面板该照常出表');
+  page.set('idcard', 'length', '');
+  page.click('idcard', 'gen');
+  assert.match(page.html('idcard', 'gen'), /共 5 条/, '清掉位数之后这块面板该照常出表');
 });
 
 test('J9 派生 id 的五种形状与那份清单的自洽（骨架与 Task 9 的账都靠它）', () => {
@@ -5339,29 +5397,33 @@ test('J9 派生 id 的五种形状与那份清单的自洽（骨架与 Task 9 �
   assert.equal(fieldId('tk', 'idcard', 'birth'), 'tk-in-idcard-birth');
   assert.equal(buttonId('tk', 'idcard', 'gen'), 'tk-btn-idcard-gen');
   assert.equal(copyId('tk', 'uscc', 'read'), 'tk-copy-uscc-read');
-  assert.equal(outId('tk', 'mobile', 'gen'), 'tk-out-mobile-gen');
+  assert.equal(outId('tk', 'idcard', 'gen'), 'tk-out-idcard-gen');
   assert.equal(whenId('tk', 'random', 'addr'), 'tk-when-random-addr');
 
   const c = controlIds('tk');
   assert.deepEqual(PANEL_IDS, Object.keys(WORKBENCH_SPEC), '面板清单与 spec 的键不是同一份');
-  assert.deepEqual(PANEL_IDS, ['idcard', 'uscc', 'bankcard', 'mobile', 'random'],
+  assert.deepEqual(PANEL_IDS, ['idcard', 'uscc', 'random'],
     '面板顺序就是索引条顺序，改了要连带改骨架与 yml');
 
   // 五份清单合起来不许有重复 id：真 DOM 里同名两个节点，`getElementById` 只认第一个
   const all = [...c.in, ...c.btn, ...c.copy, ...c.out, ...c.when];
   assert.equal(new Set(all).size, all.length, '派生 id 撞车了');
   assert.equal(all.every((id) => id.startsWith('tk-')), true, '每条 id 都得带前缀');
-  // 按钮 / 复制 / 结果区三张一一对应：`random` 没有判定侧，所以是 5 + 4 = 9 而不是 10
-  assert.deepEqual([c.btn.length, c.copy.length, c.out.length], [9, 9, 9]);
+  // 按钮 / 复制 / 结果区三张一一对应：`random` 没有判定侧，所以是 3 + 2 = 5
+  assert.deepEqual([c.btn.length, c.copy.length, c.out.length], [5, 5, 5]);
   const withRead = PANEL_IDS.filter((id) => WORKBENCH_SPEC[id].sides.read !== null);
   assert.equal(c.btn.length, PANEL_IDS.length + withRead.length);
   assert.deepEqual(c.when, [
-    'tk-when-idcard-birth', 'tk-when-random-givelen', 'tk-when-random-addr', 'tk-when-random-domain',
-  ], '受开关控制的字段组只有这四格');
-  // 读侧上限与生成侧上限同档（口径 4 的那句话），且四块面板各有且只有一条粘贴框
+    'tk-when-idcard-idcard-fields', 'tk-when-idcard-bank-fields', 'tk-when-idcard-mobile-fields',
+    'tk-when-idcard-birth',
+    'tk-when-uscc-uscc-fields', 'tk-when-uscc-region-fields', 'tk-when-uscc-credit-fields',
+    'tk-when-uscc-orgcode-note', 'tk-when-uscc-license-fields',
+    'tk-when-random-givelen', 'tk-when-random-addr', 'tk-when-random-domain',
+  ], '受开关控制的字段组只有这些');
+  // 读侧上限与生成侧上限同档（口径 4 的那句话），且两块有判定侧的面板各有且只有一条粘贴框
   assert.equal(MAX_READ_LINES, GENERATE_MAX, '读侧与生成侧不该各长一个上限');
-  assert.equal(withRead.length, 4);
-  assert.equal(c.in.filter((id) => /-read$/.test(id)).length, 4);
+  assert.equal(withRead.length, 2);
+  assert.equal(c.in.filter((id) => /-read$/.test(id)).length, 2);
 
   // 夹具自证（口径 3 的代价清单）：清单里每一条 id 在骨架上都得有节点
   const page = jPage();
@@ -5386,8 +5448,8 @@ test('J10 换前缀是整套换：行为一位不改，旧前缀一个节点都�
   for (const id of PANEL_IDS) {
     assert.equal(jt.wb.copyTextOf(id, 'gen'), tk.wb.copyTextOf(id, 'gen'), `${id} 换了前缀就换了内容`);
   }
-  jt.page.click('bankcard', 'read');
-  assert.match(jt.page.html('bankcard', 'read'), /<p class="tk-hint">粘贴框里还没有号码/,
+  jt.page.click('idcard', 'read');
+  assert.match(jt.page.html('idcard', 'read'), /<p class="tk-hint">粘贴框里还没有号码/,
     '提示行的类名是样式钩子，不跟着前缀换（`toolkit.scss` 只有一份）');
 });
 
@@ -5523,9 +5585,9 @@ test('J13 骨架缺一格：缺结果区与缺 tab 标坏这一块，缺复制�
   assert.deepEqual(iVisible(b.page), ['idcard']);
   assert.match(iBanner(b.page, 'idcard').textContent, /tk-tab-idcard/);
   // 互锁对它照样生效：切走之后它的 `hidden` 被人覆写了，不会留下一块永远显示的面板
-  b.page.tab('mobile').dispatch('click', {});
-  assert.deepEqual(iVisible(b.page), ['mobile'], '缺 tab 那块还赖在可见位上');
-  for (const id of ['uscc', 'bankcard', 'random']) {
+  b.page.tab('uscc').dispatch('click', {});
+  assert.deepEqual(iVisible(b.page), ['uscc'], '缺 tab 那块还赖在可见位上');
+  for (const id of ['uscc', 'random']) {
     assert.match(b.page.html(id, 'gen'), /共 5 条/);
   }
 
@@ -5603,18 +5665,22 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
 
   // ① 银行卡：常量 caveat 摘到栏尾一次，五十行也不该五十遍
   const cards = generateBankCards({ count: 3, rng: seededRandom(J_SEED + 2) }).map((r) => r.number);
-  page.set('bankcard', 'read', [...cards, '1234'].join('\n'));
-  page.click('bankcard', 'read');
-  let h = page.html('bankcard', 'read');
+  page.set('idcard', 'kind', 'bank');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'read', [...cards, '1234'].join('\n'));
+  page.click('idcard', 'read');
+  let h = page.html('idcard', 'read');
   assert.equal(jCount(h, BANK_CAVEAT), 1, '同一句话每行说一遍，等于没说');
   assert.ok(last(h) < h.indexOf(BANK_CAVEAT), '整栏口径要排在逐行结果之后');
   assert.equal(jCount(h, '<section class="tk-line">'), 4);
 
   // ② 手机号：caveat 与 note 两条各一次，且都在最后一行之后
   const nums = generateMobiles({ count: 2, rng: seededRandom(J_SEED + 3) }).map((r) => r.number);
-  page.set('mobile', 'read', [...nums, '10000000000'].join('\n'));
-  page.click('mobile', 'read');
-  h = page.html('mobile', 'read');
+  page.set('idcard', 'kind', 'mobile');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'read', [...nums, '10000000000'].join('\n'));
+  page.click('idcard', 'read');
+  h = page.html('idcard', 'read');
   assert.equal(jCount(h, MOBILE_CAVEAT), 1);
   assert.equal(jCount(h, CARRIER_NOTE), 1);
   assert.ok(last(h) < h.indexOf(MOBILE_CAVEAT));
@@ -5623,6 +5689,8 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
   // ③ 身份证的 caveat 随号码而变，摘错了就是把结论从号码旁边搬走：它必须留在自己那一行里
   const good = mk('11010119900307001');
   const hist = mk('11010319900307001');
+  page.set('idcard', 'kind', 'idcard');
+  page.change('idcard', 'kind');
   page.set('idcard', 'read', [good, hist].join('\n'));
   page.click('idcard', 'read');
   h = page.html('idcard', 'read');
@@ -5643,14 +5711,23 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
   assert.ok(last(h) < h.indexOf(REFERENCE_NOTE));
 
   // ⑤ 生成侧：每栏的口径行各一次，不因为表里有五行就重复五遍
+  page.click('idcard', 'gen');
   const gen = {
-    idcard: [USE_NOTE], uscc: [USCC_USE_NOTE], bankcard: [BANK_CAVEAT],
-    mobile: [MOBILE_CAVEAT, CARRIER_NOTE], random: [RANDOM_CAVEAT, NAME_NOTE],
+    idcard: [USE_NOTE], uscc: [USCC_USE_NOTE],
+    random: [RANDOM_CAVEAT, NAME_NOTE],
   };
   for (const [panel, notes] of Object.entries(gen)) {
     const g = page.html(panel, 'gen');
     for (const note of notes) assert.equal(jCount(g, note), 1, `${panel} 生成侧的口径句重复了`);
   }
+  const bankM = jMount({ pick: { 'idcard:kind': 'bank' } });
+  bankM.page.click('idcard', 'gen');
+  assert.equal(jCount(bankM.page.html('idcard', 'gen'), BANK_CAVEAT), 1, '银行卡生成侧的口径句重复了');
+  const mobileM = jMount({ pick: { 'idcard:kind': 'mobile' } });
+  mobileM.page.click('idcard', 'gen');
+  const mobileGen = mobileM.page.html('idcard', 'gen');
+  assert.equal(jCount(mobileGen, MOBILE_CAVEAT), 1, '手机号生成侧的口径句重复了');
+  assert.equal(jCount(mobileGen, CARRIER_NOTE), 1, '手机号运营商说明重复了');
 });
 
 test('J16 入口只读骨架那四格数据；启动失败不装死，成功路径把两条 <script> 接起来', async () => {
@@ -5695,10 +5772,32 @@ test('J16 入口只读骨架那四格数据；启动失败不装死，成功路�
       page.btn('idcard', 'gen').dispatch('click', {});
       assert.match(page.html('idcard', 'gen'), /共 2 条/, '按了没反应＝占位函数还在位上');
       // hashchange 接在 window 上：地址栏换面板，入口这一层负责把两边接起来
-      page.location.hash = '#mobile';
+      page.location.hash = '#uscc';
       page.win.dispatch('hashchange', {});
-      assert.deepEqual(iVisible(page), ['mobile']);
-      assert.equal(page.tab('mobile').getAttribute('aria-selected'), 'true');
+      assert.deepEqual(iVisible(page), ['uscc']);
+      assert.equal(page.tab('uscc').getAttribute('aria-selected'), 'true');
+    });
+  }
+
+  // ── 定档：`?kind=` 刷新后仍停在同一档；旧 hash 与它同时出现时旧 hash 优先 ──
+  {
+    const page = jPage({ search: '?kind=bank' });
+    page.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'tk', 'data-tk-notice': 'tk-notice',
+    });
+    await run('querykind', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      assert.equal(page.ctl('idcard', 'kind').value, 'bank', '?kind=bank 没在挂载前拨到银行卡');
+    });
+    const legacy = jPage({ hash: '#orgcode', search: '?kind=bank' });
+    legacy.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'tk', 'data-tk-notice': 'tk-notice',
+    });
+    await run('legacywins', legacy, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      assert.equal(legacy.ctl('uscc', 'kind').value, 'orgcode', '旧 hash 没压过 ?kind=');
     });
   }
 
@@ -5825,21 +5924,21 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
   // ── (c) 没有 clipboard（http 页面）→ 直接走兜底 ──
   {
     const m = jMount();
-    m.page.clickCopy('bankcard', 'gen');
+    m.page.clickCopy('idcard', 'gen');
     assert.deepEqual(m.page.commandLog, ['copy'], '没有 navigator.clipboard 时不该什么都不做');
-    assert.equal(jLabel(m.page, 'bankcard', 'gen'), '已复制');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '已复制');
   }
 
   // ── (d) 兜底也说"不行"：一句失败文案，恢复时长比成功那句长 ──
   {
     const m = jMount();
     m.page.doc.copyOk = false;
-    m.page.clickCopy('mobile', 'gen');
-    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制失败，请手动选中');
+    m.page.clickCopy('idcard', 'gen');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制失败，请手动选中');
     assert.equal(m.timers[0].ms, 2600, '失败那句要给人时间读完');
     assert.equal(m.timers[0].ms > 1600, true);
     m.flush();
-    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制这批号码');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制这批号码');
     assert.equal(m.page.doc.body.childNodes.length, 0, '连失败都不许留下临时框');
   }
 
@@ -5873,7 +5972,7 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
     assert.deepEqual(writes, [], '空文本一次都不该写');
     assert.deepEqual(m.page.commandLog, []);
     assert.equal(m.timers.length, 0, '什么都没复制，就别改口');
-    assert.equal(jLabel(m.page, 'idcard', 'read'), '复制判定有效的号码');
+    assert.equal(jLabel(m.page, 'idcard', 'read'), '复制判定有效的结果');
     // 粘进去判一次，这一栏的复制件只装判定有效的那几条
     const good = mk('11010119900307001');
     const bad = good[17] === '9' ? `${good.slice(0, 17)}8` : `${good.slice(0, 17)}9`;

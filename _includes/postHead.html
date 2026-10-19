@@ -40,7 +40,7 @@
          #post-body 里的同一批标题，于是每个标题两枚锚点、读屏器念两遍；
          删掉旧那套的同时，站内唯一消费 fa 类的代码也没了，
          所以下面那行 bootcss 的 font-awesome 一并撤掉。 -->
-    {% if site.waline.enable %}
+    {% if site.waline.enable and jekyll.environment == 'production' %}
     <!-- 与 _includes/waline.html 里那行 import 同一个版本、同一个域：JS 钉在 3.15.2、
          CSS 也必须钉在 3.15.2，否则上游一发新版，样式先跑一步而脚本还停在旧版。
          原地址是 unpkg.com + 浮动的 @v3；两个域名各下一份 dist/waline.css 比对，

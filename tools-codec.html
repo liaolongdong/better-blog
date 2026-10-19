@@ -34,7 +34,7 @@ tool: codec
         <p class="masthead-lede">{{ tk.desc }}</p>
         <ul class="masthead-stats">
             <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
-            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>0</strong><span>上传</span></li>
             <li><strong>1 MiB</strong><span>文本上限</span></li>
         </ul>
     </div>
@@ -135,6 +135,9 @@ tool: codec
                         </p>
                         <p class="tk-actions">
                             <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-main">换算</button>
+                            <button class="tk-btn tk-btn--ghost" type="button"
+                                    id="{{ tk.prefix }}-now-timestamp"
+                                    title="填入当前 Unix 秒并立即换算">现在</button>
                         </p>
                     </div>
                     <div class="tk-outwrap">

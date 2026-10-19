@@ -30,9 +30,12 @@
  * `shapeOf`（与各模块那份逐字同形但各自私有——跨文件共享它就要开 import 边，见上）。
  */
 
-/** 读侧四种、生成侧八种；列定义与明细定义都按这套键取，多一格少一格都会在 §H 红 */
-export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile'];
-export const BATCH_KINDS = ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile'];
+/** 读侧七种、生成侧十一种；列定义与明细定义都按这套键取，多一格少一格都会在 §H 红 */
+export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license'];
+export const BATCH_KINDS = [
+  'idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license',
+  'name', 'address', 'email', 'profile',
+];
 
 /** 空值的显示形状。`null` 与"这一格没定义"是两件事，后者在 `table()` 里直接抛 */
 export const EMPTY_CELL = '—';
@@ -276,6 +279,30 @@ const DETAIL_SPEC = {
     { label: '展示格式', fmt: (r) => r.info.formatted, mono: true },
     { label: '号段来源', fmt: (r) => r.info.source },
   ],
+  orgcode: [
+    { label: '本体代码', fmt: (r) => r.info.body8, mono: true },
+    { label: '字符集', fmt: () => '31 字符集（不含 I O S Z V）' },
+    { label: '校验位', fmt: (r) => `号码第 9 位 ${r.info.checkBit}，算得 ${r.info.expected}` },
+    { label: '校验算式', fmt: (r) => `Σ ${r.info.checksum.sum} · mod 11 = ${r.info.checksum.remainder} → 校验值 ${r.info.checksum.value}` },
+    { label: '展示形式', fmt: (r) => r.info.formatted, mono: true },
+  ],
+  creditcode: [
+    { label: '区划', fmt: (r) => (r.info.regionCode ? `${r.info.regionCode} · ${regionRow(r.info.region, '机构信用代码')}` : null) },
+    { label: '准入登记类别', fmt: (r) => r.info.firstChar, mono: true },
+    { label: '机构类别段', fmt: (r) => r.info.category, mono: true },
+    { label: '结算账户标识', fmt: (r) => r.info.identifier, mono: true },
+    { label: '校验位', fmt: (r) => `号码末位 ${r.info.checkBit}，算得 ${r.info.expected}` },
+    { label: '校验算式', fmt: (r) => `s ${r.info.checksum.s} · 末位值 ${r.info.checksum.value}` },
+  ],
+  license: [
+    { label: '机构类型', fmt: (r) => `${r.info.type}${r.info.typeName ? ` · ${r.info.typeName}` : '（名称未收录）'}` },
+    { label: '机构代码', fmt: (r) => r.info.instCode, mono: true },
+    { label: '组织类别', fmt: (r) => `${r.info.orgCategory} · ${r.info.orgCategoryName}` },
+    { label: '发证机关代码', fmt: (r) => r.info.issuer, mono: true },
+    { label: '地址代码', fmt: (r) => `${r.info.addressCode} · ${r.info.province || '省份未收录'}` },
+    { label: '顺序代码', fmt: (r) => r.info.sequence, mono: true },
+    { label: '校验位', fmt: () => '无公开校验位' },
+  ],
 };
 
 /** 同前缀多行命中时另起的那张表（`matches.length > 1`） */
@@ -302,7 +329,10 @@ export function detailTable(kind, result) {
 }
 
 /** 结构不成立 / 未收录时的"还能怎么办"那一行：`suggested*` 与 `expectedCheckBit` 走同一出口 */
-const SUGGEST_KEY = { idcard: 'suggestedId18', bank: 'suggestedCard' };
+const SUGGEST_KEY = {
+  idcard: 'suggestedId18', bank: 'suggestedCard',
+  orgcode: 'suggestedCode', creditcode: 'suggestedCode',
+};
 
 export function suggestLine(kind, result) {
   const key = SUGGEST_KEY[kind];
@@ -345,6 +375,25 @@ const COLUMNS = {
     { label: '号码', path: 'formatted', mono: true },
     { label: '号段', path: 'segment', mono: true },
     { label: '运营商', path: 'carrier' },
+  ],
+  orgcode: [
+    { label: '代码', path: 'code', mono: true },
+    { label: '本体代码', path: 'body8', mono: true },
+    { label: '校验位', path: 'checkBit', mono: true },
+  ],
+  creditcode: [
+    { label: '代码', path: 'code', mono: true },
+    { label: '区划', path: 'regionName', wide: true },
+    { label: '机构类别', path: 'category', mono: true },
+    { label: '结算账户标识', path: 'identifier', mono: true },
+    { label: '校验位', path: 'checkBit', mono: true },
+  ],
+  license: [
+    { label: '机构编码', path: 'code', mono: true },
+    { label: '类型', fmt: (r) => `${r.type}${r.typeName ? ` · ${r.typeName}` : ''}` },
+    { label: '组织类别', fmt: (r) => `${r.orgCategory} · ${r.orgCategoryName}` },
+    { label: '地址', fmt: (r) => `${r.addressCode} · ${r.province || '未收录'}`, wide: true },
+    { label: '顺序', path: 'sequence', mono: true },
   ],
   name: [
     { label: '姓名', path: 'name' },

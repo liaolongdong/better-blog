@@ -235,6 +235,10 @@ paginate_path: 'page:num'
 # 这里列的都是仅开发/部署用的资产，一旦漏排就会被拷进 _site 并公开可访问。
 exclude:
   - node_modules
+  # 并行开发用的 git worktree（.worktrees/<name>/）里也有 node_modules 与 vendor：
+  # 不排除时 `jekyll serve` 的 listen 会把这些目录整棵纳入监听，空转占满一个核；
+  # 它本来也不是站点内容，不该被复制进 _site。
+  - .worktrees
   - dev
   - dist
   # 本地构建/生成脚本（scripts/og-images.mjs 等）。不带 front matter 的文件会被

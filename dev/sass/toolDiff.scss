@@ -36,9 +36,10 @@
 // `.df-mode[hidden]` 那一格**必须**显式写：作者样式恒胜 UA 的 `[hidden]{display:none}`，
 // 而 `.df-mode` 后面要挂 `margin` 与 `max-width`——不补这一条，切到 JSON 档时文本档那句
 // 说明会留在屏幕上，读起来像"两档同时成立"。
-// `.df-out` 的高度写死在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
-// 跳转靠的是这只容器自己的 `scrollTop`；不给高度就没有滚动条，`scrollTop` 恒 0，
+// `.df-out` 的高度上限写在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
+// 跳转靠的是这只容器自己的 `scrollTop`；没有上限就没有滚动条，长差异的 `scrollTop` 恒 0，
 // 那三枚按钮按下去什么也不发生，而 §Z 的每一判一条都不红（假 DOM 里 `scrollTop` 是个普通属性）。
+// 上限而不是固定高度：短结果按内容收高，不替长结果占一块白；长结果到上限才滚。
 //
 // 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
 // @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
@@ -143,18 +144,10 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     align-items: center;
 }
 
-// 原生选择框那一格：`.tk-field input` 给的是 `width:100%` + 表单字的那份内边距，
-// 套在 `type=file` 上会把两枚按钮挤出这一行。这里收回到"一行里的一格"。
+// 原生选择框只留作程序入口：可见的控制是旁边那枚「选 A / B 侧文件」按钮，
+// 两个并排会让同一件事看起来像两件事。按钮仍对它调 `.click()`，程序化选择与自动化夹具不受影响。
 .tk-field .df-file {
-    box-sizing: border-box;
-    max-width: min(100%, 30em);
-    padding: 4px 6px;
-    font-family: $df-meta;
-    font-size: 12px;
-    background-color: var(--surface-2);
-    border-style: dashed;
-    border-color: var(--rule-2);
-    cursor: pointer;
+    display: none;
 }
 
 // ── 控制栏四段 ────────────────────────────────────────────────────────────
@@ -247,17 +240,15 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 
 // ── 结果区 ────────────────────────────────────────────────────────────────
 
-.df-status--bar {
-    font-size: 11.5px;
-    letter-spacing: .4px;
-}
-
 // 本页唯一的滚动容器，也是 §Z 那句"整页只有一处 innerHTML"的那个落点。
-// 高度写死、两个方向都给滚动条：文件头第四条那两格前提都在这里。
+// **高度上限**（不是固定高度）：短结果按内容收高，长结果到上限才出现滚动条。
+// 跳转那三枚的 `scrollTop` 上界由 `scrollHeight - clientHeight` 给出；短内容时上界是 0，
+// 长内容时上界非 0，两种形状都不需要一块"永远占着的白"。文件头第四条那两格前提仍在。
 .df-out {
     box-sizing: border-box;
     width: 100%;
-    height: min(620px, 68vh);
+    height: auto;
+    max-height: min(620px, 68vh);
     padding: 0;
     overflow: auto;
     overscroll-behavior: contain;
@@ -265,6 +256,53 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     background-color: var(--surface);
     border-radius: var(--radius-m);
     box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+// 状态行做成药丸：它与下方的空态/结果区是同一条阅读线，不再是悬空的一行小字。
+.df-status--bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: start;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    letter-spacing: .4px;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: 999px;
+}
+
+.df-status--bar::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    background-color: var(--signal);
+    border-radius: 50%;
+}
+
+// 状态行与「载入示例」并排；示例是交互捷径，不占动作表里的 14 枚。
+.df-sample-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.df-sample-link {
+    padding: 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    cursor: pointer;
+    background: none;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.df-sample-link:hover {
+    color: var(--signal);
 }
 
 .df-notice {
@@ -281,10 +319,10 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 .df-verdict {
     margin: 0;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: 14px;
     line-height: var(--df-row-h);
     color: var(--ink);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .df-verdict--same {
@@ -305,11 +343,15 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 }
 
 .df-stats {
+    display: inline-block;
     margin: 0;
     padding: 0 10px;
     font-size: 12px;
     line-height: var(--df-row-h);
-    color: var(--ink-3);
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    background-color: var(--surface-2);
+    border-radius: 999px;
 }
 
 // ── 行流：并排两栏 / 行内一栏 ─────────────────────────────────────────────
@@ -638,7 +680,7 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     }
 
     .df-out {
-        height: min(500px, 60vh);
+        max-height: min(500px, 60vh);
     }
 }
 
@@ -676,6 +718,13 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     .df-opt select {
         flex: 1;
         min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .df-opt--check input {
+        width: 18px;
+        height: 18px;
     }
 
     .df-row {
@@ -687,6 +736,6 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     }
 
     .df-out {
-        height: min(420px, 54vh);
+        max-height: min(420px, 54vh);
     }
 }

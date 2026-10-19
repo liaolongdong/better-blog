@@ -26,7 +26,7 @@
  *   brokenOf:(id:string)=>string, brokenIds:()=>string[], clearBroken:(id:string)=>void}}
  */
 export function createPanelWorkspace({
-  ids, hash = '', prefix = 'tk', label = '工具面板', orientation = 'vertical',
+  ids, hash = '', prefix = 'tk', label = '工具面板', orientation = 'vertical', aliases = {},
 } = {}) {
   if (ids === undefined) throw new TypeError('createPanelWorkspace：options.ids 必填，收到 undefined');
   if (!Array.isArray(ids)) {
@@ -43,6 +43,24 @@ export function createPanelWorkspace({
         `createPanelWorkspace：options.ids[${i}] 与第 ${seen.get(id)} 项重复（${id}）`);
     }
     seen.set(id, i);
+  }
+  /**
+   * 旧深链别名：证件页从五块面板合并成三块后，`#bankcard` / `#mobile` 之类的旧 hash
+   * 仍要落到对应的新面板。别名只影响“认哪一块”，不改 `toHash()` 写回的裸面板 slug。
+   * 键与值都必须是非空字符串，值必须是 `ids` 里真实存在的一块——拼错的别名等于一个永久死链。
+   */
+  if (aliases === null || typeof aliases !== 'object' || Array.isArray(aliases)) {
+    throw new TypeError(`createPanelWorkspace：options.aliases 应为 { 旧 hash: 面板 id }，收到 ${shapeOf(aliases)}`);
+  }
+  const aliasMap = new Map();
+  for (const [from, to] of Object.entries(aliases)) {
+    if (from.trim() === '' || typeof to !== 'string' || to.trim() === '') {
+      throw new TypeError(`createPanelWorkspace：options.aliases 的「${from}」应指向非空面板 id，收到 ${shapeOf(to)}`);
+    }
+    if (!seen.has(to)) {
+      throw new RangeError(`createPanelWorkspace：options.aliases 的「${from}」指向 ${to}，但 ids 里没有这块面板`);
+    }
+    aliasMap.set(from.trim().toLowerCase(), to);
   }
   if (typeof prefix !== 'string' || prefix.trim() === '') {
     throw new TypeError(`createPanelWorkspace：options.prefix 应为非空字符串，收到 ${shapeOf(prefix)}`);
@@ -68,7 +86,7 @@ export function createPanelWorkspace({
   };
 
   const broken = new Map();
-  const initial = parseHash(hash, ids);
+  const initial = parseHash(hash, ids, aliasMap);
   let active = initial.id === null ? ids[0] : initial.id;
   let unknown = initial.unknown;
   let touched = initial.id !== null;
@@ -151,7 +169,7 @@ export function createPanelWorkspace({
       return settle(next);
     },
     applyHash(raw) {
-      const parsed = parseHash(raw, ids);
+      const parsed = parseHash(raw, ids, aliasMap);
       if (parsed.unknown) {
         unknown = true;
         return false;
@@ -218,12 +236,17 @@ function stripPanelPrefix(s) {
   return at < 0 ? s : s.slice(at + 7);
 }
 
-export function parseHash(raw, ids) {
+export function parseHash(raw, ids, aliases = null) {
   const s = typeof raw === 'string' ? raw.trim().replace(/^#/, '') : '';
   if (s === '') return { id: null, unknown: false };
   const key = stripPanelPrefix(s);
   const hit = ids.find((id) => id.toLowerCase() === key.toLowerCase());
-  return hit === undefined ? { id: null, unknown: true } : { id: hit, unknown: false };
+  if (hit !== undefined) return { id: hit, unknown: false };
+  const alias = aliases instanceof Map
+    ? aliases.get(key.toLowerCase())
+    : (aliases && typeof aliases === 'object'
+      ? aliases[key.toLowerCase()] : undefined);
+  return typeof alias === 'string' ? { id: alias, unknown: false } : { id: null, unknown: true };
 }
 
 /**

@@ -79,6 +79,10 @@ const ROW_HEIGHT = 24;
 /** 闸门读数（行 / 字节）随 `input` 刷新的防抖时长；真页面上由入口注入的那只延时承载 */
 const DEBOUNCE_MS = 200;
 
+/** 「载入示例」写进 A/B 的两段文本：一行改、一行增，按默认上下文就能看到两块差异 */
+const SAMPLE_A = 'const user = { name: "Ada", role: "admin" };\nconsole.log(user.name);\n';
+const SAMPLE_B = 'const user = { name: "Ada", role: "editor" };\nconsole.log(user.name);\nconsole.log(user.role);\n';
+
 /**
  * 三枚档位下拉的默认值：骨架那格给空串时落在这里；非空而不在白名单里一律上抛（Z21 的 `'9'`）。
  * 导出它的唯一消费者是收录面门禁的组 6——那一组要把这一格与骨架上带 `selected` 的那枚 option 对撞
@@ -270,6 +274,7 @@ export const controlIds = (p) => {
  *   后退不该先退回上一个档位
  * @param {Function} [env.runGuarded] `(id, fn) => boolean`：坏消息的边界，本层只管抛
  * @param {Function} env.later `(fn, ms) => number`：防抖那一只延时
+ * @param {Function} [env.afterPaint] `(fn) => void`：大输入比较前让出一帧；缺席时同步执行
  * @param {object} [env.navigator] 只借 `clipboard` 那一格
  * @param {number} [env.rowHeight] 行高（样式给的环境量），非 `≥1` 的整数当场 `RangeError`
  * @param {Function} [env.BlobCtor] 下载三件之一，按工厂调用（本层不写 `new Blob`）
@@ -302,6 +307,7 @@ export function createDiffWorkbench(env) {
     && typeof env.createObjectURL === 'function' && typeof env.revokeObjectURL === 'function';
   const nav = env.navigator;
   const clip = nav ? nav.clipboard : undefined;
+  const afterPaint = typeof env.afterPaint === 'function' ? env.afterPaint : null;
   const rowHeight = env.rowHeight === undefined ? ROW_HEIGHT : env.rowHeight;
   /**
    * 档位 ↔ 地址栏那三只（SP2 Task 1）。`urlMod` / `loc` / `hist` 缺任何一只就**整段不同步**——
@@ -744,7 +750,14 @@ export function createDiffWorkbench(env) {
     if (key === 'fileB') { openPicker('b'); return; }
     throw new RangeError(`「${key}」在 DIFF_ACTIONS 的清单上，本层却没有对应的行为：按钮长出来了而没人接`);
   };
-  /** 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界 */
+  /** 超过这个字符数才先画“计算中…”；小输入保持原来的同步路径 */
+  const HEAVY_CHARS = 256 * 1024;
+
+  /**
+   * 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界。
+   * 大输入比较先让出一帧、把状态行改成“计算中…”并置灰动作按钮，避免几秒无响应
+   * 被读成卡死；小输入不走这一圈，键盘与测试仍是同步结果。
+   */
   const act = (key) => {
     const id = buttonId(env.prefix, PANEL, key);
     const inner = () => {
@@ -755,8 +768,28 @@ export function createDiffWorkbench(env) {
         else throw err;
       }
     };
-    if (typeof env.runGuarded === 'function') env.runGuarded(id, inner);
-    else inner();
+    const run = () => {
+      if (typeof env.runGuarded === 'function') env.runGuarded(id, inner);
+      else inner();
+    };
+    const aNode = nodes.get(fieldId(env.prefix, PANEL, 'a-text'));
+    const bNode = nodes.get(fieldId(env.prefix, PANEL, 'b-text'));
+    const chars = String(aNode ? aNode.value || '' : '').length + String(bNode ? bNode.value || '' : '').length;
+    if (key !== 'compare' || chars < HEAVY_CHARS || typeof afterPaint !== 'function') {
+      run();
+      return;
+    }
+    const btn = nodes.get(id);
+    const wasDisabled = btn ? btn.disabled : false;
+    if (btn) btn.disabled = true;
+    say('bar', '计算中…');
+    afterPaint(() => {
+      try {
+        run();
+      } finally {
+        if (btn) btn.disabled = wasDisabled;
+      }
+    });
   };
 
   /**
@@ -858,6 +891,11 @@ export function createDiffWorkbench(env) {
         if (nodes.has(areaId)) {
           const area = nodes.get(areaId);
           area.addEventListener('input', scheduleGate);
+          area.addEventListener('keydown', (evt) => {
+            if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;
+            if (typeof evt.preventDefault === 'function') evt.preventDefault();
+            act('compare');
+          });
           area.addEventListener('drop', (evt) => {
             if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
             takeFile(side, evt && evt.dataTransfer ? evt.dataTransfer.files : null);
@@ -875,6 +913,29 @@ export function createDiffWorkbench(env) {
           });
         }
       }
+      /**
+       * 「载入示例」：填两份短文本并把口径/视图/上下文归到默认档，再走与「重新对比」完全相同的
+       * 动作通道。示例按钮的 id 由 prefix 派生，不在 DIFF_ACTIONS 的十四枚里——它不参与比对，
+       * 只负责把空态变成一次看得见的结果。档位归默认是为了保证无论在 JSON 档还是行内档点它，
+       * 都得到一份能读的并排文本差异。
+       */
+      const sampleBtn = env.document.getElementById(`${env.prefix}-sample`);
+      if (sampleBtn) {
+        sampleBtn.addEventListener('click', () => {
+          field('a-text').value = SAMPLE_A;
+          field('b-text').value = SAMPLE_B;
+          field('a-name').value = 'before.txt';
+          field('b-name').value = 'after.txt';
+          field('mode').value = DEFAULTS.mode;
+          field('layout').value = DEFAULTS.layout;
+          field('context').value = DEFAULTS.context;
+          readControls();
+          syncGate();
+          syncUrl();
+          refreshGate();
+          act('compare');
+        });
+      }
       for (const id of ['mode', 'layout', 'context']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {
@@ -888,7 +949,18 @@ export function createDiffWorkbench(env) {
       }
       /** 折叠条的「点开」：结果区每次比较都整块重画，监听只能挂在容器上（§W 的树容器同一条理由） */
       const ob = nodes.get(outId(env.prefix, PANEL, 'bar'));
-      if (ob && typeof ob.addEventListener === 'function') ob.addEventListener('click', onFoldClick);
+      if (ob && typeof ob.addEventListener === 'function') {
+        ob.addEventListener('click', onFoldClick);
+        // 跳转快捷键只挂在结果区：Alt+↑/↓ 在 textarea 里是 macOS 的词/行导航，
+        // 挂在粘贴框上会吞掉用户正在用的编辑手势。结果区在 HTML 里给了 tabindex=0。
+        ob.addEventListener('keydown', (evt) => {
+          if (!evt || !evt.altKey || evt.ctrlKey || evt.metaKey || evt.shiftKey) return;
+          if (!Array.isArray(s.hunks) || s.hunks.length === 0) return;
+          if (evt.key !== 'ArrowDown' && evt.key !== 'ArrowUp') return;
+          if (typeof evt.preventDefault === 'function') evt.preventDefault();
+          act(evt.key === 'ArrowDown' ? 'nextDiff' : 'prevDiff');
+        });
+      }
       for (const id of ['ws', 'case']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {

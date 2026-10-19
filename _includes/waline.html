@@ -14,7 +14,16 @@
     .post-footer-item.comment {
         padding: 0;
     }
+    .waline-local-note {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 12px 20px;
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--ink-3);
+    }
 </style>
+{% if jekyll.environment == 'production' %}
 <script type="module">
     // 固定到 3.15.2 并走 jsdelivr，与下面 emoji 同源（那里已经写明 unpkg 国内不稳）。
     // 原先的 @v3 是浮动标签：每次访问由 registry 解析，今天它恰好等于 3.15.2，
@@ -172,4 +181,8 @@
         restoreWalineEmojis();
     }
 </script>
+{% else %}
+<p class="waline-local-note">本地开发不加载评论服务。需要连生产后端时用
+    <code>JEKYLL_ENV=production bundle exec jekyll serve</code>。</p>
+{% endif %}
 {% endif %}

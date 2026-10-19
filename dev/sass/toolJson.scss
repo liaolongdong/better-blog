@@ -138,6 +138,71 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     color: var(--ink-3);
 }
 
+// 只给读屏用的忙碌播报：可见的“计算中…”在 .jt-status 里，这一格负责让读屏也听到。
+.jt-busy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.jt-sample-link {
+    justify-self: start;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    cursor: pointer;
+    background: none;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.jt-sample-link:hover {
+    color: var(--signal);
+}
+
+.jt-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+// 手机上换面板/滚动之后，结果可能落在动作按钮下方一屏外：只有在真的有结果时
+// 才出现这条「跳过去」的链接。`:has` 看的是结果区的节点，不依赖 JS 挂状态。
+.jt-jump {
+    display: none;
+    align-items: center;
+    align-self: flex-start;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    text-decoration: none;
+    background-color: var(--signal-soft);
+    border-radius: 999px;
+}
+
+.jt-jump:hover {
+    color: var(--signal);
+}
+
+.jt-out {
+    scroll-margin-top: 88px;
+}
+
+@media (max-width: 900px) {
+    .jt-workspace:has(.jt-out__head, .jt-err, .jt-refuse) .jt-jump {
+        display: inline-flex;
+    }
+}
+
 // ── 工具栏三段 ────────────────────────────────────────────────────────────
 
 .jt-bar {
@@ -240,6 +305,9 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     gap: 8px;
     align-items: baseline;
     margin-bottom: 6px;
+    padding: 6px 10px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
 }
 
 .jt-out__kind {
@@ -253,8 +321,8 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 }
 
 .jt-out__title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: var(--ink);
 }
 
@@ -468,8 +536,11 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 
 .jt-tree__copy {
     flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     margin-left: auto;
-    padding: 1px 6px;
+    padding: 0 6px;
     font-family: $jt-meta;
     font-size: 10.5px;
     letter-spacing: .4px;
@@ -528,6 +599,13 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     .jt-opt select {
         flex: 1;
         min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .jt-opt--check input {
+        width: 18px;
+        height: 18px;
     }
 
     .jt-tree {
