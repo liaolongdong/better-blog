@@ -1548,6 +1548,22 @@ body.has-toc .post-rail {
     font-weight: 500;
 }
 
+// 「这一节已经读过」的小点。用 float 而不是给 .toc-link 加 flex：后者会改变
+// 长标题的换行宽度与左侧竖线的基线，TOC 的错峰与进度线都按现有盒模型量过。
+.toc-mark {
+    float: right;
+    width: 6px;
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background-color: var(--rule-2);
+    transition: background-color .2s;
+}
+
+.toc-item.is-read>.toc-link .toc-mark {
+    background-color: var(--signal);
+}
+
 // A8 构建期静态目录（_plugins/toc.rb → post.html :214）。无 JS 时它是读者唯一的目录；
 // JS 起来（或内联脚本先一步认出「有 JS」）就整块收起，绝不同时看到两份。
 // 色与字号逐字跟着 JS 那一族的 .toc-title / .toc-link：--ink-3 落在 --paper 上实测 4.85:1，
@@ -3865,6 +3881,67 @@ body.fab-tucked .bottom-fixed-btn {
     border-radius: var(--radius-s);
 }
 
+// 全文搜索按钮。只有输入了查询才出现；它把 1.2MB 的正文语料推迟到用户主动点击，
+// 所以样式上做成次要动作（浅色药丸），不和「搜索」本身抢主位。
+.cmdk-full {
+    flex: none;
+    margin-left: auto;
+    margin-right: 10px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--signal-ink);
+    white-space: nowrap;
+    cursor: pointer;
+    background-color: var(--signal-soft);
+    border: 1px solid transparent;
+    border-radius: 999px;
+
+    &:hover {
+        border-color: var(--signal);
+    }
+
+    &[hidden] {
+        display: none;
+    }
+
+    @media (pointer: coarse) {
+        padding: 0 12px;
+        min-height: 32px;
+    }
+}
+
+// 快捷键入口。和「搜索全文」同一行；触屏上 hint 被隐藏后它仍在，是手机上唯一的
+// 快捷键说明入口，所以不做纯装饰的灰色小字，保留可点区域与 hover 反馈。
+.cmdk-help {
+    flex: none;
+    margin-left: 10px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--ink-3);
+    white-space: nowrap;
+    cursor: pointer;
+    background: none;
+    border: 0;
+
+    kbd {
+        padding: 0 4px;
+        font-family: inherit;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-s);
+    }
+
+    &:hover {
+        color: var(--ink);
+    }
+
+    @media (pointer: coarse) {
+        min-height: 32px;
+        padding: 0 4px;
+    }
+}
+
 // 空查询与零结果时这一栏没有内容可显示：计数被 JS 写成空串，而右边那句
 // 「↑↓ 选择 · Enter 打开」和空态副标题是同一句话，留着就是同一屏两遍。
 // 判据用 .cmdk-results:empty —— 那两条分支都会把它清成空列表（editorial.js 的 initPalette/render）。
@@ -3934,6 +4011,18 @@ body.fab-tucked .bottom-fixed-btn {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px 14px;
     padding: 10px 12px;
+}
+
+// 动作行用 <button> 而不是 <a>：它执行的是页内动作，不是一次跳转。
+// 清掉浏览器默认的按钮外观，其余 grid 排布沿用 .cmdk-item-link。
+button.cmdk-item-link {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    background: none;
+    border: 0;
 }
 
 .cmdk-item-title {
@@ -6577,5 +6666,115 @@ dialog.shelf[open] {
     .card-more {
         padding-top: 16px;
         padding-bottom: 8px;
+    }
+}
+
+// 键盘快捷键总览。原生 <dialog> 负责 Esc 与焦点陷阱；这里只管纸面版式。
+// 内容里只列站内真实存在的按键，新增动作时先改 header.html 的清单，再改实现。
+.shortcuts {
+    box-sizing: border-box;
+    width: min(92vw, 480px);
+    max-height: 90vh;
+    padding: 20px 22px;
+    overflow-y: auto;
+    font-family: inherit;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-3);
+
+    &::backdrop {
+        background-color: rgba(20, 22, 26, .48);
+    }
+}
+
+// 不支持原生 <dialog> 的浏览器会把 dialog 当普通块级元素渲染；
+// shelf 已有同样的兜底，快捷键这块也补一条，避免面板内容常驻页面。
+dialog.shortcuts:not([open]) {
+    display: none;
+}
+
+.shortcuts-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.shortcuts-kicker {
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--ink-3);
+}
+
+.shortcuts-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink-3);
+    cursor: pointer;
+    background: none;
+    border: 0;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.shortcuts-list {
+    display: grid;
+    margin: 0;
+
+    >div {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px 12px;
+        padding: 9px 0;
+        border-top: 1px solid var(--rule);
+
+        &:first-child {
+            padding-top: 0;
+            border-top: 0;
+        }
+
+        &:last-child {
+            padding-bottom: 0;
+        }
+    }
+
+    dt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        color: var(--ink);
+    }
+
+    dd {
+        margin: 0;
+        font-size: 13px;
+        line-height: 19px;
+        color: var(--ink-3);
+        text-align: right;
+    }
+
+    kbd {
+        padding: 1px 5px;
+        font-family: $font-meta;
+        font-size: 11px;
+        color: var(--ink-2);
+        background-color: var(--surface-2);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-s);
     }
 }

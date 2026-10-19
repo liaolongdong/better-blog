@@ -46,6 +46,7 @@ module.exports = {
         '.feed-',
         '.tool',
         '.cmdk',
+        '.shortcuts',         // 快捷键 dialog：宽度/内边距/字号按桌面 px 设计，dialog 默认盒模型不能再被换成 vw
         '.toc',
         '.code-',
         '.reading-',

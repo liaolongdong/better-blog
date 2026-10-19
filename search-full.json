@@ -1,0 +1,28 @@
+---
+layout: null
+permalink: /search-full.json
+---
+{%- comment -%}
+全文检索语料（命令面板的「搜索全文」才拉，首屏不请求）。
+
+为什么单独一份、不并进 search.json：
+  · search.json 要服务首屏的即时搜索，全文语料约 1.2MB（gzip 后约 460KB），并进去等于
+    每次打开搜索都先付这笔钱；
+  · 这里保留与 search.json 相同的标题/日期/分类/标签/摘要字段，另加 body。命令面板在
+    全文模式下用同一个 score()，只是多一个低权重的 body 字段；
+  · 只有用户点「搜索全文」时才 fetch，且只在这一次页面会话里缓存。
+为什么 body 不截断：截断会让「正文里搜得到」变成「前 N 字里搜得到」，正是这次要修的问题。
+{%- endcomment -%}
+[
+  {% for post in site.posts %}
+    {
+      "url": {{ post.url | jsonify }},
+      "title": {{ post.title | jsonify }},
+      "date": "{{ post.date | date: '%Y-%m-%d' }}",
+      "category": {{ post.categories | first | jsonify }},
+      "tags": {{ post.tags | join: ' ' | jsonify }},
+      "excerpt": {{ post.content | strip_leading_title: post.title | strip_html | normalize_whitespace | truncate: 160 | jsonify }},
+      "body": {{ post.content | strip_html | normalize_whitespace | jsonify }}
+    }{% unless forloop.last %},{% endunless %}
+  {% endfor %}
+]

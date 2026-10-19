@@ -201,13 +201,16 @@
             <svg class="cmdk-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true" focusable="false">
                 <circle cx="10.6" cy="10.6" r="6.8"/><path d="M15.6 15.6 21 21"/>
             </svg>
-            <input id="cmdk-input" type="search" placeholder="搜标题、标签、摘要或分类…" autocomplete="off"
+            <input id="cmdk-input" type="search" placeholder="搜标题、标签、摘要或正文…" autocomplete="off"
                    spellcheck="false" aria-label="搜索站内文章" aria-controls="cmdk-results" aria-activedescendant="">
             <kbd class="cmdk-esc" aria-hidden="true">Esc</kbd>
         </div>
         <div class="cmdk-meta">
             <span id="cmdk-count" class="cmdk-count" aria-live="polite"></span>
+            <button type="button" class="cmdk-full" id="cmdk-full" hidden
+                    title="在正文中搜索；首次会加载全文索引（⌘/Ctrl + Enter）">搜索全文</button>
             <span class="cmdk-hint" aria-hidden="true"><kbd>↑</kbd><kbd>↓</kbd> 选择 · <kbd>Enter</kbd> 打开</span>
+            <button type="button" class="cmdk-help" data-shortcuts-open aria-label="查看键盘快捷键"><kbd>?</kbd> 快捷键</button>
         </div>
         <ul id="cmdk-results" class="cmdk-results" role="listbox" aria-label="搜索结果"></ul>
         <div class="cmdk-empty" id="cmdk-empty" hidden>
@@ -243,4 +246,24 @@
         <span class="shelf-note">全部记录只存在这台设备的浏览器里，清缓存即消失。</span>
         <button class="shelf-clear" type="button" data-shelf-clear>清空</button>
     </footer>
+</dialog>
+
+{%- comment -%}
+键盘快捷键总览。原生 <dialog>：Esc、焦点陷阱由浏览器负责；只列站内真实存在的按键，
+不写「计划中」的。? 键与搜索面板里的「? 快捷键」按钮共用 editorial.js §19 的入口。
+{%- endcomment -%}
+<dialog class="shortcuts" id="shortcuts-dlg" aria-label="键盘快捷键">
+    <header class="shortcuts-head">
+        <p class="shortcuts-kicker">Keyboard · 快捷键</p>
+        <button class="shortcuts-close" type="button" data-shortcuts-close aria-label="关闭快捷键">×</button>
+    </header>
+    <dl class="shortcuts-list">
+        <div><dt><kbd>⌘</kbd><kbd>K</kbd> / <kbd>Ctrl</kbd><kbd>K</kbd></dt><dd>打开搜索</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>打开搜索（输入框外）</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>显示这份快捷键</dd></div>
+        <div><dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>选择搜索结果或动作</dd></div>
+        <div><dt><kbd>Enter</kbd></dt><dd>打开文章或执行动作</dd></div>
+        <div><dt><kbd>⌘</kbd><kbd>Enter</kbd> / <kbd>Ctrl</kbd><kbd>Enter</kbd></dt><dd>在正文中搜索</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>关闭面板</dd></div>
+    </dl>
 </dialog>

@@ -455,32 +455,21 @@
     {% include relatedTools.html %}
 
     {%- comment -%}
-    相关阅读：按「共享任一标签」取最近 3 篇，排除本文。
-    用单次遍历 site.posts + contains 判断，而不是 for tag in page.tags 外层循环，
-    这样一篇命中多个共同标签的文章只会进列表一次，无需再对对象数组做 uniq。
+    相关阅读：条目由 _plugins/related_posts.rb 在构建期算好，挂在 page.related 上。
+    权重是 IDF（大 tag 降权）+ 同分类/同合集加成 + 日期兜底；没有命中时回填同分类/最新，
+    保证每篇至少有 3 条 SSR 内链。模板不再遍历 site.posts，也不再按「共享任一 tag」取前 3。
     {%- endcomment -%}
-    {%- assign related = "" | split: "" -%}
-    {%- for rpost in site.posts -%}
-      {%- if rpost.url == page.url -%}{%- continue -%}{%- endif -%}
-      {%- for tag in page.tags -%}
-        {%- if rpost.tags contains tag -%}
-          {%- assign related = related | push: rpost -%}
-          {%- break -%}
-        {%- endif -%}
-      {%- endfor -%}
-    {%- endfor -%}
-    {%- assign related = related | slice: 0, 3 -%}
-    {% if related.size > 0 %}
+    {% if page.related and page.related.size > 0 %}
     <section class="post-footer-item related-posts">
       <h3 class="related-title">相关阅读</h3>
       <ul class="related-list">
-        {% for rpost in related %}
+        {% for rpost in page.related %}
         <li class="related-item">
           <a class="related-link" href="{{ rpost.url | prepend: site.baseurl }}">
             <span class="related-name">{{ rpost.title }}</span>
             <span class="related-info">
-              <time datetime="{{ rpost.date | date: '%Y-%m-%d' }}">{{ rpost.date | date: '%Y.%m.%d' }}</time>
-              {% if rpost.tags.size > 0 %}<span class="related-tag">{{ rpost.tags | first }}</span>{% endif %}
+              <time datetime="{{ rpost.date }}">{{ rpost.date | date: '%Y.%m.%d' }}</time>
+              {% if rpost.tag %}<span class="related-tag">{{ rpost.tag }}</span>{% endif %}
             </span>
           </a>
         </li>

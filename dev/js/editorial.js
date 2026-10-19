@@ -33,6 +33,9 @@
     // search.json 的共享缓存，见 getCorpus()
     var corpusCache = null;
     var corpusLoading = null;
+    // search-full.json 只在用户点「搜索全文」时才拉；失败后允许重试。
+    var fullCorpusCache = null;
+    var fullCorpusLoading = null;
 
     /**
      * 是否开启了「减少动态效果」。平滑滚动属于可关闭的装饰性动效。
@@ -265,6 +268,11 @@
             link.className = 'toc-link';
             link.href = '#' + heading.id;
             link.textContent = heading.textContent.trim();
+            // 读过的小节点：纯视觉，不进可访问名；状态由 activate() 维护。
+            var mark = document.createElement('span');
+            mark.className = 'toc-mark';
+            mark.setAttribute('aria-hidden', 'true');
+            link.appendChild(mark);
             li.appendChild(link);
             list.appendChild(li);
             items.push({ heading: heading, link: link });
@@ -310,9 +318,16 @@
         /** 高亮切换集中在一处，避免 observer 与滚动兜底互相抢状态。 */
         function activate(item) {
             if (!item || current === item) return;
-            if (current) current.link.parentNode.classList.remove('is-active');
+            if (current) {
+                current.link.parentNode.classList.remove('is-active');
+                current.link.removeAttribute('aria-current');
+            }
             current = item;
             item.link.parentNode.classList.add('is-active');
+            item.link.setAttribute('aria-current', 'location');
+            // 读过的节留一颗实心点：往回滚也不撤销，它记录的是「这段已经经过」。
+            var idx = items.indexOf(item);
+            for (var r = 0; r <= idx; r++) items[r].link.parentNode.classList.add('is-read');
             place(item.link.parentNode);
         }
 
@@ -579,6 +594,32 @@
     }
 
     /**
+     * 全文语料（search-full.json）。与 getCorpus 分开：这份约 1.2MB（gzip ~460KB），
+     * 只在命令面板点「搜索全文」时请求；成功后在本次页面会话里缓存，失败则清掉
+     * loading 以便下一次点击重试。
+     * @returns {Promise<Array|null>} null 表示加载失败
+     */
+    function getFullCorpus() {
+        if (fullCorpusCache) return Promise.resolve(fullCorpusCache);
+        if (!fullCorpusLoading) {
+            fullCorpusLoading = fetch(BASE_URL + '/search-full.json')
+                .then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    fullCorpusCache = Array.isArray(data) ? data : [];
+                    return fullCorpusCache;
+                })
+                .catch(function () {
+                    fullCorpusLoading = null;
+                    return null;
+                });
+        }
+        return fullCorpusLoading;
+    }
+
+    /**
      * 转义 HTML。查询词、链接文本与摘要都来自数据或用户，必须按文本处理。
      * 五个字符而不是四个：单引号和 `dev/js/tools/view.js` 的 escapeHtml 保持同一把尺，
      * 现在拼出来的属性都带双引号所以咬不到，但哪天写成单引号属性或裸值就是注入点。
@@ -622,6 +663,9 @@
         // 输入法组合态。标志位为主、事件上的 isComposing 为辅：Firefox 在「组合中按 Enter」
         // 这一路历史上不发 isComposing，只靠事件属性会漏；keyCode 229 是老 Chrome 的形状。
         var composing = false;
+        // 全文模式：一旦用户主动加载过，本次会话里的后续查询都走全文语料。
+        var fullTextMode = false;
+        var fullBtn = document.getElementById('cmdk-full');
 
         // 面板打开那一刻记下的入口地址（pathname + search + hash，不含本次输入）。
         // null 表示面板没开，syncUrl 于是任何事都不做。
@@ -690,9 +734,15 @@
          * @param {string[]} terms 已小写化的词表
          * @returns {{score: number, hits: number[]}} score 为 0 表示不匹配
          */
-        function score(item, terms) {
+        function score(item, terms, withBody) {
             var fields = [item.title || '', item.tags || '', item.category || '', item.excerpt || ''];
             var weights = [100, 40, 20, 8];
+            // 全文模式追加 body（下标 4，权重 5）；渲染处用 hits.indexOf(4) 判断
+            // 是否需要从正文截上下文，元数据命中仍走原来的摘要。
+            if (withBody) {
+                fields.push(item.body || '');
+                weights.push(5);
+            }
             var total = 0;
             var hits = [];
             for (var t = 0; t < terms.length; t++) {
@@ -741,9 +791,10 @@
         }
 
         function setActive(next) {
-            if (!matches.length) return;
+            if (!matches.length || !results.children.length) return;
             activeIndex = (next + matches.length) % matches.length;
             var children = results.children;
+            if (!children[activeIndex]) return;
             for (var i = 0; i < children.length; i++) {
                 var on = i === activeIndex;
                 children[i].classList.toggle('is-active', on);
@@ -760,25 +811,151 @@
             emptySub.innerHTML = sub;
         }
 
+        /**
+         * 从正文里截一段命中上下文。先找最早出现的词（与 score 的 AND 无关），
+         * 向前留 36 个字符，避免结果卡在词的正中间；两端加省略号，让读者知道这不是全文。
+         * @param {string} body 已 normalize_whitespace 的正文
+         * @param {string[]} terms 小写词表
+         * @returns {string}
+         */
+        function bodySnippet(body, terms) {
+            var text = String(body || '');
+            if (!terms.length) return text.slice(0, 90);
+            var lower = text.toLowerCase();
+            var idx = -1;
+            for (var i = 0; i < terms.length; i++) {
+                var at = lower.indexOf(terms[i]);
+                if (at >= 0 && (idx < 0 || at < idx)) idx = at;
+            }
+            if (idx < 0) return text.slice(0, 90);
+            var start = Math.max(0, idx - 36);
+            return (start > 0 ? '…' : '') + text.slice(start, start + 90) + (start + 90 < text.length ? '…' : '');
+        }
+
+        /**
+         * 空查询时显示的动作。它们不占首屏、不额外请求：随机一篇与复制链接
+         * 复用 search.json / clipboard，书架与主题复用页面上已有的入口。
+         * @returns {Array<{title: string, meta: string, run: Function}>}
+         */
+        function paletteActions() {
+            var actions = [
+                {
+                    title: '随机一篇',
+                    meta: '从全部文章里抽一篇',
+                    run: function () {
+                        getCorpus().then(function (data) {
+                            if (!data || !data.length) return;
+                            go(data[Math.floor(Math.random() * data.length)].url);
+                        });
+                    }
+                }
+            ];
+            if (window.EditorialTheme && document.getElementById('nm-switch')) {
+                actions.push({
+                    title: '切换主题',
+                    meta: '白天 / 夜间',
+                    run: function () {
+                        window.EditorialTheme.set(document.documentElement.classList.contains('night-mode') ? 'day' : 'night');
+                        close();
+                    }
+                });
+            }
+            actions.push({
+                title: '打开书架',
+                meta: '待读与阅读记录',
+                run: function () {
+                    close();
+                    var btn = document.querySelector('[data-shelf-open]');
+                    if (btn) btn.click();
+                }
+            });
+            actions.push({
+                title: '工具箱',
+                meta: '浏览器插件与免安装工具',
+                run: function () { go('/tools.html'); }
+            });
+            actions.push({
+                title: '复制当前链接',
+                meta: '把当前页地址复制到剪贴板',
+                run: function () {
+                    copyText(location.href).then(function (ok) {
+                        var msg = ok ? '链接已复制' : '复制失败';
+                        count.textContent = msg;
+                        window.setTimeout(function () {
+                            if (count.textContent === msg) count.textContent = '快捷操作 · 输入关键词搜索文章';
+                        }, 1600);
+                    });
+                }
+            });
+            actions.push({
+                title: '返回顶部',
+                meta: '滚回页首',
+                run: function () {
+                    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+                    close();
+                }
+            });
+            return actions;
+        }
+
+        /** 动作行没有 url，Enter 与点击都走 item.run；文章行仍走 go(item.url)。 */
+        function runAction(idx) {
+            var row = matches[idx];
+            if (row && row.item && typeof row.item.run === 'function') row.item.run();
+        }
+
+        /** 空查询的头屏：动作列表。行结构与文章结果共用 .cmdk-item / setActive。 */
+        function renderActions() {
+            var actions = paletteActions();
+            matches = actions.map(function (action) { return { item: action }; });
+            activeIndex = actions.length ? 0 : -1;
+            if (fullBtn) fullBtn.hidden = true;
+            results.innerHTML = actions.map(function (action, idx) {
+                return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
+                    + '<button type="button" class="cmdk-item-link cmdk-action">'
+                    + '<span class="cmdk-item-title">' + esc(action.title) + '</span>'
+                    + '<span class="cmdk-item-snippet">' + esc(action.meta) + '</span>'
+                    + '</button></li>';
+            }).join('');
+            empty.hidden = true;
+            count.textContent = '快捷操作 · 输入关键词搜索文章';
+            input.removeAttribute('aria-activedescendant');
+            if (panelBox) panelBox.classList.toggle('is-fresh', freshNext);
+            freshNext = false;
+            for (var k = 0; k < results.children.length; k++) {
+                (function (el, idx) {
+                    var btn = el.querySelector('.cmdk-action');
+                    if (btn) btn.addEventListener('click', function () { runAction(idx); });
+                    el.addEventListener('mouseenter', function () { setActive(idx); });
+                })(results.children[k], k);
+            }
+            if (actions.length) setActive(0);
+        }
+
         function render(query) {
             var token = ++seq;
             var terms = toTerms(query.trim().toLowerCase());
+            if (fullBtn) fullBtn.hidden = !terms.length || fullTextMode;
             if (!terms.length) {
-                results.innerHTML = '';
-                matches = [];
-                activeIndex = -1;
-                input.removeAttribute('aria-activedescendant');
-                count.textContent = '';
-                showEmpty('输入关键词开始搜索', '↑ ↓ 选择条目，Enter 打开文章');
+                renderActions();
                 return;
             }
-            getCorpus().then(function (data) {
+            var loader = fullTextMode ? getFullCorpus() : getCorpus();
+            loader.then(function (data) {
                 // 连续输入会让多次检索并发返回；只渲染最后一次查询的结果，
                 // 否则慢响应可能覆盖快响应，出现「输入 b 却显示 a 的结果」。
                 if (token !== seq) return;
+                if (!data) {
+                    // 全文索引加载失败：退回元数据搜索，并把按钮重新露出来，允许再试。
+                    fullTextMode = false;
+                    if (fullBtn) fullBtn.hidden = !input.value.trim();
+                    count.textContent = '';
+                    showEmpty('全文索引加载失败', '请检查网络后重试，或继续用标题与摘要搜索');
+                    return;
+                }
                 var scored = [];
                 for (var i = 0; i < data.length; i++) {
-                    var s = score(data[i], terms);
+                    var s = score(data[i], terms, fullTextMode);
                     if (s.score > 0) scored.push({ item: data[i], hits: s.hits, score: s.score });
                 }
                 scored.sort(function (a, b) { return b.score - a.score; });
@@ -786,13 +963,16 @@
 
                 matches = scored;
                 activeIndex = scored.length ? 0 : -1;
-                count.textContent = scored.length ? scored.length + ' 条结果' : '';
+                count.textContent = scored.length ? scored.length + ' 条结果' + (fullTextMode ? ' · 全文' : '') : '';
                 if (scored.length) empty.hidden = true;
                 else showEmpty('没有匹配的文章', defaultSub);
 
                 results.innerHTML = scored.map(function (row, idx) {
                     var item = row.item;
-                    var snippet = row.hits.indexOf(3) >= 0 ? (item.excerpt || '') : (item.title || '');
+                    var snippet;
+                    if (fullTextMode && row.hits.indexOf(4) >= 0) snippet = bodySnippet(item.body, terms);
+                    else if (row.hits.indexOf(3) >= 0) snippet = item.excerpt || '';
+                    else snippet = item.title || '';
                     var meta = [];
                     if (item.date) meta.push(esc(item.date));
                     if (item.category) meta.push(esc(item.category));
@@ -831,6 +1011,41 @@
             window.location.href = BASE_URL + url;
         }
 
+        /**
+         * 加载全文语料并重绘当前查询。点击「搜索全文」和 ⌘/Ctrl+Enter 共用。
+         * 先 ++seq 让正在返回的元数据请求作废；加载失败时退回元数据模式，按钮重新露出。
+         */
+        function loadFull() {
+            var q = input.value.trim();
+            if (!q || fullTextMode) return;
+            fullTextMode = true;
+            seq++;
+            if (fullBtn) fullBtn.hidden = true;
+            count.textContent = '正在加载全文索引…';
+            if (empty) empty.hidden = true;
+            results.innerHTML = '';
+            // 列表清空后必须同时清掉旧 matches：不然语料加载的 1–2 秒里，
+            // ↑↓ 会把 activeIndex 指向一个不存在的行，Enter 还会打开一条看不见的旧结果。
+            matches = [];
+            activeIndex = -1;
+            input.removeAttribute('aria-activedescendant');
+            getFullCorpus().then(function (data) {
+                if (!data) {
+                    fullTextMode = false;
+                    if (fullBtn) fullBtn.hidden = !input.value.trim();
+                    count.textContent = '';
+                    showEmpty('全文索引加载失败', '请检查网络后重试，或继续用标题与摘要搜索');
+                    return;
+                }
+                if (panel.hidden) return;
+                render(input.value);
+            });
+        }
+
+        if (fullBtn) {
+            fullBtn.addEventListener('click', loadFull);
+        }
+
         // 入口直接绑在按钮上，不走 document 委托：index.js 在 .g-nav 上无条件
         // stopPropagation（那是给移动端抽屉「点外面收起」用的），委托监听收得到
         // 侧栏 .search-trigger，却收不到顶栏那颗 .nav-search-btn——点了没反应。
@@ -850,6 +1065,10 @@
         });
 
         document.addEventListener('keydown', function (e) {
+            // 快捷键 dialog 是模态的：它开着时，搜索面板不能再接 ⌘K、/、↑↓、Enter、Esc，
+            // 否则背景里的选中行会被键盘改动，甚至被 Enter 打开。原生 dialog 自己处理 Esc。
+            var shortcutsDlg = document.getElementById('shortcuts-dlg');
+            if (shortcutsDlg && shortcutsDlg.open) return;
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 if (panel.hidden) open(null); else close();
@@ -865,12 +1084,23 @@
             // 组合中的 Esc / ↑ / ↓ / Enter 整组归输入法。放在 panel.hidden 之后，所以 ⌘K 与 `/`
             // 这两个全局入口不受影响。
             if (composing || e.isComposing || e.keyCode === 229) return;
+            // 面板里的 Tab 会被下面的输入框监听拦掉，全文按钮因此没有 Tab 路径；
+            // 给键盘用户留一条 ⌘/Ctrl+Enter，与点击「搜索全文」走同一个 loadFull。
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                loadFull();
+                return;
+            }
             if (e.key === 'Escape') { e.preventDefault(); close(); }
             else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
             else if (e.key === 'Enter') {
                 e.preventDefault();
-                if (activeIndex >= 0 && matches[activeIndex]) go(matches[activeIndex].item.url);
+                if (activeIndex >= 0 && matches[activeIndex] && results.children.length) {
+                    var chosen = matches[activeIndex].item;
+                    if (typeof chosen.run === 'function') chosen.run();
+                    else go(chosen.url);
+                }
             }
         });
 
@@ -3274,6 +3504,40 @@
         }
     }
 
+    /* ------------------------------------------------------------------
+     * 19. 键盘快捷键总览
+     * ------------------------------------------------------------------ */
+
+    /**
+     * `?` 与搜索面板里的「? 快捷键」共用同一个原生 <dialog>。
+     * 只在焦点不在输入类元素上时接管 `?`：用户要搜一个问号时，输入框里照常打出 `?`。
+     */
+    function initShortcuts() {
+        var dlg = document.getElementById('shortcuts-dlg');
+        if (!dlg || typeof dlg.showModal !== 'function') return;
+
+        function openDialog() {
+            if (!dlg.open) dlg.showModal();
+        }
+
+        var openers = document.querySelectorAll('[data-shortcuts-open]');
+        for (var i = 0; i < openers.length; i++) {
+            openers[i].addEventListener('click', openDialog);
+        }
+        var closers = dlg.querySelectorAll('[data-shortcuts-close]');
+        for (var j = 0; j < closers.length; j++) {
+            closers[j].addEventListener('click', function () { dlg.close(); });
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== '?' || e.metaKey || e.ctrlKey || e.altKey) return;
+            var t = document.activeElement;
+            if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '') || t.isContentEditable)) return;
+            e.preventDefault();
+            if (dlg.open) dlg.close(); else openDialog();
+        });
+    }
+
     // ———— 离线层：注册 Service Worker（SW 本体在仓库根 sw.js）————
     /**
      * 注册站点离线层。四道闸门，一道都不能少：
@@ -3325,6 +3589,7 @@
         initShelf();
         initWrapUp();
         initCitationShare();
+        initShortcuts();
         initMagneticCta();
         // 排在最后一条：注册本身是异步的，但它会在这一帧之后立刻发一个请求，
         // 让首屏的其余同步工作先跑完，别让离线层和它们抢同一个 tick。

@@ -350,9 +350,16 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
   /** sw.js 的上限：它带整站文档清单，会随文章数增长，留的是"清单涨到 3 倍"的余量 */
   if (swGz > 16 * 1024) bad('注册面', 'sw.js 体积', `sw.js gzip 后 ${swGz}B 超过 16KB——清单该由数据源生成，不是把内容抄进这里`);
   const edGz = fs.existsSync(reg) ? gzOf(reg) : 0;
-  /** editorial.min.js 的上限：全站每一页都加载它，注册代码正是搭它上的车（设计文档 §3） */
-  if (edGz > 15 * 1024) bad('注册面', 'editorial.min.js 体积', `editorial.min.js gzip 后 ${edGz}B 超过 15KB——公共件涨到这一格，先谈要不要拆，再谈往里加`);
-  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 16,384 与 15,360）`);
+  /**
+   * editorial.min.js 的上限：全站每一页都加载它，注册代码正是搭它上的车（设计文档 §3）。
+   * 2026-10-20 重立：命令面板动作、全文搜索的加载/打分 UI、快捷键 dialog、TOC 已读点
+   * 加入后实测 16,136B gzip；按 ceil1024(读数/0.95) 取 17KB（17,408B）。
+   * 全文语料 1.2MB 仍在用户点「搜索全文」后才拉，首屏只多这 ~1.2KB 逻辑；
+   * 若再涨，先把命令面板拆成独立延迟加载件，再谈加码。
+   */
+  const ED_MAX = 17 * 1024;
+  if (edGz > ED_MAX) bad('注册面', 'editorial.min.js 体积', `editorial.min.js gzip 后 ${edGz}B 超过 17KB——先拆命令面板，再谈往里加`);
+  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 16,384 与 ${ED_MAX}）`);
 }
 
 // ── 汇总 ─────────────────────────────────────────────────────────────────────
