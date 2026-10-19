@@ -210,7 +210,7 @@
   <div class="post-content visible">
     <div class="g-container post-grid">
     {%- comment -%} id="main" 是 _includes/header.html 那条「跳到主要内容」的落点 {%- endcomment -%}
-    <div class="post-main" id="main">
+    <main class="post-main" id="main">
     {%- if page.toc -%}
     {%- capture toc_static_items -%}{%- for item in page.toc -%}<li class="toc-static-item toc-{{ item.level }}"><a class="toc-static-link" href="#{{ item.id }}">{{ item.text | escape }}</a></li>{%- endfor -%}{%- endcapture -%}<script>document.documentElement.className += ' has-js';</script><nav class="toc-static" aria-label="文章目录（静态）"><p class="toc-static-title">本文目录</p><ol class="toc-static-list">{{ toc_static_items }}</ol></nav>
     {%- endif -%}
@@ -274,7 +274,7 @@
         <div class="social-share"></div>
       </div>
       {% endif %}
-    </div>
+    </main>
 
     {%- comment -%}
     下面这一族是 dev/js/editorial.js §1 的目录：条目由 JS 从 #post-body 的 h2/h3 现建，
@@ -372,7 +372,7 @@
       {% if page.next.url %}
       {% include coverSrc.html cover=page.next.cover %}
       <div class="read-next-item">
-        <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link"></a>
+        <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link" aria-label="下一篇：{{ page.next.title | escape }}"></a>
         <section>
           <span>{{ page.next.title }}</span>
           <p>{{ page.next.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
@@ -388,7 +388,7 @@
       {% if page.previous.url %}
       {% include coverSrc.html cover=page.previous.cover %}
       <div class="read-next-item">
-        <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link"></a>
+        <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link" aria-label="上一篇：{{ page.previous.title | escape }}"></a>
           <section>
             <span>{{ page.previous.title }}</span>
             <p>{{ page.previous.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
@@ -482,13 +482,20 @@
       wechatQrcodeHelper: '<p>扫码后点击右上角</p><p>将本文分享至朋友圈</p>'
     });
 
-    // social-share.min.js 建链接时只写 href 和 target="_blank"：不带 rel，
-    // 端点常量还全是 http://（weibo/qzone/qq/douban 四个，见 dev/libJs/social-share.min.js）。
-    // 缺 noopener 让第三方分享页能反向操作 window.opener；http 端点在 https 页上
-    // 多一次协议跳转。四个端点都 curl 验证过支持 https，所以直接改写属性。
-    var shareLinks = document.querySelectorAll('.social-share a[target="_blank"]');
+    // social-share.min.js 建链接时只写 href 和 target="_blank"：不带 rel，也没有可访问名，
+    // 读屏器与 Lighthouse 都只能读到「链接」。按图标类补一句站名，href="javascript:" 的
+    // 微信入口同样受益（它只负责弹二维码，不是跳转）。
+    var shareLabels = {
+      wechat: '分享到微信', weibo: '分享到微博', qzone: '分享到 QQ 空间',
+      qq: '分享到 QQ', douban: '分享到豆瓣'
+    };
+    var shareLinks = document.querySelectorAll('.social-share a[target="_blank"], .social-share a[href^="javascript"]');
     for (var si = 0; si < shareLinks.length; si++) {
       var sl = shareLinks[si];
+      var shareSite = (/icon-([a-z]+)/.exec(sl.className) || [])[1];
+      var shareLabel = shareLabels[shareSite] || '分享到外部平台';
+      sl.setAttribute('aria-label', shareLabel);
+      sl.title = shareLabel;
       sl.rel = ((sl.getAttribute('rel') || '') + ' noopener noreferrer').trim();
       if (sl.href.indexOf('http://') === 0) sl.href = 'https://' + sl.href.slice(7);
     }

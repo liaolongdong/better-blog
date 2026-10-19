@@ -32,7 +32,7 @@
     {% include headAssets.html %}
     {% include seoScript.html %}
     
-	{% if site.mathjax %}
+	{% if page.mathjax or site.mathjax %}
 	{% include mathjax.html %}
 	{% endif %}
     <!-- 标题锚点由 editorial.js 的 initHeadingAnchors() 生成（§6）。

@@ -151,12 +151,11 @@ body {
     }
 
     .logo-poss {
-        // 这一档 3.78 是有意留着的：它属于 wordmark（"Better’s study fairyland" 里那个 ’s），
-        // WCAG 1.4.3 对「作为 logo 或品牌名一部分的文字」明确免检，所以不跟着上一轮把
-        // 次要文字抬到 AA 的那批改动走。改这里之前先确认它还在标识里——一旦这个 ’s
-        // 被挪去正文或别的非标识位置，免检理由就没了。
+        // 2026-10-19：原来用 --ink-4（3.78:1），虽然 logo 属于 WCAG 1.4.3 的免检例外，
+        // 但在 18px 正文尺寸下读起来仍像被擦过一层；抬到 --ink-3 后是 5.2:1，
+        // 视觉上也只比刊名浅半档，不抢字标本身。
         padding: 0 1px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     .g-logo:hover .logo-mark {
@@ -6351,5 +6350,127 @@ dialog.shelf[open] {
     body.js-reveal .reveal.read-next-item {
         transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out),
                     box-shadow var(--dur-3) var(--ease-out), translate var(--dur-2) var(--ease-out);
+    }
+}
+
+/**
+ * 触屏命中面积（2026-10-19）
+ *
+ * 不改桌面观感，也不把药丸本身画大：只在 `hover: none` 这一档把可点盒补到约 44px。
+ * 背景：390×844 实测菜单 32×28、社交图标 22×30、首页书签 30×30、分页 34×34，
+ * 以及文章页「阅读设置 / 稍后再读」24px 高——都低于 Apple HIG 的 44pt，也低于
+ * 本站自己给工具页定的同一档。标签类保持 34px：它们是行内筛选入口，44 会让信息流
+ * 每行多出一截空白；34 已高于 WCAG 2.5.8 的 24px 下限。
+ */
+@media (hover: none) {
+    .g-header .g-logo>a {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .skip-link {
+        min-height: 44px;
+    }
+
+    .g-header .menu-toggle {
+        top: 6px;
+        right: 12px;
+        width: 44px;
+        height: 44px;
+
+        .menu-bar {
+            // 24×2 的横线仍停在原来的视觉位置：盒子从 32×28 变成 44×44，
+            // 左移 2px、下移 8px 正好抵掉多出来的内边距。
+            left: 8px;
+            top: 21px;
+        }
+    }
+
+    .g-header .g-nav .nav-link {
+        min-height: 44px;
+    }
+
+    .author-card .sns-links li,
+    .author-detail .author-card .sns-links li {
+        width: 44px;
+        height: 44px;
+    }
+
+    .author-card .sns-links li a,
+    .author-detail .author-card .sns-links li a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+    }
+
+    .author-card .sns-links li .iconfont,
+    .author-detail .author-card .sns-links li .iconfont {
+        line-height: 1;
+    }
+
+    .pagination .page-link {
+        width: 44px;
+        height: 44px;
+        line-height: 44px;
+    }
+
+    .shelf-mark.is-card {
+        width: 44px;
+        height: 44px;
+    }
+
+    .post-masthead .reader-btn,
+    .post-masthead .shelf-mark:not(.is-card) {
+        height: 44px;
+        padding: 0 13px;
+    }
+
+    .post-masthead .post-tag,
+    .article-item .post-meta .post-tag,
+    .tags-card .tag,
+    .feed-topic {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: auto;
+        min-width: 44px;
+        min-height: 34px;
+        padding: 0 12px;
+        line-height: 32px;
+    }
+
+    .post-crumb a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+    }
+
+    .code-copy {
+        min-width: 48px;
+        min-height: 36px;
+        padding: 6px 12px;
+    }
+
+    .social-share-wrapper .social-share-icon {
+        width: 44px;
+        height: 44px;
+        // vendor 的 share.min.css 给这一格写死 line-height:32px：高度涨到 44 后
+        // 图标会整体偏上 6px。字号不动，只把行盒抬到与新高度同值。
+        line-height: 44px;
+    }
+
+    .rewardButton {
+        min-height: 44px;
+    }
+
+    body.has-toc .toc-fab {
+        min-height: 44px;
+    }
+
+    .card-more {
+        padding-top: 16px;
+        padding-bottom: 8px;
     }
 }

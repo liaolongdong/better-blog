@@ -77,6 +77,7 @@ module.exports = {
         '.quote-',            // 金句分享卡片（工具条、对话框、画布与按钮）
         '.shelf',             // 书架：顶栏入口、书签、抽屉与账本（dialog.shelf 同串命中）
         '.wrap-up',           // 篇末收束层
+        '.rewardButton',      // 赞赏按钮（vendor 类名不走 .reward- 前缀）；触屏命中面积需保持 px
         '#cmdk',              // id 选择器不含 ".cmdk" 这个子串，单独列
         ':focus-visible',     // 裸伪类选择器同上，2px 描边不能被放大成 vw
         // 在线工具四页（/tools/idcard.html 起）。这三串必须是**字符串**而不是 /^\.tk-/ 这种正则：

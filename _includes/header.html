@@ -6,9 +6,10 @@
     而 index.js 只能靠内联 style 在两张图之间硬切。
     {%- endcomment -%}
     <div class="g-logo">
-        <a href="{{ '/' | prepend: site.baseurl }}" aria-label="返回首页">
+        <a href="{{ '/' | prepend: site.baseurl }}">
             <span class="logo-mark" aria-hidden="true">B</span>
             <span class="logo-word">Better<span class="logo-poss">’s</span> study fairyland</span>
+            <span class="u-sr-only">返回首页</span>
         </a>
     </div>
     <button id="menu-toggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="g-nav" aria-label="展开或收起导航菜单">
@@ -201,7 +202,7 @@
                 <circle cx="10.6" cy="10.6" r="6.8"/><path d="M15.6 15.6 21 21"/>
             </svg>
             <input id="cmdk-input" type="search" placeholder="搜标题、标签、摘要或分类…" autocomplete="off"
-                   spellcheck="false" aria-controls="cmdk-results" aria-activedescendant="">
+                   spellcheck="false" aria-label="搜索站内文章" aria-controls="cmdk-results" aria-activedescendant="">
             <kbd class="cmdk-esc" aria-hidden="true">Esc</kbd>
         </div>
         <div class="cmdk-meta">

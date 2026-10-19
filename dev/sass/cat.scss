@@ -29,7 +29,10 @@
     // （那一族是触觉反馈，过冲是它的语义），不再出现在任何 translate 上。
     // 没选 --ease-emph：它专给 dur-4 以上的一次性长入场，而这颗是每次翻页都会重复的交互；
     // 也没选 --ease-in-out：令牌表上写着「面板开合」，可全站 0 个消费者，跟着它走等于自成一派。
-    transition: translate var(--dur-4) var(--ease-out);
+    // 曲线与理由同上。opacity 这一条给「滚动离开刊头后淡出」用：translate 仍由
+    // is-tucked 独占，两者互不覆盖。
+    transition: translate var(--dur-4) var(--ease-out),
+        opacity var(--dur-3) var(--ease-out);
 
     // ———— 收放（开关由 cat.js 挂）————
     // 视口够宽、不是 about 页 → is-on；用户手动收起过 → 再加 is-tucked。
@@ -40,6 +43,13 @@
     &.is-on {
         display: block;
         animation: maoRise var(--dur-3) var(--ease-out) backwards;
+    }
+
+    // 滚过刊头后让位：不记 localStorage，回到页首自动淡入。
+    // 只淡出不位移，避免与 is-tucked 的 translate 抢同一条属性。
+    &.is-away {
+        opacity: 0;
+        pointer-events: none;
     }
 
     // 收起 = 整只猫往下沉，只留耳朵尖在屏幕底边上。为什么不是一条 `bottom: -170px`：
@@ -126,6 +136,13 @@
         &::before {
             content: "+";
         }
+    }
+
+    // 滚出刊头后的 is-away 是整只猫淡出：上面 is-tucked 的 pointer-events:auto
+    // 会从父级收回归属，必须在这里再按同权重补一条，否则收起过的访客在滚动后
+    // 仍会点到一颗透明扣子，静默改写 mao_tucked。放在 is-tucked 之后才压得住。
+    &.is-away .mao-toggle {
+        pointer-events: none;
     }
 
     // ———— 让它看着是活的 ————

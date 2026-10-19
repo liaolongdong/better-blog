@@ -208,7 +208,10 @@ comments:
   disqus_url: 'https://liaolongdong.disqus.com/embed.js'
 
 # MathJax 公式支持
-mathjax: true
+# 默认关：MathJax 2 的 `$...$` 会把正文里的美元价格当公式。2026-10-18 的 FLUX
+# 文章实测 `$0.036` 到 `$0.607` 之间整段被拆成斜体乱码。需要公式的文章在自己
+# 的 front matter 写 `mathjax: true`；站点级打开会应用到所有文章，慎用。
+mathjax: false
 
 # Share
 social-share: true

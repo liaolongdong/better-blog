@@ -5,6 +5,7 @@
  *   1. 构建期 site.showCat —— 关掉连这段 HTML 都不渲染，见 _layouts/default.html；
  *   2. 视口宽度 —— 窄屏不给它让位置；
  *   3. 用户自己收起过 —— 记在 localStorage 里，跨页生效。
+ * 另有第四个状态不是开关：滚动越过刊头后自动淡出，回到页首自动回来（不写 localStorage）。
  * 原来只有第 1 层和第 2 层那道 1500px 硬阈值，而且只在加载那一刻判一次：把窗口拉宽
  * 猫不会出来，想让它在窄一点屏幕上出现或者干脆消失，都没有出口。第 3 层就是那个出口，
  * 挂在猫身上的 .mao-toggle（收起后只剩耳朵尖，那颗扣子是唯一的恢复入口）。
@@ -18,6 +19,10 @@
     // 原来的 1500 是当初随手写的，比必要的门槛高出一大截。
     var MIN_W = 1240;
     var KEY = 'mao_tucked';
+    // 越过刊头之后小猫淡出：它固定在左下角，继续留在屏幕上会盖住信息流与工具正文
+    // （1440×900 实测第一张文章卡的头图与标题被它压住 200px 宽）。回到页首再淡入，
+    // 不写 localStorage——这是阅读时的临时让位，不是用户偏好。
+    var AWAY_Y = 420;
 
     var box = document.querySelector('.mao_box');
     if (!box) return;
@@ -30,6 +35,8 @@
     // 这一页此刻是否真的看得见猫；视线跟随用它做短路，免得在 about 页和窄屏上
     // 白写样式。由 paint() 更新。
     var shown = false;
+    // 滚动离开了刊头。与 tucked 分开：用户偏好不因滚动改写，回到页首自动恢复。
+    var away = false;
     // paint() 顺手刷新的半屏尺寸，供视线跟随换算归一化坐标（见下面的 mousemove）。
     var halfW = 1;
     var halfH = 1;
@@ -68,21 +75,31 @@
     /** 宽度、about 页、用户偏好三者算出这一帧该是什么样子。 */
     function paint() {
         var w = room();
+        var y = window.scrollY || window.pageYOffset || 0;
         shown = wanted && w >= MIN_W;
+        away = shown && y > AWAY_Y;
         halfW = w / 2;
         halfH = document.documentElement.clientHeight / 2;
         box.classList.toggle('is-on', shown);
         box.classList.toggle('is-tucked', shown && tucked);
+        box.classList.toggle('is-away', away);
         // 猫不在了，「手还放在它身上」这个状态就没有意义：收起 / 窄屏 / about 页
         // 这几种情况下盒子要么 pointer-events:none 要么整个不显，指针移开时不保证
         // 还收得到 pointerleave（样式改了命中测试，边界事件要等下一次指针真正动才补发）。
         // 不在这里复位的话，再放出猫来 mousemove 会一直命中 onCat 分支，
         // 视线永久居中，直到指针重新进出它一次才恢复。
-        if (!shown || tucked) onCat = false;
+        if (!shown || tucked || away) onCat = false;
         // 这里原先还往 body 上写一个 has-mao：左下角同一块地方钉着续读浮条 .resume，
         // 让位的那条规则要读它。浮条改成横向居中之后那条规则删了，这个标记也就没有读者
         // （全站 grep 只剩这一处写入）——判定收回来只喂 is-on / is-tucked 和下面的视线跟随。
         if (!toggle) return;
+        // away 时整只猫淡出，扣子不能还留在顺序聚焦环里：opacity:0 不改变可聚焦性，
+        // 键盘访客会 Tab 到一个看不见的按钮。回到页首再恢复。
+        toggle.tabIndex = away ? -1 : 0;
+        if (away) toggle.setAttribute('aria-hidden', 'true');
+        else toggle.removeAttribute('aria-hidden');
+        // 已经聚焦的控件不会因为 tabIndex 改动而自动失焦：滚走时把焦点交还给页面。
+        if (away && document.activeElement === toggle) toggle.blur();
         var label = tucked ? '把小猫放出来' : '把小猫收起来';
         toggle.setAttribute('aria-expanded', shown && !tucked ? 'true' : 'false');
         toggle.setAttribute('aria-label', label);
@@ -101,6 +118,16 @@
     // 而这里每次都要读 clientWidth（会触发布局）。
     var ticking = false;
     window.addEventListener('resize', function () {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(function () {
+            ticking = false;
+            paint();
+        });
+    }, { passive: true });
+
+    // 滚动只影响 is-away，仍走 rAF 合帧：paint() 会读 clientWidth，不能每个 scroll 都跑。
+    window.addEventListener('scroll', function () {
         if (ticking) return;
         ticking = true;
         window.requestAnimationFrame(function () {
@@ -152,7 +179,7 @@
         }
 
         document.addEventListener('mousemove', function (e) {
-            if (!shown || tucked) return;
+            if (!shown || tucked || away) return;
             // 手在猫身上时「往指针方向看」是不成立的：指针就在它头顶那一片里，
             // 归一化值会顶到 ±1 附近，两颗眼珠斜到底、定在那儿不动，读起来像画坏了。
             // 这时把视线收回正中——「你摸到我了我才看向你」，比死盯屏幕一角像活物。
@@ -165,7 +192,7 @@
         // pointerenter/leave 而不是 mouseover/out：前者不冒泡，从猫的一层子元素
         // 走到另一层不会先「离开」再「进入」，onCat 不会抖。
         box.addEventListener('pointerenter', function () {
-            if (!shown || tucked) return;
+            if (!shown || tucked || away) return;
             onCat = true;
             look(0, 0);
         }, { passive: true });
