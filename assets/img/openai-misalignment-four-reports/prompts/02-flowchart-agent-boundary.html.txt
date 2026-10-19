@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--line:#d8d2c6;--accent:#c8452a;--soft:#fff3ee;--paper:#fbfaf7;--teal:#1d5b55}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:var(--paper);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:64px 76px}
+  .eyebrow{font-size:22px;letter-spacing:.14em;color:var(--accent);font-weight:700}
+  h1{font-size:48px;line-height:1.15;margin-top:12px;letter-spacing:-.03em}
+  .sub{font-size:24px;color:var(--muted);margin-top:12px}
+  .flow{display:flex;align-items:stretch;margin-top:52px}
+  .node{flex:1;min-height:210px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:24px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 0 rgba(17,24,39,.04)}
+  .node.hot{border-color:var(--accent);background:var(--soft)}
+  .n{font-size:20px;color:var(--muted);font-weight:700}
+  .t{font-size:30px;line-height:1.25;font-weight:800}
+  .d{font-size:21px;line-height:1.5;color:var(--muted)}
+  .arrow{width:50px;display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--accent);flex:0 0 50px}
+  .foot{margin-top:24px;display:flex;gap:14px;align-items:center;font-size:20px;color:var(--muted)}
+  .key{width:14px;height:14px;background:var(--accent);border-radius:4px;flex:0 0 14px}
+  .takeaway{margin-top:28px;border-left:8px solid var(--accent);background:#fff;padding:24px 32px;border-radius:0 18px 18px 0;font-size:28px;line-height:1.45;box-shadow:0 6px 20px rgba(17,24,39,.05)}
+  .takeaway .label{display:block;font-size:19px;color:var(--accent);font-weight:800;letter-spacing:.12em;margin-bottom:8px}
+</style></head>
+<body>
+  <div class="eyebrow">OPENAI MISALIGNMENT REPORTS · 2026-10-15</div>
+  <h1>四起事件，同一条越权链</h1>
+  <p class="sub">模型没有破解沙箱；它把环境里的合法工具组合了一遍</p>
+  <div class="flow">
+    <div class="node"><span class="n">01</span><span class="t">任务</span><span class="d">查一个数字<br>部署一份合约</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">02</span><span class="t">限制</span><span class="d">只许 GET<br>只读公开数据</span></div>
+    <div class="arrow">→</div>
+    <div class="node hot"><span class="n">03</span><span class="t">换工具</span><span class="d">外部浏览器<br>文件下载接口</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">04</span><span class="t">拿凭证</span><span class="d">未签名 JWT<br>公开 JS / 助记词</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">05</span><span class="t">外部系统</span><span class="d">统计站 / 云存储<br>Sepolia 钱包</span></div>
+  </div>
+  <div class="foot"><span class="key"></span><span>红框是最容易被打穿的一步：限制还在，执行限制的工具换了。</span></div>
+  <div class="takeaway"><span class="label">我的判断</span>提示词不是权限系统。把限制放到网络、凭证和人工确认上；不要指望模型自觉。</div>
+</body></html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<style>
+  :root{--bg:#0a111d;--fg:#f3efe6;--muted:#8e9bb0;--accent:#f0a63a;--line:rgba(255,255,255,.12);--index:#152238;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:var(--bg);color:var(--fg);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;position:relative}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:80px 80px;opacity:.18;mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+  .index{position:absolute;right:46px;bottom:-18px;font-size:390px;font-weight:800;line-height:.8;color:#1a2942;letter-spacing:-.09em}
+  .bar{position:absolute;left:0;top:0;width:18px;height:100%;background:var(--accent)}
+  .wrap{position:relative;z-index:2;height:100%;padding:70px 96px 56px 120px;display:flex;flex-direction:column}
+  .top{display:flex;align-items:center;gap:18px}
+  .chip{display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-size:22px;letter-spacing:.08em;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .kicker{margin-top:auto;font-size:25px;color:var(--accent);letter-spacing:.18em;font-weight:600}
+  h1{margin-top:18px;max-width:1180px;font-size:112px;line-height:1.04;letter-spacing:-.055em;font-weight:800}
+  h1 em{font-style:normal;color:var(--accent)}
+  p.sub{margin-top:26px;max-width:1000px;font-size:36px;line-height:1.42;color:var(--muted);font-weight:400}
+  .dates{display:flex;gap:14px;margin-top:32px}
+  .dates span{font-size:21px;letter-spacing:.06em;color:var(--muted);border-top:2px solid var(--line);padding-top:10px;min-width:112px}
+  .dates span b{display:block;color:var(--fg);font-size:26px;letter-spacing:0;margin-bottom:4px}
+  .foot{margin-top:28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:22px;color:var(--muted);letter-spacing:.04em}
+  .rule{width:220px;height:6px;background:var(--accent);border-radius:999px;margin-top:16px}
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="index">121</div>
+  <div class="bar"></div>
+  <div class="wrap">
+    <div class="top">
+      <span class="chip"><span class="dot"></span>AI · 安全</span>
+      <span class="chip">2026-10-19</span>
+    </div>
+    <div class="kicker">最久 121 天才补登</div>
+    <h1>四份迟到的<br><em>模型越权</em>复盘</h1>
+    <p class="sub">任务只要一年，它拿走了 24 年</p>
+    <div class="dates">
+      <span><b>06-16</b>贸易数据</span>
+      <span><b>06-17</b>医院统计</span>
+      <span><b>06-17</b>内部系统</span>
+      <span><b>06-26</b>测试钱包</span>
+    </div>
+    <div class="foot"><span>廖小新 · Better Blog</span><span>alignment.openai.com</span></div>
+    <div class="rule"></div>
+  </div>
+</body>
+</html>
