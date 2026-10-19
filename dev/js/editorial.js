@@ -3180,6 +3180,100 @@
         document.addEventListener('focusin', release, { passive: true });
     }
 
+    /* ------------------------------------------------------------------
+     * 18. 复制引用与原生分享
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 文章页尾的两颗动作：复制一条能直接贴进文章的引用，或走系统分享面板。
+     * 标题/日期/规范地址由模板写进 data 属性，脚本不读 DOM 拼字符串——标题里的
+     * & 与引号在 HTML 里已经 escape 过一次，再从 textContent 读会多解码一次，
+     * 两个来源迟早不一致。
+     */
+    function initCitationShare() {
+        var cite = document.querySelector('[data-cite-copy]');
+        var share = document.querySelector('[data-native-share]');
+        if (!cite && !share) return;
+
+        // 模板默认带 hidden：无 JS 时这两颗动作不出现，也不会留下一颗点不动的按钮。
+        var extra = (cite || share).closest('.post-share-extra');
+        if (extra) extra.hidden = false;
+
+        var status = document.querySelector('[data-share-status]');
+        var timer = null;
+
+        function announce(msg) {
+            if (!status) return;
+            status.textContent = msg;
+            if (timer) window.clearTimeout(timer);
+            timer = window.setTimeout(function () {
+                if (status.textContent === msg) status.textContent = '';
+            }, 2000);
+        }
+
+        /** 复制后把按钮文字换成结果，1.6 秒后还原；按钮宽度由 min-width 兜住，不抖。 */
+        function flash(btn, text) {
+            var label = btn.getAttribute('data-label') || btn.textContent;
+            btn.setAttribute('data-label', label);
+            btn.textContent = text;
+            btn.classList.add('is-done');
+            window.setTimeout(function () {
+                btn.textContent = label;
+                btn.classList.remove('is-done');
+            }, 1600);
+        }
+
+        function copyAndReport(btn, text, okMsg, failMsg) {
+            copyText(text).then(function (ok) {
+                flash(btn, ok ? '已复制' : '复制失败');
+                announce(ok ? okMsg : failMsg);
+            });
+        }
+
+        /** 读 data-* 属性；模板缺字段时用调用方给的兜底值。 */
+        function dataOf(el, name, fallback) {
+            return el.getAttribute('data-' + name) || fallback;
+        }
+
+        if (cite) {
+            cite.addEventListener('click', function () {
+                var title = dataOf(cite, 'cite-title', document.title);
+                var author = dataOf(cite, 'cite-author', 'Better');
+                var siteName = dataOf(cite, 'cite-site', 'Better 前端博客');
+                var date = dataOf(cite, 'cite-date', '');
+                var url = dataOf(cite, 'cite-url', window.location.href);
+                // GB/T 7714 的电子资源格式；署名与站点名跟页面可见口径走，不读 JSON-LD 的正名。
+                copyAndReport(cite, author + '. 《' + title + '》[EB/OL]. ' + siteName + ', ' + date + '. ' + url + '.', '引用已复制', '引用复制失败');
+            });
+        }
+
+        if (share) {
+            // 没有 Web Share 的浏览器上，这颗按钮实际动作是复制链接；标题必须说真话。
+            if (!navigator.share) share.textContent = '复制链接';
+            share.addEventListener('click', function () {
+                var title = dataOf(share, 'share-title', document.title);
+                var text = dataOf(share, 'share-text', '');
+                var url = dataOf(share, 'share-url', window.location.href);
+                function copyLink() {
+                    copyAndReport(share, url, '链接已复制', '链接复制失败');
+                }
+                if (navigator.share) {
+                    try {
+                        navigator.share({ title: title, text: text, url: url }).catch(function (err) {
+                            // 用户主动关掉系统分享面板不是失败，不该再弹一次「已复制」。
+                            if (err && err.name === 'AbortError') return;
+                            copyLink();
+                        });
+                    } catch (err) {
+                        copyLink();
+                    }
+                    return;
+                }
+                copyLink();
+            });
+        }
+    }
+
     // ———— 离线层：注册 Service Worker（SW 本体在仓库根 sw.js）————
     /**
      * 注册站点离线层。四道闸门，一道都不能少：
@@ -3230,6 +3324,7 @@
         initQuoteCard();
         initShelf();
         initWrapUp();
+        initCitationShare();
         initMagneticCta();
         // 排在最后一条：注册本身是异步的，但它会在这一帧之后立刻发一个请求，
         // 让首屏的其余同步工作先跑完，别让离线层和它们抢同一个 tick。

@@ -3,7 +3,7 @@ layout: post
 title: 3 条用例跑绿之后，我看见 e2e 自己列的 55 行 missing
 subtitle: 它把 agent 步骤录成可回放的缓存；我这边没有模型，能验的是另外一半。
 seo_short_title: e2e 实测：55 行 missing
-seo_description: tester-army/e2e 是个 web 与移动端的端到端测试框架。我把 3 条自己写的用例跑绿，又让它故意挂一次；它的迁移表 186 行状态里有 55 行写着 missing，回放缓存那一半我这边没有模型，没验到。
+seo_description: tester-army/e2e 是 web 与移动端端到端测试框架。我跑绿 3 条自写用例，又让它故意挂一次；迁移表 186 行状态里 55 行 missing，回放缓存那一半没有模型，没验到。
 date: 2026-10-10
 categories: 开源实测
 cover: /assets/img/e2e-replay-cache-55-gaps/banner.webp

@@ -3,7 +3,7 @@ layout: post
 title: OpenAI 补发四份模型越权复盘：伪造令牌、改配置、动他人钱包
 subtitle: 6 月发生，10 月 15 日才补登；最久的一起隔了 121 天
 seo_short_title: OpenAI 四份模型越权复盘
-seo_description: OpenAI 在 2026-10-15 补登四份 6 月模型越权报告：模型伪造未签名 JWT 下载 24 年医院数据、改配置取 147,451 行、动用他人 Sepolia 测试钱包。我核对了报告原文、披露时滞与链上 nonce，并给出 Agent 权限边界的可执行清单。
+seo_description: OpenAI 2026-10-15 补登四份越权报告：伪造未签名 JWT 下载 24 年医院数据、改配置取 147,451 行、动用他人 Sepolia 钱包。核对原文、时滞与 nonce，附 Agent 边界清单。
 date: 2026-10-19
 categories: [AI]
 cover: /assets/img/openai-misalignment-four-reports/banner.webp

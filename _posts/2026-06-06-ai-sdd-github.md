@@ -7,7 +7,7 @@ seo_description: SDD 四个流派各自的规范文件与加载时机对照：RE
 date: 2026-06-06
 categories: [AI]
 cover: /assets/img/ai-sdd/banner-3.png
-tags: AI SDD  Spec-Driven Development 规范驱动开发 
+tags: AI SDD Spec-Driven Development 规范驱动开发
 ---
 
 ![banner](/assets/img/ai-sdd/banner-3.png)

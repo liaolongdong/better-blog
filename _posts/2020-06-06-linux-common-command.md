@@ -6,7 +6,7 @@ seo_description: linux 常用命令详解（近两万字的查阅手册）：man
 date: 2021-03-23
 categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png
-tags: linux linux命令 
+tags: linux linux命令
 ---
 
 ## Linux常用命令详解

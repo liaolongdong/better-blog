@@ -3,7 +3,7 @@ layout: post
 title: README 说载 3 个字体族，我数出 981 个 @font-face
 subtitle: 模板里那条 link 声明 981 个切片、8 个族，README 只提了 3 个名字，画廊还藏着第二条
 seo_short_title: 981 个字体切片里没有一个给简体
-seo_description: 把 cathrynlavery/diagram-design 那条 Google Fonts link 抓回来按 gstatic 路径数一遍：981 个 @font-face，928 个给韩文与繁体，简体 0 个。仓库里还躺着第二条 link。
+seo_description: 把 cathrynlavery/diagram-design 的 Google Fonts link 抓回按 gstatic 路径数：981 个 @font-face，928 个给韩文与繁体，简体 0 个。仓库里还躺着第二条 link。
 date: 2026-10-17
 categories: [CSS, 开源实测]
 cover: /assets/img/diagram-design-981-faces/banner.webp

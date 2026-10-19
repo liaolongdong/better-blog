@@ -6,7 +6,7 @@ seo_description: 前端学习资料清单，按方向分类：JavaScript、CSS�
 date: 2018-10-25
 categories: [工具与效率]
 cover: '/assets/img/postCover/web_study_materials.png'
-tags: 前端学习资料 
+tags: 前端学习资料
 ---
 
 ## 大杂烩

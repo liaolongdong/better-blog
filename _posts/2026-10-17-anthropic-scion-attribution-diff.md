@@ -3,7 +3,7 @@ layout: post
 title: 官方说会加一枚脚注，我手里那两段正文一字没动
 subtitle: 那篇讲 Scion 的文章 10 月 15 日改过，我抠到改前文本，逐字对了一遍
 seo_short_title: 那页 10 月 15 日只改了脚注
-seo_description: Anthropic 那篇 Scion 文章的页面自记修改时间是 10 月 15 日 18:21:28，而我有那位博主截图 alt 里的改前正文。逐字对下来，两段共 1157 个字符一字未动，变的是脚注、页首那行更新说明，和一个空格。
+seo_description: Anthropic 的 Scion 文章自记修改时间是 10-15 18:21:28，而我有博主截图 alt 里的改前正文。两段共 1157 个字符未动，变的是脚注、页首更新说明和一个空格。
 date: 2026-10-17
 categories: 开源实测
 cover: /assets/img/anthropic-scion-attribution-diff/banner.webp

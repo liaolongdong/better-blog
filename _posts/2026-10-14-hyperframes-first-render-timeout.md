@@ -3,7 +3,7 @@ layout: post
 title: 第一次 render 红在 41 秒，第二次什么都不改 85 秒绿
 subtitle: 报错让我换一枚适配这台机器的 Chrome，可它只是第一次执行要 8.66 秒
 seo_short_title: hyperframes 首跑 render 超时实测
-seo_description: hyperframes 第一条 render 在我机器上 41.44 秒后退出码 1，报错说 Chrome 不适配这台机器的架构。我原样手跑那条探活命令，第一次 8.66 秒正常返回版本号；源码里门限写死 5000 毫秒。什么都不改再跑一次，85 秒就绿。
+seo_description: hyperframes 第一条 render 在我机器上 41.44 秒后退出码 1，报错说 Chrome 不适配架构。手跑探活命令 8.66 秒返回版本号，源码门限 5000 毫秒；不改再跑 85 秒就绿。
 date: 2026-10-14
 categories: 开源实测
 cover: /assets/img/hyperframes-first-render-timeout/banner.webp

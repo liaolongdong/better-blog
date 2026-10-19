@@ -3,7 +3,7 @@ layout: post
 title: 一条命令装进 79 个 Agent，我的空目录最后只落 3 条路径
 subtitle: 屏幕说 symlinked 两个，磁盘上只有一条 symlink
 seo_short_title: npx skills：79 个 Agent 落盘实测
-seo_description: 我用 npx skills@1.7.2 在空目录装同一个技能：79 个 Agent 里 54 个因项目目录不存在被跳过，最终只有 3 条路径；单 Agent 默认复制，多 Agent 才建 .agents 规范目录和 symlink。
+seo_description: 我用 npx skills@1.7.2 在空目录装同一技能：79 个 Agent 里 54 个因项目目录不存在被跳过，只剩 3 条路径；单 Agent 默认复制，多 Agent 才建 .agents 目录和 symlink。
 date: 2026-10-17
 categories: [AI, 开源实测]
 cover: /assets/img/npx-skills-agent-paths/banner.webp

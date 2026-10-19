@@ -3,7 +3,7 @@ layout: post
 title: FLUX 3 Klein 开放权重：4K 图 $0.036，许可两句话对不上
 subtitle: 5.6B 参数、10 张参考图、原生 4K；API 与权重同日上线，蒸馏版 16 步出图
 seo_short_title: FLUX 3 Klein 开放权重与许可
-seo_description: BFL 在 2026-10-15 发布 FLUX 3 Image Klein：5.6B 开放权重、原生 4K、最多 10 张参考图。API 4K 每张 $0.036，约为同厂旗舰的 1/17；但年收入 500 万美元以下免费商用与模型页 FAQ 的说法需要对齐。
+seo_description: BFL 2026-10-15 发布 FLUX 3 Image Klein：5.6B 开放权重、原生 4K、10 张参考图。4K 每张 $0.036，约为同厂旗舰 1/17；年收入 500 万美元以下免费商用与 FAQ 待对齐。
 date: 2026-10-18
 categories: AI
 cover: /assets/img/flux-3-klein-open-weights/banner.webp

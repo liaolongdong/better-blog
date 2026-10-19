@@ -3,7 +3,7 @@ layout: post
 title: 维基媒体把 OpenAI 的 agent 活动写进了自己的账本
 subtitle: CPTO 署名确认三类活动，我拿自己的博客测能不能认出机器人
 seo_short_title: 维基媒体确认 agent 活动
-seo_description: 维基媒体把 OpenAI agent 的三类活动写进了自己的账本，也确认没被抓破东西。我拿三个 User-Agent 打本站的 robots.txt，三次返回同一份 1407 字节——它记录请求，不拦请求。
+seo_description: 维基媒体把 OpenAI agent 的三类活动写进自己的账本，也确认没被抓破东西。我拿三个 User-Agent 打本站 robots.txt，三次返回同一份 1407 字节——它记录请求，不拦请求。
 date: 2026-10-07
 categories: AI
 cover: /assets/img/wikimedia-openai-agent-edits/banner.webp

@@ -3,7 +3,7 @@ layout: post
 title: Deno 去了 Cloudflare，Deploy 还剩六个月
 subtitle: runtime 再发一年就停，Deploy 六个月后关，两套接替产物我这台都没起来
 seo_short_title: Deno 加入 Cloudflare 实测
-seo_description: 2026-10-09 两篇一手公告写着 Deno runtime 再支持一年后停止开发、Deno Deploy 六个月后关停。我把接替它的 workerd 和 celld 都装了一遍，一个缺符号起不来，一个没有 Intel macOS 的产物。
+seo_description: 2026-10-09 两篇公告写着 Deno runtime 一年后停止开发、Deno Deploy 六个月后关停。我装了接替它的 workerd 和 celld：一个缺符号起不来，一个没有 Intel macOS 产物。
 date: 2026-10-11
 categories: 开源实测
 cover: /assets/img/deno-cloudflare-six-months/banner.webp

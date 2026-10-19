@@ -3,7 +3,7 @@ layout: post
 title: ascii.rest 的动画很省，打包那步不省
 subtitle: 减少动效和离屏暂停它真做了，代价是引适配器的构建会多吐两百多个文件
 seo_short_title: ascii.rest 引法与体积实测
-seo_description: 减少动效与离屏暂停两处门控我真量到了，两档重跑读数逐项相同。代价是引 react 或 element 入口的构建静态带上 208 个 js 文件，element 版 209 个；手动挂那三行只有 1 个。
+seo_description: 减少动效与离屏暂停两处门控我量到了，两档重跑读数相同。代价是引 react 或 element 入口的构建静态带上 208 个 js 文件，element 版 209 个；手动挂三行只有 1 个。
 date: 2026-10-09
 categories: [开源实测, 前端工程化]
 cover: /assets/img/ascii-rest-208-files/banner.webp

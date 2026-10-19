@@ -3,7 +3,7 @@ layout: post
 title: README 说把 JS 变神经网络，docs 说没有转换器
 subtitle: handwired 实测：没有源码转换器，且 exact 和梯度非零活的输入域刚好互补
 seo_short_title: handwired 转换器与梯度实测
-seo_description: 把 chenglou/handwired 的 emitCompare 摆到 301 个整数点和 4 到 5 之间 101 个点上：整数点 0 处不符、梯度非零 0 个，缝里 99 个点和 JavaScript 不等。它也没有源码转换器。
+seo_description: 把 chenglou/handwired 的 emitCompare 测了 301 个整数点和 4–5 的 101 个点：整数点 0 处不符、梯度非零 0 个，缝里 99 个点与 JavaScript 不等；它也没有源码转换器。
 date: 2026-10-16
 categories: [TypeScript, 开源实测]
 cover: /assets/img/handwired-js-neural-net/banner.webp

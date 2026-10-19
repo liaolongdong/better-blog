@@ -3,7 +3,7 @@ layout: post
 title: Chrome 155 开始解 JPEG XL，我这台 154 还在白下载
 subtitle: 同一批 .jxl，154 报解码错，155 出图，Accept 头部差一枚 token。
 seo_short_title: Chrome 155 解 JPEG XL
-seo_description: Chrome 公告 10-06 那句只划了解码，starting from Chrome 155。本机 154.0.8037.98 对同一份 .jxl 报 ERR，155.0.8059.39 出了图，picture 双源的落点跟着翻。编码侧公告正文 encode 出现 0 次。
+seo_description: Chrome 10-06 公告只划解码，starting from Chrome 155。154.0.8037.98 对 .jxl 报 ERR，155.0.8059.39 出了图，picture 双源落点翻；编码侧公告正文 encode 出现 0 次。
 date: 2026-10-10
 categories: 开源实测
 cover: /assets/img/chrome-155-jpeg-xl-decode/banner.webp

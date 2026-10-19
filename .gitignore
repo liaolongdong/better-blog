@@ -2,6 +2,8 @@
 */.DS_Store
 node_modules
 _site
+# 旧构建快照：不是站点内容；deploy-github.sh 的 git add -A 不能把它带进公开仓库
+_site_x
 .jekyll-cache
 vendor/bundle
 

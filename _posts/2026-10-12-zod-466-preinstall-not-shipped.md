@@ -3,7 +3,7 @@ layout: post
 title: 我拆了被传投毒的 zod 4.6.6，包里没找到载荷
 subtitle: 10 月 12 日的传闻，指向 9 月 21 日的一枚提交；npm 那份是干净的
 seo_short_title: zod 4.6.6 投毒传闻的解包实测
-seo_description: HN 上把 zod 4.6.6 传成已投毒的版本。那枚 preinstall 提交确实进过 main，但 npm 上发布的那份里没有载荷：我解包、真装、三方校验对齐，那天的发布尝试全部没成功。三个点我到现在没确认。
+seo_description: HN 上把 zod 4.6.6 传成已投毒版本。preinstall 提交进过 main，但 npm 发布的那份没有载荷：解包、真装、三方校验对齐，那天的发布尝试全没成功。三个点至今没确认。
 date: 2026-10-12
 categories: 开源实测
 cover: /assets/img/zod-466-preinstall-not-shipped/banner.webp

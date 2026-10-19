@@ -3,7 +3,7 @@ layout: post
 title: 你 pin 的 deepseek-flash，今天背后换了模型
 subtitle: 旧名 deepseek-v4-flash 仍接收，但请求已落到 1017；白天价是夜里两倍
 seo_short_title: DeepSeek 同名换模型：旧别名与价格
-seo_description: DeepSeek 在 2026-10-17 把 deepseek-flash 的底层模型换成 V4.1-Flash-1017：旧别名仍接收但已退役，1M 上下文、384K 输出，白天价格是夜里的两倍；Search/Fetch 同时开放，千次 $0.75。
+seo_description: DeepSeek 2026-10-17 把 deepseek-flash 换成 V4.1-Flash-1017：旧别名仍接收但已退役，1M 上下文、384K 输出；价格是夜里的两倍，Search/Fetch 同时开放，千次 $0.75。
 date: 2026-10-17
 categories: AI
 cover: /assets/img/deepseek-v41-flash-alias-switch/banner.webp

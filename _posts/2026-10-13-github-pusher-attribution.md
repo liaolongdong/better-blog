@@ -3,7 +3,7 @@ layout: post
 title: 官方说每枚提交记了 pusher，我的 API 里没这个键
 subtitle: 10 月 12 日灰度的 push attribution，我四个口径都没取到那枚身份
 seo_short_title: push attribution 的四个口径实测
-seo_description: GitHub 把 push attribution 放进 limited public preview，只对 Enterprise 客户开放。官方说每枚提交另记一枚已鉴权的 pusher，我在 REST、GraphQL、事件流和提交页面里都没取到。哪些仓库进了灰度，官方没写。
+seo_description: GitHub push attribution 进入 limited public preview，Enterprise 可用。官方称每枚提交另记已鉴权 pusher；REST、GraphQL、事件流和提交页没取到，灰度名单未公布。
 date: 2026-10-13
 categories: 开源实测
 cover: /assets/img/github-pusher-attribution/banner.webp

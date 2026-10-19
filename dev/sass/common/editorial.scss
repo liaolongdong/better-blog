@@ -1336,6 +1336,55 @@ body {
             color: var(--ink-3);
         }
     }
+
+    // 可见修订记录。与 meta 行同一套字号和墨阶，不抢标题；details 只在作者写了
+    // updated 列表时出现，否则只有一条 commit 链接。flex-basis:100% 让展开的
+    // 修订列表另起一行，窄屏上日期与链接仍可并排。
+    .post-updated {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-top: 12px;
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--ink-3);
+
+        time {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .post-updated-label {
+            color: var(--ink-3);
+        }
+
+        .post-updated-link {
+            color: var(--ink-2);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+
+            &:hover {
+                color: var(--signal);
+            }
+        }
+
+        .post-revisions {
+            flex-basis: 100%;
+            margin-top: 2px;
+
+            summary {
+                width: fit-content;
+                cursor: pointer;
+                color: var(--ink-2);
+            }
+
+            .post-revisions-list {
+                margin: 8px 0 0;
+                padding-left: 1.25em;
+                color: var(--ink-3);
+            }
+        }
+    }
 }
 
 // 头图从「banner 背景层」改为「题注下方的插图」：暗色蒙层 + 白字的老做法
@@ -3146,7 +3195,13 @@ body.js-reveal .reveal.is-in {
 // 外层盒子自身仍是 210 宽并停在容器中线右侧，视口窄到 210+容器左内边距*2 以内时，
 // 这个看不见的盒子会把整页顶出 15px 左右的横向滚动条（390px 上可左右拖动）。
 // 内层才是可见内容，改成外层收缩居中、内层归零，观感不变。
+// 纵向 flex：原有分享图标与下方的引用/分享按钮共用一条中线；site.social-share
+// 关闭时，引用按钮仍有一个居中的容器，不必再养第二套居中规则。
 .social-share-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
     float: none;
     left: auto;
     width: fit-content;
@@ -3156,6 +3211,56 @@ body.js-reveal .reveal.is-in {
 
 .social-share-wrapper .social-share {
     left: auto;
+}
+
+// 引用与原生分享。外观沿用顶栏药丸的描边语言，不引入第三种按钮样式；
+// 统一 44px 高：混合指针设备（触屏笔记本）的 primary pointer 可能是 fine，
+// 只挂 (pointer: coarse) 会让这些设备的可点面积退回 32px，所以不再分档。
+// [hidden] 必须显式写：上面的 display:flex 会盖掉 UA 的 [hidden]{display:none}，
+// 而这两颗按钮依赖脚本，无 JS 时不能让它们以「点了没反应」的形状留在页面上。
+.post-share-extra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.post-share-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    min-height: 44px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--ink-3);
+    cursor: pointer;
+    touch-action: manipulation;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease, transform .18s ease;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+    }
+
+    &:active {
+        transform: scale(.97);
+    }
+
+    &.is-done {
+        color: var(--signal-ink);
+        border-color: var(--signal);
+        background-color: var(--signal-soft);
+    }
 }
 
 // 行内 code 装的是 commit hash、长路径这类「一整块不可断的词」。

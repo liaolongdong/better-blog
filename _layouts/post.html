@@ -187,6 +187,31 @@
           </span>
           </span><!-- /.post-meta-actions -->
         </div>
+        {%- comment -%}
+        可见修订记录。日期与 article:modified_time / JSON-LD / sitemap 同源，
+        取 pageModified.html 算好的 page_modified 与 page_modified_commit；没有真值就整块不渲染，
+        不把发布日伪装成更新日。作者手写的 page.updated 展开成列表；git 推导的提交另给一条链接，
+        两者可以同时存在——手写列表描述改了什么，commit 链接让人核对是哪一次提交。
+        {%- endcomment -%}
+        {%- if page_modified and page_modified != '' -%}
+        <div class="post-updated">
+          <span class="post-updated-label">更新于</span>
+          <time datetime="{{ page_modified | date_to_xmlschema }}">{{ page_modified | date: '%Y-%m-%d' }}</time>
+          {%- if page_modified_commit %}
+          <a class="post-updated-link" href="{{ site.githubUrl }}/better-blog/commit/{{ page_modified_commit }}" target="_blank" rel="noopener noreferrer">查看这次修订</a>
+          {%- endif %}
+          {%- if page.updated and page.updated.size > 0 %}
+          <details class="post-revisions">
+            <summary>修订记录（{{ page.updated.size }}）</summary>
+            <ol class="post-revisions-list">
+              {%- for item in page.updated %}
+              <li>{{ item }}</li>
+              {%- endfor %}
+            </ol>
+          </details>
+          {%- endif %}
+        </div>
+        {%- endif -%}
       </div>
     </div>
     {% include coverSrc.html cover=page.cover %}
@@ -269,11 +294,30 @@
         {% include reward.html %}
       {% endif %}
 
-      {% if site.social-share %}
       <div class="social-share-wrapper">
+        {% if site.social-share %}
         <div class="social-share"></div>
+        {% endif %}
+        {%- comment -%}
+        引用与原生分享。标题/日期/规范地址/署名在构建期写进 data 属性，JS 只负责复制与调
+        navigator.share；没有脚本时这两颗按钮不出现，原有分享图标照常可用。
+        外层不跟随 site.social-share 开关：引用是文章自身的能力，不该被旧分享栏的开关连坐。
+        {%- endcomment -%}
+        <div class="post-share-extra" hidden>
+          <button class="post-share-btn" type="button" data-cite-copy
+                  data-cite-title="{{ page.title | escape }}"
+                  data-cite-author="{{ site.author | escape }}"
+                  data-cite-site="{{ site.seo_title | escape }}"
+                  data-cite-date="{{ page.date | date: '%Y-%m-%d' }}"
+                  data-cite-url="{{ page.url | absolute_url }}"
+                  title="复制 GB/T 7714 风格的引用">复制引用</button>
+          <button class="post-share-btn" type="button" data-native-share
+                  data-share-title="{{ page.title | escape }}"
+                  data-share-text="{{ page.subtitle | default: page.seo_description | default: site.description | escape }}"
+                  data-share-url="{{ page.url | absolute_url }}">分享</button>
+          <span class="post-share-status u-sr-only" data-share-status role="status" aria-live="polite"></span>
+        </div>
       </div>
-      {% endif %}
     </main>
 
     {%- comment -%}

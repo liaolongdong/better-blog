@@ -3,7 +3,7 @@ layout: post
 title: 设计检测器 impeccable 扫我的博客 CSS，报了 2 条
 subtitle: 它真在我自己那本 CSS 里挑出两条，装的那一步却一个文件都没写进来
 seo_short_title: impeccable 设计检测规则实测
-seo_description: impeccable 把 AI 写前端的通病做成 59 条规则，交给 Rust 引擎在改动后跑。我装了 4.5.2，install 那步失败、一个文件没写进来；detect 扫我自己线上的 CSS 报了 2 条，改名复扫证明不是误报。仓库里同一套 skill 有 17 份副本。
+seo_description: impeccable 把 AI 写前端的通病做成 59 条规则，Rust 引擎在改动后跑。装 4.5.2 时 install 失败；detect 扫线上 CSS 报 2 条，改名复扫排除误报。skill 有 17 份副本。
 date: 2026-10-13
 categories: 开源实测
 cover: /assets/img/impeccable-seventeen-copies/banner.webp

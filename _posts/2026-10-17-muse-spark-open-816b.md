@@ -3,7 +3,7 @@ layout: post
 title: Meta 放出 816B 开放权重：先别急着下载，1.6TB 内存是第一道门
 subtitle: 许可证要产品挂名，65 个分片共 1.64TB，自托管先过内存关。
 seo_short_title: Meta 816B 开放权重解读
-seo_description: Meta 于 2026-10-15 发布 Muse Spark Open：816B 总参数、42B 激活、1M 上下文。我核对了许可证、65 个分片（1.64TB）、Together 价格与 Apple 四机实测，结论是它能接 API，但不适合个人自托管。
+seo_description: Meta 2026-10-15 发布 Muse Spark Open：816B 参数、42B 激活、1M 上下文。许可证、65 分片（1.64TB）、Together 价格与 Apple 四机实测，可接 API，不适合个人自托管。
 date: 2026-10-17
 categories: AI
 cover: /assets/img/muse-spark-open-816b/banner.webp
