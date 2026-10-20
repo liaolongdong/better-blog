@@ -142,7 +142,16 @@ await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'batch4-chrome-'));
 const chrome = spawn(CHROME, ['--headless', '--remote-debugging-port=0',
   `--user-data-dir=${profile}`, '--disable-gpu', '--no-first-run',
+  // `--disable-gpu` 留着，但理由要说准：2026-10-21 试过把它摘掉换 GPU 合成器，结果更坏——
+  // 同一格自证里普通元素也读不到任何中间值（中间取值 0 个、screencast 只出 5 帧）。
+  // 也就是说 top layer 卡帧不是「没 GPU」造成的，摘开关解决不了，先别乱动这一行。
   '--disable-background-networking', '--window-size=1440,900',
+  // 这一整串是给「后台/遮挡的标签页被降频」准备的：headless 的页面默认按 hidden 记账，
+  // setTimeout 会被压到一分钟一次、渲染器整组后台降频。而 M24 的收尾几步是 JS 定时器驱动的
+  // （过渡走完再由脚本收走层），降频之后现场就长这样：末帧 `op=0.406 anim:none dur:0s`
+  // 卡在半路，而 CSS 侧根本已经没有在跑的东西了——红的是宿主把页当后台，不是站点的退场。
+  '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
   '--proxy-server=direct://', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'],
   { stdio: ['ignore', 'ignore', 'pipe'] });
 const wsUrl = await new Promise((resolve, reject) => {
@@ -267,6 +276,37 @@ const keyFast = async (k, code, vk, modifiers = 0) => {
   await S('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
 };
 const key = async (...a) => { await keyFast(...a); await wait(70); };
+
+/**
+ * 逼这台 headless Chrome 真的产帧。
+ *
+ * 这一档不是锦上添花：过渡与 `@keyframes` 的时钟挂在 BeginMainFrame 上，
+ * 没有帧被提交时时间轴一步都不走。`Runtime.evaluate` 会逼出一个**任务**（所以采样密度能到 300+ 帧），
+ * 但任务不等于合成帧——2026-10-21 的现场证据是同一份快照里「灯箱·开」读到
+ * `{op:0, anim:lightboxFade, dur:0.2s}`、「书架·落定」末帧停在 `op=0.192`、
+ * `.toc-close` 等了 4s 还在入场位置：墙钟过了，时间轴没走。
+ * `Page.startScreencast(everyPainting)` 让合成器持续出帧，是唯一不必把整台机器清空就能拿到的开关；
+ * 每帧必须回 `screencastFrameAck`，否则 Chrome 认定客户端跟不上、发几帧就停播。
+ */
+let pumpFrames = 0;
+/**
+ * 墙钟 ↔ 动画钟的换算系数，第 1 组实测后赋值（默认 1 = 不放大）。
+ * 2026-10-21 量到本机挂一条 400ms 动画，隔 250ms 墙钟它的 currentTime 只走到 150ms——
+ * 动画钟按 0.6× 跑。任何按墙钟写的 `dwell`/窗口在这种宿主机上都只覆盖过渡的一部分，
+ * 「没有中间帧」「末帧还挂着」于是成了宿主的速度而不是站点的行为。
+ */
+let CLOCK_RATE = 1;
+await S('Page.enable');
+// 光有启动开关不够：页面自己也要从 hidden 拉成 active，否则 `document.visibilityState`
+// 仍是 hidden，站里那几步「过渡走完再收层」的收尾逻辑照样不进定时器。
+// 这个域并非所有版本都有，拿不到就记一行，别让它把整轮量具带崩。
+try { await S('Page.setWebLifecycleState', { state: 'active' }); } catch (e) { mark(`setWebLifecycleState 不可用：${e.message}`); }
+c.on((m) => {
+  if (m.method !== 'Page.screencastFrame') return;
+  pumpFrames += 1;
+  c.send('Page.screencastFrameAck', { sessionId: m.params.sessionId }, sessionId).catch(() => {});
+});
+await S('Page.startScreencast', { format: 'jpeg', quality: 5, maxWidth: 80, maxHeight: 80, everyPainting: true });
 /**
  * 真鼠标点击前先做命中测试（memory 那条：视口外的落点会伪装成「交互坏了」的假红）。
  * 返回命中说明串；命中的不是目标（或其子孙）就抛，让这一组红得有名有姓。
@@ -453,8 +493,8 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   await wait(700);
   if (openSel) { mark(`[${name}] open-click ${openSel}`); await click(openSel); }
   else { mark(`[${name}] open-key`); await key('k', 'KeyK', 75, 4); }
-  await wait(dwell);
-  const idleOpen = await animIdle(sel, 5000, pseudo);
+  await wait(Math.round(dwell * CLOCK_RATE));
+  const idleOpen = await animIdle(sel, Math.round(5000 * CLOCK_RATE), pseudo);
   if (idleOpen.running !== 0 || idleOpen.op < 0.97) mark(`[${name}] 入场时间轴没空：${JSON.stringify(idleOpen)}`);
   if (closeSel) {
     // 等不到终态不额外判红：紧接着的 hitTest 才是这一格的判据，这里只负责「别在动画中间采样」。
@@ -467,7 +507,7 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   }
   mark(`[${name}] trace-start`);
   const close = () => (closeSel ? clickFast(closeSel) : closeKey ? keyFast(...closeKey) : clickFast(openSel));
-  const t = await traceAfter(close, sel, pseudo, ms);
+  const t = await traceAfter(close, sel, pseudo, Math.round(ms * CLOCK_RATE));
   mark(`[${name}] trace back, samples=${t.samples ? t.samples.length : t.err}`);
   if (t.err) { traceFail(`${name}·退场`, t, '轨迹没跑起来'); return; }
   if (!t.samples.length) { RED(`${name}·退场`, '轨迹一个读数都没有——这一层在采样窗口里从没进入过渲染态；先确认打开动作真发生了，再看机器空不空（0 帧时旧版会直接 TypeError 崩掉，红得没有名字）'); return; }
@@ -484,9 +524,9 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   }
   if (after.rend !== 0) {
     // 时间轴可能只是没被推进（帧没提交，过渡就停在半路）。再给它 2s，仍未收走才算红。
-    await animIdle(sel, 2000, pseudo);
+    await animIdle(sel, Math.round(2000 * CLOCK_RATE), pseudo);
     const fin = await snap(sel, pseudo);
-    if (fin.err || fin.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}），再等 2s 后仍是 ${JSON.stringify(fin)}——层没真的收走`);
+    if (fin.err || fin.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}），再等 ${Math.round(2000 * CLOCK_RATE)}ms 后仍是 ${JSON.stringify(fin)}——层没真的收走`);
     else ok(`${name}·落定`, `窗口末帧还挂着（op=${after.op}），时间轴走完后 display=${fin.disp} 收走——窗口比过渡短，不是层没收`);
   } else ok(`${name}·落定`, `末帧 t=${after.t} display=${after.disp}`);
 }
@@ -547,12 +587,67 @@ await goto(ORIGIN + BASE + ARTICLE);
   const span = dens.samples.length ? dens.samples[dens.samples.length - 1].t : 0;
   await evalJs(`(() => { const d = document.querySelector('#__dens'); if (d) d.remove(); return 1; })()`);
   if (dens.samples.length < 120 || kinds.size < 3) {
-    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds.size} 个`
+    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds.size} 个、`
+      + `产帧泵收到 ${pumpFrames} 帧`
       + '——机器此刻不空（另有构建或另一台 headless 在跑）。'
       + '下面所有「有没有中间帧」的判据在这种密度下必然假红，不看产物，等空了重跑。');
     reap();
     process.exit(2);
   } else ok('采样密度', `${dens.samples.length} 帧 / ${span}ms，中间取值 ${kinds.size} 个`);
+  /**
+   * 产帧泵自检就放在密度那一格之后：上面那段注入的 300ms 线性过渡必然重绘，
+   * 所以此刻 `pumpFrames` 若还是 0，只能是 screencast 没生效——那就不是「机器忙」，
+   * 而是这台 Chrome 不给本工具合成帧，所有「有没有中间帧」的判据恒为假。
+   */
+  if (pumpFrames === 0) {
+    console.log('\n✗ 产帧泵一帧都没收到：Page.startScreencast 没生效，合成器不出帧 ⇒ 过渡时间轴不走。'
+      + '这种状态下本工具读不到任何动效事实，与产物无关，直接退 2。');
+    reap();
+    process.exit(2);
+  }
+  ok('产帧泵', `screencast 收到 ${pumpFrames} 帧（everyPainting，逐帧 ack），visibilityState=${await evalJs('document.visibilityState')}`);
+  /**
+   * 动画时钟自证——这一条才是今晚那些红的真正判据。
+   *
+   * 现场签名：「灯箱/偏好面板·开」读到 `{op:0, anim:lightboxFade, dur:0.2s}`，采了三百多帧
+   * 全是 0；「书架·落定」`{op:0.406, anim:none, dur:0s}` 卡在半路。动画**存在**、时长**写明**，
+   * 可是它自己的 `currentTime` 不前进。 visibilityState 已经是 visible、screencast 也在出帧，
+   * 说明「有绘制」不等于「时间轴在走」。所以在这里直接问时间轴：
+   * 挂一条 400ms 的动画，从 Node 一侧隔 250ms 读它自己的 currentTime。
+   * 不前进就退 2 —— 这不是放宽任何判据，而是不再允许「宿主驱动不了时钟」冒充「站点没有退场」。
+   */
+  await evalJs(`(() => {
+    const st = document.createElement('style');
+    st.id = '__clkstyle';
+    st.textContent = '@keyframes __clkSpin{from{opacity:0}to{opacity:1}}';
+    document.head.appendChild(st);
+    const d = document.createElement('div');
+    d.id = '__clk';
+    d.style.cssText = 'position:fixed;left:0;top:0;width:20px;height:20px;opacity:0;animation:__clkSpin 400ms linear forwards';
+    document.body.appendChild(d);
+    const a = d.getAnimations()[0];
+    return a ? { t0: Number(a.currentTime), anims: 1 } : { t0: 0, anims: 0 };
+  })()`);
+  await wait(250);
+  const clk = await evalJs(`(() => {
+    const d = document.querySelector('#__clk');
+    const a = d && d.getAnimations()[0];
+    const out = { t1: a ? Number(a.currentTime) : -1, op: d ? +(+getComputedStyle(d).opacity).toFixed(3) : -1 };
+    if (d) d.remove();
+    const st = document.querySelector('#__clkstyle');
+    if (st) st.remove();
+    return out;
+  })()`);
+  if (!(clk.t1 > 100)) {
+    console.log('\n✗ 动画时钟不走：挂上去的 400ms 动画隔了 250ms 墙钟之后 currentTime='
+      + `${clk.t1}（op=${clk.op}）。这台宿主现在驱动不了 document timeline，`
+      + '本工具所有「有没有中间帧 / 有没有走到终态」的判据在这种状态下的读数毫无意义，不看产物。');
+    reap();
+    process.exit(2);
+  }
+  ok('动画时钟', `250ms 墙钟内 currentTime 走到 ${clk.t1}ms，opacity 读到 ${clk.op}`);
+  CLOCK_RATE = Math.min(6, Math.max(1, 250 / clk.t1));
+  ok('时钟换算', `本机动画钟慢 ${CLOCK_RATE.toFixed(2)}×，dwell / 采样窗口 / 终态等待都按这个倍数放大`);
 }
 
 // ══════════════════════════════════════════════════════════════════
