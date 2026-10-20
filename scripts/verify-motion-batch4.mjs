@@ -728,12 +728,20 @@ await wait(900);
         a.focus();
         return { onTarget: document.activeElement === a ? 1 : 0 };
     })()`);
-    await wait(320);
-    const on = await snap('.lp-card');
+    // focus 之后卡片是**同步亮、渐进显**（实测 afterFocus={hidden:false, op:0}，600ms 后 op=1）：
+    // 原先 focus 后定长 wait(320) 再读一次，淡入中间值一律判红，甚至可能读到节点还没建的瞬间。
+    // 改成轮询到落定——断言一个字没放宽（仍要 rend=1 且 op≥0.97），只是不再拿一次时机读数当结论。
+    let on = { err: 'no-read' };
+    const lpT0 = Date.now();
+    for (let i = 0; i < 60; i += 1) {
+      on = await snap('.lp-card');
+      if (!on.err && on.rend === 1 && on.op >= 0.97) break;
+      await wait(50);
+    }
     if (scrolled.err || !shown.onTarget || on.err || on.rend !== 1 || on.op < 0.97) {
-      RED('预览卡·开', `${JSON.stringify(scrolled)} ${JSON.stringify(shown)} ${JSON.stringify(on)}`);
+      RED('预览卡·开', `${JSON.stringify(scrolled)} ${JSON.stringify(shown)} ${JSON.stringify(on)}｜轮询到 ${Date.now() - lpT0}ms 仍未落定（键盘路没拿到同一张卡）`);
     } else {
-      ok('预览卡·开', `href=${scrolled.href}${scrolled.tagged ? ' · 已标 .lp-external' : ' · 未标外链类（仍出卡）'}，op=${on.op}`);
+      ok('预览卡·开', `href=${scrolled.href}${scrolled.tagged ? ' · 已标 .lp-external' : ' · 未标外链类（仍出卡）'}，op=${on.op}，focus→可见 ${Date.now() - lpT0}ms`);
     }
     const t = await traceAfter(() => evalJs('document.activeElement && document.activeElement.blur(); 1'),
       '.lp-card', null, 400);
