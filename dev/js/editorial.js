@@ -2078,7 +2078,15 @@
         }
 
         // 卡片是 fixed 定位，一旦滚动就会和链接脱开；缩放同理。
-        window.addEventListener('scroll', hide, { passive: true, capture: true });
+        // 键盘路必须特判：focus() 会把不在视口里的链接滚进来，这一发 scroll 紧接着就到，
+        // 无条件 hide 会把刚亮的卡片当场掐灭（实测：干净加载只 focus 第一篇正文的第一枚外链，
+        // t=0 hidden:false/disp:block，t=400 起 hidden:true/disp:none，而焦点一直在那枚链接上）。
+        // 焦点还在卡片所描述的那根链接上时，滚动只重新定位——预览卡跟着链接走，不收走。
+        // 指针路不变：滚动时 activeElement 不是链接，照旧 hide。
+        window.addEventListener('scroll', function () {
+            if (current && document.activeElement === current) { place(current); return; }
+            hide();
+        }, { passive: true, capture: true });
         window.addEventListener('resize', hide, { passive: true });
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hide();
