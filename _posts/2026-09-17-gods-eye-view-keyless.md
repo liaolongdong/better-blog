@@ -139,7 +139,7 @@ heap  43 / 43 / 42 MB
 
 `src/voice/actionSchemas.js` 945 行，里面的 `name:` 我数了，正好 28 个，README 写的 28 voice tools 对得上。前 8 个：fly_to_location、select_nearest_aircraft、adjust_camera_zoom、zoom_to_globe、set_layer_visibility、show_data_layers_menu、set_panel_open、set_context_mode。
 
-我 6 月写 WebMCP 那篇的时候，站在 puppeteer 那边骂过选择器方案脆。GEV 走的是另一个方向：不让模型去 DOM 里翻按钮，而是先把动作起好名字、写好 schema，再挂到 `window.__godsEyeView.voiceCommands` 上。这玩意儿跟 WebMCP 不是一回事，它没实现那套 model context 标准，但两者在解决同一个问题：模型面对一个页面时，能看见的应该是一张菜单，不是一堆 class 名。
+我 [6 月写 WebMCP 那篇]({{ site.baseurl }}/2026/06/15/webmcp-vs-puppeteer.html)的时候，站在 puppeteer 那边骂过选择器方案脆。GEV 走的是另一个方向：不让模型去 DOM 里翻按钮，而是先把动作起好名字、写好 schema，再挂到 `window.__godsEyeView.voiceCommands` 上。这玩意儿跟 WebMCP 不是一回事，它没实现那套 model context 标准，但两者在解决同一个问题：模型面对一个页面时，能看见的应该是一张菜单，不是一堆 class 名。
 
 语音那条我这边是空的——README 第 228 行明说 voice needs an OpenAI key，没 key 时麦克风按钮直接报不可用。我 POST 了一下 `/api/openai/hud-summary`，返回 200，body 里 `{"configured":false,"code":"OPENAI_NOT_CONFIGURED","summary":null}`，跟它写的行为一致。
 

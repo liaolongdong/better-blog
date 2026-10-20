@@ -73,4 +73,4 @@ Lab 会话没测。没账号。
 
 我不把页面工具注册当渐进增强：挂载点要等，稳定版不开 flag 就不出现。草案末尾把 Test Suite 指向 wpt.fyi，我两次都没连上，那里有没有结果我说不上。
 
-**如果 10 月底 `chrome-devtools-mcp` 的文档里 webmcp 还是 0 次，我就不把它写进团队上手文档。** 我要从 6 月那篇删掉的是这段：`document.modelContext || navigator.modelContext`
+**如果 10 月底 `chrome-devtools-mcp` 的文档里 webmcp 还是 0 次，我就不把它写进团队上手文档。** 我要从 [6 月那篇]({{ site.baseurl }}/2026/06/15/webmcp-vs-puppeteer.html)删掉的是这段：`document.modelContext || navigator.modelContext`

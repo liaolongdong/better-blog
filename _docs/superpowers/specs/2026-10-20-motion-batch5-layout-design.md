@@ -102,8 +102,9 @@ C4 只做显示不做筛选：筛选要重排整页，与「服务端渲染的�
 - 侥幸过密度的一把（348 帧）报了五条红，其中「书架·落定 末帧仍渲染 op=0.192」是过渡动画**停在半路**
   而不是「没有过渡」；「灯箱·开/偏好面板·开 打开后不是终态 `{op:0, anim:lightboxFade, dur:0.2s}`」
   是入场动画才跑了第一帧就被读走；
-- 「⌘K 面板·退场 全程没有中间帧」那一把里，采样到的 `transitionProperty` 是 `none`，
-  而真浏览器里同一元素读到的是 `opacity, display`。
+- 「⌘K 面板·退场 全程没有中间帧」那一把里采到的 `tr:"none"` **不是** `transition-property`——
+  读数量具里 `tr` 取的是 `cs.translate`（`sampleOnce`，第 380 行），淡出层本来就没有 translate，
+  这一条不构成「CSS 没生效」的证据，早先把它写成 transitionProperty 是我读错了自己的字段名。
 
 同一份冻结快照、同一批产物，换到**正常渲染的浏览器 + 可信输入**（Playwright `page.keyboard` /
 `page.click`，每层先 reload）逐层量，五层全部是「有中间帧、且落到终态」：

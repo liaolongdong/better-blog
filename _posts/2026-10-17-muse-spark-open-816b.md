@@ -139,7 +139,7 @@ Together AI 已经把模型上到 serverless：input $1.25 / 1M，cached input $
 
 ## 短讯：Anthropic 的 fast 模式、微软 2.8T 与 OpenAI 的图片字段
 
-DeepSeek V4.1 Flash 的别名与价格变化，今天早些时候已经单独写过，这里补三条不在那篇里的更新。
+DeepSeek V4.1 Flash 的别名与价格变化，[今天早些时候单独写过一篇]({{ site.baseurl }}/2026/10/17/deepseek-v41-flash-alias-switch.html)，这里补三条不在那篇里的更新。
 
 **Anthropic 把 fast 模式写进了 SDK 类型。** 2026-10-15 发布的 Python SDK v1.15.0 在 Messages 里新增 `speed: "standard" | "fast"`，返回的 usage 也多了 `speed` 字段。SDK 注释写明，部分模型用任何 speed 值都需要 `fast-mode-2026-02-01` beta header；[文档](https://platform.claude.com/docs/en/build-with-claude/fast-mode)把 fast 模式描述为 Opus 5.5 的 2.5 倍速配置，价格 $8/$40 per 1M tokens，文档仍把它标为 research preview。所以呢：做低延迟交互的团队可以试，但别把它当稳定档位，先确认你的模型和账户是否在灰度范围内。
 
