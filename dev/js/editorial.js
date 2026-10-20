@@ -2519,6 +2519,42 @@
         }
     }
 
+    /**
+     * 把「这篇我读过」显示到列表上（动效批 V·C4）。
+     *
+     * 书架的「待读」早就在卡片按钮上有状态了（syncShelfMarks），但足迹 shelf.f 只在抽屉里
+     * 看得见——于是首页与归档页对读者是「无差别的一排标题」，读过没有、读到一半的有没有，
+     * 全得靠记忆。信息流越往前翻越明显：重复点进读过的篇目，等于白烧一次访问。
+     *
+     * 只做显示，不做筛选：筛选要把整页卡片重排，与「服务端渲染的信息流 + 纯客户端状态」
+     * 这套结构冲突（刷新前后版面不一致，抓取读到的又是另一份）。
+     */
+    function initReadMarks() {
+        var shelf = readShelf();
+        if (!countKeys(shelf.f)) return;
+        // 足迹的键是 location.pathname（带 baseurl），所以卡片链接要按同一个口径归一化：
+        // 直接比 href 会把 /better-blog/2016/… 与 /2016/… 当成两篇。
+        var absPath = function (href) {
+            if (!href) return null;
+            try { return new URL(href, location.href).pathname; } catch (e) { return null; }
+        };
+        var links = document.querySelectorAll(
+            '.article-item a[href], .cat-row a[href], .related-item a[href], .series-row a[href], .feed-pick a[href]');
+        for (var i = 0; i < links.length; i++) {
+            var p = absPath(links[i].getAttribute('href'));
+            if (!p || !shelf.f[p]) continue;
+            var row = links[i].closest('.article-item, .cat-row, .related-item, .series-row, .feed-pick');
+            if (!row) continue;
+            row.classList.add('is-read');
+            var mark = document.createElement('span');
+            mark.className = 'read-mark';
+            mark.textContent = '读过';
+            var title = row.querySelector('.post-title, .cat-title, .related-name, .series-link, .feed-pick-title');
+            if (title) title.appendChild(mark);
+            else links[i].appendChild(mark);
+        }
+    }
+
     /** 角标只在待读非空时出现：空书架不该在顶栏占一个视觉位置。 */
     function syncShelfBadge(shelf) {
         var badge = document.querySelector('[data-shelf-count]');
@@ -3401,6 +3437,7 @@
         initLinkPreview();
         initQuoteCard();
         initShelf();
+        initReadMarks();
         initWrapUp();
         initCitationShare();
         initShortcuts();

@@ -7064,3 +7064,29 @@ dialog.shortcuts:not([open]) {
 }
 .code-more:hover { opacity: .72; }
 .code-more:active { transform: scale(.985); }
+
+// C4：列表上的「读过」标记（动效批 V）。整行标题降到三级墨色、右侧挂一枚小字标记——
+// 不划删除线：划掉读过的东西是「已处理完」的语义，而回访重读正是这个站想要的。
+// 首页那条要多带一层 .article-list：§4 的 `.post-preview .post-title` 已经占了三类，
+// 同特异度比的是源码次序，实测只写 `.article-item.is-read .post-title` 会被它压住
+// ——标记出现了、标题却不降色，两边不一致比两边都不变更难看。
+.article-list .article-item.is-read .post-title,
+.cat-row.is-read .cat-title,
+.cat-row.is-read a,
+.related-item.is-read .related-name,
+.series-row.is-read .series-link,
+.feed-pick.is-read .feed-pick-title {
+    color: var(--ink-3);
+}
+.read-mark {
+    margin-left: .45em;
+    font-family: $font-meta;
+    font-size: .68em;
+    font-weight: 500;
+    letter-spacing: .06em;
+    color: var(--ink-3);
+    border: 1px solid var(--surface-2);
+    border-radius: 999px;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
