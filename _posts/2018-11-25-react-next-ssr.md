@@ -7,6 +7,14 @@ date: 2018-11-25
 categories: [React]
 cover: '/assets/img/postCover/next_cover.png'
 tags: react next ssr 服务端渲染
+tldr: '路由覆盖用了 as 之后刷新就 404，因为浏览器走客户端路由、服务器只认 href，得在 express 里补一条路由解析；getInitialProps 首屏只在服务端跑一次，返回值必须是普通对象。'
+faq:
+  - q: 'next.js 里 Link 用了 as 属性，为什么刷新页面会出现 This page could not be found？'
+    a: 'as 做的是路由覆盖，浏览器地址栏显示的是它的值，走的是客户端路由，而服务器真正映射的仍是 href 的值、走服务端路由，刷新时服务端没有这条路由就 404。解法是自己写一个 server.js，用 express 匹配上这个路径后调用 app.render，把实际页面 post 和路由参数一起交给 next。'
+  - q: "next.js 启动时报 Couldn't find a pages directory 是为什么？"
+    a: 'next.js 项目必须包含 pages 文件夹，在项目根目录 mkdir pages 建一个就好。它默认从 pages 下取页面渲染返回给前端，并把 pages/index.js 当首页，所以只建了目录而没有 index.js 时，访问 http://localhost:3000 看到的是一个 404 页面。'
+  - q: 'next.js 页面初始化的数据怎么取？getInitialProps 有什么限制？'
+    a: '在页面组件上定义 getInitialProps，用 isomorphic-unfetch 或 axios 发请求，它异步取回的对象会绑定到 props。限制有三条：只能用在 pages 页面里，子组件用不了；服务渲染时数据要像 JSON.stringify 那样序列化，所以必须返回普通 JS 对象，不能是 Date、Map 或 Set；页面初次加载时它只在服务端执行一次，只有路由切换时客户端才会再跑。'
 ---
 
 ## 使用next.js实现服务端渲染

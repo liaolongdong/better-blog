@@ -8,6 +8,14 @@ date: 2018-06-06
 categories: [H5与微信]
 cover: '/assets/img/postCover/wxshare_cover.png'
 tags: JavaScript 微信分享 微信公众号
+tldr: '一份标题链接的参数喂给四个分享接口，签名在 wx.config 注入，调用放进 ready；Android 微信不认 pushState 会签名失败，链接不带协议也分享不成功，分享接口要企业主体认证才有。'
+faq:
+  - q: '微信分享给好友、朋友圈、QQ 分别要往 jsApiList 里注册哪几个接口？'
+    a: '分享默认这四个：onMenuShareTimeline 朋友圈、onMenuShareAppMessage 好友、onMenuShareQQ 手机 QQ 好友、onMenuShareWeibo 微博，再加一个 checkJsApi 判断客户端版本支持情况；如果页面还要用到图片上传之类的能力，得把对应接口一并加进来。'
+  - q: 'wx.config 报 invalid signature 或 invalid url domain，文中给了哪些原因？'
+    a: 'invalid url domain 是当前页面所在域名与使用的 appid 没有绑定，invalid signature 就是签名错误，the permission value is offline verifying 要查官方的常见错误文档。签名这块还有一条：当时 Android 微信客户端不支持 pushState 这个 H5 新特性，用 pushState 实现的页面会因此签名失败。'
+  - q: '域名和签名都配对了，分享出去还是失败，参数上还有什么坑？'
+    a: '分享配置里的 link 必须是带协议的链接地址，不然配置正确也分享失败。另外绑定父级域名后合法的子域名可以直接用；在测试环境里必须关注公众号绑定的接口测试号，没关注是不能正常分享的。'
 ---
 
 微信分享官方推荐使用[微信JS-SDk](https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421141115)，还有一种方法是使用微信浏览器特有的内置对象`WeixinJSBridge`，这种方式的分享不知道还能不能用，微信内H5支付使用这种方式也是可以的，分享功能没测试过。

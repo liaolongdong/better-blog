@@ -9,6 +9,14 @@ categories: [服务器与部署]
 # 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1544596712507&di=137b7928b3d4ca1c310c84c0a3174272&imgtype=0&src=http%3A%2F%2Fs3.51cto.com%2Foss%2F201801%2F12%2Fc04e0d7bf8ef89a2d4e7a2fa554ff137.jpg-wh_651x-s_2430839636.jpg
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nginx 配置https
+tldr: '装 nginx 前先把 CentOS 升一遍，但 update 连内核和系统设置一起改，upgrade 不动内核；改默认端口要补安全组再 nginx -s reload，https 只配证书与私钥两个字段，换完还得补 301 带权重。'
+faq:
+  - q: 'yum -y update 和 yum -y upgrade 有什么区别？'
+    a: 'update 是所有都升级和改变：升级所有包、系统版本和内核，同时改变软件设置和系统设置；upgrade 只升级包和系统版本，不改内核，也不改软件和系统设置。'
+  - q: '把 nginx 默认端口 80 改成别的端口后网站打不开，漏了哪两步？'
+    a: '设置端口号必须先在阿里云服务器上添加对应的安全组，否则不能正常访问；改完配置文件还必须重启 nginx，重启命令是 nginx -s reload。'
+  - q: '网站从 http 换成 https 之后排名和流量下降，需要做什么补救？'
+    a: '补一条 301 重定向。改成 https 后的一段时间里，百度、谷歌、360 这些搜索引擎要重新抓取、判断、收录，排名和流量会阶段性下降，301 转向的作用是把网站原来的权重传递给新的 HTTPS 网址。证书下载后放进 /etc/nginx 下新建的 cert 目录，再在配置文件里把 ssl_certificate 和 ssl_certificate_key 两个字段指过去即可。'
 ---
 
 ## 阿里云服务器（centos）部署nginx以及配置https
