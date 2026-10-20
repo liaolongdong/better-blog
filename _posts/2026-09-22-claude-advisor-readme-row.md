@@ -191,7 +191,7 @@ T9 exit=1
 
 ## 上期那 5 笔账
 
-上一篇 job B（`2026-09-21-pnpm-task-settings.md`）我登记了 5 条账，这次一起结。
+上一篇 job B（[pnpm 并发组那期]({{ site.baseurl }}/2026/09/21/pnpm-task-settings.html)）我登记了 5 条账，这次一起结。
 
 > 把那张七行版本表拿去一个真有几十个 workspace 的 monorepo 上重跑一遍；我的样本是一份五行 fixture 加一份改过 `packages:` 的真实文件，太干净
 

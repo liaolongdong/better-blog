@@ -463,6 +463,22 @@ pnpm deploy        # 交互式提交并推送当前分支（列出改动、拦�
 pnpm deploy:ali    # 部署机更新：对齐 origin -> 装依赖 -> 构建；工作区脏或有未推送提交时中止
 ```
 
+## 正文内链怎么落地（清单机器生成，链人工写）
+
+`suggest-inlinks.mjs` 只出建议，不碰正文——按分数自动插链就是「堆关键词掉 10%」那条反面清单的机器版。
+人工落地时照这三条：
+
+1. **锚点用正文里已经悬空的指代**，不要新编句子。这批文章里有大量「上期我在第 N 行留过一句话」
+   「下一篇我们聊聊……」，它们本来就该是链，改成 `[上一篇 Next.js 16.3.3 关掉 AVIF 那期](...)`
+   比另起一句「参见本文」省力，也不会有插链感。
+2. **地址形状是 `{{ site.baseurl }}/YYYY/MM/DD/slug.html`**，三段斜杠。写成 `2026-09-10/slug.html`
+   在产物里渲染得一模一样、点下去才 404，肉眼和 `node --check` 都抓不到；而 permalink 的日期取自
+   front matter 的 `date` 而不是文件名（仓库里有 4 篇文件名日期 ≠ date），按文件名拼也是 404。
+   `scripts/lib/post-meta.mjs` 的 `postPermalink` 是这条形状的唯一算法来源。
+3. 落地后跑 `node scripts/check-seo.mjs --site=<快照>`：组 13 除了工具内链，也判文章间内链的
+   形状与存在性，地板 5 枚。它的牙齿是 `check-seo-teeth.mjs` 的 M12b（日期段写成横杠）与
+   M12c（形状对但目标页不存在）两枚变异。
+
 ## ⚠️ 已知未决：浏览器兼容基线自相矛盾
 
 `postcss.config.js` 中 `autoprefixer.overrideBrowserslist` 声明的是 `['iOS >= 7', 'Android >= 4.1']`，

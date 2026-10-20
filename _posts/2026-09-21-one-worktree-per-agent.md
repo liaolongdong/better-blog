@@ -156,7 +156,7 @@ job B 那 4 条这期轮到 A，不结算，但其中两条零成本 `npm view` 
 
 ## 上期那 18 个红测试，需要的东西一直在这台机器上
 
-上期结尾我写的是先把这台机器的 node 升到 24.14、git 升到认 `--initial-branch` 的版本。这周我做了个便宜得多的实验：
+[上期那篇 gods-eye-view 免密路径]({{ site.baseurl }}/2026/09/17/gods-eye-view-keyless.html)结尾我写的是先把这台机器的 node 升到 24.14、git 升到认 `--initial-branch` 的版本。这周我做了个便宜得多的实验：
 
 ```bash
 $ /usr/bin/git init --quiet --initial-branch=main /tmp/gt24   # exit 0，分支名 main

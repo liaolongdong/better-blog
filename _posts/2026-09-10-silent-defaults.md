@@ -30,7 +30,7 @@ $ git log --format='%h %ad %s' --date=iso -2
 
 这两行的顺序和它打印出来的时间是反的：`git log` 按提交对象排，不按作者时间排。我没往下查，知道有这毛病就够了。
 
-上期我在第 249 行留过一句话：“下次要么给你两个 KB 数，要么告诉你我又没跑成。”这次跑成了。环境先交代清楚，免得你跟着跑出一堆对不上的数：node 从系统默认的 v16.16.0 手动切到 nvm 里的 v20.11.1（next@16.3.4 声明 `engines.node: ">=20.9.0"`，够），`next dev -p 8277` 起来，日志给的是 `▲ Next.js 16.3.4 (Turbopack)` 和 `✓ Ready in 2.3s`；源图是 `ffmpeg -f lavfi -i testsrc2=size=1600x1000` 出的单帧 PNG，169,880 字节。
+[上一篇 Next.js 16.3.3 关掉 AVIF 那期]({{ site.baseurl }}/2026/09/10/nextjs-avif-trap.html)我在第 249 行留过一句话：“下次要么给你两个 KB 数，要么告诉你我又没跑成。”这次跑成了。环境先交代清楚，免得你跟着跑出一堆对不上的数：node 从系统默认的 v16.16.0 手动切到 nvm 里的 v20.11.1（next@16.3.4 声明 `engines.node: ">=20.9.0"`，够），`next dev -p 8277` 起来，日志给的是 `▲ Next.js 16.3.4 (Turbopack)` 和 `✓ Ready in 2.3s`；源图是 `ffmpeg -f lavfi -i testsrc2=size=1600x1000` 出的单帧 PNG，169,880 字节。
 
 ```
 # 16.3.4 + node v20.11.1，next.config 是空对象

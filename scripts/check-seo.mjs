@@ -1462,13 +1462,29 @@ if (TOOL_MATCH_TAGS.size !== 33) {
 // 卡片排在 `</article>` 之后，天然被排除（实测：加链之前全语料正文里的 /tools/ 链 = 0 枚）。
 {
   const INLINK_RE = /<a\b[^>]*href="([^"]*?\/tools\/([a-z0-9-]+)\.html)"[^>]*>([\s\S]*?)<\/a>/gi;
+  /**
+   * 正文里指向本站另一篇文章的手工链。「文章地址的日期段是 `/:year/:month/:day/` 三段斜杠」
+   * 这件事在 `_config.yml` 的 permalink 与 `scripts/lib/post-meta.mjs` 里各写一遍，
+   * 但写成 `/2026-09-10/x.html` 的链在产物里渲染得完全正常、点下去才 404，
+   * 所以判据必须落在产物那一侧：横杠形状直接红，斜杠形状要求那一页真在快照里。
+   */
+  const ART_DASH_RE = new RegExp(`href="${BASEURL}/\\d{4}-\\d{2}-\\d{2}/[a-z0-9-]+\\.html"`, 'g');
+  const ART_SLASH_RE = new RegExp(`href="${BASEURL}/((\\d{4})/(\\d{2})/(\\d{2})/([a-z0-9-]+)\\.html)"`, 'g');
   const EMPTY_TEXT = new Set(['点这里', '点此', '工具', '详情', '查看详情', '了解更多', '链接', 'here', 'link', 'click here']);
   let inBodyLinks = 0;
+  let artLinks = 0;
   for (const p of posts) {
     const html = readSite(p.rel);
     const reg = postBodyRegion(html);
     if (!reg) continue; // 「稿子在、产物里没有」在 语料 组已经红过，这里不重复报，也不假绿
-    const found = [...html.slice(reg.start, reg.end).matchAll(INLINK_RE)];
+    const body = html.slice(reg.start, reg.end);
+    const dashed = body.match(ART_DASH_RE);
+    if (dashed) bad('内链', p.rel, `正文内链的日期段写成了横杠（${dashed[0].slice(6, -1)}）——本站 permalink 是 /:year/:month/:day/:title.html，这一枚渲染得出来、点开是 404`);
+    for (const m of body.matchAll(ART_SLASH_RE)) {
+      artLinks++;
+      if (!hasSite(m[1])) bad('内链', p.rel, `正文内链指向 ${m[1]}，快照里没有这一页——permalink 的日期取自目标文章 front matter 的 date，按文件名日期拼出来的地址在文件名与 date 不一致的那几篇上是 404`);
+    }
+    const found = [...body.matchAll(INLINK_RE)];
     if (!found.length) continue;
     inBodyLinks += found.length;
     if (found.length > 2) bad('内链', p.rel, `正文里有 ${found.length} 枚工具内链，超过每篇 2 枚的地板——文末自动卡本来就有，正文再堆只是噪声（spec §4.3）`);
@@ -1485,6 +1501,9 @@ if (TOOL_MATCH_TAGS.size !== 33) {
     }
   }
   if (inBodyLinks < 5) bad('内链', '_posts', `正文里的工具内链一共 ${inBodyLinks} 枚，少于地板 5 枚（spec §4.3 要 5–8 条，每条都要能指出它接的是正文里的哪一句话）`);
+  // 文章之间的正文内链。2026-10-21 落了 7 枚，全部挂在正文里原本悬空的「上期/下一篇」指代上，
+  // 没有一处是新编的句子。地板取 5 是给一次撤回留余量：这类链要人工判断，但也不该被当成可随手清零的东西。
+  if (artLinks < 5) bad('内链', '_posts', `正文里指向本站文章的链一共 ${artLinks} 枚，少于地板 5 枚——悬空的「上期」指代是内链最便宜的落点，别把它们删成没有出口的死路`);
 }
 
 // ── 组 14：目录（A8 构建期静态目录，spec §4.4 / §5.1 组 目录）─────────────────────
