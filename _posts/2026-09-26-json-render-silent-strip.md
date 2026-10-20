@@ -119,6 +119,6 @@ react 和 vue 的顶层导出差 1 个，还是那个标着 deprecated 的别名
 - 新导出的 `jsonSchema()` 里 `additionalProperties` 还挂不挂
 - 如果下个小版本还删 `on`，我就不在它身上投时间了
 
-另外一件事。09-23 那篇我押 chrome-devtools-mcp 升到 1.9.0 之后重跑一遍 `tools/list`。它现在的 latest 是 1.10.1，工具从 29 个加到 30 个。押反了。我赌常驻上下文会继续缩，结果两份都在涨。同一周 Tencent/BrowserSkill 我量到 7,319，比上期快照多 496 颗。
+另外一件事。[09-23 那篇数四条入口字节数的]({{ site.baseurl }}/2026/09/23/browser-skill-context-bytes.html)我押 chrome-devtools-mcp 升到 1.9.0 之后重跑一遍 `tools/list`。它现在的 latest 是 1.10.1，工具从 29 个加到 30 个。押反了。我赌常驻上下文会继续缩，结果两份都在涨。同一周 Tencent/BrowserSkill 我量到 7,319，比上期快照多 496 颗。
 
 校验这一层，究竟是该替模型把字段兜住，还是该把「我只认这六个键」说清楚就完事？

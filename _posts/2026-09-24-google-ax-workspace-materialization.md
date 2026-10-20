@@ -138,7 +138,7 @@ fmt.Fprintln(w, "NAME\tATESPACE\tGIT-REPOS\tMCP-SERVERS")
 
 ## 那 6 笔账，今天结 3 笔
 
-上期（09-22 那篇金融插件仓库）我挂了 6 笔，逐笔交代。
+上期（[09-22 那篇金融插件仓库]({{ site.baseurl }}/2026/09/22/claude-advisor-readme-row.html)）我挂了 6 笔，逐笔交代。
 
 README 第 113 行那笔结清了。同一份 `financial-services/README.md`，09-24 14:33Z 第三次抓：还是 246 行、15,894 字节、sha256 前缀 `52f689c6c32bd2a5`，逐字节没动，`:113` 那条 `claude-for-financial-advisors` 还列在插件表里。上期那句"一个字没动"继续成立，不用改写成"后来也被删了"。
 
@@ -148,7 +148,7 @@ README 第 113 行那笔结清了。同一份 `financial-services/README.md`，0
 
 剩下三笔我不再挂：给自家 wxt 扩展补 `.mcp.json` 校验那笔主动撤回，动作在这仓库之外、Job B 跑不到它，继续挂着等于用正文给自己排期；pnpm 七行版本表那笔按上期自己写死的规则撤回（第 3 次没等到成员 ≥10 的样本）；fixture 扩 2 个 task 那笔再顺延一次，但按上期规则，第六节那句没复现过的执行顺序引用从今天起标为待删。
 
-顺手把口径钉在这里，免得下次我又凭印象写：上期我说 `7 个版本挨个跑：3 个 exit=1，4 个 exit=0`，那篇文章的底气来自我能挨个跑。今天这 14,214 行 Go 我一行都跑不了，本机 `go`、`docker`、`kubectl` 三条命令一律 exit=127：
+顺手把口径钉在这里，免得下次我又凭印象写：上期[那篇 pnpm 七行版本表]({{ site.baseurl }}/2026/09/21/pnpm-task-settings.html)我说 `7 个版本挨个跑：3 个 exit=1，4 个 exit=0`，那篇文章的底气来自我能挨个跑。今天这 14,214 行 Go 我一行都跑不了，本机 `go`、`docker`、`kubectl` 三条命令一律 exit=127：
 
 ```text
 $ go test ./internal/workspace/

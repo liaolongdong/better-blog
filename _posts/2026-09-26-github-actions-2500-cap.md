@@ -110,4 +110,4 @@ page11: http=200 total_count=0 items=0
 
 还有一处矛盾我留着。`modelcontextprotocol/registry` 的 `branch=main`，从年初问到 9 月 26 日报 2500。同一分支只问 9 月那 26 天，是 299。这一格是哨兵还是恰好 2500 条，我没能证出来，也不打算替它挑一个。
 
-上期那笔账也顺手结了：v2.1.283 发布于 09-25 21:50 UTC，94 条 bullet，逐条 grep `AGENTS.md`，命中 0。这条规则今天立：release note 里 grep 不到的修复，按没发生处理。下期要做的也在这：拿带 token 的身份把这 31 条重跑一遍，如果认证态也报 2500，锅就不在缓存那一层。
+[09-25 那篇 AGENTS.md 远程门]({{ site.baseurl }}/2026/09/25/claude-agents-md-remote-gate.html)挂的账也顺手结了：v2.1.283 发布于 09-25 21:50 UTC，94 条 bullet，逐条 grep `AGENTS.md`，命中 0。这条规则今天立：release note 里 grep 不到的修复，按没发生处理。下期要做的也在这：拿带 token 的身份把这 31 条重跑一遍，如果认证态也报 2500，锅就不在缓存那一层。
