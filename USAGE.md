@@ -137,9 +137,10 @@ CHANGELOG 只记已经进 master 的内容——还在 `main` 上的功能没上
 写条目时有一条硬边界：**只写散文与 markdown 链接，别贴任何 HTML**。
 `/changelog.html` 的条目会经 kramdown 转成 HTML，而这一版 kramdown **放行为块级原始 HTML**
 （实测 `:remove_html_blocks` 取 `true` 或 `"strip"` 都拦不住一个独立成块的 `<script>`，
-只有行内的尖括号会被转义）。插件 `_plugins/changelog.rb` 因此在渲染后自己摘掉
-`script|style|iframe|object|embed|form|frame|frameset|link|meta|base` 这些壳——
-被包着的东西降级成惰性文本，格式（粗体、行内码、`./X.md` → blob 链接）一律保留。
+只有行内的尖括号会被转义）。插件因此在渲染后自己过一道**白名单**：`script|style|iframe|object|embed|form|textarea|noscript|template`
+连内容一起删，其余标签只留标签名（属性一律丢掉——事件处理器就藏在属性里），
+`<a>` 例外，它保留一个非 `javascript:/data:/vbscript:/file:/about:` 的 href；
+不在名单内的标签整个去掉、内容降级成文本。
 两侧各有一道判据兜着：产物侧（条目区里不许出现可执行壳，有牙齿变异）与源侧
 （那条 gsub 不许被删，属 Presence 警报，见 `check-discovery-teeth.mjs` 头部注释）。
 

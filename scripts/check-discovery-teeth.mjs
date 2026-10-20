@@ -58,10 +58,34 @@ const MUTATIONS = [
       const f = path.join(d, 'changelog.html');
       const s = fs.readFileSync(f, 'utf8');
       const m = /<section class="cat-section"[^>]*>/.exec(s);
-      if (!m) throw new Error('副本里找不到 <section class="cat-section"> 这个锚，这一刀没处下');
+      if (!m) throw new Error('副本里找不到 <section class="cat-section">，这一刀没处下');
       fs.writeFileSync(f, s.slice(0, m.index + m[0].length)
         + '\n<script>inject()</script>\n<iframe src="https://x.example"></iframe>\n'
         + s.slice(m.index + m[0].length));
+    },
+  },
+  {
+    // 这一刀专咬"只查标签名"的那种摘壳：把 <img onerror> 直接写进条目，
+    // 它不属于任何危险标签名单，只有属性那一道判据拦得住。
+    name: '条目里塞一个带事件属性的普通标签（<img onerror>）',
+    group: 'C5',
+    apply: (d) => {
+      const f = path.join(d, 'changelog.html');
+      const s = fs.readFileSync(f, 'utf8');
+      const m = /<section class="cat-section"[^>]*>/.exec(s);
+      if (!m) throw new Error('副本里找不到 <section class="cat-section">，这一刀没处下');
+      fs.writeFileSync(f, s.slice(0, m.index + m[0].length) + '\n<img src="x" onerror="inject()">\n' + s.slice(m.index + m[0].length));
+    },
+  },
+  {
+    name: '条目里塞一个 javascript: 的 href',
+    group: 'C5',
+    apply: (d) => {
+      const f = path.join(d, 'changelog.html');
+      const s = fs.readFileSync(f, 'utf8');
+      const m = /<section class="cat-section"[^>]*>/.exec(s);
+      if (!m) throw new Error('副本里找不到 <section class="cat-section">，这一刀没处下');
+      fs.writeFileSync(f, s.slice(0, m.index + m[0].length) + '\n<a href="javascript:inject()">x</a>\n' + s.slice(m.index + m[0].length));
     },
   },
   {

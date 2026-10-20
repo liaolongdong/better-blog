@@ -90,18 +90,41 @@ module BBChangelog
     def md(str)
       return '' if str.nil? || str.strip.empty?
 
-      html = Kramdown::Document.new(str.strip).to_html
-      # 块级原始 HTML 穿得过这台 kramdown：实测 `:remove_html_blocks` 取 true 与 "strip"
-      # 都拦不住一个独立成块的 `<script>`，只有行内的尖括号会被转义成文本。
-      # 而这一页的内容是发版时从 commit message 里粘出来的散文，本来就不该带 HTML 壳——
-      # 把危险标签本身摘掉，被包着的东西降级成惰性文本，页面仍然是纯展示。
-      # 行内那一半边不用管，kramdown 已经转义过了。
-      html = html.gsub(%r{</?\s*(script|style|iframe|object|embed|form|frame|frameset|link|meta|base)\b[^>]*>}i, '')
+      html = sanitize(Kramdown::Document.new(str.strip).to_html)
       # 必须把匹配结果存进局部变量：下面 single_block? 里的 scan 会重置 Regexp.last_match，
       # 直接写 $1 或 last_match(1) 拿到的是 scan 的最后一格（实测是 nil，构建当场抛异常）。
       one = html.match(%r{\A<p>(.*)</p>\s*\z}m)
       html = one[1] if one && single_block?(html)
       html.gsub(%r{href="\./([^"]+?\.md)"}) { %(href="#{BLOB_BASE}#{Regexp.last_match(1)}") }
+    end
+
+    # 条目里**不许有原始 HTML**。为什么不能只删「危险标签名」：那种摘壳会把壳里的东西放出来——
+    # 实测 `<script><img src=x onerror=alert(1)></script>` 摘掉 script 之后剩下一个活的
+    # `<img onerror>`；而 `<div onclick="alert(2)">` 根本不在危险名单里，整块原样透传。
+    # 所以这里是白名单式的：先连内容一起删掉绝不该出现在散文里的元素，再把不在名单内的标签
+    # 一律摘掉（内容留成文本），最后给幸存的 `<a>` 只留一个协议安全的 href。
+    DANGEROUS_WITH_CONTENT = %r{<(script|style|iframe|object|embed|form|textarea|noscript|template)\b[^>]*>[\s\S]*?(?:</\1\s*>|\z)}i
+    ORPHAN_DANGEROUS = %r{</?\s*(script|style|iframe|object|embed|form|textarea|noscript|template|frame|frameset|link|meta|base|svg|math)\b[^>]*>}i
+    KEEP_TAG = %r{\A/?\s*(p|br|hr|strong|b|em|i|code|pre|kbd|sup|sub|del|ins|ul|ol|li|blockquote|a)\z}i
+    # href 用协议黑名单而不是白名单：这一页合法地会出现 `./USAGE.md` 这类仓库视角的相对地址
+    # （下面还要把它改写成 blob 链接），白名单会顺手把它杀成一枚没有出路的 `<a>`——实测如此。
+    DANGEROUS_HREF = %r{\A\s*(?:javascript|data|vbscript|file\s*:|about)\s*:}i
+
+    def sanitize(html)
+      out = html.gsub(DANGEROUS_WITH_CONTENT, '').gsub(ORPHAN_DANGEROUS, '')
+      # 幸存的标签一律**只留标签名**（属性是事件处理器的藏身处），只有 <a> 例外：
+      # 它带一个过完协议的 href，且 href 里的引号先转义掉，免得自己把属性值闭合出去。
+      out.gsub(%r{<(/?)([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>}i) do
+        slash, name, attrs = Regexp.last_match(1), Regexp.last_match(2), Regexp.last_match(3)
+        next '' unless KEEP_TAG.match?("#{slash}#{name}")
+        if name.casecmp('a').zero? && slash.empty?
+          m = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i.match(attrs)
+          href = m && (m[1] || m[2])
+          href && !DANGEROUS_HREF.match?(href) ? %(<a href="#{href.gsub('"', '&quot;')}">) : '<a>'
+        else
+          "<#{slash}#{name}>"
+        end
+      end
     end
 
     # 只把「整段就是一个 <p>」的那一种收成行内 HTML；含列表或多段的块保留外层结构。

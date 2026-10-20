@@ -140,7 +140,13 @@ if (page && css) {
   if (!secs) bad('C5 条目里没有可执行壳', 'changelog.html', '一个版本区块都没抽到——这一格等于没判，不是没内容');
   else {
     const tag = /<\s*(script|iframe|object|embed|form|style|link|meta|base)\b/i.exec(secs);
-    if (tag) bad('C5 条目里没有可执行壳', 'changelog.html', `条目区里出现 <${tag[1].toLowerCase()}> ——发版记录应当只有散文与链接，插件里摘壳的那条 gsub 不能少`);
+    // 光查标签名不够：把 <script> 的壳摘掉之后，壳里那句 <img onerror> 反而是活的（实测）。
+    // 所以属性与协议也要各查一刀。
+    const attr = /<[a-z][^>]*\son[a-z]{3,}\s*=/i.exec(secs);
+    const href = /href="(?:\s*)(?:javascript|data|vbscript)\s*:/i.exec(secs);
+    if (tag) bad('C5 条目里没有可执行壳', 'changelog.html', `条目区里出现 <${tag[1].toLowerCase()}> ——发版记录应当只有散文与链接，插件里摘壳的那步不能少`);
+    else if (attr) bad('C5 条目里没有可执行壳', 'changelog.html', `条目区里出现事件属性「${attr[0].trim().slice(0, 24)}…」——壳摘干净了但属性留着照样能执行`);
+    else if (href) bad('C5 条目里没有可执行壳', 'changelog.html', '条目区里出现 javascript:/data: 的 href');
   }
   const pluginPath = path.join(ROOT, '_plugins/changelog.rb');
   if (!fs.existsSync(pluginPath)) bad('C5 条目里没有可执行壳', '_plugins/changelog.rb', '读不到插件源，源侧那一刀没落下');
