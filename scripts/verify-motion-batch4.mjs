@@ -765,15 +765,30 @@ await wait(900);
         const s = getSelection(); s.removeAllRanges(); s.addRange(r);
         return { len: s.toString().trim().length };
     })()`);
-    await wait(500);
-    const barOn = await snap('.quote-bar');
-    if (sel.err || barOn.err || barOn.rend !== 1) RED('金句药丸·开', `${JSON.stringify(sel)} ${JSON.stringify(barOn)}`);
-    else ok('金句药丸·开', `选中 ${sel.len} 字，op=${barOn.op}`);
-    // 点「做成卡片」→ dialog 出现（这一步用真鼠标，因为它同时验证药丸可点）
-    await click('.quote-bar-btn');
+    // 药丸是 selectionchange 之后由 JS 懒建的（editorial.js:2118-2123，监听挂在 2383），
+    // 定长 wait(500) + 一次 snap 会把「还没建」读成「建不出来」，紧接着的一次 click 更是
+    // 直接抛 no-node 把整轮带走（实测红项后面那句是 {'err':'no-node'}）。改成有界轮询，
+    // 断言不变（仍要 rend=1）；等不到就把原因写成「选择没生成药丸」，并明确跳过后面两格，
+    // 跳过的账要写在脸上，不能靠崩场蒙过去。
+    let barOn = { err: 'no-read' };
+    const qbT0 = Date.now();
+    for (let i = 0; i < 40; i += 1) {
+      barOn = await snap('.quote-bar');
+      if (!barOn.err && barOn.rend === 1) break;
+      await wait(50);
+    }
+    if (sel.err || barOn.err || barOn.rend !== 1) {
+      RED('金句药丸·开', `${JSON.stringify(sel)} ${JSON.stringify(barOn)}｜轮询 ${Date.now() - qbT0}ms 仍没建出药丸——选中 ${sel.len || 0} 字这件事是成了的，所以这一条记在「选择没换来药丸」上`);
+    } else ok('金句药丸·开', `选中 ${sel.len} 字，op=${barOn.op}，selection→可见 ${Date.now() - qbT0}ms`);
+    // 点「做成卡片」→ dialog 出现（这一步用真鼠标，因为它同时验证药丸可点）。
+    // 药丸没建出来时 click 会抛 no-node，把整轮带走（实测就是这样崩在 2b）：
+    // 收下来交给后面那格去红，红得有名字。这一段在脚本顶层，不能 return。
+    let pillErr = '';
+    try { await click('.quote-bar-btn'); } catch (e) { pillErr = e.message; }
     await wait(420);
     const dlgOn = await snap('.quote-dialog');
-    if (dlgOn.err || dlgOn.rend !== 1 || dlgOn.op < 0.97) RED('金句卡·开', JSON.stringify(dlgOn));
+    if (pillErr) RED('金句卡·开', `药丸没落地，点击无从发起：${pillErr}`);
+    else if (dlgOn.err || dlgOn.rend !== 1 || dlgOn.op < 0.97) RED('金句卡·开', JSON.stringify(dlgOn));
     else ok('金句卡·开', `op=${dlgOn.op}`);
     // 一次 Esc 落下，卡片本体与 ::backdrop 各一条轨迹：两次独立轨迹会把起点错开
     const both = await tracePair(() => keyFast('Escape', 'Escape', 27),
