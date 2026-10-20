@@ -604,17 +604,34 @@ await goto(ORIGIN + BASE + ARTICLE);
    * （约等于空闲读数的四成，离那两把饿死的读数还有三倍），且必须**致命**：
    * 一项混在 93 项里的红会让人去查浮层代码，而正确答案是等机器空下来重跑。
    */
-  const dens = await traceAfter(() => evalJs(`(() => {
+  // 起始值必须被**算出来**过一次：新节点插入后在同一次样式批量里就把 opacity 从 0 改成 1，
+  // 浏览器没有「前一个值」可比，过渡压根不起跑——读到的就是「帧很多、中间取值 0 个」。
+  // 实测（spark-output/probe-density-bug.mjs）：同一台机器、同一条 300ms 线性过渡，
+  // 页面闲下来时 228 读里 16 个中间取值；所以 0 这一档不能一口咬定是「机器不空」。
+  const densRun = () => traceAfter(() => evalJs(`(() => {
       const d = document.createElement('div');
       d.id = '__dens';
       d.style.cssText = 'position:fixed;left:0;top:0;width:20px;height:20px;opacity:0;transition:opacity .3s linear';
-      document.body.appendChild(d); void d.offsetWidth; d.style.opacity = '1'; return 1;
+      document.body.appendChild(d); void d.offsetWidth;
+      getComputedStyle(d).opacity; // 逼一次 before-style 计算，过渡才有起跑条件
+      d.style.opacity = '1'; return 1;
     })()`), '#__dens', null, 300);
-  const kinds = new Set(dens.samples.filter((s) => s.op > 0.02 && s.op < 0.98).map((s) => s.op));
+  const countKinds = (t) => new Set(t.samples.filter((s) => s.op > 0.02 && s.op < 0.98).map((s) => s.op)).size;
+  const clearDens = () => evalJs(`(() => { const d = document.querySelector('#__dens'); if (d) d.remove(); return 1; })()`);
+  let dens = await densRun();
+  let kinds = countKinds(dens);
   const span = dens.samples.length ? dens.samples[dens.samples.length - 1].t : 0;
-  await evalJs(`(() => { const d = document.querySelector('#__dens'); if (d) d.remove(); return 1; })()`);
-  if (dens.samples.length < 120 || kinds.size < 3) {
-    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds.size} 个、`
+  await clearDens();
+  // 帧够密但一次中间值都没有 = 更可能是这条过渡没起跑，再给一次机会，两次都 0 才落重话
+  if (dens.samples.length >= 120 && kinds === 0) {
+    mark('密度自证：0 个中间值但帧数够，重跑一次再判');
+    await wait(Math.round(400 * CLOCK_RATE));
+    dens = await densRun();
+    kinds = countKinds(dens);
+    await clearDens();
+  }
+  if (dens.samples.length < 120 || kinds < 3) {
+    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds} 个、`
       + `产帧泵收到 ${pumpFrames} 帧`
       + '——机器此刻不空（另有构建或另一台 headless 在跑）。'
       + '下面所有「有没有中间帧」的判据在这种密度下必然假红，不看产物，等空了重跑。');
