@@ -2400,7 +2400,15 @@
         document.addEventListener('mousedown', function (e) {
             if (bar && !bar.hidden && !bar.contains(e.target)) hideBar();
         });
-        window.addEventListener('scroll', hideBar, { passive: true });
+        // 与预览卡同一族的老毛病：滚动不等于读者离开了选区。无条件收药丸会让键盘用户拿不到它——
+        // 用 Shift+方向键扩选时，浏览器自己会滚动页面，药丸刚要够到就被这发 scroll 收走。
+        // 所以：选区仍合规且至少有一部分还在视口里 → 跟着重新定位；真滚出视口/选区没了 → 照旧收。
+        window.addEventListener('scroll', function () {
+            var q = currentQuote();
+            var r = q && q.rect;
+            if (r && r.bottom > 0 && r.top < (window.innerHeight || 0)) showBar(r);
+            else hideBar();
+        }, { passive: true });
         window.addEventListener('resize', hideBar, { passive: true });
         window.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hideBar();
