@@ -134,6 +134,13 @@ git push origin 2.1.0
 CHANGELOG 只记已经进 master 的内容——还在 `main` 上的功能没上线，不该出现在版本记录里，
 所以写它的时机是「推到 master 之后」，不是「写完代码之后」。
 
+**别只改三处版本号就以为发版完成了**：2026-10-20 现场核过一次，`git ls-remote --tags origin` 只
+有 `1.0.0 / 2.0.0 / 2.0.1`，而 origin/master 上的 `package.json`、`_config.yml` 的 `version`、
+`CHANGELOG.md` 顶条**都已经是 2.1.0**——tag 那一步漏了，于是「三处等于最新 tag」这条现在指向一个
+不存在的 tag。没有任何一道门管这件事（CI 不响），只有流程记住了才算做完；补打 tag 是对远端可见的
+动作，按仓库惯例由本人执行。发版收口自查就一条命令：`git tag --sort=-v:refname | head -1`
+应当等于 `node -p "require('./package.json').version"`。
+
 写条目时有一条硬边界：**只写散文与 markdown 链接，别贴任何 HTML**。
 `/changelog.html` 的条目会经 kramdown 转成 HTML，而这一版 kramdown **放行为块级原始 HTML**
 （实测 `:remove_html_blocks` 取 `true` 或 `"strip"` 都拦不住一个独立成块的 `<script>`，
