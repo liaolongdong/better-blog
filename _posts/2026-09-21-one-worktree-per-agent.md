@@ -148,7 +148,7 @@ grep 全仓，worktree 命中 124 处，集中在 `crates/atlas-checkpoint/src` 
 
 同一把尺子上两个数：jev-ultrafast 上期建仓 17 小时攒 1,033 星，本期 14,539，摊 3,387 星/天、14.08 倍；gods-eye-view 36,658 到 40,272，摊 905 星/天，而页面周增 8,111 折 1,159/天，是我实测的 1.28 倍，方向和上面两个反着来。
 
-撤回两条，不再挂账。09-10 那两条第三次顺延到期：HyperFrames 的全量 render 要 2 GB 临时盘，我这期是三家横评、卷剩 7 GB 出头，真腾不出来；archify 的 `brands capture <url> --json`，它这周掉出四个榜（archify、i-have-adhd、mattpocock/skills、magnitude 四个全名在那 76 行里 grep，命中 0），为一个掉榜工具单独装一遍不值。规则我上期自己定的，第三次就是撤回。
+撤回两条，不再挂账。[09-10 那篇出图工具链横评]({{ site.baseurl }}/2026/09/10/agent-visual-toolchain.html)里挂的两条第三次顺延到期：HyperFrames 的全量 render 要 2 GB 临时盘，我这期是三家横评、卷剩 7 GB 出头，真腾不出来；archify 的 `brands capture <url> --json`，它这周掉出四个榜（archify、i-have-adhd、mattpocock/skills、magnitude 四个全名在那 76 行里 grep，命中 0），为一个掉榜工具单独装一遍不值。规则我上期自己定的，第三次就是撤回。
 
 job B 那 4 条这期轮到 A，不结算，但其中两条零成本 `npm view` 顺手读了：miniflare 的 `dependencies.sharp` 已到 0.35.4（上期钉 0.35.2），上游自己解掉了，我那个“加 overrides 抬版本”的动作前提消失；tailwindcss 的 insiders 仍是 0.0.0-insiders.41d9cae，latest 4.3.3、next 4.0.0、v3-lts 3.4.19，它没变成唯一的 prerelease 通道。
 

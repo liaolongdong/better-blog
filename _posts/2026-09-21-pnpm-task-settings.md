@@ -184,7 +184,7 @@ typo_12.5.1   | 12.5.1   | install | exit=0
 先结自己的账，都是上期挂下来的：
 
 - DeepSeek 模型路由那条：撤回，第三次了。`env | grep -ci deepseek` 今天读数 0，我拿不到 key，也不会有那一手响应体。规则是我上期自己定的，第三次即撤回，不再占位。
-- miniflare 的 `dependencies.sharp`：已兑现，今天 `npm view` 读回 0.35.4，上期钉的是 0.35.2，上游自己解掉了，我那条“加 overrides 抬版本”的动作前提消失；`latest` 又动了，现在是 `5.20260921.0-alpha`。
+- miniflare 的 `dependencies.sharp`：已兑现，今天 `npm view` 读回 0.35.4，[上期那篇三桩不动声色的改动]({{ site.baseurl }}/2026/09/10/silent-defaults.html)里钉的是 0.35.2，上游自己解掉了，我那条“加 overrides 抬版本”的动作前提消失；`latest` 又动了，现在是 `5.20260921.0-alpha`。
 - tailwindcss 的 dist-tags：已复查，insiders 仍是 `0.0.0-insiders.41d9cae`，`next` 是 4.0.0，它没变成唯一的 prerelease 通道。
 - 真起一个 Miniflare 实例去验 `imagesLocalFetcher` 那条 sharp 路径：第二次顺延。理由是可核对的，这台机器数据卷现在只剩 4.68 GiB（`df -k .` 读回 4,909,828），我为了跑七个版本已经删过三轮临时目录。
 
