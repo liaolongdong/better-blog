@@ -29,8 +29,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const DRY = argv.includes('--dry-run');
 const CHECK_ONLY = argv.includes('--check');
-const LIMIT = Number((argv.find((a) => a.startsWith('--limit')) || '').split(/\s+|=/)[1] || 0);
 const SITE = path.resolve(ROOT, (argv.find((a) => a.startsWith('--site=')) || '--site=_site').slice(7));
+/**
+ * `--limit` 要认两种写法。上一版只认 `--limit=5`：`argv.find(a => a.startsWith('--limit'))`
+ * 拿到的是裸的 `--limit`，再 split 出来是 undefined → Number('') = 0 → 判成「不限」，
+ * 于是文档里写的「试通道：--limit 5」实际把整站申报出去。现在分开解析，非法值直接退。
+ */
+const limitTok = argv.includes('--limit') ? argv[argv.indexOf('--limit') + 1]
+  : (argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1];
+const LIMIT = limitTok === undefined ? 0 : Number(limitTok);
+if (!Number.isInteger(LIMIT) || LIMIT < 0) {
+  console.log(`✗ --limit 要的是非负整数，收到 ${JSON.stringify(limitTok)}（0 或省略 = 不限）`);
+  process.exit(2);
+}
 
 const ENDPOINT = 'https://api.indexnow.org/indexnow';
 const fails = [];
@@ -41,7 +52,12 @@ function readConfig() {
   const yml = fs.readFileSync(path.join(ROOT, '_config.yml'), 'utf8');
   const key = /^indexnow:[\s\S]*?^\s{2}key:\s*['"]?([0-9a-f]{32})['"]?/m.exec(yml);
   const enabled = /^indexnow:[\s\S]*?^\s{2}enabled:\s*(\S+)/m.exec(yml);
-  const url = /^url:\s*['"]?(\S+?)['"]?\s*$/m.exec(yml);
+  // `_config.yml` 里这行带着行内注释（`url: 'https://…' # your host`），
+  // 上一版的正则要求值到行尾结束，于是 cfg.url 静默读成空串——
+  // 后果直接落在真请求上：keyLocation 被拼成 `https://…/better-blog/<key>.txt` 的期望值
+  // 变成了相对路径 `/better-blog/<key>.txt`（实测 --dry-run 打出来的就是它），
+  // IndexNow 只会把它当成一个不合法的键位地址。所以这里允许尾注释，读不到时下面直接判失败。
+  const url = /^url:[ \t]*['"]?([^'"\s#]+)['"]?[ \t]*(?:#.*)?$/m.exec(yml);
   const baseurl = /^baseurl:\s*['"]?(\S*?)['"]?\s*$/m.exec(yml);
   return {
     key: key ? key[1] : null,
@@ -64,7 +80,8 @@ if (!fs.existsSync(sitemapPath)) bad('产物里没有 sitemap.xml');
 
 let urls = [];
 if (fs.existsSync(sitemapPath)) {
-  urls = [...fs.readFileSync(sitemapPath, 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].trim());
+  // CDATA 包裹的 <loc> 也要收：上一版 `([^<]+)` 会把它整条静默跳过，少申报还不报错。
+  urls = [...fs.readFileSync(sitemapPath, 'utf8').matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/g)].map((m) => m[1].trim());
   urls = [...new Set(urls)];
   if (cfg.key) {
     const leaked = urls.filter((u) => u.includes(`/${cfg.key}.txt`));
@@ -78,6 +95,20 @@ try {
   host = new URL(urls[0]).host;
 } catch {
   bad(`第一条地址不是绝对 URL：${urls[0] || '(空)'}`);
+}
+/**
+ * 整份清单必须都落在 `_config.yml` 那个 url 的 host 上，且 url 本身要能读出来——
+ * 读不出来就判失败，不许静默跳过这条检查（跳过就等于没这道闸）。
+ * 为什么单独立一条：本机常驻的 `jekyll serve` 会用 dev 配置（url=http://localhost:4000）
+ * 覆盖仓库 `_site`，那种 sitemap 一旦被 POST 出去，等于把 localhost 申报给自己的爬虫。
+ */
+if (!cfg.url) {
+  bad('_config.yml 的 url 读不出来——没有它既拼不出绝对 keyLocation，也判不了清单 host');
+} else if (host) {
+  if (!new URL(cfg.url).host) bad(`_config.yml 的 url 没有 host：${cfg.url}`);
+  const want = new URL(cfg.url).host;
+  const off = urls.filter((u) => { try { return new URL(u).host !== want; } catch { return true; } });
+  if (off.length) bad(`${off.length} 条地址的 host 不是 _config.yml 的 ${want}（前 3 条：${off.slice(0, 3).join(' ')}）——多半拿了一份 dev 构建的 _site 来推`);
 }
 
 if (fails.length) {
