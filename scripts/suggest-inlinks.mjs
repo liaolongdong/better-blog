@@ -190,6 +190,31 @@ function bodyStartLine(file) {
   return 1;
 }
 
+/**
+ * 抹掉 `<style>` / `<script>` 块的内容，**但保留行数**——出处锚靠行号，
+ * 删行会让后面所有引文的行号集体错位。2026-10-20 实测有条证据句是
+ * `.note-key { background: #f2f7f4…`，那是页面内联样式，不是人话句子：
+ * stripCode 只挡 ``` 围栏，HTML 块是它的一个漏口（与它自己「只从代码围栏之外
+ * 的人话句子找」的承诺矛盾）。
+ */
+function stripHtmlBlocks(text) {
+  let depth = 0;
+  return text.split('\n').map((line) => {
+    const open = /<(style|script)\b/i.test(line);
+    const close = /<\/(style|script)>/i.test(line);
+    if (depth > 0) {
+      depth += open ? 1 : 0;
+      if (close && depth > 0) depth -= 1;
+      return '';
+    }
+    if (open) {
+      if (!close) depth += 1;
+      return '';
+    }
+    return line;
+  }).join('\n');
+}
+
 /** 把正文切成「带小标题的节」，供证据句定位——标题层级原样保留，清单里要看得出是哪一节。 */
 function splitSections(body, baseLine = 1) {
   const out = [];
@@ -296,7 +321,7 @@ for (const f of mdFiles) {
     continue;
   }
   const body = readBody(file);
-  const prose = stripCode(body);
+  const prose = stripHtmlBlocks(stripCode(body));
   const sections = splitSections(prose, bodyStartLine(file));
   const plain = sections.map((s) => ({ ...s, sentences: sentences(s.lines) }));
   const textForMatch = plain.map((s) => s.sentences.map((x) => x.text).join(' \u0001 ')).join(' ');
