@@ -10,7 +10,7 @@ tags: JavaScript vue 实现可拖拽悬浮按钮
 tldr: '左右吸边的悬浮按钮不难做，坑都在边界：初始定位值得是原定位样式值的倍数，否则第一次拖拽就错位；松手时再拿 x 与视口宽度的一半比大小。'
 faq:
   - q: '实现可拖拽的悬浮按钮要监听哪些事件？'
-    a: '移动端监听 touchstart、touchmove、touchend，PC 端监听 mousedown、mousemove、mouseup，再加一些取节点位置这类 DOM 操作 API。作者先照 vconsole 的源码做了实时拖拽那一版，微信那种松手吸边是在它基础上补出来的。'
+    a: '移动端监听 touchstart、touchmove、touchend，PC 端监听 mousedown、mousemove、mouseup，再加一些取节点位置这类 DOM 操作 API。先照 vconsole 的源码做了实时拖拽那一版，微信那种松手吸边是在它基础上补出来的。'
   - q: 'mineBtnPos 里 x、y 的初始值为什么不能随便填？'
     a: '源码注释写明该值必须是初始定位样式值的倍数，比如使用 750px 设计稿的要把初始值设成设计稿的一半，否则首次拖拽可能会错位。'
   - q: '松开手指后的左右吸边是怎么算出来的？'

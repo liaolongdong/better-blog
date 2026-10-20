@@ -12,7 +12,7 @@ tldr: '一份标题链接的参数喂给四个分享接口，签名在 wx.config
 faq:
   - q: '微信分享给好友、朋友圈、QQ 分别要往 jsApiList 里注册哪几个接口？'
     a: '分享默认这四个：onMenuShareTimeline 朋友圈、onMenuShareAppMessage 好友、onMenuShareQQ 手机 QQ 好友、onMenuShareWeibo 微博，再加一个 checkJsApi 判断客户端版本支持情况；如果页面还要用到图片上传之类的能力，得把对应接口一并加进来。'
-  - q: 'wx.config 报 invalid signature 或 invalid url domain，文中给了哪些原因？'
+  - q: 'wx.config 报 invalid signature 或 invalid url domain，通常是哪些原因？'
     a: 'invalid url domain 是当前页面所在域名与使用的 appid 没有绑定，invalid signature 就是签名错误，the permission value is offline verifying 要查官方的常见错误文档。签名这块还有一条：当时 Android 微信客户端不支持 pushState 这个 H5 新特性，用 pushState 实现的页面会因此签名失败。'
   - q: '域名和签名都配对了，分享出去还是失败，参数上还有什么坑？'
     a: '分享配置里的 link 必须是带协议的链接地址，不然配置正确也分享失败。另外绑定父级域名后合法的子域名可以直接用；在测试环境里必须关注公众号绑定的接口测试号，没关注是不能正常分享的。'

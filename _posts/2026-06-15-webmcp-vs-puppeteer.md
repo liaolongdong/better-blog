@@ -11,9 +11,9 @@ tags: AI webmcp Puppeteer Playwright Cypress
 tldr: 'WebMCP 是页面主动暴露给 AI Agent 的工具契约，不是 Puppeteer 的替代品；目前只在 Chromium 实验特性里，生产环境先做渐进接入。'
 faq:
   - q: 'WebMCP 会取代 Puppeteer / Playwright 吗？'
-    a: '不会。文章把两者定位为互补：Playwright / Cypress 继续负责 E2E 回归、视觉与跨浏览器测试；WebMCP 面向 AI Agent 在当前标签页里按页面暴露的契约调用业务能力。'
+    a: '不会。两者是互补不是替代：Playwright / Cypress 继续负责 E2E 回归、视觉与跨浏览器测试；WebMCP 面向 AI Agent 在当前标签页里按页面暴露的契约调用业务能力。'
   - q: 'WebMCP 现在能用在生产环境吗？'
-    a: '目前是 Chromium 的实验性能力，文章实测需要 Chrome 149+ 的 Origin Trial，或 Canary 加 flag；Safari、Firefox 还没有明确发布时间表。可以先做渐进式接入，但不要把关键链路押在它上面。'
+    a: '它是 Chromium 的实验性能力，实测需要 Chrome 149+ 的 Origin Trial，或 Canary 加 flag；Safari、Firefox 还没有明确发布时间表。可以先做渐进式接入，但不要把关键链路押在它上面。'
   - q: 'WebMCP 和传统爬虫、自动化最大的区别是什么？'
     a: '传统框架从外部用 CSS / XPath 驱动 DOM，页面改类名或异步加载就可能崩；WebMCP 由页面主动暴露 JSON Schema 工具，Agent 直接调用业务契约，并带着用户当前标签页的登录态。'
   - q: '切到后台标签页后，WebMCP 还能稳定调用吗？'

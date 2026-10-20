@@ -12,12 +12,12 @@ cover: /assets/img/alicloud-node-mongodb/banner.webp
 tags: 阿里云服务器部署 云服务器ECS 域名解析 nodeJS Mongodb
 tldr: '一台 1 核 1 GB 的 CentOS 7.4，node 和 mongodb 全程源码编译：买机器时登录密码与远程连接密码不是同一个，端口不配安全组一律访问不通，mongod 数据目录靠 --dbpath 指。'
 faq:
-  - q: '部署到阿里云 ECS 后端口访问不通，文章说要先检查什么？'
-    a: '先查安全组。文中强调实例必须给对应端口配置安全组规则，http 的 80、https 和 mongodb 的端口都一样，作者用浏览器访问公网 IP 的 27017 端口时遇到拒绝访问，原因就是没给这个端口加安全组。'
+  - q: '部署到阿里云 ECS 后端口访问不通要先检查什么？'
+    a: '先查安全组。实例必须给对应端口配置安全组规则，http 的 80、https 和 mongodb 的端口都一样；拿浏览器访问公网 IP 的 27017 端口被拒绝访问，原因就是没给这个端口加安全组。'
   - q: '云服务器上为什么不用 node app.js 启动，而要装 pm2？'
     a: 'node app.js 在本地只要不关进程窗口就行，放到云服务器上不现实；pm2 是带负载均衡的 Node 进程管理器，用 pm2 start app.js 再起个名称启动，能保证进程一直活着，除非手动关闭，另有 restart 和 stop 两个命令。'
   - q: 'mongo 里执行命令报 not authorized on admin to execute 是怎么回事？'
-    a: '说明当前用户没有权限，解法是用 db.grantRolesToUser 给它补上对应角色，文中的例子是给 appAdmin 加 admin 库的 dbOwner。这跟 mongodb 的四条特性有关：没有默认管理员账号，要先建管理员账号再开权限认证；切到 admin 库建的账号才算管理员；用户只能在自己所在库登录；管理员也得先在 admin 库认证后才能管理其他库。'
+    a: '说明当前用户没有权限，解法是用 db.grantRolesToUser 给它补上对应角色，比如给 appAdmin 加 admin 库的 dbOwner。这跟 mongodb 的四条特性有关：没有默认管理员账号，要先建管理员账号再开权限认证；切到 admin 库建的账号才算管理员；用户只能在自己所在库登录；管理员也得先在 admin 库认证后才能管理其他库。'
 ---
 
 ## 阿里云服务器上部署node和mongodb教程

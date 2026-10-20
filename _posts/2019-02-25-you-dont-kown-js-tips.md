@@ -10,7 +10,7 @@ tags: JavaScript 前端小技巧 黑科技
 tldr: '一行流里最该记住的三条边界：类型判断只有 Object.prototype.toString.call 够用，JSON 那招深拷贝会吞掉 undefined、symbol 和函数并把 Date 变成字符串，扩展运算符转不了不可迭代的类数组对象。'
 faq:
   - q: '判断数据类型到底用 typeof、instanceof 还是 constructor？'
-    a: '文里把这四种比较了一遍，结论是前三种都有缺口：typeof 只能判断 undefined、number、string、boolean、symbol、function，instanceof 和 constructor 都局限于引用类型；作者把 Object.prototype.toString.call(obj) 称作类型判断神器，Date、RegExp、Error、数组都能返回对应的 [object Xxx] 结果。'
+    a: '这四种比较下来，结论是前三种都有缺口：typeof 只能判断 undefined、number、string、boolean、symbol、function，instanceof 和 constructor 都局限于引用类型；Object.prototype.toString.call(obj) 被称作类型判断神器，Date、RegExp、Error、数组都能返回对应的 [object Xxx] 结果。'
   - q: '用 JSON.stringify 和 JSON.parse 做深拷贝会丢掉什么？'
     a: '按打印结果得出的两条结论：undefined、symbol、function 三种类型直接被过滤掉，date 类型被自动转成字符串类型。它前面那个类型判断加递归的手写实现范围也有限，只能对对象、数组和函数做深度复制，null、Number/String/Boolean 这些包装对象以及 Date、RegExp 对象复制不了。'
   - q: '多维数组扁平化再去重、升序，一行代码怎么写？'

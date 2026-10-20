@@ -11,11 +11,11 @@ tags: WebCrypto 加密 密码管理器 安全 Chrome扩展
 tldr: '浏览器扩展做加密可以不引任何库：crypto.subtle 用 PBKDF2-SHA256 跑 60 万次迭代派密钥，字段级 AES-256-GCM 落盘，锁定会话立刻清空密钥句柄，审计面缩到一只手数得完。'
 faq:
   - q: '写密码管理器的加密模块，该用 Web Crypto 还是第三方加密库？'
-    a: '文章的立场是 Web Crypto，理由按重要性排三条：可审计性，crypto.subtle 是浏览器内核实现、接口稳定行为公开，加密逻辑可以一只手数完；攻击面，少一个 npm 依赖就少一个被投毒的入口；性能，PBKDF2 这种大迭代量场景下原生实现比 JS 快一个数量级以上。代价是 API 偏底层、全异步、错误信息简陋。'
+    a: '选 Web Crypto，理由按重要性排三条：可审计性，crypto.subtle 是浏览器内核实现、接口稳定行为公开，加密逻辑可以一只手数完；攻击面，少一个 npm 依赖就少一个被投毒的入口；性能，PBKDF2 这种大迭代量场景下原生实现比 JS 快一个数量级以上。代价是 API 偏底层、全异步、错误信息简陋。'
   - q: 'PBKDF2 迭代次数定 600,000 次是照什么来的？'
     a: '这是 OWASP 密码存储备忘录自 2023 年起对 PBKDF2-SHA256 的推荐值，目的是抬高暴力破解的单次尝试成本。同一个项目里修改主密码时盐值和迭代次数都原样保留，因为换盐会让后续解密派生出另一把密钥，数据就永久解不开了。'
   - q: 'AES-GCM 的 IV 可以用自增计数器生成吗？'
-    a: '不可以。文章写得很硬：IV 由 crypto.getRandomValues 随机生成，坚决不用计数器或可预测来源，GCM 下 IV 复用等于灾难，这条没有妥协空间。落盘格式是 Base64(IV || 密文 || authTag)，16 字节的认证标签随密文一并存，完整性校验内置、不需要再叠一层 HMAC。'
+    a: '不可以。IV 由 crypto.getRandomValues 随机生成，坚决不用计数器或可预测来源，GCM 下 IV 复用等于灾难，这条没有妥协空间。落盘格式是 Base64(IV || 密文 || authTag)，16 字节的认证标签随密文一并存，完整性校验内置、不需要再叠一层 HMAC。'
 ---
 
 ![从主密码到密文：加密管线全流程](/assets/img/webcrypto-encryption-in-practice/02-flowchart-security-pipeline.png)

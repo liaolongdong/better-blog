@@ -14,8 +14,8 @@ faq:
     a: '不一样，这是最容易写错的一处。新浪微博 v.t.sina.com.cn/share/share.php 和腾讯微博 v.t.qq.com/share/share.php 收的是 pic，QQ 好友的 connect.qq.com/widget/shareqq/index.html 和 QQ 空间那个 cgi 收的是 pics。拼进链接之前每个值都要先 encodeURIComponent 一遍，标题缺省取页面自身的 title，链接缺省取当前页地址。'
   - q: '分享到 QQ 空间的函数为什么比其余三个多收一个参数？'
     a: "因为只有它带分享描述：sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey 这条链接里 summary 装的其实是标题，desc 装的才是描述，后面再跟 url 和 pics。其余三个站点的函数只收标题、链接、图片三项，描述传不进去。"
-  - q: '分享出去的缩略图不显示，文中给到的结论是什么？'
-    a: '两条：一是不能用本地的图片，必须给能访问到的图片链接地址；二是作者另外踩到一个说不清原因的坑，七牛 CDN 上的图片同样不显示，为此被坑了很久。代码注释里还写明图片是可选参数，多张之间用竖线隔开。'
+  - q: '分享出去的缩略图为什么不显示？'
+    a: '两条：一是不能用本地的图片，必须给能访问到的图片链接地址；二是还有一个说不清原因的坑，七牛 CDN 上的图片同样不显示，为此被坑了很久。代码注释里还写明图片是可选参数，多张之间用竖线隔开。'
 ---
 
 [点这里查看demo效果]({{ site.baseurl }}/demo/shareDemo/myshare.html)

@@ -12,8 +12,8 @@ categories: [前端工程化]
 tags: git github coding.net blog 博客
 tldr: '一个仓库挂两个远程靠 git remote add 起别名，clone 下 coding 仓库再把 github 加成第二个远程；两边历史不相干，pull 时得加允许合并无关历史的选项，之后改一次代码分两次推。'
 faq:
-  - q: '博客放在 GitHub Pages 上，百度搜不到文章，作者给出的对策是什么？'
-    a: '原因是 github 屏蔽了百度蜘蛛，挂在它上面的东西百度搜索不到。作者把 github.io 上的代码迁到 coding 仓库管理：coding 服务器部署在国内，国内访问比外网的 github 可能快一点，而且 coding 还能免费设置私有仓库。'
+  - q: '博客放在 GitHub Pages 上，百度搜不到文章，对策是什么？'
+    a: '原因是 github 屏蔽了百度蜘蛛，挂在它上面的东西百度搜索不到。对策是把 github.io 上的代码迁到 coding 仓库管理：coding 服务器部署在国内，国内访问比外网的 github 可能快一点，而且 coding 还能免费设置私有仓库。'
   - q: '同一个本地目录怎么同时关联 github 和 coding 两个远程，怎么确认关联成功了？'
     a: "先把 coding 仓库 clone 到本地并 cd 进项目，这时 origin 指向的就是 coding；再用 git remote add github 加上 github 仓库的地址，把 github 加成第二个远程。关联成功后可以用 git remote -v 或者直接翻 .git/config 看这个项目挂了哪几个远程。"
   - q: '执行 git pull github master 出现 fatal: refusing to merge unrelated histories 怎么办？'

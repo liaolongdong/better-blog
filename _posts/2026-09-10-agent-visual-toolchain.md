@@ -11,11 +11,11 @@ tags: AI 前端 开源 Agent webmcp
 tldr: '这周试的 4 个出图项目，两个卡在磁盘和网络上，最后跑通的是只带一个 CLI 的 chrome-devtools-mcp——archify 品牌表里 0 个构建工具，HyperFrames 装完 374MB 后 init 还自己去 GitHub 重 clone 整仓。'
 faq:
   - q: 'archify 报 Brand mark validation failed、vite is not a built-in brand，怎么绕？'
-    a: '品牌表绕不进去：107 个品牌 id 分 9 类，framework 那类 13 项全是运行时，构建工具和样式层一个都没有，vite、webpack、esbuild、tailwind、jekyll 挨个测都不在表里。报错里的 closest IDs 也不是相似推荐，就是字母表前五个 a 开头的 id。作者的做法是把 brand 字段整个删掉、那一格写纯文本，图照样出来。'
+    a: '品牌表绕不进去：107 个品牌 id 分 9 类，framework 那类 13 项全是运行时，构建工具和样式层一个都没有，vite、webpack、esbuild、tailwind、jekyll 挨个测都不在表里。报错里的 closest IDs 也不是相似推荐，就是字母表前五个 a 开头的 id。做法是把 brand 字段整个删掉、那一格写纯文本，图照样出来。'
   - q: 'HyperFrames 的 init 为什么装完 npm 还要去 GitHub clone 整仓？'
     a: '它会顺手对着 GitHub 检查并安装 AI coding skills，网络一断就报 Failed to clone repository、9 个 skill 没装上，而命令仍然 exit 0。想跳过只能设环境变量 HYPERFRAMES_SKIP_SKILLS=1——帮助里那个 --skip-skills 自己标着 temporarily ignored，是装饰。'
   - q: 'chrome-devtools-mcp 的 list_webmcp_tools 返回空，要什么条件才拿得到工具？'
-    a: '三样齐了才出：加 --categoryExperimentalWebmcp、Chrome 150 以上、再手动补 --enable-features=WebMCP。作者在同一页面验过 document.modelContext 有对象而 navigator.modelContext 是 undefined，说明卡点不在页面脚本；这条 Chrome 侧要求只在 src/config/category-options.ts 的 yargs describe 里，只有 --help 吐得出来，README 和 tool-reference.md 都没写。'
+    a: '三样齐了才出：加 --categoryExperimentalWebmcp、Chrome 150 以上、再手动补 --enable-features=WebMCP。同一页面验过 document.modelContext 有对象而 navigator.modelContext 是 undefined，说明卡点不在页面脚本；这条 Chrome 侧要求只在 src/config/category-options.ts 的 yargs describe 里，只有 --help 吐得出来，README 和 tool-reference.md 都没写。'
 ---
 
 ![编码 agent 试图自己产出图表却接连卡住的现场](/assets/img/agent-visual-toolchain/banner.webp)

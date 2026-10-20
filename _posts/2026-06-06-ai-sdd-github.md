@@ -11,7 +11,7 @@ tags: AI SDD Spec-Driven Development 规范驱动开发
 tldr: '数据全部抓自 2026 年 6 月的 GitHub 仓库：217K 星的 Superpowers 在 5.1.0 删掉三个斜杠命令、把审查压到约 30 秒，108K 星的 Spec Kit 终于支持原地自升级，上手时间与 Token 消耗也一并列了对照。'
 faq:
   - q: "Superpowers v5.1.0 里 /brainstorm、/write-plan 这些命令去哪了？"
-    a: "v5.1.0 移除了 /brainstorm、/execute-plan、/write-plan 三个遗留斜杠命令，改为直接描述需求自动触发对应 Skill，执行计划和写计划分别落到 superpowers:executing-plans 和 superpowers:writing-plans。同一版本把子 Agent 审查循环换成内联自审，耗时从约 25 分钟降到约 30 秒，正文标注质量持平。"
+    a: "v5.1.0 移除了 /brainstorm、/execute-plan、/write-plan 三个遗留斜杠命令，改为直接描述需求自动触发对应 Skill，执行计划和写计划分别落到 superpowers:executing-plans 和 superpowers:writing-plans。同一版本把子 Agent 审查循环换成内联自审，耗时从约 25 分钟降到约 30 秒，质量持平。"
   - q: "OpenSpec 从哪个版本开始支持 Kimi CLI？skills 文件落在哪个目录？"
     a: "v1.4.0。用 openspec init --integration kimi 初始化后，skills 目录落在 .kimi/skills/，在 Kimi CLI 里通过 /skill:openspec-new 这类命令调用；同版本还新增 Mistral Vibe 支持（skills 落在 .vibe/skills/），并把 Sync skills 设为默认开启，新安装自动生成 /opsx:sync。"
   - q: '升级 GitHub Spec Kit 还要重新装一遍吗？'
