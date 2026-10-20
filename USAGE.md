@@ -345,7 +345,21 @@ pnpm dev:assets
 ```
 
 - `dev/js/*.js` 与 `dev/libJs/*.js`（非 `.min.js`）会被打包，产物外层自动包一层 IIFE，
-  避免多文件间的全局变量冲突。
+  避免多文件间的全局变量冲突。入口由 `getDevJsEntries()` 按目录自动收，新增一个
+  `dev/js/<name>.js` 就产出 `assets/js/<name>.min.js`，不用改 vite 配置。
+- **⌘K 命令面板不在 `editorial.js` 里**：它是 `dev/js/palette.js`（产物 `assets/js/palette.min.js`），
+  由 `editorial.js` 的薄桩在第一次 ⌘K / 点搜索入口时 `createElement('script')` 注入，
+  所以**任何页面 HTML 里都找不到它的引用**。共享件走 `window.EditorialUtil`
+  （`baseUrl` / `prefersReducedMotion` / `copyText` / `getCorpus` / `getFullCorpus` / `esc`）——
+  语料加载器留在 `editorial.js` 是因为链接预览也用 `getCorpus`，两边各养一份缓存就会漂。
+- `editorial.js` 有体积上限：**17,408B gzip**（`scripts/check-sw.mjs` 判据 7）。它自己的注释写着
+  「若再涨，先把命令面板拆成独立延迟加载件，再谈加码」——2026-10-20 已照这句话拆完，
+  现在实测 15.3KB。再往这个文件加交互前先看这条，别抬档位。
+- 新增一个每页都载的公共件要同时改三处：`_includes/headAssets.html`（或两份布局末尾）、
+  `sw.js` 的 `SHELL_URLS`、以及 `check-sw.mjs` 判据 2 的口径（运行时注入件走 `INJECTED` 那一类，
+  条件是地址字符串必须真的出现在某个已构建公共脚本里，不是白名单免检）。
+  `sw.js` 里加注释**不要**用带空白裁剪的 Liquid 注释夹在清单条目之间——它会吞掉换行、
+  把两条地址在产物里粘成一行，`check-sw-teeth` 要求行尾换行的锚点会因此失配。
 - `dev/libJs/*.min.js` 与 `dev/libCss/*.min.css` 是**已预压缩的第三方库**，不进打包管线，
   构建时原样复制到 `assets/js|css/`。新增此类文件直接放进去即可，无需改配置。
 
@@ -430,6 +444,9 @@ pnpm build:demo    # 只构建 demo
 pnpm build:site    # 构建静态资源 + 生成 _site
 pnpm og:images     # 为没有 cover 的文章出 1200×630 分享卡（需本机 Chrome）
 pnpm og:check      # 只校验分享卡与 _data/og_images.yml 是否一致，不改文件
+pnpm push:indexnow # 把 sitemap 里的地址推给 IndexNow（必应系；Google 不读它）；加 --dry-run / --check / --limit N
+node scripts/check-discovery.mjs        # 批 1 收录面 8 组判据（key 文件、changelog 页、零新增 CSS）
+node scripts/suggest-inlinks.mjs        # 产出 dev/inlink-suggestions.md：正文内链建议清单，不改任何一篇文章
 node scripts/wechat-draft.mjs --check-config  # 查公众号草稿同步的前置，不联网
 node scripts/wechat-draft.mjs --post _posts/xxx.md --dry-run  # 只准备与校验，不联网
 pnpm wechat:draft -- --post _posts/xxx.md      # 真同步进公众号草稿箱（只到 draft/add，不发布）
