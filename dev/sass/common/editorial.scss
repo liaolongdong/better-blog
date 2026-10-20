@@ -7016,3 +7016,51 @@ dialog.shortcuts:not([open]) {
     min-height: 44px;
     transform: translate(-50%, -50%);
 }
+
+// C2：语言角标与长块折叠（动效批 V）。外壳复用 initCodeCopy 的 .code-wrap，
+// 角标放左上——右上是 .code-copy 的位置，两枚叠一起会互相盖。
+.code-wrap { position: relative; }
+.code-wrap > pre { margin-bottom: 0; }
+.code-lang {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    padding: 3px 9px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--radius-2, 8px) 0;
+    pointer-events: none;
+    user-select: none;
+}
+// 折叠用 mask 而不是「max-height + 一条渐变遮罩」：遮罩要多占一个伪元素，
+// 而 .code-copy 就住在 pre 的右上角，多一层就多一次撞位风险。
+.code-wrap.is-foldable:not(.is-open) > pre {
+    max-height: 22em;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+.code-more {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 44px;
+    margin-top: -2.2em;
+    border: 0;
+    background: none;
+    font-family: $font-meta;
+    font-size: 12.5px;
+    line-height: 1;
+    color: var(--signal);
+    cursor: pointer;
+    transition: opacity var(--dur-1) var(--ease-out);
+}
+.code-more:hover { opacity: .72; }
+.code-more:active { transform: scale(.985); }

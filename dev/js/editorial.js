@@ -1294,6 +1294,60 @@
         }
     }
 
+    /**
+     * 动效批 V·C2：代码块的「这是什么语言」与「这一大坨先收起」。
+     *
+     * 实测全站 941 个 <pre>：语言类一直挂在 <code class="language-x"> 上，但界面上看不见；
+     * 41 篇里有超 12 行的块，最长一块 149 行——命令集锦那类文章一段就能把正文顶下去两屏。
+     * 两件都在运行时做，读现成 DOM，不改构建产物。
+     *
+     * 外壳复用 initCodeCopy 建的 .code-wrap，不再另包一层：那一层本来就是为「钉住复制按钮
+     * 与在编辑器打开」而存在的。第一版自己套了个 .code-shell，结果那两颗按钮被留在新壳外面
+     * ——实测角标一出现 .code-copy 就从外壳里消失了，等于养出第二套抽象。
+     * 角标也因此放左上：右上是 .code-copy 的地盘，两枚叠在一起会互相盖。
+     */
+    var CODE_FOLD_LINES = 12;
+
+    function initCodeBlocks() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+        var pres = body.querySelectorAll('pre');
+        for (var i = 0; i < pres.length; i++) {
+            (function (pre) {
+                var shell = pre.parentNode;
+                if (!shell || !shell.classList.contains('code-wrap') || shell.classList.contains('bb-coded')) return;
+                var code = pre.querySelector('code[class*=language-]');
+                var lang = code ? ((/language-([a-zA-Z0-9+#_-]+)/.exec(code.className) || [])[1] || '') : '';
+                var lines = (pre.textContent || '').split('\n');
+                if (lines.length > 1 && lines[lines.length - 1].trim() === '') lines.pop();
+                if (!lang && lines.length <= CODE_FOLD_LINES) return;
+                shell.classList.add('bb-coded');
+
+                if (lang) {
+                    var tag = document.createElement('span');
+                    tag.className = 'code-lang';
+                    tag.textContent = lang;
+                    shell.appendChild(tag);
+                }
+                if (lines.length > CODE_FOLD_LINES) {
+                    shell.classList.add('is-foldable');
+                    var more = document.createElement('button');
+                    more.type = 'button';
+                    more.className = 'code-more';
+                    more.setAttribute('aria-expanded', 'false');
+                    var total = lines.length;
+                    more.textContent = '展开全部 ' + total + ' 行';
+                    more.addEventListener('click', function () {
+                        var opened = shell.classList.toggle('is-open');
+                        more.setAttribute('aria-expanded', opened ? 'true' : 'false');
+                        more.textContent = opened ? '收起' : '展开全部 ' + total + ' 行';
+                    });
+                    shell.appendChild(more);
+                }
+            })(pres[i]);
+        }
+    }
+
     /* ------------------------------------------------------------------
      * 9. 滚动揭示与刊头数字
      * ------------------------------------------------------------------ */
@@ -3333,6 +3387,7 @@
         initTocDrawer();
         initReadingProgress();
         initCodeCopy();
+        initCodeBlocks();
         initPaletteStub();
         initTouchDropdown();
         initAnchorScroll();
