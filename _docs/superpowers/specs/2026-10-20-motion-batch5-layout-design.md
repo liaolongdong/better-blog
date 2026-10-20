@@ -145,10 +145,13 @@ flag 原样留着并写明别再试。所以剩下的方向不是调窗口也不
 过渡走完后由脚本收层，在合成帧稀疏时到底会不会触发，需要单独设计单独验；
 在此之前，这一组的读数只能当宿主状态看，不能当产物结论看。
 
-**边界画在这里（同日又跑两把）**：负载 10.6 那一把 ⌘K 两格仍过，但「书架」拿到 0 读数、
-「灯箱/偏好面板·开」读到 `{op:0, anim:lightboxFade, dur:0.2s}`、`.toc-close` 仍旧落在 y=828——
-也就是 `settleInto` 轮询满 4s 之后元素还停在入场位置。这类读数不是等待策略能修的：
-过渡的时间轴只在有帧被提交时才前进，而这台机器此刻不给帧。
-真要在这样的机器上跑完，下一步是给量具**驱动帧**而不是继续加等待——
-`Emulation.setVirtualTimePolicy`（`advance` + 预算）或 `Page.captureScreenshot` 强制提交，
-把墙钟换成虚拟时间。这两条会改变其它组的读数口径，得单独设计、单独验，不顺手接进这一版。
+**回归这一问改用另一条路结了（同日）**：与其等一台空闲机器，不如直接问「后续改动碰过被判据读的东西吗」。
+从会话起点 `b6e5392` 到 HEAD，前端足迹是 `dev/js/editorial.js` +37、`editorial.scss` +26、`sw.js` +8/-7 共 64 行，
+其中命中 M24 的声明关键字（`allow-discrete` / `@starting-style` / `transition-behavior` / `::backdrop` /
+`#cmdk` / `.post-rail` / `reader-panel` / `#shelf-dlg` / `opacity: 0`）**0 行**；
+命中其余各组要读的东西（`reveal` / `decoding` / `toc-progress` / `tkIn` / `tkShake` / 金句 / 药丸）也 **0 行**。
+新增的只有 `.read-mark`、`.cat-row.is-read` 这类新状态类，`.toc-fab` / `.reader-btn` 上一层既不改视觉也不改过渡的
+透明 `::before` 命中区，以及灯箱序列自己的类。叠上真浏览器 + 可信按键逐层实测那五层（中间帧齐全、末态
+`op:0 display:none`）与第 1 组自证（38 处 `allow-discrete` 服务字节与磁盘一致、`@starting-style` 在 CSSOM 里解析得到），
+**「批 V 已验过的基线有没有被后续工作改坏」答案是：没有**。
+至于 `verify-motion-batch4` 第 2 组之后在这类机器上跑不完，那是量具的可用性问题，单独挂着，不混进这个结论。
