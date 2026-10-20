@@ -107,7 +107,7 @@ seo_description: Better（中文署名廖小新）的前端与 AI 博客：React
         <section class="feed-picks" aria-label="编辑精选">
             <p class="feed-picks-label">编辑精选<em>手工挑的，不是热榜</em></p>
             <ol class="feed-picks-list">
-                {% for p in site.data.picks limit: 5 %}
+                {% for p in site.data.picks limit: 3 %}
                 {% assign pp = site.posts | where: "url", p.url | first %}
                 <li class="feed-pick">
                     {% if pp %}

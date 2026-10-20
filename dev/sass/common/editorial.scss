@@ -6969,3 +6969,50 @@ dialog.shortcuts:not([open]) {
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
 }
+
+/*** 14. 布局批 D（首屏节奏 / 手机命中区） ***/
+
+// D-1 编辑精选从 5 条纵排改两列。实测 1440×900 首屏看不到任何文章卡：
+// 刊头 393 + 话题栏 + 精选 386 把第一篇推到 y=866，视口 900 只给它露出 34px 卡边。
+// 精选是「手工挑的」而非榜单，3 条与 5 条在传达上等价，省下的那一截直接还给信息流。
+// 改两列之后实测露出 142px，仍不够——宽屏上三条本来就是同一层信息，排成一行
+// 再省 166px，第一篇才真的进首屏。窄一点的桌面（960–1199）留两列，
+// 三列在那一档会把「为什么挑这篇」挤成四行。
+.feed-picks-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 30px;
+    row-gap: 2px;
+}
+@media (min-width: 1200px) {
+    .feed-picks-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+// 窄屏不拆列：两列在 390 上会把「为什么挑这篇」挤成三四行，比省下的距离更亏。
+@media (max-width: 699px) {
+    .feed-picks-list {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+    }
+}
+
+// D-2 手机命中区。实测 .toc-fab 73×37、.reader-btn 90×24，都低于 44px 的舒适线
+// （过 WCAG 2.5.8 的 24px 下限，未及 AAA 的 44px）。用 ::before 撑一块透明命中区，
+// 视觉尺寸一个像素不动——把按钮本身画大是另一件事，那要重排版面。
+.toc-fab,
+.reader-btn {
+    position: relative;
+}
+.toc-fab::before,
+.reader-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-width: 44px;
+    height: 100%;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+}
