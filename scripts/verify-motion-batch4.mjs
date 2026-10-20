@@ -904,6 +904,7 @@ for (const [name, sel, openSel, closeSel] of [['⌘K', '#cmdk', null, null],
   if (t.err) { traceFail(`reduce·${name}·不滞留`, t, '轨迹没跑起来'); continue; }
   const mid = midFade(t.samples);
   if (mid.length) RED(`reduce·${name}·不滞留`, `出现了 ${mid.length} 个半透明中间帧（共读 ${t.samples.length} 帧，op=${mid.map((x) => x.op).join(',')}）`);
+  else if (!t.samples.length) RED(`reduce·${name}·不滞留`, '一个读数都没有——采样期间这一层从未进入渲染态，「没有中间值」这句话无从说起（实测第 5 组就是这么在末帧索引上抛 TypeError、把整轮带走的）');
   else ok(`reduce·${name}·不滞留`, `${t.samples.length} 帧里没有中间值，末帧 display=${t.samples[t.samples.length - 1].disp}`);
 }
 await S('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
