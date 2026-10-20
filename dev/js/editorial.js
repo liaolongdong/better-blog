@@ -573,6 +573,40 @@
                     });
                 });
                 holder.appendChild(btn);
+
+                // 只有 html / css / js 能直接丢进 WebLab 的三格编辑器；ts / jsx / bash
+                // 不在映射里，宁可不给入口，也不给一个打开后跑不起来的按钮。
+                var codeEl = pre.querySelector('code');
+                var langMatch = codeEl && /(?:^|\s)language-([\w-]+)/.exec(codeEl.className || '');
+                var lang = langMatch ? langMatch[1].toLowerCase() : '';
+                var pane = lang === 'html' || lang === 'markup' ? 'html'
+                    : lang === 'css' ? 'css'
+                        : (lang === 'js' || lang === 'javascript') ? 'js' : '';
+                if (pane) {
+                    var openBtn = document.createElement('button');
+                    openBtn.type = 'button';
+                    openBtn.className = 'code-open';
+                    openBtn.textContent = '在编辑器打开';
+                    openBtn.title = '把这段代码带到 WebLab；不会自动运行';
+                    openBtn.addEventListener('click', function () {
+                        try {
+                            // 键名与 dev/js/webLab.js 的 PREFILL_KEY 同串。
+                            sessionStorage.setItem('weblabCode', JSON.stringify({
+                                lang: pane,
+                                code: pre.textContent.replace(/\n+$/, '')
+                            }));
+                            window.location.href = BASE_URL + '/weblab.html';
+                        } catch (err) {
+                            openBtn.textContent = '无法打开';
+                            openBtn.classList.add('is-done');
+                            window.setTimeout(function () {
+                                openBtn.textContent = '在编辑器打开';
+                                openBtn.classList.remove('is-done');
+                            }, 1600);
+                        }
+                    });
+                    holder.appendChild(openBtn);
+                }
             })(blocks[i]);
         }
     }

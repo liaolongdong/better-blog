@@ -1413,6 +1413,81 @@ body {
     overflow: visible;
 }
 
+// 结论先行：只在 front matter 写了 tldr 的文章出现。它排在正文之前、目录之后，
+// 给的是「这篇到底说了什么」，不是摘要的重复；没有 tldr 的文章一个字节都不多。
+.post-tldr {
+    padding: 15px 18px 16px;
+    margin: 0 0 28px;
+    background-color: var(--signal-soft);
+    border-left: 3px solid var(--signal);
+    border-radius: var(--radius-m);
+}
+
+.post-tldr-label {
+    margin-bottom: 6px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--signal-ink);
+}
+
+.post-tldr-text {
+    font-size: 15px;
+    line-height: 26px;
+    color: var(--ink-2);
+}
+
+// 常见问题：正文之后、篇末收束之前。问题用 <summary>，答案默认折叠；
+// 内容仍在 HTML 里，爬虫与 FAQPage 都能逐字读到，读者不必先被一屏问答挡住。
+.post-faq {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+}
+
+.post-faq-kicker {
+    margin-bottom: 6px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--ink-3);
+}
+
+.post-faq-title {
+    margin-bottom: 10px;
+    font-family: $font-display;
+    font-size: 24px;
+    line-height: 1.25;
+    color: var(--ink);
+}
+
+.post-faq-item {
+    border-top: 1px solid var(--rule);
+
+    &:first-child {
+        border-top: 0;
+    }
+
+    summary {
+        padding: 12px 0;
+        font-size: 15px;
+        line-height: 24px;
+        color: var(--ink-2);
+        cursor: pointer;
+    }
+
+    &[open] summary {
+        color: var(--signal-ink);
+    }
+
+    p {
+        margin: 0 0 14px;
+        font-size: 14px;
+        line-height: 25px;
+        color: var(--ink-3);
+    }
+}
+
 .post-grid {
     display: grid;
     grid-template-columns: minmax(0, var(--measure));
@@ -1625,10 +1700,10 @@ html.has-js .toc-static {
     margin: 0;
 }
 
-.code-copy {
+.code-copy,
+.code-open {
     position: absolute;
     top: 8px;
-    right: 8px;
     z-index: 2;
     padding: 3px 10px;
     font-family: $font-meta;
@@ -1643,26 +1718,42 @@ html.has-js .toc-static {
     transition: opacity .18s ease, color .2s, background-color .2s, border-color .2s;
 }
 
+.code-copy {
+    right: 8px;
+}
+
+// 复制按钮实测宽 40–57px；right 70 给「已复制」那三字留出间隙，不会压住复制。
+.code-open {
+    right: 70px;
+}
+
 .code-wrap:hover .code-copy,
+.code-wrap:hover .code-open,
 .code-copy:focus-visible,
-.code-copy.is-done {
+.code-open:focus-visible,
+.code-copy.is-done,
+.code-open.is-done {
     opacity: 1;
 }
 
-.code-copy:hover {
+.code-copy:hover,
+.code-open:hover {
     color: var(--ink);
     border-color: var(--ink-4);
 }
 
-.code-copy.is-done {
+.code-copy.is-done,
+.code-open.is-done {
     color: var(--surface);
     background-color: var(--signal);
     border-color: var(--signal);
 }
 
-// 触屏没有 hover，复制按钮必须常驻可见，否则功能等于不存在
+// 触屏没有 hover，两颗按钮都必须常驻可见，否则功能等于不存在
 @media (hover: none) {
-    .code-copy {
+
+    .code-copy,
+    .code-open {
         opacity: 1;
     }
 }
@@ -5052,6 +5143,17 @@ dialog.shelf[open] {
     color: var(--ink-3);
 }
 
+.shelf-report {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+
+    &:hover {
+        color: var(--signal);
+    }
+}
+
 .shelf-clear {
     flex: none;
     height: 26px;
@@ -6643,6 +6745,11 @@ dialog.shelf[open] {
 
     .code-copy {
         min-width: 48px;
+        min-height: 36px;
+        padding: 6px 12px;
+    }
+
+    .code-open {
         min-height: 36px;
         padding: 6px 12px;
     }

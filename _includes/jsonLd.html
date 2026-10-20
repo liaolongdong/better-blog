@@ -90,6 +90,30 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   ]
 }
 </script>
+{%- comment -%}
+FAQPage 只在正文末尾有可见的 <details> 列表、且条目 ≥2 时输出。问题与答案逐字来自
+front matter 的 page.faq，模板与结构化数据同源；没有 faq 字段的旧文章不会凭空长出问答。
+{%- endcomment -%}
+{%- if page.faq and page.faq.first and page.faq.size >= 2 %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {%- for item in page.faq %}
+    {
+      "@type": "Question",
+      "name": {{ item.q | jsonify }},
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": {{ item.a | jsonify }}
+      }
+    }{% unless forloop.last %},{% endunless %}
+    {%- endfor %}
+  ]
+}
+</script>
+{%- endif %}
 {%- elsif page.title -%}
 <script type="application/ld+json">
 {

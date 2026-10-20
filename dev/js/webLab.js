@@ -17,6 +17,8 @@
     var FILES = ['ace.js', 'ext-language_tools.js'];
     // 容器 id → editors 的键，只为把「点的是哪一格」转成「装好后 focus 谁」。
     var BY_ID = { editor1: 'html', editor2: 'css', editor3: 'js' };
+    // 文章代码块的「在编辑器打开」写入同一个键；键名与 editorial.js 的 setItem 必须一致。
+    var PREFILL_KEY = 'weblabCode';
 
     var root = document.getElementById('aceEditor');
     var submit = document.getElementById('submit');
@@ -25,6 +27,30 @@
     var editors = null;
     var booting = null;
     var wantFocus = null;
+    var pending = readPrefill();
+
+    /**
+     * 读并消费一次性的代码迁移 payload。读写都包 try：无痕模式下 sessionStorage 会抛，
+     * 这时退化成普通的空编辑器，页面本身不该因此起不来。
+     * @returns {{pane: string, code: string}|null}
+     */
+    function readPrefill() {
+        var raw = null;
+        try {
+            raw = sessionStorage.getItem(PREFILL_KEY);
+            sessionStorage.removeItem(PREFILL_KEY);
+        } catch (e) {
+            return null;
+        }
+        if (!raw) return null;
+        var data = null;
+        try { data = JSON.parse(raw); } catch (e) { return null; }
+        if (!data || typeof data.code !== 'string') return null;
+        var pane = data.lang === 'html' || data.lang === 'markup' ? 'html'
+            : data.lang === 'css' ? 'css'
+                : (data.lang === 'js' || data.lang === 'javascript') ? 'js' : '';
+        return pane ? { pane: pane, code: data.code } : null;
+    }
 
     /**
      * 注入一个 ace 脚本。
@@ -70,7 +96,14 @@
             css: edit('editor2', 'ace/mode/css'),
             js: edit('editor3', 'ace/mode/javascript')
         };
-        if (wantFocus && editors[wantFocus]) editors[wantFocus].focus();
+        // 从文章里带过来的代码优先：它才是这次打开编辑器的目的，光标也落在那一格。
+        if (pending) {
+            editors[pending.pane].setValue(pending.code, -1);
+            editors[pending.pane].focus();
+            pending = null;
+        } else if (wantFocus && editors[wantFocus]) {
+            editors[wantFocus].focus();
+        }
     }
 
     /**
@@ -89,6 +122,10 @@
         }
         return booting;
     }
+
+    // 有文章代码块带过来的 payload 时，这次打开编辑器本身就是用户动作，直接装 Ace；
+    // 没有 payload 时仍保持「摸到编辑区才装」，不让普通访客多付 561KB。
+    if (pending) boot();
 
     root.addEventListener('pointerdown', function (e) {
         var area = e.target && e.target.closest ? e.target.closest('.edit-area') : null;

@@ -1,0 +1,323 @@
+/*** 阅读报告页（/stats.html） ***/
+//
+// 页面数据全部来自本机 localStorage 的 shelf（与 editorial.js §14 同一份）：
+// 读过哪些文章、每篇读到百分之几、每天累计可见时长。服务端不参与，所以这一页
+// 是 noindex 的；样式单独一个入口（vite 自动扫 dev/sass/*.scss），不把报表的
+// px 密度塞进全站 index.min.css。
+//
+// 像素转视口：postcss.config.js 的黑名单里有 `.stats-`，本文件带 px 的规则
+// 一律挂在 .stats-* 选择器下；@keyframes 里不写字面 px（这里也不写关键帧，
+// 入场交给 .stats-section 的 transition）。
+//
+// 字族：独立入口拿不到 tokens.scss 的 $font-display / $font-meta，这里重复的是
+// 字族名，不是字体文件；@font-face 归 index.min.css。缺字时退到 Georgia / SF Mono。
+$stats-display: 'Newsreader', Georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', 'STSong', 'SimSun', serif;
+$stats-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', monospace;
+
+.stats-page {
+    box-sizing: border-box;
+    // 报告比刊头窄一档：960 是两列卡片的舒适宽度，也让 1440 屏上不致于把
+    // 分类条拉成一条横贯整页的直线。g-container 的 1180 由 index.min.css 给，
+    // 这里用同特异度、后加载的 .stats-page 覆盖掉。
+    width: 100%;
+    max-width: 960px;
+    padding: 32px 20px 72px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.stats-noscript {
+    max-width: 620px;
+    padding: 18px 22px;
+    margin: 0 auto;
+    font-size: 14px;
+    line-height: 24px;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+}
+
+.stats-empty {
+    max-width: 620px;
+    padding: 32px 28px;
+    margin: 24px auto 0;
+    text-align: center;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+
+    .stats-empty-kicker {
+        font-family: $stats-meta;
+        font-size: 11px;
+        letter-spacing: .5px;
+        color: var(--ink-3);
+    }
+
+    h2 {
+        margin: 10px 0 8px;
+        font-family: $stats-display;
+        font-size: 28px;
+        line-height: 1.2;
+        color: var(--ink);
+    }
+
+    p {
+        font-size: 14px;
+        line-height: 24px;
+        color: var(--ink-3);
+    }
+
+    .cta {
+        display: inline-flex;
+        margin: 10px 4px 0;
+    }
+}
+
+.stats-report {
+    display: grid;
+    gap: 22px;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.stats-section {
+    padding: 22px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-1);
+}
+
+.stats-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    margin-bottom: 14px;
+
+    h2 {
+        font-family: $stats-display;
+        font-size: 22px;
+        line-height: 1.2;
+        color: var(--ink);
+    }
+
+    p {
+        font-family: $stats-meta;
+        font-size: 11px;
+        letter-spacing: .3px;
+        color: var(--ink-3);
+    }
+}
+
+// clamp 而不是 @media：postcss 的 mediaQuery 开关会把这里的 px 断点换算成 vw，
+// 761px 会变成 101.4vw，在 375 屏上反而更早命中。格子本身用 clamp 连续变化，
+// px 值在 .stats- 黑名单里，不会被换成 vw。
+.stats-heatmap {
+    display: grid;
+    grid-template-columns: repeat(7, clamp(16px, 1.6vw, 22px));
+    grid-auto-rows: clamp(16px, 1.6vw, 22px);
+    gap: clamp(4px, .4vw, 6px);
+    width: max-content;
+    margin-top: 4px;
+}
+
+.stats-day {
+    border-radius: 3px;
+    background-color: var(--surface-2);
+
+    &[data-level='1'] {
+        background-color: var(--signal-soft);
+    }
+
+    &[data-level='2'] {
+        background-color: rgba(15, 98, 254, .28);
+        background-color: color-mix(in srgb, var(--signal) 28%, transparent);
+    }
+
+    &[data-level='3'] {
+        background-color: rgba(15, 98, 254, .55);
+        background-color: color-mix(in srgb, var(--signal) 55%, transparent);
+    }
+
+    &[data-level='4'] {
+        background-color: var(--signal);
+    }
+
+    &.is-future {
+        opacity: .35;
+    }
+}
+
+.stats-heat-legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 12px;
+    font-family: $stats-meta;
+    font-size: 10px;
+    color: var(--ink-3);
+
+    i {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        background-color: var(--surface-2);
+
+        &[data-level='1'] {
+            background-color: var(--signal-soft);
+        }
+
+        &[data-level='2'] {
+            background-color: rgba(15, 98, 254, .28);
+            background-color: color-mix(in srgb, var(--signal) 28%, transparent);
+        }
+
+        &[data-level='3'] {
+            background-color: rgba(15, 98, 254, .55);
+            background-color: color-mix(in srgb, var(--signal) 55%, transparent);
+        }
+
+        &[data-level='4'] {
+            background-color: var(--signal);
+        }
+    }
+}
+
+.stats-grid {
+    display: grid;
+    // auto-fit 而不是断点：同一份规则在 920px 上是两列、在 335px 上是一列，
+    // 不新增会被 mediaQuery 换算的 px 断点。
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+}
+
+.stats-bars {
+    display: grid;
+    margin: 0;
+
+    li {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 0;
+        border-top: 1px solid var(--rule);
+
+        &:first-child {
+            padding-top: 0;
+            border-top: 0;
+        }
+    }
+}
+
+.stats-bar-label {
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 19px;
+    color: var(--ink-2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    a {
+        color: var(--ink-2);
+        text-decoration: none;
+
+        &:hover {
+            color: var(--signal);
+        }
+    }
+}
+
+.stats-bar-track {
+    height: 8px;
+    overflow: hidden;
+    background-color: var(--surface-2);
+    border-radius: 999px;
+}
+
+.stats-bar-fill {
+    display: block;
+    height: 100%;
+    background-color: var(--signal);
+    border-radius: inherit;
+}
+
+.stats-bar-value {
+    font-family: $stats-meta;
+    font-size: 11px;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.stats-none {
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.stats-recent {
+    display: grid;
+    margin: 0;
+
+    li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 6px 14px;
+        padding: 10px 0;
+        border-top: 1px solid var(--rule);
+
+        &:first-child {
+            padding-top: 0;
+            border-top: 0;
+        }
+    }
+
+    a {
+        font-size: 14px;
+        line-height: 21px;
+        color: var(--ink-2);
+
+        &:hover {
+            color: var(--signal);
+        }
+    }
+
+    span {
+        font-family: $stats-meta;
+        font-size: 11px;
+        color: var(--ink-3);
+    }
+}
+
+.stats-queue-note {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 21px;
+    color: var(--ink-3);
+}
+
+.stats-open-shelf {
+    margin-top: 14px;
+}
+
+// 入场只动 opacity/transform；减弱动效的档位直接跳过，内容一开始就是可见的。
+@media (prefers-reduced-motion: no-preference) {
+    .stats-report .stats-section {
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
+    }
+
+    .stats-report.is-ready .stats-section {
+        opacity: 1;
+        transform: none;
+    }
+}

@@ -32,6 +32,7 @@ module.exports = {
         /^\.social-share/,      // 分享按钮
         /^\.lab-content/,       // weblab页面
         /^\.p-about/,           // about页面
+        '.stats-',              // 阅读报告页（/stats.html）：报表卡片的 px 密度按桌面设计，不能等比放大
         /^#SOHUCS/,             // 畅言评论区
         // editorial 改造层：这一层的栅格宽度、正文 measure、目录栏宽都是按桌面
         // 视口设计的固定值，一旦被换成 vw 会整体等比缩放（1440 屏上 760px 正文

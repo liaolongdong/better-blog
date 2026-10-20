@@ -246,12 +246,33 @@
       {%- endcomment -%}
       {%- assign body_dims_mode = '' -%}
       {%- unless page.cover -%}{%- assign body_dims_mode = 'lcp' -%}{%- endunless -%}
+      {%- if page.tldr %}
+      <aside class="post-tldr" aria-label="结论先行">
+        <p class="post-tldr-label">先看结论</p>
+        <p class="post-tldr-text">{{ page.tldr }}</p>
+      </aside>
+      {%- endif %}
       <article class="markdown-body" id="post-body"
                data-chars="{{ post_chars }}"
                data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"
                data-cat="{{ page.categories | first }}">
         {{ post_body | add_baseurl_to_images | add_image_dims: body_dims_mode }}
       </article>
+
+      {%- if page.faq and page.faq.first and page.faq.size > 0 %}
+      <section class="post-faq" aria-labelledby="post-faq-title">
+        <p class="post-faq-kicker">FAQ · 常见问题</p>
+        <h2 class="post-faq-title" id="post-faq-title">常见问题</h2>
+        <div class="post-faq-list">
+          {%- for item in page.faq %}
+          <details class="post-faq-item">
+            <summary>{{ item.q }}</summary>
+            <p>{{ item.a }}</p>
+          </details>
+          {%- endfor %}
+        </div>
+      </section>
+      {%- endif %}
 
       {%- comment -%}
       篇末收束：读完 17 分钟的长文，此刻最容易直接划走，所以先把「你在这篇上花了多久、

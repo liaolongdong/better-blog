@@ -1,0 +1,116 @@
+---
+layout: statsTemplate
+title: 阅读报告
+seo_description: 基于本机书架数据生成的阅读报告：累计时长、连续天数、近五周热力图、分类与合集完成度。全部数据只存在这台设备，不上传、不追踪。
+noindex: true
+permalink: /stats.html
+---
+{% include header.html %}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Reading log / 本机数据</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">Local only</span>
+        </p>
+        <h1 class="masthead-title">阅读报告</h1>
+        <p class="masthead-lede">
+            这些数字来自这台设备的书架：读过的文章、停留时长、连续天数与分类偏好。
+            换一台设备或清掉浏览器缓存，就会从零开始；这里没有账号，也没有上传。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong id="stats-hero-read">—</strong><span>读过</span></li>
+            <li><strong id="stats-hero-time">—</strong><span>累计用时</span></li>
+            <li><strong id="stats-hero-streak">—</strong><span>连续天数</span></li>
+            <li><strong id="stats-hero-days">—</strong><span>近 30 天</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container stats-page" id="main">
+    <noscript>
+        <p class="stats-noscript">阅读报告需要 JavaScript 才能读取本机书架；数据不会离开这台设备。</p>
+    </noscript>
+
+    <section class="stats-empty" id="stats-empty" hidden>
+        <p class="stats-empty-kicker">No data yet</p>
+        <h2>还没有阅读记录</h2>
+        <p>翻开任意一篇文章，停留几秒就会留下足迹；书架里的待读也会显示在这里。</p>
+        <p>
+            <a class="cta cta-primary" href="{{ '/' | relative_url }}">回首页挑一篇</a>
+            <a class="cta" href="{{ '/categories.html' | relative_url }}">按分类找</a>
+        </p>
+    </section>
+
+    <div class="stats-report" id="stats-report" hidden>
+        <section class="stats-section" aria-labelledby="stats-heat-title">
+            <header class="stats-section-head">
+                <h2 id="stats-heat-title">近五周</h2>
+                <p id="stats-heat-summary">正在读取本机数据…</p>
+            </header>
+            <div class="stats-heatmap" id="stats-heatmap" role="img" aria-label="近五周每日阅读时长热力图"></div>
+            <p class="stats-heat-legend" aria-hidden="true">
+                <span>少</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>多</span>
+            </p>
+        </section>
+
+        <div class="stats-grid">
+            <section class="stats-section" aria-labelledby="stats-cat-title">
+                <header class="stats-section-head">
+                    <h2 id="stats-cat-title">分类偏好</h2>
+                    <p>读过的文章按主分类计</p>
+                </header>
+                <ul class="stats-bars" id="stats-cats"></ul>
+            </section>
+            <section class="stats-section" aria-labelledby="stats-series-title">
+                <header class="stats-section-head">
+                    <h2 id="stats-series-title">合集完成度</h2>
+                    <p>读完 98% 以上算一篇</p>
+                </header>
+                <ul class="stats-bars" id="stats-series"></ul>
+            </section>
+        </div>
+
+        <section class="stats-section" aria-labelledby="stats-recent-title">
+            <header class="stats-section-head">
+                <h2 id="stats-recent-title">最近在读</h2>
+                <p>按最后停留时间排</p>
+            </header>
+            <ol class="stats-recent" id="stats-recent"></ol>
+        </section>
+
+        <section class="stats-section" aria-labelledby="stats-queue-title">
+            <header class="stats-section-head">
+                <h2 id="stats-queue-title">待读队列</h2>
+                <p id="stats-queue-summary">—</p>
+            </header>
+            <p class="stats-queue-note">书架入口在顶栏；完整清单在书架抽屉里，数据同样只存在本机。</p>
+            <button class="cta stats-open-shelf" id="stats-open-shelf" type="button">打开书架</button>
+        </section>
+    </div>
+
+    {%- comment -%}
+    合集清单给 stats.js 算完成度。URL 是 page.url 口径（不含 baseurl），JS 会补
+    window.SITE_BASEURL 再与书架里的 pathname 对齐；只输出能在 site.posts 里找到的条目。
+    {%- endcomment -%}
+    <script type="application/json" id="stats-series-data">
+[
+{%- for s in site.data.series -%}
+  {%- assign first_post = true -%}
+  {"title": {{ s.title | jsonify }}, "slug": {{ s.slug | jsonify }}, "posts": [
+  {%- for u in s.order -%}
+    {%- assign sp = site.posts | where: "url", u | first -%}
+    {%- if sp -%}
+      {%- unless first_post -%},{%- endunless -%}
+      {"url": {{ sp.url | jsonify }}, "title": {{ sp.title | jsonify }}}
+      {%- assign first_post = false -%}
+    {%- endif -%}
+  {%- endfor -%}
+  ]}{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]
+    </script>
+</main>
+
+{% include footer.html %}

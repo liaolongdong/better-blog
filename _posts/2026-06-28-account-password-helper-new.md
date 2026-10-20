@@ -8,6 +8,16 @@ date: 2026-06-28
 categories: [Chrome插件]
 cover: /assets/img/account-password-helper/account_password_helper_banner.webp
 tags: 账号密码管理助手 一键填充 自动登录 chrome浏览器插件 工具 插件
+tldr: '账号密码管理助手把多环境、多角色的账号加密存在本机，登录页选一个账号就能一键填充并自动登录；任何凭据都不上传。'
+faq:
+  - q: '账号密码管理助手会把密码上传到服务器吗？'
+    a: '不会。文章明确任何凭据都不上传：主密码经 PBKDF2 600,000 次迭代派生 256-bit 密钥，敏感字段用 AES-256-GCM 加密后存在本机的 chrome.storage 里。'
+  - q: '它和 Chrome 自带密码管理、1Password 有什么区别？'
+    a: '它面向开发测试的多账号、多系统、多环境快速登录，支持按项目、环境、角色打标签，侧边栏筛选后一键填充并自动登录。Chrome 自带适合个人常用网站，1Password、Bitwarden 更适合团队共享与跨设备长期密码。'
+  - q: '适合谁用？'
+    a: '经常在本地、测试、预发之间切换账号的开发，批量验证角色权限的测试，以及需要演示账号、验收账号的产品。只有个人常用网站密码需求时，浏览器自带或主流密码管理器更合适。'
+  - q: '忘记主密码怎么办？'
+    a: '主密码是解锁所有密码数据的唯一钥匙，忘了找不回来，只能通过重置清空数据后重新设置；这也是把凭据留在本机、不上传服务器的代价。'
 ---
 
 ![文章封面](/assets/img/account-password-helper/account_password_helper_banner.webp)
