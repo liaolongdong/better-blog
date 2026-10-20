@@ -3572,6 +3572,76 @@
         });
     }
 
+    /* ------------------------------------------------------------------
+     * 20. 封面共享元素转场
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 首页/列表封面 → 文章头图的空间连续性。只在真实点击卡片时给当前封面挂
+     * `view-transition-name: post-cover`，并把一次性标记写进 sessionStorage；
+     * 文章页在头图后立刻读标记、把同一个名字挂到 .post-hero 上。两边同名，
+     * 浏览器才会把「卡片」与「头图」当成同一块做 morph。
+     *
+     * 为什么不给所有封面预先命名：同一页多张卡片，view-transition-name 必须唯一；
+     * 预命名会在快照阶段直接报重复名字，整页转场被放弃。所以只命名被点的那一张。
+     */
+    function initCoverTransition() {
+        if (!('startViewTransition' in document)) return;
+        if (!document.querySelector('.article-item')) return;
+
+        var current = null;
+        var navTimer = null;
+
+        /** 清掉上一张封面留下的名字、标记与取消定时器；bfcache 恢复与新点击共用。 */
+        function clearMark() {
+            if (current) {
+                current.style.viewTransitionName = '';
+                current = null;
+            }
+            if (navTimer) {
+                window.clearTimeout(navTimer);
+                navTimer = null;
+            }
+            try { sessionStorage.removeItem('vtCover'); } catch (e) { /* 无痕模式 */ }
+        }
+
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var link = e.target && e.target.closest ? e.target.closest('a.post-link') : null;
+            if (!link || link.target === '_blank') return;
+
+            clearMark();
+            var article = link.closest('.article-item');
+            var cover = article ? article.querySelector('.post-cover') : null;
+            if (!cover) return;
+
+            current = cover;
+            cover.style.viewTransitionName = 'post-cover';
+            try {
+                // 目的地 + 时间戳：文章页必须两者都对上才认，bfcache/取消导航留下的
+                // 旧标记不会在下一次无关跳转里被误用。
+                sessionStorage.setItem('vtCover', JSON.stringify({
+                    path: link.pathname,
+                    at: Date.now()
+                }));
+            } catch (e) {
+                /* 无痕模式下没有 sessionStorage：退回普通跨页转场 */
+            }
+            navTimer = window.setTimeout(function () {
+                navTimer = null;
+                if (current === cover) {
+                    cover.style.viewTransitionName = '';
+                    current = null;
+                }
+                try { sessionStorage.removeItem('vtCover'); } catch (e) { /* 同上 */ }
+            }, 5000);
+        }, true);
+
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) clearMark();
+        });
+    }
+
     // ———— 离线层：注册 Service Worker（SW 本体在仓库根 sw.js）————
     /**
      * 注册站点离线层。四道闸门，一道都不能少：
@@ -3624,6 +3694,7 @@
         initWrapUp();
         initCitationShare();
         initShortcuts();
+        initCoverTransition();
         initMagneticCta();
         // 排在最后一条：注册本身是异步的，但它会在这一帧之后立刻发一个请求，
         // 让首屏的其余同步工作先跑完，别让离线层和它们抢同一个 tick。

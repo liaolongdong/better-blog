@@ -6174,6 +6174,19 @@ dialog.shelf[open] {
     ::view-transition-new(page-masthead) {
         animation: vtFadeIn var(--dur-3) var(--ease-out) both;
     }
+
+    // 封面共享元素：旧页在 .post-cover、新页在 .post-hero 挂同一个名字。
+    // group 负责盒子从卡片尺寸长成头图尺寸；old/new 的交叉淡化沿用默认节奏。
+    ::view-transition-group(post-cover) {
+        animation-duration: var(--dur-3);
+        animation-timing-function: var(--ease-out);
+    }
+
+    ::view-transition-old(post-cover),
+    ::view-transition-new(post-cover) {
+        animation-duration: var(--dur-2);
+        animation-timing-function: var(--ease-out);
+    }
 }
 
 @keyframes vtRootOut {

@@ -230,6 +230,47 @@
       </div>
     </figure>
     {% endif %}
+    <script>
+    (function () {
+        var payload = null;
+        try {
+            var raw = sessionStorage.getItem('vtCover');
+            sessionStorage.removeItem('vtCover');
+            payload = raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return;
+        }
+        if (!payload || payload.path !== location.pathname) return;
+        if (typeof payload.at !== 'number' || Date.now() - payload.at > 30000) return;
+
+        // 只给这一页唯一的头图命名；旧页在卡片封面上挂的是同一个名字。
+        var hero = document.querySelector('.post-hero');
+        if (!hero) return;
+        hero.style.viewTransitionName = 'post-cover';
+
+        var cleared = false;
+        function clearHeroName() {
+            if (cleared) return;
+            cleared = true;
+            if (hero.style.viewTransitionName === 'post-cover') {
+                hero.style.viewTransitionName = '';
+            }
+        }
+
+        // 转场结束后把名字摘掉，避免下一次主题切换/跨页跳转把这张头图单独抓出来。
+        // pagereveal 拿不到时用 activeViewTransition 与 timeout 兜底。
+        window.addEventListener('pagereveal', function (e) {
+            var vt = e.viewTransition;
+            if (vt && vt.finished) vt.finished.then(clearHeroName, clearHeroName);
+        });
+        var active = document.activeViewTransition;
+        if (active && active.finished) active.finished.then(clearHeroName, clearHeroName);
+        window.setTimeout(clearHeroName, 1500);
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) clearHeroName();
+        });
+    })();
+    </script>
   </header>
 
   <div class="post-content visible">
