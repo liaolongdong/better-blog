@@ -396,7 +396,17 @@ if (base.code !== 0) {
   // 两份 `title` 与整份 svg 注释早就漂了。所以这里两头都要咬：报得出、也修得回。
   const planSnap = read(PLAN2);
   const orig = read('_data/onlineTools.yml');
-  put('_data/onlineTools.yml', orig.replace('title: 身份证号校验与生成', 'title: 身份证号校验与生成X'));
+  // 锚点不能再写死某一条 title：2026-10-19 那笔工具改版把「身份证号校验与生成」这个标题改了，
+  // 于是 `orig.replace('title: 身份证号校验与生成', ...)` 变成一次**空替换**——磁盘没动、
+  // 门禁当然全绿，这条牙齿从那天起一直在「通过」的名义下什么都没咬（G8 报的是
+  // 「漂移 exit=0 点名=false」，正是空变异的签名）。现在按文件里真实存在的第一条 title 派生，
+  // 并且像其它几刀一样先断言变异确实落了笔。
+  const anchor = /^([ \t]*)title: \S.*$/m.exec(orig);
+  const mutated = anchor
+    ? orig.replace(anchor[0], () => `${anchor[0]}X`)
+    : orig;
+  put('_data/onlineTools.yml', mutated);
+  const landed = anchor ? mutated !== orig : false;
   const r1 = run();
   const r2 = run(['--fix']);
   const wroteBack = /→ 已同步 _data\/onlineTools\.yml/.test(r2.out);
@@ -407,9 +417,10 @@ if (base.code !== 0) {
   const r3 = run();
   put(PLAN2, planSnap);
   const r4 = run();
-  check('G8 非 js 镜像漂移：报 ✗ → --fix 写回 yml 块 → 只还原磁盘仍 ✗ → 双向还原后退 0',
-    r1.code === 1 && /✗ _data\/onlineTools\.yml/.test(r1.out) && wroteBack && r3.code === 1 && r4.code === 0,
-    `漂移 exit=${r1.code} 点名=${/✗ _data\/onlineTools\.yml/.test(r1.out)}；--fix(exit=${r2.code}) 写回=${wroteBack}；`
+  check('G8 非 js 镜像漂移：变异落地 → 报 ✗ → --fix 写回 yml 块 → 只还原磁盘仍 ✗ → 双向还原后退 0',
+    landed && r1.code === 1 && /✗ _data\/onlineTools\.yml/.test(r1.out) && wroteBack && r3.code === 1 && r4.code === 0,
+    `锚点落地=${landed}（yml 里找不到 title 行就等于空变异）；`
+      + `漂移 exit=${r1.code} 点名=${/✗ _data\/onlineTools\.yml/.test(r1.out)}；--fix(exit=${r2.code}) 写回=${wroteBack}；`
       + `只还原磁盘 exit=${r3.code}（计划里还留着改写后的那份，应 ✗）；双向还原后 exit=${r4.code}`);
 }
 

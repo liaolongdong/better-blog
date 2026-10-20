@@ -5203,6 +5203,10 @@ const ROW_HEIGHT = 24;
 /** 闸门读数（行 / 字节）随 `input` 刷新的防抖时长；真页面上由入口注入的那只延时承载 */
 const DEBOUNCE_MS = 200;
 
+/** 「载入示例」写进 A/B 的两段文本：一行改、一行增，按默认上下文就能看到两块差异 */
+const SAMPLE_A = 'const user = { name: "Ada", role: "admin" };\nconsole.log(user.name);\n';
+const SAMPLE_B = 'const user = { name: "Ada", role: "editor" };\nconsole.log(user.name);\nconsole.log(user.role);\n';
+
 /**
  * 三枚档位下拉的默认值：骨架那格给空串时落在这里；非空而不在白名单里一律上抛（Z21 的 `'9'`）。
  * 导出它的唯一消费者是收录面门禁的组 6——那一组要把这一格与骨架上带 `selected` 的那枚 option 对撞
@@ -5394,6 +5398,7 @@ export const controlIds = (p) => {
  *   后退不该先退回上一个档位
  * @param {Function} [env.runGuarded] `(id, fn) => boolean`：坏消息的边界，本层只管抛
  * @param {Function} env.later `(fn, ms) => number`：防抖那一只延时
+ * @param {Function} [env.afterPaint] `(fn) => void`：大输入比较前让出一帧；缺席时同步执行
  * @param {object} [env.navigator] 只借 `clipboard` 那一格
  * @param {number} [env.rowHeight] 行高（样式给的环境量），非 `≥1` 的整数当场 `RangeError`
  * @param {Function} [env.BlobCtor] 下载三件之一，按工厂调用（本层不写 `new Blob`）
@@ -5426,6 +5431,7 @@ export function createDiffWorkbench(env) {
     && typeof env.createObjectURL === 'function' && typeof env.revokeObjectURL === 'function';
   const nav = env.navigator;
   const clip = nav ? nav.clipboard : undefined;
+  const afterPaint = typeof env.afterPaint === 'function' ? env.afterPaint : null;
   const rowHeight = env.rowHeight === undefined ? ROW_HEIGHT : env.rowHeight;
   /**
    * 档位 ↔ 地址栏那三只（SP2 Task 1）。`urlMod` / `loc` / `hist` 缺任何一只就**整段不同步**——
@@ -5868,7 +5874,14 @@ export function createDiffWorkbench(env) {
     if (key === 'fileB') { openPicker('b'); return; }
     throw new RangeError(`「${key}」在 DIFF_ACTIONS 的清单上，本层却没有对应的行为：按钮长出来了而没人接`);
   };
-  /** 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界 */
+  /** 超过这个字符数才先画“计算中…”；小输入保持原来的同步路径 */
+  const HEAVY_CHARS = 256 * 1024;
+
+  /**
+   * 一次按钮动作：先过 `FieldError` 那一层，其余交给注入的边界。
+   * 大输入比较先让出一帧、把状态行改成“计算中…”并置灰动作按钮，避免几秒无响应
+   * 被读成卡死；小输入不走这一圈，键盘与测试仍是同步结果。
+   */
   const act = (key) => {
     const id = buttonId(env.prefix, PANEL, key);
     const inner = () => {
@@ -5879,8 +5892,28 @@ export function createDiffWorkbench(env) {
         else throw err;
       }
     };
-    if (typeof env.runGuarded === 'function') env.runGuarded(id, inner);
-    else inner();
+    const run = () => {
+      if (typeof env.runGuarded === 'function') env.runGuarded(id, inner);
+      else inner();
+    };
+    const aNode = nodes.get(fieldId(env.prefix, PANEL, 'a-text'));
+    const bNode = nodes.get(fieldId(env.prefix, PANEL, 'b-text'));
+    const chars = String(aNode ? aNode.value || '' : '').length + String(bNode ? bNode.value || '' : '').length;
+    if (key !== 'compare' || chars < HEAVY_CHARS || typeof afterPaint !== 'function') {
+      run();
+      return;
+    }
+    const btn = nodes.get(id);
+    const wasDisabled = btn ? btn.disabled : false;
+    if (btn) btn.disabled = true;
+    say('bar', '计算中…');
+    afterPaint(() => {
+      try {
+        run();
+      } finally {
+        if (btn) btn.disabled = wasDisabled;
+      }
+    });
   };
 
   /**
@@ -5982,6 +6015,11 @@ export function createDiffWorkbench(env) {
         if (nodes.has(areaId)) {
           const area = nodes.get(areaId);
           area.addEventListener('input', scheduleGate);
+          area.addEventListener('keydown', (evt) => {
+            if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;
+            if (typeof evt.preventDefault === 'function') evt.preventDefault();
+            act('compare');
+          });
           area.addEventListener('drop', (evt) => {
             if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
             takeFile(side, evt && evt.dataTransfer ? evt.dataTransfer.files : null);
@@ -5999,6 +6037,29 @@ export function createDiffWorkbench(env) {
           });
         }
       }
+      /**
+       * 「载入示例」：填两份短文本并把口径/视图/上下文归到默认档，再走与「重新对比」完全相同的
+       * 动作通道。示例按钮的 id 由 prefix 派生，不在 DIFF_ACTIONS 的十四枚里——它不参与比对，
+       * 只负责把空态变成一次看得见的结果。档位归默认是为了保证无论在 JSON 档还是行内档点它，
+       * 都得到一份能读的并排文本差异。
+       */
+      const sampleBtn = env.document.getElementById(`${env.prefix}-sample`);
+      if (sampleBtn) {
+        sampleBtn.addEventListener('click', () => {
+          field('a-text').value = SAMPLE_A;
+          field('b-text').value = SAMPLE_B;
+          field('a-name').value = 'before.txt';
+          field('b-name').value = 'after.txt';
+          field('mode').value = DEFAULTS.mode;
+          field('layout').value = DEFAULTS.layout;
+          field('context').value = DEFAULTS.context;
+          readControls();
+          syncGate();
+          syncUrl();
+          refreshGate();
+          act('compare');
+        });
+      }
       for (const id of ['mode', 'layout', 'context']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {
@@ -6012,7 +6073,18 @@ export function createDiffWorkbench(env) {
       }
       /** 折叠条的「点开」：结果区每次比较都整块重画，监听只能挂在容器上（§W 的树容器同一条理由） */
       const ob = nodes.get(outId(env.prefix, PANEL, 'bar'));
-      if (ob && typeof ob.addEventListener === 'function') ob.addEventListener('click', onFoldClick);
+      if (ob && typeof ob.addEventListener === 'function') {
+        ob.addEventListener('click', onFoldClick);
+        // 跳转快捷键只挂在结果区：Alt+↑/↓ 在 textarea 里是 macOS 的词/行导航，
+        // 挂在粘贴框上会吞掉用户正在用的编辑手势。结果区在 HTML 里给了 tabindex=0。
+        ob.addEventListener('keydown', (evt) => {
+          if (!evt || !evt.altKey || evt.ctrlKey || evt.metaKey || evt.shiftKey) return;
+          if (!Array.isArray(s.hunks) || s.hunks.length === 0) return;
+          if (evt.key !== 'ArrowDown' && evt.key !== 'ArrowUp') return;
+          if (typeof evt.preventDefault === 'function') evt.preventDefault();
+          act(evt.key === 'ArrowDown' ? 'nextDiff' : 'prevDiff');
+        });
+      }
       for (const id of ['ws', 'case']) {
         const fid = fieldId(env.prefix, PANEL, id);
         if (nodes.has(fid)) {
@@ -6271,6 +6343,9 @@ function boot(doc, win, tk) {
     return Number.isInteger(v) && v >= 1 ? v : 24;
   };
 
+  // 入口只保留这一处 `setTimeout(`：防抖与“让出一帧”共用同一个调度别名。
+  const defer = (fn, ms = 0) => setTimeout(fn, ms);
+
   const wb = createDiffWorkbench({
     document: doc,
     Tk: tk,
@@ -6281,7 +6356,8 @@ function boot(doc, win, tk) {
     //（SP2 Task 1 的 `Tk.url`）；不给它们，这一页的行为与今天逐字节一样——只是不同步地址栏。
     location: win.location,
     history: win.history,
-    later: (fn, ms) => setTimeout(fn, ms),
+    later: defer,
+    afterPaint: (fn) => defer(fn, 0),
     rowHeight: rowHeightPx(),
     readFile: fileReaderOf(win),
     decode: decodeOf(win),
@@ -6547,6 +6623,7 @@ tool: diff
     其余部分照常可用。
     {%- endcomment -%}
     <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    <p class="tk-kbd"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 在任一粘贴框里重新对比 · 聚焦结果区后 <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd> 上一处 / 下一处</p>
 
     <div class="df-workspace" id="{{ tk.prefix }}-workspace"
          data-df-ids="workbench" data-df-prefix="{{ tk.prefix }}"
@@ -6557,9 +6634,8 @@ tool: diff
 
         表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
         ?df-in-workbench-a-text=…，而那一串里装的正是用户粘进来的两份内容——这一页最不该发生的事。
-        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`），所以这一页**不写** .tk-kbd
-        那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行），
-        写一句不存在的捷径比不写更坏。
+        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`）；两侧粘贴框另接 Ctrl / ⌘ + Enter
+        走「重新对比」，裸 Enter 仍是换行。上面那句 .tk-kbd 说的就是这一条。
 
         两栏的 id 短名里编了栏位（`a-text` / `b-file`），而不是把栏位做成 id 的一维：
         门禁⑤ 的控件公式 `{p}-in-{面板}-{控件}` 没有栏位那一格，多塞一维就红（§0.6 记的偏差）。
@@ -6742,14 +6818,18 @@ tool: diff
                 结论、读数、两块行流、折叠条与代价说明都从它走），骨架给的是**空的**那一格。
                 它同时是本页唯一的滚动容器：跳转那三枚算的是 `scrollTop = 视觉行数 × 行高`，
                 行高的权威在 `toolDiff.scss` 的 `--df-row-h`，由入口读一次注入（Z15 数那一格）。
-                所以这一格的高度必须写死在样式里而不是随内容长——没有滚动就没有上界，
-                那三枚按钮就永远跳不动（同 JSON 页 `.jt-tree` 那一段的理由）。
+                所以这一格的高度**上限**必须写在样式里：没有上限就没有滚动条，
+                长差异的 `scrollTop` 就没有上界，那三枚按钮永远跳不动；
+                短结果则按内容收高，不替长结果占一块白（同 JSON 页 `.jt-tree` 那一段的理由）。
                 `aria-live="polite"` 与另三页同档：一次动作换一栏，不该打断用户正在读的东西。
                 {%- endcomment -%}
-                <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
-                   aria-live="polite">还没有比较</p>
+                <div class="df-sample-row">
+                    <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
+                       aria-live="polite">还没有比较</p>
+                    <button class="df-sample-link" type="button" id="{{ tk.prefix }}-sample">载入示例对比</button>
+                </div>
                 <div class="tk-out df-out" id="{{ tk.prefix }}-out-{{ wbp }}-bar"
-                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out" tabindex="0"></div>
             </div>
             <h2 class="df-side__title df-side__title--sr" id="{{ tk.prefix }}-h-out">差异结果</h2>
         </section>
@@ -6847,9 +6927,10 @@ _data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正�
 // `.df-mode[hidden]` 那一格**必须**显式写：作者样式恒胜 UA 的 `[hidden]{display:none}`，
 // 而 `.df-mode` 后面要挂 `margin` 与 `max-width`——不补这一条，切到 JSON 档时文本档那句
 // 说明会留在屏幕上，读起来像"两档同时成立"。
-// `.df-out` 的高度写死在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
-// 跳转靠的是这只容器自己的 `scrollTop`；不给高度就没有滚动条，`scrollTop` 恒 0，
+// `.df-out` 的高度上限写在这一格是第四格那条前提的另一半：装配层只往这一格里写 `innerHTML`，
+// 跳转靠的是这只容器自己的 `scrollTop`；没有上限就没有滚动条，长差异的 `scrollTop` 恒 0，
 // 那三枚按钮按下去什么也不发生，而 §Z 的每一判一条都不红（假 DOM 里 `scrollTop` 是个普通属性）。
+// 上限而不是固定高度：短结果按内容收高，不替长结果占一块白；长结果到上限才滚。
 //
 // 五、独立入口拿不到 `$font-display` / `$font-meta`（vite 按 dev/sass/*.scss 逐个打包，
 // @import tokens 会把整层令牌复制进本产物）。下面重复的是**字族名**，不是字体文件——
@@ -6954,18 +7035,10 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     align-items: center;
 }
 
-// 原生选择框那一格：`.tk-field input` 给的是 `width:100%` + 表单字的那份内边距，
-// 套在 `type=file` 上会把两枚按钮挤出这一行。这里收回到"一行里的一格"。
+// 原生选择框只留作程序入口：可见的控制是旁边那枚「选 A / B 侧文件」按钮，
+// 两个并排会让同一件事看起来像两件事。按钮仍对它调 `.click()`，程序化选择与自动化夹具不受影响。
 .tk-field .df-file {
-    box-sizing: border-box;
-    max-width: min(100%, 30em);
-    padding: 4px 6px;
-    font-family: $df-meta;
-    font-size: 12px;
-    background-color: var(--surface-2);
-    border-style: dashed;
-    border-color: var(--rule-2);
-    cursor: pointer;
+    display: none;
 }
 
 // ── 控制栏四段 ────────────────────────────────────────────────────────────
@@ -7058,17 +7131,15 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 
 // ── 结果区 ────────────────────────────────────────────────────────────────
 
-.df-status--bar {
-    font-size: 11.5px;
-    letter-spacing: .4px;
-}
-
 // 本页唯一的滚动容器，也是 §Z 那句"整页只有一处 innerHTML"的那个落点。
-// 高度写死、两个方向都给滚动条：文件头第四条那两格前提都在这里。
+// **高度上限**（不是固定高度）：短结果按内容收高，长结果到上限才出现滚动条。
+// 跳转那三枚的 `scrollTop` 上界由 `scrollHeight - clientHeight` 给出；短内容时上界是 0，
+// 长内容时上界非 0，两种形状都不需要一块"永远占着的白"。文件头第四条那两格前提仍在。
 .df-out {
     box-sizing: border-box;
     width: 100%;
-    height: min(620px, 68vh);
+    height: auto;
+    max-height: min(620px, 68vh);
     padding: 0;
     overflow: auto;
     overscroll-behavior: contain;
@@ -7076,6 +7147,53 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     background-color: var(--surface);
     border-radius: var(--radius-m);
     box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+// 状态行做成药丸：它与下方的空态/结果区是同一条阅读线，不再是悬空的一行小字。
+.df-status--bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: start;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    letter-spacing: .4px;
+    color: var(--ink-2);
+    background-color: var(--surface-2);
+    border-radius: 999px;
+}
+
+.df-status--bar::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    background-color: var(--signal);
+    border-radius: 50%;
+}
+
+// 状态行与「载入示例」并排；示例是交互捷径，不占动作表里的 14 枚。
+.df-sample-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.df-sample-link {
+    padding: 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    cursor: pointer;
+    background: none;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.df-sample-link:hover {
+    color: var(--signal);
 }
 
 .df-notice {
@@ -7092,10 +7210,10 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 .df-verdict {
     margin: 0;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: 14px;
     line-height: var(--df-row-h);
     color: var(--ink);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .df-verdict--same {
@@ -7116,11 +7234,15 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 }
 
 .df-stats {
+    display: inline-block;
     margin: 0;
     padding: 0 10px;
     font-size: 12px;
     line-height: var(--df-row-h);
-    color: var(--ink-3);
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    background-color: var(--surface-2);
+    border-radius: 999px;
 }
 
 // ── 行流：并排两栏 / 行内一栏 ─────────────────────────────────────────────
@@ -7449,7 +7571,7 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     }
 
     .df-out {
-        height: min(500px, 60vh);
+        max-height: min(500px, 60vh);
     }
 }
 
@@ -7487,6 +7609,13 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     .df-opt select {
         flex: 1;
         min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .df-opt--check input {
+        width: 18px;
+        height: 18px;
     }
 
     .df-row {
@@ -7498,7 +7627,7 @@ $df-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     }
 
     .df-out {
-        height: min(420px, 54vh);
+        max-height: min(420px, 54vh);
     }
 }
 ```
