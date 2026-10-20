@@ -2585,6 +2585,14 @@
         }
     }
 
+    /** 抹掉页面上「读过」的两处痕迹：行上的 is-read 与标题里的角标。 */
+    function clearReadMarks() {
+        var rows = document.querySelectorAll('.is-read');
+        for (var i = 0; i < rows.length; i++) rows[i].classList.remove('is-read');
+        var marks = document.querySelectorAll('.read-mark');
+        for (var j = 0; j < marks.length; j++) marks[j].remove();
+    }
+
     /** 角标只在待读非空时出现：空书架不该在顶栏占一个视觉位置。 */
     function syncShelfBadge(shelf) {
         var badge = document.querySelector('[data-shelf-count]');
@@ -2896,6 +2904,10 @@
                 var fresh = emptyShelf();
                 syncShelfMarks(fresh);
                 syncShelfBadge(fresh);
+                // 足迹一清空，列表上那些「读过」角标就成了谎话——它们是同一次读取里从 shelf.f
+                // 生成的，不会自己消失。不清的话，读者按完「清空」看到的仍是一排「读过」，
+                // 刷新之后才空，等于用一次刷新才能确认这个按钮干了什么。
+                clearReadMarks();
                 render();
             });
         }
