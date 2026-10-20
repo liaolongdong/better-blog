@@ -72,6 +72,14 @@ const SHELL_URLS = [
   BASE + '/assets/js/index.min.js',
   BASE + '/assets/js/tools.min.js',
   BASE + '/assets/js/editorial.min.js',
+{%- comment -%}
+命令面板拆成独立件后由 editorial.js 在第一次 ⌘K 时注入，**不写在任何页面 HTML 里**，
+所以这一条是骨架清单里唯一「页面上抓不到引用」的地址。它仍要预缓存：离线时读者照样会按 ⌘K，
+届时没有缓存就是一次注定失败的注入 + 一个按了没反应的面板。判据 2 若因此把它算成孤儿，
+按「运行时注入的公共件」这一类给它开口径，而不是把它踢出清单——踢出去省的是 8KB 缓存，
+赔的是离线搜索整条功能。
+{%- endcomment -%}
+  BASE + '/assets/js/palette.min.js',
   BASE + '/assets/fonts/newsreader-latin-var.woff2',
   BASE + '/assets/fonts/ibm-plex-mono-latin-400.woff2',
   BASE + '/assets/fonts/ibm-plex-mono-latin-500.woff2',
