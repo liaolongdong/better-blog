@@ -347,12 +347,29 @@ const specificEnough = (kw) => (df.get(kw) ?? 0) <= GENERIC_DF;
 
 /* ------------------------------------------------------------ 打分配对 */
 
+/**
+ * 词元命中。**拉丁词元必须按词边界匹配**，中文按子串匹配。
+ * 2026-10-20 第一版这里用裸 `includes`，于是标题里的 "Star"（36K Star 的仓库）
+ * 命中了对方正文里的 "next start"，两个八竿子打不着的文章拿到 16.5 分并列第一。
+ * 中文不需要词边界（没有空格分词），但 2 字窗口太通用，另有一条判据挡着。
+ */
+function termIn(text, kw) {
+  if (!text || !kw) return false;
+  if (/^[a-z0-9][a-z0-9._+-]*$/i.test(kw)) {
+    const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(^|[^a-z0-9])' + esc + '([^a-z0-9]|$)', 'i').test(text);
+  }
+  return text.includes(kw);
+}
+
 function hitsIn(kwMap, p) {
   // 该篇正文里命中的关键词（按权重降序，取前几条）
   const hit = [];
   for (const [kw, meta] of kwMap) {
     if (!meta) continue;
-    if (p.bodyNgrams.has(kw) || (meta.weight === 2 && p.bodyRaw.includes(kw))) hit.push(kw);
+    // 2 字中文窗口不进「标题关键词」这一路：用户 / 版本 / 自己 / 跑一 这类噪声全靠它进来
+    if (meta.weight === 2 && /^[\u4e00-\u9fa5]{2}$/.test(kw)) continue;
+    if (p.bodyNgrams.has(kw) || (meta.weight === 2 && termIn(p.bodyRaw, kw))) hit.push(kw);
   }
   return hit;
 }
@@ -360,7 +377,7 @@ function hitsIn(kwMap, p) {
 function findSentence(p, kw) {
   for (const s of p.sections) {
     for (const sent of s.sentences) {
-      if (sent.toLowerCase().includes(kw.toLowerCase())) {
+      if (termIn(sent, kw)) {
         return { heading: s.level > 0 ? s.title : '（无小标题，位于开头）', level: s.level, sentence: clip(sent) };
       }
     }
