@@ -53,7 +53,9 @@ if (SITE === path.join(ROOT, '_site')) {
   console.log('✗ SDL_SITE_DIR 指的是仓库的 _site，这一本只允许打在副本上');
   process.exit(2);
 }
-const REL = ['assets/js/editorial.min.js'];
+// 拆包（2026-10-19 批 C）把面板整个挪进了 palette.min.js，清单里只留 editorial 那一颗
+// 就等于对着一扇锁着的门做牙齿——13 刀里 11 刀当场空刀。两颗都要在。
+const REL = ['assets/js/editorial.min.js', 'assets/js/palette.min.js'];
 for (const r of REL) {
   if (!fs.existsSync(path.join(SITE, r))) {
     console.log(`✗ ${SITE} 里没有 ${r}——先构建那份副本（vite build + jekyll build，再整棵拷过去）`);
@@ -117,21 +119,26 @@ const restore = () => {
  * @param {{from:string,to:string}} m
  */
 function apply(m) {
-  let hits = 0;
-  for (const r of REL) {
-    const f = path.join(SITE, r);
-    const s = fs.readFileSync(f, 'utf8');
-    const n = s.split(m.from).length - 1;
-    if (!n) continue;
-    hits += n;
-    fs.writeFileSync(f, s.split(m.from).join(m.to));
+  // 一刀可以带第二处落点（`also`）：M13 那种「同一个门现在写在两颗包里」的破法，
+  // 只摘内侧那道会被外侧拦住，判据看着绿——那口刀是假的。每处落点各自判恰好 1。
+  for (const one of [m, ...(m.also || [])]) {
+    let hits = 0;
+    for (const r of REL) {
+      const f = path.join(SITE, r);
+      const s = fs.readFileSync(f, 'utf8');
+      const n = s.split(one.from).length - 1;
+      if (!n) continue;
+      hits += n;
+      fs.writeFileSync(f, s.split(one.from).join(one.to));
+    }
+    if (hits !== 1) {
+      restore();
+      const err = new Error(`空刀：${JSON.stringify(one.from).slice(0, 70)} 在副本里命中 ${hits} 处（判线 =1）——锚点对不上今天的产物`);
+      err.status = 2;
+      throw err;
+    }
   }
-  if (hits !== 1) {
-    restore();
-    const err = new Error(`空刀：${JSON.stringify(m.from).slice(0, 70)} 在副本里命中 ${hits} 处（判线 =1）——锚点对不上今天的产物`);
-    err.status = 2;
-    throw err;
-  }
+
 }
 
 /**
@@ -153,7 +160,7 @@ const MUTS = [
   {
     id: 'M1', name: '深链那一步整个摘掉（进站不再 open）',
     expect: '[J1] 深链开面板', cascade: ['[J4] 这一格的前置'],
-    from: 'E&&x(null,E)', to: '',
+    from: 'T&&B(null,T)', to: '',
     why: 'J1 判的就是「带 ?q= 进站，面板该是开着的」；没人读 URL 时它必须红在这一格。'
       + 'J4 用深链进站铺「屏幕上已有一批结果、第一行已选中」这个前置（那是产品自己铺的，不是量具点按钮点出来的），'
       + '面板不开它就连「Enter 无处可跳」都判不了，只能红在前置——这一条是刻意的连带，不是隔离不干净',
@@ -161,7 +168,7 @@ const MUTS = [
   {
     id: 'M2', name: 'preset 不塞进输入框（打开是空的）',
     expect: '[J1] 预填输入框', cascade: ['[J4] 这一格的前置'],
-    from: 'n.value=a||""', to: 'n.value=""',
+    from: 'c.value=n||""', to: 'c.value=""',
     why: 'J1 第二格把输入框实值与查询词逐字比；「先开后塞」那种写法也红在这一格——那正是要拦的两次渲染。'
       + '连带 J4 前置：输入框空着就没有那批进站结果，J4 的两半都读不到东西（M1/M2 之后 J5/J6/J7 改走 setQuery 打字进站，'
       + '正是为了让深链那一族的破法只红在 J1+J4，不再波及打分与高亮那三组（J5/J6/J7）——一刀红十格就没法归因了）',
@@ -169,7 +176,14 @@ const MUTS = [
   {
     id: 'M13', name: 'preset 的 truthiness 门摘掉（空串也开面板）',
     expect: '[J1] 空串不开面板',
-    from: 'E&&x(null,E)', to: 'x(null,E)',
+    from: 'T&&B(null,T)', to: 'B(null,T)',
+    // 拆包之后「空串也开面板」这个破法要两处一起摘才成立：内侧是面板自己的 `preset && open(...)`，
+    // 外侧是桩里那句「?q= 有词才起载」。只摘内侧，模块根本不加载，面板照样不开——判据看着绿，
+    // 那口刀是假的（实测：单落点时 M13 报「未点燃」）。
+    also: [{
+      from: '!!(new URL(location.href).searchParams.get("q")||"").trim()',
+      to: '!!(/[?&]q=/.test(location.search))',
+    }],
     why: '与 M1 同一处、相反方向的破法：M1 是「谁都不开」，这一刀是「有地址就开」，'
       + '而 `?q=`（空值参数）在 E2 上线之后是爬虫真会请求到的形状——SearchAction 的 urlTemplate 就是它。'
       + 'J1 的正面那一格照样绿（带词时两条路径同构），只有反面这一格红',
@@ -177,14 +191,14 @@ const MUTS = [
   {
     id: 'M3', name: 'input 监听里不再同步地址栏',
     expect: '[J2] q 跟随输入', cascade: ['[J3] 关闭前该有 q'],
-    from: 'function(){p||(I(n.value),C(n.value.trim()))}', to: 'function(){p||I(n.value)}',
+    from: 'function(){E||(j(c.value),S(c.value.trim()))}', to: 'function(){E||j(c.value)}',
     why: 'J2 轮询的是「打字之后地址栏出现 q」；监听器漏挂 syncUrl 是这一步最自然的破法。'
       + 'J3 连带红是它的反恒真守护在起作用（没有 q 就拒绝说「抹干净了」）',
   },
   {
     id: 'M4', name: '入口地址只记 pathname（丢掉 search 与 hash）',
     expect: '[J2] 别的参数不许丢', cascade: ['[J3] 还原要回到入口那一份'],
-    from: 'v=location.pathname+location.search+location.hash', to: 'v=location.pathname',
+    from: 'x=location.pathname+location.search+location.hash', to: 'x=location.pathname',
     why: 'J2 带 utm_source/x/#frag 进来就是为这一格：同步吃掉入口的其他部分，复制出去的链接就坏了。'
       + 'J3 那一格是同一个断言的反面（还原还原到丢了参数的地址），必须跟着红',
   },
@@ -197,7 +211,7 @@ const MUTS = [
   {
     id: 'M6', name: 'close 里不再抹 q',
     expect: '[J3] 关闭后不该留 q',
-    from: ',C(""),v=null', to: ',v=null',
+    from: ',S(""),x=null', to: ',x=null',
     why: 'J3 先咬住「关闭那一刻真的有 q」再看抹没抹——两半合起来才不是恒真（E1 落地前它就红在「关闭前该有 q」）',
   },
   // ── D3a 输入法组合保护（三刀对 J4 的三格）───────────────────────────────
@@ -213,20 +227,20 @@ const MUTS = [
   {
     id: 'M7', name: '组合中的按键守护整个摘掉（`if (composing…) return` 变成恒假）',
     expect: '[J4] 组合中按 Enter',
-    from: 'p||n.isComposing||229===n.keyCode||(', to: '!1||(',
+    from: 'if(!e.hidden&&!E&&!t.isComposing&&229!==t.keyCode){', to: 'if(!e.hidden){',
     why: '这一格防的是「按 Enter 确认候选词却被送去打开第一条」。写这一刀之前先确认它有牙：'
       + 'J4 把 Enter 放在 compositionstart 之后、第一个 input 之前，屏幕上那批还是进站的结果',
   },
   {
     id: 'M8', name: 'input 监听里的组合守护摘掉（拼音串也照重绘）',
     expect: '[J4] 组合中不重绘',
-    from: 'function(){p||(I(n.value),C(n.value.trim()))}', to: 'function(){I(n.value),C(n.value.trim())}',
+    from: 'function(){E||(j(c.value),S(c.value.trim()))}', to: 'function(){j(c.value),S(c.value.trim())}',
     why: '候选词没落定就重排，观感是「打字像在闪」；顺带验地址栏不跟着拼音串跑',
   },
   {
     id: 'M9', name: 'compositionend 不补渲染（只把标志位放下来）',
     expect: '[J4] 组合结束要补渲染',
-    from: 'function(){p=!1,I(n.value),C(n.value.trim())}', to: 'function(){p=!1}',
+    from: 'function(){E=!1,j(c.value),S(c.value.trim())}', to: 'function(){E=!1}',
     why: '整场组合里 input 是被拦着的，收尾不补一遍就停在「屏幕上还是上一个词的结果」——'
       + '这一格必须与 M8 分开：M8 红在组合中，这一刀红在收尾',
   },
@@ -247,7 +261,7 @@ const MUTS = [
   {
     id: 'M11', name: 'mark 只包第一处命中（exec 循环走一遍就散）',
     expect: '[J7] 同一词逐处高亮', cascade: ['[J7] 两个词都要有高亮'],
-    from: ',i=a.index+a[0].length)', to: ',i=a.index+a[0].length,r.lastIndex=1/0)',
+    from: 'c=i.index+i[0].length):r.lastIndex++', to: 'c=i.index+i[0].length,r.lastIndex=1/0):r.lastIndex++',
     why: 'J1 只断「这批行里有 <mark>」，这一刀之后第一处照样在——只有数根数才分得开。'
       + '夹具是标题里把「浏览器」写了两遍的那条；后半格连带红是因为摘要里有 6 个「插件」，'
       + '单次循环同样只包第一个',
@@ -255,7 +269,7 @@ const MUTS = [
   {
     id: 'M12', name: 'alternation 只切第一个词（第二个词进不了正则）',
     expect: '[J7] 两个词都要有高亮',
-    from: '.map(S).join("|")', to: '.slice(0,1).map(S).join("|")',
+    from: '.map(M).join("|")', to: '.slice(0,1).map(M).join("|")',
     why: 'J5 抓不到这一刀：它比的是结果集合，而打分与高亮是两条独立的路——'
       + '第二个词照样把整条筛进结果里，却一处都不亮。高亮这一族必须有自己的一格才不空转',
   },

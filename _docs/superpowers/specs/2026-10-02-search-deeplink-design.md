@@ -280,3 +280,30 @@ urlTemplate 少 `?q=`／占位符写成 `{q}`／把首页那份 WebSite 复制�
 - D2 共享元素形变仍按 §7 退出，等那条 `getAnimations({subtree:true})` 实验给结论。
 - 全部提交只在 `sp3-motion-search` 这条分支上，未 push。
 
+
+## 11.7 拆包之后这一族的两处失守（2026-10-21 补）
+
+批 C 把面板从 `editorial.min.js` 挪进独立的 `palette.min.js` 之后，这一族静默坏了两处，
+都是「代码移动」而非「逻辑改写」造成的，只有真跑浏览器与真跑牙齿才看得见：
+
+1. **桌面第一次点搜索按钮没有反应**（`spark-output/verify-first-click.mjs` 实测：点击确实落在那颗
+   按钮上，`window.BBPalette` 在 3s 后到场，面板全程不开；补第二下才开）。根因是 `dev/js/index.js`
+   在 `.g-nav` 上无条件 `stopPropagation()`，而桩的 `click`/`pointerdown` 监听挂在 `document` 的
+   **冒泡**阶段——收不到这一击，队列里没有待回放的那一次。`palette.js` 早就为同一堵墙把入口改成
+   直接绑按钮，桩不能照做（它绑的时候模块还不存在），所以改成**捕获阶段**监听。
+2. **`?q=` 深链进站不再开面板**。`open(null, preset)` 那一步在模块里，而模块只在有人交互时才起载，
+   于是带查询串进站（SearchAction 的 urlTemplate 正是这一条形）等于「进站什么也不发生」。
+   修法：桩在 `initPaletteStub()` 末尾检查 URL，`q` 有非空值就立刻 `ensurePalette(null)` 起载；
+   空串 `?q=` 不起载，与「空查询不许开遮罩」那条反例同侧。红→绿对照：同一个 build 只加这一步，
+   `verify-search-deeplink` 的 J1 与 J4 前置由红转绿。
+
+牙齿那一本同时暴露出第三件事，且比前两件更贵：**13 刀里 11 刀当场空刀**。两个原因叠在一起——
+`REL` 清单只列 `assets/js/editorial.min.js`（面板已经不住在这儿），而锚点里带着 terser 起的局部名
+（`E&&x(null,E)`、`n.value=a||""` 这一族）。§11.5 第 1 条早就预言过这件事，这次是真发生了，
+只是靠「空刀必须 `exit 2`」这条守卫才没有变成一片假绿。重钉之后 16/16 点燃（13 刀 + S1/S2/S3）。
+
+M13 还需要一个 §11.5 没写过的口径：**同一个门挪进两颗包之后，只摘内侧那道的刀是假刀**。
+「空串不开面板」现在由两处将（桩的起载判据、面板的 `preset && open`），单改面板那一处时模块根本
+不加载，判据看着绿。`apply()` 因此支持 `also` 第二落点，每处各判恰好 1。
+移交条件：任何再改变 vite 入口切分的改动，之后必须立刻重跑 `verify-search-deeplink-teeth`，
+并按当日产物重钉锚点——这条不重跑，这一族就没有牙齿。
