@@ -765,15 +765,32 @@
             }
         });
         // 指针按下就开始注入：比 click 早几十毫秒，慢网下「点了没反应」那一段就是这么省掉的。
+        // 两个监听都走**捕获**：dev/js/index.js 在 .g-nav 上无条件 stopPropagation（那是移动端
+        // 抽屉「点外面收起」用的），冒泡版根本收不到顶栏那颗按钮的点击——实测桌面第一次点击
+        // 什么都不会发生，第二次才开（面板模块已在，由它自己直接绑的监听器接住）。
+        // palette.js 给面板自己踩过同一个坑、改成直接绑按钮；桩管的是「模块还没到」那一段，
+        // 只能靠文档级监听，所以必须捕获。
         document.addEventListener('pointerdown', function (e) {
             if (window.BBPalette) return;
             if (searchTrigger(e)) ensurePalette(null);
-        });
+        }, true);
         document.addEventListener('click', function (e) {
             if (window.BBPalette) return;
             var t = searchTrigger(e);
             if (t) { e.preventDefault(); openPalette(t); }
-        });
+        }, true);
+
+        // 带着 ?q= 进站的人就是来搜的（SearchAction 的 urlTemplate 正是这一条），这一路不能
+        // 等读者先点一次才开面板。拆包之后面板是懒加载的，而深链这一路没有任何交互去触发它，
+        // 于是退化成「进站什么也不发生」——实测 verify-search-deeplink 的 J1 与 J4 前置同时红。
+        // 空串不起载：与面板自己「空查询不许开遮罩」那条口径同侧，爬虫打 ?q= 空也是正常流量。
+        var presetQuery = false;
+        try {
+            presetQuery = !!(new URL(location.href).searchParams.get('q') || '').trim();
+        } catch (e) {
+            presetQuery = /[?&]q=[^&#]/.test(location.search);
+        }
+        if (presetQuery) ensurePalette(null);
     }
 
 
