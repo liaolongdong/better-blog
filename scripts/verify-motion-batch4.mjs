@@ -296,6 +296,37 @@ const clickFast = (sel, nth = 0) => hitTest(sel, nth).then(clickAt);
 const click = async (sel, nth = 0) => { await clickFast(sel, nth); await wait(60); };
 
 /**
+ * 等几何真的停住，再去做命中测试。
+ *
+ * 起因：TOC 抽屉那一格连续报 `命中测试失败 .toc-close: {x:873, y:828, hit:"none"}`，
+ * 而 828 比 800 高的那 28px 正是抽屉**还在入场动画里**的位置（`.post-rail` 固定后 y=252、
+ * 关闭键 y=265，在静止态下手工实测三种滚动位置全部 hit="toc-close"）。墙钟等了 dwell 这么久
+ * 不等于渲染帧走过了这段过渡——headless 里没帧可调度时过渡可以整段不动。
+ * 所以这里按「读数不变」而不是「时间够长」来等：连续两次取到同一个 rect 且中心点能命中东西才算稳。
+ * 上限 4s：超过就把原来的红原样抛出来，不拿它当通过——真卡住要看得见。
+ */
+const settleInto = async (sel, tries = 60) => {
+  let prev = null;
+  for (let i = 0; i < tries; i++) {
+    const g = await evalJs(`(() => {
+      const el = document.querySelector(${JSON.stringify(sel)});
+      if (!el) return { err: 'no-node' };
+      const r = el.getBoundingClientRect();
+      const cx = Math.round(r.x + r.width / 2), cy = Math.round(r.y + r.height / 2);
+      const top = document.elementFromPoint(cx, cy);
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), cx, cy,
+        hittable: !!top && cx >= 0 && cx < innerWidth && cy >= 0 && cy < innerHeight };
+    })()`);
+    if (g.err) throw new Error(`settleInto ${sel}: ${g.err}`);
+    const same = prev && prev.x === g.x && prev.y === g.y && prev.w === g.w;
+    if (same && g.hittable) { mark(`settle ${sel} @${g.cx},${g.cy} after ${i + 1} 次读数`); return g; }
+    prev = g;
+    await wait(50);
+  }
+  throw new Error(`settleInto ${sel} 4s 内没停住（最后一次 ${JSON.stringify(prev)}）`);
+};
+
+/**
  * 一次一格的单帧读数。轨迹由 Node 一侧一圈一圈「问」出来，不让页内自己数——这一条是踩实了的：
  * headless 里页内的 setTimeout 与 rAF 都挂在 BeginMainFrame 上，没有帧被调度时定时器根本不跑。
  * 上一版 12ms 一圈的页内采样，在 ⌘K 退场那 200ms 里连着 390ms 一个读数都没有（实测序列
@@ -387,6 +418,10 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   if (openSel) { mark(`[${name}] open-click ${openSel}`); await click(openSel); }
   else { mark(`[${name}] open-key`); await key('k', 'KeyK', 75, 4); }
   await wait(dwell);
+  if (closeSel) {
+    // 等不到终态不额外判红：紧接着的 hitTest 才是这一格的判据，这里只负责「别在动画中间采样」。
+    try { await settleInto(closeSel); } catch (e) { mark(`settle 没等到（交给命中测试原样判）：${e.message}`); }
+  }
   mark(`[${name}] before-snap`);
   const before = await snap(sel, pseudo);
   if (before.err || before.rend !== 1 || before.op < 0.97) {
@@ -397,6 +432,7 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   const t = await traceAfter(close, sel, pseudo, ms);
   mark(`[${name}] trace back, samples=${t.samples ? t.samples.length : t.err}`);
   if (t.err) { traceFail(`${name}·退场`, t, '轨迹没跑起来'); return; }
+  if (!t.samples.length) { RED(`${name}·退场`, '轨迹一个读数都没有——这一层在采样窗口里从没进入过渲染态；先确认打开动作真发生了，再看机器空不空（0 帧时旧版会直接 TypeError 崩掉，红得没有名字）'); return; }
   const after = t.samples[t.samples.length - 1];
   if (kind === 'fade') {
     const mid = midFade(t.samples);
@@ -478,8 +514,8 @@ await goto(ORIGIN + BASE + ARTICLE);
 
 // ══════════════════════════════════════════════════════════════════
 group('2) M24 各层退场（no-preference 档）');
-await checkLayer('⌘K 面板', { sel: '#cmdk', closeKey: ['Escape', 'Escape', 27], dwell: 420 });
-await checkLayer('书架', { sel: '#shelf-dlg', openSel: '[data-shelf-open]', closeKey: ['Escape', 'Escape', 27] });
+await checkLayer('⌘K 面板', { sel: '#cmdk', closeKey: ['Escape', 'Escape', 27], dwell: 420, ms: 900 });
+await checkLayer('书架', { sel: '#shelf-dlg', openSel: '[data-shelf-open]', closeKey: ['Escape', 'Escape', 27], ms: 900 });
 await checkLayer('灯箱', { sel: '.lightbox', openSel: '.markdown-body img.is-zoomable',
   closeKey: ['Escape', 'Escape', 27], dwell: 560, ms: 900 });
 await checkLayer('偏好面板', { sel: '#reader-panel', openSel: '.reader-btn', closeSel: '.reader-btn' });
