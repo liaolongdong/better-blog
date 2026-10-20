@@ -8,7 +8,7 @@
  *   - changelog 进了 sitemap 却漏进 DOC_URLS → check-sw 组 3 双向相等红（这条由它兜），
  *     反过来漏进 sitemap → 页面线上可读但没人知道它存在，等于白做；
  *   - CHANGELOG.md 里多一个不合规的 H2 → 页面少一个版本，而它看起来「渲染正常」。
- * 所以四组 IndexNow + 四组 changelog 全写成判据，不靠肉眼。
+ * 所以四组 IndexNow + 五组 changelog 全写成判据，不靠肉眼。
  *
  * 用法：
  *   node scripts/check-discovery.mjs                # 读 _site/
@@ -29,6 +29,7 @@ const SITE = path.resolve(ROOT, (argv.find((a) => a.startsWith('--site=')) || '-
 const GROUPS = [
   'I1 key 文件', 'I2 key 不入收录面', 'I3 推送入口', 'I4 key 不硬编码',
   'C1 页面与 meta', 'C2 版本条目数', 'C3 收录面两侧都有', 'C4 零新增 CSS',
+  'C5 条目里没有可执行壳',
 ];
 if (LIST_ONLY) {
   console.log('将核对：\n  ' + GROUPS.join('\n  '));
@@ -129,9 +130,28 @@ if (page && css) {
   }
 }
 
+/* ── C5 ── */
+{
+  // 这一页的内容是发版时从 commit message 里粘出来的散文，不该带任何可执行的壳。
+  // 为什么必须自己拦：kramdown 在这个版本里**放行为块级原始 HTML**——实测 `:remove_html_blocks`
+  // 取 true 或 "strip" 都拦不住一个独立成块的 <script>（行内的尖括号才会被转义）。
+  // 所以两侧各判一刀：产物侧证明今天这份是干净的，源侧证明那道摘壳的 gsub 没被人顺手删掉。
+  const secs = page === null ? '' : [...page.matchAll(/<section class="cat-section"[\s\S]*?<\/section>/g)].map((m) => m[0]).join('\n');
+  if (!secs) bad('C5 条目里没有可执行壳', 'changelog.html', '一个版本区块都没抽到——这一格等于没判，不是没内容');
+  else {
+    const tag = /<\s*(script|iframe|object|embed|form|style|link|meta|base)\b/i.exec(secs);
+    if (tag) bad('C5 条目里没有可执行壳', 'changelog.html', `条目区里出现 <${tag[1].toLowerCase()}> ——发版记录应当只有散文与链接，插件里摘壳的那条 gsub 不能少`);
+  }
+  const pluginPath = path.join(ROOT, '_plugins/changelog.rb');
+  if (!fs.existsSync(pluginPath)) bad('C5 条目里没有可执行壳', '_plugins/changelog.rb', '读不到插件源，源侧那一刀没落下');
+  else if (!/script\|style\|iframe/.test(fs.readFileSync(pluginPath, 'utf8'))) {
+    bad('C5 条目里没有可执行壳', '_plugins/changelog.rb', '摘原始 HTML 壳的 gsub 不见了——kramdown 拦不住块级 HTML，删了就等于把这一页交给 commit message 里的尖括号');
+  }
+}
+
 if (fails.length) {
   fails.forEach((f) => console.log('✗ ' + f));
   console.log(`\n可发现性门禁：${fails.length} 条失败`);
   process.exit(1);
 }
-console.log('✓ 可发现性 8 组判据全绿');
+console.log('✓ 可发现性 9 组判据全绿');

@@ -134,10 +134,19 @@ git push origin 2.1.0
 CHANGELOG 只记已经进 master 的内容——还在 `main` 上的功能没上线，不该出现在版本记录里，
 所以写它的时机是「推到 master 之后」，不是「写完代码之后」。
 
+写条目时有一条硬边界：**只写散文与 markdown 链接，别贴任何 HTML**。
+`/changelog.html` 的条目会经 kramdown 转成 HTML，而这一版 kramdown **放行为块级原始 HTML**
+（实测 `:remove_html_blocks` 取 `true` 或 `"strip"` 都拦不住一个独立成块的 `<script>`，
+只有行内的尖括号会被转义）。插件 `_plugins/changelog.rb` 因此在渲染后自己摘掉
+`script|style|iframe|object|embed|form|frame|frameset|link|meta|base` 这些壳——
+被包着的东西降级成惰性文本，格式（粗体、行内码、`./X.md` → blob 链接）一律保留。
+两侧各有一道判据兜着：产物侧（条目区里不许出现可执行壳，有牙齿变异）与源侧
+（那条 gsub 不许被删，属 Presence 警报，见 `check-discovery-teeth.mjs` 头部注释）。
+
 ## ✍️ 写一篇新文章
 > `tldr` 与 `faq` 是**新稿默认要写**的两段：渲染路径、FAQPage 与 speakable 结构化数据都已建好，
 > 缺的只有内容。存量覆盖率看 `git grep -l '^tldr:' -- _posts | wc -l` 与 `_posts/*.md` 之比
-> （2026-10-20 实测 38/111）。别为了凑数写空话——FAQ 的答案必须能在正文里指到出处，
+> （2026-10-21 全站补齐：110/111，缺的那篇是 `2100-10-25-practice-demo.md`，`future:false` 根本不构建，不必补）。别为了凑数写空话——FAQ 的答案必须能在正文里指到出处，
 > 否则宁可这两段都不写（不写只是少一格富摘要，写假的是给抓取器递错误事实）。
 
 新建 `_posts/2026-09-22-slug.md`，文件名决定了 URL。front matter 的最小完整形态：

@@ -10,6 +10,15 @@
  * 只改副本不改源：与 check-sw-teeth 同法，源文件一旦被就地改过，mtime 一推进
  * `check-seo.mjs` 那道「源比产物新就拒跑」的闸，后面所有门禁都会红得莫名其妙。
  *
+ * C5 的覆盖是不对称的，这是刻意的，别误读成"整条判据都有牙齿"：
+ * 产物那一半（区块里冒出 <script>/<iframe>）在这里用副本里的 changelog.html 实测能红；
+ * 源侧那一半（`_plugins/changelog.rb` 里摘壳的 gsub 不见了）在这里**没法测**——
+ * 它读的是仓库真源，改它就等于就地改源，正撞上上面那条 mtime 闸。
+ * 那一半只能算"删了就立刻红"的 Presence 警报，它防的是"日后有人觉得这行多余顺手删掉"，
+ * 不是一条被变异测过的判据。为什么非留不可：kramdown 在这个版本里放行为块级原始 HTML
+ * （实测 `:remove_html_blocks` 取 true / "strip" 都拦不住），摘壳只能自己做，
+ * 而自己做的那道口子没有天然症状——删掉之后站点照建、页面照看，只有真粘进一段尖括号才露馅。
+ *
  * 用法：node scripts/check-discovery-teeth.mjs
  * 通过形状：`✓ 可发现性守卫 4/4 处变异都被判据逮住`；任一漏网退 1。
  */
@@ -42,6 +51,19 @@ function mustReplace(dir, rel, from, to) {
 }
 
 const MUTATIONS = [
+  {
+    name: '把一段 <script> 塞进某个版本区块（模拟发版时从 commit message 粘进原始 HTML）',
+    group: 'C5',
+    apply: (d) => {
+      const f = path.join(d, 'changelog.html');
+      const s = fs.readFileSync(f, 'utf8');
+      const m = /<section class="cat-section"[^>]*>/.exec(s);
+      if (!m) throw new Error('副本里找不到 <section class="cat-section"> 这个锚，这一刀没处下');
+      fs.writeFileSync(f, s.slice(0, m.index + m[0].length)
+        + '\n<script>inject()</script>\n<iframe src="https://x.example"></iframe>\n'
+        + s.slice(m.index + m[0].length));
+    },
+  },
   {
     name: 'key 文件内容与 _config.yml 脱钩',
     group: 'I1',

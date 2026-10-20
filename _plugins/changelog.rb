@@ -91,6 +91,12 @@ module BBChangelog
       return '' if str.nil? || str.strip.empty?
 
       html = Kramdown::Document.new(str.strip).to_html
+      # 块级原始 HTML 穿得过这台 kramdown：实测 `:remove_html_blocks` 取 true 与 "strip"
+      # 都拦不住一个独立成块的 `<script>`，只有行内的尖括号会被转义成文本。
+      # 而这一页的内容是发版时从 commit message 里粘出来的散文，本来就不该带 HTML 壳——
+      # 把危险标签本身摘掉，被包着的东西降级成惰性文本，页面仍然是纯展示。
+      # 行内那一半边不用管，kramdown 已经转义过了。
+      html = html.gsub(%r{</?\s*(script|style|iframe|object|embed|form|frame|frameset|link|meta|base)\b[^>]*>}i, '')
       # 必须把匹配结果存进局部变量：下面 single_block? 里的 scan 会重置 Regexp.last_match，
       # 直接写 $1 或 last_match(1) 拿到的是 scan 的最后一格（实测是 nil，构建当场抛异常）。
       one = html.match(%r{\A<p>(.*)</p>\s*\z}m)
