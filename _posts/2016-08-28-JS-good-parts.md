@@ -9,6 +9,14 @@ categories: [JavaScript]
 # 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542012939549&di=d56a6b85934801df0180d9915614cd8f&imgtype=jpg&src=http%3A%2F%2Fimg1.imgtn.bdimg.com%2Fit%2Fu%3D1616011421%2C1741217182%26fm%3D214%26gp%3D0.jpg
 tags: JavaScript JavaScript语言精粹 学习笔记
+tldr: '《JavaScript 语言精粹》八章的逐章笔记，每条结论后面都挂着能跑的代码和打印结果，从对象按引用传递一路记到 JSON 会丢掉函数和 undefined。'
+faq:
+  - q: 'var a = b = c = {} 之后，为什么往 a 上写属性 b 也看得到？'
+    a: '对象通过引用传递。这一行里 a、b、c 拿到的是同一个引用（地址），它们属于同一个对象，a === b 为 true，往 a 上写 name、往 b 上写 age，两个变量打印出来是同一份内容。分成三行 var a = {}, b = {}, c = {} 才是三个不同对象，a == b 这时是 false。'
+  - q: 'sort 不传比较函数，[3, 1, 5, 23, 16, 8] 为什么排成 [1, 16, 23, 3, 5, 8]？'
+    a: '不传时默认的比较函数会把所有元素先转成字符串再比较，所以 16 排在 3 前面。传一个返回 a - b 的比较函数就按数值走了，笔记里另一组含字符串元素的数排完是 [1, 3, "4", 5, 8, 8, 16, 23]。'
+  - q: 'JSON.stringify 序列化对象时，值为函数和 undefined 的属性去哪了？'
+    a: '被直接忽略掉。笔记里那个对象写了 func 和两个 undefined 字段，序列化出来的字符串只剩 name、age、boy、hobbyArr、obj1、null 六项，结论写得很明白，JSON 会忽视值为函数和 undefined 的变量。'
 ---
 
 ## JavaScript语言精粹学习笔记

@@ -8,6 +8,14 @@ date: 2026-09-21
 categories: [AI, 开源实测]
 cover: /assets/img/one-worktree-per-agent/banner.webp
 tags: AI 前端 开源 Agent 工具
+tldr: '三家卖一个 agent 一个工作区的，并行一家都没测成，最诚实的是 worktrunk：0.213 秒一句人话把我挡在 git 2.43 门外，还把每棵工作树多一整份代码明写在 FAQ 里。'
+faq:
+  - q: 'Worktrunk 要求 git 什么版本？不够会怎么退出？'
+    a: '源码里写死下限 2.43.0（src/git/version.rs 的常量），FAQ 那句 requires Git 2.43 or newer 和它对得上。作者先拿 2.23.0 试，回一句 Git 2.23.0 is unsupported，0.213 秒退出；换 Apple Git 2.39.2 照样被拒。版本检查是并发 spawn 起来的，所以拒得快，而且 git worktree list 的现场一个字节没多动。'
+  - q: 'git worktree 不是共享 .git 吗，每个工作树磁盘上到底占多大？'
+    a: '共享的只有 .git，checkout 一个字节都不共享。400 个文件、tracked 内容 8,013,490 字节的假仓库里，每个工作树 du 都是 8,004 KB，倍数正好 1.00，五个吃掉 40,020 KB，共享的只有 .git 那 1,732 KB。这件事 worktrunk 自己写在 FAQ 第 59 行，没藏进 release note。'
+  - q: 'cp -Rc 的 reflink 拷贝能省多少？按什么算？'
+    a: '省块，不省 inode，也不省逐文件的 syscall。6,003 个小文件的靶子上 cp -R 要 2.53 秒、cp -Rc 均值 1.16 秒，只到 2.1 倍；同一棵树 4 个 reflink 副本 du 各报 116,160 KB，df 上卷只涨 123,408 KB，du 报 5 份 df 认 1.06 份。等字节换形状，12,000 个 1 KB 文件要 3.06 秒、12 个 1 MiB 文件只要 0.07 秒，差 43.7 倍——拷贝时间跟文件数走，node_modules 恰好是前者那种形状。'
 ---
 
 ![三间并排的工作树小屋，门上贴着版本不够的条子](/assets/img/one-worktree-per-agent/banner.webp)

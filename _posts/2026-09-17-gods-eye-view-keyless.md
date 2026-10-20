@@ -8,6 +8,14 @@ date: 2026-09-17
 categories: [AI, 开源实测]
 cover: /assets/img/gods-eye-view-keyless/banner.webp
 tags: AI 开源 JavaScript webmcp Agent
+tldr: '一个 key 都没配就把 21 个图层画上屏、console 零错误，README 那句 13 条免密路径逐行对账成立；真正卡住安装的反而是 puppeteer 那 170MB 的 Chrome 下载。'
+faq:
+  - q: 'gods-eye-view 真的可以不配任何 API key 跑起来？'
+    a: '作者在一台 doctor 报 Node 22.19.0 too old、一个 key 都没填的机器上照样把地球画了出来：图层数读到 21，console 错误 0 条。README 说 15 个数据层和地图源里 13 个有免密路径，对着那张表逐行数 🟢 对上了；只有 Live Vessels 和 Active Fires 要免费 key，语音要 OpenAI key，没配时接口返回 OPENAI_NOT_CONFIGURED。底图走 Esri World Imagery 的 keyless 通道，连不上自动回落 OSM。'
+  - q: 'gods-eye-view 的 npm ci 跑了 17 分钟没结束，卡在哪？'
+    a: '不是卡在依赖，是 puppeteer 的 postinstall 在下载约 170 MB 的 Chrome for Testing，实测一分钟只走 25 万字节。npm ci --ignore-scripts 六秒装完（added 126 packages），再把 PUPPETEER_EXECUTABLE_PATH 指到本机 Chrome 就绕开了那个下载。'
+  - q: 'gods-eye-view 存 key 的接口 body 超过 8192 字节为什么不返回 413？'
+    a: '413 那一行永远执行不到：handler 里 body 超过 8192 就 req.destroy()，连接先被掐断，排在后面的 respond 413 没人执行得出去。作者拿 9,025 字节的 body 实测，拿到的是 curl (52) Empty reply from server、状态码 000，而服务本身活得很好；grep 全仓，没有任何测试断言过这个 413。'
 ---
 
 ![手绘封面：一颗绕着观测轨道的地球，和一个手里没接任何设备的小人](/assets/img/gods-eye-view-keyless/banner.webp)

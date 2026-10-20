@@ -8,6 +8,14 @@ date: 2026-09-12
 categories: [AI, 开源实测]
 cover: /assets/img/trending-skill-sweep/banner.webp
 tags: AI 前端 开源 Agent 工具
+tldr: '装完插件看到 25 个 skill，模型能主动看见的只有 11 个：14 个标了 disable-model-invocation 的不会自动加载，得逐个数 frontmatter，光读 plugin.json 看不出这个数。'
+faq:
+  - q: 'SKILL.md 里 disable-model-invocation: true 的 skill 还能用吗？'
+    a: '能用，但模型不会自动加载它——文章的口径是 agent 够不着、你得自己点名。这个插件发布 25 个 skill 里 14 个标了 true，装完看起来是 25 个，实际能被模型主动看见的只有 11 个。'
+  - q: 'mattpocock/skills 的 37 个 SKILL.md 是怎么变成发布 25 个的？'
+    a: 'tarball 解出来 94 个 .md，其中 SKILL.md 37 个：engineering 18、productivity 7、in-progress 8、misc 4。plugin.json（1.2.3 版）的 skills 数组长度是 25，只收前两类，in-progress 和 misc 不在发布清单里。37 个里 22 个写了 disable-model-invocation: true、0 个写 false，22 减掉没发布的 8 个 in-progress，正好 14 个够不着。'
+  - q: 'CLAUDE.md 规定全仓禁用破折号，实际数出多少个？'
+    a: 'U+2014 共 104 处，全部在 CHANGELOG.md 里，SKILL.md、docs、README、changeset 目录是 0 个。原因是那次清理的 changeset 自报范围里就没有 CHANGELOG.md，而这个文件是发版时由 changesets 的 GitHub changelog 生成器机器拼的，没人手写，永久规则和一次性范围差了正好一个文件。'
 ---
 
 ![一周 GitHub 趋势榜上成排的 agent skill 仓库，只有中间一座被人逐块数过](/assets/img/trending-skill-sweep/banner.webp)

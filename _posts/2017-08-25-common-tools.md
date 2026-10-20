@@ -7,6 +7,14 @@ date: 2017-08-25
 categories: [JavaScript]
 cover: '/assets/img/postCover/code_tools.png'
 tags: JavaScript JavaScript公用方法
+tldr: '手机号和银行卡号每四位一分组，用的是 replace 配正则，不是往数组里插字符；对象数组去重不能交给 new Set，UA 判断里 MicroMessenger 还得抢在 iPhone 前面。'
+faq:
+  - q: 'Array.from(new Set(arr)) 能给对象数组去重吗？'
+    a: '不能。Set 存的是唯一值或者对象引用，内容一样但引用不同的两个对象它去不掉，所以基本类型可以直接用它，对象数组不行。文里的 uniqueArrObj 走两条路，传了 prop 就拿这个属性的值当临时对象的键来判重，没传就先 JSON.stringify 序列化、过一遍 Set、再逐个 JSON.parse 还原。'
+  - q: '判断微信浏览器，为什么 MicroMessenger 那条要写在 iPhone 前面？'
+    a: '因为 iOS 和 Android 手机上微信浏览器的 UA 里本来就同时带着 ios 或者 android 字样，先判系统就把微信里的页面错认成手机浏览器了。另外 whatDevice 返回空串还有另一层意思，那是 PC 端浏览器。'
+  - q: '想让 localStorage 存的东西带过期时间，该怎么封装？'
+    a: '别只存值。setLocalStorage 把 data、cacheTime、createdTime 三个字段一起 JSON.stringify 写进去；getLocalStorage 读到设过 cacheTime 且当前时间减 createdTime 已经超时的，就调 clearLocalStorage 把这一项删掉并返回 undefined，没设 cacheTime 就一直原样返回。'
 ---
 
 ## 前端开发中经常使用到的公用方法（使用的是ES6的语法）
