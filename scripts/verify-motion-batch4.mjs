@@ -437,18 +437,23 @@ const traceAfter = async (action, sel, pseudo, ms = 520, settle = false) => {
   const cap = settle ? Math.max(ms * 6, 6000) : ms;
   // 只有 settle 档才并发派发：密度自证那一格的动作本身要在页内先立起被采样的东西，
   // 不等它就直接读会读到 no-node、0 帧（实测把第 1 组自己判成「机器不空」）。
+  let actErr = '';
   let act = null;
-  if (settle) { act = Promise.resolve().then(action); act.catch(() => {}); }
-  else await action();
+  if (settle) {
+    // 动作与采样并发跑，但它的异常必须收下来交给判据：clickFast 里要先做命中测试，
+    // 一旦命中失败被 catch 掉，读到的就是「这层永远关不掉」——那是量具的账，不能记在产物头上
+    // （实测：书架抽屉用普通可信点击 19ms 就关掉了，而这一格报「层没真的收走」）。
+    act = Promise.resolve().then(action).catch((e) => { actErr = e.message; });
+  } else await action();
   const out = [];
   while (Date.now() - t0 < cap) {
     const s = await sampleOnce(sel, pseudo);
-    if (s.err) { if (act) await act; return { samples: out, err: s.err }; }
+    if (s.err) { await act; return { samples: out, err: s.err }; }
     out.push({ t: Date.now() - t0, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
     if (settle && out.length > 4 && s.rend === 0 && Date.now() - t0 >= ms) break;
   }
-  if (act) await act;
-  return { samples: out, n: out.length, capped: settle && Date.now() - t0 >= cap };
+  await act;
+  return { samples: out, n: out.length, capped: settle && Date.now() - t0 >= cap, actErr };
 };
 /**
  * 一次动作、多路读数：每圈把 targets 全读一遍，各留一条同一起点的轨迹。
@@ -536,7 +541,7 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   const after = t.samples[t.samples.length - 1];
   if (kind === 'fade') {
     const mid = midFade(t.samples);
-    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}${t.capped ? '｜已采到 cap 仍未见离开终值，问题在时间轴没走，不在窗口不够长' : ''}`);
+    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}${t.actErr ? `｜触发动作自己抛了：${t.actErr}（量具的账，不是产物的）` : t.capped ? '｜已采到 cap 仍未见离开终值，先怀疑时间轴没走，别急着算产物缺陷' : ''}`);
     else ok(`${name}·退场`, `中间帧 ${mid.length} 个 / 共 ${t.samples.length} 帧，首帧 t=${mid[0].t} op=${mid[0].op}`);
   } else {
     const start = t.samples.find((x) => x.rend === 1);
