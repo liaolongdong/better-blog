@@ -327,6 +327,42 @@ const settleInto = async (sel, tries = 60) => {
 };
 
 /**
+ * 按「动画状态」而不是「墙钟」等一层落到终态。
+ *
+ * 2026-10-21 实测出来的必要：负载高的机器上，headless 里过渡与动画的时钟挂在**被提交的帧**上，
+ * `await wait(560)` 走完可能只提交了一帧——同一天同一份快照，两种假红都来自这里：
+ * 「灯箱·开 打开后不是终态 {op:0, anim:lightboxFade, dur:0.2s}」（入场才跑第一帧就被读走）与
+ * 「书架·落定 末帧仍在渲染 op=0.192」（退场停在半路）。真浏览器里这两层都正常。
+ * 所以判据不变（要有中间帧、末态要收走），只把「等到什么时候」换成时间轴自己报：
+ * 该层子树里 `document.getAnimations()` 空了、且 opacity 到 1，才算落定。超时不判红也不放行，
+ * 把读数原样交给紧随其后的 snap/落定判据去定性。
+ */
+const animIdle = async (sel, cap = 5000, pseudo) => {
+  const t0 = Date.now();
+  let g = null;
+  for (;;) {
+    g = await evalJs(`(() => {
+      const el = document.querySelector(${JSON.stringify(sel)});
+      if (!el) return { err: 'no-node' };
+      let running = 0;
+      try {
+        running = document.getAnimations().filter((a) => {
+          const t = a.effect && a.effect.target;
+          return !!t && (t === el || el.contains(t) || t.contains(el));
+        }).length;
+      } catch (e) { running = -1; }
+      const cs = getComputedStyle(el, ${JSON.stringify(pseudo || null)});
+      return { running, op: +(+cs.opacity).toFixed(3), disp: cs.display, ms: Math.round(performance.now()) };
+    })()`);
+    if (g.err) return g;
+    if (g.running === 0 && g.op > 0.97) return g;
+    if (Date.now() - t0 > cap) { mark(`animIdle ${sel} 超时 cap=${cap} 读数=${JSON.stringify(g)}`); return g; }
+    await wait(24);
+  }
+};
+
+
+/**
  * 一次一格的单帧读数。轨迹由 Node 一侧一圈一圈「问」出来，不让页内自己数——这一条是踩实了的：
  * headless 里页内的 setTimeout 与 rAF 都挂在 BeginMainFrame 上，没有帧被调度时定时器根本不跑。
  * 上一版 12ms 一圈的页内采样，在 ⌘K 退场那 200ms 里连着 390ms 一个读数都没有（实测序列
@@ -418,6 +454,8 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   if (openSel) { mark(`[${name}] open-click ${openSel}`); await click(openSel); }
   else { mark(`[${name}] open-key`); await key('k', 'KeyK', 75, 4); }
   await wait(dwell);
+  const idleOpen = await animIdle(sel, 5000, pseudo);
+  if (idleOpen.running !== 0 || idleOpen.op < 0.97) mark(`[${name}] 入场时间轴没空：${JSON.stringify(idleOpen)}`);
   if (closeSel) {
     // 等不到终态不额外判红：紧接着的 hitTest 才是这一格的判据，这里只负责「别在动画中间采样」。
     try { await settleInto(closeSel); } catch (e) { mark(`settle 没等到（交给命中测试原样判）：${e.message}`); }
@@ -444,8 +482,13 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
     if (!moved.length) RED(`${name}·退场`, `还渲染着的帧里没有一帧比打开位置向下滑过：top=${[...new Set(t.samples.map((x) => x.top))].join(',')}`);
     else ok(`${name}·退场`, `${moved.length} 帧在滑（共 ${t.samples.length} 帧），t=${moved[0].t} top ${start.top}→${moved[0].top}`);
   }
-  if (after.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}）——层没真的收走`);
-  else ok(`${name}·落定`, `末帧 t=${after.t} display=${after.disp}`);
+  if (after.rend !== 0) {
+    // 时间轴可能只是没被推进（帧没提交，过渡就停在半路）。再给它 2s，仍未收走才算红。
+    await animIdle(sel, 2000, pseudo);
+    const fin = await snap(sel, pseudo);
+    if (fin.err || fin.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}），再等 2s 后仍是 ${JSON.stringify(fin)}——层没真的收走`);
+    else ok(`${name}·落定`, `窗口末帧还挂着（op=${after.op}），时间轴走完后 display=${fin.disp} 收走——窗口比过渡短，不是层没收`);
+  } else ok(`${name}·落定`, `末帧 t=${after.t} display=${after.disp}`);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -514,6 +557,9 @@ await goto(ORIGIN + BASE + ARTICLE);
 
 // ══════════════════════════════════════════════════════════════════
 group('2) M24 各层退场（no-preference 档）');
+// 这一整组的前提是「读者没开减弱动效」。后面第 5 组会把仿真切成 reduce 再切回来，
+// 所以这里每次进组都显式钉一次 no-preference，别拿上一组留下的仿真当默认值。
+await S('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 await checkLayer('⌘K 面板', { sel: '#cmdk', closeKey: ['Escape', 'Escape', 27], dwell: 420, ms: 900 });
 await checkLayer('书架', { sel: '#shelf-dlg', openSel: '[data-shelf-open]', closeKey: ['Escape', 'Escape', 27], ms: 900 });
 await checkLayer('灯箱', { sel: '.lightbox', openSel: '.markdown-body img.is-zoomable',
