@@ -8,6 +8,14 @@ date: 2026-09-29
 categories: AI
 cover: /assets/img/webmcp-modelcontext-mount/banner.webp
 tags: webmcp chrome Agent
+tldr: 'navigator 上那两个名字从来不在标准里，实现方自己也把它们撤了：草案纯文本里 modelContext 出现 25 次、另两个名字 0 次，挂载点只剩 document.modelContext 一处，页面里那句回落判断该删。'
+faq:
+  - q: 'WebMCP 现在该挂在 navigator 还是 document 上？'
+    a: '只剩 document.modelContext 一处。草案剥标签后的纯文本里 modelContext 出现 25 次，navigator.modelContext 和 modelContextTesting 都是 0 次；IDL 只有 partial interface Document 且带 SecureContext。官方 demo 打包后的 JS 里这个名出现 3 次、另两个 0 次。'
+  - q: '9 月 28 日之后取 navigator.modelContextTesting 会报错吗？'
+    a: '不会抛错，拿到的是 undefined。Cloudflare 那条变更记录的原话是 Lab sessions no longer expose navigator.modelContextTesting，名字是被不再暴露，不是改了名。页面侧还要等挂载点出现：本机 Chrome 153.0.8010.53 不加 flag 时 document.modelContext 也是 undefined。'
+  - q: '注册页面工具为什么要轮询，一次同步判断不够吗？'
+    a: 'demo 的压缩代码里有一段 setInterval 最多重试 20 次才注册工具，挂载点没出现的那几毫秒里一次同步判断会判成不支持。实测 registerTool 返回 Promise，原型链上有 getTools、executeTool、ontoolchange，没有 listTools；MCP 那边叫 list_webmcp_tools，页面这边叫 getTools。'
 ---
 
 # WebMCP 只剩 document.modelContext 这个挂载点

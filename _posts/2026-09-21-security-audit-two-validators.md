@@ -8,6 +8,14 @@ date: 2026-09-21
 categories: [AI, 开源实测]
 cover: /assets/img/security-audit-two-validators/banner.webp
 tags: AI 开源 Agent 工具
+tldr: '六阶段那套在本机跑不动，只拎出仓库自带的两个 validator 跑：65 个测试全绿，可 `line` 填 1e21 也过、两道绿灯之间没人对账——它查的是 JSON 格式，不是证据真不真。'
+faq:
+  - q: '这两个 validator 到底查什么？'
+    a: '查形状。`evidence[0].line` 填 `0` 会 exit=1，填 `1e21` 和 `9007199254740993` 都 exit=0，因为 `validate-findings.cjs:512` 只判 `Number.isInteger` 和大于等于 1，压根没有上界；反过来 `src/a:b.ts` 这种 POSIX 合法文件名被 `:474` 拒掉，拦得比文档狠。'
+  - q: '两个 validator 都 PASS 为什么还不能信？'
+    a: '因为它们互不认识。把一条 covered unit 的 `local_checks[0].artifact` 指到盘上不存在的路径，`fs.existsSync` 已是 false，ledger 却回 `PASS: 1 coverage units valid`；findings 里一条 confirmed 的 fingerprint 不在任何 unit 里也照样过——那份校验只认一个参数，既不看盘，也看不到另一份文件。'
+  - q: '它说 5 MiB 能装 2,000-5,000 条，靠谱吗？'
+    a: '取决于你往每条里塞多少证据。按其状态表造了两种形状：不带证据字段的一条 1,053 字节，能装 4,978 条；每条挂 3 个 check 的一条 2,276 字节，只装得下 2,303 条。真跑 5,000 条是 10.84 MiB，在读取阶段就被 `input exceeds 5242880 byte limit` 挡下，JSON 都没解析。'
 ---
 
 ![两只各管一头的闸门，中间一道对不齐的缝隙被顶光照亮](/assets/img/security-audit-two-validators/banner.webp)

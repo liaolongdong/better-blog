@@ -8,6 +8,14 @@ date: 2026-10-11
 categories: 开源实测
 cover: /assets/img/mxc-v1-ga-intel-mac/banner.webp
 tags: AI 沙箱 安全 开源
+tldr: 'v1.0.0 的 README 把 macOS 的 ARM64 和 x64 写在同一行、后端都标 seatbelt，同一个 tag 的构建命令却只有 aarch64：bin/x64 里没有 dylib，run() 报 mxc_ffi native library was not found，而 getPlatformSupport() 照样回支持。'
+faq:
+  - q: 'Intel Mac 装 MXC 1.0 是什么结果？'
+    a: '装得动、跑不了。空目录里 npm i @microsoft/mxc-sdk@1.0.0 退出码 0，只有一条 node 版本 warn（本机 node 22）；getPlatformSupport() 说支持，run() 却抛 MxcError，mxc_ffi native library was not found，搜索路径落在 bin/x64/libmxc_ffi.dylib。'
+  - q: '把 arm64 那份动态库拷进 x64 目录能绕过去吗？'
+    a: '绕不过。拷过去之后报错变成 dlopen 的 incompatible architecture，have arm64、need x86_64——缺口在架构不在路径。包里的实际分布是 bin/arm64 有 dylib 和 mxc-exec-mac，bin/x64 两个都没有。'
+  - q: '微软有计划补 macOS x64 那份二进制吗？'
+    a: '看不出来会补。microsoft/mxc#571 问的就是这件事，已关、理由写着 not_planned，维护者 8 月 13 日那句原话说的是当前不计划支持 MacOS x64；想补包的那个 PR 关闭时 merged_at 是 null。另外出网这层 seatbelt 只给一根开关，没有按域名放行的原语，要按 host 放行得自己挂 networkProxy。'
 ---
 
 # MXC 1.0 正式版：我这台 Intel Mac 装完跑不起来

@@ -7,6 +7,14 @@ date: 2023-04-12
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: AOP 面向切面编码
+tldr: 'AOP 在 JS 里的三级跳：先用 withLogging 高阶函数包一层，再把 before 和 after 挂到 Function.prototype 上链式调用，最后上装饰器 @log 改 descriptor.value；只是装饰器那版得靠 Babel 或 TypeScript 编译，类装饰器当时还停在第 3 阶段提案，直接扔进浏览器跑不起来。'
+faq:
+  - q: '不想改原函数，怎么在它执行前后插日志？'
+    a: '最朴素的写法是高阶函数 withLogging(fn)：返回的新函数先打 entering 加函数名，再 fn.apply(this, arguments) 拿到结果，接着打 exiting，最后把结果原样返回。add 被包成 loggedAdd 后，loggedAdd(2, 3) 执行前后各多一行日志，返回值不变。'
+  - q: '挂在 Function.prototype 上的 before 和 after 怎么用？'
+    a: '两个方法都用 const self = this 保存原函数引用再返回新函数：before 先执行传入的函数再执行原函数，after 先执行原函数拿到结果、执行完传入的函数后仍返回原结果。所以 greet.before(...).after(...) 串起来调一次 newGreet，按顺序输出 before greet、Hello, Better、after greet 三行。'
+  - q: '用装饰器实现 AOP 有什么限制？'
+    a: '装饰器接收 target、name、descriptor 三个参数，把 descriptor.value 换成带日志的新函数，方法前写 @log 就生效；但 JavaScript 的类装饰器仍处在第 3 阶段提案，得借助 Babel 和 TypeScript 编译。AOP 本身也不免费：切面加重代码复杂度，靠代理实现还会拖累运行效率。'
 ---
 
 ## 什么是面向切面编程

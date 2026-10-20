@@ -9,6 +9,14 @@ categories: [H5与微信]
 # 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: http://img3.imgtn.bdimg.com/it/u=1571861328,916520973&fm=26&gp=0.jpg
 tags: JavaScript H5实现摇一摇
+tldr: '微信摇一摇领红包的落地记录：devicemotion 取三轴加速度算变化率，阈值 SHAKETHRESHOLD 写死 4000 就判定摇晃；真正的坑是协议和平台——iOS 12 以上非 https 域名整个事件失效，安卓不受影响，navigator.vibrate 在 iOS 浏览器根本不支持。'
+faq:
+  - q: 'H5 里怎么判断用户真的在摇手机？'
+    a: '先判断 window.DeviceMotionEvent 存在再监听 devicemotion，从 accelerationIncludingGravity 里取 x、y、z；每隔 50 毫秒以上取一次样，把三轴与上次值的差的绝对值除以时间差再乘 10000 当速度，超过常量 SHAKETHRESHOLD（示例取 4000）就算摇到了，代码里再延迟 1000 毫秒弹提示。'
+  - q: '为什么摇一摇在 iPhone 上没反应？'
+    a: '协议问题。devicemotion 事件在 iOS 12 以上的非 https 协议下会失效，安卓手机不会，所以在 iOS 上测试必须放到 https 协议的域名环境；博客域名挂在 http 上时，苹果手机 iOS 12 以上就没效果。'
+  - q: 'navigator.vibrate() 有什么限制？'
+    a: '两条：iOS 手机上的浏览器不支持该方法，代码里还要依次兼容 webkitVibrate、mozVibrate、msVibrate 这几个前缀；另外它必须由用户触发某种操作后才能调用，不能一加载完页面就振动。振动那一步用的是 navigator.vibrate(1000)。'
 ---
 
 最近公司做了一个微信摇一摇领红包的活动，趁着刚上线有点空余时间，做一下摇一摇活动总结，记录一下做摇一摇活动过程中遇到的问题，旨在为了方便自己下次做类似活动的时候查阅以及让没做过摇一摇活动的小伙伴们少踩坑吧

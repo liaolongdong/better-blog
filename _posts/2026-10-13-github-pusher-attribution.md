@@ -8,6 +8,14 @@ date: 2026-10-13
 categories: 开源实测
 cover: /assets/img/github-pusher-attribution/banner.webp
 tags: 安全 开源 仓库
+tldr: '官方说每枚提交另记一枚已鉴权的 pusher，我 REST、GraphQL、事件流、提交页四个口径一个都没取到；它还是 limited public preview、只对 GitHub Enterprise 开放，眼下能确定落地的只有 Committer must match pusher 这条新规则条件。'
+faq:
+  - q: 'GitHub 的 pusher 字段在 API 里怎么取到？'
+    a: '我四个口径全试了，全部取不到。REST 未鉴权和带 token 各跑一次，commit 对象里没有 pusher 键；GraphQL 向 Commit 类型要这枚字段直接被拒，报的是字段不存在；事件流 PushEvent 只剩五个键；提交页面的 HTML 里 pusher 是 null。'
+  - q: 'author 和 committer 字段随便就能伪造吗？'
+    a: '能，官方自己的理由写得很直白：这两个字段只是推送客户端提供的字符串，任何有仓库写权限的人都能填成任意名字和邮箱。我本地把 GIT_AUTHOR_NAME、GIT_AUTHOR_EMAIL、GIT_COMMITTER_NAME 一起设成假值提交一次，git 2.23.0 没拦，两个字段照样写成 Fake Maintainer 配 fake@octocat.dev。'
+  - q: '我的个人仓库能开 push attribution 吗？'
+    a: '开不了。生效范围那句写的是 limited public preview，只对 GitHub Enterprise 客户开放；哪些仓库进了灰度官方没写，GHES 的支持时间这条 changelog 也没提。我博客仓库在免费计划，没有开关可拨；那枚 showPusherAttribution 在我这枚提交里是 false，GitHub 自己仓库的那枚也是 false。'
 ---
 
 # 官方说每枚提交记了 pusher，我的 API 里没这个键

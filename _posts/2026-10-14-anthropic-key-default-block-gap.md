@@ -8,6 +8,14 @@ date: 2026-10-14
 categories: 开源实测
 cover: /assets/img/anthropic-key-default-block-gap/banner.webp
 tags: 安全 开源 仓库
+tldr: '这次进默认名单的是检测器，不是我这 48 个公开仓库的开关：逐仓 GET 读到 45 个的两枚 anthropic key 状态仍是 disabled，只有 3 个开着；supported patterns 表里 Anthropic 五行 Push protection 全是勾，可它没有默认那一列。'
+faq:
+  - q: 'GitHub 默认拦 Anthropic key，我的仓库还要配吗？'
+    a: '先读状态再决定。一条 gh api /repos/你的仓库 --jq .security_and_analysis 就能看到那两枚 status。我 56 个仓库里 48 个公开，45 个两枚都读成 disabled，开着的只有 3 个。概念页写仓库级 Is disabled by default、并要求 GitHub Secret Protection 先开，同页账号级那句才是 Is enabled by default。'
+  - q: '怎么确认自己有没有把 Anthropic key 推到公开仓库过？'
+    a: '我用的判据是 git log --all -p 配 sk-ant- 这个形状去搜全部历史。我那四个仓 2425 枚提交里命中 0 行，也没有 .env 被跟踪。命中 0 行就说明这次名单跟你无关，不用去撤 key，也不用动仓库设置。'
+  - q: '为什么查这次默认拦截查不到读数？'
+    a: '四个口径只活下来逐仓 GET。supported patterns 那张表 Anthropic 五行 Push protection 全是勾，但没有默认那一列；secret_type 过滤器拿四枚真名加一枚编造的跑五次，全空；alerts 端点回 404，message 写的是 Secret scanning is disabled on this repository；全页搜 Enterprise Server 命中 0。'
 ---
 
 # 官方说 Anthropic key 默认就拦，我 48 个公开仓库里 45 个没开

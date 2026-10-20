@@ -8,6 +8,14 @@ date: 2026-10-17
 categories: [CSS, 开源实测]
 cover: /assets/img/diagram-design-981-faces/banner.webp
 tags: CSS headless 设计系统 github 开源 前端小技巧
+tldr: 'README 第 361 行说这条 link 只加载 3 个字体族、而且是图里唯一的网络请求，我抓回来按 gstatic 的路径数是 981 个 @font-face：928 个给韩文和繁体、四个拉丁族 53 个，简体两族 0 个。仓库里还躺着第二条 link，画廊量到的是 37。'
+faq:
+  - q: 'diagram-design 那条字体 link 里有简体中文吗？'
+    a: '切片数 0。那条 8 族 link 摊开 907,623 字节、981 个 @font-face：Noto Sans KR 372、Noto Sans TC 324、Noto Serif KR 124、Noto Serif TC 108，四个拉丁族共 53，928 加 53 正好 981；Noto Sans SC 与 Noto Serif SC 一个都没有。'
+  - q: '能用 document.fonts.check 判断字体加载成功没有？'
+    a: '不能，这是空真。同一份文件我把网络掐了再量：document.fonts.size 从 37 掉到 0，同一句英文标题的实宽从 265.9 涨到 325.6，而 check 在断网那一侧仍然返回 true。它回答的是现在要这个字体会不会去取，不是取到了没有。要判有没有，量 size 或者直接量宽度。'
+  - q: '给简体补字体的那个 PR 改在哪、代价多大？'
+    a: 'PR #249 只动 8 族那条 link，改 6 处：4 枚 template 各一行、export.md 的 @import 一行、style-guide.md 两行，206 枚画廊文件的 3 族 link 一行没动。补丁是 +8 / -7。两条 link 的 gzip 实测 233,142 与 357,011 字节，@font-face 从 981 变 1,385，新增的 404 条全在 SC 两族里，纯拉丁的图也一起涨。'
 ---
 
 # README 说载 3 个字体族，我数出 981 个 @font-face

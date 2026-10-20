@@ -8,6 +8,14 @@ date: 2026-09-23
 categories: [AI, 开源实测]
 cover: /assets/img/browser-skill-context-bytes/banner.webp
 tags: AI 开源 Agent chrome
+tldr: '省上下文跟功能摆在哪没关系，只看 agent 开机读哪一份：BrowserSkill 常驻 6,804 字节，背后 42 个方法和 56,289 字节参数表一条都不进上下文；同一套 MCP 工具两个版本之间就涨了 2,505 字节。'
+faq:
+  - q: '衡量一个 skill 或 MCP 占多少上下文该量什么？'
+    a: '口径钉成两件事：skill 类看那份 `SKILL.md` 进上下文的字节数，MCP 类看 `tools/list` 一次性回给 agent 的那坨 JSON。BrowserSkill 那份是 123 行、6,804 字节；整个 skill 目录 8 个文件 30,712 字节，其中 `references/` 7 份 23,908 字节按指针加载，两个数不能混着说。'
+  - q: '最便宜的排名为什么反而最能干？'
+    a: '因为厚的那一箱不在上下文里：42 个 RPC 方法、`--help` 3,037 字节、二进制 13,581,816 字节，agent 这侧走 shell，参数错了 CLI 吐 usage 再看一轮。四条入口的排名是 6,804 < 14,892 < 23,261 < 25,766，最后一档是 chrome-devtools-mcp 1.8.0 的 `tools/list` 全量。'
+  - q: 'chrome-devtools-mcp 涨的那 2,505 字节花在哪？'
+    a: '工具数量没变，1.2.0 和 1.8.0 都是 29 个、名字一模一样；全量从 23,261 涨到 25,766，可只算 `name` 加 `description` 反而少 63 字节，单工具中位数从 726 挪到 816，据此判断钱花在 `inputSchema` 上。'
 ---
 
 # 谁才是省上下文冠军？2026年9月4条浏览器入口实测排名出炉，结果让人意外

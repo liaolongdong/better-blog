@@ -8,6 +8,14 @@ date: 2026-10-01
 categories: [开源实测, TypeScript]
 cover: /assets/img/gitdiagram-keyless-mcp-4-bad-edges/banner.webp
 tags: GitDiagram MCP TypeScript Mermaid 架构图
+tldr: '一次 POST 不用鉴权就回一张 mermaid 图，MCP 那次 12029 毫秒、冷启动 23 秒；代价是它画的 17 条文件之间的线，逐条查 import 有 4 条查不到，看图可以，别抄它画的线。'
+faq:
+  - q: 'GitDiagram 的 MCP 要 API key 吗？'
+    a: '不要。不带 Authorization 头直接打它的 MCP，tools/list 回 3 个工具；调 get_repository_diagram 问 wxt-dev/wxt 回 http=200、12029 毫秒、status=found。仓库那侧是免鉴权的网页图加这个 MCP，MIT、TypeScript 写的 Next.js 16 应用、29 个运行时依赖。'
+  - q: '第一次给一个库里没有图的仓库生成架构图要多久？'
+    a: '首字节不到一秒，共 39 条状态事件，总计 23 秒；它读了 28 个源文件，回话里模型型号写的是 gpt-6-luna。再问一次 MCP 是 found，图上标的 star 是 966；图地址后面加 .md 回 text/markdown、12,798 字节。'
+  - q: '把它 clone 下来自己跑，npm 那条路通吗？'
+    a: '不通，只能换 bun，实测 1005 秒。npm ci 退出码 1、报 code EUSAGE，因为仓库只有 bun.lock；换 npm install --dry-run 回 EOVERRIDE，它 engines 只认 bun。那 4 条查不到的线对应开着的 ahmedkhaleel2004/gitdiagram#215，零评论。'
 ---
 
 # GitDiagram 免 key，但 17 条连线 4 条查不到

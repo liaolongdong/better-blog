@@ -8,6 +8,14 @@ date: 2026-10-16
 categories: [TypeScript, 开源实测]
 cover: /assets/img/handwired-js-neural-net/banner.webp
 tags: 开源项目 JavaScript 算法 性能优化 黑科技
+tldr: 'README 第一句是我读错了：docs 第三行逐字写着没有任何工具能把现成的 JavaScript 源码转成程序，电路得你手写；更别扭的是它宣传的 exact 与可微落在互补的输入域上——301 个格点 0 处不符而梯度恒为 0，4 到 5 那 101 个点梯度活了却有 99 个与 JavaScript 不等。'
+faq:
+  - q: 'handwired 能把我已有的 JS 代码丢进去转换吗？'
+    a: '不能。它要的是 builder code：一段只跑一次的普通 JS，把运算一条条追加进一个 Circuit。docs 第三行逐字写着 No tool converts existing JavaScript source into a program.，README 那句 Turn your regular JavaScript code into a neural net 说的不是源码转换器。这枚误读在我这边。'
+  - q: '它那句 exact 又 fully differentiable 实测成立吗？'
+    a: '我实测是二选一。用 emitCompare 编译、声明 1 格的线喂 -100 到 200 的整数，tested 301、bad 0；同一批点跑 backpropagateReference，对输入那条线和对阈值那条线的梯度非零个数都是 0。换成 4 到 5 之间按 0.01 取的 101 个点，梯度活了（对输入是 -2），值却开始撒谎：99 个点和 JavaScript 不等，第一个不符在 4.01。'
+  - q: '那个报零梯度的 issue，原因是比较决策挡住了吗？'
+    a: '不在。issue #1 说 emitCompare 的决策让常量格里的阈值拿到零梯度，我数出来的是另一条：c.constant(4) 走 affine([], 4)，foldConstantTerms 把值并进下游仿射的 bias，leftTerms 里已经没有这条线，反传拿不到它。旁证是我手推的那两行代数：把阈值从常量格换成第二条 source 线，缝里 a 取 4.5 的 gT 实测就是 2。'
 ---
 
 # README 说把 JS 变神经网络，docs 说没有转换器

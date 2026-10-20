@@ -8,6 +8,14 @@ date: 2026-09-27
 categories: [开源实测]
 cover: /assets/img/bend-laws-proof-gaps/banner.webp
 tags: Bend 类型系统 开源 AI编程
+tldr: '68 行声明配 484 行证明：改坏一行，解释器照样 exit=0 吐乱序数组，`bend PROOF.bend` 才红。但门自己也漏——3 个依赖 `@unsafe` 的定义仍回退出码 0，项目把它写进 `WONTFIX.txt`。'
+faq:
+  - q: 'law 和证明为什么要分成两个文件？'
+    a: '规则写进 `LAWS.bend`，用类型表达；实现那头在 `PROOF.bend` 里定义同名函数把它证出来，`bend PROOF.bend` 就是那道门。第一条 law 叫 `you_cant_win`：任何一步之后棋盘都不能是已通关状态。这篇的量法是 68 行 law 对 484 行证明。'
+  - q: '把排序改坏一行会怎么样？'
+    a: '两边分叉。他把 `dec` 的 Inl 分支从 `x <> h <> t` 改成 `h <> x <> t`，元素一个没少、只是不再有序：`bend main.bend` 打 `[2n, 1n, 3n]` 而退出码 0，`bend PROOF.bend` 报 expected `main.LE(lo, h)`、observed `main.LE(lo, x)`，exit=1，位置指到 `sorted_ins.fin`。'
+  - q: '这道证明门有没有漏口？'
+    a: '有，`WONTFIX.txt` 里写着：read the note, not the exit code。那个 `@unsafe` 的 `boom` 返回 `Empty`，输出是 All terms check, but 3 defs rely on unsafe or foreign code，退出码 0；GUIDE.md 还说 foreign 函数只按类型建模、不验 C 或 JS 的实现，`--safe` 到内核翻译也没有证明。'
 ---
 
 # Bend 2 实测：68 行声明配 484 行证明

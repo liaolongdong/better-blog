@@ -8,6 +8,14 @@ date: 2026-10-12
 categories: 开源实测
 cover: /assets/img/zod-466-preinstall-not-shipped/banner.webp
 tags: 安全 开源 仓库
+tldr: '投毒提交真进过 main，但 npm 上那枚 4.6.6 是干净的：那天五次带发布意图的运行没有一次成功，真装之后 meta* 零命中。换版本解决不了这件事，该看的是 npm 默认跑 preinstall、pnpm 默认拦住并打出包名。'
+faq:
+  - q: 'zod 4.6.6 的 preinstall 载荷发布到 npm 了吗？'
+    a: '没有。提交确实存在、作者字段是 colinhacks，给 package.json 加了 preinstall 指向 node meta.test.mjs，那个文件从以太坊合约读一段 base64、执行完用 rmSync 删掉自己；但 registry 那份解包加真装之后 meta* 零命中，那天五次带发布意图的运行没有一次成功。'
+  - q: '用 npm 和用 pnpm 的人分别要做什么？'
+    a: 'preinstall 默认会跑，工作目录就在那个依赖里面。用 npm 的人可做的动作是给安装命令加 --ignore-scripts，再单独放行真需要构建脚本的那几个包。pnpm 默认不跑，还会把拦住的包名打出来，我那个只往 /tmp 追加一行的良性夹具实测输出 Ignored build scripts: probe-dep.；这条不用改配置，但要确认 onlyBuiltDependencies 没被人顺手加宽。'
+  - q: '那枚带 preinstall 的提交现在还在 main 上吗？'
+    a: '不在了，这一条我第一轮读反过。compare/main...d821685e 返回 diverged，我当成提交还在 main 上；换三种取法重跑，结论反过来：那条链被摘掉了，现在 main 上对应的十一枚提交 sha 全不同。清理它的 PR 是 colinhacks/zod#6620，标题 Cleanup bad commits，合并于 2026-09-21 晚。'
 ---
 
 # 我拆了被传投毒的 zod 4.6.6，包里没找到载荷

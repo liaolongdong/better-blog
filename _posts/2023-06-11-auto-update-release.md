@@ -8,6 +8,14 @@ date: 2023-06-11
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 版本投产 更新版本内容
+tldr: '不要后端配合的版本自动更新做法：node 脚本把 commitId 写成 gitInfo.json 放进 public 目录，页面靠 visibilitychange 切回来时对比版本号，不一致就 location.reload；代价只是切标签多发一次请求，而那文件只有 500 字节左右。注意脚本产出的文件不能放 dist，打包时会被清空。'
+faq:
+  - q: '前端投产了但用户还拿着旧资源，会出什么问题？'
+    a: '坑在三条：新功能和问题修复用户拿不到；包含安全性修复的新版本没生效，站点继续带着已知漏洞被攻击；后端接口数据结构或字段改了而前端 JS 还是旧的，直接程序报错。给 index.html 设 no-store 只能解决一部分，那前提是要用户手动刷新或重新打开页面，一直挂着的页面拿不到新资源。'
+  - q: '不靠后端怎么检测到新版本并刷新？'
+    a: '打包前用 node 脚本执行 git show -s --format=%H 拿到 commitId，连分支、提交说明一起写成 gitInfo.json 放到 public 目录随构建产出（不能放 dist，那个目录打包时会被清空）；页面入口监听 visibilitychange，页面显示时 fetch 带时间戳参数的 /gitInfo.json 绕开缓存，commitId 和本次构建写进 .env 的值不一致就 location.reload。'
+  - q: '这套方案自己的代价是什么？'
+    a: '总结里写得很直白：频繁切换标签会让页面每次显示都请求一次版本信息文件，好在该文件很小、只有 500 字节左右，可以接受；相比定时轮询要自己拿捏间隔、SSE 和 WebSocket 都要后端配合推送，这条路不需要后端也不给服务器加压。webpack 项目照搬时，把 .env 加 import.meta.env 换成 definePlugin 加 process.env。'
 ---
 
 ## 如何优雅的实现前端版本投产自动触发浏览器刷新更新版本内容

@@ -8,6 +8,14 @@ date: 2026-10-10
 categories: 开源实测
 cover: /assets/img/chrome-155-jpeg-xl-decode/banner.webp
 tags: chrome headless 开源
+tldr: '公告里被划出来的只有 decoding support 和 starting from Chrome 155 两截，剥标签再数 encode 词根 0 次；同一对探针页 154 两个都 ERR、回落到 PNG，155 出图并把 image/jxl 排在 Accept 最前。'
+faq:
+  - q: 'Chrome 155 的 JPEG XL 支持解码还是编码？'
+    a: '只解码。10-06 公告署 Luca Versari、Moritz Firsching、Philip Jägenstedt 三个名，被划出来的只有 decoding support 和 starting from Chrome 155；encode 词根在公告里出现 0 次，自陈比 JPEG 省 30-50% 这一条复核不了。做上传和图床的先不动，解码器和编码器不是一回事。'
+  - q: '154 和 155 对同一份 .jxl 的反应差在哪？'
+    a: '154.0.8037.98 两条探针都是 ERR、currentSrc 落在 /splines.png；Chrome for Testing 155.0.8059.39 出图，两张 .jxl 分别读出 2048x2048 和 50x80，currentSrc 是 /traffic.jxl。样本取自 libjxl 官方 testdata，81B 与 793B 各一张，同图 PNG 当后备。'
+  - q: '现在可以把 .jxl 设成唯一格式吗？'
+    a: '不建议。还在 154 的人会把它整份下完再报解码错，流量花了图没出来。双源写法是 picture 里加一枚 source type 为 image/jxl，验收只看 currentSrc、不看渲染。造文件那半也卡：ffmpeg 报 Unknown encoder jpegxl，libjxl 最新 release 的 16 个 asset 没有 macOS。'
 ---
 
 # Chrome 155 开始解 JPEG XL，我这台 154 还在白下载

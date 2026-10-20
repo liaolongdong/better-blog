@@ -7,6 +7,14 @@ date: 2023-12-24
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: git reset revert 代码回退 代码回撤
+tldr: '选哪个只看一条：分支有没有别人在用。自己的 feature 分支随便 reset，共享分支只能用 revert 生成反向提交；万一 --hard 手滑，git reflog 的记录默认只留 90 天。'
+faq:
+  - q: 'git reset 和 revert 选哪个才不丢提交？'
+    a: '想留住历史就 revert：它新建一个提交来撤销指定提交引入的更改，现有提交历史不动，这对已经共享的分支是安全的。reset 会把 HEAD 之后的提交从历史里移除，改完历史就不能直接 `git push`，得 `git push -f` 强推。'
+  - q: '--mixed、--soft、--hard 区别到底在哪？'
+    a: '差在被回退掉的内容落在哪儿。`--mixed` 是默认值，重置 HEAD 和 index，之后的提交内容留在工作区；`--soft` 只重置 HEAD，内容留在暂存区而工作区不变；`--hard` 连工作区一起重置，内容直接移除，慎用。'
+  - q: 'reset --hard 之后还能救回来吗？'
+    a: '能，但要快。路子是先用 `git reflog` 查最近的操作记录，找到要回滚的那条提交，再 `git reset` 到它。前提是记录还在——`git reflog` 默认只保留 90 天，过了就没得捞。'
 ---
 
 ## `git reset`和`git revert`详解

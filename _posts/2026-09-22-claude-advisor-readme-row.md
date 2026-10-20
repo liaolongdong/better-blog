@@ -8,6 +8,14 @@ date: 2026-09-22
 categories: [AI, 开源实测]
 cover: /assets/img/claude-advisor-readme-row/banner.webp
 tags: AI 开源 Agent 插件
+tldr: '一次仓库级回滚砍了三刀，README 表格第 113 行还站着；同仓库另一头 2 个字符的 JSON 语法错在 main 上待了 116 天，为它开过的 19 个 PR 一个没合，`claude plugin validate --strict` 照样 exit=0。'
+faq:
+  - q: '插件从 marketplace 摘掉之后还剩什么没清？'
+    a: '人看的那一份没清。`.claude-plugin/marketplace.json` 5,008 字节、19 个 entry，提到这个插件的是 0 个，`claude-for-financial-advisors` 目录回 404，可 246 行的 README 里那张插件表格第 113 行一字没动。对三个 PR 的文件清单做集合差，活下来的正是 README.md 那一行，`+1 -0`。'
+  - q: '那个坏掉的 JSON 是怎么一路漏过来的？'
+    a: '五道门各放一次水：`scripts/check.py` 第 2 项只 parse 三类 manifest，`.mcp.json` 不在输入里；`.github/` 下 grep 它的引用是 0 命中；`plugin-validate.yml` 那句 find 只命中 18 个，而 marketplace 有 19 个 entry；`claude plugin validate --strict` 也报 passed。'
+  - q: '缺一个逗号对用户有什么实际后果？'
+    a: '12 个连接器安静地不加载。装未修的那份时 `claude plugin details` 显示 `MCP servers (0)`，手动补进一个逗号加半个大括号（1,172 字节变 1,174）重装，同一条命令变成 `MCP servers (12)`，而 `Skills (20)`、`Agents (0)`、`~1,463 tok` 三项一个字没变。'
 ---
 
 # 我把 Anthropic 的金融插件仓库读了一遍，发现回滚漏掉了 1 行

@@ -8,6 +8,14 @@ date: 2026-10-18
 categories: AI
 cover: /assets/img/flux-3-klein-open-weights/banner.webp
 tags: AI 开源 评测
+tldr: '分水岭在 4K 那一档：Klein 每张 $0.036、同厂 FLUX 3 Image $0.607，差 16.9 倍，一张省 $0.571、一万张省 $5,710。坑也写了两个：文档叫你不要不带 prompt upsampler 就用它，博客说年收入 $5M 以下免费商用、同一官网的 FAQ 却讲在产品里跑要商业许可。'
+faq:
+  - q: '4K 出图换成 FLUX 3 Klein 能省多少？'
+    a: '价差不是线性的，分辨率越高省得越多：768×768 是 $0.008 对 $0.041、差 5.1 倍，1K $0.009 对 $0.048，2K $0.014 对 $0.100、差 7.1 倍，4K 是 $0.036 对 $0.607、差 16.9 倍。旗舰从 2K 到 4K 单价翻 6 倍，Klein 只翻不到 3 倍。BFL 文档另写文生图和图像编辑同价，4K 输出约 16.8MP、支持 15 种宽高比。'
+  - q: '年收入 500 万美元以下就能免费商用 Klein 吗？'
+    a: '官网两句话对不上。博客逐字说 FLUX Kommunity License 允许年收入低于 $5M 的个人和公司免费商用、研究和非商业用途也免费，更大的组织走自托管商业许可或 API；模型页 FAQ 写的是在产品里运行 Klein 需要商业许可、覆盖大规模自托管部署，没有重复那个门槛。我倾向前者只管门槛以下，但那是我按上下文推的，不是 BFL 的解释。'
+  - q: '8GB 显存跑得动 Klein 吗？'
+    a: '官方口径是 INT8 量化后 8GB 显存能跑，BF16 权重 11.2GB、FP8 是 5.6GB；博客给的实测是蒸馏版加 INT8 在 RTX 5090 上出 1MP 约 4 秒、RTX 4070 不到 9 秒，环境是 ComfyUI，release notes 另说下探到 RTX 3090。这两个显卡口径不一定冲突：8GB 是 INT8 的下限，不是舒适门槛。我没有 NVIDIA 卡，这段没在本机复现。'
 ---
 
 ![封面：小芯片投出巨幅 4K 图像的影子](/assets/img/flux-3-klein-open-weights/banner.webp)

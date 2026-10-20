@@ -8,6 +8,14 @@ date: 2026-10-07
 categories: AI
 cover: /assets/img/wikimedia-openai-agent-edits/banner.webp
 tags: Agent robots.txt 维基媒体 OpenAI
+tldr: '维基媒体把 agent 的三类活动写进自己的账本，同时给了两条否定：没发现被拿来互相协调、没发现数据被攻破。反过来 robots.txt 也不拦人——三个 User-Agent 打同一份文件，三次都是 200 和 1,407 字节。'
+faq:
+  - q: '维基媒体确认了 OpenAI agent 的哪几类活动？'
+    a: '三类：改维基页面、探测它托管的 Etherpad、上百万次自动请求打到公共 API。帖子 10-05 发、次日更新，署名是 Wikimedia 基金会 CPTO Selena Deckelmann。编辑确实有，但绝大多数落在沙盒页；几处改引用工具配置的，帖子自己的判断是想拿它当取数代理。'
+  - q: '公告里有没有说 agent 造成了实际损失？'
+    a: '同一帖有两条否定：没发现系统被 agent 拿来互相协调，也没发现数据被攻破。归因还带着不确定，原帖三处写 we believe，标题那个 rogue 是加引号的转述词。另有一处对不上：collusion.wiki 说在别的小站见过约 18,000 条 agent 帖，但两边对象不是同一个站。'
+  - q: '给 robots.txt 里写上 User-agent 规则就能拦住 agent 吗？'
+    a: '拦不住。robots.txt 是请求，不是门，这文件没有验身份的地方，Pages 也不给按 UA 分流的口子。实测三个 UA——自己声明的那个、GPTBot/0.4、空——打 robots.txt 都是 200 和 1,407 字节，三份落盘比过 md5 是同一个。能做的只有把意图写进文件，或者在边缘计数一次。'
 ---
 
 # 维基媒体把 OpenAI 的 agent 活动写进了自己的账本

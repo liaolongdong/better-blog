@@ -8,6 +8,14 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/local-first-password-manager/banner.webp
 tags: 密码管理器 浏览器扩展 开源项目 Chrome扩展 本地优先
+tldr: '它补的是 Bitwarden 们留的缝：host 全等才出账号、一个快捷键一路填到点登录、数据物理上不出浏览器。代价也明说：主密码遗忘找不回，别在里面存银行和支付类凭证。'
+faq:
+  - q: '多环境的账号是怎么被隔开的？'
+    a: '匹配口径刻意做得不智能：规范化后的 hostname 全等才命中。`localhost` / `127.0.0.1` 另走一套规则，页面不带端口时放行全部方便联调，带端口时只出现端口一致的条目。主域解析里维护了 27 条两段式 ccTLD（`com.cn`、`co.uk` 这类），避免把 `example.com.cn` 错截成 `com.cn`。'
+  - q: '一键登录会不会顺手把表单提交掉？'
+    a: '填充链用 `Ctrl+Shift+F`（Mac 上是 `Cmd+Shift+F`）串起来：自动填用户名和密码，并勾掉离输入框最近的协议复选框；最后那次点击登录由设置里的「自动触发登录」决定，默认关闭，不想常开还可以按侧边栏每条账号上的「填充并登录」。GitHub 那种两步登录会在页面给出 TOTP 活码胶囊，下一步直接填。'
+  - q: '密码存在哪儿，用的是哪套加密？'
+    a: '没有后端、没有账号体系、没有遥测，用户名、密码、URL、备注、TOTP 密钥逐字段加密后只落在浏览器本地存储。密钥由 PBKDF2-SHA256 配 600,000 次迭代派生，加密是 AES-256-GCM，全部走浏览器原生 Web Crypto API；代码以 GPL-3.0 开源，另有 2994 项自动化测试。'
 ---
 
 ![Account Password Helper 核心价值一览](/assets/img/local-first-password-manager/01-infographic-core-value.png)

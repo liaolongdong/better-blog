@@ -8,6 +8,14 @@ date: 2026-10-11
 categories: 开源实测
 cover: /assets/img/deno-cloudflare-six-months/banner.webp
 tags: 开源 Node 前端
+tldr: '两篇公告 10-09 同一天挂出，四条承诺全是相对时长，2027 一次都没出现：runtime 再支持一年、Deploy 再运营六个月。接替它的两套在我这台都没起来，一条 dyld 符号缺失、一条没有 Intel macOS 产物。'
+faq:
+  - q: 'Deno runtime 和 Deno Deploy 各自还剩多久？'
+    a: 'Deno 那篇署名 Ryan Dahl，四条承诺全是相对时长：runtime 再支持一年、月度版本只含 bug 修复和安全更新，一年后停止开发但代码继续开源；Deploy 再运营六个月后关停，付费客户给迁到 Workers 的支持。another year 和 six months 各出现一次，2027、acquir 两侧都是 0 次，收购那词来自 HN 标题。'
+  - q: '跑在 Deno Deploy 上的东西迁移面有多大？'
+    a: '比想象中小。官方部署工具是 jsr.io 上的 @deno/deploy，最新版 0.0.9908，入口 main.ts 九十七行，去重只用三个 Deno.* 成员。本地这半也顺：deno 2.9.7 认 Workers 形状那个文件，deno serve 起监听、curl 回 workers-ok；同一文件改用 deno run 只得一句 warning，端口不起。'
+  - q: 'workerd 和 celld 能立刻替上 Deno 吗？'
+    a: '这台起不来。workerd 装上了但 dyld 报 Symbol not found，二进制写着 minos 13.5、本机 13.1；celld 的安装脚本回 no prebuilt release exists、exit 1，darwin 只有 aarch64。官网那句 58 MB static executable 也对不上实际，v0.6.2 的 linux-x86_64 解压 66.3 MB。'
 ---
 
 # Deno 去了 Cloudflare，Deploy 还剩六个月

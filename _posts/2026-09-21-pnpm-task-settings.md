@@ -8,6 +8,14 @@ date: 2026-09-21
 categories: [前端工程化, 开源实测]
 cover: /assets/img/pnpm-task-settings/banner.webp
 tags: pnpm npm 开源 AI 前端小技巧
+tldr: '坑不在升级的人身上：pnpm 读 pnpm-workspace.yaml 排在切版本之前，于是 11.25.0 连 `pnpm --version` 都能 exit=1，packageManager 那一行救不了你，升到 11.27.1 才放行。'
+faq:
+  - q: 'pnpm 的 concurrencyGroup 配在哪、哪些版本认？'
+    a: '字段写在 `pnpm-workspace.yaml` 的 `tasks` 段里，是 12.5.0 新加的。pnpm 11 的读取器把 `tasks` 下那两个字段当穷举白名单，只认 `concurrency` 和 `dependsOn`，多一个就报错；12.4.2 的 help 列了七项，里面也没有 `concurrencyGroup`。'
+  - q: 'packageManager 钉了新版本为什么还是会红？'
+    a: '顺序反了。11.25.0 面对同一份五行 fixture 先解析、先校验 workspace 文件，再决定要不要切版本，而校验用的是当前进程的字段表，`--version` 就 exit=1；把 `tasks` 那三行删掉、其他一律不动，同一个 launcher 输出 12.5.1。'
+  - q: '同一行拼错，为什么新版本反而放行？'
+    a: '11.27.1 会回 `[ERROR]` 加一句 `Did you mean` 提示，12.5.1 只给一行 `[WARN]` 说已忽略然后继续安装，`exit=0`。#15075 为 pnpm 11 争来的那条大小写检查没有进入 #15072 在 12.5.1 里新加的延后路径，同一条规则只补了一半。'
 ---
 
 ![pnpm 12.5.0 到 12.5.1 之间那 4 小时 38 分：一次 +62 行的提交、六个 PR、七个版本的实测结果](/assets/img/pnpm-task-settings/banner.webp)

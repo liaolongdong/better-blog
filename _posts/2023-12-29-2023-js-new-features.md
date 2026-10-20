@@ -8,6 +8,14 @@ date: 2023-12-29
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript ES2023 JS新特性
+tldr: 'ECMAScript 第 14 版里真正改变写法的就是那两个 groupBy：键能用字符串表示选 Object.groupBy，要拿对象当键才换 Map.groupBy，两个都不做深拷贝。'
+faq:
+  - q: 'Object.groupBy 和 Map.groupBy 怎么选？'
+    a: 'MDN 的口径是：分组名称可以用字符串表示时用 `Object.groupBy`，需要用某个任意值当键才改用 `Map.groupBy`，后者返回一个 Map，测试函数返回的唯一值就是它的键。回调返回的不是字符串或 symbol 时，会被强制转换成字符串。'
+  - q: '拿对象当分组键有什么坑？'
+    a: '对象键可以改，但不能换。例子里给 `restock` 加一个属性之后，`result.get(restock)` 照样返回芦笋和香蕉那两条；新建一个结构一模一样的 `restock2` 去 get，拿到的是 undefined，所以必须留住对键本身的引用。'
+  - q: 'groupBy 返回的是拷贝吗？'
+    a: '不是。两个方法都写明返回对象或返回 Map 里的元素和原始可迭代对象中的元素相同，不是深拷贝；改元素的内部结构，原始可迭代对象和返回结果会一起变。'
 ---
 
 ECMAScript 的版本通常每年发布一次，每个版本都会引入新的语法、功能和改进，以满足不断变化的开发需求。比如我们非常熟悉的ECMAScript 2015，也就是我们常说的ES6，ECMAScript 2023，该语言的第 14 版，进行了一些重大更改，将使我们前端er的编程体验更加轻松、简洁、高效。

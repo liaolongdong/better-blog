@@ -7,6 +7,14 @@ date: 2023-06-14
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: npm yarn pnpm node包管理工具
+tldr: '命令表翻一遍就够，真正的分水岭在磁盘：pnpm 靠 node_modules/.pnpm 里的符号链接共享依赖，省下空间也换来三个新坑——版本冲突、外部干扰、链接失效。'
+faq:
+  - q: 'pnpm 为什么比 npm 省磁盘空间？'
+    a: '它用符号链接共享依赖：第一个项目安装时依赖落进 `.pnpm` 目录并在 `node_modules` 里建链接，别的项目再要同一版本时只建链接指向那里，不重复下载。代价是要懂符号链接的脾气，缓存还得定期清理。'
+  - q: '从 npm 换到 yarn 或 pnpm，命令要大改吗？'
+    a: '不用，两家都写着与 npm 兼容、可以无缝迁移现有项目，差别集中在安装命令的写法上：同一个运行时依赖分别是 `npm install lodash`、`yarn add lodash`、`pnpm install lodash`；开发依赖则对应 `npm install --save-dev jest`、`yarn add --dev jest`、`pnpm install --save-dev jest`。'
+  - q: 'devDependencies 和 peerDependencies 差在哪？'
+    a: '三个字段分工是：`dependencies` 是项目运行时必需的模块；`devDependencies` 只在开发过程中用，不会包含在最终构建或生产环境里；`peerDependencies` 是对其他模块的特定版本依赖，由项目的使用者在自己的环境里提供。'
 ---
 
 ## npm、yarn和pnpm介绍、用法以及注意事项

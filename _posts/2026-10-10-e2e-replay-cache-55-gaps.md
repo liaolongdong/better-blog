@@ -8,6 +8,14 @@ date: 2026-10-10
 categories: 开源实测
 cover: /assets/img/e2e-replay-cache-55-gaps/banner.webp
 tags: Playwright AI编程 开源 工具
+tldr: '三条用例跑绿、失败时落的 trace.md 有 55 行纯文本，不用开 DevTools 就能读；但回放缓存那一半没模型凭据就报 MODEL_UNAVAILABLE，而它自己的迁移表 186 行状态里有 55 行写着 missing。'
+faq:
+  - q: 'agent.act 录下来的步骤能离线回放吗？'
+    a: '这台机器验不了：没有模型凭据，agent.act 一跑就 MODEL_UNAVAILABLE。能确认的是它的口径——验过的步骤录成缓存、下次回放不再叫模型，但 act 之后必须紧跟 expect 把结果钉住，钉住的才进缓存，它不兜底。'
+  - q: '只用确定性用例、不碰 agent 步骤，要踩哪些坑？'
+    a: '两处。版本：它要 Node 22.22.3 起，22.19.0 被 CLI 第一行拒了；npm 侧照装 45 个包、EBADENGINE 照打两条，macOS 13 让它自己下 Playwright 浏览器会被拒、退出码 1。连法：connect 里的 cdpEndpoint 要的是一个吃 AbortSignal 的函数，填成字符串三条全挂 source.resolve is not a function、退出码 3。'
+  - q: '它比 Playwright 慢吗？'
+    a: '不敢说慢，只敢说启动重：同一台机器、同一个 CDP 端点各跑 4 次，Playwright 那套 13.4 到 15.4 秒，e2e 这版 14.4 到 19.6 秒，区间在边缘穿过。覆盖面它自己承认，迁移表 186 行状态里 55 行 missing，含 emulateMedia、clock、文件内并行。'
 ---
 
 # 3 条用例跑绿之后，我看见 e2e 自己列的 55 行 missing

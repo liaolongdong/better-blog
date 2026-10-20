@@ -8,6 +8,14 @@ date: 2026-09-24
 categories: [AI, 开源实测]
 cover: /assets/img/google-ax-workspace-materialization/banner.webp
 tags: AI 开源 Agent 工具
+tldr: '`Workspace` 声明预装三样，真装上的只有 Git：MCP 在 628 个提交里最远只走到 CLI 的表头，skill 只被 `os.MkdirAll` 建出一个空目录，而且 clone 五次全失败照样把 ready 写成 True。'
+faq:
+  - q: 'ax 说预装 Git、MCP 和 skill，实现各到哪一步？'
+    a: '只有 Git 被当正经功能写：`fetchRepo` 依次跑 `git init`、`remote add origin`、`fetch`、`checkout -f FETCH_HEAD`，外面套 5 次重试、间隔 2 秒。skill 那 9 行唯一的动作是 `os.MkdirAll(skills.Path, dirPerm)`，得到的是空的 `/.agents/skills`；MCP 的三个读取点全在 CLI 数个数和打印，零装配。'
+  - q: 'clone 失败了 ready 状态会红吗？'
+    a: '一次都不会红。git 不 OK 时 `setup.go` 只打一条 `slog.Warn`、返回 `nil`，runner 只把 `err != nil` 当没就绪，于是照样 `SetWorkspaceReady(true)`，`/readyz` 与 reconciler 把它写成 True、reason 为 `SetupComplete`；5 次重试全失败的 clone，`ax describe` 里看着就是 setup 已完成。'
+  - q: '在这上面搭内部平台该怎么自查环境到底热没热？'
+    a: '别把那个 ready 位当环境断言。动作是 `ax ssh <task> -- curl -s localhost:端口/metadata/v1alpha1/ax/workspaces` 把声明原文拉下来，再 `ls` 一遍自己真正依赖的东西，两边对不上就别往下跑；要挂 MCP 只能自己在镜像里装，或把 endpoint 交给容器里的启动命令去读。'
 ---
 
 # 谷歌开源的 ax：三样预装两样空，这才是真正的 v1alpha1

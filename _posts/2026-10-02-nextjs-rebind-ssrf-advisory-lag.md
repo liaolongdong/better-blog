@@ -8,6 +8,14 @@ date: 2026-10-02
 categories: AI
 cover: /assets/img/nextjs-rebind-ssrf-advisory-lag/banner.webp
 tags: Next.js 安全 SSRF
+tldr: '同一发打回环的请求，16.3.0 和 16.3.7 都回 200 并往靶文件写了一行，16.3.8 只给 504；堵住这个洞的那次发版列了 7 条公告，两天后逐条查全局公告库全是 404，npm audit 报 0 漏洞。'
+faq:
+  - q: 'Next.js 16.3.8 修镜像优化器那个 SSRF 修的是哪一步？'
+    a: '把连接钉在校验过的 IP 上。新版多了 createPinnedLookup：校验用 dns/promises 解析，地址钉住再交给 socket；旧版校验完把解析还给 socket 自己做。is-private-ip.js 两版逐字节相同，改的不是判断，是第二次解析由谁回答。'
+  - q: '旧版真的能从镜像优化器打到回环内网吗？'
+    a: '能。用一个 --require 脚本改掉回调版 dns.lookup，对 example.com 只回答回环地址，dns/promises 不动，靶是自起的回环服务。三棵树各跑一轮：16.3.0 回 200、fixture 加 1 行 /secret.png，16.3.7 同样 200 加 1 行，16.3.8 回 504、fixture 0 行、日志写着 timed out。'
+  - q: 'Dependabot 或 npm audit 会提示这 7 条公告吗？'
+    a: '不会。7 条在仓库侧全是 published 且都有 CVE 编号，但逐条打 api.github.com/advisories 全 404；同一批 4 条旧公告全 200，含上一条 critical 的 GHSA-vcvr，它上次隔 8 天才进库。npm 的 bulk 接口对这三个版本返回空对象，干净树里跑 npm audit 报 0 漏洞。8.3 那条的 Patched versions 一格还写着字面的 16.3.?。'
 ---
 
 # Next.js 堵住了能打回环的 SSRF，可七条公告两天还没进库

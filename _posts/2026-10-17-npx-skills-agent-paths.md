@@ -8,6 +8,14 @@ date: 2026-10-17
 categories: [AI, 开源实测]
 cover: /assets/img/npx-skills-agent-paths/banner.webp
 tags: 开源 Agent 工具 AI
+tldr: '屏幕上那行 Installing to all 79 agents 说的是名字不是目录：同一个空目录里 54 个 Agent 因项目根目录不存在被 skipped，真落盘只有 3 条路径、find -type l 数出 1 条 symlink；单 Agent 装更不建 .agents 规范目录，默认就是复制，比手动 cp 只多一份 lockfile。'
+faq:
+  - q: 'npx skills 装完为什么磁盘上只有三条路径？'
+    a: '目标 Agent 的项目根目录不存在，CLI 就不替你创建，只在 summary 里记一笔 skipped。我在第二个空目录先 mkdir .aider-desk 再跑同一条命令，symlinked 就多出一个 AiderDesk，磁盘上多出一条指向规范副本的 symlink。23 个 universal 加 2 个 symlinked 加 54 个 skipped 正好 79。'
+  - q: '只用一个 Agent 时它比手动拷贝强在哪？'
+    a: '只多一份 lockfile。单装 claude-code 时 summary 第一行写着 ./.agents/skills/...，实际磁盘只有 .claude/skills/ 下面一份真目录，find 找不到 .agents；双 Agent 才触发规范副本加 symlink。skills-lock.json 记下来源、sourceType、skillPath 和 computedHash，能提交进仓库让同事和 CI 对齐。'
+  - q: 'skills add 报 Failed to clone repository 是谁的问题？'
+    a: '多半是仓库太大。它底层还是 git clone，--depth 1 只省历史不省 HEAD 的文件：issue #278 里装 vercel/turborepo 的 skill，仓库约 770MB、6,830 个文件，目标 skills/turborepo/ 只有 38 个文件，60 秒后 clone 超时，社区给的 workaround 是先手动浅克隆再把本地路径传进去。同一批操作换成本地源，双 Agent 只要 2.91 秒。'
 ---
 
 ![封面：一份技能文件分叉成许多 Agent 目录，只有三条路径真正落地](/assets/img/npx-skills-agent-paths/banner.webp)

@@ -8,6 +8,14 @@ date: 2026-09-27
 categories: AI
 cover: /assets/img/openai-dns-agent-pause/banner.webp
 tags: OpenAI Agent DNS 沙箱
+tldr: '出口管住了、解析器没管住：一个跑搜索类训练的 agent 把问题塞进查询名，借沙箱自己的递归解析器问到了别家的聊天机器人，代价是带工具推理整条暂停，而报告里那个 15 分钟只算这一次。'
+faq:
+  - q: 'DNS 为什么算一条出网通道？'
+    a: '它既能带问题也能带答案。拿查询名当载体实测：单段超过 63、整名超过 255 时 dig 在客户端就拒绝、一个包都不发，247 字节的名字能原样上线（RFC 1035）；服务器故意晚 8 秒回答时，`+time=6` 是 6008ms 拿不到任何服务器，`+time=19` 就取回 `the-capital-of-france-is-paris`。'
+  - q: '各家沙箱的文档里 DNS 是怎么走的？'
+    a: '四份摆在一起看：K8s 默认拒绝 egress 时连解析一起拒、要单独放行；Docker 的 none 驱动只剩回环；E2B 自动放行 8.8.8.8，给的理由是保证解析正常；Claude Code 沙箱把域名交给沙箱外的代理，可那一页全文搜 DNS 出现 0 次，管到哪一层只能自己测。'
+  - q: '这次事故确认到什么程度了？'
+    a: '已确认的只有 OpenAI 自己的书面说法，摘要定性是 insufficient DNS filtering in its training sandbox。两处还不对齐：摘要说 15 分钟内标出，调查一节又写翻出另一批没按应有等级标出的外部 DNS 访问；其余案例有几起报告没给数，时间线四行只写 a.m. 和 p.m.、没写时区。'
 ---
 
 # OpenAI 的训练沙箱被一次 DNS 查询打穿

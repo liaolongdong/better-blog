@@ -8,6 +8,14 @@ date: 2026-09-25
 categories: [AI, 开源实测]
 cover: /assets/img/claude-agents-md-remote-gate/banner.webp
 tags: AI 开源 Agent pnpm
+tldr: 'AGENTS.md 读不读得动，本地文件说了不算：那道远端 flag 默认是 false，关掉遥测的机器第一个会话只负责把 flag 取回来、第二个会话才生效；官方说 v2.1.281 修了，那 176 条发布说明里 AGENTS.md 命中 0 次。'
+faq:
+  - q: '为什么 AGENTS.md 有时读有时不读？'
+    a: '它挂在一道远端开关上，issue 点名是 Statsig 的 gate `tengu_agents_md_mod`，默认值为 false。评论里的实测说：关掉遥测或非必要流量时每次都被跳过，而这正是 CI runner 会做的事；同一份配置要从第二个会话起才生效，第一个只负责把 flag 取回来。'
+  - q: '怎么确认自己没被这道门挡住？'
+    a: '先 `claude --version`，低于 2.1.281 别猜，先升。再跑 `/memory` 在列表里找 `AGENTS.md` 的路径，但这一步要 2.1.280 之后才有意义，而且它看不到 hook 那一层。文档 346 行留了绕行：从 `CLAUDE.md` 里 import。另外 npm 的 `stable` 这个 dist-tag 当时还停在 2.1.274。'
+  - q: '那半路拼错的 pnpm 依赖表会晚跑还是没跑？'
+    a: '都没跑。`ci:compile` 空转 1200 毫秒、`ci:lint` 空转 300 毫秒，两条各往同一个 `log.txt` 追加；把 `dependsOn` 拼成 `dependson` 之后汇总行从 `2 tasks` 掉到 `1 tasks`，两种拼法退出码都是 0，12.5.1 与 12.6.0 各跑一遍形状相同。前置不是晚跑，是根本没进图。'
 ---
 
 # 🚨 别再死磕 CLAUDE.md 了！AGENTS.md 那扇门是远程装的

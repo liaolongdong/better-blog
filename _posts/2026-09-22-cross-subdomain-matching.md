@@ -8,6 +8,14 @@ date: 2026-09-22
 categories: Chrome插件
 cover: /assets/img/cross-subdomain-matching/banner.webp
 tags: Chrome扩展 密码管理器 域名匹配 多环境测试 前端开发
+tldr: '三档放宽里最险的不是漏匹配而是收错站：`evil-qq.com` 也以 `qq.com` 结尾，所以判据只能落在主域名相等；最阴的坑是 Chrome 把 `*` 解析成 `%2A`，单测全绿、真机一个字符都没放宽。'
+faq:
+  - q: '跨子域名匹配的三档该怎么选？'
+    a: '只想让某几条账号跨子域，用 `wildcard` 档加手写 `*.qq.com` 的条目，放宽强度由本人逐条声明；要整个子域家族放开才用 `sameMainDomain`，它一次性对全站生效，会把 `fat.example.com` 和 `uat.example.com` 一起带出来，所以选中它时下面会展开一行只读警示。'
+  - q: '为什么不能直接写 hostname.endsWith？'
+    a: '两种写法都错。`endsWith("qq.com")` 会让 `evil-qq.com`、`myqq.com` 收进一条 `*.qq.com` 的条目；`endsWith(".qq.com")` 不继承 `getMainDomain` 已处理的两段式 ccTLD、未收录国家码的启发式以及 IP 与 `localhost` 原样返回的语义。最终实现只比 `getMainDomain` 的结果是否相等。'
+  - q: '这个 bug 为什么单元测试抓不到？'
+    a: '因为 `*` 不是合法的 host 码点：Chrome 的 `new URL` 给出 `%2A.qq.com`，Node.js 原样保留 `*`。单测里 `resolveMatchTier` 稳定返回 1，真机送进判据的是编码后的那个，被错排到 tier 3。修法是 `restoreWildcardMarker`，`normalizeToHostname` 和带端口的 `normalizeToHostAndPort` 两个入口都得补。'
 ---
 
 自 2026-07 把匹配口径收敛成「精确 host 相等」以来，这条规则一直是这个扩展的多环境隔离底座：`fat.example.com` 的页面上不会看到 `uat.example.com` 或 `example.com` 的账号。它同时是最容易被用户碰到的一面墙——同一主域名下的账号，在别的子域里就是不出来。

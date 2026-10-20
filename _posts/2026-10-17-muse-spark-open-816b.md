@@ -8,6 +8,14 @@ date: 2026-10-17
 categories: AI
 cover: /assets/img/muse-spark-open-816b/banner.webp
 tags: Meta AI Agent 评测
+tldr: '816B、1.64TB、4 台 Mac Studio 才 36.73 tokens/s，这些数字都不如许可证那条要命：用了它或衍生品的每个产品都得在 UI、文档、网站或设置菜单里醒目写一行 Built with Muse Spark Open，营收超 2000 万美元做 MaaS 还要先通知 Meta 并单独签约。'
+faq:
+  - q: 'Muse Spark Open 的权重能不能自托管？'
+    a: '先算内存。我把 HF API 的 65 个 safetensors 字节加了一遍：1,644,333,393,864 字节，即 1531.4 GiB，除以 816B 得约 2.01 字节每参数，正合 BF16。Apple 写道：BF16 参数本身就要 1.6TB 以上内存，NVFP4 降到约 493GB 再加上中间计算仍塞不进一台机器。'
+  - q: '它的许可证和 Apache 2.0 差在哪？'
+    a: 'license 字段是 other、名字是 muse-model-license，而且是 gated=manual：下载前要填真实姓名、出生日期、国家、机构、职位，表单还读 IP 地理位置。使用、微调、蒸馏、再许可、销售都放开，但两条义务卡产品：每个用了它或衍生品的产品要醒目显示 Built with Muse Spark Open；做 MaaS 且任意连续 12 个月合计营收超 2000 万美元要先通知 Meta 并签单独协议。'
+  - q: 'Apple 那组多机吞吐能当上线依据吗？'
+    a: '它证明能跑，不是能上线。4 台 Mac Studio、M5 Ultra、MLX v0.30.1+，NVFP4 加 4 机 tensor parallel，8192 context 下 decode 36.73 tokens/s、TTFT 4.8 秒；2 机 tensor 是 24.99、2 机 pipeline 是 15.74，机器翻倍 decode 只多约 47%。按 36.73 粗算，生成 1000 个 token 要约 27 秒。'
 ---
 
 ![封面：巨大的权重分片堆悬在桌面小电脑上方，橙色测量线标出高度](/assets/img/muse-spark-open-816b/banner.webp)

@@ -8,6 +8,14 @@ date: 2026-10-13
 categories: 开源实测
 cover: /assets/img/impeccable-seventeen-copies/banner.webp
 tags: AI编程 开源 仓库 Impeccable
+tldr: '59 条 AI 写前端的通病真被写成能跑的 Rust 规则，扫我线上那本压缩 CSS 报了 2 条、改名复扫掉到 1 条，不算误报；可 npm 包 4.5.2 的 install 那一步一个文件都没写，Nothing was installed 配退出码 1，挂在 postToolUse 上的钩子我一行也没跑到。'
+faq:
+  - q: 'impeccable install 报 Nothing was installed 是怎么回事？'
+    a: 'npm i impeccable@4.5.2 是 added 2 packages in 1m、退出码 0；但 npx impeccable install -y 回 Could not verify skill bundle 加 Nothing was installed，退出码 1。假 HOME 和项目目录都翻过，没多出 .impeccable/，也没有 .qoder/。这条报错指向 pbakaus/impeccable#479。'
+  - q: '它扫 CSS 报的那两条算不算误报？'
+    a: '两条命中都在我线上那本压缩 CSS 里：side-tab 咬 border-left:2px solid var(--signal)，overused-font 咬 font-family 里的 Helvetica Neue。第二条我不服，用 sed 把 Helvetica 换成 Zephyrine 再扫，命中从 2 掉到 1，名单里真有它，不算误报。'
+  - q: '为什么说它仓库一半字节是副本？'
+    a: '17 个 harness 目录下的 skills/impeccable/ 共 974 个文件，占全仓字节 48.2%，.qoder 就是第 17 份。sync-generated-output.yml 每次 push main 重新生成，用 git status --porcelain 判漂移、漂了自动提交回去最多 5 次，注释引 pbakaus/impeccable#388 说约 10% 的 run 会撞车。'
 ---
 
 # 设计检测器 impeccable 扫我的博客 CSS，报了 2 条
