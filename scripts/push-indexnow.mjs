@@ -135,11 +135,19 @@ if (DRY || !cfg.enabled) {
   process.exit(0);
 }
 
-const res = await fetch(ENDPOINT, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  body: JSON.stringify(payload),
-});
+// 20 秒封顶：这条是部署链路上的最后一步，端点半死不活时不该把整条流水线挂在那儿。
+let res;
+try {
+  res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(20000),
+  });
+} catch (e) {
+  console.log(`✗ 推送失败：${e.name === 'TimeoutError' ? 'IndexNow 端点 20 秒内没有响应' : e.message}`);
+  process.exit(1);
+}
 console.log(`HTTP ${res.status} ${res.statusText}`);
 if (res.status === 200 || res.status === 202) {
   console.log(`✓ 已推送 ${payload.urlList.length} 条到 IndexNow`);
