@@ -8,6 +8,14 @@ date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/page-agent/banner.webp
 tags: AI Agent 前端 开源 阿里巴巴 page-agent GUI
+tldr: '把页面 DOM 脱水成文本交给大模型，全程跑在浏览器端，不要 Python 后端也不用截图；代价是只能操作当前页、跨域 iframe 仍受限，它做的是产品内交互而非 E2E 测试。'
+faq:
+  - q: 'Page Agent 能替代 Playwright 或 browser-use 吗？'
+    a: '不能。正文写明它的战场既不是替代 Playwright 做自动化测试，也不是替代 browser-use 做爬虫，而是产品内部的智能交互。横向对比表里跨页面能力那一栏，Playwright 与 browser-use 都是强，Page Agent 只有「仅限当前页」。'
+  - q: '不想动项目代码，怎么快速验证自然语言操控网页？'
+    a: '用 CDN 引一行 page-agent@1.11.0 的 demo 脚本，它自带 Demo LLM，正文标注仅供评估使用；加完页面上会出现一个对话浮窗，直接输入「点击登录按钮」「把用户名改成 admin」这类指令就能执行。要在生产里用才走 npm install page-agent，核心只有一个 execute 方法。'
+  - q: '复杂页面或单页应用上接入有哪些已知的坑？'
+    a: '正文列了三条边界：严格限制在当前页面内，可选的浏览器扩展只解决多标签页，跨域 iframe 仍然受限；DOM 脱水后传给大模型的 token 数量在复杂页面上可能偏大，需要自己做性能优化；DOM 变化频繁时可能出现指令执行时元素已不存在。'
 ---
 
 ![Page Agent Banner](/assets/img/page-agent/banner.webp)

@@ -8,6 +8,14 @@ date: 2026-06-06
 categories: [AI]
 cover: /assets/img/ai-sdd/banner-3.png
 tags: AI SDD Spec-Driven Development 规范驱动开发
+tldr: '数据全部抓自 2026 年 6 月的 GitHub 仓库：217K 星的 Superpowers 在 5.1.0 删掉三个斜杠命令、把审查压到约 30 秒，108K 星的 Spec Kit 终于支持原地自升级，上手时间与 Token 消耗也一并列了对照。'
+faq:
+  - q: "Superpowers v5.1.0 里 /brainstorm、/write-plan 这些命令去哪了？"
+    a: "v5.1.0 移除了 /brainstorm、/execute-plan、/write-plan 三个遗留斜杠命令，改为直接描述需求自动触发对应 Skill，执行计划和写计划分别落到 superpowers:executing-plans 和 superpowers:writing-plans。同一版本把子 Agent 审查循环换成内联自审，耗时从约 25 分钟降到约 30 秒，正文标注质量持平。"
+  - q: "OpenSpec 从哪个版本开始支持 Kimi CLI？skills 文件落在哪个目录？"
+    a: "v1.4.0。用 openspec init --integration kimi 初始化后，skills 目录落在 .kimi/skills/，在 Kimi CLI 里通过 /skill:openspec-new 这类命令调用；同版本还新增 Mistral Vibe 支持（skills 落在 .vibe/skills/），并把 Sync skills 设为默认开启，新安装自动生成 /opsx:sync。"
+  - q: '升级 GitHub Spec Kit 还要重新装一遍吗？'
+    a: '不用，v0.9.3 正式上线自我升级：specify self check 只检查有没有新版本、不做任何修改，specify self upgrade 原地升级到最新稳定版，带上 --tag 可以固定在某个版本。同一版还新增 workflow resume，中断的工作流能带着更新输入继续执行，并修复了 Windows 平台 Unicode 编码错误和 Copilot 模板解析 bug。'
 ---
 
 ![banner](/assets/img/ai-sdd/banner-3.png)
