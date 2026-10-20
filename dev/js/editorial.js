@@ -1527,7 +1527,26 @@
         cap.className = 'lightbox-cap';
         dlg.appendChild(big);
         dlg.appendChild(cap);
+
+        // 动效批 V·C1：多图序列。原先只能「点开 → 关掉 → 再点开下一张」，而实测图最多的
+        // 那篇正文里有 21 张可放大图——长截图连排是本站的主场景，一张一张关-点-关在手机上尤其贵。
+        var nav = document.createElement('div');
+        nav.className = 'lightbox-nav';
+        nav.hidden = true;
+        var prev = document.createElement('button');
+        prev.type = 'button'; prev.className = 'lightbox-step lightbox-prev';
+        prev.setAttribute('aria-label', '上一张'); prev.textContent = '\u2039';
+        var next = document.createElement('button');
+        next.type = 'button'; next.className = 'lightbox-step lightbox-next';
+        next.setAttribute('aria-label', '下一张'); next.textContent = '\u203a';
+        var count = document.createElement('span');
+        count.className = 'lightbox-count'; count.setAttribute('aria-live', 'polite');
+        nav.appendChild(prev); nav.appendChild(count); nav.appendChild(next);
+        dlg.appendChild(nav);
         document.body.appendChild(dlg);
+
+        var seq = [];
+        var idx = -1;
 
         // FLIP 的两次「首」：开是点的那张缩略图，关是它当时的位置（中间可能已滚动）。
         var origin = null;
@@ -1572,13 +1591,44 @@
             dlg.style.transformOrigin = '';
         }
 
-        function open(img) {
+        /**
+         * 把第 n 张摆进对话框。dir<0 从左侧进场，dir>0 从右侧，0 是首次点开。
+         * @param {number} n 序列下标
+         * @param {number} dir 进场方向，0 表示不做滑入（首次打开走 FLIP）
+         */
+        function show(n, dir) {
+            idx = n;
+            var img = seq[n];
+            origin = img;
             big.src = img.currentSrc || img.src;
             big.alt = img.alt || '';
             cap.textContent = img.alt || '';
             cap.hidden = !cap.textContent;
-            origin = img;
+            count.textContent = (n + 1) + ' / ' + seq.length;
+            // 只预取相邻两张：翻页时不该看见空白，但也不该在打开灯箱这一刻
+            // 把整篇的图全拉下来——长截图单张就有几百 KB。
+            for (var d = -1; d <= 1; d += 2) {
+                var q = seq[(n + d + seq.length) % seq.length];
+                if (q) { var pre = new Image(); pre.src = q.currentSrc || q.src; }
+            }
+            if (prefersReducedMotion() || !dir) return;
+            big.classList.remove('is-from-left', 'is-from-right');
+            void big.offsetWidth; // 同一张来回翻时不强制回流，类名不会重播
+            big.classList.add(dir < 0 ? 'is-from-left' : 'is-from-right');
+        }
+
+        /** 翻一张；不足两张时整块不动，环形取模让「下一张」从末尾回到开头。 */
+        function step(dir) {
+            if (seq.length < 2) return;
+            show((idx + dir + seq.length) % seq.length, dir);
+        }
+
+        function open(img) {
+            var at = seq.indexOf(img);
+            if (at < 0) { seq = [img]; at = 0; }
+            nav.hidden = seq.length < 2;
             dlg.showModal();
+            show(at, 0);
             if (prefersReducedMotion()) { settle(); return; }
             // showModal 之后才拿得到终态矩形，所以起点先记着、这一步才做 FLIP。
             fly(img.getBoundingClientRect());
@@ -1620,7 +1670,32 @@
             setTimeout(finish, 400);
         }
 
-        dlg.addEventListener('click', close);
+        // 序列导航键住在对话框内部，不放行就会「点下一张 = 关掉灯箱」。
+        dlg.addEventListener('click', function (e) {
+            if (e.target && e.target.closest && e.target.closest('.lightbox-nav')) return;
+            close();
+        });
+        [prev, next].forEach(function (b, k) {
+            b.addEventListener('click', function (e) { e.stopPropagation(); step(k ? 1 : -1); });
+        });
+        // 键盘 ←/→ 翻页；Esc 仍走原生 cancel → close 那条路径，不抢。
+        dlg.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+        });
+        // 触摸：横向位移过 40px 且明显大于纵向才算翻页。判错方向的后果是读者竖向一拖
+        // 就跳页，比不响应更糟，所以那 1.5 倍的比例不是讲究。
+        var sx = 0, sy = 0, tracking = false;
+        dlg.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse') return;
+            tracking = true; sx = e.clientX; sy = e.clientY;
+        });
+        dlg.addEventListener('pointerup', function (e) {
+            if (!tracking) return;
+            tracking = false;
+            var dx = e.clientX - sx, dy = e.clientY - sy;
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+        });
         // Esc 走的是 cancel → close 这条原生路径，不拦的话遮罩直接消失、没有回程。
         dlg.addEventListener('cancel', function (e) {
             if (prefersReducedMotion()) return;
@@ -1634,6 +1709,7 @@
                 // 表情包、行内小图标放大只会糊成一团；被 <a> 包住的图让链接先响应。
                 if (img.offsetWidth < 160 || img.closest('a')) return;
                 img.classList.add('is-zoomable');
+                seq.push(img);
                 img.addEventListener('click', function () { open(img); });
             })(imgs[i]);
         }

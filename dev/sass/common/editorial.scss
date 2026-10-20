@@ -6898,3 +6898,74 @@ dialog.shortcuts:not([open]) {
         border-radius: var(--radius-s);
     }
 }
+
+
+/*** 13. 动效批 V（C1 灯箱序列 / C2 代码块 / C3 锚点落点） ***/
+
+// C1：序列导航。钉在对话框右下角，不抢图的注意力；单图文章整块 hidden。
+.lightbox-nav {
+    position: fixed;
+    right: 20px;
+    bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+}
+.lightbox-count {
+    min-width: 54px;
+    text-align: center;
+    font-family: $font-meta;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: .06em;
+    color: rgba(255, 255, 255, .82);
+    background: rgba(0, 0, 0, .38);
+    border-radius: 999px;
+    padding: 7px 10px;
+}
+.lightbox-step {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .38);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.lightbox-step:hover { background: rgba(0, 0, 0, .58); }
+.lightbox-step:active { transform: scale(.94); }
+
+// 翻页进场只动 transform/opacity，与 M 系列其余动效同一口径。
+@keyframes lbFromRight {
+    from { opacity: 0; transform: translate3d(var(--travel-m), 0, 0); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes lbFromLeft {
+    from { opacity: 0; transform: translate3d(calc(var(--travel-m) * -1), 0, 0); }
+    to { opacity: 1; transform: none; }
+}
+.lightbox img.is-from-right { animation: lbFromRight var(--dur-2) var(--ease-out) both; }
+.lightbox img.is-from-left { animation: lbFromLeft var(--dur-2) var(--ease-out) both; }
+
+// C3：锚点落点反馈。实测从 ⌘K、搜索深链或站内锚链接跳进来时，目标标题的
+// backgroundColor / animationName / transitionDuration 三个值跳前跳后完全相同——
+// 读者落在一屏文字中间，没有任何东西告诉他「是这一段」。
+@keyframes targetFlash {
+    from { background-color: color-mix(in srgb, var(--signal) 26%, transparent); }
+    to { background-color: transparent; }
+}
+.markdown-body :target,
+.toc-static :target,
+.post-faq-item:target {
+    animation: targetFlash 1.4s var(--ease-out) both;
+    border-radius: var(--radius-2, 8px);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
