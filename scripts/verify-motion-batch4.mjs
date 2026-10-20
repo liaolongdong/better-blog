@@ -421,17 +421,34 @@ const sampleOnce = (sel, pseudo) => evalJs(`(() => {
     top: Math.round(r.top), h: Math.round(r.height) };
 })()`);
 
-/** 先落下触发动作（真按键 / 真点击，不等冷却），随即一圈圈读，读满 ms 毫秒。 */
-const traceAfter = async (action, sel, pseudo, ms = 520) => {
+/**
+ * 先落下触发动作（真按键 / 真点击，不等冷却），随即一圈圈读。
+ *
+ * 两处口径是 2026-10-21 实测钉下来的，都不是为了让红点变绿：
+ * 1. **动作不 await**。`keyFast/clickFast` 自己也要排 CDP 队，宿主机忙时一次派发能吃掉 800ms+
+ *    （实测书架那格轨迹首帧就落在 t=879）。等它回来才开始采样，等于把整段过渡让给了队尾——
+ *    读到的是「已经收走了」，不是「没有中间帧」。
+ * 2. **settle 档把定窗改成「读到真的收走为止」**。`ms` 降级成最短采样长度，上限 cap 兜底。
+ *    ⌘K 那一格在 1.4s 内读到 63 个中间帧，而 900ms 定窗（×1.67 时钟）只读到 0 个：
+ *    过渡起跑被派发推迟到了窗外。判据本身一个字没动——要的仍然是「存在还渲染着但已离开终值的帧」。
+ */
+const traceAfter = async (action, sel, pseudo, ms = 520, settle = false) => {
   const t0 = Date.now();
-  await action();
+  const cap = settle ? Math.max(ms * 6, 6000) : ms;
+  // 只有 settle 档才并发派发：密度自证那一格的动作本身要在页内先立起被采样的东西，
+  // 不等它就直接读会读到 no-node、0 帧（实测把第 1 组自己判成「机器不空」）。
+  let act = null;
+  if (settle) { act = Promise.resolve().then(action); act.catch(() => {}); }
+  else await action();
   const out = [];
-  while (Date.now() - t0 < ms) {
+  while (Date.now() - t0 < cap) {
     const s = await sampleOnce(sel, pseudo);
-    if (s.err) return { samples: out, err: s.err };
+    if (s.err) { if (act) await act; return { samples: out, err: s.err }; }
     out.push({ t: Date.now() - t0, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
+    if (settle && out.length > 4 && s.rend === 0 && Date.now() - t0 >= ms) break;
   }
-  return { samples: out, n: out.length };
+  if (act) await act;
+  return { samples: out, n: out.length, capped: settle && Date.now() - t0 >= cap };
 };
 /**
  * 一次动作、多路读数：每圈把 targets 全读一遍，各留一条同一起点的轨迹。
@@ -442,14 +459,19 @@ const tracePair = async (action, targets, ms = 520) => {
   const out = targets.map(() => ({ samples: [], err: '' }));
   const t0 = Date.now();
   await action();
-  while (Date.now() - t0 < ms) {
+  const cap = Math.max(ms * 6, 6000);
+  let gone = 0;
+  while (Date.now() - t0 < cap) {
     const t = Date.now() - t0;
     for (let i = 0; i < targets.length; i += 1) {
       if (out[i].err) continue;
       const s = await sampleOnce(targets[i][0], targets[i][1]);
       if (s.err) { out[i].err = s.err; continue; }
       out[i].samples.push({ t, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
+      if (!s.rend) gone++;
     }
+    // 两层都收走、且已经采满最短窗口，就收工；cap 兜底，别把「永远不收」拖成挂死。
+    if (gone >= targets.length && Date.now() - t0 >= ms) break;
   }
   return out;
 };
@@ -507,14 +529,14 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   }
   mark(`[${name}] trace-start`);
   const close = () => (closeSel ? clickFast(closeSel) : closeKey ? keyFast(...closeKey) : clickFast(openSel));
-  const t = await traceAfter(close, sel, pseudo, Math.round(ms * CLOCK_RATE));
+  const t = await traceAfter(close, sel, pseudo, Math.round(ms * CLOCK_RATE), true);
   mark(`[${name}] trace back, samples=${t.samples ? t.samples.length : t.err}`);
   if (t.err) { traceFail(`${name}·退场`, t, '轨迹没跑起来'); return; }
   if (!t.samples.length) { RED(`${name}·退场`, '轨迹一个读数都没有——这一层在采样窗口里从没进入过渲染态；先确认打开动作真发生了，再看机器空不空（0 帧时旧版会直接 TypeError 崩掉，红得没有名字）'); return; }
   const after = t.samples[t.samples.length - 1];
   if (kind === 'fade') {
     const mid = midFade(t.samples);
-    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}`);
+    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}${t.capped ? '｜已采到 cap 仍未见离开终值，问题在时间轴没走，不在窗口不够长' : ''}`);
     else ok(`${name}·退场`, `中间帧 ${mid.length} 个 / 共 ${t.samples.length} 帧，首帧 t=${mid[0].t} op=${mid[0].op}`);
   } else {
     const start = t.samples.find((x) => x.rend === 1);
