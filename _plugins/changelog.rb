@@ -7,7 +7,7 @@ Jekyll::Hooks.register :site, :post_read do |site|
 end
 
 # CHANGELOG.md 的构建期解析器。判据只有一条：不合形状的标题必须留下痕迹给门禁判红，
-# 不许静默少渲染一个版本。
+# 不许静默少渲染一个版本、也不许静默少渲染一行正文。
 module BBChangelog
   # 页面住在 /better-blog/changelog.html，而 CHANGELOG.md 里的 ./USAGE.md 是「仓库视角」的
   # 相对地址——浏览器会解成 /better-blog/USAGE.md，线上 404。改写进 GitHub 的 blob 视图，
@@ -24,11 +24,33 @@ module BBChangelog
       entries = []
       entry = nil
       section = nil
+      headings = 0
+      # nil = 不在代码围栏里；否则是「围栏内已收到的行」。围栏内容不是结构，但也不许消失：
+      # 闭合时整块交给 md()，页面渲染成一个 <pre>。
+      fence = nil
 
       text.each_line do |raw|
         line = raw.chomp
 
+        if line =~ /\A\s*(?:`{3,}|~{3,})/
+          if fence
+            # 闭合行只当分隔符，不进代码内容；版本块还没出现时无处可挂（文件头的引言本来就不上页面）。
+            section = append_item(entry, section, fenced_markdown(fence)) if entry
+            fence = nil
+          else
+            fence = []
+          end
+          next
+        end
+        if fence
+          fence << line
+          next
+        end
+
+        # 没有这道屏蔽时，围栏里写一句 `## 9.9.9 — 2030-01-01` 会生出幽灵版本，
+        # 并把其后的真条目并进它（实测），而只数 ^## 的判据照样绿。
         if (m = line.match(/\A##\s+(.+?)\s*\z/))
+          headings += 1
           head = m[1]
           if (vm = head.match(HEAD))
             entry = { 'version' => vm[1], 'date' => vm[2], 'title' => head,
@@ -44,36 +66,82 @@ module BBChangelog
 
         next if entry.nil?
 
+        # 写成 `####+` 而不是 `#{4,}`：正则字面量里的 `#{` 是字符串插值，
+        # 那个写法直接让插件语法错误、整站构建挂掉（实测）。
+        if (m = line.match(/\A(####+)\s+(.+?)\s*\z/))
+          # 四级以上标题不认识，但一个字都不许丢：留一条警告，文字按普通条目上页面。
+          # 小节归属不变——它是 H3 之下的子标题，后面的列表仍该挂在原小节里。
+          warnings << "版本块里出现 #{m[1].length} 级标题，按普通条目渲染：#{m[2]}"
+          section = append_prose(entry, section, m[2])
+          next
+        end
+
         if (m = line.match(/\A###\s+(.+?)\s*\z/))
           section = { 'title' => m[1], 'items' => [] }
           entry['sections'] << section
           next
         end
 
-        if (m = line.match(/\A[-*]\s+(.*)\z/))
-          # 版本块里可以有不带 ### 的裸列表：给它一节空标题，页面按「无小节名」渲染。
-          section ||= begin
-            s = { 'title' => nil, 'items' => [] }
-            entry['sections'] << s
-            s
-          end
-          section['items'] << m[1]
+        # 列表项认全：`-`、`*`、`+`、`1.`、`1)`。旧版只认前两种，于是 `+ 这条`
+        # 和 `1. 这条` 在有小节时整行静默消失（实测）。
+        if (m = line.match(/\A\s*(?:[-*+]|\d+[.)])\s+(.*)\z/))
+          section = append_item(entry, section, m[1])
           next
         end
 
+        # 两格缩进是上一条列表项的续行；没有可续的对象时按普通正文走下面的兜底。
         if line =~ /\A\s{2,}\S/ && section && section['items'].any?
           section['items'][-1] += ' ' + line.strip
           next
         end
 
-        if line !~ /\A\s*\z/ && line !~ /\A[#\-*]/ && entry['sections'].empty?
-          entry['lede'] << line.strip
-        end
+        next if line =~ /\A\s*\z/
+
+        # 到这儿的是「版本块里一段不认识的正文」。旧版只在小节为空时收进 lede，
+        # 有小节之后就无人认领、整行丢弃（实测）。这一页丢一行字没有任何症状，
+        # 所以兜底宁可多收：有地方挂就挂上，实在没有进 lede。
+        section = append_prose(entry, section, line.strip)
       end
 
+      if fence
+        warnings << "代码围栏未闭合，末尾 #{fence.length} 行按正文收下"
+        append_item(entry, section, fenced_markdown(fence)) if entry
+      end
       entries.each { |e| render_entry(e) }
       { 'entries' => entries, 'warnings' => warnings,
-        'headings' => text.scan(/^##\s+.+$/).length }
+        'headings' => headings }
+    end
+
+    # 列表项必须有归宿：没有当前小节就挂到上一个无主小节，一个都没有则新建无主小节
+    # （2.0.1 整条版本就是「lede + 裸列表、一个 ### 也没有」，实测 9 条）。
+    # 返回调用方该当作「当前小节」的对象。
+    def append_item(entry, section, text)
+      target = section
+      unless target
+        target = entry['sections'][-1]
+        unless target && target['title'].nil?
+          target = { 'title' => nil, 'items' => [] }
+          entry['sections'] << target
+        end
+      end
+      target['items'] << text
+      target
+    end
+
+    # 非列表的正文行：有地方挂就挂上，小节还没出现时进 lede（这是页面开头那句的来路）。
+    def append_prose(entry, section, text)
+      return append_item(entry, section, text) if section
+
+      entry['lede'] << text
+      nil
+    end
+
+    # 围栏内容原样交回 kramdown。必须用 `~~~` 而不是 ```：这一版 kramdown 的默认输入
+    # 把 ``` 块解析成段内 <code>（实测 `<p><code>` 且没有 <pre>），只有 ~~~ 才得到 <pre>。
+    def fenced_markdown(lines)
+      body = lines.dup
+      body.pop while body.last =~ /\A\s*\z/
+      "~~~\n#{body.join("\n")}\n~~~"
     end
 
     def render_entry(e)
@@ -127,7 +195,7 @@ module BBChangelog
       end
     end
 
-    # 只把「整段就是一个 <p>」的那一种收成行内 HTML；含列表或多段的块保留外层结构。
+    # 只把「整段就是一个 <p>」的那一种收成行内 HTML；含列表、代码块或多段的保留外层结构。
     def single_block?(html)
       html.scan(/<p>/).length == 1 && !html.include?('<ul') && !html.include?('<pre')
     end

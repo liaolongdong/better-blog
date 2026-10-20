@@ -57,7 +57,12 @@ permalink: /changelog.html
     </nav>
 
     {%- if site.data.changelog.warnings.size > 0 -%}
-    <p class="series-missing">CHANGELOG.md 有标题没被解析出来：{{ site.data.changelog.warnings | join: '；' }}</p>
+    {%- comment -%}
+      告警文案要同时兜住三种来路：H2 形状不合（整条不渲染）、版本块里出现四级以上标题
+      （文字已按条目渲染）、代码围栏未闭合。写「有标题没被解析出来」在后两种下是说谎的
+      ——字其实在页面上。所以这里说不判断结构、只说没按预期结构解析。
+    {%- endcomment -%}
+    <p class="series-missing">CHANGELOG.md 里有写法没按预期的结构解析：{{ site.data.changelog.warnings | join: '；' }}</p>
     {%- endif -%}
 
     {%- for e in site.data.changelog.entries -%}
