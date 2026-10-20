@@ -7,6 +7,14 @@ date: 2019-01-28
 categories: [前端工程化]
 cover: /assets/img/postCover/gulp_cover.png
 tags: gulp 项目搭建
+tldr: '大多数项目仍用 webpack，但独立于项目之外的活动页更适合 gulp：根目录一个 gulpfile.js，敲 gulp 就走 default 任务，src、dest、task、watch 四个 API 就够用。报 Task function must be specified 是版本不一致。'
+faq:
+  - q: '运行 gulp 报错 Task function must be specified 是什么原因？'
+    a: '原因是 gulp 的全局插件（CLI version）和项目里的（Local version）版本号不一致，用 gulp -v 能一眼看出差距，示例里就是 CLI version 3.9.1 配 Local version 4.0.0。解决方案是重装 gulp 统一版本号，执行 npm install gulp@3.9.1 --save-dev。'
+  - q: '现在还有必要用 gulp 搭项目吗，什么场景比 webpack 合适？'
+    a: '目前前端构建的项目大多数都是使用 webpack 进行打包构建的，但有一些项目比较适合用 gulp 构建打包，比如独立于项目之外的各种活动页面。'
+  - q: 'gulp 怎么做到改完文件浏览器自动刷新？'
+    a: '两处配合：watch 任务里用 gulp.watch 盯住 js、css 与 scss、图片、html 这些 glob，命中后触发对应的打包任务；每个打包任务末尾再 pipe 一次 connect.reload()，由 devServer 任务里的 connect.server 提供本地服务，示例配置 root 是 dist、host 是 127.0.0.1、端口 8000、livereload 打开。'
 ---
 
 [github-demo](https://github.com/liaolongdong/use-gulp-build-project)

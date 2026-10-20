@@ -9,6 +9,14 @@ categories: [前端工程化]
 # 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1548388440630&di=113721b90da880056b64bac0f84154a8&imgtype=0&src=http%3A%2F%2Fwww.bccn.net%2Fmedia%2Fnews%2F2017%2F01%2F16%2F1484556320_99662422.jpg
 tags: npm 仓库
+tldr: '发布就三步：npm adduser 登录、package.json 里定好不能重名的 name 和 version、npm publish。卡住基本是三种报错，registry 还指着淘宝镜像、账号没登录、版本号没改。'
+faq:
+  - q: 'npm publish 报 E403 403 Forbidden no_perms 是哪里出了问题？'
+    a: '文里列的第一种常见错误就是 npm 仓库设置了淘宝镜像，PUT 请求打到 registry.npm.taobao.org 会回 no_perms。先用 npm config get registry 检查当前地址，确实被设成镜像就执行 npm config set registry 换成 registry.npmjs.org 的官方地址，重新 npm publish，发布成功后再把 registry 设回淘宝镜像。'
+  - q: 'E401 Unauthorized，提示 You must be logged in to publish packages 怎么解决？'
+    a: '是账号没登录。用 npm adduser（文里的注释也写作 npm login）输入用户名、密码和邮箱，登录成功之后再执行 npm publish。'
+  - q: '提示 You cannot publish over the previously published versions 要怎么处理？'
+    a: '这条 E403 是重新发布没改版本号造成的，解决方案就是在 package.json 里修改 version 的值。文中还强调两条：npm 包名称 name 不能和已经存在的包名相同，每次版本更新都必须修改版本号 version 的值。'
 ---
 
 需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm中央仓库或者私有仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到私有仓库。

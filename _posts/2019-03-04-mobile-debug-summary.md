@@ -7,6 +7,14 @@ date: 2019-03-04
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 移动端调试技巧
+tldr: 'PC 浏览器替代不了真机：iOS 用数据线连 Mac 走 Safari 的开发菜单，安卓开 usb 调试后在电脑 Chrome 的 inspect 面板挂载，页面上看不到日志就引 vConsole，微信内的缓存走 debugx5 那个页面清。'
+faq:
+  - q: '手机上用 IP 地址打不开自己电脑启动的本地服务页面怎么办？'
+    a: '排查顺序文里给了三条：确认手机和电脑访问的 wifi 环境相同；确认用的确实是电脑无线网络连接的 IP 地址；如果能用 localhost 打开、用本地 IP 打不开，就把 webpack devServer 里那个 host 配置改成 0.0.0.0。操作时手机和电脑先连同一个 wifi，再把本地 localhost 地址换成本机 IP 试访问。'
+  - q: '安卓手机怎么在电脑上做真机调试？'
+    a: "数据线连接安卓手机和电脑、打开手机的 usb 调试功能，在电脑上打开 Chrome，地址栏输入 chrome://inspect，进入后点击 inspect 即进入调试模式，然后在安卓手机的 Chrome 浏览器里打开需要调试的网页。文里注明第一次调试必须翻墙，调试和电脑端基本没有差异，电脑端改样式等手机立马变化。"
+  - q: '安卓手机上微信浏览器的缓存怎么清？'
+    a: '方法是用安卓手机微信浏览器打开 debugx5.qq.com 这个地址，在里面选择要清除的缓存内容。'
 ---
 
 ## 前言
