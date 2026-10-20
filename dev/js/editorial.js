@@ -691,22 +691,34 @@
      * 不会留下「按了没反应」的死角。
      */
     var paletteLoading = false;
+    var paletteQueue = [];
 
     function ensurePalette(done) {
         if (window.BBPalette) { if (done) done(); return; }
+        // 排队，不许丢：pointerdown 预热已经把 paletteLoading 置真，紧接着 click 带进来的这个
+        // 回调要是在这里被 return 掉，脚本加载完了也没人重放那一次交互——症状是
+        // 「冷缓存下第一次点搜索按钮没反应，第二次才开」，与拆包那回踩过的那两个坑同一类。
+        if (done) paletteQueue.push(done);
         if (paletteLoading) return;
         paletteLoading = true;
         var s = document.createElement('script');
         s.src = BASE_URL + '/assets/js/palette.min.js';
-        s.onload = function () { paletteLoading = false; if (done) done(); };
+        s.onload = function () {
+            paletteLoading = false;
+            var q = paletteQueue;
+            paletteQueue = [];
+            for (var i = 0; i < q.length; i++) { if (q[i]) q[i](); }
+        };
         s.onerror = function () {
             paletteLoading = false;
+            // 注不进（离线又没缓存上）就别攒着：清空队列，读者再按一次会重新起载。
+            paletteQueue = [];
             if (s.parentNode) s.parentNode.removeChild(s);
         };
         document.head.appendChild(s);
     }
 
-    function openPalette(trigger) {
+    function openPalette(trigger, viaKey) {
         // 注入完成后重放同一次交互，而不是直接调面板内部的 open()——那个函数是 initPalette
         // 的局部作用域，外层引用会落到 window.open 上（不抛错、不开面板）。
         // 桩自己的监听此刻已被 window.BBPalette 那道守卫挡掉，所以这一放只会被面板接住一次。
@@ -714,12 +726,24 @@
             if (!window.BBPalette) return;
             if (trigger) {
                 trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            } else if (viaKey) {
+                // 按原键重放：用 / 打开的人不该被换成 ⌘K，面板里两条入口的处理并不相同。
+                document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: viaKey.key, code: viaKey.code, metaKey: viaKey.metaKey,
+                    ctrlKey: viaKey.ctrlKey, bubbles: true, cancelable: true,
+                }));
             } else {
                 document.dispatchEvent(new KeyboardEvent('keydown', {
                     key: 'k', code: 'KeyK', metaKey: true, bubbles: true, cancelable: true,
                 }));
             }
         });
+    }
+
+    function isTypingTarget(el) {
+        if (!el || !el.tagName) return false;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
+        return !!(el.isContentEditable);
     }
 
     function searchTrigger(e) {
@@ -729,9 +753,15 @@
     function initPaletteStub() {
         document.addEventListener('keydown', function (e) {
             if (window.BBPalette) return;
-            if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === 'k') {
+            var k = String(e.key).toLowerCase();
+            if ((e.metaKey || e.ctrlKey) && k === 'k') {
                 e.preventDefault();
-                openPalette(null);
+                openPalette(null, e);
+            } else if (k === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+                // 「/ 打开搜索」是快捷键说明里写着的一条，拆包之后它只存在于懒加载的面板里；
+                // 桩不接这条，全新页面上直接按 / 就是死的（必须先 ⌘K 唤起一次）。
+                e.preventDefault();
+                openPalette(null, e);
             }
         });
         // 指针按下就开始注入：比 click 早几十毫秒，慢网下「点了没反应」那一段就是这么省掉的。

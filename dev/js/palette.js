@@ -76,7 +76,10 @@
          *   第二次把 .is-fresh 的错峰入场摘掉，观感就是「闪一下才出结果」。
          */
         function open(trigger, preset) {
-            lastTrigger = trigger || null;
+            // 键盘唤起时没有 trigger：记下此刻的焦点所在，关闭后还给读者，
+            // 否则 ⌘K → Esc 之后焦点掉回 body，键盘读者等于每开一次就丢一次位置。
+            var ae = document.activeElement;
+            lastTrigger = trigger || (ae && ae !== document.body && ae.focus ? ae : null);
             entryUrl = location.pathname + location.search + location.hash;
             panel.hidden = false;
             document.body.classList.add('cmdk-open');
