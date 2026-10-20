@@ -134,6 +134,12 @@ const DOC_URLS = [
   '{{ tool.url | prepend: site.baseurl }}',
 {%- endfor %}
   BASE + '/index-all.html',
+{%- comment -%}
+更新日志页排在 index-all **之后**：`ENTRY_CUT` 取的就是 index-all 那一格，
+它前面的地址参与「钉住不参与淘汰」（sw-lifecycle-tests 的 SW15/SW16 看着这条边界）。
+changelog 是回访才用的页，不该挤占首页与工具箱那 13 枚的淘汰豁免位。
+{%- endcomment -%}
+  BASE + '/changelog.html',
 {%- for post in site.posts %}{% unless post.noindex %}
   '{{ post.url | prepend: site.baseurl }}',
 {%- endunless %}{% endfor %}

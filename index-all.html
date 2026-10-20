@@ -31,13 +31,13 @@ permalink: /index-all.html
 {%- endfor -%}
 {%- assign year_rows = year_rows | sort | reverse -%}
 {%- comment -%}
-页面数不能直接写 site.nav.size：下面那一节除了 nav 列出的那些，还额外列了本页、订阅源、
-llms.txt 三个地址（它们不在导航条上，但确实是站内地址，这一页的意义就是列全）。
-只加 3 不写死总数，是为了将来往导航里加项时这个数字自己跟上。
+页面数不能直接写 site.nav.size：下面那一节除了 nav 列出的那些，还额外列了本页、更新日志、
+订阅源、llms.txt 四个地址（它们不在导航条上，但确实是站内地址，这一页的意义就是列全）。
+只加 4 不写死总数，是为了将来往导航里加项时这个数字自己跟上。
 免安装工具那一节不计进这个数：它是独立的一节、自带一个计数（下面 #onetools 那节的
 cat-count），混进「页面」反而让两个 chip 的数字对不上各自节里的行数。
 {%- endcomment -%}
-{%- assign page_count = site.nav.size | plus: 3 -%}
+{%- assign page_count = site.nav.size | plus: 4 -%}
 {%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
 
 <section class="g-masthead archive-masthead">
@@ -181,6 +181,10 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
             <li class="cat-row">
                 <span class="cat-date">feed</span>
                 <a class="cat-title" href="{{ '/feed.xml' | relative_url }}">全文订阅源（Atom）</a>
+            </li>
+            <li class="cat-row">
+                <span class="cat-date">changelog</span>
+                <a class="cat-title" href="{{ '/changelog.html' | relative_url }}">更新日志（每一版改了什么，从 CHANGELOG.md 渲染）</a>
             </li>
             <li class="cat-row">
                 <span class="cat-date">llms</span>

@@ -30,6 +30,16 @@ keyword: '廖小新,Better,Better前端博客,前端开发,web前端,React,Vue,N
 # 验证码是站点公开标识，不是密钥。Bing 是 Copilot 的索引源，验证通过后再接
 # IndexNow 推送新文；key 文件需放在域名根仓库，不能放在本项目的 /better-blog/ 下。
 bing_site_verification: ''
+
+# IndexNow 主动推送（批 1 / B1）。必应系与 ChatGPT 联网检索共用的收录通道——
+# 站内原有的两条主动推送（seoScript.html 里的百度与 360）都到不了那里。
+# key 按规范是公开的：仓库根 `/<key>.txt` 的内容就是它，作用是证明域名归属，
+# 与 googlebed27….html / MP_verify_….txt 同性质，不是凭据，别当密钥处理。
+# 换 key 的三步：`openssl rand -hex 16` → 改这里 → 用新值重命名根目录那个 txt。
+# Google 明确不读 IndexNow，这一条不改变 Google 侧的任何东西。
+indexnow:
+  key: '3f860b04627d4b934037bfd6f2fa4f1c'
+  enabled: true
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
@@ -248,6 +258,11 @@ exclude:
   # 它本来也不是站点内容，不该被复制进 _site。
   - .worktrees
   - dev
+  # 一次性量具与它的截图落点（spark-output/，已在 .gitignore）。它不是站点内容，
+  # 更要紧的是：Jekyll 4.3.4 在 URL 编码阶段遇到**中文命名的文件**会直接抛
+  # Encoding::UndefinedConversionError 让整个构建死掉（jekyll-4.3.4/lib/jekyll/url.rb:161），
+  # 而量具产出的截图正是中文命名。不排除 = 任何一次量具跑完，下一次构建就红。
+  - spark-output
   - dist
   # 本地构建/生成脚本（scripts/og-images.mjs 等）。不带 front matter 的文件会被
   # 原样复制进 _site，线上因此多出一个 /better-blog/scripts/ 目录——它是仓库工具，
