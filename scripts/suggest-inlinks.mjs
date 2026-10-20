@@ -175,17 +175,35 @@ const toPlainText = (s) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/**
+ * 正文第一行在**文件**里的行号。不补这个偏移，出处锚会整体错位 front matter 的长度
+ * ——实测 824 条引文全部对不上所标行（`:11` 指向 `---`、`:2` 指向 `layout: post`）。
+ * 口径与 Jekyll 一致：文件以 `---` 开一段 YAML，第二个 `---` 之后的第一行是正文第 1 行。
+ * 没有 front matter 的文件返回 1。
+ */
+function bodyStartLine(file) {
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  if ((lines[0] || '').trim() !== '---') return 1;
+  for (let i = 1; i < lines.length; i += 1) {
+    if ((lines[i] || '').trim() === '---') return i + 2;
+  }
+  return 1;
+}
+
 /** 把正文切成「带小标题的节」，供证据句定位——标题层级原样保留，清单里要看得出是哪一节。 */
-function splitSections(body) {
+function splitSections(body, baseLine = 1) {
   const out = [];
   let cur = { level: 0, title: '（正文开头，无小标题）', lines: [] };
-  for (const line of body.split('\n')) {
+  const raw = body.split('\n');
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i];
+    const abs = baseLine + i;          // 1-based，与编辑器/grep -n 同一口径
     const h = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
     if (h) {
       if (cur.lines.length) out.push(cur);
       cur = { level: h[1].length, title: h[2].trim(), lines: [] };
     } else {
-      cur.lines.push(line);
+      cur.lines.push({ text: line, n: abs });
     }
   }
   out.push(cur);
@@ -193,14 +211,18 @@ function splitSections(body) {
 }
 
 /** 切成中文句子：以 。！？；与换行为界，表格行不参与（表里的词不成句）。 */
-function sentences(text) {
-  return text
-    .split('\n')
-    .filter((l) => !/^\s*\|/.test(l))
-    .join('\n')
-    .split(/[。！？；;!?\n]+/)
-    .map((s) => toPlainText(s))
-    .filter((s) => s.length >= 6);
+/** 切成带出处的句子。句子以 。！？；与换行为界，而换行本身就是分隔符，
+ *  所以**一条句子必然落在一个源行内**——这正是行号可以精确到行的前提。 */
+function sentences(lines) {
+  const out = [];
+  for (const { text, n } of lines) {
+    if (/^\s*\|/.test(text)) continue;   // 表格行不成句
+    for (const piece of text.split(/[。！？；;!?]+/)) {
+      const t = toPlainText(piece);
+      if (t.length >= 6) out.push({ text: t, line: n });
+    }
+  }
+  return out;
 }
 
 const clip = (s) => (s.length <= EVIDENCE_CHARS ? s : `${s.slice(0, EVIDENCE_CHARS - 1)}…`);
@@ -275,9 +297,9 @@ for (const f of mdFiles) {
   }
   const body = readBody(file);
   const prose = stripCode(body);
-  const sections = splitSections(prose);
-  const plain = sections.map((s) => ({ ...s, sentences: sentences(s.lines.join('\n')) }));
-  const textForMatch = plain.map((s) => s.sentences.join(' \u0001 ')).join(' ');
+  const sections = splitSections(prose, bodyStartLine(file));
+  const plain = sections.map((s) => ({ ...s, sentences: sentences(s.lines) }));
+  const textForMatch = plain.map((s) => s.sentences.map((x) => x.text).join(' \u0001 ')).join(' ');
   posts.push({
     file,
     relFile: `_posts/${f}`,
@@ -385,8 +407,8 @@ function hitsIn(kwMap, p) {
 function findSentence(p, kw) {
   for (const s of p.sections) {
     for (const sent of s.sentences) {
-      if (termIn(sent, kw)) {
-        return { heading: s.level > 0 ? s.title : '（无小标题，位于开头）', level: s.level, sentence: clip(sent) };
+      if (termIn(sent.text, kw)) {
+        return { heading: s.level > 0 ? s.title : '（无小标题，位于开头）', level: s.level, sentence: clip(sent.text), line: sent.line };
       }
     }
   }
@@ -532,9 +554,9 @@ for (const p of ordered) {
   for (const s of list) {
     md.push(`- **→ ${s.to.title}** ｜ ${s.score} 分 ｜ \`${s.to.relFile}\``);
     md.push(`  - 依据：${s.parts.join(' ｜ ')}`);
-    md.push(`  - 对方正文证据句（**${s.candEvidence.heading}** · 锚点词 \`${s.anchorKw}\`）：「${s.candEvidence.sentence}」`);
+    md.push(`  - 对方正文证据句（**${s.candEvidence.heading}** · 锚点词 \`${s.anchorKw}\` · 出处 \`${s.to.relFile}:${s.candEvidence.line}\`）：「${s.candEvidence.sentence}」`);
     if (s.selfAnchor) {
-      md.push(`  - 本篇插入点（**${s.selfAnchor.heading}**）：「${s.selfAnchor.sentence}」`);
+      md.push(`  - 本篇插入点（**${s.selfAnchor.heading}** · 出处 \`${p.relFile}:${s.selfAnchor.line}\`）：「${s.selfAnchor.sentence}」`);
     } else {
       md.push('  - 本篇插入点：本篇没有含该锚点词的句子——要连就得自己找位置（这正说明这条可能不该连）。');
     }
