@@ -360,13 +360,17 @@ function internalLinkTargets(body) {
   const origin = site.origin || 'https://example.invalid';
   const base = site.baseurl || '';
   const targets = [];
-  for (const m of body.matchAll(/(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g)) {
+  // 括号里的 url 允许空格：本仓的写法是 `[…］({{ site.baseurl }}/2026/09/10/x.html)` 与
+  // `[…］({{ '/tools/json.html' | prepend: site.baseurl }})`，两种都带空格；
+  // 上一版只收 `[^)\s]+`，于是所有 Liquid 前缀的内链在语料统计里当不存在，
+  // 报告开头那句「现有正文内链 0 条」骗了好几轮人工判断。尾部的 `"标题"` 再剥掉。
+  for (const m of body.matchAll(/(!?)\[([^\]]*)\]\(([^)]+)\)/g)) {
     if (m[1] === '!') continue; // 图片
-    targets.push(m[3]);
+    targets.push(m[3].replace(/\s+["'][^"']*["']\s*$/, '').trim());
   }
   for (const m of body.matchAll(/<a\s+[^>]*href=["']([^"']+)["']/gi)) targets.push(m[1]);
   for (const raw of targets) {
-    const t = raw.trim();
+    const t = (raw.startsWith('{{') ? resolveLiquidPath(raw, base) : raw).trim();
     if (!t || t.startsWith('#') || t.startsWith('mailto:')) continue;
     if (/^\/assets\//.test(t) || /^\/(vendor|demo|ace)\//.test(t)) continue;
     let inSite = false;
@@ -379,6 +383,14 @@ function internalLinkTargets(body) {
     if (inSite) out.add(t);
   }
   return out;
+}
+
+/** 把两种 Liquid 拼地址的写法还原成站内路径；认不出来就回原串，让它走「不算站内」那一条。 */
+function resolveLiquidPath(raw, base) {
+  let m = /^\{\{\s*site\.baseurl\s*\}\}\//.exec(raw);
+  if (m) return base + raw.slice(m[0].length - 1);
+  m = /^\{\{\s*['"]([^'"]+)['"]\s*\|\s*prepend:\s*site\.baseurl\s*\}\}$/.exec(raw.trim());
+  return m ? base + m[1] : raw;
 }
 
 /** 候选文章已被本篇链接到？按 URL 尾部比对（同一篇可能写成绝对地址或根相对路径）。 */
