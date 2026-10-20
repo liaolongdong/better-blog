@@ -8,6 +8,14 @@ date: 2026-09-10
 categories: [前端工程化, 开源实测]
 cover: /assets/img/nextjs-avif-trap/banner.webp
 tags: npm next JavaScript 前端小技巧 开源
+tldr: '想知道 AVIF 到底有没有在跑，别再看 Next 的版本号。16 线只在 package.json 把 sharp 下限抬到 0.35.4，15 线改成运行时读 libheif 版本，低于 1.23.2 那道门就是关着的。'
+faq:
+  - q: 'Next.js 哪个版本关掉了 AVIF 图片优化？'
+    a: '16.3.3，而且动了两处：请求侧把 AVIF 划进绕过名单，解码侧从 sharp 的 unblock 白名单里删掉 VipsForeignLoadHeif，后者更狠，因为你自己配 image/avif 主动要输出也一起停。六天 3 小时 45 分后 #97931 把它完整撤销，16.3.4 那份 image-optimizer.js 和 16.3.2 算出同一个 SHA-256。'
+  - q: '怎么判断自己的项目 AVIF 有没有真的在被优化？'
+    a: '去问解码器，不是问 next。跑一句读 sharp 的 versions.heif：作者实测 sharp 0.34.5、0.35.3、0.35.4 读出的 heif 分别是 1.20.2、1.23.1、1.23.2，15 线那道 isAvifDecodeSafe 门的判据是 libheif 要大于等于 1.23.2。npm ls sharp 出 (empty) 或者 UNMET OPTIONAL DEPENDENCY 时，AVIF 一定没在优化，getSharp 抛的异常会被 canDecodeAvif 的 catch 吞掉、按 unsafe 处理。'
+  - q: 'AVIF 走了绕过分支会有报错或者告警吗？'
+    a: '没有。命中绕过时返回的是 upstreamBuffer，也就是上游原图字节，连 etag 都用上游那个，状态码仍是 200，尺寸格式全对，浏览器和上游 CDN 都当一次正常命中。作者的结论是先发现异常的是你的图片体积报表，不是告警。'
 ---
 
 ![Next.js 镜像优化器中 AVIF 开关被关掉又打开的示意图](/assets/img/nextjs-avif-trap/banner.webp)
