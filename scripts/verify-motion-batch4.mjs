@@ -637,7 +637,7 @@ await goto(ORIGIN + BASE + ARTICLE);
       + '下面所有「有没有中间帧」的判据在这种密度下必然假红，不看产物，等空了重跑。');
     reap();
     process.exit(2);
-  } else ok('采样密度', `${dens.samples.length} 帧 / ${span}ms，中间取值 ${kinds.size} 个`);
+  } else ok('采样密度', `${dens.samples.length} 帧 / ${span}ms，中间取值 ${kinds} 个`);
   /**
    * 产帧泵自检就放在密度那一格之后：上面那段注入的 300ms 线性过渡必然重绘，
    * 所以此刻 `pumpFrames` 若还是 0，只能是 screencast 没生效——那就不是「机器忙」，
