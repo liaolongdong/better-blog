@@ -7,6 +7,14 @@ date: 2020-04-08
 categories: [JavaScript]
 # cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png
 tags: JavaScript 浏览器缓存机制
+tldr: '整套机制只看两组头字段，Cache-Control 或 Expires 决定要不要发请求，max-age=600 就是 600 秒内直接用本地文件；过期之后才轮到 Last-Modified 和 ETag 说话，两个同时用时满足其一就算没更新。'
+faq:
+  - q: 'Cache-Control 和 Expires 同时返回时以哪个为准？'
+    a: 'Expires 是 HTTP 1.0 标准里的字段，Cache-Control 是 HTTP 1.1 新加的，两者功能相同、都是控制缓存的有效时间，同时出现时 Cache-Control 优先级较高。'
+  - q: '强缓存过期之后，304 是靠哪两个字段谈出来的？'
+    a: '看 Last-Modified 和 ETag。缓存过期后浏览器用 If-Modified-Since 把文件上次的时间带给服务器比时间戳，或用 If-None-Match 把 ETag 那个特征字串带过去做匹配：没修改就回 304 让浏览器继续用本地缓存，有修改就回 200 并同时返回最新的文件。'
+  - q: 'Last-Modified 和 ETag 只用一个行不行？两个都用算什么？'
+    a: '可以只用一个，也可以两个同时使用，同时使用时只要满足其中一个条件就认为文件没有更新。常见搭配是 Cache-Control 与 Last-Modified 一起、Expires 与 ETag 一起，一个控制缓存有效时间，一个在缓存失效后向服务器查询是否有更新。'
 ---
 
 ## 原理

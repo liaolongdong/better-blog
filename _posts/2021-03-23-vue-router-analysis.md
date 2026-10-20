@@ -7,6 +7,14 @@ date: 2021-03-23
 categories: [Vue]
 cover: /assets/img/postCover/vue-router-flow.jpeg
 tags: JavaScript vue vue-router
+tldr: 'history 模式地址里没有井号，刷新照样向服务器发请求，匹配不到就 404，得让服务端兜底返回同一个 index.html；至于 this.$router 和 this.$route，都是 install.js 里 Object.defineProperty 挂的代理。'
+faq:
+  - q: 'vue-router 用 history 模式，刷新页面出现 404 怎么解决？'
+    a: '用了 HTML5 实现后 url 不再多出一个井号，更美观，但用户刷新这类操作时浏览器还是会向服务器发请求，服务端找不到匹配的路由就出现 404。文里的解法是在服务端加一个覆盖所有情况的候选资源，URL 匹配不到任何静态资源时返回同一个 index.html 页面，也就是 app 依赖的那个页面。'
+  - q: 'Vue.use(VueRouter) 内部到底做了什么？'
+    a: '对应 Vue 源码里的 src/core/global-api/use.js：它用 _installedPlugins 数组保存注册过的 plugin，indexOf 命中就直接 return，保证不被重复注册；再取第一个参数以外的参数、用 unshift 把 Vue 塞到参数最前面，所以每个 install 方法的第一个参数都是 Vue、不用另外引入，执行完把 plugin push 回数组。'
+  - q: '组件里的 this.$router 和 this.$route 是怎么挂上来的？'
+    a: '由 install.js 完成。它 mixin 进 beforeCreate 和 destroyed 两个钩子，$options 上有 router 的根组件把 _routerRoot、_router 赋到自己身上并执行 _router.init(this)，再用 Vue.util.defineReactive 把 _route 定义成响应式；随后用 Object.defineProperty 在 Vue.prototype 上定义 $router、$route 两个 getter 代理到 _routerRoot，并全局注册 router-view、router-link 组件。'
 ---
 
 ## 前端路由简介及实现原理

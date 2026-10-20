@@ -7,6 +7,14 @@ date: 2021-03-23
 categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: linux linux命令
+tldr: '几组最容易混的：grep 搜文件内容、find 搜文件系统，tar 只打包不压缩，which 只给可执行文件路径、whereis 连帮助文档和源码一起给，每条命令都带语法和注意事项。'
+faq:
+  - q: 'grep 和 find 都能搜东西，什么时候用哪个？'
+    a: '看搜的是内容还是文件。grep 用于在文件中搜索指定字符串并把包含它的行显示出来，也能用正则表达式，翻目录要加 -r；find 搜的是文件系统，按权限、日期、大小等条件找文件和目录，例如 find /home -size +5M、find /home -mtime +7。'
+  - q: 'zip、gzip、tar 三种压缩方式有什么区别？'
+    a: 'zip 跨平台，压缩率高、速度快，支持压缩多个文件和目录并保存目录结构；gzip 只能压缩单个文件，压缩后的文件名加 .gz 后缀，可用 gunzip 解压，要处理多个文件和目录得靠 shell 命令结合；tar 把多个文件或目录打包成一个并保存目录结构，但本身不进行压缩，所以要和 gzip、bzip2 这些一起用。'
+  - q: 'which 查不到帮助文档和源码，该换哪个命令？'
+    a: '换 whereis。which 只找可执行文件、给出命令所在的具体路径，查 ls 只会回 /bin/ls，而且只能查当前登录用户的执行路径；whereis 定位的是二进制程序、源码和帮助文档，查 ls 时除 /bin/ls 还会带出 /usr/share/man/man1/ls.1.gz，并且能搜到 PATH 环境变量之外的路径。'
 ---
 
 ## Linux常用命令详解

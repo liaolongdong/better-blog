@@ -7,6 +7,14 @@ date: 2020-10-25
 categories: [H5与微信]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript vue H5打开地图导航app
+tldr: '前端 JS 判断不出手机装没装地图 App，只能列出高德、百度、腾讯三家再配一句点击无响应的提示；百度直接吃 bd09ll 坐标，高德和腾讯要先用 gcoord 把 BD09 转成 GCJ02。'
+faq:
+  - q: 'H5 能不能检测出用户手机装没装高德地图？'
+    a: '检测不了，前端 JS 无法判断用户手机是否有安装某个地图导航 app。作者的做法是只列出常用的高德、百度、腾讯三家，并在弹层里加一句如果点击无响应、可能是您还没有安装该APP 作为提示文案。'
+  - q: '直接用 script 标签引入 vue 时，组件名为什么必须写成 open-map？'
+    a: '因为直接在 DOM（即非字符串的模板）中使用时只有 kebab-case 是有效的，用 PascalCase 注册的 OpenMap 在 html 里也得写 open-map；props 的属性名同样要用 kebab-case，组件里定义成 localPosition，模板里就写成 :local-position。'
+  - q: '调起百度、高德、腾讯地图的 scheme 有什么不同？坐标要不要转换？'
+    a: '先用 /(iPhone|iPad|iPod|iOS)/i 测 userAgent 分系统：百度走 baidumap 或 bdapp 的 map/direction，坐标直接标 coord_type=bd09ll；高德走 iosamap 或 androidamap 的 route/plan，腾讯走 qqmap 的 routeplan，这两家在拼地址前都要先用 gcoord.transform 把经纬度从 BD09 转到 GCJ02。'
 ---
 
 ## 背景
