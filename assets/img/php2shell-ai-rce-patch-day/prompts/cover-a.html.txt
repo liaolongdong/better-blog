@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#080b0f; --fg:#f2efe7; --muted:#98a2b3;
+    --accent:#ff4b2b; --line:rgba(255,255,255,.12);
+    --index:#121821;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    position:relative;
+  }
+  .grid{
+    position:absolute; inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:80px 80px;
+    opacity:.25;
+    mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+  }
+  .index{
+    position:absolute; right:54px; bottom:-92px;
+    font-size:440px; font-weight:800; line-height:.8;
+    color:var(--index); letter-spacing:-.09em;
+  }
+  .bar{position:absolute; left:0; top:0; width:16px; height:100%; background:var(--accent)}
+  .wrap{
+    position:relative; z-index:2; height:100%;
+    padding:62px 92px 54px 116px;
+    display:flex; flex-direction:column;
+  }
+  .top{display:flex; align-items:center; gap:16px}
+  .chip{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:10px 18px; border:1px solid var(--line); border-radius:999px;
+    font-size:22px; letter-spacing:.08em; color:var(--muted);
+  }
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .kicker{
+    margin-top:auto; font-size:25px; color:var(--accent);
+    letter-spacing:.18em; font-weight:700;
+  }
+  h1{
+    margin-top:20px; max-width:1320px;
+    font-size:108px; line-height:1.04; letter-spacing:-.055em; font-weight:800;
+  }
+  h1 em{font-style:normal; color:var(--accent)}
+  p.sub{
+    margin-top:26px; max-width:1120px;
+    font-size:46px; line-height:1.35; color:var(--muted); font-weight:500;
+  }
+  .timeline{
+    margin-top:26px; display:flex; align-items:center; gap:16px;
+    font-size:24px; color:var(--muted); letter-spacing:.04em;
+  }
+  .timeline b{color:var(--fg); font-size:28px; font-weight:700}
+  .timeline .arrow{color:var(--accent); font-size:30px}
+  .foot{
+    margin-top:30px; display:flex; align-items:flex-end; justify-content:space-between;
+    font-size:22px; color:var(--muted); letter-spacing:.04em;
+  }
+  .rule{width:220px;height:6px;background:var(--accent);border-radius:999px;margin-top:18px}
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="index">20</div>
+  <div class="bar"></div>
+  <div class="wrap">
+    <div class="top">
+      <span class="chip"><span class="dot"></span>AI · 安全</span>
+      <span class="chip">2026-10-21</span>
+    </div>
+    <div class="kicker">旧洞，新速度</div>
+    <h1>PHP2Shell 补丁日<br><em>AI 挖出的十年老洞</em></h1>
+    <p class="sub">攻击流量比补丁先到</p>
+    <div class="timeline"><b>2004</b><span class="arrow">→</span><b>2026</b><span>同一个 OOM 处理问题，两枚 RCE</span></div>
+    <div class="foot">
+      <span>廖小新 · Better Blog</span>
+      <span>CVE-2026-109618 / 109619</span>
+    </div>
+    <div class="rule"></div>
+  </div>
+</body>
+</html>
