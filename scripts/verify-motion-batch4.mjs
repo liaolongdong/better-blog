@@ -438,6 +438,7 @@ const traceAfter = async (action, sel, pseudo, ms = 520, settle = false) => {
   // 只有 settle 档才并发派发：密度自证那一格的动作本身要在页内先立起被采样的东西，
   // 不等它就直接读会读到 no-node、0 帧（实测把第 1 组自己判成「机器不空」）。
   let actErr = '';
+  let left = false;
   let act = null;
   if (settle) {
     // 动作与采样并发跑，但它的异常必须收下来交给判据：clickFast 里要先做命中测试，
@@ -450,7 +451,10 @@ const traceAfter = async (action, sel, pseudo, ms = 520, settle = false) => {
     const s = await sampleOnce(sel, pseudo);
     if (s.err) { await act; return { samples: out, err: s.err }; }
     out.push({ t: Date.now() - t0, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
-    if (settle && out.length > 4 && s.rend === 0 && Date.now() - t0 >= ms) break;
+    // settle 的收工条件对两个方向都成立：要么这层真的不渲染了（退场），
+    // 要么它「离开过终值又回到终值」（入场——起点就是 op=1 的层不能被「已到终值」误判收工）。
+    if (s.op < 0.97) left = true;
+    if (settle && out.length > 4 && Date.now() - t0 >= ms && (s.rend === 0 || (left && s.op >= 0.97))) break;
   }
   await act;
   return { samples: out, n: out.length, capped: settle && Date.now() - t0 >= cap, actErr };
@@ -528,9 +532,22 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
     try { await settleInto(closeSel); } catch (e) { mark(`settle 没等到（交给命中测试原样判）：${e.message}`); }
   }
   mark(`[${name}] before-snap`);
-  const before = await snap(sel, pseudo);
-  if (before.err || before.rend !== 1 || before.op < 0.97) {
-    RED(`${name}·开`, `打开后不是终态：${JSON.stringify(before)}`); return;
+  // 「开」这一格原先也是一次性读数：入场是 0.18~0.2s 的动画，真浏览器实测轨迹是
+  // op 0 →(t=120ms) 0.744 →(t=520ms) 1 并保持（fill-mode 为 backwards，终值不是 0）。
+  // animIdle 超时只 mark 不红，紧跟着这一枪却把「还在入场中」判成「打开后不是终态」。
+  // 改成轮询到终值或到点；到点仍不是终值才算红，并把等了多久写进红项。
+  let before = await snap(sel, pseudo);
+  const openCap = Math.round(3000 * CLOCK_RATE);
+  const openT0 = Date.now();
+  while (Date.now() - openT0 < openCap) {
+    if (before.err) break;
+    const settled = kind === 'slide' ? before.rend === 1 : (before.rend === 1 && before.op >= 0.97);
+    if (settled) break;
+    await wait(50);
+    before = await snap(sel, pseudo);
+  }
+  if (before.err || before.rend !== 1 || (kind !== 'slide' && before.op < 0.97)) {
+    RED(`${name}·开`, `轮询 ${Date.now() - openT0}ms 后仍不是终态：${JSON.stringify(before)}`); return;
   }
   mark(`[${name}] trace-start`);
   const close = () => (closeSel ? clickFast(closeSel) : closeKey ? keyFast(...closeKey) : clickFast(openSel));
@@ -761,7 +778,7 @@ await wait(900);
       ok('预览卡·开', `href=${scrolled.href}${scrolled.tagged ? ' · 已标 .lp-external' : ' · 未标外链类（仍出卡）'}，op=${on.op}，focus→可见 ${Date.now() - lpT0}ms`);
     }
     const t = await traceAfter(() => evalJs('document.activeElement && document.activeElement.blur(); 1'),
-      '.lp-card', null, 400);
+      '.lp-card', null, 400, true);
     if (t.err) traceFail('预览卡·退场', t, '轨迹没跑起来');
     else {
         const mid = midFade(t.samples);
@@ -833,7 +850,7 @@ for (const [name, sel, openSel] of [['书架', '#shelf-dlg', '[data-shelf-open]'
   ['灯箱', '.lightbox', '.markdown-body img.is-zoomable']]) {
   await goto(ORIGIN + BASE + ARTICLE);
   await wait(700);
-  const inT = await traceAfter(() => clickFast(openSel), sel, '::backdrop', 420);
+  const inT = await traceAfter(() => clickFast(openSel), sel, '::backdrop', 420, true);
   if (inT.err) traceFail(`${name} backdrop·入场`, inT, '轨迹没跑起来');
   else {
     const mid = midFade(inT.samples);
@@ -842,7 +859,7 @@ for (const [name, sel, openSel] of [['书架', '#shelf-dlg', '[data-shelf-open]'
     const ended = await snap(sel, '::backdrop');
     if (ended.op < 0.97) RED(`${name} backdrop·开到底`, `终值只到 ${ended.op}`);
   }
-  const outT = await traceAfter(() => keyFast('Escape', 'Escape', 27), sel, '::backdrop', 520);
+  const outT = await traceAfter(() => keyFast('Escape', 'Escape', 27), sel, '::backdrop', 520, true);
   if (outT.err) traceFail(`${name} backdrop·退场`, outT, '轨迹没跑起来');
   else {
     const mid = midFade(outT.samples);
