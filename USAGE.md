@@ -128,16 +128,20 @@ curl -s  https://liaolongdong.github.io/better-blog/feed.xml | head -5
 ```bash
 node scripts/verify-motion-layers.mjs              # 六层全量
 node scripts/verify-motion-layers.mjs --only=书架,灯箱
-node scripts/verify-motion-layers-teeth.mjs        # 牙齿：删掉 ⌘K 退场过渡，必须报红
+node scripts/verify-motion-layers-teeth.mjs        # 牙齿两把：删 ⌘K 容器过渡、删 ::backdrop 过渡，都必须报红
 ```
 
 三条只读它的人才用得上的口径：
 
 1. **判据不吃门槛让步**：预检量无头 rAF 帧率，低于 40fps 直接 `exit 2` 拒绝出数——200ms 的
    过渡（`--dur-2`）在这种帧率下抓不到中间值，那是宿主机状态不是站点行为。产出红/绿/缺账三态，
-   「缺账」永远不算绿。
-2. **量错节点会读成「没有回程」**：⌘K 的淡化在容器 `.cmdk` 上，位移才在 `.cmdk-panel` 上，
-   而面板的 `cmdkIn` 带 `both` 填充把 opacity 钉在 1。遮罩 `::backdrop` 只判可见与收走，不判中间值。
+   「缺账」永远不算绿；有红时先报红（忙碌的机器不能顺手把真实缺陷盖成环境状态）。
+2. **量错节点会读成「没有回程」，判松了会读成「有显示」**：⌘K 的淡化在容器 `.cmdk` 上，位移才在
+   `.cmdk-panel` 上，而面板的 `cmdkIn` 带 `both` 填充把 opacity 钉在 1。六层一律要求
+   「开：真的被排版出来（rect>0）且 opacity≥0.97」与「关：经过 0.05~0.95 的中间值」，
+   `::backdrop` 也不例外——`getComputedStyle().opacity` 对 `visibility:hidden`、被 `display:none`
+   祖先包着的节点都回 1，只看它就能把「根本不显示」报成绿（2026-10-21 评审抓出来的，遮罩那一格
+   当时还写着「只看收没收走」，把遮罩过渡整条删掉照样绿，那种绿是空的）。
 3. **原生 `<dialog>` 用 Esc 关掉后，这台无头会把页面记成 `visibilityState=hidden`、
    `document.timeline` 冻住**（实测时钟停在 8856ms），页内 400ms 的 `transitionend` 兜底会在
    唤醒那一刻把遮罩硬收走——中间帧从此不可能出现。所以灯箱的退场走「点对话框任意处」那条路量；

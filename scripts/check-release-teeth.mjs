@@ -41,7 +41,9 @@ const run = (extra = []) => {
 const KNIVES = [
   { name: 'K1 包体领先一位', group: 'V1 三处一致',
     apply: () => { const s = fs.readFileSync(PKG, 'utf8'); put(PKG, s.replace('"version": "2.1.0"', '"version": "2.1.1"')); },
-    expect: /包体与页脚对不上|最新一版没有更新日志/ },
+    // 钉的是「package.json vs _config.yml」那一支。上一版写成了「包体与页脚对不上」，
+    // 词序反了，K1 实际是靠另一支（pkg vs CHANGELOG）过的——等于没证明它声称的那一条。
+    expect: /package\.json vs _config\.yml：2\.1\.1 ≠ 2\.1\.0/ },
   { name: 'K2 site.version 被写歪', group: 'V1 三处一致',
     apply: () => { const s = fs.readFileSync(CFG, 'utf8'); put(CFG, s.replace(/\n(\s*)version:\s*["']?2\.1\.0["']?/, '\n$1version: "9.9.9"')); },
     expect: /package\.json vs _config\.yml/ },
@@ -53,7 +55,7 @@ const KNIVES = [
     expect: /条目顺序错了/ },
   { name: 'K5 tag 落后于包体（发版没收口）', group: 'T1 tag 收口', extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-old.txt'],
     apply: () => put(TAGS.replace(/\.txt$/, '-old.txt'), '2.0.1\n1.0.0\n'),
-    expect: /tag 停在 2\.0\.1/ },
+    expect: /停在 2\.0\.1 而包体是 2\.1\.0/ },
 ];
 
 let fails = 0;

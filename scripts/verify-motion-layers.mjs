@@ -8,11 +8,12 @@
  * 一次只开一层时，backdrop 读到 op=1、readerIn 在 150ms 内走到 1.0。这一本因此做成最小形状：
  * **一层一次导航，开→采样→用真按键或真点击关→采样退场**，不碰任何全局仿真。
  *
- * 判据（不放宽）：
- *   开：入场后实算 opacity 必须走到 ≥0.97，否则这一层根本不显示；
+ * 判据（不放宽，六层一视同仁，::backdrop 也不豁免）：
+ *   开：实算 opacity 走到 ≥0.97 **且这一帧真的被排版出来**（rect>0）。只看 opacity 不够——
+ *       `visibility:hidden`、被 `display:none` 祖先包着的节点都回 1，会把「根本不显示」报成绿；
  *   关：退场轨迹里必须存在「仍在渲染且 0.05<op<0.95」的中间帧，且最终不再渲染；
  *   环境：一次退场采样拿不到 15 帧就判「缺账」而不是红——无头里过渡时钟挂在被提交的帧上，
- *         帧不足是宿主机状态，不是站点缺陷（同 batch4 第 1 组的拒数口径）。
+ *         帧不足是宿主机状态，不是站点缺陷（同 batch4 第 1 组的拒数口径）。有红时先报红。
  *
  * 用法：node scripts/verify-motion-layers.mjs [--site=_site] [--only=书架,灯箱]
  * 退出码：0 全绿 / 1 有红 / 2 环境没起来或帧数不足（没出数，不代表站点有问题）。
@@ -38,12 +39,19 @@ if (!fs.existsSync(CHROME)) die('认不到 Chrome');
 
 /** 夹具文章按内容找，不照抄任何回显：工具会把 /2026/09/21/ 显示成 /2026-09-21/，照抄就 404。 */
 const findArticle = (needle) => {
-  const years = fs.readdirSync(SITE).filter((d) => /^\d{4}$/.test(d)).sort().reverse();
-  for (const y of years) {
-    for (const mo of fs.readdirSync(path.join(SITE, y))) {
-      const days = fs.readdirSync(path.join(SITE, y, mo)).filter((d) => /^\d{2}$/.test(d));
-      for (const dd of days) {
-        for (const f of fs.readdirSync(path.join(SITE, y, mo, dd))) if (f.includes(needle)) return `/${y}/${mo}/${dd}/${f}`;
+  // 每一层都只走目录：Finder 会往 _site/2026/ 里丢 .DS_Store，把它当月份去 readdirSync
+  // 会抛 ENOTDIR，整轮量具连一层读数都出不来（2026-10-21 现场翻过一次）。
+  const dirs = (rel) => {
+    try {
+      return fs.readdirSync(path.join(SITE, rel), { withFileTypes: true })
+        .filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch { return []; }
+  };
+  for (const y of dirs('').filter((d) => /^\d{4}$/.test(d)).sort().reverse()) {
+    for (const mo of dirs(y)) {
+      for (const dd of dirs(`${y}/${mo}`).filter((d) => /^\d{2}$/.test(d))) {
+        const dir = path.join(SITE, y, mo, dd);
+        for (const f of fs.readdirSync(dir)) if (f.includes(needle)) return `/${y}/${mo}/${dd}/${f}`;
       }
     }
   }
@@ -75,7 +83,11 @@ const chrome = spawn(CHROME, ['--headless', '--remote-debugging-port=0', `--user
   '--disable-renderer-backgrounding',
   '--proxy-server=direct://', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'],
   { stdio: ['ignore', 'ignore', 'pipe'] });
-process.on('exit', () => { try { chrome.kill(); } catch { /* 已退出 */ } });
+const killChrome = () => { try { chrome.kill(); } catch { /* 已退出 */ } };
+process.on('exit', killChrome);
+// 'exit' 不在 SIGINT/SIGTERM 的默认路径上：Ctrl-C 会留下一台活着的 headless Chrome 和一个
+// 占着 /var/folders 的 profile（batch4 的注释里记过同一形状）。补上三个信号，杀完照原样退出。
+['SIGINT', 'SIGTERM', 'SIGHUP'].forEach((sig) => process.on(sig, () => { killChrome(); process.exit(130); }));
 const wsUrl = await new Promise((resolve, reject) => {
   let b = ''; const t = setTimeout(() => reject(new Error('20s 内没等到 DevTools 端点')), 20000);
   chrome.stderr.on('data', (c) => { b += c; const m = /DevTools listening on (ws:\/\/\S+)/.exec(b); if (m) { clearTimeout(t); resolve(m[1]); } });
@@ -370,11 +382,17 @@ for (const L of LAYERS) {
     b.retried = true;
   }
 
-  const openOk = a.openOp >= 0.97;
-  const back = L.pseudo === '::backdrop';
-  const exitOk = back ? b.gone : (b.mid > 0 && b.gone);
+  // 判据一律不放宽（文件顶部第 12 行那条承诺）：
+  // 开=必须真的被排版出来（rect>0）且 opacity≥0.97。只看 opacity 会把 visibility:hidden、
+  // 祖先 display:none、以及没匹配上的伪元素一律读成 1，于是「这一层根本不显示」也能报绿。
+  // 关=必须经过中间值。::backdrop 也一视同仁：遮罩那条 transition 被删掉时它必须报红，
+  // 否则这一格的绿是空的（牙齿 K2 就是量这一条）。
+  const openOk = a.openMs !== null;
+  const exitOk = b.mid > 0 && b.gone;
   const thin = a.openFrames + b.frames < 15;
-  const line = `开:${a.openMs === null ? `没到 0.97（峰值 ${a.openOp}）` : `${a.openMs}ms 到 op=1`}｜退场:中间帧 ${b.mid} 个 / ${b.frames} 帧${b.firstMid ? `（首帧 ${JSON.stringify(b.firstMid)}）` : ''}${b.gone ? `，${b.closeMs}ms 收走` : `，3s 末读数 op=${b.endOp}`}${a.stalled || b.timedOut ? '｜⚠ 页内自计时兜底落地（宿主没给帧）' : ''}${b.retried ? '｜唤醒后重采' : ''}`;
+  const openTxt = a.openMs !== null ? `${a.openMs}ms 到 op=1`
+    : (a.openOp >= 0.97 ? `opacity 到了 ${a.openOp} 但没有一帧被排版出来（rect 为 0，等于不显示）` : `没到 0.97（峰值 ${a.openOp}）`);
+  const line = `开:${openTxt}｜退场:中间帧 ${b.mid} 个 / ${b.frames} 帧${b.firstMid ? `（首帧 ${JSON.stringify(b.firstMid)}）` : ''}${b.gone ? `，${b.closeMs}ms 收走` : `，3s 末读数 op=${b.endOp}`}${a.stalled || b.timedOut ? '｜⚠ 页内自计时兜底落地（宿主没给帧）' : ''}${b.retried ? '｜唤醒后重采' : ''}`;
   if (thin) { console.log(`  ⚠ ${L.name} — 缺账：入场 ${a.openFrames} 帧 + 退场 ${b.frames} 帧，宿主没给够帧（泵 ${pumpFrames} 帧），这条不计绿也不计红`); starved.push(L.name); continue; }
   if (openOk && exitOk) console.log(`  ✓ ${L.name} — ${line}`);
   else {
@@ -386,5 +404,9 @@ for (const L of LAYERS) {
 }
 console.log(`· 产帧泵累计 ${pumpFrames} 帧`);
 server.close();
+// 红优先于缺账：一台忙碌的机器不能顺手把一条真实缺陷盖成「环境状态、别当站点缺陷」。
+// 只有全部层都判了、其中部分没出数时，才走 exit 2。
+if (reds) { console.log(`✗ 有 ${reds} 层不成立（判据：开要真被排版出来、退场要经过中间值）`); process.exit(1); }
 if (starved.length) { console.log(`⚠ 有 ${starved.length} 层没出数（${starved.join('、')}）——机器状态或夹具问题，别当站点缺陷`); process.exit(2); }
-process.exit(reds ? 1 : 0);
+console.log('全部通过');
+process.exit(0);
