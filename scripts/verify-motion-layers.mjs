@@ -152,9 +152,15 @@ await S('Page.startScreencast', { format: 'jpeg', quality: 5, maxWidth: 80, maxH
 await S('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 
 const gotoArticle = async () => {
-  await S('Page.navigate', { url: ORIGIN + BASE + ARTICLE });
+  // navigate 的回执要等导航**提交**才回。量具读的是盘上的产物，而本机常驻的 jekyll serve
+  // 正在反复重写 _site（同一份文件被换掉时这一发请求可以卡到二十秒外），于是回执等不到。
+  // 落定与否本来就能用 readyState + pathname 判，所以这里发出去就不管回执，别让它带走整轮。
+  S('Page.navigate', { url: ORIGIN + BASE + ARTICLE }, 60000).catch(() => {});
   for (let i = 0; i < 300; i++) {
-    if (await run(`return location.pathname === ${JSON.stringify(BASE + ARTICLE)} && document.readyState === 'complete';`, 4000)) { await wait(600); return true; }
+    // 单次轮询超时不算失败：宿主忙的时候一发 evaluate 自己就能排到 4s 之外，
+    // 而「到底落定没有」下一轮再问一次就有答案。让它带走整轮是量具的毛病，不是页面的。
+    const ok = await run(`return location.pathname === ${JSON.stringify(BASE + ARTICLE)} && document.readyState === 'complete';`, 4000).catch(() => false);
+    if (ok) { await wait(600); return true; }
     await wait(40);
   }
   return false;
@@ -335,16 +341,29 @@ const whyStuck = (L) => run(`
              clock: document.querySelector('.lightbox') ? document.querySelector('.lightbox').open : null,
              now: Math.round(t === null ? -1 : t) };`, 6000).catch((e) => ({ err: e.message }));
 
-/** 打开：页内 click 一下拿不到真鼠标的命中判定，所以这里走真点击（先命中测试，落点在视口外就记缺账）。 */
+/**
+ * 打开：页内 click 一下拿不到真鼠标的命中判定，所以这里走真点击（先命中测试，落点在视口外就记缺账）。
+ *
+ * 第二件事是 2026-10-21 补的：只保证「落点在视口内」不够——那一发点下去到底谁接住了才算。
+ * 当天给 .shelf-mark 撑 44px 命中区，伸出去 11px 盖住了同一行 .reader-btn 的中心点，
+ * 真鼠标那点被 .shelf-mark 接走，偏好面板那一格报的是「开：峰值 0、hidden」，
+ * 看着像面板坏了，其实是量具点到了一个不是它的东西上。所以现在比对命中者，
+ * 不是本人（或其子孙/祖先里的可交互壳）就红得有名有姓。
+ */
 const clickViaMouse = async (jsHandle) => {
   const hit = await run(`
     var el = ${jsHandle};
     if (!el) return { err: 'no-node' };
     el.scrollIntoView({ block: "center", behavior: "instant" });
     var r = el.getBoundingClientRect();
-    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height) };`, 6000);
+    var x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+    var top = document.elementFromPoint(x, y);
+    var who = top ? (top.tagName + '.' + String(top.className || '').split(' ')[0]) : 'null';
+    var mine = top === el || el.contains(top) || (top && top.contains(el));
+    return { x: x, y: y, w: Math.round(r.width), h: Math.round(r.height), who: who, mine: mine };`, 6000);
   if (hit.err) return hit;
   if (hit.y < 0 || hit.y > 900 || hit.w <= 0) return { err: `落点不在视口内（y=${hit.y} w=${hit.w}）` };
+  if (!hit.mine) return { err: `那点被别人接走了：命中 ${hit.who} 而不是目标（撑命中区或遮挡的问题，不是这层坏了）` };
   for (const type of ['mousePressed', 'mouseReleased']) {
     await S('Input.dispatchMouseEvent', { type, x: hit.x, y: hit.y, button: 'left', clickCount: 1, buttons: type === 'mousePressed' ? 1 : 0 });
   }
