@@ -119,6 +119,31 @@ curl -s  https://liaolongdong.github.io/better-blog/feed.xml | head -5
 - 本地 `python -m http.server` 不发压缩与缓存头，所以 `DocumentLatency` / `Cache` 报的
   「浪费字节」是本地环境的形状，别当结论抄进发布判断里。
 
+### 逐层动效核验：`verify-motion-layers`
+
+`verify-motion-batch4` 在一场会话里连开五层、密集采样、还切视口与媒体仿真——机器一忙，
+剩下的红分不清是站点没回程还是量具赶不上帧。2026-10-21 因此另开一本最小形状的量具：
+**一层一次导航，真鼠标开 → rAF 采到 `op≥0.97` → 真按键或真点击关 → 采退场中间帧**。
+
+```bash
+node scripts/verify-motion-layers.mjs              # 六层全量
+node scripts/verify-motion-layers.mjs --only=书架,灯箱
+node scripts/verify-motion-layers-teeth.mjs        # 牙齿：删掉 ⌘K 退场过渡，必须报红
+```
+
+三条只读它的人才用得上的口径：
+
+1. **判据不吃门槛让步**：预检量无头 rAF 帧率，低于 40fps 直接 `exit 2` 拒绝出数——200ms 的
+   过渡（`--dur-2`）在这种帧率下抓不到中间值，那是宿主机状态不是站点行为。产出红/绿/缺账三态，
+   「缺账」永远不算绿。
+2. **量错节点会读成「没有回程」**：⌘K 的淡化在容器 `.cmdk` 上，位移才在 `.cmdk-panel` 上，
+   而面板的 `cmdkIn` 带 `both` 填充把 opacity 钉在 1。遮罩 `::backdrop` 只判可见与收走，不判中间值。
+3. **原生 `<dialog>` 用 Esc 关掉后，这台无头会把页面记成 `visibilityState=hidden`、
+   `document.timeline` 冻住**（实测时钟停在 8856ms），页内 400ms 的 `transitionend` 兜底会在
+   唤醒那一刻把遮罩硬收走——中间帧从此不可能出现。所以灯箱的退场走「点对话框任意处」那条路量；
+   Esc 那一路的回程由正常渲染的浏览器另证。牙齿脚本只动 gitignore 里的符号链接农场，
+   `_site` 与跟踪文件逐字节不变（跑完对过 md5）。
+
 ## 🏷 版本号与 tag
 
 版本号只有一个真实来源：**master 上的 git tag**。`_config.yml` 的 `site.version`、
