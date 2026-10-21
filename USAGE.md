@@ -150,6 +150,19 @@ node scripts/verify-motion-layers-teeth.mjs        # 牙齿：删掉 ⌘K 退场
 `package.json` 的 `version`、`CHANGELOG.md` 顶部条目，三处必须等于最新 tag；
 页脚那枚 `v2.0.0` 读的就是 `site.version`（置空则不显示）。
 
+这句话现在有机器守着：`node scripts/check-release.mjs`，连它的牙齿 `check-release-teeth.mjs`
+（只改 gitignore 里的副本）一起挂在 CI 的门禁清单上——条数别照抄，按
+`grep -c "gate '" .github/workflows/jekyll.yml` 数（2026-10-21 记的是 21 道）。它判三处一致、
+版本形状 `X.Y.Z`、日志条目顺序；**tag 那一档不在 CI 里**——CI 的 checkout 默认不取 tag，而且发版前要求 tag
+已存在等于把还没发生的发版判成缺陷。收口那一刻自己跑：
+
+```bash
+node scripts/check-release.mjs --require-tag   # 最新 tag 必须等于 package.json 的版本
+```
+
+2026-10-21 的实测读数就是这条判据存在的理由：三处都是 `2.1.0`、`--require-tag` 报
+「tag 停在 2.0.1」，而站点一切正常、门禁全绿——错只在人身上，看不出来。
+
 递增口径不按语义化版本的严格定义，按「老读者进来要不要重新找路」判断：
 
 | 位置 | 什么时候 +1 | 例 |
