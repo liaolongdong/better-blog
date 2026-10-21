@@ -9,7 +9,7 @@
     "build": "vite build && vite build --config vite.demo.config.js",
     "build:assets": "vite build",
     "build:demo": "vite build --config vite.demo.config.js",
-    "build:site": "pnpm build && bundle exec jekyll build",
+    "build:site": "pnpm build && JEKYLL_ENV=production bundle exec jekyll build",
     "og:images": "node scripts/og-images.mjs",
     "og:check": "node scripts/og-images.mjs --check",
     "push:indexnow": "node scripts/push-indexnow.mjs",

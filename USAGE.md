@@ -151,6 +151,44 @@ node scripts/verify-motion-layers-teeth.mjs        # 牙齿两把：删 ⌘K 容
    且 `dialog.open=false`——**站点这步有回程，无头那格是量具与宿主的相互作用**。
    牙齿脚本只动 gitignore 里的符号链接农场，`_site` 与跟踪文件逐字节不变（跑完对过 md5）。
 
+### 点击粒子核验：`verify-particle-burst`
+
+`dev/libJs/cursor-effects.js`（上游 tholman/cursor-effects 那一支）原来有三个叠在一起的毛病，
+用户侧的症状是「有时候点了不散、偶尔还卡一下」：喷发角只取 2 弧度的扇形且 y 叠了一项
+`renderCount * 0.3` 的二次重力（实测向上 56px、向下 480px——那是往下下雨不是散开）；
+回收只判右/下两条边（所以落点决定寿命：y=180 活 2973ms、y=790 只 963ms）；每帧擦两整屏再
+拷一整屏、位图还不按 `devicePixelRatio` 建（开销正比于视口面积，空转中位帧时 20.5ms）。
+
+```bash
+node scripts/verify-particle-burst.mjs      # 五条判据，改前 4 红、改后 5 绿
+```
+
+| 判据 | 改前 | 改后（同一台机器连跑两次） |
+| --- | --- | --- |
+| P1 不成一边倒（四向 max/min ≤2.2 且最小一向 ≥70px） | 比值 8.6 / 7.4 / 2.3，最小 28~60px | 比值 1.17~1.38，最小 128~152px |
+| P2 落点无关（存活 700~1700ms、极差 ≤500ms） | 2973 / 2836 / 963ms，极差 2010ms | 1270 / 1248 / 1311ms，极差 63ms |
+| P3 不给帧加负担（与同一次运行的空转对照） | 判不出（绝对阈值量的是宿主） | 中位 +0.1ms、长帧 +0 |
+| P4 不泄漏（连点 12 发后清空） | 1860ms | 1066ms |
+| P5 位图按 dpr 建 | 1280×900（dpr=2 时应为 2560×1800） | 2560×1800 ✓ |
+
+两条踩过的坑记在这里：**判据要问对问题**——第一版 P1 写「四向各 ≥100px」，16 颗粒子随机取角时
+某一向的极值就是运气，同一份代码连测给出 1.16 / 2.64 / 1.56，于是改成判形状（比值 + 下限）并
+每格连开 3 发把样本抬到 48 颗；**帧时不能判绝对值**——这台机器软件光栅，什么都不点中位也有
+22.6ms，绝对阈值等于天天报假红，改成同一次运行内「空转 vs 连点」的差。
+
+### 本地跑门禁前先把自己从 `jekyll serve` 里摘出来
+
+常驻的 `jekyll serve`（`concurrently` 那条 dev 命令）会以**开发环境**反复重写 `_site`，
+产物里的 canonical / og:url / sitemap / manifest 地址全带上 `http://localhost:4000`。
+2026-10-21 撞上的现场：门禁报 165 条，第一条写「台账里有这枚图标，manifest.json 里却没有」，
+看着像图标生成器坏了，其实差的是 URL 前缀。`check-seo` 现在会先挡住并说清原因。
+别跟 watcher 抢，建一份冻结的生产快照再核：
+
+```bash
+JEKYLL_ENV=production bundle exec jekyll build --destination spark-output/site-prod
+node scripts/check-seo.mjs --site=spark-output/site-prod
+```
+
 ## 🏷 版本号与 tag
 
 版本号只有一个真实来源：**master 上的 git tag**。`_config.yml` 的 `site.version`、

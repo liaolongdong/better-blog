@@ -292,6 +292,31 @@ const readSrc = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
   }
 }
 
+/**
+ * 构建环境闸：产物里出现 `http://localhost:4000` 一定不是内容问题，而是这一发 `jekyll build`
+ * 没带 `JEKYLL_ENV=production`（CI 在 .github/workflows/jekyll.yml:80 设了它）。少了这个变量，
+ * `absolute_url` 退回 Jekyll 的开发默认值，于是 canonical、og:url、sitemap 与 manifest 的
+ * icons 地址全带上开发域名。2026-10-21 本机就这么炸过一次：门禁报 165 条，第一条写的是
+ * 「台账里有这枚图标，manifest.json 的 icons 里却没有」，看着像图标生成器坏了，
+ * 其实差的是 URL 前缀。这一条先挡住，并把真正的原因说清楚。
+ */
+{
+  const probes = ['manifest.json', 'index.html', 'sitemap.xml'];
+  const hit = probes.filter((p) => {
+    const f = path.join(SITE, p);
+    return fs.existsSync(f) && /https?:\/\/localhost(:\d+)?\//.test(fs.readFileSync(f, 'utf8'));
+  });
+  if (hit.length && !STALE_OK) {
+    console.error(`✗ SEO 门禁：产物里带着开发域名（${hit.join('、')}）——这一发 build 没设 JEKYLL_ENV=production。`);
+    console.error('  本机常驻的 `jekyll serve`（concurrently 那条 dev 命令）会以开发环境反复重写 _site，');
+    console.error('  所以别跟它抢：建一份冻结的生产快照再指给门禁——');
+    console.error('    JEKYLL_ENV=production bundle exec jekyll build --destination spark-output/site-prod');
+    console.error('    node scripts/check-seo.mjs --site=spark-output/site-prod');
+    console.error('  CI 一直是带 JEKYLL_ENV=production 的（.github/workflows/jekyll.yml:80），所以这一条只在本地会撞到。');
+    process.exit(1);
+  }
+}
+
 // ── 小工具 ────────────────────────────────────────────────────────────────────
 
 const ENTITIES = {
