@@ -25,6 +25,21 @@ description: 'Better（中文署名廖小新）的前端与 AI 博客：React、
 # 逗号一律用半角：旧值里的全角「，」把 canvas 和 Python 粘成了一个检索词。
 # 与真名相关的三个词（本名、本名+「博客」、本名+「前端」）已按本人要求撤掉。
 keyword: '廖小新,Better,Better前端博客,前端开发,web前端,React,Vue,Node.js,npm,Chrome插件,微信小程序,AI Agent,前端开源项目实测'
+# Bing Webmaster Tools 的 msvalidate.01 验证码。留空则不输出 meta；从
+# https://www.bing.com/webmasters 取得后填这里即可，模板不用跟着改。
+# 验证码是站点公开标识，不是密钥。Bing 是 Copilot 的索引源，验证通过后再接
+# IndexNow 推送新文；key 文件需放在域名根仓库，不能放在本项目的 /better-blog/ 下。
+bing_site_verification: ''
+
+# IndexNow 主动推送（批 1 / B1）。必应系与 ChatGPT 联网检索共用的收录通道——
+# 站内原有的两条主动推送（seoScript.html 里的百度与 360）都到不了那里。
+# key 按规范是公开的：仓库根 `/<key>.txt` 的内容就是它，作用是证明域名归属，
+# 与 googlebed27….html / MP_verify_….txt 同性质，不是凭据，别当密钥处理。
+# 换 key 的三步：`openssl rand -hex 16` → 改这里 → 用新值重命名根目录那个 txt。
+# Google 明确不读 IndexNow，这一条不改变 Google 侧的任何东西。
+indexnow:
+  key: '3f860b04627d4b934037bfd6f2fa4f1c'
+  enabled: true
 url: 'https://liaolongdong.github.io' # your host
 # url: 'https://liaolongdong.com' # your host
 
@@ -208,7 +223,10 @@ comments:
   disqus_url: 'https://liaolongdong.disqus.com/embed.js'
 
 # MathJax 公式支持
-mathjax: true
+# 默认关：MathJax 2 的 `$...$` 会把正文里的美元价格当公式。2026-10-18 的 FLUX
+# 文章实测 `$0.036` 到 `$0.607` 之间整段被拆成斜体乱码。需要公式的文章在自己
+# 的 front matter 写 `mathjax: true`；站点级打开会应用到所有文章，慎用。
+mathjax: false
 
 # Share
 social-share: true
@@ -235,7 +253,16 @@ paginate_path: 'page:num'
 # 这里列的都是仅开发/部署用的资产，一旦漏排就会被拷进 _site 并公开可访问。
 exclude:
   - node_modules
+  # 并行开发用的 git worktree（.worktrees/<name>/）里也有 node_modules 与 vendor：
+  # 不排除时 `jekyll serve` 的 listen 会把这些目录整棵纳入监听，空转占满一个核；
+  # 它本来也不是站点内容，不该被复制进 _site。
+  - .worktrees
   - dev
+  # 一次性量具与它的截图落点（spark-output/，已在 .gitignore）。它不是站点内容，
+  # 更要紧的是：Jekyll 4.3.4 在 URL 编码阶段遇到**中文命名的文件**会直接抛
+  # Encoding::UndefinedConversionError 让整个构建死掉（jekyll-4.3.4/lib/jekyll/url.rb:161），
+  # 而量具产出的截图正是中文命名。不排除 = 任何一次量具跑完，下一次构建就红。
+  - spark-output
   - dist
   # 本地构建/生成脚本（scripts/og-images.mjs 等）。不带 front matter 的文件会被
   # 原样复制进 _site，线上因此多出一个 /better-blog/scripts/ 目录——它是仓库工具，

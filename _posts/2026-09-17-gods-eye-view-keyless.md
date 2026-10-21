@@ -8,6 +8,14 @@ date: 2026-09-17
 categories: [AI, 开源实测]
 cover: /assets/img/gods-eye-view-keyless/banner.webp
 tags: AI 开源 JavaScript webmcp Agent
+tldr: '一个 key 都没配就把 21 个图层画上屏、console 零错误，README 那句 13 条免密路径逐行对账成立；真正卡住安装的反而是 puppeteer 那 170MB 的 Chrome 下载。'
+faq:
+  - q: 'gods-eye-view 真的可以不配任何 API key 跑起来？'
+    a: '一台 doctor 报 Node 22.19.0 too old、一个 key 都没填的机器上照样把地球画了出来：图层数读到 21，console 错误 0 条。README 说 15 个数据层和地图源里 13 个有免密路径，对着那张表逐行数 🟢 对上了；只有 Live Vessels 和 Active Fires 要免费 key，语音要 OpenAI key，没配时接口返回 OPENAI_NOT_CONFIGURED。底图走 Esri World Imagery 的 keyless 通道，连不上自动回落 OSM。'
+  - q: 'gods-eye-view 的 npm ci 跑了 17 分钟没结束，卡在哪？'
+    a: '不是卡在依赖，是 puppeteer 的 postinstall 在下载约 170 MB 的 Chrome for Testing，实测一分钟只走 25 万字节。npm ci --ignore-scripts 六秒装完（added 126 packages），再把 PUPPETEER_EXECUTABLE_PATH 指到本机 Chrome 就绕开了那个下载。'
+  - q: 'gods-eye-view 存 key 的接口 body 超过 8192 字节为什么不返回 413？'
+    a: '413 那一行永远执行不到：handler 里 body 超过 8192 就 req.destroy()，连接先被掐断，排在后面的 respond 413 没人执行得出去。拿 9,025 字节的 body 实测，拿到的是 curl (52) Empty reply from server、状态码 000，而服务本身活得很好；grep 全仓，没有任何测试断言过这个 413。'
 ---
 
 ![手绘封面：一颗绕着观测轨道的地球，和一个手里没接任何设备的小人](/assets/img/gods-eye-view-keyless/banner.webp)
@@ -131,7 +139,7 @@ heap  43 / 43 / 42 MB
 
 `src/voice/actionSchemas.js` 945 行，里面的 `name:` 我数了，正好 28 个，README 写的 28 voice tools 对得上。前 8 个：fly_to_location、select_nearest_aircraft、adjust_camera_zoom、zoom_to_globe、set_layer_visibility、show_data_layers_menu、set_panel_open、set_context_mode。
 
-我 6 月写 WebMCP 那篇的时候，站在 puppeteer 那边骂过选择器方案脆。GEV 走的是另一个方向：不让模型去 DOM 里翻按钮，而是先把动作起好名字、写好 schema，再挂到 `window.__godsEyeView.voiceCommands` 上。这玩意儿跟 WebMCP 不是一回事，它没实现那套 model context 标准，但两者在解决同一个问题：模型面对一个页面时，能看见的应该是一张菜单，不是一堆 class 名。
+我 [6 月写 WebMCP 那篇]({{ site.baseurl }}/2026/06/15/webmcp-vs-puppeteer.html)的时候，站在 puppeteer 那边骂过选择器方案脆。GEV 走的是另一个方向：不让模型去 DOM 里翻按钮，而是先把动作起好名字、写好 schema，再挂到 `window.__godsEyeView.voiceCommands` 上。这玩意儿跟 WebMCP 不是一回事，它没实现那套 model context 标准，但两者在解决同一个问题：模型面对一个页面时，能看见的应该是一张菜单，不是一堆 class 名。
 
 语音那条我这边是空的——README 第 228 行明说 voice needs an OpenAI key，没 key 时麦克风按钮直接报不可用。我 POST 了一下 `/api/openai/hud-summary`，返回 200，body 里 `{"configured":false,"code":"OPENAI_NOT_CONFIGURED","summary":null}`，跟它写的行为一致。
 
@@ -211,7 +219,7 @@ content-type text/plain   415 Content-Type must be application/json
 - magnitude：48 星/天，这次四个榜全没有它。
 - 本周新建榜上 star>500 的我只一手核实了三个，都不准备推荐：ai-sucks-butt 2,554 星配 0 fork；jev-ultrafast 建仓 17 小时攒 1,033 星，description 是空的；kruzovic7/ai-data-extractor 832 星，唯一一次 push 距建仓 8 分 58 秒，之后 6 天没动。
 
-上期欠的六件事，账放在这儿：
+[上期那篇数 37 个 SKILL.md 的]({{ site.baseurl }}/2026/09/12/trending-skill-sweep.html)欠的六件事，账放在这儿：
 
 - magnitude 那个 7.6 倍差：还上了，方式不是它承诺的“连抓两天”。我手里攒到 09-09（4,228）、09-12（4,372）、09-17（4,611）三个点，再拿页面周增反推窗口起点，算出来是**窗口错位**：09-12 页面显示的 2,096 盖的是 09-05 到 09-12，那 7 天里它从 2,276 涨到 4,372，接近翻倍，之后掉到 48/天。既不是页面造假，也不是我上期算错，是两个不同的东西。
 - 顺手交代一个我自己的缺陷：09-10 那两份榜的快照里，6/22 行和 2/18 行的仓库名被 h2 里的赞助链接占掉了，写成 `sponsors/xxx`。09-12 和 09-17 干净。

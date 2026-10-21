@@ -3,11 +3,19 @@ layout: post
 title: 官方说会加一枚脚注，我手里那两段正文一字没动
 subtitle: 那篇讲 Scion 的文章 10 月 15 日改过，我抠到改前文本，逐字对了一遍
 seo_short_title: 那页 10 月 15 日只改了脚注
-seo_description: Anthropic 那篇 Scion 文章的页面自记修改时间是 10 月 15 日 18:21:28，而我有那位博主截图 alt 里的改前正文。逐字对下来，两段共 1157 个字符一字未动，变的是脚注、页首那行更新说明，和一个空格。
+seo_description: Anthropic 的 Scion 文章自记修改时间是 10-15 18:21:28，而我有博主截图 alt 里的改前正文。两段共 1157 个字符未动，变的是脚注、页首更新说明和一个空格。
 date: 2026-10-17
 categories: 开源实测
 cover: /assets/img/anthropic-scion-attribution-diff/banner.webp
 tags: Anthropic Claude AI编程 开源
+tldr: '那页 10 月 15 日 18:21:28 确实改过，署名作者 22 分 26 秒前刚在评论里说会再加一枚脚注；可我手里有改前文本的两段正文一字未动——第一段 1157 个非空白字符 difflib 出 ratio 1.0，第二段只多一个空格，实际变化是 Mononoke 从全篇 0 次变 1 次、而且只在脚注里。'
+faq:
+  - q: 'Anthropic 那篇讲 Scion 的文章 10 月 15 日改了什么？'
+    a: '页首多一行更新说明、脚注多一条、正文多一个空格。对得上原文的两段里：定义 derived data 那段 1157 个非空白字符、195 个词，difflib 给 IDENTICAL True、ratio 1.0；讲 changeset 那段 440 个字符变 441，opcodes 只有一个 insert，插进去的是逗号与脚注上标 1 之间的空格，ratio 0.9989。'
+  - q: '改前的那页原文是从哪里拿到的？'
+    a: '不是快照。web.archive.org 的 CDX 接口与页面、archive.org 的 wayback available、ghostarchive、timetravel.mementoweb.org 四个口径全部超时或解析失败，改前整页我没拿到。能用上的入口是 sunshowers.io 那篇：他把 Anthropic 的页面截成图，每张 img 都写了完整长 alt，我从 alt 属性里反转义出正文，逐字符数出 1157。'
+  - q: 'Scion 开源了吗？'
+    a: '公开面上不可证伪。第一段原文还是 we built Scion, an in-house version control system；anthropics 组织按更新时间取回的 100 枚仓库里没有名为 scion 的一枚，最接近的那枚叫 scone-bench。github.com/tinyhumansai/openscion 确实存在，84 star、10 fork、GPL-3.0，描述写的参照物就是那篇文章。'
 ---
 
 # 官方说会加一枚脚注，我手里那两段正文一字没动

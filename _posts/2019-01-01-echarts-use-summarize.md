@@ -7,6 +7,14 @@ date: 2019-01-01
 categories: [JavaScript]
 cover: '/assets/img/postCover/echarts_cover.png'
 tags: echarts
+tldr: '官方 demo 没写的三个坑各有配置项：折线图四周空白靠 grid 的 x、y、x2、y2 收窄，圆环图中心加水印用 graphic 的 text 元素，饼图标签重叠则动 minAngle、引导线长度和 formatter 换行。'
+faq:
+  - q: 'echarts 折线图周围的空白区域太大，要改哪个配置？'
+    a: '改 option 里的 grid，它配的是直角坐标系内的绘图网格，单个 grid 最多能放上下两个 X 轴、左右两个 Y 轴。示例把 x 设 50、y 设 30 表示 canvas 距左上角的距离，x2 设 30、y2 设 40 表示距右下角的距离，也可以改用 top、left、right、bottom；顺带还能用 show 是否显示网格、borderWidth 和 borderColor 调边框、backgroundColor 设网格底色。'
+  - q: '想在圆环图正中间加一段文字，或者给图表加水印，用什么配置？'
+    a: '用 graphic 这个原生图形元素组件：type 填 text，top 和 left 都设 center，文字写在 style.text 里、需要换行就拼 \n 进去，字号和水平对齐在同一个 style 里给。折线图上给特定月份标节日文字用的也是它。'
+  - q: '移动端饼图标签文字太长显示不全、还互相重叠怎么办？'
+    a: '可以动的地方有五个：调小标签字号以展示更多文字、缩小饼状图本身、缩短视觉引导线、给 series 设 minAngle（0 到 360，防止某个值过小导致扇区太小影响交互）、用 formatter 做格式器，字符串模板和回调函数返回的字符串都支持用 \n 换行。示例里还打开了 avoidLabelOverlap 这个防标签重叠策略，并把 labelLine 的 length 与 length2 都设成 10。'
 ---
 
 这篇博客主要记录我们使用常用图表时，经常遇到的一些问题，这些问题是在echarts demo上没有写到的，详细具体的代码，请看这篇博客demo的源码，每个配置都有详细的注释。

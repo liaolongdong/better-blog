@@ -8,6 +8,14 @@ date: 2026-09-30
 categories: AI
 cover: /assets/img/livenerf-panel-lock-mismatch/banner.webp
 tags: livenerf Claude 评测
+tldr: '它招牌上那个 7.51 点我能从仓库两个文件重算，它声称的 6 天日更一条都看不到：锁校验三条全红，ci.yml 三步没有一步碰锁，日更状态那个目录还被 ignore。'
+faq:
+  - q: 'livenerf 那个 7.51 点的探测极限是怎么算出来的？'
+    a: '用仓库里两个文件就能重算：面板存着每题的确认通过率，套 design.py 那条公式，p 要做 (s+1)/(n+2) 平滑，10 天窗口测得出 7.51 点。设计这一头对得上，对不上的是日更曲线——那一半没有文件能指。'
+  - q: '本地跑它自带的 preflight 是什么结果？'
+    a: '零模型调用，三条全红：CLI 是 2.1.145、pin 钉的是 2.1.280；usage meter 读不到，值是 None；面板冻结那一格报 76f2bfa6 对不上 487c65e1，而这对摘要在把它冻结的那次提交上就已经不等。锁那条复核了三遍，工作树摘要与 git 里 blob 的摘要相同，排除了换行归一化。'
+  - q: '它有没有真的每天跑那 78 道题？'
+    a: '从 clone 核对不了。README 9 月 29 日那行写 6 of 30 days collected，基线 9 月 24 日 22:10 UTC 起跑，可日更状态写在 logs/daily.jsonl，而 logs/ 被 ignore。仓库那 8 个 .eval 解开后是 40 条 9 月 22 日的 pilot 样本、35 条评分全为 1，没有一条序列样本。'
 ---
 
 # livenerf 的 30 天基线跑到第 6 天，它的锁校验是红的

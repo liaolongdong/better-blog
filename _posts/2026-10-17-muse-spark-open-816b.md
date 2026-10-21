@@ -3,11 +3,19 @@ layout: post
 title: Meta 放出 816B 开放权重：先别急着下载，1.6TB 内存是第一道门
 subtitle: 许可证要产品挂名，65 个分片共 1.64TB，自托管先过内存关。
 seo_short_title: Meta 816B 开放权重解读
-seo_description: Meta 于 2026-10-15 发布 Muse Spark Open：816B 总参数、42B 激活、1M 上下文。我核对了许可证、65 个分片（1.64TB）、Together 价格与 Apple 四机实测，结论是它能接 API，但不适合个人自托管。
+seo_description: Meta 2026-10-15 发布 Muse Spark Open：816B 参数、42B 激活、1M 上下文。许可证、65 分片（1.64TB）、Together 价格与 Apple 四机实测，可接 API，不适合个人自托管。
 date: 2026-10-17
 categories: AI
 cover: /assets/img/muse-spark-open-816b/banner.webp
 tags: Meta AI Agent 评测
+tldr: '816B、1.64TB、4 台 Mac Studio 才 36.73 tokens/s，这些数字都不如许可证那条要命：用了它或衍生品的每个产品都得在 UI、文档、网站或设置菜单里醒目写一行 Built with Muse Spark Open，营收超 2000 万美元做 MaaS 还要先通知 Meta 并单独签约。'
+faq:
+  - q: 'Muse Spark Open 的权重能不能自托管？'
+    a: '先算内存。我把 HF API 的 65 个 safetensors 字节加了一遍：1,644,333,393,864 字节，即 1531.4 GiB，除以 816B 得约 2.01 字节每参数，正合 BF16。Apple 写道：BF16 参数本身就要 1.6TB 以上内存，NVFP4 降到约 493GB 再加上中间计算仍塞不进一台机器。'
+  - q: '它的许可证和 Apache 2.0 差在哪？'
+    a: 'license 字段是 other、名字是 muse-model-license，而且是 gated=manual：下载前要填真实姓名、出生日期、国家、机构、职位，表单还读 IP 地理位置。使用、微调、蒸馏、再许可、销售都放开，但两条义务卡产品：每个用了它或衍生品的产品要醒目显示 Built with Muse Spark Open；做 MaaS 且任意连续 12 个月合计营收超 2000 万美元要先通知 Meta 并签单独协议。'
+  - q: 'Apple 那组多机吞吐能当上线依据吗？'
+    a: '它证明能跑，不是能上线。4 台 Mac Studio、M5 Ultra、MLX v0.30.1+，NVFP4 加 4 机 tensor parallel，8192 context 下 decode 36.73 tokens/s、TTFT 4.8 秒；2 机 tensor 是 24.99、2 机 pipeline 是 15.74，机器翻倍 decode 只多约 47%。按 36.73 粗算，生成 1000 个 token 要约 27 秒。'
 ---
 
 ![封面：巨大的权重分片堆悬在桌面小电脑上方，橙色测量线标出高度](/assets/img/muse-spark-open-816b/banner.webp)
@@ -131,7 +139,7 @@ Together AI 已经把模型上到 serverless：input $1.25 / 1M，cached input $
 
 ## 短讯：Anthropic 的 fast 模式、微软 2.8T 与 OpenAI 的图片字段
 
-DeepSeek V4.1 Flash 的别名与价格变化，今天早些时候已经单独写过，这里补三条不在那篇里的更新。
+DeepSeek V4.1 Flash 的别名与价格变化，[今天早些时候单独写过一篇]({{ site.baseurl }}/2026/10/17/deepseek-v41-flash-alias-switch.html)，这里补三条不在那篇里的更新。
 
 **Anthropic 把 fast 模式写进了 SDK 类型。** 2026-10-15 发布的 Python SDK v1.15.0 在 Messages 里新增 `speed: "standard" | "fast"`，返回的 usage 也多了 `speed` 字段。SDK 注释写明，部分模型用任何 speed 值都需要 `fast-mode-2026-02-01` beta header；[文档](https://platform.claude.com/docs/en/build-with-claude/fast-mode)把 fast 模式描述为 Opus 5.5 的 2.5 倍速配置，价格 $8/$40 per 1M tokens，文档仍把它标为 research preview。所以呢：做低延迟交互的团队可以试，但别把它当稳定档位，先确认你的模型和账户是否在灰度范围内。
 

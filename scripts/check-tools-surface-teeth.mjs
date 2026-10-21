@@ -201,7 +201,7 @@ const idcardCases = [
   {
     name: 'yml title 与 front matter 漂移',
     group: '页面源',
-    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('title: 身份证号校验与生成 · 统一社会信用代码', 'title: 身份证号校验与生成')),
+    src: () => mutateSrc('_data/onlineTools.yml', (s) => s.replace('title: 身份证与机构代码校验 · 统一社会信用代码', 'title: 身份证与机构代码校验')),
   },
   {
     name: 'yml url 与 front matter permalink 不同源',
@@ -292,7 +292,7 @@ const idcardCases = [
   {
     name: 'data-tk-options 的取值与 spec 不一致',
     group: 'DOM',
-    artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('id="tk-in-bankcard-bank" data-tk-options="banks"', 'id="tk-in-bankcard-bank" data-tk-options="banklist"')),
+    artifact: () => shadowEdit('tools/idcard.html', (s) => s.replace('id="tk-in-idcard-bank" data-tk-options="banks"', 'id="tk-in-idcard-bank" data-tk-options="banklist"')),
   },
   /**
    * 索引条那一族在本页的四颗牙（编码页另有同名的一颗，见下面 `codecCases`）。前两颗是段 5 Task 9
@@ -319,7 +319,7 @@ const idcardCases = [
     group: 'DOM',
     expect: '没有 href',
     artifact: () => shadowEdit('tools/idcard.html', (s) => {
-      const next = s.replace('id="tk-tab-bankcard" href="#tk-panel-bankcard"', 'id="tk-tab-bankcard"');
+      const next = s.replace('id="tk-tab-random" href="#tk-panel-random"', 'id="tk-tab-random"');
       if (next === s) throw new Error('索引条那一行没命中，锚点变异作废');
       return next;
     }),
@@ -390,8 +390,8 @@ const idcardCases = [
     expect: '的面板清单里没有指向',
     artifact: () => shadowEdit('tools.html', (s) => {
       const B = baseFromArtifact();
-      const next = s.replace(`href="${B}tools/idcard.html#tk-panel-uscc">统一社会信用代码</a>`,
-        `href="${B}tools/idcard.html#tk-panel-random">统一社会信用代码</a>`);
+      const next = s.replace(`href="${B}tools/idcard.html#tk-panel-uscc">机构代码</a>`,
+        `href="${B}tools/idcard.html#tk-panel-random">机构代码</a>`);
       if (next === s) throw new Error('落地页那一枚成对的 href+锚文本没命中，错位变异作废');
       return next;
     }),

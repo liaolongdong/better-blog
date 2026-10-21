@@ -8,6 +8,14 @@ date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/astryx/banner.webp
 tags: AI react 设计系统 开源 Meta Astryx StyleX 前端组件库
+tldr: '首个明说同时为人类开发者和 AI 助手设计的 React 设计系统：prop 命名守统一词汇表，复合组件走 Compound 导出，还给 AI 配了查询用的 CLI；150+ 组件、StyleX 零运行时，但仍在 Beta。'
+faq:
+  - q: 'Astryx 说的 Agent-Ready 具体落在哪些工程决策上？'
+    a: '四条：prop 命名遵循统一词汇表，凡涉及尺寸都叫 size、凡涉及颜色都通过 variant 控制；复合组件统一从 Compound 命名空间导出，组合模式可预测；自带一个 CLI，能列组件、查某个组件的详细 API、生成脚手架；再加 open internals，底层构建块全部直接导出，不受限于顶层 API。'
+  - q: '接入 Astryx 要配 Babel 插件或 PostCSS 吗？'
+    a: '都不用。它的 StyleX CSS-in-JS 方案靠 CSS 自定义属性工作，零运行时开销；装 @astryxdesign/core 和 @astryxdesign/theme-neutral，CLI 按需以开发依赖装 @astryxdesign/cli，然后在 React 应用里给 ThemeProvider 传 theme 即可。切主题只改这个属性，组件源码不动，也不存在样式锁定，可以用 Tailwind 或普通 CSS 覆盖任意组件。'
+  - q: '把 Ant Design 换成 Astryx 跑一周，提升了什么、还差什么？'
+    a: '一个中型管理后台上的替换，三点感受是：StyleX 零运行时确实快，原先复杂表单页面在低端设备上的可感知卡顿明显改善；Claude Code 调用组件 API 的准确率比用 Ant Design 时高很多，几乎不再猜错 prop 名称；客户品牌定制只需基于主题系统创建一套 CSS 自定义属性。不足也写明了，项目还在 Beta，文档不够完善，部分组件的类型定义仍在优化，社区生态不如 Ant Design 成熟。'
 ---
 
 ![Astryx Banner](/assets/img/astryx/banner.webp)

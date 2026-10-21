@@ -33,6 +33,9 @@
     // search.json 的共享缓存，见 getCorpus()
     var corpusCache = null;
     var corpusLoading = null;
+    // search-full.json 只在用户点「搜索全文」时才拉；失败后允许重试。
+    var fullCorpusCache = null;
+    var fullCorpusLoading = null;
 
     /**
      * 是否开启了「减少动态效果」。平滑滚动属于可关闭的装饰性动效。
@@ -225,6 +228,18 @@
         else if (mq.addListener) mq.addListener(onChange);
     }
 
+    // 共享件的门面：命令面板拆成独立件后靠它取语料加载器与两个小工具。
+    // getCorpus / getFullCorpus 留在这里而不是跟着搬走：链接预览（§12）也用 getCorpus，
+    // 两边各养一份 search.json 缓存就会漂——这是 headAssets 那条「抄本一定漂」的同款教训。
+    window.EditorialUtil = {
+        baseUrl: BASE_URL,
+        prefersReducedMotion: prefersReducedMotion,
+        copyText: copyText,
+        getCorpus: getCorpus,
+        getFullCorpus: getFullCorpus,
+        esc: esc,
+    };
+
     window.EditorialTheme = {
         get: currentTheme,
         set: setTheme,
@@ -265,6 +280,11 @@
             link.className = 'toc-link';
             link.href = '#' + heading.id;
             link.textContent = heading.textContent.trim();
+            // 读过的小节点：纯视觉，不进可访问名；状态由 activate() 维护。
+            var mark = document.createElement('span');
+            mark.className = 'toc-mark';
+            mark.setAttribute('aria-hidden', 'true');
+            link.appendChild(mark);
             li.appendChild(link);
             list.appendChild(li);
             items.push({ heading: heading, link: link });
@@ -310,9 +330,16 @@
         /** 高亮切换集中在一处，避免 observer 与滚动兜底互相抢状态。 */
         function activate(item) {
             if (!item || current === item) return;
-            if (current) current.link.parentNode.classList.remove('is-active');
+            if (current) {
+                current.link.parentNode.classList.remove('is-active');
+                current.link.removeAttribute('aria-current');
+            }
             current = item;
             item.link.parentNode.classList.add('is-active');
+            item.link.setAttribute('aria-current', 'location');
+            // 读过的节留一颗实心点：往回滚也不撤销，它记录的是「这段已经经过」。
+            var idx = items.indexOf(item);
+            for (var r = 0; r <= idx; r++) items[r].link.parentNode.classList.add('is-read');
             place(item.link.parentNode);
         }
 
@@ -558,6 +585,40 @@
                     });
                 });
                 holder.appendChild(btn);
+
+                // 只有 html / css / js 能直接丢进 WebLab 的三格编辑器；ts / jsx / bash
+                // 不在映射里，宁可不给入口，也不给一个打开后跑不起来的按钮。
+                var codeEl = pre.querySelector('code');
+                var langMatch = codeEl && /(?:^|\s)language-([\w-]+)/.exec(codeEl.className || '');
+                var lang = langMatch ? langMatch[1].toLowerCase() : '';
+                var pane = lang === 'html' || lang === 'markup' ? 'html'
+                    : lang === 'css' ? 'css'
+                        : (lang === 'js' || lang === 'javascript') ? 'js' : '';
+                if (pane) {
+                    var openBtn = document.createElement('button');
+                    openBtn.type = 'button';
+                    openBtn.className = 'code-open';
+                    openBtn.textContent = '在编辑器打开';
+                    openBtn.title = '把这段代码带到 WebLab；不会自动运行';
+                    openBtn.addEventListener('click', function () {
+                        try {
+                            // 键名与 dev/js/webLab.js 的 PREFILL_KEY 同串。
+                            sessionStorage.setItem('weblabCode', JSON.stringify({
+                                lang: pane,
+                                code: pre.textContent.replace(/\n+$/, '')
+                            }));
+                            window.location.href = BASE_URL + '/weblab.html';
+                        } catch (err) {
+                            openBtn.textContent = '无法打开';
+                            openBtn.classList.add('is-done');
+                            window.setTimeout(function () {
+                                openBtn.textContent = '在编辑器打开';
+                                openBtn.classList.remove('is-done');
+                            }, 1600);
+                        }
+                    });
+                    holder.appendChild(openBtn);
+                }
             })(blocks[i]);
         }
     }
@@ -579,6 +640,32 @@
     }
 
     /**
+     * 全文语料（search-full.json）。与 getCorpus 分开：这份约 1.2MB（gzip ~460KB），
+     * 只在命令面板点「搜索全文」时请求；成功后在本次页面会话里缓存，失败则清掉
+     * loading 以便下一次点击重试。
+     * @returns {Promise<Array|null>} null 表示加载失败
+     */
+    function getFullCorpus() {
+        if (fullCorpusCache) return Promise.resolve(fullCorpusCache);
+        if (!fullCorpusLoading) {
+            fullCorpusLoading = fetch(BASE_URL + '/search-full.json')
+                .then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    fullCorpusCache = Array.isArray(data) ? data : [];
+                    return fullCorpusCache;
+                })
+                .catch(function () {
+                    fullCorpusLoading = null;
+                    return null;
+                });
+        }
+        return fullCorpusLoading;
+    }
+
+    /**
      * 转义 HTML。查询词、链接文本与摘要都来自数据或用户，必须按文本处理。
      * 五个字符而不是四个：单引号和 `dev/js/tools/view.js` 的 escapeHtml 保持同一把尺，
      * 现在拼出来的属性都带双引号所以咬不到，但哪天写成单引号属性或裸值就是注入点。
@@ -593,316 +680,119 @@
     }
 
     /* ------------------------------------------------------------------
-     * 4. 全站搜索命令面板
-     * ------------------------------------------------------------------ */
+     * 4. 全站搜索命令面板 —— 薄桩（本体在 dev/js/palette.js）
+     *
+     * 拆包理由与判据同源：check-sw.mjs 给每页都载的 editorial.min.js 定了 17,408B gzip
+     * 上限，它的注释写着「若再涨，先把命令面板拆成独立延迟加载件，再谈加码」。
+     *
+     * 桩只做四件事：听 ⌘K / Ctrl+K、听搜索入口的点击与指针按下、注入一次、转交。
+     * 三条监听都在「面板已经在了」时立刻让路，否则一次按键会被两边各处理一遍。
+     * 注入失败（离线且没缓存上）时把标记清掉，读者再按一次还能重试，
+     * 不会留下「按了没反应」的死角。
+     */
+    var paletteLoading = false;
+    var paletteQueue = [];
 
-    function initPalette() {
-        var panel = document.getElementById('cmdk');
-        if (!panel) return;
-
-        var input = document.getElementById('cmdk-input');
-        var results = document.getElementById('cmdk-results');
-        var count = document.getElementById('cmdk-count');
-        var empty = document.getElementById('cmdk-empty');
-        var emptyLead = document.getElementById('cmdk-empty-lead');
-        var emptySub = document.getElementById('cmdk-empty-sub');
-        // 零结果时要展示 header 模板里那份带「分类/标签」链接的提示，
-        // 它会被 innerHTML 覆写，所以先把初始内容存下来。
-        var defaultSub = emptySub.innerHTML;
-        var lastTrigger = null;
-        var activeIndex = -1;
-        var matches = [];
-        var seq = 0;
-        // 错峰入场的开关挂在 .cmdk-panel 上（CSS §M6 的选择器就是它），不是外层 #cmdk：
-        // 外层还管遮罩，把它一起淡入会连背景一起闪。
-        var panelBox = panel.querySelector('.cmdk-panel');
-        // 「这一次渲染是不是面板刚打开」——只有这一次给行挂入场动画，
-        // 之后每敲一个字的重绘都直接出结果，否则打字看着像在闪。
-        var freshNext = false;
-        // 输入法组合态。标志位为主、事件上的 isComposing 为辅：Firefox 在「组合中按 Enter」
-        // 这一路历史上不发 isComposing，只靠事件属性会漏；keyCode 229 是老 Chrome 的形状。
-        var composing = false;
-
-        // 面板打开那一刻记下的入口地址（pathname + search + hash，不含本次输入）。
-        // null 表示面板没开，syncUrl 于是任何事都不做。
-        var entryUrl = null;
-
-        /**
-         * 打开面板。
-         * @param {HTMLElement|null} trigger 触发元素（关闭后把焦点还给它）
-         * @param {string} [preset] 预填的查询词。深链进站必须一次到位：先开后塞值会渲染两次，
-         *   第二次把 .is-fresh 的错峰入场摘掉，观感就是「闪一下才出结果」。
-         */
-        function open(trigger, preset) {
-            lastTrigger = trigger || null;
-            entryUrl = location.pathname + location.search + location.hash;
-            panel.hidden = false;
-            document.body.classList.add('cmdk-open');
-            input.value = preset || '';
-            freshNext = true;
-            window.setTimeout(function () {
-                input.focus();
-            }, 0);
-            render(input.value);
-        }
-
-        function close() {
-            panel.hidden = true;
-            document.body.classList.remove('cmdk-open');
-            syncUrl('');
-            entryUrl = null;
-            if (lastTrigger) lastTrigger.focus();
-        }
-
-        /**
-         * 把当前查询写进地址栏。只用 replaceState：一条面板不该产生历史条目。
-         *
-         * 整段包 try 的理由不是「万一不支持」。boot()（本文件末尾）把 20 个 init 平铺直叙
-         * 排下来、没有逐条守护，initPalette 抛出会连带掐死后面 14 项；而 Safari 对
-         * replaceState 有明确限流（30 秒内超过 100 次直接抛），快打字加粘贴撞得上。
-         * 一次限流抛异常的代价，不该是「这一页的目录、书架、灯箱全没了」。
-         * @param {string} value 已 trim 的查询词，空串表示删掉 q
-         */
-        function syncUrl(value) {
-            if (entryUrl === null) return;
-            try {
-                var u = new URL(entryUrl, location.href);
-                if (value) u.searchParams.set('q', value);
-                else u.searchParams.delete('q');
-                window.history.replaceState(null, '', u.pathname + u.search + u.hash);
-            } catch (e) {
-                /* 限流/解析失败：这一轮 URL 不跟，检索照常 */
-            }
-        }
-
-        /** 查询切成词：连续空白算一个分隔符。单词查询切出来就是它自己。 */
-        function toTerms(query) {
-            return query.split(/\s+/).filter(Boolean);
-        }
-
-        /**
-         * 给单条结果打分：多个词之间是 AND —— 任一词在四个字段里都拿不到分，整条出局。
-         *
-         * 单词时走的仍是原来那条 `weights[i] - Math.min(idx, weights[i] - 1)` 的字段求和，
-         * 一分没变：J6 拿 HEAD 产物对账，结果集与顺序必须逐条相等。
-         * hits 允许出现重复下标（多词各命中同一字段时），消费点只做 indexOf(3) 判断，不去重。
-         * @param {Object} item 检索条目
-         * @param {string[]} terms 已小写化的词表
-         * @returns {{score: number, hits: number[]}} score 为 0 表示不匹配
-         */
-        function score(item, terms) {
-            var fields = [item.title || '', item.tags || '', item.category || '', item.excerpt || ''];
-            var weights = [100, 40, 20, 8];
-            var total = 0;
-            var hits = [];
-            for (var t = 0; t < terms.length; t++) {
-                var termScore = 0;
-                for (var i = 0; i < fields.length; i++) {
-                    var idx = fields[i].toLowerCase().indexOf(terms[t]);
-                    if (idx >= 0) {
-                        termScore += weights[i] - Math.min(idx, weights[i] - 1);
-                        hits.push(i);
-                    }
-                }
-                if (!termScore) return { score: 0, hits: [] };
-                total += termScore;
-            }
-            return { score: total, hits: hits };
-        }
-
-        /** 把用户输入当正则字面量使用之前必须转义，否则一个 `(` 就把构造打断。 */
-        function escRe(s) {
-            return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
-        /**
-         * 用 <mark> 包住每个词的每一次命中，帮用户确认「为什么这条被搜到」。
-         *
-         * 文本仍是一段一段 esc() 之后再拼（与旧版同一条转义链），词只进正则不进 HTML。
-         * 词表按长度降序排：并列的 | 分支取先匹配到的那一支，长词不排前面，
-         * 「搜索引擎」就会在同一起点上输给「搜索」。
-         * @param {string} text 原文
-         * @param {string[]} terms 小写词表
-         * @returns {string} 已转义的 HTML 片段
-         */
-        function mark(text, terms) {
-            var s = String(text);
-            if (!terms.length) return esc(s);
-            var re = new RegExp('(' + terms.slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|') + ')', 'gi');
-            var out = '';
-            var last = 0;
-            var m;
-            while ((m = re.exec(s)) !== null) {
-                if (!m[0]) { re.lastIndex++; continue; }
-                out += esc(s.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
-                last = m.index + m[0].length;
-            }
-            return out + esc(s.slice(last));
-        }
-
-        function setActive(next) {
-            if (!matches.length) return;
-            activeIndex = (next + matches.length) % matches.length;
-            var children = results.children;
-            for (var i = 0; i < children.length; i++) {
-                var on = i === activeIndex;
-                children[i].classList.toggle('is-active', on);
-                children[i].setAttribute('aria-selected', on ? 'true' : 'false');
-            }
-            input.setAttribute('aria-activedescendant', children[activeIndex].id);
-            children[activeIndex].scrollIntoView({ block: 'nearest' });
-        }
-
-        /** 空查询与零结果共用同一个占位块，但文案语义不同，分别切换。 */
-        function showEmpty(lead, sub) {
-            empty.hidden = false;
-            emptyLead.textContent = lead;
-            emptySub.innerHTML = sub;
-        }
-
-        function render(query) {
-            var token = ++seq;
-            var terms = toTerms(query.trim().toLowerCase());
-            if (!terms.length) {
-                results.innerHTML = '';
-                matches = [];
-                activeIndex = -1;
-                input.removeAttribute('aria-activedescendant');
-                count.textContent = '';
-                showEmpty('输入关键词开始搜索', '↑ ↓ 选择条目，Enter 打开文章');
-                return;
-            }
-            getCorpus().then(function (data) {
-                // 连续输入会让多次检索并发返回；只渲染最后一次查询的结果，
-                // 否则慢响应可能覆盖快响应，出现「输入 b 却显示 a 的结果」。
-                if (token !== seq) return;
-                var scored = [];
-                for (var i = 0; i < data.length; i++) {
-                    var s = score(data[i], terms);
-                    if (s.score > 0) scored.push({ item: data[i], hits: s.hits, score: s.score });
-                }
-                scored.sort(function (a, b) { return b.score - a.score; });
-                scored = scored.slice(0, 20);
-
-                matches = scored;
-                activeIndex = scored.length ? 0 : -1;
-                count.textContent = scored.length ? scored.length + ' 条结果' : '';
-                if (scored.length) empty.hidden = true;
-                else showEmpty('没有匹配的文章', defaultSub);
-
-                results.innerHTML = scored.map(function (row, idx) {
-                    var item = row.item;
-                    var snippet = row.hits.indexOf(3) >= 0 ? (item.excerpt || '') : (item.title || '');
-                    var meta = [];
-                    if (item.date) meta.push(esc(item.date));
-                    if (item.category) meta.push(esc(item.category));
-                    if (item.tags) meta.push(esc(item.tags.split(/\s+/).filter(Boolean).slice(0, 2).join(' · ')));
-                    return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
-                        + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
-                        + '<span class="cmdk-item-title">' + mark(item.title || '', terms) + '</span>'
-                        + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), terms) + '</span>'
-                        + '<span class="cmdk-item-meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</span>'
-                        + '</a></li>';
-                }).join('');
-
-                // 每一次渲染都重新裁决这个开关：挂上则这批行按 --i 错峰涌出，
-                // 摘掉则这批行直接落位。行是每次新建的，所以不需要强制重排来重启动画。
-                if (panelBox) panelBox.classList.toggle('is-fresh', freshNext);
-                freshNext = false;
-
-                for (var k = 0; k < results.children.length; k++) {
-                    (function (el, idx) {
-                        el.addEventListener('mouseenter', function () { setActive(idx); });
-                    })(results.children[k], k);
-                }
-
-                // 首行必须补一遍 setActive。activeIndex 在上面已经置 0、HTML 串里也把
-                // aria-selected="true" 烤进了第一行，但视觉高亮（.is-active）和
-                // aria-activedescendant 只有 setActive 会挂。不叫它的后果：
-                // 输入完那一下屏幕上没有任何选中指示（此时按 Enter 其实会打开第一条），
-                // 而第一次按 ↓ 是从「看不见的 0」走到 1，看着像第一条被跳过。
-                // 放在 mouseenter 之后：setActive 里的 scrollIntoView 走 block:'nearest'，
-                // 刚渲染完列表停在顶部，第一行本就在视野内，不会产生滚动。
-                if (scored.length) setActive(0);
-            });
-        }
-
-        function go(url) {
-            window.location.href = BASE_URL + url;
-        }
-
-        // 入口直接绑在按钮上，不走 document 委托：index.js 在 .g-nav 上无条件
-        // stopPropagation（那是给移动端抽屉「点外面收起」用的），委托监听收得到
-        // 侧栏 .search-trigger，却收不到顶栏那颗 .nav-search-btn——点了没反应。
-        // 书架入口早就是同样的写法，这里补齐。
-        var openers = document.querySelectorAll('[data-search-open]');
-        for (var i = 0; i < openers.length; i++) {
-            (function (el) {
-                el.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    open(el);
-                });
-            })(openers[i]);
-        }
-
-        document.addEventListener('click', function (e) {
-            if (e.target.closest && e.target.closest('[data-search-close]')) close();
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                if (panel.hidden) open(null); else close();
-                return;
-            }
-            // 单独的 "/" 是站内约定的搜索快捷键，但在输入框里应当照常打出斜杠。
-            if (panel.hidden && e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) {
-                e.preventDefault();
-                open(null);
-                return;
-            }
-            if (panel.hidden) return;
-            // 组合中的 Esc / ↑ / ↓ / Enter 整组归输入法。放在 panel.hidden 之后，所以 ⌘K 与 `/`
-            // 这两个全局入口不受影响。
-            if (composing || e.isComposing || e.keyCode === 229) return;
-            if (e.key === 'Escape') { e.preventDefault(); close(); }
-            else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
-            else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (activeIndex >= 0 && matches[activeIndex]) go(matches[activeIndex].item.url);
-            }
-        });
-
-        input.addEventListener('compositionstart', function () { composing = true; });
-        input.addEventListener('compositionend', function () {
-            // 收尾必须自己补一遍 render + syncUrl：整场组合里 input 监听是被拦着的，
-            // 不补的话屏幕上留的是上一个词的结果、地址栏停在进站那个词上。
-            composing = false;
-            render(input.value);
-            syncUrl(input.value.trim());
-        });
-        input.addEventListener('input', function () {
-            // 候选词还没落定就不重绘：拼音串每跳一次重排一次，打字看着像在闪。
-            if (composing) return;
-            render(input.value);
-            syncUrl(input.value.trim());
-        });
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Tab') e.preventDefault();
-        });
-
-        // 深链进站。放在所有监听器之后：这一次 open 于是走的是与手动打开完全同一条路径，
-        // 错峰入场、setActive(0)、aria-activedescendant 一并生效，不是「看起来像但少了几步」。
-        // 读 URLSearchParams 也包 try——同上，一条查询串不许带走 boot() 里后面 14 项能力。
-        var preset = '';
-        try {
-            preset = (new URL(location.href).searchParams.get('q') || '').trim();
-        } catch (e) {
-            preset = '';
-        }
-        if (preset) open(null, preset);
+    function ensurePalette(done) {
+        if (window.BBPalette) { if (done) done(); return; }
+        // 排队，不许丢：pointerdown 预热已经把 paletteLoading 置真，紧接着 click 带进来的这个
+        // 回调要是在这里被 return 掉，脚本加载完了也没人重放那一次交互——症状是
+        // 「冷缓存下第一次点搜索按钮没反应，第二次才开」，与拆包那回踩过的那两个坑同一类。
+        if (done) paletteQueue.push(done);
+        if (paletteLoading) return;
+        paletteLoading = true;
+        var s = document.createElement('script');
+        s.src = BASE_URL + '/assets/js/palette.min.js';
+        s.onload = function () {
+            paletteLoading = false;
+            var q = paletteQueue;
+            paletteQueue = [];
+            for (var i = 0; i < q.length; i++) { if (q[i]) q[i](); }
+        };
+        s.onerror = function () {
+            paletteLoading = false;
+            // 注不进（离线又没缓存上）就别攒着：清空队列，读者再按一次会重新起载。
+            paletteQueue = [];
+            if (s.parentNode) s.parentNode.removeChild(s);
+        };
+        document.head.appendChild(s);
     }
+
+    function openPalette(trigger, viaKey) {
+        // 注入完成后重放同一次交互，而不是直接调面板内部的 open()——那个函数是 initPalette
+        // 的局部作用域，外层引用会落到 window.open 上（不抛错、不开面板）。
+        // 桩自己的监听此刻已被 window.BBPalette 那道守卫挡掉，所以这一放只会被面板接住一次。
+        ensurePalette(function () {
+            if (!window.BBPalette) return;
+            if (trigger) {
+                trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            } else if (viaKey) {
+                // 按原键重放：用 / 打开的人不该被换成 ⌘K，面板里两条入口的处理并不相同。
+                document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: viaKey.key, code: viaKey.code, metaKey: viaKey.metaKey,
+                    ctrlKey: viaKey.ctrlKey, bubbles: true, cancelable: true,
+                }));
+            } else {
+                document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'k', code: 'KeyK', metaKey: true, bubbles: true, cancelable: true,
+                }));
+            }
+        });
+    }
+
+    function isTypingTarget(el) {
+        if (!el || !el.tagName) return false;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
+        return !!(el.isContentEditable);
+    }
+
+    function searchTrigger(e) {
+        return e.target && e.target.closest ? e.target.closest('[data-search-open], .nav-search-btn') : null;
+    }
+
+    function initPaletteStub() {
+        document.addEventListener('keydown', function (e) {
+            if (window.BBPalette) return;
+            var k = String(e.key).toLowerCase();
+            if ((e.metaKey || e.ctrlKey) && k === 'k') {
+                e.preventDefault();
+                openPalette(null, e);
+            } else if (k === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+                // 「/ 打开搜索」是快捷键说明里写着的一条，拆包之后它只存在于懒加载的面板里；
+                // 桩不接这条，全新页面上直接按 / 就是死的（必须先 ⌘K 唤起一次）。
+                e.preventDefault();
+                openPalette(null, e);
+            }
+        });
+        // 指针按下就开始注入：比 click 早几十毫秒，慢网下「点了没反应」那一段就是这么省掉的。
+        // 两个监听都走**捕获**：dev/js/index.js 在 .g-nav 上无条件 stopPropagation（那是移动端
+        // 抽屉「点外面收起」用的），冒泡版根本收不到顶栏那颗按钮的点击——实测桌面第一次点击
+        // 什么都不会发生，第二次才开（面板模块已在，由它自己直接绑的监听器接住）。
+        // palette.js 给面板自己踩过同一个坑、改成直接绑按钮；桩管的是「模块还没到」那一段，
+        // 只能靠文档级监听，所以必须捕获。
+        document.addEventListener('pointerdown', function (e) {
+            if (window.BBPalette) return;
+            if (searchTrigger(e)) ensurePalette(null);
+        }, true);
+        document.addEventListener('click', function (e) {
+            if (window.BBPalette) return;
+            var t = searchTrigger(e);
+            if (t) { e.preventDefault(); openPalette(t); }
+        }, true);
+
+        // 带着 ?q= 进站的人就是来搜的（SearchAction 的 urlTemplate 正是这一条），这一路不能
+        // 等读者先点一次才开面板。拆包之后面板是懒加载的，而深链这一路没有任何交互去触发它，
+        // 于是退化成「进站什么也不发生」——实测 verify-search-deeplink 的 J1 与 J4 前置同时红。
+        // 空串不起载：与面板自己「空查询不许开遮罩」那条口径同侧，爬虫打 ?q= 空也是正常流量。
+        var presetQuery = false;
+        try {
+            presetQuery = !!(new URL(location.href).searchParams.get('q') || '').trim();
+        } catch (e) {
+            presetQuery = /[?&]q=[^&#]/.test(location.search);
+        }
+        if (presetQuery) ensurePalette(null);
+    }
+
 
     /* ------------------------------------------------------------------
      * 5. 导航下拉（触屏与窄屏抽屉）
@@ -1263,7 +1153,26 @@
         cap.className = 'lightbox-cap';
         dlg.appendChild(big);
         dlg.appendChild(cap);
+
+        // 动效批 V·C1：多图序列。原先只能「点开 → 关掉 → 再点开下一张」，而实测图最多的
+        // 那篇正文里有 21 张可放大图——长截图连排是本站的主场景，一张一张关-点-关在手机上尤其贵。
+        var nav = document.createElement('div');
+        nav.className = 'lightbox-nav';
+        nav.hidden = true;
+        var prev = document.createElement('button');
+        prev.type = 'button'; prev.className = 'lightbox-step lightbox-prev';
+        prev.setAttribute('aria-label', '上一张'); prev.textContent = '\u2039';
+        var next = document.createElement('button');
+        next.type = 'button'; next.className = 'lightbox-step lightbox-next';
+        next.setAttribute('aria-label', '下一张'); next.textContent = '\u203a';
+        var count = document.createElement('span');
+        count.className = 'lightbox-count'; count.setAttribute('aria-live', 'polite');
+        nav.appendChild(prev); nav.appendChild(count); nav.appendChild(next);
+        dlg.appendChild(nav);
         document.body.appendChild(dlg);
+
+        var seq = [];
+        var idx = -1;
 
         // FLIP 的两次「首」：开是点的那张缩略图，关是它当时的位置（中间可能已滚动）。
         var origin = null;
@@ -1308,13 +1217,44 @@
             dlg.style.transformOrigin = '';
         }
 
-        function open(img) {
+        /**
+         * 把第 n 张摆进对话框。dir<0 从左侧进场，dir>0 从右侧，0 是首次点开。
+         * @param {number} n 序列下标
+         * @param {number} dir 进场方向，0 表示不做滑入（首次打开走 FLIP）
+         */
+        function show(n, dir) {
+            idx = n;
+            var img = seq[n];
+            origin = img;
             big.src = img.currentSrc || img.src;
             big.alt = img.alt || '';
             cap.textContent = img.alt || '';
             cap.hidden = !cap.textContent;
-            origin = img;
+            count.textContent = (n + 1) + ' / ' + seq.length;
+            // 只预取相邻两张：翻页时不该看见空白，但也不该在打开灯箱这一刻
+            // 把整篇的图全拉下来——长截图单张就有几百 KB。
+            for (var d = -1; d <= 1; d += 2) {
+                var q = seq[(n + d + seq.length) % seq.length];
+                if (q) { var pre = new Image(); pre.src = q.currentSrc || q.src; }
+            }
+            if (prefersReducedMotion() || !dir) return;
+            big.classList.remove('is-from-left', 'is-from-right');
+            void big.offsetWidth; // 同一张来回翻时不强制回流，类名不会重播
+            big.classList.add(dir < 0 ? 'is-from-left' : 'is-from-right');
+        }
+
+        /** 翻一张；不足两张时整块不动，环形取模让「下一张」从末尾回到开头。 */
+        function step(dir) {
+            if (seq.length < 2) return;
+            show((idx + dir + seq.length) % seq.length, dir);
+        }
+
+        function open(img) {
+            var at = seq.indexOf(img);
+            if (at < 0) { seq = [img]; at = 0; }
+            nav.hidden = seq.length < 2;
             dlg.showModal();
+            show(at, 0);
             if (prefersReducedMotion()) { settle(); return; }
             // showModal 之后才拿得到终态矩形，所以起点先记着、这一步才做 FLIP。
             fly(img.getBoundingClientRect());
@@ -1356,7 +1296,32 @@
             setTimeout(finish, 400);
         }
 
-        dlg.addEventListener('click', close);
+        // 序列导航键住在对话框内部，不放行就会「点下一张 = 关掉灯箱」。
+        dlg.addEventListener('click', function (e) {
+            if (e.target && e.target.closest && e.target.closest('.lightbox-nav')) return;
+            close();
+        });
+        [prev, next].forEach(function (b, k) {
+            b.addEventListener('click', function (e) { e.stopPropagation(); step(k ? 1 : -1); });
+        });
+        // 键盘 ←/→ 翻页；Esc 仍走原生 cancel → close 那条路径，不抢。
+        dlg.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+        });
+        // 触摸：横向位移过 40px 且明显大于纵向才算翻页。判错方向的后果是读者竖向一拖
+        // 就跳页，比不响应更糟，所以那 1.5 倍的比例不是讲究。
+        var sx = 0, sy = 0, tracking = false;
+        dlg.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse') return;
+            tracking = true; sx = e.clientX; sy = e.clientY;
+        });
+        dlg.addEventListener('pointerup', function (e) {
+            if (!tracking) return;
+            tracking = false;
+            var dx = e.clientX - sx, dy = e.clientY - sy;
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+        });
         // Esc 走的是 cancel → close 这条原生路径，不拦的话遮罩直接消失、没有回程。
         dlg.addEventListener('cancel', function (e) {
             if (prefersReducedMotion()) return;
@@ -1370,8 +1335,63 @@
                 // 表情包、行内小图标放大只会糊成一团；被 <a> 包住的图让链接先响应。
                 if (img.offsetWidth < 160 || img.closest('a')) return;
                 img.classList.add('is-zoomable');
+                seq.push(img);
                 img.addEventListener('click', function () { open(img); });
             })(imgs[i]);
+        }
+    }
+
+    /**
+     * 动效批 V·C2：代码块的「这是什么语言」与「这一大坨先收起」。
+     *
+     * 实测全站 941 个 <pre>：语言类一直挂在 <code class="language-x"> 上，但界面上看不见；
+     * 41 篇里有超 12 行的块，最长一块 149 行——命令集锦那类文章一段就能把正文顶下去两屏。
+     * 两件都在运行时做，读现成 DOM，不改构建产物。
+     *
+     * 外壳复用 initCodeCopy 建的 .code-wrap，不再另包一层：那一层本来就是为「钉住复制按钮
+     * 与在编辑器打开」而存在的。第一版自己套了个 .code-shell，结果那两颗按钮被留在新壳外面
+     * ——实测角标一出现 .code-copy 就从外壳里消失了，等于养出第二套抽象。
+     * 角标也因此放左上：右上是 .code-copy 的地盘，两枚叠在一起会互相盖。
+     */
+    var CODE_FOLD_LINES = 12;
+
+    function initCodeBlocks() {
+        var body = document.getElementById('post-body');
+        if (!body) return;
+        var pres = body.querySelectorAll('pre');
+        for (var i = 0; i < pres.length; i++) {
+            (function (pre) {
+                var shell = pre.parentNode;
+                if (!shell || !shell.classList.contains('code-wrap') || shell.classList.contains('bb-coded')) return;
+                var code = pre.querySelector('code[class*=language-]');
+                var lang = code ? ((/language-([a-zA-Z0-9+#_-]+)/.exec(code.className) || [])[1] || '') : '';
+                var lines = (pre.textContent || '').split('\n');
+                if (lines.length > 1 && lines[lines.length - 1].trim() === '') lines.pop();
+                if (!lang && lines.length <= CODE_FOLD_LINES) return;
+                shell.classList.add('bb-coded');
+
+                if (lang) {
+                    var tag = document.createElement('span');
+                    tag.className = 'code-lang';
+                    tag.textContent = lang;
+                    shell.appendChild(tag);
+                }
+                if (lines.length > CODE_FOLD_LINES) {
+                    shell.classList.add('is-foldable');
+                    var more = document.createElement('button');
+                    more.type = 'button';
+                    more.className = 'code-more';
+                    more.setAttribute('aria-expanded', 'false');
+                    var total = lines.length;
+                    more.textContent = '展开全部 ' + total + ' 行';
+                    more.addEventListener('click', function () {
+                        var opened = shell.classList.toggle('is-open');
+                        more.setAttribute('aria-expanded', opened ? 'true' : 'false');
+                        more.textContent = opened ? '收起' : '展开全部 ' + total + ' 行';
+                    });
+                    shell.appendChild(more);
+                }
+            })(pres[i]);
         }
     }
 
@@ -2058,7 +2078,15 @@
         }
 
         // 卡片是 fixed 定位，一旦滚动就会和链接脱开；缩放同理。
-        window.addEventListener('scroll', hide, { passive: true, capture: true });
+        // 键盘路必须特判：focus() 会把不在视口里的链接滚进来，这一发 scroll 紧接着就到，
+        // 无条件 hide 会把刚亮的卡片当场掐灭（实测：干净加载只 focus 第一篇正文的第一枚外链，
+        // t=0 hidden:false/disp:block，t=400 起 hidden:true/disp:none，而焦点一直在那枚链接上）。
+        // 焦点还在卡片所描述的那根链接上时，滚动只重新定位——预览卡跟着链接走，不收走。
+        // 指针路不变：滚动时 activeElement 不是链接，照旧 hide。
+        window.addEventListener('scroll', function () {
+            if (current && document.activeElement === current) { place(current); return; }
+            hide();
+        }, { passive: true, capture: true });
         window.addEventListener('resize', hide, { passive: true });
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hide();
@@ -2372,7 +2400,15 @@
         document.addEventListener('mousedown', function (e) {
             if (bar && !bar.hidden && !bar.contains(e.target)) hideBar();
         });
-        window.addEventListener('scroll', hideBar, { passive: true });
+        // 与预览卡同一族的老毛病：滚动不等于读者离开了选区。无条件收药丸会让键盘用户拿不到它——
+        // 用 Shift+方向键扩选时，浏览器自己会滚动页面，药丸刚要够到就被这发 scroll 收走。
+        // 所以：选区仍合规且至少有一部分还在视口里 → 跟着重新定位；真滚出视口/选区没了 → 照旧收。
+        window.addEventListener('scroll', function () {
+            var q = currentQuote();
+            var r = q && q.rect;
+            if (r && r.bottom > 0 && r.top < (window.innerHeight || 0)) showBar(r);
+            else hideBar();
+        }, { passive: true });
         window.addEventListener('resize', hideBar, { passive: true });
         window.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hideBar();
@@ -2544,6 +2580,50 @@
             else if (btn.classList.contains('wrap-up-btn')) btn.textContent = on ? '已在书架' : '放进书架';
             if (btn.hasAttribute('data-path')) btn.title = on ? '已在书架，点击移出' : '放进书架，稍后再读';
         }
+    }
+
+    /**
+     * 把「这篇我读过」显示到列表上（动效批 V·C4）。
+     *
+     * 书架的「待读」早就在卡片按钮上有状态了（syncShelfMarks），但足迹 shelf.f 只在抽屉里
+     * 看得见——于是首页与归档页对读者是「无差别的一排标题」，读过没有、读到一半的有没有，
+     * 全得靠记忆。信息流越往前翻越明显：重复点进读过的篇目，等于白烧一次访问。
+     *
+     * 只做显示，不做筛选：筛选要把整页卡片重排，与「服务端渲染的信息流 + 纯客户端状态」
+     * 这套结构冲突（刷新前后版面不一致，抓取读到的又是另一份）。
+     */
+    function initReadMarks() {
+        var shelf = readShelf();
+        if (!countKeys(shelf.f)) return;
+        // 足迹的键是 location.pathname（带 baseurl），所以卡片链接要按同一个口径归一化：
+        // 直接比 href 会把 /better-blog/2016/… 与 /2016/… 当成两篇。
+        var absPath = function (href) {
+            if (!href) return null;
+            try { return new URL(href, location.href).pathname; } catch (e) { return null; }
+        };
+        var links = document.querySelectorAll(
+            '.article-item a[href], .cat-row a[href], .related-item a[href], .series-row a[href], .feed-pick a[href]');
+        for (var i = 0; i < links.length; i++) {
+            var p = absPath(links[i].getAttribute('href'));
+            if (!p || !shelf.f[p]) continue;
+            var row = links[i].closest('.article-item, .cat-row, .related-item, .series-row, .feed-pick');
+            if (!row) continue;
+            row.classList.add('is-read');
+            var mark = document.createElement('span');
+            mark.className = 'read-mark';
+            mark.textContent = '读过';
+            var title = row.querySelector('.post-title, .cat-title, .related-name, .series-link, .feed-pick-title');
+            if (title) title.appendChild(mark);
+            else links[i].appendChild(mark);
+        }
+    }
+
+    /** 抹掉页面上「读过」的两处痕迹：行上的 is-read 与标题里的角标。 */
+    function clearReadMarks() {
+        var rows = document.querySelectorAll('.is-read');
+        for (var i = 0; i < rows.length; i++) rows[i].classList.remove('is-read');
+        var marks = document.querySelectorAll('.read-mark');
+        for (var j = 0; j < marks.length; j++) marks[j].remove();
     }
 
     /** 角标只在待读非空时出现：空书架不该在顶栏占一个视觉位置。 */
@@ -2857,6 +2937,10 @@
                 var fresh = emptyShelf();
                 syncShelfMarks(fresh);
                 syncShelfBadge(fresh);
+                // 足迹一清空，列表上那些「读过」角标就成了谎话——它们是同一次读取里从 shelf.f
+                // 生成的，不会自己消失。不清的话，读者按完「清空」看到的仍是一排「读过」，
+                // 刷新之后才空，等于用一次刷新才能确认这个按钮干了什么。
+                clearReadMarks();
                 render();
             });
         }
@@ -3180,6 +3264,204 @@
         document.addEventListener('focusin', release, { passive: true });
     }
 
+    /* ------------------------------------------------------------------
+     * 18. 复制引用与原生分享
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 文章页尾的两颗动作：复制一条能直接贴进文章的引用，或走系统分享面板。
+     * 标题/日期/规范地址由模板写进 data 属性，脚本不读 DOM 拼字符串——标题里的
+     * & 与引号在 HTML 里已经 escape 过一次，再从 textContent 读会多解码一次，
+     * 两个来源迟早不一致。
+     */
+    function initCitationShare() {
+        var cite = document.querySelector('[data-cite-copy]');
+        var share = document.querySelector('[data-native-share]');
+        if (!cite && !share) return;
+
+        // 模板默认带 hidden：无 JS 时这两颗动作不出现，也不会留下一颗点不动的按钮。
+        var extra = (cite || share).closest('.post-share-extra');
+        if (extra) extra.hidden = false;
+
+        var status = document.querySelector('[data-share-status]');
+        var timer = null;
+
+        function announce(msg) {
+            if (!status) return;
+            status.textContent = msg;
+            if (timer) window.clearTimeout(timer);
+            timer = window.setTimeout(function () {
+                if (status.textContent === msg) status.textContent = '';
+            }, 2000);
+        }
+
+        /** 复制后把按钮文字换成结果，1.6 秒后还原；按钮宽度由 min-width 兜住，不抖。 */
+        function flash(btn, text) {
+            var label = btn.getAttribute('data-label') || btn.textContent;
+            btn.setAttribute('data-label', label);
+            btn.textContent = text;
+            btn.classList.add('is-done');
+            window.setTimeout(function () {
+                btn.textContent = label;
+                btn.classList.remove('is-done');
+            }, 1600);
+        }
+
+        function copyAndReport(btn, text, okMsg, failMsg) {
+            copyText(text).then(function (ok) {
+                flash(btn, ok ? '已复制' : '复制失败');
+                announce(ok ? okMsg : failMsg);
+            });
+        }
+
+        /** 读 data-* 属性；模板缺字段时用调用方给的兜底值。 */
+        function dataOf(el, name, fallback) {
+            return el.getAttribute('data-' + name) || fallback;
+        }
+
+        if (cite) {
+            cite.addEventListener('click', function () {
+                var title = dataOf(cite, 'cite-title', document.title);
+                var author = dataOf(cite, 'cite-author', 'Better');
+                var siteName = dataOf(cite, 'cite-site', 'Better 前端博客');
+                var date = dataOf(cite, 'cite-date', '');
+                var url = dataOf(cite, 'cite-url', window.location.href);
+                // GB/T 7714 的电子资源格式；署名与站点名跟页面可见口径走，不读 JSON-LD 的正名。
+                copyAndReport(cite, author + '. 《' + title + '》[EB/OL]. ' + siteName + ', ' + date + '. ' + url + '.', '引用已复制', '引用复制失败');
+            });
+        }
+
+        if (share) {
+            // 没有 Web Share 的浏览器上，这颗按钮实际动作是复制链接；标题必须说真话。
+            if (!navigator.share) share.textContent = '复制链接';
+            share.addEventListener('click', function () {
+                var title = dataOf(share, 'share-title', document.title);
+                var text = dataOf(share, 'share-text', '');
+                var url = dataOf(share, 'share-url', window.location.href);
+                function copyLink() {
+                    copyAndReport(share, url, '链接已复制', '链接复制失败');
+                }
+                if (navigator.share) {
+                    try {
+                        navigator.share({ title: title, text: text, url: url }).catch(function (err) {
+                            // 用户主动关掉系统分享面板不是失败，不该再弹一次「已复制」。
+                            if (err && err.name === 'AbortError') return;
+                            copyLink();
+                        });
+                    } catch (err) {
+                        copyLink();
+                    }
+                    return;
+                }
+                copyLink();
+            });
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * 19. 键盘快捷键总览
+     * ------------------------------------------------------------------ */
+
+    /**
+     * `?` 与搜索面板里的「? 快捷键」共用同一个原生 <dialog>。
+     * 只在焦点不在输入类元素上时接管 `?`：用户要搜一个问号时，输入框里照常打出 `?`。
+     */
+    function initShortcuts() {
+        var dlg = document.getElementById('shortcuts-dlg');
+        if (!dlg || typeof dlg.showModal !== 'function') return;
+
+        function openDialog() {
+            if (!dlg.open) dlg.showModal();
+        }
+
+        var openers = document.querySelectorAll('[data-shortcuts-open]');
+        for (var i = 0; i < openers.length; i++) {
+            openers[i].addEventListener('click', openDialog);
+        }
+        var closers = dlg.querySelectorAll('[data-shortcuts-close]');
+        for (var j = 0; j < closers.length; j++) {
+            closers[j].addEventListener('click', function () { dlg.close(); });
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== '?' || e.metaKey || e.ctrlKey || e.altKey) return;
+            var t = document.activeElement;
+            if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '') || t.isContentEditable)) return;
+            e.preventDefault();
+            if (dlg.open) dlg.close(); else openDialog();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * 20. 封面共享元素转场
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 首页/列表封面 → 文章头图的空间连续性。只在真实点击卡片时给当前封面挂
+     * `view-transition-name: post-cover`，并把一次性标记写进 sessionStorage；
+     * 文章页在头图后立刻读标记、把同一个名字挂到 .post-hero 上。两边同名，
+     * 浏览器才会把「卡片」与「头图」当成同一块做 morph。
+     *
+     * 为什么不给所有封面预先命名：同一页多张卡片，view-transition-name 必须唯一；
+     * 预命名会在快照阶段直接报重复名字，整页转场被放弃。所以只命名被点的那一张。
+     */
+    function initCoverTransition() {
+        if (!('startViewTransition' in document)) return;
+        if (!document.querySelector('.article-item')) return;
+
+        var current = null;
+        var navTimer = null;
+
+        /** 清掉上一张封面留下的名字、标记与取消定时器；bfcache 恢复与新点击共用。 */
+        function clearMark() {
+            if (current) {
+                current.style.viewTransitionName = '';
+                current = null;
+            }
+            if (navTimer) {
+                window.clearTimeout(navTimer);
+                navTimer = null;
+            }
+            try { sessionStorage.removeItem('vtCover'); } catch (e) { /* 无痕模式 */ }
+        }
+
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var link = e.target && e.target.closest ? e.target.closest('a.post-link') : null;
+            if (!link || link.target === '_blank') return;
+
+            clearMark();
+            var article = link.closest('.article-item');
+            var cover = article ? article.querySelector('.post-cover') : null;
+            if (!cover) return;
+
+            current = cover;
+            cover.style.viewTransitionName = 'post-cover';
+            try {
+                // 目的地 + 时间戳：文章页必须两者都对上才认，bfcache/取消导航留下的
+                // 旧标记不会在下一次无关跳转里被误用。
+                sessionStorage.setItem('vtCover', JSON.stringify({
+                    path: link.pathname,
+                    at: Date.now()
+                }));
+            } catch (e) {
+                /* 无痕模式下没有 sessionStorage：退回普通跨页转场 */
+            }
+            navTimer = window.setTimeout(function () {
+                navTimer = null;
+                if (current === cover) {
+                    cover.style.viewTransitionName = '';
+                    current = null;
+                }
+                try { sessionStorage.removeItem('vtCover'); } catch (e) { /* 同上 */ }
+            }, 5000);
+        }, true);
+
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) clearMark();
+        });
+    }
+
     // ———— 离线层：注册 Service Worker（SW 本体在仓库根 sw.js）————
     /**
      * 注册站点离线层。四道闸门，一道都不能少：
@@ -3216,7 +3498,8 @@
         initTocDrawer();
         initReadingProgress();
         initCodeCopy();
-        initPalette();
+        initCodeBlocks();
+        initPaletteStub();
         initTouchDropdown();
         initAnchorScroll();
         initHeadingAnchors();
@@ -3229,7 +3512,11 @@
         initLinkPreview();
         initQuoteCard();
         initShelf();
+        initReadMarks();
         initWrapUp();
+        initCitationShare();
+        initShortcuts();
+        initCoverTransition();
         initMagneticCta();
         // 排在最后一条：注册本身是异步的，但它会在这一帧之后立刻发一个请求，
         // 让首屏的其余同步工作先跑完，别让离线层和它们抢同一个 tick。

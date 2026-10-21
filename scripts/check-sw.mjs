@@ -16,7 +16,8 @@
  *
  * 七组判据（组名就是失败行里那个方括号）：
  *   1 清单地址    每条都在 baseurl 下、都能在 _site 里找到文件、清单内部不重复
- *   2 骨架完整性  每页都发的那批同源 css/js 引用 ⊆ 骨架 ∪ 豁免表；豁免表不许藏死条目
+ *   2 骨架完整性  每页都发的那批同源 css/js 引用 ⊆ 骨架  豁免表；豁免表不许藏死条目；
+ *                 骨架条目要么被引用、要么在白名单里、要么能证明是运行时注入的公共件
  *   3 文档集合    DOC_URLS 与 sitemap.xml 里的 HTML 地址逐条相等（双向）
  *   4 透传名单    feed / sitemap / llms 那一族不在任何预缓存清单里
  *   5 桶名        BUILD 是 12 位构建时刻，三个桶名互不相同
@@ -193,8 +194,26 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
   }
   /** 兜底页与两枚 favicon 不是"被引用带进来的"：前者由 SW 自己端出来，后者由浏览器直接要 */
   const ALLOWED_ORPHANS = new Set([OFFLINE_URL, `${BASE}/favicon.svg`, `${BASE}/favicon.ico`]);
+  /**
+   * 第三类：运行时由脚本注入的公共件。命令面板（assets/js/palette.min.js）不在任何
+   * 页面 HTML 里——它由 editorial.js 在第一次 ⌘K 时 createElement('script') 拉进来，
+   * 但离线时读者照样会按 ⌘K，没缓存就是一次注定失败的注入加一个按了没反应的面板。
+   *
+   * 不能简单地把它加进 ALLOWED_ORPHANS 了事：那样这一格退化成「白名单里写谁就免检谁」，
+   * 清单里打错一个字符也没人管。所以这一类要拿证据——地址（去掉 baseurl 的那一截）
+   * 必须作为字符串字面量真实出现在某个已构建的公共脚本里。桩哪天把路径改错，
+   * 这条一断，这一格立刻回到「孤儿」那一支去红。
+   */
+  const INJECTED = [`${BASE}/assets/js/palette.min.js`];
+  const builtJs = fs.readdirSync(path.join(SITE_REL, 'assets/js'))
+    .filter((f) => f.endsWith('.min.js'))
+    .map((f) => fs.readFileSync(path.join(SITE_REL, 'assets/js', f), 'utf8'));
+  const injectedOk = (u) => {
+    const rel = u.startsWith(BASE) ? u.slice(BASE.length) : u;
+    return INJECTED.includes(u) && builtJs.some((t) => t.includes(JSON.stringify(rel)));
+  };
   for (const u of shell) {
-    if (!known.has(u) && !ALLOWED_ORPHANS.has(u)) {
+    if (!known.has(u) && !ALLOWED_ORPHANS.has(u) && !injectedOk(u)) {
       bad('骨架完整性', path.basename(u), `${u} 在骨架清单里，但模板、页面产物与产物 CSS 都没引用它——预缓存一份没人要的字节`);
     }
   }
@@ -350,9 +369,16 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
   /** sw.js 的上限：它带整站文档清单，会随文章数增长，留的是"清单涨到 3 倍"的余量 */
   if (swGz > 16 * 1024) bad('注册面', 'sw.js 体积', `sw.js gzip 后 ${swGz}B 超过 16KB——清单该由数据源生成，不是把内容抄进这里`);
   const edGz = fs.existsSync(reg) ? gzOf(reg) : 0;
-  /** editorial.min.js 的上限：全站每一页都加载它，注册代码正是搭它上的车（设计文档 §3） */
-  if (edGz > 15 * 1024) bad('注册面', 'editorial.min.js 体积', `editorial.min.js gzip 后 ${edGz}B 超过 15KB——公共件涨到这一格，先谈要不要拆，再谈往里加`);
-  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 16,384 与 15,360）`);
+  /**
+   * editorial.min.js 的上限：全站每一页都加载它，注册代码正是搭它上的车（设计文档 §3）。
+   * 2026-10-20 重立：命令面板动作、全文搜索的加载/打分 UI、快捷键 dialog、TOC 已读点
+   * 加入后实测 16,136B gzip；按 ceil1024(读数/0.95) 取 17KB（17,408B）。
+   * 全文语料 1.2MB 仍在用户点「搜索全文」后才拉，首屏只多这 ~1.2KB 逻辑；
+   * 若再涨，先把命令面板拆成独立延迟加载件，再谈加码。
+   */
+  const ED_MAX = 17 * 1024;
+  if (edGz > ED_MAX) bad('注册面', 'editorial.min.js 体积', `editorial.min.js gzip 后 ${edGz}B 超过 17KB——先拆命令面板，再谈往里加`);
+  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 16,384 与 ${ED_MAX}）`);
 }
 
 // ── 汇总 ─────────────────────────────────────────────────────────────────────

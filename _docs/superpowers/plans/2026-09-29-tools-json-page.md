@@ -7418,6 +7418,7 @@ class FieldError extends Error {
  * @param {Storage|null} [env.storage] `localStorage`；`null` 或没有这三个方法就是"这台浏览器不给存"
  * @param {() => number} [env.now] 注入时钟；缺席就是缺席（记住输入的 `at` 落 0，不拿宿主时间补一个假数字）
  * @param {(fn: () => void, ms: number) => number} [env.later] `setTimeout` 的别名；缺席就不防抖（`input` 那一路 no-op）
+ * @param {(fn: () => void) => void} [env.afterPaint] 大输入动作前让出一帧的调度器；缺席时大输入也同步执行
  * @param {number} [env.rowHeight] 行高；给了但不是 ≥1 整数就 `RangeError`，缺席落 `ROW_HEIGHT`
  * @param {(parts: Array<unknown>, options?: object) => object} [env.BlobCtor] 造 Blob 的**工厂**
  *   （不是裸的 `Blob` 构造器——本层按函数调用它，不带 `new`）；与下两格缺一就不让下载按钮可用
@@ -7486,6 +7487,7 @@ export function createJsonWorkbench(env = {}) {
   const store = (e.storage && typeof e.storage.getItem === 'function') ? e.storage : null;
   const clock = typeof e.now === 'function' ? e.now : null;
   const later = typeof e.later === 'function' ? e.later : null;
+  const afterPaint = typeof e.afterPaint === 'function' ? e.afterPaint : null;
   const rowHeight = (e.rowHeight === undefined || e.rowHeight === null) ? ROW_HEIGHT : e.rowHeight;
   // 红线 2：这一层不写 `navigator.`——取一份局部名再摸它的 clipboard。
   const nav = e.navigator === undefined ? null : e.navigator;
@@ -7607,6 +7609,9 @@ export function createJsonWorkbench(env = {}) {
       const btn = node(id);
       if (btn) btn.disabled = current.out === '' || !copyable;
     }
+    // 下载与复制吃同一份 current.out：清空/空态时它也该灰着，别让一枚按下去什么都不做的按钮留在页面上。
+    const dl = node(buttonId(prefix, PANEL, 'download'));
+    if (dl) dl.disabled = current.out === '' || !canBlob;
   };
 
   /**
@@ -8103,17 +8108,53 @@ export function createJsonWorkbench(env = {}) {
     paintResult(kind, 'ok', title, r.text, { notes });
   };
 
-  const runAction = (key) => () => runGuarded(buttonId(prefix, PANEL, key), () => {
-    try {
-      computeAndPaint(key);
-    } catch (err) {
-      if (err && err.isField === true) { paintLine('hint', 'idle', err.message); return; }
-      // 内部不变量坏了：原样上抛交给注入的 `runGuarded`，但**不许在这里改任何已画的东西**
-      //（红线 5 的那半边——评审 F 组量的就是"抛之前先擦了上一格"这条路，`computeAndPaint`
-      //  一律先算后画，坏在算的时候就没有一次 `paint` 发生过）。
-      throw err;
+  /** 超过这个字符数才值得先画“计算中…”再算；小输入保持原来的同步路径 */
+  const HEAVY_CHARS = 256 * 1024;
+
+  /**
+   * 大输入的动作先让出一帧：状态行写“计算中…”、动作按钮置灰，再进同一条
+   * `runGuarded` 通道。小输入不绕这一圈，键盘与测试看到的仍是同步结果。
+   */
+  const runHeavy = (key, run) => {
+    const docNode = node(fieldId(prefix, PANEL, 'doc'));
+    const chars = docNode ? String(docNode.value || '').length : 0;
+    if (key === 'copy' || key === 'download' || chars < HEAVY_CHARS || typeof afterPaint !== 'function') {
+      run();
+      return;
     }
-  });
+    const btns = JSON_ACTIONS
+      .filter((a) => a.key !== 'copy' && a.key !== 'download')
+      .map((a) => node(buttonId(prefix, PANEL, a.key)))
+      .filter((b) => b !== null);
+    const prev = btns.map((b) => b.disabled);
+    const busy = node(`${prefix}-busy`);
+    for (const b of btns) b.disabled = true;
+    updateGate('计算中…');
+    if (busy) busy.textContent = '计算中…';
+    afterPaint(() => {
+      try {
+        run();
+      } finally {
+        btns.forEach((b, i) => { b.disabled = prev[i]; });
+        if (busy) busy.textContent = '';
+        updateGate();
+      }
+    });
+  };
+
+  const runAction = (key) => () => {
+    runHeavy(key, () => runGuarded(buttonId(prefix, PANEL, key), () => {
+      try {
+        computeAndPaint(key);
+      } catch (err) {
+        if (err && err.isField === true) { paintLine('hint', 'idle', err.message); return; }
+        // 内部不变量坏了：原样上抛交给注入的 `runGuarded`，但**不许在这里改任何已画的东西**
+        //（红线 5 的那半边——评审 F 组量的就是"抛之前先擦了上一格"这条路，`computeAndPaint`
+        //  一律先算后画，坏在算的时候就没有一次 `paint` 发生过）。
+        throw err;
+      }
+    }));
+  };
 
 
   // ── 接线与挂载 ──────────────────────────────────────────────────────────
@@ -8184,6 +8225,39 @@ export function createJsonWorkbench(env = {}) {
     for (const a of JSON_ACTIONS) {
       const btn = node(buttonId(prefix, PANEL, a.key));
       if (btn) btn.addEventListener('click', runAction(a.key));
+    }
+    // 粘贴框的 Ctrl / ⌘ + Enter 等价于按「格式化」；裸 Enter 不拦，它在 textarea 里必须是换行。
+    const docArea = node(fieldId(prefix, PANEL, 'doc'));
+    if (docArea) {
+      docArea.addEventListener('keydown', (evt) => {
+        if (!evt || evt.key !== 'Enter' || !(evt.ctrlKey || evt.metaKey)) return;
+        if (typeof evt.preventDefault === 'function') evt.preventDefault();
+        runAction('format')();
+      });
+    }
+    // 空态里那条「载入示例」不是动作表里的第十四/十五枚：它只做两件事——写一份合法 JSON、
+    // 走一次与「格式化」完全相同的动作通道。id 由 prefix 派生，门禁的 `{p}-btn-*` 清单不认识它。
+    const sampleBtn = node(`${prefix}-sample`);
+    if (sampleBtn) {
+      sampleBtn.addEventListener('click', () => {
+        if (!docArea) return;
+        docArea.value = '{"name":"Ada","tags":["json","tool"],"ok":true}';
+        updateGate();
+        runAction('format')();
+      });
+    }
+    const clearBtn = node(`${prefix}-clear`);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!docArea) return;
+        docArea.value = '';
+        // 清空是用户对"这一份输入"的删除：记住开关若开着，本机那份也要跟着走，
+        // 否则刷新后会把刚清掉的内容又填回来。存储拒绝写入是正常环境，不让它影响清空本身。
+        try { if (store) store.removeItem(inKey); } catch { /* 删不掉就是这份还在，页面已清空 */ }
+        updateGate();
+        paintLine('empty', 'idle', '还没有算过。粘贴进来，再按上面任意一个动作。');
+        docArea.focus();
+      });
     }
     // 两枚复制各自的原文案都要先记下（评审 P2-9）。工具栏那一枚的线在上面那一串里已经挂过，
     // 这里只补结果栏那一枚；`copyLabels` 若只记一处，另一枚的 `original` 就退成**点击当时**的
@@ -8422,6 +8496,9 @@ function boot(doc, win, tk) {
     return Number.isInteger(n) && n >= 1 ? n : 24;
   };
 
+  // 入口只保留这一处 `setTimeout(`：防抖与“让出一帧”共用同一个调度别名。
+  const defer = (fn, ms = 0) => setTimeout(fn, ms);
+
   const wb = createJsonWorkbench({
     document: doc,
     Tk: tk,
@@ -8434,7 +8511,8 @@ function boot(doc, win, tk) {
     location: win.location,
     history: win.history,
     now: () => Date.now(),
-    later: (fn, ms) => setTimeout(fn, ms),
+    later: defer,
+    afterPaint: (fn) => defer(fn, 0),
     rowHeight: rowHeightPx(),
     // 这一格必须给**工厂**，不能给裸构造器：装配层按 `env.BlobCtor(parts, options)` 的写法调用它
     //（§W10 的红线 2「本层不写 `new Blob`」），而 `Blob` 是 WebIDL 接口，不带 `new` 直接调在浏览器里
@@ -10155,6 +10233,8 @@ tool: json
     其余部分照常可用。
     {%- endcomment -%}
     <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    <p class="tk-kbd"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 在粘贴框里直接格式化</p>
+    <p class="jt-busy" id="{{ tk.prefix }}-busy" role="status" aria-live="polite"></p>
 
     <div class="jt-workspace" id="{{ tk.prefix }}-workspace"
          data-jt-ids="workbench" data-jt-prefix="{{ tk.prefix }}"
@@ -10165,9 +10245,8 @@ tool: json
 
         表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
         ?jt-in-workbench-doc=…，而那一串里装的正是用户粘进来的内容——这一页最不该发生的事。
-        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll），所以这一页**不写**
-        .tk-kbd 那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行，
-        编码页那一句在这是不成立的），写一句不存在的捷径比不写更坏。
+        提交动作只由按钮的 click 承担（`jsonWorkbench.js` 的 wireAll）；粘贴框里另接
+        Ctrl / ⌘ + Enter 走「格式化」，裸 Enter 仍是换行。上面那句 .tk-kbd 说的就是这一条。
         {%- endcomment -%}
 
         <section class="jt-side jt-side--in" aria-labelledby="{{ tk.prefix }}-h-in">
@@ -10194,6 +10273,10 @@ tool: json
                     {%- endcomment -%}
                     <p class="jt-status" id="{{ tk.prefix }}-status-{{ wbp }}-main">字节 0 · 行 1</p>
                     <span class="tk-help">粘什么读什么：这一格只数字节与行，不解析。按上面任意一枚按钮才算一次。</span>
+                    <span class="jt-inline-actions">
+                        <button class="jt-sample-link" type="button" id="{{ tk.prefix }}-sample">载入示例 JSON</button>
+                        <button class="jt-sample-link" type="button" id="{{ tk.prefix }}-clear">清空</button>
+                    </span>
                 </div>
             </div>
         </section>
@@ -10210,13 +10293,13 @@ tool: json
             {%- endcomment -%}
             <div class="jt-bar">
                 <div class="jt-bar__group" role="group" aria-label="文本动作">
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-validate">校验</button>
                     <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-format">格式化</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
-                    <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-minify">压缩</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-escape">转义</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-unescape">反转义</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-copy">复制</button>
+                    <button class="tk-btn tk-btn--ghost" type="button" id="{{ tk.prefix }}-btn-{{ wbp }}-download">下载结果</button>
                 </div>
                 <div class="jt-bar__group jt-bar__group--opt" role="group" aria-label="输出选项">
                     <span class="jt-opt">
@@ -10266,6 +10349,8 @@ tool: json
                 </div>
             </div>
 
+            <a class="jt-jump" href="#{{ tk.prefix }}-out-{{ wbp }}-main">结果已更新 · 查看 ↓</a>
+
             {%- comment -%}
             搜索那一组挂在 `data-jt-when="tree"` 上：装配层的 `applySwitch` 只按
             `JSON_SPEC…switch.targets` 那一族翻 `hidden`，所以它在「文本」档里是整段消失，
@@ -10291,7 +10376,7 @@ tool: json
                 一次动作换一栏，不该打断用户正在读的东西。
                 {%- endcomment -%}
                 <div class="tk-out" id="{{ tk.prefix }}-out-{{ wbp }}-main"
-                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out" tabindex="-1"></div>
             </div>
 
             {%- comment -%}
@@ -10309,7 +10394,7 @@ tool: json
                  role="region" aria-label="结构树" aria-labelledby="{{ tk.prefix }}-h-out"></div>
 
             <p class="tk-help jt-foot">树的展开与折叠用点击（行上的三角），键盘可用的是每一格右侧那个
-                Pointer 按钮——它是真 `<button>`，Tab 得到、回车按得动。行高与行号槽同一把尺，
+                Pointer 按钮——它是真 <code>&lt;button&gt;</code>，Tab 得到、回车按得动。行高与行号槽同一把尺，
                 写在样式里，改它不需要动脚本。</p>
         </section>
     </div>
@@ -10483,6 +10568,71 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     color: var(--ink-3);
 }
 
+// 只给读屏用的忙碌播报：可见的“计算中…”在 .jt-status 里，这一格负责让读屏也听到。
+.jt-busy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.jt-sample-link {
+    justify-self: start;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    cursor: pointer;
+    background: none;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.jt-sample-link:hover {
+    color: var(--signal);
+}
+
+.jt-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+// 手机上换面板/滚动之后，结果可能落在动作按钮下方一屏外：只有在真的有结果时
+// 才出现这条「跳过去」的链接。`:has` 看的是结果区的节点，不依赖 JS 挂状态。
+.jt-jump {
+    display: none;
+    align-items: center;
+    align-self: flex-start;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--signal-ink);
+    text-decoration: none;
+    background-color: var(--signal-soft);
+    border-radius: 999px;
+}
+
+.jt-jump:hover {
+    color: var(--signal);
+}
+
+.jt-out {
+    scroll-margin-top: 88px;
+}
+
+@media (max-width: 900px) {
+    .jt-workspace:has(.jt-out__head, .jt-err, .jt-refuse) .jt-jump {
+        display: inline-flex;
+    }
+}
+
 // ── 工具栏三段 ────────────────────────────────────────────────────────────
 
 .jt-bar {
@@ -10585,6 +10735,9 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     gap: 8px;
     align-items: baseline;
     margin-bottom: 6px;
+    padding: 6px 10px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
 }
 
 .jt-out__kind {
@@ -10598,8 +10751,8 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 }
 
 .jt-out__title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: var(--ink);
 }
 
@@ -10813,8 +10966,11 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
 
 .jt-tree__copy {
     flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     margin-left: auto;
-    padding: 1px 6px;
+    padding: 0 6px;
     font-family: $jt-meta;
     font-size: 10.5px;
     letter-spacing: .4px;
@@ -10873,6 +11029,13 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
     .jt-opt select {
         flex: 1;
         min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .jt-opt--check input {
+        width: 18px;
+        height: 18px;
     }
 
     .jt-tree {

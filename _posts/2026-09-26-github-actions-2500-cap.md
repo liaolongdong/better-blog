@@ -8,6 +8,14 @@ date: 2026-09-26
 categories: [AI, 开源实测]
 cover: /assets/img/github-actions-2500-cap/banner.webp
 tags: github AI 开源
+tldr: '接口交回来的是整数 2500 而不是带加号的写法，也没有截断标记；最多取得到 1000 条，分页头的 rel 还按 2500 指路，照它写循环的脚本会一声不响连吃 15 个空页。'
+faq:
+  - q: 'Actions 的失败数为什么停在 2500？'
+    a: '那是带过滤查询的封顶值，不是真实条数。对 `microsoft/vscode` 只多挂一个 `status=failure`，计数就成 2500；什么都不带、只给 `per_page=1` 时 `total_count` 照旧回 40000，翻到 `page=40001` 才 422。改动出自 09-25 18:17 UTC 的 changelog 公告。'
+  - q: '程序怎么知道这个数被截断了？'
+    a: '不知道。响应只有 `total_count` 和 `workflow_runs` 两个顶层键，没有 `is_capped` 也没有布尔位，而且它是 number。更别扭的是翻过 1000 条和压根没命中在协议层是同一个响应：HTTP 200、空数组、`total_count` 归 0，Content-Length 50、ETag 也相同。'
+  - q: '那真实条数怎么量出来？'
+    a: '用日期窗口拆开再相加。同一个 `status=failure`，`created=2026-09-01..2026-09-15` 报 1884，`created=2026-09-15..2026-09-26` 报 1036，扣掉重叠那天单独问出的 162，得 2758，比 2500 多 258 条，这只是下界。空格写法 `created=>A <B` 会静默丢上界，重复传两个边界丢下界，返回的都还是 200。'
 ---
 
 # 别再问 Actions 的失败数怎么数了，2500 是哨兵不是答案
@@ -102,4 +110,4 @@ page11: http=200 total_count=0 items=0
 
 还有一处矛盾我留着。`modelcontextprotocol/registry` 的 `branch=main`，从年初问到 9 月 26 日报 2500。同一分支只问 9 月那 26 天，是 299。这一格是哨兵还是恰好 2500 条，我没能证出来，也不打算替它挑一个。
 
-上期那笔账也顺手结了：v2.1.283 发布于 09-25 21:50 UTC，94 条 bullet，逐条 grep `AGENTS.md`，命中 0。这条规则今天立：release note 里 grep 不到的修复，按没发生处理。下期要做的也在这：拿带 token 的身份把这 31 条重跑一遍，如果认证态也报 2500，锅就不在缓存那一层。
+[09-25 那篇 AGENTS.md 远程门]({{ site.baseurl }}/2026/09/25/claude-agents-md-remote-gate.html)挂的账也顺手结了：v2.1.283 发布于 09-25 21:50 UTC，94 条 bullet，逐条 grep `AGENTS.md`，命中 0。这条规则今天立：release note 里 grep 不到的修复，按没发生处理。下期要做的也在这：拿带 token 的身份把这 31 条重跑一遍，如果认证态也报 2500，锅就不在缓存那一层。

@@ -7,6 +7,14 @@ date: 2017-06-06
 categories: [前端工程化]
 cover: /assets/img/postCover/git_cover.png
 tags: git git常用命令
+tldr: 'git 的救急顺序其实很短。reset --hard 把提交回丢了先翻 reflog，最近 90 天的操作记录都在里面；要撤掉已经推到远程的那次提交，用 revert 补一条新提交，别去改历史。'
+faq:
+  - q: '执行完 git reset --hard 才发现回错了，后面的提交和代码还能找回来吗？'
+    a: '能，靠 git reflog。这条被标成“关键时刻可以救命”，它看的是最近 90 天的 git 操作记录，从里面捞出想要的那个 commit-sha 再回过去就行。'
+  - q: 'git reset 和 git revert 该用哪个撤提交？'
+    a: '看能不能改历史。revert 新建一个 commit 来撤销指定那次提交，只创建一次新提交，不重置也不改动原有提交记录；reset 会把那次提交之后的所有提交一起退掉，会重置并改动历史，如果这些提交已经被 pull 到远程，回退后往远程推必须用强制推送 git push origin HEAD --force，而强制提交之后当前版本后面的提交版本会被删掉。'
+  - q: 'git stash pop 和 git stash apply 有什么区别？'
+    a: 'pop 从栈里取出最近一次 stash 恢复工作区，取完就把栈中对应的那条删掉；apply 只是把储藏重新应用、条目留在栈上，想应用更旧的那条要指名 git stash apply stash@{2}，不指定时 Git 当作最近的储藏。'
 ---
 
 [git命令官方文档](https://git-scm.com/docs)

@@ -3,11 +3,19 @@ layout: post
 title: 第一次 render 红在 41 秒，第二次什么都不改 85 秒绿
 subtitle: 报错让我换一枚适配这台机器的 Chrome，可它只是第一次执行要 8.66 秒
 seo_short_title: hyperframes 首跑 render 超时实测
-seo_description: hyperframes 第一条 render 在我机器上 41.44 秒后退出码 1，报错说 Chrome 不适配这台机器的架构。我原样手跑那条探活命令，第一次 8.66 秒正常返回版本号；源码里门限写死 5000 毫秒。什么都不改再跑一次，85 秒就绿。
+seo_description: hyperframes 第一条 render 在我机器上 41.44 秒后退出码 1，报错说 Chrome 不适配架构。手跑探活命令 8.66 秒返回版本号，源码门限 5000 毫秒；不改再跑 85 秒就绿。
 date: 2026-10-14
 categories: 开源实测
 cover: /assets/img/hyperframes-first-render-timeout/banner.webp
 tags: 开源 仓库 工具 Puppeteer
+tldr: '报错指着架构，真凶是那 5 秒：第一条 render 跑 41.44 秒退出码 1，我原样手跑它失败的那句探活命令，第一次要 8.66 秒、第二次 0.10 秒，而 preflight.ts 里 timeoutMs 写死 5000、不重试也不可配；什么都不改再跑一次 85 秒就绿，两次出的 mp4 md5 相同。'
+faq:
+  - q: 'hyperframes 报 Chrome 不适配这台机器的架构，要换 Chrome 吗？'
+    a: '别先换，原样手跑它失败的那条命令。我这边 file 与 uname -m 同为 x86_64、xattr -l 只有一条记录，架构和隔离属性都能当场划掉。真卡住的是缓存目录里那枚 chrome-headless-shell：它的 --version 第一次执行要 8.66 秒才吐出 Google Chrome for Testing 152.0.7977.30、退出码 0，第二次只要 0.10 秒，而探活门限写死 5000 毫秒。'
+  - q: '两条出路渲出来的片子是同一份吗？'
+    a: '是。照报错那句设 HYPERFRAMES_BROWSER_PATH 指系统 Chrome，83 秒绿；什么都不改、再跑一次，85 秒绿。两份 mp4 的 md5 都是 c08c32e48b4d20df720df4fbfdfb0324。第一次红的时候 renders/ 是空的，失败不吐半成品；再用 npx hyperframes browser clear 清掉缓存还能让它红一次，那一趟 28 秒。'
+  - q: 'doctor 里 Chrome 那行写 system 是什么意思？'
+    a: '它不等于 render 用的就是系统 Chrome，我把这行读错了。真跑用的是缓存目录里的 chrome-headless-shell，报错里那条路径才对得上。安装和依赖这一层没问题：npm i hyperframes 输出 added 77 packages in 9s、退出码 0，系统 ffmpeg 我那台是 9.0.1，ffmpeg 用的就是系统的。'
 ---
 
 # 第一次 render 红在 41 秒，第二次什么都不改 85 秒绿

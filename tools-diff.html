@@ -93,6 +93,7 @@ tool: diff
     其余部分照常可用。
     {%- endcomment -%}
     <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
+    <p class="tk-kbd"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 在任一粘贴框里重新对比 · 聚焦结果区后 <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd> 上一处 / 下一处</p>
 
     <div class="df-workspace" id="{{ tk.prefix }}-workspace"
          data-df-ids="workbench" data-df-prefix="{{ tk.prefix }}"
@@ -103,9 +104,8 @@ tool: diff
 
         表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
         ?df-in-workbench-a-text=…，而那一串里装的正是用户粘进来的两份内容——这一页最不该发生的事。
-        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`），所以这一页**不写** .tk-kbd
-        那一句：装配层没接 Enter 也没接 ⌘+Enter（裸 Enter 在 textarea 里必须是换行），
-        写一句不存在的捷径比不写更坏。
+        动作只由按钮的 click 承担（`diffWorkbench.js` 的 `mount`）；两侧粘贴框另接 Ctrl / ⌘ + Enter
+        走「重新对比」，裸 Enter 仍是换行。上面那句 .tk-kbd 说的就是这一条。
 
         两栏的 id 短名里编了栏位（`a-text` / `b-file`），而不是把栏位做成 id 的一维：
         门禁⑤ 的控件公式 `{p}-in-{面板}-{控件}` 没有栏位那一格，多塞一维就红（§0.6 记的偏差）。
@@ -288,14 +288,18 @@ tool: diff
                 结论、读数、两块行流、折叠条与代价说明都从它走），骨架给的是**空的**那一格。
                 它同时是本页唯一的滚动容器：跳转那三枚算的是 `scrollTop = 视觉行数 × 行高`，
                 行高的权威在 `toolDiff.scss` 的 `--df-row-h`，由入口读一次注入（Z15 数那一格）。
-                所以这一格的高度必须写死在样式里而不是随内容长——没有滚动就没有上界，
-                那三枚按钮就永远跳不动（同 JSON 页 `.jt-tree` 那一段的理由）。
+                所以这一格的高度**上限**必须写在样式里：没有上限就没有滚动条，
+                长差异的 `scrollTop` 就没有上界，那三枚按钮永远跳不动；
+                短结果则按内容收高，不替长结果占一块白（同 JSON 页 `.jt-tree` 那一段的理由）。
                 `aria-live="polite"` 与另三页同档：一次动作换一栏，不该打断用户正在读的东西。
                 {%- endcomment -%}
-                <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
-                   aria-live="polite">还没有比较</p>
+                <div class="df-sample-row">
+                    <p class="df-status df-status--bar" id="{{ tk.prefix }}-status-{{ wbp }}-bar"
+                       aria-live="polite">还没有比较</p>
+                    <button class="df-sample-link" type="button" id="{{ tk.prefix }}-sample">载入示例对比</button>
+                </div>
                 <div class="tk-out df-out" id="{{ tk.prefix }}-out-{{ wbp }}-bar"
-                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out"></div>
+                     role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-out" tabindex="0"></div>
             </div>
             <h2 class="df-side__title df-side__title--sr" id="{{ tk.prefix }}-h-out">差异结果</h2>
         </section>

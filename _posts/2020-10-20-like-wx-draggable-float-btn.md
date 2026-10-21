@@ -7,6 +7,14 @@ date: 2020-10-20
 categories: [H5与微信]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript vue 实现可拖拽悬浮按钮
+tldr: '左右吸边的悬浮按钮不难做，坑都在边界：初始定位值得是原定位样式值的倍数，否则第一次拖拽就错位；松手时再拿 x 与视口宽度的一半比大小。'
+faq:
+  - q: '实现可拖拽的悬浮按钮要监听哪些事件？'
+    a: '移动端监听 touchstart、touchmove、touchend，PC 端监听 mousedown、mousemove、mouseup，再加一些取节点位置这类 DOM 操作 API。先照 vconsole 的源码做了实时拖拽那一版，微信那种松手吸边是在它基础上补出来的。'
+  - q: 'mineBtnPos 里 x、y 的初始值为什么不能随便填？'
+    a: '源码注释写明该值必须是初始定位样式值的倍数，比如使用 750px 设计稿的要把初始值设成设计稿的一半，否则首次拖拽可能会错位。'
+  - q: '松开手指后的左右吸边是怎么算出来的？'
+    a: '判断写在 touchend 里，而且这里的 x 是从右边开始计算的：x 小于 dWidth 的一半就把它归零、isLeft 置 false，另一支把 isLeft 置 true、x 设成 dWidth 减掉按钮宽度，最后把结果写回 style.right。dWidth 取 document.documentElement.clientWidth 或 body 的 clientWidth，按钮宽度由 getBoundingClientRect 拿到。'
 ---
 
 ## 背景

@@ -8,6 +8,14 @@ date: 2024-03-20
 categories: [Vue]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: vue
+tldr: '2023 年 12 月 31 日停止支持后不再有新增功能和补丁，新建或改版重构一律直接上 Vue 3；只有对未维护软件有合规性、安全性硬要求时，才需要去看 HeroDevs 的无限期支持。'
+faq:
+  - q: 'Vue 2 停止维护的具体是哪天？EOL 之后 npm 和 CDN 还能装到吗？'
+    a: '2023 年 12 月 31 日达到终止支持时间，不再会有新增功能、更新或问题修复，但它依然可以从所有现有的分发渠道（CDN、包管理器、GitHub 等）上获得。另外自 2022 年 2 月 7 日起 Vue 3 已是 Vue 的默认版本，出处是官方文档 v2.cn.vuejs.org/eol。'
+  - q: '新项目继续用 Vue 2 最先出问题的是哪一块？'
+    a: '排第一的是安全更新：官方不再发布针对 Vue 2 的安全补丁，新漏洞不会被及时修复，项目存在安全风险。接着是生态萎缩，第三方库和插件开发者转向 Vue 3，依赖项过时或缺 bug 修复；再往后是错过 Composition API、更好的 Tree-Shaking 与编译性能，还有长期维护成本增加、招聘上具备 Vue 2 经验的开发者偏少。'
+  - q: 'Vue 2 里给对象动态加属性、直接改数组下标为什么视图不更新？'
+    a: '响应式靠 Object.defineProperty 实现，只有声明为响应式的属性才被追踪，先建空对象再动态添加的新属性不会触发视图更新；数组直接 arr[index] = newValue 同样不触发，得用 push、pop、shift、unshift、splice、sort、reverse 这些变异方法或 $set、$delete。深层属性要显式设 deep: true，代价是性能开销增大。'
 ---
 
 ## vue2不维护了？

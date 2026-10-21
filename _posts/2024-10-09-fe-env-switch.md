@@ -8,6 +8,14 @@ date: 2024-10-08
 categories: [前端工程化]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: 前端环境切换工具 代理 proxy dev-server
+tldr: '接口前缀不用每次改 proxy 配置再重启：axios 的 baseURL 运行时读 localStorage 里的 currentEnv，页面 shift 加双击选环境刷新即换，重编译等待从几分钟降到一两秒。'
+faq:
+  - q: '改了 webpack devServer 的 proxy 配置必须重启项目吗？有没有不重启的写法？'
+    a: '改完配置文件要手动启动项目（vite 监听变化自动启动），都要等编译构建完成才能联调，每次重启耗费几分钟甚至更长，项目越大耗时越久。不重启靠 http-proxy-middleware 的 router 属性，函数返回的 URL 覆盖 target 成为新代理地址，也支持 async；但它每次切换仍要手动改环境配置文件，且无法同时预设多个环境。'
+  - q: '开发测试环境用 nginx 反向代理切后端，改完配置要重启 nginx 吗？'
+    a: '不用重启，改 nginx.config 里 location 的 proxy_pass 之后重新加载配置文件即可，这是比较主流的方案。代价是要有对应开发或测试环境 nginx 服务器的操作权限、还得懂 nginx 配置，存在操作和学习成本；Fiddler、Whistle、Charles 这类代理工具同样要下载安装、有学习成本，且每次切换都要重新配置。'
+  - q: '这套环境切换工具怎么做到不改配置文件也不重启项目？切完又怎么认出当前是哪个后端环境？'
+    a: '在页面空白处按住 shift 键加鼠标双击调出面板，选好环境点保存，值写进 localStorage 后刷新页面；请求时优先用里面存的环境当 baseURL 前缀，默认 /fat1、存的是 fat2 时，/fat1/api/user/login 变成 /fat2/api/user/login。页面 title 开头会加上 fat1-前端项目名称这样的环境名，生产环境按 NODE_ENV 判断后不启用，切换耗时从几分钟降到一两秒。'
 ---
 
 ## 需求背景

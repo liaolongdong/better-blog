@@ -194,6 +194,9 @@ function boot(doc, win, tk) {
     return Number.isInteger(v) && v >= 1 ? v : 24;
   };
 
+  // 入口只保留这一处 `setTimeout(`：防抖与“让出一帧”共用同一个调度别名。
+  const defer = (fn, ms = 0) => setTimeout(fn, ms);
+
   const wb = createDiffWorkbench({
     document: doc,
     Tk: tk,
@@ -204,7 +207,8 @@ function boot(doc, win, tk) {
     //（SP2 Task 1 的 `Tk.url`）；不给它们，这一页的行为与今天逐字节一样——只是不同步地址栏。
     location: win.location,
     history: win.history,
-    later: (fn, ms) => setTimeout(fn, ms),
+    later: defer,
+    afterPaint: (fn) => defer(fn, 0),
     rowHeight: rowHeightPx(),
     readFile: fileReaderOf(win),
     decode: decodeOf(win),

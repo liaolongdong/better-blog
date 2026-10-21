@@ -3722,6 +3722,9 @@ SyntaxError（`node --check` 在拼装阶段就会红，跑不到测试）。14 
 //  （`hHead` / `hBody` / `hLabels` / `hWideLabels` / `hTagAudit` / `hText` / `hBanks`）与 §G 的 `dupes` / `gNames` 不重名。）
 const { BATCH_KINDS, EMPTY_CELL, READ_KINDS, STATE_META, batchBlock, checksTable, detailTable, echoLines, esc, listTable, noteLines, parseBlock, stateBadge, suggestLine
 } = await import('../dev/js/tools/view.js');
+const { parseOrgCode, generateOrgCodes } = await import('../dev/js/tools/orgcode.js');
+const { parseCreditCode, generateCreditCodes } = await import('../dev/js/tools/creditcode.js');
+const { parseFinLicense, generateFinLicenses } = await import('../dev/js/tools/finlicense.js');
 
 
 
@@ -3835,6 +3838,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: ['代码', '区划', '主体标识', '校验位'],
     bank: ['卡号', '发卡行', '卡种', '登记位数'],
     mobile: ['号码', '号段', '运营商'],
+    orgcode: ['代码', '本体代码', '校验位'],
+    creditcode: ['代码', '区划', '机构类别', '结算账户标识', '校验位'],
+    license: ['机构编码', '类型', '组织类别', '地址', '顺序'],
     name: ['姓名', '姓', '名', '名字数'],
     address: ['地址', '区划码'],
     email: ['邮箱', '域'],
@@ -3845,6 +3851,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: ['区划', '登记管理部门码', '机构类别码', '主体标识', '组织机构代码', '组织机构代码校验位', '校验位', '校验算式'],
     bank: ['位数', '命中前缀', '发卡行', '卡种', '表内登记位数', 'Luhn', 'Luhn 算式', '行别来源'],
     mobile: ['位数', '号段', '运营商', '展示格式', '号段来源'],
+    orgcode: ['本体代码', '字符集', '校验位', '校验算式', '展示形式'],
+    creditcode: ['区划', '准入登记类别', '机构类别段', '结算账户标识', '校验位', '校验算式'],
+    license: ['机构类型', '机构代码', '组织类别', '发证机关代码', '地址代码', '顺序代码', '校验位'],
   };
   assert.deepEqual(Object.keys(WANT_LABELS), BATCH_KINDS.slice(), '列契约的 kind 集合没跟 BATCH_KINDS 同步');
   assert.deepEqual(Object.keys(WANT_DETAIL), READ_KINDS.slice(), '明细契约的 kind 集合没跟 READ_KINDS 同步');
@@ -3854,6 +3863,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: generateUsccCodes({ count: 12, rng }),
     bank: hBanks(12),
     mobile: generateMobiles({ count: 12, rng }),
+    orgcode: generateOrgCodes({ count: 12, rng }),
+    creditcode: generateCreditCodes({ count: 12, rng }),
+    license: generateFinLicenses({ count: 12, rng }),
     name: generateNames({ count: 12, rng }),
     address: generateAddresses({ count: 12, rng }),
     email: generateEmails({ count: 12, rng }),
@@ -3882,7 +3894,8 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
   // 压成一个字宽的竖条——2026-09-28 在 940 视口实测「内蒙古自治区乌海市海勃湾区」折到 13 行，
   // 那比横向滚难读得多（滚这条退路 `.tk-out` 早就给了）。哪几列带它，同样是列契约的一部分。
   const WANT_WIDE = {
-    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], name: [],
+    idcard: ['区划'], uscc: ['区划'], bank: ['发卡行'], mobile: [], orgcode: [],
+    creditcode: ['区划'], license: ['地址'], name: [],
     address: ['地址'], email: [], profile: ['地址'],
   };
   assert.deepEqual(Object.keys(WANT_WIDE), Object.keys(WANT_LABELS), 'wide 契约的 kind 集合没跟生成表同步');
@@ -3894,6 +3907,9 @@ test('H4 列数一致：十二张表里每一行的格数都等于表头格数',
     uscc: parseUscc('91350100M000100Y43'),
     bank: parseBankCard('6222-0219-9003-0700-15'),
     mobile: parseMobile('13800138000'),
+    orgcode: parseOrgCode('M000100Y-4'),
+    creditcode: parseCreditCode('G1011010711628240R'),
+    license: parseFinLicense('B0001H111000001'),
   };
   for (const [kind, result] of Object.entries(reads)) {
     const html = detailTable(kind, result);
@@ -3934,13 +3950,16 @@ test('H5 不判定那一档只有三种真实形状，一律不给"不通过"', 
 });
 
 test('H6 kind 与列定义一一对应：读侧与生成侧不能互相串门，未知 kind 抛', () => {
-  assert.deepEqual(READ_KINDS, ['idcard', 'uscc', 'bank', 'mobile']);
-  assert.deepEqual(BATCH_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile']);
+  assert.deepEqual(READ_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license']);
+  assert.deepEqual(BATCH_KINDS, ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license', 'name', 'address', 'email', 'profile']);
   for (const kind of READ_KINDS) {
     const r = kind === 'idcard' ? parseIdCard('110101199003070011')
       : kind === 'uscc' ? parseUscc('91350100M000100Y43')
         : kind === 'bank' ? parseBankCard('6222-0219-9003-0700-15')
-          : parseMobile('13800138000');
+          : kind === 'mobile' ? parseMobile('13800138000')
+            : kind === 'orgcode' ? parseOrgCode('M000100Y-4')
+              : kind === 'creditcode' ? parseCreditCode('G1011010711628240R')
+                : parseFinLicense('B0001H111000001');
     assert.ok(detailTable(kind, r).includes('<table'), `${kind} 的明细表没出货`);
   }
   for (const kind of ['name', 'address', 'email', 'profile']) {
@@ -3950,6 +3969,26 @@ test('H6 kind 与列定义一一对应：读侧与生成侧不能互相串门，
     assert.throws(() => listTable(bad, []), TypeError, `listTable 居然收下了 kind=${JSON.stringify(bad)}`);
     assert.throws(() => detailTable(bad, { info: {} }), TypeError, `detailTable 居然收下了 kind=${JSON.stringify(bad)}`);
   }
+});
+
+test('H6b 新增三类机构码：真实样例、错误分支与生成自检', () => {
+  // 组织机构代码：GB 11714 的真实样例（统一社会信用代码内层主体标识）与错误校验位
+  assert.equal(parseOrgCode('M000100Y-4').state, 'valid');
+  assert.equal(parseOrgCode('M000100Y-5').state, 'checkdigit');
+  assert.equal(parseOrgCode('M000100Y').state, 'malformed');
+  // 机构信用代码：公开样例 G1011010711628240R 复核通过；换末位只改校验位
+  assert.equal(parseCreditCode('G1011010711628240R').state, 'valid');
+  assert.equal(parseCreditCode('G1011010711628240S').state, 'checkdigit');
+  assert.equal(parseCreditCode('G101101071162824').state, 'malformed');
+  // 金融许可证：真实样例结构通过；该编码没有公开校验位，未知地址段落 unlisted
+  assert.equal(parseFinLicense('B0001H111000001').state, 'valid');
+  assert.equal(parseFinLicense('S0070H336040001').state, 'valid');
+  assert.equal(parseFinLicense('B0001H999000001').state, 'unlisted');
+  assert.equal(parseFinLicense('B0001H11100000').state, 'malformed');
+  const rng = seededRandom(20261019);
+  for (const row of generateOrgCodes({ count: 5, rng })) assert.equal(parseOrgCode(row.code).state, 'valid');
+  for (const row of generateCreditCodes({ count: 5, rng })) assert.equal(parseCreditCode(row.code).state, 'valid');
+  for (const row of generateFinLicenses({ count: 5, rng })) assert.equal(parseFinLicense(row.code).state, 'valid');
 });
 
 test('H7 view.js 零 import、不碰 DOM：跨页共享层的体积红线由判据守着', () => {
@@ -4127,7 +4166,6 @@ test('H16 视图写下的折行钩子，样式层必须真的接住：类名没�
   assert.match(ruleBody('.tk-out'), /overflow-x:\s*auto/,
     '下限之上的退路：`.tk-out` 不横向滚，前面三条就只是把折行换成了裁切');
 });
-
 ```
 
 - [ ] **Step 2: 跑红，确认红的形状**
@@ -4177,9 +4215,12 @@ Expected：`not ok 1 - scripts/toolkit-tests.mjs` 加一句
  * `shapeOf`（与各模块那份逐字同形但各自私有——跨文件共享它就要开 import 边，见上）。
  */
 
-/** 读侧四种、生成侧八种；列定义与明细定义都按这套键取，多一格少一格都会在 §H 红 */
-export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile'];
-export const BATCH_KINDS = ['idcard', 'uscc', 'bank', 'mobile', 'name', 'address', 'email', 'profile'];
+/** 读侧七种、生成侧十一种；列定义与明细定义都按这套键取，多一格少一格都会在 §H 红 */
+export const READ_KINDS = ['idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license'];
+export const BATCH_KINDS = [
+  'idcard', 'uscc', 'bank', 'mobile', 'orgcode', 'creditcode', 'license',
+  'name', 'address', 'email', 'profile',
+];
 
 /** 空值的显示形状。`null` 与"这一格没定义"是两件事，后者在 `table()` 里直接抛 */
 export const EMPTY_CELL = '—';
@@ -4423,6 +4464,30 @@ const DETAIL_SPEC = {
     { label: '展示格式', fmt: (r) => r.info.formatted, mono: true },
     { label: '号段来源', fmt: (r) => r.info.source },
   ],
+  orgcode: [
+    { label: '本体代码', fmt: (r) => r.info.body8, mono: true },
+    { label: '字符集', fmt: () => '31 字符集（不含 I O S Z V）' },
+    { label: '校验位', fmt: (r) => `号码第 9 位 ${r.info.checkBit}，算得 ${r.info.expected}` },
+    { label: '校验算式', fmt: (r) => `Σ ${r.info.checksum.sum} · mod 11 = ${r.info.checksum.remainder} → 校验值 ${r.info.checksum.value}` },
+    { label: '展示形式', fmt: (r) => r.info.formatted, mono: true },
+  ],
+  creditcode: [
+    { label: '区划', fmt: (r) => (r.info.regionCode ? `${r.info.regionCode} · ${regionRow(r.info.region, '机构信用代码')}` : null) },
+    { label: '准入登记类别', fmt: (r) => r.info.firstChar, mono: true },
+    { label: '机构类别段', fmt: (r) => r.info.category, mono: true },
+    { label: '结算账户标识', fmt: (r) => r.info.identifier, mono: true },
+    { label: '校验位', fmt: (r) => `号码末位 ${r.info.checkBit}，算得 ${r.info.expected}` },
+    { label: '校验算式', fmt: (r) => `s ${r.info.checksum.s} · 末位值 ${r.info.checksum.value}` },
+  ],
+  license: [
+    { label: '机构类型', fmt: (r) => `${r.info.type}${r.info.typeName ? ` · ${r.info.typeName}` : '（名称未收录）'}` },
+    { label: '机构代码', fmt: (r) => r.info.instCode, mono: true },
+    { label: '组织类别', fmt: (r) => `${r.info.orgCategory} · ${r.info.orgCategoryName}` },
+    { label: '发证机关代码', fmt: (r) => r.info.issuer, mono: true },
+    { label: '地址代码', fmt: (r) => `${r.info.addressCode} · ${r.info.province || '省份未收录'}` },
+    { label: '顺序代码', fmt: (r) => r.info.sequence, mono: true },
+    { label: '校验位', fmt: () => '无公开校验位' },
+  ],
 };
 
 /** 同前缀多行命中时另起的那张表（`matches.length > 1`） */
@@ -4449,7 +4514,10 @@ export function detailTable(kind, result) {
 }
 
 /** 结构不成立 / 未收录时的"还能怎么办"那一行：`suggested*` 与 `expectedCheckBit` 走同一出口 */
-const SUGGEST_KEY = { idcard: 'suggestedId18', bank: 'suggestedCard' };
+const SUGGEST_KEY = {
+  idcard: 'suggestedId18', bank: 'suggestedCard',
+  orgcode: 'suggestedCode', creditcode: 'suggestedCode',
+};
 
 export function suggestLine(kind, result) {
   const key = SUGGEST_KEY[kind];
@@ -4492,6 +4560,25 @@ const COLUMNS = {
     { label: '号码', path: 'formatted', mono: true },
     { label: '号段', path: 'segment', mono: true },
     { label: '运营商', path: 'carrier' },
+  ],
+  orgcode: [
+    { label: '代码', path: 'code', mono: true },
+    { label: '本体代码', path: 'body8', mono: true },
+    { label: '校验位', path: 'checkBit', mono: true },
+  ],
+  creditcode: [
+    { label: '代码', path: 'code', mono: true },
+    { label: '区划', path: 'regionName', wide: true },
+    { label: '机构类别', path: 'category', mono: true },
+    { label: '结算账户标识', path: 'identifier', mono: true },
+    { label: '校验位', path: 'checkBit', mono: true },
+  ],
+  license: [
+    { label: '机构编码', path: 'code', mono: true },
+    { label: '类型', fmt: (r) => `${r.type}${r.typeName ? ` · ${r.typeName}` : ''}` },
+    { label: '组织类别', fmt: (r) => `${r.orgCategory} · ${r.orgCategoryName}` },
+    { label: '地址', fmt: (r) => `${r.addressCode} · ${r.province || '未收录'}`, wide: true },
+    { label: '顺序', path: 'sequence', mono: true },
   ],
   name: [
     { label: '姓名', path: 'name' },
@@ -5040,7 +5127,7 @@ const { createPanelDom } = await import('../dev/js/tools/panel-dom.js');
  * 是表单控件的事，绑定层只碰属性表与 `hidden`；两节共用一份工厂，是为了不让假 DOM 长第二套。
  */
 function iPage({
-  ids = TOOLKIT, prefix = 'tk', hash = '', dropTab = [], dropPanel = [], withTablist = true,
+  ids = TOOLKIT, prefix = 'tk', hash = '', search = '', dropTab = [], dropPanel = [], withTablist = true,
 } = {}) {
   const nodes = new Map();
   const focusLog = [];
@@ -5108,7 +5195,7 @@ function iPage({
     copyOk: true,
     execCommand: (name) => { commandLog.push(name); return doc.copyOk === true; },
   };
-  const location = { hash };
+  const location = { hash, search };
   const history = {
     state: null,
     replaceState(state, title, url) {
@@ -6694,15 +6781,14 @@ const J_SEED = 20260927;
 /** 骨架里主按钮与复制按钮的文案。装配层只负责"改口之后改回原文"，句子本身是夹具替身 */
 const J_MAIN_LABEL = { gen: '生成', read: '判定' };
 const J_COPY_LABEL = {
-  'idcard:gen': '复制这批号码', 'idcard:read': '复制判定有效的号码',
+  'idcard:gen': '复制这批号码', 'idcard:read': '复制判定有效的结果',
   'uscc:gen': '复制这批代码', 'uscc:read': '复制判定有效的代码',
-  'bankcard:gen': '复制这批卡号', 'bankcard:read': '复制判定有效的卡号',
-  'mobile:gen': '复制这批号码', 'mobile:read': '复制判定有效的号码',
   'random:gen': '复制这批结果',
 };
 
-/** spec 的 `type` → 骨架用的标签；缺省那一档全是 `<select>`（静态的也好、待填充的也好） */
-const jTag = (type) => (type === 'area' ? 'textarea' : type === 'number' || type === 'date' ? 'input' : 'select');
+/** spec 的 `type` → 骨架用的标签；`type: 'text'` 是显式单行框，缺省那一档全是 `<select>` */
+const jTag = (type) => (type === 'area' ? 'textarea'
+  : type === 'number' || type === 'date' || type === 'text' ? 'input' : 'select');
 
 /** 字符串在另一串里出现几次（`split` 计数，不用正则：句子里满是正则元字符） */
 const jCount = (hay, needle) => hay.split(needle).length - 1;
@@ -6717,7 +6803,7 @@ const jCount = (hay, needle) => hay.split(needle).length - 1;
  * @param {string[]} [o.drop] **不**要长的 id（造"骨架缺一格"那一类缺陷）
  * @returns {object} §I 的那份 page，外加 `ctl` / `btn` / `html` / `set` / `change` 等观察口
  */
-function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
+function jPage({ prefix = 'tk', hash = '', search = '', seed = {}, drop = [] } = {}) {
   // `tk-tab-*` / `tk-panel-*` 这两类骨架节点由 §I 的 `iPage` 长出，摘掉它们的活也在那儿；
   // 本节只把 id 翻译成它的两张清单，其余 id 才归下面的 spec 循环管。
   const slugOf = (id, word) => {
@@ -6728,7 +6814,7 @@ function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
   };
   const dropTab = drop.map((id) => slugOf(id, 'tab')).filter((s) => s !== null);
   const dropPanel = drop.map((id) => slugOf(id, 'panel')).filter((s) => s !== null);
-  const page = iPage({ ids: PANEL_IDS, prefix, hash, dropTab, dropPanel });
+  const page = iPage({ ids: PANEL_IDS, prefix, hash, search, dropTab, dropPanel });
   const gone = new Set(drop);
   const mk = page.mk;
   const doc = page.doc;
@@ -6745,10 +6831,20 @@ function jPage({ prefix = 'tk', hash = '', seed = {}, drop = [] } = {}) {
         // 没有空占位的那一条，它的第一项 `name` 就是浏览器的默认选中值。
         // 占位项的"值"走**属性**——`firstValueOf()` 与 `fill()` 读的都是属性，真 DOM 同一条路。
         if (jTag(c.type) === 'select') {
-          const ph = mk('option');
-          ph.setAttribute('value', c.id === 'kind' ? 'name' : '');
-          ph.textContent = '占位';
-          el.appendChild(ph);
+          if (cfgSide.kindFrom === c.id && cfgSide.kindMap) {
+            for (const kindKey of Object.keys(cfgSide.kindMap)) {
+              const op = mk('option');
+              op.setAttribute('value', kindKey);
+              op.textContent = kindKey;
+              el.appendChild(op);
+            }
+            el.value = Object.keys(cfgSide.kindMap)[0];
+          } else {
+            const ph = mk('option');
+            ph.setAttribute('value', '');
+            ph.textContent = '占位';
+            el.appendChild(ph);
+          }
         }
         const key = `${panel}:${c.id}`;
         if (seed[key] !== undefined) el.value = String(seed[key]);
@@ -6869,12 +6965,16 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
     assert.equal(c[1], '1', '机构类别代码没选，模块的默认字符应当是 1');
   }
   // 空着的位数 → 行别登记位数，卡号长度落在 13–19 且每一条都过 Luhn
-  for (const n of bare.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+  const bankBare = jMount({ pick: { 'idcard:kind': 'bank' } });
+  bankBare.page.click('idcard', 'gen');
+  for (const n of bankBare.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.length >= PAN_MIN && n.length <= PAN_MAX, true, `${n}：位数越界`);
     assert.equal(parseBankCard(n).state, 'valid', `${n}：空位数生成的卡号不自洽`);
   }
   // 空着的号段 / 运营商 → 11 位且首位形状合法；空着的字数 → 名字 2 或 3 字
-  for (const n of bare.wb.copyTextOf('mobile', 'gen').split('\n')) {
+  const mobileBare = jMount({ pick: { 'idcard:kind': 'mobile' } });
+  mobileBare.page.click('idcard', 'gen');
+  for (const n of mobileBare.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.match(n, /^1[3-9]\d{9}$/, `${n}：号段形状不对`);
   }
   for (const nm of bare.wb.copyTextOf('random', 'gen').split('\n')) {
@@ -6886,7 +6986,7 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
   const set = jMount({
     pick: {
       'idcard:sex': 'male', 'idcard:province': '11', 'uscc:registry': 'A', 'uscc:category': '2',
-      'bankcard:length': 16, 'mobile:segment': '138', 'random:givelen': '2',
+      'random:givelen': '2',
     },
   });
   assert.deepEqual(set.report.broken, []);
@@ -6899,10 +6999,14 @@ test('J1 口径 1：没选的格子整键不传；选了的格子必须真的落
     assert.equal(c[0], 'A', `${c}：第 1 位不是选中的 A`);
     assert.equal(c[1], '2', `${c}：第 2 位不是选中的 2`);
   }
-  for (const n of set.wb.copyTextOf('bankcard', 'gen').split('\n')) {
+  const setCards = jMount({ pick: { 'idcard:kind': 'bank', 'idcard:length': 16 } });
+  setCards.page.click('idcard', 'gen');
+  for (const n of setCards.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.length, 16, `${n}：指定了 16 位却画成 ${n.length} 位`);
   }
-  for (const n of set.wb.copyTextOf('mobile', 'gen').split('\n')) {
+  const setMobile = jMount({ pick: { 'idcard:kind': 'mobile', 'idcard:segment': '138' } });
+  setMobile.page.click('idcard', 'gen');
+  for (const n of setMobile.wb.copyTextOf('idcard', 'gen').split('\n')) {
     assert.equal(n.slice(0, 3), '138', `${n}：指定了 138 段`);
   }
   for (const nm of set.wb.copyTextOf('random', 'gen').split('\n')) {
@@ -7036,9 +7140,8 @@ test('J4 #random 四档 kind：该现身的现身、该带上的键带上，非�
   const m = jMount();
   const shown = () => ['givelen', 'addr', 'domain']
     .map((k) => `${k}=${m.page.whenNode('random', k).hidden ? 'hidden' : 'shown'}`).join(' ');
-  // kind 一格在骨架里没有空占位项，浏览器默认选中 `name` → 假 DOM 里读作 ''，
-  // 装配层退到 `firstValueOf()`：这一格正是那个退路存在的理由。
-  assert.equal(m.page.ctl('random', 'kind').value, '');
+  // kind 一格在骨架里没有空占位项，浏览器默认选中 `name`
+  assert.equal(m.page.ctl('random', 'kind').value, 'name');
   assert.equal(shown(), 'givelen=shown addr=hidden domain=hidden', '默认档是「姓名」');
   assert.match(m.page.html('random', 'gen'), /tk-batch--name/);
 
@@ -7112,7 +7215,7 @@ test('J5 读侧：原始行号、空行只占号不占位、50 行上限、空�
   assert.notEqual(bad, good, '夹具自证：这一条只改了校验位');
   const m = jMount();
   // 挂载期那一格是提示，不是空着
-  assert.match(m.page.html('idcard', 'read'), /<p class="tk-hint">把号码粘进来/);
+  assert.match(m.page.html('idcard', 'read'), /<p class="tk-hint">把身份证号粘进来/);
   assert.equal(m.page.copy('idcard', 'read').disabled, true);
   m.page.click('idcard', 'read');
   assert.match(m.page.html('idcard', 'read'), /粘贴框里还没有号码/);
@@ -7190,7 +7293,7 @@ test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五�
   };
 
   // ① 发卡行：常用那 20 行是裸选项（包进组会让读屏先念一句"选项 空"），其余 240 行才分组
-  const bank = shape('bankcard', 'bank');
+  const bank = shape('idcard', 'bank');
   assert.equal(bank.head.tagName, 'OPTION', '骨架那条占位项必须是第一个子节点');
   assert.equal(bank.head.getAttribute('value'), '', '占位项没有值，选中它等于没选');
   assert.equal(bank.bare, 1 + TOP_BANKS.length, '占位项 + 常用行那 20 条都不该被包进 <optgroup>');
@@ -7201,18 +7304,18 @@ test('J6 下拉按 spec 填充：常用行不包组、号段按运营商分五�
   assert.equal(new Set(bank.values.slice(1)).size, BANK_OPTIONS.length, '260 个行别码不该有重复或遗漏');
 
   // ② 卡种四条、邮箱域三条、运营商五条：顺序跟着模块那张表走，测试不替它重排
-  const ctype = shape('bankcard', 'type');
+  const ctype = shape('idcard', 'type');
   assert.deepEqual(ctype.values, ['', ...Object.keys(CARD_TYPES)]);
   assert.deepEqual(ctype.labels.slice(1), Object.values(CARD_TYPES));
   const domain = shape('random', 'domain');
   assert.deepEqual(domain.values, ['', ...EMAIL_DOMAINS], '邮箱域这一格没有第二条路');
-  const carrier = shape('mobile', 'carrier');
+  const carrier = shape('idcard', 'carrier');
   assert.deepEqual(carrier.groups, [], '运营商这一格不该有 <optgroup>：五条并列');
   assert.deepEqual(carrier.labels.slice(1), CARRIERS.map((c) => `${c.carrier}（${c.count} 个号段）`),
     '括号里那个数就是 §F0 钉住的号段数，让用户先看见池子有多大');
 
   // ③ 号段按运营商分五组：成员数与 `CARRIERS` 的 count 逐格对上；平铺那份比对 §F 从号段表独立数出的 `LISTED`——与被测取数链不同源，才看得出装配层掉段
-  const seg = shape('mobile', 'segment');
+  const seg = shape('idcard', 'segment');
   assert.deepEqual(seg.groups, CARRIERS.map((c) => c.carrier));
   assert.deepEqual(seg.sizes, CARRIERS.map((c) => c.count));
   assert.deepEqual([...seg.values.slice(1)].sort(), [...LISTED].sort(), '56 段一段都不能少');
@@ -7258,8 +7361,8 @@ test('J8 一块塌下去别块照旧：跨面板隔离，与数量格那两句�
     if (id === 'uscc') continue;
     assert.equal(iBanner(page, id), null, `${id} 跟着隔壁一起塌了`);
   }
-  // 别块该照旧生成：四块各点一次，一张表都不许少
-  for (const id of ['idcard', 'bankcard', 'mobile', 'random']) {
+  // 别块该照旧生成：两块各点一次，一张表都不许少
+  for (const id of ['idcard', 'random']) {
     assert.equal(m.wb.run(id, 'gen'), true, `${id} 被隔壁的失败拖坏了`);
     assert.match(page.html(id, 'gen'), /共 5 条/);
   }
@@ -7294,23 +7397,26 @@ test('J8 一块塌下去别块照旧：跨面板隔离，与数量格那两句�
 
   // 位数那一格同一档：越界要说清是哪一格、范围是多少，不许静默当成"没填"（那一档等于
   // 把用户明确填的 20 变成"按行别登记位数随机"，屏幕上还一切正常）。走的是 `intOf` 同一条路。
+  page.set('idcard', 'kind', 'bank');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'count', '5');
   for (const [raw, line] of [
     ['20', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「20」`],
     ['12', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「12」`],
     ['13.5', `位数应为 ${PAN_MIN}–${PAN_MAX} 的整数，现在这格是「13.5」`],
   ]) {
-    page.set('bankcard', 'length', raw);
-    page.click('bankcard', 'gen');
-    const h = page.html('bankcard', 'gen');
+    page.set('idcard', 'length', raw);
+    page.click('idcard', 'gen');
+    const h = page.html('idcard', 'gen');
     assert.match(h, new RegExp(`^<p class="tk-hint">${line}。`), `位数「${raw}」这一档的文案对不上`);
     assert.equal(h.includes('tk-count'), false, `位数「${raw}」一条都没生成，别报"共 N 条"`);
     assert.deepEqual(page.ws.brokenIds(), [], `位数「${raw}」是用户填错了，不是这块面板坏了`);
-    assert.equal(page.copy('bankcard', 'gen').disabled, true);
+    assert.equal(page.copy('idcard', 'gen').disabled, true);
   }
   // 清空即回到"按行别登记位数"：这句话管的是越界，不是"填了就不许改回去"
-  page.set('bankcard', 'length', '');
-  page.click('bankcard', 'gen');
-  assert.match(page.html('bankcard', 'gen'), /共 5 条/, '清掉位数之后这块面板该照常出表');
+  page.set('idcard', 'length', '');
+  page.click('idcard', 'gen');
+  assert.match(page.html('idcard', 'gen'), /共 5 条/, '清掉位数之后这块面板该照常出表');
 });
 
 test('J9 派生 id 的五种形状与那份清单的自洽（骨架与 Task 9 的账都靠它）', () => {
@@ -7319,29 +7425,33 @@ test('J9 派生 id 的五种形状与那份清单的自洽（骨架与 Task 9 �
   assert.equal(fieldId('tk', 'idcard', 'birth'), 'tk-in-idcard-birth');
   assert.equal(buttonId('tk', 'idcard', 'gen'), 'tk-btn-idcard-gen');
   assert.equal(copyId('tk', 'uscc', 'read'), 'tk-copy-uscc-read');
-  assert.equal(outId('tk', 'mobile', 'gen'), 'tk-out-mobile-gen');
+  assert.equal(outId('tk', 'idcard', 'gen'), 'tk-out-idcard-gen');
   assert.equal(whenId('tk', 'random', 'addr'), 'tk-when-random-addr');
 
   const c = controlIds('tk');
   assert.deepEqual(PANEL_IDS, Object.keys(WORKBENCH_SPEC), '面板清单与 spec 的键不是同一份');
-  assert.deepEqual(PANEL_IDS, ['idcard', 'uscc', 'bankcard', 'mobile', 'random'],
+  assert.deepEqual(PANEL_IDS, ['idcard', 'uscc', 'random'],
     '面板顺序就是索引条顺序，改了要连带改骨架与 yml');
 
   // 五份清单合起来不许有重复 id：真 DOM 里同名两个节点，`getElementById` 只认第一个
   const all = [...c.in, ...c.btn, ...c.copy, ...c.out, ...c.when];
   assert.equal(new Set(all).size, all.length, '派生 id 撞车了');
   assert.equal(all.every((id) => id.startsWith('tk-')), true, '每条 id 都得带前缀');
-  // 按钮 / 复制 / 结果区三张一一对应：`random` 没有判定侧，所以是 5 + 4 = 9 而不是 10
-  assert.deepEqual([c.btn.length, c.copy.length, c.out.length], [9, 9, 9]);
+  // 按钮 / 复制 / 结果区三张一一对应：`random` 没有判定侧，所以是 3 + 2 = 5
+  assert.deepEqual([c.btn.length, c.copy.length, c.out.length], [5, 5, 5]);
   const withRead = PANEL_IDS.filter((id) => WORKBENCH_SPEC[id].sides.read !== null);
   assert.equal(c.btn.length, PANEL_IDS.length + withRead.length);
   assert.deepEqual(c.when, [
-    'tk-when-idcard-birth', 'tk-when-random-givelen', 'tk-when-random-addr', 'tk-when-random-domain',
-  ], '受开关控制的字段组只有这四格');
-  // 读侧上限与生成侧上限同档（口径 4 的那句话），且四块面板各有且只有一条粘贴框
+    'tk-when-idcard-idcard-fields', 'tk-when-idcard-bank-fields', 'tk-when-idcard-mobile-fields',
+    'tk-when-idcard-birth',
+    'tk-when-uscc-uscc-fields', 'tk-when-uscc-region-fields', 'tk-when-uscc-credit-fields',
+    'tk-when-uscc-orgcode-note', 'tk-when-uscc-license-fields',
+    'tk-when-random-givelen', 'tk-when-random-addr', 'tk-when-random-domain',
+  ], '受开关控制的字段组只有这些');
+  // 读侧上限与生成侧上限同档（口径 4 的那句话），且两块有判定侧的面板各有且只有一条粘贴框
   assert.equal(MAX_READ_LINES, GENERATE_MAX, '读侧与生成侧不该各长一个上限');
-  assert.equal(withRead.length, 4);
-  assert.equal(c.in.filter((id) => /-read$/.test(id)).length, 4);
+  assert.equal(withRead.length, 2);
+  assert.equal(c.in.filter((id) => /-read$/.test(id)).length, 2);
 
   // 夹具自证（口径 3 的代价清单）：清单里每一条 id 在骨架上都得有节点
   const page = jPage();
@@ -7366,8 +7476,8 @@ test('J10 换前缀是整套换：行为一位不改，旧前缀一个节点都�
   for (const id of PANEL_IDS) {
     assert.equal(jt.wb.copyTextOf(id, 'gen'), tk.wb.copyTextOf(id, 'gen'), `${id} 换了前缀就换了内容`);
   }
-  jt.page.click('bankcard', 'read');
-  assert.match(jt.page.html('bankcard', 'read'), /<p class="tk-hint">粘贴框里还没有号码/,
+  jt.page.click('idcard', 'read');
+  assert.match(jt.page.html('idcard', 'read'), /<p class="tk-hint">粘贴框里还没有号码/,
     '提示行的类名是样式钩子，不跟着前缀换（`toolkit.scss` 只有一份）');
 });
 
@@ -7503,9 +7613,9 @@ test('J13 骨架缺一格：缺结果区与缺 tab 标坏这一块，缺复制�
   assert.deepEqual(iVisible(b.page), ['idcard']);
   assert.match(iBanner(b.page, 'idcard').textContent, /tk-tab-idcard/);
   // 互锁对它照样生效：切走之后它的 `hidden` 被人覆写了，不会留下一块永远显示的面板
-  b.page.tab('mobile').dispatch('click', {});
-  assert.deepEqual(iVisible(b.page), ['mobile'], '缺 tab 那块还赖在可见位上');
-  for (const id of ['uscc', 'bankcard', 'random']) {
+  b.page.tab('uscc').dispatch('click', {});
+  assert.deepEqual(iVisible(b.page), ['uscc'], '缺 tab 那块还赖在可见位上');
+  for (const id of ['uscc', 'random']) {
     assert.match(b.page.html(id, 'gen'), /共 5 条/);
   }
 
@@ -7583,18 +7693,22 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
 
   // ① 银行卡：常量 caveat 摘到栏尾一次，五十行也不该五十遍
   const cards = generateBankCards({ count: 3, rng: seededRandom(J_SEED + 2) }).map((r) => r.number);
-  page.set('bankcard', 'read', [...cards, '1234'].join('\n'));
-  page.click('bankcard', 'read');
-  let h = page.html('bankcard', 'read');
+  page.set('idcard', 'kind', 'bank');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'read', [...cards, '1234'].join('\n'));
+  page.click('idcard', 'read');
+  let h = page.html('idcard', 'read');
   assert.equal(jCount(h, BANK_CAVEAT), 1, '同一句话每行说一遍，等于没说');
   assert.ok(last(h) < h.indexOf(BANK_CAVEAT), '整栏口径要排在逐行结果之后');
   assert.equal(jCount(h, '<section class="tk-line">'), 4);
 
   // ② 手机号：caveat 与 note 两条各一次，且都在最后一行之后
   const nums = generateMobiles({ count: 2, rng: seededRandom(J_SEED + 3) }).map((r) => r.number);
-  page.set('mobile', 'read', [...nums, '10000000000'].join('\n'));
-  page.click('mobile', 'read');
-  h = page.html('mobile', 'read');
+  page.set('idcard', 'kind', 'mobile');
+  page.change('idcard', 'kind');
+  page.set('idcard', 'read', [...nums, '10000000000'].join('\n'));
+  page.click('idcard', 'read');
+  h = page.html('idcard', 'read');
   assert.equal(jCount(h, MOBILE_CAVEAT), 1);
   assert.equal(jCount(h, CARRIER_NOTE), 1);
   assert.ok(last(h) < h.indexOf(MOBILE_CAVEAT));
@@ -7603,6 +7717,8 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
   // ③ 身份证的 caveat 随号码而变，摘错了就是把结论从号码旁边搬走：它必须留在自己那一行里
   const good = mk('11010119900307001');
   const hist = mk('11010319900307001');
+  page.set('idcard', 'kind', 'idcard');
+  page.change('idcard', 'kind');
   page.set('idcard', 'read', [good, hist].join('\n'));
   page.click('idcard', 'read');
   h = page.html('idcard', 'read');
@@ -7623,14 +7739,23 @@ test('J15 整栏通用的那几句口径：栏尾说一次，逐行的结论留�
   assert.ok(last(h) < h.indexOf(REFERENCE_NOTE));
 
   // ⑤ 生成侧：每栏的口径行各一次，不因为表里有五行就重复五遍
+  page.click('idcard', 'gen');
   const gen = {
-    idcard: [USE_NOTE], uscc: [USCC_USE_NOTE], bankcard: [BANK_CAVEAT],
-    mobile: [MOBILE_CAVEAT, CARRIER_NOTE], random: [RANDOM_CAVEAT, NAME_NOTE],
+    idcard: [USE_NOTE], uscc: [USCC_USE_NOTE],
+    random: [RANDOM_CAVEAT, NAME_NOTE],
   };
   for (const [panel, notes] of Object.entries(gen)) {
     const g = page.html(panel, 'gen');
     for (const note of notes) assert.equal(jCount(g, note), 1, `${panel} 生成侧的口径句重复了`);
   }
+  const bankM = jMount({ pick: { 'idcard:kind': 'bank' } });
+  bankM.page.click('idcard', 'gen');
+  assert.equal(jCount(bankM.page.html('idcard', 'gen'), BANK_CAVEAT), 1, '银行卡生成侧的口径句重复了');
+  const mobileM = jMount({ pick: { 'idcard:kind': 'mobile' } });
+  mobileM.page.click('idcard', 'gen');
+  const mobileGen = mobileM.page.html('idcard', 'gen');
+  assert.equal(jCount(mobileGen, MOBILE_CAVEAT), 1, '手机号生成侧的口径句重复了');
+  assert.equal(jCount(mobileGen, CARRIER_NOTE), 1, '手机号运营商说明重复了');
 });
 
 test('J16 入口只读骨架那四格数据；启动失败不装死，成功路径把两条 <script> 接起来', async () => {
@@ -7675,10 +7800,32 @@ test('J16 入口只读骨架那四格数据；启动失败不装死，成功路�
       page.btn('idcard', 'gen').dispatch('click', {});
       assert.match(page.html('idcard', 'gen'), /共 2 条/, '按了没反应＝占位函数还在位上');
       // hashchange 接在 window 上：地址栏换面板，入口这一层负责把两边接起来
-      page.location.hash = '#mobile';
+      page.location.hash = '#uscc';
       page.win.dispatch('hashchange', {});
-      assert.deepEqual(iVisible(page), ['mobile']);
-      assert.equal(page.tab('mobile').getAttribute('aria-selected'), 'true');
+      assert.deepEqual(iVisible(page), ['uscc']);
+      assert.equal(page.tab('uscc').getAttribute('aria-selected'), 'true');
+    });
+  }
+
+  // ── 定档：`?kind=` 刷新后仍停在同一档；旧 hash 与它同时出现时旧 hash 优先 ──
+  {
+    const page = jPage({ search: '?kind=bank' });
+    page.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'tk', 'data-tk-notice': 'tk-notice',
+    });
+    await run('querykind', page, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      assert.equal(page.ctl('idcard', 'kind').value, 'bank', '?kind=bank 没在挂载前拨到银行卡');
+    });
+    const legacy = jPage({ hash: '#orgcode', search: '?kind=bank' });
+    legacy.mk('div', 'tk-workspace', {
+      'data-tk-ids': PANEL_IDS.join(','), 'data-tk-prefix': 'tk', 'data-tk-notice': 'tk-notice',
+    });
+    await run('legacywins', legacy, async (tag) => {
+      await withCore(tag);
+      await import(`../dev/js/toolIdcard.js?j16-${tag}`);
+      assert.equal(legacy.ctl('uscc', 'kind').value, 'orgcode', '旧 hash 没压过 ?kind=');
     });
   }
 
@@ -7805,21 +7952,21 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
   // ── (c) 没有 clipboard（http 页面）→ 直接走兜底 ──
   {
     const m = jMount();
-    m.page.clickCopy('bankcard', 'gen');
+    m.page.clickCopy('idcard', 'gen');
     assert.deepEqual(m.page.commandLog, ['copy'], '没有 navigator.clipboard 时不该什么都不做');
-    assert.equal(jLabel(m.page, 'bankcard', 'gen'), '已复制');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '已复制');
   }
 
   // ── (d) 兜底也说"不行"：一句失败文案，恢复时长比成功那句长 ──
   {
     const m = jMount();
     m.page.doc.copyOk = false;
-    m.page.clickCopy('mobile', 'gen');
-    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制失败，请手动选中');
+    m.page.clickCopy('idcard', 'gen');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制失败，请手动选中');
     assert.equal(m.timers[0].ms, 2600, '失败那句要给人时间读完');
     assert.equal(m.timers[0].ms > 1600, true);
     m.flush();
-    assert.equal(jLabel(m.page, 'mobile', 'gen'), '复制这批号码');
+    assert.equal(jLabel(m.page, 'idcard', 'gen'), '复制这批号码');
     assert.equal(m.page.doc.body.childNodes.length, 0, '连失败都不许留下临时框');
   }
 
@@ -7853,7 +8000,7 @@ test('J7 复制三级兜底：clipboard → 临时 textarea + execCommand → �
     assert.deepEqual(writes, [], '空文本一次都不该写');
     assert.deepEqual(m.page.commandLog, []);
     assert.equal(m.timers.length, 0, '什么都没复制，就别改口');
-    assert.equal(jLabel(m.page, 'idcard', 'read'), '复制判定有效的号码');
+    assert.equal(jLabel(m.page, 'idcard', 'read'), '复制判定有效的结果');
     // 粘进去判一次，这一栏的复制件只装判定有效的那几条
     const good = mk('11010119900307001');
     const bad = good[17] === '9' ? `${good.slice(0, 17)}8` : `${good.slice(0, 17)}9`;
@@ -8035,6 +8182,17 @@ window.Tk = { createPanelWorkspace, createPanelDom, view, ui, url };
 import { parseIdCard, generateIdCards, USE_NOTE as ID_CARD_NOTE, GENERATE_MAX } from './idcard.js';
 import { parseUscc, generateUsccCodes, USE_NOTE as USCC_NOTE, REFERENCE_NOTE, USCC_CHARSET } from './uscc.js';
 import {
+  parseOrgCode, generateOrgCodes, USE_NOTE as ORG_NOTE, FORMAT_NOTE as ORG_FORMAT_NOTE,
+} from './orgcode.js';
+import {
+  parseCreditCode, generateCreditCodes, USE_NOTE as CREDIT_NOTE,
+  FORMAT_NOTE as CREDIT_FORMAT_NOTE,
+} from './creditcode.js';
+import {
+  parseFinLicense, generateFinLicenses, USE_NOTE as LICENSE_NOTE,
+  FORMAT_NOTE as LICENSE_FORMAT_NOTE, LICENSE_TYPES, ORG_CATEGORIES,
+} from './finlicense.js';
+import {
   parseBankCard, generateBankCards, BANK_CAVEAT, CARD_TYPES, TOP_BANKS, BANK_OPTIONS,
   PAN_MIN, PAN_MAX,
 } from './bankcard.js';
@@ -8138,16 +8296,34 @@ export const WORKBENCH_SPEC = {
     sides: {
       gen: {
         kind: 'idcard',
+        kindFrom: 'kind',
+        kindMap: { idcard: 'idcard', bank: 'bank', mobile: 'mobile' },
         controls: [
+          { id: 'kind', switch: 'kind' },
           { id: 'province', cascade: 'province' },
           { id: 'city', cascade: 'city' },
           { id: 'county', cascade: 'county' },
           { id: 'sex' },
           { id: 'ageband', switch: 'ageband' },
           { id: 'birth', type: 'date' },
+          { id: 'bank', options: 'banks' },
+          { id: 'type', options: 'cardtypes' },
+          { id: 'length', type: 'number' },
+          { id: 'carrier', options: 'carriers' },
+          { id: 'segment', options: 'segments' },
           { id: 'count', type: 'number' },
         ],
-        switch: { control: 'ageband', targets: [{ key: 'birth', when: ['custom'] }] },
+        switches: [
+          {
+            control: 'kind',
+            targets: [
+              { key: 'idcard-fields', when: ['idcard'] },
+              { key: 'bank-fields', when: ['bank'] },
+              { key: 'mobile-fields', when: ['mobile'] },
+            ],
+          },
+          { control: 'ageband', targets: [{ key: 'birth', when: ['custom'] }] },
+        ],
       },
       read: { kind: 'idcard', controls: [{ id: 'read', type: 'area' }] },
     },
@@ -8156,42 +8332,37 @@ export const WORKBENCH_SPEC = {
     sides: {
       gen: {
         kind: 'uscc',
+        kindFrom: 'kind',
+        kindMap: {
+          uscc: 'uscc', orgcode: 'orgcode', creditcode: 'creditcode', license: 'license',
+        },
         controls: [
+          { id: 'kind', switch: 'kind' },
           { id: 'registry', charsets: 'uscc' },
           { id: 'category', charsets: 'uscc' },
           { id: 'province', cascade: 'province' },
           { id: 'city', cascade: 'city' },
+          { id: 'creditFirst', options: 'letters' },
+          { id: 'licenseType', options: 'licensetypes' },
+          { id: 'licenseOrg', options: 'licenseorgs' },
+          { id: 'licenseIssuer', type: 'text' },
+          { id: 'licenseProvince', options: 'provinces' },
           { id: 'count', type: 'number' },
+        ],
+        switches: [
+          {
+            control: 'kind',
+            targets: [
+              { key: 'uscc-fields', when: ['uscc'] },
+              { key: 'region-fields', when: ['uscc', 'creditcode'] },
+              { key: 'credit-fields', when: ['creditcode'] },
+              { key: 'orgcode-note', when: ['orgcode'] },
+              { key: 'license-fields', when: ['license'] },
+            ],
+          },
         ],
       },
       read: { kind: 'uscc', controls: [{ id: 'read', type: 'area' }] },
-    },
-  },
-  bankcard: {
-    sides: {
-      gen: {
-        kind: 'bank',
-        controls: [
-          { id: 'bank', options: 'banks' },
-          { id: 'type', options: 'cardtypes' },
-          { id: 'length', type: 'number' },
-          { id: 'count', type: 'number' },
-        ],
-      },
-      read: { kind: 'bank', controls: [{ id: 'read', type: 'area' }] },
-    },
-  },
-  mobile: {
-    sides: {
-      gen: {
-        kind: 'mobile',
-        controls: [
-          { id: 'carrier', options: 'carriers' },
-          { id: 'segment', options: 'segments' },
-          { id: 'count', type: 'number' },
-        ],
-      },
-      read: { kind: 'mobile', controls: [{ id: 'read', type: 'area' }] },
     },
   },
   random: {
@@ -8226,6 +8397,63 @@ export const WORKBENCH_SPEC = {
 /** 面板顺序就是 `data-tk-ids` 与索引条的顺序；导出给 §J 与入口用，别再各写一份清单 */
 export const PANEL_IDS = Object.keys(WORKBENCH_SPEC);
 
+/** 单组 `switch` 与合并面板的多组 `switches` 统一成一个清单；运行时与 controlIds 共用 */
+const switchesOfSpec = (cfg) => {
+  const list = [];
+  if (cfg && cfg.switch) list.push(cfg.switch);
+  if (cfg && Array.isArray(cfg.switches)) list.push(...cfg.switches);
+  return list;
+};
+
+/** 面板内的类型名：结果区提示与读侧标签用同一份，不把中文散在几处 */
+const KIND_LABEL = {
+  idcard: '身份证', bank: '银行卡', mobile: '手机号',
+  uscc: '统一社会信用代码', orgcode: '组织机构代码', creditcode: '机构信用代码',
+  license: '金融许可证', name: '姓名', address: '地址', email: '邮箱', profile: '一组资料',
+};
+
+/**
+ * 读侧随类型变化的文案。`label` 是那一格标签，`placeholder` 是示例，`idle` 是空态，
+ * `help` 是标签下面那句说明。它只服务证件页的两块合并面板；随机面板没有读侧。
+ */
+const READ_META = {
+  idcard: {
+    label: '身份证号（可一次粘多行）', placeholder: '110101199003070015',
+    idle: '把身份证号粘进来，一行一条；判定全在浏览器里算，不发请求。',
+    help: '15 位与 18 位都收；含空格或分隔符的原样保留，判定对象单独回显。',
+  },
+  bank: {
+    label: '银行卡号（可一次粘多行）', placeholder: '6222 0219 9003 0700 15',
+    idle: '把银行卡号粘进来，一行一条；行别与位数查的是内置前缀表。',
+    help: '空格与连字符会被去掉；查不到的行别只说“表内未收录”，不下无效结论。',
+  },
+  mobile: {
+    label: '手机号（可一次粘多行）', placeholder: '13800138000',
+    idle: '把手机号粘进来，一行一条；三位号段判运营商，不做归属地。',
+    help: '格式（11 位、1[3-9] 开头）是硬结论；运营商按三位号段判定，携号转网后不代表当前运营商。',
+  },
+  uscc: {
+    label: '统一社会信用代码（可一次粘多行）', placeholder: '91350100M000100Y43',
+    idle: '把统一社会信用代码粘进来，一行一条；字母大小写不敏感。',
+    help: '小写字母会先归一成大写，原样输入与判定对象各回显一次。',
+  },
+  orgcode: {
+    label: '组织机构代码（可一次粘多行）', placeholder: 'M000100Y-4',
+    idle: '把组织机构代码粘进来，一行一条；空格与连字符会被忽略。',
+    help: '8 位本体 + 1 位校验位，校验位按 GB 11714 的 mod 11 算法判。',
+  },
+  creditcode: {
+    label: '机构信用代码（可一次粘多行）', placeholder: 'G1011010711628240R',
+    idle: '把机构信用代码粘进来，一行一条；首字母与校验位一起判。',
+    help: '18 位＝1 位字母 + 16 位数字 + 1 位校验字符；公开资料未给出完整官方口径。',
+  },
+  license: {
+    label: '金融许可证机构编码（可一次粘多行）', placeholder: 'B0001H111000001',
+    idle: '把金融许可证机构编码粘进来，一行一条；只判结构，不判真伪。',
+    help: '15 位六段结构；该编码没有公开校验位，地址段按省级区划表核对。',
+  },
+};
+
 /**
  * 一栏里每行"复制出来长什么样"。生成侧交主字段，一行一条；`profile` 三条用制表符连着，
  * 粘进表格软件正好是三列。读侧只交判定为有效的 `value`（见 `READ_COPY`）。
@@ -8235,6 +8463,9 @@ const GEN_COPY = {
   uscc: (r) => r.code,
   bank: (r) => r.number,
   mobile: (r) => r.number,
+  orgcode: (r) => r.code,
+  creditcode: (r) => r.code,
+  license: (r) => r.code,
   name: (r) => r.name,
   address: (r) => r.text,
   email: (r) => r.email,
@@ -8253,12 +8484,18 @@ const GEN_NOTES = {
   uscc: [USCC_NOTE],
   bank: [BANK_CAVEAT],
   mobile: [MOBILE_CAVEAT, CARRIER_NOTE],
+  orgcode: [ORG_NOTE, ORG_FORMAT_NOTE],
+  creditcode: [CREDIT_NOTE, CREDIT_FORMAT_NOTE],
+  license: [LICENSE_NOTE, LICENSE_FORMAT_NOTE],
   name: [RANDOM_CAVEAT, NAME_NOTE],
   address: [RANDOM_CAVEAT, ADDRESS_NOTE],
   email: [RANDOM_CAVEAT, EMAIL_NOTE],
   profile: [RANDOM_CAVEAT, NAME_NOTE, ADDRESS_NOTE, EMAIL_NOTE],
 };
-const READ_NOTES = { idcard: [], uscc: [REFERENCE_NOTE], bank: [], mobile: [] };
+const READ_NOTES = {
+  idcard: [], uscc: [REFERENCE_NOTE], bank: [], mobile: [],
+  orgcode: [ORG_FORMAT_NOTE], creditcode: [CREDIT_FORMAT_NOTE], license: [LICENSE_FORMAT_NOTE],
+};
 
 /**
  * 整栏通用的那几句口径：`bankcard.js:159` 的 `caveat: BANK_CAVEAT` 恒有值，`phone.js:125`
@@ -8279,6 +8516,9 @@ const READ_PARSE = {
   uscc: parseUscc,
   bank: parseBankCard,
   mobile: parseMobile,
+  orgcode: parseOrgCode,
+  creditcode: parseCreditCode,
+  license: parseFinLicense,
 };
 
 // ── FieldError：用户填的东西不能用 ──────────────────────────────────────────
@@ -8536,6 +8776,24 @@ export function createWorkbench(env = {}) {
       fill(el, EMAIL_DOMAINS.map((d) => ({ value: d, label: d })));
       return;
     }
+    if (source === 'letters') {
+      fill(el, [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((ch) => ({
+        value: ch, label: ch === 'G' ? 'G（默认）' : ch,
+      })));
+      return;
+    }
+    if (source === 'licensetypes') {
+      fill(el, Object.entries(LICENSE_TYPES).map(([ch, name]) => ({ value: ch, label: `${ch} · ${name}` })));
+      return;
+    }
+    if (source === 'licenseorgs') {
+      fill(el, Object.entries(ORG_CATEGORIES).map(([ch, name]) => ({ value: ch, label: `${ch} · ${name}` })));
+      return;
+    }
+    if (source === 'provinces') {
+      fill(el, provinceCodes().map((c) => ({ value: c, label: provinceName(c) })));
+      return;
+    }
     if (charsetOf(panel, control) === 'uscc') {
       const dflt = control === 'registry' ? '9' : '1';
       fill(el, [...USCC_CHARSET].map((ch) => ({
@@ -8568,12 +8826,13 @@ export function createWorkbench(env = {}) {
    */
   const applySwitch = (panel) => {
     const cfg = WORKBENCH_SPEC[panel].sides.gen;
-    if (!cfg.switch) return;
-    const value = valueOf(panel, cfg.switch.control) ?? firstValueOf(panel, cfg.switch.control);
-    for (const target of cfg.switch.targets) {
-      const el = node(whenId(prefix, panel, target.key));
-      if (!el) continue;
-      el.hidden = !target.when.includes(value ?? '');
+    for (const sw of switchesOfSpec(cfg)) {
+      const value = valueOf(panel, sw.control) ?? firstValueOf(panel, sw.control);
+      for (const target of sw.targets) {
+        const el = node(whenId(prefix, panel, target.key));
+        if (!el) continue;
+        el.hidden = !target.when.includes(value ?? '');
+      }
     }
   };
 
@@ -8596,7 +8855,7 @@ export function createWorkbench(env = {}) {
     const o = { count: countOf(panel) };
     if (rng !== undefined) o.rng = rng;
     if (today !== undefined) o.today = today;
-    if (panel === 'idcard') {
+    if (kind === 'idcard') {
       Object.assign(o, regionKeys(panel));
       const sex = valueOf(panel, 'sex');
       if (sex) o.sex = sex;
@@ -8611,7 +8870,23 @@ export function createWorkbench(env = {}) {
       }
       return o;
     }
-    if (panel === 'uscc') {
+    if (kind === 'bank') {
+      const bank = valueOf(panel, 'bank');
+      if (bank) o.bankCode = bank;
+      const type = valueOf(panel, 'type');
+      if (type) o.cardType = type;
+      const len = intOf(panel, 'length', PAN_MIN, PAN_MAX, '位数');
+      if (len !== null) o.length = len;
+      return o;
+    }
+    if (kind === 'mobile') {
+      const carrier = valueOf(panel, 'carrier');
+      if (carrier) o.carrier = carrier;
+      const segment = valueOf(panel, 'segment');
+      if (segment) o.segment = segment;
+      return o;
+    }
+    if (kind === 'uscc') {
       // `provinceCode` 实为"任意 ≤4 位前缀"（uscc.js 的 regionPool 注释），所以市码可以直接用
       const city = valueOf(panel, 'city');
       const prov = valueOf(panel, 'province');
@@ -8623,20 +8898,25 @@ export function createWorkbench(env = {}) {
       if (category) o.category = category;
       return o;
     }
-    if (panel === 'bankcard') {
-      const bank = valueOf(panel, 'bank');
-      if (bank) o.bankCode = bank;
-      const type = valueOf(panel, 'type');
-      if (type) o.cardType = type;
-      const len = intOf(panel, 'length', PAN_MIN, PAN_MAX, '位数');
-      if (len !== null) o.length = len;
+    if (kind === 'orgcode') return o;
+    if (kind === 'creditcode') {
+      const city = valueOf(panel, 'city');
+      const prov = valueOf(panel, 'province');
+      if (city) o.provinceCode = city;
+      else if (prov) o.provinceCode = prov;
+      const first = valueOf(panel, 'creditFirst');
+      if (first) o.first = first;
       return o;
     }
-    if (panel === 'mobile') {
-      const carrier = valueOf(panel, 'carrier');
-      if (carrier) o.carrier = carrier;
-      const segment = valueOf(panel, 'segment');
-      if (segment) o.segment = segment;
+    if (kind === 'license') {
+      const type = valueOf(panel, 'licenseType');
+      if (type) o.type = type;
+      const org = valueOf(panel, 'licenseOrg');
+      if (org) o.orgCategory = org;
+      const issuer = valueOf(panel, 'licenseIssuer');
+      if (issuer) o.issuer = issuer;
+      const prov = valueOf(panel, 'licenseProvince');
+      if (prov) o.provinceCode = prov;
       return o;
     }
     // #random：四级 kind 共用同一批格子，用不上的格子由开关藏掉，但值还留在 DOM 里，
@@ -8666,6 +8946,9 @@ export function createWorkbench(env = {}) {
     uscc: generateUsccCodes,
     bank: generateBankCards,
     mobile: generateMobiles,
+    orgcode: generateOrgCodes,
+    creditcode: generateCreditCodes,
+    license: generateFinLicenses,
     name: generateNames,
     address: generateAddresses,
     email: generateEmails,
@@ -8679,7 +8962,7 @@ export function createWorkbench(env = {}) {
     const raw = valueOf(panel, cfg.kindFrom) ?? firstValueOf(panel, cfg.kindFrom);
     const kind = cfg.kindMap[raw];
     if (!kind) {
-      throw new RangeError(`#random 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);
+      throw new RangeError(`#${panel} 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);
     }
     return kind;
   };
@@ -8699,6 +8982,8 @@ export function createWorkbench(env = {}) {
     paint(panel, side, `<p class="${HINT_CLASS}">${view.esc(message)}</p>`);
     copies.set(key(panel, side), '');
     syncCopy(panel, side);
+    const dl = node(`${prefix}-download-${panel}-${side}`);
+    if (dl) dl.hidden = true;
   };
 
   /** 复制按钮的可用性只由"这一栏有没有可复制的文本"决定，不靠样式类猜 */
@@ -8717,9 +9002,40 @@ export function createWorkbench(env = {}) {
     const kind = kindOf(panel);
     const rows = GENERATORS[kind](buildOptions(panel, kind));
     paint(panel, 'gen', view.batchBlock(kind, rows, GEN_NOTES[kind]));
-    copies.set(key(panel, 'gen'), rows.map(GEN_COPY[kind]).join('\n'));
+    const text = rows.map(GEN_COPY[kind]).join('\n');
+    copies.set(key(panel, 'gen'), text);
     syncCopy(panel, 'gen');
+    // 下载与复制吃同一份纯文本：data URI 只在本机生成，不产生请求；50 条测试码的体积很小。
+    const dl = node(`${prefix}-download-${panel}-gen`);
+    if (dl) {
+      dl.setAttribute('href', `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`);
+      dl.setAttribute('download', `${panel}-${kind}.txt`);
+      dl.hidden = text === '';
+    }
     return true;
+  };
+
+  /** 读侧标签/示例/说明跟着 `kind` 走；缺节点时静默跳过（假 DOM 与旧骨架都可能没有这两格） */
+  const syncReadMeta = (panel) => {
+    if (WORKBENCH_SPEC[panel].sides.read === null) return;
+    const kind = kindOf(panel);
+    const meta = READ_META[kind];
+    if (!meta) return;
+    const label = node(`${prefix}-read-label-${panel}`);
+    if (label) label.textContent = meta.label;
+    const help = node(`${prefix}-read-help-${panel}`);
+    if (help) help.textContent = meta.help;
+    const area = node(fieldId(prefix, panel, 'read'));
+    if (area) area.setAttribute('placeholder', meta.placeholder);
+  };
+
+  /** 类型切走之后，上一类的结果与判定结论都不再属于当前标题：清掉并说明原因 */
+  const onKindChange = (panel) => {
+    if (WORKBENCH_SPEC[panel].sides.read === null) return;
+    syncReadMeta(panel);
+    const kind = kindOf(panel);
+    hint(panel, 'gen', `已切换到「${KIND_LABEL[kind]}」，按生成重新算。`);
+    hint(panel, 'read', READ_META[kind].idle);
   };
 
   /**
@@ -8730,7 +9046,7 @@ export function createWorkbench(env = {}) {
    */
   const renderRead = (panel) => {
     const cfg = WORKBENCH_SPEC[panel].sides.read;
-    const kind = cfg.kind;
+    const kind = kindOf(panel);
     const lines = areaOf(panel, cfg.controls[0].id).split('\n');
     const kept = [];
     lines.forEach((raw, i) => {
@@ -8816,6 +9132,7 @@ export function createWorkbench(env = {}) {
   for (const panel of PANEL_IDS) {
     renderers[panel] = () => {
       const cfg = WORKBENCH_SPEC[panel].sides.gen;
+      const swControls = new Set(switchesOfSpec(cfg).map((sw) => sw.control));
       for (const c of cfg.controls) {
         const el = node(fieldId(prefix, panel, c.id));
         if (!el) continue;
@@ -8829,12 +9146,17 @@ export function createWorkbench(env = {}) {
           el.addEventListener('change', () => {
             refreshCascade(panel, c.id);
             applySwitch(panel);
+            if (cfg.kindFrom === c.id) onKindChange(panel);
           });
-        } else if (c.switch) {
-          el.addEventListener('change', () => applySwitch(panel));
+        } else if (c.switch || swControls.has(c.id)) {
+          el.addEventListener('change', () => {
+            applySwitch(panel);
+            if (cfg.kindFrom === c.id) onKindChange(panel);
+          });
         }
       }
       applySwitch(panel);
+      syncReadMeta(panel);
       const genBtn = node(buttonId(prefix, panel, 'gen'));
       if (genBtn) genBtn.addEventListener('click', () => runGuardedRun(panel, 'gen'));
       const readCfg = WORKBENCH_SPEC[panel].sides.read;
@@ -8856,7 +9178,7 @@ export function createWorkbench(env = {}) {
         btn.addEventListener('click', () => doCopy(panel, side));
       });
       renderGen(panel);
-      if (readCfg) hint(panel, 'read', '把号码粘进来，一条一行；判定全在浏览器里算，不发请求。');
+      if (readCfg) hint(panel, 'read', READ_META[kindOf(panel)].idle);
     };
   }
 
@@ -8951,8 +9273,10 @@ export function controlIds(prefix, panels = PANEL_IDS) {
       got.out.push(outId(prefix, panel, side));
       for (const c of cfg.controls) got.in.push(fieldId(prefix, panel, c.id));
     }
-    const sw = sides.gen.switch;
-    if (sw) for (const t of sw.targets) got.when.push(whenId(prefix, panel, t.key));
+    const sw = sides.gen;
+    for (const group of switchesOfSpec(sw)) {
+      for (const t of group.targets) got.when.push(whenId(prefix, panel, t.key));
+    }
   }
   return got;
 }
@@ -9034,6 +9358,104 @@ function parseIds(raw) {
   return String(raw || '').split(',').map((s) => s.trim()).filter((s) => s !== '');
 }
 
+/** 旧面板 hash → 面板与面板内类型；只有旧 slug 还带着“具体是哪一种” */
+const HASH_KIND = {
+  bankcard: ['idcard', 'bank'],
+  mobile: ['idcard', 'mobile'],
+  orgcode: ['uscc', 'orgcode'],
+  creditcode: ['uscc', 'creditcode'],
+  license: ['uscc', 'license'],
+};
+
+/** 旧面板 hash → 新面板；只影响“认哪一块”，写回地址栏的仍是裸面板 slug */
+const HASH_ALIASES = {
+  bankcard: 'idcard',
+  mobile: 'idcard',
+  orgcode: 'uscc',
+  creditcode: 'uscc',
+  license: 'uscc',
+};
+
+/** 类型下拉的值 → 所属面板；`?kind=` 与切类型后的地址回写都按这张表认门 */
+const KIND_TO_PANEL = {
+  idcard: 'idcard',
+  bank: 'idcard',
+  mobile: 'idcard',
+  uscc: 'uscc',
+  orgcode: 'uscc',
+  creditcode: 'uscc',
+  license: 'uscc',
+};
+
+/** `#tk-panel-bankcard` / `#bankcard` → `bankcard`，与 panel.js 的 stripPanelPrefix 同形 */
+function hashKey(raw) {
+  const s = String(raw || '').trim().replace(/^#/, '');
+  const at = s.toLowerCase().lastIndexOf('-panel-');
+  return (at < 0 ? s : s.slice(at + 7)).toLowerCase();
+}
+
+/**
+ * `?kind=bank` → `bank`；只认字符串形态的 `location.search`，假 DOM 没有这一格就当场收手。
+ * @param {object} win 真 `window`
+ * @returns {string} 小写值，没有就空串
+ */
+function queryKind(win) {
+  const search = win && win.location && typeof win.location.search === 'string'
+    ? win.location.search : '';
+  if (search === '' || typeof URLSearchParams !== 'function') return '';
+  return String(new URLSearchParams(search).get('kind') || '').trim().toLowerCase();
+}
+
+/**
+ * 把类型写回地址栏的 `?kind=`：换一次类型刷一次页面，刷新后仍停在那一档。
+ * 只改查询串，hash 与其余参数原样保留；假 DOM 没有 `location.href` 时不动 `history`。
+ * @param {object} win 真 `window`
+ * @param {string} kind 新类型
+ */
+function syncKindQuery(win, kind) {
+  const loc = win && win.location;
+  const hist = win && win.history;
+  if (!loc || typeof loc.href !== 'string' || typeof URL !== 'function'
+    || !hist || typeof hist.replaceState !== 'function') return;
+  const url = new URL(loc.href);
+  url.searchParams.set('kind', kind);
+  hist.replaceState(hist.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+/**
+ * 进页面时定档：旧 hash（`#bankcard` 这类）优先，其次才是 `?kind=`。
+ * 必须在 createWorkbench 之前写完——它挂载期读的就是这个值，不会先画一遍默认类型再跳。
+ * @param {object} doc 真 document
+ * @param {object} win 真 window
+ * @param {string} prefix 行为前缀
+ * @param {string} hash 进页面时的地址栏 hash
+ */
+function applyInitialKind(doc, win, prefix, hash) {
+  const legacy = HASH_KIND[hashKey(hash)];
+  const kind = legacy ? legacy[1] : queryKind(win);
+  const panel = legacy ? legacy[0] : KIND_TO_PANEL[kind];
+  if (!kind || !panel) return;
+  const el = doc.getElementById(`${prefix}-in-${panel}-kind`);
+  if (el) el.value = kind;
+}
+
+/**
+ * 用户切类型后把值写进查询串；只在值确实属于该面板时写，避免别的控件冒用同一 id。
+ * @param {object} doc 真 document
+ * @param {object} win 真 window
+ * @param {string} prefix 行为前缀
+ */
+function bindKindQuery(doc, win, prefix) {
+  for (const panel of ['idcard', 'uscc']) {
+    const el = doc.getElementById(`${prefix}-in-${panel}-kind`);
+    if (!el || typeof el.addEventListener !== 'function') continue;
+    el.addEventListener('change', () => {
+      const kind = String(el.value || '').trim().toLowerCase();
+      if (KIND_TO_PANEL[kind] === panel) syncKindQuery(win, kind);
+    });
+  }
+}
+
 /**
  * 装配一遍。抛出去的东西由 `start` 负责先写进页面、再原样抛回控制台。
  * @param {object} doc 真 `document`
@@ -9061,11 +9483,13 @@ function boot(doc, win, tk) {
       'window.Tk 没挂上来：toolkitCore.min.js 要么 404，要么排在本入口之后，顺序见 tools-idcard.html 末尾');
   }
 
+  applyInitialKind(doc, win, prefix, win.location.hash);
   const workspace = tk.createPanelWorkspace({
     ids,
     prefix,
     hash: win.location.hash,
     label: label === '' ? undefined : label,
+    aliases: HASH_ALIASES,
   });
   /** 口径 2 的那个占位：谁真调到它，就是有人在 `mount()` 之前按了按钮 */
   const guard = {
@@ -9090,7 +9514,9 @@ function boot(doc, win, tk) {
     notice,
   });
   guard.run = dom.run;
-  return dom.mount();
+  const lists = dom.mount();
+  bindKindQuery(doc, win, prefix);
+  return lists;
 }
 
 /**
@@ -10111,10 +10537,10 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
 #            是量过才发现的。
 - slug: idcard
   url: /tools/idcard.html
-  name: 证件与机构代码工具
-  tagline: 身份证 / 统一社会信用代码 / 银行卡 / 手机号 / 随机测试数据
-  title: 身份证号校验与生成 · 统一社会信用代码
-  h1: 证件与机构代码工具
+  name: 个人证件与机构代码
+  tagline: 身份证 / 银行卡 / 手机号 · 机构代码与金融许可证
+  title: 身份证与机构代码校验 · 统一社会信用代码
+  h1: 个人证件与机构代码工具
   icon: /assets/img/tools/idcard-tool.svg
   status: ready
   # 空清单是**结论**不是待办：79 篇里没有一篇讲身份证 / 统一社会信用代码 / 银行卡校验或
@@ -10129,42 +10555,27 @@ Expected：暂存区只有这四条路径（`git diff --cached --stat` 四行）
     table: WORKBENCH_SPEC
     ids: PANEL_IDS
   desc: >-
-    五块面板都在浏览器本地算：粘贴号码做校验与逐段解析，或按区划、性别、年龄段随机合成测试数据。
-    行别与号段按内置的第三方快照给出，只作参考、不承诺全量。
+    三块面板都在浏览器本地算：个人证件一块生成或校验身份证、银行卡与手机号；机构代码一块
+    生成或校验统一社会信用代码、组织机构代码、机构信用代码与金融许可证机构编码；测试数据一块
+    随机合成姓名、地址与邮箱。所有输入只留在本机，不发请求、不上传、不写 localStorage。
   panels:
     - slug: idcard
-      name: 身份证
-      tagline: 18 位校验与解析、15 位第一代写法、按区划合成
+      name: 个人证件
+      tagline: 身份证 · 银行卡 · 手机号
       desc: >-
-        粘一行或一个文件的多行号码，逐行给三态结论（有效 / 校验位不符 / 结构非法）、逐项判定表和全量解析：
-        省市区三级码与全名、出生日期与周岁、性别、顺序码、校验位的算式。
-        出生年在 1900–1999 内的 18 位号会同时给出等价的 15 位写法。
-        区划码查不到时不下"无效"结论，只说明它未见于现行区划表。
+        身份证支持 18 位与 15 位互查、区划与出生日期解析、按区划/性别/年龄段合成；
+        银行卡支持 Luhn 校验、BIN 行别参考与按行别合成；手机号支持 11 位格式判定、
+        三位号段判运营商与按运营商合成。三类生成结果都只作开发与测试用途。
     - slug: uscc
-      name: 统一社会信用代码
-      tagline: 18 位解析、字符集与两层校验位、按区划合成
+      name: 机构代码
+      tagline: 信用代码 · 组织机构代码 · 机构信用 · 金融许可证
       desc: >-
-        校验第 1–17 位的字符集与两套权重算式，并把 18 位拆开：登记管理部门与机构类别（只给字符，
-        取值含义表没取到可核实来源，本站不猜名称）、行政区划、主体标识、内层组织机构代码校验位、
-        本层校验位。生成侧第 9–17 位用真实结构（8 位本体加 GB/T 11714 校验位）。
-        字符 I、O、S、Z、V 不属 31 字符集，出现即判结构非法。
-    - slug: bankcard
-      name: 银行卡
-      tagline: Luhn 校验与逐位算式、行别前缀参考、按行别合成
-      desc: >-
-        校验按 Luhn 与 13–19 位长度给结论，并列出逐位相加的算式；行别与登记位数查内置前缀表，
-        查不到只说"表内未收录"，不下"无效"结论。生成侧从表内的 BIN 出发，补随机体与 Luhn 校验位，
-        所以每一条都能被本页的校验判成有效。
-    - slug: mobile
-      name: 手机号
-      tagline: 11 位格式判定、三位号段判运营商、按运营商合成
-      desc: >-
-        格式（11 位、1[3-9] 开头）是硬结论；运营商按三位号段判定，是发号口径的参考，
-        携号转网后不代表当前实际运营商。本站不做号码归属地：三位号段这一层判不到城市，
-        而能干净取到许可的公开来源也只有这一层。
+        统一社会信用代码按 GB 32100 校验双层校验位并生成；组织机构代码按 GB 11714 计算第 9 位；
+        机构信用代码按公开的中征码算法校验 18 位结构；金融许可证机构编码按 15 位六段结构校验，
+        该编码没有公开校验位，只判结构、不判真伪。四类都可批量生成测试码。
     - slug: random
-      name: 随机测试数据
-      tagline: 姓名 / 地址 / 邮箱，单类或一次一组
+      name: 测试数据
+      tagline: 姓名 · 地址 · 邮箱
       desc: >-
         姓名由本站自造的常用姓氏与名字用字随机组合，地址由现行区划全名加通用街道词与门牌拼出，
         邮箱一律落在 RFC 2606 的 example 保留域。三类都不指向任何真实个人或真实信箱，
@@ -10457,8 +10868,8 @@ js 两条）的先后与"产物名逐字符跟随源文件名"的提醒写在引
 ```html
 ---
 layout: default
-title: 身份证号校验与生成 · 统一社会信用代码
-seo_description: 粘贴身份证号、统一社会信用代码、银行卡号或手机号，本地逐位算给你看结论从哪来；也能按区划、性别、年龄段随机合成测试数据。全部在浏览器里算，不发任何请求。
+title: 身份证与机构代码校验 · 统一社会信用代码
+seo_description: 身份证、银行卡、手机号，以及统一社会信用代码、组织机构代码、机构信用代码、金融许可证机构编码：本地校验、逐段解析与测试码生成。输入不出本机，不发请求、不上传。
 # 理由同 categories.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
 permalink: /tools/idcard.html
 # tool 指向 _data/onlineTools.yml 里的那一条：面板清单、id 前缀、大标题都从数据源取，
@@ -10470,8 +10881,7 @@ tool: idcard
 <!-- 产物名严格跟随源文件名（大小写原样）：dev/sass/toolkit.scss -> toolkit.min.css、
      dev/js/toolkitCore.js -> toolkitCore.min.js、dev/js/toolIdcard.js -> toolIdcard.min.js。
      GitHub Pages 在 Linux 上构建，写错一个字母本地看不出来、线上一律 404，勿改。
-     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它（同 _layouts/aboutTemplate.html
-     里 jquery 必须最后那条的反向情形——这里前一条是后一条的依赖）。 -->
+     三条引用的顺序是硬的：toolkitCore 先挂 window.Tk，页面入口再读它。 -->
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/toolkit.min.css">
 
 {%- assign tk = site.data.onlineTools | where: 'slug', page.tool | first -%}
@@ -10482,45 +10892,32 @@ tool: idcard
         <p class="kicker">Online Tools / 本地计算，不上传输入</p>
         <p class="masthead-issue" aria-hidden="true">
             <span class="issue-rule"></span>
-            <span class="issue-no">证件 · 机构代码 · 测试数据</span>
+            <span class="issue-no">个人证件 · 机构代码 · 测试数据</span>
         </p>
         <h1 class="masthead-title">{{ tk.h1 }}</h1>
         <p class="masthead-lede">{{ tk.desc }}</p>
         <ul class="masthead-stats">
             <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
-            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>0</strong><span>上传</span></li>
             <li><strong>本机</strong><span>随机合成</span></li>
         </ul>
     </div>
 </section>
 
 <main class="g-container tk-content" id="main">
-    {%- comment -%}
-    这一段是设计文档 §5.5 那句"生成类面板固定一行提示"在**禁用脚本时也读得到**的那一份：
-    结果区里还会由装配层把各模块的口径常量原样再落一次（§H 的 H8 钉的是"一字不动"），
-    两处不冲突——这里说的是整页，结果区说的是这一批数据。
-    {%- endcomment -%}
     <p class="tk-compliance">
-        本页所有号码、姓名、地址、邮箱都由浏览器随机合成，与真实个人或真实登记主体重合的概率可忽略；
-        仅供开发与测试用途，<strong>不得用于任何真实身份用途</strong>。
+        本页所有号码、姓名、地址、邮箱与机构代码都由浏览器随机合成，与真实个人或真实登记主体重合的概率可忽略；
+        仅供开发与测试用途，<strong>不得用于真实身份、登记、征信、开户、资质证明或监管申报</strong>。
         校验与解析只读你粘进来的内容，全部在本地算：不发请求、不写 localStorage、不上传剪贴板。
+        金融许可证机构编码没有公开校验位，本页只判结构，不判真伪。
     </p>
     <noscript>
         <p class="tk-compliance tk-compliance--noscript">
-            脚本没有执行：下面五块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
+            脚本没有执行：下面三块面板按文档顺序全部展开，说明文字、口径与锚点照常可读，左侧索引退成普通目录链接。
             但"生成"与"判定"这两类动作都要在浏览器里算，此时按下按钮不会有结果。
         </p>
     </noscript>
-    {%- comment -%}
-    地址栏里的 #hash 不是本页任何一块面板时，装配层只在这里说一句，**不动地址栏**
-    （段 1 计划 §6.0 第三条：坏 hash 原样留着供人复制排查）。默认 hidden，由 panel-dom 覆写。
-    {%- endcomment -%}
     <p class="tk-notice" id="{{ tk.prefix }}-notice" hidden></p>
-    {%- comment -%}
-    键盘捷径只在这里说一次，不在 9 个栏位里各说一句：装配层（dev/js/tools/workbench.js）给
-    「生成」接 Enter（焦点在数量或日期格时），给「判定」接 Ctrl / ⌘ + Enter（焦点在粘贴框里）。
-    禁用脚本时这两句自然不成立——上面 `<noscript>` 那段已经说过"按钮不会有结果"，这里不再各挂一份。
-    {%- endcomment -%}
     <p class="tk-kbd"><kbd>Enter</kbd> 生成 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 判定</p>
 
     <div class="tk-workspace" id="{{ tk.prefix }}-workspace"
@@ -10528,15 +10925,6 @@ tool: idcard
          data-tk-prefix="{{ tk.prefix }}"
          data-tk-label="{{ tk.h1 }}"
          data-tk-notice="{{ tk.prefix }}-notice">
-        {%- comment -%}
-        索引条：`role="tablist"` / 每个 `role="tab"` 由 panel-dom.js 按 panel.js 算好的属性表写进来，
-        这里一个 ARIA 属性都不写——写第二遍就是第二处口径，改一处漏一处，而漏掉那一处只在读屏里看得见。
-        没有脚本时这一列就是普通目录，每条 `href="#{prefix}-panel-{slug}"` 跳到同名面板——
-        那枚 id 由下面的 `<section class="tk-panel">` 真的写着，锚点落得下去。段 5 Task 9 之前这里
-        挂的是裸 `#slug`，产物里没有这个 id，五块面板 × 两页 = 10 枚死锚点（禁 JS 与右键新标签才暴露，
-        开脚本时点 tab 走的是 `preventDefault()`，永远撞不到）。`parseHash` 两种形状都认，
-        所以已分享出去的裸 `#slug` 链接不作废。
-        {%- endcomment -%}
         <nav class="tk-index" id="{{ tk.prefix }}-tablist">
             {%- for p in tk.panels -%}
             <a class="tk-index__link" id="{{ tk.prefix }}-tab-{{ p.slug }}" href="#{{ tk.prefix }}-panel-{{ p.slug }}">
@@ -10547,11 +10935,10 @@ tool: idcard
         </nav>
 
         {%- comment -%}
-        下面五块面板的正文全部在构建期渲染（设计文档 §6.3：禁用脚本与爬虫都要读得到内容）。
-        每块都是「左：生成 / 右：校验解析」两栏，`#random` 没有可校验的输入，只有一栏。
-        表单一律用 div[role=group] 而不是 form：没有后端可交，form 的隐式提交会把整页刷成
-        ?tk-in-idcard-count=5，那是工具页最不像工具的故障。提交动作由 dev/js/toolIdcard.js
-        监听按钮与 Enter 键。
+        三块面板：个人证件（身份证/银行卡/手机号）、机构代码（四类代码）、测试数据。
+        每块的两栏都是「生成 / 校验解析」，类型由每块顶部的下拉切换；切换时装配层只翻
+        `hidden`，不重排 DOM、不重载页面。旧五块面板的 hash 由入口的 aliases 映射到
+        idcard / uscc 两块，类型下拉也会被拨到对应档。
         {%- endcomment -%}
 
         <section class="tk-panel" id="{{ tk.prefix }}-panel-idcard">
@@ -10564,51 +10951,93 @@ tool: idcard
                 <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
                     <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-gen">生成测试号码</h3>
                     <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-gen">
-                        <p class="tk-field tk-field--static">
-                            <label for="{{ tk.prefix }}-in-idcard-province">区划（只出现行码）</label>
-                            <span class="tk-cascade">
-                                <select id="{{ tk.prefix }}-in-idcard-province" data-tk-cascade="province">
-                                    <option value="">不限省份</option>
-                                </select>
-                                <select id="{{ tk.prefix }}-in-idcard-city" data-tk-cascade="city">
-                                    <option value="">不限地市</option>
-                                </select>
-                                <select id="{{ tk.prefix }}-in-idcard-county" data-tk-cascade="county">
-                                    <option value="">不限区县</option>
-                                </select>
-                            </span>
-                            <span class="tk-help">三级都是收窄，不是必填：只选到省就在省内随机挑县。</span>
-                        </p>
                         <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-idcard-sex">性别</label>
-                            <select id="{{ tk.prefix }}-in-idcard-sex">
-                                <option value="">不限</option>
-                                <option value="male">男</option>
-                                <option value="female">女</option>
+                            <label for="{{ tk.prefix }}-in-idcard-kind">类型</label>
+                            <select id="{{ tk.prefix }}-in-idcard-kind" data-tk-switch="kind">
+                                <option value="idcard">身份证</option>
+                                <option value="bank">银行卡</option>
+                                <option value="mobile">手机号</option>
                             </select>
+                            <span class="tk-help">切换类型只换下面的选项；已有结果会清空，按生成重新算。</span>
                         </p>
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-idcard-ageband">年龄段</label>
-                            <select id="{{ tk.prefix }}-in-idcard-ageband" data-tk-switch>
-                                <option value="">18–60 岁</option>
-                                <option value="18-30">18–30 岁</option>
-                                <option value="31-45">31–45 岁</option>
-                                <option value="46-60">46–60 岁</option>
-                                <option value="custom">指定出生日期</option>
-                            </select>
-                        </p>
-                        {%- comment -%}
-                        受开关控制的段落：`id` 是装配层找它的唯一路径（`workbench.js` 与 `panel-dom.js`
-                        同档，只走 `getElementById`，不碰 `querySelector`），`data-tk-when` 记的是
-                        "哪几个开关值会让它现身"，由 Task 9 拿 `WORKBENCH_SPEC` 的 switch targets 双向对账。
-                        少了 `id` 是最难查的一种漏：显隐静默不生效，页面看起来只是"多了一格一直显示"。
-                        {%- endcomment -%}
-                        <p class="tk-field" id="{{ tk.prefix }}-when-idcard-birth" data-tk-when="custom">
-                            <label for="{{ tk.prefix }}-in-idcard-birth">出生日期</label>
-                            <input id="{{ tk.prefix }}-in-idcard-birth" type="date" min="1900-01-01"
-                                   autocomplete="off" spellcheck="false">
-                            <span class="tk-help">下限 1900-01-01，上限是今天；出生年在 1900–1999 内会同时给出 15 位写法。</span>
-                        </p>
+
+                        <div id="{{ tk.prefix }}-when-idcard-idcard-fields" data-tk-when="idcard">
+                            <p class="tk-field tk-field--static">
+                                <label for="{{ tk.prefix }}-in-idcard-province">区划（只出现行码）</label>
+                                <span class="tk-cascade">
+                                    <select id="{{ tk.prefix }}-in-idcard-province" data-tk-cascade="province">
+                                        <option value="">不限省份</option>
+                                    </select>
+                                    <select id="{{ tk.prefix }}-in-idcard-city" data-tk-cascade="city">
+                                        <option value="">不限地市</option>
+                                    </select>
+                                    <select id="{{ tk.prefix }}-in-idcard-county" data-tk-cascade="county">
+                                        <option value="">不限区县</option>
+                                    </select>
+                                </span>
+                                <span class="tk-help">三级都是收窄，不是必填：只选到省就在省内随机挑县。</span>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-sex">性别</label>
+                                <select id="{{ tk.prefix }}-in-idcard-sex">
+                                    <option value="">不限</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-ageband">年龄段</label>
+                                <select id="{{ tk.prefix }}-in-idcard-ageband" data-tk-switch="ageband">
+                                    <option value="">18–60 岁</option>
+                                    <option value="18-30">18–30 岁</option>
+                                    <option value="31-45">31–45 岁</option>
+                                    <option value="46-60">46–60 岁</option>
+                                    <option value="custom">指定出生日期</option>
+                                </select>
+                            </p>
+                            <p class="tk-field" id="{{ tk.prefix }}-when-idcard-birth" data-tk-when="custom">
+                                <label for="{{ tk.prefix }}-in-idcard-birth">出生日期</label>
+                                <input id="{{ tk.prefix }}-in-idcard-birth" type="date" min="1900-01-01"
+                                       autocomplete="off" spellcheck="false">
+                                <span class="tk-help">下限 1900-01-01，上限是今天；出生年在 1900–1999 内会同时给出 15 位写法。</span>
+                            </p>
+                        </div>
+
+                        <div id="{{ tk.prefix }}-when-idcard-bank-fields" data-tk-when="bank">
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-bank">发卡行</label>
+                                <select id="{{ tk.prefix }}-in-idcard-bank" data-tk-options="banks">
+                                    <option value="">不限行别（表内全部 BIN 里随机）</option>
+                                </select>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-type">卡种</label>
+                                <select id="{{ tk.prefix }}-in-idcard-type" data-tk-options="cardtypes">
+                                    <option value="">不限</option>
+                                </select>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-length">位数（13–19）</label>
+                                <input id="{{ tk.prefix }}-in-idcard-length" type="number" min="13" max="19" step="1"
+                                       autocomplete="off" inputmode="numeric" placeholder="按行别登记位数">
+                            </p>
+                        </div>
+
+                        <div id="{{ tk.prefix }}-when-idcard-mobile-fields" data-tk-when="mobile">
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-carrier">运营商</label>
+                                <select id="{{ tk.prefix }}-in-idcard-carrier" data-tk-options="carriers">
+                                    <option value="">随机</option>
+                                </select>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-idcard-segment">号段（三位）</label>
+                                <select id="{{ tk.prefix }}-in-idcard-segment" data-tk-options="segments">
+                                    <option value="">不限号段</option>
+                                </select>
+                            </p>
+                        </div>
+
                         <p class="tk-field tk-field--count">
                             <label for="{{ tk.prefix }}-in-idcard-count">数量（1–50）</label>
                             <input id="{{ tk.prefix }}-in-idcard-count" type="number" min="1" max="50" step="1" value="5"
@@ -10621,6 +11050,8 @@ tool: idcard
                     <div class="tk-outwrap">
                         <button class="tk-btn tk-btn--ghost" type="button"
                                 id="{{ tk.prefix }}-copy-idcard-gen" disabled>复制这批号码</button>
+                        <a class="tk-btn tk-btn--ghost tk-download" id="{{ tk.prefix }}-download-idcard-gen"
+                           download hidden>下载 .txt</a>
                         <div class="tk-out" id="{{ tk.prefix }}-out-idcard-gen"
                              role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-gen"></div>
                     </div>
@@ -10630,11 +11061,11 @@ tool: idcard
                     <h3 class="tk-col__title" id="{{ tk.prefix }}-h-idcard-read">校验与解析</h3>
                     <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-idcard-read">
                         <p class="tk-field tk-field--wide">
-                            <label for="{{ tk.prefix }}-in-idcard-read">号码（可一次粘多行，每行一条）</label>
+                            <label id="{{ tk.prefix }}-in-idcard-read-label" for="{{ tk.prefix }}-in-idcard-read">身份证号 / 银行卡号 / 手机号（可一次粘多行）</label>
                             <textarea id="{{ tk.prefix }}-in-idcard-read" rows="5"
                                       autocomplete="off" autocorrect="off" autocapitalize="off"
                                       spellcheck="false" placeholder="110101199003070015"></textarea>
-                            <span class="tk-help">15 位与 18 位都收；含空格或分隔符的原样保留，判定对象单独回显给你看。</span>
+                            <span class="tk-help" id="{{ tk.prefix }}-in-idcard-read-help">跟着上面的「类型」走：身份证 15/18 位、银行卡按 Luhn、手机号按 11 位格式判。</span>
                         </p>
                         <p class="tk-actions">
                             <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-idcard-read">判定</button>
@@ -10642,7 +11073,7 @@ tool: idcard
                     </div>
                     <div class="tk-outwrap">
                         <button class="tk-btn tk-btn--ghost" type="button"
-                                id="{{ tk.prefix }}-copy-idcard-read" disabled>复制判定有效的号码</button>
+                                id="{{ tk.prefix }}-copy-idcard-read" disabled>复制判定有效的结果</button>
                         <div class="tk-out" id="{{ tk.prefix }}-out-idcard-read"
                              role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-idcard-read"></div>
                     </div>
@@ -10661,29 +11092,87 @@ tool: idcard
                     <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-gen">生成合规代码</h3>
                     <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-gen">
                         <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-uscc-registry">登记管理部门码（第 1 位）</label>
-                            <select id="{{ tk.prefix }}-in-uscc-registry" data-tk-charsets="uscc">
-                                <option value="">不填（取默认字符 9）</option>
+                            <label for="{{ tk.prefix }}-in-uscc-kind">类型</label>
+                            <select id="{{ tk.prefix }}-in-uscc-kind" data-tk-switch="kind">
+                                <option value="uscc">统一社会信用代码</option>
+                                <option value="orgcode">组织机构代码</option>
+                                <option value="creditcode">机构信用代码</option>
+                                <option value="license">金融许可证</option>
                             </select>
+                            <span class="tk-help">切换类型只换下面的选项；已有结果会清空，按生成重新算。</span>
                         </p>
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-uscc-category">机构类别码（第 2 位）</label>
-                            <select id="{{ tk.prefix }}-in-uscc-category" data-tk-charsets="uscc">
-                                <option value="">不填（取默认字符 1）</option>
-                            </select>
-                        </p>
-                        <p class="tk-field tk-field--static">
-                            <label for="{{ tk.prefix }}-in-uscc-province">行政区划（现行码，市级起）</label>
-                            <span class="tk-cascade">
-                                <select id="{{ tk.prefix }}-in-uscc-province" data-tk-cascade="province">
-                                    <option value="">不限省份</option>
+
+                        <div id="{{ tk.prefix }}-when-uscc-uscc-fields" data-tk-when="uscc">
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-registry">登记管理部门码（第 1 位）</label>
+                                <select id="{{ tk.prefix }}-in-uscc-registry" data-tk-charsets="uscc">
+                                    <option value="">不填（取默认字符 9）</option>
                                 </select>
-                                <select id="{{ tk.prefix }}-in-uscc-city" data-tk-cascade="city">
-                                    <option value="">不限地市</option>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-category">机构类别码（第 2 位）</label>
+                                <select id="{{ tk.prefix }}-in-uscc-category" data-tk-charsets="uscc">
+                                    <option value="">不填（取默认字符 1）</option>
                                 </select>
-                            </span>
-                            <span class="tk-help">代码第 3–8 位是 6 位区划段，市本级取「市码 + 00」。</span>
+                            </p>
+                        </div>
+
+                        <div id="{{ tk.prefix }}-when-uscc-region-fields" data-tk-when="uscc creditcode">
+                            <p class="tk-field tk-field--static">
+                                <label for="{{ tk.prefix }}-in-uscc-province">行政区划（现行码）</label>
+                                <span class="tk-cascade">
+                                    <select id="{{ tk.prefix }}-in-uscc-province" data-tk-cascade="province">
+                                        <option value="">不限省份</option>
+                                    </select>
+                                    <select id="{{ tk.prefix }}-in-uscc-city" data-tk-cascade="city">
+                                        <option value="">不限地市</option>
+                                    </select>
+                                </span>
+                                <span class="tk-help">统一社会信用代码取第 3–8 位；机构信用代码取第 4–9 位；市本级都按「市码 + 00」。</span>
+                            </p>
+                        </div>
+
+                        <div id="{{ tk.prefix }}-when-uscc-credit-fields" data-tk-when="creditcode">
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-creditFirst">准入登记管理机构类别（首字母）</label>
+                                <select id="{{ tk.prefix }}-in-uscc-creditFirst" data-tk-options="letters">
+                                    <option value="">不填（默认 G）</option>
+                                </select>
+                                <span class="tk-help">机构类别段与结算账户标识随机；校验位按公开的中征码算法计算。</span>
+                            </p>
+                        </div>
+
+                        <p class="tk-field" id="{{ tk.prefix }}-when-uscc-orgcode-note" data-tk-when="orgcode">
+                            <span class="tk-help">组织机构代码没有区划选项：本体 8 位从 31 字符集随机，第 9 位按 GB 11714 的 mod 11 校验位补全。</span>
                         </p>
+
+                        <div id="{{ tk.prefix }}-when-uscc-license-fields" data-tk-when="license">
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-licenseType">机构类型</label>
+                                <select id="{{ tk.prefix }}-in-uscc-licenseType" data-tk-options="licensetypes">
+                                    <option value="">不填（默认 B · 商业银行）</option>
+                                </select>
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-licenseOrg">组织类别</label>
+                                <select id="{{ tk.prefix }}-in-uscc-licenseOrg" data-tk-options="licenseorgs">
+                                    <option value="">不填（默认 H · 总行/总部）</option>
+                                </select>
+                            </p>
+                            <p class="tk-field tk-field--count">
+                                <label for="{{ tk.prefix }}-in-uscc-licenseIssuer">发证机关代码（1 位数字，留空取 1）</label>
+                                <input id="{{ tk.prefix }}-in-uscc-licenseIssuer" type="text" maxlength="1"
+                                       autocomplete="off" inputmode="numeric" placeholder="1">
+                            </p>
+                            <p class="tk-field">
+                                <label for="{{ tk.prefix }}-in-uscc-licenseProvince">地址省份</label>
+                                <select id="{{ tk.prefix }}-in-uscc-licenseProvince" data-tk-options="provinces">
+                                    <option value="">不限（随机省份）</option>
+                                </select>
+                                <span class="tk-help">地址段取省码前三位；机构代码用 9000–9999 测试段，不能当真实许可证号。</span>
+                            </p>
+                        </div>
+
                         <p class="tk-field tk-field--count">
                             <label for="{{ tk.prefix }}-in-uscc-count">数量（1–50）</label>
                             <input id="{{ tk.prefix }}-in-uscc-count" type="number" min="1" max="50" step="1" value="5"
@@ -10696,6 +11185,8 @@ tool: idcard
                     <div class="tk-outwrap">
                         <button class="tk-btn tk-btn--ghost" type="button"
                                 id="{{ tk.prefix }}-copy-uscc-gen" disabled>复制这批代码</button>
+                        <a class="tk-btn tk-btn--ghost tk-download" id="{{ tk.prefix }}-download-uscc-gen"
+                           download hidden>下载 .txt</a>
                         <div class="tk-out" id="{{ tk.prefix }}-out-uscc-gen"
                              role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-uscc-gen"></div>
                     </div>
@@ -10705,11 +11196,11 @@ tool: idcard
                     <h3 class="tk-col__title" id="{{ tk.prefix }}-h-uscc-read">校验与逐段解析</h3>
                     <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-uscc-read">
                         <p class="tk-field tk-field--wide">
-                            <label for="{{ tk.prefix }}-in-uscc-read">代码（可一次粘多行）</label>
+                            <label id="{{ tk.prefix }}-in-uscc-read-label" for="{{ tk.prefix }}-in-uscc-read">统一社会信用代码（可一次粘多行）</label>
                             <textarea id="{{ tk.prefix }}-in-uscc-read" rows="5"
                                       autocomplete="off" autocorrect="off" autocapitalize="off"
                                       spellcheck="false" placeholder="91350100M000100Y43"></textarea>
-                            <span class="tk-help">小写字母会先归一成大写，原样输入与判定对象各回显一次。</span>
+                            <span class="tk-help" id="{{ tk.prefix }}-in-uscc-read-help">跟着上面的「类型」走：四类代码各有自己的长度与校验位规则；金融许可证只判结构。</span>
                         </p>
                         <p class="tk-actions">
                             <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-uscc-read">判定</button>
@@ -10725,142 +11216,11 @@ tool: idcard
             </div>
         </section>
 
-        <section class="tk-panel" id="{{ tk.prefix }}-panel-bankcard">
+        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-random">
             <header class="tk-panel__head">
                 <h2 class="tk-panel__title">{{ tk.panels[2].name }}</h2>
                 <p class="tk-panel__tagline">{{ tk.panels[2].tagline }}</p>
                 <p class="tk-panel__desc">{{ tk.panels[2].desc }}</p>
-            </header>
-            <div class="tk-cols">
-                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
-                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-gen">生成测试卡号</h3>
-                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen">
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-bankcard-bank">发卡行</label>
-                            <select id="{{ tk.prefix }}-in-bankcard-bank" data-tk-options="banks">
-                                <option value="">不限行别（表内全部 BIN 里随机）</option>
-                            </select>
-                        </p>
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-bankcard-type">卡种</label>
-                            <select id="{{ tk.prefix }}-in-bankcard-type" data-tk-options="cardtypes">
-                                <option value="">不限</option>
-                            </select>
-                        </p>
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-bankcard-length">位数（13–19）</label>
-                            <input id="{{ tk.prefix }}-in-bankcard-length" type="number" min="13" max="19" step="1"
-                                   autocomplete="off" inputmode="numeric" placeholder="按行别登记位数">
-                        </p>
-                        <p class="tk-field tk-field--count">
-                            <label for="{{ tk.prefix }}-in-bankcard-count">数量（1–50）</label>
-                            <input id="{{ tk.prefix }}-in-bankcard-count" type="number" min="1" max="50" step="1" value="5"
-                                   autocomplete="off" inputmode="numeric">
-                        </p>
-                        <p class="tk-actions">
-                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-gen">生成</button>
-                        </p>
-                    </div>
-                    <div class="tk-outwrap">
-                        <button class="tk-btn tk-btn--ghost" type="button"
-                                id="{{ tk.prefix }}-copy-bankcard-gen" disabled>复制这批卡号</button>
-                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-gen"
-                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-gen"></div>
-                    </div>
-                </section>
-
-                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
-                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-bankcard-read">校验（Luhn）</h3>
-                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-bankcard-read">
-                        <p class="tk-field tk-field--wide">
-                            <label for="{{ tk.prefix }}-in-bankcard-read">卡号（可一次粘多行，空格与连字符会被去掉）</label>
-                            <textarea id="{{ tk.prefix }}-in-bankcard-read" rows="5"
-                                      autocomplete="off" autocorrect="off" autocapitalize="off"
-                                      spellcheck="false" placeholder="6222 0219 9003 0700 15"></textarea>
-                            <span class="tk-help">行别与登记位数查的是内置前缀表，查不到只说"表内未收录"，不下"无效"结论。</span>
-                        </p>
-                        <p class="tk-actions">
-                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-bankcard-read">判定</button>
-                        </p>
-                    </div>
-                    <div class="tk-outwrap">
-                        <button class="tk-btn tk-btn--ghost" type="button"
-                                id="{{ tk.prefix }}-copy-bankcard-read" disabled>复制判定有效的卡号</button>
-                        <div class="tk-out" id="{{ tk.prefix }}-out-bankcard-read"
-                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-bankcard-read"></div>
-                    </div>
-                </section>
-            </div>
-        </section>
-
-        <section class="tk-panel" id="{{ tk.prefix }}-panel-mobile">
-            <header class="tk-panel__head">
-                <h2 class="tk-panel__title">{{ tk.panels[3].name }}</h2>
-                <p class="tk-panel__tagline">{{ tk.panels[3].tagline }}</p>
-                <p class="tk-panel__desc">{{ tk.panels[3].desc }}</p>
-            </header>
-            <div class="tk-cols">
-                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
-                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-gen">生成测试号码</h3>
-                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-gen">
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-mobile-carrier">运营商</label>
-                            <select id="{{ tk.prefix }}-in-mobile-carrier" data-tk-options="carriers">
-                                <option value="">随机</option>
-                            </select>
-                        </p>
-                        <p class="tk-field">
-                            <label for="{{ tk.prefix }}-in-mobile-segment">号段（三位）</label>
-                            <select id="{{ tk.prefix }}-in-mobile-segment" data-tk-options="segments">
-                                <option value="">不限号段</option>
-                            </select>
-                        </p>
-                        <p class="tk-field tk-field--count">
-                            <label for="{{ tk.prefix }}-in-mobile-count">数量（1–50）</label>
-                            <input id="{{ tk.prefix }}-in-mobile-count" type="number" min="1" max="50" step="1" value="5"
-                                   autocomplete="off" inputmode="numeric">
-                        </p>
-                        <p class="tk-actions">
-                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-gen">生成</button>
-                        </p>
-                    </div>
-                    <div class="tk-outwrap">
-                        <button class="tk-btn tk-btn--ghost" type="button"
-                                id="{{ tk.prefix }}-copy-mobile-gen" disabled>复制这批号码</button>
-                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-gen"
-                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-gen"></div>
-                    </div>
-                </section>
-
-                <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
-                    <h3 class="tk-col__title" id="{{ tk.prefix }}-h-mobile-read">校验与号段识别</h3>
-                    <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-mobile-read">
-                        <p class="tk-field tk-field--wide">
-                            <label for="{{ tk.prefix }}-in-mobile-read">号码（可一次粘多行）</label>
-                            <textarea id="{{ tk.prefix }}-in-mobile-read" rows="5"
-                                      autocomplete="off" autocorrect="off" autocapitalize="off"
-                                      spellcheck="false" placeholder="13800138000"></textarea>
-                            <span class="tk-help">本站不做号码归属地：三位号段这一层判不到城市，而能干净取到许可的来源也只有这一层。</span>
-                        </p>
-                        <p class="tk-actions">
-                            <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-mobile-read">判定</button>
-                        </p>
-                    </div>
-                    <div class="tk-outwrap">
-                        <button class="tk-btn tk-btn--ghost" type="button"
-                                id="{{ tk.prefix }}-copy-mobile-read" disabled>复制判定有效的号码</button>
-                        <div class="tk-out" id="{{ tk.prefix }}-out-mobile-read"
-                             role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-mobile-read"></div>
-                    </div>
-                </section>
-            </div>
-        </section>
-
-        <section class="tk-panel tk-panel--single" id="{{ tk.prefix }}-panel-random">
-            <header class="tk-panel__head">
-                <h2 class="tk-panel__title">{{ tk.panels[4].name }}</h2>
-                <p class="tk-panel__tagline">{{ tk.panels[4].tagline }}</p>
-                <p class="tk-panel__desc">{{ tk.panels[4].desc }}</p>
             </header>
             <div class="tk-cols tk-cols--one">
                 <section class="tk-col" aria-labelledby="{{ tk.prefix }}-h-random-gen">
@@ -10868,7 +11228,7 @@ tool: idcard
                     <div class="tk-form" role="group" aria-labelledby="{{ tk.prefix }}-h-random-gen">
                         <p class="tk-field">
                             <label for="{{ tk.prefix }}-in-random-kind">来什么</label>
-                            <select id="{{ tk.prefix }}-in-random-kind" data-tk-switch>
+                            <select id="{{ tk.prefix }}-in-random-kind" data-tk-switch="kind">
                                 <option value="name">姓名</option>
                                 <option value="address">地址</option>
                                 <option value="email">邮箱</option>
@@ -10916,6 +11276,8 @@ tool: idcard
                     <div class="tk-outwrap">
                         <button class="tk-btn tk-btn--ghost" type="button"
                                 id="{{ tk.prefix }}-copy-random-gen" disabled>复制这批结果</button>
+                        <a class="tk-btn tk-btn--ghost tk-download" id="{{ tk.prefix }}-download-random-gen"
+                           download hidden>下载 .txt</a>
                         <div class="tk-out" id="{{ tk.prefix }}-out-random-gen"
                              role="region" aria-live="polite" aria-labelledby="{{ tk.prefix }}-h-random-gen"></div>
                     </div>
@@ -10927,8 +11289,7 @@ tool: idcard
 
 {%- comment -%}
 脚本两条：toolkitCore 把跨页共用的一面板框架/绑定层/视图挂成 window.Tk，页面入口只装配本页业务。
-两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后（同 weblab.html 那条
-口径——HTML 解析到这里时面板节点已经存在，装配层第一件事就是去找它们）。
+两条都不 defer、不加 type=module：产物是 iife 包过的经典脚本，且必须排在正文之后。
 {%- endcomment -%}
 <script src="{{ site.baseurl }}/assets/js/toolkitCore.min.js"></script>
 <script src="{{ site.baseurl }}/assets/js/toolIdcard.min.js"></script>
@@ -10936,10 +11297,6 @@ tool: idcard
 {% include footer.html %}
 
 {%- else -%}
-{%- comment -%}
-_data/onlineTools.yml 里查不到本页那一条时，宁可产出一个空正文的页面，也不要让 jekyll build 红在
-一个 Liquid 空值上：空正文会在 Task 9 的收录面判据（三页正文非空、五块面板齐）里当场红。
-{%- endcomment -%}
 <main class="g-container tk-content" id="main">
     <p class="tk-compliance">_data/onlineTools.yml 里缺少 slug 为 <code>{{ page.tool }}</code> 的条目。</p>
 </main>
@@ -11420,6 +11777,11 @@ body.night-mode {
     box-shadow: inset 0 0 0 1px var(--rule);
 }
 
+// 批量下载在结果画出来之前是隐藏的；`.tk-btn` 的 `display:inline-flex` 会盖掉 UA 的 hidden。
+.tk-download[hidden] {
+    display: none;
+}
+
 .tk-btn--ghost:disabled:hover {
     color: var(--ink-3);
     background-color: var(--surface-2);
@@ -11733,10 +12095,13 @@ body.night-mode {
 
     .tk-index__link {
         flex: none;
+        box-sizing: border-box;
         gap: 0;
+        min-height: 44px;
         padding: 6px 10px;
         font-size: 13px;
         white-space: nowrap;
+        align-content: center;
     }
 
     // 提示语在 chip 里就是噪音，且它撑宽了每一颗 chip（五条不等宽很难看）。
@@ -11765,8 +12130,15 @@ body.night-mode {
         justify-items: stretch;
     }
 
+    // 触控目标按 44px 走；输入控件同时提到 16px，避免 iOS 聚焦时自动放大整页。
     .tk-btn {
-        height: 38px;
+        height: 44px;
+    }
+
+    .tk-field input,
+    .tk-field select {
+        min-height: 44px;
+        font-size: 16px;
     }
 }
 ```
@@ -13601,10 +13973,15 @@ function checkDomContract(t, builtHtml, spec) {
           if (typeof c[attr] === 'string') markers[attr].set(id, c[attr]);
         }
       }
-      for (const tg of cfg.switch?.targets || []) {
-        const id = `${p}-when-${slug}-${tg.key}`;
-        need.push(id);
-        wantWhen.set(id, tg.when.join(' '));
+      const switchGroups = [];
+      if (cfg.switch) switchGroups.push(cfg.switch);
+      if (Array.isArray(cfg.switches)) switchGroups.push(...cfg.switches);
+      for (const sw of switchGroups) {
+        for (const tg of sw.targets || []) {
+          const id = `${p}-when-${slug}-${tg.key}`;
+          need.push(id);
+          wantWhen.set(id, tg.when.join(' '));
+        }
       }
       /**
        * 工作台支独有的四格地址（`out` / `copy` / `status` / `tree`）与十四枚按钮。

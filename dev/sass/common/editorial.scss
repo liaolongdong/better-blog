@@ -151,12 +151,11 @@ body {
     }
 
     .logo-poss {
-        // 这一档 3.78 是有意留着的：它属于 wordmark（"Better’s study fairyland" 里那个 ’s），
-        // WCAG 1.4.3 对「作为 logo 或品牌名一部分的文字」明确免检，所以不跟着上一轮把
-        // 次要文字抬到 AA 的那批改动走。改这里之前先确认它还在标识里——一旦这个 ’s
-        // 被挪去正文或别的非标识位置，免检理由就没了。
+        // 2026-10-19：原来用 --ink-4（3.78:1），虽然 logo 属于 WCAG 1.4.3 的免检例外，
+        // 但在 18px 正文尺寸下读起来仍像被擦过一层；抬到 --ink-3 后是 5.2:1，
+        // 视觉上也只比刊名浅半档，不抢字标本身。
         padding: 0 1px;
-        color: var(--ink-4);
+        color: var(--ink-3);
     }
 
     .g-logo:hover .logo-mark {
@@ -1337,6 +1336,55 @@ body {
             color: var(--ink-3);
         }
     }
+
+    // 可见修订记录。与 meta 行同一套字号和墨阶，不抢标题；details 只在作者写了
+    // updated 列表时出现，否则只有一条 commit 链接。flex-basis:100% 让展开的
+    // 修订列表另起一行，窄屏上日期与链接仍可并排。
+    .post-updated {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-top: 12px;
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--ink-3);
+
+        time {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .post-updated-label {
+            color: var(--ink-3);
+        }
+
+        .post-updated-link {
+            color: var(--ink-2);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+
+            &:hover {
+                color: var(--signal);
+            }
+        }
+
+        .post-revisions {
+            flex-basis: 100%;
+            margin-top: 2px;
+
+            summary {
+                width: fit-content;
+                cursor: pointer;
+                color: var(--ink-2);
+            }
+
+            .post-revisions-list {
+                margin: 8px 0 0;
+                padding-left: 1.25em;
+                color: var(--ink-3);
+            }
+        }
+    }
 }
 
 // 头图从「banner 背景层」改为「题注下方的插图」：暗色蒙层 + 白字的老做法
@@ -1363,6 +1411,81 @@ body {
     background-color: var(--paper);
     // overflow:hidden 会让粘性目录失效，浮动清理由 .post-main 负责
     overflow: visible;
+}
+
+// 结论先行：只在 front matter 写了 tldr 的文章出现。它排在正文之前、目录之后，
+// 给的是「这篇到底说了什么」，不是摘要的重复；没有 tldr 的文章一个字节都不多。
+.post-tldr {
+    padding: 15px 18px 16px;
+    margin: 0 0 28px;
+    background-color: var(--signal-soft);
+    border-left: 3px solid var(--signal);
+    border-radius: var(--radius-m);
+}
+
+.post-tldr-label {
+    margin-bottom: 6px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--signal-ink);
+}
+
+.post-tldr-text {
+    font-size: 15px;
+    line-height: 26px;
+    color: var(--ink-2);
+}
+
+// 常见问题：正文之后、篇末收束之前。问题用 <summary>，答案默认折叠；
+// 内容仍在 HTML 里，爬虫与 FAQPage 都能逐字读到，读者不必先被一屏问答挡住。
+.post-faq {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+}
+
+.post-faq-kicker {
+    margin-bottom: 6px;
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--ink-3);
+}
+
+.post-faq-title {
+    margin-bottom: 10px;
+    font-family: $font-display;
+    font-size: 24px;
+    line-height: 1.25;
+    color: var(--ink);
+}
+
+.post-faq-item {
+    border-top: 1px solid var(--rule);
+
+    &:first-child {
+        border-top: 0;
+    }
+
+    summary {
+        padding: 12px 0;
+        font-size: 15px;
+        line-height: 24px;
+        color: var(--ink-2);
+        cursor: pointer;
+    }
+
+    &[open] summary {
+        color: var(--signal-ink);
+    }
+
+    p {
+        margin: 0 0 14px;
+        font-size: 14px;
+        line-height: 25px;
+        color: var(--ink-3);
+    }
 }
 
 .post-grid {
@@ -1500,6 +1623,22 @@ body.has-toc .post-rail {
     font-weight: 500;
 }
 
+// 「这一节已经读过」的小点。用 float 而不是给 .toc-link 加 flex：后者会改变
+// 长标题的换行宽度与左侧竖线的基线，TOC 的错峰与进度线都按现有盒模型量过。
+.toc-mark {
+    float: right;
+    width: 6px;
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background-color: var(--rule-2);
+    transition: background-color .2s;
+}
+
+.toc-item.is-read>.toc-link .toc-mark {
+    background-color: var(--signal);
+}
+
 // A8 构建期静态目录（_plugins/toc.rb → post.html :214）。无 JS 时它是读者唯一的目录；
 // JS 起来（或内联脚本先一步认出「有 JS」）就整块收起，绝不同时看到两份。
 // 色与字号逐字跟着 JS 那一族的 .toc-title / .toc-link：--ink-3 落在 --paper 上实测 4.85:1，
@@ -1561,10 +1700,10 @@ html.has-js .toc-static {
     margin: 0;
 }
 
-.code-copy {
+.code-copy,
+.code-open {
     position: absolute;
     top: 8px;
-    right: 8px;
     z-index: 2;
     padding: 3px 10px;
     font-family: $font-meta;
@@ -1579,26 +1718,42 @@ html.has-js .toc-static {
     transition: opacity .18s ease, color .2s, background-color .2s, border-color .2s;
 }
 
+.code-copy {
+    right: 8px;
+}
+
+// 复制按钮实测宽 40–57px；right 70 给「已复制」那三字留出间隙，不会压住复制。
+.code-open {
+    right: 70px;
+}
+
 .code-wrap:hover .code-copy,
+.code-wrap:hover .code-open,
 .code-copy:focus-visible,
-.code-copy.is-done {
+.code-open:focus-visible,
+.code-copy.is-done,
+.code-open.is-done {
     opacity: 1;
 }
 
-.code-copy:hover {
+.code-copy:hover,
+.code-open:hover {
     color: var(--ink);
     border-color: var(--ink-4);
 }
 
-.code-copy.is-done {
+.code-copy.is-done,
+.code-open.is-done {
     color: var(--surface);
     background-color: var(--signal);
     border-color: var(--signal);
 }
 
-// 触屏没有 hover，复制按钮必须常驻可见，否则功能等于不存在
+// 触屏没有 hover，两颗按钮都必须常驻可见，否则功能等于不存在
 @media (hover: none) {
-    .code-copy {
+
+    .code-copy,
+    .code-open {
         opacity: 1;
     }
 }
@@ -3147,7 +3302,13 @@ body.js-reveal .reveal.is-in {
 // 外层盒子自身仍是 210 宽并停在容器中线右侧，视口窄到 210+容器左内边距*2 以内时，
 // 这个看不见的盒子会把整页顶出 15px 左右的横向滚动条（390px 上可左右拖动）。
 // 内层才是可见内容，改成外层收缩居中、内层归零，观感不变。
+// 纵向 flex：原有分享图标与下方的引用/分享按钮共用一条中线；site.social-share
+// 关闭时，引用按钮仍有一个居中的容器，不必再养第二套居中规则。
 .social-share-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
     float: none;
     left: auto;
     width: fit-content;
@@ -3157,6 +3318,56 @@ body.js-reveal .reveal.is-in {
 
 .social-share-wrapper .social-share {
     left: auto;
+}
+
+// 引用与原生分享。外观沿用顶栏药丸的描边语言，不引入第三种按钮样式；
+// 统一 44px 高：混合指针设备（触屏笔记本）的 primary pointer 可能是 fine，
+// 只挂 (pointer: coarse) 会让这些设备的可点面积退回 32px，所以不再分档。
+// [hidden] 必须显式写：上面的 display:flex 会盖掉 UA 的 [hidden]{display:none}，
+// 而这两颗按钮依赖脚本，无 JS 时不能让它们以「点了没反应」的形状留在页面上。
+.post-share-extra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.post-share-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    min-height: 44px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--ink-3);
+    cursor: pointer;
+    touch-action: manipulation;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease, transform .18s ease;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+    }
+
+    &:active {
+        transform: scale(.97);
+    }
+
+    &.is-done {
+        color: var(--signal-ink);
+        border-color: var(--signal);
+        background-color: var(--signal-soft);
+    }
 }
 
 // 行内 code 装的是 commit hash、长路径这类「一整块不可断的词」。
@@ -3761,6 +3972,67 @@ body.fab-tucked .bottom-fixed-btn {
     border-radius: var(--radius-s);
 }
 
+// 全文搜索按钮。只有输入了查询才出现；它把 1.2MB 的正文语料推迟到用户主动点击，
+// 所以样式上做成次要动作（浅色药丸），不和「搜索」本身抢主位。
+.cmdk-full {
+    flex: none;
+    margin-left: auto;
+    margin-right: 10px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--signal-ink);
+    white-space: nowrap;
+    cursor: pointer;
+    background-color: var(--signal-soft);
+    border: 1px solid transparent;
+    border-radius: 999px;
+
+    &:hover {
+        border-color: var(--signal);
+    }
+
+    &[hidden] {
+        display: none;
+    }
+
+    @media (pointer: coarse) {
+        padding: 0 12px;
+        min-height: 32px;
+    }
+}
+
+// 快捷键入口。和「搜索全文」同一行；触屏上 hint 被隐藏后它仍在，是手机上唯一的
+// 快捷键说明入口，所以不做纯装饰的灰色小字，保留可点区域与 hover 反馈。
+.cmdk-help {
+    flex: none;
+    margin-left: 10px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--ink-3);
+    white-space: nowrap;
+    cursor: pointer;
+    background: none;
+    border: 0;
+
+    kbd {
+        padding: 0 4px;
+        font-family: inherit;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-s);
+    }
+
+    &:hover {
+        color: var(--ink);
+    }
+
+    @media (pointer: coarse) {
+        min-height: 32px;
+        padding: 0 4px;
+    }
+}
+
 // 空查询与零结果时这一栏没有内容可显示：计数被 JS 写成空串，而右边那句
 // 「↑↓ 选择 · Enter 打开」和空态副标题是同一句话，留着就是同一屏两遍。
 // 判据用 .cmdk-results:empty —— 那两条分支都会把它清成空列表（editorial.js 的 initPalette/render）。
@@ -3830,6 +4102,18 @@ body.fab-tucked .bottom-fixed-btn {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px 14px;
     padding: 10px 12px;
+}
+
+// 动作行用 <button> 而不是 <a>：它执行的是页内动作，不是一次跳转。
+// 清掉浏览器默认的按钮外观，其余 grid 排布沿用 .cmdk-item-link。
+button.cmdk-item-link {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    background: none;
+    border: 0;
 }
 
 .cmdk-item-title {
@@ -4859,6 +5143,17 @@ dialog.shelf[open] {
     color: var(--ink-3);
 }
 
+.shelf-report {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+
+    &:hover {
+        color: var(--signal);
+    }
+}
+
 .shelf-clear {
     flex: none;
     height: 26px;
@@ -5879,6 +6174,19 @@ dialog.shelf[open] {
     ::view-transition-new(page-masthead) {
         animation: vtFadeIn var(--dur-3) var(--ease-out) both;
     }
+
+    // 封面共享元素：旧页在 .post-cover、新页在 .post-hero 挂同一个名字。
+    // group 负责盒子从卡片尺寸长成头图尺寸；old/new 的交叉淡化沿用默认节奏。
+    ::view-transition-group(post-cover) {
+        animation-duration: var(--dur-3);
+        animation-timing-function: var(--ease-out);
+    }
+
+    ::view-transition-old(post-cover),
+    ::view-transition-new(post-cover) {
+        animation-duration: var(--dur-2);
+        animation-timing-function: var(--ease-out);
+    }
 }
 
 @keyframes vtRootOut {
@@ -6352,4 +6660,451 @@ dialog.shelf[open] {
         transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out),
                     box-shadow var(--dur-3) var(--ease-out), translate var(--dur-2) var(--ease-out);
     }
+}
+
+/**
+ * 触屏命中面积（2026-10-19）
+ *
+ * 不改桌面观感，也不把药丸本身画大：只在 `hover: none` 这一档把可点盒补到约 44px。
+ * 背景：390×844 实测菜单 32×28、社交图标 22×30、首页书签 30×30、分页 34×34，
+ * 以及文章页「阅读设置 / 稍后再读」24px 高——都低于 Apple HIG 的 44pt，也低于
+ * 本站自己给工具页定的同一档。标签类保持 34px：它们是行内筛选入口，44 会让信息流
+ * 每行多出一截空白；34 已高于 WCAG 2.5.8 的 24px 下限。
+ */
+@media (hover: none) {
+    .g-header .g-logo>a {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .skip-link {
+        min-height: 44px;
+    }
+
+    .g-header .menu-toggle {
+        top: 6px;
+        right: 12px;
+        width: 44px;
+        height: 44px;
+
+        .menu-bar {
+            // 24×2 的横线仍停在原来的视觉位置：盒子从 32×28 变成 44×44，
+            // 左移 2px、下移 8px 正好抵掉多出来的内边距。
+            left: 8px;
+            top: 21px;
+        }
+    }
+
+    .g-header .g-nav .nav-link {
+        min-height: 44px;
+    }
+
+    .author-card .sns-links li,
+    .author-detail .author-card .sns-links li {
+        width: 44px;
+        height: 44px;
+    }
+
+    .author-card .sns-links li a,
+    .author-detail .author-card .sns-links li a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+    }
+
+    .author-card .sns-links li .iconfont,
+    .author-detail .author-card .sns-links li .iconfont {
+        line-height: 1;
+    }
+
+    .pagination .page-link {
+        width: 44px;
+        height: 44px;
+        line-height: 44px;
+    }
+
+    .shelf-mark.is-card {
+        width: 44px;
+        height: 44px;
+    }
+
+    .post-masthead .reader-btn,
+    .post-masthead .shelf-mark:not(.is-card) {
+        height: 44px;
+        padding: 0 13px;
+    }
+
+    .post-masthead .post-tag,
+    .article-item .post-meta .post-tag,
+    .tags-card .tag,
+    .feed-topic {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: auto;
+        min-width: 44px;
+        min-height: 34px;
+        padding: 0 12px;
+        line-height: 32px;
+    }
+
+    .post-crumb a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+    }
+
+    .code-copy {
+        min-width: 48px;
+        min-height: 36px;
+        padding: 6px 12px;
+    }
+
+    .code-open {
+        min-height: 36px;
+        padding: 6px 12px;
+    }
+
+    .social-share-wrapper .social-share-icon {
+        width: 44px;
+        height: 44px;
+        // vendor 的 share.min.css 给这一格写死 line-height:32px：高度涨到 44 后
+        // 图标会整体偏上 6px。字号不动，只把行盒抬到与新高度同值。
+        line-height: 44px;
+    }
+
+    .rewardButton {
+        min-height: 44px;
+    }
+
+    body.has-toc .toc-fab {
+        min-height: 44px;
+    }
+
+    .card-more {
+        padding-top: 16px;
+        padding-bottom: 8px;
+    }
+}
+
+// 键盘快捷键总览。原生 <dialog> 负责 Esc 与焦点陷阱；这里只管纸面版式。
+// 内容里只列站内真实存在的按键，新增动作时先改 header.html 的清单，再改实现。
+.shortcuts {
+    box-sizing: border-box;
+    width: min(92vw, 480px);
+    max-height: 90vh;
+    padding: 20px 22px;
+    overflow-y: auto;
+    font-family: inherit;
+    color: var(--ink-2);
+    background-color: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-3);
+
+    &::backdrop {
+        background-color: rgba(20, 22, 26, .48);
+    }
+}
+
+// 不支持原生 <dialog> 的浏览器会把 dialog 当普通块级元素渲染；
+// shelf 已有同样的兜底，快捷键这块也补一条，避免面板内容常驻页面。
+dialog.shortcuts:not([open]) {
+    display: none;
+}
+
+.shortcuts-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.shortcuts-kicker {
+    font-family: $font-meta;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: var(--ink-3);
+}
+
+.shortcuts-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink-3);
+    cursor: pointer;
+    background: none;
+    border: 0;
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.shortcuts-list {
+    display: grid;
+    margin: 0;
+
+    >div {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px 12px;
+        padding: 9px 0;
+        border-top: 1px solid var(--rule);
+
+        &:first-child {
+            padding-top: 0;
+            border-top: 0;
+        }
+
+        &:last-child {
+            padding-bottom: 0;
+        }
+    }
+
+    dt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        color: var(--ink);
+    }
+
+    dd {
+        margin: 0;
+        font-size: 13px;
+        line-height: 19px;
+        color: var(--ink-3);
+        text-align: right;
+    }
+
+    kbd {
+        padding: 1px 5px;
+        font-family: $font-meta;
+        font-size: 11px;
+        color: var(--ink-2);
+        background-color: var(--surface-2);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-s);
+    }
+}
+
+
+/*** 13. 动效批 V（C1 灯箱序列 / C2 代码块 / C3 锚点落点） ***/
+
+// C1：序列导航。钉在对话框右下角，不抢图的注意力；单图文章整块 hidden。
+.lightbox-nav {
+    position: fixed;
+    right: 20px;
+    bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+}
+.lightbox-count {
+    min-width: 54px;
+    text-align: center;
+    font-family: $font-meta;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: .06em;
+    color: rgba(255, 255, 255, .82);
+    background: rgba(0, 0, 0, .38);
+    border-radius: 999px;
+    padding: 7px 10px;
+}
+.lightbox-step {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .38);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.lightbox-step:hover { background: rgba(0, 0, 0, .58); }
+.lightbox-step:active { transform: scale(.94); }
+
+// 翻页进场只动 transform/opacity，与 M 系列其余动效同一口径。
+@keyframes lbFromRight {
+    from { opacity: 0; transform: translate3d(var(--travel-m), 0, 0); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes lbFromLeft {
+    from { opacity: 0; transform: translate3d(calc(var(--travel-m) * -1), 0, 0); }
+    to { opacity: 1; transform: none; }
+}
+.lightbox img.is-from-right { animation: lbFromRight var(--dur-2) var(--ease-out) both; }
+.lightbox img.is-from-left { animation: lbFromLeft var(--dur-2) var(--ease-out) both; }
+
+// C3：锚点落点反馈。实测从 ⌘K、搜索深链或站内锚链接跳进来时，目标标题的
+// backgroundColor / animationName / transitionDuration 三个值跳前跳后完全相同——
+// 读者落在一屏文字中间，没有任何东西告诉他「是这一段」。
+@keyframes targetFlash {
+    from { background-color: color-mix(in srgb, var(--signal) 26%, transparent); }
+    to { background-color: transparent; }
+}
+.markdown-body :target,
+.toc-static :target,
+.post-faq-item:target {
+    animation: targetFlash 1.4s var(--ease-out) both;
+    border-radius: var(--radius-2, 8px);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+/*** 14. 布局批 D（手机命中区） ***/
+
+// D-1 已回退（2026-10-21，本人拍板）：这里曾经把编辑精选从 5 条纵排压成 3 条两列/三列，
+// 为的是把第一篇推上首屏（实测 1440×900 只露 34px 卡边）。省是省了 149px，代价是这一栏
+// 从「编辑挑的五篇」变成一排三张短卡，读者认不出它是干什么的——形状本身就是它的说明。
+// 首屏露出改由刊头与信息流的节奏去还（见下面 D-3），不再动这个模块。
+// 原始形状：`.feed-picks-list` 不设 display，走 <ol> 的纵排 + 每行一条编号。
+
+// D-2 手机命中区。实测 .toc-fab 73×37、.reader-btn 90×24，都低于 44px 的舒适线
+// （过 WCAG 2.5.8 的 24px 下限，未及 AAA 的 44px）。用 ::before 撑一块透明命中区，
+// 视觉尺寸一个像素不动——把按钮本身画大是另一件事，那要重排版面。
+.toc-fab,
+.reader-btn {
+    position: relative;
+}
+.toc-fab::before,
+.reader-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-width: 44px;
+    height: 100%;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+}
+
+// D-3 两枚胶囊状入口的命中区。实测（1280×900 首页）：`.feed-topic` 6 颗、`.post-tag` 34 颗，
+// 高度都只有 22px——低于 WCAG 2.5.8「AA 最小尺寸」的 24×24，拇指点在列表里其实经常落空。
+// 这里**只往上下各借 11px，横向一格都不借**：实测话题胶囊最窄 51px、彼此间隙只有 6px，
+// 文章标签最窄 31px、间隙 8px，横向一旦撑到 44px 就会压到邻颗，点 A 命中 B——
+// 那比 22px 更糟。纵向两行之间分别有 16px 与 528px 的空档，借 11px 不撞任何可交互元素。
+// 与上面 D-2 同一手法：透明伪元素撑命中区，视觉尺寸一像素不动。
+//
+// 借多少是按**实测间隙**算的，不是一律给 44：
+// · .feed-topic（6 颗，最窄 51、同排间隙 6）与 .post-tag（34 颗，最窄 31、间隙 8）：
+//   只往上下各借 11px（→44px），横向一格不借。实测两颗中间那个落点仍归容器，不抢邻位。
+// · a.tag（首页标签卡 12 枚）：行距只有 6px，所以只借 3px → 28px，够过 24 的下限又
+//   不与上下行叠住（实测中心/上 8px/下 8px 三个落点都命中它自己）。
+// 曾经还有一条给 .shelf-mark 借满 ±11px 的，已经删掉：它住在 .post-meta-actions 这一行里，
+// 右边那位兄弟借出去 11px 就盖住了 .reader-btn 的中心点，真鼠标点偏好按钮会被它接走
+// —— 复现于逐层动效核验那一格「开：峰值 0、面板 hidden」，而 btn.click() 程序点击照样开。
+// 教训记在这里：撑命中区之前要量的是**这一行里所有兄弟**的边界，不是同类元素之间的间隙。
+.feed-topic,
+.post-tag {
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -11px 0;
+    }
+}
+
+a.tag {
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -3px 0;
+    }
+}
+
+// C2：语言角标与长块折叠（动效批 V）。外壳复用 initCodeCopy 的 .code-wrap，
+// 角标放左上——右上是 .code-copy 的位置，两枚叠一起会互相盖。
+.code-wrap { position: relative; }
+.code-wrap > pre { margin-bottom: 0; }
+.code-lang {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    padding: 3px 9px;
+    font-family: $font-meta;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--radius-2, 8px) 0;
+    pointer-events: none;
+    user-select: none;
+}
+// 折叠用 mask 而不是「max-height + 一条渐变遮罩」：遮罩要多占一个伪元素，
+// 而 .code-copy 就住在 pre 的右上角，多一层就多一次撞位风险。
+.code-wrap.is-foldable:not(.is-open) > pre {
+    max-height: 22em;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+.code-more {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 44px;
+    margin-top: -2.2em;
+    border: 0;
+    background: none;
+    font-family: $font-meta;
+    font-size: 12.5px;
+    line-height: 1;
+    color: var(--signal);
+    cursor: pointer;
+    transition: opacity var(--dur-1) var(--ease-out);
+}
+.code-more:hover { opacity: .72; }
+.code-more:active { transform: scale(.985); }
+
+// C4：列表上的「读过」标记（动效批 V）。整行标题降到三级墨色、右侧挂一枚小字标记——
+// 不划删除线：划掉读过的东西是「已处理完」的语义，而回访重读正是这个站想要的。
+// 首页那条要多带一层 .article-list：§4 的 `.post-preview .post-title` 已经占了三类，
+// 同特异度比的是源码次序，实测只写 `.article-item.is-read .post-title` 会被它压住
+// ——标记出现了、标题却不降色，两边不一致比两边都不变更难看。
+.article-list .article-item.is-read .post-title,
+.cat-row.is-read .cat-title,
+.cat-row.is-read a,
+.related-item.is-read .related-name,
+.series-row.is-read .series-link,
+.feed-pick.is-read .feed-pick-title {
+    color: var(--ink-3);
+}
+.read-mark {
+    margin-left: .45em;
+    font-family: $font-meta;
+    font-size: .68em;
+    font-weight: 500;
+    letter-spacing: .06em;
+    color: var(--ink-3);
+    border: 1px solid var(--surface-2);
+    border-radius: 999px;
+    padding: 1px 6px;
+    white-space: nowrap;
 }

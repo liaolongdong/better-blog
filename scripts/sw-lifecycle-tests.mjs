@@ -266,7 +266,9 @@ test('SW2 入口段的钉子落在 index-all 那格为止：首页与入口页�
   });
   assert.equal(g.ENTRY_CUT, 2, 'index-all 不在清单第 3 位——补全顺序变了，钉的这一段也跟着变了，要人来看一眼');
   assert.deepEqual(host(g.PIN_URLS), [g.BASE + '/', g.BASE + '/tools.html', g.BASE + '/index-all.html']);
-  assert.equal(g.DOC_URLS.length, 5, '前提：清单里入口段之外还有正文，否则「不钉正文」那一半判的是空集');
+  // 入口段之外必须真的还有条目，否则「不钉正文」那一半判的是空集。写成派生而不是硬填条数：
+  // 2026-10 起真源里 index-all 之后还有 changelog 一格，任何按字面条数写的前提都会跟着清单加一格就红。
+  assert.ok(g.DOC_URLS.length > g.PIN_URLS.length, '前提：清单里入口段之外还有条目，否则「不钉入口段之外」那一半判的是空集');
   assert.ok(g.DOC_URLS.slice(g.ENTRY_CUT + 1).every((u) => !g.PIN_URLS.includes(u)),
     '正文混进了豁免名单：桶满时最先被挤掉的恰是它们该留的位置');
 });
@@ -478,9 +480,19 @@ function entrySegmentProblems(src) {
   const arrEnd = src.indexOf('\n];', arrStart);
   const arr = src.slice(arrStart, arrEnd);
 
-  const emitLines = arr.split('\n').filter((l) => l.includes('index-all'));
+  // 注释不参与认定边界：`sw.js` 里数组中间是可以写说明的（changelog 那一格就带了一段），
+  // 而这段说明合法地提到 index-all。按整行数「带 index-all 的行」会把注释算成一条发出，
+  // 于是「恰好 1 条」判红——红的不是清单漂了，是这条判据把注释当成了代码。
+  // 这里先把 Liquid 注释块与 JS 行注释摘掉，再数真正的数组元素行。
+  const codeOnly = arr
+    .replace(/\{%-?\s*comment\s*-?%\}[\s\S]*?\{%-?\s*endcomment\s*-?%\}/g, '')
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
+    .join('\n');
+
+  const emitLines = codeOnly.split('\n').filter((l) => l.includes('index-all'));
   if (emitLines.length !== 1) {
-    return [`DOC_URLS 里带 index-all 的行有 ${emitLines.length} 条，应当恰好 1 条——边界无从认定`];
+    return [`DOC_URLS 里带 index-all 的**元素行**有 ${emitLines.length} 条，应当恰好 1 条——边界无从认定`];
   }
   const emitted = emitLines[0].trim().replace(/,$/, '');
 
@@ -493,10 +505,10 @@ function entrySegmentProblems(src) {
     problems.push(`两边不是同一把尺：清单发出「${emitted}」，ENTRY_CUT 找的是「${lookup[1]}」`);
   }
 
-  const postsLoop = arr.indexOf('for post in site.posts');
+  const postsLoop = codeOnly.indexOf('for post in site.posts');
   if (postsLoop === -1) {
     problems.push('DOC_URLS 里找不到 site.posts 那个循环——清单形状变了，这一条判据要重写');
-  } else if (arr.indexOf('index-all') > postsLoop) {
+  } else if (codeOnly.indexOf('index-all') > postsLoop) {
     problems.push('index-all 排在 site.posts 循环之后：豁免段会吞掉整份正文清单，条数闸等于停摆');
   }
   return problems;
@@ -540,8 +552,12 @@ test('SW16 反向对照：把 index-all 挪到正文循环之后，沙箱看不�
   const seen = docUrlsAfterStrip(src);
   assert.ok(seen.includes("BASE + '/index-all.html',"),
     `正向对照：摘完 Liquid 应当还看得见那一行，实际读到 ${JSON.stringify(seen)}`);
-  assert.deepEqual(docUrlsAfterStrip(moved), seen,
-    '沙箱能看见的行序应当一模一样——若这条红了，说明上面那些沙箱判据其实看得见这一挪，SW15 就是多余的');
+  // 2026-10 起 index-all 不再是可见清单的最后一格（changelog 排在它后面），
+  // 「行序一模一样」这个前提已不成立：这一挪会改可见顺序。这条反向对照要证的从来不是顺序，
+  // 而是沙箱看不出**钉住语义**的变化：摘掉循环后两种写法是同一批元素换序，
+  // 而运行时那份真清单里把 index-all 挪到循环之后＝把整份正文都钉住，沙箱永远碰不到那个规模。
+  assert.deepEqual([...docUrlsAfterStrip(moved)].sort(), [...seen].sort(),
+    '沙箱能看见的应当只是同一批元素换了序——若连集合都变了，上面那条不变量就不是唯一看得见这一挪的地方');
 });
 
 // ── 补全续跑与部分失败留桶（2026-10-17 存量评审补的六刀）──────────────────────
@@ -607,7 +623,7 @@ test('SW17 补全正排着的时候再叫一次不另起一串；省流量模式
 test('SW18 停在中途的补全被一次导航接上：游标接着走，桶里已有的那条一度也不重下', async () => {
   const env = loadSw({ edits: FILL_EDITS });
   const docs = host(env.g.DOC_URLS);
-  assert.equal(docs.length, 8, `前提：清单该撑到 8 条文档，实际 ${docs.length} 条`);
+  assert.ok(docs.length >= 8, `前提：合成清单至少撑到 8 条文档，实际 ${docs.length} 条`);
   const doc = await env.caches.open(env.g.BUCKET.doc);
   for (const u of docs.slice(0, 4)) await doc.put(u, swRes(16));
   const img = await env.caches.open(env.g.BUCKET.img);
@@ -650,7 +666,7 @@ test('SW20 队列跑到底才算 done：跑完之后导航一个请求都不再�
   assert.equal(env.self.__bbFillDone, true, `队列走不到底（跑了 ${batches} 批）：done 这一格是核验唯一的落定信号`);
   assert.equal(env.g.fill.cursor, env.g.DOC_URLS.length + env.g.COVER_URLS.length, '游标没走到清单末尾');
   assert.equal(env.g.fill.running, false);
-  assert.equal(env.self.__bbFilled, 10, `入桶条数应为清单 10 条，实际 ${env.self.__bbFilled}`);
+  assert.equal(env.self.__bbFilled, env.g.DOC_URLS.length + env.g.COVER_URLS.length, `入桶条数应为清单全长 ${env.g.DOC_URLS.length + env.g.COVER_URLS.length}，实际 ${env.self.__bbFilled}`);
 
   const seenBefore = env.seen.fetch.length;
   const ev = swNavigate(env, NAV_URL);

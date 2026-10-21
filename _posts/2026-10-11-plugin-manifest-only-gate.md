@@ -8,6 +8,14 @@ date: 2026-10-11
 categories: 开源实测
 cover: /assets/img/plugin-manifest-only-gate/banner.webp
 tags: 开源 插件 Agent MCP
+tldr: '往 cursor/plugins 的克隆里塞三种坏载荷，那本校验脚本三次都报绿——它读的只有根清单和每份 plugin.json；唯一让它变红的办法是往 manifest 加一个未知键，那次 exit 1。'
+faq:
+  - q: 'cursor/plugins 的校验脚本覆盖到哪一层？'
+    a: '只到 manifest 层。无 description 的 SKILL.md、非法 JSON 的 mcp.json、删掉必填键的 plugin.json 三种塞进去都是退出码 0；给某份 plugin.json 加一个未知键 colour 才回 exit 1，因为 schema 关了未知键、清单层它有牙。'
+  - q: 'clone 下来能直接跑 scripts/validate-plugins.mjs 吗？'
+    a: '不能。仓库根没有 package.json 也没有 lockfile，直接跑报 ERR_MODULE_NOT_FOUND，说 Cannot find package ajv。先 npm install --no-save ajv ajv-formats，加 6 个包 845 毫秒，再跑回 All plugins validated successfully。那两行 --no-save 是它的 workflow 自己写的。'
+  - q: 'Claude Code 的 plugin validate 能替它看载荷层吗？'
+    a: '载荷那一半能：2.1.145 的 plugin validate 认出那份缺 description 的 skill，加 --strict 就失败。但这仓库的方言它读不了，指 teaching 报 No manifest found in directory，一百条集市只认出 1 个插件。另有一处对不上：API 的 license 字段是 null、根目录没有 LICENSE 文件，README 却写着 MIT。'
 ---
 
 # 100 份 manifest 的仓库，CI 只看这 100 份

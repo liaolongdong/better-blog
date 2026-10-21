@@ -8,6 +8,14 @@ date: 2026-10-12
 categories: 开源实测
 cover: /assets/img/video-shotcraft-stale-about/banner.webp
 tags: 开源 Agent 仓库 评测
+tldr: '磁盘、README、线上 library.json 三处都是 124，只有 GitHub 右侧那行简介停在 152——它是 repo.description，存在仓库外，git 里没有任何文件装着它，那四条 CI job 谁也够不着。'
+faq:
+  - q: '仓库里到底有多少张镜头卡？'
+    a: '四处对得上，只有简介对不上：磁盘 find 出来 124，README.md 第 38 行写 124 shot recipe cards, 150 tuned shots，README_CN.md:59 也是 124，线上 library.json 的 cardCount 124、styleCount 150。grep 那句 152 shot 在所有 .md 里零命中，退出码 1。'
+  - q: '仓库自己的 CI 为什么拦不住这行过期简介？'
+    a: '不是漏放，是够不着。pr-checks.yml 的 on.pull_request.paths 收了 references/shots/**、demos/**、template/src/**，没收 README.md、README_CN.md、SKILL.md。那行字是 repo.description，存在 GitHub 侧，git 里没有任何文件装着它；要校它得有人在仓库设置里挂一个跑 API 的定时检查。'
+  - q: 'npx skills add 第一次跑就报 Failed to clone repository 是它的锅吗？'
+    a: '不是。git 报的是 HTTP/2 流被掐断，本机直连 github.com 不通。挂了代理那一次跑了五分十六秒，卡片落进 .agents/skills/，副本里仍是 124 张；再在 template/ 里 npm install 是 185 个包 32 秒。'
 ---
 
 # 仓库里 124 张镜头卡，GitHub 简介写 152：那行字不在 git 里

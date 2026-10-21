@@ -89,7 +89,7 @@ about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseur
 {%- endcomment -%}
 {%- assign years = site.posts | group_by_exp: "post", "post.date | date: '%Y'" | sort: "name" -%}
 {%- assign prev_year = nil -%}
-<div class="p-about" id="main">
+<main class="p-about" id="main">
     <div class="g-container about-body">
         {%- if site.aboutMe.authorWorkTimeLine.size > 0 -%}
         <section class="tl-block" aria-labelledby="tl-title-career">
@@ -255,7 +255,7 @@ about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseur
         </div>
         </section><!-- /.tl-block（写在这里的每一年） -->
     </div>
-</div>
+</main>
 {%- comment -%}
 canvas-nest 不在这里加载：它画的是深色底上的白点星链（连线走白色，点其实是未设 fillStyle 的黑色），
 白昼态挂上去就是暖纸底上一片黑噪点。改由 about.js 在进夜间时注入、切回白昼时停机摘布

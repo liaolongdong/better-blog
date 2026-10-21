@@ -8,6 +8,14 @@ date: 2026-09-12
 categories: [AI, 开源实测]
 cover: /assets/img/trending-skill-sweep/banner.webp
 tags: AI 前端 开源 Agent 工具
+tldr: '装完插件看到 25 个 skill，模型能主动看见的只有 11 个：14 个标了 disable-model-invocation 的不会自动加载，得逐个数 frontmatter，光读 plugin.json 看不出这个数。'
+faq:
+  - q: 'SKILL.md 里 disable-model-invocation: true 的 skill 还能用吗？'
+    a: '能用，但模型不会自动加载它——文章的口径是 agent 够不着、你得自己点名。这个插件发布 25 个 skill 里 14 个标了 true，装完看起来是 25 个，实际能被模型主动看见的只有 11 个。'
+  - q: 'mattpocock/skills 的 37 个 SKILL.md 是怎么变成发布 25 个的？'
+    a: 'tarball 解出来 94 个 .md，其中 SKILL.md 37 个：engineering 18、productivity 7、in-progress 8、misc 4。plugin.json（1.2.3 版）的 skills 数组长度是 25，只收前两类，in-progress 和 misc 不在发布清单里。37 个里 22 个写了 disable-model-invocation: true、0 个写 false，22 减掉没发布的 8 个 in-progress，正好 14 个够不着。'
+  - q: 'CLAUDE.md 规定全仓禁用破折号，实际数出多少个？'
+    a: 'U+2014 共 104 处，全部在 CHANGELOG.md 里，SKILL.md、docs、README、changeset 目录是 0 个。原因是那次清理的 changeset 自报范围里就没有 CHANGELOG.md，而这个文件是发版时由 changesets 的 GitHub changelog 生成器机器拼的，没人手写，永久规则和一次性范围差了正好一个文件。'
 ---
 
 ![一周 GitHub 趋势榜上成排的 agent skill 仓库，只有中间一座被人逐块数过](/assets/img/trending-skill-sweep/banner.webp)
@@ -79,9 +87,9 @@ tarball 235,854 字节，commit `3cca18b368ae95cdbdebbff572ccafa662551015`（com
 ## 这周另外几笔
 
 - **archify**：页面写本周 +11,006。拿 09-09T16:08Z 和 09-12T14:39Z 两次 REST 快照算，55,778 → 59,250，70.52 小时涨 3,472，折周 8,267，比页面低 25%。增量是真的，页面口径比我的宽。
-- **magnitude**：上期日志记它“只抓数未进正文”，4,228。这期两次快照折周 343，而 09-10 抓 TypeScript 榜时页面写 2,616 stars this week，差 7.6 倍。这数我解释不了，下次连抓两天。
+- **magnitude**：上期日志记它“只抓数未进正文”，4,228。这期两次快照折周 343，而 09-10 抓 TypeScript 榜时页面写 2,616 stars this week，差 7.6 倍。这数我解释不了，[下一篇 gods-eye-view 那期]({{ site.baseurl }}/2026/09/17/gods-eye-view-keyless.html)连抓两天。
 - **i-have-adhd**：43,037 星，2026-05-13 建仓，2,449 fork。周增量第一名，卖点是别让编码 agent 把答案埋了。这类东西我不看星数，看它插不插得进我的 review 流程。
-- hyperframes 上期卡在 2 GB 临时盘，这期依旧没跑。
+- hyperframes [上期卡在 2 GB 临时盘]({{ site.baseurl }}/2026/09/10/agent-visual-toolchain.html)，这期依旧没跑。
 - **ponytail**：周增 11,054、136,338 星，全榜第二。不命中 skill，我一次没打开过，标个记号。
 - 那个叫 `skills` 的 npm 包，2026-09-05 到 09-11 下载 4,621,540 次。它是通用安装器，不是这个仓库的分发量，`npx skills@latest add mattpocock/skills` 那行用的就是它。
 - Search API 只用 1 次（剩 8）：新建 repo 那查返回 4 条，最高 556 星，没一手来源，不写推荐。camofox-browser 跟上期一样不推荐。

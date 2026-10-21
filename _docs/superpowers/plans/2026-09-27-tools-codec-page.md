@@ -7152,6 +7152,8 @@ export function createCodecWorkbench(env = {}) {
 
   /** `panel:side → 这一栏当前能复制的纯文本`；渲染时写，复制按钮读它，不从 HTML 反解 */
   const copies = new Map();
+  /** `panel:side → 上一次画上的模型与复制文本`：异步失败时用它还原上一格，不读 innerHTML */
+  const lastModels = new Map();
   /** `copyId → 骨架那句原文案`：改口之后要能改回**页面里那一句**，而不是这里写死的一句 */
   const copyLabels = new Map();
   const at = (panel, side) => `${panel}:${side}`;
@@ -7231,6 +7233,7 @@ export function createCodecWorkbench(env = {}) {
   const paintSide = (panel, side, model, copy) => {
     paint(panel, side, cv.block(panel, model, NOTES[panel]));
     copies.set(at(panel, side), copy);
+    lastModels.set(at(panel, side), { model, copy });
     syncCopy(panel, side);
   };
 
@@ -7707,11 +7710,27 @@ export function createCodecWorkbench(env = {}) {
   const renderNow = (panel, side) => {
     const r = COMPUTE[panel](side);
     if (panel === 'digest' && r.done === false) {
+      // 文件/大文本摘要走异步：先把“计算中…”画上、把按钮按住，完成后再恢复。
+      // 失败时不能把上一格结果擦掉（本页共用口径）：先存下上一次的模型与复制文本，reject 那一路还原，
+      // 再让 `runGuarded` 去标坏这一块。
+      const btn = node(buttonId(prefix, panel, side));
+      const prev = lastModels.get(at(panel, side)) || null;
+      if (btn) btn.disabled = true;
+      hint(panel, side, '计算中…');
       const task = Promise.resolve(r.task).then(
         (res) => runGuarded(panel, () => paintSide(panel, side, res.model, res.copy)),
-        // 读盘失败一类的异步异常**原样**再抛一次：只标坏这一块，别换成一句装配层自己的话
-        (err) => runGuarded(panel, () => { throw err; }),
-      );
+        (err) => {
+          if (prev) paintSide(panel, side, prev.model, prev.copy);
+          else {
+            const cfg = CODEC_SPEC[panel].sides[side];
+            paintSide(panel, side, IDLE[cfg.kind], '');
+          }
+          // 读盘失败一类的异步异常**原样**再抛一次：只标坏这一块，别换成一句装配层自己的话
+          return runGuarded(panel, () => { throw err; });
+        },
+      ).finally(() => {
+        if (btn) btn.disabled = false;
+      });
       return task;
     }
     paintSide(panel, side, r.model, r.copy);
@@ -7798,6 +7817,22 @@ export function createCodecWorkbench(env = {}) {
         }
         const btn = node(buttonId(prefix, panel, side));
         if (btn) btn.addEventListener('click', () => runGuardedRun(panel, side));
+        // 「现在」是时间戳主栏的写入捷径：它不读控件，只把注入的时钟落成 Unix 秒再走同一条渲染路。
+        // 时钟缺席时禁用而不是拿宿主时间补一个假数字（与口径 1 同一条）。id 不占 `-btn-` 动作命名空间：
+        // 它不是 CODEC_SPEC 里的一格控件，而是一条页面级 UI 捷径。
+        if (panel === 'timestamp' && side === 'main') {
+          const nowBtn = node(`${prefix}-now-timestamp`);
+          const valueField = node(fieldId(prefix, panel, 'value'));
+          if (nowBtn) {
+            if (!clock || !valueField) nowBtn.disabled = true;
+            else {
+              nowBtn.addEventListener('click', () => {
+                valueField.value = String(Math.floor(clock() / 1000));
+                runGuardedRun(panel, side);
+              });
+            }
+          }
+        }
         const id = copyId(prefix, panel, side);
         const cb = node(id);
         if (cb) {
@@ -9344,7 +9379,7 @@ tool: codec
         <p class="masthead-lede">{{ tk.desc }}</p>
         <ul class="masthead-stats">
             <li><strong>{{ tk.panels.size }}</strong><span>块面板</span></li>
-            <li><strong>0</strong><span>网络请求</span></li>
+            <li><strong>0</strong><span>上传</span></li>
             <li><strong>1 MiB</strong><span>文本上限</span></li>
         </ul>
     </div>
@@ -9445,6 +9480,9 @@ tool: codec
                         </p>
                         <p class="tk-actions">
                             <button class="tk-btn" type="button" id="{{ tk.prefix }}-btn-timestamp-main">换算</button>
+                            <button class="tk-btn tk-btn--ghost" type="button"
+                                    id="{{ tk.prefix }}-now-timestamp"
+                                    title="填入当前 Unix 秒并立即换算">现在</button>
                         </p>
                     </div>
                     <div class="tk-outwrap">

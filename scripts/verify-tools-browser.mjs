@@ -152,7 +152,7 @@ const PER_PAGE = {
      * 否则"结果区没变"既可能是"没算"也可能是"算了但答案恰好一样"。这一枚校验位是错的。
      */
     sample2: '11010519491231002Y',
-    caveat: [/不得用于任何真实身份用途/, /不发请求/],
+    caveat: [/不得用于真实身份/, /不发请求/],
     own: ['toolkit.min.css', 'toolkitCore.min.js', 'toolIdcard.min.js'],
     scss: ['dev/sass/toolkit.scss'],
   },
@@ -1232,6 +1232,7 @@ for (const P of PROFILES) {
   } else {
     const gapWrong = rows.filter((r) => px(r.primGap) !== (r.w <= L.shift ? px(L.gap.narrow) : px(L.gap.wide)));
     const optFlips = flipAt(rows.map((r) => ({ w: r.w, n: r.optDir === 'column' ? 1 : 0 })));
+    /** JSON 页的树高是固定三档；对比页的空态已收成提示卡，树高不再在这一支断言（1e0/1e 另量） */
     const treeWrong = rows.filter((r) => r.treeH !== null && Math.abs(r.treeH - Math.round(L.treeHeight(r.w, r.vh))) > 1);
     /**
      * 行号槽那一族**按页分派**：JSON 页的粘贴框带 `.jt-gutter`，它在 640 换挡（定宽那两档），
@@ -1256,31 +1257,75 @@ for (const P of PROFILES) {
         `640px：宽 ${g640 && g640.w}px，${L.gutter.em}×font-size ${g640 && g640.fs}=${g640 && Math.round(L.gutter.em * g640.fs)}；`
           + `641px：宽 ${g641 && g641.w}px ≠ ${g641 && Math.round(L.gutter.em * g641.fs)}`);
     } else {
-      check(id(`1c 工作台形状三族换挡（本页按设计无行号槽，那一族换成"十档恒 0 枚"）：分栏 gap ${L.gap.wide}↔${L.gap.narrow}、选项组排向换在 ${L.optColumn.shift}、结果栏高度按 min() 三档`),
+      check(id(`1c 工作台形状三族换挡（本页按设计无行号槽，那一族换成"十档恒 0 枚"）：分栏 gap ${L.gap.wide}↔${L.gap.narrow}、选项组排向换在 ${L.optColumn.shift}、空态高度由 1e0 另量`),
         gapWrong.length === 0 && optFlips.length === 1 && optFlips[0] === FLIP(L.optColumn.shift)
-          && treeWrong.length === 0 && rows.every((r) => r.gutterN === 0) && bps.includes(L.optColumn.shift),
+          && rows.every((r) => r.gutterN === 0) && bps.includes(L.optColumn.shift),
         `gap ${rows.map((r) => `${r.w}:${px(r.primGap)}`).join(' ')}；选项组排向=${rows.map((r) => `${r.w}:${(r.optDir || '-')[0]}`).join(' ')}（换在 ${optFlips.join()}）；`
           + `行号槽枚数 ${rows.map((r) => `${r.w}:${r.gutterN}`).join(' ')}（期望恒 0）；`
-          + `结果栏高实测 ${rows.map((r) => `${r.w}:${r.treeH}`).join(' ')} vs 期望 ${rows.map((r) => Math.round(L.treeHeight(r.w, r.vh))).join(' ')}；`
+          + `未比较时结果栏实测 ${rows.map((r) => `${r.w}:${r.treeH}`).join(' ')}（收成提示卡，固定高度在 1e 有结果时量）；`
           + `声明集=${bps.join('/')}px`);
       /**
-       * 1e 在这一支量的是**跳转那三枚按钮的前提**：`goTo()` 靠 `scrollTop = 视觉行 × 行高`，
-       * 而那只 `scrollTop` 只在"这一格真的有上界"时才会动——样式把 `.df-out` 的高度写成 `min()`
-       * 三档而不是随内容长，就是为了这一格。三档各量一次：高度 > 0、`overflow` 含 `auto`、
-       * 且**空内容时它就是那一栏本身**（`scrollHeight === clientHeight`，还没有东西可滚）。
-       * 内容灌进去之后的"唯一滚动容器"那一判在 8 族，两处不重复：这里量声明，那里量行为。
+       * 1e0 / 1e1 / 1e 分三段量同一只 `.df-out`，因为它在三种内容下有三种合法高度：
+       *   · 未比较时只有一条 `.df-notice`，按内容收成提示卡；
+       *   · 短结果（示例几行）也按内容收高，**不**撑到 420/620px 上限；
+       *   · 长结果到上限才出现 `overflow:auto` 的滚动条。跳转那三枚的 `scrollTop`
+       *     只在第三种形状有非零上界；前两种形状上界为 0，按跳转按钮不动内容是正确的。
        */
+      await setVp(1280); await wait(120);
+      await goto(URL_OF(P.url)); await wait(320);
+      const emptySizes = [];
+      for (const w of [360, 1280]) {
+        await setVp(w); await wait(140);
+        emptySizes.push(Object.assign({ w }, await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(L.treeSel)});`
+          + ' if(!el) return { miss:1 }; const cs=getComputedStyle(el);'
+          + ' return { h:Math.round(el.getBoundingClientRect().height), ov:cs.overflowY + "/" + cs.overflowX,'
+          + ' children:el.children.length, notices:el.querySelectorAll(".df-notice").length,'
+          + ' rows:el.querySelectorAll(".df-row").length }; })()')));
+      }
+      check(id('1e0 未比较时结果栏收成一条提示卡（360/1280 两档都不再预留 420/620px 空白）'),
+        emptySizes.every((r) => !r.miss && r.children === 1 && r.notices === 1 && r.rows === 0 && r.h > 0 && r.h < 200),
+        emptySizes.map((r) => `${r.w}:${r.h ?? '缺'}px 子节点=${r.children ?? '-'} 提示=${r.notices ?? '-'} 行=${r.rows ?? '-'}`).join(' '));
+
+      /**
+       * 1e1 钉「短结果不替长结果占白」：走页面上的「载入示例对比」（几行），不直接改 DOM。
+       * 结果区高度必须小于该档上限；示例本身也要真的出结果（行块 > 0）。
+       */
+      await setVp(1280); await wait(120);
+      const sampleClicked = await evalJs(`(() => { const b=document.getElementById(${JSON.stringify(`${pref}-sample`)});`
+        + ' if(!b) return false; b.click(); return true; })()');
+      await wait(320);
+      const shortSizes = [];
+      for (const w of [360, 1280]) {
+        await setVp(w); await wait(150);
+        shortSizes.push(Object.assign({ w }, await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(L.treeSel)});`
+          + ' if(!el) return { miss:1 }; const cs=getComputedStyle(el);'
+          + ' return { h:Math.round(el.getBoundingClientRect().height), ov:cs.overflowY + "/" + cs.overflowX,'
+          + ' sh:el.scrollHeight, ch:el.clientHeight, rows:el.querySelectorAll(".df-row").length }; })()')));
+      }
+      check(id('1e1 短结果（载入示例后）按内容收高：360/1280 两档都低于上限，不撑出一块白'),
+        sampleClicked && shortSizes.every((r) => !r.miss && r.h > 0 && r.rows > 0
+          && r.h < Math.round(L.treeHeight(r.w, 900)) && /auto|scroll/.test(r.ov || '')),
+        `示例按钮命中=${sampleClicked}；` + shortSizes.map((r) => `${r.w}:${r.h ?? '缺'}px 上限 ${Math.round(L.treeHeight(r.w, 900))}px ov=${r.ov || '-'} sh/ch=${r.sh}/${r.ch} 行块=${r.rows ?? '-'}`).join(' '));
+
+      // 长结果再量上限与滚动上界。样本走与「重新对比」同一个按钮通道，不是直接改 DOM。
+      await setVp(1280); await wait(120);
+      await goto(URL_OF(P.url)); await wait(320);
+      await putValue(cfg.doc, cfg.sample);
+      await putValue(cfg.doc2, cfg.sample2);
+      await evalJs(`document.getElementById(${JSON.stringify(`${pref}-btn-${PK}-${cfg.run}`)}).click()`);
+      await wait(420);
       const sc = [];
       for (const w of [360, 640, 1280]) {
         await setVp(w); await wait(160);
         sc.push(Object.assign({ w }, await evalJs(`(() => { const el=document.querySelector(${JSON.stringify(L.treeSel)});`
           + ' if(!el) return { miss:1 }; const cs=getComputedStyle(el);'
           + ' return { h:Math.round(el.getBoundingClientRect().height), ov:cs.overflowY + "/" + cs.overflowX,'
-          + ' sh:el.scrollHeight, ch:el.clientHeight }; })()')));
+          + ' sh:el.scrollHeight, ch:el.clientHeight, rows:el.querySelectorAll(".df-row").length }; })()')));
       }
-      check(id('1e 结果栏（.df-out）在 360/640/1280 三档都是固定高度 + overflow:auto 的滚动容器（跳转那三枚的上界前提）'),
-        sc.every((r) => !r.miss && r.h > 0 && /auto|scroll/.test(r.ov || '') && r.sh === r.ch),
-        sc.map((r) => `${r.w}:${r.h ?? '缺'}px ov=${r.ov || '-'} sh/ch=${r.sh}/${r.ch}`).join(' '));
+      check(id('1e 长结果（内容超过上限）在 360/640/1280 三档都到上限 + overflow:auto 的滚动容器（跳转那三枚的上界前提）'),
+        sc.every((r) => !r.miss && r.h > 0 && r.rows > 0 && Math.abs(r.h - Math.round(L.treeHeight(r.w, 900))) <= 1
+          && /auto|scroll/.test(r.ov || '') && r.sh > r.ch),
+        sc.map((r) => `${r.w}:${r.h ?? '缺'}px 期望 ${Math.round(L.treeHeight(r.w, 900))}px ov=${r.ov || '-'} sh/ch=${r.sh}/${r.ch} 行块=${r.rows ?? '-'}`).join(' '));
       await setVp(640); await wait(140);
       const noGut = await evalJs(`document.querySelectorAll('.jt-gutter, .df-gutter, [class*="-gutter"]').length`);
       check(id('1e2 640 那一档整页画不出行号槽（0 枚）：输入区的左内边距因此不随断点变'),
@@ -2708,15 +2753,21 @@ GROUP = '11) §7 字节 11a–11c';
  * + 页 HTML），不跟证件/编码那两行的旧形状走：那两行没算页面 CSS，是因为它们**没有**页面级 CSS
  * （`toolIdcard.min.css` / `toolCodec.min.css` 不在它们的 JS+CSS 行里，页内样式全在 toolkit 那份里）。
  * 同一件事在两行里必须是同一把尺，否则"首屏成本"这四个字在两行指的是两个东西。
+ * 2026-10-19 证件页合并为三块面板、新增组织机构代码/机构信用代码/金融许可证后，
+ * `view.js` 多了三种读侧 kind，`toolkitCore` 与证件页 JS 一起变大；按同一条算式重立四档：
+ * 证件页 JS+CSS 83,968B、编码页 JS+CSS 34,816B、JSON JS+CSS 60,416B、对比 JS+CSS 35,840B。
+ * 同一轮 JSON 首屏加入清空/结果跳转/忙碌播报后，最坏读数 16,713B → 17,593B → 取 1024 倍
+ * = **18,432B**，因此 JSON 首屏从 17,408 升到 18,432。最坏读数由 11b 现量，11c 逐行复算；
+ * 这次改的是档，不是 5% 那条线。
  */
 const ROWS = [
-  { row: '证件页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolIdcard.min.js'], budget: 77824 },
+  { row: '证件页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolIdcard.min.js'], budget: 83968 },
   { row: '证件页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/idcard.html'], budget: 16384 },
-  { row: '编码页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolCodec.min.js'], budget: 32768 },
+  { row: '编码页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolCodec.min.js'], budget: 34816 },
   { row: '编码页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'tools/codec.html'], budget: 17408 },
-  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 59392, fresh: true },
-  { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 17408, fresh: true },
-  { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 34816, fresh: true },
+  { row: 'JSON 页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolJson.min.js', 'assets/css/toolJson.min.css'], budget: 60416, fresh: true },
+  { row: 'JSON 页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolJson.min.css', 'tools/json.html'], budget: 18432, fresh: true },
+  { row: '对比页 JS+CSS', files: ['assets/css/toolkit.min.css', 'assets/js/toolkitCore.min.js', 'assets/js/toolDiff.min.js', 'assets/css/toolDiff.min.css'], budget: 35840, fresh: true },
   { row: '对比页自身增量的首屏成本', files: ['assets/css/toolkit.min.css', 'assets/css/toolDiff.min.css', 'tools/diff.html'], budget: 19456, fresh: true },
 ];
 /** §7 表里 JSON 那一行设计期拍的 120KB：它只服务一件事——判要不要触发"YAML 降到仅序列化"那一档 */

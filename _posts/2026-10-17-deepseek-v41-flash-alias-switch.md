@@ -3,11 +3,19 @@ layout: post
 title: 你 pin 的 deepseek-flash，今天背后换了模型
 subtitle: 旧名 deepseek-v4-flash 仍接收，但请求已落到 1017；白天价是夜里两倍
 seo_short_title: DeepSeek 同名换模型：旧别名与价格
-seo_description: DeepSeek 在 2026-10-17 把 deepseek-flash 的底层模型换成 V4.1-Flash-1017：旧别名仍接收但已退役，1M 上下文、384K 输出，白天价格是夜里的两倍；Search/Fetch 同时开放，千次 $0.75。
+seo_description: DeepSeek 2026-10-17 把 deepseek-flash 换成 V4.1-Flash-1017：旧别名仍接收但已退役，1M 上下文、384K 输出；价格是夜里的两倍，Search/Fetch 同时开放，千次 $0.75。
 date: 2026-10-17
 categories: AI
 cover: /assets/img/deepseek-v41-flash-alias-switch/banner.webp
 tags: AI 开源 评测
+tldr: '你代码里那个 deepseek-flash 一个字母没改，官方价格表的模型版本已经是 DeepSeek-V4.1-Flash-1017，连 deepseek-v4-flash 这个旧名也照收、只是背后模型退役了。我没有 key，旧别名究竟路由到哪枚权重没验到；能当场算的是昼夜两档：1M 输入加 200K 输出，非高峰 0.27 美元、高峰 0.54 美元。'
+faq:
+  - q: 'deepseek-v4-flash 这个旧名还能用吗？'
+    a: '接口还认。价格页脚注逐字写着 deepseek-v4-flash 与 deepseek-v4-flash-vision-exp 这两个 legacy name 仍然被接收，但对应模型已经退役，请求由 DeepSeek-V4.1-Flash-1017 服务、按 Flash 单价计费。文档里没有一个可指定的日期快照名。'
+  - q: 'DeepSeek 的 Search 和 Fetch 怎么收费？'
+    a: '两个端点是 /v1/tools/search 与 /v1/tools/fetch，走同一套 Bearer 鉴权，每个 $0.75 per 1,000 calls、按成功请求计费。通过 DeepSeek Harness、Claude Code、Codex 的服务端工具调用目前免费，计费从 2026-10-31 16:00 UTC 开始；Search 的 count 默认 10、最多 50。'
+  - q: '自托管这个 MIT 权重要先注意什么？'
+    a: '模型卡自己写着这一版不含 Jinja 格式的 chat template，别假设 tokenizer_config.json 里躺着一个现成的，官方补的是 encoding/encoding.py 和 deepseek-recipe。我只核到 ModelScope 的公开元数据：484.6B 参数、MIT、last_updated 2026-10-17，没下权重也没跑推理。'
 ---
 
 ![封面：同一个模型标签下，机器内部已经换了总成](/assets/img/deepseek-v41-flash-alias-switch/banner.webp)

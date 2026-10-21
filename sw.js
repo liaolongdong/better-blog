@@ -72,6 +72,8 @@ const SHELL_URLS = [
   BASE + '/assets/js/index.min.js',
   BASE + '/assets/js/tools.min.js',
   BASE + '/assets/js/editorial.min.js',
+  // palette 由 editorial.js 首次 ⌘K 时注入，HTML 里没有它——判据 2 的 INJECTED 那一类认这条。
+  BASE + '/assets/js/palette.min.js',
   BASE + '/assets/fonts/newsreader-latin-var.woff2',
   BASE + '/assets/fonts/ibm-plex-mono-latin-400.woff2',
   BASE + '/assets/fonts/ibm-plex-mono-latin-500.woff2',
@@ -134,6 +136,12 @@ const DOC_URLS = [
   '{{ tool.url | prepend: site.baseurl }}',
 {%- endfor %}
   BASE + '/index-all.html',
+{%- comment -%}
+更新日志页排在 index-all **之后**：`ENTRY_CUT` 取的就是 index-all 那一格，
+它前面的地址参与「钉住不参与淘汰」（sw-lifecycle-tests 的 SW15/SW16 看着这条边界）。
+changelog 是回访才用的页，不该挤占首页与工具箱那 13 枚的淘汰豁免位。
+{%- endcomment -%}
+  BASE + '/changelog.html',
 {%- for post in site.posts %}{% unless post.noindex %}
   '{{ post.url | prepend: site.baseurl }}',
 {%- endunless %}{% endfor %}

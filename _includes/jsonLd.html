@@ -67,6 +67,18 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   "url": "{{ page_url }}",
   "isPartOf": { "@type": "Blog", "@id": "{{ site_home }}#blog" },
   "keywords": {{ page.tags | join: ', ' | jsonify }},
+{%- comment -%}
+speakable 只在正文真的有「先看结论」块时才发。它指向的是 .post-tldr-text（页面上可见的那段
+结论）与刊头导语，两个选择器按优先级排——语音助手取第一个命中的。
+不给没写 tldr 的文章凭空声明：那样选择器在页面上抓不到任何节点，等于申报一个不存在的答案块，
+与「原始 HTML 里读不到的东西等于没有」是同一条线的反面。
+{%- endcomment -%}
+{%- if page.tldr -%}
+  "speakable": {
+    "@type": "SpeakableSpecification",
+    "cssSelector": [".post-tldr-text", ".post-masthead-lede"]
+  },
+{%- endif -%}
   "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans",
   "copyrightNotice": "© Better（廖小新）· 文字与配图按 CC BY-NC-SA 4.0 授权，文中的第三方代码片段沿用其原始许可"
 }
@@ -90,6 +102,30 @@ noindex 的页面一律不声明结构化数据。USAGE 里把 noindex 写成「
   ]
 }
 </script>
+{%- comment -%}
+FAQPage 只在正文末尾有可见的 <details> 列表、且条目 ≥2 时输出。问题与答案逐字来自
+front matter 的 page.faq，模板与结构化数据同源；没有 faq 字段的旧文章不会凭空长出问答。
+{%- endcomment -%}
+{%- if page.faq and page.faq.first and page.faq.size >= 2 %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {%- for item in page.faq %}
+    {
+      "@type": "Question",
+      "name": {{ item.q | jsonify }},
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": {{ item.a | jsonify }}
+      }
+    }{% unless forloop.last %},{% endunless %}
+    {%- endfor %}
+  ]
+}
+</script>
+{%- endif %}
 {%- elsif page.title -%}
 <script type="application/ld+json">
 {

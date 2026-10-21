@@ -1,0 +1,92 @@
+---
+layout: default
+title: 更新日志
+subtitle: 这个站每一版改了什么，全部写在这里：版本号、发布日期、逐条变更，覆盖版式、动效、在线工具、收录与门禁五条线
+seo_description: Better 博客的完整版本历史。按版本倒序列出每个版本号、发布日期与逐条变更内容，含新增、变更与修复三类；构建期直接从仓库的 CHANGELOG.md 渲染，与代码仓库同源，不额外维护第二份
+permalink: /changelog.html
+---
+{% include header.html %}
+
+{%- comment -%}
+更新日志页（批 1 / B2）。存在的理由：CHANGELOG.md 没有 YAML 头，Jekyll 不渲染它，
+产物里读不到这个地址——读者看不到「这个站在动」，引擎也少一个会自己变新的落点。
+
+数据源是 CHANGELOG.md 本身（_plugins/changelog.rb 在构建期解析成 site.data.changelog），
+这一页只做投影：手抄一份 YAML 等于养第二份事实源，每次发版要同步两处，漏一次页面就开始说谎。
+与 llms.txt 那条「必须是渲染出来的，手写版每加一篇就悄悄过期」是同一条纪律。
+
+类名全部沿用 index-all.html / categories.html 那一族（.cat-index / .cat-chip /
+.cat-section / .cat-head / .cat-name / .cat-count / .cat-top / .cat-list / .cat-row /
+.cat-date / .cat-title）与 .series-lede / .series-missing，一条新 CSS 都不写，
+产物 index.min.css 体积不变。判据在 check-discovery.mjs 组 C4：页面上出现任何
+产物 CSS 里没定义的类，门禁红。
+{%- endcomment -%}
+
+{%- assign entry_count = 0 -%}
+{%- for e in site.data.changelog.entries -%}
+    {%- for s in e.sections -%}
+        {%- assign entry_count = entry_count | plus: s.items.size -%}
+    {%- endfor -%}
+{%- endfor -%}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Changelog / 更新日志</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">v{{ site.version }}</span>
+        </p>
+        <h1 class="masthead-title">更新日志</h1>
+        <p class="masthead-lede">{{ page.subtitle }}</p>
+        <ul class="masthead-stats">
+            <li><strong>{{ site.data.changelog.entries.size }}</strong><span>个版本</span></li>
+            <li><strong>{{ entry_count }}</strong><span>条变更</span></li>
+            <li class="masthead-updated">
+                当前版本
+                <strong>v{{ site.version }}</strong>
+            </li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container archive-content" id="main">
+    <nav class="cat-index" id="changelog-index" aria-label="版本目录">
+        {%- for e in site.data.changelog.entries -%}
+        <a class="cat-chip" href="#v-{{ e.version }}">{{ e.version }}<em>{{ e.date | date: '%Y.%m' }}</em></a>
+        {%- endfor -%}
+    </nav>
+
+    {%- if site.data.changelog.warnings.size > 0 -%}
+    {%- comment -%}
+      告警文案要同时兜住三种来路：H2 形状不合（整条不渲染）、版本块里出现四级以上标题
+      （文字已按条目渲染）、代码围栏未闭合。写「有标题没被解析出来」在后两种下是说谎的
+      ——字其实在页面上。所以这里说不判断结构、只说没按预期结构解析。
+    {%- endcomment -%}
+    <p class="series-missing">CHANGELOG.md 里有写法没按预期的结构解析：{{ site.data.changelog.warnings | join: '；' }}</p>
+    {%- endif -%}
+
+    {%- for e in site.data.changelog.entries -%}
+    <section class="cat-section" id="v-{{ e.version }}">
+        <header class="cat-head">
+            <h2 class="cat-name">{{ e.version }}</h2>
+            <span class="cat-count">{{ e.date }}</span>
+            <a class="cat-top" href="#changelog-index">回到版本目录</a>
+        </header>
+        {%- if e.lede != '' -%}
+        <p class="series-lede">{{ e.lede }}</p>
+        {%- endif -%}
+        <ul class="cat-list">
+            {%- for s in e.sections -%}
+            {%- for it in s.items -%}
+            <li class="cat-row">
+                <span class="cat-date">{{ s.title | default: '变更' }}</span>
+                <span class="cat-title">{{ it }}</span>
+            </li>
+            {%- endfor -%}
+            {%- endfor -%}
+        </ul>
+    </section>
+    {%- endfor -%}
+</main>
+
+{% include footer.html %}

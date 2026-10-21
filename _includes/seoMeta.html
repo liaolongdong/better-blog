@@ -1,10 +1,17 @@
 <!-- 通用meta以及seo相关meta start -->
-<meta charset="UTF-8">
+{%- comment -%}编码声明已经挪到 head.html / postHead.html 的 <head> 第一位：这一段在 head 里排得靠后，charset 落在首 1024 字节之外。{%- endcomment -%}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="baidu-site-verification" content="KepNDjv9qh" />
 <meta name="google-site-verification" content="JMobx2kEvbdWmhZ3vzFBbSrVNz4if5UGwRbprlQDmEM" />
 <meta name="360-site-verification" content="66a6d55065761caeb8d685def4e5204a" />
 <meta name="sogou_site_verification" content="icwLU81OPy"/>
+{%- comment -%}
+Bing Webmaster Tools 验证。只有 _config.yml 填了验证码才输出；空值不发空 meta，
+否则每次抓取都多一条没有信息量的标签。验证码是公开标识，不是密钥。
+{%- endcomment -%}
+{%- if site.bing_site_verification and site.bing_site_verification != '' %}
+<meta name="msvalidate.01" content="{{ site.bing_site_verification }}">
+{%- endif %}
 {%- comment -%}
 标题一律走 seo_title，不用 title：
 title 是品牌名（导航刊头、og:site_name、feed 站点名都在用它），改成中文等于改署名；

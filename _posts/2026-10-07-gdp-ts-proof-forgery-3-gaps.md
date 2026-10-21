@@ -8,6 +8,14 @@ date: 2026-10-07
 categories: [开源实测, TypeScript]
 cover: /assets/img/gdp-ts-proof-forgery-3-gaps/banner.webp
 tags: gdp-ts TypeScript 权限校验 Vercel
+tldr: '五道写错的用法 tsc 全报出，五道伪造 proof 的写法全过编译，它自带的 strict 档只报 2 条；README 那句一次授权约 0.3 毫秒，在这台 Intel 8 核上测成 2.9 毫秒。'
+faq:
+  - q: '它自带的 lint 能拦住几种伪造 proof 的写法？'
+    a: '五种全过编译，strict 档只报 2 条：类型断言那条，和 defineProof 在 proofs/ 目录外造那条。非空断言、定赋值、展开换 id 一条没提；rauchg/gdp-ts#11 和 rauchg/gdp-ts#13 点名的就是这几类，复现到了同一种。它自己的 limits.md 也写着断言能过，伪造靠 lint 兜。'
+  - q: 'gdp-ts 挡住的和挡不住的分别是什么？'
+    a: '挡住的是用错：5 个错法 tsc 报出 7 条——换项目、传裸 id、少传 proof、没处理 null、标签逃逸。挡不住的是伪造。机制是三个符号：name() 给 id 打标签，defineProof() 声明一条 proof，函数签名要求 proof 的第二个槽等于那个标签。'
+  - q: '换它做编译期授权要付什么代价？'
+    a: '编译时间。README 说一次授权调用点约 0.3 毫秒，这台 Intel 8 核测出 2.9 毫秒，读到的类型数和它的表格逐字相同，差的只有 CPU。装起来另有两坑：npx skills add 不带 -y 会挂在选哪个 agent 的提示上、退出码 1；仓库 packageManager 要 pnpm 12.1.0，11.x 读它的 lockfile 直接报 BROKEN_LOCKFILE。'
 ---
 
 # 五种伪造 proof 的写法，它自己只拦两种

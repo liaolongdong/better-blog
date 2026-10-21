@@ -101,11 +101,112 @@ curl -s  https://liaolongdong.github.io/better-blog/sitemap.xml | grep -c '<loc>
 curl -s  https://liaolongdong.github.io/better-blog/feed.xml | head -5
 ```
 
+## 🧪 上线前那一发真浏览器审（门禁抓不到的两类问题）
+
+19 道门禁全是结构与一致性判据：没有一条会看 head 的字节序，也没有一条会看混合内容。
+2026-10-21 用 Lighthouse（移动档 navigation）+ performance trace 量了一次 `_site`，
+一趟就抓出两条门禁全绿时并存的实话：`<meta charset>` 落在第 2439 字节（门槛是 1024），
+以及 `dev/libJs/baiduPush.js` 把注入地址写成 `http://`——https-only 的本站会被浏览器按
+混合内容拦掉，那条推送等于从来没发出去。
+
+看什么：
+- Lighthouse：**无障碍与 SEO 应当 100**；重点盯 Best Practices 里的 `charset`、
+  `is-on-https`、`deprecations`。掉下去先修再发。
+- performance trace（reload + autoStop）：**CLS 必须是 0**。2026-10-21 的基线是 CLS 0.00、
+  LCP 1171ms（其中 render delay 979ms）。动效或布局改完 CLS 一旦非 0，就是引入了位移，
+  照 `CLSCulprits` 那条查；`.reveal` 那套的隐藏态由 `body.js-reveal` 限定、只作用于折叠线
+  以下的卡片，不是 LCP 的理由。
+- 本地 `python -m http.server` 不发压缩与缓存头，所以 `DocumentLatency` / `Cache` 报的
+  「浪费字节」是本地环境的形状，别当结论抄进发布判断里。
+
+### 逐层动效核验：`verify-motion-layers`
+
+`verify-motion-batch4` 在一场会话里连开五层、密集采样、还切视口与媒体仿真——机器一忙，
+剩下的红分不清是站点没回程还是量具赶不上帧。2026-10-21 因此另开一本最小形状的量具：
+**一层一次导航，真鼠标开 → rAF 采到 `op≥0.97` → 真按键或真点击关 → 采退场中间帧**。
+
+```bash
+node scripts/verify-motion-layers.mjs              # 六层全量
+node scripts/verify-motion-layers.mjs --only=书架,灯箱
+node scripts/verify-motion-layers-teeth.mjs        # 牙齿两把：删 ⌘K 容器过渡、删 ::backdrop 过渡，都必须报红
+```
+
+三条只读它的人才用得上的口径：
+
+1. **判据不吃门槛让步**：预检量无头 rAF 帧率，低于 40fps 直接 `exit 2` 拒绝出数——200ms 的
+   过渡（`--dur-2`）在这种帧率下抓不到中间值，那是宿主机状态不是站点行为。产出红/绿/缺账三态，
+   「缺账」永远不算绿；有红时先报红（忙碌的机器不能顺手把真实缺陷盖成环境状态）。
+2. **量错节点会读成「没有回程」，判松了会读成「有显示」**：⌘K 的淡化在容器 `.cmdk` 上，位移才在
+   `.cmdk-panel` 上，而面板的 `cmdkIn` 带 `both` 填充把 opacity 钉在 1。六层一律要求
+   「开：真的被排版出来（rect>0）且 opacity≥0.97」与「关：经过 0.05~0.95 的中间值」，
+   `::backdrop` 也不例外——`getComputedStyle().opacity` 对 `visibility:hidden`、被 `display:none`
+   祖先包着的节点都回 1，只看它就能把「根本不显示」报成绿（2026-10-21 评审抓出来的，遮罩那一格
+   当时还写着「只看收没收走」，把遮罩过渡整条删掉照样绿，那种绿是空的）。
+3. **原生 `<dialog>` 用 Esc 关掉后，这台无头会把页面记成 `visibilityState=hidden`、
+   `document.timeline` 冻住**（实测时钟停在 8856ms），页内 400ms 的 `transitionend` 兜底会在
+   唤醒那一刻把遮罩硬收走——中间帧从此不可能出现。所以灯箱的退场走「点对话框任意处」那条路量。
+   Esc 那一路已经用正常渲染的浏览器（Playwright，1280×900、真键盘事件）量过并留数：
+   2026-10-21 实测 `.lightbox` 与它的 `::backdrop` 同步走
+   `1.00 → 0.56 → 0.13 → 0.05 → 0.02 → 0.01 → 0.00`（约 180ms、7 个中间帧），随后 `display:none`
+   且 `dialog.open=false`——**站点这步有回程，无头那格是量具与宿主的相互作用**。
+   牙齿脚本只动 gitignore 里的符号链接农场，`_site` 与跟踪文件逐字节不变（跑完对过 md5）。
+
+### 点击粒子核验：`verify-particle-burst`
+
+`dev/libJs/cursor-effects.js`（上游 tholman/cursor-effects 那一支）原来有三个叠在一起的毛病，
+用户侧的症状是「有时候点了不散、偶尔还卡一下」：喷发角只取 2 弧度的扇形且 y 叠了一项
+`renderCount * 0.3` 的二次重力（实测向上 56px、向下 480px——那是往下下雨不是散开）；
+回收只判右/下两条边（所以落点决定寿命：y=180 活 2973ms、y=790 只 963ms）；每帧擦两整屏再
+拷一整屏、位图还不按 `devicePixelRatio` 建（开销正比于视口面积，空转中位帧时 20.5ms）。
+
+```bash
+node scripts/verify-particle-burst.mjs      # 五条判据，改前 4 红、改后 5 绿
+```
+
+| 判据 | 改前 | 改后（同一台机器连跑两次） |
+| --- | --- | --- |
+| P1 不成一边倒（四向 max/min ≤2.2 且最小一向 ≥70px） | 比值 8.6 / 7.4 / 2.3，最小 28~60px | 比值 1.17~1.38，最小 128~152px |
+| P2 落点无关（存活 700~1700ms、极差 ≤500ms） | 2973 / 2836 / 963ms，极差 2010ms | 1270 / 1248 / 1311ms，极差 63ms |
+| P3 不给帧加负担（与同一次运行的空转对照） | 判不出（绝对阈值量的是宿主） | 中位 +0.1ms、长帧 +0 |
+| P4 不泄漏（连点 12 发后清空） | 1860ms | 1066ms |
+| P5 位图按 dpr 建 | 1280×900（dpr=2 时应为 2560×1800） | 2560×1800 ✓ |
+
+两条踩过的坑记在这里：**判据要问对问题**——第一版 P1 写「四向各 ≥100px」，16 颗粒子随机取角时
+某一向的极值就是运气，同一份代码连测给出 1.16 / 2.64 / 1.56，于是改成判形状（比值 + 下限）并
+每格连开 3 发把样本抬到 48 颗；**帧时不能判绝对值**——这台机器软件光栅，什么都不点中位也有
+22.6ms，绝对阈值等于天天报假红，改成同一次运行内「空转 vs 连点」的差。
+
+### 本地跑门禁前先把自己从 `jekyll serve` 里摘出来
+
+常驻的 `jekyll serve`（`concurrently` 那条 dev 命令）会以**开发环境**反复重写 `_site`，
+产物里的 canonical / og:url / sitemap / manifest 地址全带上 `http://localhost:4000`。
+2026-10-21 撞上的现场：门禁报 165 条，第一条写「台账里有这枚图标，manifest.json 里却没有」，
+看着像图标生成器坏了，其实差的是 URL 前缀。`check-seo` 现在会先挡住并说清原因。
+别跟 watcher 抢，建一份冻结的生产快照再核：
+
+```bash
+JEKYLL_ENV=production bundle exec jekyll build --destination spark-output/site-prod
+node scripts/check-seo.mjs --site=spark-output/site-prod
+```
+
 ## 🏷 版本号与 tag
 
 版本号只有一个真实来源：**master 上的 git tag**。`_config.yml` 的 `site.version`、
 `package.json` 的 `version`、`CHANGELOG.md` 顶部条目，三处必须等于最新 tag；
 页脚那枚 `v2.0.0` 读的就是 `site.version`（置空则不显示）。
+
+这句话现在有机器守着：`node scripts/check-release.mjs`，连它的牙齿 `check-release-teeth.mjs`
+（只改 gitignore 里的副本）一起挂在 CI 的门禁清单上——条数别照抄，按
+`grep -c "gate '" .github/workflows/jekyll.yml` 数（2026-10-21 记的是 21 道）。它判三处一致、
+版本形状 `X.Y.Z`、日志条目顺序；**tag 那一档不在 CI 里**——CI 的 checkout 默认不取 tag，而且发版前要求 tag
+已存在等于把还没发生的发版判成缺陷。收口那一刻自己跑：
+
+```bash
+node scripts/check-release.mjs --require-tag   # 最新 tag 必须等于 package.json 的版本
+```
+
+2026-10-21 的实测读数就是这条判据存在的理由：三处都是 `2.1.0`、`--require-tag` 报
+「tag 停在 2.0.1」，而站点一切正常、门禁全绿——错只在人身上，看不出来。
 
 递增口径不按语义化版本的严格定义，按「老读者进来要不要重新找路」判断：
 
@@ -134,7 +235,35 @@ git push origin 2.1.0
 CHANGELOG 只记已经进 master 的内容——还在 `main` 上的功能没上线，不该出现在版本记录里，
 所以写它的时机是「推到 master 之后」，不是「写完代码之后」。
 
+**别只改三处版本号就以为发版完成了**：2026-10-20 现场核过一次，`git ls-remote --tags origin` 只
+有 `1.0.0 / 2.0.0 / 2.0.1`，而 origin/master 上的 `package.json`、`_config.yml` 的 `version`、
+`CHANGELOG.md` 顶条**都已经是 2.1.0**——tag 那一步漏了，于是「三处等于最新 tag」这条现在指向一个
+不存在的 tag。没有任何一道门管这件事（CI 不响），只有流程记住了才算做完；补打 tag 是对远端可见的
+动作，按仓库惯例由本人执行。发版收口自查就一条命令：`git tag --sort=-v:refname | head -1`
+应当等于 `node -p "require('./package.json').version"`。
+
+写条目时有一条硬边界：**只写散文与 markdown 链接，别贴任何 HTML**。
+`/changelog.html` 的条目会经 kramdown 转成 HTML，而这一版 kramdown **放行为块级原始 HTML**
+（实测 `:remove_html_blocks` 取 `true` 或 `"strip"` 都拦不住一个独立成块的 `<script>`，
+只有行内的尖括号会被转义）。插件因此在渲染后自己过一道**白名单**：`script|style|iframe|object|embed|form|textarea|noscript|template`
+连内容一起删，其余标签只留标签名（属性一律丢掉——事件处理器就藏在属性里），
+`<a>` 例外，它保留一个非 `javascript:/data:/vbscript:/file:/about:` 的 href；
+不在名单内的标签整个去掉、内容降级成文本。
+两侧各有一道判据兜着：产物侧（条目区里不许出现可执行壳，有牙齿变异）与源侧
+（那条 gsub 不许被删，属 Presence 警报，见 `check-discovery-teeth.mjs` 头部注释）。
+
+再补一层形状口径，省得写的人猜：`## X.Y.Z — YYYY-MM-DD` 起一条版本，`### 名字` 起一节，
+下面的列表项（`-`、`*`、`+`、`1.`、`1)` 都算）是条目，缩进两行的写法并进上一条。
+小节可以整节省掉（2.0.1 就是「开头一句 + 裸列表」）。代码围栏里的内容当一个条目原样上页面
+（渲染成 `<pre>`），**不参与结构**——围栏里写一句 `## 9.9.9 — 2030-01-01` 既不会多出一个版本，
+也不影响「版本条目数」那道判据。形状不认识的东西（四级以上标题、任何散文行）一律照样渲染，
+并额外留一句告警，页面顶部「有写法没按预期的结构解析」说的就是它：字不会静默消失，只会难看。
+
 ## ✍️ 写一篇新文章
+> `tldr` 与 `faq` 是**新稿默认要写**的两段：渲染路径、FAQPage 与 speakable 结构化数据都已建好，
+> 缺的只有内容。存量覆盖率看 `git grep -l '^tldr:' -- _posts | wc -l` 与 `_posts/*.md` 之比
+> （2026-10-21 全站补齐：110/111，缺的那篇是 `2100-10-25-practice-demo.md`，`future:false` 根本不构建，不必补）。别为了凑数写空话——FAQ 的答案必须能在正文里指到出处，
+> 否则宁可这两段都不写（不写只是少一格富摘要，写假的是给抓取器递错误事实）。
 
 新建 `_posts/2026-09-22-slug.md`，文件名决定了 URL。front matter 的最小完整形态：
 
@@ -147,6 +276,10 @@ date: 2026-09-22
 categories: [前端工程化, 开源实测]   # 必须用中括号列表，见下方陷阱
 cover: /assets/img/slug/banner.webp
 tags: pnpm npm 前端小技巧            # tags 用空格分隔，与 categories 规则相反
+tldr: '40-60 字的直接结论，正文上方会渲染成「先看结论」块，也是 speakable 指向的那一段'
+faq:                                  # 2 条以上才发 FAQPage 结构化数据；答案必须能在正文找到出处
+  - q: '读者真的会去搜的问句（含具体名词、命令、报错名）'
+    a: '1-3 句直接答案，不写正文里没有的数字与版本行为'
 ---
 ```
 
@@ -345,7 +478,21 @@ pnpm dev:assets
 ```
 
 - `dev/js/*.js` 与 `dev/libJs/*.js`（非 `.min.js`）会被打包，产物外层自动包一层 IIFE，
-  避免多文件间的全局变量冲突。
+  避免多文件间的全局变量冲突。入口由 `getDevJsEntries()` 按目录自动收，新增一个
+  `dev/js/<name>.js` 就产出 `assets/js/<name>.min.js`，不用改 vite 配置。
+- **⌘K 命令面板不在 `editorial.js` 里**：它是 `dev/js/palette.js`（产物 `assets/js/palette.min.js`），
+  由 `editorial.js` 的薄桩在第一次 ⌘K / 点搜索入口时 `createElement('script')` 注入，
+  所以**任何页面 HTML 里都找不到它的引用**。共享件走 `window.EditorialUtil`
+  （`baseUrl` / `prefersReducedMotion` / `copyText` / `getCorpus` / `getFullCorpus` / `esc`）——
+  语料加载器留在 `editorial.js` 是因为链接预览也用 `getCorpus`，两边各养一份缓存就会漂。
+- `editorial.js` 有体积上限：**17,408B gzip**（`scripts/check-sw.mjs` 判据 7）。它自己的注释写着
+  「若再涨，先把命令面板拆成独立延迟加载件，再谈加码」——2026-10-20 已照这句话拆完，
+  现在实测 15.3KB。再往这个文件加交互前先看这条，别抬档位。
+- 新增一个每页都载的公共件要同时改三处：`_includes/headAssets.html`（或两份布局末尾）、
+  `sw.js` 的 `SHELL_URLS`、以及 `check-sw.mjs` 判据 2 的口径（运行时注入件走 `INJECTED` 那一类，
+  条件是地址字符串必须真的出现在某个已构建公共脚本里，不是白名单免检）。
+  `sw.js` 里加注释**不要**用带空白裁剪的 Liquid 注释夹在清单条目之间——它会吞掉换行、
+  把两条地址在产物里粘成一行，`check-sw-teeth` 要求行尾换行的锚点会因此失配。
 - `dev/libJs/*.min.js` 与 `dev/libCss/*.min.css` 是**已预压缩的第三方库**，不进打包管线，
   构建时原样复制到 `assets/js|css/`。新增此类文件直接放进去即可，无需改配置。
 
@@ -430,6 +577,9 @@ pnpm build:demo    # 只构建 demo
 pnpm build:site    # 构建静态资源 + 生成 _site
 pnpm og:images     # 为没有 cover 的文章出 1200×630 分享卡（需本机 Chrome）
 pnpm og:check      # 只校验分享卡与 _data/og_images.yml 是否一致，不改文件
+pnpm push:indexnow # 把 sitemap 里的地址推给 IndexNow（必应系；Google 不读它）；加 --dry-run / --check / --limit N
+node scripts/check-discovery.mjs        # 批 1 收录面 8 组判据（key 文件、changelog 页、零新增 CSS）
+node scripts/suggest-inlinks.mjs        # 产出 dev/inlink-suggestions.md：正文内链建议清单，不改任何一篇文章
 node scripts/wechat-draft.mjs --check-config  # 查公众号草稿同步的前置，不联网
 node scripts/wechat-draft.mjs --post _posts/xxx.md --dry-run  # 只准备与校验，不联网
 pnpm wechat:draft -- --post _posts/xxx.md      # 真同步进公众号草稿箱（只到 draft/add，不发布）
@@ -437,6 +587,22 @@ pnpm wechat:draft:latest                        # 最新一篇的 dry-run
 pnpm deploy        # 交互式提交并推送当前分支（列出改动、拦密钥、按 y 确认；推 main 不会触发 Pages 构建）
 pnpm deploy:ali    # 部署机更新：对齐 origin -> 装依赖 -> 构建；工作区脏或有未推送提交时中止
 ```
+
+## 正文内链怎么落地（清单机器生成，链人工写）
+
+`suggest-inlinks.mjs` 只出建议，不碰正文——按分数自动插链就是「堆关键词掉 10%」那条反面清单的机器版。
+人工落地时照这三条：
+
+1. **锚点用正文里已经悬空的指代**，不要新编句子。这批文章里有大量「上期我在第 N 行留过一句话」
+   「下一篇我们聊聊……」，它们本来就该是链，改成 `[上一篇 Next.js 16.3.3 关掉 AVIF 那期](...)`
+   比另起一句「参见本文」省力，也不会有插链感。
+2. **地址形状是 `{{ site.baseurl }}/YYYY/MM/DD/slug.html`**，三段斜杠。写成 `2026-09-10/slug.html`
+   在产物里渲染得一模一样、点下去才 404，肉眼和 `node --check` 都抓不到；而 permalink 的日期取自
+   front matter 的 `date` 而不是文件名（仓库里有 4 篇文件名日期 ≠ date），按文件名拼也是 404。
+   `scripts/lib/post-meta.mjs` 的 `postPermalink` 是这条形状的唯一算法来源。
+3. 落地后跑 `node scripts/check-seo.mjs --site=<快照>`：组 13 除了工具内链，也判文章间内链的
+   形状与存在性，地板 5 枚。它的牙齿是 `check-seo-teeth.mjs` 的 M12b（日期段写成横杠）与
+   M12c（形状对但目标页不存在）两枚变异。
 
 ## ⚠️ 已知未决：浏览器兼容基线自相矛盾
 

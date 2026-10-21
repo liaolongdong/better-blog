@@ -9,6 +9,14 @@ categories: [随笔]
 # 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542003988331&di=8f1eeb3781533c2844e60331b1a55e60&imgtype=0&src=http%3A%2F%2Fpic2.zhimg.com%2Fv2-e2b6fb372ba7f9c8375aa73e5cbe49a8_b.jpg
 tags: JavaScript 前端工作总结 移动端的那些坑
+tldr: '坑按微信、事件、兼容、样式四堆分好，值钱的全在细节里。iOS Safari 认不了带横杠又带时间的日期串，事件委托得换个父节点，升级 Node 后 gulp 崩掉装一个 graceful-fs 就好。'
+faq:
+  - q: "带横杠又带时间的日期串，比如 2018-10-10 10:10:10，在 iPhone 的 Safari 里 new Date 为什么给出 NaN？"
+    a: "苹果手机 Safari 不认这种写法，只认 2018/10/10 10:10:10 这种斜杠日期。不带时间的 2018-10-10 它认，但两种写法算出的毫秒数不等价，2013/12/16 默认从 0 点 0 分 0 秒起算，2013-12-16 默认从 8 点 0 分 0 秒起算。解法是先把横杠全部替换成斜杠，再交给 Date 解析。"
+  - q: '移动端把点击事件委托在 document 上，iOS 里动态节点的点击拿不到怎么办？'
+    a: '把监听换成目标元素往上那个最大的 div，并在它的样式里把 cursor 设成 pointer。原因是 iOS 中 document、div、body 这些本身没有可点击属性的元素不能当托管点击事件的父元素，这样委托 iOS 取不到 document 的点击事件，自然也就拿不到你想绑的那个元素。'
+  - q: "升级 Node 之后 gulp 报 node_contextify.cc:626 的 Assertion 失败，怎么修？"
+    a: 'npm i graceful-fs 装上 graceful-fs 就能解决这个报错。npm i natives 也能解决，网上大多推荐的是这一条，但我不推荐用它。'
 ---
 
 ## 微信相关类

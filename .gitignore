@@ -2,6 +2,8 @@
 */.DS_Store
 node_modules
 _site
+# 旧构建快照：不是站点内容；deploy-github.sh 的 git add -A 不能把它带进公开仓库
+_site_x
 .jekyll-cache
 vendor/bundle
 
@@ -64,6 +66,10 @@ _drafts/*.json
 # 站内体检报告的月度产出（现为 blog-growth-analysis-2026-09.md）。
 # `dev` 已在 _config.yml:228 排除出构建，线上本来就读不到，仓库里同样不必留。
 dev/blog-growth-analysis-*.md
+# 内链建议清单：scripts/suggest-inlinks.mjs 的机器产出，逐篇配对与打分。
+# 它是「给自己看的待办」，不是站点内容；deploy-github.sh 的 git add -A 会把未忽略的
+# 东西一律推进公开仓库，所以必须在这里挡住。
+dev/inlink-suggestions.md
 # 2026-05-16 那次构建配置优化的历史快照，文件开头已自标「历史快照，内容已过时」，
 # 现状口径一律以 README.md / USAGE.md 为准。
 OPTIMIZATION_COMPLETE.md

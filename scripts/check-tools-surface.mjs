@@ -684,10 +684,15 @@ function checkDomContract(t, builtHtml, spec) {
           if (typeof c[attr] === 'string') markers[attr].set(id, c[attr]);
         }
       }
-      for (const tg of cfg.switch?.targets || []) {
-        const id = `${p}-when-${slug}-${tg.key}`;
-        need.push(id);
-        wantWhen.set(id, tg.when.join(' '));
+      const switchGroups = [];
+      if (cfg.switch) switchGroups.push(cfg.switch);
+      if (Array.isArray(cfg.switches)) switchGroups.push(...cfg.switches);
+      for (const sw of switchGroups) {
+        for (const tg of sw.targets || []) {
+          const id = `${p}-when-${slug}-${tg.key}`;
+          need.push(id);
+          wantWhen.set(id, tg.when.join(' '));
+        }
       }
       /**
        * 工作台支独有的四格地址（`out` / `copy` / `status` / `tree`）与十四枚按钮。

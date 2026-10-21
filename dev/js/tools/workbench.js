@@ -44,6 +44,17 @@
 import { parseIdCard, generateIdCards, USE_NOTE as ID_CARD_NOTE, GENERATE_MAX } from './idcard.js';
 import { parseUscc, generateUsccCodes, USE_NOTE as USCC_NOTE, REFERENCE_NOTE, USCC_CHARSET } from './uscc.js';
 import {
+  parseOrgCode, generateOrgCodes, USE_NOTE as ORG_NOTE, FORMAT_NOTE as ORG_FORMAT_NOTE,
+} from './orgcode.js';
+import {
+  parseCreditCode, generateCreditCodes, USE_NOTE as CREDIT_NOTE,
+  FORMAT_NOTE as CREDIT_FORMAT_NOTE,
+} from './creditcode.js';
+import {
+  parseFinLicense, generateFinLicenses, USE_NOTE as LICENSE_NOTE,
+  FORMAT_NOTE as LICENSE_FORMAT_NOTE, LICENSE_TYPES, ORG_CATEGORIES,
+} from './finlicense.js';
+import {
   parseBankCard, generateBankCards, BANK_CAVEAT, CARD_TYPES, TOP_BANKS, BANK_OPTIONS,
   PAN_MIN, PAN_MAX,
 } from './bankcard.js';
@@ -147,16 +158,34 @@ export const WORKBENCH_SPEC = {
     sides: {
       gen: {
         kind: 'idcard',
+        kindFrom: 'kind',
+        kindMap: { idcard: 'idcard', bank: 'bank', mobile: 'mobile' },
         controls: [
+          { id: 'kind', switch: 'kind' },
           { id: 'province', cascade: 'province' },
           { id: 'city', cascade: 'city' },
           { id: 'county', cascade: 'county' },
           { id: 'sex' },
           { id: 'ageband', switch: 'ageband' },
           { id: 'birth', type: 'date' },
+          { id: 'bank', options: 'banks' },
+          { id: 'type', options: 'cardtypes' },
+          { id: 'length', type: 'number' },
+          { id: 'carrier', options: 'carriers' },
+          { id: 'segment', options: 'segments' },
           { id: 'count', type: 'number' },
         ],
-        switch: { control: 'ageband', targets: [{ key: 'birth', when: ['custom'] }] },
+        switches: [
+          {
+            control: 'kind',
+            targets: [
+              { key: 'idcard-fields', when: ['idcard'] },
+              { key: 'bank-fields', when: ['bank'] },
+              { key: 'mobile-fields', when: ['mobile'] },
+            ],
+          },
+          { control: 'ageband', targets: [{ key: 'birth', when: ['custom'] }] },
+        ],
       },
       read: { kind: 'idcard', controls: [{ id: 'read', type: 'area' }] },
     },
@@ -165,42 +194,37 @@ export const WORKBENCH_SPEC = {
     sides: {
       gen: {
         kind: 'uscc',
+        kindFrom: 'kind',
+        kindMap: {
+          uscc: 'uscc', orgcode: 'orgcode', creditcode: 'creditcode', license: 'license',
+        },
         controls: [
+          { id: 'kind', switch: 'kind' },
           { id: 'registry', charsets: 'uscc' },
           { id: 'category', charsets: 'uscc' },
           { id: 'province', cascade: 'province' },
           { id: 'city', cascade: 'city' },
+          { id: 'creditFirst', options: 'letters' },
+          { id: 'licenseType', options: 'licensetypes' },
+          { id: 'licenseOrg', options: 'licenseorgs' },
+          { id: 'licenseIssuer', type: 'text' },
+          { id: 'licenseProvince', options: 'provinces' },
           { id: 'count', type: 'number' },
+        ],
+        switches: [
+          {
+            control: 'kind',
+            targets: [
+              { key: 'uscc-fields', when: ['uscc'] },
+              { key: 'region-fields', when: ['uscc', 'creditcode'] },
+              { key: 'credit-fields', when: ['creditcode'] },
+              { key: 'orgcode-note', when: ['orgcode'] },
+              { key: 'license-fields', when: ['license'] },
+            ],
+          },
         ],
       },
       read: { kind: 'uscc', controls: [{ id: 'read', type: 'area' }] },
-    },
-  },
-  bankcard: {
-    sides: {
-      gen: {
-        kind: 'bank',
-        controls: [
-          { id: 'bank', options: 'banks' },
-          { id: 'type', options: 'cardtypes' },
-          { id: 'length', type: 'number' },
-          { id: 'count', type: 'number' },
-        ],
-      },
-      read: { kind: 'bank', controls: [{ id: 'read', type: 'area' }] },
-    },
-  },
-  mobile: {
-    sides: {
-      gen: {
-        kind: 'mobile',
-        controls: [
-          { id: 'carrier', options: 'carriers' },
-          { id: 'segment', options: 'segments' },
-          { id: 'count', type: 'number' },
-        ],
-      },
-      read: { kind: 'mobile', controls: [{ id: 'read', type: 'area' }] },
     },
   },
   random: {
@@ -235,6 +259,63 @@ export const WORKBENCH_SPEC = {
 /** 面板顺序就是 `data-tk-ids` 与索引条的顺序；导出给 §J 与入口用，别再各写一份清单 */
 export const PANEL_IDS = Object.keys(WORKBENCH_SPEC);
 
+/** 单组 `switch` 与合并面板的多组 `switches` 统一成一个清单；运行时与 controlIds 共用 */
+const switchesOfSpec = (cfg) => {
+  const list = [];
+  if (cfg && cfg.switch) list.push(cfg.switch);
+  if (cfg && Array.isArray(cfg.switches)) list.push(...cfg.switches);
+  return list;
+};
+
+/** 面板内的类型名：结果区提示与读侧标签用同一份，不把中文散在几处 */
+const KIND_LABEL = {
+  idcard: '身份证', bank: '银行卡', mobile: '手机号',
+  uscc: '统一社会信用代码', orgcode: '组织机构代码', creditcode: '机构信用代码',
+  license: '金融许可证', name: '姓名', address: '地址', email: '邮箱', profile: '一组资料',
+};
+
+/**
+ * 读侧随类型变化的文案。`label` 是那一格标签，`placeholder` 是示例，`idle` 是空态，
+ * `help` 是标签下面那句说明。它只服务证件页的两块合并面板；随机面板没有读侧。
+ */
+const READ_META = {
+  idcard: {
+    label: '身份证号（可一次粘多行）', placeholder: '110101199003070015',
+    idle: '把身份证号粘进来，一行一条；判定全在浏览器里算，不发请求。',
+    help: '15 位与 18 位都收；含空格或分隔符的原样保留，判定对象单独回显。',
+  },
+  bank: {
+    label: '银行卡号（可一次粘多行）', placeholder: '6222 0219 9003 0700 15',
+    idle: '把银行卡号粘进来，一行一条；行别与位数查的是内置前缀表。',
+    help: '空格与连字符会被去掉；查不到的行别只说“表内未收录”，不下无效结论。',
+  },
+  mobile: {
+    label: '手机号（可一次粘多行）', placeholder: '13800138000',
+    idle: '把手机号粘进来，一行一条；三位号段判运营商，不做归属地。',
+    help: '格式（11 位、1[3-9] 开头）是硬结论；运营商按三位号段判定，携号转网后不代表当前运营商。',
+  },
+  uscc: {
+    label: '统一社会信用代码（可一次粘多行）', placeholder: '91350100M000100Y43',
+    idle: '把统一社会信用代码粘进来，一行一条；字母大小写不敏感。',
+    help: '小写字母会先归一成大写，原样输入与判定对象各回显一次。',
+  },
+  orgcode: {
+    label: '组织机构代码（可一次粘多行）', placeholder: 'M000100Y-4',
+    idle: '把组织机构代码粘进来，一行一条；空格与连字符会被忽略。',
+    help: '8 位本体 + 1 位校验位，校验位按 GB 11714 的 mod 11 算法判。',
+  },
+  creditcode: {
+    label: '机构信用代码（可一次粘多行）', placeholder: 'G1011010711628240R',
+    idle: '把机构信用代码粘进来，一行一条；首字母与校验位一起判。',
+    help: '18 位＝1 位字母 + 16 位数字 + 1 位校验字符；公开资料未给出完整官方口径。',
+  },
+  license: {
+    label: '金融许可证机构编码（可一次粘多行）', placeholder: 'B0001H111000001',
+    idle: '把金融许可证机构编码粘进来，一行一条；只判结构，不判真伪。',
+    help: '15 位六段结构；该编码没有公开校验位，地址段按省级区划表核对。',
+  },
+};
+
 /**
  * 一栏里每行"复制出来长什么样"。生成侧交主字段，一行一条；`profile` 三条用制表符连着，
  * 粘进表格软件正好是三列。读侧只交判定为有效的 `value`（见 `READ_COPY`）。
@@ -244,6 +325,9 @@ const GEN_COPY = {
   uscc: (r) => r.code,
   bank: (r) => r.number,
   mobile: (r) => r.number,
+  orgcode: (r) => r.code,
+  creditcode: (r) => r.code,
+  license: (r) => r.code,
   name: (r) => r.name,
   address: (r) => r.text,
   email: (r) => r.email,
@@ -262,12 +346,18 @@ const GEN_NOTES = {
   uscc: [USCC_NOTE],
   bank: [BANK_CAVEAT],
   mobile: [MOBILE_CAVEAT, CARRIER_NOTE],
+  orgcode: [ORG_NOTE, ORG_FORMAT_NOTE],
+  creditcode: [CREDIT_NOTE, CREDIT_FORMAT_NOTE],
+  license: [LICENSE_NOTE, LICENSE_FORMAT_NOTE],
   name: [RANDOM_CAVEAT, NAME_NOTE],
   address: [RANDOM_CAVEAT, ADDRESS_NOTE],
   email: [RANDOM_CAVEAT, EMAIL_NOTE],
   profile: [RANDOM_CAVEAT, NAME_NOTE, ADDRESS_NOTE, EMAIL_NOTE],
 };
-const READ_NOTES = { idcard: [], uscc: [REFERENCE_NOTE], bank: [], mobile: [] };
+const READ_NOTES = {
+  idcard: [], uscc: [REFERENCE_NOTE], bank: [], mobile: [],
+  orgcode: [ORG_FORMAT_NOTE], creditcode: [CREDIT_FORMAT_NOTE], license: [LICENSE_FORMAT_NOTE],
+};
 
 /**
  * 整栏通用的那几句口径：`bankcard.js:159` 的 `caveat: BANK_CAVEAT` 恒有值，`phone.js:125`
@@ -288,6 +378,9 @@ const READ_PARSE = {
   uscc: parseUscc,
   bank: parseBankCard,
   mobile: parseMobile,
+  orgcode: parseOrgCode,
+  creditcode: parseCreditCode,
+  license: parseFinLicense,
 };
 
 // ── FieldError：用户填的东西不能用 ──────────────────────────────────────────
@@ -545,6 +638,24 @@ export function createWorkbench(env = {}) {
       fill(el, EMAIL_DOMAINS.map((d) => ({ value: d, label: d })));
       return;
     }
+    if (source === 'letters') {
+      fill(el, [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((ch) => ({
+        value: ch, label: ch === 'G' ? 'G（默认）' : ch,
+      })));
+      return;
+    }
+    if (source === 'licensetypes') {
+      fill(el, Object.entries(LICENSE_TYPES).map(([ch, name]) => ({ value: ch, label: `${ch} · ${name}` })));
+      return;
+    }
+    if (source === 'licenseorgs') {
+      fill(el, Object.entries(ORG_CATEGORIES).map(([ch, name]) => ({ value: ch, label: `${ch} · ${name}` })));
+      return;
+    }
+    if (source === 'provinces') {
+      fill(el, provinceCodes().map((c) => ({ value: c, label: provinceName(c) })));
+      return;
+    }
     if (charsetOf(panel, control) === 'uscc') {
       const dflt = control === 'registry' ? '9' : '1';
       fill(el, [...USCC_CHARSET].map((ch) => ({
@@ -577,12 +688,13 @@ export function createWorkbench(env = {}) {
    */
   const applySwitch = (panel) => {
     const cfg = WORKBENCH_SPEC[panel].sides.gen;
-    if (!cfg.switch) return;
-    const value = valueOf(panel, cfg.switch.control) ?? firstValueOf(panel, cfg.switch.control);
-    for (const target of cfg.switch.targets) {
-      const el = node(whenId(prefix, panel, target.key));
-      if (!el) continue;
-      el.hidden = !target.when.includes(value ?? '');
+    for (const sw of switchesOfSpec(cfg)) {
+      const value = valueOf(panel, sw.control) ?? firstValueOf(panel, sw.control);
+      for (const target of sw.targets) {
+        const el = node(whenId(prefix, panel, target.key));
+        if (!el) continue;
+        el.hidden = !target.when.includes(value ?? '');
+      }
     }
   };
 
@@ -605,7 +717,7 @@ export function createWorkbench(env = {}) {
     const o = { count: countOf(panel) };
     if (rng !== undefined) o.rng = rng;
     if (today !== undefined) o.today = today;
-    if (panel === 'idcard') {
+    if (kind === 'idcard') {
       Object.assign(o, regionKeys(panel));
       const sex = valueOf(panel, 'sex');
       if (sex) o.sex = sex;
@@ -620,7 +732,23 @@ export function createWorkbench(env = {}) {
       }
       return o;
     }
-    if (panel === 'uscc') {
+    if (kind === 'bank') {
+      const bank = valueOf(panel, 'bank');
+      if (bank) o.bankCode = bank;
+      const type = valueOf(panel, 'type');
+      if (type) o.cardType = type;
+      const len = intOf(panel, 'length', PAN_MIN, PAN_MAX, '位数');
+      if (len !== null) o.length = len;
+      return o;
+    }
+    if (kind === 'mobile') {
+      const carrier = valueOf(panel, 'carrier');
+      if (carrier) o.carrier = carrier;
+      const segment = valueOf(panel, 'segment');
+      if (segment) o.segment = segment;
+      return o;
+    }
+    if (kind === 'uscc') {
       // `provinceCode` 实为"任意 ≤4 位前缀"（uscc.js 的 regionPool 注释），所以市码可以直接用
       const city = valueOf(panel, 'city');
       const prov = valueOf(panel, 'province');
@@ -632,20 +760,25 @@ export function createWorkbench(env = {}) {
       if (category) o.category = category;
       return o;
     }
-    if (panel === 'bankcard') {
-      const bank = valueOf(panel, 'bank');
-      if (bank) o.bankCode = bank;
-      const type = valueOf(panel, 'type');
-      if (type) o.cardType = type;
-      const len = intOf(panel, 'length', PAN_MIN, PAN_MAX, '位数');
-      if (len !== null) o.length = len;
+    if (kind === 'orgcode') return o;
+    if (kind === 'creditcode') {
+      const city = valueOf(panel, 'city');
+      const prov = valueOf(panel, 'province');
+      if (city) o.provinceCode = city;
+      else if (prov) o.provinceCode = prov;
+      const first = valueOf(panel, 'creditFirst');
+      if (first) o.first = first;
       return o;
     }
-    if (panel === 'mobile') {
-      const carrier = valueOf(panel, 'carrier');
-      if (carrier) o.carrier = carrier;
-      const segment = valueOf(panel, 'segment');
-      if (segment) o.segment = segment;
+    if (kind === 'license') {
+      const type = valueOf(panel, 'licenseType');
+      if (type) o.type = type;
+      const org = valueOf(panel, 'licenseOrg');
+      if (org) o.orgCategory = org;
+      const issuer = valueOf(panel, 'licenseIssuer');
+      if (issuer) o.issuer = issuer;
+      const prov = valueOf(panel, 'licenseProvince');
+      if (prov) o.provinceCode = prov;
       return o;
     }
     // #random：四级 kind 共用同一批格子，用不上的格子由开关藏掉，但值还留在 DOM 里，
@@ -675,6 +808,9 @@ export function createWorkbench(env = {}) {
     uscc: generateUsccCodes,
     bank: generateBankCards,
     mobile: generateMobiles,
+    orgcode: generateOrgCodes,
+    creditcode: generateCreditCodes,
+    license: generateFinLicenses,
     name: generateNames,
     address: generateAddresses,
     email: generateEmails,
@@ -688,7 +824,7 @@ export function createWorkbench(env = {}) {
     const raw = valueOf(panel, cfg.kindFrom) ?? firstValueOf(panel, cfg.kindFrom);
     const kind = cfg.kindMap[raw];
     if (!kind) {
-      throw new RangeError(`#random 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);
+      throw new RangeError(`#${panel} 的 kind 格取到「${String(raw)}」，spec 里只认 ${Object.keys(cfg.kindMap).join(' / ')}`);
     }
     return kind;
   };
@@ -708,6 +844,8 @@ export function createWorkbench(env = {}) {
     paint(panel, side, `<p class="${HINT_CLASS}">${view.esc(message)}</p>`);
     copies.set(key(panel, side), '');
     syncCopy(panel, side);
+    const dl = node(`${prefix}-download-${panel}-${side}`);
+    if (dl) dl.hidden = true;
   };
 
   /** 复制按钮的可用性只由"这一栏有没有可复制的文本"决定，不靠样式类猜 */
@@ -726,9 +864,40 @@ export function createWorkbench(env = {}) {
     const kind = kindOf(panel);
     const rows = GENERATORS[kind](buildOptions(panel, kind));
     paint(panel, 'gen', view.batchBlock(kind, rows, GEN_NOTES[kind]));
-    copies.set(key(panel, 'gen'), rows.map(GEN_COPY[kind]).join('\n'));
+    const text = rows.map(GEN_COPY[kind]).join('\n');
+    copies.set(key(panel, 'gen'), text);
     syncCopy(panel, 'gen');
+    // 下载与复制吃同一份纯文本：data URI 只在本机生成，不产生请求；50 条测试码的体积很小。
+    const dl = node(`${prefix}-download-${panel}-gen`);
+    if (dl) {
+      dl.setAttribute('href', `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`);
+      dl.setAttribute('download', `${panel}-${kind}.txt`);
+      dl.hidden = text === '';
+    }
     return true;
+  };
+
+  /** 读侧标签/示例/说明跟着 `kind` 走；缺节点时静默跳过（假 DOM 与旧骨架都可能没有这两格） */
+  const syncReadMeta = (panel) => {
+    if (WORKBENCH_SPEC[panel].sides.read === null) return;
+    const kind = kindOf(panel);
+    const meta = READ_META[kind];
+    if (!meta) return;
+    const label = node(`${prefix}-read-label-${panel}`);
+    if (label) label.textContent = meta.label;
+    const help = node(`${prefix}-read-help-${panel}`);
+    if (help) help.textContent = meta.help;
+    const area = node(fieldId(prefix, panel, 'read'));
+    if (area) area.setAttribute('placeholder', meta.placeholder);
+  };
+
+  /** 类型切走之后，上一类的结果与判定结论都不再属于当前标题：清掉并说明原因 */
+  const onKindChange = (panel) => {
+    if (WORKBENCH_SPEC[panel].sides.read === null) return;
+    syncReadMeta(panel);
+    const kind = kindOf(panel);
+    hint(panel, 'gen', `已切换到「${KIND_LABEL[kind]}」，按生成重新算。`);
+    hint(panel, 'read', READ_META[kind].idle);
   };
 
   /**
@@ -739,7 +908,7 @@ export function createWorkbench(env = {}) {
    */
   const renderRead = (panel) => {
     const cfg = WORKBENCH_SPEC[panel].sides.read;
-    const kind = cfg.kind;
+    const kind = kindOf(panel);
     const lines = areaOf(panel, cfg.controls[0].id).split('\n');
     const kept = [];
     lines.forEach((raw, i) => {
@@ -825,6 +994,7 @@ export function createWorkbench(env = {}) {
   for (const panel of PANEL_IDS) {
     renderers[panel] = () => {
       const cfg = WORKBENCH_SPEC[panel].sides.gen;
+      const swControls = new Set(switchesOfSpec(cfg).map((sw) => sw.control));
       for (const c of cfg.controls) {
         const el = node(fieldId(prefix, panel, c.id));
         if (!el) continue;
@@ -838,12 +1008,17 @@ export function createWorkbench(env = {}) {
           el.addEventListener('change', () => {
             refreshCascade(panel, c.id);
             applySwitch(panel);
+            if (cfg.kindFrom === c.id) onKindChange(panel);
           });
-        } else if (c.switch) {
-          el.addEventListener('change', () => applySwitch(panel));
+        } else if (c.switch || swControls.has(c.id)) {
+          el.addEventListener('change', () => {
+            applySwitch(panel);
+            if (cfg.kindFrom === c.id) onKindChange(panel);
+          });
         }
       }
       applySwitch(panel);
+      syncReadMeta(panel);
       const genBtn = node(buttonId(prefix, panel, 'gen'));
       if (genBtn) genBtn.addEventListener('click', () => runGuardedRun(panel, 'gen'));
       const readCfg = WORKBENCH_SPEC[panel].sides.read;
@@ -865,7 +1040,7 @@ export function createWorkbench(env = {}) {
         btn.addEventListener('click', () => doCopy(panel, side));
       });
       renderGen(panel);
-      if (readCfg) hint(panel, 'read', '把号码粘进来，一条一行；判定全在浏览器里算，不发请求。');
+      if (readCfg) hint(panel, 'read', READ_META[kindOf(panel)].idle);
     };
   }
 
@@ -960,8 +1135,10 @@ export function controlIds(prefix, panels = PANEL_IDS) {
       got.out.push(outId(prefix, panel, side));
       for (const c of cfg.controls) got.in.push(fieldId(prefix, panel, c.id));
     }
-    const sw = sides.gen.switch;
-    if (sw) for (const t of sw.targets) got.when.push(whenId(prefix, panel, t.key));
+    const sw = sides.gen;
+    for (const group of switchesOfSpec(sw)) {
+      for (const t of group.targets) got.when.push(whenId(prefix, panel, t.key));
+    }
   }
   return got;
 }

@@ -34,6 +34,15 @@ permalink: /tools.html
             <li><strong>{{ ready_online.size }}</strong><span>个免安装工具</span></li>
             <li><strong>{{ site.posts.size }}</strong><span>篇文章</span></li>
         </ul>
+        {%- comment -%}
+        这一页很长，而插件族排在前面。给"就是来用免安装工具"的访客一条直达第一枚在线工具
+        小节的入口；目标 id 由那一节自己的 `id="online-{slug}"` 提供，不另造锚点。
+        {%- endcomment -%}
+        {% if ready_online.size > 0 %}
+        <div class="tool-cta">
+            <a class="cta cta-primary" href="#online-{{ ready_online[0].slug }}">直接看 {{ ready_online.size }} 个免安装工具 ↓</a>
+        </div>
+        {% endif %}
     </div>
 </section>
 

@@ -8,6 +8,14 @@ date: 2026-07-12
 categories: [AI, 开源实测]
 cover: /assets/img/impeccable/banner.webp
 tags: AI 前端设计 UI 开源 Impeccable 设计系统 Vibe Coding
+tldr: '不教 AI 什么是好设计，而是用 46 条确定性规则禁掉紫蓝渐变、Inter 字体、卡片套卡片、bounce 缓动这些训练数据的公约数；检测器不要 API Key，也能脱离 AI 当设计 lint 用。'
+faq:
+  - q: 'Impeccable 的 46 条规则是靠 prompt 提醒 AI 的吗？'
+    a: '不是。这 46 条是确定性检测规则，不依赖 LLM 的判断，靠静态分析直接扫代码里的俗套设计模式，例子有过度使用的字体、彩色背景配灰色文字、纯黑或纯灰、卡片套卡片的嵌套布局、bounce 或 elastic 缓动动画、紫蓝渐变主色调。对比是别家靠 prompt 建议、AI 可听可不听，这边是硬性检测、没有商量余地。'
+  - q: '不装 AI 编程助手，能只拿它的 CLI 做设计检查吗？'
+    a: '可以。npx impeccable detect 后面跟 src/ 目录、单个 HTML 文件，甚至一个线上 URL 都能扫，不需要 API Key、不花钱；输出报告会精确标注哪些文件哪些行违反哪条规则，并给出具体的修改建议。它就像 ESLint 检查代码质量那样，是独立的设计 lint 工具。'
+  - q: '规则误报了怎么办，比如品牌指定的字体就是 Inter？'
+    a: '有两个口子：在 .impeccable/config.json 里把规则设成 error 或 warn、并用 ignores 列出例外与原因，或者跑 npx impeccable ignores add-value 加一条带 reason 的忽略。在自己博客首页实测，/audit 收到 12 条违规提示，接着跑 /polish 让 AI 自动修正，第二版把字体换成 DM Serif Display 配 JetBrains Mono。'
 ---
 
 ![Impeccable Banner](/assets/img/impeccable/banner.webp)

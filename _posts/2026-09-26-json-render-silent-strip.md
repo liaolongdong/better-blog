@@ -8,6 +8,14 @@ date: 2026-09-26
 categories: [AI, 开源实测]
 cover: /assets/img/json-render-silent-strip/banner.webp
 tags: AI 开源 前端 npm
+tldr: '342 字节进去、138 字节出来，中间只过了一行 `catalog.validate()`，`success` 仍是 true：被 zod 默认 strip 掉的，正是 prompt 里那条 CRITICAL 教模型写在元素层的 `on`。'
+faq:
+  - q: '为什么校验通过之后事件绑定却失效了？'
+    a: 'zod 的对象 schema 默认是 strip，没声明的键悄悄扔掉、连一条 issue 都不给。`packages/react/src/schema.ts` 里元素只声明六个键（`type`、`props`、`children` 之外还有 `slots`、`visible`、`repeat`），`on`、`watch`、`state` 一个都没写，而 `core/src/types.ts` 说它们三个全合法。四个包跑出来一模一样。'
+  - q: '三份产物里哪一份说了实话？'
+    a: '给机器读的 `jsonSchema()`。它里面没有 `on`、没有 `watch`、没有 `state`，还挂着 `additionalProperties: false`，跟 zod 口径一致；不一致的是喂模型的 `prompt()`，react 那份编到 19 条规则、印着 4 个 CRITICAL，其中一条要求把 `on` 放在元素对象上而不是 `props` 里。'
+  - q: '这一刀没有第二层能拦住吗？'
+    a: '有，但没人去拿。`visible` 写成字符串报 `invalid_visible`、`children` 指向不存在的 id 报 `missing_child`；可文档配方写的就是 `render(result.data)`，MCP 包把校验后的结果原样回给 agent，四个渲染器包里 grep 不到一次校验调用。在 Vue 上真点一次：原始对象触发 1 次，`validate().data` 触发 0 次。'
 ---
 
 # 界面一校验就没了？json-render 用 19 条规则想终结它，但漏了一层
@@ -111,6 +119,6 @@ react 和 vue 的顶层导出差 1 个，还是那个标着 deprecated 的别名
 - 新导出的 `jsonSchema()` 里 `additionalProperties` 还挂不挂
 - 如果下个小版本还删 `on`，我就不在它身上投时间了
 
-另外一件事。09-23 那篇我押 chrome-devtools-mcp 升到 1.9.0 之后重跑一遍 `tools/list`。它现在的 latest 是 1.10.1，工具从 29 个加到 30 个。押反了。我赌常驻上下文会继续缩，结果两份都在涨。同一周 Tencent/BrowserSkill 我量到 7,319，比上期快照多 496 颗。
+另外一件事。[09-23 那篇数四条入口字节数的]({{ site.baseurl }}/2026/09/23/browser-skill-context-bytes.html)我押 chrome-devtools-mcp 升到 1.9.0 之后重跑一遍 `tools/list`。它现在的 latest 是 1.10.1，工具从 29 个加到 30 个。押反了。我赌常驻上下文会继续缩，结果两份都在涨。同一周 Tencent/BrowserSkill 我量到 7,319，比上期快照多 496 颗。
 
 校验这一层，究竟是该替模型把字段兜住，还是该把「我只认这六个键」说清楚就完事？

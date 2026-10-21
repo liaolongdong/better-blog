@@ -8,6 +8,14 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/mv3-sidepanel-sub-second-open/banner.webp
 tags: Chrome扩展 ManifestV3 ServiceWorker 性能优化 前端工程化
+tldr: '侧边栏白屏不是一个 bug 而是四段成本：SW 冷启动、资源冷读盘、数据要解密、CSS 阻塞渲染。保活、预热、竞速、非阻塞 CSS 各买回一层，实测缓存快路径 20-50ms 拿到数据。'
+faq:
+  - q: 'MV3 扩展靠 setInterval 给自己发消息保活够不够？'
+    a: '不够。SW 内部的 setInterval 会随 SW 一起死掉，所以用的是双层结构：第一层每 20 秒读写一次 chrome.storage.session 重置空闲计时，第二层挂一个 30 秒周期的 chrome.alarms 闹钟，心跳所在的 SW 被意外回收时闹钟事件能把它唤醒、心跳随之恢复。'
+  - q: 'Chrome 扩展侧边栏冷启动白屏一般卡在哪几处？'
+    a: '四处。SW 已被回收时消息没人接，扩展页初始化请求悬空；HTML、JS chunk、CSS 第一次冷读盘，Windows 上还要叠加杀毒软件逐文件扫描，轻松多出 1 到 2 秒；密码库要先解密才能出数据；link rel 为 stylesheet 默认阻塞渲染，样式没到位页面就不画。'
+  - q: '调 chrome.sidePanel.open 之前能不能先 await 一步准备？'
+    a: '不能，这是一条铁律：该调用必须由用户手势触发且禁止前置 await，中间插入任何异步等待手势上下文就失效，侧边栏直接打不开，tabId 也得用同步接口取。所有打开前的准备工作都要前置到保活和预热阶段做完。'
 ---
 
 做过 Manifest V3 扩展的人，大概率都被同一个问题咬过：**侧边栏（Side Panel）冷启动白屏**。

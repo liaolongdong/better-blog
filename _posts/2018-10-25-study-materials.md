@@ -6,7 +6,15 @@ seo_description: 前端学习资料清单，按方向分类：JavaScript、CSS�
 date: 2018-10-25
 categories: [工具与效率]
 cover: '/assets/img/postCover/web_study_materials.png'
-tags: 前端学习资料 
+tags: 前端学习资料
+tldr: '2018 年攒的方向索引，JS、CSS、Vue、Node、React、服务端渲染各贴几条链接；node 文档停在 v6.5.0 和 v4.2.4，vue 链接指向 v2 手册，今天只适合当找资料的入口，别指望链接内容还对口。'
+faq:
+  - q: '微信 H5 支付有几种调用入口？'
+    a: '清单里列了两条：一条用微信内置对象 WeixinJSBridge 调用微信支付，对应 JSAPI 文档；另一条引微信 SDK 走 chooseWXPay 接口，对应公众号文档。'
+  - q: '想补 JavaScript 底层原理有哪些资料？'
+    a: 'JavaScript 那一栏第一条是 mqyqingfeng/Blog 的 JavaScript 深入系列、专题系列、ES6 系列和 React 系列，后面接着《JavaScript 语言精粹》学习笔记、MDN 的 Array 参考页、阮一峰的标准参考教程和 ES6 入门。'
+  - q: '这份清单里的 node.js 文档是什么版本？'
+    a: 'nodejs 官方文档英文链接给的是 v6.5.0，中文版 API 文档链接停在 v4.2.4，都是多年前的版本，查 API 时别拿现在的 node 版本对号入座。'
 ---
 
 ## 大杂烩

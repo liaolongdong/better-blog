@@ -142,7 +142,16 @@ await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'batch4-chrome-'));
 const chrome = spawn(CHROME, ['--headless', '--remote-debugging-port=0',
   `--user-data-dir=${profile}`, '--disable-gpu', '--no-first-run',
+  // `--disable-gpu` 留着，但理由要说准：2026-10-21 试过把它摘掉换 GPU 合成器，结果更坏——
+  // 同一格自证里普通元素也读不到任何中间值（中间取值 0 个、screencast 只出 5 帧）。
+  // 也就是说 top layer 卡帧不是「没 GPU」造成的，摘开关解决不了，先别乱动这一行。
   '--disable-background-networking', '--window-size=1440,900',
+  // 这一整串是给「后台/遮挡的标签页被降频」准备的：headless 的页面默认按 hidden 记账，
+  // setTimeout 会被压到一分钟一次、渲染器整组后台降频。而 M24 的收尾几步是 JS 定时器驱动的
+  // （过渡走完再由脚本收走层），降频之后现场就长这样：末帧 `op=0.406 anim:none dur:0s`
+  // 卡在半路，而 CSS 侧根本已经没有在跑的东西了——红的是宿主把页当后台，不是站点的退场。
+  '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
   '--proxy-server=direct://', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'],
   { stdio: ['ignore', 'ignore', 'pipe'] });
 const wsUrl = await new Promise((resolve, reject) => {
@@ -267,6 +276,37 @@ const keyFast = async (k, code, vk, modifiers = 0) => {
   await S('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
 };
 const key = async (...a) => { await keyFast(...a); await wait(70); };
+
+/**
+ * 逼这台 headless Chrome 真的产帧。
+ *
+ * 这一档不是锦上添花：过渡与 `@keyframes` 的时钟挂在 BeginMainFrame 上，
+ * 没有帧被提交时时间轴一步都不走。`Runtime.evaluate` 会逼出一个**任务**（所以采样密度能到 300+ 帧），
+ * 但任务不等于合成帧——2026-10-21 的现场证据是同一份快照里「灯箱·开」读到
+ * `{op:0, anim:lightboxFade, dur:0.2s}`、「书架·落定」末帧停在 `op=0.192`、
+ * `.toc-close` 等了 4s 还在入场位置：墙钟过了，时间轴没走。
+ * `Page.startScreencast(everyPainting)` 让合成器持续出帧，是唯一不必把整台机器清空就能拿到的开关；
+ * 每帧必须回 `screencastFrameAck`，否则 Chrome 认定客户端跟不上、发几帧就停播。
+ */
+let pumpFrames = 0;
+/**
+ * 墙钟 ↔ 动画钟的换算系数，第 1 组实测后赋值（默认 1 = 不放大）。
+ * 2026-10-21 量到本机挂一条 400ms 动画，隔 250ms 墙钟它的 currentTime 只走到 150ms——
+ * 动画钟按 0.6× 跑。任何按墙钟写的 `dwell`/窗口在这种宿主机上都只覆盖过渡的一部分，
+ * 「没有中间帧」「末帧还挂着」于是成了宿主的速度而不是站点的行为。
+ */
+let CLOCK_RATE = 1;
+await S('Page.enable');
+// 光有启动开关不够：页面自己也要从 hidden 拉成 active，否则 `document.visibilityState`
+// 仍是 hidden，站里那几步「过渡走完再收层」的收尾逻辑照样不进定时器。
+// 这个域并非所有版本都有，拿不到就记一行，别让它把整轮量具带崩。
+try { await S('Page.setWebLifecycleState', { state: 'active' }); } catch (e) { mark(`setWebLifecycleState 不可用：${e.message}`); }
+c.on((m) => {
+  if (m.method !== 'Page.screencastFrame') return;
+  pumpFrames += 1;
+  c.send('Page.screencastFrameAck', { sessionId: m.params.sessionId }, sessionId).catch(() => {});
+});
+await S('Page.startScreencast', { format: 'jpeg', quality: 5, maxWidth: 80, maxHeight: 80, everyPainting: true });
 /**
  * 真鼠标点击前先做命中测试（memory 那条：视口外的落点会伪装成「交互坏了」的假红）。
  * 返回命中说明串；命中的不是目标（或其子孙）就抛，让这一组红得有名有姓。
@@ -296,6 +336,73 @@ const clickFast = (sel, nth = 0) => hitTest(sel, nth).then(clickAt);
 const click = async (sel, nth = 0) => { await clickFast(sel, nth); await wait(60); };
 
 /**
+ * 等几何真的停住，再去做命中测试。
+ *
+ * 起因：TOC 抽屉那一格连续报 `命中测试失败 .toc-close: {x:873, y:828, hit:"none"}`，
+ * 而 828 比 800 高的那 28px 正是抽屉**还在入场动画里**的位置（`.post-rail` 固定后 y=252、
+ * 关闭键 y=265，在静止态下手工实测三种滚动位置全部 hit="toc-close"）。墙钟等了 dwell 这么久
+ * 不等于渲染帧走过了这段过渡——headless 里没帧可调度时过渡可以整段不动。
+ * 所以这里按「读数不变」而不是「时间够长」来等：连续两次取到同一个 rect 且中心点能命中东西才算稳。
+ * 上限 4s：超过就把原来的红原样抛出来，不拿它当通过——真卡住要看得见。
+ */
+const settleInto = async (sel, tries = 60) => {
+  let prev = null;
+  for (let i = 0; i < tries; i++) {
+    const g = await evalJs(`(() => {
+      const el = document.querySelector(${JSON.stringify(sel)});
+      if (!el) return { err: 'no-node' };
+      const r = el.getBoundingClientRect();
+      const cx = Math.round(r.x + r.width / 2), cy = Math.round(r.y + r.height / 2);
+      const top = document.elementFromPoint(cx, cy);
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), cx, cy,
+        hittable: !!top && cx >= 0 && cx < innerWidth && cy >= 0 && cy < innerHeight };
+    })()`);
+    if (g.err) throw new Error(`settleInto ${sel}: ${g.err}`);
+    const same = prev && prev.x === g.x && prev.y === g.y && prev.w === g.w;
+    if (same && g.hittable) { mark(`settle ${sel} @${g.cx},${g.cy} after ${i + 1} 次读数`); return g; }
+    prev = g;
+    await wait(50);
+  }
+  throw new Error(`settleInto ${sel} 4s 内没停住（最后一次 ${JSON.stringify(prev)}）`);
+};
+
+/**
+ * 按「动画状态」而不是「墙钟」等一层落到终态。
+ *
+ * 2026-10-21 实测出来的必要：负载高的机器上，headless 里过渡与动画的时钟挂在**被提交的帧**上，
+ * `await wait(560)` 走完可能只提交了一帧——同一天同一份快照，两种假红都来自这里：
+ * 「灯箱·开 打开后不是终态 {op:0, anim:lightboxFade, dur:0.2s}」（入场才跑第一帧就被读走）与
+ * 「书架·落定 末帧仍在渲染 op=0.192」（退场停在半路）。真浏览器里这两层都正常。
+ * 所以判据不变（要有中间帧、末态要收走），只把「等到什么时候」换成时间轴自己报：
+ * 该层子树里 `document.getAnimations()` 空了、且 opacity 到 1，才算落定。超时不判红也不放行，
+ * 把读数原样交给紧随其后的 snap/落定判据去定性。
+ */
+const animIdle = async (sel, cap = 5000, pseudo) => {
+  const t0 = Date.now();
+  let g = null;
+  for (;;) {
+    g = await evalJs(`(() => {
+      const el = document.querySelector(${JSON.stringify(sel)});
+      if (!el) return { err: 'no-node' };
+      let running = 0;
+      try {
+        running = document.getAnimations().filter((a) => {
+          const t = a.effect && a.effect.target;
+          return !!t && (t === el || el.contains(t) || t.contains(el));
+        }).length;
+      } catch (e) { running = -1; }
+      const cs = getComputedStyle(el, ${JSON.stringify(pseudo || null)});
+      return { running, op: +(+cs.opacity).toFixed(3), disp: cs.display, ms: Math.round(performance.now()) };
+    })()`);
+    if (g.err) return g;
+    if (g.running === 0 && g.op > 0.97) return g;
+    if (Date.now() - t0 > cap) { mark(`animIdle ${sel} 超时 cap=${cap} 读数=${JSON.stringify(g)}`); return g; }
+    await wait(24);
+  }
+};
+
+
+/**
  * 一次一格的单帧读数。轨迹由 Node 一侧一圈一圈「问」出来，不让页内自己数——这一条是踩实了的：
  * headless 里页内的 setTimeout 与 rAF 都挂在 BeginMainFrame 上，没有帧被调度时定时器根本不跑。
  * 上一版 12ms 一圈的页内采样，在 ⌘K 退场那 200ms 里连着 390ms 一个读数都没有（实测序列
@@ -314,17 +421,43 @@ const sampleOnce = (sel, pseudo) => evalJs(`(() => {
     top: Math.round(r.top), h: Math.round(r.height) };
 })()`);
 
-/** 先落下触发动作（真按键 / 真点击，不等冷却），随即一圈圈读，读满 ms 毫秒。 */
-const traceAfter = async (action, sel, pseudo, ms = 520) => {
+/**
+ * 先落下触发动作（真按键 / 真点击，不等冷却），随即一圈圈读。
+ *
+ * 两处口径是 2026-10-21 实测钉下来的，都不是为了让红点变绿：
+ * 1. **动作不 await**。`keyFast/clickFast` 自己也要排 CDP 队，宿主机忙时一次派发能吃掉 800ms+
+ *    （实测书架那格轨迹首帧就落在 t=879）。等它回来才开始采样，等于把整段过渡让给了队尾——
+ *    读到的是「已经收走了」，不是「没有中间帧」。
+ * 2. **settle 档把定窗改成「读到真的收走为止」**。`ms` 降级成最短采样长度，上限 cap 兜底。
+ *    ⌘K 那一格在 1.4s 内读到 63 个中间帧，而 900ms 定窗（×1.67 时钟）只读到 0 个：
+ *    过渡起跑被派发推迟到了窗外。判据本身一个字没动——要的仍然是「存在还渲染着但已离开终值的帧」。
+ */
+const traceAfter = async (action, sel, pseudo, ms = 520, settle = false) => {
   const t0 = Date.now();
-  await action();
+  const cap = settle ? Math.max(ms * 6, 6000) : ms;
+  // 只有 settle 档才并发派发：密度自证那一格的动作本身要在页内先立起被采样的东西，
+  // 不等它就直接读会读到 no-node、0 帧（实测把第 1 组自己判成「机器不空」）。
+  let actErr = '';
+  let left = false;
+  let act = null;
+  if (settle) {
+    // 动作与采样并发跑，但它的异常必须收下来交给判据：clickFast 里要先做命中测试，
+    // 一旦命中失败被 catch 掉，读到的就是「这层永远关不掉」——那是量具的账，不能记在产物头上
+    // （实测：书架抽屉用普通可信点击 19ms 就关掉了，而这一格报「层没真的收走」）。
+    act = Promise.resolve().then(action).catch((e) => { actErr = e.message; });
+  } else await action();
   const out = [];
-  while (Date.now() - t0 < ms) {
+  while (Date.now() - t0 < cap) {
     const s = await sampleOnce(sel, pseudo);
-    if (s.err) return { samples: out, err: s.err };
+    if (s.err) { await act; return { samples: out, err: s.err }; }
     out.push({ t: Date.now() - t0, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
+    // settle 的收工条件对两个方向都成立：要么这层真的不渲染了（退场），
+    // 要么它「离开过终值又回到终值」（入场——起点就是 op=1 的层不能被「已到终值」误判收工）。
+    if (s.op < 0.97) left = true;
+    if (settle && out.length > 4 && Date.now() - t0 >= ms && (s.rend === 0 || (left && s.op >= 0.97))) break;
   }
-  return { samples: out, n: out.length };
+  await act;
+  return { samples: out, n: out.length, capped: settle && Date.now() - t0 >= cap, actErr };
 };
 /**
  * 一次动作、多路读数：每圈把 targets 全读一遍，各留一条同一起点的轨迹。
@@ -335,14 +468,19 @@ const tracePair = async (action, targets, ms = 520) => {
   const out = targets.map(() => ({ samples: [], err: '' }));
   const t0 = Date.now();
   await action();
-  while (Date.now() - t0 < ms) {
+  const cap = Math.max(ms * 6, 6000);
+  let gone = 0;
+  while (Date.now() - t0 < cap) {
     const t = Date.now() - t0;
     for (let i = 0; i < targets.length; i += 1) {
       if (out[i].err) continue;
       const s = await sampleOnce(targets[i][0], targets[i][1]);
       if (s.err) { out[i].err = s.err; continue; }
       out[i].samples.push({ t, op: s.op, disp: s.disp, rend: s.rend, tr: s.tr, top: s.top, h: s.h });
+      if (!s.rend) gone++;
     }
+    // 两层都收走、且已经采满最短窗口，就收工；cap 兜底，别把「永远不收」拖成挂死。
+    if (gone >= targets.length && Date.now() - t0 >= ms) break;
   }
   return out;
 };
@@ -386,21 +524,41 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
   await wait(700);
   if (openSel) { mark(`[${name}] open-click ${openSel}`); await click(openSel); }
   else { mark(`[${name}] open-key`); await key('k', 'KeyK', 75, 4); }
-  await wait(dwell);
+  await wait(Math.round(dwell * CLOCK_RATE));
+  const idleOpen = await animIdle(sel, Math.round(5000 * CLOCK_RATE), pseudo);
+  if (idleOpen.running !== 0 || idleOpen.op < 0.97) mark(`[${name}] 入场时间轴没空：${JSON.stringify(idleOpen)}`);
+  if (closeSel) {
+    // 等不到终态不额外判红：紧接着的 hitTest 才是这一格的判据，这里只负责「别在动画中间采样」。
+    try { await settleInto(closeSel); } catch (e) { mark(`settle 没等到（交给命中测试原样判）：${e.message}`); }
+  }
   mark(`[${name}] before-snap`);
-  const before = await snap(sel, pseudo);
-  if (before.err || before.rend !== 1 || before.op < 0.97) {
-    RED(`${name}·开`, `打开后不是终态：${JSON.stringify(before)}`); return;
+  // 「开」这一格原先也是一次性读数：入场是 0.18~0.2s 的动画，真浏览器实测轨迹是
+  // op 0 →(t=120ms) 0.744 →(t=520ms) 1 并保持（fill-mode 为 backwards，终值不是 0）。
+  // animIdle 超时只 mark 不红，紧跟着这一枪却把「还在入场中」判成「打开后不是终态」。
+  // 改成轮询到终值或到点；到点仍不是终值才算红，并把等了多久写进红项。
+  let before = await snap(sel, pseudo);
+  const openCap = Math.round(3000 * CLOCK_RATE);
+  const openT0 = Date.now();
+  while (Date.now() - openT0 < openCap) {
+    if (before.err) break;
+    const settled = kind === 'slide' ? before.rend === 1 : (before.rend === 1 && before.op >= 0.97);
+    if (settled) break;
+    await wait(50);
+    before = await snap(sel, pseudo);
+  }
+  if (before.err || before.rend !== 1 || (kind !== 'slide' && before.op < 0.97)) {
+    RED(`${name}·开`, `轮询 ${Date.now() - openT0}ms 后仍不是终态：${JSON.stringify(before)}`); return;
   }
   mark(`[${name}] trace-start`);
   const close = () => (closeSel ? clickFast(closeSel) : closeKey ? keyFast(...closeKey) : clickFast(openSel));
-  const t = await traceAfter(close, sel, pseudo, ms);
+  const t = await traceAfter(close, sel, pseudo, Math.round(ms * CLOCK_RATE), true);
   mark(`[${name}] trace back, samples=${t.samples ? t.samples.length : t.err}`);
   if (t.err) { traceFail(`${name}·退场`, t, '轨迹没跑起来'); return; }
+  if (!t.samples.length) { RED(`${name}·退场`, '轨迹一个读数都没有——这一层在采样窗口里从没进入过渲染态；先确认打开动作真发生了，再看机器空不空（0 帧时旧版会直接 TypeError 崩掉，红得没有名字）'); return; }
   const after = t.samples[t.samples.length - 1];
   if (kind === 'fade') {
     const mid = midFade(t.samples);
-    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}`);
+    if (!mid.length) RED(`${name}·退场`, `全程没有「还渲染着但已离开终值」的帧：${tail(t)}${t.actErr ? `｜触发动作自己抛了：${t.actErr}（量具的账，不是产物的）` : t.capped ? '｜已采到 cap 仍未见离开终值，先怀疑时间轴没走，别急着算产物缺陷' : ''}`);
     else ok(`${name}·退场`, `中间帧 ${mid.length} 个 / 共 ${t.samples.length} 帧，首帧 t=${mid[0].t} op=${mid[0].op}`);
   } else {
     const start = t.samples.find((x) => x.rend === 1);
@@ -408,8 +566,13 @@ async function checkLayer(name, { sel, openSel, closeSel, closeKey, vp, kind = '
     if (!moved.length) RED(`${name}·退场`, `还渲染着的帧里没有一帧比打开位置向下滑过：top=${[...new Set(t.samples.map((x) => x.top))].join(',')}`);
     else ok(`${name}·退场`, `${moved.length} 帧在滑（共 ${t.samples.length} 帧），t=${moved[0].t} top ${start.top}→${moved[0].top}`);
   }
-  if (after.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}）——层没真的收走`);
-  else ok(`${name}·落定`, `末帧 t=${after.t} display=${after.disp}`);
+  if (after.rend !== 0) {
+    // 时间轴可能只是没被推进（帧没提交，过渡就停在半路）。再给它 2s，仍未收走才算红。
+    await animIdle(sel, Math.round(2000 * CLOCK_RATE), pseudo);
+    const fin = await snap(sel, pseudo);
+    if (fin.err || fin.rend !== 0) RED(`${name}·落定`, `轨迹末帧仍在渲染（display=${after.disp} op=${after.op}），再等 ${Math.round(2000 * CLOCK_RATE)}ms 后仍是 ${JSON.stringify(fin)}——层没真的收走`);
+    else ok(`${name}·落定`, `窗口末帧还挂着（op=${after.op}），时间轴走完后 display=${fin.disp} 收走——窗口比过渡短，不是层没收`);
+  } else ok(`${name}·落定`, `末帧 t=${after.t} display=${after.disp}`);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -458,28 +621,103 @@ await goto(ORIGIN + BASE + ARTICLE);
    * （约等于空闲读数的四成，离那两把饿死的读数还有三倍），且必须**致命**：
    * 一项混在 93 项里的红会让人去查浮层代码，而正确答案是等机器空下来重跑。
    */
-  const dens = await traceAfter(() => evalJs(`(() => {
+  // 起始值必须被**算出来**过一次：新节点插入后在同一次样式批量里就把 opacity 从 0 改成 1，
+  // 浏览器没有「前一个值」可比，过渡压根不起跑——读到的就是「帧很多、中间取值 0 个」。
+  // 实测（spark-output/probe-density-bug.mjs）：同一台机器、同一条 300ms 线性过渡，
+  // 页面闲下来时 228 读里 16 个中间取值；所以 0 这一档不能一口咬定是「机器不空」。
+  const densRun = () => traceAfter(() => evalJs(`(() => {
       const d = document.createElement('div');
       d.id = '__dens';
       d.style.cssText = 'position:fixed;left:0;top:0;width:20px;height:20px;opacity:0;transition:opacity .3s linear';
-      document.body.appendChild(d); void d.offsetWidth; d.style.opacity = '1'; return 1;
+      document.body.appendChild(d); void d.offsetWidth;
+      getComputedStyle(d).opacity; // 逼一次 before-style 计算，过渡才有起跑条件
+      d.style.opacity = '1'; return 1;
     })()`), '#__dens', null, 300);
-  const kinds = new Set(dens.samples.filter((s) => s.op > 0.02 && s.op < 0.98).map((s) => s.op));
+  const countKinds = (t) => new Set(t.samples.filter((s) => s.op > 0.02 && s.op < 0.98).map((s) => s.op)).size;
+  const clearDens = () => evalJs(`(() => { const d = document.querySelector('#__dens'); if (d) d.remove(); return 1; })()`);
+  let dens = await densRun();
+  let kinds = countKinds(dens);
   const span = dens.samples.length ? dens.samples[dens.samples.length - 1].t : 0;
-  await evalJs(`(() => { const d = document.querySelector('#__dens'); if (d) d.remove(); return 1; })()`);
-  if (dens.samples.length < 120 || kinds.size < 3) {
-    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds.size} 个`
+  await clearDens();
+  // 帧够密但一次中间值都没有 = 更可能是这条过渡没起跑，再给一次机会，两次都 0 才落重话
+  if (dens.samples.length >= 120 && kinds === 0) {
+    mark('密度自证：0 个中间值但帧数够，重跑一次再判');
+    await wait(Math.round(400 * CLOCK_RATE));
+    dens = await densRun();
+    kinds = countKinds(dens);
+    await clearDens();
+  }
+  if (dens.samples.length < 120 || kinds < 3) {
+    console.log(`\n✗ 采样密度不足：300ms 只读到 ${dens.samples.length} 帧、中间取值 ${kinds} 个、`
+      + `产帧泵收到 ${pumpFrames} 帧`
       + '——机器此刻不空（另有构建或另一台 headless 在跑）。'
       + '下面所有「有没有中间帧」的判据在这种密度下必然假红，不看产物，等空了重跑。');
     reap();
     process.exit(2);
-  } else ok('采样密度', `${dens.samples.length} 帧 / ${span}ms，中间取值 ${kinds.size} 个`);
+  } else ok('采样密度', `${dens.samples.length} 帧 / ${span}ms，中间取值 ${kinds} 个`);
+  /**
+   * 产帧泵自检就放在密度那一格之后：上面那段注入的 300ms 线性过渡必然重绘，
+   * 所以此刻 `pumpFrames` 若还是 0，只能是 screencast 没生效——那就不是「机器忙」，
+   * 而是这台 Chrome 不给本工具合成帧，所有「有没有中间帧」的判据恒为假。
+   */
+  if (pumpFrames === 0) {
+    console.log('\n✗ 产帧泵一帧都没收到：Page.startScreencast 没生效，合成器不出帧 ⇒ 过渡时间轴不走。'
+      + '这种状态下本工具读不到任何动效事实，与产物无关，直接退 2。');
+    reap();
+    process.exit(2);
+  }
+  ok('产帧泵', `screencast 收到 ${pumpFrames} 帧（everyPainting，逐帧 ack），visibilityState=${await evalJs('document.visibilityState')}`);
+  /**
+   * 动画时钟自证——这一条才是今晚那些红的真正判据。
+   *
+   * 现场签名：「灯箱/偏好面板·开」读到 `{op:0, anim:lightboxFade, dur:0.2s}`，采了三百多帧
+   * 全是 0；「书架·落定」`{op:0.406, anim:none, dur:0s}` 卡在半路。动画**存在**、时长**写明**，
+   * 可是它自己的 `currentTime` 不前进。 visibilityState 已经是 visible、screencast 也在出帧，
+   * 说明「有绘制」不等于「时间轴在走」。所以在这里直接问时间轴：
+   * 挂一条 400ms 的动画，从 Node 一侧隔 250ms 读它自己的 currentTime。
+   * 不前进就退 2 —— 这不是放宽任何判据，而是不再允许「宿主驱动不了时钟」冒充「站点没有退场」。
+   */
+  await evalJs(`(() => {
+    const st = document.createElement('style');
+    st.id = '__clkstyle';
+    st.textContent = '@keyframes __clkSpin{from{opacity:0}to{opacity:1}}';
+    document.head.appendChild(st);
+    const d = document.createElement('div');
+    d.id = '__clk';
+    d.style.cssText = 'position:fixed;left:0;top:0;width:20px;height:20px;opacity:0;animation:__clkSpin 400ms linear forwards';
+    document.body.appendChild(d);
+    const a = d.getAnimations()[0];
+    return a ? { t0: Number(a.currentTime), anims: 1 } : { t0: 0, anims: 0 };
+  })()`);
+  await wait(250);
+  const clk = await evalJs(`(() => {
+    const d = document.querySelector('#__clk');
+    const a = d && d.getAnimations()[0];
+    const out = { t1: a ? Number(a.currentTime) : -1, op: d ? +(+getComputedStyle(d).opacity).toFixed(3) : -1 };
+    if (d) d.remove();
+    const st = document.querySelector('#__clkstyle');
+    if (st) st.remove();
+    return out;
+  })()`);
+  if (!(clk.t1 > 100)) {
+    console.log('\n✗ 动画时钟不走：挂上去的 400ms 动画隔了 250ms 墙钟之后 currentTime='
+      + `${clk.t1}（op=${clk.op}）。这台宿主现在驱动不了 document timeline，`
+      + '本工具所有「有没有中间帧 / 有没有走到终态」的判据在这种状态下的读数毫无意义，不看产物。');
+    reap();
+    process.exit(2);
+  }
+  ok('动画时钟', `250ms 墙钟内 currentTime 走到 ${clk.t1}ms，opacity 读到 ${clk.op}`);
+  CLOCK_RATE = Math.min(6, Math.max(1, 250 / clk.t1));
+  ok('时钟换算', `本机动画钟慢 ${CLOCK_RATE.toFixed(2)}×，dwell / 采样窗口 / 终态等待都按这个倍数放大`);
 }
 
 // ══════════════════════════════════════════════════════════════════
 group('2) M24 各层退场（no-preference 档）');
-await checkLayer('⌘K 面板', { sel: '#cmdk', closeKey: ['Escape', 'Escape', 27], dwell: 420 });
-await checkLayer('书架', { sel: '#shelf-dlg', openSel: '[data-shelf-open]', closeKey: ['Escape', 'Escape', 27] });
+// 这一整组的前提是「读者没开减弱动效」。后面第 5 组会把仿真切成 reduce 再切回来，
+// 所以这里每次进组都显式钉一次 no-preference，别拿上一组留下的仿真当默认值。
+await S('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+await checkLayer('⌘K 面板', { sel: '#cmdk', closeKey: ['Escape', 'Escape', 27], dwell: 420, ms: 900 });
+await checkLayer('书架', { sel: '#shelf-dlg', openSel: '[data-shelf-open]', closeKey: ['Escape', 'Escape', 27], ms: 900 });
 await checkLayer('灯箱', { sel: '.lightbox', openSel: '.markdown-body img.is-zoomable',
   closeKey: ['Escape', 'Escape', 27], dwell: 560, ms: 900 });
 await checkLayer('偏好面板', { sel: '#reader-panel', openSel: '.reader-btn', closeSel: '.reader-btn' });
@@ -524,15 +762,23 @@ await wait(900);
         a.focus();
         return { onTarget: document.activeElement === a ? 1 : 0 };
     })()`);
-    await wait(320);
-    const on = await snap('.lp-card');
+    // focus 之后卡片是**同步亮、渐进显**（实测 afterFocus={hidden:false, op:0}，600ms 后 op=1）：
+    // 原先 focus 后定长 wait(320) 再读一次，淡入中间值一律判红，甚至可能读到节点还没建的瞬间。
+    // 改成轮询到落定——断言一个字没放宽（仍要 rend=1 且 op≥0.97），只是不再拿一次时机读数当结论。
+    let on = { err: 'no-read' };
+    const lpT0 = Date.now();
+    for (let i = 0; i < 60; i += 1) {
+      on = await snap('.lp-card');
+      if (!on.err && on.rend === 1 && on.op >= 0.97) break;
+      await wait(50);
+    }
     if (scrolled.err || !shown.onTarget || on.err || on.rend !== 1 || on.op < 0.97) {
-      RED('预览卡·开', `${JSON.stringify(scrolled)} ${JSON.stringify(shown)} ${JSON.stringify(on)}`);
+      RED('预览卡·开', `${JSON.stringify(scrolled)} ${JSON.stringify(shown)} ${JSON.stringify(on)}｜轮询到 ${Date.now() - lpT0}ms 仍未落定（键盘路没拿到同一张卡）`);
     } else {
-      ok('预览卡·开', `href=${scrolled.href}${scrolled.tagged ? ' · 已标 .lp-external' : ' · 未标外链类（仍出卡）'}，op=${on.op}`);
+      ok('预览卡·开', `href=${scrolled.href}${scrolled.tagged ? ' · 已标 .lp-external' : ' · 未标外链类（仍出卡）'}，op=${on.op}，focus→可见 ${Date.now() - lpT0}ms`);
     }
     const t = await traceAfter(() => evalJs('document.activeElement && document.activeElement.blur(); 1'),
-      '.lp-card', null, 400);
+      '.lp-card', null, 400, true);
     if (t.err) traceFail('预览卡·退场', t, '轨迹没跑起来');
     else {
         const mid = midFade(t.samples);
@@ -553,15 +799,30 @@ await wait(900);
         const s = getSelection(); s.removeAllRanges(); s.addRange(r);
         return { len: s.toString().trim().length };
     })()`);
-    await wait(500);
-    const barOn = await snap('.quote-bar');
-    if (sel.err || barOn.err || barOn.rend !== 1) RED('金句药丸·开', `${JSON.stringify(sel)} ${JSON.stringify(barOn)}`);
-    else ok('金句药丸·开', `选中 ${sel.len} 字，op=${barOn.op}`);
-    // 点「做成卡片」→ dialog 出现（这一步用真鼠标，因为它同时验证药丸可点）
-    await click('.quote-bar-btn');
+    // 药丸是 selectionchange 之后由 JS 懒建的（editorial.js:2118-2123，监听挂在 2383），
+    // 定长 wait(500) + 一次 snap 会把「还没建」读成「建不出来」，紧接着的一次 click 更是
+    // 直接抛 no-node 把整轮带走（实测红项后面那句是 {'err':'no-node'}）。改成有界轮询，
+    // 断言不变（仍要 rend=1）；等不到就把原因写成「选择没生成药丸」，并明确跳过后面两格，
+    // 跳过的账要写在脸上，不能靠崩场蒙过去。
+    let barOn = { err: 'no-read' };
+    const qbT0 = Date.now();
+    for (let i = 0; i < 40; i += 1) {
+      barOn = await snap('.quote-bar');
+      if (!barOn.err && barOn.rend === 1) break;
+      await wait(50);
+    }
+    if (sel.err || barOn.err || barOn.rend !== 1) {
+      RED('金句药丸·开', `${JSON.stringify(sel)} ${JSON.stringify(barOn)}｜轮询 ${Date.now() - qbT0}ms 仍没建出药丸——选中 ${sel.len || 0} 字这件事是成了的，所以这一条记在「选择没换来药丸」上`);
+    } else ok('金句药丸·开', `选中 ${sel.len} 字，op=${barOn.op}，selection→可见 ${Date.now() - qbT0}ms`);
+    // 点「做成卡片」→ dialog 出现（这一步用真鼠标，因为它同时验证药丸可点）。
+    // 药丸没建出来时 click 会抛 no-node，把整轮带走（实测就是这样崩在 2b）：
+    // 收下来交给后面那格去红，红得有名字。这一段在脚本顶层，不能 return。
+    let pillErr = '';
+    try { await click('.quote-bar-btn'); } catch (e) { pillErr = e.message; }
     await wait(420);
     const dlgOn = await snap('.quote-dialog');
-    if (dlgOn.err || dlgOn.rend !== 1 || dlgOn.op < 0.97) RED('金句卡·开', JSON.stringify(dlgOn));
+    if (pillErr) RED('金句卡·开', `药丸没落地，点击无从发起：${pillErr}`);
+    else if (dlgOn.err || dlgOn.rend !== 1 || dlgOn.op < 0.97) RED('金句卡·开', JSON.stringify(dlgOn));
     else ok('金句卡·开', `op=${dlgOn.op}`);
     // 一次 Esc 落下，卡片本体与 ::backdrop 各一条轨迹：两次独立轨迹会把起点错开
     const both = await tracePair(() => keyFast('Escape', 'Escape', 27),
@@ -589,7 +850,7 @@ for (const [name, sel, openSel] of [['书架', '#shelf-dlg', '[data-shelf-open]'
   ['灯箱', '.lightbox', '.markdown-body img.is-zoomable']]) {
   await goto(ORIGIN + BASE + ARTICLE);
   await wait(700);
-  const inT = await traceAfter(() => clickFast(openSel), sel, '::backdrop', 420);
+  const inT = await traceAfter(() => clickFast(openSel), sel, '::backdrop', 420, true);
   if (inT.err) traceFail(`${name} backdrop·入场`, inT, '轨迹没跑起来');
   else {
     const mid = midFade(inT.samples);
@@ -598,7 +859,7 @@ for (const [name, sel, openSel] of [['书架', '#shelf-dlg', '[data-shelf-open]'
     const ended = await snap(sel, '::backdrop');
     if (ended.op < 0.97) RED(`${name} backdrop·开到底`, `终值只到 ${ended.op}`);
   }
-  const outT = await traceAfter(() => keyFast('Escape', 'Escape', 27), sel, '::backdrop', 520);
+  const outT = await traceAfter(() => keyFast('Escape', 'Escape', 27), sel, '::backdrop', 520, true);
   if (outT.err) traceFail(`${name} backdrop·退场`, outT, '轨迹没跑起来');
   else {
     const mid = midFade(outT.samples);
@@ -660,6 +921,7 @@ for (const [name, sel, openSel, closeSel] of [['⌘K', '#cmdk', null, null],
   if (t.err) { traceFail(`reduce·${name}·不滞留`, t, '轨迹没跑起来'); continue; }
   const mid = midFade(t.samples);
   if (mid.length) RED(`reduce·${name}·不滞留`, `出现了 ${mid.length} 个半透明中间帧（共读 ${t.samples.length} 帧，op=${mid.map((x) => x.op).join(',')}）`);
+  else if (!t.samples.length) RED(`reduce·${name}·不滞留`, '一个读数都没有——采样期间这一层从未进入渲染态，「没有中间值」这句话无从说起（实测第 5 组就是这么在末帧索引上抛 TypeError、把整轮带走的）');
   else ok(`reduce·${name}·不滞留`, `${t.samples.length} 帧里没有中间值，末帧 display=${t.samples[t.samples.length - 1].disp}`);
 }
 await S('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });

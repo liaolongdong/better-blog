@@ -8,6 +8,14 @@ date: 2026-09-24
 categories: [AI, 开源实测]
 cover: /assets/img/google-ax-workspace-materialization/banner.webp
 tags: AI 开源 Agent 工具
+tldr: '`Workspace` 声明预装三样，真装上的只有 Git：MCP 在 628 个提交里最远只走到 CLI 的表头，skill 只被 `os.MkdirAll` 建出一个空目录，而且 clone 五次全失败照样把 ready 写成 True。'
+faq:
+  - q: 'ax 说预装 Git、MCP 和 skill，实现各到哪一步？'
+    a: '只有 Git 被当正经功能写：`fetchRepo` 依次跑 `git init`、`remote add origin`、`fetch`、`checkout -f FETCH_HEAD`，外面套 5 次重试、间隔 2 秒。skill 那 9 行唯一的动作是 `os.MkdirAll(skills.Path, dirPerm)`，得到的是空的 `/.agents/skills`；MCP 的三个读取点全在 CLI 数个数和打印，零装配。'
+  - q: 'clone 失败了 ready 状态会红吗？'
+    a: '一次都不会红。git 不 OK 时 `setup.go` 只打一条 `slog.Warn`、返回 `nil`，runner 只把 `err != nil` 当没就绪，于是照样 `SetWorkspaceReady(true)`，`/readyz` 与 reconciler 把它写成 True、reason 为 `SetupComplete`；5 次重试全失败的 clone，`ax describe` 里看着就是 setup 已完成。'
+  - q: '在这上面搭内部平台该怎么自查环境到底热没热？'
+    a: '别把那个 ready 位当环境断言。动作是 `ax ssh <task> -- curl -s localhost:端口/metadata/v1alpha1/ax/workspaces` 把声明原文拉下来，再 `ls` 一遍自己真正依赖的东西，两边对不上就别往下跑；要挂 MCP 只能自己在镜像里装，或把 endpoint 交给容器里的启动命令去读。'
 ---
 
 # 谷歌开源的 ax：三样预装两样空，这才是真正的 v1alpha1
@@ -130,7 +138,7 @@ fmt.Fprintln(w, "NAME\tATESPACE\tGIT-REPOS\tMCP-SERVERS")
 
 ## 那 6 笔账，今天结 3 笔
 
-上期（09-22 那篇金融插件仓库）我挂了 6 笔，逐笔交代。
+上期（[09-22 那篇金融插件仓库]({{ site.baseurl }}/2026/09/22/claude-advisor-readme-row.html)）我挂了 6 笔，逐笔交代。
 
 README 第 113 行那笔结清了。同一份 `financial-services/README.md`，09-24 14:33Z 第三次抓：还是 246 行、15,894 字节、sha256 前缀 `52f689c6c32bd2a5`，逐字节没动，`:113` 那条 `claude-for-financial-advisors` 还列在插件表里。上期那句"一个字没动"继续成立，不用改写成"后来也被删了"。
 
@@ -140,7 +148,7 @@ README 第 113 行那笔结清了。同一份 `financial-services/README.md`，0
 
 剩下三笔我不再挂：给自家 wxt 扩展补 `.mcp.json` 校验那笔主动撤回，动作在这仓库之外、Job B 跑不到它，继续挂着等于用正文给自己排期；pnpm 七行版本表那笔按上期自己写死的规则撤回（第 3 次没等到成员 ≥10 的样本）；fixture 扩 2 个 task 那笔再顺延一次，但按上期规则，第六节那句没复现过的执行顺序引用从今天起标为待删。
 
-顺手把口径钉在这里，免得下次我又凭印象写：上期我说 `7 个版本挨个跑：3 个 exit=1，4 个 exit=0`，那篇文章的底气来自我能挨个跑。今天这 14,214 行 Go 我一行都跑不了，本机 `go`、`docker`、`kubectl` 三条命令一律 exit=127：
+顺手把口径钉在这里，免得下次我又凭印象写：上期[那篇 pnpm 七行版本表]({{ site.baseurl }}/2026/09/21/pnpm-task-settings.html)我说 `7 个版本挨个跑：3 个 exit=1，4 个 exit=0`，那篇文章的底气来自我能挨个跑。今天这 14,214 行 Go 我一行都跑不了，本机 `go`、`docker`、`kubectl` 三条命令一律 exit=127：
 
 ```text
 $ go test ./internal/workspace/

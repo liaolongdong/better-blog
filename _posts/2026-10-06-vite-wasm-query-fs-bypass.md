@@ -3,11 +3,19 @@ layout: post
 title: 一个查询串让 Vite 漏出工作区外文件的头四个字节
 subtitle: 五条维护线不到两小时各发一版，三条公告同日挂出
 seo_short_title: Vite wasm 查询泄露实测
-seo_description: 一条带 ?vite-wasm-instance 的查询会跳过 server.fs 的边界检查，错误页吐回工作区外文件开头的 4 个字节；五条维护线在不到两小时里各发一版，三条公告同日挂出，都没有 CVE 编号
+seo_description: 带 ?vite-wasm-instance 的查询会跳过 server.fs 边界检查，错误页吐回工作区外文件开头的 4 个字节；五条维护线两小时内各发一版，三条公告同日挂出，均无 CVE 编号
 date: 2026-10-06
 categories: [AI, 前端工程化]
 cover: /assets/img/vite-wasm-query-fs-bypass/banner.webp
 tags: vite 安全 dev-server
+tldr: '地址尾部拼上 ?vite-wasm-instance，server.fs 的判断整个跳过：8.3.2 回 500 并在响应里带出 found 53 45 4e 54，8.3.3 才回 403；五条维护线不到两小时各发一版，三条公告同日挂出、全无 CVE 编号。'
+faq:
+  - q: '?vite-wasm-instance 为什么能绕过 server.fs 的边界检查？'
+    a: '修复前那个 gate 只判 raw、url、inline、svg 四条正则，这条查询一条不命中就跳过它。被交给 WebAssembly.compile 的是个文本文件，Node 的报错自带头四个字节，错误页就把工作区外文件开头的 4 个字节吐了回来。补上边界检查的是 vitejs/vite#23655。'
+  - q: '怎么自查自己的 dev server 修没修？'
+    a: '给自己 dev server 的任意一个 /@fs/ 地址拼上这条查询，看状态码：回 403 说明边界检查进去了，回 500 且响应体带 found 和一串十六进制就是还没修的那版。实测四棵树的结果是 8.3.2 带查询 500、found 53 45 4e 54，8.3.3 带查询 403，两版不带查询都是 403。'
+  - q: '停在 6.4.x 的人要不要升？'
+    a: '要，但换的不是同一条。泄露那条在六线不成立——这个查询 grep 五个 chunk 零命中，六线要动的是另外两条，升到 previous 指的 6.4.4 就行。它和 8.3.3、8.2.4、8.1.6、7.3.7 在 10-06 不到两小时内各发一版；三条公告在全局公告库三次查全 404，main 的 CHANGELOG 只有八线一节。'
 ---
 
 # 一个查询串让 Vite 漏出工作区外文件的头四个字节

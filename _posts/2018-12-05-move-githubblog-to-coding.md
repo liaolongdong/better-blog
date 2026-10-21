@@ -10,6 +10,14 @@ categories: [前端工程化]
 # 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1545187742&di=7d8e45e81d6781b8ce775417c40786c9&imgtype=jpg&er=1&src=http%3A%2F%2Fwww.emmielewis.com%2Fwp-content%2Fuploads%2F2015%2F07%2Fgithub-logo.png
 tags: git github coding.net blog 博客
+tldr: '一个仓库挂两个远程靠 git remote add 起别名，clone 下 coding 仓库再把 github 加成第二个远程；两边历史不相干，pull 时得加允许合并无关历史的选项，之后改一次代码分两次推。'
+faq:
+  - q: '博客放在 GitHub Pages 上，百度搜不到文章，对策是什么？'
+    a: '原因是 github 屏蔽了百度蜘蛛，挂在它上面的东西百度搜索不到。对策是把 github.io 上的代码迁到 coding 仓库管理：coding 服务器部署在国内，国内访问比外网的 github 可能快一点，而且 coding 还能免费设置私有仓库。'
+  - q: '同一个本地目录怎么同时关联 github 和 coding 两个远程，怎么确认关联成功了？'
+    a: "先把 coding 仓库 clone 到本地并 cd 进项目，这时 origin 指向的就是 coding；再用 git remote add github 加上 github 仓库的地址，把 github 加成第二个远程。关联成功后可以用 git remote -v 或者直接翻 .git/config 看这个项目挂了哪几个远程。"
+  - q: '执行 git pull github master 出现 fatal: refusing to merge unrelated histories 怎么办？'
+    a: '这个提示是说两边仓库的提交历史没有关联，git 拒绝合并。解法是 pull 的时候加上 --allow-unrelated-histories 选项，允许合并没有关联的历史；拉下来之后再用 git push origin master 把代码推送到 coding。github 项目反向关联 coding 的操作类似，区别是 coding 仓库里的代码是私密的，拉取要输入账号和密码；日常提交是两个远程各推一次。'
 ---
 
 ## 背景

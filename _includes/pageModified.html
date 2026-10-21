@@ -9,6 +9,8 @@
 
   入参：p —— 一个 page 或 post 对象（用到 .last_modified_at / .updated / .url / .date）
   出参：page_modified —— 修订时间；**没有真值时为 nil**，调用方据此决定「不输出」
+        page_modified_commit —— 该时间对应的 git 提交短 sha；只有第三个来源被采用时才有值，
+        供可见修订记录链接用。前两个手写来源没有 commit，保持 nil。
 
   三个来源，取较新者：
     · `last_modified_at: 'YYYY-MM-DD'` —— jekyll-last-modified-at 的既有字段名，保持兼容；
@@ -38,6 +40,7 @@
   注意空串在 Liquid 里是 truthy，所以判空必须显式比一次 ''，只写 if page_modified 挡不住。
 {%- endcomment -%}
 {%- assign page_modified = include.p.last_modified_at -%}
+{%- assign page_modified_commit = nil -%}
 {%- if include.p.updated and include.p.updated.size > 0 -%}
   {%- assign _upd_last = include.p.updated | last -%}
   {%- assign _upd_date = _upd_last | date: '%Y-%m-%d' -%}
@@ -52,10 +55,11 @@
   {%- assign _mod_date2 = page_modified | date: '%Y-%m-%d' -%}
   {%- if page_modified == nil or page_modified == '' or _gm_date > _mod_date2 -%}
     {%- assign page_modified = _git_mod.at -%}
+    {%- assign page_modified_commit = _git_mod.commit -%}
   {%- endif -%}
 {%- endif -%}
 {%- if page_modified and page_modified != '' -%}
   {%- assign _pm_day = page_modified | date: '%Y-%m-%d' -%}
   {%- assign _pd_day = include.p.date | date: '%Y-%m-%d' -%}
-  {%- if _pm_day == _pd_day -%}{%- assign page_modified = nil -%}{%- endif -%}
+  {%- if _pm_day == _pd_day -%}{%- assign page_modified = nil -%}{%- assign page_modified_commit = nil -%}{%- endif -%}
 {%- endif -%}

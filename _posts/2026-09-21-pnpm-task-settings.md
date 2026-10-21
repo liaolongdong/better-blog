@@ -8,6 +8,14 @@ date: 2026-09-21
 categories: [前端工程化, 开源实测]
 cover: /assets/img/pnpm-task-settings/banner.webp
 tags: pnpm npm 开源 AI 前端小技巧
+tldr: '坑不在升级的人身上：pnpm 读 pnpm-workspace.yaml 排在切版本之前，于是 11.25.0 连 `pnpm --version` 都能 exit=1，packageManager 那一行救不了你，升到 11.27.1 才放行。'
+faq:
+  - q: 'pnpm 的 concurrencyGroup 配在哪、哪些版本认？'
+    a: '字段写在 `pnpm-workspace.yaml` 的 `tasks` 段里，是 12.5.0 新加的。pnpm 11 的读取器把 `tasks` 下那两个字段当穷举白名单，只认 `concurrency` 和 `dependsOn`，多一个就报错；12.4.2 的 help 列了七项，里面也没有 `concurrencyGroup`。'
+  - q: 'packageManager 钉了新版本为什么还是会红？'
+    a: '顺序反了。11.25.0 面对同一份五行 fixture 先解析、先校验 workspace 文件，再决定要不要切版本，而校验用的是当前进程的字段表，`--version` 就 exit=1；把 `tasks` 那三行删掉、其他一律不动，同一个 launcher 输出 12.5.1。'
+  - q: '同一行拼错，为什么新版本反而放行？'
+    a: '11.27.1 会回 `[ERROR]` 加一句 `Did you mean` 提示，12.5.1 只给一行 `[WARN]` 说已忽略然后继续安装，`exit=0`。#15075 为 pnpm 11 争来的那条大小写检查没有进入 #15072 在 12.5.1 里新加的延后路径，同一条规则只补了一半。'
 ---
 
 ![pnpm 12.5.0 到 12.5.1 之间那 4 小时 38 分：一次 +62 行的提交、六个 PR、七个版本的实测结果](/assets/img/pnpm-task-settings/banner.webp)
@@ -141,7 +149,7 @@ typo_12.5.1   | 12.5.1   | install | exit=0
 
 这一段我引用但不背书：顺序错乱我没复现出来，我的 fixture 只有一个任务，跑不出前后关系。
 
-本期读数（2026-09-25）：那半段今天跑出来了，可跑出来的不是顺序。两条任务各自往同一个文件尾部追一行时间戳，拼错的那条压根没进任务图——汇总行从 2 条掉到 1 条，退出码两边一样是 0，12.5.1 与 12.6.0 各跑一遍，形状相同。上一段那套机制我认；「这条任务抢在自己的前置之前跑」这个表象，我这边取不到。原始输出、中途卡在 git 版本那道坎（`--end-of-options` 要 2.24 往上），还有为什么 `pnpm run` 那条对照组量不出顺序，全记在 09-25 那篇《AGENTS.md 那扇门是远程装的》末节——那里逐字引的就是上面这句，所以我没删它。
+本期读数（2026-09-25）：那半段今天跑出来了，可跑出来的不是顺序。两条任务各自往同一个文件尾部追一行时间戳，拼错的那条压根没进任务图——汇总行从 2 条掉到 1 条，退出码两边一样是 0，12.5.1 与 12.6.0 各跑一遍，形状相同。上一段那套机制我认；「这条任务抢在自己的前置之前跑」这个表象，我这边取不到。原始输出、中途卡在 git 版本那道坎（`--end-of-options` 要 2.24 往上），还有为什么 `pnpm run` 那条对照组量不出顺序，全记在 [09-25 那篇《AGENTS.md 那扇门是远程装的》]({{ site.baseurl }}/2026/09/25/claude-agents-md-remote-gate.html)末节——那里逐字引的就是上面这句，所以我没删它。
 
 批评落在一个可核对的点上。#15075 为 pnpm 11 争来的那条 case-only 检查，没有进入 #15072 在 12.5.1 里新加的延后路径。证据是上面那两段输出加上我补测的一条：11.27.1 有 `Did you mean "dependsOn"?`，12.5.1 的 `[WARN]` 没有，而 12.5.1 自 pin 时升级成 `ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS` 也没有。同一条规则拆在两个版本里实现，只补了一半。
 
@@ -176,7 +184,7 @@ typo_12.5.1   | 12.5.1   | install | exit=0
 先结自己的账，都是上期挂下来的：
 
 - DeepSeek 模型路由那条：撤回，第三次了。`env | grep -ci deepseek` 今天读数 0，我拿不到 key，也不会有那一手响应体。规则是我上期自己定的，第三次即撤回，不再占位。
-- miniflare 的 `dependencies.sharp`：已兑现，今天 `npm view` 读回 0.35.4，上期钉的是 0.35.2，上游自己解掉了，我那条“加 overrides 抬版本”的动作前提消失；`latest` 又动了，现在是 `5.20260921.0-alpha`。
+- miniflare 的 `dependencies.sharp`：已兑现，今天 `npm view` 读回 0.35.4，[上期那篇三桩不动声色的改动]({{ site.baseurl }}/2026/09/10/silent-defaults.html)里钉的是 0.35.2，上游自己解掉了，我那条“加 overrides 抬版本”的动作前提消失；`latest` 又动了，现在是 `5.20260921.0-alpha`。
 - tailwindcss 的 dist-tags：已复查，insiders 仍是 `0.0.0-insiders.41d9cae`，`next` 是 4.0.0，它没变成唯一的 prerelease 通道。
 - 真起一个 Miniflare 实例去验 `imagesLocalFetcher` 那条 sharp 路径：第二次顺延。理由是可核对的，这台机器数据卷现在只剩 4.68 GiB（`df -k .` 读回 4,909,828），我为了跑七个版本已经删过三轮临时目录。
 

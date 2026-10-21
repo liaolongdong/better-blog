@@ -8,6 +8,14 @@ date: 2026-09-29
 categories: [开源实测, TypeScript]
 cover: /assets/img/scriptc-native-x64-gap/banner.webp
 tags: scriptc TypeScript 原生编译 Vercel
+tldr: '72,016 字节的产物、冷启动 11.6 毫秒对 `node hello.js` 的 141.3 毫秒，这条不装运行时的路是真走通了；但 `@scriptc/runtime-darwin-x64` 被钉在 0.1.7 而 npm 上只发到 0.1.0，Intel Mac 装完本地只剩三个目录。'
+faq:
+  - q: 'scriptc 编出来的二进制里还有 Node 吗？'
+    a: '没有。`hello` 是 72,016 字节，里面只有机器码和它自己的 C 运行时；`node:http` 那个例子编出的 `server` 是二十四万七千字节，跑起来在 `ps` 里找不到 node，`curl` 打 8791 端口拿回 `{"path":"/a/b?c=1"}`。冷启动各跑 9 次取中位：原生 11.6 毫秒，`node hello.js` 141.3 毫秒。'
+  - q: 'Intel Mac 装它会踩什么坑？'
+    a: '`@scriptc/compiler` 把 `@scriptc/runtime-darwin-x64` 钉在 `0.1.7`，可 npm 上这个包只发到 `0.1.0`，arm64 才有；npm 静默跳过，装到本地只有三个目录。缓存目录里躺着 85 个 `scr_*.o`，是 clang 现编的——README 那句把 clang 只当平台链接器驱动，主语是 macOS 15 以上的 arm64。'
+  - q: '除了平台包缺，还有什么用不了？'
+    a: '`--emit=obj` 被拒，报 `SC3002`；装饰器不吃，报 `SC0001`，对应那个开着、零评论的 vercel-labs/scriptc#238；第三方包不给 `--dynamic` 就两条 `SC2013`，hint 明写加上它会给二进制多约 620KB。装的时候 Node 22 也只是收到一句 EBADENGINE 警告，它要 24。'
 ---
 
 # scriptc 把 TS 编成 72KB 原生二进制，Intel Mac 少一个包

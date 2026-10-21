@@ -8,6 +8,14 @@ date: 2026-05-30
 categories: [AI]
 cover: /assets/img/postCover/AI_2026_llm_ranking.png
 tags: AI AI大模型排行榜单 AI大模型测评
+tldr: '这一期海外模型仍占综合前四，国产稳在第 5 到 10 名、与榜首差 5 分内，数学推理还被国产拿下单项第一；六个维度要拆开看，别只盯总分。'
+faq:
+  - q: 'SuperCLUE 2026 年 5 月综合第一是谁？国产最高排到第几？'
+    a: 'Gemini-3.1-Pro-Preview 以 75.73 分排第一，GPT-5.5 是 74.27、Claude-Opus-4.8 是 73.93。国产最高为 DeepSeek-V4-Pro 的 70.48 分，全场第 6，其后是 Qwen3.7-Max 70.22 与 Doubao-Seed-2.0-pro 69.96。榜单共 23 个模型、492 道原创新题，海外前 5 名只参与评分、不计入国内排名序列。'
+  - q: '做金融、医疗这类严肃场景，应该先看哪个维度？'
+    a: '幻觉控制。这一项全场最高是 Claude-Opus-4.8 的 87.48 分，GPT-5.5 87.26、Gemini-3.1-Pro 87.23 咬得很紧，前三名均为海外模型；国产里最好的是 Qwen3.6-Max-Preview 的 85.14 分，差距并不大。'
+  - q: '有没有哪个能力项是所有模型都还做不好的？'
+    a: '精确指令遵循。全场最高只有 56.19 分，由 Gemini-3.1-Pro 与 Claude-Opus-4.7 并列，DeepSeek-V4-Pro 是 48.57、ERNIE 5.1 是 47.62。这个维度考察的是能否严格按格式和约束输出，整体分数偏低，让 AI 听话这件事全行业还在摸索。'
 ---
 
 > 本文基于 **SuperCLUE 2026年5月测评**（23个国内外主流模型、492道原创新题）及 Artificial Analysis 最新 Intelligence Index 数据整理，所有评分均来自公开权威测评。

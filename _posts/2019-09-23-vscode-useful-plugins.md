@@ -9,6 +9,14 @@ categories: [工具与效率]
 # 需要恢复时把下面的地址换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://code.visualstudio.com/assets/home/home-screenshot-win-lg.png
 tags: JavaScript vscode常用插件
+tldr: '二十五个插件每个只配一句用途说明，没有配置项也没有截图，真正值钱的是文末三句：装完插件必须关掉 vscode 重新打开才生效，koroFileHeader 和 vscode-fileheader 快捷键冲突不能共用，其余用法得翻各自插件的说明。'
+faq:
+  - q: 'koroFileHeader 和 vscode-fileheader 能一起装吗？'
+    a: '不能并用，这两个插件的快捷键有冲突，推荐用 koroFileHeader：它在 vscode 里生成文件头部注释和函数注释，多版迭代后支持所有主流语言、文档齐全。'
+  - q: 'vscode 装完插件为什么没反应？'
+    a: '用法总结给的直接原因是安装完插件要关闭 vscode 再重新打开，插件才会生效；至于具体用法要看对应插件的使用说明，在扩展搜索里输入 react 这类关键字就能筛出相关插件按需安装。'
+  - q: '想随手跑一段脚本或者转 Markdown，装哪个？'
+    a: '跑代码用 Code Runner，右键选 run code 就能执行 C、C++、Java、JavaScript、PHP、Python、Perl、Ruby、Go 等语言的代码；Markdown 侧有 Markdown Preview Enhanced，可把 Markdown 转换成 HTML、PDF 等格式，再用 markdownlint 做语法检测。'
 ---
 
 ## Chinese (Simplified) Language Pack for Visual Studio Code

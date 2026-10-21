@@ -1,5 +1,7 @@
-{% if site.cloudflare_analytics.enable %}
+{% if site.cloudflare_analytics.enable and jekyll.environment == 'production' %}
 <!-- Cloudflare Web Analytics 全站 PV/UV 统计（无 Cookie、永久免费） -->
+<!-- 只在生产构建里加载：localhost 下 beacon 的 RUM 请求会被 Cloudflare 按 Origin 拒绝，
+     控制台留下一条必然的 CORS 报错，而本地访问本来也不该计入站点统计。 -->
 <!-- 获取 token: Cloudflare Dashboard -> Web Analytics -> 添加站点 -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ site.cloudflare_analytics.token }}"}'></script>
 {% endif %}

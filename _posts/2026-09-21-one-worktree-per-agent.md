@@ -8,6 +8,14 @@ date: 2026-09-21
 categories: [AI, 开源实测]
 cover: /assets/img/one-worktree-per-agent/banner.webp
 tags: AI 前端 开源 Agent 工具
+tldr: '三家卖一个 agent 一个工作区的，并行一家都没测成，最诚实的是 worktrunk：0.213 秒一句人话把我挡在 git 2.43 门外，还把每棵工作树多一整份代码明写在 FAQ 里。'
+faq:
+  - q: 'Worktrunk 要求 git 什么版本？不够会怎么退出？'
+    a: '源码里写死下限 2.43.0（src/git/version.rs 的常量），FAQ 那句 requires Git 2.43 or newer 和它对得上。先拿 2.23.0 试，回一句 Git 2.23.0 is unsupported，0.213 秒退出；换 Apple Git 2.39.2 照样被拒。版本检查是并发 spawn 起来的，所以拒得快，而且 git worktree list 的现场一个字节没多动。'
+  - q: 'git worktree 不是共享 .git 吗，每个工作树磁盘上到底占多大？'
+    a: '共享的只有 .git，checkout 一个字节都不共享。400 个文件、tracked 内容 8,013,490 字节的假仓库里，每个工作树 du 都是 8,004 KB，倍数正好 1.00，五个吃掉 40,020 KB，共享的只有 .git 那 1,732 KB。这件事 worktrunk 自己写在 FAQ 第 59 行，没藏进 release note。'
+  - q: 'cp -Rc 的 reflink 拷贝能省多少？按什么算？'
+    a: '省块，不省 inode，也不省逐文件的 syscall。6,003 个小文件的靶子上 cp -R 要 2.53 秒、cp -Rc 均值 1.16 秒，只到 2.1 倍；同一棵树 4 个 reflink 副本 du 各报 116,160 KB，df 上卷只涨 123,408 KB，du 报 5 份 df 认 1.06 份。等字节换形状，12,000 个 1 KB 文件要 3.06 秒、12 个 1 MiB 文件只要 0.07 秒，差 43.7 倍——拷贝时间跟文件数走，node_modules 恰好是前者那种形状。'
 ---
 
 ![三间并排的工作树小屋，门上贴着版本不够的条子](/assets/img/one-worktree-per-agent/banner.webp)
@@ -140,15 +148,15 @@ grep 全仓，worktree 命中 124 处，集中在 `crates/atlas-checkpoint/src` 
 
 同一把尺子上两个数：jev-ultrafast 上期建仓 17 小时攒 1,033 星，本期 14,539，摊 3,387 星/天、14.08 倍；gods-eye-view 36,658 到 40,272，摊 905 星/天，而页面周增 8,111 折 1,159/天，是我实测的 1.28 倍，方向和上面两个反着来。
 
-撤回两条，不再挂账。09-10 那两条第三次顺延到期：HyperFrames 的全量 render 要 2 GB 临时盘，我这期是三家横评、卷剩 7 GB 出头，真腾不出来；archify 的 `brands capture <url> --json`，它这周掉出四个榜（archify、i-have-adhd、mattpocock/skills、magnitude 四个全名在那 76 行里 grep，命中 0），为一个掉榜工具单独装一遍不值。规则我上期自己定的，第三次就是撤回。
+撤回两条，不再挂账。[09-10 那篇出图工具链横评]({{ site.baseurl }}/2026/09/10/agent-visual-toolchain.html)里挂的两条第三次顺延到期：HyperFrames 的全量 render 要 2 GB 临时盘，我这期是三家横评、卷剩 7 GB 出头，真腾不出来；archify 的 `brands capture <url> --json`，它这周掉出四个榜（archify、i-have-adhd、mattpocock/skills、magnitude 四个全名在那 76 行里 grep，命中 0），为一个掉榜工具单独装一遍不值。规则我上期自己定的，第三次就是撤回。
 
-job B 那 4 条这期轮到 A，不结算，但其中两条零成本 `npm view` 顺手读了：miniflare 的 `dependencies.sharp` 已到 0.35.4（上期钉 0.35.2），上游自己解掉了，我那个“加 overrides 抬版本”的动作前提消失；tailwindcss 的 insiders 仍是 0.0.0-insiders.41d9cae，latest 4.3.3、next 4.0.0、v3-lts 3.4.19，它没变成唯一的 prerelease 通道。
+job B 那 4 条这期轮到 A，不结算，但其中两条零成本 `npm view` 顺手读了：miniflare 的 `dependencies.sharp` 已到 0.35.4（[上期那篇]({{ site.baseurl }}/2026/09/10/silent-defaults.html)钉的是 0.35.2），上游自己解掉了，我那个“加 overrides 抬版本”的动作前提消失；tailwindcss 的 insiders 仍是 0.0.0-insiders.41d9cae，latest 4.3.3、next 4.0.0、v3-lts 3.4.19，它没变成唯一的 prerelease 通道。
 
 同一次抓取我还对了页面值和 REST 值：6 分钟后再打，orca 74,320→74,323、atlas 5,123→5,135、worktrunk 8,261 一动不动。三个数不同向，页面上那列 stars this week 我没拿它摊过增速。
 
 ## 上期那 18 个红测试，需要的东西一直在这台机器上
 
-上期结尾我写的是先把这台机器的 node 升到 24.14、git 升到认 `--initial-branch` 的版本。这周我做了个便宜得多的实验：
+[上期那篇 gods-eye-view 免密路径]({{ site.baseurl }}/2026/09/17/gods-eye-view-keyless.html)结尾我写的是先把这台机器的 node 升到 24.14、git 升到认 `--initial-branch` 的版本。这周我做了个便宜得多的实验：
 
 ```bash
 $ /usr/bin/git init --quiet --initial-branch=main /tmp/gt24   # exit 0，分支名 main

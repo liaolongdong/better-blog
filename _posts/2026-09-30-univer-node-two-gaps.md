@@ -8,6 +8,14 @@ date: 2026-09-30
 categories: [开源实测, TypeScript]
 cover: /assets/img/univer-node-two-gaps/banner.webp
 tags: Univer TypeScript Node 公式引擎 headless
+tldr: 'SUM 和 SUMIFS 在没有 document 的进程里真回了数值，启动 41.2 毫秒；但默认表只有 1000 行 20 列，越界在构造时就抛 Range is out of bounds，而装进来的 24 个包没一个声明 engines，连个警告都不吐。'
+faq:
+  - q: '不给 rowCount 时 Univer 默认建多大的表？'
+    a: '默认 1000 行 20 列，出处在 sheet-snapshot-utils.ts 那两个常量。FRange 在构造时就拿 endRow 和 maxRows 比，越界直接抛 Range is out of bounds。显式建 rowCount: 20005 的表，两万行写入和三条整列公式都结算对了，所以那是默认值不是能力上限。'
+  - q: '在 Node 里算公式，哪些字面量会翻车？'
+    a: '四条：等号 12.5 回数字 12.5，12.50 回文本「12.50」，007 回文本「007」，1E3 回文本「1E3」。同一串套上运算就正常结算，007 加 0 回 7、12.50 乘 2 回 25。实测这组和 dream-num/univer#7793 报的是同一组，那条 2026-09-29 开的、零评论。'
+  - q: 'Univer 能当服务端算表引擎用吗？'
+    a: 'server-side calculation 还写在 README 的不提供栏里，所以它只当进程内内核用。它要求 Node 18.17.0 以上，可装进来的 24 个 @univerjs 包没有一个声明 engines，版本不够也不报 EBADENGINE。能跑那一半是实的：typeof document 是 undefined，SUM(A1:A2) 回 7，CONCAT 回 ab，NOSUCHFUNC(1) 回 #NAME?。'
 ---
 
 # Univer 在 Node 里算公式，但默认表只有 1000 行

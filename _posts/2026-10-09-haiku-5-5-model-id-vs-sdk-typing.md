@@ -3,11 +3,19 @@ layout: post
 title: Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK
 subtitle: 模型 ID 在旧 SDK 就能原样发出，带类型的工具块要等新版。
 seo_short_title: Claude Haiku 5.5 实测
-seo_description: Anthropic 换掉它的便宜小模型：只把 model 字符串换成 claude-haiku-5-5，0.131.0 在本机 stub 上就原样发出、回包也照样解析。要带类型的浏览器工具块才需要升 0.132.0，旧版那个 import 报 TS2724。
+seo_description: Anthropic 只把 model 字符串换成 claude-haiku-5-5，0.131.0 在 stub 上原样发出、回包照常解析。带类型的浏览器工具块才需升 0.132.0，旧版 import 报 TS2724。
 date: 2026-10-09
 categories: AI
 cover: /assets/img/haiku-5-5-model-id-vs-sdk-typing/banner.webp
 tags: Claude Anthropic TypeScript
+tldr: '只把 model 换成 claude-haiku-5-5，0.131.0 在 stub 上原样发出、回包照常解析；要带类型的浏览器工具块才需要升 0.132.0，同一个 import 在旧版报 TS2724。'
+faq:
+  - q: '换 Claude Haiku 5.5 必须升 SDK 吗？'
+    a: '请求侧不用。baseURL 指到本机一个 stub，用 2026-09-30 发的 0.131.0 就能把 model on the wire: claude-haiku-5-5 原样发出、回包照常解析。要等新版的是响应侧类型：同一个 import 在旧版报 TS2724，尾巴是 has no exported member named BetaBrowserToolUseBlock，换 0.132.0 是 0 error。'
+  - q: '公告那句平均便宜 75% 是指所有请求都便宜 75% 吗？'
+    a: '不是。十万 token 以内的请求，输入输出都是上一代的十分之一；超过那档，公告的表里是输入 $0.50、输出 $2.50。标题那句是平均约便宜 75%，脚注 2 把它拆成 90% 和 50%，还算进 tokenizer 换版——新版每件事用的 token 略多。那档占旧 Haiku 请求的九成左右，落不进只省一半。'
+  - q: '乱写的模型 ID 会被类型检查拦下来吗？'
+    a: '拦不住。两个版本都接受乱写的 ID，因为 Model 的 union 尾巴接了 (string & {})。它照报的是另外三类：数字、删必填、拼错字段名，三个对照都报。省下多少 token 这件事没验，本机没有可用的 API key。'
 ---
 
 # Haiku 5.5 降价 75% 之外，换模型 ID 不用升 SDK

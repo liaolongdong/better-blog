@@ -268,9 +268,13 @@
         blockquote {
             p {
                 font-size: 18px;
-                letter-spacing: 1px;
-                color: #888;
-                word-break: break-all;
+                letter-spacing: .4px;
+                // 2026-10-19：原先 #888 在暖纸上只有 3.36:1，18px 正文达不到 AA；
+                // 换成 --ink-3（约 5.1:1）。word-break: break-all 会把英文引文的单词
+                // 从中间劈开，改回正常断词，只让超长 URL 之类的整词落地。
+                color: var(--ink-3);
+                word-break: normal;
+                overflow-wrap: anywhere;
             }
         }
     }

@@ -8,6 +8,14 @@ date: 2026-05-31
 categories: [AI]
 cover: /assets/img/postCover/AI-model-rating-banner.png
 tags: AI AI大模型排行榜单 AI大模型2026年综合实力排行榜单 AI大模型测评
+tldr: '同一个五月三家平台各认一个第一，SuperCLUE 给 Gemini 3.1 Pro，Artificial Analysis 与 LMArena 都指向 Claude；分歧出在评测维度而不是数据，先定场景再挑模型比争排名有用。'
+faq:
+  - q: 'SuperCLUE、Artificial Analysis、LMArena 同月给出的第一为什么不一样？'
+    a: '因为三家测的东西不同。SuperCLUE 偏中文硬核推理，Gemini 3.1 Pro 数学推理 82.46、幻觉控制 87.23，综合最均衡；Artificial Analysis 覆盖 10 项国际基准，Claude Opus 4.8 以 61.4 分超过 GPT-5.5 的 60.2 分；LMArena 靠 500 万用户盲测投票，Claude 系列独占 Top 4 四席，Opus 4.7 霸榜。'
+  - q: 'DeepSeek-V4-Flash 到底便宜多少，能不能当主力用？'
+    a: '价格是 GPT-5.5 的 1/36，每天另有 200 万 Token 免费额度，而日常编程任务完成度达到 88%。据此它被列为性价比首选，面向预算有限的中小团队和个人开发者。'
+  - q: 'Claude 写代码确实强，中文场景上有没有短板？'
+    a: '有。Claude Opus 4.8 在 SWE-bench 拿到 88.6% 的历史最高分，但同一期 SuperCLUE 上它的精确指令遵循只有 44.76 分。结论是：用 Claude 写代码没问题，别指望它精准按中文格式要求输出。'
 ---
 
 <style>

@@ -8,6 +8,14 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/local-first-password-manager/banner.webp
 tags: 密码管理器 浏览器扩展 开源项目 Chrome扩展 本地优先
+tldr: '它补的是 Bitwarden 们留的缝：host 全等才出账号、一个快捷键一路填到点登录、数据物理上不出浏览器。代价也明说：主密码遗忘找不回，别在里面存银行和支付类凭证。'
+faq:
+  - q: '多环境的账号是怎么被隔开的？'
+    a: '匹配口径刻意做得不智能：规范化后的 hostname 全等才命中。`localhost` / `127.0.0.1` 另走一套规则，页面不带端口时放行全部方便联调，带端口时只出现端口一致的条目。主域解析里维护了 27 条两段式 ccTLD（`com.cn`、`co.uk` 这类），避免把 `example.com.cn` 错截成 `com.cn`。'
+  - q: '一键登录会不会顺手把表单提交掉？'
+    a: '填充链用 `Ctrl+Shift+F`（Mac 上是 `Cmd+Shift+F`）串起来：自动填用户名和密码，并勾掉离输入框最近的协议复选框；最后那次点击登录由设置里的「自动触发登录」决定，默认关闭，不想常开还可以按侧边栏每条账号上的「填充并登录」。GitHub 那种两步登录会在页面给出 TOTP 活码胶囊，下一步直接填。'
+  - q: '密码存在哪儿，用的是哪套加密？'
+    a: '没有后端、没有账号体系、没有遥测，用户名、密码、URL、备注、TOTP 密钥逐字段加密后只落在浏览器本地存储。密钥由 PBKDF2-SHA256 配 600,000 次迭代派生，加密是 AES-256-GCM，全部走浏览器原生 Web Crypto API；代码以 GPL-3.0 开源，另有 2994 项自动化测试。'
 ---
 
 ![Account Password Helper 核心价值一览](/assets/img/local-first-password-manager/01-infographic-core-value.png)
@@ -68,7 +76,7 @@ TOTP（RFC 6238）验证码在本地生成，列表里是实时活码加倒计�
 
 1. **本地优先，出站只有版本检查。** 没有后端、没有账号体系、没有遥测与分析，凭证只落在你浏览器的本地存储里。扩展确实申请了 `<all_urls>` 的 host 权限，但它服务于内容脚本在任意站点上定位登录表单，不用于发请求；真正出网的只有一处：约每 6 小时一次的版本更新检查，向 Chrome 商店页面发一个 `no-cors` HEAD 探测可达性、再向 GitHub Releases 公开接口读一次版本号，匿名、不带凭据、不带任何账号数据。
 2. **字段级加密。** 条目的用户名、密码、URL、备注、TOTP 密钥全部单独加密，存储层看到的全是密文。
-3. **标准算法，不发明轮子。** PBKDF2-SHA256（600,000 次迭代）派生密钥，AES-256-GCM 认证加密，全部走浏览器原生 Web Crypto API。下一篇技术文章会展开讲实现细节。
+3. **标准算法，不发明轮子。** PBKDF2-SHA256（600,000 次迭代）派生密钥，AES-256-GCM 认证加密，全部走浏览器原生 Web Crypto API。实现细节在[这篇 Web Crypto 加密实战]({{ site.baseurl }}/2026/08/28/webcrypto-encryption-in-practice.html)里：60 万次迭代怎么派生密钥、IV 怎么生成、密文落成什么格式。
 4. **会话有生命周期。** 默认 24 小时有效期；闲置自动锁定（跟随系统锁屏）与浏览器重启锁定都是可选项、默认关闭；手动一键锁定随时可用。锁定时内存中的密钥句柄与解密快照立即清除。
 5. **代码全开源（GPL-3.0）。** 加密那几行代码、权限声明、每一处网络调用，都可以自己读。2994 项自动化测试覆盖加密、会话、存储与消息路由等关键路径（跑在本地、提交前钩子里，也会在每次 push 与 PR 的仓库 CI 中自动执行）。
 
@@ -93,4 +101,4 @@ TOTP（RFC 6238）验证码在本地生成，列表里是实时活码加倒计�
 - [GitHub 仓库](https://github.com/liaolongdong/account-password-helper)（源码 / Releases 下载 / Issue 反馈），顺手点个 Star 是对开源最大的支持
 - [在线演示与双语 FAQ](https://liaolongdong.github.io/account-password-helper/)
 
-下一篇，我们聊聊让侧边栏在 1 秒内打开的完整工程实现——那是 Manifest V3 时代每个扩展开发者都会踩的坑。
+下一篇聊的是[让 Chrome 侧边栏 1 秒内打开的完整工程实现]({{ site.baseurl }}/2026/08/28/mv3-sidepanel-sub-second-open.html)——Service Worker 保活与预热，那是 Manifest V3 时代每个扩展开发者都会踩的坑。

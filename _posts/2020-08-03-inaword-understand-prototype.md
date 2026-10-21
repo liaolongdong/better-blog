@@ -7,6 +7,14 @@ date: 2020-08-03
 categories: [JavaScript]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: JavaScript 原型和原型链
+tldr: '实例对象的 __proto__ 指向构造函数的 prototype，函数自己也是对象所以两个属性都有；原型链一路查到 Object.prototype 的 __proto__ 为 null，还没命中就返回 undefined，用实例覆盖 Child.prototype 后得手动补 constructor。'
+faq:
+  - q: '为什么 person.prototype 打出来是 undefined？'
+    a: '实例对象没有 prototype 属性，这个属性只有函数才有。person 身上能拿到的是私有的 __proto__，它指向构造函数的原型，所以 person.__proto__ === Person.prototype 才是 true。'
+  - q: '写了 Child.prototype = person 之后，Child.prototype.constructor === Child 为什么变成 false？'
+    a: '因为那行代码把 Child 构造函数的原型整个重写成了 person 这个实例，constructor 就不再指向 Child，等式自然为 false。办法是再手动设置一次 Child.prototype.constructor = Child。'
+  - q: 'Function.prototype 和 Object.prototype 是什么关系？'
+    a: 'Function.prototype 本身也是 Object 构造函数的一个实例对象，所以 Function.prototype.__proto__ === Object.prototype 为 true。反过来 Function、Object、Child、Person 这些函数对象的 __proto__ 又都指向 Function.prototype，因此 Function.__proto__ === Object.__proto__ 也成立，两者引用的是同一个地址。'
 ---
 
 ## 原型

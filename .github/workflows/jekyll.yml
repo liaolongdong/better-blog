@@ -18,8 +18,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     # 超时是挂死保险，不是按预算定的。2026-10-16 本机（node v22.19.0）按这条 job 的顺序走了一遍：
-    # 两次 vite 27s + jekyll 33s + 下面那一串门禁 447s（9 道，最重的 check-seo-teeth 一道
-    # 201s / 159 组变异），合计约 8.5 分钟；CI 上还要再加一次 pnpm install 与冷缓存，
+    # 两次 vite 27s + jekyll 33s + 下面那一串门禁 447s（11 道，最重的 check-seo-teeth 一道
+    # 201s / 159 组变异；2026-10-20 并入的 check-discovery 与它的牙齿两道本机实测合计 3s，
+    # 都只读一份隔离产物、不启浏览器），合计约 8.5 分钟；CI 上还要再加一次 pnpm install 与冷缓存，
     # 那一段本机没量。30 分钟的意思是：跑得完，且一个卡住的步不会占着队列超过半小时。
     # 2026-10-17 又并进来六道生成器的 `--check`（只读盘、不启浏览器），本机实测六道合计 1s，
     # 对上面的预算没有影响，所以这一格不跟着改。
@@ -132,6 +133,8 @@ jobs:
           gate 'verify-plan-blocks'              scripts/verify-plan-blocks.mjs
           gate 'verify-plan-blocks-teeth'        scripts/verify-plan-blocks-teeth.mjs
           gate 'check-sw'                         scripts/check-sw.mjs
+          gate 'check-discovery'                  scripts/check-discovery.mjs
+          gate 'check-discovery-teeth'            scripts/check-discovery-teeth.mjs
           gate 'check-tools-surface'              scripts/check-tools-surface.mjs
           gate 'check-seo'                        scripts/check-seo.mjs
           # 三道 teeth 必须排在 check-seo 之后：它们就地改源再原样还原，还原把那批源文件的
@@ -143,6 +146,15 @@ jobs:
           gate 'check-sw-teeth'                   scripts/check-sw-teeth.mjs
           gate 'check-tools-surface-teeth'        scripts/check-tools-surface-teeth.mjs
           gate 'check-seo-teeth'                  scripts/check-seo-teeth.mjs
+
+          # 版本台账：`package.json` / `site.version` / `CHANGELOG.md` 顶条三处必须一致。
+          # 这一条原本只写在 USAGE.md 里、没有机器判据，于是 2.1.0 三处都改了、tag 忘了，
+          # 站点没有任何症状——只有拿 tag 算增量的人对不上。tag 那一档不在这张清单里：
+          # CI 的 checkout 默认不取 tag，而且「feature 分支上要求 tag 已存在」等于把还没发生的
+          # 发版当成缺陷。收口那一刻手工跑 `node scripts/check-release.mjs --require-tag`。
+          # 牙齿只改 gitignore 里的副本，不碰跟踪源文件（这一族是 2026-10-21 新形状）。
+          gate 'check-release'                    scripts/check-release.mjs
+          gate 'check-release-teeth'              scripts/check-release-teeth.mjs
 
           # 六道生成器自检，全走 `--check`：只读盘比对、一个字节都不写（2026-10-17 本机核过：
           # 跑完六条 `git status` 里没有新生成的改动）。放在三道 teeth 之后是为了不跟它们抢源文件，

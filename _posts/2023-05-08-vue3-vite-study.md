@@ -6,6 +6,14 @@ seo_description: Vue3 与 Vue2 在性能、Diff 策略、TS 支持、包体积�
 date: 2023-05-08
 categories: [Vue, 前端工程化]
 tags: Vue3 Vue2 vite webpack 前端框架
+tldr: '两张对照表把 Vue3 与 Vue2、Vite 与 webpack 的差异摆平：响应式从 Object.defineProperty() 换成 Proxy，Vue3 能摇掉整个未使用的库但不再兼容 IE11，Vite 快在开发环境和产物体积、代价是插件生态有限且只支持现代浏览器；全文没有代码也没有实测数据，当选型速查表够用，当迁移依据不够。'
+faq:
+  - q: 'Vue3 的响应式和 Vue2 差在哪？'
+    a: '对照表里这一行写的是响应式系统：Vue2 用 Object.defineProperty()，Vue3 换成 Proxy。再加上静态树提升和模板编译优化，Vue3 运行时优化更多、加载时间更短；代价是学习成本更高，要掌握 Composition API、Teleport 这些新特性以及被重命名的生命周期函数。'
+  - q: 'Tree shaking 在 Vue2 和 Vue3 上表现一样吗？'
+    a: '不一样。两者都支持 Tree shaking，但 Vue2 受 ES5 的限制只能删除未被使用的代码，删不掉未被使用的整个库；Vue3 用 TypeScript 编写并重新设计了大部分 API，可以把未使用的整个库删掉，所以代码体积相对更小。'
+  - q: '什么场景下还该选 webpack 而不是 Vite？'
+    a: '要看的是生态和兼容性：webpack 插件和 loader 丰富、兼容性较好并支持大部分现代浏览器，但构建慢、热更新性能较差、配置复杂度和学习成本都更高；Vite 胜在按需构建、热更新更快、配置简单、产物体积更小，却只支持现代浏览器，要兼容老浏览器得自己补 polyfill。'
 ---
 ## vue3和vue2分析对比
 

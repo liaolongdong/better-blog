@@ -7,6 +7,10 @@
  * @LastEditTime: 2020-04-23 15:01:54
  -->
 <head>
+    <!-- 位置勿动：编码声明必须在首 1024 字节之内（Lighthouse 的 charset 判据），
+         而下面紧接着的令牌引导、样式表与 favicon 会把字节预算吃光。
+         2026-10-21 实测：它原先由 seoMeta.html 带出来，落在第 2439 字节。 -->
+    <meta charset="UTF-8">
     <meta name="base-url" content="{{ site.baseurl }}">
     <script>window.SITE_BASEURL = "{{ site.baseurl }}";</script>
     <!-- 位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头 -->

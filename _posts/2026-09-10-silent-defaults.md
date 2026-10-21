@@ -8,6 +8,14 @@ date: 2026-09-10
 categories: [前端工程化, 开源实测]
 cover: /assets/img/silent-defaults/banner.webp
 tags: npm next AI 开源 前端小技巧
+tldr: 'DeepSeek 换了模型路由、Tailwind 关了注册门，至少都自己发了公告；只有 miniflare 的 latest 静默指向 alpha，全程零警告——有 lockfile 躲得过，npm i -D wrangler 的人没有选择权。'
+faq:
+  - q: 'deepseek-v4-pro 下线之后，写死在 CI 里的这个模型名会怎样？'
+    a: '北京时间 9 月 14 日 12:00 之后，请求 deepseek-v4-pro 全部路由到 V4.1 Flash 并按 Flash 单价计费：照样 200、照样成功，没有任何东西提醒你去重跑基线。公告那三个页面都没写响应体里 model 字段会不会变，有 key 的人当天下午一条请求就能验证。'
+  - q: 'npm i miniflare 装回 5.20260908.0-alpha 会有警告吗？谁能躲过？'
+    a: 'node 22 下一条警告都没有，exit 0 装完；node 20.11.1 才报 EBADENGINE。仓库有 lockfile 的，npm ci 装回来还是锁住的那版；package.json 写 ^4.0.0 的，caret 带你跨不到 5.x，这两类都安全。跑不掉的是写 latest、* 或靠 npx 临时拉的人，以及所有 npm i -D wrangler 的——wrangler 4.130.0 把 miniflare 精确钉在那个 alpha 上，它替你钉死了。'
+  - q: 'Tailwind Plus 停止新用户注册，官网上有什么提示？'
+    a: '没有。9 月 9 日抓 /plus 是 302 跳到 /plus/login 再 200，页面可见文字只剩登录框那六个字符串，没有一处写着停止注册，也没有一个价格数字；closing sign ups 那句只写在博客公告里，页面没有一条链接通向它。开源侧 dist-tags 一个没动（tailwindcss 的 latest 仍是 4.3.3），关掉的确实只是付费产品的门。'
 ---
 
 ![三处被静默改掉的默认值：DeepSeek 的模型路由、miniflare 的 npm dist-tag、Tailwind Plus 的注册入口，全程没有一条报错](/assets/img/silent-defaults/banner.webp)
@@ -22,7 +30,7 @@ $ git log --format='%h %ad %s' --date=iso -2
 
 这两行的顺序和它打印出来的时间是反的：`git log` 按提交对象排，不按作者时间排。我没往下查，知道有这毛病就够了。
 
-上期我在第 249 行留过一句话：“下次要么给你两个 KB 数，要么告诉你我又没跑成。”这次跑成了。环境先交代清楚，免得你跟着跑出一堆对不上的数：node 从系统默认的 v16.16.0 手动切到 nvm 里的 v20.11.1（next@16.3.4 声明 `engines.node: ">=20.9.0"`，够），`next dev -p 8277` 起来，日志给的是 `▲ Next.js 16.3.4 (Turbopack)` 和 `✓ Ready in 2.3s`；源图是 `ffmpeg -f lavfi -i testsrc2=size=1600x1000` 出的单帧 PNG，169,880 字节。
+[上一篇 Next.js 16.3.3 关掉 AVIF 那期]({{ site.baseurl }}/2026/09/10/nextjs-avif-trap.html)我在第 249 行留过一句话：“下次要么给你两个 KB 数，要么告诉你我又没跑成。”这次跑成了。环境先交代清楚，免得你跟着跑出一堆对不上的数：node 从系统默认的 v16.16.0 手动切到 nvm 里的 v20.11.1（next@16.3.4 声明 `engines.node: ">=20.9.0"`，够），`next dev -p 8277` 起来，日志给的是 `▲ Next.js 16.3.4 (Turbopack)` 和 `✓ Ready in 2.3s`；源图是 `ffmpeg -f lavfi -i testsrc2=size=1600x1000` 出的单帧 PNG，169,880 字节。
 
 ```
 # 16.3.4 + node v20.11.1，next.config 是空对象

@@ -66,6 +66,16 @@ llms.txt 不进站点地图：它是纯文本，不是可浏览页面，放在 u
         <priority>0.6</priority>
     </url>
 {%- comment -%}
+更新日志页是第二条点名收录：它是全站唯一「内容会随每次发版自己变新」的页面，
+收录它的价值不在流量，在新鲜度信号与回访动机。不进导航条的理由与上面 index-all 同源。
+{%- endcomment -%}
+    <url>
+        <loc>{{ '/changelog.html' | absolute_url }}</loc>
+        <lastmod>{{ site.data.changelog.entries.first.date }}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+    </url>
+{%- comment -%}
 noindex 的文章不进站点地图：一边在页面里写「别收」，一边在 sitemap 里递地址，
 两个信号互相抵消，还可能被判定为站点地图质量差。目前站内没有这种文章，留着是为了
 以后真要摘某一篇出去时（比如写了公司内部项目）只用改 front matter，不必两头记。

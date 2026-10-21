@@ -8,6 +8,14 @@ date: 2024-01-05
 categories: [Chrome插件]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: chrome 浏览器插件 谷歌浏览器插件 超好用的chrome浏览器插件
+tldr: '外语阅读先装沉浸式翻译，双语对照、PDF 与 Epub 都能翻，免费版够用；一个 FeHelper 顶掉 JSON 格式化比对与编解码那堆小工具，商店下载要科学上网，谷歌翻译也可能需要。'
+faq:
+  - q: '外语文档读不下去，装 Google 翻译还是沉浸式翻译？'
+    a: '两个都写给外语文档阅读困难者。Google 翻译支持整页、段落、选词翻译，但用它可能需要科学上网；沉浸式翻译做网页中英双语对照，外加 PDF 翻译、双语 Epub 制作、Youtube/Netflix/Udemy 双语字幕，可接 Deepl 与 Google 等多个翻译服务，手机上也能用，它自己写着免费版够用。'
+  - q: '想在不改代码的情况下往 Chrome 控制台里装 jQuery、Vue 这类依赖，用哪个插件？'
+    a: 'console-importer。装好后打开 Chrome devtools 控制台，用一个名为 $i 的函数导入 JavaScript 和 CSS 资源，详细用法看插件仓库 pd4d10/console-importer。'
+  - q: '格式化 JSON、比对 JSON、二维码和图片 Base64 这些零碎活，有插件能一把抓吗？'
+    a: 'FeHelper（Web 开发者助手）。它支持 Chrome、Firefox、MS-Edge，工具集包括 JSON 自动和手动格式化、JSON 内容比对、代码美化与压缩、信息编解码转换、二维码生成与解码、图片 Base64 编解码转换、Markdown、网页取色器、脑图 Xmind 等，新版本还集成了 FH 开发者工具，可以自己往里面加工具。'
 ---
 
 安装一些工作中常用的chrome插件，可以极大的提升我们的工作效率，下面推荐几款使用体验超爽的chrome插件。

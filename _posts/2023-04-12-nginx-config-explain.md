@@ -7,6 +7,14 @@ date: 2023-04-12
 categories: [服务器与部署]
 # cover: /assets/img/postCover/gulp_cover.png
 tags: nginx
+tldr: '从 nginx -s 那几个信号的区别，到 location 五种匹配的优先级、root 与 alias 的路径拼接差异，再到 proxy、upstream、rewrite、gzip、geo 逐块给配置和注释，是抄配置用的字典而不是教程；记一条就够：alias 的路径末尾不补斜杠就可能 404。'
+faq:
+  - q: 'nginx 的 location 匹配优先级怎么排？'
+    a: '从高到低是等号精确匹配、前缀匹配（^~ 或以 / 开头，命中多个前缀时取最长的那个）、区分大小写的正则 ~、不区分大小写的正则 ~*，最后才是 / 兜底。一个请求命中多个块时只执行优先级最高的那个；优先级相同则取写在前面的那个。'
+  - q: 'root 和 alias 都会拼路径，区别在哪？'
+    a: 'root 把 URI 里的路径追加到根目录后面，请求 /static/img/logo.png 落到 /var/www/html/static/img/logo.png；alias 是把 location 匹配到的那段 URI 换成本地路径，同一个请求落到 /var/www/static/img/logo.png。用 alias 时路径末尾必须加斜杠，还要配合改 try_files，否则容易 404。'
+  - q: '改配置怎么做到不停服生效？'
+    a: '先 nginx -t 检查语法（要把配置内容一起输出就用 -T），再 nginx -s reload。reload 不完全停止进程，而是平滑重载配置并起新 worker 用新配置跑，旧 worker 继续服务已有连接；stop 强制终止所有连接，quit 允许已接受的连接完成，reopen 只重新打开日志文件，方便日志切割。'
 ---
 
 ## Nginx安装配置详解

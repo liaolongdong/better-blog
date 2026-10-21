@@ -187,6 +187,31 @@
           </span>
           </span><!-- /.post-meta-actions -->
         </div>
+        {%- comment -%}
+        可见修订记录。日期与 article:modified_time / JSON-LD / sitemap 同源，
+        取 pageModified.html 算好的 page_modified 与 page_modified_commit；没有真值就整块不渲染，
+        不把发布日伪装成更新日。作者手写的 page.updated 展开成列表；git 推导的提交另给一条链接，
+        两者可以同时存在——手写列表描述改了什么，commit 链接让人核对是哪一次提交。
+        {%- endcomment -%}
+        {%- if page_modified and page_modified != '' -%}
+        <div class="post-updated">
+          <span class="post-updated-label">更新于</span>
+          <time datetime="{{ page_modified | date_to_xmlschema }}">{{ page_modified | date: '%Y-%m-%d' }}</time>
+          {%- if page_modified_commit %}
+          <a class="post-updated-link" href="{{ site.githubUrl }}/better-blog/commit/{{ page_modified_commit }}" target="_blank" rel="noopener noreferrer">查看这次修订</a>
+          {%- endif %}
+          {%- if page.updated and page.updated.size > 0 %}
+          <details class="post-revisions">
+            <summary>修订记录（{{ page.updated.size }}）</summary>
+            <ol class="post-revisions-list">
+              {%- for item in page.updated %}
+              <li>{{ item }}</li>
+              {%- endfor %}
+            </ol>
+          </details>
+          {%- endif %}
+        </div>
+        {%- endif -%}
       </div>
     </div>
     {% include coverSrc.html cover=page.cover %}
@@ -205,12 +230,53 @@
       </div>
     </figure>
     {% endif %}
+    <script>
+    (function () {
+        var payload = null;
+        try {
+            var raw = sessionStorage.getItem('vtCover');
+            sessionStorage.removeItem('vtCover');
+            payload = raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return;
+        }
+        if (!payload || payload.path !== location.pathname) return;
+        if (typeof payload.at !== 'number' || Date.now() - payload.at > 30000) return;
+
+        // 只给这一页唯一的头图命名；旧页在卡片封面上挂的是同一个名字。
+        var hero = document.querySelector('.post-hero');
+        if (!hero) return;
+        hero.style.viewTransitionName = 'post-cover';
+
+        var cleared = false;
+        function clearHeroName() {
+            if (cleared) return;
+            cleared = true;
+            if (hero.style.viewTransitionName === 'post-cover') {
+                hero.style.viewTransitionName = '';
+            }
+        }
+
+        // 转场结束后把名字摘掉，避免下一次主题切换/跨页跳转把这张头图单独抓出来。
+        // pagereveal 拿不到时用 activeViewTransition 与 timeout 兜底。
+        window.addEventListener('pagereveal', function (e) {
+            var vt = e.viewTransition;
+            if (vt && vt.finished) vt.finished.then(clearHeroName, clearHeroName);
+        });
+        var active = document.activeViewTransition;
+        if (active && active.finished) active.finished.then(clearHeroName, clearHeroName);
+        window.setTimeout(clearHeroName, 1500);
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) clearHeroName();
+        });
+    })();
+    </script>
   </header>
 
   <div class="post-content visible">
     <div class="g-container post-grid">
     {%- comment -%} id="main" 是 _includes/header.html 那条「跳到主要内容」的落点 {%- endcomment -%}
-    <div class="post-main" id="main">
+    <main class="post-main" id="main">
     {%- if page.toc -%}
     {%- capture toc_static_items -%}{%- for item in page.toc -%}<li class="toc-static-item toc-{{ item.level }}"><a class="toc-static-link" href="#{{ item.id }}">{{ item.text | escape }}</a></li>{%- endfor -%}{%- endcapture -%}<script>document.documentElement.className += ' has-js';</script><nav class="toc-static" aria-label="文章目录（静态）"><p class="toc-static-title">本文目录</p><ol class="toc-static-list">{{ toc_static_items }}</ol></nav>
     {%- endif -%}
@@ -221,12 +287,33 @@
       {%- endcomment -%}
       {%- assign body_dims_mode = '' -%}
       {%- unless page.cover -%}{%- assign body_dims_mode = 'lcp' -%}{%- endunless -%}
+      {%- if page.tldr %}
+      <aside class="post-tldr" aria-label="结论先行">
+        <p class="post-tldr-label">先看结论</p>
+        <p class="post-tldr-text">{{ page.tldr }}</p>
+      </aside>
+      {%- endif %}
       <article class="markdown-body" id="post-body"
                data-chars="{{ post_chars }}"
                data-mins="{{ post_chars | plus: 399 | divided_by: 400 }}"
                data-cat="{{ page.categories | first }}">
         {{ post_body | add_baseurl_to_images | add_image_dims: body_dims_mode }}
       </article>
+
+      {%- if page.faq and page.faq.first and page.faq.size > 0 %}
+      <section class="post-faq" aria-labelledby="post-faq-title">
+        <p class="post-faq-kicker">FAQ · 常见问题</p>
+        <h2 class="post-faq-title" id="post-faq-title">常见问题</h2>
+        <div class="post-faq-list">
+          {%- for item in page.faq %}
+          <details class="post-faq-item">
+            <summary>{{ item.q }}</summary>
+            <p>{{ item.a }}</p>
+          </details>
+          {%- endfor %}
+        </div>
+      </section>
+      {%- endif %}
 
       {%- comment -%}
       篇末收束：读完 17 分钟的长文，此刻最容易直接划走，所以先把「你在这篇上花了多久、
@@ -269,12 +356,31 @@
         {% include reward.html %}
       {% endif %}
 
-      {% if site.social-share %}
       <div class="social-share-wrapper">
+        {% if site.social-share %}
         <div class="social-share"></div>
+        {% endif %}
+        {%- comment -%}
+        引用与原生分享。标题/日期/规范地址/署名在构建期写进 data 属性，JS 只负责复制与调
+        navigator.share；没有脚本时这两颗按钮不出现，原有分享图标照常可用。
+        外层不跟随 site.social-share 开关：引用是文章自身的能力，不该被旧分享栏的开关连坐。
+        {%- endcomment -%}
+        <div class="post-share-extra" hidden>
+          <button class="post-share-btn" type="button" data-cite-copy
+                  data-cite-title="{{ page.title | escape }}"
+                  data-cite-author="{{ site.author | escape }}"
+                  data-cite-site="{{ site.seo_title | escape }}"
+                  data-cite-date="{{ page.date | date: '%Y-%m-%d' }}"
+                  data-cite-url="{{ page.url | absolute_url }}"
+                  title="复制 GB/T 7714 风格的引用">复制引用</button>
+          <button class="post-share-btn" type="button" data-native-share
+                  data-share-title="{{ page.title | escape }}"
+                  data-share-text="{{ page.subtitle | default: page.seo_description | default: site.description | escape }}"
+                  data-share-url="{{ page.url | absolute_url }}">分享</button>
+          <span class="post-share-status u-sr-only" data-share-status role="status" aria-live="polite"></span>
+        </div>
       </div>
-      {% endif %}
-    </div>
+    </main>
 
     {%- comment -%}
     下面这一族是 dev/js/editorial.js §1 的目录：条目由 JS 从 #post-body 的 h2/h3 现建，
@@ -372,7 +478,7 @@
       {% if page.next.url %}
       {% include coverSrc.html cover=page.next.cover %}
       <div class="read-next-item">
-        <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link"></a>
+        <a href="{{ page.next.url | prepend: site.baseurl }}" class="read-next-link" aria-label="下一篇：{{ page.next.title | escape }}"></a>
         <section>
           <span>{{ page.next.title }}</span>
           <p>{{ page.next.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
@@ -388,7 +494,7 @@
       {% if page.previous.url %}
       {% include coverSrc.html cover=page.previous.cover %}
       <div class="read-next-item">
-        <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link"></a>
+        <a href="{{ page.previous.url | prepend: site.baseurl }}" class="read-next-link" aria-label="上一篇：{{ page.previous.title | escape }}"></a>
           <section>
             <span>{{ page.previous.title }}</span>
             <p>{{ page.previous.excerpt | strip_html | strip_newlines | truncate: 60}}</p>
@@ -411,32 +517,21 @@
     {% include relatedTools.html %}
 
     {%- comment -%}
-    相关阅读：按「共享任一标签」取最近 3 篇，排除本文。
-    用单次遍历 site.posts + contains 判断，而不是 for tag in page.tags 外层循环，
-    这样一篇命中多个共同标签的文章只会进列表一次，无需再对对象数组做 uniq。
+    相关阅读：条目由 _plugins/related_posts.rb 在构建期算好，挂在 page.related 上。
+    权重是 IDF（大 tag 降权）+ 同分类/同合集加成 + 日期兜底；没有命中时回填同分类/最新，
+    保证每篇至少有 3 条 SSR 内链。模板不再遍历 site.posts，也不再按「共享任一 tag」取前 3。
     {%- endcomment -%}
-    {%- assign related = "" | split: "" -%}
-    {%- for rpost in site.posts -%}
-      {%- if rpost.url == page.url -%}{%- continue -%}{%- endif -%}
-      {%- for tag in page.tags -%}
-        {%- if rpost.tags contains tag -%}
-          {%- assign related = related | push: rpost -%}
-          {%- break -%}
-        {%- endif -%}
-      {%- endfor -%}
-    {%- endfor -%}
-    {%- assign related = related | slice: 0, 3 -%}
-    {% if related.size > 0 %}
+    {% if page.related and page.related.size > 0 %}
     <section class="post-footer-item related-posts">
       <h3 class="related-title">相关阅读</h3>
       <ul class="related-list">
-        {% for rpost in related %}
+        {% for rpost in page.related %}
         <li class="related-item">
           <a class="related-link" href="{{ rpost.url | prepend: site.baseurl }}">
             <span class="related-name">{{ rpost.title }}</span>
             <span class="related-info">
-              <time datetime="{{ rpost.date | date: '%Y-%m-%d' }}">{{ rpost.date | date: '%Y.%m.%d' }}</time>
-              {% if rpost.tags.size > 0 %}<span class="related-tag">{{ rpost.tags | first }}</span>{% endif %}
+              <time datetime="{{ rpost.date }}">{{ rpost.date | date: '%Y.%m.%d' }}</time>
+              {% if rpost.tag %}<span class="related-tag">{{ rpost.tag }}</span>{% endif %}
             </span>
           </a>
         </li>
@@ -482,13 +577,20 @@
       wechatQrcodeHelper: '<p>扫码后点击右上角</p><p>将本文分享至朋友圈</p>'
     });
 
-    // social-share.min.js 建链接时只写 href 和 target="_blank"：不带 rel，
-    // 端点常量还全是 http://（weibo/qzone/qq/douban 四个，见 dev/libJs/social-share.min.js）。
-    // 缺 noopener 让第三方分享页能反向操作 window.opener；http 端点在 https 页上
-    // 多一次协议跳转。四个端点都 curl 验证过支持 https，所以直接改写属性。
-    var shareLinks = document.querySelectorAll('.social-share a[target="_blank"]');
+    // social-share.min.js 建链接时只写 href 和 target="_blank"：不带 rel，也没有可访问名，
+    // 读屏器与 Lighthouse 都只能读到「链接」。按图标类补一句站名，href="javascript:" 的
+    // 微信入口同样受益（它只负责弹二维码，不是跳转）。
+    var shareLabels = {
+      wechat: '分享到微信', weibo: '分享到微博', qzone: '分享到 QQ 空间',
+      qq: '分享到 QQ', douban: '分享到豆瓣'
+    };
+    var shareLinks = document.querySelectorAll('.social-share a[target="_blank"], .social-share a[href^="javascript"]');
     for (var si = 0; si < shareLinks.length; si++) {
       var sl = shareLinks[si];
+      var shareSite = (/icon-([a-z]+)/.exec(sl.className) || [])[1];
+      var shareLabel = shareLabels[shareSite] || '分享到外部平台';
+      sl.setAttribute('aria-label', shareLabel);
+      sl.title = shareLabel;
       sl.rel = ((sl.getAttribute('rel') || '') + ' noopener noreferrer').trim();
       if (sl.href.indexOf('http://') === 0) sl.href = 'https://' + sl.href.slice(7);
     }

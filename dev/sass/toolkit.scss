@@ -404,6 +404,11 @@ body.night-mode {
     box-shadow: inset 0 0 0 1px var(--rule);
 }
 
+// 批量下载在结果画出来之前是隐藏的；`.tk-btn` 的 `display:inline-flex` 会盖掉 UA 的 hidden。
+.tk-download[hidden] {
+    display: none;
+}
+
 .tk-btn--ghost:disabled:hover {
     color: var(--ink-3);
     background-color: var(--surface-2);
@@ -717,10 +722,13 @@ body.night-mode {
 
     .tk-index__link {
         flex: none;
+        box-sizing: border-box;
         gap: 0;
+        min-height: 44px;
         padding: 6px 10px;
         font-size: 13px;
         white-space: nowrap;
+        align-content: center;
     }
 
     // 提示语在 chip 里就是噪音，且它撑宽了每一颗 chip（五条不等宽很难看）。
@@ -749,7 +757,14 @@ body.night-mode {
         justify-items: stretch;
     }
 
+    // 触控目标按 44px 走；输入控件同时提到 16px，避免 iOS 聚焦时自动放大整页。
     .tk-btn {
-        height: 38px;
+        height: 44px;
+    }
+
+    .tk-field input,
+    .tk-field select {
+        min-height: 44px;
+        font-size: 16px;
     }
 }

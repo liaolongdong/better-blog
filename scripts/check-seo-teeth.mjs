@@ -725,6 +725,13 @@ function subInBody(html, from, to, where) {
   if (n !== 1) throw new Error(`${where}：正文里 ${from} 出现 ${n} 次，不是恰好一处`);
   return html.slice(0, at) + span.replace(from, to) + html.slice(close);
 }
+/** 正文里指向本站另一篇文章的手工链（判据见 check-seo.mjs 组 13 的 ART_DASH_RE / ART_SLASH_RE）。 */
+const bodyArtLink = (rel) => {
+  const html = fs.readFileSync(siteAbs(rel), 'utf8');
+  const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
+  const close = html.indexOf('</article>', at);
+  return at >= 0 && close > at ? /href="(\/better-blog\/\d{4}\/\d{2}\/\d{2}\/[a-z0-9-]+\.html)"/.exec(html.slice(at, close)) : null;
+};
 const bodyToolLink = (rel) => {
   const html = fs.readFileSync(siteAbs(rel), 'utf8');
   const at = html.search(/<article\b[^>]*\bid="post-body"[^>]*>/i);
@@ -2157,6 +2164,33 @@ const cases = [
       );
       const href = bodyToolLink(q.rel)[1];
       siteEdit(q.rel, (s) => subInBody(s, href, href.replace(/\/tools\/[a-z0-9-]+\.html$/, '/tools/nope.html'), `M12 ${q.rel}`));
+    },
+  },
+  {
+    name: 'M12b 正文里指向本站文章的链把日期段写成横杠',
+    group: '内链',
+    expect: '日期段写成了横杠',
+    mut: () => {
+      const q = first(
+        POSTS.filter((r) => has(r.rel) && bodyArtLink(r.rel)),
+        '正文里有文章内链的产物',
+      );
+      const href = bodyArtLink(q.rel)[1];
+      const dashed = href.replace(/^\/better-blog\/(\d{4})\/(\d{2})\/(\d{2})\//, '/better-blog/$1-$2-$3/');
+      siteEdit(q.rel, (s) => subInBody(s, href, dashed, `M12b ${q.rel}`));
+    },
+  },
+  {
+    name: 'M12c 正文里那枚文章内链的形状对、目标页不存在',
+    group: '内链',
+    expect: '快照里没有这一页',
+    mut: () => {
+      const q = first(
+        POSTS.filter((r) => has(r.rel) && bodyArtLink(r.rel)),
+        '正文里有文章内链的产物',
+      );
+      const href = bodyArtLink(q.rel)[1];
+      siteEdit(q.rel, (s) => subInBody(s, href, href.replace(/\/[a-z0-9-]+\.html$/, '/no-such-article.html'), `M12c ${q.rel}`));
     },
   },
   {

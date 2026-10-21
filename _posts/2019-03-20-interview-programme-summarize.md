@@ -9,6 +9,14 @@ categories: [算法与面试]
 # 留着会让首页卡片与文章页头图渲染成破图；要恢复请换成本地 /assets/img/<slug>/banner.webp 再取消注释。
 # cover: https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1542004422750&di=bac805c49c6075c0dea87ae5aa94d5b5&imgtype=0&src=http%3A%2F%2Fwh.web.tedu.cn%2Fimg%2F201803%2F1522135004508.jpg
 tags: JavaScript 前端面试常见编程题汇总
+tldr: '一题一段带实际输出的手写题合集，出处直接写在小标题上（阿里、美团、字节、快手、携程、腾讯文档）；防抖节流各两版、sleep 给了 promise、async/await、generator 三版，抄代码之前先对着注释里的 console 输出跑一遍。'
+faq:
+  - q: '防抖和节流到底差在哪？'
+    a: '防抖是在规定时间内多次触发只执行一次，而且要等触发操作结束后才执行，靠 clearTimeout 反复清掉上一个定时器；节流是每隔一段时间只执行一次，上一次执行后必须过了规定间隔才能再调。这两招对应的正是 scroll、keyup、mouseover、resize 这类高频事件。'
+  - q: '节流用时间戳和用定时器，行为有什么不同？'
+    a: '两种主流实现：时间戳版第一次触发就立刻执行，但停止触发后没法再补一次；定时器版第一次要等 n 秒才执行，好处是停止触发后依然会再执行一次。'
+  - q: 'JSON.parse 加 JSON.stringify 做深拷贝会丢什么？'
+    a: '拿一个含 date、function、Symbol、undefined 的对象打印，结论是：undefined、symbol、function 三种类型直接被过滤掉，date 被自动转成字符串。类型判断加递归那版也有坑，只能复制对象、数组和函数，null 以及包装对象 Number、String、Boolean 和 Date、RegExp 复制不了。'
 ---
 
 ## JS 编程题

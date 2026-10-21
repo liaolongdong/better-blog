@@ -1,9 +1,16 @@
-{% if site.mathjax %}
-<script type="text/javascript" async src="https://cdn.bootcss.com/mathjax/2.7.2/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+{% if page.mathjax or site.mathjax %}
+<!-- 只在文章显式 opt-in 时加载。jsDelivr 钉版本并带 SRI：旧 bootcss 地址没有完整性校验，
+     上游一旦被替换就是本站 origin 里执行任意脚本。SRI 对带 ?config 的响应同样生效。 -->
+<script type="text/javascript" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/MathJax.js?config=TeX-MML-AM_CHTML"
+        integrity="sha384-vi9R4hb1goLJPJDHY+dOmXxcY3HGv6tJIwHxy5JunOTxJGHbsSuubPgl++SNxYYi"
+        crossorigin="anonymous"></script>
 
 <script type="text/x-mathjax-config">
     MathJax.Hub.Config({
 		jax: ["input/TeX", "output/HTML-CSS"],
+		// 加载慢时左下角那句 “Loading [MathJax]/…” 会压在正文上，且没有可读价值。
+		messageStyle: "none",
 		tex2jax: {
 			inlineMath: [ ["$", "$"] ],
 			displayMath: [ ["$$", "$$"] ],

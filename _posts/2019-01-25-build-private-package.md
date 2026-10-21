@@ -7,6 +7,14 @@ date: 2019-01-24
 categories: [前端工程化]
 cover: /assets/img/postCover/npm_private_cover.png
 tags: npm 私有仓库 组件库
+tldr: 'nexus 偏后台、cnpm 要装 MySQL、sinopia 三四年没人维护，所以选 verdaccio：一条 npm 命令装完、免数据库。搭好之后还有两道门，config.yaml 里加 listen 和云服务器开放 4873 端口的安全组。'
+faq:
+  - q: '搭 npm 私有仓库，verdaccio 和 nexus、cnpm、sinopia 比差在哪？'
+    a: '对比是：nexus 是 maven 包管理的私服工具，功能强大但更偏向后台使用；阿里的 cnpm 也在自用，不过需要安装 MySQL 数据库、配置比较麻烦；sinopia 使用简单、不用配置数据库，但那个 github 项目好像三四年没人维护了。最后选的 verdaccio 这个 github 项目貌似是 sinopia 的分支，用法和 sinopia 差不多。'
+  - q: '安装 verdaccio 时报 gyp ERR! configure error 和 EACCES permission denied 怎么办？'
+    a: '处置办法是在安装命令后加 --unsafe-perm 选项，写成 npm install -g verdaccio --unsafe-perm，加这个选项就是为了防 gyp 的权限问题报错；后面用 pm2 时安装命令同样带了 --unsafe-perm。如果过程中提示需要更新 npm，执行 npm install -g npm。'
+  - q: '私有仓库搭好了，浏览器打不开 4873 那个页面是为什么？'
+    a: "两处都要检查。启动 verdaccio 后控制台会给出配置文件路径和默认访问地址 http://localhost:4873/，只监听本机，要在 config.yaml 末尾加一行 listen: 0.0.0.0:4873 再保存；另一处是阿里云服务器要添加安全组、开放 4873 端口号，没加这个端口的安全组就不能在浏览器正常访问私有仓库页面。"
 ---
 
 需求背景：平时在项目工作中可能会用到很多通用性的代码，比如，框架类、工具类以及公用的业务逻辑代码等等，通过打包发布到npm中央仓库或者私有仓库，来进行维护和托管代码，方便公用代码的使用，如果涉及到不方便公开的代码组件可以发布到私有仓库。
