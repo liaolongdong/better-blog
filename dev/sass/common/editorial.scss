@@ -6970,32 +6970,13 @@ dialog.shortcuts:not([open]) {
     box-decoration-break: clone;
 }
 
-/*** 14. 布局批 D（首屏节奏 / 手机命中区） ***/
+/*** 14. 布局批 D（手机命中区） ***/
 
-// D-1 编辑精选从 5 条纵排改两列。实测 1440×900 首屏看不到任何文章卡：
-// 刊头 393 + 话题栏 + 精选 386 把第一篇推到 y=866，视口 900 只给它露出 34px 卡边。
-// 精选是「手工挑的」而非榜单，3 条与 5 条在传达上等价，省下的那一截直接还给信息流。
-// 改两列之后实测露出 142px，仍不够——宽屏上三条本来就是同一层信息，排成一行
-// 再省 166px，第一篇才真的进首屏。窄一点的桌面（960–1199）留两列，
-// 三列在那一档会把「为什么挑这篇」挤成四行。
-.feed-picks-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 30px;
-    row-gap: 2px;
-}
-@media (min-width: 1200px) {
-    .feed-picks-list {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-// 窄屏不拆列：两列在 390 上会把「为什么挑这篇」挤成三四行，比省下的距离更亏。
-@media (max-width: 699px) {
-    .feed-picks-list {
-        grid-template-columns: 1fr;
-        row-gap: 10px;
-    }
-}
+// D-1 已回退（2026-10-21，本人拍板）：这里曾经把编辑精选从 5 条纵排压成 3 条两列/三列，
+// 为的是把第一篇推上首屏（实测 1440×900 只露 34px 卡边）。省是省了 149px，代价是这一栏
+// 从「编辑挑的五篇」变成一排三张短卡，读者认不出它是干什么的——形状本身就是它的说明。
+// 首屏露出改由刊头与信息流的节奏去还（见下面 D-3），不再动这个模块。
+// 原始形状：`.feed-picks-list` 不设 display，走 <ol> 的纵排 + 每行一条编号。
 
 // D-2 手机命中区。实测 .toc-fab 73×37、.reader-btn 90×24，都低于 44px 的舒适线
 // （过 WCAG 2.5.8 的 24px 下限，未及 AAA 的 44px）。用 ::before 撑一块透明命中区，
@@ -7015,6 +6996,44 @@ dialog.shortcuts:not([open]) {
     height: 100%;
     min-height: 44px;
     transform: translate(-50%, -50%);
+}
+
+// D-3 两枚胶囊状入口的命中区。实测（1280×900 首页）：`.feed-topic` 6 颗、`.post-tag` 34 颗，
+// 高度都只有 22px——低于 WCAG 2.5.8「AA 最小尺寸」的 24×24，拇指点在列表里其实经常落空。
+// 这里**只往上下各借 11px，横向一格都不借**：实测话题胶囊最窄 51px、彼此间隙只有 6px，
+// 文章标签最窄 31px、间隙 8px，横向一旦撑到 44px 就会压到邻颗，点 A 命中 B——
+// 那比 22px 更糟。纵向两行之间分别有 16px 与 528px 的空档，借 11px 不撞任何可交互元素。
+// 与上面 D-2 同一手法：透明伪元素撑命中区，视觉尺寸一像素不动。
+.feed-topic,
+.post-tag {
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -11px 0;
+    }
+}
+
+// 同一族里另外两枚，借多少是按**实测间隙**算的，不是统一给 44：
+// · `a.tag`（首页「标签」卡里那 12 枚）：宽 31、高 22，同排间隙只有 4px、上下行距只有 6px。
+//   借 11px 就会与上下两行叠住 8px——那会把「点错成邻行」引进来，比 22px 更糟。
+//   所以只借 3px：22 + 3 + 3 = 28px，仍然过 2.5.8 的 24×24 下限，且一行与下一行互不越界。
+// · `.shelf-mark`（书架抽屉里那 8 颗勾）：22×22，左右无同排兄弟、上下行距 528px，
+//   横竖都可以借满 —— 这一颗是真的孤零零，44px 不撞任何人。
+a.tag {
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -3px 0;
+    }
+}
+.shelf-mark::before {
+    content: "";
+    position: absolute;
+    inset: -11px;
 }
 
 // C2：语言角标与长块折叠（动效批 V）。外壳复用 initCodeCopy 的 .code-wrap，
