@@ -101,6 +101,24 @@ curl -s  https://liaolongdong.github.io/better-blog/sitemap.xml | grep -c '<loc>
 curl -s  https://liaolongdong.github.io/better-blog/feed.xml | head -5
 ```
 
+## 🧪 上线前那一发真浏览器审（门禁抓不到的两类问题）
+
+19 道门禁全是结构与一致性判据：没有一条会看 head 的字节序，也没有一条会看混合内容。
+2026-10-21 用 Lighthouse（移动档 navigation）+ performance trace 量了一次 `_site`，
+一趟就抓出两条门禁全绿时并存的实话：`<meta charset>` 落在第 2439 字节（门槛是 1024），
+以及 `dev/libJs/baiduPush.js` 把注入地址写成 `http://`——https-only 的本站会被浏览器按
+混合内容拦掉，那条推送等于从来没发出去。
+
+看什么：
+- Lighthouse：**无障碍与 SEO 应当 100**；重点盯 Best Practices 里的 `charset`、
+  `is-on-https`、`deprecations`。掉下去先修再发。
+- performance trace（reload + autoStop）：**CLS 必须是 0**。2026-10-21 的基线是 CLS 0.00、
+  LCP 1171ms（其中 render delay 979ms）。动效或布局改完 CLS 一旦非 0，就是引入了位移，
+  照 `CLSCulprits` 那条查；`.reveal` 那套的隐藏态由 `body.js-reveal` 限定、只作用于折叠线
+  以下的卡片，不是 LCP 的理由。
+- 本地 `python -m http.server` 不发压缩与缓存头，所以 `DocumentLatency` / `Cache` 报的
+  「浪费字节」是本地环境的形状，别当结论抄进发布判断里。
+
 ## 🏷 版本号与 tag
 
 版本号只有一个真实来源：**master 上的 git tag**。`_config.yml` 的 `site.version`、
