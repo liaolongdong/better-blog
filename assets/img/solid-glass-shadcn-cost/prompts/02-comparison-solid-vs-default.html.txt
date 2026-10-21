@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --ink:#111827; --muted:#667085; --line:#d8d3c8; --paper:#fbfaf6;
+    --accent:#d9480f; --teal:#0e7490; --soft:#fff3ea;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    padding:58px 72px 44px;
+  }
+  .eyebrow{font-size:20px;letter-spacing:.16em;color:var(--accent);font-weight:800}
+  h1{font-size:46px;line-height:1.15;margin-top:10px;letter-spacing:-.03em}
+  .sub{font-size:22px;color:var(--muted);margin-top:10px}
+  .row{display:flex;gap:26px;margin-top:34px}
+  .col{
+    flex:1;background:#fff;border:2px solid var(--line);border-radius:18px;
+    padding:20px 20px 18px;display:flex;flex-direction:column;gap:12px;
+  }
+  .col.hot{border-color:var(--accent);background:var(--soft)}
+  .head{display:flex;align-items:center;justify-content:space-between}
+  .n{font-size:18px;font-weight:800;color:var(--muted);letter-spacing:.08em}
+  .badge{font-size:17px;font-weight:800;padding:5px 10px;border-radius:999px;background:#f2f0ea;color:#47423a}
+  .hot .badge{background:var(--accent);color:#fff}
+  .title{font-size:27px;font-weight:800;line-height:1.2}
+  .stage{
+    position:relative;height:250px;border-radius:14px;overflow:hidden;
+    background:linear-gradient(150deg,#dbe7ec,#f0e6d8 60%,#e5dcec);
+    border:1px solid rgba(17,24,39,.1);
+  }
+  .b{position:absolute;border-radius:50%;filter:blur(9px)}
+  .b1{width:170px;height:170px;left:-20px;top:-10px;background:rgba(255,120,60,.85)}
+  .b2{width:190px;height:190px;right:-30px;top:70px;background:rgba(40,150,230,.8)}
+  .b3{width:150px;height:150px;left:90px;bottom:-50px;background:rgba(210,90,240,.55)}
+  .card{
+    position:absolute;left:36px;top:44px;right:36px;height:150px;border-radius:14px;
+    padding:16px 18px;border:1px solid rgba(255,255,255,.6);
+  }
+  .opaque{background:#fff;box-shadow:0 10px 24px rgba(17,24,39,.13)}
+  .glass{
+    background:oklch(0.98 0.004 265 / 60%);
+    box-shadow:0 16px 36px rgba(17,24,39,.2), inset 0 1px 0 rgba(255,255,255,.9);
+    backdrop-filter:blur(26px) saturate(1.8);
+    border:1px solid rgba(255,255,255,.75);
+  }
+  .ghost{outline:2px dashed rgba(217,72,15,.65);outline-offset:4px}
+  .card .t{font-size:19px;font-weight:800;color:#191919}
+  .card .d{font-size:15px;line-height:1.5;color:#4a453d;margin-top:6px}
+  .card .bar{margin-top:10px;height:18px;border-radius:5px;background:rgba(120,120,120,.18)}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:16px;line-height:1.35}
+  .m .k{display:block;color:var(--muted);font-size:13px;letter-spacing:.04em}
+  .m .v{font-weight:800;color:#1f2937}
+  .note{font-size:15px;line-height:1.45;color:var(--muted);min-height:44px}
+  .takeaway{
+    margin-top:26px;border-left:8px solid var(--accent);background:#fff;
+    padding:20px 26px;border-radius:0 14px 14px 0;font-size:25px;line-height:1.4;
+    box-shadow:0 6px 20px rgba(17,24,39,.06);
+  }
+  .takeaway b{color:var(--accent)}
+  .foot{margin-top:14px;font-size:15px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="eyebrow">SOLID GLASS · 同一段 JSX，三种状态</div>
+  <h1>一个样式表接管了 shadcn，但开关在 CSS 变量和 import 顺序</h1>
+  <p class="sub">2026-10-21 实测 · 最小 Vite + React 19 + Tailwind 4 + stock shadcn Card/Button</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="head"><span class="n">01</span><span class="badge">默认</span></div>
+      <div class="title">shadcn 原生</div>
+      <div class="stage">
+        <div class="b b1"></div><div class="b b2"></div><div class="b b3"></div>
+        <div class="card opaque">
+          <div class="t">Agent session #42</div>
+          <div class="d">不透明的卡片，彩色背景被完全挡住。</div>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="m"><span class="k">构建 CSS</span><span class="v">29.5 KB</span></div>
+        <div class="m"><span class="k">Card 背景</span><span class="v">oklch(1 0 0)</span></div>
+        <div class="m"><span class="k">模糊</span><span class="v">无</span></div>
+        <div class="m"><span class="k">组件改动</span><span class="v">0</span></div>
+      </div>
+      <div class="note">对照组。没有样式表，也没有额外的 backdrop-filter 成本。</div>
+    </div>
+
+    <div class="col hot">
+      <div class="head"><span class="n">02</span><span class="badge">推荐</span></div>
+      <div class="title">Solid Glass · 顺序对</div>
+      <div class="stage">
+        <div class="b b1"></div><div class="b b2"></div><div class="b b3"></div>
+        <div class="card glass">
+          <div class="t">Agent session #42</div>
+          <div class="d">卡片 60% 不透明，背景从边缘透进来，文字仍可读。</div>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="m"><span class="k">构建 CSS</span><span class="v">62.7 KB</span></div>
+        <div class="m"><span class="k">Card 背景</span><span class="v">60%</span></div>
+        <div class="m"><span class="k">模糊</span><span class="v">blur(26px)</span></div>
+        <div class="m"><span class="k">组件改动</span><span class="v">0</span></div>
+      </div>
+      <div class="note">按 README 删掉 shadcn 的 :root/.dark，并让 solid-glass.css 最后导入。</div>
+    </div>
+
+    <div class="col">
+      <div class="head"><span class="n">03</span><span class="badge">静默失败</span></div>
+      <div class="title">顺序反了</div>
+      <div class="stage">
+        <div class="b b1"></div><div class="b b2"></div><div class="b b3"></div>
+        <div class="card opaque ghost">
+          <div class="t">Agent session #42</div>
+          <div class="d">卡片退回纯白，背景看不见；但模糊规则还在跑。</div>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="m"><span class="k">构建 CSS</span><span class="v">62.7 KB</span></div>
+        <div class="m"><span class="k">Card 背景</span><span class="v">oklch(1 0 0)</span></div>
+        <div class="m"><span class="k">模糊</span><span class="v">仍在，26px</span></div>
+        <div class="m"><span class="k">控制台</span><span class="v">无报错</span></div>
+      </div>
+      <div class="note">保留 shadcn 的 :root，把 Solid Glass 放在它前面。变量被覆盖，材质消失。</div>
+    </div>
+  </div>
+
+  <div class="takeaway"><b>我的判断：</b>样式表没有失效，失效的是变量。谁在后面，谁赢；模糊成本不会跟着一起退回。</div>
+  <div class="foot">数据来源：浏览器计算样式与本地构建产物，抓取日期 2026-10-21；仓库 commit 6e8903e494a15491ceda38fafea5056c95a74d44。</div>
+</body>
+</html>
