@@ -730,66 +730,37 @@ body {
 // 大屏右栏吸顶。宽度取 1320：右下 .bottom-fixed-btn 是 right:30 + 40px 宽，占掉右侧 70px；
 // 1180–1279 它会落进右栏压住搜索条（1180×900 实测 40×46 重叠），1280–1319 只剩 0–20px
 // 余量；1320 起留出 20px 沟槽（17px 滚动条下约 11px），所以 1280 档不吸顶。
-// 高度分两档，都是实测：
-// · ≥800：整栏 695px，top 88，底部 783，搜索条完整可见。
-// · 617–799：整栏在 624 这类矮窗口放不下，改用紧凑版（名片横排 + 收紧内边距），
-//   实测 541px；top 用 clamp(72px, 100vh - 557px, 88px)，1440×624 下底部留 11px。
-// 617 起吸顶（搜索条底部留 4px）；以下不吸顶，避免搜索条贴住窗口底边。
-// 以后工具箱或标签条目增减，695、541 与两档门槛要跟着重量。
+// 高度分三档，都是实测：
+// · ≥800：完整右栏 695px，top 88，底部 783，搜索条完整可见。
+// · 695–799：完整右栏，top 用 clamp(0px, 100vh - 711px, 88px)；
+//   695–710 顶到 0、底边留 0–15px（顶栏收起时整栏完整，698 这类窗口也保留简介）；
+//   711 起底边留 16px；754 高的窗口 top=43，简介仍是原来的竖排。
+// · 570–694：695px 放不下，按“放不下就去掉简介”的约定隐藏名片，只吸工具 + 标签 + 搜索，
+//   实测 478px，top 88；570 = 478 + 88 + 4px 底距。
+// 570 以下不吸顶，保留原来的静态右栏（简介不删）。
+// 以后工具箱或标签条目增减，695、478 与三档门槛要跟着重量。
 // sticky 依赖 .visible 的 overflow-x: clip（common.scss），否则会被外层滚动容器截住。
-@media screen and (min-width: 1320px) and (min-height: 617px) and (max-height: 799px) {
-    .g-sidebar {
-        padding: 12px 20px;
-    }
-
-    // 名片横排：竖排头像单它就要 70px，624 高的窗口放不下整栏。排法照 ≤959 的 .home-intro，
-    // 只是这里不换到信息流之前，省下的是吸顶栏的高度。
+@media screen and (min-width: 1320px) and (min-height: 570px) and (max-height: 694px) {
+    // 放不下整栏时去掉简介，而不是改成横排——横排会破坏原卡片的视觉重心。
     .g-sidebar .author-card {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 4px 14px;
-        padding: 0;
-        text-align: left;
+        display: none;
     }
 
-    .g-sidebar .author-card .avatar {
-        flex: none;
-        width: 56px;
-        height: 56px;
-        margin: 0;
-    }
-
-    .g-sidebar .author-card .author-text {
-        flex: 1 1 150px;
-        min-width: 0;
-    }
-
-    .g-sidebar .author-card .author-name {
-        margin: 0 0 2px;
-    }
-
-    .g-sidebar .author-card .sns-links {
-        flex: 1 0 100%;
-        margin-top: 4px;
-    }
-
-    .g-sidebar .tools-card,
-    .g-sidebar .tags-card {
-        padding: 10px 0;
-    }
-
-    .g-sidebar .tools-card .tools-list a {
-        padding: 4px 9px;
-    }
-
-    .g-sidebar .tags-card {
-        gap: 4px;
+    // 名片是第一段；藏掉之后工具段接手，省掉它自己的上内边距（同 ≤959 那条）。
+    .g-sidebar .tools-card {
+        padding-top: 0;
     }
 
     .g-sidebar-wrapper {
         position: sticky;
-        top: clamp(72px, calc(100vh - 557px), 88px);
+        top: 88px;
+    }
+}
+
+@media screen and (min-width: 1320px) and (min-height: 695px) and (max-height: 799px) {
+    .g-sidebar-wrapper {
+        position: sticky;
+        top: clamp(0px, calc(100vh - 711px), 88px);
     }
 }
 
