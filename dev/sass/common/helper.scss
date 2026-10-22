@@ -61,7 +61,8 @@ $post-content-w: 720px;
     box-sizing: border-box;
     border: 1px solid var(--rule);
     border-radius: 2px;
-    background-color: var(--surface-2);
+    // 比 --surface-2 再向纸白靠 45%：保留一点点暖底，又不至于在白卡上压成一块色斑。
+    background-color: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
     cursor: pointer;
     margin-right: 2px;
     // 动效批 III：原来是 `transition: .2s`（隐式 all）。这个 mixin 铺在
