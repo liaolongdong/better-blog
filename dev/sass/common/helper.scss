@@ -48,20 +48,20 @@ $post-content-w: 720px;
     display: inline-block;
     width: auto;
     height: 22px;
-    padding: 0 8px;
+    padding: 0 6px;
     font-size: 14px;
-    // 药丸底是 #FAFAFA，旧值 #A6ABB2 对它只有 2.2:1，14px 的标签读起来像被擦过一层
-    // （这个数比 --ink-4 #7A8089 还浅，是 token 化之前漏改的）。提到 --ink-3
-    // （同底 4.8:1），hover 再落到 --ink-2；不直接上 --ink-2 是因为侧栏卡片标题
-    // 「标签」本身才 --ink-4，正文标签比它重两级会把层级倒过来。
-    // 夜间模式另有 .night-mode 一条覆盖 color，不受这里影响。
+    // 药丸底是 --surface-2，旧值 #FAFAFA 在白卡上几乎看不出边界（0.6px 的投影只有
+    // 0.3px 可见），12 枚密排时像一串散字。改成 --surface-2 + 1px --rule 描边后，
+    // 明暗两档都按令牌走。文字仍留 --ink-3：旧值 #A6ABB2 对 --surface-2 只有 2.2:1，
+    // 提到 --ink-3 是 AA 线（4.4985）；不直接上 --ink-2 是因为卡片标题「标签」本身
+    // 才是 --ink-3，正文标签再重一档会把层级倒过来。夜间由 .night-mode 覆盖。
     color: var(--ink-3);
     font-family: $fonts;
     line-height: 22px;
     box-sizing: border-box;
-    box-shadow: 0 0 .6px #D5DAE1;
+    border: 1px solid var(--rule);
     border-radius: 2px;
-    background-color: #FAFAFA;
+    background-color: var(--surface-2);
     cursor: pointer;
     margin-right: 2px;
     // 动效批 III：原来是 `transition: .2s`（隐式 all）。这个 mixin 铺在

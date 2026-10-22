@@ -568,7 +568,9 @@ body {
 .tags-card {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 4px;
+    // 行距保持 6：a.tag 的触屏命中区上下各借 3px，缩到 5 以下就会和相邻行叠住。
+    // 列距 4→3 给密排让位；标签本身的内边距 8→6 在 tagStyle 里。
+    gap: 6px 3px;
 
     .card-title {
         flex: 1 0 100%;
@@ -1046,14 +1048,16 @@ body {
 .feed-topics {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
+    // 行内间距从 6 收到 5；行距仍靠 22px 胶囊自身与 D-3 的命中区兜住。
 }
 
 .feed-topic {
     display: inline-flex;
     align-items: baseline;
     gap: 5px;
-    padding: 3px 9px;
+    // 高度保持 22（D-3 的触屏命中区按这个高度借上下 11px）；只收横向空白。
+    padding: 3px 7px;
     font-size: 12.5px;
     color: var(--ink-3);
     background-color: var(--surface);
@@ -1900,6 +1904,26 @@ html.has-js .toc-static {
     // 否则动的只有标题，整行读起来像「标题自己跳了一下」。
     &:hover .related-info {
         color: var(--ink-2);
+    }
+}
+
+// 窄屏把日期/标签挪到标题下一行：390 实测 .related-info 这一列占 192px（日期 + 长标签），
+// 标题只剩 143px，四条各折三到四行，右栏还悬在半空。改块级后标题拿回整宽。
+@media screen and (max-width: 695px) {
+    .related-link {
+        display: block;
+        padding: 12px 2px;
+    }
+
+    .related-link .related-name {
+        display: block;
+        font-size: 16px;
+        line-height: 24px;
+    }
+
+    .related-link .related-info {
+        margin-top: 6px;
+        gap: 8px;
     }
 }
 
@@ -6712,8 +6736,10 @@ dialog.shelf[open] {
  * 不改桌面观感，也不把药丸本身画大：只在 `hover: none` 这一档把可点盒补到约 44px。
  * 背景：390×844 实测菜单 32×28、社交图标 22×30、首页书签 30×30、分页 34×34，
  * 以及文章页「阅读设置 / 稍后再读」24px 高——都低于 Apple HIG 的 44pt，也低于
- * 本站自己给工具页定的同一档。标签类保持 34px：它们是行内筛选入口，44 会让信息流
- * 每行多出一截空白；34 已高于 WCAG 2.5.8 的 24px 下限。
+ * 本站自己给工具页定的同一档。
+ * 标签类不在这张表里放大：视觉保持 22px，命中区由 D-3 的透明伪元素撑到 28/44px。
+ * 34px 的可见盒会把密排标签卡的行高和留白一起撑大（2026-10-22 截图反馈），
+ * 而伪元素已经过了 WCAG 2.5.8 的 24px 下限。
  */
 @media (hover: none) {
     .g-header .g-logo>a {
@@ -6743,9 +6769,12 @@ dialog.shelf[open] {
         min-height: 44px;
     }
 
+    // 社交图标是五连排：44×44 会让 22px 字形之间空出 28px，首页介绍条上散成五颗点。
+    // 横向收到 34、纵向保留 44——34×44 仍高于 WCAG 2.5.8 的 24px 下限，也保住了
+    // 这一排最难点的纵向高度；桌面（hover:hover）不受这条影响，仍是 26px 密排。
     .author-card .sns-links li,
     .author-detail .author-card .sns-links li {
-        width: 44px;
+        width: 34px;
         height: 44px;
     }
 
@@ -6754,7 +6783,7 @@ dialog.shelf[open] {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
+        width: 34px;
         height: 44px;
     }
 
@@ -6778,20 +6807,6 @@ dialog.shelf[open] {
     .post-masthead .shelf-mark:not(.is-card) {
         height: 44px;
         padding: 0 13px;
-    }
-
-    .post-masthead .post-tag,
-    .article-item .post-meta .post-tag,
-    .tags-card .tag,
-    .feed-topic {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: auto;
-        min-width: 44px;
-        min-height: 34px;
-        padding: 0 12px;
-        line-height: 32px;
     }
 
     .post-crumb a {
@@ -7042,18 +7057,14 @@ dialog.shortcuts:not([open]) {
     transform: translate(-50%, -50%);
 }
 
-// D-3 两枚胶囊状入口的命中区。实测（1280×900 首页）：`.feed-topic` 6 颗、`.post-tag` 34 颗，
-// 高度都只有 22px——低于 WCAG 2.5.8「AA 最小尺寸」的 24×24，拇指点在列表里其实经常落空。
-// 这里**只往上下各借 11px，横向一格都不借**：实测话题胶囊最窄 51px、彼此间隙只有 6px，
-// 文章标签最窄 31px、间隙 8px，横向一旦撑到 44px 就会压到邻颗，点 A 命中 B——
-// 那比 22px 更糟。纵向两行之间分别有 16px 与 528px 的空档，借 11px 不撞任何可交互元素。
+// D-3 两枚胶囊状入口的命中区。`.feed-topic` / `.post-tag` 视觉高度 22px，低于
+// WCAG 2.5.8 的 24×24；但标签会换行，热门行距只有 5px、文章标签行距 6px，
+// 旧的 ±11px 命中区会让上下两行叠在一起，点 A 命中 B。这里只往上下各借 3px
+// （1px 描边后 padding box 20px，合计 26px，仍高于 24px 下限），横向一格不借——
+// 相邻两行的命中区之间还留 1–2px。a.tag（首页标签卡）行距 6px，借 4px → 28px，
+// 与下一行刚好相接、不重叠。
 // 与上面 D-2 同一手法：透明伪元素撑命中区，视觉尺寸一像素不动。
 //
-// 借多少是按**实测间隙**算的，不是一律给 44：
-// · .feed-topic（6 颗，最窄 51、同排间隙 6）与 .post-tag（34 颗，最窄 31、间隙 8）：
-//   只往上下各借 11px（→44px），横向一格不借。实测两颗中间那个落点仍归容器，不抢邻位。
-// · a.tag（首页标签卡 12 枚）：行距只有 6px，所以只借 3px → 28px，够过 24 的下限又
-//   不与上下行叠住（实测中心/上 8px/下 8px 三个落点都命中它自己）。
 // 曾经还有一条给 .shelf-mark 借满 ±11px 的，已经删掉：它住在 .post-meta-actions 这一行里，
 // 右边那位兄弟借出去 11px 就盖住了 .reader-btn 的中心点，真鼠标点偏好按钮会被它接走
 // —— 复现于逐层动效核验那一格「开：峰值 0、面板 hidden」，而 btn.click() 程序点击照样开。
@@ -7065,17 +7076,19 @@ dialog.shortcuts:not([open]) {
     &::before {
         content: "";
         position: absolute;
-        inset: -11px 0;
+        inset: -3px 0;
     }
 }
 
-a.tag {
+// 必须带上 .tags- 前缀：裸 `a.tag` 不在 px-to-viewport 的黑名单里，-4px 会被
+// 编译成 vw（1440 下约 -7.7px），命中区又和相邻行叠住。`.tags-card` 命中 .tags- 那条。
+.tags-card a.tag {
     position: relative;
 
     &::before {
         content: "";
         position: absolute;
-        inset: -3px 0;
+        inset: -4px 0;
     }
 }
 

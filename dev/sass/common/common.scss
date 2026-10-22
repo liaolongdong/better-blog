@@ -915,9 +915,13 @@
         }
     }
 
+    // 夜间标签不能只剩和卡片同色的底：旧表在夜间把标签底色设成和 .g-sidebar /
+    // .article-item 同一个 $color-dark-secondary，再 border:none，标签就消失了。
+    // 这里给一层略亮的半透明底 + 半透明描边，宽度仍由 tagStyle 的 1px 提供。
     .article-item .post-tag,
     .tags-card .tag {
-        border: none;
+        background-color: rgba(255, 255, 255, .07);
+        border-color: rgba(255, 255, 255, .16);
     }
 
     .g-footer {
