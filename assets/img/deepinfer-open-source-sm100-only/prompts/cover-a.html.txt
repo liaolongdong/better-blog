@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#061018; --fg:#f2f6f2; --muted:#8fa3b0;
+    --accent:#c8ff4d; --bad:#ff6b5a; --line:rgba(255,255,255,.13);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    position:relative;
+  }
+  .grid{
+    position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:80px 80px;
+    opacity:.20;
+    mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+  }
+  .bar{position:absolute;left:0;top:0;width:18px;height:100%;background:var(--accent)}
+  .index{
+    position:absolute;right:-18px;bottom:-56px;
+    font-size:330px;font-weight:800;line-height:.8;
+    color:rgba(255,255,255,.045);letter-spacing:-.08em;
+  }
+  .wrap{position:relative;z-index:2;height:100%;padding:58px 84px 52px 116px;display:flex;flex-direction:column}
+  .top{display:flex;align-items:center;gap:16px}
+  .chip{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:9px 17px;border:1px solid var(--line);border-radius:999px;
+    font-size:20px;letter-spacing:.06em;color:var(--muted);
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .kicker{margin-top:auto;font-size:25px;color:var(--accent);letter-spacing:.14em;font-weight:700}
+  h1{
+    margin-top:14px;max-width:1010px;
+    font-size:124px;line-height:1.03;letter-spacing:-.055em;font-weight:800;
+  }
+  h1 em{font-style:normal;color:var(--accent)}
+  p.sub{
+    margin-top:22px;max-width:1020px;
+    font-size:33px;line-height:1.42;color:var(--muted);font-weight:400;
+  }
+  .foot{
+    margin-top:26px;display:flex;align-items:flex-end;justify-content:space-between;
+    font-size:20px;color:var(--muted);letter-spacing:.04em;
+  }
+  .rule{width:210px;height:6px;background:var(--accent);border-radius:999px;margin-top:16px}
+  .card{
+    position:absolute;z-index:3;right:84px;top:104px;width:432px;
+    background:rgba(255,255,255,.045);border:1px solid var(--line);
+    border-radius:18px;padding:24px 26px;
+  }
+  .card .label{font-size:17px;letter-spacing:.16em;color:var(--muted);font-weight:700}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;font-size:21px}
+  .row .name{font-weight:600;letter-spacing:.01em}
+  .row .ok{color:var(--accent);font-weight:700;font-size:18px}
+  .row .no{color:var(--bad);font-weight:700;font-size:18px}
+  .row.hot{border-top:1px solid var(--line);padding-top:18px}
+  .note{margin-top:18px;font-size:15px;line-height:1.5;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="bar"></div>
+  <div class="card">
+    <div class="label">SUPPORTED HARDWARE</div>
+    <div class="row"><span class="name">NVIDIA SM100</span><span class="ok">支持</span></div>
+    <div class="row"><span class="name">HUAWEI ASCEND 950</span><span class="ok">支持</span></div>
+    <div class="row hot"><span class="name">NVIDIA H100</span><span class="no">不在列表</span></div>
+    <div class="note">依据 DeepInfer README，2026-10-22 核验。</div>
+  </div>
+  <div class="wrap">
+    <div class="top">
+      <span class="chip"><span class="dot"></span>AI · 推理部署</span>
+      <span class="chip">2026-10-22</span>
+    </div>
+    <div class="kicker">开源的是引擎，不是服务</div>
+    <h1>H100 不在<br><em>支持列表里</em></h1>
+    <p class="sub">DeepSeek 开源生产推理引擎 DeepInfer，高效部署最低 128 张卡。</p>
+    <div class="foot">
+      <span>廖小新 · Better Blog</span>
+      <span>SM100 / ASCEND 950</span>
+    </div>
+    <div class="rule"></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--paper:#f7f5ee;--ink:#122018;--muted:#5d6b62;--accent:#1f7a4d;--soft:#e6f1e9;--line:#c9d6cc}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:1000px;overflow:hidden}
+  body{background:var(--paper);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:48px 64px 42px}
+  .eyebrow{font-size:19px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+  h1{font-size:44px;line-height:1.16;margin-top:10px;letter-spacing:-.03em}
+  .sub{font-size:21px;color:var(--muted);margin-top:10px}
+  .timeline{position:relative;margin-top:38px;padding-left:296px}
+  .line{position:absolute;left:252px;top:12px;bottom:12px;width:3px;background:var(--line)}
+  .item{position:relative;min-height:126px;padding-bottom:18px}
+  .dot{position:absolute;left:-52px;top:8px;width:18px;height:18px;border-radius:50%;background:var(--accent);border:4px solid var(--paper);box-shadow:0 0 0 3px var(--accent)}
+  .date{position:absolute;left:-296px;top:2px;width:218px;text-align:right;font-size:20px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  .date span{display:block;font-size:17px;color:var(--muted);font-weight:500;margin-top:4px}
+  .body{background:#fff;border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:0 14px 14px 0;padding:16px 22px 15px}
+  .body h2{font-size:27px;line-height:1.25;letter-spacing:-.02em}
+  .body p{font-size:21px;line-height:1.5;color:var(--muted);margin-top:6px}
+  .hot .body{background:var(--soft);border-left-color:#0f5d39}
+  .takeaway{margin-top:14px;border-left:7px solid var(--accent);background:#fff;padding:17px 24px;font-size:24px;line-height:1.45;box-shadow:0 6px 18px rgba(18,32,24,.06)}
+  .takeaway b{color:var(--accent)}
+</style></head>
+<body>
+  <div class="eyebrow">DEEPINFER / TIMELINE</div>
+  <h1>从「不开源」到 2,325 分，只用了 18 个月</h1>
+  <div class="sub">时间均为 UTC+8；节点只保留能改变判断的动作，来源见正文。</div>
+  <div class="timeline">
+    <div class="line"></div>
+    <div class="item">
+      <div class="dot"></div>
+      <div class="date">2025-04-14<span>旧文档</span></div>
+      <div class="body"><h2>官方：不直接开源完整引擎</h2><p>代码分叉、基础设施耦合、维护人力有限。</p></div>
+    </div>
+    <div class="item">
+      <div class="dot"></div>
+      <div class="date">2026-10-16<span>仓库元数据</span></div>
+      <div class="body"><h2>仓库创建</h2><p>首个 commit 还在四天后；中间几天没有公开 commit。</p></div>
+    </div>
+    <div class="item">
+      <div class="dot"></div>
+      <div class="date">2026-10-20 12:09<span>初始 commit</span></div>
+      <div class="body"><h2>README、Q&amp;A、examples 同日出现</h2><p>「Today we are open-sourcing DeepInfer」写进文档。</p></div>
+    </div>
+    <div class="item hot">
+      <div class="dot"></div>
+      <div class="date">2026-10-20 17:08<span>Hacker News</span></div>
+      <div class="body"><h2>帖子 2,325 分、886 条评论</h2><p>基础设施 release 被当成经济新闻传播。</p></div>
+    </div>
+    <div class="item">
+      <div class="dot"></div>
+      <div class="date">2026-10-20 19:03<span>Q&amp;A 更新</span></div>
+      <div class="body"><h2>官方文档确认发布</h2><p>同一份 Q&amp;A 写明：KV cache 与负载均衡还没完全开源。</p></div>
+    </div>
+  </div>
+  <div class="takeaway">开源的是 <b>offline inference 核心</b>；KV cache 与负载均衡仍留在机房。</div>
+</body></html>

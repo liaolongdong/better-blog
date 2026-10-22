@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;width:1400px;background:#0f1117}
+  body{font-family:"SFMono-Regular",Menlo,Consolas,"PingFang SC",monospace}
+  .head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 34px;border-bottom:1px solid #21262d;color:#8b949e;font-size:18px;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  .head b{color:#e6edf3;font-weight:600}
+  .head .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff7b72;margin-right:10px}
+  pre{
+    margin:0;padding:30px 38px 26px;color:#e6edf3;
+    font:20px/1.62 "SFMono-Regular",Menlo,Consolas,monospace;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .cmd{color:#7ee787}.warn{color:#f2cc60}.err{color:#ff7b72}.dim{color:#8b949e}.path{color:#79c0ff}
+  .note{
+    margin:0 38px 28px;padding:14px 18px;border-left:5px solid #f2cc60;
+    background:#161b22;color:#9aa3b2;font-size:17px;line-height:1.55;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+</style></head>
+<body>
+  <div class="head"><span><span class="dot"></span><b>本机终端回放</b> · macOS x64 · 2026-10-22</span><span>DeepInfer @ 9bd9cf2</span></div>
+<pre><span class="dim">$</span> <span class="cmd">git log -1 --format='%h %cI %s'</span>
+9bd9cf2 2026-10-21T12:55:43+08:00 Bump DeepEP to f6aa38fe and drop the SSH-&gt;HTTPS rewrite (#157)
+
+<span class="dim">$</span> <span class="cmd">python3 --version</span>
+Python 3.8.0
+
+<span class="dim">$</span> <span class="cmd">bash scripts/build.sh build</span>
+Setting MAX_JOBS to 16
+<span class="err">Traceback (most recent call last):</span>
+  File "setup.py", line 7, in &lt;module&gt;
+    import torch
+<span class="err">ModuleNotFoundError: No module named 'torch'</span>
+
+<span class="dim">$</span> <span class="cmd">python3 -c "from deep_cluster.hardware import get_bf16_tflops_limit; print(get_bf16_tflops_limit())"</span>
+<span class="err">AttributeError: module 'functools' has no attribute 'cache'</span>
+
+<span class="dim">$</span> <span class="cmd">grep -n "NVIDIA SM100\|Ascend 950" README.md</span>
+<span class="path">35</span>:- NVIDIA SM100 GPUs
+<span class="path">36</span>:- Huawei Ascend 950 NPUs</pre>
+  <div class="note">命令与输出为本地真实执行并按行裁剪。本机没有 SM100 / 昇腾 950，也没有 torch 与 Python 3.12，所以这里停在构建与硬件模块导入，没有运行推理。</div>
+</body></html>
