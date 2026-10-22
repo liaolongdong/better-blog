@@ -517,6 +517,22 @@ body {
     width: 320px;
 }
 
+// 大屏右栏吸顶。两道门槛都是实测出来的：
+// 整栏（名片 + 工具箱 + 标签 + 搜索）高 695px，top 88 需要视口至少 783px；
+// 低于 800 的笔记本（1366×768 / 1280×720）会把搜索条切出视口，故不启用。
+// 宽度取 1320：右下 .bottom-fixed-btn 是 right:30 + 40px 宽，占掉右侧 70px；
+// 1180–1279 这段它会落进 320px 右栏，永久压住吸顶后的搜索条（1180×900 实测
+// 40×46 重叠，浮层还盖在按钮之上），1280–1319 只剩 0–39px 余量；1320 起留出
+// 20px 沟槽（17px 滚动条下约 11px），1280 档不吸顶，避免贴着浮层。
+// 以后工具箱或标签条目增减，695 与 800 这两道数要跟着重量。
+// sticky 还依赖 .visible 的 overflow-x: clip（common.scss），否则会被外层滚动容器截住。
+@media screen and (min-width: 1320px) and (min-height: 800px) {
+    .g-sidebar-wrapper {
+        position: sticky;
+        top: 88px;
+    }
+}
+
 .g-sidebar,
 .search-card {
     background-color: var(--surface);
