@@ -1,7 +1,16 @@
 /*** Main style ***/
 .visible {
-    // 防止页面使用动画导致抖动
+    // 防止页面使用动画导致抖动；不认 clip 的浏览器留在这一档。
     overflow-x: hidden;
+}
+
+// clip 同样裁切横向溢出，但不造滚动容器，子孙的 position: sticky 才能跟着根滚动器走。
+// 不能把两种情况写成同一个 .visible 块里的两条 overflow-x——CSS 压缩会把前一条当
+// 重复声明删掉，兜底随之消失（构建产物实测只剩 clip），所以用 @supports 分块。
+@supports (overflow-x: clip) {
+    .visible {
+        overflow-x: clip;
+    }
 }
 
 .clearfix {
@@ -906,9 +915,13 @@
         }
     }
 
+    // 夜间标签不能只剩和卡片同色的底：旧表在夜间把标签底色设成和 .g-sidebar /
+    // .article-item 同一个 $color-dark-secondary，再 border:none，标签就消失了。
+    // 这里给一层略亮的半透明底 + 半透明描边，宽度仍由 tagStyle 的 1px 提供。
     .article-item .post-tag,
     .tags-card .tag {
-        border: none;
+        background-color: rgba(255, 255, 255, .07);
+        border-color: rgba(255, 255, 255, .16);
     }
 
     .g-footer {

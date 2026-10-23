@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--paper:#fbfaf6;--ink:#151a17;--muted:#66716a;--green:#1f7a4d;--greenSoft:#e7f2ea;--red:#c2412d;--redSoft:#f8ebe7;--line:#d8ded9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:900px;overflow:hidden}
+  body{background:var(--paper);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:46px 58px 40px}
+  .eyebrow{font-size:18px;letter-spacing:.16em;color:var(--green);font-weight:700}
+  h1{font-size:43px;line-height:1.16;margin-top:9px;letter-spacing:-.03em}
+  .sub{font-size:20px;color:var(--muted);margin-top:9px}
+  .cols{display:flex;gap:36px;margin-top:30px}
+  .col{flex:1;background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px 26px 22px;min-height:486px}
+  .col.open{border-top:8px solid var(--green)}
+  .col.miss{border-top:8px solid var(--red)}
+  .label{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .label h2{font-size:29px;line-height:1.2}
+  .tag{font-size:17px;font-weight:700;padding:5px 11px;border-radius:999px}
+  .open .tag{background:var(--greenSoft);color:var(--green)}
+  .miss .tag{background:var(--redSoft);color:var(--red)}
+  .items{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+  .item{background:var(--greenSoft);border-radius:11px;padding:14px 15px;font-size:22px;line-height:1.35;font-weight:600}
+  .item span{display:block;font-size:16px;line-height:1.4;color:var(--muted);font-weight:400;margin-top:4px}
+  .missList{margin-top:20px;display:flex;flex-direction:column;gap:13px}
+  .missItem{background:var(--redSoft);border-radius:11px;padding:15px 17px;font-size:23px;line-height:1.35;font-weight:600}
+  .missItem span{display:block;font-size:16px;line-height:1.45;color:var(--muted);font-weight:400;margin-top:4px}
+  .band{margin-top:22px;background:#131b16;color:#f1f6f2;border-radius:14px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .band .need{font-size:22px;line-height:1.4}
+  .band .need b{color:#b9f36a}
+  .band .say{font-size:22px;line-height:1.4;color:#c9d5cc;text-align:right;min-width:360px}
+  .band .say b{color:#fff}
+</style></head>
+<body>
+  <div class="eyebrow">DEEPINFER / SCOPE</div>
+  <h1>开了什么，没开什么</h1>
+  <div class="sub">依据 README 与 Q&amp;A，2026-10-22 核验；判断针对「能否直接上线」。</div>
+  <div class="cols">
+    <div class="col open">
+      <div class="label"><h2>仓库里给了</h2><span class="tag">核心引擎</span></div>
+      <div class="items">
+        <div class="item">优化 kernel<span>FlashMLA / DeepGEMM / DeepEP</span></div>
+        <div class="item">EP/DP 调度<span>prefill 与 decode 分开配</span></div>
+        <div class="item">EPLB<span>热 expert 副本 + 重新分配</span></div>
+        <div class="item">DSpark<span>draft token + 置信度验证</span></div>
+        <div class="item">SWA replay<span>只重放有界后缀</span></div>
+        <div class="item">结构化输出<span>regex / JSON / EBNF</span></div>
+      </div>
+    </div>
+    <div class="col miss">
+      <div class="label"><h2>仍然没给</h2><span class="tag">上线缺口</span></div>
+      <div class="missList">
+        <div class="missItem">KV cache system<span>官方明确写在「not included in this release」</span></div>
+        <div class="missItem">PD 分离部署<span>README 说大部分已实现，但未随 release 交付</span></div>
+        <div class="missItem">跨 DP 负载均衡<span>和内部基础设施耦合，未完全开源</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="band">
+    <div class="need">跑成在线服务：<b>64P + 64D 起步</b> · KV cache 存储 · 400G 网络</div>
+    <div class="say">能读的是<b>引擎</b>，能上线的是<b>服务</b>。</div>
+  </div>
+</body></html>

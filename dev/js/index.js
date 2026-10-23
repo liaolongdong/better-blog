@@ -100,6 +100,56 @@ $(document).ready(function(){
     }
 
     /*
+    * Home Sidebar Sticky Compaction
+    *
+    * 首页右栏在宽 ≥1320、高 570–694 时才吸顶；整栏 695px 高于视口，顶部仍要
+    * 完整显示简介，只有滚到右栏开始吸顶时才隐藏简介，留下工具/标签/搜索（478px）。
+    * CSS 没有 :stuck，用 .is-rail-compact 记录这个状态，样式只在矮窗口的
+    * 媒体查询里消费它，其它尺寸挂上也不会生效。
+    *
+    * 阈值取 .home-content 的文档顶 − sticky top 88：它是右栏的包含块，右栏
+    * 就在它顶部，所以不用去量吸顶后的 wrapper（那会读到吸顶位置，自己咬自己）。
+    */
+    var rail = $('.g-sidebar-wrapper');
+    var homeContent = $('.home-content');
+    if (rail.length && homeContent.length) {
+        var RAIL_STICKY_TOP = 88;
+        var railThreshold = 0;
+
+        function measureRail() {
+            railThreshold = homeContent.offset().top - RAIL_STICKY_TOP;
+        }
+
+        function syncRail() {
+            rail.toggleClass('is-rail-compact', window.pageYOffset > railThreshold);
+        }
+
+        var railTicking = false;
+        function onRailScroll() {
+            if (railTicking) return;
+            railTicking = true;
+            window.requestAnimationFrame(function () {
+                railTicking = false;
+                syncRail();
+            });
+        }
+
+        measureRail();
+        syncRail();
+        window.addEventListener('scroll', onRailScroll, { passive: true });
+        $(window).on('resize', function () {
+            measureRail();
+            syncRail();
+        });
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+            document.fonts.ready.then(function () {
+                measureRail();
+                syncRail();
+            });
+        }
+    }
+
+    /*
     * Post Cover Resize
     */
     function postCover(img, container) {
