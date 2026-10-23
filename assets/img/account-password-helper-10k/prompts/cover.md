@@ -44,7 +44,7 @@ backend: headless chrome screenshot
   .wrap {
     position: relative; z-index: 2;
     width: 1600px; height: 900px;
-    padding: 70px 76px 58px;
+    padding: 150px 120px 96px;
     display: grid;
     grid-template-columns: 900px 1fr;
     gap: 56px;
@@ -56,8 +56,8 @@ backend: headless chrome screenshot
   }
   .eyebrow::before { content: ""; width: 38px; height: 2px; background: #f5b544; }
   h1 {
-    margin: 34px 0 0;
-    font-size: 172px; line-height: .92; letter-spacing: -7px; font-weight: 800;
+    margin: 22px 0 0;
+    font-size: 150px; line-height: .92; letter-spacing: -7px; font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
   h1 .arrow { color: #f5b544; font-weight: 500; margin: 0 12px; }
@@ -76,7 +76,7 @@ backend: headless chrome screenshot
     margin-top: 22px; font-size: 22px; color: #97a3ba; letter-spacing: .02em;
   }
   .stats {
-    margin-top: 44px; display: flex; gap: 52px;
+    margin-top: 24px; display: flex; gap: 48px;
   }
   .stat .n {
     font-size: 44px; font-weight: 800; color: #fff; letter-spacing: -1px;
@@ -138,10 +138,9 @@ backend: headless chrome screenshot
     transform: rotate(2.6deg);
   }
   .badge5 {
-    position: absolute; left: 26px; top: -16px; z-index: 4;
-    background: #f7f9fd; color: #172033; border-radius: 50px; padding: 10px 16px;
-    font-size: 14px; font-weight: 700; box-shadow: 0 12px 28px rgba(0,0,0,.35);
-    transform: rotate(-5deg);
+    display: inline-flex; align-items: center; gap: 8px; z-index: 4;
+    background: #f7f9fd; color: #172033; border-radius: 50px; padding: 9px 18px;
+    font-size: 17px; font-weight: 700; box-shadow: 0 12px 28px rgba(0,0,0,.35);
   }
 </style>
 </head>
@@ -155,15 +154,15 @@ backend: headless chrome screenshot
     <h1>0<span class="arrow">→</span><span class="tenk">10,000</span></h1>
     <div class="kicker">上架 3 个月，<br /><em>一个密码插件的笨功夫</em></div>
     <div class="desc">不云端 · 不同步 · 主密码不出本机</div>
+    <div class="badge5">5 星 · 3 个评分</div>
     <div class="stats">
-      <div class="stat"><div class="n">1,125<small>次</small></div><div class="l">累计提交</div></div>
+      <div class="stat"><div class="n">1,120<small>次</small></div><div class="l">累计提交</div></div>
       <div class="stat"><div class="n">48<small>个</small></div><div class="l">正式版本</div></div>
       <div class="stat"><div class="n">3,951<small>项</small></div><div class="l">自动化测试</div></div>
     </div>
   </div>
 
   <div class="stage">
-    <div class="badge5">5 星 · 3 个评分</div>
     <div class="app">
       <div class="bar">
         <i class="dot"></i><i class="dot"></i><i class="dot"></i>
