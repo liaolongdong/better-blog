@@ -16,7 +16,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 2026-10-23：ubuntu-latest 已迁到 26.04，ruby/setup-ruby 没有 3.1.7 的 26.04 构建
+    # （下载 404，构建 job 28s 即失败）。先钉 24.04；等 Ruby 3.2+ 与 Gemfile.lock 一起升级
+    # 并验证过再回 ubuntu-latest。deploy job 不用 Ruby，保持 latest。
+    runs-on: ubuntu-24.04
     # 超时是挂死保险，不是按预算定的。2026-10-16 本机（node v22.19.0）按这条 job 的顺序走了一遍：
     # 两次 vite 27s + jekyll 33s + 下面那一串门禁 447s（11 道，最重的 check-seo-teeth 一道
     # 201s / 159 组变异；2026-10-20 并入的 check-discovery 与它的牙齿两道本机实测合计 3s，
