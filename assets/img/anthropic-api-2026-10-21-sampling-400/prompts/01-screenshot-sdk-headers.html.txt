@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1400px;background:#0d1117}
+  .bar{display:flex;align-items:center;gap:12px;height:58px;padding:0 26px;background:#161b22;border-bottom:1px solid #30363d}
+  .d{width:13px;height:13px;border-radius:50%}
+  .r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+  .t{margin-left:14px;color:#8b949e;font:20px "SFMono-Regular",Menlo,Consolas,monospace}
+  pre{margin:0;padding:30px 34px 40px;color:#e6edf3;font:21px/1.6 "SFMono-Regular",Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .cmd{color:#7ee787}.warn{color:#f2cc60}.err{color:#ff7b72}.dim{color:#8b949e}.ok{color:#79c0ff}.key{color:#d2a8ff}
+</style></head>
+<body>
+  <div class="bar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="t">本机复现 · 2026-10-23 22:40 UTC+8 · mock server 127.0.0.1:18761</span></div>
+<pre><span class="cmd">$ /tmp/uv-a1/bin/python run.py</span>
+SDK 1.17.0 default anthropic-version <span class="warn">2023-06-01</span>
+sampling params in messages.create signature: <span class="err">NONE</span>
+call with temperature=0.2: <span class="err">TypeError</span> - Messages.create() got an unexpected keyword argument 'temperature'
+call without sampling params: <span class="ok">OK</span>
+server saw:
+{"path": "/v1/messages", "anthropic-version": <span class="warn">"2023-06-01"</span>, "body": {"max_tokens": 16, "messages": [{"role": "user", "content": "hi"}], "model": "claude-sonnet-4-6"}}
+
+<span class="cmd">$ /tmp/uv-a2/bin/python run.py</span>
+SDK 2.2.0 default anthropic-version <span class="ok">2026-10-21</span>
+sampling params in messages.create signature: <span class="err">NONE</span>
+call with temperature=0.2: <span class="err">TypeError</span> - Messages.create() got an unexpected keyword argument 'temperature'
+call without sampling params: <span class="ok">OK</span>
+server saw:
+{"path": "/v1/messages", "anthropic-version": <span class="ok">"2026-10-21"</span>, "body": {"max_tokens": 16, "messages": [{"role": "user", "content": "hi"}], "model": "claude-sonnet-4-6"}}
+
+<span class="cmd">$ /tmp/uv-a2/bin/python extra.py</span>
+extra_body call OK msg_mock
+server saw:
+{"path": "/v1/messages", "anthropic-version": <span class="ok">"2026-10-21"</span>, "body": {<span class="dim">...</span>, <span class="key">"temperature": 0.2</span>}}
+
+<span class="dim">说明：逐字输出，长行按窗口折行；`...` 为省略的重复 messages 字段。未调用真实 API。</span>
+</pre>
+</body></html>
