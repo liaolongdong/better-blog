@@ -8,6 +8,7 @@ date: 2026-10-23
 categories: [开源实测, TypeScript]
 cover: /assets/img/openui-two-lang-cores/banner.webp
 tags: AI 开源 react 前端 评测
+tldr: "把 OpenUI 四个第一方运行时装进同一棵依赖树，npm 会落下两份 lang-core：顶层 0.4.1、react-lang 里嵌 1.0.1；新版才有的 parseMessage 在 vue-lang 的 27 个导出里不存在。Vue 3 栈现在只能拿到 0.4.x 那一层，等 vue-lang 的依赖范围改到 ^1.0.1、npm ls 只剩一行，再谈统一。"
 ---
 
 # OpenUI 一个 core，我装出两版解析器，新版 API 只到 React

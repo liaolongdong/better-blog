@@ -56,6 +56,17 @@ changefreq 用 monthly 而不是上面那些页的 weekly：这一族是工具�
     </url>
 {% endfor %}
 {%- comment -%}
+插件使用指南：/extensions/<slug>.html。它们不在 site.nav 里（导航只放「工具箱」一项），
+但与在线工具同属「从工具箱能走到、且有自己的检索意图」的页面，所以按数据源点名收录。
+{%- endcomment -%}
+{% for tool in site.data.tools %}
+    <url>
+        <loc>{{ tool.guide | absolute_url }}</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+{% endfor %}
+{%- comment -%}
 nav 白名单到此为止，下面两条是点名收录。第一条全站索引：它确实该被收录（把抓取深度从
 「翻 9 页」压成 1 次），但不该出现在导航条上——一页纯目录挤进去只会把第 9 项推到移动端换行。
 llms.txt 不进站点地图：它是纯文本，不是可浏览页面，放在 urlset 里属于噪声。

@@ -24,6 +24,50 @@
     demo: https://liaolongdong.github.io/account-password-helper/
     repo: https://github.com/liaolongdong/account-password-helper
   post_tag: 账号密码管理助手
+  # ── 指南页与转化区共用字段（2026-10-24）──
+  # guide 是 /tools.html 之外的独立使用指南；tools.html 原位也渲染同一份内容。
+  # 两份都读这张表，避免「产品页一份、指南页一份」的第二次口径。
+  guide: /extensions/account-password-helper.html
+  guide_title: 账号密码管理助手：安装与权限
+  guide_intro: 这是给开发、测试、预发多环境准备的一款本地优先账号管理器。它按精确域名隔离账号，选中条目后自动填充并替你点登录，TOTP 也一起接上；数据只存本机。
+  use_cases:
+    - title: 多套环境来回切
+      text: dev、test、staging、prod 各存一套账号，按域名自动分，不用在 Excel 和浏览器之间复制粘贴。
+    - title: 登录按钮也替你点
+      text: 填充完成后再点一次登录，重复登录少一步；站点改版导致按钮选择器变化时，以仓库 README 的说明为准。
+    - title: 两步验证接力
+      text: 内置 TOTP 活码，跳到验证码页后自动锚定并填入，不用切到手机。
+  install_steps:
+    - title: 从商店安装
+      text: 打开 Chrome 应用商店条目，点「添加至 Chrome」，按提示确认权限。
+    - title: 设一个主密码
+      text: 第一次打开时设置主密码，用它在本地解锁保险库；主密码不离开这台设备。
+    - title: 存一套账号再试一次
+      text: 进入目标环境，保存账号；下次选中条目，确认自动填充与登录按钮都按预期工作。
+  permissions:
+    - title: 数据边界
+      text: 账号只存本机，使用 PBKDF2 600K 迭代与 AES-256-GCM 加密；不走云同步，也不上传服务器。
+    - title: 域名隔离
+      text: 按精确域名匹配，dev / test / staging / prod 的账号不会串。
+    - title: 权限清单
+      text: 安装时 Chrome 会列出它需要的站点访问权限；以安装提示和仓库 README 为准，本文不替它扩大范围。
+  faq:
+    - q: 密码会不会上传到服务器？
+      a: 不会。数据只存在本机，用主密码派生的密钥加密；没有云同步，也没有账号体系。
+    - q: 多个环境的账号会串吗？
+      a: 按精确域名隔离。dev、test、staging、prod 各自一套，切环境不需要手动换账号。
+    - q: 支持两步验证吗？
+      a: 内置 TOTP 活码，跳到验证码页会自动锚定并填入。
+    - q: 换一台电脑怎么办？
+      a: 当前版本没有云同步；迁移方式以仓库 README 的说明为准，别直接把浏览器配置目录拷来拷去。
+  # 03 已在原手绘版式上重制：许可证那一格由「MIT 开源」改成「GPL-3.0 开源」，其余不动。
+  # 用 .png 地址让构建期的 webp 换源继续生效（同目录有 .webp 兄弟）。
+  screenshots:
+    - /assets/img/account-password-helper/03-infographic-features.png
+    - /assets/img/account-password-helper/04-flowchart-workflow.webp
+  changelog: https://github.com/liaolongdong/account-password-helper/releases
+  license: GPL-3.0
+  license_url: https://www.gnu.org/licenses/gpl-3.0.html
 
 - slug: transfer-any-file
   index: '02'
@@ -55,6 +99,43 @@
     demo: https://liaolongdong.github.io/transfer-any-file/
     repo: https://github.com/liaolongdong/transfer-any-file
   post_tag: Transfer Any File
+  guide: /extensions/transfer-any-file.html
+  guide_title: 文件格式任意转换助手：安装与隐私
+  guide_intro: 一个把 Markdown、Word、PDF、Excel、CSV、JSON、HTML 和图片互相转换的浏览器扩展。所有转换都在你打开的那个标签页里完成，文件不经过服务器。
+  use_cases:
+    - title: 临时转一份文件
+      text: 不想为一次转换装桌面软件、也不想把文件传到陌生网站时，拖进标签页选输出格式即可。
+    - title: 敏感文件不出本机
+      text: 合同、报表、带客户信息的表格，转换过程不产生上传请求，断网也能用。
+    - title: 批量任务复用
+      text: 一次拖入多个文件，按同一组输出预设跑完；重复任务不用每次重选参数。
+  install_steps:
+    - title: 从商店安装
+      text: 打开 Chrome 应用商店条目，点「添加至 Chrome」，按提示确认权限。
+    - title: 打开工作台并拖入文件
+      text: 从工具栏打开扩展，把文件拖进工作台，或点选文件。
+    - title: 选输出格式并转换
+      text: 选目标格式和预设，开始转换；结果可预览，确认后再下载。
+  permissions:
+    - title: 文件边界
+      text: 文件只在当前标签页内读取和写入，转换过程零网络请求；没有上传，也没有服务端排队。
+    - title: 断网可用
+      text: 转换逻辑随扩展一起装在本机，断网时仍能打开工作台处理文件。
+    - title: 权限清单
+      text: 安装时 Chrome 会列出它需要的权限；以安装提示和仓库 README 为准。
+  faq:
+    - q: 支持哪些格式？
+      a: 14 种格式、48+ 条转换路径，覆盖 Markdown、Word、PDF、Excel、CSV、JSON、HTML 与常见图片格式。
+    - q: 文件会上传吗？
+      a: 不会。转换在本地标签页完成，文件不经过任何服务器。
+    - q: 断网还能用吗？
+      a: 能。扩展和转换逻辑都在本机，断网时仍可处理已支持的文件。
+    - q: 能批量转换吗？
+      a: 可以。批量拖入文件后按同一组输出预设一次处理。
+  # 主图就是 workbench，没有第二张产品截图；不要把同一张图塞进 screenshots 重复充数。
+  changelog: https://github.com/liaolongdong/transfer-any-file/releases
+  license: MIT
+  license_url: https://opensource.org/license/mit
 
 - slug: cross-origin-proxy
   index: '03'
@@ -81,3 +162,41 @@
     demo: https://liaolongdong.github.io/cross-origin-proxy/
     repo: https://github.com/liaolongdong/cross-origin-proxy
   post_tag: 跨域代理助手
+  guide: /extensions/cross-origin-proxy.html
+  guide_title: 跨域代理助手：安装与规则
+  guide_intro: 一条浏览器规则，把 FAT 前端指到 UAT 后端：不改代码、不改后端 CORS、不用重新构建。请求头/响应改写、Mock、延迟、阻断与 WebSocket 转发也走同一套规则。
+  use_cases:
+    - title: 前端切环境
+      text: 通配符匹配加目标重写，把 dev 页面的请求指到 test 或 UAT 后端，不用改一行前端配置。
+    - title: 联调时造数据
+      text: 按规则 Mock 响应、改写请求头、注入延迟或阻断埋点，复现只在特定返回下出现的问题。
+    - title: 看请求到底去了哪
+      text: 实时请求日志按规则展示命中链路，WebSocket 也能转发，排查跨域与代理问题时少开一个抓包工具。
+  install_steps:
+    - title: 从商店安装
+      text: 打开 Chrome 应用商店条目，点「添加至 Chrome」，按提示确认权限。
+    - title: 新建一条规则
+      text: 在选项页写匹配条件与目标地址，需要时再加请求头、响应改写或 Mock。
+    - title: 打开页面验证
+      text: 回到目标页面刷新，在请求日志里确认规则命中；不命中时先看匹配条件与规则顺序。
+  permissions:
+    - title: 数据边界
+      text: 规则与日志只存本机，不经过作者的服务器；扩展需要访问你配置的目标域名，范围以安装提示为准。
+    - title: 不改后端
+      text: 它重写浏览器发出的请求目标，不要求后端加 CORS 头，也不改你的构建产物。
+    - title: 权限清单
+      text: 安装时 Chrome 会列出它需要的权限；以安装提示和仓库 README 为准。
+  faq:
+    - q: 它和普通的 CORS 插件有什么区别？
+      a: 它把请求重写到目标后端，不需要后端改 CORS，也不用重新构建前端；规则还能改写请求头、响应、Mock 与延迟。
+    - q: 支持 WebSocket 吗？
+      a: 支持。WebSocket 转发与实时请求日志在同一套规则里。
+    - q: 规则和日志存在哪？
+      a: 只存在本机，不上传服务器。
+    - q: 能阻断埋点或 Mock 数据吗？
+      a: 可以。规则支持 Mock 响应、延迟注入和阻断指定请求。
+  # 只放本产品自己的图。assets/img/chrome-plugin-img/proxy.png 是 Proxy SwitchyOmega 的
+  # 商店截图，来自 2024 年那篇插件推荐文，不是跨域代理助手，别混进指南。
+  changelog: https://github.com/liaolongdong/cross-origin-proxy/releases
+  license: MIT
+  license_url: https://opensource.org/license/mit

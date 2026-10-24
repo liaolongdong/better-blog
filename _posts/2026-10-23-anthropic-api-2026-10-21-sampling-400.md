@@ -8,6 +8,7 @@ date: 2026-10-23
 categories: [AI]
 cover: /assets/img/anthropic-api-2026-10-21-sampling-400/banner.webp
 tags: AI Anthropic Claude 评测 安全
+tldr: "Anthropic 在 2026-10-21 首次更换 API 版本号，temperature 等采样参数一传就 400，八个 SDK 同时跳大版本。官方 SDK 用户大多不会挂，真正被打中的是裸 HTTP、extra_body 和兼容层里写死的 anthropic-version；先盘点再金丝雀，不要看到版本号更新就全量升 2.x。"
 ---
 
 ![封面：Anthropic API 版本跳到 2026-10-21，采样参数被拒](/assets/img/anthropic-api-2026-10-21-sampling-400/banner.webp)

@@ -70,6 +70,12 @@ status 不是 ready 的条目不列：这一句承诺的是"站内可访问地�
 - [全文订阅源]({{ base }}/feed.xml)：Atom 全文源，正文完整（含图片与代码块），是站内最容易被直接引用的资产
 - [站点地图]({{ base }}/sitemap.xml)：可索引页面地址与最后更新日
 
+## 插件使用指南
+
+{% for tool in site.data.tools %}
+- [{{ tool.guide_title }}]({{ base }}{{ tool.guide }})：{{ tool.guide_intro }}
+{%- endfor %}
+
 ## 合集（同一主题按阅读顺序连读）
 
 {%- for s in site.data.series %}
@@ -88,6 +94,11 @@ status 不是 ready 的条目不列：这一句承诺的是"站内可访问地�
 {%- endif -%}
 {%- endfor -%}
 {%- endfor %}
+
+## 文章结论速查
+
+{% for post in site.posts %}{% if post.tldr %}- [{{ post.title | strip }}]({{ base }}{{ post.url }})：{{ post.tldr | strip }}
+{% endif %}{% endfor %}
 
 ## 怎么引用这份内容
 

@@ -8,6 +8,7 @@ date: 2026-10-21
 categories: [AI, 服务器与部署]
 cover: /assets/img/php2shell-ai-rce-patch-day/banner.webp
 tags: AI 安全 OpenAI 开源 前端
+tldr: "2026-10-21 披露的 PHP 两个未授权 RCE，官方最低补丁版本是 8.2.35，8.1 及更早没有官方更新；Cloudflare 在补丁公开前已看到攻击流量。AI 是把利用适配成本打下来的加速器，不是自动挖洞机；先跑 php -v 确认版本，再决定打补丁、找主机商还是迁走。"
 ---
 
 ![封面：深色编辑风格的 PHP2Shell 补丁日，标题写着 AI 挖出的十年老洞与攻击先到](/assets/img/php2shell-ai-rce-patch-day/banner.webp)

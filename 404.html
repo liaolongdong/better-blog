@@ -53,7 +53,29 @@ permalink: /404.html
             <a class="cta cta-primary" href="{{ '/' | prepend: site.baseurl }}">回到首页</a>
             <a class="cta" href="{{ '/categories.html' | prepend: site.baseurl }}">按分类找</a>
             <a class="cta" href="{{ '/tags.html' | prepend: site.baseurl }}">按标签找</a>
+            <button class="cta" type="button" data-random-post hidden>随机一篇</button>
         </div>
+        <script>
+        (function () {
+            var btn = document.querySelector('[data-random-post]');
+            if (!btn) return;
+            btn.hidden = false;
+            btn.addEventListener('click', function () {
+                var base = window.SITE_BASEURL || '';
+                btn.disabled = true;
+                fetch(base + '/search.json')
+                    .then(function (res) { return res.json(); })
+                    .then(function (list) {
+                        if (!list || !list.length) throw new Error('empty');
+                        var pick = list[Math.floor(Math.random() * list.length)];
+                        window.location.href = base + pick.url;
+                    })
+                    .catch(function () {
+                        window.location.href = base + '/';
+                    });
+            });
+        })();
+        </script>
     </div>
 </section>
 

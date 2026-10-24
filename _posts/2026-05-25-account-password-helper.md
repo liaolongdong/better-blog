@@ -8,6 +8,7 @@ date: 2026-05-25
 categories: [Chrome插件]
 cover: /assets/img/postCover/06-sidepanel-fill.png
 tags: 账号密码管理助手 chrome浏览器插件 工具 插件
+product: account-password-helper
 tldr: '多环境频繁切账号的场景里，它把凭据全留在浏览器本地：敏感字段走 PBKDF2 一万次迭代加 AES-256-CBC，主密码只输一次，会话期内填充免验证，零网络传输。'
 faq:
   - q: '这款插件会把账号密码传到服务器吗？本地又是怎么存的？'

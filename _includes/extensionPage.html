@@ -1,0 +1,109 @@
+{%- comment -%}
+插件使用指南页。三个 /extensions/<slug>.html 只写 front matter（extension: <slug>），
+正文全部由这一份 include 从 _data/tools.yml 渲染，避免三页各抄一遍产品事实。
+
+为什么指南页与 /tools.html 并存：tools 页是「一次看三款」的选型页，指南页承接
+「我已经决定装，想知道权限/步骤/常见问题」的长尾搜索。两者共用同一份 yml 内容，
+但指南页多了用例、截图和完整 FAQ；产品自己的 demo 站仍是产品主页，这里不做第二份落地页。
+{%- endcomment -%}
+{%- assign slug = include.tool -%}
+{%- assign t = site.data.tools | where: 'slug', slug | first -%}
+{%- if t -%}
+{%- assign store = t.links.store -%}
+{%- assign sep = '?' -%}
+{%- if store contains '?' -%}{%- assign sep = '&' -%}{%- endif -%}
+{%- assign store_utm = store | append: sep | append: 'utm_source=better-blog&utm_medium=guide&utm_campaign=' | append: t.slug -%}
+
+{% include header.html %}
+
+<header class="g-masthead ext-masthead">
+    <div class="g-container masthead-inner">
+        <nav class="post-crumb" aria-label="所在栏目">
+            <a href="{{ '/' | prepend: site.baseurl }}">首页</a>
+            <span class="crumb-sep" aria-hidden="true">/</span>
+            <a href="{{ '/tools.html' | prepend: site.baseurl }}">工具箱</a>
+            <span class="crumb-sep" aria-hidden="true">/</span>
+            <span>{{ t.name }}</span>
+        </nav>
+        <p class="kicker">Chrome extension · 使用指南</p>
+        <h1 class="masthead-title">{{ t.guide_title | default: t.name }}</h1>
+        <p class="masthead-lede">{{ t.guide_intro | default: t.summary }}</p>
+        <ul class="tool-badges">
+            {%- for badge in t.badges %}
+            <li>{{ badge }}</li>
+            {%- endfor %}
+        </ul>
+        <div class="tool-cta">
+            <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">Chrome 应用商店安装</a>
+            {%- if t.links.demo != '' %}
+            <a class="cta" href="{{ t.links.demo }}" target="_blank" rel="noopener">在线演示</a>
+            {%- endif %}
+            <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+        </div>
+    </div>
+</header>
+
+<main class="g-container ext-content" id="main">
+    <div class="ext-layout">
+        <article class="ext-main">
+            {%- if t.screenshot and t.screenshot != '' %}
+            <figure class="ext-hero">
+                <img src="{{ t.screenshot | prepend: site.baseurl }}" alt="{{ t.name }} 产品示意图" loading="lazy">
+            </figure>
+            {%- endif %}
+            {% include toolGuide.html tool=t context='guide' %}
+        </article>
+
+        <aside class="ext-aside">
+            <section class="ext-card">
+                <h2 class="ext-card-title">先看这三件事</h2>
+                <ul class="ext-facts">
+                    <li><span>数据</span><strong>{% if t.permissions and t.permissions.size > 0 %}{{ t.permissions[0].text }}{% else %}以仓库 README 与安装提示为准{% endif %}</strong></li>
+                    <li><span>开源</span><strong>{{ t.license | default: '见仓库' }} · <a href="{{ t.links.repo }}" target="_blank" rel="noopener">仓库</a></strong></li>
+                    <li><span>更新</span><strong><a href="{{ t.changelog }}" target="_blank" rel="noopener">版本记录</a></strong></li>
+                </ul>
+            </section>
+
+            <section class="ext-card">
+                <h2 class="ext-card-title">同作者其他插件</h2>
+                <ul class="ext-others">
+                    {%- for other in site.data.tools %}
+                    {%- unless other.slug == t.slug %}
+                    <li>
+                        <a href="{{ other.guide | prepend: site.baseurl }}">
+                            <img src="{{ other.icon | prepend: site.baseurl }}" alt="" width="28" height="28" loading="lazy">
+                            <span><strong>{{ other.name }}</strong><small>{{ other.tagline }}</small></span>
+                        </a>
+                    </li>
+                    {%- endunless %}
+                    {%- endfor %}
+                </ul>
+            </section>
+
+            <p class="ext-back"><a href="{{ '/tools.html' | prepend: site.baseurl }}">← 回到工具箱</a></p>
+        </aside>
+    </div>
+
+    {%- assign related = "" | split: "" -%}
+    {%- for post in site.posts -%}
+    {%- if t.post_tag != '' and post.tags contains t.post_tag -%}
+    {%- assign related = related | push: post -%}
+    {%- endif -%}
+    {%- endfor -%}
+    {%- if related.size > 0 %}
+    <section class="ext-posts" aria-labelledby="ext-posts-title">
+        <h2 class="ext-posts-title" id="ext-posts-title">相关记录</h2>
+        <ol class="ext-posts-list">
+            {%- for post in related %}
+            <li>
+                <time datetime="{{ post.date | date: '%Y-%m-%d' }}">{{ post.date | date: '%Y.%m.%d' }}</time>
+                <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+            </li>
+            {%- endfor %}
+        </ol>
+    </section>
+    {%- endif %}
+</main>
+
+{% include footer.html %}
+{%- endif -%}

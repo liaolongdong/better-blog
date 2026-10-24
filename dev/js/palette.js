@@ -21,6 +21,32 @@
     var copyText = U.copyText || function () { return Promise.resolve(false); };
     var getCorpus = U.getCorpus || function () { return Promise.resolve([]); };
     var getFullCorpus = U.getFullCorpus || function () { return Promise.resolve([]); };
+
+    // 工具补充索引只在「文章零命中」时拉一次。独立于 search.json：
+    // 那一份是 verify-search-deeplink 的 J5/J6/J7 独立口径，塞进非文章条目会把
+    // 期望集合与排序一起改掉；工具只是兜底，不值得为它改三道门禁。
+    var toolsCache = null;
+    var toolsLoading = null;
+
+    function getTools() {
+        if (toolsCache) return Promise.resolve(toolsCache);
+        if (!toolsLoading) {
+            toolsLoading = fetch(BASE_URL + '/tools-index.json')
+                .then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    toolsCache = Array.isArray(data) ? data : [];
+                    return toolsCache;
+                })
+                .catch(function () {
+                    toolsLoading = null;
+                    return [];
+                });
+        }
+        return toolsLoading;
+    }
     // esc 的唯一实现留在 editorial.js（§4 原本用的就是它）。取不到时退到本地等价件——
     // 这条兜底是 2026-10-20 补的：拆包第一版把 esc 放进了「允许的外部依赖」白名单，
     // 却没有真的提供它，于是面板一渲染结果就抛 ReferenceError，而 node --check 与三道
@@ -362,49 +388,87 @@
                 scored.sort(function (a, b) { return b.score - a.score; });
                 scored = scored.slice(0, 20);
 
-                matches = scored;
-                activeIndex = scored.length ? 0 : -1;
-                count.textContent = scored.length ? scored.length + ' 条结果' + (fullTextMode ? ' · 全文' : '') : '';
-                if (scored.length) empty.hidden = true;
-                else showEmpty('没有匹配的文章', defaultSub);
+                function paint(rows, toolMode) {
+                    matches = rows;
+                    activeIndex = rows.length ? 0 : -1;
+                    count.textContent = rows.length
+                        ? rows.length + (toolMode ? ' 个工具' : ' 条结果' + (fullTextMode ? ' · 全文' : ''))
+                        : '';
+                    if (rows.length) empty.hidden = true;
 
-                results.innerHTML = scored.map(function (row, idx) {
-                    var item = row.item;
-                    var snippet;
-                    if (fullTextMode && row.hits.indexOf(4) >= 0) snippet = bodySnippet(item.body, terms);
-                    else if (row.hits.indexOf(3) >= 0) snippet = item.excerpt || '';
-                    else snippet = item.title || '';
-                    var meta = [];
-                    if (item.date) meta.push(esc(item.date));
-                    if (item.category) meta.push(esc(item.category));
-                    if (item.tags) meta.push(esc(item.tags.split(/\s+/).filter(Boolean).slice(0, 2).join(' · ')));
-                    return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
-                        + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
-                        + '<span class="cmdk-item-title">' + mark(item.title || '', terms) + '</span>'
-                        + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), terms) + '</span>'
-                        + '<span class="cmdk-item-meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</span>'
-                        + '</a></li>';
-                }).join('');
+                    results.innerHTML = rows.map(function (row, idx) {
+                        var item = row.item;
+                        var snippet;
+                        if (fullTextMode && row.hits.indexOf(4) >= 0) snippet = bodySnippet(item.body, terms);
+                        else if (row.hits.indexOf(3) >= 0) snippet = item.excerpt || '';
+                        else snippet = item.title || '';
+                        var meta = [];
+                        if (item.date) meta.push(esc(item.date));
+                        if (item.category) meta.push(esc(item.category));
+                        if (item.tags) meta.push(esc(item.tags.split(/\s+/).filter(Boolean).slice(0, 2).join(' · ')));
+                        return '<li id="cmdk-opt-' + idx + '" class="cmdk-item" role="option" aria-selected="' + (idx === 0 ? 'true' : 'false') + '" style="--i: ' + idx + '">'
+                            + '<a class="cmdk-item-link" href="' + esc(BASE_URL + item.url) + '">'
+                            + '<span class="cmdk-item-title">' + mark(item.title || '', terms) + '</span>'
+                            + '<span class="cmdk-item-snippet">' + mark(snippet.slice(0, 90), terms) + '</span>'
+                            + '<span class="cmdk-item-meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</span>'
+                            + '</a></li>';
+                    }).join('');
 
-                // 每一次渲染都重新裁决这个开关：挂上则这批行按 --i 错峰涌出，
-                // 摘掉则这批行直接落位。行是每次新建的，所以不需要强制重排来重启动画。
-                if (panelBox) panelBox.classList.toggle('is-fresh', freshNext);
-                freshNext = false;
+                    // 每一次渲染都重新裁决这个开关：挂上则这批行按 --i 错峰涌出，
+                    // 摘掉则这批行直接落位。行是每次新建的，所以不需要强制重排来重启动画。
+                    if (panelBox) panelBox.classList.toggle('is-fresh', freshNext);
+                    freshNext = false;
 
-                for (var k = 0; k < results.children.length; k++) {
-                    (function (el, idx) {
-                        el.addEventListener('mouseenter', function () { setActive(idx); });
-                    })(results.children[k], k);
+                    for (var k = 0; k < results.children.length; k++) {
+                        (function (el, idx) {
+                            el.addEventListener('mouseenter', function () { setActive(idx); });
+                        })(results.children[k], k);
+                    }
+
+                    // 首行必须补一遍 setActive。activeIndex 在上面已经置 0、HTML 串里也把
+                    // aria-selected="true" 烤进了第一行，但视觉高亮（.is-active）和
+                    // aria-activedescendant 只有 setActive 会挂。不叫它的后果：
+                    // 输入完那一下屏幕上没有任何选中指示（此时按 Enter 其实会打开第一条），
+                    // 而第一次按 ↓ 是从「看不见的 0」走到 1，看着像第一条被跳过。
+                    // 放在 mouseenter 之后：setActive 里的 scrollIntoView 走 block:'nearest'，
+                    // 刚渲染完列表停在顶部，第一行本就在视野内，不会产生滚动。
+                    if (rows.length) setActive(0);
                 }
 
-                // 首行必须补一遍 setActive。activeIndex 在上面已经置 0、HTML 串里也把
-                // aria-selected="true" 烤进了第一行，但视觉高亮（.is-active）和
-                // aria-activedescendant 只有 setActive 会挂。不叫它的后果：
-                // 输入完那一下屏幕上没有任何选中指示（此时按 Enter 其实会打开第一条），
-                // 而第一次按 ↓ 是从「看不见的 0」走到 1，看着像第一条被跳过。
-                // 放在 mouseenter 之后：setActive 里的 scrollIntoView 走 block:'nearest'，
-                // 刚渲染完列表停在顶部，第一行本就在视野内，不会产生滚动。
-                if (scored.length) setActive(0);
+                if (scored.length) {
+                    paint(scored, false);
+                    return;
+                }
+
+                // 文章零命中、工具索引还没回来时，先把上一轮的行与 Enter 目标清掉。
+                // 不清的话慢请求那几百毫秒里，按 Enter 会打开上一个词的文章。
+                matches = [];
+                activeIndex = -1;
+                count.textContent = '';
+                results.innerHTML = '';
+                showEmpty('正在找相关工具…', '');
+
+                // 文章零命中时才让工具兜底：插件/在线工具不该挤进文章结果，
+                // 也不该改掉 search.json 那份被 J5/J6/J7 对账的语料口径。
+                getTools().then(function (tools) {
+                    if (token !== seq) return;
+                    var toolScored = [];
+                    for (var ti = 0; ti < tools.length; ti += 1) {
+                        var ts = score(tools[ti], terms, false);
+                        if (ts.score > 0) toolScored.push({ item: tools[ti], hits: ts.hits, score: ts.score });
+                    }
+                    toolScored.sort(function (a, b) { return b.score - a.score; });
+                    toolScored = toolScored.slice(0, 8);
+                    if (toolScored.length) {
+                        paint(toolScored, true);
+                    } else {
+                        matches = [];
+                        activeIndex = -1;
+                        count.textContent = '';
+                        results.innerHTML = '';
+                        showEmpty('没有匹配的文章或工具', defaultSub);
+                    }
+                });
             });
         }
 

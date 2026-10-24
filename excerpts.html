@@ -1,0 +1,45 @@
+---
+layout: default
+title: 摘录
+seo_description: 这台设备上的文章摘录：在正文里选中一句话存下来，按文章归档，可导出 Markdown。数据只存在本机，不上传。
+# 与 /stats.html 同一口径：本机数据页不收索引，避免把空页面递给爬虫。
+noindex: true
+permalink: /excerpts.html
+---
+{% include header.html %}
+
+<section class="g-masthead archive-masthead">
+    <div class="g-container masthead-inner">
+        <p class="kicker">Clippings / 本机摘录</p>
+        <p class="masthead-issue" aria-hidden="true">
+            <span class="issue-rule"></span>
+            <span class="issue-no">Local only</span>
+        </p>
+        <h1 class="masthead-title">摘录</h1>
+        <p class="masthead-lede">
+            在文章里选中一句话，点「存摘录」，它就会留在这台设备上。
+            没有账号、没有同步；导出 Markdown 之后可以带走。
+        </p>
+        <ul class="masthead-stats">
+            <li><strong data-excerpt-count>0 条</strong><span>本机摘录</span></li>
+            <li><strong>Markdown</strong><span>可导出</span></li>
+        </ul>
+    </div>
+</section>
+
+<main class="g-container excerpt-page" id="main">
+    <div class="excerpt-toolbar">
+        <p class="excerpt-note">全部记录只存在这台设备的浏览器里，清缓存即消失。</p>
+        <div class="excerpt-actions">
+            <button class="cta" type="button" data-excerpt-export>导出 Markdown</button>
+            <button class="cta" type="button" data-excerpt-clear>清空</button>
+        </div>
+    </div>
+
+    <p class="excerpt-empty" data-excerpt-empty>
+        还没有摘录。打开任意一篇文章，选中一句话，点浮出的「存摘录」。
+    </p>
+    <ol class="excerpt-list" id="excerpt-list"></ol>
+</main>
+
+{% include footer.html %}

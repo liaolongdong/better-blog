@@ -8,6 +8,7 @@ date: 2026-09-22
 categories: Chrome插件
 cover: /assets/img/cross-subdomain-matching/banner.webp
 tags: Chrome扩展 密码管理器 域名匹配 多环境测试 前端开发
+product: account-password-helper
 tldr: '三档放宽里最险的不是漏匹配而是收错站：`evil-qq.com` 也以 `qq.com` 结尾，所以判据只能落在主域名相等；最阴的坑是 Chrome 把 `*` 解析成 `%2A`，单测全绿、真机一个字符都没放宽。'
 faq:
   - q: '跨子域名匹配的三档该怎么选？'

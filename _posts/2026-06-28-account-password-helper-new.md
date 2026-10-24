@@ -8,6 +8,7 @@ date: 2026-06-28
 categories: [Chrome插件]
 cover: /assets/img/account-password-helper/account_password_helper_banner.webp
 tags: 账号密码管理助手 一键填充 自动登录 chrome浏览器插件 工具 插件
+product: account-password-helper
 tldr: '账号密码管理助手把多环境、多角色的账号加密存在本机，登录页选一个账号就能一键填充并自动登录；任何凭据都不上传。'
 faq:
   - q: '账号密码管理助手会把密码上传到服务器吗？'
@@ -79,7 +80,7 @@ Chrome 自带密码管理适合个人常用网站，优点是浏览器原生、�
 
 ## 这个插件9大核心功能
 
-![9 大核心功能一览](/assets/img/account-password-helper/03-infographic-features.png)
+![9 大核心功能一览（GPL-3.0 开源）](/assets/img/account-password-helper/03-infographic-features.png)
 
 **一、本地安全，账号数据不上传。**
 

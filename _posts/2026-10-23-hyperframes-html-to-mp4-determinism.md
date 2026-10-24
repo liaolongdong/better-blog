@@ -8,6 +8,7 @@ date: 2026-10-23
 categories: [AI, 开源实测]
 cover: /assets/img/hyperframes-html-to-mp4-determinism/banner.webp
 tags: AI 前端 开源项目 评测 工具
+tldr: "HyperFrames 用 HTML/CSS 渲染 MP4，我在 macOS 上用系统 Chrome 渲了两遍 10 秒 300 帧，SHA-256 一致；但默认脚手架从 jsDelivr 取 GSAP，普通 Chrome 会走截图降级路径，render 与 snapshot 还有已知分叉。把它当可 diff 的动效源码值得试，当剪辑软件会失望；issue #5959 关掉前别放进自动出片流水线。"
 ---
 
 ![封面：HyperFrames 把 HTML 渲染成 MP4 的确定性实测](/assets/img/hyperframes-html-to-mp4-determinism/banner.webp)

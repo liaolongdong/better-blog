@@ -1,0 +1,32 @@
+{%- comment -%}
+文章 → 插件反推卡。只在 front matter 显式写了 `product: <slug>` 时渲染：
+它是一句「这篇和哪个插件有关」的人工判断，不拿 tags 自动匹配——tags 是检索词，
+不是产品归属，自动匹配会把标签页和 TOOL_HIT_OK 台账一起弄脏。
+
+位置在 relatedTools 之前：读完一篇讲插件的文章，下一步更可能是去装它，
+而不是再读一篇同标签的文章。卡片文案只复述 _data/tools.yml，不另写产品事实。
+{%- endcomment -%}
+{%- assign product_slug = page.product -%}
+{%- assign t = site.data.tools | where: 'slug', product_slug | first -%}
+{%- if t -%}
+{%- assign store = t.links.store -%}
+{%- assign sep = '?' -%}
+{%- if store contains '?' -%}{%- assign sep = '&' -%}{%- endif -%}
+{%- assign store_utm = store | append: sep | append: 'utm_source=better-blog&utm_medium=article&utm_campaign=' | append: t.slug -%}
+<section class="post-footer-item product-card" aria-labelledby="product-card-title-{{ t.slug }}">
+    <div class="product-card-head">
+        <span class="product-card-icon"><img src="{{ t.icon | prepend: site.baseurl }}" alt="" width="36" height="36" loading="lazy"></span>
+        <div>
+            <p class="product-kicker">Related extension · 相关插件</p>
+            <h3 class="product-title" id="product-card-title-{{ t.slug }}">{{ t.name }}</h3>
+        </div>
+    </div>
+    <p class="product-tagline">{{ t.tagline }}</p>
+    <p class="product-summary">{{ t.summary }}</p>
+    <div class="product-cta">
+        <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">Chrome 商店安装</a>
+        <a class="cta" href="{{ t.guide | prepend: site.baseurl }}">安装与权限</a>
+        <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+    </div>
+</section>
+{%- endif -%}

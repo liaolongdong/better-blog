@@ -8,6 +8,7 @@ date: 2026-09-05
 categories: Chrome插件
 cover: /assets/img/login-flow-details/banner.webp
 tags: Chrome扩展 浏览器扩展 密码管理器 前端开发 交互设计
+product: account-password-helper
 tldr: '四个新功能零新增开关，权限只多了 contextMenus：右键点的是哪个输入框 Chrome 不返回，元素处于隐藏状态时 offsetHeight 恒为 0，得先置可见再定位才量得到高度。'
 faq:
   - q: 'chrome.contextMenus 的 onClicked 为什么拿不到用户右键点的是哪个输入框？'

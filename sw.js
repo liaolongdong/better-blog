@@ -101,6 +101,9 @@ css/js 引用、以及产物 CSS 里每一条 `url()` 都拿来对账，命中�
 const DEFERRED_URLS = [
   BASE + '/assets/js/social-share.min.js',
   BASE + '/assets/js/prism.min.js',
+  BASE + '/assets/js/readerExtras.min.js',
+  BASE + '/assets/js/excerpts.min.js',
+  BASE + '/assets/js/statsShare.min.js',
   BASE + '/assets/js/cursor-effects.min.js',
   BASE + '/assets/iconFont/iconfont.woff',
 ];
@@ -142,6 +145,13 @@ const DOC_URLS = [
 changelog 是回访才用的页，不该挤占首页与工具箱那 13 枚的淘汰豁免位。
 {%- endcomment -%}
   BASE + '/changelog.html',
+{%- comment -%}
+插件指南排在 changelog 之后、文章之前：它们是 sitemap 里的可索引页，但属于「决定安装之后才读」
+的第二跳，不占首页/工具箱那批钉住豁免位。放进文档清单，离线时仍能打开。
+{%- endcomment -%}
+{%- for tool in site.data.tools %}
+  '{{ tool.guide | prepend: site.baseurl }}',
+{%- endfor %}
 {%- for post in site.posts %}{% unless post.noindex %}
   '{{ post.url | prepend: site.baseurl }}',
 {%- endunless %}{% endfor %}
