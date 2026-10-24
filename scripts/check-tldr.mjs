@@ -85,7 +85,13 @@ function isTruthyFalse(fm, key) {
   return new RegExp(`^${key}:\\s*false\\s*$`, 'm').test(fm);
 }
 
-const today = new Date().toISOString().slice(0, 10);
+/**
+ * 「今天」按站点时区算，不按 UTC：`_config.yml:55` 把 timezone 钉在 Asia/Shanghai，
+ * 而 `toISOString()` 永远给 UTC 日期——那样 00:00–08:00 CST 之间发的稿会被判成「未来」而静默豁免，
+ * 正是这道门要拦的那件事。中国无夏令时，+08:00 写死即可；改站点时区时这里要一起改。
+ * `TLDR_TODAY` 只给牙齿用（把"今天"钉住才能测边界），门禁自己不需要。
+ */
+const today = process.env.TLDR_TODAY || new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const files = fs.readdirSync(POSTS_DIR).filter((f) => f.endsWith('.md')).sort();
 const missing = [];
 let checked = 0;

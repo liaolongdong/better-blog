@@ -56,6 +56,17 @@ const KNIVES = [
   { name: 'K5 tag 落后于包体（发版没收口）', group: 'T1 tag 收口', extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-old.txt'],
     apply: () => put(TAGS.replace(/\.txt$/, '-old.txt'), '2.0.1\n1.0.0\n'),
     expect: /停在 2\.0\.1 而包体是 2\.1\.0/ },
+  {
+    /**
+     * K6 钉的是「读 tag 要自己排序、并且认得 v 前缀」这一条：清单故意按升序写、
+     * 最新那枚带 `v`。排序与剥前缀两件事只要有一件没做，报出来的"最新"就不是 2.1.1
+     * （改之前它照清单顺序取第一行，会报成 2.0.1），正则就对不上——刀因此能真区分修没修。
+     */
+    name: 'K6 升序清单 + v 前缀最新 tag', group: 'T1 tag 收口',
+    extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-unsorted.txt'],
+    apply: () => put(TAGS.replace(/\.txt$/, '-unsorted.txt'), '2.0.1\n2.1.0\nv2.1.1\n'),
+    expect: /停在 2\.1\.1 而包体是 2\.1\.0/,
+  },
 ];
 
 let fails = 0;

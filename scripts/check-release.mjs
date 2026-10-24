@@ -74,27 +74,35 @@ for (let i = 1; i < allV.length; i++) {
 
 // T1 tag 收口（只在 --require-tag 时判）
 if (REQUIRE_TAG) {
+  /**
+   * 读数口径：tag 允许 `v` 前缀（`v2.0.2` 与 `2.0.2` 同义），排序只认数值段。
+   * 不信 `git tag --sort=-v:refname`：它按 ASCII 排，字母 `v` 排在数字前面，于是一枚
+   * `v2.0.2` 会被抬到已发布的 `2.1.0` 之上；而 `num('v2.0.2')` 的首段是 NaN，
+   * 远端那条路的比较器同样会静默乱序。两种读数都在这一步归一，非版本号形状的 tag 直接丢。
+   */
+  const verOf = (t) => String(t).replace(/^v/i, '').trim();
+  const byVersionDesc = (list) => [...new Set(list.map(verOf).filter((t) => /^\d+(\.\d+)*$/.test(t)))]
+    .sort((a, b) => { const [x, y] = [num(a), num(b)]; for (let i = 0; i < 3; i += 1) { if (x[i] !== y[i]) return y[i] - x[i]; } return 0; });
   const listFile = opt('tags-file', '');
   let tags = [];
   let source = 'git tag（本地）';
   try {
-    if (listFile) { tags = fs.readFileSync(path.resolve(ROOT, listFile), 'utf8').split(/\r?\n/).filter(Boolean); source = `清单 ${listFile}`; }
+    if (listFile) { tags = byVersionDesc(fs.readFileSync(path.resolve(ROOT, listFile), 'utf8').split(/\r?\n/).filter(Boolean)); source = `清单 ${listFile}`; }
     else {
       // 先看远端：这一档要防的正是「tag 只打在本地、没推」——本地有 tag 而 origin 没有，
       // 对拿 tag 算增量的人来说等于没有。取不到远端（离线、没有 origin）就退回本地，但必须说明这是弱读数。
       try {
-        tags = execFileSync('git', ['ls-remote', '--tags', 'origin'], { cwd: ROOT, encoding: 'utf8', timeout: 15000 })
+        tags = byVersionDesc(execFileSync('git', ['ls-remote', '--tags', 'origin'], { cwd: ROOT, encoding: 'utf8', timeout: 15000 })
           .split(/\r?\n/).map((l) => (l.split('\t')[1] || '').replace(/^refs\/tags\//, '').replace(/\^\{\}$/, ''))
-          .filter(Boolean);
-        tags = [...new Set(tags)].sort((a, b) => { const [x, y] = [num(a), num(b)]; for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return y[i] - x[i]; } return 0; });
+          .filter(Boolean));
         source = 'git ls-remote --tags origin';
       } catch (e2) {
-        tags = execFileSync('git', ['tag', '--sort=-v:refname'], { cwd: ROOT, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+        tags = byVersionDesc(execFileSync('git', ['tag'], { cwd: ROOT, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean));
         console.log(`· 取不到 origin 的 tag（${String(e2.message).split('\n')[0].slice(0, 60)}），退回本地读数——本地有 tag 不等于已推出去，收口时记得自己核对 ls-remote`);
       }
     }
   } catch (e) { console.log(`✗ 版本台账跑不动：读 tag 失败（${e.message}）`); process.exit(2); }
-  const latest = (tags[0] || '').replace(/^v/, '');
+  const latest = tags[0] || '';
   if (!tags.length) bad('T1 tag 收口', source, '一个 tag 都没有——「版本号只有一个真实来源」这条此刻没有来源');
   else if (pkgV && latest !== pkgV) bad('T1 tag 收口', `最新版本 vs ${source}`, `${source.split('（')[0]} 停在 ${latest} 而包体是 ${pkgV}——这一版还没收口：打附注 tag 并推送，或说明它尚未发布`);
 }
