@@ -6,7 +6,7 @@ seo_short_title: "10 万 Star 的 taste-skill 实测"
 seo_description: "它把设计拆成抽方向、找概念、真实浏览器验收；我用一页博客索引对照，旧版 11 个检查 FAIL，新版 0 个，也留下 3 个警告和几条不该用的边界。"
 date: 2026-10-24
 categories: [AI, 前端工程化]
-cover: /assets/img/taste-skill-contact-sheet-test/banner.webp
+cover: /assets/img/taste-skill-contact-sheet/banner.webp
 tags: AI Agent 前端 开源项目 评测
 tldr: "taste-skill 不是 UI 库，而是让编码 Agent 先抽方向、找概念，再在真实浏览器里验收的设计流程。我用一页博客索引做了前后对照：旧版检查出 11 个 FAIL，新版 0 个。但它判断不了‘好看’，也不适合所有页面，完整构建还要 30 到 45 分钟。"
 faq:
@@ -18,7 +18,7 @@ faq:
     a: '不需要 API Key，脚本本身零依赖，但 inspect 需要 Node 22 以上和 Chrome、Edge 或 Chromium。找开放图片要联网，图片的许可和署名要自己核对。'
 ---
 
-![一张被放大镜查看的网页联系表，旁边是一台显示界面草图的笔记本](/assets/img/taste-skill-contact-sheet-test/banner.webp)
+![一张被放大镜查看的网页联系表，旁边是一台显示界面草图的笔记本](/assets/img/taste-skill-contact-sheet/banner.webp)
 
 让 Agent 做一个落地页，它交回来的东西往往有同一套表情：标题上面一行小号大写字母，紫色渐变从左上铺到右下，三张图标卡排成一行，数字用 01/02/03 标好，最后一句 "Get started"。每一块都眼熟，合起来却不知道是谁的页面。
 
@@ -49,7 +49,7 @@ taste-skill 不是一套组件库，也不是一个更会写 CSS 的模型。它
 
 这六步里，真正和“提示词合集”拉开差距的是第 5、6 步。它不检查源码里有没有某个词，而是打开页面，量最终渲染出来的东西。源码看起来再干净，标题在 390px 下折成四行，检查器照样会报。
 
-![taste-skill 的六步构建流程，以及 247 个站点、20 个方向和三轮验收的数字](/assets/img/taste-skill-contact-sheet-test/02-flowchart-six-steps.webp)
+![taste-skill 的六步构建流程，以及 247 个站点、20 个方向和三轮验收的数字](/assets/img/taste-skill-contact-sheet/02-flowchart-six-steps.webp)
 
 ## 三个动作，把“审美”变成可执行的选择
 
@@ -73,13 +73,13 @@ taste-skill 不是一套组件库，也不是一个更会写 CSS 的模型。它
 
 为了不让结论只停在 README，我做了一页演示：左边是故意使用常见 AI 模板的版本，右边是按 `contact-sheet` 方向重做的版本。两版素材都来自同一批已发布文章（封面、截图、图表），不是拿假截图互相比较。
 
-![修前与修后的同一页博客索引，左边是紫色渐变模板，右边是沙色联系表](/assets/img/taste-skill-contact-sheet-test/01-comparison-before-after.webp)
+![修前与修后的同一页博客索引，左边是紫色渐变模板，右边是沙色联系表](/assets/img/taste-skill-contact-sheet/01-comparison-before-after.webp)
 
 修前那版，我刻意放进了紫色渐变、眉标、三张图标卡、01/02/03、emoji、阴影和一条细分割线。`lint.mjs` 量出 18 个 FAIL、10 个 WARN；`inspect.mjs` 在 1440、768、390 三个宽度合计 11 个 FAIL、8 个 WARN。FAIL 的类型包括眉标、编号、emoji、渐变、阴影、按钮特效、细线、图标卡、紫色配色、页面没有动效，以及标题折行过多。
 
 修后那版，我按方向表用了 21 张博客里的真实配图，统一成黑白联系表，悬停时恢复颜色；标题、正文和注释只用 Archivo 一套字；沙色底上只留一个苔绿强调色；加了一个按 AI / 前端筛选的交互，和一组滚动入场。`lint.mjs` 是 0 FAIL、0 WARN；`inspect.mjs` 是 0 FAIL、3 WARN。
 
-![重做后的博客索引桌面首屏：文字带、筛选按钮、放大的封面和联系表](/assets/img/taste-skill-contact-sheet-test/03-screenshot-after.webp)
+![重做后的博客索引桌面首屏：文字带、筛选按钮、放大的封面和联系表](/assets/img/taste-skill-contact-sheet/03-screenshot-after.webp)
 
 三个 WARN 我没有为了清零去改：
 
