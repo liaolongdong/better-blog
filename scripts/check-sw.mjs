@@ -144,8 +144,12 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
    * 骨架（见 _includes/headAssets.html 文件头那段），离线层不负责它们，所以它们的引用既不算
    * "骨架漏了"，也不算"骨架里养了一份没人要的"。
    */
+  // 捕获组必须把 `/assets/…` 前面那一段斜杠一起收进来：原先写的是 `${BASE}/(assets/…)`，
+  // 拼回 `BASE + m[1]` 时就少了一根斜杠，得到 `/better-blogassets/js/…`。后果不是红的，
+  // 是**页面产物这一半边永远对不上任何清单条目**——只靠模板引用的那几件还能绿，
+  // 只在页面里引用的（如 statsTemplate 的 statsShare.min.js）会被误判成豁免表死条目。
   const assetRe = new RegExp(
-    `(?:href|src)="${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(assets/[^"?#]+)"`,
+    `(?:href|src)="${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/assets/[^"?#]+)"`,
     'g',
   );
   const assetRefs = new Set();
@@ -363,8 +367,11 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
   if (inlineHits > 0) {
     bad('注册面', '内联注册', `${inlineHits} 个产物页面里出现了 serviceWorker 字样：注册应当只在 editorial.min.js 里，页面 HTML 零新增字节`);
   }
-  /** gzip 一律按 §7 钉的 shell 口径（`cat f | gzip -9 | wc -c`），zlib 的数与它不同，跨口径比较视同没量 */
-  const gzOf = (abs) => Number(execFileSync('sh', ['-c', `cat '${abs}' | gzip -9 | wc -c`], { encoding: 'utf8' }).trim());
+  /**
+   * gzip 一律按 §7 钉的 shell 口径（`cat f | gzip -9 | wc -c`），zlib 的数与它不同，跨口径比较视同没量。
+   * 路径走 `"$1"` 位置参数而不是拼进命令串：拼进去的话，一个带单引号的文件名就能在这台机器上执行命令。
+   */
+  const gzOf = (abs) => Number(execFileSync('sh', ['-c', 'cat "$1" | gzip -9 | wc -c', 'sh', abs], { encoding: 'utf8' }).trim());
   const swGz = gzOf(SW_REL);
   /** sw.js 的上限：它带整站文档清单，会随文章数增长，留的是"清单涨到 3 倍"的余量 */
   if (swGz > 16 * 1024) bad('注册面', 'sw.js 体积', `sw.js gzip 后 ${swGz}B 超过 16KB——清单该由数据源生成，不是把内容抄进这里`);

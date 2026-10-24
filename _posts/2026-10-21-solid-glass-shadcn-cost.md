@@ -8,6 +8,7 @@ date: 2026-10-21
 categories: [AI, 开源实测]
 cover: /assets/img/solid-glass-shadcn-cost/banner.webp
 tags: AI 前端 开源项目 评测 设计系统
+tldr: "在最小 Vite + React 19 + Tailwind 4 项目里只加一个 CSS 文件，stock shadcn 的卡片就变成 60% 不透明加 26px 模糊，构建 CSS 从 29.5KB 涨到 62.7KB。它适合负责气氛的表面，不适合负责读数的表格和首屏；import 顺序写错会静默退回默认主题。"
 ---
 
 ![封面：Solid Glass 的卡片只有六成不透明，远看像实心，近看是磨砂玻璃](/assets/img/solid-glass-shadcn-cost/banner.webp)

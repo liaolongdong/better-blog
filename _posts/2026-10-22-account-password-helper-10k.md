@@ -8,6 +8,7 @@ date: 2026-10-22
 categories: [Chrome插件]
 cover: /assets/img/account-password-helper-10k/banner.webp
 tags: 账号密码管理助手 一键填充 自动登录 chrome浏览器插件 本地优先 密码管理器
+product: account-password-helper
 tldr: '账号密码管理助手是一个不联网的本地密码管理器：按环境隔离账号、一键填充并登录、内置 TOTP，主密码经 PBKDF2 派生密钥，五个敏感字段用 AES-256-GCM 加密后只存本机。上架三个月，商店显示 10,000 用户、48 个版本、1,120 次提交。'
 faq:
   - q: '账号密码管理助手会把密码上传到服务器吗？'

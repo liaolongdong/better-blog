@@ -8,6 +8,7 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/local-first-password-manager/banner.webp
 tags: 密码管理器 浏览器扩展 开源项目 Chrome扩展 本地优先
+product: account-password-helper
 tldr: '它补的是 Bitwarden 们留的缝：host 全等才出账号、一个快捷键一路填到点登录、数据物理上不出浏览器。代价也明说：主密码遗忘找不回，别在里面存银行和支付类凭证。'
 faq:
   - q: '多环境的账号是怎么被隔开的？'

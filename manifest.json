@@ -26,6 +26,43 @@ scripts/build-manifest-icons.mjs 的唯一出口，head.html 的 apple-touch-ico
   "start_url": "{{ '/' | absolute_url }}",
   "scope": "{{ '/' | absolute_url }}",
   "display": "standalone",
+  "categories": ["news", "productivity", "education"],
+  "screenshots": [
+    {
+      "src": "{{ '/assets/img/pwa/home-1280x720.png' | absolute_url }}",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "首页：前端与 AI 长文"
+    },
+    {
+      "src": "{{ '/assets/img/pwa/tools-390x844.png' | absolute_url }}",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "工具箱：三款 Chrome 插件"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "工具箱",
+      "short_name": "工具箱",
+      "description": "三款 Chrome 插件与四款免安装工具",
+      "url": "{{ '/tools.html' | absolute_url }}"
+    },
+    {
+      "name": "阅读报告",
+      "short_name": "报告",
+      "description": "这台设备的阅读记录与连续天数",
+      "url": "{{ '/stats.html' | absolute_url }}"
+    },
+    {
+      "name": "全站索引",
+      "short_name": "索引",
+      "description": "按年份列全部文章",
+      "url": "{{ '/index-all.html' | absolute_url }}"
+    }
+  ],
   "background_color": "#FAF9F6",
   "theme_color": "#FAF9F6",
   "icons": [

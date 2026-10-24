@@ -1941,6 +1941,214 @@ html.has-js .toc-static {
 // 读完的人递一个当场能用的工具——禁脚本、无 IO、以及不跑 JS 的抓取器都该直接看到它。
 // 顺带也就不用去改那份名单，verify-motion-batch4.mjs 按 `.related-item` 数元素的那几条
 // 判据不会因为多了这一族而漂。
+// 文章→插件卡。只由 front matter 的 product: 触发，位置在相关工具之前。
+// 卡片本身不参与 .reveal 名单：读完的人与不跑脚本的抓取器都该直接看到它。
+.product-card {
+    margin: 0 auto 40px !important;
+    padding: 22px 24px;
+    // 与 .post-footer-item 的 820px 对齐：content-box 下 820 + 48 的内边距会把
+    // 卡片外宽撑到 868，和下面的相关阅读/相关工具差一截（2026-10-24 实测 914）。
+    box-sizing: border-box;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+}
+
+.product-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.product-card-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+    box-sizing: border-box;
+    padding: 4px;
+
+    img {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+.product-kicker {
+    @include related-kicker;
+    margin-bottom: 2px;
+}
+
+.product-title {
+    font-family: $font-display;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 28px;
+    color: var(--ink);
+}
+
+.product-tagline {
+    margin-top: 12px;
+    font-size: 14.5px;
+    line-height: 23px;
+    color: var(--signal-ink);
+}
+
+.product-summary {
+    margin-top: 6px;
+    max-width: 640px;
+    font-size: 13.5px;
+    line-height: 22px;
+    color: var(--ink-3);
+}
+
+.product-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+// 页脚安装入口：与 RSS / index-all 那几个链接同一行，所以只借字体不另起按钮样式。
+.install-app {
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.install-app[hidden] {
+    display: none;
+}
+
+// 摘录本（/excerpts.html）：与阅读报告同属「本机数据页」，版式收在 820px。
+.excerpt-page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 34px 0 80px;
+}
+
+.excerpt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.excerpt-note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--ink-3);
+}
+
+.excerpt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.excerpt-actions .cta:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.excerpt-empty {
+    padding: 36px 0;
+    font-size: 14px;
+    line-height: 24px;
+    color: var(--ink-3);
+}
+
+.excerpt-list {
+    display: grid;
+    gap: 16px;
+    margin-top: 22px;
+    padding: 0;
+    list-style: none;
+}
+
+.excerpt-item {
+    padding: 16px 18px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+}
+
+.excerpt-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0;
+}
+
+.excerpt-meta a {
+    font-size: 13.5px;
+    line-height: 22px;
+    color: var(--ink-2);
+    border-bottom: 1px solid var(--rule-2);
+
+    &:hover {
+        color: var(--signal);
+        border-bottom-color: var(--signal);
+    }
+}
+
+.excerpt-meta time {
+    flex: none;
+    font-family: $font-meta;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.excerpt-text {
+    margin: 10px 0 0;
+    padding-left: 12px;
+    font-size: 14px;
+    line-height: 24px;
+    color: var(--ink-2);
+    border-left: 2px solid var(--signal);
+}
+
+.excerpt-del {
+    margin-top: 10px;
+    padding: 0;
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink-3);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    background: none;
+    border: 0;
+
+    &:hover {
+        color: var(--signal);
+    }
+}
+
+@media (max-width: 695px) {
+    .excerpt-page {
+        padding-top: 26px;
+    }
+
+    .excerpt-meta {
+        flex-wrap: wrap;
+    }
+}
+
 .related-tools {
     margin: 0 auto 44px !important;
     padding-top: 26px;
@@ -2297,6 +2505,394 @@ html.has-js .toc-static {
     }
 }
 
+// ── 插件转化区（2026-10-24）──────────────────────────────────────────────
+// 安装步骤 / 权限 / FAQ 在两个地方渲染：/tools.html 的紧凑版与 /extensions/<slug>.html
+// 的完整版。共用一套类名，避免同一个区块养出两套样式；.tool-guide--full 只多出间距。
+.tool-thumbs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    max-width: 720px;
+    margin-top: 22px;
+}
+
+.tool-thumb {
+    margin: 0;
+
+    img {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-m);
+        transition: transform var(--dur-2) var(--ease-out);
+    }
+
+    &:hover img {
+        transform: translateY(-2px);
+    }
+}
+
+.tool-guide {
+    max-width: 720px;
+    margin-top: 30px;
+    padding-top: 22px;
+    border-top: 1px dashed var(--rule);
+}
+
+@media (max-width: 695px) {
+    .tool-thumbs {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+// 指南页本身已经收在 792px 的正文栏里，不再二次收窄。
+.tool-guide--full {
+    max-width: none;
+    margin-top: 36px;
+}
+
+.tool-guide-title {
+    margin-top: 22px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 22px;
+    color: var(--ink);
+
+    &:first-child {
+        margin-top: 0;
+    }
+}
+
+.tool-steps,
+.tool-perms,
+.tool-cases {
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.tool-steps {
+    counter-reset: tool-step;
+    list-style: none;
+
+    li {
+        position: relative;
+        padding-left: 34px;
+    }
+
+    li:before {
+        counter-increment: tool-step;
+        content: counter(tool-step);
+        position: absolute;
+        top: 1px;
+        left: 0;
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        font-family: $font-meta;
+        font-size: 11px;
+        color: var(--surface);
+        background-color: var(--ink);
+        border-radius: 50%;
+    }
+}
+
+.tool-perms li,
+.tool-cases li {
+    padding: 10px 12px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-m);
+}
+
+.tool-steps strong,
+.tool-perms strong,
+.tool-cases strong {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 22px;
+    color: var(--ink);
+}
+
+.tool-steps span,
+.tool-perms span,
+.tool-cases span {
+    display: block;
+    margin-top: 1px;
+    font-size: 13.5px;
+    line-height: 22px;
+    color: var(--ink-3);
+}
+
+.tool-faq {
+    margin-top: 20px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+
+    summary {
+        padding: 12px 14px;
+        font-size: 14px;
+        line-height: 22px;
+        color: var(--ink);
+        cursor: pointer;
+    }
+}
+
+.tool-faq-body {
+    padding: 0 14px 12px;
+}
+
+.tool-faq-item + .tool-faq-item {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+}
+
+.tool-faq-q {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 22px;
+    color: var(--ink);
+}
+
+.tool-faq-a {
+    margin-top: 3px;
+    font-size: 13.5px;
+    line-height: 22px;
+    color: var(--ink-3);
+}
+
+.tool-guide-links {
+    margin-top: 16px;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--ink-3);
+
+    a {
+        color: var(--ink-2);
+        border-bottom: 1px solid var(--rule-2);
+
+        &:hover {
+            color: var(--signal);
+            border-bottom-color: var(--signal);
+        }
+    }
+}
+
+.tool-shots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.tool-shot {
+    margin: 0;
+
+    img {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-m);
+    }
+}
+
+// ── 插件指南页（/extensions/<slug>.html）────────────────────────────────
+.ext-content {
+    padding-top: 34px;
+    padding-bottom: 64px;
+}
+
+.ext-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    column-gap: 48px;
+    align-items: start;
+}
+
+.ext-main {
+    min-width: 0;
+}
+
+.ext-hero {
+    margin: 0 0 28px;
+
+    img {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-l);
+        box-shadow: var(--shadow-2);
+    }
+}
+
+.ext-aside {
+    position: sticky;
+    top: 88px;
+    display: grid;
+    gap: 16px;
+}
+
+.ext-card {
+    padding: 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-l);
+}
+
+.ext-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .6px;
+    color: var(--ink-3);
+}
+
+.ext-facts {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+
+    li {
+        display: grid;
+        gap: 2px;
+    }
+
+    span {
+        font-family: $font-meta;
+        font-size: 10.5px;
+        letter-spacing: .8px;
+        color: var(--ink-4);
+        text-transform: uppercase;
+    }
+
+    strong {
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 20px;
+        color: var(--ink-2);
+    }
+}
+
+.ext-others {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+
+    a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: var(--radius-m);
+
+        &:hover {
+            background-color: var(--surface-2);
+        }
+    }
+
+    img {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+    }
+
+    strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 20px;
+        color: var(--ink);
+    }
+
+    small {
+        display: block;
+        margin-top: 1px;
+        font-size: 11.5px;
+        line-height: 18px;
+        color: var(--ink-3);
+    }
+}
+
+.ext-back {
+    font-size: 13px;
+
+    a {
+        color: var(--ink-2);
+    }
+}
+
+.ext-posts {
+    margin-top: 48px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+}
+
+.ext-posts-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ext-posts-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+
+    li {
+        display: flex;
+        gap: 14px;
+        align-items: baseline;
+    }
+
+    time {
+        flex: none;
+        font-family: $font-meta;
+        font-size: 11.5px;
+        color: var(--ink-3);
+    }
+
+    a {
+        font-size: 14px;
+        line-height: 22px;
+        color: var(--ink-2);
+
+        &:hover {
+            color: var(--signal);
+        }
+    }
+}
+
+@media (max-width: 1023px) {
+    .ext-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ext-aside {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ext-back {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 695px) {
+    .ext-content {
+        padding-top: 26px;
+    }
+
+    .ext-aside {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tool-shots {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .tool-posts {
     margin-top: 26px;
     padding-top: 18px;
@@ -2538,6 +3134,11 @@ html.has-js .toc-static {
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 26px;
+}
+
+// .cta 自带 inline-flex，会盖过 UA 的 [hidden]；「随机一篇」在脚本确认可用前必须真的不占位。
+.notfound-actions .cta[hidden] {
+    display: none;
 }
 
 .notfound-latest-title {
@@ -3438,6 +4039,12 @@ body.js-reveal .reveal.is-in {
         border-color: var(--signal);
         background-color: var(--signal-soft);
     }
+
+    // .post-share-btn 自带 inline-flex，会盖过 UA 的 [hidden]；readerExtras.js
+    // 没加载成功时「复制全文」必须保持不可见，不能留一颗死按钮。
+    &[hidden] {
+        display: none;
+    }
 }
 
 // 行内 code 装的是 commit hash、长路径这类「一整块不可断的词」。
@@ -3516,6 +4123,49 @@ body.reader-open .post-masthead {
     color: var(--ink);
     background-color: var(--signal-soft);
     border-color: var(--signal);
+}
+
+// 朗读按钮复用 .reader-btn 的形状与命中区，只加一个「正在读」的状态色。
+.listen-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.listen-btn[aria-pressed='true'] {
+    color: var(--signal);
+    background-color: var(--signal-soft);
+    border-color: var(--signal);
+}
+
+// .reader-btn 自带 display:inline-flex，会盖过 UA 的 [hidden]{display:none}；
+// 没有 speechSynthesis 的浏览器里必须显式藏掉，不能留一颗按不动的按钮。
+.listen-btn[hidden] {
+    display: none;
+}
+
+.listen-stop {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--ink-3);
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+
+    &:hover {
+        color: var(--ink);
+        border-color: var(--rule-2);
+    }
+}
+
+.listen-stop[hidden] {
+    display: none;
 }
 
 .reader-panel {
@@ -5272,6 +5922,45 @@ dialog.shelf[open] {
     letter-spacing: .9px;
     text-transform: uppercase;
     color: var(--ink-3);
+}
+
+// 篇末「读完」印章。只做一次落章：结算层出现时盖下来，之后不再动。
+// 与 .wrap-up.is-in 同一触发点，所以没有 JS 的场景里它随 hidden 一起不出现。
+.wrap-up-stamp {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    padding: 3px 9px 2px;
+    font-family: $font-meta;
+    font-size: 12px;
+    line-height: 18px;
+    letter-spacing: .18em;
+    color: var(--signal);
+    border: 2px solid var(--signal);
+    border-radius: 6px;
+    opacity: 0;
+    transform: rotate(-8deg) scale(.82);
+}
+
+.wrap-up.is-in .wrap-up-stamp {
+    animation: wrapStampIn .52s .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes wrapStampIn {
+    0% {
+        opacity: 0;
+        transform: rotate(-8deg) scale(1.45);
+    }
+
+    62% {
+        opacity: 1;
+        transform: rotate(-8deg) scale(.94);
+    }
+
+    100% {
+        opacity: 1;
+        transform: rotate(-8deg) scale(1);
+    }
 }
 
 .wrap-up-stats {

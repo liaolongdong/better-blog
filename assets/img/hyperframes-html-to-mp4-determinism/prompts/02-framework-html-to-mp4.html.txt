@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--line:#d1d5db;--accent:#e8562a;--soft:#fff4ef}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:#fbfaf7;color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:60px 76px}
+  .eyebrow{font-size:22px;letter-spacing:.14em;color:var(--accent);font-weight:700}
+  h1{font-size:48px;line-height:1.15;margin-top:12px;letter-spacing:-.03em}
+  .sub{font-size:24px;color:var(--muted);margin-top:12px}
+  .flow{display:flex;align-items:stretch;gap:0;margin-top:64px}
+  .node{flex:1;min-height:200px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:24px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 0 rgba(17,24,39,.04)}
+  .node.hot{border-color:var(--accent);background:var(--soft)}
+  .n{font-size:20px;color:var(--muted);font-weight:700}
+  .t{font-size:29px;line-height:1.25;font-weight:800}
+  .d{font-size:20px;line-height:1.5;color:var(--muted)}
+  .arrow{width:52px;display:flex;align-items:center;justify-content:center;font-size:38px;color:var(--accent);flex:0 0 52px}
+  .foot{margin-top:24px;display:flex;gap:16px;align-items:center;font-size:21px;color:var(--muted)}
+  .key{width:14px;height:14px;background:var(--accent);border-radius:4px}
+  .takeaway{margin-top:32px;border-left:8px solid var(--accent);background:#fff;padding:26px 34px;border-radius:0 18px 18px 0;font-size:27px;line-height:1.45;box-shadow:0 6px 20px rgba(17,24,39,.05)}
+  .takeaway .label{display:block;font-size:20px;color:var(--accent);font-weight:800;letter-spacing:.12em;margin-bottom:8px}
+</style></head>
+<body>
+  <div class="eyebrow">HYPERFRAMES 渲染链路</div>
+  <h1>HTML 怎么变成 300 帧 MP4</h1>
+  <p class="sub">确定性来自第二步：每一帧都 seek 到同一个 t。</p>
+  <div class="flow">
+    <div class="node"><span class="n">01</span><span class="t">HTML + CSS</span><span class="d">画面写成普通页面，GSAP 时间线暂停</span></div>
+    <div class="arrow">→</div>
+    <div class="node hot"><span class="n">02</span><span class="t">seek(t)</span><span class="d">按帧号跳到同一时刻，等画面稳定</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">03</span><span class="t">Chrome 截图</span><span class="d">1920×1080，一帧一张 PNG</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">04</span><span class="t">FFmpeg 编码</span><span class="d">H.264，yuv420p，30fps</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="n">05</span><span class="t">MP4</span><span class="d">90.5KB / 10 秒，可逐帧比对</span></div>
+  </div>
+  <div class="foot"><span class="key"></span><span>橙框是最关键的一步：seek 可控，确定性才成立。</span></div>
+  <div class="takeaway"><span class="label">我的判断</span>seek 只管页面内部时钟；GSAP 从 CDN 加载、rAF 在 seek 后才提交，都会绕过这一步。</div>
+</body></html>

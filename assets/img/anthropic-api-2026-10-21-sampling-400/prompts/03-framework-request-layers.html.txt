@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--line:#d1d5db;--accent:#d92d20;--blue:#1d4ed8;--soft:#fff4ef;--paper:#fbfaf7}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:var(--paper);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:54px 76px}
+  .eyebrow{font-size:21px;letter-spacing:.14em;color:var(--blue);font-weight:700}
+  h1{font-size:46px;line-height:1.15;margin-top:10px;letter-spacing:-.03em}
+  .sub{font-size:23px;color:var(--muted);margin-top:8px}
+  .stack{margin-top:30px;display:flex;flex-direction:column;gap:0}
+  .row{display:flex;align-items:center;gap:26px}
+  .idx{width:82px;font-size:20px;font-weight:800;color:var(--blue);letter-spacing:.08em;flex:0 0 82px}
+  .box{flex:1;border:2px solid var(--line);border-radius:14px;background:#fff;padding:14px 22px;display:flex;align-items:center;gap:22px}
+  .box.hot{border-color:var(--accent);background:var(--soft)}
+  .t{font-size:25px;font-weight:800;white-space:nowrap}
+  .d{font-size:21px;color:var(--muted);line-height:1.35}
+  .arrow{height:24px;margin-left:108px;font-size:22px;color:var(--accent);line-height:24px}
+  .takeaway{margin-top:22px;border-left:8px solid var(--accent);background:#fff;padding:18px 28px;border-radius:0 14px 14px 0;font-size:25px;line-height:1.4;box-shadow:0 6px 18px rgba(17,24,39,.05)}
+  .takeaway .label{display:block;font-size:18px;color:var(--accent);font-weight:800;letter-spacing:.12em;margin-bottom:4px}
+</style></head>
+<body>
+  <div class="eyebrow">请求路径 · 四层</div>
+  <h1>同一个 temperature，在四层里有四种死法</h1>
+  <p class="sub">先搞清楚自己的请求停在哪一层，再决定升不升</p>
+  <div class="stack">
+    <div class="row"><div class="idx">01</div><div class="box"><div class="t">业务代码</div><div class="d">还在写 temperature=0.2 的那一行</div></div></div>
+    <div class="arrow">↓</div>
+    <div class="row"><div class="idx">02</div><div class="box hot"><div class="t">SDK / 兼容层</div><div class="d">官方 SDK：本地 TypeError；网关：可能把版本头写死</div></div></div>
+    <div class="arrow">↓</div>
+    <div class="row"><div class="idx">03</div><div class="box"><div class="t">anthropic-version</div><div class="d">2023-06-01 还是 2026-10-21，由这一层决定</div></div></div>
+    <div class="arrow">↓</div>
+    <div class="row"><div class="idx">04</div><div class="box"><div class="t">API 服务端</div><div class="d">新版本读到 sampling 参数，返回 400</div></div></div>
+  </div>
+  <div class="takeaway"><span class="label">我的判断</span>最贵的一层不是 01，也不是 04，是没人负责的 02：它既能替你挡错，也能把你锁在旧协议里。</div>
+</body></html>

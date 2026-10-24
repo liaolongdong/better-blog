@@ -8,6 +8,7 @@ date: 2026-10-22
 categories: [AI, 服务器与部署]
 cover: /assets/img/deepinfer-open-source-sm100-only/banner.webp
 tags: AI 开源项目 性能优化 评测
+tldr: "DeepSeek 开源的 DeepInfer 只支持 V4.1-Flash 与 SM100/昇腾 950，最小高效部署是 64P+64D，H100 不在支持列表；KV cache 与跨 DP 负载均衡仍未开源。它开源的是引擎参考实现，不是可部署的服务，单卡用户和 H100 集群都不该按通用推理框架来选它。"
 ---
 
 ![封面：H100 不在列表，DeepInfer 最低 128 张卡](/assets/img/deepinfer-open-source-sm100-only/banner.webp)

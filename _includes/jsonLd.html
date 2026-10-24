@@ -150,6 +150,16 @@ page.tool 本来就是这四页用来查同一条数据的键（各页正文的 
 {%- include jsonLdTool.html -%}
 {%- endif -%}
 {%- comment -%}
+插件指南页（page.extension）与 /tools.html 的 SoftwareApplication / FAQPage / HowTo。
+与上面在线工具的 WebApplication 分开：那一族无需安装，这一族是 Chrome 商店里的安装型软件。
+{%- endcomment -%}
+{%- if page.extension -%}
+{%- include jsonLdSoftware.html tool=page.extension mode='guide' -%}
+{%- endif -%}
+{%- if page.url == '/tools.html' -%}
+{%- include jsonLdSoftware.html mode='hub' -%}
+{%- endif -%}
+{%- comment -%}
 about.html 是 Person.@id 指向的那一页，所以它除了 CollectionPage 还要把作者实体本身发出来。
 站点的页面都走这一支，因此这道判断是必须的：没有它，全站所有 @id 引用都会落到一个
 从未声明过该节点的地址上。

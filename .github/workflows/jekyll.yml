@@ -139,6 +139,9 @@ jobs:
           gate 'check-discovery'                  scripts/check-discovery.mjs
           gate 'check-discovery-teeth'            scripts/check-discovery-teeth.mjs
           gate 'check-tools-surface'              scripts/check-tools-surface.mjs
+          # tldr 覆盖：只读 _posts，不碰产物；teeth 在临时目录里改副本，不动跟踪源。
+          gate 'check-tldr'                        scripts/check-tldr.mjs
+          gate 'check-tldr-teeth'                  scripts/check-tldr-teeth.mjs
           gate 'check-seo'                        scripts/check-seo.mjs
           # 三道 teeth 必须排在 check-seo 之后：它们就地改源再原样还原，还原把那批源文件的
           # mtime 推到当下，而 check-seo 有一道「源比产物新就拒跑」的闸（scripts/check-seo.mjs:283）。

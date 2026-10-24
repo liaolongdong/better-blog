@@ -8,6 +8,7 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/mv3-sidepanel-sub-second-open/banner.webp
 tags: Chrome扩展 ManifestV3 ServiceWorker 性能优化 前端工程化
+product: account-password-helper
 tldr: '侧边栏白屏不是一个 bug 而是四段成本：SW 冷启动、资源冷读盘、数据要解密、CSS 阻塞渲染。保活、预热、竞速、非阻塞 CSS 各买回一层，实测缓存快路径 20-50ms 拿到数据。'
 faq:
   - q: 'MV3 扩展靠 setInterval 给自己发消息保活够不够？'

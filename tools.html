@@ -2,6 +2,10 @@
 layout: default
 title: 工具箱
 subtitle: 三款 Chrome 浏览器插件，另有一组不用装任何东西、在浏览器里算的在线工具
+# title 只给页面 H1 用；检索口径单独写短标题与描述，别让「工具箱」这个泛词独占 SERP。
+# 三款插件各自的安装/权限/FAQ 现在也落在这一页（指南页有完整版），所以描述里点名场景。
+seo_short_title: Chrome 插件与在线工具
+seo_description: 三款自研 Chrome 插件（账号密码管理、文件格式转换、跨域代理）与四款免安装在线工具。每款都写了安装步骤、权限与数据边界、常见问题；本地优先、开源可审计。
 # 理由同 categories.html：写死 permalink 才能进站点地图、才能让 canonical 与导航一致。
 permalink: /tools.html
 ---
@@ -82,9 +86,13 @@ permalink: /tools.html
                     {% endfor %}
                 </ul>
 
+                {%- assign store = tool.links.store -%}
+                {%- assign sep = '?' -%}
+                {%- if store contains '?' -%}{%- assign sep = '&' -%}{%- endif -%}
+                {%- assign store_utm = store | append: sep | append: 'utm_source=better-blog&utm_medium=tools-hub&utm_campaign=' | append: tool.slug -%}
                 <div class="tool-cta">
                     {% if tool.links.store != '' %}
-                    <a class="cta cta-primary" href="{{ tool.links.store }}" target="_blank" rel="noopener">
+                    <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">
                         Chrome 应用商店安装
                     </a>
                     {% else %}
@@ -94,15 +102,38 @@ permalink: /tools.html
                     <a class="cta" href="{{ tool.links.demo }}" target="_blank" rel="noopener">在线演示</a>
                     {% endif %}
                     <a class="cta" href="{{ tool.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+                    <a class="cta" href="{{ tool.guide | prepend: site.baseurl }}">使用指南</a>
                 </div>
             </div>
 
             <figure class="tool-media">
                 {% if tool.screenshot != '' %}
-                <img src="{{ tool.screenshot | prepend: site.baseurl }}" alt="{{ tool.name }} 界面截图" loading="lazy">
+                <img src="{{ tool.screenshot | prepend: site.baseurl }}" alt="{{ tool.name }} 产品示意图" loading="lazy">
                 {% endif %}
             </figure>
         </div>
+
+        {%- comment -%}
+        主图已经在 .tool-media 里；这里只补它之外的产品截图。去重后再决定画不画，
+        免得 COP 的 cop-rules.jpg 在首屏和缩略图里各出现一次。
+        {%- endcomment -%}
+        {%- assign extra_shots = "" | split: "" -%}
+        {%- for shot in tool.screenshots -%}
+          {%- unless shot == tool.screenshot -%}
+            {%- assign extra_shots = extra_shots | push: shot -%}
+          {%- endunless -%}
+        {%- endfor -%}
+        {%- if extra_shots.size > 0 %}
+        <div class="tool-thumbs" aria-label="{{ tool.name }} 更多截图">
+            {%- for shot in extra_shots %}
+            <figure class="tool-thumb">
+                <img src="{{ shot | prepend: site.baseurl }}" alt="{{ tool.name }} 功能图 {{ forloop.index }}" loading="lazy">
+            </figure>
+            {%- endfor %}
+        </div>
+        {%- endif %}
+
+        {% include toolGuide.html tool=tool context='hub' %}
 
         <footer class="tool-posts">
             <h3 class="tool-posts-title">相关记录</h3>

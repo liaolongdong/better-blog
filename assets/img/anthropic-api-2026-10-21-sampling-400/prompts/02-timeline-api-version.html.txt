@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--line:#d1d5db;--accent:#d92d20;--blue:#1d4ed8;--soft:#fff4ef}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:#fbfaf7;color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:60px 76px}
+  .eyebrow{font-size:22px;letter-spacing:.14em;color:var(--blue);font-weight:700}
+  h1{font-size:50px;line-height:1.15;margin-top:12px;letter-spacing:-.03em}
+  .sub{font-size:24px;color:var(--muted);margin-top:10px}
+  .timeline{position:relative;margin-top:128px;height:300px}
+  .axis{position:absolute;left:0;right:0;top:64px;height:4px;background:var(--line)}
+  .nodes{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
+  .node{position:relative;padding-top:0;text-align:left}
+  .dot{position:absolute;top:53px;left:0;width:26px;height:26px;border-radius:50%;background:#fff;border:4px solid var(--blue)}
+  .date{font-size:19px;font-weight:800;color:var(--blue);letter-spacing:.02em}
+  .card{margin-top:96px;background:#fff;border:2px solid var(--line);border-radius:16px;padding:20px 20px;min-height:150px;box-shadow:0 6px 0 rgba(17,24,39,.04)}
+  .card.hot{border-color:var(--accent);background:var(--soft)}
+  .v{font-size:28px;font-weight:800;line-height:1.2}
+  .d{font-size:20px;line-height:1.5;color:var(--muted);margin-top:8px}
+  .takeaway{margin-top:54px;border-left:8px solid var(--accent);background:#fff;padding:24px 30px;border-radius:0 16px 16px 0;font-size:27px;line-height:1.45;box-shadow:0 6px 20px rgba(17,24,39,.05)}
+  .takeaway .label{display:block;font-size:19px;color:var(--accent);font-weight:800;letter-spacing:.12em;margin-bottom:6px}
+</style></head>
+<body>
+  <div class="eyebrow">ANTHROPIC · API 版本时间线</div>
+  <h1>三年没动的版本号，在 10 月 21 日换了</h1>
+  <p class="sub">时间均为 UTC+8；节点只放关键动作，细节回正文</p>
+  <div class="timeline">
+    <div class="axis"></div>
+    <div class="nodes">
+      <div class="node"><div class="date">2026-08-21 03:58</div><div class="dot"></div><div class="card"><div class="v">v1.0.0</div><div class="d">签名不再收采样参数</div></div></div>
+      <div class="node"><div class="date">2026-10-21 06:13</div><div class="dot"></div><div class="card"><div class="v">v1.17.0</div><div class="d">最后 1.x；仍发旧版本头</div></div></div>
+      <div class="node"><div class="date">2026-10-21 23:51</div><div class="dot" style="border-color:var(--accent)"></div><div class="card hot"><div class="v">v2.0.0</div><div class="d">默认头切到新版</div></div></div>
+      <div class="node"><div class="date">2026-10-22 06:00</div><div class="dot"></div><div class="card"><div class="v">v2.1.0</div><div class="d">user profile 等管理接口</div></div></div>
+      <div class="node"><div class="date">2026-10-23 21:10</div><div class="dot"></div><div class="card"><div class="v">v2.2.0</div><div class="d">新增 message threads</div></div></div>
+    </div>
+  </div>
+  <div class="takeaway"><span class="label">我的判断</span>断点不是 v1.0 删参数，而是 10-21 把默认协议头换了；兼容层从这一步分成“跟”和“不跟”两拨。</div>
+</body></html>

@@ -73,6 +73,7 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
         {%- endfor -%}
         <a class="cat-chip" href="#collections">合集<em>{{ site.data.series.size }}</em></a>
         <a class="cat-chip" href="#demos">示例<em>{{ site.data.demoLists.size }}</em></a>
+        <a class="cat-chip" href="#extensions">浏览器插件<em>{{ site.data.tools.size }}</em></a>
         <a class="cat-chip" href="#onetools">免安装工具<em>{{ ready_online.size }}</em></a>
         <a class="cat-chip" href="#pages">页面<em>{{ page_count }}</em></a>
     </nav>
@@ -135,6 +136,22 @@ cat-count），混进「页面」反而让两个 chip 的数字对不上各自�
             <li class="demo-row"><a class="demo-link" target="_blank" rel="noopener" href="{{ site.baseurl }}/{{ item.demoUrl }}" title="{{ item.title | escape }}">{{ item.title | escape }}</a></li>
             {%- endfor -%}
         </ul>
+    </section>
+
+    <section class="cat-section" id="extensions">
+        <header class="cat-head">
+            <h2 class="cat-name">浏览器插件</h2>
+            <span class="cat-count">{{ site.data.tools.size }} 款</span>
+            <a class="cat-top" href="#main">回到索引</a>
+        </header>
+        <ol class="cat-list">
+            {%- for tool in site.data.tools %}
+            <li class="cat-row">
+                <span class="cat-date">{{ tool.index }}</span>
+                <a class="cat-title" href="{{ tool.guide | prepend: site.baseurl }}">{{ tool.name }}｜{{ tool.tagline }}</a>
+            </li>
+            {%- endfor -%}
+        </ol>
     </section>
 
     {%- comment -%}

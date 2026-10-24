@@ -297,12 +297,15 @@
         }
     }
 
-    function init() {
+    /**
+     * 把 init 与阅读报告卡片共用的账算在一处：同一条 shelf 结构、同一套 dayKey/streak 口径。
+     * 卡片脚本（statsShare.js）只读 window.BBStats 的返回值，不再自己解析一遍 localStorage。
+     * @returns {{shelf: Object, totalMs: number, recentDays: number, readCount: number,
+     *            queueCount: number, streak: number, cats: Array<{name: string, count: number}>,
+     *            hasData: boolean}}
+     */
+    function summary() {
         var shelf = readShelf();
-        var report = document.getElementById('stats-report');
-        var empty = document.getElementById('stats-empty');
-        if (!report || !empty) return;
-
         // 只计算可见时长的总和（shelf.d）；足迹里的 ms 与 d 是同一笔账的两个落点。
         var days = shelf.d;
         var totalMs = 0;
@@ -315,16 +318,6 @@
 
         var readCount = countKeys(shelf.f);
         var queueCount = countKeys(shelf.q);
-        var hasData = readCount > 0 || queueCount > 0 || totalMs > 0;
-
-        if (!hasData) {
-            empty.hidden = false;
-            report.hidden = true;
-            return;
-        }
-
-        empty.hidden = true;
-        report.hidden = false;
 
         // 连续天数：今天没读就从昨天起算，避免每天零点准时归零。
         var streak = 0;
@@ -335,6 +328,53 @@
             streak++;
             cursor.setDate(cursor.getDate() - 1);
         }
+
+        var counts = {};
+        var paths = Object.keys(shelf.f);
+        for (var i = 0; i < paths.length; i++) {
+            var e = shelf.f[paths[i]];
+            if (e && e.c) counts[e.c] = (counts[e.c] || 0) + 1;
+        }
+        var cats = Object.keys(counts).map(function (name) {
+            return { name: name, count: counts[name] };
+        }).sort(function (a, b) {
+            return b.count - a.count || a.name.localeCompare(b.name);
+        }).slice(0, 3);
+
+        return {
+            shelf: shelf,
+            totalMs: totalMs,
+            recentDays: recentDays,
+            readCount: readCount,
+            queueCount: queueCount,
+            streak: streak,
+            cats: cats,
+            hasData: readCount > 0 || queueCount > 0 || totalMs > 0
+        };
+    }
+
+    function init() {
+        var s = summary();
+        var shelf = s.shelf;
+        var report = document.getElementById('stats-report');
+        var empty = document.getElementById('stats-empty');
+        if (!report || !empty) return;
+
+        var days = shelf.d;
+        var totalMs = s.totalMs;
+        var recentDays = s.recentDays;
+        var readCount = s.readCount;
+        var queueCount = s.queueCount;
+        var streak = s.streak;
+
+        if (!s.hasData) {
+            empty.hidden = false;
+            report.hidden = true;
+            return;
+        }
+
+        empty.hidden = true;
+        report.hidden = false;
 
         setText('stats-hero-read', readCount ? readCount + ' 篇' : '—');
         setText('stats-hero-time', totalMs ? humanizeMs(totalMs) : '—');
@@ -350,6 +390,12 @@
         var raf = window.requestAnimationFrame || function (fn) { return window.setTimeout(fn, 0); };
         raf(function () { report.classList.add('is-ready'); });
     }
+
+    // statsShare.js 只读这一份摘要，不再自己解析 localStorage；字段与 init 用的是同一份账。
+    window.BBStats = {
+        summary: summary,
+        humanizeMs: humanizeMs
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

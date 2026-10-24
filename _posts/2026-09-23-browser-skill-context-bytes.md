@@ -8,6 +8,7 @@ date: 2026-09-23
 categories: [AI, 开源实测]
 cover: /assets/img/browser-skill-context-bytes/banner.webp
 tags: AI 开源 Agent chrome
+product: account-password-helper
 tldr: '省上下文跟功能摆在哪没关系，只看 agent 开机读哪一份：BrowserSkill 常驻 6,804 字节，背后 42 个方法和 56,289 字节参数表一条都不进上下文；同一套 MCP 工具两个版本之间就涨了 2,505 字节。'
 faq:
   - q: '衡量一个 skill 或 MCP 占多少上下文该量什么？'

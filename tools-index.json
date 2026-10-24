@@ -1,0 +1,33 @@
+---
+permalink: /tools-index.json
+---
+{%- comment -%}
+⌘K 的「工具」补充索引。为什么不并进 search.json：
+search.json 是 verify-search-deeplink 的 J5/J6/J7 独立口径的唯一数据源，
+往里面塞非文章条目会让那三道判据的期望集合与排序一起变；而工具只需要在
+「文章零命中」时兜底出现，单独一本更小、更不容易把检索门禁弄红。
+字段形状刻意与 search.json 对齐：score() 只读 title/tags/category/excerpt。
+{%- endcomment -%}
+{%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' -%}
+[
+{%- for t in site.data.tools -%}
+  {
+    "title": {{ t.name | jsonify }},
+    "url": {{ t.guide | jsonify }},
+    "category": "插件",
+    "tags": "",
+    "excerpt": {{ t.tagline | append: '。' | append: t.summary | strip_html | strip | jsonify }},
+    "date": ""
+  }{%- if ready_online.size > 0 or forloop.last == false -%},{%- endif -%}
+{%- endfor -%}
+{%- for t in ready_online -%}
+  {
+    "title": {{ t.h1 | jsonify }},
+    "url": {{ t.url | jsonify }},
+    "category": "在线工具",
+    "tags": "",
+    "excerpt": {{ t.tagline | append: '。' | append: t.desc | strip_html | strip | jsonify }},
+    "date": ""
+  }{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]

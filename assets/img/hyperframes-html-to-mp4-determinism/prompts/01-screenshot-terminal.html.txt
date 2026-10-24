@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;width:1400px;height:980px;background:#0f1117;overflow:hidden}
+  pre{margin:0;padding:30px 40px;color:#e6edf3;font:20px/1.55 "SFMono-Regular",Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .cmd{color:#7ee787}.warn{color:#f2cc60}.err{color:#ff7b72}.dim{color:#8b949e}.ok{color:#79c0ff}
+</style></head>
+<body><pre><span class="cmd">$ npm install hyperframes</span>
+<span class="dim">added 74 packages in 42s</span>
+<span class="warn">npm warn install-scripts  esbuild@0.25.12 (postinstall not covered)</span>
+
+<span class="cmd">$ npx hyperframes doctor</span>
+<span class="ok">✓</span> Node.js   v24.22.0
+<span class="err">✗</span> Memory    8.0 GB total · 1.6 GB available
+<span class="err">            Low memory — renders may fail.</span>
+<span class="ok">✓</span> FFmpeg    ffmpeg 9.0.1
+<span class="ok">✓</span> Chrome    system: /Applications/Google Chrome.app/...
+
+<span class="cmd">$ npx hyperframes render -q draft -w 1 -o renders/first.mp4</span>
+<span class="dim">  100%  Render complete</span>
+  <span class="ok">90.5 KB</span> · 10.0s video · rendered in <span class="ok">1m 35.6s</span>
+  screenshot capture · hardware gpu · setup 9.5s · capture 1m 22.0s
+
+<span class="cmd">$ npx hyperframes render -q draft -w 1 -o renders/second.mp4</span>
+  <span class="ok">90.5 KB</span> · 10.0s video · rendered in <span class="ok">1m 27.2s</span>
+
+<span class="cmd">$ shasum -a 256 renders/first.mp4 renders/second.mp4</span>
+ff228253d47310a39b6033421f71396bd9728005d72590a97872a55bcdffd6c0  first.mp4
+ff228253d47310a39b6033421f71396bd9728005d72590a97872a55bcdffd6c0  second.mp4
+<span class="dim"># 两个文件字节级相同；300 帧 framemd5 diff 退出码 0</span>
+</pre></body></html>

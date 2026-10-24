@@ -119,9 +119,37 @@
     <section>
         <a href="{{ '/feed.xml' | relative_url }}" title="Atom 全文订阅源：正文完整，含图片与代码块">RSS 订阅</a> ·
         <a href="{{ '/index-all.html' | relative_url }}" title="按年份列全部文章，另附合集、示例与页面清单">全站索引</a> ·
-        <a href="{{ '/llms.txt' | relative_url }}" title="给 AI 引擎的站点说明与全篇索引">llms.txt</a>
+        <a href="{{ '/llms.txt' | relative_url }}" title="给 AI 引擎的站点说明与全篇索引">llms.txt</a> ·
+        <button class="install-app" type="button" data-install-app hidden title="安装到桌面，离线也能打开">安装本站</button>
         <noscript> · 这里的搜索、书架、返回顶部与主题切换需要 JavaScript；上面三个入口和导航栏都不依赖它。</noscript>
     </section>
+
+    {%- comment -%}
+    安装入口只在浏览器真的发出 beforeinstallprompt 时出现；iOS Safari 不发这个事件，
+    按钮保持 hidden，不拿一段看不懂的「请点分享再添加到主屏幕」去占页脚。
+    用户已经以 standalone 打开时也不显示。脚本不引外部件，避免为一次安装多一个请求。
+    {%- endcomment -%}
+    <script>
+    (function () {
+        var btn = document.querySelector('[data-install-app]');
+        if (!btn || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)) return;
+        var deferred = null;
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            deferred = e;
+            btn.hidden = false;
+        });
+        btn.addEventListener('click', function () {
+            if (!deferred) { btn.hidden = true; return; }
+            deferred.prompt();
+            deferred.userChoice.then(function () {
+                deferred = null;
+                btn.hidden = true;
+            }, function () { btn.hidden = true; });
+        });
+        window.addEventListener('appinstalled', function () { btn.hidden = true; });
+    })();
+    </script>
 
     {% if site.footer.showCursorEffects %}
     <script src="{{ site.baseurl }}/assets/js/cursor-effects.min.js"></script>

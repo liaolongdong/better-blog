@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{--paper:#f3efe6;--ink:#111827;--muted:#5b6472;--accent:#0f766e;--soft:#d9eee9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{background:var(--paper);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;position:relative}
+  .frame{position:absolute;inset:42px;border:3px solid var(--ink)}
+  .block{position:absolute;right:0;top:0;width:420px;height:100%;background:var(--soft);border-left:3px solid var(--ink)}
+  .mono{position:absolute;right:74px;top:96px;font:700 170px/1 "SFMono-Regular",Menlo,monospace;color:var(--accent);letter-spacing:-.06em}
+  .mono small{display:block;font:600 24px/1.4 "PingFang SC",sans-serif;letter-spacing:.18em;color:var(--ink);margin-top:18px}
+  .wrap{position:relative;z-index:2;padding:104px 96px 0 104px;width:1080px}
+  .tag{display:inline-block;border:2px solid var(--ink);padding:8px 16px;font-size:21px;letter-spacing:.12em;font-weight:700;background:#fff}
+  h1{margin-top:54px;font-size:96px;line-height:1.08;letter-spacing:-.05em;font-weight:800}
+  h1 em{font-style:normal;color:var(--accent)}
+  .sub{margin-top:34px;font-size:30px;line-height:1.55;color:var(--muted);max-width:820px}
+  .foot{position:absolute;left:104px;bottom:92px;font-size:21px;letter-spacing:.08em;color:var(--muted)}
+  .foot b{color:var(--ink)}
+  .stamp{position:absolute;right:86px;bottom:92px;font-size:20px;letter-spacing:.18em;color:var(--ink);text-align:right;line-height:1.7}
+</style>
+</head>
+<body>
+  <div class="block"></div>
+  <div class="mono">0.8.188<small>HYPERFRAMES</small></div>
+  <div class="frame"></div>
+  <div class="wrap">
+    <span class="tag">开源实测 · 2026-10-23</span>
+    <h1>两遍 MP4 一样，<br>但 <em>CDN</em> 一断<br>就只剩静帧</h1>
+    <div class="sub">同一个 HTML，300 帧逐帧哈希相同；默认模板却把 GSAP 挂在公网。</div>
+  </div>
+  <div class="foot">廖小新 · <b>better-blog</b></div>
+  <div class="stamp">10s / 300 帧<br>系统 Chrome 实测</div>
+</body>
+</html>

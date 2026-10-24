@@ -1,0 +1,106 @@
+{%- comment -%}
+插件的安装 / 权限 / FAQ 区。两个消费点共用这一份标记：
+  · /tools.html 每节渲染紧凑版（context='hub'，不展开用例与截图，FAQ 默认收起）；
+  · /extensions/<slug>.html 渲染完整版（context='guide'，多出用例、截图与完整指南链接）。
+数据只来自 _data/tools.yml，模板不写第二份产品事实。
+{%- endcomment -%}
+{%- assign t = include.tool -%}
+{%- assign ctx = include.context | default: 'hub' -%}
+{%- assign store = t.links.store -%}
+{%- assign sep = '?' -%}
+{%- if store contains '?' -%}{%- assign sep = '&' -%}{%- endif -%}
+{%- assign medium = 'tools-hub' -%}
+{%- if ctx == 'guide' -%}{%- assign medium = 'guide' -%}{%- endif -%}
+{%- assign store_utm = store | append: sep | append: 'utm_source=better-blog&utm_medium=' | append: medium | append: '&utm_campaign=' | append: t.slug -%}
+
+<section class="tool-guide{% if ctx == 'guide' %} tool-guide--full{% endif %}" aria-label="{{ t.name }} 使用指南">
+    {%- if ctx == 'guide' and t.use_cases and t.use_cases.size > 0 %}
+    <h2 class="tool-guide-title" id="guide-{{ t.slug }}">它解决什么问题</h2>
+    <ul class="tool-cases">
+        {%- for item in t.use_cases %}
+        <li><strong>{{ item.title }}</strong><span>{{ item.text }}</span></li>
+        {%- endfor %}
+    </ul>
+    {%- endif %}
+
+    {%- assign extra_shots = "" | split: "" -%}
+    {%- for shot in t.screenshots -%}
+        {%- unless shot == t.screenshot -%}
+            {%- assign extra_shots = extra_shots | push: shot -%}
+        {%- endunless -%}
+    {%- endfor -%}
+    {%- if ctx == 'guide' and extra_shots.size > 0 %}
+    <h2 class="tool-guide-title">界面与流程</h2>
+    <div class="tool-shots">
+        {%- for shot in extra_shots %}
+        <figure class="tool-shot">
+            <img src="{{ shot | prepend: site.baseurl }}" alt="{{ t.name }} 功能与流程图 {{ forloop.index }}" loading="lazy">
+        </figure>
+        {%- endfor %}
+    </div>
+    {%- endif %}
+
+    {%- if t.install_steps and t.install_steps.size > 0 %}
+    <h2 class="tool-guide-title">安装三步</h2>
+    <ol class="tool-steps">
+        {%- for step in t.install_steps %}
+        <li><strong>{{ step.title }}</strong><span>{{ step.text }}</span></li>
+        {%- endfor %}
+    </ol>
+    {%- endif %}
+
+    {%- if t.permissions and t.permissions.size > 0 %}
+    <h2 class="tool-guide-title">权限与数据边界</h2>
+    <ul class="tool-perms">
+        {%- for item in t.permissions %}
+        <li><strong>{{ item.title }}</strong><span>{{ item.text }}</span></li>
+        {%- endfor %}
+    </ul>
+    {%- endif %}
+
+    {%- if t.faq and t.faq.size > 0 %}
+    <details class="tool-faq">
+        <summary>常见问题（{{ t.faq.size }}）</summary>
+        <div class="tool-faq-body">
+            {%- for item in t.faq %}
+            <div class="tool-faq-item">
+                <p class="tool-faq-q">{{ item.q }}</p>
+                <p class="tool-faq-a">{{ item.a }}</p>
+            </div>
+            {%- endfor %}
+        </div>
+    </details>
+    {%- endif %}
+
+    {%- comment -%}
+    安装排查只放在指南页（ctx='guide'）：三款插件共用同一套 Chrome 侧动作，
+    不是产品事实，放 _data/tools.yml 会让每条重复三遍。hub 上用「完整使用指南」一跳过来。
+    {%- endcomment -%}
+    {%- if ctx == 'guide' %}
+    <details class="tool-faq tool-install-help">
+        <summary>安装后没反应？先看这三条</summary>
+        <div class="tool-faq-body">
+            <div class="tool-faq-item">
+                <p class="tool-faq-q">商店条目打不开</p>
+                <p class="tool-faq-a">从仓库 Releases 下载 zip，在 <code>chrome://extensions</code> 打开右上角「开发者模式」，点「加载已解压的扩展程序」并选中解压目录。移动端 Chrome 不支持扩展，这一步要在桌面版完成。</p>
+            </div>
+            <div class="tool-faq-item">
+                <p class="tool-faq-q">安装了但工具栏没有图标</p>
+                <p class="tool-faq-a">点地址栏右侧的拼图图标，找到这款扩展并点「固定」，然后刷新当前页面。Chrome 不会自动把新扩展放到工具栏。</p>
+            </div>
+            <div class="tool-faq-item">
+                <p class="tool-faq-q">更新后数据还在吗</p>
+                <p class="tool-faq-a">这三款都把账号、规则或转换记录存在本机，正常更新扩展不会清掉；重要数据仍建议按仓库 README 的方式备份。</p>
+            </div>
+        </div>
+    </details>
+    {%- endif %}
+
+    <p class="tool-guide-links">
+        {%- if ctx != 'guide' %}
+        <a href="{{ t.guide | prepend: site.baseurl }}">完整使用指南与截图</a> ·
+        {%- endif %}
+        <a href="{{ t.changelog }}" target="_blank" rel="noopener">更新日志</a> ·
+        <a href="{{ store_utm }}" target="_blank" rel="noopener">去商店评价</a>
+    </p>
+</section>

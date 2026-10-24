@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="780" viewBox="0 0 1400 780" font-family="Menlo, SF Mono, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="780" fill="#FBF8F3"/>
+  <text x="60" y="66" font-size="30" fill="#1E252C" font-weight="700">一次大版本跳级，把四条依赖线劈成两支</text>
+  <text x="60" y="102" font-size="19" fill="#5C6773">thesysdev/openui · lang-core 时间线取自 registry 的 time 字段 · 依赖范围取自四个包自己的 dependencies</text>
+
+  <!-- core timeline -->
+  <line x1="120" y1="200" x2="1280" y2="200" stroke="#C9BFAE" stroke-width="3"/>
+  <g>
+    <circle cx="330" cy="200" r="11" fill="#8A6D3B"/>
+    <text x="330" y="160" font-size="22" fill="#1E252C" text-anchor="middle" font-weight="700">0.4.1</text>
+    <text x="330" y="266" font-size="17" fill="#5C6773" text-anchor="middle">10-10 20:31Z</text>
+
+    <circle cx="700" cy="200" r="13" fill="#C2410C"/>
+    <text x="700" y="155" font-size="24" fill="#C2410C" text-anchor="middle" font-weight="700">1.0.0</text>
+    <text x="700" y="266" font-size="17" fill="#5C6773" text-anchor="middle">10-12 15:05Z · 跳大版本</text>
+
+    <circle cx="1080" cy="200" r="11" fill="#8A6D3B"/>
+    <text x="1080" y="160" font-size="22" fill="#1E252C" text-anchor="middle" font-weight="700">1.0.1</text>
+    <text x="1080" y="266" font-size="17" fill="#5C6773" text-anchor="middle">10-15 04:23Z</text>
+  </g>
+  <path d="M700 214 L700 246" stroke="#C2410C" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="1290" y="322" font-size="18" fill="#C2410C" text-anchor="end">^0.4.1 吃不进 1.0.0 之后的任何版本</text>
+
+  <!-- adapters -->
+  <g font-size="20">
+    <rect x="80" y="350" width="270" height="96" rx="10" fill="#E8F3EC" stroke="#2F855A" stroke-width="2.5"/>
+    <text x="215" y="390" text-anchor="middle" fill="#1E252C" font-weight="700">react-lang 1.0.1</text>
+    <text x="215" y="420" text-anchor="middle" fill="#2F855A">core: ^1.0.1</text>
+
+    <rect x="410" y="350" width="270" height="96" rx="10" fill="#FDECEC" stroke="#B42318" stroke-width="2.5"/>
+    <text x="545" y="390" text-anchor="middle" fill="#1E252C" font-weight="700">vue-lang 0.4.2</text>
+    <text x="545" y="420" text-anchor="middle" fill="#B42318">core: ^0.4.1</text>
+
+    <rect x="740" y="350" width="270" height="96" rx="10" fill="#FDECEC" stroke="#B42318" stroke-width="2.5"/>
+    <text x="875" y="390" text-anchor="middle" fill="#1E252C" font-weight="700">svelte-lang 0.4.2</text>
+    <text x="875" y="420" text-anchor="middle" fill="#B42318">core: ^0.4.1</text>
+
+    <rect x="1070" y="350" width="270" height="96" rx="10" fill="#FDECEC" stroke="#B42318" stroke-width="2.5"/>
+    <text x="1205" y="390" text-anchor="middle" fill="#1E252C" font-weight="700">angular-lang 0.4.2</text>
+    <text x="1205" y="420" text-anchor="middle" fill="#B42318">core: ^0.4.1</text>
+  </g>
+
+  <!-- arrows up to timeline -->
+  <path d="M215 350 C215 296 1080 296 1080 216" stroke="#2F855A" stroke-width="3" fill="none" marker-end="url(#ar)"/>
+  <path d="M545 350 C545 320 330 320 330 216" stroke="#B42318" stroke-width="3" fill="none" marker-end="url(#ar)"/>
+  <path d="M875 350 C875 338 348 338 348 216" stroke="#B42318" stroke-width="2" stroke-dasharray="6 5" fill="none" marker-end="url(#ar)"/>
+  <path d="M1205 350 C1205 352 362 352 362 216" stroke="#B42318" stroke-width="2" stroke-dasharray="6 5" fill="none" marker-end="url(#ar)"/>
+
+  <!-- npm result -->
+  <rect x="80" y="520" width="1260" height="180" rx="12" fill="#FFFFFF" stroke="#C9BFAE" stroke-width="2"/>
+  <text x="110" y="562" font-size="21" fill="#1E252C" font-weight="700">四个装进同一棵依赖树，npm 落盘的结果</text>
+  <g font-size="19" fill="#3A434C">
+    <text x="110" y="602">node_modules/@openuidev/lang-core  <tspan fill="#B42318" font-weight="700">0.4.1</tspan>   <tspan fill="#5C6773">← 顶层被 hoist，vue / svelte / angular 共用</tspan></text>
+    <text x="110" y="638">node_modules/@openuidev/react-lang/node_modules/@openuidev/lang-core  <tspan fill="#2F855A" font-weight="700">1.0.1</tspan></text>
+    <text x="110" y="678" fill="#1E252C" font-weight="700">同一棵树里两份解析器：新版导出 42 个，旧版 43 个，parseMessage 只在前者。</text>
+  </g>
+  <text x="60" y="748" font-size="16" fill="#8A8F96">本机 2026-10-23 实跑：npm 10.9.3 / Node 22.19.0；数字口径见正文与证据清单。</text>
+</svg>

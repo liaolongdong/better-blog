@@ -174,6 +174,16 @@
             </div>
           </span>
           {%- comment -%}
+          朗读。按钮默认 hidden，只有 readerExtras.js 确认浏览器支持 speechSynthesis 才摘掉；
+          这样不支持或没有中文声音的环境不会留一颗按了没反应的按钮。脚本只在文章页加载。
+          {%- endcomment -%}
+          <span class="post-meta-item listen-item">
+            <button class="reader-btn listen-btn" type="button" data-listen-article aria-pressed="false" hidden>
+              <span class="reader-btn-glyph listen-glyph" aria-hidden="true">▶</span><span class="listen-text">听这篇</span>
+            </button>
+            <button class="listen-stop" type="button" data-listen-stop aria-label="停止朗读" title="停止朗读" hidden>×</button>
+          </span>
+          {%- comment -%}
           稍后再读。状态（是否已在架、角标数字）全部由 editorial.js §14 从 localStorage 回填，
           这里只留一个中性的按钮，无 JS 时它不响应也不会显示错误状态。
           {%- endcomment -%}
@@ -328,6 +338,7 @@
       **里面**塞推荐位。）
       {%- endcomment -%}
       <section class="wrap-up" id="wrap-up" aria-label="本篇阅读小结" hidden>
+        <span class="wrap-up-stamp" aria-hidden="true">读完</span>
         <p class="wrap-up-kicker">End of article · 读完这一篇</p>
         <dl class="wrap-up-stats">
           <div class="wrap-up-cell">
@@ -343,10 +354,25 @@
             <dd data-wrap="chars">—</dd>
           </div>
         </dl>
+        {%- comment -%}
+        第三颗按钮从「逛合集」改成「下一步」：篇末结算的下一秒，读者最可能做的是接着读，
+        而不是去合集页重新挑。合集内优先给下一篇；合集读完（或不在合集）退到相关阅读第一条；
+        两边都没有才回合集首页。related 由 _plugins/related_posts.rb 在构建期算好，可直接取。
+        {%- endcomment -%}
         <div class="wrap-up-actions">
           <button class="wrap-up-btn is-primary" type="button" data-shelf-add>放进书架</button>
           <button class="wrap-up-btn" type="button" data-wrap-quote>生成金句卡</button>
+          {%- assign wrap_next = nil -%}
+          {%- if series_next_url -%}
+            {%- assign wrap_next = site.posts | where: "url", series_next_url | first -%}
+          {%- endif -%}
+          {%- if wrap_next %}
+          <a class="wrap-up-btn" href="{{ wrap_next.url | prepend: site.baseurl }}">合集下一篇</a>
+          {%- elsif page.related and page.related.size > 0 %}
+          <a class="wrap-up-btn" href="{{ page.related[0].url | prepend: site.baseurl }}" title="接着读：{{ page.related[0].title | escape }}">接着读</a>
+          {%- else %}
           <a class="wrap-up-btn" href="{{ '/series.html' | prepend: site.baseurl }}">逛合集</a>
+          {%- endif %}
         </div>
         {%- comment -%} 只在点了「生成金句卡」但当前没有合规选区时出现，由 editorial.js §15 填文案。 {%- endcomment -%}
         <p class="wrap-up-note" data-wrap-note role="status" hidden></p>
@@ -377,6 +403,8 @@
                   data-share-title="{{ page.title | escape }}"
                   data-share-text="{{ page.subtitle | default: page.seo_description | default: site.description | escape }}"
                   data-share-url="{{ page.url | absolute_url }}">分享</button>
+          {%- comment -%} 由 readerExtras.js 绑定；绑不上就保持 hidden，不留一颗按了没反应的按钮。 {%- endcomment -%}
+          <button class="post-share-btn" type="button" data-copy-markdown hidden>复制全文</button>
           <span class="post-share-status u-sr-only" data-share-status role="status" aria-live="polite"></span>
         </div>
       </div>
@@ -507,6 +535,12 @@
       </div>
       {% endif %}
     </section>
+
+    {%- comment -%}
+    文章→插件卡排在相关工具之前：它也是「读完就能用」的动作，且只在这篇明确写了
+    `product:` 时出现。没有 front matter 的文章一个字节都不多。
+    {%- endcomment -%}
+    {% include productCard.html %}
 
     {%- comment -%}
     相关工具排在相关阅读**前面**：工具卡是「读完就能用」的动作，文章列表是「接着读」的
@@ -688,6 +722,7 @@
   <script src="{{ site.baseurl }}/assets/js/prism.min.js"></script>
   <script src="{{ site.baseurl }}/assets/js/index.min.js"></script>
   <script src="{{ site.baseurl }}/assets/js/editorial.min.js"></script>
+  <script src="{{ site.baseurl }}/assets/js/readerExtras.min.js"></script>
   {%- comment -%} 位置勿动：必须晚于 .mao_box 与 .bottom-fixed-btn 进 DOM，约束见 draggableSetup.html 文件头 {%- endcomment -%}
   {% include draggableSetup.html %}
 

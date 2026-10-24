@@ -8,6 +8,7 @@ date: 2026-08-28
 categories: Chrome插件
 cover: /assets/img/webcrypto-encryption-in-practice/banner.webp
 tags: WebCrypto 加密 密码管理器 安全 Chrome扩展
+product: account-password-helper
 tldr: '浏览器扩展做加密可以不引任何库：crypto.subtle 用 PBKDF2-SHA256 跑 60 万次迭代派密钥，字段级 AES-256-GCM 落盘，锁定会话立刻清空密钥句柄，审计面缩到一只手数得完。'
 faq:
   - q: '写密码管理器的加密模块，该用 Web Crypto 还是第三方加密库？'

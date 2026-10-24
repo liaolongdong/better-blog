@@ -179,8 +179,15 @@ const cases = [
   {
     name: '豁免表里藏一件谁都没引用的（表自己会过期）',
     group: '骨架完整性',
-    // 挑一件**产物里真存在**但模板/页面/CSS 都不引用的图：判据 1 过得去，红的只有"藏死条目"那条。
-    artifact: () => { const w = SW(); w.insertDefer(`'${BASE}/assets/img/tools/idcard-tool.svg'`); },
+    // 不能拿真实素材当孤儿：原先挑的是 idcard-tool.svg，它在 tools.html 里被引用；
+    // 2026-10-24 修好页面引用面的正则（原先少了一根斜杠）之后，这格才第一次看见
+    // 那件本来就有引用，于是「注入后仍绿」不再是假牙，而是 fixture 选错了。
+    // 现在在影子产物里现写一份谁都不引用的 SVG，判据 1 过得去，红的只有"藏死条目"那条。
+    artifact: () => {
+      fs.writeFileSync(path.join(SHADOW, 'assets/img/teeth-orphan.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+      const w = SW();
+      w.insertDefer(`'${BASE}/assets/img/teeth-orphan.svg'`);
+    },
   },
 
   // ── 3 文档集合 ────────────────────────────────────────────────

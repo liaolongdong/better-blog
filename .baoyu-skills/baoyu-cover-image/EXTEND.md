@@ -12,20 +12,8 @@ watermark:
   enabled: false
 ---
 
-<!--
-本项目级配置的作用（优先级 1，压过 ~/.baoyu-skills/baoyu-cover-image/EXTEND.md）：
+本地博客定时任务按 `_drafts/VISUAL-GUIDE.md` 执行。默认参考样文的简洁手绘场景与明确视觉关系，允许按题材调整构图和配色，不固定成一张换字海报。
 
-1. 该 skill 在用户主目录下没有 EXTEND.md，Step 0 是 ⛔ BLOCKING 的首次配置流程，
-   会弹 AskUserQuestion 等人回答。本文件的存在直接解锁这一门。
-2. quick_mode: true 是 skill 文档承认的 standing explicit opt-out，
-   跳过 Step 2 的六维度确认，让无人值守的 cron 任务不会卡住。
-3. preferred_image_backend: auto —— 本机没有 DASHSCOPE_API_KEY、也没有 bun，
-   auto 会按 skill 的后端解析规则第 3 步回落到运行时原生出图工具，零凭据可用。
-4. default_aspect: 16:9 —— 封面在 _layouts/post.html 里是 CSS background-size: cover
-   铺满 post-header，首页卡片也是宽图，16:9 是安全比例。
-5. 封面统一 --text none：AI 渲染中文字极易出错字，而博客标题由模板渲染，图内不需要文字。
+封面可用少量准确文字，文字不稳定时重生成或改无字构图，不覆盖原图文字、不擦除水印。先保存提示词，再调用实际可用的图像后端，生成后逐张检查与裁切预览。
 
-调用方式（cron 任务里）：
-  baoyu-cover-image --quick --aspect 16:9 --text none
-生成后需手动搬运并转 webp，详见 _drafts/WRITING_PROTOCOL.md §8.2（旧 §13，v2 已重编号）。
--->
+无人值守任务已授权按本篇主题直接出图；普通交互任务仍遵循当前用户请求与技能确认规则。成品统一转入 `assets/img/{slug}/banner.webp`，研究原件和提示词保存在本轮 evidence 目录，独立输出目录不直接当站点资源。

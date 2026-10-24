@@ -85,10 +85,31 @@ permalink: /stats.html
                 <h2 id="stats-queue-title">待读队列</h2>
                 <p id="stats-queue-summary">—</p>
             </header>
-            <p class="stats-queue-note">书架入口在顶栏；完整清单在书架抽屉里，数据同样只存在本机。</p>
+            <p class="stats-queue-note">书架入口在顶栏；完整清单在书架抽屉里，数据同样只存在本机。<a href="{{ '/excerpts.html' | relative_url }}">我的摘录 →</a></p>
             <button class="cta stats-open-shelf" id="stats-open-shelf" type="button">打开书架</button>
         </section>
+
+        <section class="stats-section stats-report-share" aria-labelledby="stats-share-title">
+            <header class="stats-section-head">
+                <h2 id="stats-share-title">分享这份报告</h2>
+                <p>生成一张 1200×630 的卡片，数字只来自这台设备</p>
+            </header>
+            <button class="cta cta-primary" id="stats-report-card" type="button" data-report-card hidden>生成阅读报告卡片</button>
+        </section>
     </div>
+
+    <dialog class="stats-report-card" id="report-card-dialog" aria-label="阅读报告卡片">
+        <header class="stats-report-card-head">
+            <p class="stats-report-card-kicker">Share card · 阅读报告</p>
+            <button class="stats-report-card-close" type="button" data-report-close aria-label="关闭">×</button>
+        </header>
+        <canvas id="report-card-canvas" width="1200" height="630" role="img" aria-label="阅读报告卡片"></canvas>
+        <div class="stats-report-card-actions">
+            <button class="cta cta-primary" type="button" data-report-download>下载 PNG</button>
+            <button class="cta" type="button" data-report-copy>复制图片</button>
+            <span class="stats-report-card-status" data-report-status role="status" aria-live="polite"></span>
+        </div>
+    </dialog>
 
     {%- comment -%}
     合集清单给 stats.js 算完成度。URL 是 page.url 口径（不含 baseurl），JS 会补

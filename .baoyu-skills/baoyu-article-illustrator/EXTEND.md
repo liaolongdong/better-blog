@@ -7,7 +7,7 @@ watermark:
   opacity: 0.7
 preferred_style:
   name: sketch-notes
-  description: "Warm cream paper, black hand-drawn lines, soft pastel blocks — educational infographic feel"
+  description: "Warm cream paper, clear hand-drawn lines, restrained pastel accents"
 default_output_dir: independent
 language: zh
 preferred_image_backend: auto
@@ -15,24 +15,10 @@ generation_batch_size: 4
 custom_styles: []
 ---
 
-<!--
-本项目级配置的作用（优先级 1，压过 ~/.baoyu-skills/baoyu-article-illustrator/EXTEND.md）：
+本地博客定时任务按 `_drafts/VISUAL-GUIDE.md` 执行。插图按解释需求选择位置和数量，不要求每节一张，也不固定截图与结构图配额。
 
-与用户级配置的唯一实质差异是 default_output_dir：
-  用户级 imgs-subdir → 会写到 {article-dir}/imgs/，而本博客文章在 _posts/，
-                       结果就是 _posts/imgs/，不符合博客的 assets/img/<slug>/ 约定。
-  项目级 independent → 写到 illustrations/{topic-slug}/，再由 cron 任务搬运到
-                       assets/img/<slug>/，与 assets/img/page-agent/ 等既有目录一致。
+手绘仅为默认参考，具体题材可以使用更适合的简洁视觉表达。精确技术流程使用可编辑图源，真实界面使用真实截图，不用图像模型伪造实验结果。
 
-其余字段沿用用户级已配好的值：
-- preferred_style: sketch-notes —— 与 assets/img/page-agent/prompts/*.md 里
-  已提交的 style: sketch-notes / palette: warm 一致，保证插图风格跨篇统一。
-- preferred_image_backend: auto —— 本机无 DASHSCOPE_API_KEY、无 bun，
-  auto 按 skill 后端解析规则第 3 步回落到运行时原生出图工具。
-- language: zh —— 插图内的标注用中文，与正文一致。
+定时任务已授权“直接生成，不用逐图确认”；普通交互任务仍遵循技能的确认流程。先保存提示词，再调用可用后端；生成后检查每个标签、数字、水印、箭头和手机端可读性。
 
-注意：该 skill 的 Step 3 是硬性确认门。cron 任务的 prompt 里已写入
-「直接生成，不用确认，按默认出图」作为显式 opt-out，等价于用户当场说这句话。
-
-搬运与转 webp 的命令见 _drafts/WRITING_PROTOCOL.md §8.2（出图管线，2026-09-27 v2 重编号，旧 §13）。
--->
+`independent` 避免在 `_posts/` 下生成图片子目录。最终图片经持锁交付放到 `assets/img/{slug}/`，其他原件留在本轮 evidence 目录，不再引用已停用的 WRITING_PROTOCOL。

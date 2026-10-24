@@ -1,0 +1,112 @@
+{%- comment -%}
+浏览器插件的结构化数据。与 jsonLdTool.html 分开：那一族是无需安装的 WebApplication，
+这一族是 Chrome 商店里的安装型软件，所以用 SoftwareApplication，并给 downloadUrl /
+installUrl / softwareHelp。Hub 模式（/tools.html）一次发三块，指南模式发一块。
+
+两条刻意不写：
+  · aggregateRating / review —— 站内没有真实评分来源，编一个就是 Google 明确处理的评价作弊；
+  · softwareVersion —— 版本号在三个仓库里各自发版，站内没有同步来源，写死就一定会过期。
+
+每一个值都过 jsonify、包括看起来不可能出事的 URL：Jekyll 的插值不做任何转义，
+手写的双引号一旦被 tools.yml 里的值夹进来，破出去的就是整个 script 元素。
+
+调用：{% include jsonLdSoftware.html mode='hub' %} 或
+      {% include jsonLdSoftware.html tool='account-password-helper' mode='guide' %}
+{%- endcomment -%}
+{%- assign person_id = '/about.html' | absolute_url | append: '#author' -%}
+{%- assign tools = site.data.tools -%}
+{%- if include.tool -%}
+  {%- assign want_slug = include.tool -%}
+  {%- assign tools = site.data.tools | where: 'slug', want_slug -%}
+{%- endif -%}
+
+{%- for t in tools -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": {{ t.name | jsonify }},
+  "alternateName": {{ t.en_name | jsonify }},
+  "description": {{ t.summary | strip | jsonify }},
+  "url": {{ t.guide | absolute_url | jsonify }},
+  "downloadUrl": {{ t.links.store | jsonify }},
+  "installUrl": {{ t.links.store | jsonify }},
+  "softwareHelp": {{ t.guide | absolute_url | jsonify }},
+  "applicationCategory": "BrowserApplication",
+  "operatingSystem": "Chrome",
+  "browserRequirements": "Chrome（Manifest V3）",
+  "inLanguage": "zh-CN",
+  "isAccessibleForFree": true,
+  "screenshot": {{ t.screenshot | absolute_url | jsonify }},
+  "featureList": {{ t.features | jsonify }},
+  "license": {{ t.license_url | jsonify }},
+  "sameAs": {{ t.links.repo | jsonify }},
+  "author": { "@id": {{ person_id | jsonify }} },
+  "publisher": { "@id": {{ person_id | jsonify }} },
+  "offers": {
+    "@type": "Offer",
+    "price": 0,
+    "priceCurrency": "CNY"
+  }
+}
+</script>
+{%- endfor -%}
+
+{%- assign has_faq = false -%}
+{%- for t in tools -%}{%- if t.faq and t.faq.size > 0 -%}{%- assign has_faq = true -%}{%- endif -%}{%- endfor -%}
+{%- if has_faq -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+{%- assign first_q = true -%}
+{%- for t in tools -%}
+{%- for item in t.faq -%}
+{%- unless first_q -%},{%- endunless -%}
+    {
+      "@type": "Question",
+      "name": {{ item.q | jsonify }},
+      "acceptedAnswer": { "@type": "Answer", "text": {{ item.a | jsonify }} }
+    }
+{%- assign first_q = false -%}
+{%- endfor -%}
+{%- endfor -%}
+  ]
+}
+</script>
+{%- endif -%}
+
+{%- if include.mode == 'guide' -%}
+{%- assign t = tools.first -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": {{ "如何安装 " | append: t.name | jsonify }},
+  "description": {{ t.guide_intro | default: t.summary | strip | jsonify }},
+  "totalTime": "PT3M",
+  "step": [
+{%- for s in t.install_steps -%}
+    {
+      "@type": "HowToStep",
+      "position": {{ forloop.index }},
+      "name": {{ s.title | jsonify }},
+      "text": {{ s.text | jsonify }}
+    }{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "首页", "item": {{ '/' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 2, "name": "工具箱", "item": {{ '/tools.html' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 3, "name": {{ t.name | jsonify }}, "item": {{ t.guide | absolute_url | jsonify }} }
+  ]
+}
+</script>
+{%- endif -%}
