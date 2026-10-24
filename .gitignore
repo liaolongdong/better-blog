@@ -82,3 +82,7 @@ spark-output/
 # Qoder 本地生成的仓库知识卡与 wiki（.qoder/repowiki，实测 2.0MB 中文档 + .DS_Store）。
 # 每次重新生成整棵树都变，入库会把提交历史淹在机器产物里；站点内容不碰。
 .qoder/
+# 本地预览的落点（实测只剩 .preview/better-blog 一个空目录，站里没有脚本往里写）。
+# 空目录 git 本来不收，但 deploy-github.sh 的 `git add -A` 会让任何一次真实写入直接进公开仓库，
+# 先在这里挡掉，省得每轮 git status 挂一条噪声。
+.preview/
