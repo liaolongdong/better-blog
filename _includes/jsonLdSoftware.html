@@ -7,6 +7,9 @@ installUrl / softwareHelp。Hub 模式（/tools.html）一次发三块，指南�
   · aggregateRating / review —— 站内没有真实评分来源，编一个就是 Google 明确处理的评价作弊；
   · softwareVersion —— 版本号在三个仓库里各自发版，站内没有同步来源，写死就一定会过期。
 
+每一个值都过 jsonify、包括看起来不可能出事的 URL：Jekyll 的插值不做任何转义，
+手写的双引号一旦被 tools.yml 里的值夹进来，破出去的就是整个 script 元素。
+
 调用：{% include jsonLdSoftware.html mode='hub' %} 或
       {% include jsonLdSoftware.html tool='account-password-helper' mode='guide' %}
 {%- endcomment -%}
@@ -25,21 +28,21 @@ installUrl / softwareHelp。Hub 模式（/tools.html）一次发三块，指南�
   "name": {{ t.name | jsonify }},
   "alternateName": {{ t.en_name | jsonify }},
   "description": {{ t.summary | strip | jsonify }},
-  "url": "{{ t.guide | absolute_url }}",
-  "downloadUrl": "{{ t.links.store }}",
-  "installUrl": "{{ t.links.store }}",
-  "softwareHelp": "{{ t.guide | absolute_url }}",
+  "url": {{ t.guide | absolute_url | jsonify }},
+  "downloadUrl": {{ t.links.store | jsonify }},
+  "installUrl": {{ t.links.store | jsonify }},
+  "softwareHelp": {{ t.guide | absolute_url | jsonify }},
   "applicationCategory": "BrowserApplication",
   "operatingSystem": "Chrome",
   "browserRequirements": "Chrome（Manifest V3）",
   "inLanguage": "zh-CN",
   "isAccessibleForFree": true,
-  "screenshot": "{{ t.screenshot | absolute_url }}",
+  "screenshot": {{ t.screenshot | absolute_url | jsonify }},
   "featureList": {{ t.features | jsonify }},
-  "license": "{{ t.license_url }}",
-  "sameAs": "{{ t.links.repo }}",
-  "author": { "@id": "{{ person_id }}" },
-  "publisher": { "@id": "{{ person_id }}" },
+  "license": {{ t.license_url | jsonify }},
+  "sameAs": {{ t.links.repo | jsonify }},
+  "author": { "@id": {{ person_id | jsonify }} },
+  "publisher": { "@id": {{ person_id | jsonify }} },
   "offers": {
     "@type": "Offer",
     "price": 0,
@@ -100,9 +103,9 @@ installUrl / softwareHelp。Hub 模式（/tools.html）一次发三块，指南�
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "首页", "item": "{{ '/' | absolute_url }}" },
-    { "@type": "ListItem", "position": 2, "name": "工具箱", "item": "{{ '/tools.html' | absolute_url }}" },
-    { "@type": "ListItem", "position": 3, "name": {{ t.name | jsonify }}, "item": "{{ t.guide | absolute_url }}" }
+    { "@type": "ListItem", "position": 1, "name": "首页", "item": {{ '/' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 2, "name": "工具箱", "item": {{ '/tools.html' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 3, "name": {{ t.name | jsonify }}, "item": {{ t.guide | absolute_url | jsonify }} }
   ]
 }
 </script>

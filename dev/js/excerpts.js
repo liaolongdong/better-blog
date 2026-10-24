@@ -26,8 +26,12 @@
         return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate());
     }
 
+    /** 存储是本机可写的边界：一条坏数据不该让整页空白，所以逐条验形状再进渲染。 */
     function items() {
-        return store ? store.list() : [];
+        if (!store) return [];
+        return store.list().filter(function (it) {
+            return it && typeof it.x === 'string' && typeof it.u === 'string' && Number.isFinite(Number(it.at));
+        });
     }
 
     function render() {
@@ -45,7 +49,7 @@
             var meta = document.createElement('p');
             meta.className = 'excerpt-meta';
             var link = document.createElement('a');
-            link.href = it.u;
+            if (/^(\/|https?:\/\/)/i.test(it.u)) link.href = it.u;
             link.textContent = it.t || it.u;
             meta.appendChild(link);
             var time = document.createElement('time');

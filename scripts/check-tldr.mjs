@@ -40,10 +40,15 @@ function frontMatter(text) {
   return m ? m[1] : null;
 }
 
-/** 单行 `date:` 的 YYYY-MM-DD；写别的形状时按无法判定处理，不猜。 */
-function postDate(fm) {
+/**
+ * 取日期：先看 front matter 的单行 `date:`，写别的形状就不猜；没有 `date:` 时退回文件名前缀，
+ * 因为 Jekyll 本来就用那个前缀决定发不发布——不退回的话，省掉 `date:` 的新稿正好绕过这道门。
+ */
+function postDate(fm, file) {
   const m = fm.match(/^date:\s*(\d{4}-\d{2}-\d{2})/m);
-  return m ? m[1] : null;
+  if (m) return m[1];
+  const byName = file.match(/^(\d{4}-\d{2}-\d{2})-/);
+  return byName ? byName[1] : null;
 }
 
 /**
@@ -56,6 +61,8 @@ function tldrValue(fm) {
     const m = lines[i].match(/^tldr:\s*(.*)$/);
     if (!m) continue;
     const inline = m[1].trim();
+    // YAML 里 `tldr: # …` 取到的是 null：注释不是值，别让它冒充一句结论骗绿。
+    if (inline.startsWith('#')) return '';
     if (inline && !/^[>|][-+]?\s*$/.test(inline)) return stripQuotes(inline);
     if (/^[>|][-+]?\s*$/.test(inline)) {
       const body = [];
@@ -95,7 +102,7 @@ for (const file of files) {
     skipped += 1;
     continue;
   }
-  const date = postDate(fm);
+  const date = postDate(fm, file);
   if (!date || date < CUTOFF || date > today) {
     skipped += 1;
     continue;
