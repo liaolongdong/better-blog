@@ -35,6 +35,18 @@ import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GATE = path.join(ROOT, 'scripts/check-sw.mjs');
+/**
+ * 体积那一格的锚点从门禁源码里现读，不写死数字：写死的锚点在别人改档之后会静默变成
+ * "垫得不够多、门禁不红"的空转刀。读不到就当场退出，绝不让这一格悄悄通过。
+ */
+const SW_MAX = (() => {
+  const m = /const SW_MAX = (\d+) \* 1024;/.exec(fs.readFileSync(GATE, 'utf8'));
+  if (!m) {
+    console.log('✗ 在 scripts/check-sw.mjs 里找不到 `const SW_MAX = N * 1024;`——体积那格失去锚点，先修牙齿再谈门禁');
+    process.exit(1);
+  }
+  return Number(m[1]) * 1024;
+})();
 // 每次跑各给一份 scratch：共用一个目录名会被并行的另一路（子智能体、另一个会话的同一条命令）
 // rm -rf 掉，那一轮的测量整批作废，而且作废方式是"影子文件不见了"式的崩。
 const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-teeth-'));
@@ -286,9 +298,10 @@ const cases = [
   {
     name: 'sw.js 涨破 gzip 上限',
     group: '注册面',
-    // 随机字节压不动，加 30KB 就必然越过 16,384B 那条线；变异落在清单切点之后，
-    // 门禁沙箱求值的那一段常量不受影响——红的只有体积这一条，不是"读不到清单"。
-    artifact: () => shadowEdit('sw.js', (s) => `${s}\nvar __TEETH_PAD='${crypto.randomBytes(30000).toString('base64')}';`),
+    // 随机字节压不动：SW_MAX 字节的随机数据编成 base64 约 1.37×SW_MAX 字符，几乎全是净增，
+    // 垫上去必然越过档位那条线。锚点是现读的（见文件头），改档之后这一格不会静默失效。
+    // 变异落在清单切点之后，门禁沙箱求值的那一段常量不受影响——红的只有体积这一条，不是"读不到清单"。
+    artifact: () => shadowEdit('sw.js', (s) => `${s}\nvar __TEETH_PAD='${crypto.randomBytes(SW_MAX).toString('base64')}';`),
   },
 ];
 

@@ -373,8 +373,16 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
    */
   const gzOf = (abs) => Number(execFileSync('sh', ['-c', 'cat "$1" | gzip -9 | wc -c', 'sh', abs], { encoding: 'utf8' }).trim());
   const swGz = gzOf(SW_REL);
-  /** sw.js 的上限：它带整站文档清单，会随文章数增长，留的是"清单涨到 3 倍"的余量 */
-  if (swGz > 16 * 1024) bad('注册面', 'sw.js 体积', `sw.js gzip 后 ${swGz}B 超过 16KB——清单该由数据源生成，不是把内容抄进这里`);
+  /**
+   * sw.js 的上限：它带整站文档清单（DOC_URLS / COVER_URLS 都是 Liquid 从 site.pages 与
+   * site.posts 现算），所以会随文章数与指南页数增长。
+   * 2026-10-24 重立：第 4 批改动把三个指南页地址与三本延迟脚本加进清单后实测 16,244B gzip，
+   * 对旧档 16,384B 只剩 140B——再发两篇文章就会红在体积本身，而不是红在真问题上。
+   * 取档口径与下面 editorial.min.js 那档同一条算式：ceil1024(读数 / 0.95)。
+   * 再往上的先治不是加码：把封面清单交给数据源生成、只留首屏露出的那几篇。
+   */
+  const SW_MAX = 17 * 1024;
+  if (swGz > SW_MAX) bad('注册面', 'sw.js 体积', `sw.js gzip 后 ${swGz}B 超过 ${SW_MAX}B——清单该由数据源生成，不是把内容抄进这里`);
   const edGz = fs.existsSync(reg) ? gzOf(reg) : 0;
   /**
    * editorial.min.js 的上限：全站每一页都加载它，注册代码正是搭它上的车（设计文档 §3）。
@@ -385,7 +393,7 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
    */
   const ED_MAX = 17 * 1024;
   if (edGz > ED_MAX) bad('注册面', 'editorial.min.js 体积', `editorial.min.js gzip 后 ${edGz}B 超过 17KB——先拆命令面板，再谈往里加`);
-  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 16,384 与 ${ED_MAX}）`);
+  console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 ${SW_MAX} 与 ${ED_MAX}）`);
 }
 
 // ── 汇总 ─────────────────────────────────────────────────────────────────────
