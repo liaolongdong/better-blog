@@ -183,13 +183,27 @@ const PIN_URLS = ENTRY_CUT === -1 ? [BASE + '/'] : DOC_URLS.slice(0, ENTRY_CUT +
 
 同一个目录下的两张文章封面会指向同一张图（`ai-sdd` 与 `ai-sdd-github` 共用
 `assets/img/ai-sdd/banner-3.png`，2026-09-28 被 check-sw.mjs 的重复判据抓到——它不是猜的，
-是那条清单里真出现了两次），所以清单末尾用 Set 去一次重：不去的话，补全队列里同一张图排两次，
-第一次装进桶、第二次白跑一趟匹配，还把封面预算的记账口径搅浑。
+是那条清单里真出现了两次），所以清单先经 `uniq` 去一次重，末尾的 `new Set` 再兜一道：
+不去重的话，补全队列里同一张图排两次，第一次装进桶、第二次白跑一趟匹配，还把预算记账搅浑。
+
+**清单只留最新 56 张**（`cover_cap`）。2026-10-24 在当前产物上按 LIMIT 的口径复算过贪心结果：
+去重后 83 张，预算 2.5MB / 单张 400KB 实际入桶 46 张，**最后一条落在位次 47**，第 48 位往后的
+36 条永远进不了桶——它们唯一的用处是让 sw.js 每发一篇新文章多背约 70 字节。截到 56 给并发
+留了 9 格余量（补全每批 4 条、记账排在读到真实体积之后，边界会前后漂两三格），
+于是这一族的字节增长从此**封顶**。截断点是否还在预算之内由 check-sw.mjs 的「封面预算」那条判据
+守着，牙齿是 check-sw-teeth.mjs 里把清单砍到 `COVER_MARGIN` 条那一格——阈值从门禁现读，
+这里不写第二个数，也就不存在"改了判据忘了牙齿"。
 {%- endcomment -%}
+{%- assign cover_cap = 56 -%}
+{%- assign cover_rows = "" | split: "" -%}
+{%- for post in site.posts -%}{%- if post.cover -%}{% unless post.cover contains '://' -%}
+  {%- assign cover_rows = cover_rows | push: post.cover -%}
+{%- endunless -%}{%- endif -%}{%- endfor -%}
+{%- assign cover_rows = cover_rows | uniq | slice: 0, cover_cap -%}
 const COVER_RAW = [
-{%- for post in site.posts %}{%- if post.cover %}{% unless post.cover contains '://' %}
-  '{{ post.cover | prepend: site.baseurl }}',
-{%- endunless %}{%- endif %}{% endfor %}
+{%- for cover in cover_rows %}
+  '{{ cover | prepend: site.baseurl }}',
+{%- endfor %}
 ];
 /** 按清单原序去重（Array.from 保序），于是"新帖在前"这个补全顺序不变。 */
 const COVER_URLS = Array.from(new Set(COVER_RAW));
@@ -219,11 +233,17 @@ const LIMIT = {
    * 不是「入桶张数恒等于算值」。
    */
   coverBytes: 2.5 * 1024 * 1024,
-  /**
-   * 单张封面的上限：53 张里有 3 张超过它，在清单里的位次是 35、36、39（1,580KB / 1,346KB /
-   * 585KB，2026-10-11 复量：与 10-10 那轮是同一批三张图，位次因两篇新帖各前移两位）。
-   * 那几篇早期用的是整页大图，为它们把预算的六成喂给一张封面不值；它们仍会随正常浏览按需进桶。
-   */
+  {%- comment -%}
+  2026-10-24 清单截到 56 张之后重量：入桶仍是 46 张 / 2,616,474B、末位落在第 47 条，也就是
+  **截断点外的 9 条本来就永远进不了桶**——上面那段"跳过 18 张"的历史读数保留着，它解释的是
+  "为什么逐条试而不停"，与清单长短无关。这一对数字由 check-sw.mjs 的「封面预算」组每次构建复算。
+  单张上限那条同理：三张超 400KB 的老封面（1,580KB / 1,346KB / 585KB）在旧 83 清单里位次是
+  65/66/69，已经落到 56 的窗口之外，所以这一条对**现有**封面是休眠的；留着是因为它防的是下一篇
+  ——谁再拿整页大图当封面，仍然不该一口吃掉预算的六成。
+  这两段写在 Liquid 注释里而不是 JS 注释里，是因为 sw.js 整本按 gzip 记账（check-sw 的 SW_MAX），
+  注释每多一个字都是发给每个客户端的字节。
+  {%- endcomment -%}
+  /** 单张封面的上限：超它的直接跳，理由见上面那段。 */
   coverEach: 400 * 1024,
   /** 每批并发请求数与批间隔：避免补全把用户的带宽和 Pages 的连接数一起吃干。 */
   fillBatch: 4,
