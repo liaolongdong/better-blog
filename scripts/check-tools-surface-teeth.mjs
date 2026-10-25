@@ -846,7 +846,51 @@ const urlStateCases = [
   },
 ];
 
-const cases = [...idcardCases, ...codecCases, ...jsonCases, ...diffCases, ...urlStateCases];
+/**
+ * 「插件数据面」这一族量的是 `_data/tools.yml`——它此前没有任何脚本读过。
+ * 它的字段被 Liquid 裸插值进 sw.js 的 JS 字符串与页面 href，所以数据形状就是唯一边界：
+ * 一把刀放双引号（破出字符串），一把刀把 guide 换成 javascript: 串（破出 href 的语义）。
+ */
+const extCases = [
+  {
+    name: '插件 store/repo 地址里塞进双引号（裸插值会被破出上下文）',
+    group: '插件数据面',
+    src: () => mutateSrc('_data/tools.yml', (s) => {
+      const out = s.replace('repo: https://github.com/liaolongdong/cross-origin-proxy',
+        'repo: https://github.com/liaolongdong/cross-origin-proxy" onload="x');
+      if (out === s) throw new Error('_data/tools.yml 里找不到那行 repo，这一刀作废');
+      return out;
+    }),
+    expect: '值里含能破出上下文裸插值的字符',
+  },
+  {
+    name: '插件 guide 换成 javascript: 串（href 语义被改写）',
+    group: '插件数据面',
+    src: () => mutateSrc('_data/tools.yml', (s) => {
+      const out = s.replace('guide: /extensions/cross-origin-proxy.html', 'guide: javascript:alert(1)');
+      if (out === s) throw new Error('_data/tools.yml 里找不到那行 guide，这一刀作废');
+      return out;
+    }),
+    expect: '既不是站内绝对路径也不是 http(s) 地址',
+  },
+  {
+    /**
+     * 这一刀钉的不是判据本身，而是**覆盖面**：`changelog` 与 `icon`、`links.demo` 是后来补进
+     * `urlFields()` 的，没有专属变异的话，谁把它们从列表里删掉，前两把刀照样全绿。
+     */
+    name: '插件 changelog 换成 javascript: 串（后补字段也在被核，不是只核 guide）',
+    group: '插件数据面',
+    src: () => mutateSrc('_data/tools.yml', (s) => {
+      const out = s.replace('changelog: https://github.com/liaolongdong/cross-origin-proxy/releases',
+        'changelog: javascript:alert(1)');
+      if (out === s) throw new Error('_data/tools.yml 里找不到那行 changelog，这一刀作废');
+      return out;
+    }),
+    expect: '既不是站内绝对路径也不是 http(s) 地址',
+  },
+];
+
+const cases = [...idcardCases, ...codecCases, ...jsonCases, ...diffCases, ...urlStateCases, ...extCases];
 
 let pass = 0;
 const problems = [];
