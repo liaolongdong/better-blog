@@ -1,19 +1,23 @@
-<!--
+{%- comment -%}
  * @Descripttion: 
  * @version: 
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
  * @LastEditTime: 2020-04-23 15:01:54
- -->
+{%- endcomment -%}
 <head>
-    <!-- 位置勿动：编码声明必须在首 1024 字节之内（Lighthouse 的 charset 判据），
-         而下面紧接着的令牌引导、样式表与 favicon 会把字节预算吃光。
-         2026-10-21 实测：它原先由 seoMeta.html 带出来，落在第 2439 字节。 -->
+    {%- comment -%}
+    位置勿动：编码声明必须在首 1024 字节之内（Lighthouse 的 charset 判据），
+    而下面紧接着的令牌引导、样式表与 favicon 会把字节预算吃光。
+    2026-10-21 实测：它原先由 seoMeta.html 带出来，落在第 2439 字节。
+    这一族的说明一律用 Liquid 注释而不是 HTML 注释：HTML 注释会原样进产物，
+    2026-10-28 实测首页有 31 条注释共 2,483B 上线，而这些话是写给改模板的人看的。
+    {%- endcomment -%}
     <meta charset="UTF-8">
     <meta name="base-url" content="{{ site.baseurl }}">
     <script>window.SITE_BASEURL = "{{ site.baseurl }}";</script>
-    <!-- 位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头 -->
+    {%- comment -%}位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头{%- endcomment -%}
     {% include themeBootstrap.html %}
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">

@@ -1,11 +1,11 @@
-<!--
- * @Descripttion: 
+{%- comment -%}
+    * @Descripttion:
  * @version: 
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
  * @LastEditTime: 2020-04-26 14:12:27
- -->
+{%- endcomment -%}
 {% if site.bottomFixedBtn %}
 {% include bottomFixedBtn.html %}
 {% endif %}
@@ -23,7 +23,9 @@
 
         {% if site.footer.showBaiduStatics %}
         <a href="https://tongji.baidu.com/web/welcome/ico?s=a071a73db3cc35b4252e63887505980c">
-            <!-- <img src="https://tongji.baidu.com/sc-web/image/icon/31.gif" alt=""> -->
+            {%- comment -%}
+                <img src="https://tongji.baidu.com/sc-web/image/icon/31.gif" alt="">
+            {%- endcomment -%}
             [百度统计]
         </a>
         {% endif %}
@@ -31,11 +33,15 @@
     
     {% if site.footer.showPV %}
     <section>
-        <!-- 不蒜子计数（全站 PV/UV；Waline 无全站聚合能力，仅负责单篇阅读量） -->
+        {%- comment -%}
+            不蒜子计数（全站 PV/UV；Waline 无全站聚合能力，仅负责单篇阅读量）
+        {%- endcomment -%}
         <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
         总浏览量(PV): <span id="busuanzi_value_site_pv">-</span> | 总访客数(UV): <span id="busuanzi_value_site_uv">-</span>
 
-        <!-- 不蒜子计数初始值纠正 -->
+        {%- comment -%}
+            不蒜子计数初始值纠正
+        {%- endcomment -%}
         <script>
             $(document).ready(function() {
                 var timer = setInterval(fixCount, 50);

@@ -195,7 +195,9 @@
               <span class="shelf-mark-text">稍后再读</span>
             </button>
           </span>
-          </span><!-- /.post-meta-actions -->
+          </span>{%- comment -%}
+    /.post-meta-actions
+{%- endcomment -%}
         </div>
         {%- comment -%}
         可见修订记录。日期与 article:modified_time / JSON-LD / sitemap 同源，
@@ -575,7 +577,9 @@
     {% endif %}
 
     {% if site.waline.enable %}
-    <!-- Waline 评论系统 -->
+    {%- comment -%}
+        Waline 评论系统
+    {%- endcomment -%}
     {% include waline.html %}
     {% endif %}
 
@@ -586,7 +590,9 @@
     {% endif %}
   </section>
 
-  <!-- 显示猫 -->
+  {%- comment -%}
+      显示猫
+  {%- endcomment -%}
   {% if site.showCat %}
     {% include cat.html %}
   {% endif %}
@@ -631,7 +637,9 @@
   </script>
 
   {% if site.changyan.enable %}
-  <!--PC和WAP自适应版-->
+  {%- comment -%}
+      PC和WAP自适应版
+  {%- endcomment -%}
   <div id="SOHUCS" style="display: none;" sid="{{ page.url }}" ></div> 
   <script type="text/javascript"> 
     (function () {
@@ -674,7 +682,9 @@
   {% endif %}
 
   {% if site.livere.enable %}
-  <!-- 来必力City版安装代码 -->
+  {%- comment -%}
+      来必力City版安装代码
+  {%- endcomment -%}
   <div id="lv-container" data-id="city" data-uid="MTAyMC80MDIzOS8xNjc2Ng==">
     <script type="text/javascript">
     (function(d, s) {
@@ -691,7 +701,9 @@
     </script>
   <noscript> 为正常使用来必力评论功能请激活JavaScript</noscript>
   </div>
-  <!-- City版安装代码已完成 -->
+  {%- comment -%}
+      City版安装代码已完成
+  {%- endcomment -%}
   {% endif %}
 
   {% if site.comments.disqus %}

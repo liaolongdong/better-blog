@@ -1,6 +1,8 @@
 {% if page.mathjax or site.mathjax %}
-<!-- 只在文章显式 opt-in 时加载。jsDelivr 钉版本并带 SRI：旧 bootcss 地址没有完整性校验，
-     上游一旦被替换就是本站 origin 里执行任意脚本。SRI 对带 ?config 的响应同样生效。 -->
+{%- comment -%}
+    只在文章显式 opt-in 时加载。jsDelivr 钉版本并带 SRI：旧 bootcss 地址没有完整性校验，
+     上游一旦被替换就是本站 origin 里执行任意脚本。SRI 对带 ?config 的响应同样生效。
+{%- endcomment -%}
 <script type="text/javascript" async
         src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/MathJax.js?config=TeX-MML-AM_CHTML"
         integrity="sha384-vi9R4hb1goLJPJDHY+dOmXxcY3HGv6tJIwHxy5JunOTxJGHbsSuubPgl++SNxYYi"

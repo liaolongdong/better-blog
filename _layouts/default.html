@@ -10,7 +10,9 @@
       {{ content | add_baseurl_to_images | add_image_dims }}
     </div>
 
-    <!-- 显示猫 -->
+    {%- comment -%}
+        显示猫
+    {%- endcomment -%}
     {% if site.showCat %}
       {% include cat.html %}
     {% endif %}

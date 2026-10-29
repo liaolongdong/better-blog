@@ -14,8 +14,12 @@ soPush.js 原本是 document.write 注入的第三方片段，那份写法配 de
 （defer 脚本在解析完成后执行，此时 document.write 触发隐式 document.open() 清空文档），
 已改写成与 baiduPush.js 同构的 createElement，理由记在该源文件头部。
 {%- endcomment -%}
-<!-- seo相关脚本 start -->
+{%- comment -%}
+    seo相关脚本 start
+{%- endcomment -%}
 <script defer src="{{ site.baseurl }}/assets/js/baiduStatistics.min.js"></script>
 <script defer src="{{ site.baseurl }}/assets/js/baiduPush.min.js"></script>
 <script defer src="{{ site.baseurl }}/assets/js/soPush.min.js"></script>
-<!-- seo相关脚本 end -->
+{%- comment -%}
+    seo相关脚本 end
+{%- endcomment -%}
