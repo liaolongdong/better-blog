@@ -92,17 +92,17 @@ permalink: /tools.html
                 {%- assign store_utm = store | append: sep | append: 'utm_source=better-blog&utm_medium=tools-hub&utm_campaign=' | append: tool.slug -%}
                 <div class="tool-cta">
                     {% if tool.links.store != '' %}
-                    <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">
+                    <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener" data-funnel="store:hub:{{ tool.slug }}">
                         Chrome 应用商店安装
                     </a>
                     {% else %}
                     <span class="cta cta-muted" title="正在审核中，可先从仓库 Releases 下载">商店上架中 · 可先下载 zip</span>
                     {% endif %}
                     {% if tool.links.demo != '' %}
-                    <a class="cta" href="{{ tool.links.demo }}" target="_blank" rel="noopener">在线演示</a>
+                    <a class="cta" href="{{ tool.links.demo }}" target="_blank" rel="noopener" data-funnel="demo:hub:{{ tool.slug }}">在线演示</a>
                     {% endif %}
-                    <a class="cta" href="{{ tool.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
-                    <a class="cta" href="{{ tool.guide | prepend: site.baseurl }}">使用指南</a>
+                    <a class="cta" href="{{ tool.links.repo }}" target="_blank" rel="noopener" data-funnel="repo:hub:{{ tool.slug }}">开源仓库</a>
+                    <a class="cta" href="{{ tool.guide | prepend: site.baseurl }}" data-funnel="guide:hub:{{ tool.slug }}">使用指南</a>
                 </div>
             </div>
 

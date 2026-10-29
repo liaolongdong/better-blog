@@ -34,5 +34,7 @@
     <script src="{{ site.baseurl }}/assets/js/readerExtras.min.js"></script>
     <script src="{{ site.baseurl }}/assets/js/excerpts.min.js"></script>
     {% endif %}
+    {%- comment -%} 商店 CTA 的曝光/点击计数：三类页面才发标签，判据写在件里，见 funnelScript.html 文件头 {%- endcomment -%}
+    {% include funnelScript.html %}
 </body>
 </html>

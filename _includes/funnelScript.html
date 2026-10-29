@@ -1,0 +1,20 @@
+{%- comment -%}
+转化漏斗埋点件的唯一发标签处（default.html 与 post.html 各调一次，判据只写在这一份里）。
+
+为什么带条件而不是全站加载：这一件只为「商店 CTA 的曝光→点击」服务，而站内只有三类页面带
+商店按钮——/tools.html 的 hub 卡、/extensions/<slug>.html 指南页、以及带 `product:` front
+matter 的文章（_includes/productCard.html）。四类模板里的 10 枚锚点都带 data-funnel，
+其余页面既没有可记的东西，也不该多一次请求。check-seo.mjs 的「漏斗埋点面」那一组按产物判这两件事。
+
+为什么 enable 与 production 两道闸，而 endpoint 空也照样发标签：埋点件本体在没有地址时读到
+`data-funnel-endpoint` 为空就整件退出（不发请求、不装观察器、控制台零字），所以「地址还没填」
+和「这一页有 CTA」是两件事——标签照发，判据才能在**任何配置状态**下都判得出「带 data-funnel 的页面
+一定加载了这一件、加载了这一件的页面一定有 data-funnel」。反过来若标签也跟着 endpoint 走，
+这两条判据在没部署 Worker 的仓库里就永远是空转，而空转的判据比没有判据更危险。
+要彻底停掉这一族（连字节都不要），把 `funnel.enable` 改成 false，不是把 endpoint 清空。
+{%- endcomment -%}
+{%- if site.funnel.enable and jekyll.environment == 'production' -%}
+    {%- if page.extension or page.url == '/tools.html' or page.product -%}
+    <script defer src="{{ site.baseurl }}/assets/js/funnel.min.js" data-funnel-endpoint="{{ site.funnel.endpoint }}" data-funnel-version="{{ site.funnel.schema | default: '1' }}"></script>
+    {%- endif -%}
+{%- endif -%}

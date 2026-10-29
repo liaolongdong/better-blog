@@ -726,6 +726,9 @@
   {%- comment -%} 位置勿动：必须晚于 .mao_box 与 .bottom-fixed-btn 进 DOM，约束见 draggableSetup.html 文件头 {%- endcomment -%}
   {% include draggableSetup.html %}
 
+  {%- comment -%} 带 product: 的文章才有产品卡，埋点件也只在这时候发标签，判据见 funnelScript.html {%- endcomment -%}
+  {% include funnelScript.html %}
+
   {% if site.changyan.enable %}
   <script type="text/javascript">
     window.onload = function () {

@@ -209,6 +209,20 @@ cloudflare_analytics:
   enable: true # 填入 token 后改为 true
   token: 'b53b200d7bfc40db83d9c546d78d730e'
 
+# 转化漏斗埋点：商店 CTA 的「页面打开 → 按钮进入视野 → 点击」三段计数。
+# Cloudflare Web Analytics 只有页面级 PV，且官方 FAQ 写明不支持自报事件端点
+# （"all requests should originate from our beacon JavaScript"），所以事件计数走本站
+# 自己的 Worker + Workers Analytics Engine：无 Cookie、无访客 ID、无第三方域。
+# endpoint 留空 = 埋点件照旧加载、读到空地址就整件退出（不发请求、控制台零字）。
+# 彻底不发那个标签要把 enable 改成 false——两者的差别写在 funnelScript.html 文件头。
+# 源码与部署步骤：scripts/funnel-worker/README.md；判据：scripts/check-seo.mjs「漏斗埋点面」那一组。
+funnel:
+  enable: true
+  # 形如 https://<worker>.<账号子域>.workers.dev/e ；末尾不要带查询串，脚本自己拼 ?e=&p=&s=&u=&v=
+  endpoint: ''
+  # 事件口径版本：改了维度语义就 +1，面板上按它分段，避免把新旧口径连成一条假趋势
+  schema: '1'
+
 # 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:
   enable: false

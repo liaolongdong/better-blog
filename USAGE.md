@@ -579,7 +579,8 @@ pnpm og:images     # 为没有 cover 的文章出 1200×630 分享卡（需本�
 pnpm og:check      # 只校验分享卡与 _data/og_images.yml 是否一致，不改文件
 pnpm push:indexnow # 把 sitemap 里的地址推给 IndexNow（必应系；Google 不读它）；加 --dry-run / --check / --limit N
 node scripts/check-discovery.mjs        # 批 1 收录面 8 组判据（key 文件、changelog 页、零新增 CSS）
-node scripts/suggest-inlinks.mjs        # 产出 dev/inlink-suggestions.md：正文内链建议清单，不改任何一篇文章
+node scripts/suggest-inlinks.mjs        # 产出 dev/inlink-suggestions.md（清单）+ dev/inlink-review.html（采纳队列），不改任何一篇文章
+cd scripts/funnel-worker && npx wrangler deploy   # 部署漏斗接收端 Worker（一次性；之后只需把地址填进 _config.yml 的 funnel.endpoint）
 node scripts/wechat-draft.mjs --check-config  # 查公众号草稿同步的前置，不联网
 node scripts/wechat-draft.mjs --post _posts/xxx.md --dry-run  # 只准备与校验，不联网
 pnpm wechat:draft -- --post _posts/xxx.md      # 真同步进公众号草稿箱（只到 draft/add，不发布）
@@ -603,6 +604,48 @@ pnpm deploy:ali    # 部署机更新：对齐 origin -> 装依赖 -> 构建；�
 3. 落地后跑 `node scripts/check-seo.mjs --site=<快照>`：组 13 除了工具内链，也判文章间内链的
    形状与存在性，地板 5 枚。它的牙齿是 `check-seo-teeth.mjs` 的 M12b（日期段写成横杠）与
    M12c（形状对但目标页不存在）两枚变异。
+
+## 📊 转化漏斗埋点与站长验证
+
+### 商店 CTA 的三段计数
+
+站内三款插件的安装漏斗现在有数了：`view`（带 CTA 的页面被打开）→ `impression`（按钮真的被滚进过视野）
+→ `click`（点了）。三段都落在本站自己的 Cloudflare Worker 里，无 Cookie、无访客 ID、无第三方域。
+
+三步开关，缺一步都只是「接线齐了但没有数」：
+
+```bash
+cd scripts/funnel-worker && npx wrangler login && npx wrangler deploy   # 1. 起接收端
+curl -s https://<worker 地址>/ping                                      # 2. 验活着，期望 funnel worker ok
+# 3. 把 https://<worker 地址>/e 填进 _config.yml 的 funnel.endpoint，然后 pnpm build:site
+```
+
+`endpoint` 留空时埋点件仍会被加载（三类带 CTA 的页面各一次请求），但件本体读到空地址就整件退出：
+不发请求、不装观察器、控制台零字。要连那次加载都省掉，把 `funnel.enable` 改成 `false`。
+为什么标签不跟着 `endpoint` 一起消失：那样「带锚点的页面一定加载了计数件」这条判据在没部署 Worker 的
+仓库里永远空转，而空转的判据比没有判据更危险。
+
+不用 Cloudflare Web Analytics 的自定义事件，是因为它不存在——官方 FAQ 写明
+"We do not support custom integrations directly with the endpoint: all requests should originate from
+our beacon JavaScript"。beacon 只给页面级 PV，那正是这一族要补的那一格：2026-10-28 之前，
+全仓 `sendBeacon|dataLayer|gtag|_trackEvent` 零命中，四处商店 CTA 上的 `utm_*` 也没有任何接收端消费。
+
+判据在 `scripts/check-seo.mjs` 的「漏斗」那一组（源侧逐枚核锚点、产物侧核双向一致、
+参数契约两端对齐、Worker 不许读 Cookie/UA/IP），牙齿是 `check-seo-teeth.mjs` 里 `group: '漏斗'` 的 13 枚变异。
+浏览器侧的行为核验用 `dev/` 之外的一次性量具做过：把 `_site` 挂在本地端口、把 endpoint 改指本地桩，
+真点击之后核对桩收到的参数——`store` 与 `repo` 两类按钮的 `k` 必须不同值。
+
+### 站长验证 meta 与 Bing
+
+`_config.yml` 的 `bing_site_verification` 目前是空串。**填不填都不算门禁失败**，但门禁会打一行弱读数，
+而这一格的价值不在推送：IndexNow 不需要 Bing 验证（官方 FAQ：key 文件放站点根目录或同主机任一公开目录，
+本站放在 `/better-blog/<key>.txt` 并用 `keyLocation` 申报，`push-indexnow.mjs` 已经这么做了），
+需要归属的是**读数据那一头**——Bing 是 Copilot 的索引源，站长面板是那条链上唯一的反馈口。
+
+取码：Bing Webmaster Tools → 添加站点 → 复制 meta 标签里的 `content` → 填进 `_config.yml`。模板不用改。
+填完之后 `node scripts/check-seo.mjs` 的「验证 meta」那一组会开始判它：源里声明了就必须出现在产物 head 里，
+产物里出现了但源里没声明也红。这一组是 2026-10-28 补的，动机和当天 Lighthouse 抓到的
+`<meta charset>` 落在第 2439 字节是同一类——**原有 15 组判据全判结构与一致性，没有一判看 head 里到底有什么**。
 
 ## ⚠️ 已知未决：浏览器兼容基线自相矛盾
 

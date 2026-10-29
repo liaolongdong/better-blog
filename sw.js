@@ -96,6 +96,10 @@ css/js 引用、以及产物 CSS 里每一条 `url()` 都拿来对账，命中�
   这两件缺席只影响"分享按钮"和"二次高亮"，是离线阅读里最不要紧的两件事。
 · cursor-effects：`site.footer.showCursorEffects` 为真时才发（_includes/footer.html:127），
   而且它是装饰——线上关了它就不存在，为它预留骨架字节是给一个可能不存在的功能买单。
+· funnel：商店 CTA 的曝光/点击计数件。三类页面才发标签（判据在 _includes/funnelScript.html），
+  而它本身更不该进骨架：它做的事是往本站 Worker 发一个 GET，离线时那次发送必然失败，
+  预缓存一份「离线时注定什么也做不了」的字节没有意义；读者离线时看不到商店按钮被点，
+  这件事本来就不影响他读文章。
 · assets/iconFont/iconfont.woff：地址带 CSS 里那个时间戳查询串，见上面骨架清单末尾那条。
 {%- endcomment -%}
 const DEFERRED_URLS = [
@@ -104,6 +108,7 @@ const DEFERRED_URLS = [
   BASE + '/assets/js/readerExtras.min.js',
   BASE + '/assets/js/excerpts.min.js',
   BASE + '/assets/js/statsShare.min.js',
+  BASE + '/assets/js/funnel.min.js',
   BASE + '/assets/js/cursor-effects.min.js',
   BASE + '/assets/iconFont/iconfont.woff',
 ];

@@ -24,9 +24,9 @@
     <p class="product-tagline">{{ t.tagline }}</p>
     <p class="product-summary">{{ t.summary }}</p>
     <div class="product-cta">
-        <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">Chrome 商店安装</a>
-        <a class="cta" href="{{ t.guide | prepend: site.baseurl }}">安装与权限</a>
-        <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+        <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener" data-funnel="store:article:{{ t.slug }}">Chrome 商店安装</a>
+        <a class="cta" href="{{ t.guide | prepend: site.baseurl }}" data-funnel="guide:article:{{ t.slug }}">安装与权限</a>
+        <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener" data-funnel="repo:article:{{ t.slug }}">开源仓库</a>
     </div>
 </section>
 {%- endif -%}
