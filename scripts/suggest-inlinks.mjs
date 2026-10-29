@@ -31,7 +31,7 @@
  *      每个信号都能在被建议的那句话上验证；不做向量相似度，因为那种分数没法人工复核。
  *
  * 用法：
- *   node scripts/suggest-inlinks.mjs                # 生成/覆盖 dev/inlink-suggestions.md
+ *   node scripts/suggest-inlinks.mjs                # 生成/覆盖 dev/inlink-suggestions.md + dev/inlink-review.html
  *   node scripts/suggest-inlinks.mjs --check        # 只跑通并断言产物非空，不写任何文件
  *   node scripts/suggest-inlinks.mjs --min=4.5      # 临时调阈值（默认见 MIN_SCORE）
  *   node scripts/suggest-inlinks.mjs --top=8        # 每篇最多几条（默认 MAX_PER_POST）
@@ -533,6 +533,7 @@ md.push('');
 md.push(`> 由 \`scripts/suggest-inlinks.mjs\` 于 ${new Date().toISOString().slice(0, 10)} 生成。**脚本不改动任何一篇文章**，也不产生可 apply 的 diff：`);
 md.push('> 本仓 2026-09 体检的反面清单写着「堆关键词会掉 10% 引用份额」，而按分数自动往正文插链正是它的机器版，所以这里只出清单。');
 md.push('> 重跑覆盖本文件；`dev/` 已被 `_config.yml` 的 exclude 排除出构建，且本文件在 `.gitignore` 里（公开仓库不留机器生成的运营清单）。');
+md.push('> 同一份配对还写成 `dev/inlink-review.html`：双击打开就是采纳队列（按源文章分组、证据句与插入点带行号、记住采纳/跳过、导出给人粘的 Markdown）。读这份 markdown 不需要它，消化清单时用它会省很多趟。');
 md.push('');
 md.push('## 统计口径');
 md.push('');
@@ -662,7 +663,86 @@ try {
 }
 if (!fs.existsSync(out) || fs.statSync(out).size < 400) bad(`写了 ${OUT_REL} 但内容小得可疑（${fs.statSync(out).size} 字节）`);
 
+/* ------------------------------------------------------------------ 审阅台 */
+
+/**
+ * 同一份配对再投影一次，写成 `dev/inlink-review.html`：一页能双击打开的采纳队列。
+ *
+ * 为什么要这一页：481 条建议躺在 47 万字的 markdown 里，读不动也没有进度——「清单存在」和
+ * 「清单被消化」是两件事，而本仓 2026-10 实测正文内链只从 22 条涨到 44 条，卡的就是消化。
+ * 这一页做的事只有三件：按源文章分组、把证据句与插入点的 `文件名:行号` 摆在一起、
+ * 记住采纳/跳过。判定存在浏览器 localStorage，导出的是给人粘的 Markdown——
+ * 上面那三条红线一条不动：不写正文、不判语义、不进闸门。
+ *
+ * 数据内联而不是另存一份 .json：file:// 下 `fetch()` 会被浏览器拦成 CORS 错，
+ * 一份需要本地服务器才能看的运营清单，等于没有清单。
+ */
+const HTML_REL = 'dev/inlink-review.html';
+const TEMPLATE_REL = 'scripts/inlink-review.template.html';
+const rows = [];
+for (const p of withSug) {
+  for (const s of suggestions.get(p) ?? []) {
+    rows.push({
+      f: p.relFile,
+      ft: p.title,
+      t: s.to.relFile,
+      tt: s.to.title,
+      tp: s.to.urlPath,
+      s: s.score,
+      p: s.parts,
+      k: s.anchorKw,
+      ce: { h: s.candEvidence.heading, s: s.candEvidence.sentence, l: s.candEvidence.line },
+      sa: s.selfAnchor ? { h: s.selfAnchor.heading, s: s.selfAnchor.sentence, l: s.selfAnchor.line } : null,
+    });
+  }
+}
+const postIndex = withSug.map((p) => ({
+  f: p.relFile,
+  ft: p.title,
+  rows: rows.filter((r) => r.f === p.relFile).length,
+}));
+const payload = {
+  generatedAt: new Date().toISOString().slice(0, 10),
+  stats: { corpus: posts.length, total: totalSug, existing: totalInlinks, zeroInlink: zeroInlinkPosts, noCandidate: noSug.length },
+  thresholds: { min: MIN_SCORE_R, top: MAX_PER_POST_R },
+  postIndex,
+  rows,
+};
+const tplPath = path.join(ROOT, TEMPLATE_REL);
+if (fs.existsSync(tplPath)) {
+  try {
+    const tpl = fs.readFileSync(tplPath, 'utf8');
+    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+    // 整段锚定替换，不用全局字符串替换：占位串一旦在说明文字里也出现过一次，
+    // 全局替换会把数据填进那句注释、把 script 标签留给占位——构建不报错，
+    // 浏览器只在 JSON.parse 那一句炸（2026-10-28 真浏览器实测到的就是这一形）。
+    const slot = /<script id="data" type="application\/json">[\s\S]*?<\/script>/;
+    if (!slot.test(tpl)) bad(`模板 ${TEMPLATE_REL} 里没有那个 id="data" 的 JSON 槽，审阅台写不出来`);
+    const html = tpl.replace(slot, `<script id="data" type="application/json">${json}</script>`);
+    if (html.length < tpl.length + 200) bad(`注入的数据太小（多出 ${html.length - tpl.length} 字节，rows=${rows.length}），不像 481 条配对的形状`);
+    fs.mkdirSync(path.dirname(path.join(ROOT, HTML_REL)), { recursive: true });
+    fs.writeFileSync(path.join(ROOT, HTML_REL), html, 'utf8');
+    /**
+     * 自证一刀：把写进去的那段 JSON 再抠出来 parse 一遍。
+     * 这一族的失效形状是「文件生成了、页面打不开且没有报错」——上面那两个坑
+     * （占位被注释吃掉、payload 里混进不可序列化的形状）都只有 parse 才抓得住。
+     */
+    const back = /<script id="data" type="application\/json">([\s\S]*?)<\/script>/.exec(fs.readFileSync(path.join(ROOT, HTML_REL), 'utf8'));
+    if (!back) bad('写完再读，JSON 槽不在了');
+    const parsed = JSON.parse(back[1]);
+    if (!Array.isArray(parsed.rows) || parsed.rows.length !== rows.length) {
+      bad(`审阅台里的 rows 是 ${parsed.rows && parsed.rows.length} 条，内存里是 ${rows.length} 条——对不上就说明注入打在别处`);
+    }
+  } catch (e) {
+    process.stderr.write(`✗ suggest-inlinks：写 ${HTML_REL} 失败了：${e && e.message ? e.message : e}\n`);
+  }
+} else {
+  process.stderr.write(`⚠ 找不到 ${TEMPLATE_REL}，只出了 markdown 清单，没出审阅台（模板搬走要同步改这里）\n`);
+}
+
+const htmlSize = fs.existsSync(path.join(ROOT, HTML_REL)) ? fs.statSync(path.join(ROOT, HTML_REL)).size : 0;
 process.stdout.write(
   `✓ suggest-inlinks：语料 ${posts.length} 篇（剔 ${skipped.length}）｜ 现有内链 ${totalInlinks} 条 / 零内链 ${zeroInlinkPosts} 篇 ｜ 建议 ${totalSug} 条覆盖 ${withSug.length} 篇（平均 ${(totalSug / posts.length).toFixed(2)} 条/篇）｜ 无候选 ${noSug.length} 篇 ｜ 阈值 ≥${MIN_SCORE_R}、每篇 ≤${MAX_PER_POST_R} 条\n` +
-    `  → ${OUT_REL}（${fs.statSync(out).size} 字节）；正文一个字没改。\n`,
+    `  → ${OUT_REL}（${fs.statSync(out).size} 字节）；正文一个字没改。\n` +
+    (htmlSize ? `  → ${HTML_REL}（${htmlSize} 字节，双击打开就是采纳队列；判定存本机浏览器，导出的是给人粘的 Markdown）\n` : '  ⚠ 审阅台没写出来，只有 markdown 清单\n'),
 );

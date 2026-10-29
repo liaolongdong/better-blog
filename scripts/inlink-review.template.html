@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>正文内链审阅台 · Better Blog</title>
+<!-- 本文件是 scripts/suggest-inlinks.mjs 的审阅台模板：下面那个 application/json 的 script 标签
+     里的占位由脚本按标签整段替换（不是全局字符串替换——占位串在说明文字里出现过一次，
+     全局替换会把数据填进注释里、把标签留给占位，浏览器只在 JSON.parse 那一句炸出来）。 -->
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1c1e22; --muted: #6b7280; --line: #e5e7eb;
+    --card: #f7f8fa; --ok: #166534; --no: #9a3412; --hi: #fde68a; --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141a; --fg: #e8eaed; --muted: #9aa3af; --line: #2a2f39;
+      --card: #171a21; --ok: #6ee7a8; --no: #fca5a5; --hi: #7c5c14; --accent: #7dd3fc;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.65 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  a { color: var(--accent); }
+  header { padding: 18px 20px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  h1 { margin: 0 0 6px; font-size: 18px; }
+  .warn { margin: 0; color: var(--muted); font-size: 13px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; }
+  .bar label, .bar span { font-size: 13px; color: var(--muted); }
+  input[type=search], input[type=number], select, button {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--fg);
+  }
+  input[type=search] { min-width: 250px; }
+  button { cursor: pointer; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 10px; }
+  .meter i { display: block; height: 100%; background: var(--accent); width: 0; }
+  main { display: grid; grid-template-columns: 260px 1fr; gap: 0; align-items: start; }
+  nav { border-right: 1px solid var(--line); padding: 10px 0; max-height: calc(100vh - 130px); overflow: auto; position: sticky; top: 130px; }
+  nav button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 7px 14px; font-size: 13px; }
+  nav button[aria-current=true] { background: var(--card); font-weight: 600; }
+  nav .n { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  section.list { padding: 14px 20px 60px; }
+  article { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--card); }
+  article:focus-within { border-color: var(--accent); }
+  article.done-yes { border-left: 4px solid var(--ok); }
+  article.done-no { border-left: 4px solid var(--no); opacity: .72; }
+  .head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .score { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .title { font-weight: 600; }
+  .from { color: var(--muted); font-size: 12.5px; margin: 2px 0 8px; word-break: break-all; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { font-size: 12px; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+  .quote { margin: 6px 0; padding: 7px 10px; border-left: 3px solid var(--line); background: var(--bg); border-radius: 0 7px 7px 0; font-size: 14px; }
+  .quote b { background: var(--hi); padding: 0 2px; border-radius: 3px; }
+  .src { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; word-break: break-all; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+  .acts .yes[aria-pressed=true] { background: var(--ok); color: var(--bg); border-color: var(--ok); }
+  .acts .no[aria-pressed=true] { background: var(--no); color: var(--bg); border-color: var(--no); }
+  details.export { margin-top: 14px; }
+  textarea { width: 100%; min-height: 240px; font: 13px/1.6 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  kbd { font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+  .empty { color: var(--muted); padding: 30px 4px; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } nav { position: static; max-height: 210px; border-right: 0; border-bottom: 1px solid var(--line); } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>正文内链审阅台</h1>
+  <p class="warn">机器只出建议与出处，<strong>一个字都不替作者改</strong>。每条都带 <code>文件名:行号</code>，
+    对着原文读完那一句再决定；采纳之后要本人把句子写顺再粘进正文。生成时间 <span id="gen"></span>。</p>
+  <div class="bar">
+    <label>进度 <span id="prog"></span></label>
+    <div class="meter"><i id="fill"></i></div>
+  </div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="过滤标题或锚点词，如 skill" aria-label="过滤建议">
+    <label>分数下限 <input type="number" id="min" min="0" max="20" step="0.5" value="4" style="width:70px" aria-label="分数下限"></label>
+    <select id="state" aria-label="按处理状态过滤">
+      <option value="todo">只看未处理</option>
+      <option value="all">全部（含已判）</option>
+      <option value="yes">只看已采纳</option>
+      <option value="no">只看已跳过</option>
+    </select>
+    <button id="exportBtn">导出采纳清单</button>
+    <button id="resetBtn">清空本机判定</button>
+    <span>快捷键 <kbd>j</kbd><kbd>k</kbd> 上下条 · <kbd>y</kbd> 采纳 · <kbd>n</kbd> 跳过 · <kbd>u</kbd> 撤销</span>
+  </div>
+</header>
+<main>
+  <nav id="posts" aria-label="按源文章过滤"></nav>
+  <section class="list">
+    <div id="count" class="from"></div>
+    <div id="list"></div>
+    <details class="export" id="exportBox" hidden>
+      <summary>采纳清单（按源文章分组，含行号出处；粘进正文前请把句子读顺）</summary>
+      <textarea id="exportText" readonly spellcheck="false"></textarea>
+      <p><button id="copyBtn">复制到剪贴板</button> <button id="dlBtn">下载 .md</button> <span id="copyNote" class="from"></span></p>
+    </details>
+  </section>
+</main>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function () {
+  'use strict';
+  var DATA = JSON.parse(document.getElementById('data').textContent);
+  /* 判定按「源文件 → 目标文件」这一对存，键名与清单的生成时间无关：重跑一次生成器
+     （分数会小幅变动、条数会涨）不该把已经判过的 400 条推回未处理。 */
+  var KEY = 'inlink-review.v1';
+  var store = {};
+  try { store = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { store = {}; }
+
+  var el = {
+    list: document.getElementById('list'), posts: document.getElementById('posts'),
+    q: document.getElementById('q'), min: document.getElementById('min'), state: document.getElementById('state'),
+    count: document.getElementById('count'), prog: document.getElementById('prog'), fill: document.getElementById('fill'),
+    gen: document.getElementById('gen'), exportBox: document.getElementById('exportBox'),
+    exportText: document.getElementById('exportText'), copyNote: document.getElementById('copyNote')
+  };
+  el.gen.textContent = DATA.generatedAt;
+
+  var cur = { post: '', focus: -1 };
+
+  function link(row) { return '[' + row.tt + ']({{ site.baseurl }}' + row.tp + ')'; }
+  function hi(text, kw) {
+    var i = text.indexOf(kw);
+    if (i < 0 || !kw) return escapeHtml(text);
+    return escapeHtml(text.slice(0, i)) + '<b>' + escapeHtml(kw) + '</b>' + escapeHtml(text.slice(i + kw.length));
+  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function key(row) { return row.f + ' → ' + row.t; }
+
+  function rows() {
+    var q = el.q.value.trim().toLowerCase(), mn = parseFloat(el.min.value) || 0, st = el.state.value;
+    return DATA.rows.filter(function (r) {
+      if (r.s < mn) return false;
+      if (cur.post && r.f !== cur.post) return false;
+      if (st === 'yes' && store[key(r)] !== 'yes') return false;
+      if (st === 'no' && store[key(r)] !== 'no') return false;
+      if (st === 'todo' && store[key(r)]) return false;
+      if (q && (r.ft + ' ' + r.tt + ' ' + r.k).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+
+  function render() {
+    var rs = rows();
+    el.count.textContent = '本页显示 ' + rs.length + ' 条 · 语料 ' + DATA.stats.corpus + ' 篇 · 全部建议 ' + DATA.stats.total + ' 条 · 零内链 ' + DATA.stats.zeroInlink + ' 篇 · 现有内链 ' + DATA.stats.existing + ' 条';
+    var done = DATA.rows.filter(function (r) { return store[key(r)]; }).length;
+    el.prog.textContent = done + ' / ' + DATA.rows.length;
+    el.fill.style.width = (DATA.rows.length ? (done / DATA.rows.length * 100).toFixed(1) : 0) + '%';
+
+    el.posts.innerHTML = '<button data-post="" aria-current=' + (cur.post === '' ? 'true' : 'false') + '>全部<span class="n">' + DATA.rows.length + '</span></button>'
+      + DATA.postIndex.map(function (p) {
+        // p.rows 是这一篇的建议总条数（生成时算好的）；未处理数只能在浏览器里现算，
+        // 因为采纳/跳过是本机的判定，不属于生成器的输出。
+        var left = DATA.rows.filter(function (r) { return r.f === p.f && !store[key(r)]; }).length;
+        return '<button data-post="' + escapeHtml(p.f) + '" aria-current=' + (cur.post === p.f ? 'true' : 'false') + '>'
+          + escapeHtml(p.ft.length > 22 ? p.ft.slice(0, 22) + '…' : p.ft) + '<span class="n">' + left + '/' + p.rows + '</span></button>';
+      }).join('');
+
+    if (!rs.length) { el.list.innerHTML = '<p class="empty">这一档没有待判的建议了。换个过滤条件，或者去 <code>dev/inlink-suggestions.md</code> 看原始清单。</p>'; return; }
+    el.list.innerHTML = rs.map(function (r, i) {
+      var d = store[key(r)];
+      return '<article data-i="' + i + '" tabindex="0" class="' + (d ? 'done-' + d : '') + '">'
+        + '<div class="head"><span class="score">' + r.s.toFixed(1) + ' 分</span>'
+        + '<span class="title">→ ' + escapeHtml(r.tt) + '</span></div>'
+        + '<p class="from">源文章：' + escapeHtml(r.ft) + '　<code>' + escapeHtml(r.f) + '</code></p>'
+        + '<div class="chips">' + r.p.map(function (c) { return '<span class="chip">' + escapeHtml(c) + '</span>'; }).join('') + '</div>'
+        + '<blockquote class="quote">对方正文证据句：「' + hi(r.ce.s, r.k) + '」'
+        + '<span class="src">出处 <code>' + escapeHtml(r.t) + ':' + r.ce.l + '</code> · 小节 ' + escapeHtml(r.ce.h) + '</span></blockquote>'
+        + (r.sa ? '<blockquote class="quote">本篇建议插入点：「' + hi(r.sa.s, r.k) + '」'
+          + '<span class="src">出处 <code>' + escapeHtml(r.f) + ':' + r.sa.l + '</code> · 小节 ' + escapeHtml(r.sa.h) + '</span></blockquote>'
+          : '<p class="from">本篇没有含锚点词的句子——要落这一条，得先由作者写出那句指代。</p>')
+        + '<div class="acts">'
+        + '<button class="yes" aria-pressed="' + (d === 'yes') + '" data-act="yes">采纳</button>'
+        + '<button class="no" aria-pressed="' + (d === 'no') + '" data-act="no">跳过</button>'
+        + '<button data-act="undo">撤销</button>'
+        + '<button data-act="copy">复制链接语法</button>'
+        + '<code class="src" style="margin-top:0">' + escapeHtml(link(r)) + '</code>'
+        + '</div></article>';
+    }).join('');
+  }
+
+  function act(row, what) {
+    if (what === 'undo') delete store[key(row)];
+    else store[key(row)] = what;
+    try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* 隐私模式下存不住：判定只在本次会话里有效，页面照常可用 */ }
+    render();
+  }
+
+  function currentRow() { var rs = rows(); return rs[cur.focus] || rs[0] || null; }
+
+  el.list.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-act]'); if (!btn) return;
+    var art = btn.closest('article'); if (!art) return;
+    var row = rows()[parseInt(art.getAttribute('data-i'), 10)]; if (!row) return;
+    var what = btn.getAttribute('data-act');
+    if (what === 'copy') {
+      copy(link(row), '已复制这一枚链接语法');
+      return;
+    }
+    act(row, what);
+  });
+
+  el.posts.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-post]'); if (!b) return;
+    cur.post = b.getAttribute('data-post'); cur.focus = -1; render();
+  });
+  [el.q, el.min, el.state].forEach(function (n) { n.addEventListener('input', function () { cur.focus = -1; render(); }); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.matches('input, textarea, select')) return;
+    var total = rows().length;
+    if (e.key === 'j' || e.key === 'ArrowDown') { cur.focus = Math.min(total - 1, cur.focus + 1); scrollFocus(); e.preventDefault(); }
+    else if (e.key === 'k' || e.key === 'ArrowUp') { cur.focus = Math.max(0, cur.focus - 1); scrollFocus(); e.preventDefault(); }
+    else if (e.key === 'y' || e.key === 'n' || e.key === 'u') {
+      var r = currentRow(); if (r) { act(r, e.key === 'y' ? 'yes' : e.key === 'n' ? 'no' : 'undo'); scrollFocus(); }
+      e.preventDefault();
+    }
+  });
+  function scrollFocus() { var a = el.list.querySelector('article[data-i="' + cur.focus + '"]'); if (a) a.scrollIntoView({ block: 'nearest' }); }
+
+  function copy(text, note) {
+    var done = function () { el.copyNote ? el.copyNote.textContent = note : 0; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+    else { fallback(text); done(); }
+  }
+  function fallback(text) {
+    var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* 复制不了也还有下载这条路 */ }
+    document.body.removeChild(ta);
+  }
+
+  function exportText() {
+    var chosen = DATA.rows.filter(function (r) { return store[key(r)] === 'yes'; });
+    if (!chosen.length) return '（还没有采纳任何一条。选中若干条「采纳」之后再来导。）';
+    var byPost = {};
+    chosen.forEach(function (r) { (byPost[r.f] = byPost[r.f] || { ft: r.ft, items: [] }).items.push(r); });
+    var out = ['# 正文内链采纳清单（' + chosen.length + ' 条 / ' + Object.keys(byPost).length + ' 篇）', '',
+      '> 由 dev/inlink-review.html 导出。每一行给出插入点行号与现成的链接语法；**句子由人写**，机器不替作者造句。', ''].join('\n');
+    Object.keys(byPost).sort().forEach(function (f) {
+      out += '\n## ' + byPost[f].ft + '\n`' + f + '`\n';
+      byPost[f].items.forEach(function (r) {
+        out += '\n- 接到：' + r.tt + '（' + r.s.toFixed(1) + ' 分）\n'
+          + '  插入点：' + (r.sa ? f + ':' + r.sa.l + ' —— 「' + r.sa.s + '」' : '（本篇没有含锚点词的句子，需作者先写那句指代）') + '\n'
+          + '  语法：`' + link(r) + '`\n';
+      });
+    });
+    return out;
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    el.exportText.value = exportText();
+    el.exportBox.hidden = false;
+    el.exportBox.open = true;
+  });
+  document.getElementById('copyBtn').addEventListener('click', function () { copy(el.exportText.value, '已复制 ' + el.exportText.value.length + ' 字符'); });
+  document.getElementById('dlBtn').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([el.exportText.value], { type: 'text/markdown;charset=utf-8' }));
+    a.download = 'inlink-adopted-' + DATA.generatedAt + '.md'; a.click();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!confirm('清空本机保存的采纳/跳过判定？（正文本来就一个字节都没动过）')) return;
+    store = {}; try { localStorage.removeItem(KEY); } catch (e) {}
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
