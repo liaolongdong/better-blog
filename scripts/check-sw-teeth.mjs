@@ -176,9 +176,21 @@ const cases = [
   {
     name: '封面清单不做去重（两张文章共用一张）',
     group: '清单',
-    // 拆掉 Array.from(new Set(...))：ai-sdd 与 ai-sdd-github 共用 banner-3.png，去重一撤
-    // 同一张就出现两次——这一条正是当初抓出那个重复的判据，别让它变成只能靠肉眼。
-    artifact: () => shadowEdit('sw.js', (s) => s.replace('Array.from(new Set(COVER_RAW))', 'COVER_RAW.slice()')),
+    // 这一枚原本只拆 `Array.from(new Set(COVER_RAW))`，靠「ai-sdd 与 ai-sdd-github 共用 banner-3.png」
+    // 那对真重复去触发。2026-10-28 实测：产物里 COVER_RAW 56 条地址两两不同（那两篇后来各用了自己的封面），
+    // 于是拆掉去重也没有重复可判——牙齿从此空转，HEAD 控制组一样红不起来。
+    // 改成两件事一起做：先把第一条封面原样重复一遍（造出「两篇共用一张」的形状），再拆掉去重。
+    // 只造重复不拆去重会自己绿回去，所以这一刀必须两半同落。
+    artifact: () => shadowEdit('sw.js', (s) => {
+      // 不锚行首：产物里这一行前面紧挨着 PIN_URLS（Liquid 的 {%- 把中间那个换行吃掉了），
+      // 按 ^ 锚会一上来就找不到靶子。
+      const m = /const COVER_RAW = \[\n(\s*)'([^']+)',/.exec(s);
+      if (!m) throw new Error('封面去重那一刀落不准：找不到 COVER_RAW 的第一条地址，清单形状改了要同步改这里');
+      const dup = s.replace(m[0], `${m[0]}\n${m[1]}'${m[2]}',`);
+      const undedup = dup.replace('Array.from(new Set(COVER_RAW))', 'COVER_RAW.slice()');
+      if (undedup === s) throw new Error('封面去重那一刀落不准：既没造出重复也没拆掉 Set');
+      return undedup;
+    }),
   },
 
   // ── 2 骨架完整性 ──────────────────────────────────────────────
