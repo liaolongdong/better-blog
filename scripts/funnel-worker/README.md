@@ -37,11 +37,24 @@ funnel:
 `endpoint` 空着的时候站点侧照样加载埋点件，但件本体读到空地址就整件退出：不发请求、不装观察器、控制台零字。
 要连那一次请求都不要，把 `enable` 改成 `false`（模板就不发标签了）。
 
-## 本地为什么验不了落库
+## 本地为什么验不了落库，以及不登录能验到哪一层
 
 Analytics Engine 的 binding 在 `wrangler dev` 下不可用（官方文档："You cannot use an Analytics Engine binding locally"）。
 本地只能验「返回 GIF 那半边」，落库那半边要么 `npx wrangler dev --remote`，要么按上面两发 curl 在上线后验。
 worker.mjs 在绑定缺失时**故意返回 500 而不是静默成功**——「接线齐了但一行数据没有」正是这一族要防的失效形状。
+
+不登录也能验的一层是 `wrangler deploy --dry-run`（2026-10-30 实跑，当时 `wrangler whoami` 是未登录）：
+
+```
+Total Upload: 2.39 KiB / gzip: 1.27 KiB
+Your Worker has access to the following bindings:
+env.ANALYTICS (better_blog_funnel)      Analytics Engine Dataset
+```
+
+这一发同时证明三件事：`wrangler.jsonc` 的 schema 成立、`worker.mjs` 能被打成模块、
+以及 `env.ANALYTICS` 与配置里 `binding: "ANALYTICS"` 两端真的对得上。
+最后这条 `check-seo.mjs` 的「漏斗」组也判，但那是 grep 级别的判据——让部署工具自己认一遍才算真验过。
+改完 binding 名或维度顺序后重跑这一发，比等上线发现「响应 200 而面板永远零行」便宜得多。
 
 ## 查数据
 
