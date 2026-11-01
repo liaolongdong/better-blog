@@ -1704,7 +1704,14 @@ if (postPages.length) {
   // F2 形状 + 采集：data-funnel 必须是 kind:placement:slug 三段，三段各自在钉死的集合里
   const pagesWithAnchors = new Set();
   const pagesWithScript = new Set();
-  const attrRe = /\bdata-funnel="([^"]*)"/g;
+  /**
+   * 只认「起始标签里的那个属性」。`/\bdata-funnel="…"/` 会把 CHANGELOG 或教程里
+   * `` `data-funnel="kind:placement:slug"` `` 这段代码示例也当成一枚锚点——2026-11-01
+   * 就是这么红的：`/changelog.html` 一个 `data-funnel` 都没有，却被判「维度值不在钉死的
+   * 集合里」+「带锚点却不加载计数件」。文档提到标记是这一族判据的常态而不是漏洞，
+   * 靶子必须钉在真属性上；`[^>]` 跨不过 `>`，所以 `<code>…</code>` 里的文本不再命中。
+   */
+  const attrRe = /<[a-zA-Z][^>]*?\bdata-funnel="([^"]*)"[^>]*>/g;
   for (const rel of htmlFiles) {
     const txt = readSite(rel);
     attrRe.lastIndex = 0;

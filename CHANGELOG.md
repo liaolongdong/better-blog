@@ -2,7 +2,92 @@
 
 站点版本号与 git tag 一一对应，tag 打在 `master` 上（Pages 的构建 Workflow 只监听 `master`，
 见 [USAGE.md](./USAGE.md) 的「发布链路与分支」）。版本号规则与递增口径见 USAGE.md 的
-「版本号与 tag 约定」。
+「版本号与 tag」。
+
+## 2.2.0 — 2026-11-01
+
+三条线一起走：商店按钮的转化漏斗终于有了自己的计数端点、那 23 道门禁第一次在合并之前跑、
+481 条内链建议从一份读完就结束的报告变成一条能收尾的队列。按 USAGE 的口径（新增一整块能力、
+原有位置不动），进次版本。
+
+### 新增（埋点与漏斗）
+
+- **商店 CTA 的计数分三段：`view` / `impression` / `click`。** 判的是「这张卡出现过吗」和「这次出现被点了几次」，
+  此前站点对这两个问题一无所知。托管方案走不通：Cloudflare Web Analytics 只有页面级 PV，官方 FAQ 写明
+  `all requests should originate from our beacon JavaScript`，自报事件端点在那条路上根本不存在。
+  于是计数落到本站自己的 Worker + Workers Analytics Engine：无 Cookie、无访客 ID、无第三方域。
+- 前端 `dev/js/funnel.js` → `funnel.min.js` **1,667B（gzip 796B）**，只在工具页与插件产品页加载
+  （`_includes/funnelScript.html` 是唯一发点），其余页面零新增字节。标记写在源头
+  `data-funnel="kind:placement:slug"`，线上读数与源一致：`/tools.html` 16 枚、
+  `/extensions/account-password-helper.html` 5 枚。
+- 隐私口径写在埋点件里而不是文档里：`doNotTrack` 与 `navigator.globalPrivacyControl` **各自独立判**——
+  合成一判 `A||B` 的话删掉其中一个仍然绿（2026-10-28 被自己写的牙齿抓到过）。发送用
+  `fetch(..., {keepalive: true, mode: 'no-cors'})`，没有 `fetch` 回落 `Image`；不写 localStorage、不发 Cookie。
+- `funnel.endpoint` 留空 = 整件不发标签，这一行就是开关本身。Worker 侧在 `scripts/funnel-worker/`
+  （`wrangler deploy --dry-run`：2.39 KiB / gzip 1.27 KiB，`limits.cpu_ms: 10`，observability 关掉）：
+  只 `writeDataPoint`、返回 1×1 GIF，**不读 Cookie / User-Agent / IP**，binding 缺失直接 500 而不是静默丢数。
+  部署它需要账号，属于本人动作；上线之前这条漏斗在线上是「埋点已在、数据为零」。
+- 判据落在 `check-seo` 新增的两组（组数 15 → 17）：「漏斗埋点面」13 把刀 + 「验证 meta」4 把。
+  参数契约判**双向**：前端发了而 Worker 不读的那一列、Worker 读了而前端从不发的那一列，各自单独红。
+  这一族不是补档而是复现——`funnel.js` 第一版就漏掉了 `kind`，四次曝光发出的四个请求字节全等，
+  页面不报错、门禁不响，只有真浏览器对着本地 stub 数才发现。
+
+### 新增（工程门禁）
+
+- **`.github/workflows/ci.yml`：23 道门禁在 PR 阶段就跑。** 在此之前 `jekyll.yml` 的触发器只有
+  `push: master` 与 `workflow_dispatch`，也就是那 23 道门**在合入之前一次都不会跑**——红的发现地点因此
+  必然是「代码已经在 master 上、站点正要发布」，那时唯一能做的事是回滚一次发布。这条只构建 + 跑门，
+  不传 artifact、不碰 Pages，`permissions` 收在 `contents: read`（PR 可能来自 fork，它不需要任何部署能力）。
+- 清单不写第二份：`scripts/ci-gates.mjs` 从 `jekyll.yml` 里把那 23 条 `gate '...'` 调用原样解析出来执行，
+  顺序与参数都是那一份。顺序是有理由的——三道 teeth 必须排在 `check-seo` 之后，因为它们就地改源再还原
+  会把那批源文件的 mtime 推到当下，而 `check-seo` 有一道「源比产物新就拒跑」的闸。
+  元门自己也有牙齿：`ci-gates-teeth.mjs` 12 条夹具。第一版修复拿同一个循环的两个计数对照自己，
+  那条断言恒成立、等于没写；是真夹具 `gate $'ansi' scripts/ok.mjs` 把它证伪的（旧代码 exit 0、
+  报「1 道门禁全绿」、那道门根本没执行）。修判据时顺手写的判据，同样要先红过一次才算数。
+- `check-sw` 那枚「封面去重」的牙此前是假的：它只注入一份重复封面，没摘掉去重用的 `Set`，
+  于是注入之后门禁仍然绿。现在一刀两个动作，牙齿台账 23/23 条变异如期变红且红在对的组；
+  `check-discovery-teeth` 82/82、`check-seo-teeth` 178/178（这一版收尾时给它补了一条反向夹具，
+  变成 179/179，见下面那条）。
+- 这一版发版过程中，`2.2.0` 自己把两处判据侧的缺陷顶了出来，都在 PR 门禁上红的（那正是这条
+  workflow 存在的理由）：
+  - **漏斗判据的靶子收窄到「起始标签里的真属性」**。`check-seo` F2 原来用
+    `/\bdata-funnel="…"/` 扫产物 HTML，于是本条日志里那句「三段写法」的说明文字被当成四枚锚点，
+    `/changelog.html` 一个埋点都没有却被判红四条。文档写出标记是这一族的常态而不是漏洞，
+    所以改成 `<[a-zA-Z][^>]*?\bdata-funnel="…"` —— `[^>]` 跨不过 `>`，`<code>` 里的示例不再命中。
+    台账随之多了一条**反向夹具**（`expectGreen`）：往不加载计数件的页面注入一段 `<code>` 属性写法，
+    门禁必须仍然全绿。只有正向案例的台账，把判据改成「永远红」也能全绿通过——这一条就是补那个洞的。
+  - **`check-release-teeth` 的变异值不再写死 `2.1.0`**，改成从 `package.json` 现读再派生
+    （升一位、退一档、形状退化成两段）。版本号一动，旧那 6 把刀里 5 把同时空转：`replace` 找不着
+    `2.1.0` 就原样返回，门禁读的是一份没被改过的副本，于是判全绿；另两把的 `expect` 钉着
+    「而包体是 2.1.0」，红的是另一句。现在变异没有落点会直接抛并记「锚点失效」，不再是安静的绿。
+
+### 新增（内链审阅）
+
+- `scripts/suggest-inlinks.mjs` 从此多产一份 `dev/inlink-review.html`（gitignore，不入库）：481 条建议
+  原来是「读完就结束的清单」，现在按文章分组、可勾选接受/拒绝、决策留在 localStorage、一键导出成
+  可直接粘进 `_posts` 的 Markdown。产物模板改用整段锚定正则替换 `__DATA__`，写完把 JSON 抠回来
+  parse 一遍再算数——第一版 `String.replace` 命中了模板说明文字里的占位符，构建不报错、文件反而大了
+  43 万字节，只有浏览器 `JSON.parse` 那一句炸。
+
+### 优化（产物字节）
+
+- 18 个模板与布局里 46 处维护性备注从 HTML 注释换成 `{%- comment -%}`：那些字是给读源码的人的，
+  此前每一页都替读者付一遍。线上首页现在只剩刻意保留的 IE 条件注释（281B）。
+- `_includes/footer.html` 里那行被 HTML 注释包住的 `assign` 删掉：Liquid 在注释里照旧执行，
+  于是每一页多发一枚 9 字节的空注释 `<!--  -->`，而下一行已经把同一个变量赋过一遍。
+- 删掉 `dev/libJs/weixinJsSdk.js`（741 行闭源厂商副本，`assets/` 里构建产物、站内零引用），
+  `THIRD-PARTY-NOTICES.md` 那一行改写成处置记录而不是许可证声明。
+
+### 修复
+
+- `pnpm dev` 起 `jekyll serve` 报 `directory is already being watched`：符号链接别名让 FSEvents 把同一
+  目录注册两次。`_config.yml` 的 `exclude` 补 `.preview` 与 `_drafts/evidence`，两条都带实测理由。
+- `_posts/2026-10-25-freellmapi-635-vs-483.md` 缺 `tldr`——这条红在 HEAD 上就存在，正是「门禁只在
+  master 上跑」的形状：它进了 master 才被看见。
+- `deploy-github.sh` 在当前分支是 master/main 时打印 `check-release.mjs --require-tag` 的读数（只提示、
+  不拦）：`2.1.0` 那次三处版本号都改了、tag 忘了，站点没有任何症状，只有拿 tag 算增量的人对不上。
+  tag 那一档刻意不在 CI 里——CI 的 checkout 默认不取 tag，而「feature 分支上要求 tag 已存在」
+  等于把还没发生的发版判成缺陷。
 
 ## 2.1.0 — 2026-09-24
 
