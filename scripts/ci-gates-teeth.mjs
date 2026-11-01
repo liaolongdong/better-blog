@@ -88,6 +88,18 @@ const cases = [
     root: fixture(one("          gate 'noargs'")),
   },
   {
+    name: 'ANSI-C 引用写的门（$\'x\'）：bash 合法，宽松驱动必须逮住它而不是跳过',
+    want: 1,
+    expect: '读不出名字与参数',
+    root: fixture(one('          gate $\'ansi\' scripts/ok.mjs'), { 'ok.mjs': okScript }),
+  },
+  {
+    name: '同一棵树里既有能读的门又有读不出的门：不许只跑能读的那道就报绿',
+    want: 1,
+    expect: '读不出名字与参数',
+    root: fixture(one("          gate 'ok' scripts/ok.mjs\n          gate $'ansi' scripts/ok.mjs"), { 'ok.mjs': okScript }),
+  },
+  {
     name: '--only 匹配不到任何门',
     want: 1,
     expect: '一条都没匹配上',

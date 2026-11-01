@@ -42,39 +42,34 @@ if (!fs.existsSync(WF)) die(`读不到 ${WF_REL}——清单没有来源，这�
 const wfLines = fs.readFileSync(WF, 'utf8').split('\n');
 
 /**
- * 一条 gate 调用。两种引号都认，因为「bash 合法而我漏读」的每一种写法都会变成
- * `✓ 22 道门禁全绿` 这种有出处的假话（2026-11-01 评审指出：双引号、`gate 'a' x && gate 'b' y`、
- * 名字里带转义单引号，bash 全收，而只认单引号的正则会安静地少读一条）。
- * 所以这里不靠形状去猜全不全，靠下面那道**计数对照**去兜：文件里凡是 `gate` 打头的命令行
- * （排除 `gate()` 函数定义与注释行）都必须被解析出来，少一条就红。
+ * 一条 gate 调用。循环由**宽松**模式 EXPECTED_RE 驱动（`^\s+gate\s`，不看引号形状），
+ * 读不出名字与参数就直接红——不能反过来用严格模式当驱动，那样任何 bash 合法而我不认的
+ * 写法（`$'name'`、反引号、变量拼出来的名字）会被安静跳过，输出 `✓ 22 道门禁全绿`。
+ * 2026-11-01 评审先指出这个失效形状，而我第一版修复拿同一个循环的计数去对照自己，
+ * 那条断言永远成立、等于没写；牙齿里补了一条真夹具才把它钉住。
  */
 const CALL_RE = /^\s+gate\s+(?:"([^"]+)"|'([^']+)')\s+(.+)$/;
-const SHAPE_RE = /^\s+gate\s+(?:\(|["'])/;
+const EXPECTED_RE = /^\s+gate\s/;
 
 const gates = [];
-const shapeLines = [];
+let expected = 0;
 for (let i = 0; i < wfLines.length; i++) {
   const line = wfLines[i];
   if (/^\s*#/.test(line)) continue;
   if (/^\s+gate\s*\(/.test(line)) continue;
-  if (!SHAPE_RE.test(line)) continue;
-  shapeLines.push(i + 1);
+  if (!EXPECTED_RE.test(line)) continue;
+  expected += 1;
   const m = CALL_RE.exec(line);
-  if (!m) { die(`jekyll.yml:${i + 1} 是一条形如 gate 的调用，但这份运行器读不出名字与参数：${line.trim().slice(0, 80)}`); }
+  if (!m) { die(`jekyll.yml:${i + 1} 是一行 gate 调用，但这份运行器读不出名字与参数：${line.trim().slice(0, 80)}\n  宁可红，也不许跳过——跳过的那道门不会有人知道它没跑`); }
   const args = m[3].trim().split(/\s+/);
-  if (args.some((a) => /[;&|]|&&|\|\|/.test(a))) {
+  if (args.some((a) => /[;&|]/.test(a))) {
     die(`jekyll.yml:${i + 1} 的 gate 调用里有复合命令（&& ; |）：一条里塞两个门会让第二个安静消失`);
   }
   gates.push({ name: m[1] || m[2], args, line: i + 1 });
 }
 
-/**
- * 计数对照：解析到的条数必须等于「文件里 gate 调用行的条数」。
- * 这一条防的不是今天，是明天有人加门时用了这份解析器不认的形状——那时输出会少一道门
- * 而依然全绿。口径与 USAGE.md「门禁条数按 grep 现数」同源。
- */
-if (gates.length !== shapeLines.length) {
-  die(`解析到 ${gates.length} 道，但文件里有 ${shapeLines.length} 行 gate 调用（行号 ${shapeLines.join(',')}）——有门被漏读，漏读的那道不会跑`);
+if (gates.length !== expected) {
+  die(`解析到 ${gates.length} 道，文件里却有 ${expected} 行 gate 调用——有门被漏读，漏读的那道不会跑`);
 }
 if (gates.length === 0) die('解析到 0 道门禁：清单被搬走或改名了。0 道不算绿。');
 
