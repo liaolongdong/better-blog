@@ -64,13 +64,15 @@ Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jeky
 
 ## 🚦 发布链路与分支
 
-这条链路有一个会让人白等几分钟的断点，先说结论：**Actions 只在 `master` 上触发。**
+这条链路有一个会让人白等几分钟的断点，先说结论：**构建与发布只在 `master` 上触发。**
+（2026-11-01 起另有一条 `ci.yml` 在 PR 上跑门禁，但它不构建站点、不部署，见下表最后一行。）
 
 | 环节 | 实际行为 |
 | --- | --- |
 | `pnpm deploy` → `deploy-github.sh` | `git pull --ff-only` 当前分支 → `git add -A` → 列出将提交的文件、拦一道密钥内容检查 → 输入 commit 信息 → 按 `y` 确认后才 `git push origin <当前分支>` |
 | `.github/workflows/jekyll.yml` | `on.push.branches: ["master"]`，另支持 `workflow_dispatch` 手动触发 |
 | Pages 地址 | project site，`baseurl: /better-blog` → <https://liaolongdong.github.io/better-blog/> |
+| `.github/workflows/ci.yml` | `on.pull_request.branches: ["master"]` + `workflow_dispatch`。构建同一份产物，然后跑 `node scripts/ci-gates.mjs`——它从 `jekyll.yml` 里**解析**那张 23 道清单来执行，两处永不漂移；牙齿是 `scripts/ci-gates-teeth.mjs`（10 条夹具）。加一道门只需要改 `jekyll.yml`，PR 门禁自动跟上 |
 
 本地日常在 `main` 上开发，`pnpm deploy` 就只会把提交推到 `main`，**不会触发任何构建**。
 两种收尾方式，任选其一：
