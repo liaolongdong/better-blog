@@ -47,6 +47,19 @@ const SW_MAX = (() => {
   }
   return Number(m[1]) * 1024;
 })();
+/**
+ * 「封面预算」那格的余量阈值同样从门禁现读：牙齿砍到**正好等于**这个条数，
+ * 于是阈值改成 10 时牙齿跟着砍到 10，判据仍被顶到边界上。
+ * 写死一个 12 的话，谁把阈值抬到 12 以上，这一格就悄悄不再证明任何事。
+ */
+const COVER_MARGIN = (() => {
+  const m = /const COVER_MARGIN = (\d+);/.exec(fs.readFileSync(GATE, 'utf8'));
+  if (!m) {
+    console.log('✗ 在 scripts/check-sw.mjs 里找不到 `const COVER_MARGIN = N;`——封面预算那格失去锚点，先修牙齿再谈门禁');
+    process.exit(1);
+  }
+  return Number(m[1]);
+})();
 // 每次跑各给一份 scratch：共用一个目录名会被并行的另一路（子智能体、另一个会话的同一条命令）
 // rm -rf 掉，那一轮的测量整批作废，而且作废方式是"影子文件不见了"式的崩。
 const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-teeth-'));
@@ -163,9 +176,21 @@ const cases = [
   {
     name: '封面清单不做去重（两张文章共用一张）',
     group: '清单',
-    // 拆掉 Array.from(new Set(...))：ai-sdd 与 ai-sdd-github 共用 banner-3.png，去重一撤
-    // 同一张就出现两次——这一条正是当初抓出那个重复的判据，别让它变成只能靠肉眼。
-    artifact: () => shadowEdit('sw.js', (s) => s.replace('Array.from(new Set(COVER_RAW))', 'COVER_RAW.slice()')),
+    // 这一枚原本只拆 `Array.from(new Set(COVER_RAW))`，靠「ai-sdd 与 ai-sdd-github 共用 banner-3.png」
+    // 那对真重复去触发。2026-10-28 实测：产物里 COVER_RAW 56 条地址两两不同（那两篇后来各用了自己的封面），
+    // 于是拆掉去重也没有重复可判——牙齿从此空转，HEAD 控制组一样红不起来。
+    // 改成两件事一起做：先把第一条封面原样重复一遍（造出「两篇共用一张」的形状），再拆掉去重。
+    // 只造重复不拆去重会自己绿回去，所以这一刀必须两半同落。
+    artifact: () => shadowEdit('sw.js', (s) => {
+      // 不锚行首：产物里这一行前面紧挨着 PIN_URLS（Liquid 的 {%- 把中间那个换行吃掉了），
+      // 按 ^ 锚会一上来就找不到靶子。
+      const m = /const COVER_RAW = \[\n(\s*)'([^']+)',/.exec(s);
+      if (!m) throw new Error('封面去重那一刀落不准：找不到 COVER_RAW 的第一条地址，清单形状改了要同步改这里');
+      const dup = s.replace(m[0], `${m[0]}\n${m[1]}'${m[2]}',`);
+      const undedup = dup.replace('Array.from(new Set(COVER_RAW))', 'COVER_RAW.slice()');
+      if (undedup === s) throw new Error('封面去重那一刀落不准：既没造出重复也没拆掉 Set');
+      return undedup;
+    }),
   },
 
   // ── 2 骨架完整性 ──────────────────────────────────────────────
@@ -302,6 +327,23 @@ const cases = [
     // 垫上去必然越过档位那条线。锚点是现读的（见文件头），改档之后这一格不会静默失效。
     // 变异落在清单切点之后，门禁沙箱求值的那一段常量不受影响——红的只有体积这一条，不是"读不到清单"。
     artifact: () => shadowEdit('sw.js', (s) => `${s}\nvar __TEETH_PAD='${crypto.randomBytes(SW_MAX).toString('base64')}';`),
+  },
+  {
+    /**
+     * 封面清单是**截断过**的（sw.js 里那个 cover_cap），截太狠的后果站点看不出来：
+     * 只是离线时靠后的封面悄悄不进桶。这一格把清单砍到正好 `COVER_MARGIN` 条（阈值现读，
+     * 见文件头）——预算能吃下这些或吃不下都无所谓，截断点后面的余量必然小于阈值，
+     * 第 8 组「封面预算」必须红。将来谁把 cap 调到贴着预算，就红在这儿。
+     */
+    name: '封面清单截到预算之内（离线封面悄悄缺席）',
+    group: '封面预算',
+    artifact: () => shadowEdit('sw.js', (s) => {
+      const m = /const COVER_RAW = \[([\s\S]*?)\n\];/.exec(s);
+      if (!m) throw new Error('产物 sw.js 里找不到 `const COVER_RAW = [...]`——这一格是假牙');
+      const rows = m[1].split('\n').filter((l) => l.trim().length > 0);
+      if (rows.length <= COVER_MARGIN) throw new Error(`封面清单只有 ${rows.length} 条，砍不出"余量归零"的形状，先查清单为什么这么短`);
+      return s.replace(m[0], `const COVER_RAW = [\n${rows.slice(0, COVER_MARGIN).join('\n')}\n];`);
+    }),
   },
 ];
 

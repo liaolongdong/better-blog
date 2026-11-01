@@ -1,13 +1,13 @@
-<!--
- * @Author: liaolongdong
+{%- comment -%}
+    * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditTime: 2020-04-26 18:24:51
  * @LastEditors: liaolongdong
- * @Description: 
- -->
+ * @Description:
+{%- endcomment -%}
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/bottomFixedBtn.min.css">
-<!--
- 四个控件必须是 <button> 而不是 <div>：它们各带一个 click 处理器（回到顶部 / 切昼夜），
+{%- comment -%}
+    四个控件必须是 <button> 而不是 <div>：它们各带一个 click 处理器（回到顶部 / 切昼夜），
  而昼夜切换与返回顶部在全站都没有第二个入口。div 不带 tabindex，根本不在顺序聚焦环里，
  键盘无论按多少次 Tab 都跳不到它身上，等于把这两件事对键盘访客收走了。
  改后实测（headless，首页 1440×900）：Tab 走到第 111~114 次依次落在这四颗上，
@@ -15,21 +15,27 @@
  下面的 JS 只绑 click，不用补 keydown。
  aria-label 挂在 button 而不是靠 .b-tool-tip 的文本：提示层是 hover 才 display 的，
  读屏器拿不到；「返回顶部」那颗的读数由 bottomFixedBtn.js 同步进 aria-label。
--->
+{%- endcomment -%}
 <div class="bottom-fixed-btn">
-    <!-- 返回顶部 滑动百分比 -->
+    {%- comment -%}
+        返回顶部 滑动百分比
+    {%- endcomment -%}
     <button type="button" class="back-to-top" aria-label="返回顶部">
         <span class="iconfont icon-fanhuidingbu"></span>
         <span class="percent-section" aria-hidden="true"><span class="scrollpercent"></span><span>%</span></span>
         <span class="b-tool-tip rfll-delay300">返回顶部</span>
     </button>
-    <!-- 切换昼夜模式 -->
+    {%- comment -%}
+        切换昼夜模式
+    {%- endcomment -%}
     <button type="button" class="switch-daytime-mode" aria-label="切换昼夜模式">
         <span class="iconfont icon-baitianmoshimingliangmoshi"></span>
         <span class="iconfont icon-yejianmoshi"></span>
         <span class="b-tool-tip rfll-delay300">切换模式</span>
     </button>
-    <!-- 加我微信 -->
+    {%- comment -%}
+        加我微信
+    {%- endcomment -%}
     <button type="button" class="add-me-wechat" aria-label="加我微信：扫码添加">
         <span class="iconfont icon-gongzhonghao1"></span>
         <span class="b-tool-tip rfll-delay300">
@@ -37,7 +43,9 @@
             <span>扫码加我微信</span>
         </span>
     </button>
-    <!-- 关注公众号 -->
+    {%- comment -%}
+        关注公众号
+    {%- endcomment -%}
     <button type="button" class="follow-official-account" aria-label="关注公众号：扫码订阅">
         <span class="iconfont icon-gongzhonghao"></span>
         <span class="b-tool-tip rfll-delay300">

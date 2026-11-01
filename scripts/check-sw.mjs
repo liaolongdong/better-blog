@@ -14,7 +14,7 @@
  *     首屏阻塞集，SW 代发的资源那一项恒为 0，红的是量具而不是实现。
  * 这四件事每一件都只能靠"有人去比对了两个地方"才发现，所以把比对写成判据。
  *
- * 七组判据（组名就是失败行里那个方括号）：
+ * 判据八组（组名就是失败行里那个方括号，与 `GROUPS` 逐字一致）：
  *   1 清单地址    每条都在 baseurl 下、都能在 _site 里找到文件、清单内部不重复
  *   2 骨架完整性  每页都发的那批同源 css/js 引用 ⊆ 骨架  豁免表；豁免表不许藏死条目；
  *                 骨架条目要么被引用、要么在白名单里、要么能证明是运行时注入的公共件
@@ -23,6 +23,8 @@
  *   5 桶名        BUILD 是 12 位构建时刻，三个桶名互不相同
  *   6 兜底页      offline.html 自足（无外链、无脚本、带 noindex）且不在收录面里
  *   7 注册面      注册只在 editorial.min.js 里，页面 HTML 零新增字节；体积上限按 §7 的 shell 口径
+ *   8 封面预算    封面清单是截断过的（只带最新若干张），这一组按 sw.js 自己的 LIMIT 复算贪心，
+ *                 要求截断点后面还留着条目——预算一旦能吃到清单末尾就红，逼人来抬 cap
  *
  * 用法：
  *   node scripts/check-sw.mjs                 # 读 _site/
@@ -34,7 +36,7 @@
  * 是因为"产物可复现"这类判据红过一次之后，人第一反应是去改 sw.js，而该改的是比对名单。
  *
  * 失败形状（退 1，不静默）：每条失败打印 `[组名] 条目：说明`，末尾给总数与核过的条数。
- * 通过形状：`✓ 离线层 N 条清单 × 7 组判据全绿`。
+ * 通过形状：`✓ 离线层 N 条清单 × 8 组判据全绿`（条数由 `GROUPS.length` 现算，别写死）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,6 +49,12 @@ const argv = process.argv.slice(2);
 const LIST_ONLY = argv.includes('--list');
 const SITE_REL = path.resolve(ROOT, (argv.find((a) => a.startsWith('--site=')) || '--site=_site').slice(7));
 
+/**
+ * 判据组名，一处声明三处用（--list 的说明、两条汇总行）。
+ * 早先这三处各写一个「7」，加一组就得记得改三遍——漏一处就是门禁在报一个不存在的判据数。
+ * 名字必须与 `bad()` 第一个参数逐字相同，否则汇总里会列出一组永远不会红的判据。
+ */
+const GROUPS = ['清单', '骨架完整性', '文档集合', '透传名单', '桶名', '兜底页', '注册面', '封面预算'];
 const fails = [];
 /** 记一条失败：组名 + 条目 + 人话说明，末尾统一计数打印 */
 function bad(group, entry, msg) {
@@ -84,7 +92,7 @@ try {
   console.error(`✗ 离线层门禁：读清单失败——${e.message}`);
   process.exit(1);
 }
-const { BASE, BUCKET, BUILD, SHELL_URLS, DEFERRED_URLS, DOC_URLS, COVER_URLS, OFFLINE_URL, passthrough } = M;
+const { BASE, BUCKET, BUILD, SHELL_URLS, DEFERRED_URLS, DOC_URLS, COVER_URLS, LIMIT, OFFLINE_URL, passthrough } = M;
 
 /** 清单里去掉 baseurl 前缀，得到 _site 内的相对路径 */
 const relOf = (u) => (u.startsWith(BASE) ? u.slice(BASE.length) : u);
@@ -98,7 +106,7 @@ const exists = (u) => fs.existsSync(fileOf(u));
 if (LIST_ONLY) {
   console.log(`baseurl=${BASE}  BUILD=${BUILD}`);
   console.log(`骨架 ${SHELL_URLS.length} 条 · 豁免 ${DEFERRED_URLS.length} 条 · 文档 ${DOC_URLS.length} 条 · 封面 ${COVER_URLS.length} 条`);
-  console.log('判据：清单地址 / 骨架完整性 / 文档集合 / 透传名单 / 桶名 / 兜底页 / 注册面（共 7 组）');
+  console.log(`判据：${GROUPS.join(' / ')}（共 ${GROUPS.length} 组）`);
   process.exit(0);
 }
 
@@ -396,11 +404,49 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
   console.log(`  （体积：sw.js ${swGz}B gzip / editorial.min.js ${edGz}B gzip，上限 ${SW_MAX} 与 ${ED_MAX}）`);
 }
 
+// ── 8 封面预算余量：截断点必须还在预算之外 ──────────────────────────────────
+{
+  /**
+   * sw.js 的封面清单只带最新 COVER_CAP 张（清单里那条注释记着 56 这个数怎么来的）。
+   * 截断是拿预算换字节的：一旦哪天单张封面变小、或预算调高，"最新 56 张"就可能不够吃，
+   * 而站点不会有任何症状——只是离线时首页之外的封面悄悄不缓存了。
+   * 这一组按 sw.js 自己的 LIMIT 复算一遍贪心，要求**最后一条入桶的位次后面还剩着条目**，
+   * 也就是清单比预算能咽下的更长。余量归零就红，逼着那一刻来改 COVER_CAP。
+   */
+  /**
+   * 截断点后面至少留几条余量才算安全。牙齿不是"砍到某个固定条数"，而是**读这个数**再砍到
+   * 正好等于它——不然把这里改成 10、牙齿仍砍到 12，判据就悄悄被掏空而台账照旧全绿。
+   */
+  const COVER_MARGIN = 5;
+  const cap = Number((LIMIT || {}).coverBytes);
+  const each = Number((LIMIT || {}).coverEach);
+  if (!Number.isFinite(cap) || !Number.isFinite(each) || each <= 0) {
+    bad('封面预算', 'LIMIT', `读不到 coverBytes / coverEach（${(LIMIT || {}).coverBytes} / ${(LIMIT || {}).coverEach}）——这一组失去比对基准`);
+  } else {
+    let used = 0;
+    let admitted = 0;
+    let lastAt = 0;
+    COVER_URLS.forEach((u, i) => {
+      if (!exists(u)) return;
+      const size = fs.statSync(fileOf(u)).size;
+      if (size > each) return;
+      if (used + size > cap) return;
+      used += size; admitted += 1; lastAt = i + 1;
+    });
+    const margin = COVER_URLS.length - lastAt;
+    if (lastAt === 0) bad('封面预算', '贪心', '一张封面都塞不进预算——清单与 LIMIT 已经对不上');
+    else if (margin < COVER_MARGIN) bad('封面预算', '截断点',
+      `清单 ${COVER_URLS.length} 条，预算最多吃到第 ${lastAt} 条，只剩 ${margin} 条余量（<${COVER_MARGIN}）——`
+      + `封面清单已经截在预算边上，去把 sw.js 的 cover_cap 抬起来，别让离线封面悄悄缺席`);
+    else console.log(`  （封面预算：清单 ${COVER_URLS.length} 条 · 贪心入桶 ${admitted} 条 / ${used}B · 截断点外余量 ${margin} 条）`);
+  }
+}
+
 // ── 汇总 ─────────────────────────────────────────────────────────────────────
 const total = SHELL_URLS.length + DEFERRED_URLS.length + DOC_URLS.length + COVER_URLS.length;
 if (fails.length) {
   for (const f of fails) console.error(f);
-  console.error(`✗ 离线层门禁：${fails.length} 条红（核过 ${total} 条清单地址，7 组判据）`);
+  console.error(`✗ 离线层门禁：${fails.length} 条红（核过 ${total} 条清单地址，${GROUPS.length} 组判据）`);
   process.exit(1);
 }
-console.log(`✓ 离线层 ${total} 条清单地址 × 7 组判据全绿（骨架 ${SHELL_URLS.length} · 豁免 ${DEFERRED_URLS.length} · 文档 ${DOC_URLS.length} · 封面 ${COVER_URLS.length}）`);
+console.log(`✓ 离线层 ${total} 条清单地址 × ${GROUPS.length} 组判据全绿（骨架 ${SHELL_URLS.length} · 豁免 ${DEFERRED_URLS.length} · 文档 ${DOC_URLS.length} · 封面 ${COVER_URLS.length}）`);

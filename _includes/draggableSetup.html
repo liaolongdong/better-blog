@@ -19,7 +19,9 @@
 {%- assign catDrag = site.showCat and site.catDraggable -%}
 {%- assign btnDrag = site.bottomFixedBtn and site.btnDraggable -%}
 {% if catDrag or btnDrag %}
-<!-- 需要在移动端模式下才会生效 -->
+{%- comment -%}
+    需要在移动端模式下才会生效
+{%- endcomment -%}
 <script src="{{ site.baseurl }}/assets/js/realtime-draggable.min.js"></script>
 <script>
     {% if catDrag %}rtDraggable.init(document.querySelector('.mao_box'));{% endif %}

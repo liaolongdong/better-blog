@@ -1,11 +1,11 @@
-<!--
- 首页刊头的蒲公英飘籽层。
+{%- comment -%}
+    首页刊头的蒲公英飘籽层。
 
  画布只铺在刊头这一块（.g-masthead 已经是 relative + overflow:hidden），
  颜色由 dandelionAnimate.js 从 CSS 变量里读，所以明暗两套主题共用同一份标记。
  纯装饰：aria-hidden + pointer-events:none，不参与任何交互和文本层。
  开关是 _config.yml 的 dandelionAnimate。
--->
+{%- endcomment -%}
 <canvas class="dandelion-canvas" id="dandelionCanvas" aria-hidden="true"></canvas>
 
 <script src="{{ site.baseurl }}/assets/js/dandelionAnimate.min.js"></script>

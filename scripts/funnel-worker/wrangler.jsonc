@@ -1,0 +1,24 @@
+// Cloudflare Worker 配置：scripts/funnel-worker/worker.mjs 的部署描述。
+// 不放 account_id——`npx wrangler deploy` 会用登录态自己填，也不该把它写进公开仓库。
+// 绑定的 binding 名必须与 worker.mjs 里的 env.ANALYTICS 同名，check-seo.mjs 的「漏斗」那一组判这条。
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "better-blog-funnel",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "better_blog_funnel"
+    }
+  ],
+  // 关掉 Workers Logs：日志会留存每个请求的元数据，而这一族的承诺是「只留计数、不留轨迹」。
+  // 排查上线问题时临时改 true，看完立刻改回来。
+  "observability": {
+    "enabled": false
+  },
+  "limits": {
+    // 免费档单次调用 10ms CPU；这一发只做参数截断和一次非阻塞写，用不到更多
+    "cpu_ms": 10
+  }
+}

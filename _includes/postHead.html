@@ -1,19 +1,20 @@
-<!--
+{%- comment -%}
  * @Descripttion: 
  * @version: 
  * @Author: liaolongdong
  * @Date: 2019-04-12 15:16:33
  * @LastEditors: liaolongdong
  * @LastEditTime: 2020-04-23 15:18:17
- -->
+{%- endcomment -%}
 <head>
-    <!-- 位置勿动：编码声明必须在首 1024 字节之内（Lighthouse 的 charset 判据），
-         而下面紧接着的令牌引导、样式表与 favicon 会把字节预算吃光。
-         2026-10-21 实测：它原先由 seoMeta.html 带出来，落在第 2439 字节。 -->
+    {%- comment -%}
+    位置勿动：编码声明必须在首 1024 字节之内（Lighthouse 的 charset 判据），实测口径见 head.html 同处。
+    与 head.html 一样用 Liquid 注释：HTML 注释会原样进产物，而这些话是写给改模板的人看的。
+    {%- endcomment -%}
     <meta charset="UTF-8">
     <meta name="base-url" content="{{ site.baseurl }}">
     <script>window.SITE_BASEURL = "{{ site.baseurl }}";</script>
-    <!-- 位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头 -->
+    {%- comment -%}位置勿动：必须排在下方所有 <link rel=stylesheet> 之前，约束见 themeBootstrap.html 文件头{%- endcomment -%}
     {% include themeBootstrap.html %}
     <link rel="icon" href="{{ site.baseurl }}/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{ site.baseurl }}/favicon.svg" type="image/svg+xml">
@@ -39,16 +40,20 @@
 	{% if page.mathjax or site.mathjax %}
 	{% include mathjax.html %}
 	{% endif %}
-    <!-- 标题锚点由 editorial.js 的 initHeadingAnchors() 生成（§6）。
-         这里曾另有一套 jQuery + FontAwesome 的 anchor.html，两套选择器同时命中
-         #post-body 里的同一批标题，于是每个标题两枚锚点、读屏器念两遍；
-         删掉旧那套的同时，站内唯一消费 fa 类的代码也没了，
-         所以下面那行 bootcss 的 font-awesome 一并撤掉。 -->
+    {%- comment -%}
+    标题锚点由 editorial.js 的 initHeadingAnchors() 生成（§6）。
+    这里曾另有一套 jQuery + FontAwesome 的 anchor.html，两套选择器同时命中
+    #post-body 里的同一批标题，于是每个标题两枚锚点、读屏器念两遍；
+    删掉旧那套的同时，站内唯一消费 fa 类的代码也没了，
+    所以下面那行 bootcss 的 font-awesome 一并撤掉。
+    {%- endcomment -%}
     {% if site.waline.enable and jekyll.environment == 'production' %}
-    <!-- 与 _includes/waline.html 里那行 import 同一个版本、同一个域：JS 钉在 3.15.2、
-         CSS 也必须钉在 3.15.2，否则上游一发新版，样式先跑一步而脚本还停在旧版。
-         原地址是 unpkg.com + 浮动的 @v3；两个域名各下一份 dist/waline.css 比对，
-         均 22,609B、sha256 33b834ad…17a7 完全一致，换源换的是解析确定性，不是样式。 -->
+    {%- comment -%}
+    与 _includes/waline.html 里那行 import 同一个版本、同一个域：JS 钉在 3.15.2、
+    CSS 也必须钉在 3.15.2，否则上游一发新版，样式先跑一步而脚本还停在旧版。
+    原地址是 unpkg.com + 浮动的 @v3；两个域名各下一份 dist/waline.css 比对，
+    均 22,609B、sha256 33b834ad…17a7 完全一致，换源换的是解析确定性，不是样式。
+    {%- endcomment -%}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@waline/client@3.15.2/dist/waline.css" />
     {% endif %}
     {% include cloudflareAnalytics.html %}

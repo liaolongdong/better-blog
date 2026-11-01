@@ -1,4 +1,6 @@
-<!-- 通用meta以及seo相关meta start -->
+{%- comment -%}
+    通用meta以及seo相关meta start
+{%- endcomment -%}
 {%- comment -%}编码声明已经挪到 head.html / postHead.html 的 <head> 第一位：这一段在 head 里排得靠后，charset 落在首 1024 字节之外。{%- endcomment -%}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="baidu-site-verification" content="KepNDjv9qh" />
@@ -111,8 +113,12 @@ site.url + baseurl，得到唯一正确的规范地址。缺了它，?from=feed�
 <link rel="canonical" href="{{ page.url | absolute_url }}">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 {%- endif -%}
-<!-- 图片加载出现403错误（该设置会禁用掉百度统计功能） -->
-<!-- <meta name="referrer" content="no-referrer" /> -->
+{%- comment -%}
+    图片加载出现403错误（该设置会禁用掉百度统计功能）
+{%- endcomment -%}
+{%- comment -%}
+    <meta name="referrer" content="no-referrer" />
+{%- endcomment -%}
 {%- comment -%}
 分享卡片图的三级取值链：front matter cover > 本篇的生成卡片 > 站点兜底图。
 
@@ -138,7 +144,9 @@ img.alicdn.com 这类），2026-09-22 逐个 curl 复测：timgsa 域名已停�
   {%- assign og_cover = og_card -%}
 {%- endif -%}
 {%- assign og_image = og_cover | default: site.social.og_default_image | absolute_url -%}
-<!-- Open Graph -->
+{%- comment -%}
+    Open Graph
+{%- endcomment -%}
 <meta property="og:title" content="{{ page_title | strip | xml_escape }}">
 <meta property="og:type" content="{% if page.layout == 'post' %}article{% else %}website{% endif %}">
 {%- comment -%}
@@ -181,7 +189,9 @@ jsonLd.html 直接读它，不在两处各自解析一遍 front matter。
 <meta property="article:tag" content="{{ tag | xml_escape }}">
 {%- endfor -%}
 {%- endif %}
-<!-- Twitter / X 卡片：没有这三行，X 只抓 og:* 里的第一张图且按小卡渲染 -->
+{%- comment -%}
+    Twitter / X 卡片：没有这三行，X 只抓 og:* 里的第一张图且按小卡渲染
+{%- endcomment -%}
 <meta name="twitter:card" content="{{ site.social.twitter_card | default: 'summary_large_image' }}">
 <meta name="twitter:title" content="{{ page_title | strip | xml_escape }}">
 <meta name="twitter:description" content="{{ page_desc | truncate: 190, '' | xml_escape }}">
@@ -191,4 +201,6 @@ jsonLd.html 直接读它，不在两处各自解析一遍 front matter。
 {%- endif %}
 <link rel="alternate" type="application/atom+xml" title="{{ site.title }}" href="{{ '/feed.xml' | absolute_url }}">
 {% include jsonLd.html %}
-<!-- 通用meta以及seo meta end -->
+{%- comment -%}
+    通用meta以及seo meta end
+{%- endcomment -%}

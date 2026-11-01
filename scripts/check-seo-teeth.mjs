@@ -2257,6 +2257,112 @@ const cases = [
     expect: 'potentialAction 出现在 2 份文档',
     mut: () => S.siteAfter(T.page2, '</body>', ldBlocks(p('index.html'), '"@type": "WebSite"')[0][0], '翻页视图多出 SearchAction'),
   },
+
+  // ── 漏斗埋点面（P0-1：商店 CTA 的曝光→点击计数）──
+  {
+    name: 'hub 卡那枚商店 <a> 的 data-funnel 被删（页面照常显示，这一位从此黑屏）',
+    group: '漏斗',
+    expect: '没有 data-funnel',
+    mut: () => S.srcSub('tools.html', ' data-funnel="store:hub:{{ tool.slug }}"', '', 'hub 商店锚点的 data-funnel'),
+  },
+  {
+    name: '投放位写成 hubb（维度值从此多出一个从没听过的档）',
+    group: '漏斗',
+    expect: '不在钉死的三种投放位里',
+    mut: () => S.siteSub('tools.html', 'store:hub:transfer-any-file', 'store:hubb:transfer-any-file', '投放位拼错'),
+  },
+  {
+    name: 'slug 多打一个字母（面板上会多出一个对不上任何产品的行）',
+    group: '漏斗',
+    expect: '_data/tools.yml 里没有这个 slug',
+    mut: () => S.siteSub('tools.html', 'demo:hub:cross-origin-proxy', 'demo:hub:cross-origin-proxyy', 'slug 拼错'),
+  },
+  {
+    name: 'data-funnel 塌成两段（少一段不报错，只是那一段永远是空）',
+    group: '漏斗',
+    expect: '不是 kind:placement:slug 三段',
+    mut: () => S.siteSub('tools.html', 'repo:hub:account-password-helper', 'repo:hub', '第三段整块丢失'),
+  },
+  {
+    name: '计数件标签从 /tools.html 产物里删掉（锚点在、没人记）',
+    group: '漏斗',
+    expect: '按钮被点了也没人知道',
+    mut: () => S.siteCutRe('tools.html', /<script defer src="[^"]*\/assets\/js\/funnel\.min\.js"[^>]*><\/script>\n?/, 'funnel.min.js 引用'),
+  },
+  {
+    name: '这一页的 data-funnel 全删光（计数件白载，分母还照着这一页算）',
+    group: '漏斗',
+    expect: '却没有任何 data-funnel 锚点',
+    mut: () => siteEdit('tools.html', (s) => subAll(s, / data-funnel="[^"]*"/g, '', 'tools.html 的锚点全删')),
+  },
+  {
+    name: 'endpoint 填成 http（https 页面里被浏览器拦掉，等于这条漏斗从来没有数据）',
+    group: '漏斗',
+    expect: 'funnel.endpoint 不是 https',
+    mut: () => S.srcSubLine('_config.yml', /^  endpoint: ''/m, "  endpoint: 'http://better-blog-funnel.demo.workers.dev/e'", 'endpoint 协议'),
+  },
+  {
+    name: 'endpoint 指向第三方统计域（与「无第三方域、无 Cookie」的承诺相反）',
+    group: '漏斗',
+    expect: '指向第三方统计域',
+    mut: () => S.srcSubLine('_config.yml', /^  endpoint: ''/m, "  endpoint: 'https://www.google-analytics.com/gcollect'", 'endpoint 换成别家'),
+  },
+  {
+    name: 'wrangler 里的 binding 改名而源码还认 env.ANALYTICS（写库落到 undefined，响应仍是 200/GIF）',
+    group: '漏斗',
+    expect: '配置里没有同名 binding',
+    mut: () => S.srcSub('scripts/funnel-worker/wrangler.jsonc', '"binding": "ANALYTICS"', '"binding": "FUNNEL_AE"', 'binding 名'),
+  },
+  {
+    name: 'worker.mjs 改成读 User-Agent（把「只留计数」的承诺悄悄改掉）',
+    group: '漏斗',
+    expect: '记 User-Agent',
+    mut: () => S.srcSub('scripts/funnel-worker/worker.mjs', 'const point = {', "const ua = request.headers.get('user-agent');\n    const point = {", '新增读 UA'),
+  },
+  {
+    name: '埋点件的 doNotTrack / GPC 那一判被删',
+    group: '漏斗',
+    expect: 'DNT / globalPrivacyControl 那一判被拆开了',
+    mut: () => S.srcCutLine('dev/js/funnel.js', /^[ \t]*var dnt = navigator\.doNotTrack \|\| window\.doNotTrack \|\| '';$/m, 'DNT 那一判'),
+  },
+  {
+    name: '前端把 ?k= 改名成 ?kk=（Worker 读的那一列永远是 \'-\'）',
+    group: '漏斗',
+    expect: "worker.mjs 读 k 而埋点件从不发它",
+    mut: () => S.srcSub('dev/js/funnel.js', "'&k='", "'&kk='", '参数名漂开：Worker 那头读不到'),
+  },
+  {
+    name: '前端多发一个 ?z= 而 Worker 不接（那一维丢在 URL 里，面板上永远查不到）',
+    group: '漏斗',
+    expect: '埋点件发 ?z= 而 worker.mjs 不读它',
+    mut: () => S.srcSub('dev/js/funnel.js', "'&v='", "'&z=' + encodeURIComponent('probe') + '&v='", '参数名漂开：前端那头多出来'),
+  },
+
+  // ── 站长验证 meta（P0-2：归属凭据要真的到达抓取器）──
+  {
+    name: '产物首页的 google-site-verification 被删（配置与模板都还在，抓取器拿不到）',
+    group: '验证 meta',
+    expect: '源里声明了 google-site-verification，产物 head 里没有',
+    mut: () => S.siteCutRe('index.html', /<meta name="google-site-verification"[^>]*>\n?/, 'google 那枚验证 meta'),
+  },
+  {
+    name: 'Bing 验证码没填进 _config.yml，却手工往首页塞了一枚',
+    group: '验证 meta',
+    expect: '产物 head 里有 msvalidate.01，但 _includes/seoMeta.html 没声明它',
+    mut: () => S.siteBefore('index.html', '</head>', '<meta name="msvalidate.01" content="deadbeefdeadbeef">\n    ', '多塞一枚 Bing 码'),
+  },
+  {
+    name: '源里 content 写成空串（每次抓取多一条没有信息量的标签）',
+    group: '验证 meta',
+    expect: '源里 content 是空串',
+    mut: () => S.srcSubLine('_includes/seoMeta.html', /<meta name="baidu-site-verification"[^>]*>/, '<meta name="baidu-site-verification" content="" />', '百度那枚改成空串'),
+  },
+  {
+    name: 'Bing 码填进配置了但产物出不来（模板那一支 if 坏掉的形状）',
+    group: '验证 meta',
+    expect: '源里声明了 msvalidate.01，产物 head 里没有',
+    mut: () => S.srcSubLine('_config.yml', /^bing_site_verification: ''$/m, "bing_site_verification: '0123456789abcdef0123456789abcdef'"),
+  },
 ];
 
 function editManifest(mutate, where) {

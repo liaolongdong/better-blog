@@ -209,6 +209,20 @@ cloudflare_analytics:
   enable: true # 填入 token 后改为 true
   token: 'b53b200d7bfc40db83d9c546d78d730e'
 
+# 转化漏斗埋点：商店 CTA 的「页面打开 → 按钮进入视野 → 点击」三段计数。
+# Cloudflare Web Analytics 只有页面级 PV，且官方 FAQ 写明不支持自报事件端点
+# （"all requests should originate from our beacon JavaScript"），所以事件计数走本站
+# 自己的 Worker + Workers Analytics Engine：无 Cookie、无访客 ID、无第三方域。
+# endpoint 留空 = 埋点件照旧加载、读到空地址就整件退出（不发请求、控制台零字）。
+# 彻底不发那个标签要把 enable 改成 false——两者的差别写在 funnelScript.html 文件头。
+# 源码与部署步骤：scripts/funnel-worker/README.md；判据：scripts/check-seo.mjs「漏斗埋点面」那一组。
+funnel:
+  enable: true
+  # 形如 https://<worker>.<账号子域>.workers.dev/e ；末尾不要带查询串，脚本自己拼 ?e=&p=&s=&u=&v=
+  endpoint: ''
+  # 事件口径版本：改了维度语义就 +1，面板上按它分段，避免把新旧口径连成一条假趋势
+  schema: '1'
+
 # 是否使用畅言评论系统（使用畅言必须对网站进行备案，否则只能试用15天）
 changyan:
   enable: false
@@ -263,6 +277,17 @@ exclude:
   # Encoding::UndefinedConversionError 让整个构建死掉（jekyll-4.3.4/lib/jekyll/url.rb:161），
   # 而量具产出的截图正是中文命名。不排除 = 任何一次量具跑完，下一次构建就红。
   - spark-output
+  # 本地预览的落点（.gitignore 里也有）：`.preview/better-blog` 是指向 `_site` 的符号链接。
+  # listen 的 macOS 适配器按「物理目录」去重，同一份 `_site` 经两条路径被登记时它不报错，
+  # 而是每次启动刷一行「directory is already being watched」。2026-10-28 实测：不排除时
+  # `jekyll serve` 单这一族路径贡献 14 行噪音。
+  - .preview
+  # 会话证据目录（`_drafts/evidence/job-*/`，实测 1.1GB / 97 个 job）：里面既有
+  # `preview/better-blog -> ../site` 这种符号链接，也有整包下载的 Chrome for Testing.app
+  # （它的 `Versions/Current` 是指向同版本目录的符号链接，同一份框架因此有两条路径）。
+  # 这些是量具产出，不是草稿：`_drafts` 的草稿只认目录根下的 `*.md`，而 Jekyll 读草稿
+  # 要 `--drafts` 才生效，本仓 dev 脚本不带那个开关——排掉 evidence 不改变任何渲染结果。
+  - _drafts/evidence
   - dist
   # 本地构建/生成脚本（scripts/og-images.mjs 等）。不带 front matter 的文件会被
   # 原样复制进 _site，线上因此多出一个 /better-blog/scripts/ 目录——它是仓库工具，

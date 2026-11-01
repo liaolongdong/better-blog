@@ -253,7 +253,9 @@ about.min.css 里不必再写一套。字数走 char_count（_plugins/add_baseur
             {%- endcomment -%}
             <p class="tl-end">{{ years.first.name }} 年起，共 {{ site.posts.size }} 篇写在这里，再往后是现在。</p>
         </div>
-        </section><!-- /.tl-block（写在这里的每一年） -->
+        </section>{%- comment -%}
+    /.tl-block（写在这里的每一年）
+{%- endcomment -%}
     </div>
 </main>
 {%- comment -%}

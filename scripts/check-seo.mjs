@@ -133,6 +133,7 @@ function readSources() {
     out = {
       "config" => yload(File.join(root, "_config.yml")),
       "onlineTools" => yload(File.join(root, "_data/onlineTools.yml")),
+      "tools" => yload(File.join(root, "_data/tools.yml")),
       "manifestIcons" => yload(File.join(root, "_data/manifestIcons.yml")),
       "series" => yload(File.join(root, "_data/series.yml")),
       "modified" => {},
@@ -169,10 +170,11 @@ function readSources() {
 }
 
 const SOURCES = readSources();
-/** 五本 yml 里任何一本读不出来都没法继续：后面各组判据全部以它们为口径 */
+/** 六本 yml 里任何一本读不出来都没法继续：后面各组判据全部以它们为口径 */
 for (const [key, file] of [
   ['config', '_config.yml'],
   ['onlineTools', '_data/onlineTools.yml'],
+  ['tools', '_data/tools.yml'],
   ['manifestIcons', '_data/manifestIcons.yml'],
   ['series', '_data/series.yml'],
   ['modified', '_data/modified.yml'],
@@ -185,6 +187,7 @@ for (const [key, file] of [
 }
 const config = SOURCES.config || {};
 const toolsData = SOURCES.onlineTools;
+const extData = SOURCES.tools || [];
 const manifestData = SOURCES.manifestIcons;
 const modifiedData = SOURCES.modified || {};
 const seriesData = SOURCES.series || [];
@@ -1653,9 +1656,241 @@ if (postPages.length) {
   }
 }
 
+// ── 组 16：漏斗埋点面（商店 CTA 的曝光→点击计数接线）────────────────────────
+{
+  /**
+   * 这一族防的是同一种失效：**某个投放位没接线**。少一枚 data-funnel，页面照常显示、
+   * 按钮照常能点、构建照常绿，而那一格的曝光与点击永远不进漏斗——事后从数字上看不出
+   * 「这一位没人记」和「这一位没人点」的区别，那正是这一组本来要回答的问题。
+   * 所以判据分两层：源侧逐枚核锚点，产物侧核「有锚点的页面一定加载了计数件」这条双向一致性。
+   */
+  const g = '漏斗';
+  /** 同一页里同一枚 slug 写错会命中很多锚点，逐枚报同一句话只是把真问题埋进噪音里 */
+  const reported = new Set();
+  const badOnce = (group, entry, msg) => {
+    const k = `${entry}|${msg}`;
+    if (reported.has(k)) return;
+    reported.add(k);
+    bad(group, entry, msg);
+  };
+  /** 隐私与「有没有真接线」这几判必须跑在剥掉注释的正文上：件头与 README 里写着「不读 Cookie / 不读 IP」，照着整份文件判会一上来就红 */
+  const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const KINDS = new Set(['store', 'demo', 'repo', 'guide', 'review']);
+  const PLACES = new Set(['hub', 'guide', 'article']);
+  const SCRIPT_REL = 'assets/js/funnel.min.js';
+  const CTA_SOURCES = ['tools.html', '_includes/extensionPage.html', '_includes/productCard.html', '_includes/toolGuide.html'];
+  const WORKER_DIR = 'scripts/funnel-worker';
+  /** 本站的隐私承诺里写着「不发第三方域」，endpoint 填了别家的统计域名就是当着承诺的面改口径 */
+  const VENDOR_HOSTS = ['google-analytics.com', 'googletagmanager.com', 'doubleclick.net', 'hotjar.com', 'clarity.ms', 'mc.yandex.ru', 'statcounter.com', 'mixpanel.com', 'segment.io', 'amplitude.com'];
+
+  const ext = Array.isArray(extData) ? extData : [];
+  const slugs = new Set(ext.map((t) => String(t && t.slug || '')).filter(Boolean));
+  if (!ext.length) badOnce(g, '_data/tools.yml', '产品清单读不出任何条目——这一组的 slug 口径全空，data-funnel 的第三段无从可判');
+
+  // F1 源侧：四条落点里每一枚指向商店的 <a> 必须带 data-funnel，且落点不能整块消失
+  for (const rel of CTA_SOURCES) {
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) { badOnce(g, rel, 'CTA 落点源读不到，这一格判不到东西'); continue; }
+    const src = fs.readFileSync(abs, 'utf8');
+    const storeTags = [...src.matchAll(/<a\b[^>]*href="[^"]*store_utm[^"]*"[^>]*>/g)].map((m) => m[0]);
+    if (!storeTags.length) badOnce(g, rel, '源里一枚 href="{{ store_utm }}" 的 <a> 都没有——商店 CTA 被搬走或改名了，这一族判据的靶子没了');
+    for (const tag of storeTags) {
+      if (!/\bdata-funnel=/.test(tag)) {
+        badOnce(g, rel, `这枚商店 <a> 没有 data-funnel：${tag.replace(/\s+/g, ' ').slice(0, 76)}…——它的曝光与点击永远不进漏斗，而页面看起来完全正常`);
+      }
+    }
+  }
+
+  // F2 形状 + 采集：data-funnel 必须是 kind:placement:slug 三段，三段各自在钉死的集合里
+  const pagesWithAnchors = new Set();
+  const pagesWithScript = new Set();
+  const attrRe = /\bdata-funnel="([^"]*)"/g;
+  for (const rel of htmlFiles) {
+    const txt = readSite(rel);
+    attrRe.lastIndex = 0;
+    let m;
+    while ((m = attrRe.exec(txt))) {
+      pagesWithAnchors.add(rel);
+      const parts = String(m[1]).split(':');
+      if (parts.length !== 3) { badOnce(g, rel, `data-funnel="${m[1]}" 不是 kind:placement:slug 三段（面板上会多出一个从没听过的维度值，计数被拆开而不报错）`); continue; }
+      const [kind, place, slug] = parts;
+      if (!KINDS.has(kind)) badOnce(g, rel, `data-funnel 的第一段是「${kind}」，不在钉死的五种里（${[...KINDS].join('/')}）`);
+      if (!PLACES.has(place)) badOnce(g, rel, `data-funnel 的第二段是「${place}」，不在钉死的三种投放位里（${[...PLACES].join('/')}）`);
+      if (!slugs.has(slug)) badOnce(g, rel, `data-funnel 的第三段是「${slug}」，_data/tools.yml 里没有这个 slug`);
+    }
+    if (txt.includes(SCRIPT_REL)) pagesWithScript.add(rel);
+  }
+  if (!pagesWithAnchors.size) badOnce(g, '全站', '产物里一枚 data-funnel 都没有——埋点面被清空，这一组的产物侧判据正在空转');
+
+  // F3 双向一致性。开发构建（没带 JEKYLL_ENV=production）里模板本来就不发这一件，
+  //     所以那一边判的是反方向：一件都不许出现——两头都有活干，没有永远绿的那一支。
+  const homeTxt = hasSite('index.html') ? readSite('index.html') : '';
+  const isProdBuild = /cloudflareinsights\.com\/beacon\.min\.js/.test(homeTxt);
+  if (isProdBuild) {
+    for (const rel of pagesWithAnchors) {
+      if (!pagesWithScript.has(rel)) badOnce(g, rel, '这一页带 data-funnel 锚点却不加载 funnel.min.js：按钮被点了也没人知道');
+    }
+    for (const rel of pagesWithScript) {
+      if (!pagesWithAnchors.has(rel)) badOnce(g, rel, `这一页加载了 ${SCRIPT_REL} 却没有任何 data-funnel 锚点：白载一件，还把这一页算进了分母`);
+    }
+  } else if (pagesWithScript.size) {
+    badOnce(g, [...pagesWithScript][0], `非生产构建里出现了 ${SCRIPT_REL} 引用：这一族应当排在 jekyll.environment == 'production' 之后才发（与 cloudflare beacon 同一条理由：本地访问不该计入统计）`);
+  }
+
+  // F4 配置形状（源侧）
+  const fn = config.funnel || {};
+  if (fn.enable === undefined) badOnce(g, '_config.yml', '没有 funnel.enable：这一族的开关没有显式默认值，将来改 _config.yml 的人不知道自己刚把它关掉');
+  const ep = fn.endpoint === null || fn.endpoint === undefined ? '' : String(fn.endpoint).trim();
+  if (ep) {
+    if (!/^https:\/\//.test(ep)) {
+      badOnce(g, '_config.yml', `funnel.endpoint 不是 https：${ep}——https 页面发 http 请求是混合内容，浏览器直接拦掉，这条漏斗从来没有数据（dev/libJs/baiduPush.js 那条 http 注入就是同一形状）`);
+    } else if (/[?#]/.test(ep)) {
+      badOnce(g, '_config.yml', 'funnel.endpoint 不能带查询串或锚点：埋点件是在地址后面拼 ?e=&p=&s=&u=&v= 的，两边都会断');
+    } else {
+      let host = '';
+      try { host = new URL(ep).host; } catch { badOnce(g, '_config.yml', `funnel.endpoint 读不成一个绝对地址：${ep}`); }
+      if (host && VENDOR_HOSTS.some((v) => host === v || host.endsWith(`.${v}`))) {
+        badOnce(g, '_config.yml', `funnel.endpoint 指向第三方统计域 ${host}：_config.yml 的注释与件头都写着「无第三方域、无 Cookie」，改口径要连那两处一起改`);
+      }
+    }
+  }
+
+  // F5 接收端在场 + 它的隐私承诺（源侧）：站点接线齐了，接收端不能只存在于注释里
+  for (const f of ['worker.mjs', 'README.md']) {
+    if (!fs.existsSync(path.join(ROOT, WORKER_DIR, f))) badOnce(g, `${WORKER_DIR}/${f}`, '缺失——部署这一步没人能复现，endpoint 那一行填什么也就没人知道');
+  }
+  const workerPath = path.join(ROOT, WORKER_DIR, 'worker.mjs');
+  if (fs.existsSync(workerPath)) {
+    const w = stripJs(fs.readFileSync(workerPath, 'utf8'));
+    if (!/writeDataPoint/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 里没有 writeDataPoint：这条链只是把计数接到空中，面板上不会有任何一行');
+    if (/headers\.get\(\s*['"]cookie['"]\s*\)/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读 Cookie 请求头，与「无 Cookie」的承诺相反');
+    if (/headers\.get\(\s*['"]user-agent['"]\s*\)/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 记 User-Agent：那是一份可以指纹化访客的设备描述，承诺里没有它');
+    if (/cf-connecting-ip|request\.cf\./.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读访客 IP 或地理位置：承诺写的是「拿到的是计数而不是个体轨迹」');
+
+    // 绑定名两file一致性：jsonc 里改了 binding 而源码还认 env.ANALYTICS，那一发写库就是 undefined，
+    // 而 Worker 照常返回 200/GIF——前端看不到任何异常，面板里永远是零行。
+    const wcfgPath = path.join(ROOT, WORKER_DIR, 'wrangler.jsonc');
+    if (!fs.existsSync(wcfgPath)) {
+      badOnce(g, `${WORKER_DIR}/wrangler.jsonc`, '缺部署描述：binding 没有落处，worker.mjs 里的 env 取值无从供给');
+    } else {
+      const wcfg = fs.readFileSync(wcfgPath, 'utf8');
+      const used = [...w.matchAll(/\benv\.([A-Z][A-Z0-9_]*)\b/g)].map((m) => m[1]);
+      const bound = [...wcfg.matchAll(/"binding"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
+      if (!used.length) badOnce(g, 'funnel-worker', 'worker.mjs 里读不出任何 env.<BINDING> 大写名，绑定这一判没有靶子');
+      for (const name of used) {
+        if (!bound.includes(name)) badOnce(g, `${WORKER_DIR}/wrangler.jsonc`, `源码用 env.${name} 写数据点，配置里没有同名 binding：那一发写到的是 undefined，而响应仍是 200/GIF`);
+      }
+      if (!/analytics_engine_datasets/.test(wcfg)) badOnce(g, `${WORKER_DIR}/wrangler.jsonc`, '没有 analytics_engine_datasets 这一段：writeDataPoint 无处可去');
+      if (/"observability"\s*:\s*\{[^}]*"enabled"\s*:\s*true/.test(wcfg)) badOnce(g, `${WORKER_DIR}/wrangler.jsonc`, '开了 Workers Logs：日志留存每个请求的元数据，与这份 README 写的「只留计数、不留轨迹」相反');
+    }
+  }
+
+  // F6 埋点件本体的三件事：接得到配置、尊重 DNT/GPC、不往浏览器里存任何东西（源侧）
+  const funnelSrcPath = path.join(ROOT, 'dev/js/funnel.js');
+  if (!fs.existsSync(funnelSrcPath)) {
+    badOnce(g, 'dev/js/funnel.js', '入口件不在：Vite 因此不会产出 funnel.min.js，而模板还在引它');
+  } else {
+    const js = stripJs(fs.readFileSync(funnelSrcPath, 'utf8'));
+    if (!/data-funnel-endpoint/.test(js)) badOnce(g, 'dev/js/funnel.js', '不再读 data-funnel-endpoint：标签上的地址没人接，endpoint 改了也不生效');
+    // 两个都得在：只判「doNotTrack 或 globalPrivacyControl 出现」的话，删掉其中一个仍然绿，
+    // 牙齿台账里那一刀就是这么被证伪的（2026-10-28）。
+    if (!/doNotTrack/.test(js) || !/globalPrivacyControl/.test(js)) badOnce(g, 'dev/js/funnel.js', 'DNT / globalPrivacyControl 那一判被拆开了：件头与 _config.yml 都承诺两个都尊重');
+    if (/localStorage|sessionStorage|document\.cookie/.test(js)) badOnce(g, 'dev/js/funnel.js', '埋点件写本地存储或 Cookie：这一族承诺「无访客 ID」，写了就变成可以连回同一个人的东西');
+
+    /**
+     * 参数契约：前端拼出去的每一个 query 参数，Worker 必须真的读；Worker 读的每一个，
+     * 前端必须真的发。两端各写一半、中间那根线断掉时没有任何症状——2026-10-28 真浏览器
+     * 实测到的正是这一形：`data-funnel` 的三段只发出两段，同一投放位上「商店安装」与
+     * 「开源仓库」的曝光在面板里并成同一行，四枚 impression 参数逐字相同。
+     */
+    const workerSrc = fs.existsSync(workerPath) ? stripJs(fs.readFileSync(workerPath, 'utf8')) : '';
+    if (workerSrc) {
+      const sent = new Set([...js.matchAll(/[?&]([a-z])='/g)].map((m) => m[1]));
+      const read = new Set([...workerSrc.matchAll(/q\.get\('([a-z])'\)/g)].map((m) => m[1]));
+      if (sent.size < 5 || read.size < 5) badOnce(g, '参数契约', `读数可疑（前端发 ${sent.size} 个参数、Worker 读 ${read.size} 个），这一判的提取式该跟着改了`);
+      for (const k of sent) if (!read.has(k)) badOnce(g, '参数契约', `埋点件发 ?${k}= 而 worker.mjs 不读它：这一维丢在 URL 里，面板上永远查不到`);
+      for (const k of read) if (!sent.has(k)) badOnce(g, '参数契约', `worker.mjs 读 ${k} 而埋点件从不发它：数据点里那一列永远是 '-'`);
+    }
+  }
+}
+
+// ── 组 17：站长验证 meta（搜索引擎侧的归属凭据）─────────────────────────────
+{
+  /**
+   * 这一族防的失效形状：验证码「填在配置里」或「写在模板里」，但没到抓取器手上。
+   * 2026-10-21 抓到的 charset 那一条是同一类——19 道门禁全部判结构与一致性，没有一判看
+   * head 的字节序，所以它在门禁全绿时照样存在。归属凭据漏出去更安静：页面照常显示，
+   * 只有站长面板一直是「未验证」，而没人会天天开面板。
+   *
+   * 判法两头对账：源侧声明的每一枚（含从 _config.yml 取值的 msvalidate.01）必须在产物
+   * head 里出现且同值；产物里出现的每一枚也必须在源侧声明过。配置为空不算红——那是
+   * 「还没去领」而不是「领了没生效」，但必须打一行弱读数，别让空串躺在配置里没人看见。
+   */
+  const g = '验证 meta';
+  const reportedMeta = new Set();
+  const badOnce = (group, entry, msg) => {
+    const k = `${entry}|${msg}`;
+    if (reportedMeta.has(k)) return;
+    reportedMeta.add(k);
+    bad(group, entry, msg);
+  };
+  const META_RE = /<meta\s+name="(msvalidate\.01|[a-z0-9_-]*(?:site[-_])?verification)"\s+content="([^"]*)"\s*\/?>/gi;
+  const CFG_KEY = { 'msvalidate.01': 'bing_site_verification' };
+  const PLACEHOLDER = /^(x{3,}|todo|your[-_]?|changeme|<.*>|\{\{\s*\}\})$/i;
+
+  const srcMetaPath = path.join(ROOT, '_includes', 'seoMeta.html');
+  if (!fs.existsSync(srcMetaPath)) {
+    badOnce(g, '_includes/seoMeta.html', '读不到：验证 meta 的落点搬走了，这一组判据没有靶子');
+  } else {
+    const srcTxt = fs.readFileSync(srcMetaPath, 'utf8');
+    const declared = [];
+    for (const m of srcTxt.matchAll(META_RE)) declared.push({ name: m[1], raw: m[2] });
+    if (!declared.length) badOnce(g, '_includes/seoMeta.html', '源里一枚站长验证 meta 都没有——是被整块删掉了，这一组正在空转');
+
+    for (const d of declared) {
+      // Liquid 取值的（Bing 那一枚）按 _config.yml 现值判；写死字面量的直接判字面量
+      const isLiquid = /\{\{/.test(d.raw);
+      const cfgName = CFG_KEY[d.name];
+      const cfgRaw = cfgName ? config[cfgName] : undefined;
+      const cfgVal = cfgRaw === undefined || cfgRaw === null ? '' : String(cfgRaw).trim();
+      if (isLiquid) {
+        if (!cfgName) {
+          badOnce(g, d.name, `content 由 Liquid 取值，但映射表里没有这个 name——新增一枚这样写的 meta，要先在 CFG_KEY 里认它`);
+        } else if (cfgVal) {
+          if (PLACEHOLDER.test(cfgVal)) badOnce(g, '_config.yml', `${cfgName}=${JSON.stringify(cfgVal)} 看着像占位符，不是真验证码`);
+          d.expect = cfgVal;
+        } else {
+          console.log(`  · 弱读数：_config.yml 的 ${cfgName} 是空串——这一家的站长面板（Copilot 的索引源）没有归属，领到码填进来即可，模板不用改`);
+        }
+      } else {
+        if (!d.raw.trim()) badOnce(g, d.name, '源里 content 是空串：抓到一个没有信息量的 meta，等于没验证');
+        else if (PLACEHOLDER.test(d.raw.trim())) badOnce(g, d.name, `content=${JSON.stringify(d.raw)} 看着像占位符，不是真验证码`);
+        else d.expect = d.raw.trim();
+      }
+    }
+
+    const want = declared.filter((d) => d.expect);
+    const probes = ['index.html'];
+    if (typeof posts !== 'undefined' && posts.length) probes.push(posts[0].rel);
+    for (const rel of probes) {
+      if (!hasSite(rel)) { badOnce(g, rel, '产物读不到，这一组判不了 head'); continue; }
+      const head = headOf(readSite(rel));
+      const seen = new Map();
+      for (const m of head.matchAll(META_RE)) seen.set(m[1], m[2].trim());
+      for (const d of want) {
+        if (!seen.has(d.name)) badOnce(g, rel, `源里声明了 ${d.name}，产物 head 里没有——验证码没上线，那一家站长面板拿不到归属`);
+        else if (seen.get(d.name) !== d.expect) badOnce(g, rel, `${d.name} 产物里是 ${JSON.stringify(seen.get(d.name))}，与源侧的 ${JSON.stringify(d.expect)} 不同值`);
+      }
+      for (const name of seen.keys()) {
+        if (!want.some((d) => d.name === name)) badOnce(g, rel, `产物 head 里有 ${name}，但 _includes/seoMeta.html 没声明它——别处又写了一份，两边走不到同一条链上`);
+      }
+    }
+  }
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
-const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链', '目录', 'searchAction'];
+const GROUPS = ['keywords', 'modified', 'JSON-LD', '分页门', 'ItemList', 'manifest', '接线', 'head', '相关工具', '换源', '描述', '词表', '内链', '目录', 'searchAction', '漏斗', '验证 meta'];
 console.log(
   `SEO 门禁：产物 ${path.relative(ROOT, SITE)}/（${htmlFiles.length} 页 / ${postRelSet.size} 篇文章页 / ${inScope.size} 页带安装面），` +
     `ready 工具 ${readyBySlug.size} 条，修订台账 ${Object.keys(modifiedData).length} 条，换源台账 ${Object.keys(JSON.parse(readSrc('scripts/image-variants.json')).variants || {}).length} 条` +

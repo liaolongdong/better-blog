@@ -34,11 +34,11 @@
             {%- endfor %}
         </ul>
         <div class="tool-cta">
-            <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener">Chrome 应用商店安装</a>
+            <a class="cta cta-primary" href="{{ store_utm }}" target="_blank" rel="noopener" data-funnel="store:guide:{{ t.slug }}">Chrome 应用商店安装</a>
             {%- if t.links.demo != '' %}
-            <a class="cta" href="{{ t.links.demo }}" target="_blank" rel="noopener">在线演示</a>
+            <a class="cta" href="{{ t.links.demo }}" target="_blank" rel="noopener" data-funnel="demo:guide:{{ t.slug }}">在线演示</a>
             {%- endif %}
-            <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener">开源仓库</a>
+            <a class="cta" href="{{ t.links.repo }}" target="_blank" rel="noopener" data-funnel="repo:guide:{{ t.slug }}">开源仓库</a>
         </div>
     </div>
 </header>

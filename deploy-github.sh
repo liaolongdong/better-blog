@@ -72,6 +72,23 @@ if [ -n "$dotenv" ]; then
   echo "$dotenv" | sed 's/^/    /' >&2
 fi
 
+# 发版收口那一发：master 分支上的版本号必须有对应的 git tag。
+# 为什么放这里而不是 CI：check-release.mjs 的 T1 档设计成只在收口那一刻要求（feature 分支上
+# 要求 tag 存在等于把尚未发生的发版当成缺陷），而「收口那一刻」就是往 master 推东西的这一刻。
+# 2026-10-21 实测过的失效形状正是这个：master 三处版本已是 2.1.0，远端 tag 只到 2.0.1，
+# 页脚与更新日志都显示 2.1.0，只有拿 tag 算增量的人对不上——而且毫无症状。
+# 只报读数不拦路：这一发可能是纯文档提交，不该被版本台账逼着打 tag。
+if [ "$branch" = 'master' ] || [ "$branch" = 'main' ]; then
+  if command -v node >/dev/null 2>&1; then
+    tag_read=$(node scripts/check-release.mjs --require-tag 2>&1)
+    if [ $? -ne 0 ]; then
+      echo "⚠ 版本台账的 tag 那一档没过（$branch 是要发版的分支）：" >&2
+      echo "$tag_read" | sed 's/^/    /' >&2
+      echo "    补 tag：git tag <版本号> && git push origin <版本号>（对外动作，请本人执行）" >&2
+    fi
+  fi
+fi
+
 printf '\ncommit 注释信息（直接回车用默认）：'
 comment=''
 IFS= read -r comment || true

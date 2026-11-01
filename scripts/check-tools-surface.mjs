@@ -54,6 +54,11 @@ function readYml(rel) {
   return JSON.parse(out);
 }
 
+/**
+ * 判据组名，一处声明两处用（--list 的检查项、汇总行）。
+ * 原来两处各写一个「6」，加一组就得记得改两遍——漏一处就是在报一个不存在的判据数。
+ */
+const GROUPS = ['页面源', '收录', '导航', '图标', 'DOM', '地址栏名单', '插件数据面'];
 const fails = [];
 /** 记一条失败：组名 + 条目 + 人话说明，末尾统一计数打印 */
 function bad(group, entry, msg) {
@@ -1042,6 +1047,60 @@ function auditUrlInputs() {
   if (unseen.length) bad('地址栏名单', '全站', `负名单里的 [${unseen.join('/')}] 在任何一页的装配层表里都不存在——「输入不进地址栏」正在判一个压根没有的控件，这一格已经空转`);
 }
 
+// ── 组 7：插件数据面（_data/tools.yml 被模板裸插值，形状就是唯一的安全边界）────
+/**
+ * 为什么单独一组：`_data/tools.yml` 的字段是被 Liquid **裸插值**消费的——`sw.js` 的 DOC_URLS
+ * 把 `tool.guide` 拼进 JS 单引号字符串，`tools.html` / 三个指南页把 `links.store`、`license_url`
+ * 拼进 href 属性。Jekyll 既不转义 HTML 也不转义 JS，所以值里一个双引号就能破出字符串或属性，
+ * 而症状通常只是"某一块安静地没了"。逐个模板补转义会漏（漏一个前功尽弃），把数据源钉成
+ * URL 形状才是一处生效的边界。此前没有任何脚本读这个 yml，等于这条边界没人守。
+ */
+{
+  const EXT_FILE = '_data/tools.yml';
+  /** 只禁"能破出上下文"的字符：引号、尖括号、反斜杠、空白与控制符；`?a=1&b=2` 这类查询串照旧放行 */
+  const UNSAFE = /["'<>\\\s\x00-\x1f]/;
+  if (!fs.existsSync(path.join(ROOT, EXT_FILE))) {
+    bad('插件数据面', '全站', `${EXT_FILE} 不在——这一组失去比对对象，空转的判据比没有判据更危险`);
+  } else {
+    const exts = readYml(EXT_FILE);
+    if (!Array.isArray(exts) || exts.length === 0) {
+      bad('插件数据面', '全站', `${EXT_FILE} 一条都没有——门禁无事可核，这本身就是要红的事`);
+    } else {
+      /**
+       * 被裸插值消费的地址字段，一处列全：`guide`/`screenshot(s)`/`license_url`/`links.*` 之外，
+       * `changelog` 与 `icon` 同样直接进 href 与 src（见 `_includes/extensionPage.html:39,63`
+       * 与 `tools.html` 的图标位）。漏一个就等于给那条规则留了个后门。
+       */
+      const urlFields = (t) => ([
+        ['guide', t.guide], ['screenshot', t.screenshot], ['license_url', t.license_url],
+        ['changelog', t.changelog], ['icon', t.icon],
+        ['links.store', t.links && t.links.store], ['links.repo', t.links && t.links.repo],
+        ['links.demo', t.links && t.links.demo],
+        ...(Array.isArray(t.screenshots) ? t.screenshots.map((s, i) => [`screenshots[${i}]`, s]) : []),
+      ]).filter(([, v]) => typeof v === 'string' && v !== '');
+      exts.forEach((t, i) => {
+        if (!t || typeof t !== 'object') {
+          bad('插件数据面', `第 ${i + 1} 条`, '条目不是映射（yml 里写了裸标量或空项）——这一组没法从里面取字段，别让它假装被核过');
+          return;
+        }
+        const who = t.slug || t.name || `(第 ${i + 1} 条无 slug)`;
+        for (const [key, v] of urlFields(t)) {
+          if (UNSAFE.test(v)) {
+            bad('插件数据面', `${who}.${key}`, `值里含能破出上下文裸插值的字符（引号/尖括号/反斜杠/空白）：${JSON.stringify(v)}——`
+              + '模板把它原样拼进 JS 字符串与 href，一个双引号就能改写页面结构');
+          }
+          // 站内绝对路径或 http(s)；`//host/x` 这种协议相对写法单独禁掉——它进 href 是合法地址，
+          // 但这一列字段的语义都是"本站页面/本站资源或商店外链"，协议相对把域名交给上下文。
+          if (!/^(https?:\/\/|\/(?!\/))/.test(v)) {
+            bad('插件数据面', `${who}.${key}`, `值「${v}」既不是站内绝对路径也不是 http(s) 地址——裸插值进 href 会变成相对拼接或 javascript: 形状`);
+          }
+        }
+      });
+      console.log(`  （插件数据面：${exts.length} 款插件的地址字段全部过形状检查）`);
+    }
+  }
+}
+
 // ── 跑 ────────────────────────────────────────────────────────────────────────
 
 console.log(`收录面门禁：${ready.length} 条 ready（${ready.map((t) => t.slug).join(' / ')}），产物目录 ${path.relative(ROOT, SITE_REL)}/`);
@@ -1049,7 +1108,7 @@ if (LIST_ONLY) {
   for (const t of ready) {
     console.log(`  · ${t.slug}：${t.url} → tools-${t.slug}.html，前缀 ${t.prefix}，layout ${t.layout ?? '（缺省=panels）'}，panels ${t.panels.length}，入口 dev/js/tool${t.slug.charAt(0).toUpperCase()}${t.slug.slice(1)}.js，spec ${t.spec?.module ?? '（缺）'}#${t.spec?.table ?? '—'}`);
   }
-  console.log('  检查项：页面源 / 收录 / 导航 / 图标 / DOM / 地址栏名单');
+  console.log(`  检查项：${GROUPS.join(' / ')}`);
   process.exit(0);
 }
 
@@ -1090,4 +1149,4 @@ if (fails.length) {
   console.log(`✗ 收录面门禁：${fails.length} 条不通过`);
   process.exit(1);
 }
-console.log(`✓ 收录面 ${ready.length} 条 ready 条目 × 6 组判据全绿（页面源/收录/导航/图标/DOM/地址栏名单）`);
+console.log(`✓ 收录面 ${ready.length} 条 ready 条目 × ${GROUPS.length} 组判据全绿（${GROUPS.join('/')}）`);

@@ -101,6 +101,6 @@
         <a href="{{ t.guide | prepend: site.baseurl }}">完整使用指南与截图</a> ·
         {%- endif %}
         <a href="{{ t.changelog }}" target="_blank" rel="noopener">更新日志</a> ·
-        <a href="{{ store_utm }}" target="_blank" rel="noopener">去商店评价</a>
+        <a href="{{ store_utm }}" target="_blank" rel="noopener" data-funnel="review:{{ ctx }}:{{ t.slug }}">去商店评价</a>
     </p>
 </section>
