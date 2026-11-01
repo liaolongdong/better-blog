@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 同 jekyll.yml：这一步只需要读源码，凭证不留在 git config 里。
           persist-credentials: false
