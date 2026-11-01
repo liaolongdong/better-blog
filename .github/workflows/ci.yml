@@ -1,0 +1,119 @@
+name: Site gates on pull requests
+
+# 为什么单独一条 workflow：`.github/workflows/jekyll.yml` 的触发器只有 `push: master`
+# 与 `workflow_dispatch`，也就是说那 23 道门禁**在合入之前一次都不会跑**。
+# 后果不是「CI 慢一点」，而是红的发现地点错了：代码已经在 master 上、站点已经要发布，
+# 才发现某道门红——那时唯一能做的事是回滚一次发布。2026-10-16 那次「改了五个 tools/*.js
+# 没回写计划、11 处漂移红在本机而 CI 全绿」就是同一个位置问题的另一面。
+#
+# 这条只做一件事：构建 + 跑门禁。不上传 artifact、不 deploy、不碰 Pages。
+
+on:
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+# 只读源码。刻意不给 `pages: write` / `id-token: write`：PR 事件可能来自 fork，
+# 而这条 workflow 存在的意义是「在合并前把门禁跑一遍」，它不需要任何部署能力。
+permissions:
+  contents: read
+
+concurrency:
+  # 只用 github.ref（PR 事件下是 refs/pull/N/merge，由 GitHub 派生，不是事件负载里的自由文本）：
+  # 这条 workflow 没有任何 ${{ }} 进 run: 块，能少一处插值就少一处注入面。
+  # 独立于 jekyll.yml 的 "pages" 组：共用一个组的话，一条 PR 的推送会去排队/抢占真正的发布。
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    # 与 jekyll.yml 同一个钉版理由：ubuntu-latest 已迁到 26.04，ruby/setup-ruby 没有
+    # 3.1.7 的 26.04 构建（下载 404）。那条 workflow 注释里写着，这里跟着一起钉。
+    runs-on: ubuntu-24.04
+    # 耗时只写有出处的数：GitHub 上 jekyll.yml 那个 build job（构建 + 同一张 23 道清单）
+    # 实测 4m19s（run 41283205762，2026-11-01）；本机跑完整 23 道约 8 分钟，
+    # 其中 check-seo-teeth 一道 108~262s 随宿主负载浮动。20 分钟是挂死保险，不是预算。
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 同 jekyll.yml：这一步只需要读源码，凭证不留在 git config 里。
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build assets with Vite
+        run: pnpm build
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+          cache-version: 0
+
+      - name: Build with Jekyll
+        # 与 jekyll.yml 唯一的不同：那里传 `--baseurl "${{ steps.pages.outputs.base_path }}"`
+        # （configure-pages 读出来的挂载路径），这里不调 configure-pages，因为它要 pages 权限，
+        # 而这条 workflow 想保持只读 contents。今天两边都落到 /better-blog，产物逐字节一致。
+        # 说清这个缺口是什么：`base_path` 由**仓库名**推出来，而仓库已从 liaolongdong.github.io 改名成
+        # better-blog（USAGE.md 里还留着旧 origin 的记录）。哪哪天它以 user site 的形式被解析，
+        # 生产那一条会拿到 `--baseurl ""`，而这里照旧用 _config.yml 的 /better-blog——
+        # 且 check-tools-surface 是从产物自己的 canonical 反推 base 的，两边各绿各的，抓不到这个漂移。
+        # 能抓它的只有 Pages 设置本身，所以这里不假装有一道门。
+        run: bundle exec jekyll build 2>&1 | tee /tmp/jekyll-build.log
+        env:
+          JEKYLL_ENV: production
+
+      - name: Liquid 渲染自证
+        shell: bash
+        run: |
+          # 与 jekyll.yml 同一道判据（那边 :85-98）：构建日志里有 Liquid 警告/错误，意味着
+          # 产物不等于源，而 jekyll 自己照样 exit 0。它必须排在门禁之前——渲染不忠实时，
+          # 后面那些读产物的判据是在读一份不确定的东西。
+          n=$(grep -cE 'Liquid Warning|Liquid error' /tmp/jekyll-build.log || true)
+          if [ "$n" -ne 0 ]; then
+            grep -nE 'Liquid Warning|Liquid error' /tmp/jekyll-build.log
+            echo "✗ 构建日志里有 $n 条 Liquid 警告/错误，产物与源不一致（坐标见上）"
+            exit 1
+          fi
+          echo "✓ 构建日志无 Liquid 警告/错误，产物与源同一份"
+
+      - name: Gate runner teeth
+        # 排在门禁之前：ci-gates 是「管门禁的门禁」，它坏掉的样子是少跑几道门还报全绿。
+        # 所以先花几秒确认这把尺子本身没弯，再拿它去量 23 道。
+        # 它不在这张清单里（清单只能从 jekyll.yml 解析，而生产那条不该跑这个元门），
+        # 所以由这里单独调一次——这也是为什么它必须有自己的一份牙齿台账。
+        run: node scripts/ci-gates-teeth.mjs
+
+      - name: Site gates
+        # 清单**不在这里重写**：scripts/ci-gates.mjs 从 jekyll.yml 里把那 23 条 gate 调用
+        # 原样解析出来执行，顺序与参数都是那一份。复制一份清单的那一刻，就有人往生产
+        # 工作流里加了一道门而 PR 永远不跑它，两边还都写着「全绿」。
+        run: node scripts/ci-gates.mjs
