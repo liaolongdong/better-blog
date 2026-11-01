@@ -19,7 +19,7 @@
  *   git archive HEAD | tar -x -C /tmp/gate/head
  *   cd /tmp/gate/head && ln -s <真仓库>/vendor vendor && bundle exec jekyll build
  *
- * 四条口径：
+ * 五条口径：
  *   1. 变异没落地就抛。`String.replace` 找不到目标是原样返回的，静默 no-op 就是假牙的制造工序。
  *   2. 退出码 2 = 门禁自己崩了（`uncaughtException` 兜底会先把攒下的判定吐干净）。崩溃不算
  *      「如期变红」：判定是攒到最后才打印的，一处抛会让整轮结论消失，那种红证明不了任何事。
@@ -28,6 +28,9 @@
  *   4. 改动产物里的 JSON-LD 一律走「解析成对象 → 改字段 → 按 2 空格缩进序列化」，不拿字符串
  *      找钥匙：`"url"` 这个键在 BlogPosting 的 author 里和外层各出现一次，按「第一处」改会打在
  *      author 身上、却把功劳记给 BlogPosting.url 那条判据。
+ *   5. 每条判据除正向一刀外，还得知道**自己的靶子边界**：`expectGreen: true` 的案例注入一段
+ *      「长得像靶子却不是靶子」的东西，要求门禁仍然全绿。只有正向案例时，把判据改成永远红
+ *      也能通过整份台账（2026-11-01 的 CHANGELOG 事故就是这一形）。
  *
  * 一处已知无牙：语料组第 1 判（`ruby 解析只回来 N 篇，目录里实有 M 个 .md`）防的是本门禁内嵌
  * 那段 ruby 自己坏掉，而不是产物坏掉。那段 ruby 对每个 `*.md` 都会回一个键——解析失败回
@@ -2296,6 +2299,22 @@ const cases = [
     mut: () => siteEdit('tools.html', (s) => subAll(s, / data-funnel="[^"]*"/g, '', 'tools.html 的锚点全删')),
   },
   {
+    /**
+     * 反向夹具（`expectGreen`）：文档里写出这段属性写法，不算一枚锚点。
+     * 2026-11-01 的真实事故不是「漏判」而是「打偏」：CHANGELOG 记下三段口径
+     * `data-funnel="kind:placement:slug"`，渲染进 /changelog.html 之后，这一族对它判了四句红
+     * （三段维度各一句 +「带锚点却不加载计数件」），而台账 178/178 仍然全绿——
+     * 全是正向案例的台账永远不会发现「判据打在不是靶子的东西上」。
+     * 想复现这一条的判别力：把 check-seo F2 的正则改回 `/\bdata-funnel="([^"]*)"/g`——
+     * 那一版连**未注入变异的基线**都红（changelog.html 四句），牙齿直接拒数（exit 1），
+     * 这条 green 夹具因此不可能通过。2026-11-01 在快照里这么验过一次。
+     */
+    name: '文档示例（<code> 里的三段写法）不是锚点：注入到不加载计数件的页面仍须全绿',
+    group: '漏斗',
+    expectGreen: true,
+    mut: () => S.siteAfter('changelog.html', '</body>', '<p><code>data-funnel="kind:placement:slug"</code></p>', 'changelog 里的一段代码示例'),
+  },
+  {
     name: 'endpoint 填成 http（https 页面里被浏览器拦掉，等于这条漏斗从来没有数据）',
     group: '漏斗',
     expect: 'funnel.endpoint 不是 https',
@@ -2390,7 +2409,9 @@ if (KEEP) console.log(`--keep：跑完不清理，目录 ${SCRATCH}`);
 
 const ids = new Set();
 for (const c of cases) {
-  if (!c.name || !c.group || !c.expect || typeof c.mut !== 'function') throw new Error(`案例形状不完整：${JSON.stringify(c.name)}`);
+  if (!c.name || !c.group || typeof c.mut !== 'function' || (!c.expect && !c.expectGreen)) {
+    throw new Error(`案例形状不完整（要有 expect，或 expectGreen）：${JSON.stringify(c.name)}`);
+  }
   const id = `${c.group} ${c.name}`;
   if (ids.has(id)) throw new Error(`案例重名：${id}`);
   ids.add(id);
@@ -2418,7 +2439,24 @@ for (const c of selected) {
   try {
     c.mut();
     const got = runGate();
-    if (got.code === 2)
+    if (c.expectGreen) {
+      /**
+       * 反向夹具：这一类不证明「判据能红」，证明「判据不打在没有靶子的地方」。
+       * 只有全绿的正向案例时，把判据改成永远红也能通过整份台账——2026-11-01 的
+       * CHANGELOG 事件就是缺这一类案例：文档里写一段 `data-funnel="kind:placement:slug"`
+       * 被当成真锚点，红的是一句说明文字，而台账 178/178 全绿。
+       */
+      if (got.code === 0) {
+        pass += 1;
+        console.log(`✓ ${c.group} · ${c.name}（注入后仍绿）`);
+      } else {
+        problems.push(`✗ ${c.name}：这一条要求注入后仍绿，门禁却红了（判据打在不是靶子的东西上）：\n${got.out
+          .split('\n')
+          .filter((l) => l.startsWith('✗'))
+          .slice(0, 4)
+          .join('\n')}`);
+      }
+    } else if (got.code === 2)
       problems.push(
         `✗ ${c.name}：门禁崩了（退出码 2，不是判定）：\n${got.out
           .split('\n')
