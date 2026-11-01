@@ -57,9 +57,9 @@ timezone: Asia/Shanghai
 # 站点版本号。唯一的口径是 git tag：tag 打在 master 上（Pages 的 Workflow 只监听 master），
 # 与线上产物同源，所以这里的值必须等于 master 上最新的 tag。
 # 三处要一起改：本字段、package.json 的 version、CHANGELOG.md 的新条目——
-# 递增规则与发版步骤见 USAGE.md「版本号与 tag 约定」。
+# 递增规则与发版步骤见 USAGE.md「版本号与 tag」。
 # 页脚读它（_includes/footer.html），置空则页脚不显示版本，不影响任何页面。
-version: '2.1.0'
+version: '2.2.0'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
