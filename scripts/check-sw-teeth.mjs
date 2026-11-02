@@ -352,6 +352,17 @@ const cases = [
       return s.replace(m[0], `const COVER_RAW = [\n${rows.slice(0, COVER_MARGIN).join('\n')}\n];`);
     }),
   },
+  {
+    name: '产物把空闲补全的并发批扩大（余量下限跟着变严，阈值不再能和刀一起变松）',
+    group: '封面预算',
+    artifact: () => shadowEdit('sw.js', (s) => s.replace('fillBatch: 4,', 'fillBatch: 8,')),
+  },
+  {
+    name: 'expectGreen：批大小改小（下限跟着降到 3，COVER_MARGIN=5 仍够）——这条判据不是「一碰 fillBatch 就红」',
+    group: '封面预算',
+    expectGreen: true,
+    artifact: () => shadowEdit('sw.js', (s) => s.replace('fillBatch: 4,', 'fillBatch: 2,')),
+  },
 ];
 
 // ── 基线：真产物与影子产物都必须绿 ──────────────────────────────────────────
@@ -376,6 +387,20 @@ for (const c of cases) {
     if (c.src) c.src();
     if (c.artifact) c.artifact();
     const got = runGate(c.artifact ? SHADOW : null);
+    if (c.expectGreen) {
+      /**
+       * 反向夹具：注入一个「长得像靶子但不该红」的变异，要求仍然全绿。
+       * 只有正向案例时，把判据写成「永远红」也能通过整份台账。
+       * 落笔与否由 `shadowEdit` 自己把关（找不到锚点就抛），所以这里不需要再验一次。
+       */
+      if (got.code === 0) {
+        pass += 1;
+        console.log(`✓ ${c.name}（注入后仍绿）`);
+      } else {
+        problems.push(`✗ ${c.name}：要求全绿却红了：\n${got.out.split('\n').filter((l) => l.startsWith('[')).slice(0, 3).join('\n')}`);
+      }
+      continue;
+    }
     if (got.code === 0) problems.push(`✗ ${c.name}：注入后门禁仍是绿的（假牙）`);
     else if (!got.out.includes(`[${c.group}]`)) {
       problems.push(`✗ ${c.name}：红了但没红在「${c.group}」组：\n${got.out.split('\n').filter((l) => l.startsWith('[')).slice(0, 3).join('\n')}`);
@@ -391,7 +416,7 @@ for (const c of cases) {
   }
 }
 
-console.log(`\n牙齿台账：${pass}/${cases.length} 条变异如期变红且红在对的组`);
+console.log(`\n牙齿台账：${pass}/${cases.length} 条变异如期（该红的红、该绿的绿），且红在对的组`);
 if (problems.length) {
   for (const p of problems) console.error(p);
   console.error('✗ check-sw 的判据有盲区，按上面逐条补');
