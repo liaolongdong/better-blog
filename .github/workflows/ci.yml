@@ -1,7 +1,7 @@
 name: Site gates on pull requests
 
 # 为什么单独一条 workflow：`.github/workflows/jekyll.yml` 的触发器只有 `push: master`
-# 与 `workflow_dispatch`，也就是说那 23 道门禁**在合入之前一次都不会跑**。
+# 与 `workflow_dispatch`，也就是说那 24 道门禁**在合入之前一次都不会跑**。
 # 后果不是「CI 慢一点」，而是红的发现地点错了：代码已经在 master 上、站点已经要发布，
 # 才发现某道门红——那时唯一能做的事是回滚一次发布。2026-10-16 那次「改了五个 tools/*.js
 # 没回写计划、11 处漂移红在本机而 CI 全绿」就是同一个位置问题的另一面。
@@ -30,9 +30,11 @@ jobs:
     # 与 jekyll.yml 同一个钉版理由：ubuntu-latest 已迁到 26.04，ruby/setup-ruby 没有
     # 3.1.7 的 26.04 构建（下载 404）。那条 workflow 注释里写着，这里跟着一起钉。
     runs-on: ubuntu-24.04
-    # 耗时只写有出处的数：GitHub 上 jekyll.yml 那个 build job（构建 + 同一张 23 道清单）
-    # 实测 4m19s（run 41283205762，2026-11-01）；本机跑完整 23 道约 8 分钟，
-    # 其中 check-seo-teeth 一道 108~262s 随宿主负载浮动。20 分钟是挂死保险，不是预算。
+    # 耗时只写有出处的数：GitHub 上 jekyll.yml 那个 build job（构建 + 同一张 24 道清单）
+    # 实测 4m19s（run 41283205762，2026-11-01）；本机跑完整 24 道 475s（2026-11-02，含构建外），
+    # 其中最慢一道是 check-seo-teeth：188 条变异实测 275.8s，历史区间 108~276s 随宿主负载浮动。
+    # 单道门的超时因此钉在 10 分钟（ci-gates.mjs 的 GATE_TIMEOUT_MS）——5 分钟那一版掐死过它一次。
+    # 20 分钟是挂死保险，不是预算。
     timeout-minutes: 20
 
     steps:
@@ -107,7 +109,7 @@ jobs:
 
       - name: Gate runner teeth
         # 排在门禁之前：ci-gates 是「管门禁的门禁」，它坏掉的样子是少跑几道门还报全绿。
-        # 所以先花几秒确认这把尺子本身没弯，再拿它去量 23 道。
+        # 所以先花几秒确认这把尺子本身没弯，再拿它去量 24 道。
         # 它不在这张清单里（清单只能从 jekyll.yml 解析，而生产那条不该跑这个元门），
         # 所以由这里单独调一次——这也是为什么它必须有自己的一份牙齿台账。
         run: node scripts/ci-gates-teeth.mjs

@@ -130,6 +130,9 @@ jobs:
           gate 'toolkit-tests'            --test scripts/toolkit-tests.mjs
           gate 'tool-url-state-tests'     --test scripts/tool-url-state-tests.mjs
           gate 'sw-lifecycle-tests'       --test scripts/sw-lifecycle-tests.mjs
+          # 交付锁的并发与所有权：它坏掉没有症状（两个 run 都自认为持锁），只能真的并发跑。
+          # 夹具全在 os.tmpdir() 里，不碰仓库的 _drafts/，所以不会和正在跑的流水线抢锁。
+          gate 'delivery-lock-tests'      --test scripts/delivery-lock-tests.mjs
           # 计划里那些**整文件镜像**与磁盘逐字节全等（只读源、不碰产物，所以排在构建后的那几道之前）。
           # 这条门 2026-10-17 就写好了，却没进这张清单——于是 `544e558` 那一族改了五个 tools/*.js 与
           # toolkit-tests 三节而没回写计划，11 处漂移红在本机、CI 全绿，读计划的人照一份不存在的实现改。
