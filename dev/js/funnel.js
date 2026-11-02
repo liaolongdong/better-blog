@@ -96,10 +96,9 @@
         }
     }
 
-    /** 供后续扩展（工具页的动作计数等）复用；件没启动时压根不定义，调用方自己判存在 */
-    window.BBFunnel = {
-        track: function (name, kind, placement, slug) { return send(name, kind, placement, slug); }
-    };
+    /* 刻意不导出 window.BBFunnel：全站零调用方，而它是这 13 个页面上一个「任何人都能拿来
+       发一发上报」的全局。将来真需要脚本化上报，再按调用方需要的最小形状加回来——
+       现在加着只是让每一件都多带一段没人跑过的字节，而没跑过的代码不叫能力，叫债。 */
 
     function nodes(selector) {
         var list = document.querySelectorAll(selector), out = [];

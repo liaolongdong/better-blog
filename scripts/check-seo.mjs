@@ -57,6 +57,21 @@ function bad(group, entry, msg) {
 }
 
 /**
+ * 「同一页同一句只报一次」的工厂。两份逐字相同的实现（漏斗组一份、验证 meta 组一份）
+ * 是同一件事写了两遍：改一处忘另一处，就会出现「同一个失效在一组里去重、在另一组里刷屏」。
+ * @param {Set} seen 调用方持有的去重集
+ * @returns {(group: string, entry: string, msg: string) => void}
+ */
+function makeBadOnce(seen) {
+  return (group, entry, msg) => {
+    const k = `${entry}|${msg}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    bad(group, entry, msg);
+  };
+}
+
+/**
  * 崩了也要把已经记下的判定吐干净。
  *
  * 判定是攒在 `fails` 里、跑到最后才打印的，所以任何一处未捕获的异常会把前面所有红一并吞掉：
@@ -1666,13 +1681,7 @@ if (postPages.length) {
    */
   const g = '漏斗';
   /** 同一页里同一枚 slug 写错会命中很多锚点，逐枚报同一句话只是把真问题埋进噪音里 */
-  const reported = new Set();
-  const badOnce = (group, entry, msg) => {
-    const k = `${entry}|${msg}`;
-    if (reported.has(k)) return;
-    reported.add(k);
-    bad(group, entry, msg);
-  };
+  const badOnce = makeBadOnce(new Set());
   /** 隐私与「有没有真接线」这几判必须跑在剥掉注释的正文上：件头与 README 里写着「不读 Cookie / 不读 IP」，照着整份文件判会一上来就红 */
   const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const KINDS = new Set(['store', 'demo', 'repo', 'guide', 'review']);
@@ -1967,13 +1976,7 @@ if (postPages.length) {
    * 「还没去领」而不是「领了没生效」，但必须打一行弱读数，别让空串躺在配置里没人看见。
    */
   const g = '验证 meta';
-  const reportedMeta = new Set();
-  const badOnce = (group, entry, msg) => {
-    const k = `${entry}|${msg}`;
-    if (reportedMeta.has(k)) return;
-    reportedMeta.add(k);
-    bad(group, entry, msg);
-  };
+  const badOnce = makeBadOnce(new Set());
   const META_RE = /<meta\s+name="(msvalidate\.01|[a-z0-9_-]*(?:site[-_])?verification)"\s+content="([^"]*)"\s*\/?>/gi;
   const CFG_KEY = { 'msvalidate.01': 'bing_site_verification' };
   const PLACEHOLDER = /^(x{3,}|todo|your[-_]?|changeme|<.*>|\{\{\s*\}\})$/i;
@@ -2011,7 +2014,7 @@ if (postPages.length) {
 
     const want = declared.filter((d) => d.expect);
     const probes = ['index.html'];
-    if (typeof posts !== 'undefined' && posts.length) probes.push(posts[0].rel);
+    if (posts.length) probes.push(posts[0].rel);
     for (const rel of probes) {
       if (!hasSite(rel)) { badOnce(g, rel, '产物读不到，这一组判不了 head'); continue; }
       const head = headOf(readSite(rel));
