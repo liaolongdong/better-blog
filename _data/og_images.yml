@@ -153,6 +153,14 @@
   image: /assets/img/astryx/banner.webp
 /2026/07/12/impeccable-ai-design.html:
   image: /assets/img/impeccable/banner.webp
+/2026/08/28/local-first-password-manager.html:
+  image: /assets/img/local-first-password-manager/banner.webp
+/2026/08/28/mv3-sidepanel-sub-second-open.html:
+  image: /assets/img/mv3-sidepanel-sub-second-open/banner.webp
+/2026/08/28/webcrypto-encryption-in-practice.html:
+  image: /assets/img/webcrypto-encryption-in-practice/banner.webp
+/2026/09/05/login-flow-details.html:
+  image: /assets/img/login-flow-details/banner.webp
 /2026/09/10/agent-visual-toolchain.html:
   image: /assets/img/agent-visual-toolchain/banner.webp
 /2026/09/10/nextjs-avif-trap.html:
@@ -171,7 +179,108 @@
   image: /assets/img/security-audit-two-validators/banner.webp
 /2026/09/22/claude-advisor-readme-row.html:
   image: /assets/img/claude-advisor-readme-row/banner.webp
+/2026/09/22/cross-subdomain-matching.html:
+  image: /assets/img/cross-subdomain-matching/banner.webp
 /2026/09/23/browser-skill-context-bytes.html:
   image: /assets/img/browser-skill-context-bytes/banner.webp
 /2026/09/24/google-ax-workspace-materialization.html:
   image: /assets/img/google-ax-workspace-materialization/banner.webp
+/2026/09/25/claude-agents-md-remote-gate.html:
+  image: /assets/img/claude-agents-md-remote-gate/banner.webp
+/2026/09/26/github-actions-2500-cap.html:
+  image: /assets/img/github-actions-2500-cap/banner.webp
+/2026/09/26/json-render-silent-strip.html:
+  image: /assets/img/json-render-silent-strip/banner.webp
+/2026/09/27/bend-laws-proof-gaps.html:
+  image: /assets/img/bend-laws-proof-gaps/banner.webp
+/2026/09/27/openai-dns-agent-pause.html:
+  image: /assets/img/openai-dns-agent-pause/banner.webp
+/2026/09/29/scriptc-native-x64-gap.html:
+  image: /assets/img/scriptc-native-x64-gap/banner.webp
+/2026/09/29/webmcp-modelcontext-mount.html:
+  image: /assets/img/webmcp-modelcontext-mount/banner.webp
+/2026/09/30/livenerf-panel-lock-mismatch.html:
+  image: /assets/img/livenerf-panel-lock-mismatch/banner.webp
+/2026/09/30/univer-node-two-gaps.html:
+  image: /assets/img/univer-node-two-gaps/banner.webp
+/2026/10/01/gitdiagram-keyless-mcp-4-bad-edges.html:
+  image: /assets/img/gitdiagram-keyless-mcp-4-bad-edges/banner.webp
+/2026/10/02/nextjs-rebind-ssrf-advisory-lag.html:
+  image: /assets/img/nextjs-rebind-ssrf-advisory-lag/banner.webp
+/2026/10/06/vite-wasm-query-fs-bypass.html:
+  image: /assets/img/vite-wasm-query-fs-bypass/banner.webp
+/2026/10/07/gdp-ts-proof-forgery-3-gaps.html:
+  image: /assets/img/gdp-ts-proof-forgery-3-gaps/banner.webp
+/2026/10/07/wikimedia-openai-agent-edits.html:
+  image: /assets/img/wikimedia-openai-agent-edits/banner.webp
+/2026/10/09/ascii-rest-208-files.html:
+  image: /assets/img/ascii-rest-208-files/banner.webp
+/2026/10/09/haiku-5-5-model-id-vs-sdk-typing.html:
+  image: /assets/img/haiku-5-5-model-id-vs-sdk-typing/banner.webp
+/2026/10/10/chrome-155-jpeg-xl-decode.html:
+  image: /assets/img/chrome-155-jpeg-xl-decode/banner.webp
+/2026/10/10/e2e-replay-cache-55-gaps.html:
+  image: /assets/img/e2e-replay-cache-55-gaps/banner.webp
+/2026/10/11/deno-cloudflare-six-months.html:
+  image: /assets/img/deno-cloudflare-six-months/banner.webp
+/2026/10/11/mxc-v1-ga-intel-mac.html:
+  image: /assets/img/mxc-v1-ga-intel-mac/banner.webp
+/2026/10/11/plugin-manifest-only-gate.html:
+  image: /assets/img/plugin-manifest-only-gate/banner.webp
+/2026/10/12/video-shotcraft-stale-about.html:
+  image: /assets/img/video-shotcraft-stale-about/banner.webp
+/2026/10/12/zod-466-preinstall-not-shipped.html:
+  image: /assets/img/zod-466-preinstall-not-shipped/banner.webp
+/2026/10/13/github-pusher-attribution.html:
+  image: /assets/img/github-pusher-attribution/banner.webp
+/2026/10/13/impeccable-seventeen-copies.html:
+  image: /assets/img/impeccable-seventeen-copies/banner.webp
+/2026/10/14/anthropic-key-default-block-gap.html:
+  image: /assets/img/anthropic-key-default-block-gap/banner.webp
+/2026/10/14/hyperframes-first-render-timeout.html:
+  image: /assets/img/hyperframes-first-render-timeout/banner.webp
+/2026/10/16/handwired-js-neural-net.html:
+  image: /assets/img/handwired-js-neural-net/banner.webp
+/2026/10/17/anthropic-scion-attribution-diff.html:
+  image: /assets/img/anthropic-scion-attribution-diff/banner.webp
+/2026/10/17/deepseek-v41-flash-alias-switch.html:
+  image: /assets/img/deepseek-v41-flash-alias-switch/banner.webp
+/2026/10/17/diagram-design-981-faces.html:
+  image: /assets/img/diagram-design-981-faces/banner.webp
+/2026/10/17/muse-spark-open-816b.html:
+  image: /assets/img/muse-spark-open-816b/banner.webp
+/2026/10/17/nist-curve-seed-lrand48.html:
+  image: /assets/img/nist-curve-seed-lrand48/banner.webp
+/2026/10/17/npx-skills-agent-paths.html:
+  image: /assets/img/npx-skills-agent-paths/banner.webp
+/2026/10/18/flux-3-klein-open-weights.html:
+  image: /assets/img/flux-3-klein-open-weights/banner.webp
+/2026/10/19/openai-misalignment-four-reports.html:
+  image: /assets/img/openai-misalignment-four-reports/banner.webp
+/2026/10/21/php2shell-ai-rce-patch-day.html:
+  image: /assets/img/php2shell-ai-rce-patch-day/banner.webp
+/2026/10/21/solid-glass-shadcn-cost.html:
+  image: /assets/img/solid-glass-shadcn-cost/banner.webp
+/2026/10/22/account-password-helper-10k.html:
+  image: /assets/img/account-password-helper-10k/banner.webp
+/2026/10/22/deepinfer-open-source-sm100-only.html:
+  image: /assets/img/deepinfer-open-source-sm100-only/banner.webp
+/2026/10/23/anthropic-api-2026-10-21-sampling-400.html:
+  image: /assets/img/anthropic-api-2026-10-21-sampling-400/banner.webp
+/2026/10/23/hyperframes-html-to-mp4-determinism.html:
+  image: /assets/img/hyperframes-html-to-mp4-determinism/banner.webp
+/2026/10/23/openui-two-lang-cores.html:
+  image: /assets/img/openui-two-lang-cores/banner.webp
+/2026/10/24/taste-skill-contact-sheet.html:
+  image: /assets/img/taste-skill-contact-sheet/banner.webp
+/2026/10/25/freellmapi-635-vs-483.html:
+  image: /assets/img/freellmapi-635-vs-483/banner.webp
+/2026/10/25/kimi-k3-1-pro-two-tiers.html:
+  image: /assets/img/kimi-k3-1-pro-two-tiers/banner.webp
+/2026/10/27/sandbox-runtime-ssh-readable.html:
+  image: /assets/img/og/sandbox-runtime-ssh-readable.jpg
+  sig: b68c6a20838f
+/2026/10/27/wxt-cross-browser-extension.html:
+  image: /assets/img/wxt-cross-browser-extension/banner.webp
+/2026/10/28/rtk-command-output-compression.html:
+  image: /assets/img/rtk-command-output-compression/banner.webp
