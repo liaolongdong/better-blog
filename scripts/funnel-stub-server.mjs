@@ -90,6 +90,13 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname === '/e') {
     const q = Object.fromEntries(u.searchParams.entries());
+    // 与 Worker 同形：缺 `e` 的事件不收，回 204 且不带动作体。本地桩如果恒回 200+GIF，
+    // 「空事件」那一支在线上怎么死掉就永远复现不出来（2026-11-02 实测：带 body 的 204 抛 TypeError）。
+    if (!q.e) {
+      res.writeHead(204, { 'cache-control': 'no-store' });
+      res.end();
+      return;
+    }
     hits.push({ at: new Date().toISOString(), q });
     res.writeHead(200, { 'content-type': 'image/gif', 'cache-control': 'no-store' });
     res.end(GIF);
@@ -103,7 +110,17 @@ const server = http.createServer((req, res) => {
 
   let rel = u.pathname.startsWith(BASE) ? u.pathname.slice(BASE.length) : u.pathname;
   if (rel === '' || rel === '/') rel = '/index.html';
-  const file = path.join(SITE, decodeURIComponent(rel));
+  // 畸形的百分号编码（`/%zz`）会让 decodeURIComponent 抛 URIError：不接住就是整个进程死掉，
+  // 而读数的页面还在别人浏览器里开着。按 400 处理，进程继续。
+  let decoded;
+  try {
+    decoded = decodeURIComponent(rel);
+  } catch {
+    res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end(`bad percent encoding: ${rel}`);
+    return;
+  }
+  const file = path.join(SITE, decoded);
   if (!file.startsWith(SITE + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     res.end(`not found: ${rel}`);

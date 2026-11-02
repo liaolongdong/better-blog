@@ -82,7 +82,7 @@ GROUP BY kind, placement, slug
 ORDER BY clicks DESC
 ```
 
-维度顺序写死在 `worker.mjs` 的 `blobs` 里：`blob1`=事件（view / impression / click）、`blob2`=按钮种类（store / demo / repo / guide / review）、`blob3`=投放位（hub / guide / article）、`blob4`=产品 slug、`blob5`=站内路径、`blob6`=口径版本。改顺序要连这里的 SQL 一起改；`check-seo.mjs` 的「漏斗」那一组判的是**源码里的参数名两端一致**（前端拼 `&k=` 而 Worker 不读 `k`，那一维就静默丢在 URL 里），不判这份文档。
+维度顺序写死在 `worker.mjs` 的 `blobs` 里：`blob1`=事件（view / impression / click）、`blob2`=按钮种类（store / demo / repo / guide / review）、`blob3`=投放位（hub / guide / article）、`blob4`=产品 slug、`blob5`=站内路径、`blob6`=口径版本。改顺序要连这里的 SQL 一起改。**槽位顺序现在也在闸门里**：`check-seo.mjs` 的「漏斗」那一组既判参数名两端一致（前端拼 `&k=` 而 Worker 不读 `k`，那一维就静默丢在 URL 里），也判 `blobs=[…]` 的字面顺序是不是 `e,k,p,s,u,v`——交换两格不会报错，只会让面板上「站内路径」那一列显示口径版本。
 
 ## 本地怎么复验「点下去真的有一个请求出去」
 
@@ -95,9 +95,11 @@ node scripts/funnel-stub-server.mjs --port=8793 &
 perl -0pi -e 's/data-funnel-endpoint=""/data-funnel-endpoint="http:\/\/127.0.0.1:8793\/e"/' _site/tools.html
 # 浏览器打开 http://127.0.0.1:8793/better-blog/tools.html，滚到 CTA、点一枚，然后：
 curl -s http://127.0.0.1:8793/__hits
+# 顺手验一下接收端对脏数据的形状（期望 204 且无动作体；带 body 的 204 会在 Worker 里抛 TypeError）：
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' 'http://127.0.0.1:8793/e'
 ```
 
-期望三段齐、且同一投放位上 `store` / `demo` / `repo` / `guide` 四类按钮的 `k` **互不相同**：
+期望三段齐、且同一投放位上 `store` / `demo` / `repo` / `guide` / `review` 五类按钮的 `k` **互不相同**（`check-seo.mjs` 按 `hub` 五种、`guide` 四种、`article` 三种钉这张组合表）：
 
 ```
 view       | store | page | account-password-helper | /better-blog/tools.html
