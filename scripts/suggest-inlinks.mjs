@@ -718,8 +718,10 @@ if (fs.existsSync(tplPath)) {
     // 浏览器只在 JSON.parse 那一句炸（2026-10-28 真浏览器实测到的就是这一形）。
     const slot = /<script id="data" type="application\/json">[\s\S]*?<\/script>/;
     if (!slot.test(tpl)) bad(`模板 ${TEMPLATE_REL} 里没有那个 id="data" 的 JSON 槽，审阅台写不出来`);
-    const html = tpl.replace(slot, `<script id="data" type="application/json">${json}</script>`);
-    if (html.length < tpl.length + 200) bad(`注入的数据太小（多出 ${html.length - tpl.length} 字节，rows=${rows.length}），不像 481 条配对的形状`);
+    // 替换值必须走函数形式：字符串形式会把语料里的 `$&`、`$'`、`` $` `` 当成替换模式展开，
+    // 于是正文里一句 bash 的 `$'ansi'` 就能把模板其余部分灌进 JSON。语料里现存 5 处这种形状。
+    const html = tpl.replace(slot, () => `<script id="data" type="application/json">${json}</script>`);
+    if (html.length < tpl.length + 200) bad(`注入的数据只多出 ${html.length - tpl.length} 字节（rows=${rows.length}），太小了，不像真的把配对灌进去过`);
     fs.mkdirSync(path.dirname(path.join(ROOT, HTML_REL)), { recursive: true });
     fs.writeFileSync(path.join(ROOT, HTML_REL), html, 'utf8');
     /**
@@ -734,7 +736,11 @@ if (fs.existsSync(tplPath)) {
       bad(`审阅台里的 rows 是 ${parsed.rows && parsed.rows.length} 条，内存里是 ${rows.length} 条——对不上就说明注入打在别处`);
     }
   } catch (e) {
-    process.stderr.write(`✗ suggest-inlinks：写 ${HTML_REL} 失败了：${e && e.message ? e.message : e}\n`);
+    /**
+     * 这里必须红着退出：写歪了的审阅台是一个「文件生成了、页面打不开、命令却成功」的东西，
+     * 而这一族的失效形状已经被 `aadfa96` 记过一次（JSON.parse 只在浏览器里炸）。
+     */
+    bad(`写 ${HTML_REL} 失败了：${e && e.message ? e.message : e}`);
   }
 } else {
   process.stderr.write(`⚠ 找不到 ${TEMPLATE_REL}，只出了 markdown 清单，没出审阅台（模板搬走要同步改这里）\n`);
