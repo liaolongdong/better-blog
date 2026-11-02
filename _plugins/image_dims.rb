@@ -274,7 +274,14 @@ module Jekyll
       return nil unless path.start_with?('/')
 
       path = path[baseurl.length..-1].to_s if !baseurl.empty? && path.start_with?(baseurl)
-      path.start_with?('/') ? path : nil
+      return nil unless path.start_with?('/')
+
+      # `File.join(source, '/../../etc/passwd')` 不会替你挡住 `..`：它照样解析到仓库外面去。
+      # 这里只回吐宽高、不回吐内容，所以不是泄漏；但量具不该有越界这条路，
+      # 一张读不到的图也不该被当成"量过了"写进 width/height。
+      return nil if path.split('/').any? { |seg| seg == '..' }
+
+      path
     end
   end
 end
