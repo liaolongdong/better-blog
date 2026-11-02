@@ -2413,6 +2413,12 @@ const cases = [
     expectGreen: true,
     mut: () => S.siteCutRe('index.html', /<script defer src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js"[^>]*>\n?/, '首页 CF beacon'),
   },
+  {
+    name: '把 funnel.enable 改成 false 而产物仍在发标签（开关与模板判据分家，关掉的埋点还在向用户要字节）',
+    group: '漏斗',
+    expect: 'funnel.enable 已经是 false',
+    mut: () => S.srcSub('_config.yml', 'funnel:\n  enable: true', 'funnel:\n  enable: false', '漏斗总开关关掉'),
+  },
 
   // ── 站长验证 meta（P0-2：归属凭据要真的到达抓取器）──
   {

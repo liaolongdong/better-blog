@@ -132,7 +132,7 @@
 - **内容**：`_posts/2026-10-27-sandbox-runtime-ssh-readable.md` 的封面与三张正文图**从未产出**（全盘无原件，
   正文也不依赖图）。不伪造终端截图：摘掉四处引用，分享卡改由 `og-images.mjs` 生成（1200×630），
   补 `tldr`（读数全部取自正文已写死的那些）。三道门禁因此从红回绿：`check-tldr`、`check-og-images`、`check-sw`。
-- 台账与口径：`check-seo-teeth` 漏斗组 13 → 23 枚变异（含 2 条反向夹具），全套 179 → 188/188、实测 238.8s；
+- 台账与口径：`check-seo-teeth` 漏斗组 13 → 24 枚变异（含 2 条反向夹具，`funnel.enable: false` 那一支补刀时差点没配——判定写完当天自查才发现），全套 179 → 189/189；
   门禁清单 23 → 24 道；`check-discovery` 那句写死的「9 组」改回 `GROUPS.length`；上一条里
   `check-discovery-teeth` 的 82/82 是抄错了本子（那是 tools-surface 的数），实为 8/8，已改。
 
