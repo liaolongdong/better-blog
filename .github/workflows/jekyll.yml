@@ -16,6 +16,13 @@ concurrency:
 
 jobs:
   build:
+    # 这一道 job 会 `pnpm install` 并跑 24 个门禁脚本——那是执行任意 npm 代码的地方。
+    # workflow 级给了 `pages: write` + `id-token: write`（deploy job 需要），继承下来之后
+    # build job 也就能铸 Pages 部署令牌、发布站点内容，而它一样都不该用。
+    # job 级覆盖 workflow 级：这里收回到只读源码；deploy job 不动，仍然继承那两项，
+    # 所以被验证过的发布路径的有效权限一字未改。
+    permissions:
+      contents: read
     # 2026-10-23：ubuntu-latest 已迁到 26.04，ruby/setup-ruby 没有 3.1.7 的 26.04 构建
     # （下载 404，构建 job 28s 即失败）。先钉 24.04；等 Ruby 3.2+ 与 Gemfile.lock 一起升级
     # 并验证过再回 ubuntu-latest。deploy job 不用 Ruby，保持 latest。
