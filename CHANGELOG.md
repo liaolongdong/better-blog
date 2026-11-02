@@ -46,8 +46,9 @@
   报「1 道门禁全绿」、那道门根本没执行）。修判据时顺手写的判据，同样要先红过一次才算数。
 - `check-sw` 那枚「封面去重」的牙此前是假的：它只注入一份重复封面，没摘掉去重用的 `Set`，
   于是注入之后门禁仍然绿。现在一刀两个动作，牙齿台账 23/23 条变异如期变红且红在对的组；
-  `check-discovery-teeth` 82/82、`check-seo-teeth` 178/178（这一版收尾时给它补了一条反向夹具，
-  变成 179/179，见下面那条）。
+  `check-discovery-teeth` 8/8（这一行原本写的是 82/82——那是 `check-tools-surface-teeth` 的数，
+  2.2.1 复核时按台账自己打印的读数改回来）、`check-seo-teeth` 178/178（这一版收尾时给它补了一条
+  反向夹具，变成 179/179，见下面那条）。
 - 这一版发版过程中，`2.2.0` 自己把两处判据侧的缺陷顶了出来，都在 PR 门禁上红的（那正是这条
   workflow 存在的理由）：
   - **漏斗判据的靶子收窄到「起始标签里的真属性」**。`check-seo` F2 原来用
@@ -88,6 +89,52 @@
   不拦）：`2.1.0` 那次三处版本号都改了、tag 忘了，站点没有任何症状，只有拿 tag 算增量的人对不上。
   tag 那一档刻意不在 CI 里——CI 的 checkout 默认不取 tag，而「feature 分支上要求 tag 已存在」
   等于把还没发生的发版判成缺陷。
+
+### 评审后的第二轮（2026-11-02）
+
+两轴评审（规范 / 需求忠实度）+ 安全与判据正确性专项，六路并行，结论逐条自己复验后才动手。
+凡是「commit 里写了读数」的，这一节只写我这一轮实测到的数。
+
+- **漏斗那条 Referer 承诺原先不成立，现在成立并且有刀。** `_includes/seoMeta.html:119-121` 把
+  `<meta name="referrer" content="no-referrer">` 关在 `{% comment %}` 里，产物里 `name="referrer"` 0 个，
+  而 `dev/js/funnel.js` 的 fetch 没写 `referrerPolicy`——默认 `strict-origin-when-cross-origin` 会把
+  **本站 origin** 发给接收端。起一台记录请求头的桩实测：改之前 `referer = http://127.0.0.1:8799/`，
+  改之后 `referer = null`（fetch 与 Image 两条路都验）。`check-seo` 新增两判分别盯这两条路，
+  少一边就红——只判「文件里出现过这个词」的那写法，删掉一句、留一个词，仍然绿。
+- **`GET /e` 缺 `e` 参数会抛异常**（`scripts/funnel-worker/worker.mjs:59`）。204 是 null-body 状态，
+  带 GIF 构造 `Response` 当场 `TypeError`；Node 24 复现的是同一句规范：
+  `Response constructor: Invalid response status code 204`。README 推荐的手工探针形状因此一直是脚本异常。
+  本地桩此前恒回 200，这条在线上坏着也复现不出来——现在桩与 Worker 同形（204 无动作体），
+  并且新增一判盯「给 204/205/304 带动作体」。
+- **`ci-gates.mjs` 的行级少读闭死。** 驱动从「行首是 `gate`」改成词元级：`for … do gate …; done`、
+  `if …; then gate …; fi`、`time gate …` 三类 bash 合法写法此前被安静跳过——在 /tmp 复现过，
+  输出 `✓ 1 道门禁全绿` 而 jekyll.yml 那边真会跑那道门。上一轮的交叉校验用的是同一个循环的自计数，
+  那条断言永真；现在换成按词数的另一条路径。台账 12 → 19 条，含超时、脏源、两条 expectGreen。
+- **牙齿自己抓到我的改动把口径挪走了**：`sw.js` 的清单改走 `| jsonify`（产物由单引号变双引号）之后，
+  `check-sw-teeth` 三把按单引号锚的刀同时报「变异没命中产物（这条是假牙）」——正是这道门该说的话。
+  牙齿同步成引号无关，23/23 复绿，工作树按 `finally` + 信号钩子还原干净。
+- **`suggest-inlinks.mjs` 的注入用字符串形式 `replace`**：语料里的 `$&`、`$'`、`` $` `` 会被当成替换模式展开。
+  拿真模板复现：文件从 15,247B 灌成 30,583B、`JSON.parse` 抛错，而 `catch` 只写 stderr、**退 0**——
+  审阅台坏了而命令成功。语料里现存 5 处这种形状。改成函数形式替换 + 坏了红着退出。
+- **交付锁从 `_drafts/` 搬进 `scripts/` 并进了门禁清单**（第 24 道）。它此前只被 `.git/info/exclude`
+  排除——那是机器本地、不随仓库走的一层；配套测试也从「写了没人调用」变成 CI 每次跑（7 个用例）。
+- **`.gitignore` 补四条**：`_drafts/*.txt`、`_drafts/*.sh`、`_drafts/legacy-2026-10/`、`_drafts/.delivery.lock/`。
+  同一条理由：换机器后一次 `git add -A` 会把 10 个流水线内部件（952K，含人设档案与运行日志）推上公开仓库。
+  `deploy-github.sh` 的密钥形态从 5 类补到 8 类（`gh[pousr]_`、`AIza…`、`sk-…`、JWT 前两段），
+  加之前先在全仓文本跑过：0 命中。
+- **审阅台在 375px 下有 237px 横向溢出**：grid 子项的自动最小宽度 + 证据句里那些不可断的 markdown 长链接。
+  现在溢出 0，同时补了防抖（此前每敲一个字重建 485 条）、键盘选中行的可见标记（此前 j/k 之后看不出选了谁）、
+  未选中时按 `y` 不再静默给第一行盖章、触控高度 44px、进度与提示的 live region。
+- **两条被证伪的评审结论**（不修，记录在此以免下次又被当缺陷报）：`demo/vueRouterDemo/hashRouter.html`
+  那个 `innerHTML = location.hash` 在 Chromium 下**不可利用**——片段里的 `<` 被归一化成 `%3C`，
+  goto 与页内点击两条路都不落地；仍改成 `textContent`，但它是隐患不是漏洞。埋点件 `u` 参数在 URL 里是
+  `%2F` 编码的，Worker 那侧 `searchParams.get('u')` 会自动解回 `/better-blog/tools.html`——不是缺陷。
+- **内容**：`_posts/2026-10-27-sandbox-runtime-ssh-readable.md` 的封面与三张正文图**从未产出**（全盘无原件，
+  正文也不依赖图）。不伪造终端截图：摘掉四处引用，分享卡改由 `og-images.mjs` 生成（1200×630），
+  补 `tldr`（读数全部取自正文已写死的那些）。三道门禁因此从红回绿：`check-tldr`、`check-og-images`、`check-sw`。
+- 台账与口径：`check-seo-teeth` 漏斗组 13 → 23 枚变异（含 2 条反向夹具），全套 179 → 188/188、实测 238.8s；
+  门禁清单 23 → 24 道；`check-discovery` 那句写死的「9 组」改回 `GROUPS.length`；上一条里
+  `check-discovery-teeth` 的 82/82 是抄错了本子（那是 tools-surface 的数），实为 8/8，已改。
 
 ## 2.1.0 — 2026-09-24
 
