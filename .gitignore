@@ -63,6 +63,17 @@ vibe_images/
 # 使上面那条 `!_drafts/evidence/.gitkeep` 的反向放行失效。
 _drafts/*.md
 _drafts/*.json
+# 同一条理由的另外三种形状：定时任务的提示词（.txt）、流水线本地的 shell 件（.sh），
+# 以及搬离构建目录的历史稿包（legacy-2026-10/，10 个文件里有人设档案与运行日志）。
+# 这四条此前**只写在 `.git/info/exclude` 里**——那是机器本地的、不随仓库走的一层。
+# 后果不是「今天泄漏」，而是换机器或新克隆之后，deploy-github.sh 的 `git add -A`
+# 会把这些内部件原样推进公开仓库，而那一刻没有任何东西会红。
+_drafts/*.txt
+_drafts/*.sh
+_drafts/legacy-2026-10/
+# 交付锁的持锁目录（scripts/delivery-lock.sh 的运行时状态）：里面只有 run-id 与时间戳，
+# 但它是「此刻有流水线在跑」的机器记账，且跑动中会被 git add -A 撞上。
+_drafts/.delivery.lock/
 # 站内体检报告的月度产出（现为 blog-growth-analysis-2026-09.md）。
 # `dev` 已在 _config.yml:228 排除出构建，线上本来就读不到，仓库里同样不必留。
 dev/blog-growth-analysis-*.md
