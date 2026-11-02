@@ -2,7 +2,7 @@
 /**
  * 牙齿：证明 check-release.mjs 的每组判据都真能红。
  *
- * 与既有牙齿家族的区别：**不改任何一个跟踪文件**。把三份版本台账复制到 gitignore 的
+ * 与既有牙齿家族的区别：**不改任何一个跟踪文件**。把三份版本台账与 tag 清单复制到 gitignore 的
  * spark-output 里，只在副本上做 mutation，再经 check-release 的 `--package/--config/--changelog`
  * 覆盖口喂回去。这样「机器被 kill」最多留下一堆临时文件，源码不会停在被毒化的状态。
  *
@@ -12,7 +12,7 @@
  * 写死当前版本 = 把牙齿的寿命绑在两次发版之间，而这正是牙齿唯一该守住的时刻。
  *
  * 用法：node scripts/check-release-teeth.mjs
- * 退出码：0 每把刀都红过 / 1 有刀空转 / 2 环境或锚点问题。
+ * 退出码：0 每一把都如期（该红的红、K7 该绿的绿）/ 1 有刀空转 / 2 环境或锚点问题。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,6 +46,25 @@ const PATCH_UP = `${MAJ}.${MIN}.${PAT + 1}`; // K1：包体领先一位
 const TWO_SEG = `${MAJ}.${MIN}`; // K3：形状退化成两段
 /** K5/K6 需要「比当前旧一档」与「比当前新一档」的两个版本号；0 位不够减时降一档 minor */
 const PREV = PAT > 0 ? `${MAJ}.${MIN}.${PAT - 1}` : `${MAJ}.${MIN - 1}.0`;
+
+/**
+ * K5 变异值必须**不可能等于本机真实 tag 集里的最新一枚**，否则这把刀分不清"读了夹具"与
+ * "压根没读夹具、退回去读了 git tag"（2026-11-02 现场：PREV 恰好是 2.1.0，而本机 `git tag`
+ * 的最新就是 2.1.0 —— `--tags-file` 那一整条口被摘掉，K5 的期望串仍然命中）。
+ * 用一个从没人会打的版本号，并在这里就地确认它确实不在真实 tag 集里（哪天有人真打了，
+ * 这把刀当场退 2，而不是悄悄变成假牙）。
+ */
+const SENTINEL_OLD = '0.8.8';
+const realTags = (() => {
+  try {
+    return execFileSync('git', ['tag', '--list'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\n').map((s) => s.trim().replace(/^v/, '')).filter(Boolean);
+  } catch { return null; }
+})();
+if (realTags && realTags.includes(SENTINEL_OLD)) {
+  console.error(`✗ 本机 git tag 里已经有 ${SENTINEL_OLD}——K5 的哨兵值失效，换一个再谈牙齿`);
+  process.exit(2);
+}
 
 const run = (extra = []) => {
   try {
@@ -94,8 +113,10 @@ const KNIVES = [
     expect: /条目顺序错了/ },
   { name: 'K5 tag 落后于包体（发版没收口）', group: 'T1 tag 收口', tagOnly: true,
     extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-old.txt'],
-    apply: () => put(TAGS.replace(/\.txt$/, '-old.txt'), `${PREV}\n1.0.0\n`),
-    expect: new RegExp(`停在 ${esc(PREV)} 而包体是 ${esc(BASE)}`) },
+    // 清单里只放这一枚哨兵：门禁是**按版本排序**取最新的（K5 第一次下刀就撞见了这件事——
+    // 两行写 `0.8.8` + `1.0.0` 时它报的是 1.0.0）。排序与 v 前缀那一面由 K6 钉。
+    apply: () => put(TAGS.replace(/\.txt$/, '-old.txt'), `${SENTINEL_OLD}\n`),
+    expect: new RegExp(`停在 ${esc(SENTINEL_OLD)} 而包体是 ${esc(BASE)}`) },
   {
     /**
      * K6 钉的是「读 tag 要自己排序、并且认得 v 前缀」这一条：清单故意按升序写、
@@ -107,6 +128,17 @@ const KNIVES = [
     extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-unsorted.txt'],
     apply: () => put(TAGS.replace(/\.txt$/, '-unsorted.txt'), `${PREV}\n${BASE}\nv${PATCH_UP}\n`),
     expect: new RegExp(`停在 ${esc(PATCH_UP)} 而包体是 ${esc(BASE)}`),
+  },
+  {
+    /**
+     * 反向对照：tag 已经收口（最新一枚就是包体版本，清单还故意乱序、还带 v 前缀）时，
+     * `--require-tag` 必须**退 0**。T1 这一档要是被写成"永远红"，上面两把照样各红一次、
+     * 整份台账一路通过——而它守的那件事（发版收口）其实已经没人判了。
+     */
+    name: 'K7 expectGreen：tag 已收口（升序清单 + v 前缀 + 最新就是包体）', group: 'T1 tag 收口',
+    tagOnly: true, expectGreen: true,
+    extra: ['--require-tag', '--tags-file=spark-output/release-teeth/tags-equal.txt'],
+    apply: () => put(TAGS.replace(/\.txt$/, '-equal.txt'), `1.0.0\n${PREV}\nv${BASE}\n`),
   },
 ];
 
@@ -129,9 +161,13 @@ for (const k of KNIVES) {
   /** 只写 tag 清单的两把不碰三份副本，这条对照对它们没有意义 */
   if (!k.tagOnly && unchanged()) { console.log(`✗ ${k.name} 没改到任何东西——锚点写死了或被搬走，这一刀没有落点`); fails++; continue; }
   const r = run(k.extra || []);
+  if (k.expectGreen) {
+    if (r.code === 0) { console.log(`✓ ${k.name} → 该绿的确实绿`); continue; }
+    console.log(`✗ ${k.name} 要求全绿却红了：\n${r.out.trim().slice(0, 260)}`); fails++; continue;
+  }
   const hit = k.expect.test(r.out);
   if (r.code === 1 && hit) console.log(`✓ ${k.name} → 红在 [${k.group}]`);
   else { console.log(`✗ ${k.name} 空转：退出码 ${r.code}，判据命中=${hit}\n${r.out.trim().slice(0, 260)}`); fails++; }
 }
-console.log(fails ? `✗ ${fails}/${KNIVES.length} 把刀空转` : `✓ ${KNIVES.length} 把刀全部见红，check-release 的判据不是空话`);
+console.log(fails ? `✗ ${fails}/${KNIVES.length} 把不如期（该红的没红、该绿的没绿）` : `✓ ${KNIVES.length} 把刀全部如期，check-release 的判据不是空话`);
 process.exit(fails ? 1 : 0);

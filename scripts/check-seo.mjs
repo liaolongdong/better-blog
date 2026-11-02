@@ -2013,6 +2013,22 @@ if (postPages.length) {
     }
 
     const want = declared.filter((d) => d.expect);
+    /**
+     * 反向一遍：`CFG_KEY` 里每一枚「值来自 _config.yml」的 meta，模板里必须真的还有它的发射处。
+     * 上面那一圈是从模板出发判的（模板声明了什么就去产物找什么），所以**模板把整段删掉**时
+     * `declared` 少一项、什么都不会红——而 `_config.yml` 里那行空串还原样躺着。失效时机被推迟到
+     * 「本人哪天把 Bing 的码领回来填进去」那一刻：码进了配置、没有任何一处会把它发出去，
+     * 站长面板继续显示未验证，而 17 组判据全绿。这一族判的就是「填了 ≠ 到了抓取器手上」，
+     * 不能只判填了的那一半。
+     */
+    for (const [name, cfgName] of Object.entries(CFG_KEY)) {
+      if (!declared.some((d) => d.name === name)) {
+        badOnce(g, '_includes/seoMeta.html', `源里不再发射 ${name}（值应来自 _config.yml 的 ${cfgName}）：将来码填进配置也不会有人到抓取器手上，而配置里那行看不出自己已经悬空`);
+      }
+      if (!(cfgName in config)) {
+        badOnce(g, '_config.yml', `映射表认 ${name} ← ${cfgName}，但配置里已经没有这个键：要么把键加回来，要么把 ${name} 从映射表里一起删掉`);
+      }
+    }
     const probes = ['index.html'];
     if (posts.length) probes.push(posts[0].rel);
     for (const rel of probes) {

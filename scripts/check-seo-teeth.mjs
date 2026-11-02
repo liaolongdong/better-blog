@@ -2445,6 +2445,22 @@ const cases = [
     expect: '源里声明了 msvalidate.01，产物 head 里没有',
     mut: () => S.srcSubLine('_config.yml', /^bing_site_verification: ''$/m, "bing_site_verification: '0123456789abcdef0123456789abcdef'"),
   },
+  {
+    name: '模板把 msvalidate.01 那三行整段删掉（今天 bing 码是空串所以两头全绿；哪天领回码填进配置，它也不会到抓取器手上）',
+    group: '验证 meta',
+    expect: '源里不再发射 msvalidate.01',
+    mut: () => S.srcSub('_includes/seoMeta.html',
+      `{%- if site.bing_site_verification and site.bing_site_verification != '' %}\n<meta name="msvalidate.01" content="{{ site.bing_site_verification }}">\n{%- endif %}`,
+      '{%- comment -%}搬走了{%- endcomment -%}'),
+  },
+  {
+    name: 'expectGreen：同一枚 msvalidate.01 只把 if 的两个子句换个顺序（判的是还有没有发射处，不是字节形状）',
+    group: '验证 meta',
+    expectGreen: true,
+    mut: () => S.srcSub('_includes/seoMeta.html',
+      "{%- if site.bing_site_verification and site.bing_site_verification != '' %}",
+      "{%- if site.bing_site_verification != '' and site.bing_site_verification %}"),
+  },
 ];
 
 function editManifest(mutate, where) {
