@@ -134,14 +134,20 @@ front matter、经 Jekyll 渲染，另 15 个是纯静态页不经它），后�
 
 noindex 的文章不收，也与 sitemap 同判据。
 {%- endcomment -%}
+{%- comment -%}
+清单里的每一条都走 | jsonify：这些值是 _data/*.yml 与文章 front matter 的内容，
+用单引号手写会把「一个撇号就截断字符串」留在产物里——而这个文件控制的是 /better-blog/
+整段作用域，断在这里的表现是 SW 注册失败、离线能力整体消失，而任何一页看上去都正常。
+jsonify 出来的引号与转义由 Liquid 负责，条目里真有特殊字符时它自己会逃。
+{%- endcomment -%}
 const DOC_URLS = [
   BASE + '/',
 {%- for item in site.nav %}{% unless item.url == '/' %}
-  '{{ item.url | prepend: site.baseurl }}',
+  {{ item.url | prepend: site.baseurl | jsonify }},
 {%- endunless %}{% endfor %}
 {%- assign ready_online = site.data.onlineTools | where: 'status', 'ready' %}
 {%- for tool in ready_online %}
-  '{{ tool.url | prepend: site.baseurl }}',
+  {{ tool.url | prepend: site.baseurl | jsonify }},
 {%- endfor %}
   BASE + '/index-all.html',
 {%- comment -%}
@@ -155,10 +161,10 @@ changelog 是回访才用的页，不该挤占首页与工具箱那 13 枚的淘
 的第二跳，不占首页/工具箱那批钉住豁免位。放进文档清单，离线时仍能打开。
 {%- endcomment -%}
 {%- for tool in site.data.tools %}
-  '{{ tool.guide | prepend: site.baseurl }}',
+  {{ tool.guide | prepend: site.baseurl | jsonify }},
 {%- endfor %}
 {%- for post in site.posts %}{% unless post.noindex %}
-  '{{ post.url | prepend: site.baseurl }}',
+  {{ post.url | prepend: site.baseurl | jsonify }},
 {%- endunless %}{% endfor %}
 ];
 
@@ -207,7 +213,7 @@ const PIN_URLS = ENTRY_CUT === -1 ? [BASE + '/'] : DOC_URLS.slice(0, ENTRY_CUT +
 {%- assign cover_rows = cover_rows | uniq | slice: 0, cover_cap -%}
 const COVER_RAW = [
 {%- for cover in cover_rows %}
-  '{{ cover | prepend: site.baseurl }}',
+  {{ cover | prepend: site.baseurl | jsonify }},
 {%- endfor %}
 ];
 /** 按清单原序去重（Array.from 保序），于是"新帖在前"这个补全顺序不变。 */

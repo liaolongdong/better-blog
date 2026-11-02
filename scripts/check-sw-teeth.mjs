@@ -152,6 +152,13 @@ function runGate(siteOverride) {
 fs.cpSync(path.join(ROOT, '_site'), SHADOW, { recursive: true });
 
 const BASE = baseFromArtifact();
+/**
+ * 清单条目的引号口径：`sw.js` 里 Liquid 生成的条目改走 `| jsonify`（双引号）之后，
+ * 只认单引号的变异会当场变成"没命中产物"——2026-11-02 三把刀同时失效就是这一形。
+ * 所以按引号类别匹配，两种口径都认。
+ */
+const escRe = (u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const entryRe = (u) => new RegExp(`(['"\`])${escRe(u)}\\1`);
 /** sw.js 产物里那几行清单锚点，用于"插一条 / 删一条"型变异 */
 const SW = () => ({
   insertShell: (line) => shadowEdit('sw.js', (s) => s.replace('const SHELL_URLS = [', `const SHELL_URLS = [\n  ${line},`)),
@@ -164,9 +171,9 @@ const cases = [
   {
     name: '文档清单里少拼一次 baseurl 前缀',
     group: '清单',
-    // DOC_URLS 里 Liquid 生成那几条是**字面量**（`'/better-blog/tools.html'`），
+    // DOC_URLS 里 Liquid 生成那几条是**字面量**（`"/better-blog/tools.html"`，走 | jsonify），
     // 骨架/豁免那几条是 `BASE + '…'` 拼接——两类写法不一样，锚点也得分别对准。
-    artifact: () => shadowEdit('sw.js', (s) => s.replace(`'${BASE}/tools.html',`, "'/tools.html',")),
+    artifact: () => shadowEdit('sw.js', (s) => s.replace(entryRe(`${BASE}/tools.html`), (m, q) => `${q}/tools.html${q}`)),
   },
   {
     name: '骨架清单指向产物里不存在的文件',
@@ -184,9 +191,9 @@ const cases = [
     artifact: () => shadowEdit('sw.js', (s) => {
       // 不锚行首：产物里这一行前面紧挨着 PIN_URLS（Liquid 的 {%- 把中间那个换行吃掉了），
       // 按 ^ 锚会一上来就找不到靶子。
-      const m = /const COVER_RAW = \[\n(\s*)'([^']+)',/.exec(s);
+      const m = /const COVER_RAW = \[\n(\s*)(["'])([^"']+)\2,/.exec(s);
       if (!m) throw new Error('封面去重那一刀落不准：找不到 COVER_RAW 的第一条地址，清单形状改了要同步改这里');
-      const dup = s.replace(m[0], `${m[0]}\n${m[1]}'${m[2]}',`);
+      const dup = s.replace(m[0], `${m[0]}\n${m[1]}${m[2]}${m[3]}${m[2]},`);
       const undedup = dup.replace('Array.from(new Set(COVER_RAW))', 'COVER_RAW.slice()');
       if (undedup === s) throw new Error('封面去重那一刀落不准：既没造出重复也没拆掉 Set');
       return undedup;
@@ -231,7 +238,7 @@ const cases = [
   {
     name: '文档清单漏掉 sitemap 里的一篇文章',
     group: '文档集合',
-    artifact: () => shadowEdit('sw.js', (s) => s.replace(`  '${BASE}/2016/06/18/hello-jekyll.html',\n`, '')),
+    artifact: () => shadowEdit('sw.js', (s) => s.replace(new RegExp(`  (['\"])${escRe(`${BASE}/2016/06/18/hello-jekyll.html`)}\\1,\\n`), '')),
   },
   {
     name: '文档清单多收一个 sitemap 外的页面（翻页视图）',
