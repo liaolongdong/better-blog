@@ -6450,7 +6450,7 @@ test('K18 零重叠：dev/js/tools/ 不成 vite 入口', () => {
   assert.equal(top.includes('time.js'), false, 'time.js 被挪到 dev/js/ 顶层，会变成构建入口、进产物');
   assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/time.js')), true,
     '文件不在它该在的位置时，上面那条断言是空转的');
-  const vite = read('vite.config.js');
+  const vite = read('vite.config.mjs');
   assert.match(vite, /function getDevJsEntries\(\)[\s\S]{0,400}readDirSorted\(jsDir\)[\s\S]{0,200}endsWith\('\.js'\)/,
     'vite 的入口扫描不再是"dev/js 一层 + .js 后缀"，本条与 §6.1 的零重叠口径要一起重写');
   const siteJs = resolve(ROOT, '_site/assets/js');
@@ -7829,7 +7829,7 @@ test('N19 违禁源扫描、零重叠、不成 vite 入口', () => {
   assert.equal(/\bwhile\s*\(\s*true\s*\)/.test(src), false, '不许出现无边界的 while(true)');
   assert.equal(existsSync(resolve(ROOT, 'dev/js/regex.js')), false, '旧位置 dev/js/regex.js 不该存在');
   assert.equal(existsSync(resolve(ROOT, 'dev/js/tools/regex.js')), true, '新位置必须在，否则上一条是空转的');
-  const vite = read('vite.config.js');
+  const vite = read('vite.config.mjs');
   const at = vite.indexOf('getDevJsEntries');
   assert.ok(at > -1, '入口表由 getDevJsEntries 决定，找不到这个名字说明地基变了');
   assert.match(vite.slice(at, at + 900), /readDirSorted/,

@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
-import { resolve, join } from 'path';
+import { resolve, join, dirname } from 'path';
 import { readdirSync, statSync, copyFileSync, readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 
-const DEMO_DIR = resolve(__dirname, 'demo');
+/** 仓库根：本文件所在目录。ESM 没有 `__dirname`，从 import.meta.url 反推。 */
+const ROOT = dirname(fileURLToPath(import.meta.url));
+
+const DEMO_DIR = resolve(ROOT, 'demo');
 
 /**
  * demo/<name>/css/ 下「已预处理完成的静态样式」清单。
@@ -31,7 +35,7 @@ const STATIC_DEMO_CSS = ['base.css'];
  * @returns {string} 形如 '/better-blog/' 的 base；baseurl 为空时回退为 '/'
  */
 function getSiteBase() {
-  const config = readFileSync(resolve(__dirname, '_config.yml'), 'utf8');
+  const config = readFileSync(resolve(ROOT, '_config.yml'), 'utf8');
   const matched = config.match(/^baseurl:\s*['"]?([^'"\s]*)['"]?\s*$/m);
   const baseurl = matched ? matched[1] : '';
   return `${baseurl.replace(/\/+$/, '')}/`;
@@ -111,7 +115,7 @@ function getDemoEntries() {
 /**
  * 把 demo/<name>/css/ 下的静态样式原样复制为同名 .min.css。
  *
- * 与主配置 vite.config.js 的 copyPreMinifiedPlugin 是同一套思路：
+ * 与主配置 vite.config.mjs 的 copyPreMinifiedPlugin 是同一套思路：
  * 已预处理完成的产物不进打包管线，只做复制，因此天然不受内容去重影响。
  * @returns {import('vite').Plugin} Vite 插件
  */
@@ -146,7 +150,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: resolve(__dirname),
+    outDir: ROOT,
     emptyOutDir: false,
     // Demo 不压缩代码，方便查看源码
     minify: false,

@@ -5,7 +5,7 @@ module.exports = {
       cascade: true,
       remove: true
     },
-    'postcss-px-to-viewport': {
+    'postcss-px-to-viewport-8-plugin': {
       viewportWidth: 750,
       viewportHeight: 1334,
       unitPrecision: 5,
@@ -89,7 +89,7 @@ module.exports = {
         '#cmdk',              // id 选择器不含 ".cmdk" 这个子串，单独列
         ':focus-visible',     // 裸伪类选择器同上，2px 描边不能被放大成 vw
         // 在线工具四页（/tools/idcard.html 起）。这三串必须是**字符串**而不是 /^\.tk-/ 这种正则：
-        // postcss-px-to-viewport@1.1.1 的 blacklistedSelector 对字符串走 `selector.indexOf(s)`
+        // postcss-px-to-viewport-8-plugin@1.2.5 的 blacklistedSelector 对字符串走 `selector.indexOf(s)`
         // （任意位置子串命中），对正则走 `selector.match(re)`，而本层大量规则的最左选择器是
         // `.tk-workspace .tk-col` 这类后代形式，anchored 正则一条都盖不住。
         // 漏一条的后果与 /^\.mao_box/ 那条注释记的同一种：同一块版面一半按 px、一半按 750 设计稿放大。

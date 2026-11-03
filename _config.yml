@@ -301,8 +301,8 @@ exclude:
   - package.json
   - pnpm-lock.yaml
   - pnpm-workspace.yaml
-  - vite.config.js
-  - vite.demo.config.js
+  - vite.config.mjs
+  - vite.demo.config.mjs
   - postcss.config.js
   - .gitignore
   - .npmrc
