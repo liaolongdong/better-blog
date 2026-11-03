@@ -71,10 +71,15 @@ _drafts/*.json
 _drafts/*.txt
 _drafts/*.sh
 _drafts/legacy-2026-10/
+# 仓库根的一次性日志（`pnpm dev`、`jekyll serve --trace` 之类跑出来的现场转储）。
+# 2026-11-03 现场：一次调试留下 `dev-console.log` / `jekyll-second.log` / `jekyll-trace.log`
+# 三个未跟踪文件躺在根目录，而 `deploy-github.sh` 跑的是 `git add -A`——调试日志里带的是
+# 绝对路径与构建报错全文，不该进公开仓库。目录级日志（npm-debug 等）上面已经盖掉。
+/*.log
 # 交付锁的持锁目录（scripts/delivery-lock.sh 的运行时状态）：里面只有 run-id 与时间戳，
 # 但它是「此刻有流水线在跑」的机器记账，且跑动中会被 git add -A 撞上。
-# 不带尾斜杠：带斜杠的形状只命中目录，而 `git check-ignore` 在目录不存在时按「不是目录」
-# 判不命中——规则要在锁没被持有的时候也看得出来它存在过意义。
+# 不带尾斜杠：带斜杠只命中目录，而 `git check-ignore` 在目录不存在时按「不是目录」判不命中
+# ——规则要在锁没被持有的时候也看得出来它管的是什么。
 _drafts/.delivery.lock
 # 站内体检报告的月度产出（现为 blog-growth-analysis-2026-09.md）。
 # `dev` 已在 _config.yml:228 排除出构建，线上本来就读不到，仓库里同样不必留。

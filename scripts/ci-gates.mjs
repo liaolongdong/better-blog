@@ -151,6 +151,22 @@ const srcDirty = () => {
   }
 };
 const baseline = srcDirty();
+/**
+ * 跑之前先看一眼有没有常驻的 `jekyll serve --watch` / `vite build --watch` 在同一棵工作树里。
+ * 为什么这一发值得打：牙齿会**就地改跟踪源再还原**，watcher 会把那几次改动当成编辑，
+ * 于是在两道门之间重建 `_site`——产物变旧或半新半旧，门禁读的是移动靶。2026-11-03 现场：
+ * 另一路会话在调 `jekyll serve --trace`，同一轮里 `check-sw-teeth` 的「跑完台账后基线不绿」
+ * 与 `check-seo-teeth` 一起红，而工作树里一个跟踪文件的 diff 都没有。
+ * 只警告不拦路：CI 上没有 watcher（`pgrep` 也可能不存在，一律静默跳过），本地则是给自己一个提示。
+ */
+try {
+  const watchers = execFileSync('pgrep', ['-f', 'jekyll serve|vite build --watch'], { encoding: 'utf8' }).trim();
+  if (watchers) {
+    console.warn('⚠ 检测到常驻 dev watcher（pid ' + watchers.split('\n').join(' ') + '）。');
+    console.warn('  牙齿就地改源会喂给它，`_site` 可能在两道门之间被重建——本轮读数请当移动靶看。');
+    console.warn('  要么先停掉它，要么以 PR 上那条 ci.yml（干净机器、同一张清单）为准。');
+  }
+} catch { /* pgrep 不存在或没匹配到：没有 watcher，正是想要的状态 */ }
 
 for (const g of selected) {
   process.stdout.write(`\n::group::${g.name}\n`);
