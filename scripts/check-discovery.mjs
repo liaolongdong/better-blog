@@ -160,4 +160,4 @@ if (fails.length) {
   console.log(`\n可发现性门禁：${fails.length} 条失败`);
   process.exit(1);
 }
-console.log('✓ 可发现性 9 组判据全绿');
+console.log(`✓ 可发现性 ${GROUPS.length} 组判据全绿`);

@@ -18,9 +18,13 @@
     <a href="#/about">about</a>
     <script>
         // 解决刷新页面bug
-        location.hash && (app.innerHTML = location.hash.slice(2));
+        // 用 textContent 而不是 innerHTML：这里写的值是 URL 片段，属于「外人可控的输入」。
+        // Chromium 会把片段里的 `<` 归一化成 %3C，所以今天它并不可利用（2026-11-02 实测：
+        // goto 与页内点击两条路都不落地标签）——但把 URL 直接喂给 innerHTML 是一枚等别人
+        // 换浏览器/换注入路径才响的雷，而演示的显示效果两种写法一模一样。
+        location.hash && (app.textContent = location.hash.slice(2));
         window.addEventListener('hashchange', () => {
-            app.innerHTML = location.hash.slice(2)
+            app.textContent = location.hash.slice(2)
         })
     </script>
 </body>

@@ -57,6 +57,21 @@ function bad(group, entry, msg) {
 }
 
 /**
+ * 「同一页同一句只报一次」的工厂。两份逐字相同的实现（漏斗组一份、验证 meta 组一份）
+ * 是同一件事写了两遍：改一处忘另一处，就会出现「同一个失效在一组里去重、在另一组里刷屏」。
+ * @param {Set} seen 调用方持有的去重集
+ * @returns {(group: string, entry: string, msg: string) => void}
+ */
+function makeBadOnce(seen) {
+  return (group, entry, msg) => {
+    const k = `${entry}|${msg}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    bad(group, entry, msg);
+  };
+}
+
+/**
  * 崩了也要把已经记下的判定吐干净。
  *
  * 判定是攒在 `fails` 里、跑到最后才打印的，所以任何一处未捕获的异常会把前面所有红一并吞掉：
@@ -1666,13 +1681,7 @@ if (postPages.length) {
    */
   const g = '漏斗';
   /** 同一页里同一枚 slug 写错会命中很多锚点，逐枚报同一句话只是把真问题埋进噪音里 */
-  const reported = new Set();
-  const badOnce = (group, entry, msg) => {
-    const k = `${entry}|${msg}`;
-    if (reported.has(k)) return;
-    reported.add(k);
-    bad(group, entry, msg);
-  };
+  const badOnce = makeBadOnce(new Set());
   /** 隐私与「有没有真接线」这几判必须跑在剥掉注释的正文上：件头与 README 里写着「不读 Cookie / 不读 IP」，照着整份文件判会一上来就红 */
   const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const KINDS = new Set(['store', 'demo', 'repo', 'guide', 'review']);
@@ -1704,36 +1713,110 @@ if (postPages.length) {
   // F2 形状 + 采集：data-funnel 必须是 kind:placement:slug 三段，三段各自在钉死的集合里
   const pagesWithAnchors = new Set();
   const pagesWithScript = new Set();
+  /** rel → placement → (kind → 枚数)，投放位对称性（F7）的原料 */
+  const perPage = new Map();
+  let sawWaline = false;
+  let sawBeacon = false;
   /**
-   * 只认「起始标签里的那个属性」。`/\bdata-funnel="…"/` 会把 CHANGELOG 或教程里
-   * `` `data-funnel="kind:placement:slug"` `` 这段代码示例也当成一枚锚点——2026-11-01
-   * 就是这么红的：`/changelog.html` 一个 `data-funnel` 都没有，却被判「维度值不在钉死的
-   * 集合里」+「带锚点却不加载计数件」。文档提到标记是这一族判据的常态而不是漏洞，
-   * 靶子必须钉在真属性上；`[^>]` 跨不过 `>`，所以 `<code>…</code>` 里的文本不再命中。
+   * 只认「起始标签里的那个属性」，并且先把注释与内联脚本整段剥掉。两件事各挡一种失效：
+   *   · `[^>]` 跨不过 `>`，所以 `<code>data-funnel="kind:placement:slug"</code>` 这种文档示例
+   *     不再被当成锚点——2026-11-01 的 `/changelog.html` 就是这么被自己的日志判红的；
+   *   · 但光那一条还不够：`<!-- <a data-funnel="store:hub:x"> -->` 与内联 `<script>` 里的字符串
+   *     同样能被它匹配到，于是「把一整块 CTA 注释掉」在台账上仍然是齐的。而「投放位静默消失」
+   *     正是这一族存在的唯一理由：事后从数字上分不清「没人记」与「没人点」。
+   * 单引号写的属性也要认：不认的话 `data-funnel='…'` 会让那一页从锚点集里消失，而它照常加载
+   * 计数件——假红会报在「加载了却没有锚点」那一句上。
    */
-  const attrRe = /<[a-zA-Z][^>]*?\bdata-funnel="([^"]*)"[^>]*>/g;
+  const stripNonCode = (t) => t
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '');
+  const attrRe = /<[a-zA-Z][^>]*?\bdata-funnel=(?:"([^"]*)"|'([^']*)')[^>]*>/g;
+  const anchorValue = (m) => (m[1] !== undefined ? m[1] : m[2]);
   for (const rel of htmlFiles) {
-    const txt = readSite(rel);
+    const raw = readSite(rel);
+    if (/waline/i.test(raw)) sawWaline = true;
+    if (/cloudflareinsights\.com\/beacon\.min\.js/.test(raw)) sawBeacon = true;
+    const txt = stripNonCode(raw);
     attrRe.lastIndex = 0;
     let m;
     while ((m = attrRe.exec(txt))) {
+      const value = anchorValue(m);
       pagesWithAnchors.add(rel);
-      const parts = String(m[1]).split(':');
-      if (parts.length !== 3) { badOnce(g, rel, `data-funnel="${m[1]}" 不是 kind:placement:slug 三段（面板上会多出一个从没听过的维度值，计数被拆开而不报错）`); continue; }
+      const parts = String(value).split(':');
+      if (parts.length !== 3) { badOnce(g, rel, `data-funnel="${value}" 不是 kind:placement:slug 三段（面板上会多出一个从没听过的维度值，计数被拆开而不报错）`); continue; }
       const [kind, place, slug] = parts;
       if (!KINDS.has(kind)) badOnce(g, rel, `data-funnel 的第一段是「${kind}」，不在钉死的五种里（${[...KINDS].join('/')}）`);
       if (!PLACES.has(place)) badOnce(g, rel, `data-funnel 的第二段是「${place}」，不在钉死的三种投放位里（${[...PLACES].join('/')}）`);
       if (!slugs.has(slug)) badOnce(g, rel, `data-funnel 的第三段是「${slug}」，_data/tools.yml 里没有这个 slug`);
+      if (!KINDS.has(kind) || !PLACES.has(place)) continue;
+      let byPlace = perPage.get(rel);
+      if (!byPlace) { byPlace = new Map(); perPage.set(rel, byPlace); }
+      let kinds = byPlace.get(place);
+      if (!kinds) { kinds = new Map(); byPlace.set(place, kinds); }
+      kinds.set(kind, (kinds.get(kind) || 0) + 1);
     }
-    if (txt.includes(SCRIPT_REL)) pagesWithScript.add(rel);
+    if (raw.includes(SCRIPT_REL)) pagesWithScript.add(rel);
   }
   if (!pagesWithAnchors.size) badOnce(g, '全站', '产物里一枚 data-funnel 都没有——埋点面被清空，这一组的产物侧判据正在空转');
 
+  // F7 投放位对称性：一张 CTA 卡上的几类按钮是成套渲染的，少一枚就是少接一格
+  {
+    /**
+     * 为什么不是「钉死总枚数」：总数会随文章数与工具条目数漂，漂到某天没人敢改的那个数，
+     * 判据就成了一具需要绕过的尸体。这里判的是结构：同一页同一投放位上，
+     * 该有的按钮种类必须齐、且各样的枚数必须相等。删掉任意一枚都会让这两条中的一条红。
+     */
+    const CARD_SETS = {
+      hub: ['store', 'demo', 'repo', 'guide', 'review'],
+      guide: ['store', 'demo', 'repo', 'review'],
+      article: ['store', 'repo', 'guide'],
+    };
+    for (const [rel, byPlace] of perPage) {
+      for (const [place, kinds] of byPlace) {
+        const want = CARD_SETS[place];
+        if (!want) continue;
+        const missing = want.filter((k) => !kinds.has(k));
+        if (missing.length) {
+          badOnce(g, rel, `${place} 投放位少了 ${missing.join('/')} 的锚点：那一格的曝光与点击永远不进漏斗，而页面看起来完全正常`);
+          continue;
+        }
+        const counts = [...kinds.values()];
+        if (new Set(counts).size > 1) {
+          badOnce(g, rel, `${place} 投放位上各按钮枚数不等（${[...kinds.entries()].map(([k, v]) => `${k}=${v}`).join(' ')}）：一张卡上的按钮成套渲染，差一枚就是那一格没接线`);
+        }
+      }
+    }
+  }
+
   // F3 双向一致性。开发构建（没带 JEKYLL_ENV=production）里模板本来就不发这一件，
   //     所以那一边判的是反方向：一件都不许出现——两头都有活干，没有永远绿的那一支。
-  const homeTxt = hasSite('index.html') ? readSite('index.html') : '';
-  const isProdBuild = /cloudflareinsights\.com\/beacon\.min\.js/.test(homeTxt);
-  if (isProdBuild) {
+  /**
+   * 「是不是生产构建」不能拿一个可选分析件的 beacon 地址单独反推：`cloudflare_analytics.enable`
+   * 一关，生产构建就被读成非生产，F3 的正向两判当场空转（评审 2026-11-02 点出的假红形状）。
+   * 改成按 `_config.yml` 现算信号：源里那几个「enable 且 production」的 include，哪一个在配置里
+   * 开着，就用它在产物里的痕迹判方向；两个都关着时不判方向，只打一行弱读数让人看见自己瞎了。
+   */
+  const prodSignals = [];
+  if (config.waline && config.waline.enable) prodSignals.push('waline');
+  if (config.cloudflare_analytics && config.cloudflare_analytics.enable) prodSignals.push('cloudflare beacon');
+  const isProdBuild = (config.waline && config.waline.enable && sawWaline)
+    || (config.cloudflare_analytics && config.cloudflare_analytics.enable && sawBeacon);
+  if (!prodSignals.length) {
+    console.log('  （弱读数：waline 与 cloudflare_analytics 都关着，漏斗的「生产/非生产」方向判据没有信号可取，本轮只判锚点侧）');
+  }
+  /**
+   * `funnel.enable: false` 是 `_includes/funnelScript.html` 里写明的总开关，所以它必须是一个
+   * **有反向牙齿**的分支，而不是一个豁免：关着的时候不许任何页还在发标签，开着的时候两向都判。
+   * 少了这一支，照文档把开关关掉会让每一页带锚点的页面都报「没加载计数件」——那等于把
+   * 唯一的停用路径变成一次全站假红。
+   */
+  const funnelOn = !((config.funnel || {}).enable === false);
+  if (!funnelOn) {
+    if (pagesWithScript.size) {
+      badOnce(g, [...pagesWithScript][0], `_config.yml 的 funnel.enable 已经是 false，产物里却仍在发 ${SCRIPT_REL} 标签：开关和模板判据不一致，关掉的埋点仍在向用户要字节`);
+    }
+  } else if (isProdBuild) {
     for (const rel of pagesWithAnchors) {
       if (!pagesWithScript.has(rel)) badOnce(g, rel, '这一页带 data-funnel 锚点却不加载 funnel.min.js：按钮被点了也没人知道');
     }
@@ -1746,8 +1829,7 @@ if (postPages.length) {
 
   // F4 配置形状（源侧）
   const fn = config.funnel || {};
-  if (fn.enable === undefined) badOnce(g, '_config.yml', '没有 funnel.enable：这一族的开关没有显式默认值，将来改 _config.yml 的人不知道自己刚把它关掉');
-  const ep = fn.endpoint === null || fn.endpoint === undefined ? '' : String(fn.endpoint).trim();
+  if (fn.enable === undefined) badOnce(g, '_config.yml', '没有 funnel.enable：这一族的开关没有显式默认值，将来改 _config.yml 的人不知道自己刚把它关掉');  const ep = fn.endpoint === null || fn.endpoint === undefined ? '' : String(fn.endpoint).trim();
   if (ep) {
     if (!/^https:\/\//.test(ep)) {
       badOnce(g, '_config.yml', `funnel.endpoint 不是 https：${ep}——https 页面发 http 请求是混合内容，浏览器直接拦掉，这条漏斗从来没有数据（dev/libJs/baiduPush.js 那条 http 注入就是同一形状）`);
@@ -1770,9 +1852,20 @@ if (postPages.length) {
   if (fs.existsSync(workerPath)) {
     const w = stripJs(fs.readFileSync(workerPath, 'utf8'));
     if (!/writeDataPoint/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 里没有 writeDataPoint：这条链只是把计数接到空中，面板上不会有任何一行');
-    if (/headers\.get\(\s*['"]cookie['"]\s*\)/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读 Cookie 请求头，与「无 Cookie」的承诺相反');
-    if (/headers\.get\(\s*['"]user-agent['"]\s*\)/.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 记 User-Agent：那是一份可以指纹化访客的设备描述，承诺里没有它');
-    if (/cf-connecting-ip|request\.cf\./.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读访客 IP 或地理位置：承诺写的是「拿到的是计数而不是个体轨迹」');
+    // 大小写不敏感：`headers.get('Cookie')` 与 `headers.get('User-Agent')` 才是 HTTP 头的常规写法，
+    // 只认小写的判据等于给「换成大写就放行」留了门（评审 2026-11-02 点出的弱判据形状）。
+    if (/headers\.get\(\s*['"]cookie['"]\s*\)/i.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读 Cookie 请求头，与「无 Cookie」的承诺相反');
+    if (/headers\.get\(\s*['"]user-agent['"]\s*\)/i.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 记 User-Agent：那是一份可以指纹化访客的设备描述，承诺里没有它');
+    if (/cf-connecting-ip|request\.cf\./i.test(w)) badOnce(g, 'funnel-worker', 'worker.mjs 读访客 IP 或地理位置：承诺写的是「拿到的是计数而不是个体轨迹」');
+    /**
+     * null-body 状态（204/205/304）带 body 构造 Response 会直接抛 TypeError，
+     * 于是那条「安静地不收脏数据」的分支变成一次脚本异常。2026-11-02 实测：
+     * `GET /e`（缺 e 参数，正是 README 推荐的探针形状）在 Workers 上是 1101。
+     */
+    const nullBody = [...w.matchAll(/new Response\(\s*(?!null\b|undefined\b)([^,)]+),\s*\{[^}]*status:\s*(204|205|304)\b/g)];
+    if (nullBody.length) {
+      badOnce(g, 'funnel-worker', `worker.mjs 给 ${[...new Set(nullBody.map((m) => m[2]))].join('/')} 带了动作体（${nullBody.map((m) => m[1].trim()).join(', ')}）：Response 构造当场抛 TypeError，那一发请求拿到的是脚本异常而不是安静忽略`);
+    }
 
     // 绑定名两file一致性：jsonc 里改了 binding 而源码还认 env.ANALYTICS，那一发写库就是 undefined，
     // 而 Worker 照常返回 200/GIF——前端看不到任何异常，面板里永远是零行。
@@ -1803,6 +1896,50 @@ if (postPages.length) {
     // 牙齿台账里那一刀就是这么被证伪的（2026-10-28）。
     if (!/doNotTrack/.test(js) || !/globalPrivacyControl/.test(js)) badOnce(g, 'dev/js/funnel.js', 'DNT / globalPrivacyControl 那一判被拆开了：件头与 _config.yml 都承诺两个都尊重');
     if (/localStorage|sessionStorage|document\.cookie/.test(js)) badOnce(g, 'dev/js/funnel.js', '埋点件写本地存储或 Cookie：这一族承诺「无访客 ID」，写了就变成可以连回同一个人的东西');
+    /**
+     * Referer 是那条「地址栏的东西不出页面」承诺里唯一靠浏览器策略撑着的一半。
+     * 只判「文件里出现过 referrerPolicy」是不够的：删掉 fetch 选项里那一句、只留注释里的一个词，
+     * 判据仍然绿。所以两条发送路各判一刀——fetch 的选项对象里必须有，Image 兜底那一支也必须有，
+     * 少一边就等于老浏览器仍在把本站 origin 送出去（2026-11-02 真浏览器实测到 origin 级 referer）。
+     */
+    const fetchOpts = /fetch\s*\([^)]*,\s*\{([^}]*)\}/s.exec(js);
+    if (!fetchOpts) badOnce(g, 'dev/js/funnel.js', '读不出 fetch(url, { … }) 的选项对象：referrerPolicy 这一判没有靶子');
+    else if (!/referrerPolicy/.test(fetchOpts[1])) badOnce(g, 'dev/js/funnel.js', 'fetch 那一发的选项对象里没有 referrerPolicy：默认策略会把本站 origin 送给接收端');
+    if (!/img\.referrerPolicy\s*=/.test(js)) badOnce(g, 'dev/js/funnel.js', 'Image 兜底那一支没写 referrerPolicy：没有 fetch 的浏览器仍然在发本站 origin');
+
+    /**
+     * blob1..blob6 的顺序就是面板上的列名：交换两格，读数是「投放位里出现产品名」这种
+     * 看起来像脏数据、其实一个符号都没错的东西。参数名两端的契约 F6 已经判了，
+     * 判不到**槽位**——所以这里按源码里 blobs 数组的字面顺序再对一遍。
+     */
+    const BLOB_ORDER = ['e', 'k', 'p', 's', 'u', 'v'];
+    const rawWorker = fs.existsSync(workerPath) ? fs.readFileSync(workerPath, 'utf8') : '';
+    const blobsM = /blobs:\s*\[([^\]]*)\]/.exec(rawWorker);
+    if (rawWorker && !blobsM) {
+      badOnce(g, 'funnel-worker', 'worker.mjs 里读不出 blobs: [...] 那一行：槽位顺序这一判没有靶子（blob1..blob6 就是面板上的列名）');
+    } else if (blobsM) {
+      // 深度优先切分：clean(q.get('k'), CAPS.k) 里面的逗号不能当成两个槽的分界
+      const parts = [];
+      let depth = 0, cur = '', quote = '';
+      for (const ch of blobsM[1]) {
+        if (quote) { cur += ch; if (ch === quote) quote = ''; continue; }
+        if (ch === "'" || ch === '"') { quote = ch; cur += ch; continue; }
+        if (ch === '(' || ch === '[') depth += 1;
+        if (ch === ')' || ch === ']') depth -= 1;
+        if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; continue; }
+        cur += ch;
+      }
+      if (cur.trim()) parts.push(cur);
+      const order = parts.map((p) => {
+        const g1 = /q\.get\('([a-z])'\)/.exec(p);
+        if (g1) return g1[1];
+        const bare = /^\s*([a-z])\s*$/.exec(p);
+        return bare ? bare[1] : '';
+      });
+      if (order.length !== BLOB_ORDER.length || order.some((x, i) => x !== BLOB_ORDER[i])) {
+        badOnce(g, 'funnel-worker', `数据点槽位与 README 的口径不一致：源码是 blobs=[${order.join(',') || '读不出单字母槽'}]，README 与 SQL 示例认的是 [${BLOB_ORDER.join(',')}]——交换两格不会报错，只会让面板上「投放位」那一列显示产品名`);
+      }
+    }
 
     /**
      * 参数契约：前端拼出去的每一个 query 参数，Worker 必须真的读；Worker 读的每一个，
@@ -1812,7 +1949,12 @@ if (postPages.length) {
      */
     const workerSrc = fs.existsSync(workerPath) ? stripJs(fs.readFileSync(workerPath, 'utf8')) : '';
     if (workerSrc) {
-      const sent = new Set([...js.matchAll(/[?&]([a-z])='/g)].map((m) => m[1]));
+      /**
+       * 键名从 `'x=` 与 `&x=` 两种字面形状里取：埋点件的分隔符是按 endpoint 现算的
+       * （`sep + 'e='`），只认 `?x=` 会把第一个参数判成「前端从不发」——2026-11-02 改成
+       * 双分隔符时正是这条判据先红的，所以提取式跟着改，而不是把判据放宽。
+       */
+      const sent = new Set([...js.matchAll(/['&?]([a-z])=/g)].map((m) => m[1]));
       const read = new Set([...workerSrc.matchAll(/q\.get\('([a-z])'\)/g)].map((m) => m[1]));
       if (sent.size < 5 || read.size < 5) badOnce(g, '参数契约', `读数可疑（前端发 ${sent.size} 个参数、Worker 读 ${read.size} 个），这一判的提取式该跟着改了`);
       for (const k of sent) if (!read.has(k)) badOnce(g, '参数契约', `埋点件发 ?${k}= 而 worker.mjs 不读它：这一维丢在 URL 里，面板上永远查不到`);
@@ -1834,13 +1976,7 @@ if (postPages.length) {
    * 「还没去领」而不是「领了没生效」，但必须打一行弱读数，别让空串躺在配置里没人看见。
    */
   const g = '验证 meta';
-  const reportedMeta = new Set();
-  const badOnce = (group, entry, msg) => {
-    const k = `${entry}|${msg}`;
-    if (reportedMeta.has(k)) return;
-    reportedMeta.add(k);
-    bad(group, entry, msg);
-  };
+  const badOnce = makeBadOnce(new Set());
   const META_RE = /<meta\s+name="(msvalidate\.01|[a-z0-9_-]*(?:site[-_])?verification)"\s+content="([^"]*)"\s*\/?>/gi;
   const CFG_KEY = { 'msvalidate.01': 'bing_site_verification' };
   const PLACEHOLDER = /^(x{3,}|todo|your[-_]?|changeme|<.*>|\{\{\s*\}\})$/i;
@@ -1877,8 +2013,24 @@ if (postPages.length) {
     }
 
     const want = declared.filter((d) => d.expect);
+    /**
+     * 反向一遍：`CFG_KEY` 里每一枚「值来自 _config.yml」的 meta，模板里必须真的还有它的发射处。
+     * 上面那一圈是从模板出发判的（模板声明了什么就去产物找什么），所以**模板把整段删掉**时
+     * `declared` 少一项、什么都不会红——而 `_config.yml` 里那行空串还原样躺着。失效时机被推迟到
+     * 「本人哪天把 Bing 的码领回来填进去」那一刻：码进了配置、没有任何一处会把它发出去，
+     * 站长面板继续显示未验证，而 17 组判据全绿。这一族判的就是「填了 ≠ 到了抓取器手上」，
+     * 不能只判填了的那一半。
+     */
+    for (const [name, cfgName] of Object.entries(CFG_KEY)) {
+      if (!declared.some((d) => d.name === name)) {
+        badOnce(g, '_includes/seoMeta.html', `源里不再发射 ${name}（值应来自 _config.yml 的 ${cfgName}）：将来码填进配置也不会有人到抓取器手上，而配置里那行看不出自己已经悬空`);
+      }
+      if (!(cfgName in config)) {
+        badOnce(g, '_config.yml', `映射表认 ${name} ← ${cfgName}，但配置里已经没有这个键：要么把键加回来，要么把 ${name} 从映射表里一起删掉`);
+      }
+    }
     const probes = ['index.html'];
-    if (typeof posts !== 'undefined' && posts.length) probes.push(posts[0].rel);
+    if (posts.length) probes.push(posts[0].rel);
     for (const rel of probes) {
       if (!hasSite(rel)) { badOnce(g, rel, '产物读不到，这一组判不了 head'); continue; }
       const head = headOf(readSite(rel));

@@ -40,8 +40,8 @@
     // 基础配置（不含 pageview，便于提交后重载时避免阅读量被重复自增）
     const walineConfig = {
         el: '#waline',
-        serverURL: '{{ site.waline.serverURL }}',
-        lang: '{{ site.waline.lang | default: "zh-CN" }}',
+        serverURL: {{ site.waline.serverURL | jsonify }},
+        lang: {{ site.waline.lang | default: 'zh-CN' | jsonify }},
         // 表情预设：显式走 https + jsdelivr，与上面 reaction 图标同源。
         // 默认的 //unpkg.com/@waline/emojis@1.1.0/weibo 是协议相对地址，
         // 在 http 页面会先 307 跳转到 https，且 unpkg 国内访问不稳定。

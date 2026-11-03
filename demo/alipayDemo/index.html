@@ -14,8 +14,15 @@ title: 支付宝H5支付测试demo
     <script>
         var btn = document.querySelector('#J_btn');
         btn.addEventListener('click', function () {
+            // 这个 demo 需要支付宝 app 内的 jsbridge，站外点只会拿到一个 undefined 错误。
+            // 与其让人对着一个不明所以的失败，先把「环境不对」说清楚。
+            if (typeof ap === 'undefined' || !ap.tradePay) {
+                alert('这一段要在支付宝 app 内打开才有意义：ap.tradePay 由支付宝注入，普通浏览器里没有。');
+                return;
+            }
             ap.tradePay({
-                tradeNO: '201802282100100427058809844'
+                // 占位：真实的 tradeNO 是一次下单的产物，把某笔旧交易号写死在公开页上没有意义。
+                tradeNO: '把这里换成你自己下单得到的 tradeNO'
             }, function (res) {
                 ap.alert(res.resultCode);
             });
@@ -25,28 +32,35 @@ title: 支付宝H5支付测试demo
     <h3>手机网站浏览器唤起支付宝支付demo</h3>
     <p>使用场景：可以在谷歌、火狐、Safari等现代主流浏览器中唤起支付宝支付</p>
     <p>注意：微信浏览器环境下可能受微信限制不能唤起支付宝支付，在微信环境下打开手机自带的浏览器即可唤起支付宝支付</p>
-    <button id="alipayH5Btn">手机网站浏览器唤起支付宝支付</button>
+    <p>这一份是 2019 年的存档演示，只保留「H5 支付其实就是一张自动提交的 POST 表单」这个形状。
+        表单里的 app_id、签名与回跳地址已经换成占位：签名要用自己的商户私钥在<strong>服务端</strong>算，
+        静态页里既放不下私钥，也不该由别人的站点替你去敲支付宝网关。</p>
+    <button id="alipayH5Btn">查看这张表单的字段（不提交）</button>
     <div class="" id="alipayForm"></div>
     <script>
+        var FIELDS = [
+            ['method', 'alipay.trade.wap.pay'],
+            ['app_id', '换成你自己的 app_id'],
+            ['charset', 'UTF-8'],
+            ['sign_type', 'RSA2'],
+            ['timestamp', '下单时刻'],
+            ['version', '1.0'],
+            ['format', 'json'],
+            ['alipay_sdk', 'alipay-sdk-php-20161101'],
+            ['biz_content', '{"productCode":"QUICK_WAP_PAY","body":"购买测试商品0.01元","subject":"测试","out_trade_no":"换成你自己的商户订单号","total_amount":"0.01","timeout_express":"1m"}'],
+            ['notify_url', 'https://你的服务端/notify_url.php'],
+            ['return_url', 'https://你的服务端/return_url.php'],
+            ['sign', '由你的服务端用商户私钥算出的 RSA2 签名']
+        ];
         var alipayForm = document.getElementById('alipayForm');
-        alipayForm.innerHTML = `<form id='alipaysubmit' name='alipaysubmit' action='https://openapi.alipay.com/gateway.do?charset=UTF-8' method='POST'>
-                                    <input type='hidden' name='biz_content' value='{"productCode":"QUICK_WAP_PAY","body":"购买测试商品0.01元","subject":"测试","out_trade_no":"2019814143724604","total_amount":"0.01","timeout_express":"1m"}'/>
-                                    <input type='hidden' name='app_id' value='2019022563365217'/><input type='hidden' name='version' value='1.0'/>
-                                    <input type='hidden' name='format' value='json'/><input type='hidden' name='sign_type' value='RSA2'/>
-                                    <input type='hidden' name='method' value='alipay.trade.wap.pay'/>
-                                    <input type='hidden' name='timestamp' value='2019-08-14 08:40:15'/>
-                                    <input type='hidden' name='alipay_sdk' value='alipay-sdk-php-20161101'/>
-                                    <input type='hidden' name='notify_url' value='http://工程公网访问地址/alipay.trade.wap.pay-PHP-UTF-8/notify_url.php'/>
-                                    <input type='hidden' name='return_url' value='http://mitsein.com/alipay.trade.wap.pay-PHP-UTF-8/return_url.php'/>
-                                    <input type='hidden' name='charset' value='UTF-8'/>
-                                    <input type='hidden' name='sign' value='fQfO/5rXVO5rbsfyonFbFWQL9M8/T70eCaY3nA5n8UjcP227HvkclMwGFSOKKsu9TTXvTYP0Fj++VVWzV6968+G+yRFm7kW3UqYxI2xwOaoXdS+V0W4Z8Sp8zalCQ/0X287RP5yBFOBv+OAeSrVuwQhC4eW01h8ERLasOZUQMAwQfa42hhYU6iHz5igIsT1UR8h5yomH/ZF9IbQQhA+P0QnyZMhlIKT0SNmKvtgKOqole/LUpg/wL415t+4tVDT5TIrwtbtz0pUmR4LC1kg3Ri7iC7F46uqXlUjNmM0kyeKso6WgL6rrAsy1Ok9dTHRoZbItxmzSfYvUB7jZO5EAIg=='/>
-                                    <input type='submit' value='ok' style='display:none;''>
-                                </form>`;
-        var alipayH5Btn = document.getElementById('alipayH5Btn');
-        alipayH5Btn.addEventListener('click', function () {
-            // document.forms['alipaysubmit'].submit();
-            var alipaysubmit = document.getElementById('alipaysubmit');
-            alipaysubmit.submit();
+        alipayForm.textContent = '想真跑通：从你的服务端算好 sign，再把这张 POST 表单发到 openapi.alipay.com/gateway.do。点上面看字段形状。';
+        document.getElementById('alipayH5Btn').addEventListener('click', function () {
+            // 刻意不再 submit() 一张真实的支付表单：原演示会从本站 origin 把表单 POST 到支付宝网关，
+            // 而 return_url 指向的是一个第三方域名——访客点完看到的是别人家的错误页。
+            var pre = document.createElement('pre');
+            pre.setAttribute('style', 'white-space:pre-wrap;word-break:break-all;text-align:left');
+            FIELDS.forEach(function (f) { pre.textContent += f[0] + ' = ' + f[1] + '\n'; });
+            alipayForm.textContent = pre.textContent;
         });
     </script>
 </body>

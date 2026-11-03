@@ -26,7 +26,8 @@
     <script>
         function to(pathname) {
             history.pushState({}, null, pathname)
-            app.innerHTML = pathname
+            // 同上：值是 URL 的一部分，交给 textContent。演示要显示的就是那串路径本身。
+            app.textContent = pathname
         }
         window.addEventListener('popstate', () => {
             to(location.pathname)

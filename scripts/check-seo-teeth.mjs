@@ -191,6 +191,7 @@ const S = {
   srcCutLine: (rel, re, label = rel) => srcEdit(rel, (s) => cutLine(s, re, label)),
   srcSubAll: (rel, re, to, label = rel) => srcEdit(rel, (s) => subAll(s, re, to, label)),
   siteSub: (rel, from, to, label = rel) => siteEdit(rel, (s) => subOnce(s, from, to, label)),
+  siteSubAll: (rel, re, to, label = rel) => siteEdit(rel, (s) => subAll(s, re, to, label)),
   siteCutRe: (rel, re, label = rel) => siteEdit(rel, (s) => cutFirst(s, re, label)),
   sitePatch: (rel, re, fn, label = rel) => siteEdit(rel, (s) => patchFirst(s, re, fn, label)),
   siteAfter: (rel, anchor, tail, label = rel) => siteEdit(rel, (s) => insertAfter(s, anchor, tail, label)),
@@ -2356,6 +2357,68 @@ const cases = [
     expect: '埋点件发 ?z= 而 worker.mjs 不读它',
     mut: () => S.srcSub('dev/js/funnel.js', "'&v='", "'&z=' + encodeURIComponent('probe') + '&v='", '参数名漂开：前端那头多出来'),
   },
+  {
+    name: 'worker 用 headers.get(\'Cookie\') 读 Cookie（首字母大写——只认小写的判据正是这一形漏的）',
+    group: '漏斗',
+    expect: '读 Cookie 请求头',
+    mut: () => S.srcSub('scripts/funnel-worker/worker.mjs', 'const point = {', "const ck = request.headers.get('Cookie');\n    const point = {", '新增读 Cookie（大写写法）'),
+  },
+  {
+    name: '空事件那一支给 304 带动作体（Response 构造当场抛 TypeError，探针拿到脚本异常）',
+    group: '漏斗',
+    expect: '带了动作体',
+    mut: () => S.srcSub('scripts/funnel-worker/worker.mjs', 'new Response(null, { status: 204,', 'new Response(GIF, { status: 304,', '204 换 304 且带回 GIF'),
+  },
+  {
+    name: 'fetch 选项里的 referrerPolicy 被删（本站 origin 从此跟着那一发出页面）',
+    group: '漏斗',
+    expect: '选项对象里没有 referrerPolicy',
+    mut: () => S.srcSub('dev/js/funnel.js', "cache: 'no-store', referrerPolicy: 'no-referrer' }", "cache: 'no-store' }"),
+  },
+  {
+    name: 'Image 兜底那一支的 referrerPolicy 被删（没有 fetch 的浏览器仍在发 origin）',
+    group: '漏斗',
+    expect: 'Image 兜底那一支没写 referrerPolicy',
+    mut: () => S.srcCutLine('dev/js/funnel.js', /^[ \t]*if \('referrerPolicy' in img\) img\.referrerPolicy = 'no-referrer';$/m, 'Image 那一路的策略'),
+  },
+  {
+    name: 'blobs 里 u 与 v 两格互换（参数名都对，面板上「站内路径」却显示口径版本）',
+    group: '漏斗',
+    expect: '数据点槽位与 README 的口径不一致',
+    mut: () => S.srcSub('scripts/funnel-worker/worker.mjs',
+      "clean(q.get('u'), CAPS.u) || '-', clean(q.get('v'), CAPS.v) || '1'",
+      "clean(q.get('v'), CAPS.v) || '1', clean(q.get('u'), CAPS.u) || '-'", '槽位 5/6 互换'),
+  },
+  {
+    name: 'hub 卡的 store 整列从产物里消失（投放位组合少一种，F1 只看源侧的那几枚判不到）',
+    group: '漏斗',
+    expect: '投放位少了 store',
+    mut: () => S.siteSubAll('tools.html', / data-funnel="store:hub:[^"]*"/g, '', 'hub 商店锚点整列被搬走'),
+  },
+  {
+    name: '产物里把一枚 store:hub 写成 review:hub（组合还在，但一枚按钮的计数并进了另一行）',
+    group: '漏斗',
+    expect: '枚数不等',
+    mut: () => S.siteSub('tools.html', 'data-funnel="store:hub:cross-origin-proxy"', 'data-funnel="review:hub:cross-origin-proxy"'),
+  },
+  {
+    name: 'expectGreen：锚点改用单引号写（属性形状不该决定它算不算一枚锚点）',
+    group: '漏斗',
+    expectGreen: true,
+    mut: () => S.siteSub('tools.html', 'data-funnel="store:hub:account-password-helper"', "data-funnel='store:hub:account-password-helper'"),
+  },
+  {
+    name: 'expectGreen：只删首页的 cloudflareinsights beacon（生产构建的信号不能单吊一个可选分析件）',
+    group: '漏斗',
+    expectGreen: true,
+    mut: () => S.siteCutRe('index.html', /<script defer src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js"[^>]*>\n?/, '首页 CF beacon'),
+  },
+  {
+    name: '把 funnel.enable 改成 false 而产物仍在发标签（开关与模板判据分家，关掉的埋点还在向用户要字节）',
+    group: '漏斗',
+    expect: 'funnel.enable 已经是 false',
+    mut: () => S.srcSub('_config.yml', 'funnel:\n  enable: true', 'funnel:\n  enable: false', '漏斗总开关关掉'),
+  },
 
   // ── 站长验证 meta（P0-2：归属凭据要真的到达抓取器）──
   {
@@ -2381,6 +2444,22 @@ const cases = [
     group: '验证 meta',
     expect: '源里声明了 msvalidate.01，产物 head 里没有',
     mut: () => S.srcSubLine('_config.yml', /^bing_site_verification: ''$/m, "bing_site_verification: '0123456789abcdef0123456789abcdef'"),
+  },
+  {
+    name: '模板把 msvalidate.01 那三行整段删掉（今天 bing 码是空串所以两头全绿；哪天领回码填进配置，它也不会到抓取器手上）',
+    group: '验证 meta',
+    expect: '源里不再发射 msvalidate.01',
+    mut: () => S.srcSub('_includes/seoMeta.html',
+      `{%- if site.bing_site_verification and site.bing_site_verification != '' %}\n<meta name="msvalidate.01" content="{{ site.bing_site_verification }}">\n{%- endif %}`,
+      '{%- comment -%}搬走了{%- endcomment -%}'),
+  },
+  {
+    name: 'expectGreen：同一枚 msvalidate.01 只把 if 的两个子句换个顺序（判的是还有没有发射处，不是字节形状）',
+    group: '验证 meta',
+    expectGreen: true,
+    mut: () => S.srcSub('_includes/seoMeta.html',
+      "{%- if site.bing_site_verification and site.bing_site_verification != '' %}",
+      "{%- if site.bing_site_verification != '' and site.bing_site_verification %}"),
   },
 ];
 

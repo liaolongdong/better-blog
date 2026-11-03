@@ -20,6 +20,9 @@
  *   · 不发 Cookie、不发 localStorage/sessionStorage 里的任何东西、没有访客 ID，
  *     所以拿到的是**计数**而不是**个体轨迹**——算得出曝光→点击率，认不出某一个人；
  *   · 不发查询串与锚点：路径只取 location.pathname，站内搜索词因此不会被顺带送出去；
+ *   · 不发 Referer：fetch 与 Image 两条路都显式写 referrerPolicy: 'no-referrer'。默认的
+ *     strict-origin-when-cross-origin 会把**本站 origin** 发给接收端（2026-11-02 真浏览器实测），
+ *     所以这一条靠策略撑着，不靠「反正只发 origin」撑着；
  *   · 尊重 doNotTrack 与 globalPrivacyControl：命中就整件不启动，读数按设计偏低；
  *   · 只在生产构建里由模板发标签（与 cloudflareAnalytics 同一条理由：本地不该计入统计）。
  *
@@ -66,7 +69,10 @@
      * 一次 scrollIntoView 打出四枚 impression，参数逐字相同，因为区分它们的那一段根本没被发出去。
      */
     function send(name, kind, placement, slug) {
-        var qs = '?e=' + encodeURIComponent(name)
+        // 分隔符按 endpoint 现算：写死 `?` 的话，地址一旦自带查询串（`/e?t=1`）两个都会断。
+        // 参数名保持 `?x=` / `&x=` 的字面形状——check-seo 的参数契约判据是从这里取的键名。
+        var sep = CFG.endpoint.indexOf('?') >= 0 ? '&' : '?';
+        var qs = sep + 'e=' + encodeURIComponent(name)
             + '&k=' + encodeURIComponent(kind || '-')
             + '&p=' + encodeURIComponent(placement || '-')
             + '&s=' + encodeURIComponent(slug || '-')
@@ -75,9 +81,13 @@
         var url = CFG.endpoint + qs;
         try {
             if (window.fetch) {
-                fetch(url, { keepalive: true, mode: 'no-cors', cache: 'no-store' });
+                // referrerPolicy 必须显式写：默认策略是 strict-origin-when-cross-origin，
+                // 跨源那一发会把**本站 origin** 带出去（2026-11-02 真浏览器实测：接收端日志里
+                // referer = 本站 origin）。件头与 README 承诺的是「地址栏的东西不出页面」。
+                fetch(url, { keepalive: true, mode: 'no-cors', cache: 'no-store', referrerPolicy: 'no-referrer' });
             } else {
                 var img = new Image(1, 1);
+                if ('referrerPolicy' in img) img.referrerPolicy = 'no-referrer';
                 img.src = url;
             }
         } catch (err) {
@@ -86,10 +96,9 @@
         }
     }
 
-    /** 供后续扩展（工具页的动作计数等）复用；件没启动时压根不定义，调用方自己判存在 */
-    window.BBFunnel = {
-        track: function (name, kind, placement, slug) { return send(name, kind, placement, slug); }
-    };
+    /* 刻意不导出 window.BBFunnel：全站零调用方，而它是这 13 个页面上一个「任何人都能拿来
+       发一发上报」的全局。将来真需要脚本化上报，再按调用方需要的最小形状加回来——
+       现在加着只是让每一件都多带一段没人跑过的字节，而没跑过的代码不叫能力，叫债。 */
 
     function nodes(selector) {
         var list = document.querySelectorAll(selector), out = [];

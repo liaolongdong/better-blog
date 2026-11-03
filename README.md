@@ -150,7 +150,7 @@ pnpm deploy:ali     # 部署机：对齐 origin -> pnpm install -> pnpm build:si
 
 - **代码**（`dev/`、`demo/`、`_includes/`、`_layouts/`、`_plugins/`、`assets/js` 与 `assets/css` 的源码和构建产物、`vite.*.config.js` / `postcss.config.js` / `_config.yml` 等构建与配置文件，以及 `README.md`、`USAGE.md`、`CHANGELOG.md` 里属于工程说明的文本）：[MIT](./LICENSE)。拿去用、改、再分发都不必打招呼。这一条同时是「上面 MIT 说的 Software 指什么」的落点。
 - **文章与配图**（`_posts/`、`assets/img/`）：[CC BY-NC-SA 4.0](./LICENSE-CONTENT.md)。署名 + 非商业 + 相同方式共享，公众号与个人博客转载按这三条走就行；文中贴的第三方代码片段沿用其原始许可。
-- **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。逐件的上游、版本、许可、版权行，以及「这一条是靠什么确证的」都写在 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) 里——8 条与上游逐字节相同、3 条有本地改动（改了哪几行写明）、8 条确证不了版本或权利待确权（`weixinJsSdk.js` 与 iconfont.cn 那一包是其中两条）。许可原文放在件所在的目录（`ace/LICENSE` 是 BSD-3-Clause，`demo/echartsDemo/lib/LICENSE` + `NOTICE` 是 Apache-2.0），MIT 正文引在清单第四节；字体与数据快照沿用它们各自的目录级清单（`assets/fonts/LICENSES.md`、`assets/data/LICENSES.md`）。
+- **随仓库分发的第三方代码**：保留各自的许可，不在上面两条的主张范围内。逐件的上游、版本、许可、版权行，以及「这一条是靠什么确证的」都写在 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) 里——那份清单按**确证方式**分三节：一「逐字节比对已确证」、二「改过的（derivative，底本可追）」、三「确证不了版本或权利归属」，条数以那三节自己的表为准（这里不抄数字：抄一份会漂的数，只会让下一位读者以为两边都说得通）。`dev/libJs/weixinJsSdk.js` 已在 2026-10-28 连同构建副本一起删除，那一行按「已处置」留在第三节里，是为了让下一位不再把这份非开源件放回仓库。许可原文放在件所在的目录（`ace/LICENSE` 是 BSD-3-Clause，`demo/echartsDemo/lib/LICENSE` + `NOTICE` 是 Apache-2.0），MIT 正文引在清单第四节；字体与数据快照沿用它们各自的目录级清单（`assets/fonts/LICENSES.md`、`assets/data/LICENSES.md`）。
 - **版本**：只有一个来源，就是 master 上的 git tag。`1.0.0` 是 2026-09-06 的线上状态（追溯打标），`2.0.0` 是 2026-09-22 的编辑杂志风改版 + 检索层治理，逐条变更见 [CHANGELOG.md](./CHANGELOG.md)，递增规则与发版步骤见 [USAGE.md](./USAGE.md)。
 
 分两段授权的理由：整仓套 MIT 等于允许别人把文章收进付费内容；整仓套 CC 又会让想复用这套 Jekyll + Vite 构建配置的人背上非商业限制，等于没开放。

@@ -30,7 +30,7 @@ plugin = ARGV[1] || File.join(repo, '_plugins/image_dims.rb')
 
 # 声明的断言条数（S 组 25 + D 组 11）。加一条断言就改这一格——下面那道计数守卫靠它才有牙：
 # 某一整块因为夹具缺失而被跳过时，红的必须是这一条，而不是「全绿」。
-DECLARED = 36
+DECLARED = 38
 
 # 夹具或环境不对时退 2，而不是退 1：退 1 在牙齿台账里算「门禁如期变红」，
 # 可这时候一条断言都没跑，红得毫无意义。两类必须能分开。
@@ -262,6 +262,24 @@ out = t_fx.add_image_dims(%Q{<img src='#{src_fx}' alt="x">})
 check('S13', "引号种类跟着原样走：#{out}") { out.include?(%Q{src='#{BASEURL}/#{FX_WEBP}'}) }
 
 check('S14', 'nil 与空串原样返回') { t_fx.add_image_dims(nil).nil? && t_fx.add_image_dims('').eql?('') }
+
+# ---- P 组：本地路径的边界（滤镜只该量仓库里的图）----
+# `File.join(source, '/../../etc/passwd.png')` 不会自己挡住 `..`，它照样解析到仓库外面。
+# 断言必须让「仓库外那张图真的存在」：否则加了守卫与没加守卫都不补宽高，
+# 这一条就在替一个不存在的判据作证（2026-11-02 现场：第一版 P1 正是这样一把空刀）。
+outside = File.join(File.dirname(FX), "dims-outside-#{Process.pid}.png")
+File.binwrite(outside, mk_png(1000, 700))
+at_exit { File.delete(outside) if File.exist?(outside) }
+
+out = t_fx.add_image_dims(%Q{<img src="/../#{File.basename(outside)}" alt="x">})
+check('P1', ".. 越界路径必须整个不吃（不补宽高、不改 src）：#{out}") do
+  !out.include?('width=') && !out.include?('height=') && out.include?(%Q{src="/../#{File.basename(outside)}"})
+end
+write_fx('assets/img/fx/a..b.png', mk_png(320, 240))
+out = t_fx.add_image_dims(%Q{<img src="#{BASEURL}/assets/img/fx/a..b.png" alt="x">})
+check('P2', "文件名里合法的「..」不能被守卫顺手禁掉（那样全站会静默不再补宽高）：#{out}") do
+  out.include?('width="320"') && out.include?('height="240"')
+end
 
 # ---- D 组：六种文件头的尺寸解码（语料里没有 gif/bmp，桩字节是唯一能覆盖它们的地方）----
 dims = lambda { |name, bytes| Jekyll::ImageDims.send(:dims_for, name, bytes) }

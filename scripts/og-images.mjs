@@ -483,6 +483,7 @@ function jpegDims(file) {
  *   1. 表里每条 image 指向的文件在磁盘上（含 front matter 的 cover）；
  *   2. 每张卡片确实是 ${W}x${H}（模板改坏、截图被裁都会中）；
  *   3. 该有卡片的篇目在表里、且 sig 与当前 front matter 对得上（对不上＝像素过期）；
+ *   3b. 走 cover 的篇目也在表里、且记的就是那枚 cover（表是生成器的台账，缺一格就是一次意外 diff）；
  *   4. assets/img/og 下不躺孤儿 jpg（删了文章、改了 slug 之后剩下的旧卡）；
  *   5. 表里的每个 page.url 在 _site 里真有一个页面（_site 存在时才做，见函数体注释）。
  */
@@ -500,6 +501,18 @@ function verify({ wanted, covered }) {
         const v = manifest[w.url];
         if (!v) problems.push(`${w.url}: 既无 cover 也不在表里（卡片漏生成）`);
         else if (v.sig !== w.sig) problems.push(`${w.url}: 卡片内容已变（${v.sig || '无'} -> ${w.sig}），需要重画`);
+    }
+
+    /**
+     * 有 cover 的篇目也要在表里，且记的就是那枚 cover。原先只判 `wanted`，于是「表少了
+     * 一条 cover 型条目」一句都不报——渲染侧确实无感（分享卡的三级取值链第一级就是 cover），
+     * 但这张表是**生成器会写的那份台账**：少一条的意义是下一次 `pnpm og:images` 凭空多出
+     * 一个 diff，而"跑一遍生成器才知道台账不齐"正是要靠 `--check` 消掉的那类意外。
+     */
+    for (const c of covered) {
+        const v = manifest[c.url];
+        if (!v) problems.push(`${c.url}: 有 front matter cover 却不在表里（跑一次生成器就会凭空多一条 diff）`);
+        else if (v.image !== c.image) problems.push(`${c.url}: 表里记的是 ${v.image || '空'}，front matter 的 cover 已经是 ${c.image}`);
     }
 
     const expect = new Set(wanted.map((w) => w.name));

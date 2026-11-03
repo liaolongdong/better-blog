@@ -16,6 +16,13 @@ concurrency:
 
 jobs:
   build:
+    # 这一道 job 会 `pnpm install` 并跑 24 个门禁脚本——那是执行任意 npm 代码的地方。
+    # workflow 级给了 `pages: write` + `id-token: write`（deploy job 需要），继承下来之后
+    # build job 也就能铸 Pages 部署令牌、发布站点内容，而它一样都不该用。
+    # job 级覆盖 workflow 级：这里收回到只读源码；deploy job 不动，仍然继承那两项，
+    # 所以被验证过的发布路径的有效权限一字未改。
+    permissions:
+      contents: read
     # 2026-10-23：ubuntu-latest 已迁到 26.04，ruby/setup-ruby 没有 3.1.7 的 26.04 构建
     # （下载 404，构建 job 28s 即失败）。先钉 24.04；等 Ruby 3.2+ 与 Gemfile.lock 一起升级
     # 并验证过再回 ubuntu-latest。deploy job 不用 Ruby，保持 latest。
@@ -130,6 +137,9 @@ jobs:
           gate 'toolkit-tests'            --test scripts/toolkit-tests.mjs
           gate 'tool-url-state-tests'     --test scripts/tool-url-state-tests.mjs
           gate 'sw-lifecycle-tests'       --test scripts/sw-lifecycle-tests.mjs
+          # 交付锁的并发与所有权：它坏掉没有症状（两个 run 都自认为持锁），只能真的并发跑。
+          # 夹具全在 os.tmpdir() 里，不碰仓库的 _drafts/，所以不会和正在跑的流水线抢锁。
+          gate 'delivery-lock-tests'      --test scripts/delivery-lock-tests.mjs
           # 计划里那些**整文件镜像**与磁盘逐字节全等（只读源、不碰产物，所以排在构建后的那几道之前）。
           # 这条门 2026-10-17 就写好了，却没进这张清单——于是 `544e558` 那一族改了五个 tools/*.js 与
           # toolkit-tests 三节而没回写计划，11 处漂移红在本机、CI 全绿，读计划的人照一份不存在的实现改。

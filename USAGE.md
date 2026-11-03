@@ -72,7 +72,7 @@ Node 22 + pnpm 装依赖并 `pnpm build`，再用 Ruby 3.1 跑 `bundle exec jeky
 | `pnpm deploy` → `deploy-github.sh` | `git pull --ff-only` 当前分支 → `git add -A` → 列出将提交的文件、拦一道密钥内容检查 → 输入 commit 信息 → 按 `y` 确认后才 `git push origin <当前分支>` |
 | `.github/workflows/jekyll.yml` | `on.push.branches: ["master"]`，另支持 `workflow_dispatch` 手动触发 |
 | Pages 地址 | project site，`baseurl: /better-blog` → <https://liaolongdong.github.io/better-blog/> |
-| `.github/workflows/ci.yml` | `on.pull_request.branches: ["master"]` + `workflow_dispatch`。构建同一份产物，然后跑 `node scripts/ci-gates.mjs`——它从 `jekyll.yml` 里**解析**那张 23 道清单来执行，两处永不漂移；牙齿是 `scripts/ci-gates-teeth.mjs`（10 条夹具）。加一道门只需要改 `jekyll.yml`，PR 门禁自动跟上 |
+| `.github/workflows/ci.yml` | `on.pull_request.branches: ["master"]` + `workflow_dispatch`。构建同一份产物，然后跑 `node scripts/ci-gates.mjs`——它从 `jekyll.yml` 里**解析**那张清单来执行，两处永不漂移；牙齿是 `scripts/ci-gates-teeth.mjs`（条数由台账自己打印，别在文档里重述一个会漂的数）。加一道门只需要改 `jekyll.yml`，PR 门禁自动跟上 |
 
 本地日常在 `main` 上开发，`pnpm deploy` 就只会把提交推到 `main`，**不会触发任何构建**。
 两种收尾方式，任选其一：
@@ -635,8 +635,15 @@ curl -s https://<worker 地址>/ping                                      # 2. �
 our beacon JavaScript"。beacon 只给页面级 PV，那正是这一族要补的那一格：2026-10-28 之前，
 全仓 `sendBeacon|dataLayer|gtag|_trackEvent` 零命中，四处商店 CTA 上的 `utm_*` 也没有任何接收端消费。
 
-判据在 `scripts/check-seo.mjs` 的「漏斗」那一组（源侧逐枚核锚点、产物侧核双向一致、
-参数契约两端对齐、Worker 不许读 Cookie/UA/IP），牙齿是 `check-seo-teeth.mjs` 里 `group: '漏斗'` 的 13 枚变异。
+判据在 `scripts/check-seo.mjs` 的「漏斗」那一组：源侧逐枚核锚点；产物侧先把注释与内联脚本整段剥掉
+再数锚点（被注释掉的一整块 CTA 不能还算在场），并核「带锚点的页必加载计数件、加载件的页必带锚点」
+这条双向一致；投放位组合按 `hub` 五种 / `guide` 四种 / `article` 三种钉死，同页同投放位各样枚数必须相等；
+参数契约两端对齐且 `blobs` 的**槽位顺序**也判（交换两格不报错，只会让面板上「站内路径」显示口径版本）；
+Worker 不许读 Cookie/UA/IP（大小写都判）、不许给 204/304 带动作体；埋点件两条发送路都必须写
+`referrerPolicy`——Referer 是那条「地址栏的东西不出页面」里唯一靠策略撑着的一半，
+2026-11-02 实测过：不写的时候接收端拿到的是本站 origin。牙齿是 `check-seo-teeth.mjs` 里
+`group: '漏斗'` 的那一组变异（条数由台账自己打印，含反向夹具：锚点改用单引号写、
+或只删首页的 CF beacon，都要求仍然全绿）。
 浏览器侧的行为核验用 `dev/` 之外的一次性量具做过：把 `_site` 挂在本地端口、把 endpoint 改指本地桩，
 真点击之后核对桩收到的参数——`store` 与 `repo` 两类按钮的 `k` 必须不同值。
 

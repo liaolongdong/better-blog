@@ -59,7 +59,7 @@ timezone: Asia/Shanghai
 # 三处要一起改：本字段、package.json 的 version、CHANGELOG.md 的新条目——
 # 递增规则与发版步骤见 USAGE.md「版本号与 tag」。
 # 页脚读它（_includes/footer.html），置空则页脚不显示版本，不影响任何页面。
-version: '2.2.0'
+version: '2.2.1'
 
 # github baseUrl
 githubUrl: 'https://github.com/liaolongdong'
@@ -212,13 +212,15 @@ cloudflare_analytics:
 # 转化漏斗埋点：商店 CTA 的「页面打开 → 按钮进入视野 → 点击」三段计数。
 # Cloudflare Web Analytics 只有页面级 PV，且官方 FAQ 写明不支持自报事件端点
 # （"all requests should originate from our beacon JavaScript"），所以事件计数走本站
-# 自己的 Worker + Workers Analytics Engine：无 Cookie、无访客 ID、无第三方域。
+# 自己的 Worker + Workers Analytics Engine：无 Cookie、无访客 ID、无第三方域、无 Referer
+# （前端 fetch 与 Image 两条路都写 referrerPolicy: 'no-referrer'，不是「反正只发 origin」）。
 # endpoint 留空 = 埋点件照旧加载、读到空地址就整件退出（不发请求、控制台零字）。
 # 彻底不发那个标签要把 enable 改成 false——两者的差别写在 funnelScript.html 文件头。
 # 源码与部署步骤：scripts/funnel-worker/README.md；判据：scripts/check-seo.mjs「漏斗埋点面」那一组。
 funnel:
   enable: true
-  # 形如 https://<worker>.<账号子域>.workers.dev/e ；末尾不要带查询串，脚本自己拼 ?e=&p=&s=&u=&v=
+  # 形如 https://<worker>.<账号子域>.workers.dev/e ；不要带查询串（带了脚本会按 ?/& 自己找分隔符，
+  # 但那条判据仍然红——面板上的地址口径要只有一处说了算）
   endpoint: ''
   # 事件口径版本：改了维度语义就 +1，面板上按它分段，避免把新旧口径连成一条假趋势
   schema: '1'

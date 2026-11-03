@@ -4,7 +4,7 @@
  * 红在正确的消息上，并且**绿路径也真的绿**（只测拒跑等于没测）。
  *
  * 为什么这一本必须存在：ci-gates 是「管门禁的门禁」。它坏掉的样子不是报错，而是
- * 少跑几道门然后输出 `✓ 22 道门禁全绿`——评审 2026-11-01 点出的正是这一族：
+ * 少跑几道门然后输出 `✓ N 道门禁全绿`——评审 2026-11-01 点出的正是这一族：
  * 双引号、复合命令、形状像 gate 却读不出来的行，bash 全合法，而漏读没有任何症状。
  * 没有这份台账，「解析不到就红」这句话只是我写的一句形容词。
  *
@@ -45,6 +45,21 @@ const head = 'name: x\non: push\njobs:\n  b:\n    runs-on: ubuntu-24.04\n    ste
 const okScript = 'process.exit(0);\nconsole.log("ok gate");\n';
 const badScript = 'console.error("boom");process.exit(3);\n';
 const killScript = 'process.kill(process.pid, "SIGTERM");\n';
+const slowScript = 'setTimeout(() => console.log("本来该被超时掐掉"), 60000);\n';
+/** 跑完把 _posts/a.md 改脏且不还原——这正是牙齿应当自己擦干净而没擦干净的形状 */
+const dirtyScript = 'import fs from "node:fs";\nfs.appendFileSync("_posts/a.md", "\\nMutated");\n';
+
+/** 在 fixture 之上再铺一层 git 树：脏源自证只在真的 git 仓库里才判得动 */
+function gitFixture(workflowBody, scripts) {
+  const root = fixture(workflowBody, scripts);
+  fs.mkdirSync(path.join(root, '_posts'), { recursive: true });
+  fs.writeFileSync(path.join(root, '_posts', 'a.md'), 'original\n');
+  const git = (...a) => spawnSync('git', ['-c', 'user.email=t@e', '-c', 'user.name=t', ...a], { cwd: root, encoding: 'utf8' });
+  if (git('init', '-q').status !== 0) return root;
+  git('add', '-A');
+  git('commit', '-q', '-m', 'seed');
+  return root;
+}
 
 /** 一条 gate 行的夹具（缩进 10 空格 = jekyll.yml 里 run 块内的真实形状） */
 const one = (line) => `${head}${line}\n`;
@@ -78,8 +93,32 @@ const cases = [
   {
     name: '一条里塞两个门（复合命令）',
     want: 1,
-    expect: '复合命令',
+    expect: '2 个 gate 词元',
     root: fixture(one("          gate 'a' scripts/ok.mjs && gate 'b' scripts/ok.mjs"), { 'ok.mjs': okScript }),
+  },
+  {
+    name: '一道门后面挂管道（词元只有一个，但命令被改写）',
+    want: 1,
+    expect: '复合命令',
+    root: fixture(one("          gate 'a' scripts/ok.mjs | tee log"), { 'ok.mjs': okScript }),
+  },
+  {
+    name: 'for 循环里的门：行首不是 gate，宽松驱动必须逮住而不是跳过',
+    want: 1,
+    expect: '读不出名字与参数',
+    root: fixture(one("          gate 'a' scripts/ok.mjs\n          for f in b; do gate \"$f\" scripts/ok.mjs; done"), { 'ok.mjs': okScript }),
+  },
+  {
+    name: 'if 包裹的门：条件不成立时那道门根本不跑，不能算跑过',
+    want: 1,
+    expect: '读不出名字与参数',
+    root: fixture(one('          if [ -f x ]; then gate \'b\' scripts/ok.mjs; fi'), { 'ok.mjs': okScript }),
+  },
+  {
+    name: 'time 前缀的门：bash 合法，但运行器的行锚定看不见它',
+    want: 1,
+    expect: '读不出名字与参数',
+    root: fixture(one("          time gate 'b' scripts/ok.mjs"), { 'ok.mjs': okScript }),
   },
   {
     name: '形状像 gate 却读不出参数',
@@ -124,6 +163,27 @@ const cases = [
     expect: '这是没跑完',
     root: fixture(one("          gate 'kill' scripts/kill.mjs"), { 'kill.mjs': killScript }),
   },
+  {
+    name: '一道门挂死必须被超时掐掉，且算「没跑完」（否则它吃掉 workflow 的 20 分钟，后面的门根本没跑）',
+    want: 2,
+    expect: '超时',
+    env: { CI_GATES_TIMEOUT: '1500' },
+    root: fixture(one("          gate 'slow' scripts/slow.mjs"), { 'slow.mjs': slowScript }),
+  },
+  {
+    name: '门跑完把跟踪源改脏了没还原：必须红，因为后面的门读的是被改过的源',
+    want: 1,
+    expect: '没还原',
+    root: gitFixture(one("          gate 'dirty' scripts/dirty.mjs"), { 'dirty.mjs': dirtyScript }),
+  },
+  {
+    name: 'expectGreen：门改脏了又自己还原，就不该报脏（否则这条自证会把正常牙齿一起判死）',
+    want: 0,
+    expect: '1 道门禁全绿',
+    root: gitFixture(one("          gate 'clean' scripts/clean.mjs"), {
+      'clean.mjs': 'import fs from "node:fs";\nconst f = "_posts/a.md";\nconst before = fs.readFileSync(f);\nfs.appendFileSync(f, "\\nMutated");\nfs.writeFileSync(f, before);\n',
+    }),
+  },
 ];
 
 let pass = 0;
@@ -133,6 +193,7 @@ for (const c of cases) {
     cwd: c.root,
     encoding: 'utf8',
     timeout: 30000,
+    env: { ...process.env, ...(c.env || {}) },
   });
   const out = `${r.stdout || ''}${r.stderr || ''}`;
   const label = c.label ? `${c.name}（消息里应带上 ${c.label} 或那个脚本名，否则不知道红在哪一条）` : c.name;

@@ -434,6 +434,22 @@ for (const [name, list] of [['骨架', SHELL_URLS], ['豁免', DEFERRED_URLS], [
       used += size; admitted += 1; lastAt = i + 1;
     });
     const margin = COVER_URLS.length - lastAt;
+    /**
+     * 余量下限不能是"门禁里一个没人管的数"。牙齿那格把清单砍到 `COVER_MARGIN` 条，
+     * 阈值是从这里现读的——所以把 5 改成 3 时，判据和它的刀一起变松，没有任何一道门会红。
+     * 下限改为从**产物的填批大小**推出来：空闲补全一次并发 `LIMIT.fillBatch` 个，
+     * 而且字节是在响应读完之后才记账，所以边界天然会漂过一整批；再加一条的余量。
+     * 于是 `fillBatch` 一动（产物侧，牙齿改得动），这一判跟着变严或变松，而不是跟着阈值一起消失。
+     */
+    const fillBatch = Number((LIMIT || {}).fillBatch);
+    const marginFloor = Number.isFinite(fillBatch) && fillBatch > 0 ? fillBatch + 1 : NaN;
+    if (!Number.isFinite(marginFloor)) {
+      bad('封面预算', 'LIMIT', '读不到 fillBatch（正数）——余量下限失去推导依据，这一判不能因为算不出就当它不存在');
+    } else if (COVER_MARGIN < marginFloor) {
+      bad('封面预算', '余量下限',
+        `COVER_MARGIN=${COVER_MARGIN} 撑不起产物声明的填批（LIMIT.fillBatch=${fillBatch}，下限 ${marginFloor}=${fillBatch}+1）：`
+        + `补全按批并发、字节在响应读完才记账，边界天然漂过一整批——阈值低于这个数就等于清单截在预算边上`);
+    }
     if (lastAt === 0) bad('封面预算', '贪心', '一张封面都塞不进预算——清单与 LIMIT 已经对不上');
     else if (margin < COVER_MARGIN) bad('封面预算', '截断点',
       `清单 ${COVER_URLS.length} 条，预算最多吃到第 ${lastAt} 条，只剩 ${margin} 条余量（<${COVER_MARGIN}）——`

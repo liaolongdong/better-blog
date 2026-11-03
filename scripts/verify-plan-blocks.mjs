@@ -603,7 +603,10 @@ function main() {
       const whole = norm(fs.readFileSync(abs, 'utf8'));
       // 只认**同语言**的块：一段 `.scss` 的全文若真出现在 ` ```scss ` 块里，那是镜像；
       // 出现在 ` ```bash ` 里（比如某步骤把文件 cat 出来当证据）不是镜像，别报。
-      const hits = rawBlocks.filter((b) => b.lang === lang && b.text === whole && !used.has(b));
+      // 比较口径必须与正向 `matchBlocks` 同一条（`norm(b.text)`）：这里原先拿**未归一**的
+      // `b.text` 去比已归一的 `whole`，于是计划里那块只要在结尾多留一个空行，反查就永远认不出
+      // 它是镜像——「文件有镜像但不在 FILE_TARGETS」这一族从此静默不核，而它正是这道反查的全部意义。
+      const hits = rawBlocks.filter((b) => b.lang === lang && norm(b.text) === whole && !used.has(b));
       if (hits.length > 0) {
         console.log(`✗ 漏网镜像：${rel}（${whole.split('\n').length} 行）在计划里有逐字节全等的整块 —— `
           + `${hits.map((h) => `[${h.tag}]${h.startLine}–${h.endLine}`).join(' / ')}，但它不在 FILE_TARGETS 里，从没被核过`

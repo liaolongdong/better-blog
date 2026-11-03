@@ -56,6 +56,11 @@ env.ANALYTICS (better_blog_funnel)      Analytics Engine Dataset
 最后这条 `check-seo.mjs` 的「漏斗」组也判，但那是 grep 级别的判据——让部署工具自己认一遍才算真验过。
 改完 binding 名或维度顺序后重跑这一发，比等上线发现「响应 200 而面板永远零行」便宜得多。
 
+2026-11-02 为「空事件那一支改成 204 无动作体」这一改重跑过：`wrangler 4.156.1`，读数与上面逐字相同
+（2.39 KiB / gzip 1.27 KiB，`env.ANALYTICS → better_blog_funnel`）。dry-run 只证打包与绑定，
+不跑运行时——所以 204 那一支仍然只有本地桩（`funnel-stub-server.mjs` 同形：空 `e` → 204 无体）
+与 `check-seo` 那把「给 null-body 状态带动作体」的刀守着，线上那一发要等本人部署后才第一次真跑。
+
 ## 查数据
 
 Cloudflare Dashboard → Workers & Pages → Analytics Engine 没有图形面板，查询走 SQL API：
@@ -82,7 +87,7 @@ GROUP BY kind, placement, slug
 ORDER BY clicks DESC
 ```
 
-维度顺序写死在 `worker.mjs` 的 `blobs` 里：`blob1`=事件（view / impression / click）、`blob2`=按钮种类（store / demo / repo / guide / review）、`blob3`=投放位（hub / guide / article）、`blob4`=产品 slug、`blob5`=站内路径、`blob6`=口径版本。改顺序要连这里的 SQL 一起改；`check-seo.mjs` 的「漏斗」那一组判的是**源码里的参数名两端一致**（前端拼 `&k=` 而 Worker 不读 `k`，那一维就静默丢在 URL 里），不判这份文档。
+维度顺序写死在 `worker.mjs` 的 `blobs` 里：`blob1`=事件（view / impression / click）、`blob2`=按钮种类（store / demo / repo / guide / review）、`blob3`=投放位（hub / guide / article）、`blob4`=产品 slug、`blob5`=站内路径、`blob6`=口径版本。改顺序要连这里的 SQL 一起改。**槽位顺序现在也在闸门里**：`check-seo.mjs` 的「漏斗」那一组既判参数名两端一致（前端拼 `&k=` 而 Worker 不读 `k`，那一维就静默丢在 URL 里），也判 `blobs=[…]` 的字面顺序是不是 `e,k,p,s,u,v`——交换两格不会报错，只会让面板上「站内路径」那一列显示口径版本。
 
 ## 本地怎么复验「点下去真的有一个请求出去」
 
@@ -95,9 +100,11 @@ node scripts/funnel-stub-server.mjs --port=8793 &
 perl -0pi -e 's/data-funnel-endpoint=""/data-funnel-endpoint="http:\/\/127.0.0.1:8793\/e"/' _site/tools.html
 # 浏览器打开 http://127.0.0.1:8793/better-blog/tools.html，滚到 CTA、点一枚，然后：
 curl -s http://127.0.0.1:8793/__hits
+# 顺手验一下接收端对脏数据的形状（期望 204 且无动作体；带 body 的 204 会在 Worker 里抛 TypeError）：
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' 'http://127.0.0.1:8793/e'
 ```
 
-期望三段齐、且同一投放位上 `store` / `demo` / `repo` / `guide` 四类按钮的 `k` **互不相同**：
+期望三段齐、且同一投放位上 `store` / `demo` / `repo` / `guide` / `review` 五类按钮的 `k` **互不相同**（`check-seo.mjs` 按 `hub` 五种、`guide` 四种、`article` 三种钉这张组合表）：
 
 ```
 view       | store | page | account-password-helper | /better-blog/tools.html
@@ -108,6 +115,11 @@ click      | store | hub  | account-password-helper | ...
 这四行是 2026-10-28 第一次跑出来的实际读数。当时它们并成了一行相同的 `k`——因为埋点件把
 `data-funnel` 的三段只发出了两段，而 23 项 CI 门禁全绿。这条判读口径因此同时写进了
 `check-seo.mjs` 的「参数契约」那一判和 `funnel-stub-server.mjs` 的文件头。
+
+`view` 那一行要单独说：一页只发一发 `view`，它取的是**页面上第一枚 CTA 的 kind**（本页第一枚
+通常是商店按钮，所以看着像 `k=store`），而 `p` 恒为 `page`。所以**按 `k` 分组时不要把 `view` 算进
+各按钮的曝光基数**——那一发代表的是「这一页被打开过」，不是「store 这一格被看到过」。
+按 `p=page` 读它，或直接在 SQL 里 `WHERE blob1 <> 'view'` 再按 `blob2` 分组。
 
 ## 这份数据能回答什么、不能回答什么
 

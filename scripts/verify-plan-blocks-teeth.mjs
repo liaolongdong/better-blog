@@ -17,6 +17,8 @@
  *   G8 非 js 整文件镜像（`.yml`）漂移：报 ✗、`--fix` 写回 —— 这一档在语言集合放宽之前
  *      根本不进门禁（Task 9 现场靠它抓出三处静默漂移），所以放宽必须连带一刀证据
  *   G9 非 js 目标从 `FILE_TARGETS` 里被删掉 → 反查喊 `✗ 漏网镜像`
+ *   G9b 同上，但计划里那块结尾多一个空行 —— 反查的比较口径若与正向不是同一条 `norm`，
+ *       这一族就永远认不出镜像（漏登记从此静默不核），所以两头落刀并配一条还原复绿
  *   G10 清单里出现没有围栏语言映射的扩展名 → 喊出来，不当作"这文件没有镜像"静默跳过
  *   G13 副本落点的三道拒绝（2026-09-29 随这处的缺陷修复进来）：`VPB_MIR` 指到仓库自己 /
  *       落在仓库里面 / 仓库包含它 / 非空且没有标记 / 标记的 pid 还活着 → 一律退 2 且一字不伤；
@@ -433,6 +435,35 @@ if (base.code !== 0) {
   check('G9 清单里删掉一条非 js 目标 → ✗ 漏网镜像（_data/onlineTools.yml）+ 退 1',
     r.code === 1 && /✗ 漏网镜像：_data\/onlineTools\.yml/.test(r.out),
     `exit=${r.code}，命中=${/✗ 漏网镜像：_data\/onlineTools\.yml/.test(r.out)}`);
+}
+
+/* ── G9b：块尾多一个空行的漏网镜像，反查仍须认出来 ─────────────── */
+{
+  /**
+   * 反查用的是 `b.text === norm(file)`：左边**没归一**、右边归一了。于是计划里那块只要
+   * 在结尾留一个空行（markdown 里极常见），这一族就永远认不出它是镜像——「文件有整块镜像
+   * 却没登记进 FILE_TARGETS」从此静默不核，而这正是反查唯一要防的事。
+   * 夹具两头都落刀：先把目标从清单里摘掉（造出「漏登记」），再给计划那块补一个结尾空行
+   * （造出「归一才相等」）；两块任一不落地，这条就是空变异，直接判假牙。
+   */
+  const orig = read('_data/onlineTools.yml');
+  const gate = read(SCRIPT);
+  const snaps = snapPlans();
+  const fence = '```yaml\n' + orig + '```';
+  let hitPlan = null;
+  for (const [rel, text] of Object.entries(snaps)) { if (text.includes(fence)) { hitPlan = rel; break; } }
+  put(SCRIPT, gate.replace("  '_data/onlineTools.yml',\n", ''));
+  if (hitPlan) put(hitPlan, snaps[hitPlan].replace(fence, '```yaml\n' + orig + '\n```'));
+  const r = run();
+  put(SCRIPT, gate);
+  for (const rel of Object.keys(snaps)) put(rel, snaps[rel]);
+  const named = /✗ 漏网镜像：_data\/onlineTools\.yml/.test(r.out);
+  check('G9b 漏登记 + 块尾多一个空行 → 反查仍须喊出漏网（口径与正向同一条 norm）',
+    Boolean(hitPlan) && r.code === 1 && named,
+    `块定位命中=${hitPlan || '未找到（空变异，这条牙齿抓不到任何事）'}；exit=${r.code}，喊漏网=${named}`);
+  const clean = run();
+  check('G9b 的 expectGreen：两处变异都还原后必须复绿（否则这条红是环境坏了，不是判据起作用）',
+    clean.code === 0, `还原后 exit=${clean.code}（应 0）`);
 }
 
 /* ── G10：扩展名没有围栏映射 → 报出来，不当作"没有镜像"放过 ─────── */

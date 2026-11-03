@@ -29,6 +29,7 @@
   .bar label, .bar span { font-size: 13px; color: var(--muted); }
   input[type=search], input[type=number], select, button {
     font: inherit; padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--fg);
+    min-height: 44px; /* 触控目标下限（WCAG 2.5.5）：这套队列常在手机上翻，31px 的按钮按不准 */
   }
   input[type=search] { min-width: 250px; }
   button { cursor: pointer; }
@@ -36,13 +37,19 @@
   .meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 10px; }
   .meter i { display: block; height: 100%; background: var(--accent); width: 0; }
   main { display: grid; grid-template-columns: 260px 1fr; gap: 0; align-items: start; }
+  /* grid 子项的自动最小宽度是 min-width:auto：清单里那些长地址（`/2026/…/slug.html`）
+     会把整列撑到内容宽度，于是 375px 的手机上出现 237px 的横向溢出。必须显式归零。 */
+  nav, section.list { min-width: 0; }
+  code, .src, .quote { overflow-wrap: anywhere; }
   nav { border-right: 1px solid var(--line); padding: 10px 0; max-height: calc(100vh - 130px); overflow: auto; position: sticky; top: 130px; }
-  nav button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 7px 14px; font-size: 13px; }
+  nav button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 12px 14px; font-size: 13px; min-height: 44px; }
   nav button[aria-current=true] { background: var(--card); font-weight: 600; }
   nav .n { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
   section.list { padding: 14px 20px 60px; }
   article { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--card); }
   article:focus-within { border-color: var(--accent); }
+  /* 键盘选中行要有可见标记：只在滚动上停在"当前条"是看不出来的（j/k 之后眼睛找不到靶子） */
+  article.focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
   article.done-yes { border-left: 4px solid var(--ok); }
   article.done-no { border-left: 4px solid var(--no); opacity: .72; }
   .head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -71,7 +78,7 @@
   <p class="warn">机器只出建议与出处，<strong>一个字都不替作者改</strong>。每条都带 <code>文件名:行号</code>，
     对着原文读完那一句再决定；采纳之后要本人把句子写顺再粘进正文。生成时间 <span id="gen"></span>。</p>
   <div class="bar">
-    <label>进度 <span id="prog"></span></label>
+    <label>进度 <span id="prog" aria-live="polite"></span></label>
     <div class="meter"><i id="fill"></i></div>
   </div>
   <div class="bar">
@@ -92,6 +99,7 @@
   <nav id="posts" aria-label="按源文章过滤"></nav>
   <section class="list">
     <div id="count" class="from"></div>
+    <p id="hint" class="warn" role="status" aria-live="polite"></p>
     <div id="list"></div>
     <details class="export" id="exportBox" hidden>
       <summary>采纳清单（按源文章分组，含行号出处；粘进正文前请把句子读顺）</summary>
@@ -116,7 +124,8 @@
     q: document.getElementById('q'), min: document.getElementById('min'), state: document.getElementById('state'),
     count: document.getElementById('count'), prog: document.getElementById('prog'), fill: document.getElementById('fill'),
     gen: document.getElementById('gen'), exportBox: document.getElementById('exportBox'),
-    exportText: document.getElementById('exportText'), copyNote: document.getElementById('copyNote')
+    exportText: document.getElementById('exportText'), copyNote: document.getElementById('copyNote'),
+    hint: document.getElementById('hint')
   };
   el.gen.textContent = DATA.generatedAt;
 
@@ -163,7 +172,9 @@
     if (!rs.length) { el.list.innerHTML = '<p class="empty">这一档没有待判的建议了。换个过滤条件，或者去 <code>dev/inlink-suggestions.md</code> 看原始清单。</p>'; return; }
     el.list.innerHTML = rs.map(function (r, i) {
       var d = store[key(r)];
-      return '<article data-i="' + i + '" tabindex="0" class="' + (d ? 'done-' + d : '') + '">'
+      var cls = (d ? 'done-' + d : '') + (i === cur.focus ? ' focus' : '');
+      return '<article data-i="' + i + '" tabindex="0" class="' + cls + '"'
+        + (i === cur.focus ? ' aria-current="true"' : '') + '>'
         + '<div class="head"><span class="score">' + r.s.toFixed(1) + ' 分</span>'
         + '<span class="title">→ ' + escapeHtml(r.tt) + '</span></div>'
         + '<p class="from">源文章：' + escapeHtml(r.ft) + '　<code>' + escapeHtml(r.f) + '</code></p>'
@@ -187,10 +198,11 @@
     if (what === 'undo') delete store[key(row)];
     else store[key(row)] = what;
     try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* 隐私模式下存不住：判定只在本次会话里有效，页面照常可用 */ }
+    say('');
     render();
   }
 
-  function currentRow() { var rs = rows(); return rs[cur.focus] || rs[0] || null; }
+  function currentRow() { var rs = rows(); return cur.focus < 0 ? null : (rs[cur.focus] || null); }
 
   el.list.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-act]'); if (!btn) return;
@@ -208,7 +220,17 @@
     var b = e.target.closest('button[data-post]'); if (!b) return;
     cur.post = b.getAttribute('data-post'); cur.focus = -1; render();
   });
-  [el.q, el.min, el.state].forEach(function (n) { n.addEventListener('input', function () { cur.focus = -1; render(); }); });
+  /**
+   * 过滤输入要防抖：这一页一次渲染 480+ 条配对，`input` 每敲一个字就整块重建 innerHTML，
+   * 低端安卓上会明显吃顿，而且重建会把滚动位置打掉——人正读到第 30 条，敲下一个字母就弹回顶部。
+   */
+  var filterTimer = 0;
+  [el.q, el.min, el.state].forEach(function (n) {
+    n.addEventListener('input', function () {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(function () { cur.focus = -1; render(); }, 140);
+    });
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.target.matches('input, textarea, select')) return;
@@ -216,11 +238,27 @@
     if (e.key === 'j' || e.key === 'ArrowDown') { cur.focus = Math.min(total - 1, cur.focus + 1); scrollFocus(); e.preventDefault(); }
     else if (e.key === 'k' || e.key === 'ArrowUp') { cur.focus = Math.max(0, cur.focus - 1); scrollFocus(); e.preventDefault(); }
     else if (e.key === 'y' || e.key === 'n' || e.key === 'u') {
-      var r = currentRow(); if (r) { act(r, e.key === 'y' ? 'yes' : e.key === 'n' ? 'no' : 'undo'); scrollFocus(); }
+      var r = currentRow();
+      if (!r) {
+        /** 没按 j 就按 y：过去会直接给第一行盖章。一条"看不见的选中"判掉一条建议是不可见的错。 */
+        say('先用 j/k 选一条，再按 y / n / u——现在还没有选中行。');
+        e.preventDefault();
+        return;
+      }
+      act(r, e.key === 'y' ? 'yes' : e.key === 'n' ? 'no' : 'undo');
+      scrollFocus();
       e.preventDefault();
     }
   });
-  function scrollFocus() { var a = el.list.querySelector('article[data-i="' + cur.focus + '"]'); if (a) a.scrollIntoView({ block: 'nearest' }); }
+  /** 状态行：既给眼睛看，也给读屏器播报（aria-live 在 #prog 上） */
+  function say(msg) { if (el.hint) el.hint.textContent = msg; }
+  function scrollFocus() {
+    /** j/k 只挪光标，不重绘整块清单——所以标记必须在这里就地画，否则"选中了哪一条"仍然看不见。 */
+    var all = el.list.querySelectorAll('article');
+    for (var i = 0; i < all.length; i++) { all[i].classList.remove('focus'); all[i].removeAttribute('aria-current'); }
+    var a = el.list.querySelector('article[data-i="' + cur.focus + '"]');
+    if (a) { a.classList.add('focus'); a.setAttribute('aria-current', 'true'); a.scrollIntoView({ block: 'nearest' }); }
+  }
 
   function copy(text, note) {
     var done = function () { el.copyNote ? el.copyNote.textContent = note : 0; };

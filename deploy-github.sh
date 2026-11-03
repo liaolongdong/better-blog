@@ -54,10 +54,13 @@ git diff --cached --name-status
 # _posts/*account-password-helper* 都是正常文件，按名字拦会一片误报。
 # 反过来，_posts 里出现一段示范用的 PEM 是完全可能的，所以留 ALLOW_SECRETS=1
 # 这个显式放行口，而不是让人遇到误报时只能绕过整个脚本。
+# 2026-11-02 补的四种形态：`gh[pousr]_`（原来只认 ghp_，而 actions/gho_/ghs_ 同样能推东西）、
+# Google API key `AIza…`、OpenAI 风格 `sk-…`、以及 JWT 的前两段 `eyJ….eyJ`。
+# 加之前先在全仓文本上跑过一遍：0 命中——这七条打的是真凭据的形状，不是文章里的示例。
 if [ "${ALLOW_SECRETS:-}" = '1' ]; then
   echo "⚠ ALLOW_SECRETS=1：跳过密钥内容检查（文件名提醒仍然生效）" >&2
 else
-  leak=$(git diff --cached -U0 | grep -oE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{8,}|_auth[[:space:]]*=[[:space:]]*[0-9a-f]{20,}' | sort -u || true)
+  leak=$(git diff --cached -U0 | grep -oE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{8,}|_auth[[:space:]]*=[[:space:]]*[0-9a-f]{20,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}' | sort -u || true)
   if [ -n "$leak" ]; then
     echo "✗ 暂存内容里出现疑似密钥，已中止（未提交、未推送）：" >&2
     echo "$leak" | sed 's/^/    /' >&2

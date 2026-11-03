@@ -13,6 +13,8 @@
  *     所以库里没有能把一行计数连回某个人的东西；
  *   · 不写死任何访客标识： indexes 里放的是事件名，不是 ID；
  *   · 只记站内路径（前端已经剥掉查询串与锚点），搜索词不会被顺带送进来；
+ *   · 收不到 Referer：前端两条发送路都显式写 `referrerPolicy: 'no-referrer'`。默认的
+ *     strict-origin-when-cross-origin 会把本站 origin 带出去，这一条靠策略撑着而不是靠措辞撑着；
  *   · 数据点只在 Cloudflare 自己的 Analytics Engine 里，查询走 SQL API（本人账号）。
  *
  * 这条链不是防伪造的：任何人都能拿这个地址发一个 GET。所以读出来的数当**趋势**用
@@ -56,7 +58,9 @@ export default {
 
     const q = url.searchParams;
     const e = clean(q.get('e'), CAPS.e);
-    if (!e) return new Response(GIF, { status: 204, headers: { 'cache-control': 'no-store' } });
+    // 204 是 null-body 状态：给它带 body（哪怕是那枚 GIF）会在构造 Response 时直接抛 TypeError，
+    // 于是「一个缺 e 参数的探针」变成 1101 脚本异常，而不是安静地不收。真浏览器实测过这一形。
+    if (!e) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 
     const point = {
       // indexes：Analytics Engine 用它做抽样分组，事件名基数小且固定，是这一列该放的东西
