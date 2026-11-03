@@ -1,6 +1,10 @@
-import { defineConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
 import { resolve, dirname } from 'path';
 import { readdirSync, copyFileSync, mkdirSync, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+
+/** 仓库根：本文件所在目录。ESM 没有 `__dirname`，从 import.meta.url 反推。 */
+const ROOT = dirname(fileURLToPath(import.meta.url));
 
 /**
  * 入口名前缀的匹配正则，用于在输出阶段剥掉前缀。
@@ -18,7 +22,7 @@ const PREFIX_RE = /^(js|lib|sass|css)[_:]/;
  *
  * 排序是必需的：readdirSync 的返回顺序由文件系统决定、不作任何保证，
  * 而入口的插入顺序会影响 Rollup 的模块顺序，进而影响产物的可复现性。
- * 与 vite.demo.config.js 的 readDirSafe 不同，这里不做 try/catch——
+ * 与 vite.demo.config.mjs 的 readDirSafe 不同，这里不做 try/catch——
  * 这四个目录是构建的硬前提，缺失时应当直接失败，而不是静默产出残缺产物。
  * @param {string} dir 目录绝对路径
  * @returns {string[]} 已排序的文件名数组
@@ -78,9 +82,8 @@ function copyPreMinifiedPlugin() {
   return {
     name: 'copy-pre-minified',
     writeBundle() {
-      const root = resolve(__dirname);
-      copyMinifiedLibs(resolve(root, 'dev/libJs'), resolve(root, 'assets/js'), '.min.js');
-      copyMinifiedLibs(resolve(root, 'dev/libCss'), resolve(root, 'assets/css'), '.min.css');
+      copyMinifiedLibs(resolve(ROOT, 'dev/libJs'), resolve(ROOT, 'assets/js'), '.min.js');
+      copyMinifiedLibs(resolve(ROOT, 'dev/libCss'), resolve(ROOT, 'assets/css'), '.min.css');
     }
   };
 }
@@ -98,7 +101,7 @@ function copyPreMinifiedPlugin() {
  * @returns {import('vite').Plugin} Vite 插件
  */
 function restoreRelativeAssetUrlPlugin() {
-  const outDir = resolve(__dirname, 'assets');
+  const outDir = resolve(ROOT, 'assets');
   const URL_RE = /url\((['"]?)([^'")]+)\1\)/g;
   /** 相对且不带前导点的地址，才可能是被剥掉 `../` 的那一类。 */
   const isBareRelative = (url) => !/^([/\\a-zA-Z][-+a-z]*:|\/\/|\.|#)/.test(url);
@@ -130,7 +133,7 @@ function restoreRelativeAssetUrlPlugin() {
  * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
  */
 function getDevJsEntries() {
-  const jsDir = resolve(__dirname, 'dev/js');
+  const jsDir = resolve(ROOT, 'dev/js');
   return readDirSorted(jsDir)
     .filter(file => file.endsWith('.js') && !file.endsWith('.min.js'))
     .reduce((entries, file) => {
@@ -145,7 +148,7 @@ function getDevJsEntries() {
  * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
  */
 function getDevLibJsEntries() {
-  const libJsDir = resolve(__dirname, 'dev/libJs');
+  const libJsDir = resolve(ROOT, 'dev/libJs');
   return readDirSorted(libJsDir)
     .filter(file => file.endsWith('.js') && !file.endsWith('.min.js'))
     .reduce((entries, file) => {
@@ -161,7 +164,7 @@ function getDevLibJsEntries() {
  * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
  */
 function getDevSassEntries() {
-  const sassDir = resolve(__dirname, 'dev/sass');
+  const sassDir = resolve(ROOT, 'dev/sass');
   return readDirSorted(sassDir)
     .filter(file => file.endsWith('.scss'))
     .reduce((entries, file) => {
@@ -177,7 +180,7 @@ function getDevSassEntries() {
  * @returns {Record<string, string>} Rollup 入口映射（入口名 -> 源文件绝对路径）
  */
 function getDevLibCssEntries() {
-  const libCssDir = resolve(__dirname, 'dev/libCss');
+  const libCssDir = resolve(ROOT, 'dev/libCss');
   return readDirSorted(libCssDir)
     .filter(file => (file.endsWith('.css') || file.endsWith('.scss')) && !file.endsWith('.min.css'))
     .reduce((entries, file) => {
@@ -187,8 +190,43 @@ function getDevLibCssEntries() {
     }, {});
 }
 
+/**
+ * 咽下「构建期解析不到、运行期才解析」这一类 url 告警。
+ *
+ * 本站的 `url()` 相对产物而非源文件（理由见 restoreRelativeAssetUrlPlugin），这类地址在
+ * 构建期必然解析不到，Vite 因此给每枚字体与图标各报一条。判据仍然只用文件系统：
+ * `assets/<url>` 真在盘上才咽下，不在就照旧报——地址写错时这里不替它保密，
+ * 消息格式若随 vite 大版本变了，正则不再命中，退回原样打印。
+ *
+ * 走插件的 `config` 钩子而不是直接写 `customLogger`，为的是拿到合并后的 `logLevel`：
+ * Vite 见到 `customLogger` 就整只替换默认 logger，硬造一只会把 `--logLevel` 顶掉。
+ * @returns {import('vite').Plugin} Vite 插件
+ */
+function runtimeAssetUrlLoggerPlugin() {
+  const assetsRoot = resolve(ROOT, 'assets');
+  const UNRESOLVED_URL = /^\n?(\S+) referenced in \S+ didn't resolve at build time, it will remain unchanged to be resolved at runtime$/;
+  const willResolveAtRuntime = (msg) => {
+    const matched = UNRESOLVED_URL.exec(msg);
+    return !!matched && existsSync(resolve(assetsRoot, matched[1].replace(/[?#].*$/, '')));
+  };
+
+  return {
+    name: 'runtime-asset-url-logger',
+    config(config) {
+      if (config.customLogger) return;
+      const base = createLogger(config.logLevel);
+      config.customLogger = {
+        ...base,
+        get hasWarned() { return base.hasWarned; },
+        warn(msg, opts) { if (!willResolveAtRuntime(msg)) base.warn(msg, opts); },
+        warnOnce(msg, opts) { if (!willResolveAtRuntime(msg)) base.warnOnce(msg, opts); }
+      };
+    }
+  };
+}
+
 export default defineConfig({
-  plugins: [iifeWrapPlugin(), copyPreMinifiedPlugin(), restoreRelativeAssetUrlPlugin()],
+  plugins: [iifeWrapPlugin(), copyPreMinifiedPlugin(), restoreRelativeAssetUrlPlugin(), runtimeAssetUrlLoggerPlugin()],
   // CSS 配置
   css: {
     preprocessorOptions: {
@@ -204,7 +242,7 @@ export default defineConfig({
     // 原因：`vite build --watch`（pnpm dev）下 Rollup 会校验「输入不得是输出目录的子路径」，
     // 若 outDir 为仓库根，则 dev/ 下的入口全部落在其内，watch 模式直接抛 RollupError。
     // 下方各 output 文件名已相应去掉 `assets/` 前缀，最终产物落点与改前完全一致。
-    outDir: resolve(__dirname, 'assets'),
+    outDir: resolve(ROOT, 'assets'),
     emptyOutDir: false,
     minify: 'terser',
     terserOptions: {

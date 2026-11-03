@@ -17,9 +17,9 @@ importers:
       postcss:
         specifier: ^8.5.30
         version: 8.5.30
-      postcss-px-to-viewport:
-        specifier: ^1.1.1
-        version: 1.1.1
+      postcss-px-to-viewport-8-plugin:
+        specifier: 1.2.5
+        version: 1.2.5
       sass:
         specifier: ^1.105.1
         version: 1.105.1
@@ -435,8 +435,8 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  postcss-px-to-viewport@1.1.1:
-    resolution: {integrity: sha512-2x9oGnBms+e0cYtBJOZdlwrFg/mLR4P1g2IFu7jYKvnqnH/HLhoKyareW2Q/x4sg0BgklHlP1qeWo2oCyPm8FQ==}
+  postcss-px-to-viewport-8-plugin@1.2.5:
+    resolution: {integrity: sha512-+yc69+q/euV7iKh5fGXY6C/lpepmVx2DGFHeYj5BpzIFyBBpdACDjZyrZ8AV0kCg+J0bplBv4ZA1QTzgaK0rGg==}
 
   postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
@@ -847,10 +847,9 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  postcss-px-to-viewport@1.1.1:
+  postcss-px-to-viewport-8-plugin@1.2.5:
     dependencies:
       object-assign: 4.1.1
-      postcss: 8.5.30
 
   postcss-value-parser@4.2.0: {}
 
