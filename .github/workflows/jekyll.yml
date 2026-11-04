@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 这条 workflow 只需要读源码：构建产物是 upload-pages-artifact 直接吃目录，
           # 没有任何一步要 git push。把 token 从本地 git config 里拿掉，被攻陷的构建步
