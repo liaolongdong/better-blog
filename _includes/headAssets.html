@@ -40,7 +40,7 @@ normalize 与 jQuery 自托管，不再走 cdn.staticfile.org（2026-09-23 实�
 那份 normalize 15s 超时、code=000，同页的 at.alicdn 图标 CSS 只要 0.07s —— 慢的是这个域，
 不是网络总体。后果是可复现的：normalize 是阻塞渲染的样式表、jQuery 是阻塞解析的 <script>，
 两者都挂在 <head> 里，headless Chrome 打开任意页都取不到 document.body。
-文件落在 dev/libCss 与 dev/libJs（同名 .min.* 由 vite 原样复制到 assets/，见 vite.config.js
+文件落在 dev/libCss 与 dev/libJs（同名 .min.* 由 vite 原样复制到 assets/，见 vite.config.mjs
 的 copyMinifiedLibs），落地那天版本与字节数和原外链一致（jQuery 3.3.1 / 86,927B，
 normalize 6.0.0 / 2,216B），只换来源不换实现。
 jQuery 后来在 2026-09-25 升到 3.7.1 / 87,533B：3.3.1 带着 CVE-2019-11358（$.extend 深拷贝

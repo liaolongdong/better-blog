@@ -23,7 +23,7 @@
  * 4. **两条 `<script>` 的先后是硬前提**。`toolkitCore.min.js` 挂 `window.Tk`，入口在它之后；
  *    顺序反了 `Tk` 就是 undefined，所以那一步单独判、单独报（见 `boot` 里那句 `window.Tk`）。
  *
- * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
+ * 不用 `export`：产物被 `vite.config.mjs` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
  * 而它不补 `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。启动方式与
  * `webLab.js` 同档——脚本排在正文之后，解析到这一行时面板节点已经存在，不接 `DOMContentLoaded`。
  */

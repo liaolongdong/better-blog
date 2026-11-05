@@ -6181,7 +6181,7 @@ export function createDiffWorkbench(env) {
  *    入口在它之后；`assets/js/toolDiff.min.js` 里已经打进 `diffView.js` 与两本算法，绝不再挂进 `Tk`——
  *    两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
  *
- * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，而它不补
+ * 不用 `export`：产物被 `vite.config.mjs` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，而它不补
  * `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。产物名必须与页面里 `<script src>`
  * 那一段逐字符一致（`toolDiff.min.js`）。启动方式与 `webLab.js` 同档——脚本排在正文之后，解析
  * 到这一行时骨架节点已经存在，不接 `DOMContentLoaded`。
