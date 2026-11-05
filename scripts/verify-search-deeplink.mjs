@@ -4,7 +4,7 @@
  *
  * 为什么判据必须活在真浏览器里：被验的东西是 `dev/js/editorial.js` 的 `initPalette()` 闭包——
  * 打分、高亮、地址栏同步、组合输入门控全在里面，而 `dev/js/*.js` 每个文件都是一个独立的 vite
- * 入口（见 vite.config.js 的 getDevJsEntries），把它们抽成可 import 的模块会在 `assets/js/`
+ * 入口（见 vite.config.mjs 的 getDevJsEntries），把它们抽成可 import 的模块会在 `assets/js/`
  * 落一枚孤儿产物。所以这一格只能「在浏览器里驱动真面板，在 Node 里另算一份期望」对账。
  * J5 那条独立实现就是这个用途：它不抄浏览器里的打分逻辑，直接从 search.json 算交集，
  * 两边口径一打架就说明其中一边在撒谎。

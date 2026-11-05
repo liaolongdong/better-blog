@@ -3706,8 +3706,9 @@ function/undefined → 拒；歧义值（`yes`/`no`/`on`/`off`/`null`/`~`/`2024-
  *    **gzip 16,912B**，同批对照 `toolCodec.min.js` 是 21,830B、`toolkitCore.min.js` 7,037B、
  *    `toolkit.min.css` 2,135B；24 本产物（基线 23 本 + 探针那一本，Task 1 复跑核对过清单）里
  *    `import{` 命中 0，且 `assets/js/` 没有多出
- *    一本 js-yaml —— `.mjs` 既不成 Vite 入口（`vite.config.js:110` 只收 `.js`），
- *    也不被 `copyMinifiedLibs` 复制（`:67` 只复制 `.min.js`）。
+ *    一本 js-yaml —— `.mjs` 既不成 Vite 入口（`vite.config.mjs` 的 `getDevLibJsEntries()` 只收 `.js`，
+ *    而这一本住在 `dev/libJs/`），
+ *    也不被 `copyMinifiedLibs` 复制（那个函数只复制 `.min.js`）。
  *
  * ── 这一本是什么、能动到什么程度 ──
  *
@@ -8367,7 +8368,7 @@ export { SIDES };
  *    `ui` 两格），入口在它之后；`assets/js/toolJson.min.js` 里已经打进 `jsonView.js`，绝不再挂进
  *    `Tk`——两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
  *
- * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，而它不补
+ * 不用 `export`：产物被 `vite.config.mjs` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，而它不补
  * `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。产物名必须与页面里 `<script src>`
  * 那一段逐字符一致（`toolJson.min.js`）。启动方式与 `webLab.js` 同档——脚本排在正文之后，解析
  * 到这一行时骨架节点已经存在，不接 `DOMContentLoaded`。

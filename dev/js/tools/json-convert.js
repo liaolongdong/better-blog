@@ -17,8 +17,9 @@
  *    **gzip 16,912B**，同批对照 `toolCodec.min.js` 是 21,830B、`toolkitCore.min.js` 7,037B、
  *    `toolkit.min.css` 2,135B；24 本产物（基线 23 本 + 探针那一本，Task 1 复跑核对过清单）里
  *    `import{` 命中 0，且 `assets/js/` 没有多出
- *    一本 js-yaml —— `.mjs` 既不成 Vite 入口（`vite.config.js:110` 只收 `.js`），
- *    也不被 `copyMinifiedLibs` 复制（`:67` 只复制 `.min.js`）。
+ *    一本 js-yaml —— `.mjs` 既不成 Vite 入口（`vite.config.mjs` 的 `getDevLibJsEntries()` 只收 `.js`，
+ *    而这一本住在 `dev/libJs/`），
+ *    也不被 `copyMinifiedLibs` 复制（那个函数只复制 `.min.js`）。
  *
  * ── 这一本是什么、能动到什么程度 ──
  *

@@ -8088,7 +8088,7 @@ Step 2 红的形状与 Expected 逐字对上：`not ok 1 - scripts/toolkit-tests
  * 地址栏档位」挂成 `window.Tk`。
  *
  * 为什么要有这么一层，而不是让页面入口各自 `import`：2026-09-26 在镜像里实测过，`dev/js/` 下
- * 两个入口同时 `import` 同一个模块时，Rollup 会把它提成共享 chunk，而 `vite.config.js` 的
+ * 两个入口同时 `import` 同一个模块时，Rollup 会把它提成共享 chunk，而 `vite.config.mjs` 的
  * `iife-wrap` 又把 ESM 的 `import` 声明包进函数体——产物里留下 `import{c as o}from"./panel.min.js"`
  * 这种句子，经典 `<script>` 里当场 SyntaxError，**整页白屏而构建 exit=0**。三页都用到
  * `panel.js` / `panel-dom.js` / `view.js`，所以这一层从段 2 就立起来，不留到段 3 返工；
@@ -9315,7 +9315,7 @@ export function controlIds(prefix, panels = PANEL_IDS) {
  * 4. **两条 `<script>` 的先后是硬前提**。`toolkitCore.min.js` 挂 `window.Tk`，入口在它之后；
  *    顺序反了 `Tk` 就是 undefined，所以那一步单独判、单独报（见 `boot` 里那句 `window.Tk`）。
  *
- * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
+ * 不用 `export`：产物被 `vite.config.mjs` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
  * 而它不补 `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。启动方式与
  * `webLab.js` 同档——脚本排在正文之后，解析到这一行时面板节点已经存在，不接 `DOMContentLoaded`。
  */

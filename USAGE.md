@@ -19,7 +19,7 @@ pnpm dev:assets
 pnpm dev:server
 ```
 
-> ⚠️ 本项目**没有 Vite dev server**，`vite.config.js` 中也没有 `server` 配置块。
+> ⚠️ 本项目**没有 Vite dev server**，`vite.config.mjs` 中也没有 `server` 配置块。
 > Vite 以 `build --watch` 方式工作，只负责把源码编译成 `.min.js` / `.min.css`；
 > 页面由 Jekyll 提供。想换端口请用 `pnpm dev:server -- --port 4001`。
 
@@ -546,7 +546,7 @@ pnpm build
    但 GitHub Pages 跑在 Linux 上，`webLab.min.css` 与 `weblab.min.css` 是两个文件。
    不变式：产物名 == 源文件名 + `.min`。
 3. demo 页面报 `./css/base.min.css` 404 时，检查该 demo 是否被误加进了
-   `vite.demo.config.js` 的入口扫描（应命中 `STATIC_DEMO_CSS` 的复制分支）。
+   `vite.demo.config.mjs` 的入口扫描（应命中 `STATIC_DEMO_CSS` 的复制分支）。
 
 ### 样式不更新
 

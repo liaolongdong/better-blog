@@ -7938,7 +7938,7 @@ export function controlIds(prefix, panels = CODEC_PANEL_IDS) {
  *    `assets/js/toolCodec.min.js`，而 `codecView.js` 已经打进这一本里，绝不再挂进 `Tk`——
  *    两个入口 reach 同一模块，Rollup 会切出带 `import{` 的共享 chunk，整页 SyntaxError 而构建退 0。
  *
- * 不用 `export`：产物被 `vite.config.js` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
+ * 不用 `export`：产物被 `vite.config.mjs` 的 `iifeWrapPlugin` 包成 `(function(){…})();`，
  * 而它不补 `'use strict'`，入口里留一条顶层 `export` 就是一个语法错误。产物名必须与页面里
  * `<script src>` 那一段逐字符一致（`toolCodec.min.js`，§6.1 那条大小写教训）。启动方式与
  * `webLab.js` 同档——脚本排在正文之后，解析到这一行时面板节点已经存在，不接 `DOMContentLoaded`。
