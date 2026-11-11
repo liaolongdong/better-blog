@@ -2082,6 +2082,48 @@ const cases = [
     expect: '接线被动过',
     mut: () => S.sitePatch(descTarget().rel, /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, ' 牙齿"'), 'meta description'),
   },
+  // ── 描述 ⑧：显示列预算（页与翻页视图硬判 + 文章台账棘轮）──
+  // 这四把刀各自盯 ⑧ 的一个部位：页侧上界、页侧下界、翻页视图真的在靶子里、以及
+  // 台账的两个方向。缺一条的话，把 ⑧ 改成「永远红」或「只红在文章侧」都能通过台账。
+  {
+    name: 'M24 把 about 的产物摘要顶出 158 列',
+    group: '描述',
+    expect: '越出 158 列的 SERP 预算',
+    mut: () => S.sitePatch('about.html', /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, '，而这一刀专门把这句顶到预算线以外，它必须长到只有列数那一支才会红。"'), 'meta description'),
+  },
+  {
+    name: 'M25 把 about 的产物摘要砍到地板以下',
+    group: '描述',
+    expect: '低于 50',
+    mut: () => S.sitePatch('about.html', /<meta name="description"\s+content="[^"]*"/, () => '<meta name="description" content="关于作者"', 'meta description'),
+  },
+  {
+    name: 'M26 翻页视图（没有源文件的 paginator 产物）也在这把尺子下',
+    group: '描述',
+    expect: 'page2/index.html：描述',
+    mut: () => S.sitePatch('page2/index.html', /<meta name="description"\s+content="[^"]*"/, (m) => m.replace(/"$/, '，翻页视图的摘要由首页基准串拼前缀而来，这一刀验的就是它确实被量到了。"'), 'meta description'),
+  },
+  {
+    name: 'M27 反向夹具：范围外那一页（offline.html）插一句超长摘要也不该红',
+    group: '描述',
+    expectGreen: true,
+    // 这一页原本就没有 meta description（noindex、不进站点地图），所以只能往里**插**，
+    // 不能拿它现有的那条做文章。插进去以后 ⑧ 必须仍然不看它——靶子是 `inScope` 减文章页，
+    // 谁把靶子放宽成「产物里所有 html」，这一条就会红，而那正是把 noindex 页判上摘要预算。
+    mut: () => S.siteAfter('offline.html', '</head>', `<meta name="description" content="${'牙'.repeat(120)}">`, '给范围外页插入一句超长摘要'),
+  },
+  {
+    name: 'M28 台账外新增一篇超长的摘要',
+    group: '描述',
+    expect: '且不在存量台账里',
+    mut: () => S.srcSubLine('_posts/2026-06-28-account-password-helper-new.md', /^seo_description:[ \t].*$/m, `seo_description: ${'牙'.repeat(80)}`, '摘要行'),
+  },
+  {
+    name: 'M29 台账里某一篇已经改短了而那一行还留着（死条目）',
+    group: '描述',
+    expect: '但它现在并不超长',
+    mut: () => S.srcSubLine('_posts/2026-10-25-kimi-k3-1-pro-two-tiers.md', /^seo_description:[ \t].*$/m, `seo_description: ${'牙'.repeat(60)}`, '摘要行'),
+  },
   {
     name: 'M5 给一篇已有 chrome 的帖子再加一枚 Chrome',
     group: '词表',

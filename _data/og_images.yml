@@ -3,6 +3,8 @@
 # 跑 `node scripts/og-images.mjs` 重画并刷新这张表（--check 会揪出没刷新的提交）。
 # seoMeta.html 只在 front matter 没有 cover 时查这张表；表里 cover 那几篇的条目
 # 是「已经安排好了」的记录，作用是让自检能分清「有 cover」和「漏生成」。
+# 页那一族（/tools.html 与四张在线工具页）走的是同一张表、同一个 sig 口径：
+# 键就是 page.url，模版直接按它取值，不需要任何一条模板分支。
 /2016/06/18/hello-jekyll.html:
   image: /assets/img/postCover/hello_jekyll.png
 /2016/08/28/JS-good-parts.html:
@@ -284,3 +286,18 @@
   image: /assets/img/wxt-cross-browser-extension/banner.webp
 /2026/10/28/rtk-command-output-compression.html:
   image: /assets/img/rtk-command-output-compression/banner.webp
+/tools.html:
+  image: /assets/img/og/page-tools.jpg
+  sig: 8a1912db071b
+/tools/codec.html:
+  image: /assets/img/og/page-tools-codec.jpg
+  sig: 8b4e05261846
+/tools/diff.html:
+  image: /assets/img/og/page-tools-diff.jpg
+  sig: fd012dbee92d
+/tools/idcard.html:
+  image: /assets/img/og/page-tools-idcard.jpg
+  sig: 905364dbf579
+/tools/json.html:
+  image: /assets/img/og/page-tools-json.jpg
+  sig: 89a82b7c6ed6

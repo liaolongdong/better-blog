@@ -768,3 +768,32 @@ body.night-mode {
         font-size: 16px;
     }
 }
+
+// 触控尺寸按能力判，不按视口宽度判。
+//
+// 上面两档（max-width 900 / 640）是**宽度门**：1280×800 的触屏落在门外——iPad Pro 横屏
+// 是 1366×1024、触屏本普遍 ≥1280，而它们指的就是手指。实测那一档上 13 枚 .tk-btn
+// 全部停在 34px（`matchMedia` 读到 hover:none + pointer:coarse，两条都成立），
+// 而同一个站点在手机上给的是 44px——同一根手指拿到两种目标，取决于窗口宽度。
+//
+// 写成**并集**而不是替换那两档：窄窗口的桌面浏览器照样有鼠标，那两档继续按宽度生效，
+// 桌面观感一像素不动。选择器与 640 那档逐字相同，只是换了门，所以两处必须一起改。
+//
+// 为什么带 pointer: coarse 这一半、与 editorial.scss 那本同一族判据的取舍有什么不同，
+// 记在 editorial.scss 里 `@media (hover: none) and (pointer: coarse)` 包住 `.cmdk-esc` /
+// `.cmdk-hint` 那一块的文件头注释：那边判的是「这句键盘提示要不要留」，这边判的是
+// 「这根手指够不够大」——但两处的设备集合恰好是同一片，所以用同一句，不另立一套。
+// 已知没覆盖到的一片：外接鼠标优先的触屏本，它报 hover:hover，仍拿 34px。
+// 那一片要不要一起收，得用 any-pointer: coarse，而那会把纯桌面外接触摸屏也算进来、
+// 改变全站工具页的按钮高度——这是一次版面决定，不是补漏，留给本人拍板。
+@media (hover: none) and (pointer: coarse) {
+    .tk-btn {
+        height: 44px;
+    }
+
+    .tk-field input,
+    .tk-field select {
+        min-height: 44px;
+        font-size: 16px;
+    }
+}

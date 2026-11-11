@@ -33,6 +33,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+// 列宽尺子与摘要预算档：全站唯一一份在 scripts/lib/desc-budget.mjs。
+// 这里原来是它的定义处；`check-seo.mjs` 组 11 ⑧ 要量同一批字符串时另写了一份，
+// 于是同一句描述可能在一边绿、另一边红（158 与 160 只差 2 列）。收拢成一本。
+import { cols, DESC_MIN_COLS, DESC_MAX_COLS } from './lib/desc-budget.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -74,10 +78,9 @@ const nav = config.nav || [];
 
 /** 非文本对比度下限（WCAG 1.4.11 graphical objects）；图标带 `alt=""`，按图形而非文字判 */
 const ICON_MIN_RATIO = 3.0;
-/** `<title>` 与 `seo_description` 的列宽预算，与 USAGE.md「检索层自查」第 9 条同一口径 */
+/** `<title>` 与 `seo_description` 的列宽预算，与 USAGE.md「检索层自查」第 9 条同一口径。
+ *  尺子与这两个数住在 scripts/lib/desc-budget.mjs——全站只那一份，见那本文件头条。 */
 const TITLE_MAX_COLS = 60;
-const DESC_MIN_COLS = 50;
-const DESC_MAX_COLS = 158;
 
 if (ready.length === 0) {
   console.error('✗ 收录面门禁：_data/onlineTools.yml 里没有 status: ready 的条目——门禁无事可核，这本身就是要红的事');
@@ -97,8 +100,7 @@ const readSite = (rel) => {
 const readSrc = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const hasSrc = (rel) => fs.existsSync(path.join(ROOT, rel));
 
-/** 列宽口径：CJK 与全角（码位 > 0x2E80）算 2 列，其余算 1 列 */
-const cols = (s) => [...String(s)].reduce((n, c) => n + (c.codePointAt(0) > 0x2e80 ? 2 : 1), 0);
+/** 列宽口径见 scripts/lib/desc-budget.mjs（本文件顶部已 import，这里不再定义） */
 const escRE = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
