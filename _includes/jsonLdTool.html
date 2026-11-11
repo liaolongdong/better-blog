@@ -79,4 +79,24 @@ alternateName 只在它真的与 name 不同时才发。四个工具在 yml 里 
   "author": { "@id": "{{ person_id }}" }
 }
 </script>
+{%- comment -%}
+BreadcrumbList：插件指南页早就有这一段（_includes/jsonLdSoftware.html 末块），四张在线工具页
+一直没有——同一座楼层（首页 → 工具箱 → 本页）在插件侧写了、在工具侧没写，是漏而非取舍。
+三段名字全部取自既有事实，零新文案：
+  · 「工具箱」= /tools.html 自己的 title 与顶栏那一项（onlineTools.yml 文件头记着分组标签的改口账）
+  · position 3 的 name 用 _tk.h1，与上面 WebApplication.name 同一串，也就是页面上看得见的
+    <h1 class="masthead-title">——check-seo 的 JSON-LD 组对文章页盯的就是这条（headline 必须
+    等于可见 H1），这里按同一条规矩走，不另开一个只存在于 JSON 里的叫法。
+{%- endcomment -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "首页", "item": {{ '/' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 2, "name": "工具箱", "item": {{ '/tools.html' | absolute_url | jsonify }} },
+    { "@type": "ListItem", "position": 3, "name": {{ _tk.h1 | jsonify }}, "item": {{ page.url | absolute_url | jsonify }} }
+  ]
+}
+</script>
 {%- endif -%}

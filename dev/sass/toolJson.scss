@@ -621,3 +621,18 @@ $jt-meta: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Courie
         padding-left: 3.4em;
     }
 }
+
+// 触屏这一档把编辑区字号抬到 16px。
+//
+// 理由与 toolkit.scss 里那两档逐字同源（「避免 iOS 聚焦时自动放大整页」），漏的是选择器
+// 名单：本类的特异性是 (0,1,1)，与 toolkit 那本里的 `.tk-field textarea` 相等，
+// 而本页的 bundle 排在 toolkit.min.css 之后——作者样式之间比的是顺序，
+// 所以 toolkit 那一档抬不动这一格，必须写在这本里。
+// 门用 (hover: none) and (pointer: coarse) 而不是 max-width：手机天然落在圈内，
+// 而 1366×1024 的 iPad Pro 横屏原先两头都不沾（宽度超 640、能力没被问），
+// 聚焦粘贴框照样触发整页放大。
+@media (hover: none) and (pointer: coarse) {
+    .tk-field .jt-doc__area {
+        font-size: 16px;
+    }
+}

@@ -762,8 +762,14 @@ body.night-mode {
         height: 44px;
     }
 
+    // textarea 一起抬：粘贴框本来就是「输入控件」那一族，16px 那条理由（iOS 聚焦自动
+    // 放大整页）对它同样成立，而它原先不在选择器名单里——手机上粘贴框 13px、紧挨着的
+    // 号码框 16px，同一张面板里两种字号，看着像坏了。JSON 页的编辑区
+    // `.tk-field .jt-doc__area` 靠继承拿字号，所以它跟着这一条走（toolJson.scss 里
+    // 另有一条同档，两处必须一起改，理由见那本文件的注释）。
     .tk-field input,
-    .tk-field select {
+    .tk-field select,
+    .tk-field textarea {
         min-height: 44px;
         font-size: 16px;
     }
@@ -792,7 +798,8 @@ body.night-mode {
     }
 
     .tk-field input,
-    .tk-field select {
+    .tk-field select,
+    .tk-field textarea {
         min-height: 44px;
         font-size: 16px;
     }
