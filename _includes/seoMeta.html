@@ -41,6 +41,11 @@ seo_short_title 是同一问题的另一半：实测 66 篇里 27 篇的 <title>
 页码一律放在「不会被截掉的位置」：SERP 从右往左截断，seo_home_title 已经接近 60 列
 预算，往后拼「· 第 2 页」只会先被剪掉，等于没区分。所以分页页走一条独立的短标题，
 描述里的页码前置。分页页也没有 page.title，正好和首页共用这条分支。
+
+前缀只留页码，不留「（共 N 页）」：区分重复页靠的是「第 2 页」这四个字，总页数对去重没有
+贡献，却要整条描述多花 18 显示列——而 158 列（`scripts/lib/desc-budget.mjs` 那一档）是首页
+基准串加上前缀之后仅剩的预算。总页数在标题那一支照样给得出（seo_archive_title 那条），
+不必在摘要里再花一次。
 {%- endcomment -%}
 {%- comment -%}
 结构化数据（jsonLd.html）额外依赖第四个变量：
@@ -62,7 +67,7 @@ seo_description 是「只改摘要、不改页面」的口子：首页与文章�
 优先级：seo_description > description > subtitle > site.description。
 {%- endcomment -%}
 {%- capture page_desc -%}
-{%- if paginator.page > 1 -%}信息流第 {{ paginator.page }} 页（共 {{ paginator.total_pages }} 页）：{%- endif -%}
+{%- if paginator.page > 1 -%}第 {{ paginator.page }} 页：{%- endif -%}
 {%- if page.seo_description -%}{{ page.seo_description }}
 {%- elsif page.description -%}{{ page.description }}
 {%- elsif page.subtitle -%}{{ page.subtitle }}
@@ -130,8 +135,9 @@ img.alicdn.com 这类），2026-09-22 逐个 curl 复测：timgsa 域名已停�
 分享卡片会静默坏掉，宁可用品牌图也不给爬虫一个取不到的地址。
 
 第二级是 scripts/og-images.mjs 生成的 1200×630 品牌卡（键为 page.url，见 _data/og_images.yml）。
-补的是第三级原本吃掉的那一大片：34/67 篇没有 cover，全部落到同一张兜底图上，
-转发行里认不出是哪篇，标题信息白送不要。
+补的是第三级原本吃掉的那一大片：没有 cover 的文章全部落到同一张兜底图上，转发行里认不出是哪篇，
+标题信息白送不要。页那一族（/tools.html 与每一条 ready 的在线工具页）走的是同一张表、同一个键口径，
+所以这里不需要任何一条分支——生成器把行写进表，这行取值链自己就接上了。
 {%- endcomment -%}
 {%- assign og_card = site.data.og_images[page.url].image -%}
 {%- assign og_fixed_dims = true -%}
@@ -154,7 +160,13 @@ og:url 必须走 absolute_url：站点是 GitHub Pages 项目页（baseurl=/bett
 旧写法只 prepend site.url，分享卡片和爬虫拿到的地址少了路径段，落在 404 上。
 {%- endcomment -%}
 <meta property="og:url" content="{{ page.url | absolute_url }}">
-<meta property="og:image" content="{{ og_image }}">
+{%- comment -%}
+og:image / twitter:image 走的是 `_data/og_images.yml` 与 front matter cover 两条外来的串，
+必须转义后再进属性：这一行的邻居（og:title、og:description、twitter:image 之外那几条）
+全都带 `| xml_escape`，唯独这两处裸插值——一句带引号或尖括号的值就能破出 content="…"，
+而那张表是脚本写的、也是一份可以被人手改的 yml。`| absolute_url` 不做转义。
+{%- endcomment -%}
+<meta property="og:image" content="{{ og_image | xml_escape }}">
 {%- comment -%}
 宽高只在确定的时候声明：站点兜底图与生成卡片都是 1200×630（后者由脚本逐张量过），
 而文章 cover 的尺寸各不统一（实测 1600×914 有 11 张、1792×592 有 3 张，最大到 3872×1972），
@@ -195,7 +207,7 @@ jsonLd.html 直接读它，不在两处各自解析一遍 front matter。
 <meta name="twitter:card" content="{{ site.social.twitter_card | default: 'summary_large_image' }}">
 <meta name="twitter:title" content="{{ page_title | strip | xml_escape }}">
 <meta name="twitter:description" content="{{ page_desc | truncate: 190, '' | xml_escape }}">
-<meta name="twitter:image" content="{{ og_image }}">
+<meta name="twitter:image" content="{{ og_image | xml_escape }}">
 {%- if site.social.twitter_site and site.social.twitter_site != '' %}
 <meta name="twitter:site" content="{{ site.social.twitter_site }}">
 {%- endif %}

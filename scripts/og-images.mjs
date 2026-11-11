@@ -2,15 +2,18 @@
 /**
  * 为没有 cover 的文章生成 1200×630 的分享卡（og:image），并维护 _data/og_images.yml。
  *
- * 为什么要有这个脚本：全站 68 篇里 34 篇的 front matter 没有 cover，社交与 SERP 卡片
- * 一律落到站点兜底图 assets/img/social-default.jpg——同一张图发给所有文章，转发行里
- * 认不出是哪篇，标题信息等于白送不要。
+ * 为什么要有这个脚本：没有 cover 的文章与页面一律落到站点兜底图
+ * assets/img/social-default.jpg——同一张图发给所有内容，转发行里认不出是哪篇，
+ * 标题信息等于白送不要。
+ *
+ * 覆盖两族：`_posts` 里没有 cover 的篇目，以及 `_data/onlineTools.yml` 里每条
+ * `status: ready` 的工具页 + 工具箱枢纽页。后一族原本**压根不在遍历范围内**（早先只走
+ * `_posts`），于是全站意图最强的那几个地址——/tools.html 与每一条 ready 的在线工具页——共用一张兜底图。
  *
  * 为什么产物入库、构建期不出图：GitHub Pages 的构建镜像里没有 Chrome，而中文标题
  * 必须真实排版才能定字号（见 cardHtml 的注释）。所以图在本地生成、提交进仓库。
- * `--check` 是配套的自检：完整校验，缺图或过期以非零码退出，不写任何文件——
- * 但它目前只在本地跑（pnpm og:check），.github/workflows/jekyll.yml 里还没有这一步，
- * 加了会让分享卡漂移直接卡住部署，是否要这道闸门由维护者定。
+ * `--check` 是配套的自检：完整校验，缺图或过期以非零码退出，不写任何文件。
+ * 它已在 CI 的门禁清单里（`jekyll.yml` 的 `gate 'check-og-images'`），分享卡漂移会直接卡住部署。
  *
  * 用法：
  *   node scripts/og-images.mjs            只画缺失或过期的卡，重写 _data/og_images.yml
@@ -131,6 +134,102 @@ function collect() {
 }
 
 /* ------------------------------------------------------------------ *
+ * 1b. 工具页与枢纽页
+ * ------------------------------------------------------------------ */
+
+/**
+ * 卡片右上那一格（模板里的 `.date`）在文章上是发布日，在页面上没有日期可放，
+ * 于是放的是**这页自己已经写过的说法**，不是这里新造的营销词：
+ *   - 工具页 → 「输入不出本机」。四条 ready 的 yml `desc` 各自承诺过输入不发请求、不上传
+ *     （证件：「所有输入只留在本机，不发请求、不上传、不写 localStorage」；编码：文件
+ *     「字节在浏览器里读完就算，不上传、不留存」；JSON：「输入只在本地解析：不发请求、
+ *     不上传，默认不写 localStorage，勾了「记住上次输入」才写本机」；对比：「不上传、
+ *     不发请求、不读写 localStorage」）。JSON 那一档的 opt-in 写的是 localStorage，
+ *     那是本机存储、不是出机器，所以「不出本机」这句仍然成立；
+ *   - 枢纽页 → 「本地优先 · 开源可审计」，取的是 tools.html 自己那句话（原话用顿号，
+ *     卡片这一格是等宽体元信息行，换成中点排版，词没换）。
+ * 这两串是**卡片自己的说明文字**，所以住在这里；页面事实仍然只活在那两份源里。
+ * 但别把它读成「有一道门盯着这两串与源一致」——没有。改这两串不会红，
+ * 改了 tools.html 或 yml `desc` 里那句承诺也不会红。要对齐的是读代码的人。
+ */
+const PAGE_META = {
+    hub: { category: '插件与在线工具', date: '本地优先 · 开源可审计' },
+    tool: { category: '在线工具', date: '输入不出本机' },
+};
+
+/**
+ * 读 `_data/onlineTools.yml` 的条目顶层字段。
+ *
+ * 只认「列表项自己那层的一行 `key: value`」：条目起始是顶格的 `- slug:`，它的字段在两个
+ * 空格上；再往里（四个空格起）是 `panels:` / `features:` / 折行 `desc` 的正文，一概不收。
+ * 这和 parseFm 是同一条口径——本仓库这两份文件都不是给人手改的通用 YAML，而是已知形状，
+ * 认不出来的行直接跳过，不让一个怪字段带走整表。
+ *
+ * 为什么不在这里复用 `scripts/check-tools-surface.mjs` 的 `readYml`：那本是被计划文档
+ * 逐字节镜像的**门禁**，import 它会把「生成器」和「收录面门禁」耦成一件事——它一被变异，
+ * 出图脚本跟着一起坏，而两者坏掉的症状完全不同。
+ */
+function readToolEntries() {
+    /** 与 parseFm 同一条取值口径：去外层引号。少了这一步，`title: "身份证校验"` 会把引号画进卡片。 */
+    const val = (s) => s.replace(/^["']|["']$/g, '');
+    const out = [];
+    let cur = null;
+    for (const raw of readText(abs('_data/onlineTools.yml')).split('\n')) {
+        const start = /^- ([A-Za-z0-9_-]+):\s*(.*?)\s*$/.exec(raw);
+        if (start) {
+            cur = { [start[1]]: val(start[2]) };
+            out.push(cur);
+            continue;
+        }
+        if (!cur) continue; // 文件头的说明块，缩进再深也不该被当成字段
+        const kv = /^  ([A-Za-z0-9_-]+):\s*(.*?)\s*$/.exec(raw);
+        if (kv) cur[kv[1]] = val(kv[2]);
+    }
+    return out;
+}
+
+/**
+ * 拼出该出卡的页面清单。标题一格都不新写：
+ * 工具页取 yml 的 `title`（模版的 og:title、CollectionPage 的 name、页面 H1 三方对账由
+ * check-tools-surface 的「页面源」组盯着），枢纽页取它自己 front matter 的
+ * `seo_short_title`——那正是 seoMeta.html 给它发出去的 og:title。
+ *
+ * @param {Array<{url: string, name: string}>} postCards 文章卡片名，用来挡同名撞车
+ */
+function collectPages(postCards) {
+    const rows = [];
+    const hubFm = parseFm(abs('tools.html'));
+    const hubTitle = (hubFm.seo_short_title || hubFm.title || '').trim();
+    if (!hubTitle) throw new Error('tools.html 的 front matter 读不出 seo_short_title / title，枢纽页卡片无法命名');
+    rows.push({ url: '/tools.html', title: hubTitle, ...PAGE_META.hub });
+
+    const tools = readToolEntries().filter((t) => t.status === 'ready');
+    if (!tools.length) throw new Error('_data/onlineTools.yml 里没有 status: ready 的条目，出图无事可做');
+    for (const t of tools) {
+        const url = (t.url || '').trim();
+        const title = (t.title || '').trim();
+        if (!/^\/tools\/[\w-]+\.html$/.test(url)) throw new Error(`${t.slug}: url="${url}" 不是 /tools/<slug>.html 的形状，卡片名会拼歪`);
+        if (!title) throw new Error(`${t.slug}: yml 没有 title，卡片无法命名`);
+        rows.push({ url, title, ...PAGE_META.tool });
+    }
+
+    const seen = new Set();
+    for (const r of rows) {
+        if (seen.has(r.url)) throw new Error(`${r.url}: 页面清单里出现两次，台账只能留一条`);
+        seen.add(r.url);
+        const name = `page-${r.url.replace(/^\//, '').replace(/\.html$/, '').replace(/\//g, '-')}.jpg`;
+        if (postCards.some((w) => w.name === name)) throw new Error(`${r.url}: 卡片名 ${name} 与一篇同 slug 文章的卡片同名`);
+        r.name = name;
+        r.asset = `/${OUT_DIR}/${name}`;
+        r.disk = abs(`${OUT_DIR}/${name}`);
+        // sig 用与 cardFace 同一组键序（title, date, category）：两族内容共用一把尺子，
+        // 否则"同一个 sigOf"会因为键序不同而给出两套哈希，将来没人在对账时能看出这是两件事。
+        r.sig = sigOf({ title: r.title, date: r.date, category: r.category });
+    }
+    return rows;
+}
+
+/* ------------------------------------------------------------------ *
  * 2. _data/og_images.yml
  * ------------------------------------------------------------------ */
 
@@ -165,10 +264,11 @@ function loadManifest() {
  * 而是让 --check 能把「有 cover、所以本就不该有卡片」和「漏了」区分开，
  * 顺带把每条 cover 指向的文件是否存在一起量一遍。
  */
-function writeManifest({ wanted, covered }) {
+function writeManifest({ wanted, covered, pages }) {
     const rows = [
         ...covered.map((c) => [c.url, { image: c.image }]),
         ...wanted.map((w) => [w.url, { image: w.asset, sig: w.sig }]),
+        ...pages.map((p) => [p.url, { image: p.asset, sig: p.sig }]),
     ].sort((a, b) => (a[0] < b[0] ? -1 : 1));
 
     const body = rows.map(([u, v]) => `${u}:\n  image: ${v.image}${v.sig ? `\n  sig: ${v.sig}` : ''}`).join('\n');
@@ -178,6 +278,8 @@ function writeManifest({ wanted, covered }) {
 # 跑 \`node scripts/og-images.mjs\` 重画并刷新这张表（--check 会揪出没刷新的提交）。
 # seoMeta.html 只在 front matter 没有 cover 时查这张表；表里 cover 那几篇的条目
 # 是「已经安排好了」的记录，作用是让自检能分清「有 cover」和「漏生成」。
+# 页那一族（/tools.html 与每一条 ready 的在线工具页）走的是同一张表、同一个 sig 口径：
+# 键就是 page.url，模版直接按它取值，不需要任何一条模板分支。
 ${body}
 `);
     return rows.length;
@@ -484,12 +586,26 @@ function jpegDims(file) {
  *   2. 每张卡片确实是 ${W}x${H}（模板改坏、截图被裁都会中）；
  *   3. 该有卡片的篇目在表里、且 sig 与当前 front matter 对得上（对不上＝像素过期）；
  *   3b. 走 cover 的篇目也在表里、且记的就是那枚 cover（表是生成器的台账，缺一格就是一次意外 diff）；
+ *   3c. 该有卡片的页面（枢纽页 + ready 工具页）在表里且 sig 对得上，表里也不许躺已死的页面行；
  *   4. assets/img/og 下不躺孤儿 jpg（删了文章、改了 slug 之后剩下的旧卡）；
  *   5. 表里的每个 page.url 在 _site 里真有一个页面（_site 存在时才做，见函数体注释）。
  */
-function verify({ wanted, covered }) {
+function verify({ wanted, covered, pages }) {
     const manifest = loadManifest();
     const problems = [];
+
+    /**
+     * 形状先于磁盘：这张表的值会被 `_includes/seoMeta.html` 拼进 `content="…"`，
+     * 一句带引号或尖括号的值就能破出属性。模板那侧现在自己转义了，这里再守一道——
+     * 判据口径抄 `check-tools-surface.mjs` 的「插件数据面」那一组（同一把尺子，
+     * 不另立一份）：只禁能破出上下文的字符，查询串照旧放行。
+     */
+    const UNSAFE = /["'<>\\\s\x00-\x1f]/;
+    for (const [url, v] of Object.entries(manifest)) {
+        const img = v.image || '';
+        if (!/^(https?:\/\/|\/(?!\/))/.test(img)) problems.push(`${url}: image="${img}" 不是站内绝对路径，也不是 http(s) 绝对地址`);
+        else if (UNSAFE.test(img)) problems.push(`${url}: image 含引号/尖括号/反斜杠/空白/控制符，会破出 meta content 属性`);
+    }
 
     for (const [url, v] of Object.entries(manifest)) {
         const img = v.image || '';
@@ -500,6 +616,7 @@ function verify({ wanted, covered }) {
     for (const w of wanted) {
         const v = manifest[w.url];
         if (!v) problems.push(`${w.url}: 既无 cover 也不在表里（卡片漏生成）`);
+        else if (v.image !== w.asset) problems.push(`${w.url}: 表里记的是 ${v.image || '空'}，生成器现在要写的是 ${w.asset}`);
         else if (v.sig !== w.sig) problems.push(`${w.url}: 卡片内容已变（${v.sig || '无'} -> ${w.sig}），需要重画`);
     }
 
@@ -515,15 +632,34 @@ function verify({ wanted, covered }) {
         else if (v.image !== c.image) problems.push(`${c.url}: 表里记的是 ${v.image || '空'}，front matter 的 cover 已经是 ${c.image}`);
     }
 
-    const expect = new Set(wanted.map((w) => w.name));
-    if (fs.existsSync(abs(OUT_DIR))) {
-        for (const f of fs.readdirSync(abs(OUT_DIR)).sort()) {
-            if (!f.endsWith('.jpg')) problems.push(`${f}: 扩展名不是 .jpg`);
-            else if (!expect.has(f)) problems.push(`${f}: 表里没有文章引用它（孤儿卡片）`);
+    /**
+     * 页面那一族双向判：yml 少一条 ready 工具页（改了 status、删了条目）与表里躺着一行
+     * 已经不该存在的页面行，各自单独红。只判「该有卡片的在不在」的话，把某条的
+     * `status: ready` 摘掉之后表里那行会变成一条谁都不认的死行——而孤儿那判扫的是
+     * `assets/img/og` 的文件名，表里的死行压根没有症状。
+     */
+    const pageUrls = new Set(pages.map((p) => p.url));
+    for (const p of pages) {
+        const v = manifest[p.url];
+        if (!v) problems.push(`${p.url}: 页面该有卡片却不在表里（漏生成）`);
+        else if (v.image !== p.asset) problems.push(`${p.url}: 表里记的是 ${v.image || '空'}，生成器现在要写的是 ${p.asset}`);
+        else if (v.sig !== p.sig) problems.push(`${p.url}: 页面卡片内容已变（${v.sig || '无'} -> ${p.sig}），需要重画`);
+    }
+    for (const url of Object.keys(manifest)) {
+        if (/^\/tools/.test(url) && !pageUrls.has(url)) {
+            problems.push(`${url}: 表里有这一行页面卡片，但 onlineTools.yml / tools.html 已经不再声明它（台账死行）`);
         }
     }
 
-    for (const w of wanted) {
+    const expect = new Set([...wanted, ...pages].map((w) => w.name));
+    if (fs.existsSync(abs(OUT_DIR))) {
+        for (const f of fs.readdirSync(abs(OUT_DIR)).sort()) {
+            if (!f.endsWith('.jpg')) problems.push(`${f}: 扩展名不是 .jpg`);
+            else if (!expect.has(f)) problems.push(`${f}: 表里没有文章或页面引用它（孤儿卡片）`);
+        }
+    }
+
+    for (const w of [...wanted, ...pages]) {
         const d = jpegDims(w.disk);
         if (!d) problems.push(`${rel(w.disk)}: 读不出尺寸（不是有效 JPEG）`);
         else if (d[0] !== W || d[1] !== H) problems.push(`${rel(w.disk)}: ${d[0]}x${d[1]}，应为 ${W}x${H}`);
@@ -549,27 +685,33 @@ function verify({ wanted, covered }) {
 
 async function main() {
     const { wanted, covered, skipped } = collect();
+    const pages = collectPages(wanted);
     const manifest = loadManifest();
-    const stale = wanted.filter((w) => !manifest[w.url] || manifest[w.url].sig !== w.sig);
-    const todo = HAS('--all') ? wanted : stale;
+    const cards = [...wanted, ...pages];
+    const stale = cards.filter((w) => !manifest[w.url] || manifest[w.url].sig !== w.sig);
+    const todo = HAS('--all') ? cards : stale;
 
     if (HAS('--print')) {
         for (const w of wanted) {
             const mark = manifest[w.url]?.sig === w.sig ? '最新' : manifest[w.url] ? '过期' : '缺卡';
             console.log(`${mark}  ${w.url}  ->  ${w.asset}  ${w.category} · ${w.date}  ${w.title}`);
         }
-        console.log(`# 需要卡片 ${wanted.length} 篇（其中待画 ${stale.length}）、走 cover ${covered.length} 篇`);
+        for (const p of pages) {
+            const mark = manifest[p.url]?.sig === p.sig ? '最新' : manifest[p.url] ? '过期' : '缺卡';
+            console.log(`${mark}  ${p.url}  ->  ${p.asset}  ${p.category} · ${p.date}  ${p.title}`);
+        }
+        console.log(`# 需要卡片 ${wanted.length} 篇文章 + ${pages.length} 个页面（其中待画 ${stale.length}）、走 cover ${covered.length} 篇`);
         for (const s of skipped) console.log(`# 跳过 ${s.file}：${s.why}`);
         return;
     }
 
-    console.log(`${wanted.length + covered.length} 篇文章：${wanted.length} 篇无 cover 需要卡片，${covered.length} 篇走 front matter cover。`);
+    console.log(`${wanted.length + covered.length} 篇文章：${wanted.length} 篇无 cover 需要卡片，${covered.length} 篇走 front matter cover。另有 ${pages.length} 个页面（工具箱枢纽 + ready 工具页）。`);
     if (skipped.length) console.log(`跳过 ${skipped.length} 篇：${skipped.map((s) => `${s.file}（${s.why}）`).join('、')}`);
 
     if (HAS('--check')) {
         if (stale.length) console.log(`${stale.length} 张待生成或重画：\n  ${stale.map((c) => c.asset).join('\n  ')}`);
-        const { problems, manifestCount } = verify({ wanted, covered });
-        report(problems, `自检通过：表 ${manifestCount} 条，卡片 ${wanted.length} 张全部在磁盘上、尺寸 ${W}x${H}、无孤儿文件。`);
+        const { problems, manifestCount } = verify({ wanted, covered, pages });
+        report(problems, `自检通过：表 ${manifestCount} 条，卡片 ${cards.length} 张（文章 ${wanted.length} + 页面 ${pages.length}）全部在磁盘上、尺寸 ${W}x${H}、无孤儿文件。`);
         return;
     }
 
@@ -588,10 +730,10 @@ async function main() {
         console.log('卡片全部为最新，无需重画。');
     }
 
-    const written = writeManifest({ wanted, covered });
+    const written = writeManifest({ wanted, covered, pages });
     console.log(`\n${MANIFEST}：${written} 条。`);
-    const { problems, manifestCount } = verify({ wanted, covered });
-    report(problems, `自检通过：表 ${manifestCount} 条，卡片 ${wanted.length} 张全部在磁盘上、尺寸 ${W}x${H}、无孤儿文件。`);
+    const { problems, manifestCount } = verify({ wanted, covered, pages });
+    report(problems, `自检通过：表 ${manifestCount} 条，卡片 ${cards.length} 张（文章 ${wanted.length} + 页面 ${pages.length}）全部在磁盘上、尺寸 ${W}x${H}、无孤儿文件。`);
 }
 
 function report(problems, okMessage) {

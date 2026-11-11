@@ -85,9 +85,17 @@ const DISK_CSS_TEXT = SUB_BUNDLE_TEXT(CSS_BUNDLE);
 const PRODUCT_ANCHORS = [
   { text: DISK_JS_TEXT, re: /e\.ctrlKey\|\|e\.metaKey\|\|e\.shiftKey\|\|e\.altKey/, what: '修饰键放行', where: SUB_BUNDLE },
   { text: DISK_JS_TEXT, re: /\.blur\s*&&\s*\w+\.blur\(\)/, what: '收起时摘焦点那一句', where: SUB_BUNDLE },
-  { text: DISK_CSS_TEXT, re: /@media\(hover:hover\)\{\.g-header \.nav-item\.has-sub:hover \.nav-sub\{opacity:1/, what: '横排档（含平板）:hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
-  { text: DISK_CSS_TEXT, re: /@media\(hover:hover\)\{\.g-header \.nav-item\.has-sub:hover \.nav-caret\{/, what: '箭头 :hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
-  { text: DISK_CSS_TEXT, re: /\.g-header \.nav-item\.has-sub:hover \.nav-caret\{-webkit-transform:none;transform:none\}/, what: '抽屉档把箭头 :hover 扳转归零那一条', where: CSS_BUNDLE },
+  // 压缩器在 `@media` 与其括号之间要不要留空格，是构建工具链自己的决定：2026-11 那串
+  // build-tooling 依赖升级把它从 `@media(hover:hover)` 改成了 `@media (hover:hover)`，
+  // 于是这两枚锚点同时脱靶。失效形状是「跑不起来」而不是「静默放过」：预检在这里退 2，
+  // 而 teeth() 那侧本来就有 `hits===0 ⇒ 变异串没在产物里命中——这一格等于没测` 兜着（见本文件
+  // 末尾那段 mark），两道都在，所以没有假牙。空白写成可选，为的是让这把尺子量的是
+  // **闸门在不在**，不是压缩器的排版习惯——否则依赖一抬，这本量具就整本哑掉。
+  { text: DISK_CSS_TEXT, re: /@media\s*\(hover:hover\)\s*\{\.g-header \.nav-item\.has-sub:hover \.nav-sub\{opacity:1/, what: '横排档（含平板）:hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
+  { text: DISK_CSS_TEXT, re: /@media\s*\(hover:hover\)\s*\{\.g-header \.nav-item\.has-sub:hover \.nav-caret\{/, what: '箭头 :hover 钩子的 (hover:hover) 闸门', where: CSS_BUNDLE },
+  // 同上：autoprefixer 今天不再为 `transform:none` 输出 `-webkit-` 前缀（浏览器目标变了），
+  // 锚点里那半截写死的 `-webkit-transform:none;` 就成了永远找不到的形状。前缀改成可选。
+  { text: DISK_CSS_TEXT, re: /\.g-header \.nav-item\.has-sub:hover \.nav-caret\{(?:-webkit-transform:none;)?transform:none\}/, what: '抽屉档把箭头 :hover 扳转归零那一条', where: CSS_BUNDLE },
   { text: DISK_CSS_TEXT, re: /\.g-header \.nav-sub \.nav-sub-more\{padding:13px 10px/, what: '「全部工具」行的触屏可点区', where: CSS_BUNDLE },
 ];
 /**
@@ -1076,8 +1084,8 @@ const MUTATIONS = [
     probe: 'tablet',
     /** >695 且无 hover 的平板走的就是这一组：放出来之后粘 hover 替第二下"保持展开"，收起判据必须红。 */
     apply: (c) => c.replace(
-      '@media(hover:hover){.g-header .nav-item.has-sub:hover .nav-sub{opacity:1',
-      '@media all{.g-header .nav-item.has-sub:hover .nav-sub{opacity:1',
+      /@media\s*\(hover:hover\)\s*\{(\.g-header \.nav-item\.has-sub:hover \.nav-sub\{opacity:1)/,
+      '@media all{$1',
     ),
     expect: '平板二点后面板还亮着（visibility 仍 visible 或 opacity 仍 1）',
     test: (p) => p.second.visibility === 'visible' || Number(p.second.opacity) >= 0.999,
@@ -1095,8 +1103,8 @@ const MUTATIONS = [
      * 的平板档才有看得见的后果，那里读的是「平板 第 6 条」。
      */
     apply: (c) => c.replace(
-      '@media(hover:hover){.g-header .nav-item.has-sub:hover .nav-caret{',
-      '@media all{.g-header .nav-item.has-sub:hover .nav-caret{',
+      /@media\s*\(hover:hover\)\s*\{(\.g-header \.nav-item\.has-sub:hover \.nav-caret\{)/,
+      '@media all{$1',
     ),
     expect: '平板二点收起后箭头仍 rotate(180deg)',
     test: (p) => /matrix\(-1/.test(p.second.caret),

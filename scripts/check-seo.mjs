@@ -36,6 +36,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
+// 列宽尺子与摘要预算档：与 scripts/check-tools-surface.mjs 共用同一本（见那本文件头条的理由）。
+import { cols, DESC_MIN_COLS, DESC_MAX_COLS } from './lib/desc-budget.mjs';
 
 const argv = process.argv.slice(2);
 /**
@@ -1235,9 +1237,11 @@ if (TAGS_OK.size !== 171 || CATS_OK.size !== 14) {
 // 再加一道 `.size < 25` 的地板。起草时（SP4 动手之前）80 篇里 41 篇是手写的、38 篇的 meta 就是副标题原文、
 // 1 篇（`subtitle` 被 YAML 吃掉半句、只剩 5 个字符的那篇）落到了全站那句话上——三个数在 §6.1 台账里逐笔对账。
 //
-// 为什么源侧六格加产物侧一格：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」；
-// 第六格（⑦）管「写了 A 读到 B」这一类静默截断——取值链读到的从来不是你以为的那句话。
-// 缺后者，改坏取值链不会有任何一道门红（现有 10 组里 `JSON-LD` 那条 `decode(...) !== v.description`
+// 为什么源侧与产物侧都要有格子：源侧管「这篇有没有自己的话」，产物侧管「那句话真的进了 meta」；
+// ⑦ 管「写了 A 读到 B」这一类静默截断——取值链读到的从来不是你以为的那句话；
+// ⑧ 管「这句话长到 SERP 装不下」，两侧都判：页与翻页视图量产物（翻页视图没有源文件可量），
+// 文章量源侧再拿台账棘轮收存量。
+// 缺产物侧那一格，改坏取值链不会有任何一道门红（`JSON-LD` 那条 `decode(...) !== v.description`
 // 判的是工具页 WebApplication，不覆盖文章页）。
 
 /** 一篇稿子的正文（front matter 之后）。摘要里出现的每一段数字都要在这段里逐字找得到。 */
@@ -1303,6 +1307,75 @@ function srcBodyOf(file) {
         }
         if (got !== w) bad('描述', p.file, `${k} 被静默截断：写了「${w.slice(0, 40)}」，Jekyll 读到「${got.slice(0, 40)}」——plain scalar 里的「 #…」会被当行尾注释，加引号即可`);
       }
+    }
+  }
+  // ⑧ 显示列预算：页与翻页视图硬判，文章按台账棘轮判
+  {
+    /**
+     * SERP 那一行的预算是**宽度**，不是字符数。② 用的是 code point [60,140]，对纯中文
+     * 等于允许近三倍于预算的长度——立这一条之前实测有若干篇越出预算而 ② 全绿。
+     *
+     * 尺子与预算档不在这里再写一遍：`check-tools-surface.mjs` 早就带着这把尺子和
+     * [50,158] 这一档量工具页的 seo_description（口径出自 USAGE.md「检索层自查」第 9 条），
+     * 本组只是把**同一把**尺子伸到此前没人量的页与翻页视图上。两份实现会给出两个答案：
+     * 按 CJK 区间枚举的写法漏假名与谚文（「カタカナテスト」14 列 vs 7 列），
+     * 而 158 与 160 只差 2 列就足以让同一句描述在一边绿、另一边红。
+     */
+    const descOf = (rel) => {
+      const m = /<meta name="description"\s+content="([^"]*)"/.exec(readSite(rel));
+      return m ? decode(m[1]) : null;
+    };
+
+    /**
+     * 页这一族（含 jekyll-paginate 复用 index.html 画出的 /pageN/）此前**一条长度判据都没有**：
+     * ② 只遍历 posts，而 `check-tools-surface` 那一档只量 `onlineTools.yml` 里 ready 的
+     * 四条 front matter，够不到枢纽页、about、changelog，更够不到翻页视图——翻页视图是
+     * 由 paginator 复用 index.html 画出来的产物，压根没有对应的源文件可量。
+     * 立这一条时实测：每个翻页视图都比首页多一句分页前缀、多吃 18 列，于是首页那句基准
+     * 一过期，全部翻页视图一起越出预算。两头一起修：前缀砍到只剩页码（总页数对
+     * 「区分重复页」没有贡献），基准串压进预算。
+     * 靶子用 `inScope` 减文章页：demo/** 与 offline.html 与 Google 校验文件按 接线 组本来就在
+     * 范围外，这里不重述那份名单，也不给谁开洞。
+     */
+    for (const rel of htmlFiles) {
+      if (!inScope.has(rel) || postRelSet.has(rel)) continue;
+      const d = descOf(rel);
+      if (d === null) {
+        bad('描述', rel, '范围内的一页在产物里没有 meta description——取值链在这一页上断了');
+        continue;
+      }
+      const n = cols(d);
+      if (n > DESC_MAX_COLS) bad('描述', rel, `描述 ${n} 显示列，越出 ${DESC_MAX_COLS} 列的 SERP 预算（超 ${n - DESC_MAX_COLS} 列，引擎从右往左截，被剪掉的正是后半段的关键词）`);
+      else if (n < DESC_MIN_COLS) bad('描述', rel, `描述只有 ${n} 显示列，低于 ${DESC_MIN_COLS}——这一栏的预算不给出去，引擎就自己猜一段导航文字当摘要`);
+    }
+
+    /**
+     * 文章这一族：同一把尺子，但**存量越界的篇目按文件名列成台账**，不静默改写本人的文案。
+     * 双向判：新加一篇超长的红（台账外），把台账里某一篇改短了却不删行也红（台账死条目）。
+     * 这不是豁免——豁免是「这一族不判」，台账是「这一族只许变短」，两者差在下一笔改动会不会被看见。
+     * 有几篇以 `OVER_OK.size` 为准，注释与文档里都不重述：这一张表的存在理由就是它会变短。
+     */
+    const OVER_OK = new Set([
+      '2026-10-22-account-password-helper-10k.md',
+      '2026-10-21-php2shell-ai-rce-patch-day.md',
+      '2026-10-21-solid-glass-shadcn-cost.md',
+      '2026-10-22-deepinfer-open-source-sm100-only.md',
+      '2026-10-27-sandbox-runtime-ssh-readable.md',
+      '2026-10-23-anthropic-api-2026-10-21-sampling-400.md',
+      '2026-10-23-openui-two-lang-cores.md',
+      '2026-10-25-kimi-k3-1-pro-two-tiers.md',
+    ]);
+    const overNow = new Set();
+    for (const p of posts) {
+      const d = String(p.fm.seo_description ?? '').trim();
+      if (!d) continue; // 缺 seo_description 由 ② 判，这里不重复
+      const n = cols(d);
+      if (n <= DESC_MAX_COLS) continue;
+      overNow.add(p.file);
+      if (!OVER_OK.has(p.file)) bad('描述', p.file, `描述 ${n} 显示列，越出 ${DESC_MAX_COLS} 列且不在存量台账里——要么改短这一句，要么把它连同理由一起加进台账（台账只许变短，不许变多）`);
+    }
+    for (const f of OVER_OK) {
+      if (!overNow.has(f)) bad('描述', f, '在超长台账里，但它现在并不超长——改短了就请把这一行删掉，留着死条目等于把这道判据的账本写脏');
     }
   }
 }

@@ -17,7 +17,20 @@ permalink: /feed.xml
         <title>{{ post.title | xml_escape }}</title>
         <link rel="alternate" type="text/html" href="{{ post.url | absolute_url }}"/>
         <id>{{ post.url | absolute_url }}</id>
-        <updated>{{ post.date | date_to_xmlschema }}</updated>
+{%- comment -%}
+修订时间走 `_includes/pageModified.html` 那一条链（三个来源取较新者 + 同日守卫），与
+sitemap 的 `<lastmod>`、页面里的 `article:modified_time`、BlogPosting 的 `dateModified`
+四处同一个真值。原先这里直接写 `post.date`，等于订阅端每篇都读到「最后修改 = 发布」——
+seoMeta.html 当初为 sitemap 抽那本 include 就是为了避开这一句假新鲜度，feed 漏在了外面。
+`page_modified` 为空（没有真修订记录）时退回 `post.date`：那正是「已知最后一次改动就是发布」，
+不是伪造。
+`published` 与 `updated` 分开写，订阅端才分得清「新文章」与「旧文章被改」——只给一个
+`updated` 时，一篇 2019 年的文章被修订一次就会以「新内容」的身份回到订阅者信息流最上面。
+{%- endcomment -%}
+{%- include pageModified.html p=post -%}
+{%- assign _mod = page_modified | default: post.date -%}
+        <published>{{ post.date | date_to_xmlschema }}</published>
+        <updated>{{ _mod | date_to_xmlschema }}</updated>
 {% if post.subtitle %}
         <summary>{{ post.subtitle | xml_escape }}</summary>
 {% else %}
